@@ -136,7 +136,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 type config struct {
-	Channel uint32
+	Channel uint32 `json:"channel"`
 }
 
 func (t telemFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {

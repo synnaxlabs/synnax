@@ -108,7 +108,7 @@ func buildModule(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) 
 			{
 				Key:  "write",
 				Type: "write",
-				ConfigValues: map[string]any{
+				Config: map[string]any{
 					"channel": cfg.Channel.Key(),
 				},
 			},
@@ -128,7 +128,7 @@ func buildModule(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) 
 			g2.Nodes = append(g2.Nodes, graph.Node{
 				Key:  fmt.Sprintf("op_%d", i),
 				Type: o.Type,
-				ConfigValues: map[string]any{
+				Config: map[string]any{
 					"duration": o.Duration,
 				},
 			})
@@ -137,7 +137,7 @@ func buildModule(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) 
 				g2.Nodes = append(g2.Nodes, graph.Node{
 					Key:  resetKey,
 					Type: "on",
-					ConfigValues: map[string]any{
+					Config: map[string]any{
 						"channel": o.ResetChannel,
 					},
 				})
@@ -172,9 +172,9 @@ func buildModule(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) 
 		}
 		g2.Functions[0].Inputs.Put(sym.Name, *sym.Type.ValueType)
 		g2.Nodes = append(g2.Nodes, graph.Node{
-			Key:          sym.Name,
-			Type:         "on",
-			ConfigValues: map[string]any{"channel": k},
+			Key:    sym.Name,
+			Type:   "on",
+			Config: map[string]any{"channel": k},
 		})
 		g2.Edges = append(g2.Edges, graph.Edge{
 			Source: ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam},

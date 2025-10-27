@@ -43,7 +43,7 @@ var (
 				},
 			},
 			Inputs: &types.Params{
-				Keys:   []string{ir.DefaultInputParam},
+				Keys:   []string{ir.DefaultOutputParam},
 				Values: []types.Type{types.U8()},
 			},
 		}),
@@ -77,12 +77,15 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 type nodeConfig struct {
-	StatusKey string
-	Message   string
-	Variant   string
+	StatusKey string `json:"status_key"`
+	Message   string `json:"message"`
+	Variant   string `json:"variant"`
 }
 
 func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
+	if cfg.Node.Type != symbolName {
+		return nil, query.NotFound
+	}
 	var nodeCfg nodeConfig
 	if err := schema.Parse(cfg.Node.ConfigValues, &nodeCfg); err != nil {
 		return nil, err

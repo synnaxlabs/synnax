@@ -48,16 +48,15 @@ func createArithmeticSymbol(name string) symbol.Symbol {
 	return createBinaryOpSymbol(
 		name,
 		types.Params{
-			Keys: []string{ir.DefaultOutputParam},
-			Values: []types.Type{
-				types.Variable("T", &constraint),
-			},
+			Keys:   []string{ir.DefaultOutputParam},
+			Values: []types.Type{types.Variable("T", &constraint)},
 		},
 	)
 }
 
 var SymbolResolver = symbol.MapResolver{
 	"ge":  createComparisonSymbol("ge"),
+	"gt":  createComparisonSymbol("gt"),
 	"le":  createComparisonSymbol("le"),
 	"lt":  createComparisonSymbol("lt"),
 	"eq":  createComparisonSymbol("eq"),

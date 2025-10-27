@@ -81,24 +81,24 @@ var _ = Describe("Runtime", Ordered, func() {
 			graph := arc.Graph{
 				Nodes: []graph.Node{
 					{
-						Key:          "on",
-						Type:         "on",
-						ConfigValues: map[string]any{"channel": ch.Key()},
+						Key:    "on",
+						Type:   "on",
+						Config: map[string]any{"channel": ch.Key()},
 					},
 					{
-						Key:          "constant",
-						Type:         "constant",
-						ConfigValues: map[string]any{"value": 10},
+						Key:    "constant",
+						Type:   "constant",
+						Config: map[string]any{"value": 10},
 					},
 					{
-						Key:          "ge",
-						Type:         "ge",
-						ConfigValues: map[string]any{},
+						Key:    "ge",
+						Type:   "ge",
+						Config: map[string]any{},
 					},
 					{
 						Key:  "stable_for",
 						Type: "stable_for",
-						ConfigValues: map[string]any{
+						Config: map[string]any{
 							"duration": int(telem.Millisecond * 0),
 						},
 					},
@@ -109,7 +109,7 @@ var _ = Describe("Runtime", Ordered, func() {
 					{
 						Key:  "status_success",
 						Type: "set_status",
-						ConfigValues: map[string]any{
+						Config: map[string]any{
 							"status_key": "ox_alarm",
 							"variant":    "success",
 							"name":       "OX Alarm",
@@ -119,7 +119,7 @@ var _ = Describe("Runtime", Ordered, func() {
 					{
 						Key:  "status_error",
 						Type: "set_status",
-						ConfigValues: map[string]any{
+						Config: map[string]any{
 							"status_key": "ox_alarm",
 							"variant":    "error",
 							"name":       "OX Alarm",

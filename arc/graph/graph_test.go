@@ -130,9 +130,9 @@ var _ = Describe("Graph", func() {
 				},
 				Nodes: []graph.Node{
 					{
-						Key:          "first",
-						Type:         "on",
-						ConfigValues: map[string]any{"channel": 12},
+						Key:    "first",
+						Type:   "on",
+						Config: map[string]any{"channel": 12},
 					},
 					{Key: "printer", Type: "printer"},
 				},
@@ -609,24 +609,24 @@ var _ = Describe("Graph", func() {
 				g := arc.Graph{
 					Nodes: []graph.Node{
 						{
-							Key:          "on",
-							Type:         "on",
-							ConfigValues: map[string]any{"channel": 12},
+							Key:    "on",
+							Type:   "on",
+							Config: map[string]any{"channel": 12},
 						},
 						{
-							Key:          "constant",
-							Type:         "constant",
-							ConfigValues: map[string]any{"value": 10},
+							Key:    "constant",
+							Type:   "constant",
+							Config: map[string]any{"value": 10},
 						},
 						{
-							Key:          "ge",
-							Type:         "ge",
-							ConfigValues: map[string]any{},
+							Key:    "ge",
+							Type:   "ge",
+							Config: map[string]any{},
 						},
 						{
 							Key:  "stable_for",
 							Type: "stable_for",
-							ConfigValues: map[string]any{
+							Config: map[string]any{
 								"duration": int(telem.Millisecond * 1),
 							},
 						},
@@ -637,7 +637,7 @@ var _ = Describe("Graph", func() {
 						{
 							Key:  "status_success",
 							Type: "set_status",
-							ConfigValues: map[string]any{
+							Config: map[string]any{
 								"key":     "ox_alarm",
 								"variant": "success",
 								"message": "OX Pressure Nominal",
@@ -646,7 +646,7 @@ var _ = Describe("Graph", func() {
 						{
 							Key:  "status_error",
 							Type: "set_status",
-							ConfigValues: map[string]any{
+							Config: map[string]any{
 								"key":     "ox_alarm",
 								"variant": "error",
 								"message": "OX Pressure Alarm",
@@ -801,12 +801,12 @@ var _ = Describe("Graph", func() {
 				constantNode := lo.Filter(parsed.Nodes, func(n graph.Node, _ int) bool {
 					return n.Key == "constant"
 				})[0]
-				Expect(constantNode.ConfigValues).To(HaveKeyWithValue("value", 10))
+				Expect(constantNode.Config).To(HaveKeyWithValue("value", 10))
 
 				stableForNode := lo.Filter(parsed.Nodes, func(n graph.Node, _ int) bool {
 					return n.Key == "stable_for"
 				})[0]
-				Expect(stableForNode.ConfigValues).To(HaveKeyWithValue("duration", int(telem.Millisecond)))
+				Expect(stableForNode.Config).To(HaveKeyWithValue("duration", int(telem.Millisecond)))
 
 				// Verify polymorphic node instances have concrete resolved types
 				// func definitions stay polymorphic, but each node instance gets concrete types
