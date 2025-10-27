@@ -24,7 +24,7 @@ type binaryOperator struct {
 	op    op.Binary
 }
 
-func (n *binaryOperator) Init(ctx node.Context) {}
+func (n *binaryOperator) Init(node.Context) {}
 
 func (n *binaryOperator) Next(ctx node.Context) {
 	if !n.state.RefreshInputs() {
