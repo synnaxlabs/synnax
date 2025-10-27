@@ -3962,15 +3962,87 @@ func XorU8(lhs, rhs telem.Series, output *telem.Series) {
 	}
 }
 
-func Not(input telem.Series, output *telem.Series) {
+func NotU8(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
 	output.Resize(inputLen)
 
-	inData := input.Data
-	outData := output.Data
+	inData := xunsafe.CastSlice[uint8, uint8](input.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
 
 	for i := int64(0); i < inputLen; i++ {
 		outData[i] = ^inData[i]
+	}
+}
+
+func NegateF64(input telem.Series, output *telem.Series) {
+	inputLen := input.Len()
+	output.Resize(inputLen)
+
+	inData := xunsafe.CastSlice[uint8, float64](input.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+
+	for i := int64(0); i < inputLen; i++ {
+		outData[i] = -inData[i]
+	}
+}
+
+func NegateF32(input telem.Series, output *telem.Series) {
+	inputLen := input.Len()
+	output.Resize(inputLen)
+
+	inData := xunsafe.CastSlice[uint8, float32](input.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
+
+	for i := int64(0); i < inputLen; i++ {
+		outData[i] = -inData[i]
+	}
+}
+
+func NegateI64(input telem.Series, output *telem.Series) {
+	inputLen := input.Len()
+	output.Resize(inputLen)
+
+	inData := xunsafe.CastSlice[uint8, int64](input.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
+
+	for i := int64(0); i < inputLen; i++ {
+		outData[i] = -inData[i]
+	}
+}
+
+func NegateI32(input telem.Series, output *telem.Series) {
+	inputLen := input.Len()
+	output.Resize(inputLen)
+
+	inData := xunsafe.CastSlice[uint8, int32](input.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
+
+	for i := int64(0); i < inputLen; i++ {
+		outData[i] = -inData[i]
+	}
+}
+
+func NegateI16(input telem.Series, output *telem.Series) {
+	inputLen := input.Len()
+	output.Resize(inputLen)
+
+	inData := xunsafe.CastSlice[uint8, int16](input.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
+
+	for i := int64(0); i < inputLen; i++ {
+		outData[i] = -inData[i]
+	}
+}
+
+func NegateI8(input telem.Series, output *telem.Series) {
+	inputLen := input.Len()
+	output.Resize(inputLen)
+
+	inData := xunsafe.CastSlice[uint8, int8](input.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
+
+	for i := int64(0); i < inputLen; i++ {
+		outData[i] = -inData[i]
 	}
 }
 

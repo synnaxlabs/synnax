@@ -82,6 +82,7 @@ var logicalOperations = []Operation{
 
 var unaryOperations = []UnaryOperation{
 	{Name: "Not", FuncName: "Not", Op: "^"},
+	{Name: "Negate", FuncName: "Neg", Op: "-"},
 }
 
 var reductionOperations = []ReductionOperation{
@@ -109,12 +110,12 @@ import (
 `
 
 const unaryFuncTemplate = `{{range $.UnaryOps}}
-func {{.Name}}(input telem.Series, output *telem.Series) {
+func {{.Name}}{{$.Type.Name}}(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
 	output.Resize(inputLen)
 
-	inData := input.Data
-	outData := output.Data
+	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
+	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	for i := int64(0); i < inputLen; i++ {
 		outData[i] = {{.Op}}inData[i]
@@ -386,12 +387,28 @@ func main() {
 		panic(err)
 	}
 
-	// Generate unary operations for uint8 only
+	// Generate Not operation for uint8 only
+	notOp := []UnaryOperation{{Name: "Not", FuncName: "Not", Op: "^"}}
 	err = unaryTmpl.Execute(&buf, map[string]interface{}{
-		"UnaryOps": unaryOperations,
+		"Type":     uint8Type,
+		"UnaryOps": notOp,
 	})
 	if err != nil {
 		panic(err)
+	}
+
+	// Generate Negate operation for signed and float types only
+	negateOp := []UnaryOperation{{Name: "Negate", FuncName: "Neg", Op: "-"}}
+	for _, typ := range types {
+		if typ.IsSigned || typ.IsFloat {
+			err = unaryTmpl.Execute(&buf, map[string]interface{}{
+				"Type":     typ,
+				"UnaryOps": negateOp,
+			})
+			if err != nil {
+				panic(err)
+			}
+		}
 	}
 
 	// Generate reduction operations for all types

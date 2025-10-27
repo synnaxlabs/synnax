@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
@@ -114,6 +115,9 @@ func buildModule(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) 
 			},
 		},
 	}
+	cfg.Channel.Operations = lo.Filter(cfg.Channel.Operations, func(item channel.Operation, _ int) bool {
+		return item.Type != "none"
+	})
 	if len(cfg.Channel.Operations) == 0 {
 		g2.Edges = []graph.Edge{
 			{

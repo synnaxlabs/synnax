@@ -16,7 +16,18 @@ import (
 
 var (
 	logicalOps    = map[string]op.Binary{"or": op.OrU8, "and": op.AndU8}
-	arithmeticOps = map[string]map[telem.DataType]op.Binary{
+	unaryOps      = map[string]op.Unary{"not": op.NotU8}
+	typedUnaryOps = map[string]map[telem.DataType]op.Unary{
+		"neg": {
+			telem.Float64T: op.NegateF64,
+			telem.Float32T: op.NegateF32,
+			telem.Int64T:   op.NegateI64,
+			telem.Int32T:   op.NegateI32,
+			telem.Int16T:   op.NegateI16,
+			telem.Int8T:    op.NegateI8,
+		},
+	}
+	typedOps = map[string]map[telem.DataType]op.Binary{
 		"ge": {
 			telem.Float64T: op.GreaterThanOrEqualF64,
 			telem.Float32T: op.GreaterThanOrEqualF32,

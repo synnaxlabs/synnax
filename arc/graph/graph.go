@@ -328,6 +328,50 @@ func Analyze(
 		}
 	}
 
+	// Step 5.5: Check for Duplicate Edge Targets and Build Connected Inputs Map
+	connectedInputs := make(map[string]map[string]bool)
+	for _, edge := range g.Edges {
+		if connectedInputs[edge.Target.Node] == nil {
+			connectedInputs[edge.Target.Node] = make(map[string]bool)
+		}
+		if connectedInputs[edge.Target.Node][edge.Target.Param] {
+			ctx.Diagnostics.AddError(
+				errors.Newf(
+					"multiple edges target node '%s' parameter '%s'",
+					edge.Target.Node,
+					edge.Target.Param,
+				), nil)
+		}
+		connectedInputs[edge.Target.Node][edge.Target.Param] = true
+	}
+	if !ctx.Diagnostics.Ok() {
+		return ir.IR{}, ctx.Diagnostics
+	}
+
+	// Step 5.6: Check Missing Required Inputs
+	for _, n := range g.Nodes {
+		freshType := freshFuncTypes[n.Key]
+		if freshType.Inputs == nil {
+			continue
+		}
+		connected := connectedInputs[n.Key]
+		for inputParam := range freshType.Inputs.Iter() {
+			if !connected[inputParam] {
+				ctx.Diagnostics.AddError(
+					errors.Wrapf(
+						query.NotFound,
+						"node '%s' (%s) missing required input '%s'",
+						n.Key,
+						n.Type,
+						inputParam,
+					), nil)
+			}
+		}
+	}
+	if !ctx.Diagnostics.Ok() {
+		return ir.IR{}, ctx.Diagnostics
+	}
+
 	// Step 6: Unify Type Constraints
 	if err := ctx.Constraints.Unify(); err != nil {
 		ctx.Diagnostics.AddError(err, nil)

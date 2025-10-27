@@ -54,6 +54,43 @@ func createArithmeticSymbol(name string) symbol.Symbol {
 	)
 }
 
+func createUnaryOpSymbol(name string, inputType types.Type, outputs types.Params) symbol.Symbol {
+	return symbol.Symbol{
+		Name: name,
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: &types.Params{
+				Keys:   []string{ir.DefaultInputParam},
+				Values: []types.Type{inputType},
+			},
+			Outputs: &outputs,
+		}),
+	}
+}
+
+func createNotSymbol(name string) symbol.Symbol {
+	return createUnaryOpSymbol(
+		name,
+		types.U8(),
+		types.Params{
+			Keys:   []string{ir.DefaultOutputParam},
+			Values: []types.Type{types.U8()},
+		},
+	)
+}
+
+func createNegateSymbol(name string) symbol.Symbol {
+	constraint := types.NumericConstraint()
+	return createUnaryOpSymbol(
+		name,
+		types.Variable("T", &constraint),
+		types.Params{
+			Keys:   []string{ir.DefaultOutputParam},
+			Values: []types.Type{types.Variable("T", &constraint)},
+		},
+	)
+}
+
 var SymbolResolver = symbol.MapResolver{
 	"ge":  createComparisonSymbol("ge"),
 	"gt":  createComparisonSymbol("gt"),
@@ -67,4 +104,6 @@ var SymbolResolver = symbol.MapResolver{
 	"mul": createArithmeticSymbol("mul"),
 	"div": createArithmeticSymbol("div"),
 	"mod": createArithmeticSymbol("mod"),
+	"not": createNotSymbol("not"),
+	"neg": createNegateSymbol("neg"),
 }
