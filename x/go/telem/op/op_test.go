@@ -10,18 +10,11 @@
 package op_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/telem/op"
 )
-
-func TestOp(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Op Suite")
-}
 
 var _ = Describe("Vectorized Operations", func() {
 	Describe("Comparison Operations", func() {
@@ -370,7 +363,7 @@ var _ = Describe("Vectorized Operations", func() {
 				input := telem.NewSeriesV[uint8](1, 0, 1, 0)
 				output := telem.Series{DataType: telem.Uint8T}
 
-				op.Not(input, &output)
+				op.NotU8(input, &output)
 
 				// NOT inverts all bits: ^1 = 0xFE, ^0 = 0xFF
 				expected := []uint8{0xFE, 0xFF, 0xFE, 0xFF}
@@ -381,7 +374,7 @@ var _ = Describe("Vectorized Operations", func() {
 				input := telem.Series{DataType: telem.Uint8T}
 				output := telem.Series{DataType: telem.Uint8T}
 
-				op.Not(input, &output)
+				op.NotU8(input, &output)
 
 				Expect(output.Len()).To(Equal(int64(0)))
 			})
@@ -390,7 +383,7 @@ var _ = Describe("Vectorized Operations", func() {
 				input := telem.NewSeriesV[uint8](0xAA)
 				output := telem.Series{DataType: telem.Uint8T}
 
-				op.Not(input, &output)
+				op.NotU8(input, &output)
 
 				expected := []uint8{0x55}
 				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
@@ -400,7 +393,7 @@ var _ = Describe("Vectorized Operations", func() {
 				input := telem.NewSeriesV[uint8](0xFF, 0x00, 0xF0, 0x0F, 0xAA, 0x55)
 				output := telem.Series{DataType: telem.Uint8T}
 
-				op.Not(input, &output)
+				op.NotU8(input, &output)
 
 				expected := []uint8{0x00, 0xFF, 0x0F, 0xF0, 0x55, 0xAA}
 				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
@@ -432,7 +425,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.AndU8(a, b, &andResult)
 
 				notResult := telem.Series{DataType: telem.Uint8T}
-				op.Not(andResult, &notResult)
+				op.NotU8(andResult, &notResult)
 
 				// AND: [1, 0, 0, 0]
 				// NOT: [0xFE, 0xFF, 0xFF, 0xFF]

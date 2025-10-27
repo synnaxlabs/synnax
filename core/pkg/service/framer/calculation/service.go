@@ -182,6 +182,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			ChannelObservable: cfg.ChannelObservable,
 			StateCodec:        cfg.StateCodec,
 		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	return s, nil
 }
@@ -238,7 +241,7 @@ func (s *Service) update(ctx context.Context, ch channel.Channel) {
 		s.cfg.L.Error("failed to restart calculated channel", zap.Error(err), zap.Stringer("key", ch))
 		// Even if the operation is not successful, we still want to store the
 		// latest requirements and expression in the entry.
-		e.ch.Operations = e.ch.Operations
+		e.ch.Operations = ch.Operations
 		e.ch.Expression = ch.Expression
 		s.mu.entries[ch.Key()] = e
 	}

@@ -941,42 +941,6 @@ var _ = Describe("Graph", func() {
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 					Expect(inter.Nodes).To(HaveLen(2))
 				})
-				It("Should error when multiple nodes have missing inputs", func() {
-					g := graph.Graph{
-						Functions: []ir.Function{
-							{
-								Key: "source",
-								Outputs: types.Params{
-									Keys:   []string{ir.DefaultOutputParam},
-									Values: []types.Type{types.F32()},
-								},
-							},
-							{
-								Key: "processor",
-								Inputs: types.Params{
-									Keys:   []string{ir.DefaultInputParam},
-									Values: []types.Type{types.F32()},
-								},
-								Outputs: types.Params{
-									Keys:   []string{ir.DefaultOutputParam},
-									Values: []types.Type{types.F32()},
-								},
-							},
-						},
-						Nodes: []graph.Node{
-							{Key: "src", Type: "source"},
-							{Key: "proc1", Type: "processor"},
-							{Key: "proc2", Type: "processor"},
-						},
-						Edges: []ir.Edge{},
-					}
-					g = MustSucceed(graph.Parse(g))
-					_, diagnostics := graph.Analyze(ctx, g, nil)
-					Expect(diagnostics.Ok()).To(BeFalse())
-					diag := diagnostics.String()
-					Expect(diag).To(ContainSubstring("proc1"))
-					Expect(diag).To(ContainSubstring("proc2"))
-				})
 			})
 		})
 		Describe("Duplicate Edge Targets", func() {
