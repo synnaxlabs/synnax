@@ -27,6 +27,7 @@ class TestOPCUATask:
                     "array_mode": False,
                     "array_size": 1,
                     "data_saving": False,
+                    "auto_start": True,
                     "channels": [
                         {
                             "name": "",
@@ -47,6 +48,7 @@ class TestOPCUATask:
                     "stream_rate": 5,
                     "array_mode": False,
                     "data_saving": False,
+                    "auto_start": False,
                     "channels": [
                         {
                             "key": "k09AWoiyLxN",
@@ -64,6 +66,7 @@ class TestOPCUATask:
                     "device": "some-device-key",
                     "sample_rate": 10,
                     "data_saving": False,
+                    "auto_start": True,
                     "array_mode": True,
                     "array_size": 1,
                     "channels": [

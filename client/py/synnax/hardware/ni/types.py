@@ -792,19 +792,77 @@ AIChan = (
 )
 
 
-class DOChan(BaseChan):
-    """
-    Digital Output Channel
-
-    For detailed information, see the NI-DAQmx documentation:
-    <https://www.ni.com/documentation/en/ni-daqmx/latest/daqmxcfunc/daqmxcreatedochan.html>
-    """
-
-    type: Literal["digital_output"] = "digital_output"
+class BaseAOChan(BaseChan):
+    device: str = ""
+    port: int
     cmd_channel: int
     state_channel: int
+
+
+class AOVoltageChan(BaseAOChan, MinMaxVal):
+    """
+    Analog Output Voltage Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaovoltagechan.html>
+    """
+
+    type: Literal["ao_voltage"] = "ao_voltage"
+    units: Literal["Volts"] = "Volts"
+    custom_scale: Scale = NoScale()
+
+
+class AOCurrentChan(BaseAOChan, MinMaxVal):
+    """
+    Analog Output Current Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaocurrentchan.html>
+    """
+
+    type: Literal["ao_current"] = "ao_current"
+    units: Literal["Amps"] = "Amps"
+    custom_scale: Scale = NoScale()
+
+
+class AOFuncGenChan(BaseAOChan):
+    """
+    Analog Output Function Generator Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaofuncgenchan.html>
+    """
+
+    type: Literal["ao_func_gen"] = "ao_func_gen"
+    wave_type: Literal["Sine", "Triangle", "Square", "Sawtooth"]
+    frequency: float
+    amplitude: float
+    offset: float = 0.0
+
+
+AOChan = AOVoltageChan | AOCurrentChan | AOFuncGenChan
+
+
+class COChan(BaseChan):
+    """
+    Counter Output Pulse Generation Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecpulsechantime.html>
+    """
+
+    type: Literal["co_pulse_output"] = "co_pulse_output"
+    device: str = ""
     port: int
-    line: int
+    cmd_channel: int
+    state_channel: int
+    idle_state: Literal["High", "Low"] = "Low"
+    initial_delay: float = 0.0
+    high_time: float = 0.01
+    low_time: float = 0.01
+    min_val: float = 0
+    max_val: float = 1
+    units: Literal["Seconds"] = "Seconds"
 
 
 class DIChan(BaseModel):
@@ -817,6 +875,21 @@ class DIChan(BaseModel):
 
     channel: int
     type: Literal["digital_input"] = "digital_input"
+    port: int
+    line: int
+
+
+class DOChan(BaseChan):
+    """
+    Digital Output Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/documentation/en/ni-daqmx/latest/daqmxcfunc/daqmxcreatedochan.html>
+    """
+
+    type: Literal["digital_output"] = "digital_output"
+    cmd_channel: int
+    state_channel: int
     port: int
     line: int
 
@@ -846,9 +919,17 @@ class AnalogReadTaskConfig(BaseModel):
         return v
 
 
-class DigitalWriteConfig(BaseModel):
+class AnalogWriteConfig(BaseModel):
     device: str
-    channels: list[DOChan]
+    channels: list[AOChan]
+    state_rate: conint(ge=0, le=50000)
+    data_saving: bool
+    auto_start: bool = False
+
+
+class CounterWriteConfig(BaseModel):
+    device: str
+    channels: list[COChan]
     state_rate: conint(ge=0, le=50000)
     data_saving: bool
     auto_start: bool = False
@@ -863,6 +944,14 @@ class DigitalReadConfig(BaseModel):
     channels: list[DIChan]
 
 
+class DigitalWriteConfig(BaseModel):
+    device: str
+    channels: list[DOChan]
+    state_rate: conint(ge=0, le=50000)
+    data_saving: bool
+    auto_start: bool = False
+
+
 class TaskStateDetails(BaseModel):
     running: bool
     message: str
@@ -870,101 +959,6 @@ class TaskStateDetails(BaseModel):
 
 class AnalogReadStateDetails(TaskStateDetails):
     errors: list[dict[str, str]] | None
-
-
-class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
-    """A task for reading digital data from NI devices and writing them to a Synnax
-    cluster. This task is a programmatic representation of the digital write task
-    configurable within the Synnax console. For detailed information on
-    configuring/operating a digital write task, see https://docs.synnaxlabs.com/reference/driver/ni/digital-write-task
-
-    :param device: The key of the Synnax OPC UA device to read from.
-    :param name: A human-readable name for the task.
-    :param state_rate: The rate at which to write task channel states to the Synnax
-        cluster.
-    :param channels: A list of physical channel configurations to acquire data from.
-        These can be any channel subtype of AIChan
-    :param data_saving: Whether to save data permanently within Synnax, or just stream
-        it for real-time consumption.
-    """
-
-    TYPE = "ni_digital_write"
-    config: DigitalWriteConfig
-    _internal: Task
-
-    def __init__(
-        self,
-        internal: Task | None = None,
-        *,
-        device: str = "",
-        name: str = "",
-        state_rate: CrudeRate = 0,
-        data_saving: bool = False,
-        auto_start: bool = False,
-        channels: list[DOChan] = None,
-    ):
-        if internal is not None:
-            self._internal = internal
-            self.config = DigitalWriteConfig.model_validate_json(internal.config)
-            return
-        self._internal = Task(name=name, type=self.TYPE)
-        self.config = DigitalWriteConfig(
-            device=device,
-            state_rate=state_rate,
-            data_saving=data_saving,
-            auto_start=auto_start,
-            channels=channels,
-        )
-
-
-class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
-    """A task for reading digital data from NI devices and writing them to a Synnax
-    cluster. This task is a programmatic representation of the digital read task
-    configurable within the Synnax console. For detailed information on
-    configuring/operating a digital read task,
-    see https://docs.synnaxlabs.com/reference/driver/ni/digital-read-task
-
-    :param device: The key of the Synnax OPC UA device to read from.
-    :param name: A human-readable name for the task.
-    :param sample_rate: The rate at which to sample data from the OPC UA device.
-    :param stream_rate: The rate at which acquired data will be streamed to the Synnax
-        cluster. For example, a sample rate of 100Hz and a stream rate of 25Hz will
-        result in groups of 4 samples being streamed to the cluster every 40ms.
-    :param channels: A list of physical channel configurations to acquire data from.
-        These can be any channel subtype of DIChan.
-    :param data_saving: Whether to save data permanently within Synnax, or just stream
-        it for real-time consumption.
-    """
-
-    TYPE = "ni_digital_read"
-    config: DigitalReadConfig
-    _internal: Task
-
-    def __init__(
-        self,
-        internal: Task | None = None,
-        *,
-        device: str = "",
-        name: str = "",
-        sample_rate: CrudeRate = 0,
-        stream_rate: CrudeRate = 0,
-        data_saving: bool = False,
-        auto_start: bool = False,
-        channels: list[DIChan] = None,
-    ) -> None:
-        if internal is not None:
-            self._internal = internal
-            self.config = DigitalReadConfig.model_validate_json(internal.config)
-            return
-        self._internal = Task(name=name, type=self.TYPE)
-        self.config = DigitalReadConfig(
-            device=device,
-            sample_rate=sample_rate,
-            stream_rate=stream_rate,
-            data_saving=data_saving,
-            auto_start=auto_start,
-            channels=channels,
-        )
 
 
 class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
@@ -1027,3 +1021,189 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
                     """
                     )
                 channel.device = device
+
+
+class AnalogWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+    """A task for writing analog output data to NI devices. This task is a programmatic
+    representation of the analog write task configurable within the Synnax console.
+    For detailed information on configuring/operating an analog write task, see
+    https://docs.synnaxlabs.com/reference/driver/ni/analog-write-task
+
+    :param device: The key of the Synnax NI device to write to.
+    :param name: A human-readable name for the task.
+    :param state_rate: The rate at which to write task channel states to the Synnax
+        cluster.
+    :param channels: A list of analog output channel configurations (AOChan subtypes:
+        AOVoltageChan, AOCurrentChan, AOFuncGenChan).
+    :param data_saving: Whether to save data permanently within Synnax, or just stream
+        it for real-time consumption.
+    :param auto_start: Whether to start the task automatically when it is created.
+    """
+
+    TYPE = "ni_analog_write"
+    config: AnalogWriteConfig
+    _internal: Task
+
+    def __init__(
+        self,
+        internal: Task | None = None,
+        *,
+        device: str = "",
+        name: str = "",
+        state_rate: CrudeRate = 0,
+        data_saving: bool = False,
+        auto_start: bool = False,
+        channels: list[AOChan] = None,
+    ):
+        if internal is not None:
+            self._internal = internal
+            self.config = AnalogWriteConfig.model_validate_json(internal.config)
+            return
+        self._internal = Task(name=name, type=self.TYPE)
+        self.config = AnalogWriteConfig(
+            device=device,
+            state_rate=state_rate,
+            data_saving=data_saving,
+            auto_start=auto_start,
+            channels=channels,
+        )
+
+
+class CounterWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+    """A task for writing counter pulse data to NI devices. This task is a programmatic
+    representation of the counter write task configurable within the Synnax console.
+    For detailed information on configuring/operating a counter write task, see
+    https://docs.synnaxlabs.com/reference/driver/ni/counter-write-task
+
+    :param device: The key of the Synnax NI device to write to.
+    :param name: A human-readable name for the task.
+    :param state_rate: The rate at which to write task channel states to the Synnax
+        cluster.
+    :param channels: A list of counter output channel configurations (COChan).
+    :param data_saving: Whether to save data permanently within Synnax, or just stream
+        it for real-time consumption.
+    :param auto_start: Whether to start the task automatically when it is created.
+    """
+
+    TYPE = "ni_counter_write"
+    config: CounterWriteConfig
+    _internal: Task
+
+    def __init__(
+        self,
+        internal: Task | None = None,
+        *,
+        device: str = "",
+        name: str = "",
+        state_rate: CrudeRate = 0,
+        data_saving: bool = False,
+        auto_start: bool = False,
+        channels: list[COChan] = None,
+    ):
+        if internal is not None:
+            self._internal = internal
+            self.config = CounterWriteConfig.model_validate_json(internal.config)
+            return
+        self._internal = Task(name=name, type=self.TYPE)
+        self.config = CounterWriteConfig(
+            device=device,
+            state_rate=state_rate,
+            data_saving=data_saving,
+            auto_start=auto_start,
+            channels=channels,
+        )
+
+
+class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+    """A task for reading digital data from NI devices and writing them to a Synnax
+    cluster. This task is a programmatic representation of the digital read task
+    configurable within the Synnax console. For detailed information on
+    configuring/operating a digital read task,
+    see https://docs.synnaxlabs.com/reference/driver/ni/digital-read-task
+
+    :param device: The key of the Synnax OPC UA device to read from.
+    :param name: A human-readable name for the task.
+    :param sample_rate: The rate at which to sample data from the OPC UA device.
+    :param stream_rate: The rate at which acquired data will be streamed to the Synnax
+        cluster. For example, a sample rate of 100Hz and a stream rate of 25Hz will
+        result in groups of 4 samples being streamed to the cluster every 40ms.
+    :param channels: A list of physical channel configurations to acquire data from.
+        These can be any channel subtype of DIChan.
+    :param data_saving: Whether to save data permanently within Synnax, or just stream
+        it for real-time consumption.
+    """
+
+    TYPE = "ni_digital_read"
+    config: DigitalReadConfig
+    _internal: Task
+
+    def __init__(
+        self,
+        internal: Task | None = None,
+        *,
+        device: str = "",
+        name: str = "",
+        sample_rate: CrudeRate = 0,
+        stream_rate: CrudeRate = 0,
+        data_saving: bool = False,
+        auto_start: bool = False,
+        channels: list[DIChan] = None,
+    ) -> None:
+        if internal is not None:
+            self._internal = internal
+            self.config = DigitalReadConfig.model_validate_json(internal.config)
+            return
+        self._internal = Task(name=name, type=self.TYPE)
+        self.config = DigitalReadConfig(
+            device=device,
+            sample_rate=sample_rate,
+            stream_rate=stream_rate,
+            data_saving=data_saving,
+            auto_start=auto_start,
+            channels=channels,
+        )
+
+
+class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+    """A task for reading digital data from NI devices and writing them to a Synnax
+    cluster. This task is a programmatic representation of the digital write task
+    configurable within the Synnax console. For detailed information on
+    configuring/operating a digital write task, see https://docs.synnaxlabs.com/reference/driver/ni/digital-write-task
+
+    :param device: The key of the Synnax OPC UA device to read from.
+    :param name: A human-readable name for the task.
+    :param state_rate: The rate at which to write task channel states to the Synnax
+        cluster.
+    :param channels: A list of physical channel configurations to acquire data from.
+        These can be any channel subtype of AIChan
+    :param data_saving: Whether to save data permanently within Synnax, or just stream
+        it for real-time consumption.
+    """
+
+    TYPE = "ni_digital_write"
+    config: DigitalWriteConfig
+    _internal: Task
+
+    def __init__(
+        self,
+        internal: Task | None = None,
+        *,
+        device: str = "",
+        name: str = "",
+        state_rate: CrudeRate = 0,
+        data_saving: bool = False,
+        auto_start: bool = False,
+        channels: list[DOChan] = None,
+    ):
+        if internal is not None:
+            self._internal = internal
+            self.config = DigitalWriteConfig.model_validate_json(internal.config)
+            return
+        self._internal = Task(name=name, type=self.TYPE)
+        self.config = DigitalWriteConfig(
+            device=device,
+            state_rate=state_rate,
+            data_saving=data_saving,
+            auto_start=auto_start,
+            channels=channels,
+        )

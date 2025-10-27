@@ -15,6 +15,8 @@ from synnax.hardware.ni import (
     AIVoltageChan,
     AnalogReadTask,
     AnalogReadTaskConfig,
+    AnalogWriteConfig,
+    CounterWriteConfig,
     DigitalReadConfig,
     DigitalWriteConfig,
 )
@@ -26,6 +28,7 @@ class TestNITask:
         data = {
             "sample_rate": 10,
             "stream_rate": 5,
+            "auto_start": True,
             "channels": [
                 {
                     "name": "",
@@ -404,6 +407,57 @@ class TestNITask:
             ],
         )
 
+    def test_parse_analog_write_task(self):
+        data = {
+            "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+            "state_rate": 10,
+            "channels": [
+                {
+                    "key": "AnalogOut1",
+                    "type": "ao_voltage",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "cmd_channel": 1048610,
+                    "state_channel": 1048611,
+                    "port": 0,
+                    "min_val": -10.0,
+                    "max_val": 10.0,
+                    "units": "Volts",
+                    "custom_scale": {"type": "none"},
+                }
+            ],
+            "data_saving": True,
+            "auto_start": False,
+        }
+        AnalogWriteConfig.model_validate(data)
+
+    def test_parse_counter_write_task(self):
+        data = {
+            "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+            "state_rate": 100,
+            "channels": [
+                {
+                    "key": "CounterOut1",
+                    "type": "co_pulse_output",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "cmd_channel": 1048620,
+                    "state_channel": 1048621,
+                    "port": 0,
+                    "idle_state": "Low",
+                    "initial_delay": 0.0,
+                    "high_time": 0.01,
+                    "low_time": 0.01,
+                    "min_val": 0.0,
+                    "max_val": 1.0,
+                    "units": "Seconds",
+                }
+            ],
+            "data_saving": False,
+            "auto_start": True,
+        }
+        CounterWriteConfig.model_validate(data)
+
     def test_parse_digital_read_task(self):
         data = {
             "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
@@ -420,6 +474,7 @@ class TestNITask:
             "sample_rate": 50,
             "stream_rate": 25,
             "data_saving": True,
+            "auto_start": False,
         }
         DigitalReadConfig.model_validate(data)
 
@@ -439,5 +494,6 @@ class TestNITask:
                 }
             ],
             "data_saving": True,
+            "auto_start": True,
         }
         DigitalWriteConfig.model_validate(data)
