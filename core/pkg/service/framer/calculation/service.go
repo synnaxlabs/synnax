@@ -233,8 +233,8 @@ func (s *Service) handleChange(
 }
 
 func (s *Service) update(ctx context.Context, ch channel.Channel) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	//s.mu.Lock()
+	//defer s.mu.Unlock()
 	e, found := s.mu.entries[ch.Key()]
 	if !found {
 		return
@@ -360,7 +360,6 @@ func (s *Service) startCalculation(
 			sc,
 			confluence.DeferErr(sc.close),
 		)
-
 		o := confluence.NewObservableSubscriber[framer.WriterResponse]()
 		o.OnChange(func(ctx context.Context, i framer.WriterResponse) {
 			s.cfg.L.DPanic(

@@ -73,6 +73,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "arc", c.Arc)
 	validate.NotNil(v, "enable_legacy_calculations", c.EnableLegacyCalculations)
+	validate.NotNil(v, "db", c.DB)
 	return v.Error()
 }
 
@@ -83,6 +84,7 @@ func (c Config) Override(other Config) Config {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.EnableLegacyCalculations = override.Nil(c.EnableLegacyCalculations, other.EnableLegacyCalculations)
+	c.DB = override.Nil(c.DB, other.DB)
 	return c
 }
 

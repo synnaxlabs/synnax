@@ -61,6 +61,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Signals:  dist.Signals,
 		}))
 		calc := MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
+			DB:                dist.DB,
 			Arc:               arcSvc,
 			Framer:            dist.Framer,
 			Channel:           dist.Channel,

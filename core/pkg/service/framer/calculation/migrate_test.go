@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package calculation_test
 
 import (
@@ -91,6 +100,7 @@ var _ = Describe("Migrate", Ordered, func() {
 				Requires:   []channel.Key{base.Key()},
 			}
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(calc.Index()).To(BeZero())
 			createCalcSvc()
 
 			var updatedCalc channel.Channel
@@ -105,7 +115,7 @@ var _ = Describe("Migrate", Ordered, func() {
 
 			var newCalcIndex channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereKeys(calc.Index()).
+				WhereKeys(updatedCalc.Index()).
 				Entry(&newCalcIndex).
 				Exec(ctx, nil),
 			).To(Succeed())

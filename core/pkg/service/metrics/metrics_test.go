@@ -59,6 +59,7 @@ var _ = Describe("Metrics", Ordered, func() {
 			Signals:  dist.Signals,
 		}))
 		svcFramer = MustSucceed(framer.OpenService(ctx, framer.Config{
+			DB:      dist.DB,
 			Framer:  dist.Framer,
 			Channel: dist.Channel,
 			Arc:     arcSvc,

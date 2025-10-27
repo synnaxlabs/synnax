@@ -409,6 +409,181 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(retrieved.Key()).To(Equal(originalKey))
 		})
 	})
+	Context("Legacy Calculated Channels with Requires", func() {
+		It("Should NOT create index for calculated channel with non-empty Requires", func() {
+			// Simulate a legacy calculated channel with Requires field
+			legacyCh := channel.Channel{
+				Name:        "legacy_calc",
+				DataType:    telem.Float64T,
+				Expression:  "return channel_a * 2",
+				Requires:    []channel.Key{channel.NewKey(1, 1)}, // Non-empty Requires
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &legacyCh)).To(Succeed())
+
+			// Verify calculated channel was created
+			Expect(legacyCh.LocalKey).ToNot(BeZero())
+			Expect(legacyCh.Leaseholder).To(Equal(cluster.Free))
+			Expect(legacyCh.Virtual).To(BeTrue())
+
+			// Verify NO index was created because Requires is not empty
+			Expect(legacyCh.LocalIndex).To(BeZero())
+
+			// Verify index channel does NOT exist
+			indexName := "legacy_calc_time"
+			var indexChannels []channel.Channel
+			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereNames(indexName).
+				Entries(&indexChannels).
+				Exec(ctx, nil)
+			// Should either return NotFound error or empty result
+			if err != nil {
+				Expect(err).To(MatchError(query.NotFound))
+			}
+			Expect(indexChannels).To(HaveLen(0))
+		})
+
+		It("Should create index when updating existing calculated channel with empty Requires", func() {
+			// Step 1: Create a legacy calculated channel with Requires
+			legacyCh := channel.Channel{
+				Name:        "migrating_calc",
+				DataType:    telem.Float64T,
+				Expression:  "return channel_b * 3",
+				Requires:    []channel.Key{channel.NewKey(1, 2)},
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &legacyCh)).To(Succeed())
+			originalKey := legacyCh.Key()
+
+			// Verify no index was created
+			Expect(legacyCh.LocalIndex).To(BeZero())
+
+			// Step 2: Simulate migration by clearing Requires and calling Create again
+			legacyCh.Requires = nil
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &legacyCh)).To(Succeed())
+
+			Expect(legacyCh.Key()).To(Equal(originalKey))
+			Expect(legacyCh.LocalIndex).ToNot(BeZero())
+
+			indexName := "migrating_calc_time"
+			var indexChannels []channel.Channel
+			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereNames(indexName).
+				Entries(&indexChannels).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(indexChannels).To(HaveLen(1))
+
+			indexCh := indexChannels[0]
+			Expect(indexCh.IsIndex).To(BeTrue())
+			Expect(indexCh.DataType).To(Equal(telem.TimeStampT))
+			Expect(indexCh.Virtual).To(BeTrue())
+			Expect(indexCh.Leaseholder).To(Equal(cluster.Free))
+			Expect(indexCh.LocalKey).To(Equal(legacyCh.LocalIndex))
+
+			// Step 3: Verify the channel was updated in the database
+			var retrieved channel.Channel
+			err = mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(originalKey).
+				Entry(&retrieved).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(retrieved.Requires).To(BeEmpty())
+			Expect(retrieved.LocalIndex).To(Equal(legacyCh.LocalIndex))
+			Expect(retrieved.Expression).To(Equal("return channel_b * 3"))
+		})
+
+		It("Should NOT duplicate index if called multiple times on migrated channel", func() {
+			// Create legacy channel
+			legacyCh := channel.Channel{
+				Name:        "no_duplicate_index",
+				DataType:    telem.Float64T,
+				Expression:  "return 42",
+				Requires:    []channel.Key{channel.NewKey(1, 3)},
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &legacyCh)).To(Succeed())
+
+			// Migrate by clearing Requires
+			legacyCh.Requires = nil
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &legacyCh)).To(Succeed())
+			indexKeyAfterFirstMigration := legacyCh.LocalIndex
+			Expect(indexKeyAfterFirstMigration).ToNot(BeZero())
+
+			// Call Create again (simulate re-migration or update)
+			legacyCh.Expression = "return 43"
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &legacyCh)).To(Succeed())
+
+			// Index key should remain the same
+			Expect(legacyCh.LocalIndex).To(Equal(indexKeyAfterFirstMigration))
+
+			// Verify only one index channel exists
+			indexName := "no_duplicate_index_time"
+			var indexChannels []channel.Channel
+			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereNames(indexName).
+				Entries(&indexChannels).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(indexChannels).To(HaveLen(1))
+		})
+
+		It("Should handle batch migration of multiple legacy channels", func() {
+			// Create multiple legacy channels
+			legacyChannels := []channel.Channel{
+				{
+					Name:        "legacy_batch_1",
+					DataType:    telem.Float64T,
+					Expression:  "return 1",
+					Requires:    []channel.Key{channel.NewKey(1, 4)},
+					Virtual:     true,
+					Leaseholder: cluster.Free,
+				},
+				{
+					Name:        "legacy_batch_2",
+					DataType:    telem.Float32T,
+					Expression:  "return 2",
+					Requires:    []channel.Key{channel.NewKey(1, 5)},
+					Virtual:     true,
+					Leaseholder: cluster.Free,
+				},
+			}
+
+			for i := range legacyChannels {
+				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &legacyChannels[i])).To(Succeed())
+				Expect(legacyChannels[i].LocalIndex).To(BeZero())
+			}
+
+			// Migrate all by clearing Requires
+			for i := range legacyChannels {
+				legacyChannels[i].Requires = nil
+				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &legacyChannels[i])).To(Succeed())
+			}
+
+			// Verify all have indexes
+			Expect(legacyChannels[0].LocalIndex).ToNot(BeZero())
+			Expect(legacyChannels[1].LocalIndex).ToNot(BeZero())
+
+			// Verify index channels exist
+			var indexChannels []channel.Channel
+			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereNames("legacy_batch_1_time", "legacy_batch_2_time").
+				Entries(&indexChannels).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(indexChannels).To(HaveLen(2))
+
+			for _, idx := range indexChannels {
+				Expect(idx.IsIndex).To(BeTrue())
+				Expect(idx.DataType).To(Equal(telem.TimeStampT))
+				Expect(idx.Virtual).To(BeTrue())
+			}
+		})
+	})
+
 	Context("Updating a channel", func() {
 		var ch channel.Channel
 		var ch2 channel.Channel

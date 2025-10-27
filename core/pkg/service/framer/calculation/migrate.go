@@ -37,6 +37,12 @@ func (s *Service) migrateChannels(ctx context.Context) error {
 				if err = writer.Create(ctx, &calc); err != nil {
 					return err
 				}
+
+				s.cfg.L.Info(
+					"successfully migrated legacy calculation",
+					zap.String("calc", calc.Name),
+					zap.Stringer("key", calc.Key()),
+				)
 			} else {
 				s.cfg.L.Warn(
 					"failed to compile legacy calculation",

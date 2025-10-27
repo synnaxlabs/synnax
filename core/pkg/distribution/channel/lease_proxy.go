@@ -152,9 +152,10 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 
 	// Auto-create index channels for calculated channels (only for new calculated channels)
+	// Skip channels with non-empty Requires field (legacy channels not yet migrated)
 	indexChannels := make([]Channel, 0, len(channels))
 	for _, ch := range channels {
-		if ch.IsCalculated() && ch.LocalKey == 0 {
+		if ch.IsCalculated() && ch.LocalKey == 0 && !ch.IsLegacyCalculated() {
 			indexCh := Channel{
 				Name:        ch.Name + calculatedIndexNameSuffix,
 				DataType:    telem.TimeStampT,
@@ -240,6 +241,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 						c.Expression = ic.Expression
 						c.Operations = ic.Operations
 						c.Requires = ic.Requires
+						c.LocalIndex = ic.LocalIndex
 					}
 					return c, nil
 				}).
@@ -254,12 +256,40 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		}
 	}
 
-	toCreate, err := lp.retrieveExistingAndAssignKeys(ctx, tx, channels, lp.freeCounter, opt.RetrieveIfNameExists)
+	// Check for existing calculated channels that need index channels created
+	// This handles legacy channels that were migrated but don't have indexes yet
+	indexChannelsForExisting := make([]Channel, 0)
+	existingCalcChannelIndices := make([]int, 0) // Track which channels need linking
+	for i, ch := range *channels {
+		if ch.LocalKey != 0 && ch.IsCalculated() && ch.LocalIndex == 0 && len(ch.Requires) == 0 {
+			indexCh := Channel{
+				Name:        ch.Name + calculatedIndexNameSuffix,
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+				Internal:    ch.Internal,
+			}
+			indexChannelsForExisting = append(indexChannelsForExisting, indexCh)
+			existingCalcChannelIndices = append(existingCalcChannelIndices, i)
+		}
+	}
+	// Add these index channels to the list to be created
+	*channels = append(*channels, indexChannelsForExisting...)
+
+	toCreate, err := lp.retrieveExistingAndAssignKeys(
+		ctx,
+		tx,
+		channels,
+		lp.freeCounter,
+		opt.RetrieveIfNameExists,
+	)
 	if err != nil {
 		return err
 	}
 
 	// Link calculated channels to their auto-created indexes
+	// This handles both new calculated channels (in toCreate) and existing ones (not in toCreate)
 	for i, ch := range toCreate {
 		if ch.IsCalculated() && ch.LocalIndex == 0 {
 			// Find the matching index channel by name
@@ -280,10 +310,44 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		}
 	}
 
+	// Link existing calculated channels to their newly created indexes
+	// These channels are NOT in toCreate (they already have keys)
+	existingChannelsToUpdate := make([]Channel, 0, len(existingCalcChannelIndices))
+	for _, idx := range existingCalcChannelIndices {
+		ch := (*channels)[idx]
+		indexName := ch.Name + calculatedIndexNameSuffix
+		// Find the index channel in the channels slice (it got a key assigned)
+		for j := range *channels {
+			if (*channels)[j].Name == indexName && (*channels)[j].IsIndex {
+				indexKey := (*channels)[j].LocalKey
+				// Update the calculated channel with the new index
+				(*channels)[idx].LocalIndex = indexKey
+				existingChannelsToUpdate = append(existingChannelsToUpdate, (*channels)[idx])
+				break
+			}
+		}
+	}
+
 	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx,
 		tx); err != nil {
 		return err
 	}
+
+	// Update existing calculated channels with their new LocalIndex values
+	if len(existingChannelsToUpdate) > 0 {
+		for _, ch := range existingChannelsToUpdate {
+			if err := gorp.NewUpdate[Key, Channel]().
+				WhereKeys(ch.Key()).
+				Change(func(_ gorp.Context, c Channel) Channel {
+					c.LocalIndex = ch.LocalIndex
+					return c
+				}).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
+		}
+	}
+
 	return lp.maybeSetResources(ctx, tx, toCreate)
 }
 
