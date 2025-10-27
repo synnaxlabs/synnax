@@ -29,10 +29,18 @@ type calculationTransform struct {
 func newCalculationTransform(
 	excludeKeys channel.Keys,
 	calculators []*calculation.Calculator,
-) ResponseSegment {
+) *calculationTransform {
 	t := &calculationTransform{calculators: calculators, excludeKeys: excludeKeys}
 	t.Transform = t.transform
 	return t
+}
+
+func (t *calculationTransform) close() error {
+	c := errors.NewCatcher(errors.WithAggregation())
+	for _, calc := range t.calculators {
+		c.Exec(calc.Close)
+	}
+	return c.Error()
 }
 
 func (t *calculationTransform) transform(

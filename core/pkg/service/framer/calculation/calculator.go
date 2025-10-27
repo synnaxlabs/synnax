@@ -217,13 +217,16 @@ func OpenCalculator(
 	statFactory := stat.NewFactory(stat.Config{})
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
-	wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
+	wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
 		Module: module,
 	})
 	if err != nil {
 		return nil, err
 	}
-
+	wasmFactory, err := wasm.NewFactory(wasmMod)
+	if err != nil {
+		return nil, err
+	}
 	f := node.MultiFactory{
 		opFactory,
 		telemFactory,
@@ -233,8 +236,6 @@ func OpenCalculator(
 		wasmFactory,
 		statFactory,
 	}
-
-	f = append(f, wasmFactory)
 	nodes := make(map[string]node.Node)
 	for _, irNode := range module.Nodes {
 		n, err := f.Create(ctx, node.Config{

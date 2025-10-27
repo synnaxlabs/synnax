@@ -38,6 +38,7 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -136,13 +137,13 @@ type Runtime struct {
 	streamer  *streamerSeg
 	writer    *writerSeg
 	state     *state.State
-	close     io.Closer
+	closer    io.Closer
 }
 
 func (r *Runtime) Close() error {
 	c := errors.NewCatcher(errors.WithAggregation())
 	c.Exec(r.streamer.Close)
-	c.Exec(r.close.Close)
+	c.Exec(r.closer.Close)
 	return c.Error()
 }
 
@@ -309,10 +310,17 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		stableFactory,
 		statusFactory,
 	}
+	var closers xio.MultiCloser
 	if len(cfg.Module.WASM) > 0 {
-		wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
+		wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
 			Module: cfg.Module,
+			State:  progState,
 		})
+		closers = append(closers, wasmMod)
+		if err != nil {
+			return nil, err
+		}
+		wasmFactory, err := wasm.NewFactory(wasmMod)
 		if err != nil {
 			return nil, err
 		}
@@ -398,6 +406,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 			confluence.RecoverWithErrOnPanic(),
 		)
 	}
-	r.close = signal.NewGracefulShutdown(sCtx, cancel)
+	r.closer = append(closers, signal.NewGracefulShutdown(sCtx, cancel))
 	return r, err
 }

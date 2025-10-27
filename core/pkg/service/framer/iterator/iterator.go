@@ -112,7 +112,7 @@ type ResponseSegment = confluence.Segment[Response, Response]
 
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
 	p := plumber.New()
-	t, err := s.newCalculationTransform(ctx, &cfg)
+	calcTransform, err := s.newCalculationTransform(ctx, &cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -122,8 +122,13 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	}
 	plumber.SetSegment(p, "distribution", dist)
 	var routeOutletFrom address.Address = "distribution"
-	if t != nil {
-		plumber.SetSegment(p, "calculation", t)
+	if calcTransform != nil {
+		plumber.SetSegment(
+			p,
+			"calculation",
+			calcTransform,
+			confluence.DeferErr(calcTransform.close),
+		)
 		plumber.MustConnect[Response](p, "distribution", "calculation", 25)
 		routeOutletFrom = "calculation"
 	}
@@ -161,7 +166,7 @@ func (s *Service) openCalculator(ctx context.Context, ch channel.Channel) (*calc
 	return c, err
 }
 
-func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (ResponseSegment, error) {
+func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*calculationTransform, error) {
 	var (
 		channels    []channel.Channel
 		calculators []*calculation.Calculator
@@ -185,23 +190,26 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 			required.Add(calculator.ReadFrom()...)
 		}
 	}
-	var requiredChans []channel.Channel
+	var requiredChannels []channel.Channel
 	if err := s.cfg.Channel.NewRetrieve().
-		Entries(&requiredChans).
+		Entries(&requiredChannels).
 		WhereKeys(required.Keys()...).
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
 	originalKeys := slices.Clone(cfg.Keys)
 	cfg.Keys = lo.Uniq(append(cfg.Keys, required.Keys()...))
-	cfg.Keys = lo.Uniq(append(cfg.Keys, lo.FilterMap(requiredChans, func(item channel.Channel, index int) (channel.Key, bool) {
-		return item.Index(), !item.Virtual
-	})...))
+	cfg.Keys = lo.Uniq(append(cfg.Keys, lo.FilterMap(
+		requiredChannels,
+		func(item channel.Channel, index int) (channel.Key, bool) {
+			return item.Index(), !item.Virtual
+		})...,
+	))
 	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
 		return !calculated.Contains(item) && !item.Free()
 	})
-	// PurgeKeys are channels inside of cfg.Keys that are required in ReadFrom
-	// but we're not requested
+	// PurgeKeys are channels inside cfg.Keys that are required in ReadFrom
+	// but were not requested
 	purgeKeys := make([]channel.Key, 0, len(cfg.Keys))
 	for _, key := range cfg.Keys {
 		if !lo.Contains(originalKeys, key) {

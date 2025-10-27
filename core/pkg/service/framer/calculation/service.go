@@ -348,7 +348,7 @@ func (s *Service) startCalculation(
 			p,
 			calculatorAddr,
 			sc,
-			confluence.Defer(sc.close),
+			confluence.DeferErr(sc.close),
 		)
 
 		o := confluence.NewObservableSubscriber[framer.WriterResponse]()
@@ -426,8 +426,10 @@ func (t *streamCalculationTransform) transform(
 	return res, send, nil
 }
 
-func (t *streamCalculationTransform) close() {
-	for _, c := range t.calculators {
-		c.Close()
+func (t *streamCalculationTransform) close() error {
+	c := errors.NewCatcher(errors.WithAggregation())
+	for _, calc := range t.calculators {
+		c.Exec(calc.Close)
 	}
+	return c.Error()
 }

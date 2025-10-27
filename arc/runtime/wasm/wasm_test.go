@@ -94,8 +94,14 @@ var _ = Describe("Wasm", func() {
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			*rhsNode.Output(0) = telem.NewSeriesV[int64](10, 20)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
-			Expect(err).ToNot(HaveOccurred())
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n, err := factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
 				State:  s.Node("add"),
@@ -180,8 +186,14 @@ var _ = Describe("Wasm", func() {
 			*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30)
 			*bNode.Output(0) = telem.NewSeriesV[int32](5, 6, 7)
 			*bNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30)
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
-			Expect(err).ToNot(HaveOccurred())
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n, err := factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
 				State:  s.Node("multiply"),
@@ -266,8 +278,14 @@ var _ = Describe("Wasm", func() {
 			*xNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5, 10, 15, 20)
 			*yNode.Output(0) = telem.NewSeriesV[float32](25.0)
 			*yNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
-			Expect(err).ToNot(HaveOccurred())
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n, err := factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
 				State:  s.Node("subtract"),
@@ -355,14 +373,19 @@ var _ = Describe("Wasm", func() {
 			*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			*bNode.Output(0) = telem.NewSeriesV[int64](5)
 			*bNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
-			Expect(err).ToNot(HaveOccurred())
-			n, err := factory.Create(ctx, node.Config{
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
 				State:  s.Node("math_ops"),
 				Module: mod,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains("sum")).To(BeTrue())
@@ -467,8 +490,14 @@ var _ = Describe("Wasm", func() {
 			*numNode.OutputTime(0) = telem.NewSeriesSecondsTSV()
 			*denNode.Output(0) = telem.NewSeriesV[float64]()
 			*denNode.OutputTime(0) = telem.NewSeriesSecondsTSV()
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
-			Expect(err).ToNot(HaveOccurred())
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n, err := factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
 				State:  s.Node("divide"),
@@ -537,14 +566,19 @@ var _ = Describe("Wasm", func() {
 			fr = fr.Append(0, telem.NewSeriesV[int32](21))
 			s.Ingest(fr)
 
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
-			Expect(err).ToNot(HaveOccurred())
-			n, err := factory.Create(ctx, node.Config{
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[0],
 				State:  s.Node("read_channel"),
 				Module: mod,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 
 			// Trigger execution
 			changed := make(set.Set[string])
@@ -595,15 +629,19 @@ var _ = Describe("Wasm", func() {
 				},
 			}
 			s := state.New(cfg)
-
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
-			Expect(err).ToNot(HaveOccurred())
-			n, err := factory.Create(ctx, node.Config{
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[0],
 				State:  s.Node("counter"),
 				Module: mod,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 
 			// First call - should return 1
 			changed := make(set.Set[string])

@@ -167,6 +167,9 @@ var _ = Describe("Runtime", Ordered, func() {
 			Expect(v).To(Equal(types.F32()), "constant output should be f32, got: %v, ge.a: %v, ge.b: %v", v, geA, geB)
 
 			r := MustSucceed(runtime.Open(ctx, cfg))
+			defer func() {
+				Expect(r.Close()).To(Succeed())
+			}()
 			time.Sleep(time.Millisecond * 20)
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
@@ -189,8 +192,6 @@ var _ = Describe("Runtime", Ordered, func() {
 				g.Expect(statusSvc.NewRetrieve().WhereKeys("ox_alarm").Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
 			}).To(Succeed())
-
-			Expect(r.Close()).To(Succeed())
 		})
 	})
 })
