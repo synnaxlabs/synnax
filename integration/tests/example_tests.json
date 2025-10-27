@@ -12,8 +12,8 @@
           "case": "example_basic",
           "name": "inject_timeout",
           "parameters": {
-            "timeout": 2,
-            "wait_time": 5
+            "timeout": [1, 2, 3],
+            "wait_time": 4
           },
           "expect": "TIMEOUT"
         },
