@@ -12,7 +12,6 @@ package validate
 import (
 	"reflect"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -123,8 +122,4 @@ func NotEmptySlice[T any](v *Validator, field string, value []T) bool {
 
 func NotEmptyString[T ~string](v *Validator, field string, value T) bool {
 	return v.Ternary(field, value == "", "required")
-}
-
-func UUID(v *Validator, field string, value uuid.UUID) bool {
-	return v.Ternary(field, value == uuid.Nil, "must be a valid UUID")
 }

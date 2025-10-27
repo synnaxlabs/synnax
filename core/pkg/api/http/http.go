@@ -137,20 +137,29 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) (t api.Tran
 	t.AccessDeletePolicy = fhttp.UnaryServer[api.AccessDeletePolicyRequest, types.Nil](router, "/api/v1/access/policy/delete")
 	t.AccessRetrievePolicy = fhttp.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse](router, "/api/v1/access/policy/retrieve")
 
+	// ARC
+	t.ArcCreate = fhttp.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse](router, "/api/v1/arc/create")
+	t.ArcDelete = fhttp.UnaryServer[api.ArcDeleteRequest, types.Nil](router, "/api/v1/arc/delete")
+	t.ArcRetrieve = fhttp.UnaryServer[api.ArcRetrieveRequest, api.ArcRetrieveResponse](router, "/api/v1/arc/retrieve")
+
 	// STATUS
 	t.StatusSet = fhttp.UnaryServer[api.StatusSetRequest, api.StatusSetResponse](router, "/api/v1/status/set")
 	t.StatusRetrieve = fhttp.UnaryServer[api.StatusRetrieveRequest, api.StatusRetrieveResponse](router, "/api/v1/status/retrieve")
 	t.StatusDelete = fhttp.UnaryServer[api.StatusDeleteRequest, types.Nil](router, "/api/v1/status/delete")
 
 	// VIEW
-	t.ViewCreate = fhttp.UnaryServer[api.ViewCreateRequest, api.ViewCreateResponse](router, "/api/v1/view/create")
-	t.ViewRetrieve = fhttp.UnaryServer[api.ViewRetrieveRequest, api.ViewRetrieveResponse](router, "/api/v1/view/retrieve")
-	t.ViewDelete = fhttp.UnaryServer[api.ViewDeleteRequest, types.Nil](router, "/api/v1/view/delete")
-
-	// ARC
-	t.ArcCreate = fhttp.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse](router, "/api/v1/arc/create")
-	t.ArcDelete = fhttp.UnaryServer[api.ArcDeleteRequest, types.Nil](router, "/api/v1/arc/delete")
-	t.ArcRetrieve = fhttp.UnaryServer[api.ArcRetrieveRequest, api.ArcRetrieveResponse](router, "/api/v1/arc/retrieve")
+	t.ViewCreate = fhttp.UnaryServer[api.ViewCreateRequest, api.ViewCreateResponse](
+		router,
+		"/api/v1/view/create",
+	)
+	t.ViewRetrieve = fhttp.UnaryServer[
+		api.ViewRetrieveRequest,
+		api.ViewRetrieveResponse,
+	](router, "/api/v1/view/retrieve")
+	t.ViewDelete = fhttp.UnaryServer[api.ViewDeleteRequest, types.Nil](
+		router,
+		"/api/v1/view/delete",
+	)
 
 	return t
 }

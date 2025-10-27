@@ -10,16 +10,25 @@
 package view_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 )
 
-var ctx = context.Background()
+var db *gorp.DB
 
-func TestStatus(t *testing.T) {
+var _ = BeforeSuite(func() {
+	db = gorp.Wrap(memkv.New())
+})
+
+var _ = AfterSuite(func() {
+	Expect(db.Close()).To(Succeed())
+})
+
+func TestView(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Status Suite")
+	RunSpecs(t, "View Suite")
 }

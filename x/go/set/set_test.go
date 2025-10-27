@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-var _ = Describe("Create", func() {
+var _ = Describe("Set", func() {
 	var s set.Set[int]
 
 	BeforeEach(func() {

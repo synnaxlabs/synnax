@@ -95,7 +95,7 @@ func (e *Entries[K, E]) Replace(entries []E) {
 func (e *Entries[K, E]) Set(i int, entry E) {
 	if e.isMultiple {
 		if len(*e.entries) <= i {
-			zap.S().DPanic("[gorp.Entries.Create] - index out of range")
+			zap.S().DPanic("[gorp.Entries.Set] - index out of range")
 			return
 		}
 		(*e.entries)[i] = entry

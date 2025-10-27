@@ -63,46 +63,40 @@ func (c ServiceConfig) Validate() error {
 }
 
 // Service is the main entrypoint for managing views within Synnax. It provides
-// mechanisms for creating, retrieving, updating, and deleting views. It also
-// provides mechanisms for listening to changes in views.
+// mechanisms for creating, retrieving, updating, and deleting views. It also provides
+// mechanisms for listening to changes in views.
 type Service struct {
 	cfg             ServiceConfig
 	group           group.Group
 	shutdownSignals io.Closer
 }
 
-const groupName = "Views"
-
-// OpenService opens a new view.Service with the provided configuration. If error
-// is nil, the service is ready for use and must be closed by calling Close to
-// prevent resource leaks.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
-	if err != nil {
+// OpenService opens a new view.Service with the provided configuration. If error is
+// nil, the service is ready for use and must be closed by calling Close to prevent
+// resource leaks.
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+	s := &Service{}
+	var err error
+	if s.cfg, err = config.New(DefaultConfig, cfgs...); err != nil {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
-	if err != nil {
+	if s.group, err = s.cfg.Group.CreateOrRetrieve(ctx, "Views", ontology.RootID); err != nil {
 		return nil, err
 	}
-	s = &Service{
-		cfg:   cfg,
-		group: g,
-	}
-	cfg.Ontology.RegisterService(s)
-	if cfg.Signals == nil {
-		return
+	s.cfg.Ontology.RegisterService(s)
+	if s.cfg.Signals == nil {
+		return s, nil
 	}
 	viewSignals, err := signals.PublishFromGorp(
 		ctx,
-		cfg.Signals,
-		signals.GorpPublisherConfigUUID[View](cfg.DB),
+		s.cfg.Signals,
+		signals.GorpPublisherConfigUUID[View](s.cfg.DB),
 	)
 	if err != nil {
-		return
+		return nil, err
 	}
 	s.shutdownSignals = xio.MultiCloser{viewSignals}
-	return
+	return s, nil
 }
 
 // Close closes the service and releases any resources that it may have acquired. Close
@@ -116,8 +110,8 @@ func (s *Service) Close() error {
 }
 
 // NewWriter opens a new Writer to create, update, and delete views. If tx is not nil,
-// the writer will use it to execute all operations. If tx is nil, the writer will execute
-// all operations directly against the underlying gorp.DB.
+// the writer will use it to execute all operations. If tx is nil, the writer will
+// execute all operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),

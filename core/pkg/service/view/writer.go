@@ -29,110 +29,51 @@ type Writer struct {
 	group     group.Group
 }
 
-// Create creates or updates a view within the DB. If the View already has a key and
-// an existing View already exists with that key, the existing view will be updated.
-func (w Writer) Create(
-	ctx context.Context,
-	s *View,
-) error {
-	return w.CreateWithParent(ctx, s, ontology.ID{})
+// Create creates or updates a view within the DB. If the view already has a key and an
+// existing view already exists with that key, the existing view will be updated.
+func (w Writer) Create(ctx context.Context, view *View) error {
+	if err := w.validate(*view); err != nil {
+		return err
+	}
+	if view.Key == uuid.Nil {
+		view.Key = uuid.New()
+	}
+	if err := gorp.
+		NewCreate[uuid.UUID, View]().
+		Entry(view).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	otgID := OntologyID(view.Key)
+	if err := w.otgWriter.DefineResource(ctx, otgID); err != nil {
+		return err
+	}
+	return w.otgWriter.DefineRelationship(
+		ctx,
+		w.group.OntologyID(),
+		ontology.ParentOf,
+		otgID,
+	)
 }
 
-// CreateWithParent creates or updates a view as a child of the ontology.Resource with the given
-// ID. If the view already exists and a parent is provided, the existing parent relationship
-// will be deleted and a new parent relationship will be created. If the view already exists
-// and no parent is provided, the existing parent relationship will be preserved. If an empty
-// parent is provided, the view will be created under the top level "Views" group.
-func (w Writer) CreateWithParent(
-	ctx context.Context,
-	s *View,
-	parent ontology.ID,
-) (err error) {
-	hasParent := !parent.IsZero()
-	if !hasParent {
-		parent = w.group.OntologyID()
-	}
-	if err = w.validate(*s); err != nil {
-		return
-	}
-	exists := false
-	if s.Key == uuid.Nil {
-		s.Key = uuid.New()
-	} else {
-		exists, err = gorp.NewRetrieve[uuid.UUID, View]().WhereKeys(s.Key).Exists(ctx, w.tx)
-		if err != nil {
-			return
-		}
-	}
-	if err = gorp.NewCreate[uuid.UUID, View]().Entry(s).Exec(ctx, w.tx); err != nil {
-		return
-	}
-	otgID := OntologyID(s.Key)
-	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
-		return
-	}
-	// View already exists and parent provided = delete incoming relationships and define new parent
-	// View already exists and no parent provided = do nothing
-	// View does not exist = define parent
-	if exists && hasParent {
-		if hasRel, err := w.otgWriter.HasRelationship(ctx, parent, ontology.ParentOf, otgID); hasRel || err != nil {
+// CreateMany creates or updates multiple views within the DB. If any of the views
+// already exist, they will be updated.
+func (w Writer) CreateMany(ctx context.Context, views *[]View) error {
+	for i, view := range *views {
+		if err := w.Create(ctx, &view); err != nil {
 			return err
 		}
-		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.ParentOf); err != nil {
-			return
-		}
-		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
-			return
-		}
-	} else if !exists {
-		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
-			return
-		}
+		(*views)[i] = view
 	}
-	return
-}
-
-// CreateMany creates or updates multiple views within the DB. If any of the views already
-// exist, they will be updated.
-func (w Writer) CreateMany(
-	ctx context.Context,
-	ss *[]View,
-) (err error) {
-	for i, s := range *ss {
-		if err = w.Create(ctx, &s); err != nil {
-			return
-		}
-		(*ss)[i] = s
-	}
-	return err
-}
-
-// CreateManyWithParent creates or updates multiple views within the DB as child views of
-// the ontology.Resource with the given ID. If any of the views already exist, they will be
-// updated. If the view already exists and a parent is provided, the existing parent relationship
-// will be deleted and a new parent relationship will be created. If the view already exists and
-// no parent is provided, the existing parent relationship will be preserved. If an empty parent is
-// provided, the view will be created under the top level "Views" group.
-func (w Writer) CreateManyWithParent(
-	ctx context.Context,
-	ss *[]View,
-	parent ontology.ID,
-) (err error) {
-	if ss == nil {
-		return
-	}
-	for i, s := range *ss {
-		if err = w.CreateWithParent(ctx, &s, parent); err != nil {
-			return
-		}
-		(*ss)[i] = s
-	}
-	return err
+	return nil
 }
 
 // Delete deletes the view with the given key. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
-	if err := gorp.NewDelete[uuid.UUID, View]().WhereKeys(key).Exec(ctx, w.tx); err != nil && !errors.Is(err, query.NotFound) {
+	if err := gorp.
+		NewDelete[uuid.UUID, View]().
+		WhereKeys(key).
+		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.NotFound) {
 		return err
 	}
 	return w.otgWriter.DeleteResource(ctx, OntologyID(key))
@@ -148,8 +89,9 @@ func (w Writer) DeleteMany(ctx context.Context, keys ...uuid.UUID) error {
 	return nil
 }
 
-func (w Writer) validate(s View) error {
-	v := validate.New("view.View")
-	validate.NotEmptyString(v, "Name", s.Name)
-	return v.Error()
+func (w Writer) validate(v View) error {
+	vld := validate.New("view.View")
+	validate.NotEmptyString(vld, "Name", v.Name)
+	validate.NotEmptyString(vld, "Type", v.Type)
+	return vld.Error()
 }

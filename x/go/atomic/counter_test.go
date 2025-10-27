@@ -52,7 +52,7 @@ var _ = Describe("Counter", func() {
 			Expect(c.Value()).To(Equal(int64(10000)))
 		})
 
-		Describe("Create", func() {
+		Describe("Set", func() {
 			It("Should set the counter value", func() {
 				c := xatomic.Int64Counter{}
 				c.Set(42)

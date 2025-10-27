@@ -39,6 +39,7 @@ import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { User } from "@/user";
 import { canDisable, type CanDisabledProps } from "@/util/canDisable";
+import { View } from "@/view";
 import { Worker } from "@/worker";
 import { Workspace } from "@/workspace";
 
@@ -78,6 +79,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Table.FLUX_STORE_KEY]: Table.FluxStore;
   [Schematic.FLUX_STORE_KEY]: Schematic.FluxStore;
   [User.FLUX_STORE_KEY]: User.FluxStore;
+  [View.FLUX_STORE_KEY]: View.FluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
   [Label.FLUX_STORE_KEY]: Label.FLUX_STORE_CONFIG,
@@ -99,6 +101,7 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Schematic.FLUX_STORE_KEY]: Schematic.FLUX_STORE_CONFIG,
   [User.FLUX_STORE_KEY]: User.FLUX_STORE_CONFIG,
   [Arc.FLUX_STORE_KEY]: Arc.FLUX_STORE_CONFIG,
+  [View.FLUX_STORE_KEY]: View.FLUX_STORE_CONFIG,
 };
 
 export const Provider = ({

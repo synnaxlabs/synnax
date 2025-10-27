@@ -11,24 +11,14 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x/array";
 import z from "zod";
 
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { type Key, keyZ, type View, viewZ } from "@/view/payload";
+import { type Key, keyZ, type New, newZ, type View, viewZ } from "@/view/payload";
 
-export const newZ = viewZ.extend({ key: keyZ.optional() });
-export interface New extends z.infer<typeof newZ> {}
-
-const createReqZ = z.object({
-  parent: ontology.idZ.optional(),
-  views: newZ.array(),
-});
+const createReqZ = z.object({ views: newZ.array() });
 const createResZ = z.object({ views: viewZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
-
-const CREATE_ENDPOINT = "/view/create";
-const DELETE_ENDPOINT = "/view/delete";
-const RETRIEVE_ENDPOINT = "/view/retrieve";
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
@@ -49,12 +39,7 @@ export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
 const retrieveResponseZ = z.object({ views: array.nullableZ(viewZ) });
 
-export interface CreateOptions {
-  parent?: ontology.ID;
-}
-
 export class Client {
-  readonly type: string = "view";
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
@@ -67,7 +52,7 @@ export class Client {
     const isSingle = "key" in args;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/view/retrieve",
       args,
       retrieveArgsZ,
       retrieveResponseZ,
@@ -76,14 +61,14 @@ export class Client {
     return isSingle ? res.views[0] : res.views;
   }
 
-  async create(view: New, opts?: CreateOptions): Promise<View>;
-  async create(views: New[], opts?: CreateOptions): Promise<View[]>;
-  async create(views: New | New[], opts: CreateOptions = {}): Promise<View | View[]> {
+  async create(view: New): Promise<View>;
+  async create(views: New[]): Promise<View[]>;
+  async create(views: New | New[]): Promise<View | View[]> {
     const isMany = Array.isArray(views);
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
-      CREATE_ENDPOINT,
-      { parent: opts.parent, views: array.toArray(views) },
+      "/view/create",
+      { views: array.toArray(views) },
       createReqZ,
       createResZ,
     );
@@ -93,7 +78,7 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof emptyResZ>(
       this.client,
-      DELETE_ENDPOINT,
+      "/view/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package view provides the View type and related functions for managing views within
+// Synnax.
 package view
 
 import (
@@ -18,16 +20,14 @@ import (
 type View struct {
 	Key   uuid.UUID      `json:"key" msgpack:"key"`
 	Name  string         `json:"name" msgpack:"name"`
-	Type  string         `json:"type" msgpack:"type"`
+	Type  ontology.Type  `json:"type" msgpack:"type"`
 	Query map[string]any `json:"query" msgpack:"query"`
 }
 
 var _ gorp.Entry[uuid.UUID] = (*View)(nil)
 
-func (s View) OntologyID() ontology.ID { return OntologyID(s.Key) }
+// GorpKey returns a unique key for the view for use in gorp.
+func (v View) GorpKey() uuid.UUID { return v.Key }
 
-// GorpKey implements gorp.Entry.
-func (s View) GorpKey() uuid.UUID { return s.Key }
-
-// SetOptions implements gorp.Entry.
-func (s View) SetOptions() []any { return nil }
+// SetOptions returns a slice of options passed to kv.db.set.
+func (v View) SetOptions() []any { return nil }

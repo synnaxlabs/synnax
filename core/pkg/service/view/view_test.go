@@ -10,6 +10,7 @@
 package view_test
 
 import (
+	"context"
 	"io"
 
 	"github.com/google/uuid"
@@ -21,22 +22,23 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("View", Ordered, func() {
+const testOntologyType ontology.Type = "test"
+
+var _ = Describe("View", func() {
 	var (
-		db     *gorp.DB
+		ctx    context.Context
+		otg    *ontology.Ontology
 		svc    *view.Service
 		w      view.Writer
-		otg    *ontology.Ontology
 		tx     gorp.Tx
 		closer io.Closer
 	)
-	BeforeAll(func() {
-		db = gorp.Wrap(memkv.New())
+	BeforeEach(func() {
+		ctx = context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 			DB:           db,
 			EnableSearch: config.True(),
@@ -48,11 +50,9 @@ var _ = Describe("View", Ordered, func() {
 			Group:    g,
 		}))
 		Expect(otg.InitializeSearchIndex(ctx)).To(Succeed())
-
-		closer = xio.MultiCloser{db, otg, g, svc}
+		closer = xio.MultiCloser{otg, g, svc}
 	})
-	AfterAll(func() {
-		Expect(svc.Close()).To(Succeed())
+	AfterEach(func() {
 		Expect(closer.Close()).To(Succeed())
 	})
 	BeforeEach(func() {
@@ -68,6 +68,7 @@ var _ = Describe("View", Ordered, func() {
 			It("Should create a new view with an auto-generated key", func() {
 				s := &view.View{
 					Name: "Test View",
+					Type: testOntologyType,
 				}
 				Expect(w.Create(ctx, s)).To(Succeed())
 				Expect(s.Key).ToNot(Equal(uuid.Nil))
@@ -76,6 +77,7 @@ var _ = Describe("View", Ordered, func() {
 				s := &view.View{
 					Name: "Test View",
 					Key:  uuid.New(),
+					Type: testOntologyType,
 				}
 				Expect(w.Create(ctx, s)).To(Succeed())
 				s.Name = "Updated Name"
@@ -83,27 +85,6 @@ var _ = Describe("View", Ordered, func() {
 				var retrieved view.View
 				Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
 				Expect(retrieved.Name).To(Equal("Updated Name"))
-			})
-			Context("Parent Management", func() {
-				It("Should set a custom parent for the view", func() {
-					parent := view.View{
-						Name: "Parent View",
-						Key:  uuid.New(),
-					}
-					Expect(w.Create(ctx, &parent)).To(Succeed())
-					child := view.View{
-						Name: "Child View",
-						Key:  uuid.New(),
-					}
-					Expect(w.CreateWithParent(ctx, &child, view.OntologyID(parent.Key))).To(Succeed())
-					var res ontology.Resource
-					Expect(otg.NewRetrieve().
-						WhereIDs(view.OntologyID(child.Key)).
-						TraverseTo(ontology.Parents).
-						Entry(&res).
-						Exec(ctx, tx)).To(Succeed())
-					Expect(res.ID).To(Equal(view.OntologyID(parent.Key)))
-				})
 			})
 		})
 
@@ -113,10 +94,12 @@ var _ = Describe("View", Ordered, func() {
 					{
 						Name: "View 1",
 						Key:  uuid.New(),
+						Type: testOntologyType,
 					},
 					{
 						Name: "View 2",
 						Key:  uuid.New(),
+						Type: testOntologyType,
 					},
 				}
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
@@ -132,6 +115,7 @@ var _ = Describe("View", Ordered, func() {
 				s := &view.View{
 					Name: "To Delete",
 					Key:  uuid.New(),
+					Type: testOntologyType,
 				}
 				Expect(w.Create(ctx, s)).To(Succeed())
 				Expect(w.Delete(ctx, s.Key)).To(Succeed())
@@ -150,10 +134,12 @@ var _ = Describe("View", Ordered, func() {
 					{
 						Name: "Del 1",
 						Key:  uuid.New(),
+						Type: testOntologyType,
 					},
 					{
 						Name: "Del 2",
 						Key:  uuid.New(),
+						Type: testOntologyType,
 					},
 				}
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
@@ -164,21 +150,24 @@ var _ = Describe("View", Ordered, func() {
 		})
 	})
 
-	Describe("Retrieve", Ordered, func() {
+	Describe("Retrieve", func() {
 		var views []view.View
 		BeforeEach(func() {
 			views = []view.View{
 				{
 					Name: "View A",
 					Key:  uuid.New(),
+					Type: testOntologyType,
 				},
 				{
 					Name: "View B",
 					Key:  uuid.New(),
+					Type: testOntologyType,
 				},
 				{
 					Name: "View C",
 					Key:  uuid.New(),
+					Type: testOntologyType,
 				},
 			}
 			Expect(w.CreateMany(ctx, &views)).To(Succeed())

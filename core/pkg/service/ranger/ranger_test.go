@@ -410,7 +410,7 @@ var _ = Describe("Ranger", Ordered, func() {
 
 	Describe("Alias", func() {
 
-		Describe("Create", func() {
+		Describe("Set", func() {
 			It("Should set an Alias for a channel on a range", func() {
 				r := ranger.Range{
 					Name: "Range",

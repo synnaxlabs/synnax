@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { view } from "@synnaxlabs/client";
 import {
   Component,
   Flex,
@@ -18,20 +17,16 @@ import {
   List as PList,
   Select,
   type state,
-  View,
 } from "@synnaxlabs/pluto";
+import { type record } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
 import { EmptyAction } from "@/components";
 import { Layout } from "@/layout";
-import { CREATE_LAYOUT } from "@/status/Create";
-import { Item } from "@/status/list/Item";
-import { Filters, SelectFilters } from "@/status/list/SelectFilters";
-import { CreateButton } from "@/status/Select";
 
-export interface ListProps
+export interface ExplorerProps<K extends record.Key, E extends record.Keyed<K>>
   extends Pick<
-    Flux.UseListReturn<PList.PagerParams, status.Key, status.Status>,
+    Flux.UseListReturn<PList.PagerParams, K, E>,
     "data" | "getItem" | "subscribe" | "retrieve"
   > {
   enableSearch?: boolean;
@@ -52,7 +47,7 @@ const EmptyContent = () => {
   );
 };
 
-export const List = ({
+export const Explorer = <K extends record.Key, E extends record.Keyed<K>>({
   data,
   getItem,
   subscribe,
@@ -60,10 +55,9 @@ export const List = ({
   enableSearch = false,
   enableFilters = false,
   initialRequest = {},
-}: ListProps) => {
+}: ExplorerProps<K, E>) => {
   const [request, setRequest] = useState<status.MultiRetrieveArgs>(initialRequest);
-  const [selected, setSelected] = useState<status.Key[]>([]);
-  const views = View.useRetrieveMultiple({});
+  const [selected, setSelected] = useState<K[]>([]);
 
   const handleRequestChange = useCallback(
     (setter: state.SetArg<status.MultiRetrieveArgs>, opts?: Flux.AsyncListOptions) => {
@@ -86,7 +80,7 @@ export const List = ({
 
   return (
     <Flex.Box full="y" empty>
-      <Select.Frame<status.Key, status.Status>
+      <Select.Frame<K, E>
         multiple
         data={data}
         getItem={getItem}

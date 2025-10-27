@@ -26,6 +26,7 @@ type ViewService struct {
 	internal *view.Service
 }
 
+// NewViewService creates a new service for managing views.
 func NewViewService(p Provider) *ViewService {
 	return &ViewService{
 		internal:       p.Service.View,
@@ -37,8 +38,7 @@ func NewViewService(p Provider) *ViewService {
 type View = view.View
 
 type ViewCreateRequest struct {
-	Parent ontology.ID `json:"parent" msgpack:"parent"`
-	Views  []View      `json:"views" msgpack:"views"`
+	Views []View `json:"views" msgpack:"views"`
 }
 
 type ViewCreateResponse struct {
@@ -48,33 +48,33 @@ type ViewCreateResponse struct {
 func (s *ViewService) Create(
 	ctx context.Context,
 	req ViewCreateRequest,
-) (res ViewCreateResponse, err error) {
-	objects := view.OntologyIDsFromViews(req.Views)
-	if !req.Parent.IsZero() {
-		objects = append(objects, req.Parent)
-	}
+) (ViewCreateResponse, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
-		Objects: objects,
+		Objects: view.OntologyIDsFromViews(req.Views),
 	}); err != nil {
-		return res, err
+		return ViewCreateResponse{}, err
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.internal.NewWriter(tx).CreateManyWithParent(ctx, &req.Views, req.Parent)
-		if err != nil {
+	var res ViewCreateResponse
+	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Views); err != nil {
 			return err
 		}
 		res.Views = req.Views
 		return nil
-	})
+	}); err != nil {
+		return ViewCreateResponse{}, err
+	}
+	return res, nil
 }
 
 type ViewRetrieveRequest struct {
-	Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
-	SearchTerm string      `json:"search_term" msgpack:"search_term"`
-	Limit      int         `json:"limit" msgpack:"limit"`
-	Offset     int         `json:"offset" msgpack:"offset"`
+	Keys       []uuid.UUID     `json:"keys" msgpack:"keys"`
+	Types      []ontology.Type `json:"types" msgpack:"types"`
+	SearchTerm string          `json:"search_term" msgpack:"search_term"`
+	Limit      int             `json:"limit" msgpack:"limit"`
+	Offset     int             `json:"offset" msgpack:"offset"`
 }
 
 type ViewRetrieveResponse struct {
@@ -84,9 +84,8 @@ type ViewRetrieveResponse struct {
 func (s *ViewService) Retrieve(
 	ctx context.Context,
 	req ViewRetrieveRequest,
-) (res ViewRetrieveResponse, err error) {
+) (ViewRetrieveResponse, error) {
 	q := s.internal.NewRetrieve()
-
 	if req.SearchTerm != "" {
 		q = q.Search(req.SearchTerm)
 	}
@@ -99,18 +98,22 @@ func (s *ViewService) Retrieve(
 	if len(req.Keys) != 0 {
 		q = q.WhereKeys(req.Keys...)
 	}
+	if len(req.Types) != 0 {
+		q = q.WhereTypes(req.Types...)
+	}
 
-	if err = q.Entries(&res.Views).Exec(ctx, nil); err != nil {
+	var views []view.View
+	if err := q.Entries(&views).Exec(ctx, nil); err != nil {
 		return ViewRetrieveResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,
-		Objects: view.OntologyIDsFromViews(res.Views),
+		Objects: view.OntologyIDsFromViews(views),
 	}); err != nil {
 		return ViewRetrieveResponse{}, err
 	}
-	return res, nil
+	return ViewRetrieveResponse{Views: views}, nil
 }
 
 type ViewDeleteRequest struct {

@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-var _ = Describe("Integer Create", Ordered, func() {
+var _ = Describe("Integer Set", Ordered, func() {
 	var (
 		s    set.Integer[int]
 		nums [100]int

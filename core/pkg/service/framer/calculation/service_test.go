@@ -273,7 +273,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		sCtx, cancel := signal.WithCancel(ctx)
 		defer cancel()
 
-		// Create up writer for base channel
+		// Set up writer for base channel
 		w := MustSucceed(
 			dist.Framer.OpenWriter(
 				ctx,
@@ -283,7 +283,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				},
 			),
 		)
-		// Create up a streamer to watch for status changes
+		// Set up a streamer to watch for status changes
 		streamer := MustSucceed(
 			dist.Framer.NewStreamer(
 				ctx,

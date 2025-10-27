@@ -16,8 +16,9 @@ export const viewZ = z.object({
   key: keyZ,
   name: z.string(),
   type: z.string(),
-  query: z.record(z.string(), z.any()),
+  query: z.record(z.string(), z.json()),
 });
+export interface View extends z.infer<typeof viewZ> {}
 
-export type View = z.infer<typeof viewZ>;
-export type Params = Key | Key[];
+export const newZ = viewZ.extend({ key: keyZ.optional() });
+export interface New extends z.infer<typeof newZ> {}

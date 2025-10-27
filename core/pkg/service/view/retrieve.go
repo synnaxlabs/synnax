@@ -11,15 +11,15 @@ package view
 
 import (
 	"context"
+	"slices"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Retrieve is used to retrieve viewes from the cluster using a builder pattern.
+// Retrieve is used to retrieve views from the cluster using a builder pattern.
 type Retrieve struct {
 	baseTX     gorp.Tx
 	gorp       gorp.Retrieve[uuid.UUID, View]
@@ -32,7 +32,7 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
 // Entry binds the View that Retrieve will fill results into. If multiple results match
 // the query, only the first result will be filled into the provided View.
-func (r Retrieve) Entry(s *View) Retrieve { r.gorp.Entry(s); return r }
+func (r Retrieve) Entry(view *View) Retrieve { r.gorp.Entry(view); return r }
 
 // Limit sets the maximum number of results that Retrieve will return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp.Limit(limit); return r }
@@ -41,13 +41,24 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp.Limit(limit); return r }
 func (r Retrieve) Offset(offset int) Retrieve { r.gorp.Offset(offset); return r }
 
 // Entries binds a slice that Retrieve will fill results into.
-func (r Retrieve) Entries(s *[]View) Retrieve { r.gorp.Entries(s); return r }
+func (r Retrieve) Entries(views *[]View) Retrieve { r.gorp.Entries(views); return r }
 
-// WhereKeys filters for viewes whose Key attribute matches the provided key.
-func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve { r.gorp.WhereKeys(keys...); return r }
+// WhereKeys filters for views whose Key attribute matches the provided key.
+func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve {
+	r.gorp = r.gorp.WhereKeys(keys...)
+	return r
+}
+
+// WhereTypes filters for views whose Type attribute matches the provided type.
+func (r Retrieve) WhereTypes(types ...ontology.Type) Retrieve {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, v *View) (bool, error) {
+		return slices.Contains(types, v.Type), nil
+	})
+	return r
+}
 
 // Exec executes the query and fills the results into the provided View or slice of
-// Viewes. It's important to note that fuzzy search will not be aware of any writes/
+// views. It's important to note that fuzzy search will not be aware of any writes/
 // deletes executed on the tx, and will only search the underlying database.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTX, tx)
@@ -59,7 +70,10 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		if err != nil {
 			return err
 		}
-		keys := lo.Must(KeysFromOntologyIDs(ids))
+		keys, err := KeysFromOntologyIDs(ids)
+		if err != nil {
+			return err
+		}
 		r = r.WhereKeys(keys...)
 	}
 	if err := r.gorp.Exec(ctx, tx); err != nil {
