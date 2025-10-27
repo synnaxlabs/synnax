@@ -209,8 +209,6 @@ type Channel struct {
 	Operations []Operation `json:"operations" msgpack:"operations"`
 	// Requires is only used for calculated channels, and specifies the channels that
 	// are required for the calculation.
-	//
-	// Deprecated: only used for lua-based calculated channels.
 	Requires Keys `json:"requires" msgpack:"requires"`
 	// Expression is only used for calculated channels, and specifies the Lua expression
 	// to evaluate the calculated value.
