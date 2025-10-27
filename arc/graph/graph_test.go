@@ -123,23 +123,23 @@ var _ = Describe("Graph", func() {
 						Key:    "printer",
 						Config: types.Params{},
 						Inputs: types.Params{
-							Keys:   []string{"input"},
+							Keys:   []string{ir.DefaultInputParam},
 							Values: []types.Type{types.F32()},
 						},
 					},
 				},
 				Nodes: []graph.Node{
 					{
-						Key:          "first",
-						Type:         "on",
-						ConfigValues: map[string]any{"channel": 12},
+						Key:    "first",
+						Type:   "on",
+						Config: map[string]any{"channel": 12},
 					},
 					{Key: "printer", Type: "printer"},
 				},
 				Edges: []arc.Edge{
 					{
 						Source: arc.Handle{Node: "first", Param: ir.DefaultOutputParam},
-						Target: arc.Handle{Node: "printer", Param: "input"},
+						Target: arc.Handle{Node: "printer", Param: ir.DefaultInputParam},
 					},
 				},
 			}
@@ -316,7 +316,7 @@ var _ = Describe("Graph", func() {
 						{
 							Key: "poly_scale",
 							Inputs: types.Params{
-								Keys:   []string{"input"},
+								Keys:   []string{ir.DefaultInputParam},
 								Values: []types.Type{types.Variable("U", &constraint)},
 							},
 							Outputs: types.Params{
@@ -350,7 +350,11 @@ var _ = Describe("Graph", func() {
 						},
 						{
 							Source: ir.Handle{Node: "add1", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "scale1", Param: "input"},
+							Target: ir.Handle{Node: "scale1", Param: ir.DefaultInputParam},
+						},
+						{
+							Source: ir.Handle{Node: "add1", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "scale2", Param: ir.DefaultInputParam},
 						},
 					},
 				}
@@ -364,7 +368,7 @@ var _ = Describe("Graph", func() {
 				Expect(addReturnType).To(Equal(types.F64()))
 
 				scale1Node, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "scale1" })
-				inputType, _ := scale1Node.Inputs.Get("input")
+				inputType, _ := scale1Node.Inputs.Get(ir.DefaultInputParam)
 				Expect(inputType).To(Equal(types.F64()))
 			})
 
@@ -478,7 +482,7 @@ var _ = Describe("Graph", func() {
 						{
 							Key: "sink",
 							Inputs: types.Params{
-								Keys:   []string{"input"},
+								Keys:   []string{ir.DefaultInputParam},
 								Values: []types.Type{types.F32()},
 							},
 						},
@@ -513,7 +517,7 @@ var _ = Describe("Graph", func() {
 						{
 							Key: "sink",
 							Inputs: types.Params{
-								Keys:   []string{"input"},
+								Keys:   []string{ir.DefaultInputParam},
 								Values: []types.Type{types.F32()},
 							},
 						},
@@ -609,24 +613,24 @@ var _ = Describe("Graph", func() {
 				g := arc.Graph{
 					Nodes: []graph.Node{
 						{
-							Key:          "on",
-							Type:         "on",
-							ConfigValues: map[string]any{"channel": 12},
+							Key:    "on",
+							Type:   "on",
+							Config: map[string]any{"channel": 12},
 						},
 						{
-							Key:          "constant",
-							Type:         "constant",
-							ConfigValues: map[string]any{"value": 10},
+							Key:    "constant",
+							Type:   "constant",
+							Config: map[string]any{"value": 10},
 						},
 						{
-							Key:          "ge",
-							Type:         "ge",
-							ConfigValues: map[string]any{},
+							Key:    "ge",
+							Type:   "ge",
+							Config: map[string]any{},
 						},
 						{
 							Key:  "stable_for",
 							Type: "stable_for",
-							ConfigValues: map[string]any{
+							Config: map[string]any{
 								"duration": int(telem.Millisecond * 1),
 							},
 						},
@@ -637,7 +641,7 @@ var _ = Describe("Graph", func() {
 						{
 							Key:  "status_success",
 							Type: "set_status",
-							ConfigValues: map[string]any{
+							Config: map[string]any{
 								"key":     "ox_alarm",
 								"variant": "success",
 								"message": "OX Pressure Nominal",
@@ -646,7 +650,7 @@ var _ = Describe("Graph", func() {
 						{
 							Key:  "status_error",
 							Type: "set_status",
-							ConfigValues: map[string]any{
+							Config: map[string]any{
 								"key":     "ox_alarm",
 								"variant": "error",
 								"message": "OX Pressure Alarm",
@@ -668,15 +672,15 @@ var _ = Describe("Graph", func() {
 						},
 						{
 							Source: arc.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
-							Target: arc.Handle{Node: "select", Param: "input"},
+							Target: arc.Handle{Node: "select", Param: ir.DefaultInputParam},
 						},
 						{
 							Source: arc.Handle{Node: "select", Param: "false"},
-							Target: arc.Handle{Node: "status_success", Param: "input"},
+							Target: arc.Handle{Node: "status_success", Param: ir.DefaultInputParam},
 						},
 						{
 							Source: arc.Handle{Node: "select", Param: "true"},
-							Target: arc.Handle{Node: "status_error", Param: "input"},
+							Target: arc.Handle{Node: "status_error", Param: ir.DefaultInputParam},
 						},
 					},
 				}
@@ -730,7 +734,7 @@ var _ = Describe("Graph", func() {
 							Values: []types.Type{types.TimeSpan()},
 						},
 						Inputs: types.Params{
-							Keys:   []string{"input"},
+							Keys:   []string{ir.DefaultInputParam},
 							Values: []types.Type{types.Variable("C", nil)},
 						},
 						Outputs: types.Params{
@@ -741,7 +745,7 @@ var _ = Describe("Graph", func() {
 					{
 						Key: "select",
 						Inputs: types.Params{
-							Keys:   []string{"input"},
+							Keys:   []string{ir.DefaultInputParam},
 							Values: []types.Type{types.U8()},
 						},
 						Outputs: types.Params{
@@ -756,7 +760,7 @@ var _ = Describe("Graph", func() {
 							Values: []types.Type{types.String(), types.String(), types.String()},
 						},
 						Inputs: types.Params{
-							Keys:   []string{"input"},
+							Keys:   []string{ir.DefaultInputParam},
 							Values: []types.Type{types.U8()},
 						},
 					},
@@ -801,12 +805,12 @@ var _ = Describe("Graph", func() {
 				constantNode := lo.Filter(parsed.Nodes, func(n graph.Node, _ int) bool {
 					return n.Key == "constant"
 				})[0]
-				Expect(constantNode.ConfigValues).To(HaveKeyWithValue("value", 10))
+				Expect(constantNode.Config).To(HaveKeyWithValue("value", 10))
 
 				stableForNode := lo.Filter(parsed.Nodes, func(n graph.Node, _ int) bool {
 					return n.Key == "stable_for"
 				})[0]
-				Expect(stableForNode.ConfigValues).To(HaveKeyWithValue("duration", int(telem.Millisecond)))
+				Expect(stableForNode.Config).To(HaveKeyWithValue("duration", int(telem.Millisecond)))
 
 				// Verify polymorphic node instances have concrete resolved types
 				// func definitions stay polymorphic, but each node instance gets concrete types
@@ -828,11 +832,201 @@ var _ = Describe("Graph", func() {
 				// The stable_for node should have concrete U8 types
 				// (since it receives U8 from "ge" comparison result)
 				stableIRNode, _ := lo.Find(inter.Nodes, func(n ir.Node) bool { return n.Key == "stable_for" })
-				inputType, _ := stableIRNode.Inputs.Get("input")
+				inputType, _ := stableIRNode.Inputs.Get(ir.DefaultInputParam)
 				Expect(inputType).To(Equal(types.U8()))
 				stableReturnType, _ := stableIRNode.Outputs.Get(ir.DefaultOutputParam)
 				Expect(stableReturnType).To(Equal(types.U8()))
 			})
 		})
+
+		Describe("Edge Validation", func() {
+			Describe("Type Matching", func() {
+				It("Should validate series type matching", func() {
+					g := graph.Graph{
+						Functions: []ir.Function{
+							{
+								Key: "series_f32_source",
+								Outputs: types.Params{
+									Keys:   []string{ir.DefaultOutputParam},
+									Values: []types.Type{types.Series(types.F32())},
+								},
+							},
+							{
+								Key: "series_i64_sink",
+								Inputs: types.Params{
+									Keys:   []string{ir.DefaultInputParam},
+									Values: []types.Type{types.Series(types.I64())},
+								},
+							},
+						},
+						Nodes: []graph.Node{
+							{Key: "src", Type: "series_f32_source"},
+							{Key: "snk_mismatch", Type: "series_i64_sink"},
+						},
+						Edges: []ir.Edge{
+							{
+								Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+								Target: ir.Handle{Node: "snk_mismatch", Param: ir.DefaultInputParam},
+							},
+						},
+					}
+					g = MustSucceed(graph.Parse(g))
+					_, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeFalse())
+					Expect(diagnostics.String()).To(ContainSubstring("type mismatch"))
+				})
+
+				It("Should succeed when all required inputs are connected", func() {
+					g := graph.Graph{
+						Functions: []ir.Function{
+							{
+								Key: "source",
+								Outputs: types.Params{
+									Keys:   []string{ir.DefaultOutputParam},
+									Values: []types.Type{types.F32()},
+								},
+							},
+							{
+								Key: "dual_input",
+								Inputs: types.Params{
+									Keys:   []string{"a", "b"},
+									Values: []types.Type{types.F32(), types.F32()},
+								},
+								Outputs: types.Params{
+									Keys:   []string{ir.DefaultOutputParam},
+									Values: []types.Type{types.F32()},
+								},
+							},
+						},
+						Nodes: []graph.Node{
+							{Key: "src1", Type: "source"},
+							{Key: "src2", Type: "source"},
+							{Key: "dual", Type: "dual_input"},
+						},
+						Edges: []ir.Edge{
+							{
+								Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
+								Target: ir.Handle{Node: "dual", Param: "a"},
+							},
+							{
+								Source: ir.Handle{Node: "src2", Param: ir.DefaultOutputParam},
+								Target: ir.Handle{Node: "dual", Param: "b"},
+							},
+						},
+					}
+					g = MustSucceed(graph.Parse(g))
+					inter, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					Expect(inter.Edges).To(HaveLen(2))
+				})
+				It("Should allow nodes with no inputs to exist without edges", func() {
+					g := graph.Graph{
+						Functions: []ir.Function{
+							{
+								Key: "source_only",
+								Outputs: types.Params{
+									Keys:   []string{ir.DefaultOutputParam},
+									Values: []types.Type{types.F32()},
+								},
+							},
+						},
+						Nodes: []graph.Node{
+							{Key: "src1", Type: "source_only"},
+							{Key: "src2", Type: "source_only"},
+						},
+						Edges: []ir.Edge{},
+					}
+					g = MustSucceed(graph.Parse(g))
+					inter, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					Expect(inter.Nodes).To(HaveLen(2))
+				})
+			})
+		})
+		Describe("Duplicate Edge Targets", func() {
+			It("Should error when multiple edges target the same input parameter", func() {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "source",
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.F32()},
+							},
+						},
+						{
+							Key: "processor",
+							Inputs: types.Params{
+								Keys:   []string{"input"},
+								Values: []types.Type{types.F32()},
+							},
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.F32()},
+							},
+						},
+					},
+					Nodes: []graph.Node{
+						{Key: "src1", Type: "source"},
+						{Key: "src2", Type: "source"},
+						{Key: "proc", Type: "processor"},
+					},
+					Edges: []ir.Edge{
+						{
+							Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "proc", Param: "input"},
+						},
+						{
+							Source: ir.Handle{Node: "src2", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "proc", Param: "input"},
+						},
+					},
+				}
+				g = MustSucceed(graph.Parse(g))
+				_, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring("multiple edges"))
+			})
+			It("Should allow multiple edges from the same source parameter", func() {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "source",
+							Outputs: types.Params{
+								Keys:   []string{ir.DefaultOutputParam},
+								Values: []types.Type{types.F32()},
+							},
+						},
+						{
+							Key: "sink",
+							Inputs: types.Params{
+								Keys:   []string{"input"},
+								Values: []types.Type{types.F32()},
+							},
+						},
+					},
+					Nodes: []graph.Node{
+						{Key: "src", Type: "source"},
+						{Key: "snk1", Type: "sink"},
+						{Key: "snk2", Type: "sink"},
+					},
+					Edges: []ir.Edge{
+						{
+							Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "snk1", Param: "input"},
+						},
+						{
+							Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "snk2", Param: "input"},
+						},
+					},
+				}
+				g = MustSucceed(graph.Parse(g))
+				inter, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Edges).To(HaveLen(2))
+			})
+		})
+
 	})
 })

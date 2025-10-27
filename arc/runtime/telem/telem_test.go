@@ -153,9 +153,6 @@ var _ = Describe("Telem", func() {
 					{Key: 10, DataType: telem.Float32T, Index: 11},
 					{Key: 20, DataType: telem.Int32T, Index: 0},
 				},
-				ReactiveDeps: map[uint32][]string{
-					10: {"source"},
-				},
 				Nodes: []ir.Node{
 					{
 						Key:  "source",
@@ -305,9 +302,6 @@ var _ = Describe("Telem", func() {
 				cfg := state.Config{
 					ChannelDigests: []state.ChannelDigest{
 						{Key: 30, DataType: telem.Float64T, Index: 31},
-					},
-					ReactiveDeps: map[uint32][]string{
-						30: {"misaligned"},
 					},
 					Nodes: []ir.Node{
 						{
@@ -514,9 +508,6 @@ var _ = Describe("Telem", func() {
 						{Key: 1, DataType: telem.Int32T, Index: 2},
 						{Key: 3, DataType: telem.Int32T, Index: 4},
 					},
-					ReactiveDeps: map[uint32][]string{
-						1: {"read"},
-					},
 					Nodes: []ir.Node{
 						{
 							Key:  "read",
@@ -584,10 +575,6 @@ var _ = Describe("Telem", func() {
 						{Key: 20, DataType: telem.Float64T, Index: 21},
 						{Key: 30, DataType: telem.Float32T, Index: 31},
 						{Key: 40, DataType: telem.Float64T, Index: 41},
-					},
-					ReactiveDeps: map[uint32][]string{
-						10: {"read1"},
-						20: {"read2"},
 					},
 					Nodes: []ir.Node{
 						{Key: "read1", Type: "on", Outputs: types.Params{

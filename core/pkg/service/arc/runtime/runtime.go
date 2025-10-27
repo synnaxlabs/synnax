@@ -38,6 +38,7 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -136,13 +137,13 @@ type Runtime struct {
 	streamer  *streamerSeg
 	writer    *writerSeg
 	state     *state.State
-	close     io.Closer
+	closer    io.Closer
 }
 
 func (r *Runtime) Close() error {
 	c := errors.NewCatcher(errors.WithAggregation())
 	c.Exec(r.streamer.Close)
-	c.Exec(r.close.Close)
+	c.Exec(r.closer.Close)
 	return c.Error()
 }
 
@@ -178,52 +179,6 @@ func retrieveChannels(
 		return nil, err
 	}
 	return slices.Concat(channels, indexChannels), nil
-}
-
-func NewStateConfig(
-	ctx context.Context,
-	channelSvc channel.Readable,
-	module arc.Module,
-) (state.Config, error) {
-	channelKeys := make(map[uint32]bool)
-	reactiveDeps := make(map[uint32][]string)
-	for _, n := range module.Nodes {
-		for chanKey := range n.Channels.Read {
-			channelKeys[chanKey] = true
-			if n.Type == "on" {
-				reactiveDeps[chanKey] = append(reactiveDeps[chanKey], n.Key)
-			}
-		}
-		for chanKey := range n.Channels.Write {
-			channelKeys[chanKey] = true
-		}
-	}
-	keys := lo.Keys(channelKeys)
-	channelKeysList := lo.Map(keys, func(k uint32, _ int) channel.Key {
-		return channel.Key(k)
-	})
-	channels, err := retrieveChannels(ctx, channelSvc, channelKeysList)
-	if err != nil {
-		return state.Config{}, err
-	}
-	channelDigests := make([]state.ChannelDigest, 0, len(channels))
-	for _, ch := range channels {
-		channelDigests = append(channelDigests, state.ChannelDigest{
-			Key:      uint32(ch.Key()),
-			DataType: ch.DataType,
-			Index:    uint32(ch.Index()),
-		})
-		if ch.Index() != 0 && !ch.Virtual {
-			deps := reactiveDeps[uint32(ch.Key())]
-			reactiveDeps[uint32(ch.Index())] = append(reactiveDeps[uint32(ch.Index())], deps...)
-		}
-	}
-	return state.Config{
-		ChannelDigests: channelDigests,
-		Edges:          module.Edges,
-		ReactiveDeps:   reactiveDeps,
-		Nodes:          module.Nodes,
-	}, nil
 }
 
 var (
@@ -292,7 +247,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	progState := state.New(stateCfg)
+	progState := state.New(stateCfg.State)
 
 	telemFactory := arctelem.NewTelemFactory()
 	selectFactory := selector.NewFactory()
@@ -309,10 +264,17 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		stableFactory,
 		statusFactory,
 	}
+	var closers xio.MultiCloser
 	if len(cfg.Module.WASM) > 0 {
-		wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
+		wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
 			Module: cfg.Module,
+			State:  progState,
 		})
+		closers = append(closers, wasmMod)
+		if err != nil {
+			return nil, err
+		}
+		wasmFactory, err := wasm.NewFactory(wasmMod)
 		if err != nil {
 			return nil, err
 		}
@@ -340,44 +302,24 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		writer:    &writerSeg{},
 	}
 
-	readChannelKeys := make([]channel.Key, 0)
-	writeChannelKeys := make([]channel.Key, 0)
-	for _, n := range cfg.Module.Nodes {
-		for chanKey := range n.Channels.Read {
-			readChannelKeys = append(readChannelKeys, channel.Key(chanKey))
-		}
-		for chanKey := range n.Channels.Write {
-			writeChannelKeys = append(writeChannelKeys, channel.Key(chanKey))
-		}
-	}
-
-	readChannels, err := retrieveChannels(ctx, cfg.Channel, readChannelKeys)
-	if err != nil {
-		return nil, err
-	}
 	streamPipeline, requests, err := createStreamPipeline(
 		ctx,
 		r,
 		cfg.Framer,
-		channel.KeysFromChannels(readChannels),
+		stateCfg.Reads.Keys(),
 	)
 	if err != nil {
 		return nil, err
 	}
 	r.streamer.requests = requests
-
-	writeChannels, err := retrieveChannels(ctx, cfg.Channel, writeChannelKeys)
-	if err != nil {
-		return nil, err
-	}
 	var writePipeline confluence.Flow
-	if len(writeChannels) > 0 {
+	if len(stateCfg.Writes) > 0 {
 		writePipeline, err = createWritePipeline(
 			ctx,
 			cfg.Name,
 			r,
 			cfg.Framer,
-			channel.KeysFromChannels(writeChannels),
+			stateCfg.Writes.Keys(),
 		)
 		if err != nil {
 			return nil, err
@@ -398,6 +340,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 			confluence.RecoverWithErrOnPanic(),
 		)
 	}
-	r.close = signal.NewGracefulShutdown(sCtx, cancel)
+	r.closer = append(closers, signal.NewGracefulShutdown(sCtx, cancel))
 	return r, err
 }

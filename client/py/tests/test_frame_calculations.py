@@ -258,7 +258,7 @@ class TestCalculatedChannelIteration:
             }} else {{
                 return 5
             }}
-            """
+            """,
         )
         idx_data = [
             5 * sy.TimeSpan.SECOND,
@@ -311,7 +311,7 @@ class TestCalculatedChannelIteration:
                   return 4
               }} else {{
                   return 5
-              }}"""
+              }}""",
         )
         idx_data = [
             5 * sy.TimeSpan.SECOND,

@@ -244,7 +244,7 @@ func controller{
 			Expect(taskDecl.FUNC()).NotTo(BeNil())
 			Expect(taskDecl.IDENTIFIER().GetText()).To(Equal("controller"))
 
-			// ConfigValues block
+			// Config block
 			config := taskDecl.ConfigBlock()
 			Expect(config).NotTo(BeNil())
 			Expect(config.AllConfig()).To(HaveLen(3))
@@ -314,7 +314,7 @@ controller{
 
 			Expect(invocation.IDENTIFIER().GetText()).To(Equal("controller"))
 
-			// ConfigValues values
+			// Config values
 			config := invocation.ConfigValues()
 			Expect(config).NotTo(BeNil())
 			Expect(config.NamedConfigValues()).NotTo(BeNil())

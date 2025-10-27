@@ -81,24 +81,24 @@ var _ = Describe("Runtime", Ordered, func() {
 			graph := arc.Graph{
 				Nodes: []graph.Node{
 					{
-						Key:          "on",
-						Type:         "on",
-						ConfigValues: map[string]any{"channel": ch.Key()},
+						Key:    "on",
+						Type:   "on",
+						Config: map[string]any{"channel": ch.Key()},
 					},
 					{
-						Key:          "constant",
-						Type:         "constant",
-						ConfigValues: map[string]any{"value": 10},
+						Key:    "constant",
+						Type:   "constant",
+						Config: map[string]any{"value": 10},
 					},
 					{
-						Key:          "ge",
-						Type:         "ge",
-						ConfigValues: map[string]any{},
+						Key:    "ge",
+						Type:   "ge",
+						Config: map[string]any{},
 					},
 					{
 						Key:  "stable_for",
 						Type: "stable_for",
-						ConfigValues: map[string]any{
+						Config: map[string]any{
 							"duration": int(telem.Millisecond * 0),
 						},
 					},
@@ -109,7 +109,7 @@ var _ = Describe("Runtime", Ordered, func() {
 					{
 						Key:  "status_success",
 						Type: "set_status",
-						ConfigValues: map[string]any{
+						Config: map[string]any{
 							"status_key": "ox_alarm",
 							"variant":    "success",
 							"name":       "OX Alarm",
@@ -119,7 +119,7 @@ var _ = Describe("Runtime", Ordered, func() {
 					{
 						Key:  "status_error",
 						Type: "set_status",
-						ConfigValues: map[string]any{
+						Config: map[string]any{
 							"status_key": "ox_alarm",
 							"variant":    "error",
 							"name":       "OX Alarm",
@@ -146,11 +146,11 @@ var _ = Describe("Runtime", Ordered, func() {
 					},
 					{
 						Source: arc.Handle{Node: "select", Param: "false"},
-						Target: arc.Handle{Node: "status_success", Param: ir.DefaultInputParam},
+						Target: arc.Handle{Node: "status_success", Param: ir.DefaultOutputParam},
 					},
 					{
 						Source: arc.Handle{Node: "select", Param: "true"},
-						Target: arc.Handle{Node: "status_error", Param: ir.DefaultInputParam},
+						Target: arc.Handle{Node: "status_error", Param: ir.DefaultOutputParam},
 					},
 				},
 			}
@@ -167,6 +167,9 @@ var _ = Describe("Runtime", Ordered, func() {
 			Expect(v).To(Equal(types.F32()), "constant output should be f32, got: %v, ge.a: %v, ge.b: %v", v, geA, geB)
 
 			r := MustSucceed(runtime.Open(ctx, cfg))
+			defer func() {
+				Expect(r.Close()).To(Succeed())
+			}()
 			time.Sleep(time.Millisecond * 20)
 
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
@@ -189,8 +192,6 @@ var _ = Describe("Runtime", Ordered, func() {
 				g.Expect(statusSvc.NewRetrieve().WhereKeys("ox_alarm").Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
 			}).To(Succeed())
-
-			Expect(r.Close()).To(Succeed())
 		})
 	})
 })

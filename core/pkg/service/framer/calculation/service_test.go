@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -76,13 +77,13 @@ var _ = Describe("Calculation", Ordered, func() {
 				Keys:  writerKeys,
 			},
 		))
+		streamKeys := lo.FilterMap(*calculations, func(item channel.Channel, index int) (channel.Key, bool) {
+			return item.Key(), !item.IsIndex
+		})
 		streamer := MustSucceed(
 			dist.Framer.NewStreamer(
 				ctx,
-				framer.StreamerConfig{
-					Keys:        []channel.Key{(*calculations)[0].Key()},
-					SendOpenAck: config.True(),
-				},
+				framer.StreamerConfig{Keys: streamKeys, SendOpenAck: config.True()},
 			),
 		)
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
@@ -413,6 +414,44 @@ var _ = Describe("Calculation", Ordered, func() {
 				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](4, 16))
 			})
+		})
+
+		Specify("Calculations of Calculations", func() {
+			bases := []channel.Channel{{
+				Name:     "base",
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			calcs := []channel.Channel{{
+				Name:        "calculated",
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+				Expression:  "return base * 2",
+			}, {
+				Name:        "calculated_2",
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+				Expression:  "return calculated * 2",
+			}}
+			w, sOutlet, cancel := open(nil, &bases, &calcs)
+			defer cancel()
+			baseCh := bases[0]
+			calcCh := calcs[0]
+			calc2Ch := calcs[1]
+			MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
+
+			var res framer.StreamerResponse
+			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
+			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
+
+			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calc2Ch.Key()}))
+			Expect(res.Frame.Get(calc2Ch.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](4, 8))
+
+			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 		})
 	})
 })

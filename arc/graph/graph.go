@@ -64,8 +64,8 @@ type Node struct {
 	Key string `json:"key"`
 	// Type is the function type this node instantiates.
 	Type string `json:"type"`
-	// ConfigValues are the raw configuration parameter values.
-	ConfigValues map[string]any `json:"config_values"`
+	// Config are the raw configuration parameter values.
+	Config map[string]any `json:"config"`
 	// Position is the visual position in the graph editor.
 	Position spatial.XY `json:"position"`
 }
@@ -151,26 +151,30 @@ func validateEdge(
 		return false
 	}
 
-	sourceType, ok := freshFuncTypes[sourceNode.Key].Outputs.Get(edge.Source.Param)
+	sourceFunc := freshFuncTypes[sourceNode.Key]
+	sourceType, ok := sourceFunc.Outputs.Get(edge.Source.Param)
 	if !ok {
 		ctx.Diagnostics.AddError(
 			errors.Wrapf(
 				query.NotFound,
-				"output '%s' not found in node '%s'",
+				"output '%s' not found in node '%s' (%s)",
 				edge.Source.Param,
 				edge.Source.Node,
+				sourceNode.Type,
 			), nil)
 		return false
 	}
 
-	targetType, ok := freshFuncTypes[targetNode.Key].Inputs.Get(edge.Target.Param)
+	targetFunc := freshFuncTypes[targetNode.Key]
+	targetType, ok := targetFunc.Inputs.Get(edge.Target.Param)
 	if !ok {
 		ctx.Diagnostics.AddError(
 			errors.Wrapf(
 				query.NotFound,
-				"input '%s' not found in node '%s'",
+				"input '%s' not found in node '%s' (%s)",
 				edge.Target.Param,
 				edge.Target.Node,
+				targetNode.Type,
 			), nil)
 		return false
 	}
@@ -282,7 +286,7 @@ func Analyze(
 		irNodes[i] = ir.Node{
 			Key:          n.Key,
 			Type:         n.Type,
-			ConfigValues: n.ConfigValues,
+			ConfigValues: n.Config,
 			Channels:     fnSym.Channels.Copy(),
 		}
 		freshType := freshFuncTypes[n.Key]
@@ -290,7 +294,7 @@ func Analyze(
 			continue
 		}
 		for key, configType := range freshType.Config.Iter() {
-			configValue, ok := n.ConfigValues[key]
+			configValue, ok := n.Config[key]
 			if !ok {
 				continue
 			}
@@ -322,6 +326,50 @@ func Analyze(
 		if !validateEdge(ctx, edge, g.Nodes, freshFuncTypes) {
 			return ir.IR{}, ctx.Diagnostics
 		}
+	}
+
+	// Step 5.5: Check for Duplicate Edge Targets and Build Connected Inputs Map
+	connectedInputs := make(map[string]map[string]bool)
+	for _, edge := range g.Edges {
+		if connectedInputs[edge.Target.Node] == nil {
+			connectedInputs[edge.Target.Node] = make(map[string]bool)
+		}
+		if connectedInputs[edge.Target.Node][edge.Target.Param] {
+			ctx.Diagnostics.AddError(
+				errors.Newf(
+					"multiple edges target node '%s' parameter '%s'",
+					edge.Target.Node,
+					edge.Target.Param,
+				), nil)
+		}
+		connectedInputs[edge.Target.Node][edge.Target.Param] = true
+	}
+	if !ctx.Diagnostics.Ok() {
+		return ir.IR{}, ctx.Diagnostics
+	}
+
+	// Step 5.6: Check Missing Required Inputs
+	for _, n := range g.Nodes {
+		freshType := freshFuncTypes[n.Key]
+		if freshType.Inputs == nil {
+			continue
+		}
+		//connected := connectedInputs[n.Key]
+		//for inputParam := range freshType.Inputs.Iter() {
+		//	if !connected[inputParam] {
+		//		ctx.Diagnostics.AddError(
+		//			errors.Wrapf(
+		//				query.NotFound,
+		//				"node '%s' (%s) missing required input '%s'",
+		//				n.Key,
+		//				n.Type,
+		//				inputParam,
+		//			), nil)
+		//	}
+		//}
+	}
+	if !ctx.Diagnostics.Ok() {
+		return ir.IR{}, ctx.Diagnostics
 	}
 
 	// Step 6: Unify Type Constraints

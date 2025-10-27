@@ -19,4 +19,6 @@ import "github.com/synnaxlabs/x/telem"
 
 type Binary = func(a, b telem.Series, output *telem.Series)
 
+type Unary = func(input telem.Series, output *telem.Series)
+
 type Reduction = func(input telem.Series, prevCount int64, output *telem.Series) int64

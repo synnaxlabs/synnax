@@ -217,7 +217,13 @@ var _ = Describe("Constant", func() {
 							Values: []types.Type{types.I64()},
 						},
 					},
-					{Key: "sink"},
+					{
+						Key: "sink",
+						Inputs: types.Params{
+							Keys:   []string{ir.DefaultInputParam},
+							Values: []types.Type{types.I64()},
+						},
+					},
 				},
 			})
 			cfg := node.Config{

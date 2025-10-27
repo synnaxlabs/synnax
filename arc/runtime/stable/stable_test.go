@@ -44,6 +44,10 @@ var _ = Describe("StableFor", func() {
 			ConfigValues: map[string]interface{}{
 				"duration": telem.Second * 1,
 			},
+			Inputs: types.Params{
+				Keys:   []string{ir.DefaultInputParam},
+				Values: []types.Type{types.U8()},
+			},
 			Outputs: types.Params{
 				Keys:   []string{ir.DefaultOutputParam},
 				Values: []types.Type{types.U8()},

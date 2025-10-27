@@ -60,7 +60,7 @@ var (
 )
 
 type source struct {
-	snode         *state.Node
+	*state.Node
 	key           uint32
 	highWaterMark xtelem.Alignment
 }
@@ -68,7 +68,7 @@ type source struct {
 func (s *source) Init(node.Context) {}
 
 func (s *source) Next(ctx node.Context) {
-	data, indexData, ok := s.snode.ReadChan(s.key)
+	data, indexData, ok := s.ReadChan(s.key)
 	if !ok || len(data.Series) == 0 {
 		return
 	}
@@ -91,8 +91,8 @@ func (s *source) Next(ctx node.Context) {
 			if timeSeries.Alignment != ser.Alignment {
 				return
 			}
-			*s.snode.Output(0) = ser
-			*s.snode.OutputTime(0) = timeSeries
+			*s.Output(0) = ser
+			*s.OutputTime(0) = timeSeries
 			s.highWaterMark = ab.Upper
 			ctx.MarkChanged(ir.DefaultOutputParam)
 			return
@@ -101,32 +101,32 @@ func (s *source) Next(ctx node.Context) {
 }
 
 type sink struct {
-	state *state.Node
-	key   uint32
+	*state.Node
+	key uint32
 }
 
-func (s *sink) Init(ctx node.Context) {
-	if !s.state.RefreshInputs() {
+func (s *sink) Init(node.Context) {
+	if !s.RefreshInputs() {
 		return
 	}
-	data := s.state.Input(0)
-	time := s.state.InputTime(0)
+	data := s.Input(0)
+	time := s.InputTime(0)
 	if data.Len() == 0 {
 		return
 	}
-	s.state.WriteChan(s.key, data, time)
+	s.WriteChan(s.key, data, time)
 }
 
 func (s *sink) Next(ctx node.Context) {
-	if !s.state.RefreshInputs() {
+	if !s.RefreshInputs() {
 		return
 	}
-	data := s.state.Input(0)
-	time := s.state.InputTime(0)
+	data := s.Input(0)
+	time := s.InputTime(0)
 	if data.Len() == 0 {
 		return
 	}
-	s.state.WriteChan(s.key, data, time)
+	s.WriteChan(s.key, data, time)
 }
 
 type telemFactory struct{}
@@ -136,7 +136,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 type config struct {
-	Channel uint32
+	Channel uint32 `json:"channel"`
 }
 
 func (t telemFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
@@ -150,9 +150,9 @@ func (t telemFactory) Create(_ context.Context, cfg node.Config) (node.Node, err
 		return nil, err
 	}
 	if isSource {
-		return &source{snode: cfg.State, key: nodeCfg.Channel, highWaterMark: 0}, nil
+		return &source{Node: cfg.State, key: nodeCfg.Channel, highWaterMark: 0}, nil
 	}
-	return &sink{state: cfg.State, key: nodeCfg.Channel}, nil
+	return &sink{Node: cfg.State, key: nodeCfg.Channel}, nil
 }
 
 func NewTelemFactory() node.Factory {

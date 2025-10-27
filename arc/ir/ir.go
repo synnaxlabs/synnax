@@ -54,7 +54,7 @@
 //	        {Key: "add", Inputs: Params{"a": I64, "b": I64}, Outputs: Params{"output": I64}},
 //	    },
 //	    Nodes: Nodes{
-//	        {Key: "n1", Type: "add", ConfigValues: map[string]any{}},
+//	        {Key: "n1", Type: "add", Config: map[string]any{}},
 //	    },
 //	    Edges: Edges{
 //	        {Source: Handle{Node: "input_a", Param: "value"}, Target: Handle{Node: "n1", Param: "a"}},

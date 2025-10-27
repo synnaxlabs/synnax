@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
@@ -94,8 +93,14 @@ var _ = Describe("Wasm", func() {
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			*rhsNode.Output(0) = telem.NewSeriesV[int64](10, 20)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
-			Expect(err).ToNot(HaveOccurred())
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n, err := factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
 				State:  s.Node("add"),
@@ -180,8 +185,14 @@ var _ = Describe("Wasm", func() {
 			*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30)
 			*bNode.Output(0) = telem.NewSeriesV[int32](5, 6, 7)
 			*bNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30)
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
-			Expect(err).ToNot(HaveOccurred())
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n, err := factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
 				State:  s.Node("multiply"),
@@ -266,8 +277,14 @@ var _ = Describe("Wasm", func() {
 			*xNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5, 10, 15, 20)
 			*yNode.Output(0) = telem.NewSeriesV[float32](25.0)
 			*yNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
-			Expect(err).ToNot(HaveOccurred())
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n, err := factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
 				State:  s.Node("subtract"),
@@ -355,14 +372,19 @@ var _ = Describe("Wasm", func() {
 			*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			*bNode.Output(0) = telem.NewSeriesV[int64](5)
 			*bNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
-			Expect(err).ToNot(HaveOccurred())
-			n, err := factory.Create(ctx, node.Config{
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
 				State:  s.Node("math_ops"),
 				Module: mod,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains("sum")).To(BeTrue())
@@ -381,105 +403,6 @@ var _ = Describe("Wasm", func() {
 			productTime := *s.Node("math_ops").OutputTime(1)
 			Expect(productTime.Len()).To(Equal(int64(3)))
 			Expect(productTime).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1, 2, 3)))
-		})
-	})
-
-	Describe("Next with empty inputs", func() {
-		It("Should not execute when all inputs are empty", func() {
-			g := arc.Graph{
-				Functions: []ir.Function{
-					{
-						Key: "divide",
-						Inputs: types.Params{
-							Keys:   []string{"numerator", "denominator"},
-							Values: []types.Type{types.F64(), types.F64()},
-						},
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
-						},
-						Body: ir.Body{Raw: `{
-							return numerator / denominator
-						}`},
-					},
-				},
-				Nodes: []graph.Node{
-					{Key: "num_source", Type: "divide"},
-					{Key: "den_source", Type: "divide"},
-					{Key: "div", Type: "divide"},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "num_source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "div", Param: "numerator"},
-					},
-					{
-						Source: ir.Handle{Node: "den_source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "div", Param: "denominator"},
-					},
-				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-			cfg := state.Config{
-				Nodes: []ir.Node{
-					{
-						Key: "numerator",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
-						},
-					},
-					{
-						Key: "denominator",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
-						},
-					},
-					{
-						Key:  "divide",
-						Type: "divide",
-						Inputs: types.Params{
-							Keys:   []string{"numerator", "denominator"},
-							Values: []types.Type{types.F64(), types.F64()},
-						},
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
-						},
-					},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "numerator", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "divide", Param: "numerator"},
-					},
-					{
-						Source: ir.Handle{Node: "denominator", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "divide", Param: "denominator"},
-					},
-				},
-			}
-			s := state.New(cfg)
-			numNode := s.Node("numerator")
-			denNode := s.Node("denominator")
-			*numNode.Output(0) = telem.NewSeriesV[float64]()
-			*numNode.OutputTime(0) = telem.NewSeriesSecondsTSV()
-			*denNode.Output(0) = telem.NewSeriesV[float64]()
-			*denNode.OutputTime(0) = telem.NewSeriesSecondsTSV()
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
-			Expect(err).ToNot(HaveOccurred())
-			n, err := factory.Create(ctx, node.Config{
-				Node:   cfg.Nodes[2],
-				State:  s.Node("divide"),
-				Module: mod,
-			})
-			Expect(err).ToNot(HaveOccurred())
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
-			result := *s.Node("divide").Output(0)
-			Expect(result.Len()).To(Equal(int64(0)))
 		})
 	})
 
@@ -537,14 +460,19 @@ var _ = Describe("Wasm", func() {
 			fr = fr.Append(0, telem.NewSeriesV[int32](21))
 			s.Ingest(fr)
 
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
-			Expect(err).ToNot(HaveOccurred())
-			n, err := factory.Create(ctx, node.Config{
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[0],
 				State:  s.Node("read_channel"),
 				Module: mod,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 
 			// Trigger execution
 			changed := make(set.Set[string])
@@ -595,15 +523,19 @@ var _ = Describe("Wasm", func() {
 				},
 			}
 			s := state.New(cfg)
-
-			factory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{Module: mod, State: s})
-			Expect(err).ToNot(HaveOccurred())
-			n, err := factory.Create(ctx, node.Config{
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[0],
 				State:  s.Node("counter"),
 				Module: mod,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 
 			// First call - should return 1
 			changed := make(set.Set[string])

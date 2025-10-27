@@ -51,6 +51,10 @@ var _ = Describe("Select", func() {
 					{
 						Key:  "select",
 						Type: "select",
+						Inputs: types.Params{
+							Keys:   []string{ir.DefaultInputParam},
+							Values: []types.Type{types.U8()},
+						},
 						Outputs: types.Params{
 							Keys:   []string{"true", "false"},
 							Values: []types.Type{types.U8(), types.U8()},
@@ -142,6 +146,10 @@ var _ = Describe("Select", func() {
 					{
 						Key:  "select",
 						Type: "select",
+						Inputs: types.Params{
+							Keys:   []string{ir.DefaultInputParam},
+							Values: []types.Type{types.U8()},
+						},
 						Outputs: types.Params{
 							Keys:   []string{"true", "false"},
 							Values: []types.Type{types.U8(), types.U8()},

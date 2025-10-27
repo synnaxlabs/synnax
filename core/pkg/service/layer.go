@@ -261,10 +261,11 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.Config{
-			Instrumentation: cfg.Child("framer"),
-			Framer:          cfg.Distribution.Framer,
-			Channel:         cfg.Distribution.Channel,
-			Arc:             l.Arc,
+			Instrumentation:          cfg.Child("framer"),
+			Framer:                   cfg.Distribution.Framer,
+			Channel:                  cfg.Distribution.Channel,
+			Arc:                      l.Arc,
+			EnableLegacyCalculations: config.True(),
 		},
 	); !ok(err, l.Framer) {
 		return nil, err

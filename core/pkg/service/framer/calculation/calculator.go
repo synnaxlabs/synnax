@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
@@ -43,7 +44,7 @@ type Calculator struct {
 	ch         channel.Channel
 	state      *state.State
 	scheduler  *scheduler.Scheduler
-	stateCfg   state.Config
+	stateCfg   arcruntime.ExtendedStateConfig
 	alignments map[channel.Key]telem.Alignment
 	timeRange  telem.TimeRange
 }
@@ -108,12 +109,15 @@ func buildModule(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) 
 			{
 				Key:  "write",
 				Type: "write",
-				ConfigValues: map[string]any{
+				Config: map[string]any{
 					"channel": cfg.Channel.Key(),
 				},
 			},
 		},
 	}
+	cfg.Channel.Operations = lo.Filter(cfg.Channel.Operations, func(item channel.Operation, _ int) bool {
+		return item.Type != "none"
+	})
 	if len(cfg.Channel.Operations) == 0 {
 		g2.Edges = []graph.Edge{
 			{
@@ -128,7 +132,7 @@ func buildModule(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) 
 			g2.Nodes = append(g2.Nodes, graph.Node{
 				Key:  fmt.Sprintf("op_%d", i),
 				Type: o.Type,
-				ConfigValues: map[string]any{
+				Config: map[string]any{
 					"duration": o.Duration,
 				},
 			})
@@ -137,7 +141,7 @@ func buildModule(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) 
 				g2.Nodes = append(g2.Nodes, graph.Node{
 					Key:  resetKey,
 					Type: "on",
-					ConfigValues: map[string]any{
+					Config: map[string]any{
 						"channel": o.ResetChannel,
 					},
 				})
@@ -172,9 +176,9 @@ func buildModule(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) 
 		}
 		g2.Functions[0].Inputs.Put(sym.Name, *sym.Type.ValueType)
 		g2.Nodes = append(g2.Nodes, graph.Node{
-			Key:          sym.Name,
-			Type:         "on",
-			ConfigValues: map[string]any{"channel": k},
+			Key:    sym.Name,
+			Type:   "on",
+			Config: map[string]any{"channel": k},
 		})
 		g2.Edges = append(g2.Edges, graph.Edge{
 			Source: ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam},
@@ -209,7 +213,7 @@ func OpenCalculator(
 	if err != nil {
 		return nil, err
 	}
-	progState := state.New(stateCfg)
+	progState := state.New(stateCfg.State)
 
 	telemFactory := ntelem.NewTelemFactory()
 	selectFactory := selector.NewFactory()
@@ -217,13 +221,16 @@ func OpenCalculator(
 	statFactory := stat.NewFactory(stat.Config{})
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
-	wasmFactory, err := wasm.NewFactory(ctx, wasm.FactoryConfig{
+	wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
 		Module: module,
 	})
 	if err != nil {
 		return nil, err
 	}
-
+	wasmFactory, err := wasm.NewFactory(wasmMod)
+	if err != nil {
+		return nil, err
+	}
 	f := node.MultiFactory{
 		opFactory,
 		telemFactory,
@@ -233,8 +240,6 @@ func OpenCalculator(
 		wasmFactory,
 		statFactory,
 	}
-
-	f = append(f, wasmFactory)
 	nodes := make(map[string]node.Node)
 	for _, irNode := range module.Nodes {
 		n, err := f.Create(ctx, node.Config{
@@ -251,7 +256,7 @@ func OpenCalculator(
 	sched := scheduler.New(ctx, module.IR, nodes)
 	sched.Init(ctx)
 	alignments := make(map[channel.Key]telem.Alignment)
-	for _, ch := range stateCfg.ChannelDigests {
+	for _, ch := range stateCfg.State.ChannelDigests {
 		if ch.Index == 0 {
 			alignments[channel.Key(ch.Key)] = telem.Alignment(0)
 		} else {
@@ -268,11 +273,7 @@ func OpenCalculator(
 }
 
 func (c *Calculator) ReadFrom() channel.Keys {
-	ch := make([]channel.Key, 0, len(c.stateCfg.ChannelDigests)*2)
-	for k := range c.stateCfg.ReactiveDeps {
-		ch = append(ch, channel.Key(k))
-	}
-	return ch
+	return c.stateCfg.Reads.Keys()
 }
 
 // Channel returns information about the channel being calculated.

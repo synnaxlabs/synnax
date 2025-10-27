@@ -153,15 +153,12 @@ func SetValueAt[T types.Numeric](s Series, i int, v T) {
 	f(s.Data[i*int(s.DataType.Density()):], v)
 }
 
-// CopyValue copies the sample from src at the index srcIdx to the index dstIdx in dst.
+// CopyValue copies the sample from src at the index srcIdx to the index srcIdx in src.
 // dst and src must have the same DataType, and that DataType cannot be of variable
 // density.
 func CopyValue(dst, src Series, dstIdx, srcIdx int) {
-	if dst.DataType != src.DataType {
-		panic("cannot copy values across series with different data types")
-	}
-	if dst.DataType.IsVariable() {
-		panic("cannot copy values from series with variable density data types")
+	if dst.DataType != src.DataType || dst.DataType.IsVariable() || src.DataType.IsVariable() {
+		panic("cannot copy values from non-variable series")
 	}
 	den := int(dst.DataType.Density())
 	copy(dst.Data[dstIdx*den:(dstIdx+1)*den], src.Data[srcIdx*den:(srcIdx+1)*den])

@@ -21,7 +21,7 @@ import (
 
 func isBool(t basetypes.Type) bool    { return t.IsBool() }
 func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
-func isAny(p basetypes.Type) bool     { return true }
+func isAny(basetypes.Type) bool       { return true }
 
 // Analyze validates type correctness of an expression and accumulates constraints.
 func Analyze(ctx context.Context[parser.IExpressionContext]) bool {

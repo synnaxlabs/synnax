@@ -219,6 +219,10 @@ func (c Channel) IsCalculated() bool {
 	return c.Expression != ""
 }
 
+func (c Channel) IsLegacyCalculated() bool {
+	return len(c.Requires) > 0
+}
+
 // Equals returns true if the two channels are meaningfully equal to each other. This
 // function should be used instead of a direct comparison, as it takes into account
 // the contents of the Requires field, ignoring the order of the keys.

@@ -116,6 +116,76 @@ var _ = Describe("OP", func() {
 		Entry("Float32 Div", "div", telem.NewSeriesV[float32](10.0, 20.0, 30.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](2.0, 4.0, 5.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](5.0, 5.0, 6.0), telem.NewSeriesSecondsTSV(1, 2, 3)),
 		Entry("Int64 Div", "div", telem.NewSeriesV[int64](100, 200, 300), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](10, 20, 30), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](10, 10, 10), telem.NewSeriesSecondsTSV(5, 10, 15)),
 		Entry("Uint32 Div", "div", telem.NewSeriesV[uint32](100, 250, 500), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint32](10, 25, 50), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint32](10, 10, 10), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Uint8 OR - all false", "or", telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Uint8 OR - all true", "or", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Uint8 OR - mixed", "or", telem.NewSeriesV[uint8](0, 1, 0, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[uint8](0, 0, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[uint8](0, 1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4)),
+		Entry("Uint8 OR - first true", "or", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(5, 10, 15)),
+		Entry("Uint8 OR - second true", "or", telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Uint8 AND - all false", "and", telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Uint8 AND - all true", "and", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Uint8 AND - mixed", "and", telem.NewSeriesV[uint8](0, 1, 0, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[uint8](0, 0, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[uint8](0, 0, 0, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4)),
+		Entry("Uint8 AND - first false", "and", telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(5, 10, 15)),
+		Entry("Uint8 AND - second false", "and", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
+	)
+	DescribeTable("Unary Outputs", func(
+		t string, input, inputTime, output, outputTime telem.Series) {
+		opNode :=
+			ir.Node{
+				Key:  "op",
+				Type: t,
+				Inputs: types.Params{
+					Keys:   []string{ir.DefaultInputParam},
+					Values: []types.Type{types.FromTelem(input.DataType)},
+				},
+				Outputs: types.Params{
+					Keys:   []string{ir.DefaultOutputParam},
+					Values: []types.Type{types.FromTelem(output.DataType)},
+				},
+			}
+		cfg := state.Config{
+			Nodes: []ir.Node{
+				{
+					Key: "input",
+					Outputs: types.Params{
+						Keys:   []string{ir.DefaultOutputParam},
+						Values: []types.Type{types.FromTelem(input.DataType)},
+					},
+				},
+				opNode,
+			},
+			Edges: []ir.Edge{
+				{
+					Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "op", Param: ir.DefaultInputParam},
+				},
+			},
+		}
+		s := state.New(cfg)
+		inputNode := s.Node("input")
+		*inputNode.Output(0) = input
+		*inputNode.OutputTime(0) = inputTime
+		c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
+			Node:  opNode,
+			State: s.Node("op"),
+		}))
+		changed := make(set.Set[string])
+		c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
+		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(output))
+		Expect(*s.Node("op").OutputTime(0)).To(telem.MatchSeries(outputTime))
+	},
+		Entry("Uint8 NOT - all false", "not", telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](255, 255, 255), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Uint8 NOT - all true", "not", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](254, 254, 254), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Uint8 NOT - mixed", "not", telem.NewSeriesV[uint8](0, 1, 0, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[uint8](255, 254, 255, 254), telem.NewSeriesSecondsTSV(1, 2, 3, 4)),
+		Entry("Float64 NEG - positive", "neg", telem.NewSeriesV[float64](1.5, 2.5, 3.5), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float64](-1.5, -2.5, -3.5), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Float64 NEG - negative", "neg", telem.NewSeriesV[float64](-10.0, -20.0, -30.0), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[float64](10.0, 20.0, 30.0), telem.NewSeriesSecondsTSV(5, 10, 15)),
+		Entry("Float64 NEG - mixed", "neg", telem.NewSeriesV[float64](-1.0, 2.0, -3.0, 4.0), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[float64](1.0, -2.0, 3.0, -4.0), telem.NewSeriesSecondsTSV(1, 2, 3, 4)),
+		Entry("Float32 NEG - positive", "neg", telem.NewSeriesV[float32](5.0, 10.0, 15.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](-5.0, -10.0, -15.0), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Int64 NEG - positive", "neg", telem.NewSeriesV[int64](100, 200, 300), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int64](-100, -200, -300), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Int64 NEG - negative", "neg", telem.NewSeriesV[int64](-50, -75, -100), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](50, 75, 100), telem.NewSeriesSecondsTSV(5, 10, 15)),
+		Entry("Int32 NEG - mixed", "neg", telem.NewSeriesV[int32](10, -20, 30, -40), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[int32](-10, 20, -30, 40), telem.NewSeriesSecondsTSV(1, 2, 3, 4)),
+		Entry("Int16 NEG - positive", "neg", telem.NewSeriesV[int16](5, 10, 15), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int16](-5, -10, -15), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Int8 NEG - negative", "neg", telem.NewSeriesV[int8](-1, -2, -3), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[int8](1, 2, 3), telem.NewSeriesSecondsTSV(10, 20, 30)),
 	)
 	Describe("Edge Cases", func() {
 		It("Should handle mismatched series lengths by extending shorter series", func() {
@@ -296,73 +366,73 @@ var _ = Describe("OP", func() {
 			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
 		})
-		//
-		//It("Should handle repeated calls to Next with input changes", func() {
-		//	opNode := ir.Node{
-		//		Key:  "op",
-		//		Type: "sub",
-		//		Inputs: types.Params{
-		//			Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-		//			Values: []types.Type{types.I64(), types.I64()},
-		//		},
-		//		Outputs: types.Params{
-		//			Keys:   []string{ir.DefaultOutputParam},
-		//			Values: []types.Type{types.I64()},
-		//		},
-		//	}
-		//	cfg := state.Config{
-		//		Nodes: []ir.Node{
-		//			{
-		//				Key: "lhs",
-		//				Outputs: types.Params{
-		//					Keys:   []string{ir.DefaultOutputParam},
-		//					Values: []types.Type{types.I64()},
-		//				},
-		//			},
-		//			{
-		//				Key: "rhs",
-		//				Outputs: types.Params{
-		//					Keys:   []string{ir.DefaultOutputParam},
-		//					Values: []types.Type{types.I64()},
-		//				},
-		//			},
-		//			opNode,
-		//		},
-		//		Edges: []ir.Edge{
-		//			{
-		//				Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
-		//				Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-		//			},
-		//			{
-		//				Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
-		//				Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-		//			},
-		//		},
-		//	}
-		//	s := state.New(cfg)
-		//	lhsNode := s.Node("lhs")
-		//	rhsNode := s.Node("rhs")
-		//	*lhsNode.Output(0) = telem.NewSeriesV[int64](100)
-		//	*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
-		//	*rhsNode.Output(0) = telem.NewSeriesV[int64](30)
-		//	*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
-		//	c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
-		//		Node:  opNode,
-		//		State: s.Node("op"),
-		//	}))
-		//	changed := make(set.Set[string])
-		//	c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-		//	Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-		//	Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](70)))
-		//	*lhsNode.Output(0) = telem.NewSeriesV[int64](200)
-		//	*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-		//	*rhsNode.Output(0) = telem.NewSeriesV[int64](50)
-		//	*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-		//	changed = make(set.Set[string])
-		//	c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-		//	Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-		//	Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](150)))
-		//})
+
+		It("Should handle repeated calls to Next with input changes", func() {
+			opNode := ir.Node{
+				Key:  "op",
+				Type: "sub",
+				Inputs: types.Params{
+					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+					Values: []types.Type{types.I64(), types.I64()},
+				},
+				Outputs: types.Params{
+					Keys:   []string{ir.DefaultOutputParam},
+					Values: []types.Type{types.I64()},
+				},
+			}
+			cfg := state.Config{
+				Nodes: []ir.Node{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64()},
+						},
+					},
+					opNode,
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
+					},
+					{
+						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
+					},
+				},
+			}
+			s := state.New(cfg)
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
+			*lhsNode.Output(0) = telem.NewSeriesV[int64](100)
+			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
+			*rhsNode.Output(0) = telem.NewSeriesV[int64](30)
+			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
+			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
+				Node:  opNode,
+				State: s.Node("op"),
+			}))
+			changed := make(set.Set[string])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](70)))
+			*lhsNode.Output(0) = telem.NewSeriesV[int64](200)
+			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			*rhsNode.Output(0) = telem.NewSeriesV[int64](50)
+			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			changed = make(set.Set[string])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](150)))
+		})
 
 		It("Should handle single value series", func() {
 			opNode := ir.Node{
@@ -539,6 +609,244 @@ var _ = Describe("OP", func() {
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
+		})
+
+		It("Should handle logical OR with mismatched lengths", func() {
+			opNode := ir.Node{
+				Key:  "op",
+				Type: "or",
+				Inputs: types.Params{
+					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+					Values: []types.Type{types.U8(), types.U8()},
+				},
+				Outputs: types.Params{
+					Keys:   []string{ir.DefaultOutputParam},
+					Values: []types.Type{types.U8()},
+				},
+			}
+			cfg := state.Config{
+				Nodes: []ir.Node{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.U8()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.U8()},
+						},
+					},
+					opNode,
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
+					},
+					{
+						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
+					},
+				},
+			}
+			s := state.New(cfg)
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
+			*lhsNode.Output(0) = telem.NewSeriesV[uint8](0, 1, 0, 1, 1)
+			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
+			*rhsNode.Output(0) = telem.NewSeriesV[uint8](1, 0)
+			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
+				Node:  opNode,
+				State: s.Node("op"),
+			}))
+			changed := make(set.Set[string])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("op").Output(0)
+			Expect(result.Len()).To(Equal(int64(5)))
+		})
+
+		It("Should handle logical AND with mismatched lengths", func() {
+			opNode := ir.Node{
+				Key:  "op",
+				Type: "and",
+				Inputs: types.Params{
+					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+					Values: []types.Type{types.U8(), types.U8()},
+				},
+				Outputs: types.Params{
+					Keys:   []string{ir.DefaultOutputParam},
+					Values: []types.Type{types.U8()},
+				},
+			}
+			cfg := state.Config{
+				Nodes: []ir.Node{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.U8()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.U8()},
+						},
+					},
+					opNode,
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
+					},
+					{
+						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
+					},
+				},
+			}
+			s := state.New(cfg)
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
+			*lhsNode.Output(0) = telem.NewSeriesV[uint8](1, 1)
+			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+			*rhsNode.Output(0) = telem.NewSeriesV[uint8](1, 0, 1, 1, 0)
+			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
+			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
+				Node:  opNode,
+				State: s.Node("op"),
+			}))
+			changed := make(set.Set[string])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("op").Output(0)
+			Expect(result.Len()).To(Equal(int64(5)))
+		})
+
+		It("Should handle logical OR with single values", func() {
+			opNode := ir.Node{
+				Key:  "op",
+				Type: "or",
+				Inputs: types.Params{
+					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+					Values: []types.Type{types.U8(), types.U8()},
+				},
+				Outputs: types.Params{
+					Keys:   []string{ir.DefaultOutputParam},
+					Values: []types.Type{types.U8()},
+				},
+			}
+			cfg := state.Config{
+				Nodes: []ir.Node{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.U8()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.U8()},
+						},
+					},
+					opNode,
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
+					},
+					{
+						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
+					},
+				},
+			}
+			s := state.New(cfg)
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
+			*lhsNode.Output(0) = telem.NewSeriesV[uint8](0)
+			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			*rhsNode.Output(0) = telem.NewSeriesV[uint8](1)
+			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
+				Node:  opNode,
+				State: s.Node("op"),
+			}))
+			changed := make(set.Set[string])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
+		})
+
+		It("Should handle logical AND with single values", func() {
+			opNode := ir.Node{
+				Key:  "op",
+				Type: "and",
+				Inputs: types.Params{
+					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+					Values: []types.Type{types.U8(), types.U8()},
+				},
+				Outputs: types.Params{
+					Keys:   []string{ir.DefaultOutputParam},
+					Values: []types.Type{types.U8()},
+				},
+			}
+			cfg := state.Config{
+				Nodes: []ir.Node{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.U8()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.U8()},
+						},
+					},
+					opNode,
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
+					},
+					{
+						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
+					},
+				},
+			}
+			s := state.New(cfg)
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
+			*lhsNode.Output(0) = telem.NewSeriesV[uint8](1)
+			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			*rhsNode.Output(0) = telem.NewSeriesV[uint8](1)
+			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
+				Node:  opNode,
+				State: s.Node("op"),
+			}))
+			changed := make(set.Set[string])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
 		})
 	})
 })
