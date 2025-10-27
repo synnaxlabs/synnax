@@ -14,7 +14,6 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/analyzer/diagnostics"
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
@@ -25,8 +24,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/maps"
 )
-
-type Diagnostics = diagnostics.Diagnostics
 
 func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) bool {
 	if !collectDeclarations(ctx) {

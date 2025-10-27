@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/compiler"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/parser"
@@ -45,15 +46,15 @@ type GenerateKey = func(name string) string
 
 // Parse parses Arc source code into an AST.
 //
-// Returns the Text with both Raw source and parsed AST. Returns an error
-// if the source contains syntax errors.
-func Parse(t Text) (Text, error) {
-	ast, err := parser.Parse(t.Raw)
-	if err != nil {
-		return Text{}, err
+// Returns the Text with both Raw source and parsed AST. Returns a diagnostic object
+// that will be nil if no errors occurred during the parsing process.
+func Parse(t Text) (Text, *diagnostics.Diagnostics) {
+	ast, diag := parser.Parse(t.Raw)
+	if diag != nil {
+		return Text{}, diag
 	}
 	t.AST = ast
-	return t, err
+	return t, diag
 }
 
 // Analyze performs semantic analysis on parsed Arc code and builds the IR.
@@ -71,7 +72,7 @@ func Analyze(
 	ctx_ context.Context,
 	t Text,
 	resolver symbol.Resolver,
-) (ir.IR, analyzer.Diagnostics) {
+) (ir.IR, *diagnostics.Diagnostics) {
 	var (
 		ctx = acontext.CreateRoot(ctx_, t.AST, resolver)
 		// We always return a partially complete IR to ensure that tools such as LSP's
@@ -80,7 +81,7 @@ func Analyze(
 	)
 	// Step 1: Analyze the Program
 	if !analyzer.AnalyzeProgram(ctx) {
-		return i, *ctx.Diagnostics
+		return i, ctx.Diagnostics
 	}
 
 	// Step 2: Iterate through the root scope children to assemble functions
@@ -114,14 +115,14 @@ func Analyze(
 		if flow := item.FlowStatement(); flow != nil {
 			nodes, edges, ok := analyzeFlow(acontext.Child(ctx, flow), generateKey)
 			if !ok {
-				return i, *ctx.Diagnostics
+				return i, ctx.Diagnostics
 			}
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		}
 	}
 
-	return i, *ctx.Diagnostics
+	return i, ctx.Diagnostics
 }
 
 // Compile generates WebAssembly bytecode from the provided IR.

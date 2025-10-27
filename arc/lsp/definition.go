@@ -16,9 +16,7 @@ import (
 )
 
 func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionParams) ([]protocol.Location, error) {
-	s.mu.RLock()
-	doc, ok := s.documents[params.TextDocument.URI]
-	s.mu.RUnlock()
+	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok || doc.IR.Symbols == nil {
 		return nil, nil
 	}

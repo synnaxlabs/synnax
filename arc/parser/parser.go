@@ -34,11 +34,8 @@
 package parser
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/arc/diagnostics"
 )
 
 // Parse parses a complete Arc program from source code.
@@ -54,7 +51,7 @@ import (
 //	        return x * 2
 //	    }
 //	`)
-func Parse(source string) (IProgramContext, error) {
+func Parse(source string) (IProgramContext, *diagnostics.Diagnostics) {
 	return parseWithContext(source, (*ArcParser).Program)
 }
 
@@ -67,7 +64,7 @@ func Parse(source string) (IProgramContext, error) {
 // Example:
 //
 //	expr, err := parser.ParseExpression("(2 + 3) * 4")
-func ParseExpression(source string) (IExpressionContext, error) {
+func ParseExpression(source string) (IExpressionContext, *diagnostics.Diagnostics) {
 	return parseWithContext(source, (*ArcParser).Expression)
 }
 
@@ -80,7 +77,7 @@ func ParseExpression(source string) (IExpressionContext, error) {
 // Example:
 //
 //	stmt, err := parser.ParseStatement("total := total + 1")
-func ParseStatement(source string) (IStatementContext, error) {
+func ParseStatement(source string) (IStatementContext, *diagnostics.Diagnostics) {
 	return parseWithContext(source, (*ArcParser).Statement)
 }
 
@@ -92,27 +89,28 @@ func ParseStatement(source string) (IStatementContext, error) {
 //	    x := 10
 //	    y := x * 2
 //	}`)
-func ParseBlock(source string) (IBlockContext, error) {
+func ParseBlock(source string) (IBlockContext, *diagnostics.Diagnostics) {
 	return parseWithContext(source, (*ArcParser).Block)
 }
 
 // parseWithContext executes the parsing with proper error handling.
 // It sets up the lexer, parser, and error listener, then invokes the provided
 // parse function to generate the appropriate parse tree node.
-func parseWithContext[T any](source string, parseFn func(*ArcParser) T) (T, error) {
+func parseWithContext[T any](source string, parseFn func(*ArcParser) T) (T, *diagnostics.Diagnostics) {
 	var (
 		input  = antlr.NewInputStream(source)
 		lexer  = NewArcLexer(input)
 		stream = antlr.NewCommonTokenStream(lexer, 0)
 		parser = NewArcParser(stream)
-		errLis = &errorListener{}
+		diag   = &diagnostics.Diagnostics{}
+		errLis = &errorListener{Diagnostics: diag}
 	)
 	parser.RemoveErrorListeners()
 	parser.AddErrorListener(errLis)
 	result := parseFn(parser)
-	if err := errLis.toError(); err != nil {
+	if !diag.Ok() {
 		var zeroT T
-		return zeroT, err
+		return zeroT, diag
 	}
 	return result, nil
 }
@@ -122,36 +120,23 @@ func parseWithContext[T any](source string, parseFn func(*ArcParser) T) (T, erro
 // position information.
 type errorListener struct {
 	*antlr.DefaultErrorListener
-	errors []string
+	*diagnostics.Diagnostics
 }
 
 // SyntaxError is called by ANTLR when a syntax error is encountered.
 // It records the error along with its position in the source code.
 func (e *errorListener) SyntaxError(
 	_ antlr.Recognizer,
-	_ interface{}, line,
+	_ interface{},
+	line,
 	column int,
 	msg string,
 	_ antlr.RecognitionException,
 ) {
-	e.errors = append(e.errors, formatError(line, column, msg))
-}
-
-// toError converts the collected errors into a single error value.
-// Returns nil if no errors were collected. For a single error, returns
-// a simple error message. For multiple errors, returns a formatted error
-// with all error messages separated by newlines.
-func (e *errorListener) toError() error {
-	if len(e.errors) == 0 {
-		return nil
-	}
-	if len(e.errors) == 1 {
-		return errors.New(e.errors[0])
-	}
-	return errors.Newf("parse errors:\n%s", strings.Join(e.errors, "\n"))
-}
-
-// formatError formats a parse error with line and column information.
-func formatError(line, column int, msg string) string {
-	return fmt.Sprintf("line %d:%d %s", line, column, msg)
+	e.Diagnostics.Add(diagnostics.Diagnostic{
+		Severity: diagnostics.Error,
+		Line:     line,
+		Column:   column,
+		Message:  msg,
+	})
 }

@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
+	"github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"go.lsp.dev/protocol"
@@ -33,7 +34,7 @@ var _ = Describe("Definition", func() {
 		server, err = lsp.New()
 		Expect(err).ToNot(HaveOccurred())
 
-		server.SetClient(&mockClient{})
+		server.SetClient(&testutil.MockClient{})
 		uri = "file:///test.arc"
 	})
 
@@ -46,7 +47,7 @@ var _ = Describe("Definition", func() {
 func main() {
     result := add(1, 2)
 }`
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Click on 'add' in the function call
 			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
@@ -67,7 +68,7 @@ func main() {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Click on 'multiply' in the declaration itself
 			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
@@ -93,7 +94,7 @@ func main() {
     }
     return max_val
 }`
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Click on 'max' in the declaration
 			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
@@ -116,7 +117,7 @@ func main() {
     x i32 := 42
     y := x + 10
 }`
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Click on 'x' in the expression
 			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
@@ -138,7 +139,7 @@ func main() {
     count = count + 1
     return count
 }`
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Click on 'count' in the assignment
 			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
@@ -160,7 +161,7 @@ func main() {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Click on 'x' in the return statement
 			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
@@ -182,7 +183,7 @@ func main() {
 			content := `func test() {
     return 42
 }`
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Click on 'return' keyword
 			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
@@ -201,7 +202,7 @@ func main() {
 			content := `func test() {
     x := undefined_symbol
 }`
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Click on 'undefined_symbol'
 			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
@@ -232,7 +233,7 @@ func main() {
 			content := `func test() {
 
 }`
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Click on empty line
 			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
@@ -262,10 +263,10 @@ func main() {
 			var err error
 			server, err = lsp.New(lsp.Config{GlobalResolver: globalResolver})
 			Expect(err).ToNot(HaveOccurred())
-			server.SetClient(&mockClient{})
+			server.SetClient(&testutil.MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
-			openDocument(server, ctx, uri, content)
+			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Try to jump to definition of myGlobal
 			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
