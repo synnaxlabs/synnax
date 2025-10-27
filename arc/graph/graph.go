@@ -7,73 +7,115 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package graph provides visual graph compilation for Arc programs.
+//
+// This package transforms a visual graph representation (nodes, edges, viewport)
+// into an intermediate representation (IR) suitable for stratification and runtime
+// execution. It serves as the 5th stage in the Arc compiler pipeline:
+//
+//	Parser → Analyzer → Stratifier → Graph → Compiler → Runtime
+//
+// The package handles:
+//   - Parsing function bodies from raw text into AST
+//   - Type inference and constraint solving for polymorphic functions
+//   - Edge validation between node inputs/outputs
+//   - Configuration value type checking
+//   - Stratification of execution order
+//
+// The core compilation process is performed by Analyze(), which implements a
+// 10-step pipeline that produces executable IR from a visual graph.
 package graph
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stratifier"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/zyn"
 )
 
+// Type aliases for IR types to avoid circular dependencies while maintaining
+// clean API boundaries.
 type (
-	Stage    = ir.Stage
-	Edge     = ir.Edge
 	Function = ir.Function
+	Edge     = ir.Edge
+	Edges    = ir.Edges
+	Handle   = ir.Handle
 )
 
+// Node represents a visual node in an Arc graph. Unlike ir.Node, which contains
+// compiled type information, Node represents the user's visual layout including
+// position and raw configuration values.
 type Node struct {
-	ir.Node
+	// Key is the unique identifier for this node instance.
+	Key string `json:"key"`
+	// Type is the function type this node instantiates.
+	Type string `json:"type"`
+	// ConfigValues are the raw configuration parameter values.
+	ConfigValues map[string]any `json:"config_values"`
+	// Position is the visual position in the graph editor.
 	Position spatial.XY `json:"position"`
 }
 
+// Nodes is a slice of Node with helper methods for lookup operations.
+type Nodes []Node
+
+// Get returns the node with the given key. Panics if the node is not found.
+// Use Find for safe lookups with error handling.
+func (n Nodes) Get(key string) Node {
+	return lo.Must(lo.Find(n, func(n Node) bool { return n.Key == key }))
+}
+
+// Find returns the node with the given key and a boolean indicating whether
+// the node was found. This is the safe variant of Get.
+func (n Nodes) Find(key string) (Node, bool) {
+	return lo.Find(n, func(n Node) bool { return n.Key == key })
+}
+
+// Viewport represents the visual viewport state of the graph editor.
 type Viewport struct {
+	// Position is the pan offset of the viewport.
 	Position spatial.XY `json:"position"`
-	Zoom     float32    `json:"zoom"`
+	// Zoom is the zoom level of the viewport.
+	Zoom float32 `json:"zoom"`
 }
 
+// Graph represents a complete visual graph.
 type Graph struct {
-	Viewport  Viewport   `json:"viewport"`
-	Stages    []Stage    `json:"stages"`
+	// Viewport is the visual viewport state.
+	Viewport Viewport `json:"viewport"`
+	// Functions are the function definitions available in the graph.
 	Functions []Function `json:"functions"`
-	Edges     []Edge     `json:"edges"`
-	Nodes     []Node     `json:"nodes"`
+	// Edges connect node outputs to node inputs.
+	Edges Edges `json:"edges"`
+	// Nodes are the visual node instances in the graph.
+	Nodes Nodes `json:"nodes"`
 }
 
-func Parse(g Graph) (Graph, error) {
-	for i, stage := range g.Stages {
-		if stage.Body.Raw == "" {
-			continue
-		}
-		ast, err := parser.ParseBlock(stage.Body.Raw)
-		if err != nil {
-			return Graph{}, err
-		}
-		stage.Body.AST = ast
-		g.Stages[i] = stage
-	}
-	for i, function := range g.Functions {
-		ast, err := parser.ParseBlock(function.Body.Raw)
-		if err != nil {
-			return Graph{}, err
-		}
-		function.Body.AST = ast
-		g.Functions[i] = function
-	}
-	return g, nil
-}
-
-func bindNamedTypes(ctx context.Context, s *ir.Scope, t ir.NamedTypes, kind ir.Kind) error {
-	for k, ty := range t.Iter() {
-		if _, err := s.Add(ctx, ir.Symbol{
+// bindParams adds function parameters to the symbol scope with the specified kind.
+// Used internally to bind Config, Input, and Output parameters during function
+// registration.
+func bindParams(
+	ctx context.Context,
+	s *symbol.Scope,
+	p types.Params,
+	kind symbol.Kind,
+) error {
+	for k, ty := range p.Iter() {
+		if _, err := s.Add(ctx, symbol.Symbol{
 			Name: k,
 			Kind: kind,
 			Type: ty,
@@ -84,219 +126,238 @@ func bindNamedTypes(ctx context.Context, s *ir.Scope, t ir.NamedTypes, kind ir.K
 	return nil
 }
 
+// validateEdge checks type compatibility between an edge's source and target.
+// Returns true if validation succeeds, false if an error was added to diagnostics.
+func validateEdge(
+	ctx acontext.Context[antlr.ParserRuleContext],
+	edge Edge,
+	nodes Nodes,
+	freshFuncTypes map[string]types.Type,
+) bool {
+	sourceNode, ok := nodes.Find(edge.Source.Node)
+	if !ok {
+		ctx.Diagnostics.AddError(
+			errors.Wrapf(query.NotFound, "edge source node '%s' not found", edge.Source.Node),
+			nil,
+		)
+		return false
+	}
+	targetNode, ok := nodes.Find(edge.Target.Node)
+	if !ok {
+		ctx.Diagnostics.AddError(
+			errors.Wrapf(query.NotFound, "edge target node '%s' not found", edge.Target.Node),
+			nil,
+		)
+		return false
+	}
+
+	sourceType, ok := freshFuncTypes[sourceNode.Key].Outputs.Get(edge.Source.Param)
+	if !ok {
+		ctx.Diagnostics.AddError(
+			errors.Wrapf(
+				query.NotFound,
+				"output '%s' not found in node '%s'",
+				edge.Source.Param,
+				edge.Source.Node,
+			), nil)
+		return false
+	}
+
+	targetType, ok := freshFuncTypes[targetNode.Key].Inputs.Get(edge.Target.Param)
+	if !ok {
+		ctx.Diagnostics.AddError(
+			errors.Wrapf(
+				query.NotFound,
+				"input '%s' not found in node '%s'",
+				edge.Target.Param,
+				edge.Target.Node,
+			), nil)
+		return false
+	}
+
+	if err := atypes.Check(
+		ctx.Constraints,
+		sourceType,
+		targetType,
+		nil,
+		"",
+	); err != nil {
+		ctx.Diagnostics.AddError(err, nil)
+		return false
+	}
+	return true
+}
+
+// Parse parses the raw function bodies in the graph into AST representations.
+// It skips functions with empty bodies and returns an error if parsing fails.
+// This is typically the first step before calling Analyze.
+func Parse(g Graph) (Graph, error) {
+	for i, function := range g.Functions {
+		if function.Body.Raw == "" {
+			continue
+		}
+		ast, err := parser.ParseBlock(function.Body.Raw)
+		if err != nil {
+			return Graph{}, err
+		}
+		function.Body.AST = ast
+		g.Functions[i] = function
+	}
+	return g, nil
+}
+
+// Analyze compiles a visual graph into executable IR with type inference,
+// edge validation, and stratified execution planning. Errors are collected
+// in the returned Diagnostics.
 func Analyze(
 	ctx_ context.Context,
 	g Graph,
-	resolver ir.SymbolResolver,
-) (ir.IR, analyzer.Diagnostics) {
+	resolver symbol.Resolver,
+) (ir.IR, *diagnostics.Diagnostics) {
+	// Step 1: Build Root Context and Register All Functions
 	ctx := acontext.CreateRoot[antlr.ParserRuleContext](ctx_, nil, resolver)
-	// Step 1: Build the root context.
-	for _, stage := range g.Stages {
-		stageScope, err := ctx.Scope.Add(ctx, ir.Symbol{
-			Name:       stage.Key,
-			Kind:       ir.KindStage,
-			Type:       stage,
-			ParserRule: stage.Body.AST,
+	for _, fn := range g.Functions {
+		funcScope, err := ctx.Scope.Add(ctx, symbol.Symbol{
+			Name: fn.Key,
+			Kind: symbol.KindFunction,
+			Type: fn.Type(),
+			AST:  fn.Body.AST,
 		})
 		if err != nil {
-			ctx.Diagnostics.AddError(err, stage.Body.AST)
-			return ir.IR{}, *ctx.Diagnostics
+			ctx.Diagnostics.AddError(err, fn.Body.AST)
+			return ir.IR{}, ctx.Diagnostics
 		}
-		if err = bindNamedTypes(ctx, stageScope, stage.Config, ir.KindConfigParam); err != nil {
-			ctx.Diagnostics.AddError(err, stage.Body.AST)
-			return ir.IR{}, *ctx.Diagnostics
+		if err = bindParams(ctx, funcScope, fn.Config, symbol.KindConfig); err != nil {
+			ctx.Diagnostics.AddError(err, fn.Body.AST)
+			return ir.IR{}, ctx.Diagnostics
 		}
-		if err = bindNamedTypes(ctx, stageScope, stage.Params, ir.KindParam); err != nil {
-			ctx.Diagnostics.AddError(err, stage.Body.AST)
-			return ir.IR{}, *ctx.Diagnostics
+		if err = bindParams(ctx, funcScope, fn.Inputs, symbol.KindInput); err != nil {
+			ctx.Diagnostics.AddError(err, fn.Body.AST)
+			return ir.IR{}, ctx.Diagnostics
 		}
-	}
-	for _, stage := range g.Functions {
-		funcScope, err := ctx.Scope.Add(ctx, ir.Symbol{
-			Name:       stage.Key,
-			Kind:       ir.KindFunction,
-			Type:       stage,
-			ParserRule: stage.Body.AST,
-		})
-		if err != nil {
-			ctx.Diagnostics.AddError(err, stage.Body.AST)
-			return ir.IR{}, *ctx.Diagnostics
-		}
-		if err = bindNamedTypes(ctx, funcScope, stage.Params, ir.KindParam); err != nil {
-			ctx.Diagnostics.AddError(err, stage.Body.AST)
-			return ir.IR{}, *ctx.Diagnostics
+		if err = bindParams(ctx, funcScope, fn.Outputs, symbol.KindOutput); err != nil {
+			ctx.Diagnostics.AddError(err, fn.Body.AST)
+			return ir.IR{}, ctx.Diagnostics
 		}
 	}
 
-	// Step 2: Analyze stage & function bodies
-	for _, stage := range g.Stages {
-		stageScope, err := ctx.Scope.GetChildByParserRule(stage.Body.AST)
-		if err != nil {
-			ctx.Diagnostics.AddError(err, stage.Body.AST)
-			return ir.IR{}, *ctx.Diagnostics
-		}
-		if stage.Body.Raw != "" {
-			if !analyzer.AnalyzeBlock(acontext.Child(ctx, stage.Body.AST).WithScope(stageScope)) {
-				return ir.IR{}, *ctx.Diagnostics
-			}
-		}
-	}
-	for _, fn := range g.Functions {
+	// Step 2: Analyze Function Bodies
+	for i, fn := range g.Functions {
 		funcScope, err := ctx.Scope.GetChildByParserRule(fn.Body.AST)
 		if err != nil {
 			ctx.Diagnostics.AddError(err, fn.Body.AST)
-			return ir.IR{}, *ctx.Diagnostics
+			return ir.IR{}, ctx.Diagnostics
 		}
-		if !analyzer.AnalyzeBlock(acontext.Child(ctx, fn.Body.AST).WithScope(funcScope)) {
-			return ir.IR{}, *ctx.Diagnostics
+		funcScope.Channels = symbol.NewChannels()
+		funcScope.OnResolve = func(ctx context.Context, s *symbol.Scope) error {
+			if s.Kind == symbol.KindChannel || s.Type.Kind == types.KindChan {
+				funcScope.Channels.Read[uint32(s.ID)] = s.Name
+			}
+			return nil
 		}
+		if fn.Body.Raw != "" {
+			blockCtx, ok := fn.Body.AST.(parser.IBlockContext)
+			if !ok {
+				ctx.Diagnostics.AddError(errors.New("function body must be a block"), fn.Body.AST)
+				return ir.IR{}, ctx.Diagnostics
+			}
+			if !analyzer.AnalyzeBlock(acontext.Child(ctx, blockCtx).WithScope(funcScope)) {
+				return ir.IR{}, ctx.Diagnostics
+			}
+		}
+		fn.Channels = funcScope.Channels
+		g.Functions[i] = fn
 	}
-	// Step 3: Analyze node configurations
+
+	// Step 3 & 4: Create Fresh Types and IR Nodes
+	freshFuncTypes := make(map[string]types.Type)
+	irNodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
-		// Validate:
-		// 1: Stage definition actually exists for node.
-		// 2: Config parameters match their expected types.
-		stageScope, err := ctx.Scope.Resolve(ctx, n.Type)
+		fnSym, err := ctx.Scope.Resolve(ctx, n.Type)
 		if err != nil {
 			ctx.Diagnostics.AddError(err, nil)
-			return ir.IR{}, *ctx.Diagnostics
+			return ir.IR{}, ctx.Diagnostics
 		}
-		t := stageScope.Type.(ir.Stage)
-		n.Channels = ir.OverrideChannels(t.Channels)
-		for k, p := range n.Config {
-			cfgT, ok := t.Config.Get(k)
+		freshFuncTypes[n.Key] = ir.FreshType(fnSym.Type, n.Key)
+		irNodes[i] = ir.Node{
+			Key:          n.Key,
+			Type:         n.Type,
+			ConfigValues: n.ConfigValues,
+			Channels:     fnSym.Channels.Copy(),
+		}
+		freshType := freshFuncTypes[n.Key]
+		if freshType.Config == nil {
+			continue
+		}
+		for key, configType := range freshType.Config.Iter() {
+			configValue, ok := n.ConfigValues[key]
 			if !ok {
-				ctx.Diagnostics.AddError(
-					errors.Newf("node was provided config param %s not present in stage", k),
-					nil,
-				)
-				return ir.IR{}, *ctx.Diagnostics
+				continue
 			}
-			if _, ok = cfgT.(ir.Chan); ok {
-				if f64, ok := p.(float64); ok {
-					p = int(f64)
+			if configType.Kind == types.KindChan {
+				var k uint32
+				if err = zyn.Uint32().Coerce().Parse(configValue, &k); err != nil {
+					return ir.IR{}, ctx.Diagnostics
 				}
-				name := fmt.Sprintf("%v", p)
-				sym, err := ctx.Scope.Resolve(ctx, name)
-				if err != nil {
-					ctx.Diagnostics.AddError(err, nil)
-					return ir.IR{}, *ctx.Diagnostics
+				channelSym, err := resolver.Resolve(ctx_, strconv.Itoa(int(k)))
+				if err == nil && channelSym.Type.Kind == types.KindChan {
+					if err = atypes.Check(
+						ctx.Constraints,
+						channelSym.Type,
+						configType,
+						nil,
+						"",
+					); err != nil {
+						ctx.Diagnostics.AddError(err, nil)
+						return ir.IR{}, ctx.Diagnostics
+					}
+					irNodes[i].Channels.Read.Add(k)
 				}
-				channelKey := uint32(sym.ID)
-				n.Config[k] = channelKey
-				n.Channels.Read.Add(channelKey)
 			}
-			g.Nodes[i] = n
 		}
 	}
 
-	// Step 4: Analyze edge connections and create type constraints
-	nodeTypes := make(map[string]ir.Stage)
-	for _, n := range g.Nodes {
-		stageScope, _ := ctx.Scope.Resolve(ctx, n.Type)
-		nodeTypes[n.Key] = stageScope.Type.(ir.Stage)
-	}
-
+	// Step 5: Check Types Across Edges
 	for _, edge := range g.Edges {
-		// Validate source node exists
-		sourceStage, ok := nodeTypes[edge.Source.Node]
-		if !ok {
-			ctx.Diagnostics.AddError(
-				errors.Newf("edge source node '%s' not found", edge.Source.Node),
-				nil,
-			)
-			return ir.IR{}, *ctx.Diagnostics
-		}
-
-		// Validate target node exists
-		targetStage, ok := nodeTypes[edge.Target.Node]
-		if !ok {
-			ctx.Diagnostics.AddError(
-				errors.Newf("edge target node '%s' not found", edge.Target.Node),
-				nil,
-			)
-			return ir.IR{}, *ctx.Diagnostics
-		}
-
-		// Get source output type (from return or specific param)
-		var sourceType ir.Type
-		if edge.Source.Param == "output" {
-			// Using the stage's return type
-			sourceType = sourceStage.Return
-		} else {
-			// Using a specific output parameter
-			sourceType, ok = sourceStage.Params.Get(edge.Source.Param)
-			if !ok {
-				ctx.Diagnostics.AddError(
-					errors.Newf("source param '%s' not found in node '%s'",
-						edge.Source.Param, edge.Source.Node),
-					nil,
-				)
-				return ir.IR{}, *ctx.Diagnostics
-			}
-		}
-
-		// Get target input type
-		var targetType ir.Type
-		if edge.Target.Param == "output" {
-			// Connecting to first parameter (or no parameter if stage has none)
-			if targetStage.Params.Count() > 0 {
-				_, targetType = targetStage.Params.At(0)
-			} else {
-				// Stage has no parameters - it will ignore the input
-				// This is allowed, similar to JavaScript functions ignoring extra arguments
-				targetType = nil
-			}
-		} else {
-			// Connecting to specific parameter
-			targetType, ok = targetStage.Params.Get(edge.Target.Param)
-			if !ok {
-				ctx.Diagnostics.AddError(
-					errors.Newf("target param '%s' not found in node '%s' (%s)",
-						edge.Target.Param, edge.Target.Node, targetStage.Key),
-					nil,
-				)
-				return ir.IR{}, *ctx.Diagnostics
-			}
-		}
-
-		// Create type constraint for polymorphic types
-		// Only if both source and target types exist (target might be nil for parameterless stages)
-		if sourceType != nil && targetType != nil {
-			if err := atypes.CheckEqual(ctx.Constraints, sourceType, targetType, nil,
-				fmt.Sprintf("edge from %s.%s to %s.%s",
-					edge.Source.Node, edge.Source.Param,
-					edge.Target.Node, edge.Target.Param)); err != nil {
-				// Only report error if neither type is a type variable
-				if !atypes.HasTypeVariables(sourceType) && !atypes.HasTypeVariables(targetType) {
-					ctx.Diagnostics.AddError(errors.Newf(
-						"type mismatch: edge from %s (%s) to %s (%s)",
-						edge.Source.Node, sourceType,
-						edge.Target.Node, targetType,
-					), nil)
-					return ir.IR{}, *ctx.Diagnostics
-				}
-			}
+		if !validateEdge(ctx, edge, g.Nodes, freshFuncTypes) {
+			return ir.IR{}, ctx.Diagnostics
 		}
 	}
 
-	// Step 5: Unify type variables if any were found
-	if ctx.Constraints.HasTypeVariables() {
-		if err := ctx.Constraints.Unify(); err != nil {
-			ctx.Diagnostics.AddError(err, nil)
-			return ir.IR{}, *ctx.Diagnostics
-		}
+	// Step 6: Unify Type Constraints
+	if err := ctx.Constraints.Unify(); err != nil {
+		ctx.Diagnostics.AddError(err, nil)
+		return ir.IR{}, ctx.Diagnostics
 	}
 
-	// Step 6: Return the IR
+	// Step 7: Build IR Nodes with Unified Type Constraints
+	for i, n := range g.Nodes {
+		substituted := ctx.Constraints.ApplySubstitutions(freshFuncTypes[n.Key])
+		irN := irNodes[i]
+		irN.Outputs = *substituted.Outputs
+		irN.Inputs = *substituted.Inputs
+		irN.Config = *substituted.Config
+		irNodes[i] = irN
+	}
+
+	// Step 8: Build Stratified Execution Plan
+	strata, err := stratifier.Stratify(ctx, irNodes, g.Edges, ctx.Diagnostics)
+	if err != nil {
+		return ir.IR{}, ctx.Diagnostics
+	}
+
+	// Step 9: Substitute TypeMap after unification
+	for node, typ := range ctx.TypeMap {
+		ctx.TypeMap[node] = ctx.Constraints.ApplySubstitutions(typ)
+	}
+
+	// Step 10: Return IR
 	return ir.IR{
-		Symbols:   ctx.Scope,
-		Stages:    g.Stages,
-		Edges:     g.Edges,
 		Functions: g.Functions,
-		Nodes: lo.Map(g.Nodes, func(item Node, _ int) ir.Node {
-			return item.Node
-		}),
-		Constraints: ctx.Constraints,
-	}, *ctx.Diagnostics
+		Edges:     g.Edges,
+		Nodes:     irNodes,
+		Symbols:   ctx.Scope,
+		Strata:    strata,
+		TypeMap:   ctx.TypeMap,
+	}, ctx.Diagnostics
 }
