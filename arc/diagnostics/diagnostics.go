@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package diagnostics provides error, warning, and hint reporting for Arc language analysis.
 package diagnostics
 
 import (
@@ -16,13 +17,18 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 )
 
+// Severity represents the importance level of a diagnostic message.
 type Severity int
 
 //go:generate stringer -type=Severity
 const (
+	// Error indicates a critical issue that prevents compilation.
 	Error Severity = iota
+	// Warning indicates a potential problem that doesn't prevent compilation.
 	Warning
+	// Info provides informational messages about analysis decisions.
 	Info
+	// Hint suggests code improvements or best practices.
 	Hint
 )
 
@@ -41,7 +47,7 @@ func (s Severity) String() string {
 	}
 }
 
-// Diagnostic represents a semantic analysis issue
+// Diagnostic represents a single issue found during analysis.
 type Diagnostic struct {
 	Key      string   `json:"key"`
 	Severity Severity `json:"severity"`
@@ -50,30 +56,29 @@ type Diagnostic struct {
 	Message  string   `json:"message"`
 }
 
-var _ error = (*Diagnostics)(nil)
-
+// Diagnostics is a collection of diagnostic messages.
 type Diagnostics []Diagnostic
 
+var _ error = (*Diagnostics)(nil)
+
+// Ok returns true if there are no diagnostics.
 func (d Diagnostics) Ok() bool {
 	return len(d) == 0
 }
 
-func (d Diagnostics) Error() string {
-	return d.String()
-}
+// Error implements the error interface.
+func (d Diagnostics) Error() string { return d.String() }
 
 func (d *Diagnostics) Add(diag Diagnostic) {
 	*d = append(*d, diag)
 }
 
+// AddError adds an error-level diagnostic with the given message and source location.
 func (d *Diagnostics) AddError(
 	err error,
 	ctx antlr.ParserRuleContext,
 ) {
-	diag := Diagnostic{
-		Severity: Error,
-		Message:  err.Error(),
-	}
+	diag := Diagnostic{Severity: Error, Message: err.Error()}
 	if ctx != nil {
 		diag.Line = ctx.GetStart().GetLine()
 		diag.Column = ctx.GetStart().GetColumn()
@@ -81,6 +86,46 @@ func (d *Diagnostics) AddError(
 	*d = append(*d, diag)
 }
 
+// AddWarning adds a warning-level diagnostic with the given message and source location.
+func (d *Diagnostics) AddWarning(
+	err error,
+	ctx antlr.ParserRuleContext,
+) {
+	diag := Diagnostic{Severity: Warning, Message: err.Error()}
+	if ctx != nil {
+		diag.Line = ctx.GetStart().GetLine()
+		diag.Column = ctx.GetStart().GetColumn()
+	}
+	*d = append(*d, diag)
+}
+
+// AddInfo adds an info-level diagnostic with the given message and source location.
+func (d *Diagnostics) AddInfo(
+	err error,
+	ctx antlr.ParserRuleContext,
+) {
+	diag := Diagnostic{Severity: Info, Message: err.Error()}
+	if ctx != nil {
+		diag.Line = ctx.GetStart().GetLine()
+		diag.Column = ctx.GetStart().GetColumn()
+	}
+	*d = append(*d, diag)
+}
+
+// AddHint adds a hint-level diagnostic with the given message and source location.
+func (d *Diagnostics) AddHint(
+	err error,
+	ctx antlr.ParserRuleContext,
+) {
+	diag := Diagnostic{Severity: Hint, Message: err.Error()}
+	if ctx != nil {
+		diag.Line = ctx.GetStart().GetLine()
+		diag.Column = ctx.GetStart().GetColumn()
+	}
+	*d = append(*d, diag)
+}
+
+// String formats all diagnostics as a human-readable string with line:column severity: message format.
 func (d Diagnostics) String() string {
 	if len(d) == 0 {
 		return "analysis successful"
@@ -90,7 +135,13 @@ func (d Diagnostics) String() string {
 		if i > 0 {
 			sb.WriteString("\n")
 		}
-		sb.WriteString(fmt.Sprintf("%d:%d %s: %s", diag.Line, diag.Column, diag.Severity.String(), diag.Message))
+		sb.WriteString(fmt.Sprintf(
+			"%d:%d %s: %s",
+			diag.Line,
+			diag.Column,
+			diag.Severity.String(),
+			diag.Message,
+		))
 	}
 	return sb.String()
 }
