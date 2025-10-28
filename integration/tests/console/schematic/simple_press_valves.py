@@ -22,7 +22,6 @@ class SimplePressValves(ConsoleCase):
         self.subscribe(
             [
                 "end_test_cmd",
-                "end_test_state",
                 "press_vlv_cmd",
                 "press_vlv_state",
                 "vent_vlv_cmd",

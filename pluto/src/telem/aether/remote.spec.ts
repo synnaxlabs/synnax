@@ -634,7 +634,6 @@ describe("remote", () => {
       c.channel = new channel.Channel({
         ...c.channel,
         expression: "1 + 2",
-        requires: [1, 2],
       });
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.seconds(1),

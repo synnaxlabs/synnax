@@ -20,7 +20,6 @@ import {
 } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
-import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
@@ -52,7 +51,6 @@ export const Create: Layout.Renderer = ({ onClose }) => {
       else onClose();
     },
   });
-
   const isIndex = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
     "isIndex",
     { ctx: form },
@@ -61,9 +59,8 @@ export const Create: Layout.Renderer = ({ onClose }) => {
     "virtual",
     { ctx: form },
   );
-
   return (
-    <Flex.Box className={CSS.B("channel-edit-layout")} grow empty>
+    <Flex.Box grow empty>
       <Flex.Box className="console-form" style={{ padding: "3rem" }} grow>
         <Form.Form<typeof Channel.formSchema> {...form}>
           <Form.Field<string> path="name" label="Name">

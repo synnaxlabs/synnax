@@ -23,14 +23,18 @@ class SetpointPressUser(ConsoleCase):
         self.set_manual_timeout(90)
         self.subscribe(
             [
-                "end_test_state",
-                "press_setpoint_state",
+                "test_flag_cmd",
+                "press_vlv_state",
+                "vent_vlv_state",
+                "end_test_cmd",
+                "press_setpoint_cmd",
                 "press_pt",
             ]
         )
         super().setup()
 
     def run(self) -> None:
+        client = self.client
         console = self.console
 
         # Define the control channel names
@@ -38,25 +42,80 @@ class SetpointPressUser(ConsoleCase):
         SETPOINT = "press_setpoint_cmd"
         PRESSURE = "press_pt"
 
-        self.log("Creating plot page")
-        console.plot.new()
-        console.plot.add_Y(
-            "Y1",
-            ["press_vlv_state", "vent_vlv_state"],
-        )
-        console.plot.add_Y("Y2", ["press_pt", "press_setpoint_state"])
-        console.plot.add_ranges(["30s"])
-
         self.log("Creating schematic symbols")
         console.schematic.new()
-        console.schematic.move("left")
 
-        # End test command
-        end_cmd = console.schematic.create_button(END_CMD, mode="Fire")
-        end_cmd.move(0, -90)
+        start_cmd = console.schematic.create_valve(
+            "test_flag_cmd", no_state_channel=True
+        )
+        start_cmd.move(-90, -100)
+        end_cmd = console.schematic.create_button("end_test_cmd", mode="Fire")
+        end_cmd.move(90, -100)
+        press_valve = console.schematic.create_valve("press_vlv")
+        press_valve.move(-90, 10)
+        vent_valve = console.schematic.create_valve("vent_vlv")
+        vent_valve.move(90, 10)
+        setpoint = console.schematic.create_setpoint("press_setpoint_cmd")
+        setpoint.move(0, 120)
 
-        # Setpoint control
-        setpoint = console.schematic.create_setpoint(SETPOINT)
+        console.schematic.set_authority(100)
+        # ------------- Test 1: Control Authority --------------
+        #
+        # SY-3147 Fixes a bug where the schematic is locked out
+        # control after it posseses control of a channel, writes,
+        # and then another processes with a higher authority
+        # takes over.
+        #
+        # A failure means future commands will not be written.
+
+        self.log("Starting Control Authority Test (1/2)")
+
+        # Assertions 1
+        start_flag_val = self.read_tlm("test_flag_cmd")
+        press_vlv_state = self.read_tlm("press_vlv_state")
+        vent_vlv_state = self.read_tlm("vent_vlv_state")
+        assert start_flag_val == 0, "Start flag should be 0 on initial read"
+        assert press_vlv_state == 0, "Press valve should be 0 on initial read"
+        assert vent_vlv_state == 0, "Vent valve should be 0 on initial read"
+
+        start_cmd.press()  # Set True
+
+        # Take absolute control
+        press_valve.toggle_absolute_control()
+        vent_valve.toggle_absolute_control()
+
+        press_valve.press()  # Set True
+        vent_valve.press()  # Set True
+
+        # Assertions 2
+        start_flag_val = self.read_tlm("test_flag_cmd")
+        press_vlv_state = self.read_tlm("press_vlv_state")
+        vent_vlv_state = self.read_tlm("vent_vlv_state")
+        assert start_flag_val == 1, "Start flag should be 1 after press"
+        assert press_vlv_state == 1, "Press valve should be 1 after first press"
+        assert vent_vlv_state == 1, "Vent valve should be 1 after first press"
+
+        press_valve.press()  # Set False
+        vent_valve.press()  # Set False
+
+        # Release back to higher authority
+        press_valve.toggle_absolute_control()
+        vent_valve.toggle_absolute_control()
+
+        # Check we can control something again
+        start_cmd.press()  # Set False
+
+        # Assertions 3
+        start_flag_val = self.read_tlm("test_flag_cmd")
+        press_vlv_state = self.read_tlm("press_vlv_state")
+        vent_vlv_state = self.read_tlm("vent_vlv_state")
+        assert start_flag_val == 0, "Start flag should be 0 after reset"
+        assert press_vlv_state == 0, "Press valve should be 0 after reset"
+        assert vent_vlv_state == 0, "Vent valve should be 0 after reset"
+
+        # ------------- Test 2: Basic Control --------------
+        self.log("Starting Basic Control Test (2/2)")
+        start_cmd.press()  # Set True
 
         self.log("Starting test")
         setpoints = [30, 15, 60, 30, 0]
@@ -65,7 +124,7 @@ class SetpointPressUser(ConsoleCase):
             setpoint.set_value(target)
 
             while self.should_continue:
-                pressure_value = self.get_value(PRESSURE)
+                pressure_value = self.get_value("press_pt")
                 if pressure_value is not None:
                     delta = abs(pressure_value - target)
                     if delta < 0.5:

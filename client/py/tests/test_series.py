@@ -13,7 +13,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from synnax.telem import DataType, MultiSeries, Series, TimeRange, TimeSpan, TimeStamp
+from synnax.telem import (
+    Alignment,
+    DataType,
+    MultiSeries,
+    Series,
+    TimeRange,
+    TimeSpan,
+    TimeStamp,
+)
 
 
 @pytest.mark.telem
@@ -187,6 +195,36 @@ class TestSeries:
         s = Series(["hello", "world"], data_type=DataType.STRING)
         assert s[-1] == "world"
 
+    def test_alignment_bounds_default(self):
+        """Should correctly calculate alignment_bounds with default alignment"""
+        s = Series([1, 2, 3, 4, 5], data_type=DataType.INT8)
+        bounds = s.alignment_bounds
+        assert bounds.lower == 0
+        assert bounds.upper == 5  # alignment(0) + length(5)
+
+    def test_alignment_bounds_with_alignment(self):
+        """Should correctly calculate alignment_bounds with custom alignment"""
+        s = Series(
+            [1, 2, 3],
+            data_type=DataType.INT8,
+            alignment=Alignment(2, 10),  # Start at domain 2, sample 10
+        )
+        bounds = s.alignment_bounds
+        # alignment = (2 << 32) | 10
+        expected_start = (2 << 32) | 10
+        assert bounds.lower == float(expected_start)
+        assert bounds.upper == float(expected_start + 3)  # + length
+
+    def test_alignment_preserved_from_series(self):
+        """Should preserve alignment when constructing from another Series"""
+        s1 = Series(
+            [1, 2, 3],
+            data_type=DataType.INT8,
+            alignment=Alignment(1, 2),
+        )
+        s2 = Series(s1)
+        assert s2.alignment == s1.alignment
+
 
 @pytest.mark.telem
 @pytest.mark.series
@@ -270,3 +308,41 @@ class TestMultiSeries:
             {"red": "car"},
             {"green": "tree"},
         ]
+
+    def test_alignment_from_first_series(self):
+        """Should return the alignment of the first series"""
+        s1 = Series([1, 2, 3], data_type=DataType.INT8, alignment=Alignment(1, 5))
+        s2 = Series([4, 5, 6], data_type=DataType.INT8, alignment=Alignment(2, 10))
+        ms = MultiSeries([s1, s2])
+        assert ms.alignment == Alignment(1, 5)
+
+    def test_alignment_empty_multiseries(self):
+        """Should return Alignment(0, 0) for empty MultiSeries"""
+        ms = MultiSeries([])
+        assert ms.alignment == Alignment(0, 0)
+
+    def test_alignment_bounds_multiseries(self):
+        """Should correctly calculate alignment_bounds from first to last series"""
+        s1 = Series(
+            [1, 2, 3],
+            data_type=DataType.INT8,
+            alignment=Alignment(1, 0),
+        )
+        s2 = Series(
+            [4, 5],
+            data_type=DataType.INT8,
+            alignment=Alignment(1, 10),
+        )
+        ms = MultiSeries([s1, s2])
+        bounds = ms.alignment_bounds
+        # Lower should be from first series
+        assert bounds.lower == s1.alignment_bounds.lower
+        # Upper should be from last series
+        assert bounds.upper == s2.alignment_bounds.upper
+
+    def test_alignment_bounds_empty_multiseries(self):
+        """Should return Bounds(0, 0) for empty MultiSeries"""
+        ms = MultiSeries([])
+        bounds = ms.alignment_bounds
+        assert bounds.lower == 0
+        assert bounds.upper == 0

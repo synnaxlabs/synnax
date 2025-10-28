@@ -291,3 +291,242 @@ func UnmarshalF[T Sample](dt DataType) func(b []byte) T {
 	}
 	panic(fmt.Sprintf("unsupported data type %s", dt))
 }
+
+// Arange creates a new Series containing count values starting from start, with each
+// subsequent value incremented by spacing. For example, Arange(0, 5, 2) produces [0, 2, 4, 6, 8].
+// Panics if count is less than or equal to 0.
+func Arange[T Sample](start T, count int, spacing T) Series {
+	data := make([]T, count)
+	for i := 0; i < count; i++ {
+		data[i] = start + T(i)*spacing
+	}
+	return NewSeries(data)
+}
+
+// NewSeriesFromAny creates a single-value Series from a value of type any, casting it
+// to the specified DataType. This function preserves numeric precision by avoiding
+// unnecessary intermediate conversions. Supports numeric types, strings, TimeStamp,
+// JSON, and bytes. Panics if the value cannot be converted to the target DataType.
+func NewSeriesFromAny(value any, dt DataType) Series {
+	switch dt {
+	case Int64T:
+		return NewSeriesV[int64](castToInt64(value))
+	case Int32T:
+		return NewSeriesV[int32](castToInt32(value))
+	case Int16T:
+		return NewSeriesV[int16](castToInt16(value))
+	case Int8T:
+		return NewSeriesV[int8](castToInt8(value))
+	case Uint64T:
+		return NewSeriesV[uint64](castToUint64(value))
+	case Uint32T:
+		return NewSeriesV[uint32](castToUint32(value))
+	case Uint16T:
+		return NewSeriesV[uint16](castToUint16(value))
+	case Uint8T:
+		return NewSeriesV[uint8](castToUint8(value))
+	case Float64T:
+		return NewSeriesV[float64](castToFloat64(value))
+	case Float32T:
+		return NewSeriesV[float32](castToFloat32(value))
+	case TimeStampT:
+		return NewSeriesV[TimeStamp](castToTimeStamp(value))
+	case StringT:
+		return NewSeriesStringsV(castToString(value))
+	case JSONT:
+		return castToJSON(value)
+	case BytesT:
+		return castToBytes(value)
+	default:
+		panic(fmt.Sprintf("unsupported data type %s", dt))
+	}
+}
+
+func castToInt64(value any) int64 {
+	switch v := value.(type) {
+	case int:
+		return int64(v)
+	case int64:
+		return v
+	case int32:
+		return int64(v)
+	case int16:
+		return int64(v)
+	case int8:
+		return int64(v)
+	case uint:
+		return int64(v)
+	case uint64:
+		return int64(v)
+	case uint32:
+		return int64(v)
+	case uint16:
+		return int64(v)
+	case uint8:
+		return int64(v)
+	case float64:
+		return int64(v)
+	case float32:
+		return int64(v)
+	case TimeStamp:
+		return int64(v)
+	case string:
+		panic("cannot cast string to int64")
+	default:
+		panic(fmt.Sprintf("cannot cast %T to int64", value))
+	}
+}
+
+func castToInt32(value any) int32 { return int32(castToInt64(value)) }
+
+func castToInt16(value any) int16 { return int16(castToInt64(value)) }
+
+func castToInt8(value any) int8 { return int8(castToInt64(value)) }
+
+func castToUint64(value any) uint64 {
+	switch v := value.(type) {
+	case int:
+		return uint64(v)
+	case int64:
+		return uint64(v)
+	case int32:
+		return uint64(v)
+	case int16:
+		return uint64(v)
+	case int8:
+		return uint64(v)
+	case uint:
+		return uint64(v)
+	case uint64:
+		return v
+	case uint32:
+		return uint64(v)
+	case uint16:
+		return uint64(v)
+	case uint8:
+		return uint64(v)
+	case float64:
+		return uint64(v)
+	case float32:
+		return uint64(v)
+	case TimeStamp:
+		return uint64(v)
+	case string:
+		panic("cannot cast string to uint64")
+	default:
+		panic(fmt.Sprintf("cannot cast %T to uint64", value))
+	}
+}
+
+func castToUint32(value any) uint32 { return uint32(castToUint64(value)) }
+
+func castToUint16(value any) uint16 { return uint16(castToUint64(value)) }
+
+func castToUint8(value any) uint8 { return uint8(castToUint64(value)) }
+
+func castToFloat64(value any) float64 {
+	switch v := value.(type) {
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case int32:
+		return float64(v)
+	case int16:
+		return float64(v)
+	case int8:
+		return float64(v)
+	case uint:
+		return float64(v)
+	case uint64:
+		return float64(v)
+	case uint32:
+		return float64(v)
+	case uint16:
+		return float64(v)
+	case uint8:
+		return float64(v)
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	case TimeStamp:
+		return float64(v)
+	case string:
+		panic("cannot cast string to float64")
+	default:
+		panic(fmt.Sprintf("cannot cast %T to float64", value))
+	}
+}
+
+func castToFloat32(value any) float32 { return float32(castToFloat64(value)) }
+
+func castToTimeStamp(value any) TimeStamp {
+	switch v := value.(type) {
+	case TimeStamp:
+		return v
+	case string:
+		panic("cannot cast string to TimeStamp")
+	default:
+		return TimeStamp(castToInt64(value))
+	}
+}
+
+func castToString(value any) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case int:
+		return fmt.Sprintf("%d", v)
+	case int64:
+		return fmt.Sprintf("%d", v)
+	case int32:
+		return fmt.Sprintf("%d", v)
+	case int16:
+		return fmt.Sprintf("%d", v)
+	case int8:
+		return fmt.Sprintf("%d", v)
+	case uint:
+		return fmt.Sprintf("%d", v)
+	case uint64:
+		return fmt.Sprintf("%d", v)
+	case uint32:
+		return fmt.Sprintf("%d", v)
+	case uint16:
+		return fmt.Sprintf("%d", v)
+	case uint8:
+		return fmt.Sprintf("%d", v)
+	case float64:
+		return fmt.Sprintf("%g", v)
+	case float32:
+		return fmt.Sprintf("%g", v)
+	case TimeStamp:
+		return fmt.Sprintf("%d", v)
+	default:
+		return fmt.Sprintf("%v", value)
+	}
+}
+
+func castToJSON(value any) Series {
+	switch v := value.(type) {
+	case string:
+		return Series{DataType: JSONT, Data: MarshalStrings([]string{v}, JSONT)}
+	case []byte:
+		return Series{DataType: JSONT, Data: MarshalStrings([]string{string(v)}, JSONT)}
+	default:
+		jsonStr := xbinary.MustEncodeJSONToString(value)
+		return Series{DataType: JSONT, Data: MarshalStrings([]string{jsonStr}, JSONT)}
+	}
+}
+
+func castToBytes(value any) Series {
+	switch v := value.(type) {
+	case []byte:
+		return Series{DataType: BytesT, Data: append(v, newLine)}
+	case string:
+		return Series{DataType: BytesT, Data: append([]byte(v), newLine)}
+	default:
+		str := castToString(value)
+		return Series{DataType: BytesT, Data: append([]byte(str), newLine)}
+	}
+}
