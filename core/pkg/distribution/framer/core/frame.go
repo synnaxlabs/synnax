@@ -83,16 +83,20 @@ func (f Frame) ToStorage() ts.Frame {
 	return telem.MultiFrame(channel.Keys(f.KeysSlice()).Storage(), f.SeriesSlice())
 }
 
-// FilterKeys returns a new frame containing only the series for the specified keys.
+// KeepKeys returns a new frame containing only the series for the specified keys.
 // The original frame is not modified.
-func (f Frame) FilterKeys(keys channel.Keys) Frame {
-	return Frame{f.Frame.FilterKeys(keys)}
+func (f Frame) KeepKeys(keys channel.Keys) Frame {
+	return Frame{Frame: f.Frame.KeepKeys(keys)}
+}
+
+func (f Frame) ExcludeKeys(keys channel.Keys) Frame {
+	return Frame{Frame: f.Frame.ExcludeKeys(keys)}
 }
 
 // ShallowCopy creates a shallow copy of the frame.
 // The keys and series slices are copied, but the series data itself is not duplicated.
 func (f Frame) ShallowCopy() Frame {
-	return Frame{f.Frame.ShallowCopy()}
+	return Frame{Frame: f.Frame.ShallowCopy()}
 }
 
 // MergeFrames combines multiple frames into a single frame.

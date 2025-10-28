@@ -84,6 +84,13 @@ func (r Retrieve) WhereInternal(internal bool) Retrieve {
 	return r
 }
 
+func (r Retrieve) WhereLegacyCalculated() Retrieve {
+	r.gorp.Where(func(ctx gorp.Context, ch *Channel) (bool, error) {
+		return ch.IsLegacyCalculated(), nil
+	}, gorp.Required())
+	return r
+}
+
 // WhereDataTypes filters for channels whose DataType attribute matches the provided
 // data types.
 func (r Retrieve) WhereDataTypes(dataTypes ...telem.DataType) Retrieve {
