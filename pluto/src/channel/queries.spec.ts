@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, createTestClient, DataType } from "@synnaxlabs/client";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -375,7 +376,7 @@ describe("queries", () => {
       });
 
       it("should filter by calculated channels", async () => {
-        const idxCh = await client.channels.create({
+        await client.channels.create({
           name: "idx_for_calc",
           dataType: DataType.TIMESTAMP,
           isIndex: true,
@@ -385,7 +386,6 @@ describe("queries", () => {
           dataType: DataType.FLOAT32,
           virtual: true,
           expression: "return 1",
-          requires: [idxCh.key],
         });
         const normalCh = await client.channels.create({
           name: "normal_virtual",
@@ -1224,17 +1224,15 @@ describe("queries", () => {
         result.current.form.set("name", "calculatedChannel");
         result.current.form.set("dataType", DataType.FLOAT32.toString());
         result.current.form.set("virtual", true);
-        result.current.form.set("expression", "return sourceChannel * 2;");
-        result.current.form.set("requires", [sourceChannel.key]);
+        result.current.form.set("expression", `return ${sourceChannel.name} * 2`);
         result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
         expect(result.current.form.value().name).toEqual("calculatedChannel");
         expect(result.current.form.value().expression).toEqual(
-          "return sourceChannel * 2;",
+          `return ${sourceChannel.name} * 2`,
         );
-        expect(result.current.form.value().requires).toEqual([sourceChannel.key]);
         expect(result.current.form.value().key).toBeDefined();
         expect(result.current.form.value().key).toBeGreaterThan(0);
       });
@@ -1242,7 +1240,7 @@ describe("queries", () => {
 
     it("should retrieve and edit existing calculated channel", async () => {
       const sourceChannel = await client.channels.create({
-        name: "existingSource",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -1251,8 +1249,7 @@ describe("queries", () => {
         name: "existingCalculated",
         dataType: DataType.FLOAT32,
         virtual: true,
-        expression: "return existingSource + 1;",
-        requires: [sourceChannel.key],
+        expression: `return ${sourceChannel.name} + 1`,
       });
 
       const { result } = renderHook(
@@ -1263,18 +1260,17 @@ describe("queries", () => {
 
       expect(result.current.form.value().name).toEqual("existingCalculated");
       expect(result.current.form.value().expression).toEqual(
-        "return existingSource + 1;",
+        `return ${sourceChannel.name} + 1`,
       );
-      expect(result.current.form.value().requires).toEqual([sourceChannel.key]);
 
       act(() => {
-        result.current.form.set("expression", "return existingSource * 3;");
+        result.current.form.set("expression", `return ${sourceChannel.name} * 3`);
         result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
         expect(result.current.form.value().expression).toEqual(
-          "return existingSource * 3;",
+          `return ${sourceChannel.name} * 3`,
         );
       });
     });
@@ -1311,23 +1307,6 @@ describe("queries", () => {
       );
     });
 
-    it("should validate that expression uses at least one channel", async () => {
-      const { result } = renderHook(() => Channel.useCalculatedForm({ query: {} }), {
-        wrapper,
-      });
-
-      act(() => {
-        result.current.form.set("name", "invalidCalculated");
-        result.current.form.set("expression", "return 42;");
-        result.current.form.set("requires", []);
-      });
-
-      expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("requires").status.message).toContain(
-        "Expression must use at least one channel",
-      );
-    });
-
     it("should handle form with default values", async () => {
       const { result } = renderHook(() => Channel.useCalculatedForm({ query: {} }), {
         wrapper,
@@ -1335,14 +1314,13 @@ describe("queries", () => {
 
       expect(result.current.form.value().name).toEqual("");
       expect(result.current.form.value().expression).toEqual("");
-      expect(result.current.form.value().requires).toEqual([]);
       expect(result.current.form.value().dataType).toEqual(DataType.FLOAT32.toString());
       expect(result.current.form.value().virtual).toBe(false);
     });
 
     it("should update form when calculated channel is updated externally", async () => {
       const sourceChannel = await client.channels.create({
-        name: "updateSource",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -1351,8 +1329,7 @@ describe("queries", () => {
         name: "updateCalculated",
         dataType: DataType.FLOAT32,
         virtual: true,
-        expression: "return updateSource;",
-        requires: [sourceChannel.key],
+        expression: `return ${sourceChannel.name}`,
       });
 
       const { result } = renderHook(

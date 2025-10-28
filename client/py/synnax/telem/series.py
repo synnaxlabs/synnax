@@ -19,6 +19,9 @@ from freighter import Payload
 from pydantic import PrivateAttr
 
 from synnax.telem.telem import (
+    Alignment,
+    Bounds,
+    CrudeAlignment,
     CrudeDataType,
     DataType,
     Size,
@@ -55,7 +58,8 @@ class Series(Payload):
     """The data type of the Series"""
     data: bytes
     """The underlying buffer"""
-    alignment: int = 0
+    alignment: Alignment = Alignment(0, 0)
+    """The alignment of the Series, representing the position within an array of arrays"""
     __len_cache: int | None = PrivateAttr(None)
 
     def __len__(self) -> int:
@@ -70,10 +74,11 @@ class Series(Payload):
         data: CrudeSeries,
         data_type: CrudeDataType | None = None,
         time_range: TimeRange | None = None,
-        alignment: int = 0,
+        alignment: CrudeAlignment = 0,
     ):
         if data_type is not None:
             data_type = DataType(data_type)
+        alignment = Alignment(alignment)
         if isinstance(data, (TimeStamp, int, float, np.number)):
             data_type = data_type or DataType(data)
             data_ = np.array([data], dtype=data_type.np).tobytes()
@@ -125,7 +130,10 @@ class Series(Payload):
             data_type = DataType(data_type)
             data_ = data
         super().__init__(
-            data_type=data_type, data=data_, time_range=time_range, alignment=alignment
+            data_type=data_type,
+            data=data_,
+            time_range=time_range,
+            alignment=alignment,
         )
         self.__len_cache = None
 
@@ -218,6 +226,19 @@ class Series(Payload):
         """:returns: A Size representing the number of bytes in the Series' data."""
         return Size(len(self.data))
 
+    @property
+    def alignment_bounds(self) -> Bounds:
+        """:returns: The bounds of alignments covered by this Series.
+
+        The lower bound is the alignment of the first sample (inclusive), and the
+        upper bound is the alignment just after the last sample (exclusive).
+        This represents the range [alignment, alignment + length).
+        """
+        return Bounds(
+            lower=float(int(self.alignment)),
+            upper=float(int(self.alignment) + len(self)),
+        )
+
     def astype(self, data_type: DataType) -> Series:
         return Series(
             data=self.__array__().astype(data_type.np),
@@ -301,6 +322,37 @@ class MultiSeries:
         if first is None or last is None:
             return None
         return TimeRange(start=first.start, end=last.end)
+
+    @property
+    def alignment(self) -> Alignment:
+        """:returns: The alignment of the first sample in the MultiSeries.
+
+        If the MultiSeries is empty, returns Alignment(0, 0).
+        """
+        if len(self.series) == 0:
+            return Alignment(0, 0)
+        return self.series[0].alignment
+
+    @property
+    def alignment_bounds(self) -> Bounds:
+        """:returns: The bounds of alignments covered by this MultiSeries.
+
+        The lower bound is the alignment of the first sample in the first series,
+        and the upper bound is the alignment just after the last sample in the last series.
+        If the MultiSeries is empty, returns Bounds(0, 0).
+        """
+        if len(self.series) == 0:
+            return Bounds(0, 0)
+        return Bounds(
+            lower=self.series[0].alignment_bounds.lower,
+            upper=self.series[-1].alignment_bounds.upper,
+        )
+
+    @property
+    def data_type(self) -> DataType:
+        if len(self.series) == 0:
+            return DataType.UNKNOWN
+        return self.series[0].data_type
 
     def __len__(self) -> int:
         return sum(len(s) for s in self.series)

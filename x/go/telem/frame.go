@@ -99,9 +99,11 @@ func (f Frame[K]) ShouldExcludeRaw(rawIndex int) bool {
 	return f.mask.enabled && f.mask.Get(rawIndex)
 }
 
-// KeysSlice returns the slice of keys in the frame. If FilterKeys has been called
-// on the frame, this function will have a considerable performance impact on the
-// hot path. If not, the performance impact is negligible.
+// KeysSlice returns the slice of keys in the frame.
+//
+// If the frame has been filtered via KeepKeys or ExcludeKeys, this function will
+// result in a deep copy of the keys slice, and may have a considerable performance
+// impact. If the frame has not been filtered, the performance impact is negligible.
 func (f Frame[K]) KeysSlice() []K {
 	if !f.mask.enabled {
 		return f.keys
@@ -113,9 +115,11 @@ func (f Frame[K]) KeysSlice() []K {
 	return keys
 }
 
-// SeriesSlice returns the slice of series in the frame. If FilterKeys has been called
-// on the frame, this function will have a considerable performance impact on the
-// hot path. If not, the performance impact is negligible.
+// SeriesSlice returns the slice of series in the frame.
+//
+// If the frame has been filtered via KeepKeys or ExcludeKeys, this function will
+// result in a deep copy of the keys slice, and may have a considerable performance
+// impact. If the frame has not been filtered, the performance impact is negligible.
 func (f Frame[K]) SeriesSlice() []Series {
 	if !f.mask.enabled {
 		return f.series
@@ -128,8 +132,8 @@ func (f Frame[K]) SeriesSlice() []Series {
 }
 
 // RawSeries returns the raw slice of series in the frame. This includes any series that
-// have been filtered out by FilterKeys. To check whether an index in this slice has
-// been filtered out, use ShouldExcludeRaw.
+// have been filtered out by KeepKeys or ExcludeKeys. To check whether an index in
+// this slice has been filtered out, use ShouldExcludeRaw.
 //
 // It is generally recommended to avoid using this function except for
 // performance-critical paths where the overhead of allocating returned closures
@@ -139,8 +143,8 @@ func (f Frame[K]) SeriesSlice() []Series {
 func (f Frame[K]) RawSeries() []Series { return f.series }
 
 // RawKeys returns the raw slice of keys in teh frame. This includes any keys that have
-// been filtered out by FilterKeys. To check whether an index in this slice has been
-// filtered out, use ShouldExcludeRaw.
+// been filtered out by KeepKeys or ExcludeKeys. To check whether an index in this
+// slice has been filtered out, use ShouldExcludeRaw.
 //
 // It is not safe to modify the contents of the returned slice.
 func (f Frame[K]) RawKeys() []K { return f.keys }
@@ -442,13 +446,32 @@ func (f Frame[K]) ShallowCopy() Frame[K] {
 	return Frame[K]{keys: keys, series: series, mask: f.mask}
 }
 
-// FilterKeys filters the frame to only include the keys in the given slice, returning
+// KeepKeys filters the frame to only include the keys in the given slice, returning
 // a shallow copy of the filtered frame.
-func (f Frame[K]) FilterKeys(keys []K) Frame[K] {
+func (f Frame[K]) KeepKeys(keys []K) Frame[K] {
+	return f.filter(keys, lo.Contains)
+}
+
+// notContain is defined statically so that it doesn't accidentally escape to the heap,
+// applying more pressure on GC
+func notContains[T comparable](s []T, e T) bool {
+	return !lo.Contains[T](s, e)
+}
+
+// ExcludeKeys filters the frame to include any keys that are NOT in the given slice,
+// returning a shallow copy of the filtered frame.
+func (f Frame[K]) ExcludeKeys(keys []K) Frame[K] {
+	if len(keys) == 0 {
+		return f
+	}
+	return f.filter(keys, notContains)
+}
+
+func (f Frame[K]) filter(keys []K, keep func([]K, K) bool) Frame[K] {
 	if len(f.keys) < f.mask.Cap() {
 		f.mask.enabled = true
 		for i, key := range f.keys {
-			if !lo.Contains(keys, key) {
+			if !keep(keys, key) {
 				f.mask.Mask128 = f.mask.Set(i, true)
 			}
 		}
@@ -459,7 +482,7 @@ func (f Frame[K]) FilterKeys(keys []K) Frame[K] {
 		fSeries = make([]Series, 0, len(keys))
 	)
 	for k, s := range f.Entries() {
-		if lo.Contains(keys, k) {
+		if keep(keys, k) {
 			fKeys = append(fKeys, k)
 			fSeries = append(fSeries, s)
 		}

@@ -29,6 +29,7 @@ var _ = Describe("Metrics", func() {
 	var ctx context.Context
 	BeforeEach(func() {
 		ctx = context.Background()
+
 	})
 	Describe("Service Creation", func() {
 		It("Should create a service with valid configuration", func() {
