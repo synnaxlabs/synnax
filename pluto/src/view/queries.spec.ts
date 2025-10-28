@@ -70,7 +70,7 @@ describe("View queries", () => {
       expect(result.current.data).toContain(view2.key);
     });
 
-    it.only("should retrieve views that already exist before the hook is mounted", async () => {
+    it("should retrieve views that already exist before the hook is mounted", async () => {
       const type = id.create();
       const views = await client.views.create([
         {
