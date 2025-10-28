@@ -70,7 +70,36 @@ describe("View queries", () => {
       expect(result.current.data).toContain(view2.key);
     });
 
-    it.only("should update the list when a view is created", async () => {
+    it.only("should retrieve views that already exist before the hook is mounted", async () => {
+      const type = id.create();
+      const views = await client.views.create([
+        {
+          name: "View 1",
+          type,
+          query: { channels: ["ch1"] },
+        },
+        {
+          name: "View 2",
+          type,
+          query: { channels: ["ch2"] },
+        },
+      ]);
+      const soloView = await client.views.create({
+        name: "Solo View",
+        type,
+        query: { channels: ["ch2"] },
+      });
+      const { result } = renderHook(
+        () => View.useList({ initialQuery: { types: [type] } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.data.length).toBe(3));
+      expect(result.current.data).toContain(views[0].key);
+      expect(result.current.data).toContain(views[1].key);
+      expect(result.current.data).toContain(soloView.key);
+    });
+
+    it("should update the list when a view is created", async () => {
       const type = id.create();
       const { result } = renderHook(() => View.useList({}), { wrapper });
       act(() => {

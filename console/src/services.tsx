@@ -21,6 +21,7 @@ import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
+import { ViewServices } from "@/view/services";
 import { WorkspaceServices } from "@/workspace/services";
 
 const createEmptyService = (
@@ -56,5 +57,5 @@ export const SERVICES: Ontology.Services = {
   table: TableServices.ONTOLOGY_SERVICE,
   status: createEmptyService("status", <Icon.Status />),
   arc: ArcServices.ONTOLOGY_SERVICE,
-  view: createEmptyService("view"),
+  view: ViewServices.ONTOLOGY_SERVICE,
 };
