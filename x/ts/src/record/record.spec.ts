@@ -77,13 +77,10 @@ describe("record", () => {
       expect(result.success).toBe(true);
     });
 
-    it("should not reject invalid keys", () => {
-      const invalidRecord = {
-        [Symbol("test")]: "value", // Symbol keys are not allowed in the schema
-      };
-
+    it("should reject symbol keys", () => {
+      const invalidRecord = { [Symbol("test")]: "value" };
       const result = record.unknownZ.safeParse(invalidRecord);
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
     });
 
     it("should accept empty objects", () => {

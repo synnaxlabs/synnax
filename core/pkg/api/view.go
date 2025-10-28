@@ -14,7 +14,6 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/gorp"
@@ -70,11 +69,11 @@ func (s *ViewService) Create(
 }
 
 type ViewRetrieveRequest struct {
-	Keys       []uuid.UUID     `json:"keys" msgpack:"keys"`
-	Types      []ontology.Type `json:"types" msgpack:"types"`
-	SearchTerm string          `json:"search_term" msgpack:"search_term"`
-	Limit      int             `json:"limit" msgpack:"limit"`
-	Offset     int             `json:"offset" msgpack:"offset"`
+	Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
+	Types      []string    `json:"types" msgpack:"types"`
+	SearchTerm string      `json:"search_term" msgpack:"search_term"`
+	Limit      int         `json:"limit" msgpack:"limit"`
+	Offset     int         `json:"offset" msgpack:"offset"`
 }
 
 type ViewRetrieveResponse struct {
