@@ -26,8 +26,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-const testOntologyType ontology.Type = "test"
-
 var _ = Describe("View", func() {
 	var (
 		ctx    context.Context
@@ -68,7 +66,7 @@ var _ = Describe("View", func() {
 			It("Should create a new view with an auto-generated key", func() {
 				s := &view.View{
 					Name: "Test View",
-					Type: testOntologyType,
+					Type: "test",
 				}
 				Expect(w.Create(ctx, s)).To(Succeed())
 				Expect(s.Key).ToNot(Equal(uuid.Nil))
@@ -77,7 +75,7 @@ var _ = Describe("View", func() {
 				s := &view.View{
 					Name: "Test View",
 					Key:  uuid.New(),
-					Type: testOntologyType,
+					Type: "test",
 				}
 				Expect(w.Create(ctx, s)).To(Succeed())
 				s.Name = "Updated Name"
@@ -94,12 +92,12 @@ var _ = Describe("View", func() {
 					{
 						Name: "View 1",
 						Key:  uuid.New(),
-						Type: testOntologyType,
+						Type: "test",
 					},
 					{
 						Name: "View 2",
 						Key:  uuid.New(),
-						Type: testOntologyType,
+						Type: "test",
 					},
 				}
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
@@ -115,7 +113,7 @@ var _ = Describe("View", func() {
 				s := &view.View{
 					Name: "To Delete",
 					Key:  uuid.New(),
-					Type: testOntologyType,
+					Type: "test",
 				}
 				Expect(w.Create(ctx, s)).To(Succeed())
 				Expect(w.Delete(ctx, s.Key)).To(Succeed())
@@ -134,12 +132,12 @@ var _ = Describe("View", func() {
 					{
 						Name: "Del 1",
 						Key:  uuid.New(),
-						Type: testOntologyType,
+						Type: "test",
 					},
 					{
 						Name: "Del 2",
 						Key:  uuid.New(),
-						Type: testOntologyType,
+						Type: "test",
 					},
 				}
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
@@ -157,17 +155,17 @@ var _ = Describe("View", func() {
 				{
 					Name: "View A",
 					Key:  uuid.New(),
-					Type: testOntologyType,
+					Type: "test",
 				},
 				{
 					Name: "View B",
 					Key:  uuid.New(),
-					Type: testOntologyType,
+					Type: "test",
 				},
 				{
 					Name: "View C",
 					Key:  uuid.New(),
-					Type: testOntologyType,
+					Type: "test",
 				},
 			}
 			Expect(w.CreateMany(ctx, &views)).To(Succeed())

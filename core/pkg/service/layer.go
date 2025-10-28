@@ -263,7 +263,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.View, err = view.OpenService(
 		ctx,
 		view.ServiceConfig{
-			Instrumentation: cfg.Instrumentation.Child("view"),
+			Instrumentation: cfg.Child("view"),
 			DB:              cfg.Distribution.DB,
 			Signals:         cfg.Distribution.Signals,
 			Ontology:        cfg.Distribution.Ontology,
