@@ -12,33 +12,26 @@ package arc
 import (
 	"context"
 
+	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/module"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 )
 
 type (
 	IR             = ir.IR
-	Stage          = ir.Stage
 	Node           = ir.Node
 	Edge           = ir.Edge
 	Handle         = ir.Handle
 	Function       = ir.Function
-	SymbolResolver = ir.SymbolResolver
-	Symbol         = ir.Symbol
+	SymbolResolver = symbol.Resolver
+	Symbol         = symbol.Symbol
 	Graph          = graph.Graph
 	Text           = text.Text
+	Module         = module.Module
 )
-
-type Module struct {
-	ir.IR
-	WASM []byte
-}
-
-func (m Module) IsZero() bool {
-	return len(m.Nodes) == 0 && len(m.Stages) == 0 && len(m.Functions) == 0 && len(m.Edges) == 0 && len(m.WASM) == 0 && m.Symbols == nil
-}
-
 type options struct {
 	resolver SymbolResolver
 }
@@ -65,15 +58,11 @@ func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Module, error) 
 	}
 	inter, diagnostics := graph.Analyze(ctx, graphWithAST, o.resolver)
 	if !diagnostics.Ok() {
-		return Module{}, diagnostics.Error()
+		return Module{}, diagnostics
 	}
-	return Module{IR: inter}, nil
-}
-
-func ConvertTextToGraph(text Text, opts ...Option) (Graph, error) {
-	return Graph{}, nil
-}
-
-func ConvertGraphToText(graph Graph, opts ...Option) (Text, error) {
-	return Text{}, nil
+	output, err := compiler.Compile(ctx, inter)
+	if err != nil {
+		return Module{}, err
+	}
+	return Module{IR: inter, Output: output}, nil
 }

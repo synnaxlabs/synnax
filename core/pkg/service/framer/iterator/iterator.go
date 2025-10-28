@@ -11,6 +11,7 @@ package iterator
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -18,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -41,6 +43,7 @@ type ServiceConfig struct {
 	// Channel is used to retrieve information about channels.
 	// [REQUIRED]
 	Channel channel.Readable
+	Arc     *svcarc.Service
 }
 
 var (
@@ -56,6 +59,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.DistFramer = override.Nil(cfg.DistFramer, other.DistFramer)
 	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
+	cfg.Arc = override.Nil(cfg.Arc, other.Arc)
 	return cfg
 }
 
@@ -64,6 +68,7 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("iterator")
 	validate.NotNil(v, "framer", cfg.DistFramer)
 	validate.NotNil(v, "channel", cfg.Channel)
+	validate.NotNil(v, "arc", cfg.Arc)
 	return v.Error()
 }
 
@@ -107,7 +112,7 @@ type ResponseSegment = confluence.Segment[Response, Response]
 
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
 	p := plumber.New()
-	t, err := s.newCalculationTransform(ctx, &cfg)
+	calcTransform, err := s.newCalculationTransform(ctx, &cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +122,13 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	}
 	plumber.SetSegment(p, "distribution", dist)
 	var routeOutletFrom address.Address = "distribution"
-	if t != nil {
-		plumber.SetSegment(p, "calculation", t)
+	if calcTransform != nil {
+		plumber.SetSegment(
+			p,
+			"calculation",
+			calcTransform,
+			confluence.DeferErr(calcTransform.close),
+		)
 		plumber.MustConnect[Response](p, "distribution", "calculation", 25)
 		routeOutletFrom = "calculation"
 	}
@@ -147,11 +157,21 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
-func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (ResponseSegment, error) {
+func (s *Service) openCalculator(ctx context.Context, ch channel.Channel) (*calculation.Calculator, error) {
+	c, err := calculation.OpenCalculator(ctx, calculation.CalculatorConfig{
+		Channel:    ch,
+		ChannelSvc: s.cfg.Channel,
+		Resolver:   s.cfg.Arc.SymbolResolver(),
+	})
+	return c, err
+}
+
+func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*calculationTransform, error) {
 	var (
-		channels   []channel.Channel
-		calculated = make(set.Mapped[channel.Key, channel.Channel], len(channels))
-		required   = make(set.Mapped[channel.Key, channel.Channel], len(channels))
+		channels    []channel.Channel
+		calculators []*calculation.Calculator
+		required    = make(set.Set[channel.Key], len(channels))
+		calculated  = make(set.Set[channel.Key], len(channels))
 	)
 	if err := s.cfg.Channel.NewRetrieve().
 		WhereKeys(cfg.Keys...).
@@ -161,34 +181,42 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (Res
 	}
 	for _, ch := range channels {
 		if ch.IsCalculated() {
-			calculated[ch.Key()] = ch
-			required.Add(ch.Requires...)
+			calculator, err := s.openCalculator(ctx, ch)
+			if err != nil {
+				return nil, err
+			}
+			calculators = append(calculators, calculator)
+			calculated.Add(ch.Key())
+			required.Add(calculator.ReadFrom()...)
 		}
 	}
-	hasCalculated := len(calculated) > 0
-	if !hasCalculated {
-		return nil, nil
-	}
-	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
-		return !calculated.Contains(item)
-	})
-	cfg.Keys = append(cfg.Keys, required.Keys()...)
-	var requiredCh []channel.Channel
-	err := s.cfg.Channel.NewRetrieve().
+	var requiredChannels []channel.Channel
+	if err := s.cfg.Channel.NewRetrieve().
+		Entries(&requiredChannels).
 		WhereKeys(required.Keys()...).
-		Entries(&requiredCh).
-		Exec(ctx, nil)
-	if err != nil {
+		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	calculators := make([]*calculation.Calculator, len(calculated))
-	for i, v := range calculated.Values() {
-		calculators[i], err = calculation.OpenCalculator(v, requiredCh)
-		if err != nil {
-			return nil, err
+	originalKeys := slices.Clone(cfg.Keys)
+	cfg.Keys = lo.Uniq(append(cfg.Keys, required.Keys()...))
+	cfg.Keys = lo.Uniq(append(cfg.Keys, lo.FilterMap(
+		requiredChannels,
+		func(item channel.Channel, index int) (channel.Key, bool) {
+			return item.Index(), !item.Virtual
+		})...,
+	))
+	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
+		return !calculated.Contains(item) && !item.Free()
+	})
+	// PurgeKeys are channels inside cfg.Keys that are required in ReadFrom
+	// but were not requested
+	purgeKeys := make([]channel.Key, 0, len(cfg.Keys))
+	for _, key := range cfg.Keys {
+		if !lo.Contains(originalKeys, key) {
+			purgeKeys = append(purgeKeys, key)
 		}
 	}
-	return newCalculationTransform(calculators), nil
+	return newCalculationTransform(purgeKeys, calculators), nil
 }
 
 type Iterator struct {

@@ -43,8 +43,10 @@ from synnax.options import SynnaxOptions
 from synnax.ranger import Range
 from synnax.synnax import Synnax
 from synnax.telem import (
+    Alignment,
     Authority,
     Bounds,
+    CrudeAlignment,
     CrudeAuthority,
     CrudeDataType,
     CrudeDensity,
@@ -67,6 +69,7 @@ from synnax.timing import Loop, Timer, sleep
 from synnax.user.payload import User
 
 __all__ = [
+    "Alignment",
     "AUTO_SPAN",
     "AuthError",
     "Authority",
@@ -76,6 +79,7 @@ __all__ = [
     "ContiguityError",
     "ControlError",
     "convert_time_units",
+    "CrudeAlignment",
     "CrudeAuthority",
     "CrudeDataType",
     "CrudeDensity",

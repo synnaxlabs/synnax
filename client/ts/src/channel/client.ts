@@ -26,6 +26,7 @@ import {
   keyZ,
   type Name,
   type New,
+  type Operation,
   type Params,
   type Payload,
   payloadZ,
@@ -113,10 +114,7 @@ export class Channel {
    * the calculated value
    */
   readonly expression: string;
-  /**
-   * Only used for calculated channels. Specifies the channels required for calculation
-   */
-  readonly requires: Key[];
+  readonly operations: Operation[];
   /**
    * The status of the channel.
    */
@@ -135,12 +133,13 @@ export class Channel {
     alias,
     status: argsStatus,
     expression = "",
-    requires = [],
+    operations = [],
   }: New & {
     internal?: boolean;
     frameClient?: framer.Client;
     density?: CrudeDensity;
     status?: status.Crude;
+    operations?: Operation[];
   }) {
     this.key = keyZ.parse(key);
     this.name = name;
@@ -152,7 +151,7 @@ export class Channel {
     this.alias = alias;
     this.virtual = virtual;
     this.expression = expression;
-    this.requires = keyZ.array().parse(requires ?? []);
+    this.operations = operations;
     if (argsStatus != null) this.status = status.create(argsStatus);
     this._frameClient = frameClient ?? null;
   }
@@ -179,8 +178,8 @@ export class Channel {
       internal: this.internal,
       virtual: this.virtual,
       expression: this.expression,
-      requires: this.requires,
       status: this.status,
+      operations: this.operations,
     });
   }
 
@@ -434,27 +433,6 @@ export class Client {
 
 export const isCalculated = ({ virtual, expression }: Payload): boolean =>
   virtual && expression !== "";
-
-export const resolveCalculatedIndex = async (
-  retrieve: (key: Key) => Promise<Payload | null>,
-  channel: Payload,
-): Promise<Key | null> => {
-  if (!isCalculated(channel)) return channel.index;
-  for (const required of channel.requires) {
-    const requiredChannel = await retrieve(required);
-    if (requiredChannel == null) return null;
-    if (!requiredChannel.virtual) return requiredChannel.index;
-  }
-  for (const required of channel.requires) {
-    const requiredChannel = await retrieve(required);
-    if (requiredChannel == null) return null;
-    if (isCalculated(requiredChannel)) {
-      const index = await resolveCalculatedIndex(retrieve, requiredChannel);
-      if (index != null) return index;
-    }
-  }
-  return null;
-};
 
 export const ontologyID = (key: Key): ontology.ID => ({
   type: "channel",

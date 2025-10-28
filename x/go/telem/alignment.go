@@ -64,8 +64,11 @@ func (a Alignment) String() string {
 // UnmarshalJSON implements json.Unmarshaler.
 func (a *Alignment) UnmarshalJSON(b []byte) error {
 	n, err := binary.UnmarshalJSONStringUint64(b)
+	if err != nil {
+		return err
+	}
 	*a = Alignment(n)
-	return err
+	return nil
 }
 
 // MarshalJSON implements json.Marshaler.

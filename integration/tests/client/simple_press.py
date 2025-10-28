@@ -22,7 +22,6 @@ class SimplePress(TestCase):
         self.subscribe(
             [
                 "end_test_cmd",
-                "end_test_state",
                 "press_vlv_cmd",
                 "press_vlv_state",
                 "vent_vlv_cmd",
@@ -57,7 +56,7 @@ class SimplePress(TestCase):
                 if self.should_stop:
                     return
                 # Open press valve and wait
-                ctrl[PRESS_VALVE] = True
+                ctrl[PRESS_VALVE] = 1
                 self.assert_states(press_state=1, vent_state=0)
                 if ctrl.wait_until(
                     (lambda c: c[PRESSURE] > target_pressure),
@@ -66,7 +65,7 @@ class SimplePress(TestCase):
                     self.log(
                         f"Target pressure reached: {ctrl[PRESSURE]:.2f} > {target_pressure}"
                     )
-                    ctrl[PRESS_VALVE] = False
+                    ctrl[PRESS_VALVE] = 0
                     self.assert_states(press_state=0, vent_state=0)
                     target_pressure += 30
                     sy.sleep(1)  # Give "Bad Actor" time to run
@@ -75,15 +74,15 @@ class SimplePress(TestCase):
                     return
 
             # Depressurize the system
-            ctrl[VENT_VALVE] = True
+            ctrl[VENT_VALVE] = 1
             self.assert_states(press_state=0, vent_state=1)
             ctrl.wait_until(
                 lambda c: c[PRESSURE] < 5,
                 timeout=10 * sy.TimeSpan.SECOND,
             )
-            ctrl[VENT_VALVE] = False
+            ctrl[VENT_VALVE] = 0
             self.assert_states(press_state=0, vent_state=0)
-            ctrl[END_TEST_CMD] = True
+            ctrl[END_TEST_CMD] = 1
 
     def assert_states(self, press_state: int, vent_state: int) -> None:
         sy.sleep(1)
