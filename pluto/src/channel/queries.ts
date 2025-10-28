@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType, type group, ontology, ranger } from "@synnaxlabs/client";
-import { array, deep, type Optional, primitive } from "@synnaxlabs/x";
+import { array, deep, type Optional, primitive, TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -110,19 +110,14 @@ export const formSchema = channel.newZ
     path: ["dataType"],
   });
 
-export const calculatedFormSchema = formSchema
-  .safeExtend({
-    expression: z
-      .string()
-      .min(1, "Expression must not be empty")
-      .refine((v) => v.includes("return"), {
-        message: "Expression must contain a return statement",
-      }),
-  })
-  .refine((v) => v.requires?.length > 0, {
-    message: "Expression must use at least one channel",
-    path: ["requires"],
-  });
+export const calculatedFormSchema = formSchema.safeExtend({
+  expression: z
+    .string()
+    .min(1, "Expression must not be empty")
+    .refine((v) => v.includes("return"), {
+      message: "Expression must contain a return statement",
+    }),
+});
 
 const channelToFormValues = (ch: channel.Channel) => ({
   ...ch.payload,
@@ -146,7 +141,13 @@ export const ZERO_FORM_VALUES: z.infer<
   leaseholder: 0,
   virtual: false,
   expression: "",
-  requires: [],
+  operations: [
+    {
+      type: "none",
+      resetChannel: 0,
+      duration: TimeSpan.ZERO,
+    },
+  ],
 };
 
 const retrieveSingle = async ({
@@ -226,6 +227,7 @@ const retrieveInitialFormValues = async ({
 >) => {
   if (key == null) return undefined;
   const res = await retrieveSingle({ client, store, query: { key, rangeKey } });
+  console.log(res);
   reset(channelToFormValues(res));
 };
 
@@ -333,6 +335,7 @@ const updateForm = async ({
   typeof formSchema | typeof calculatedFormSchema,
   FluxSubStore
 >) => {
+  console.log(value());
   const ch = await client.channels.create(value());
   store.channels.set(ch.key, ch);
   set("key", ch.key);

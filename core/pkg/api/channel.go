@@ -32,18 +32,19 @@ type ChannelKey = channel.Key
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
 // use purely as a data container.
 type Channel struct {
-	Key         channel.Key     `json:"key" msgpack:"key"`
-	Name        string          `json:"name" msgpack:"name"`
-	Leaseholder cluster.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
-	DataType    telem.DataType  `json:"data_type" msgpack:"data_type"`
-	Density     telem.Density   `json:"density" msgpack:"density"`
-	IsIndex     bool            `json:"is_index" msgpack:"is_index"`
-	Index       channel.Key     `json:"index" msgpack:"index"`
-	Alias       string          `json:"alias" msgpack:"alias"`
-	Virtual     bool            `json:"virtual" msgpack:"virtual"`
-	Internal    bool            `json:"internal" msgpack:"internal"`
-	Requires    channel.Keys    `json:"requires" msgpack:"requires"`
-	Expression  string          `json:"expression" msgpack:"expression"`
+	Key         channel.Key         `json:"key" msgpack:"key"`
+	Name        string              `json:"name" msgpack:"name"`
+	Leaseholder cluster.NodeKey     `json:"leaseholder" msgpack:"leaseholder"`
+	DataType    telem.DataType      `json:"data_type" msgpack:"data_type"`
+	Density     telem.Density       `json:"density" msgpack:"density"`
+	IsIndex     bool                `json:"is_index" msgpack:"is_index"`
+	Index       channel.Key         `json:"index" msgpack:"index"`
+	Alias       string              `json:"alias" msgpack:"alias"`
+	Virtual     bool                `json:"virtual" msgpack:"virtual"`
+	Internal    bool                `json:"internal" msgpack:"internal"`
+	Requires    channel.Keys        `json:"requires" msgpack:"requires"`
+	Expression  string              `json:"expression" msgpack:"expression"`
+	Operations  []channel.Operation `json:"operations" msgpack:"operations"`
 }
 
 // ChannelService is the central service for all things Channel related.
@@ -251,6 +252,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
 			Requires:    ch.Requires,
+			Operations:  ch.Operations,
 		}
 	}
 	return translated
@@ -272,6 +274,7 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
 			Requires:    ch.Requires,
+			Operations:  ch.Operations,
 		}
 		if ch.IsIndex {
 			tCH.LocalIndex = tCH.LocalKey

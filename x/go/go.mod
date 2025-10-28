@@ -10,7 +10,6 @@ require (
 	github.com/onsi/ginkgo/v2 v2.26.0
 	github.com/onsi/gomega v1.38.2
 	github.com/samber/lo v1.51.0
-	github.com/stretchr/testify v1.11.1
 	github.com/uptrace/uptrace-go v1.38.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yuin/gopher-lua v1.1.1
@@ -84,5 +83,4 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20251002232023-7c0ddcbb5797 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251002232023-7c0ddcbb5797 // indirect
 	google.golang.org/grpc v1.75.1 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

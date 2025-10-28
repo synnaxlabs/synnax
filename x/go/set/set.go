@@ -12,6 +12,8 @@
 // set types for various use cases.
 package set
 
+import "maps"
+
 // Mapped is a generic map-based collection that associates keys of type T
 // with values of type V. It serves as the foundation for the Set type.
 type Mapped[T comparable, V any] map[T]V
@@ -28,6 +30,15 @@ func FromSlice[T comparable](values []T) Set[T] {
 	s.Add(values...)
 	return s
 }
+
+// Reset removes all elements from the set, leaving it empty.
+// The underlying map is cleared but not deallocated.
+func (s Mapped[T, V]) Reset() { clear(s) }
+
+// Copy creates and returns a shallow copy of the set.
+// The returned set contains the same key-value pairs as the original,
+// but modifications to one set will not affect the other.
+func (s Mapped[T, V]) Copy() Mapped[T, V] { return maps.Clone(s) }
 
 // Add inserts the provided values into the set.
 // If a value already exists in the set, it will not be duplicated.
