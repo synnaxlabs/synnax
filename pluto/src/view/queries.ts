@@ -117,6 +117,16 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
   ],
 });
 
+export const { useUpdate: useCreate } = Flux.createUpdate<view.New, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.CREATE_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    const views = await client.views.create(data);
+    rollbacks.push(store.views.set(views));
+    return views;
+  },
+});
+
 export type DeleteParams = view.Key | view.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({

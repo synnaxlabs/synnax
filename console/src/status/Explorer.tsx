@@ -14,7 +14,7 @@ import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/status/Create";
 import { Item } from "@/status/list/Item";
 import { FilterContextMenu, Filters as CoreFilters } from "@/status/list/SelectFilters";
-import { Explorer as CoreExplorer } from "@/view/Explorer";
+import { View } from "@/view/View";
 
 export const EXPLORER_LAYOUT_TYPE = "status_explorer";
 
@@ -32,10 +32,11 @@ export const Explorer: Layout.Renderer = () => {
   const listProps = Status.useList({});
   const placeLayout = Layout.usePlacer();
   return (
-    <CoreExplorer<status.Key, status.Status>
+    <View<status.Key, status.Status, status.MultiRetrieveArgs>
       {...listProps}
       resourceType="status"
       item={item}
+      initialRequest={{}}
       filters={FilterContextMenu}
       shownFilters={CoreFilters}
       onCreate={() => placeLayout(CREATE_LAYOUT)}

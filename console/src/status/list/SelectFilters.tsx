@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { Flex, Icon, Label as PLabel, Menu, state, Tag, Text } from "@synnaxlabs/pluto";
+import { Flex, Icon, Label as PLabel, state, Tag, Text } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 
 import { Label } from "@/label";
@@ -27,14 +27,12 @@ export const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersPro
   };
 
   return (
-    <Menu.Menu level="small" gap="small">
-      <Label.SelectMultiple
-        value={request.hasLabels ?? []}
-        onChange={(labels) => handleRequestChange((r) => ({ ...r, hasLabels: labels }))}
-        triggerProps={{ hideTags: true, variant: "text" }}
-        location={{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }}
-      />
-    </Menu.Menu>
+    <Label.SelectMultiple
+      value={request.hasLabels ?? []}
+      onChange={(labels) => handleRequestChange((r) => ({ ...r, hasLabels: labels }))}
+      triggerProps={{ hideTags: true, variant: "text" }}
+      location={{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }}
+    />
   );
 };
 
