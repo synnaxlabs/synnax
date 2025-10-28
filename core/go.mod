@@ -15,7 +15,6 @@ require (
 	github.com/shirou/gopsutil/v4 v4.25.9
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/viper v1.21.0
-	github.com/tetratelabs/wazero v1.9.0
 	github.com/uptrace/uptrace-go v1.38.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.42.0

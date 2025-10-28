@@ -54,7 +54,7 @@ describe("channelchannel.Retriever", () => {
         index: 0,
         virtual: false,
         expression: "",
-        requires: [],
+        operations: [],
       }));
     });
     const retriever = new channel.DebouncedBatchRetriever(base, 10);
@@ -83,7 +83,7 @@ describe("channelchannel.Retriever", () => {
         index: 0,
         virtual: false,
         expression: "",
-        requires: [],
+        operations: [],
       }));
     });
     const retriever = new channel.DebouncedBatchRetriever(base, 10);

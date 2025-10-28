@@ -30,20 +30,6 @@ class Valve(Symbol):
 
         applied_properties: Dict[str, Any] = {}
 
-        # Only set label if the names match
-        if (
-            state_channel is not None
-            and command_channel is not None
-            and state_channel.endswith("_state")
-            and command_channel.endswith("_cmd")
-        ):
-            if state_channel[:-5] == command_channel[:-3]:
-                self.set_label(state_channel[:-6])
-        elif state_channel is not None or command_channel is not None:
-            raise ValueError(
-                "State and command channels must match and end with _state and _cmd respectively"
-            )
-
         # Navigate to Properties > Control tab
         self.page.get_by_text("Properties").click()
         self.page.get_by_text("Control").last.click()

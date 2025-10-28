@@ -132,7 +132,7 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				}
 				s.Channels = s.translateRequest(req).Channels
 			case f := <-frames.Outlet():
-				if filtered := f.FilterKeys(s.Channels); !filtered.Empty() {
+				if filtered := f.KeepKeys(s.Channels); !filtered.Empty() {
 					if err := signal.SendUnderContext(
 						ctx,
 						s.Out.Inlet(),

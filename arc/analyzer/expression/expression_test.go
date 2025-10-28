@@ -14,9 +14,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/analyzer/diagnostics"
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -64,6 +65,7 @@ var _ = Describe("Expressions", func() {
 			ctx := context.CreateRoot(bCtx, ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
+
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 		})
 
@@ -109,7 +111,7 @@ var _ = Describe("Expressions", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should not allow comparison of an integer variable with a floating point literal", func() {
+		It("Should allow comparison of an integer variable with a floating point literal", func() {
 			ast := MustSucceed(parser.Parse(`
 			func testFunc() {
 				x i32 := 10
@@ -117,10 +119,8 @@ var _ = Describe("Expressions", func() {
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			first := (*ctx.Diagnostics)[0]
-			Expect(first.Message).To(Equal("type mismatch: cannot use i32 and f64 in > operation"))
+			// With literal inference, 5.0 should adapt to i32
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should validate logical operations on booleans", func() {
@@ -473,16 +473,16 @@ var _ = Describe("Expressions", func() {
 					return (ox_pt_1 + ox_pt_2) / 2
 				}
 			`))
-			resolver := ir.MapResolver{
-				"ox_pt_1": ir.Symbol{
-					Kind: ir.KindChannel,
+			resolver := symbol.MapResolver{
+				"ox_pt_1": symbol.Symbol{
+					Kind: symbol.KindChannel,
 					Name: "ox_pt_1",
-					Type: ir.Chan{ValueType: ir.I32{}},
+					Type: types.Chan(types.I32()),
 				},
-				"ox_pt_2": ir.Symbol{
-					Kind: ir.KindChannel,
+				"ox_pt_2": symbol.Symbol{
+					Kind: symbol.KindChannel,
 					Name: "ox_pt_2",
-					Type: ir.Chan{ValueType: ir.I32{}},
+					Type: types.Chan(types.I32()),
 				},
 			}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
@@ -495,23 +495,23 @@ var _ = Describe("Expressions", func() {
 					return (ox_pt_1 + ox_pt_2) / 2
 				}
 			`))
-			resolver := ir.MapResolver{
-				"ox_pt_1": ir.Symbol{
-					Kind: ir.KindChannel,
+			resolver := symbol.MapResolver{
+				"ox_pt_1": symbol.Symbol{
+					Kind: symbol.KindChannel,
 					Name: "ox_pt_1",
-					Type: ir.Chan{ValueType: ir.I32{}},
+					Type: types.Chan(types.I32()),
 				},
-				"ox_pt_2": ir.Symbol{
-					Kind: ir.KindChannel,
+				"ox_pt_2": symbol.Symbol{
+					Kind: symbol.KindChannel,
 					Name: "ox_pt_1",
-					Type: ir.Chan{ValueType: ir.F32{}},
+					Type: types.Chan(types.F32()),
 				},
 			}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			firstDiag := (*ctx.Diagnostics)[0]
-			Expect(firstDiag.Message).To(ContainSubstring("type mismatch: cannot use chan i32 and chan f32 in + operation"))
+			Expect(firstDiag.Message).To(ContainSubstring("type mismatch: cannot use i32 and f32 in + operation"))
 		})
 
 		It("Should not return an error when adding a channel to a variable of the same type", func() {
@@ -520,11 +520,11 @@ var _ = Describe("Expressions", func() {
 					return ox_pt_1 + 2
 				}
 			`))
-			resolver := ir.MapResolver{
-				"ox_pt_1": ir.Symbol{
-					Kind: ir.KindChannel,
+			resolver := symbol.MapResolver{
+				"ox_pt_1": symbol.Symbol{
+					Kind: symbol.KindChannel,
 					Name: "ox_pt_1",
-					Type: ir.Chan{ValueType: ir.I32{}},
+					Type: types.Chan(types.I32()),
 				},
 			}
 			ctx := context.CreateRoot(bCtx, ast, resolver)

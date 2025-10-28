@@ -22,6 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/legacy"
+	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -43,6 +46,7 @@ import (
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
 	alamos.Instrumentation
+	DB *gorp.DB
 	// Framer is the underlying frame service to stream cache channel values and write
 	// calculated samples.
 	// [REQUIRED]
@@ -54,25 +58,38 @@ type ServiceConfig struct {
 	// so the calculation routines can be updated accordingly.
 	// [REQUIRED]
 	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
+	// Arc is used for compiling arc programs used for executing calculations.
+	// [REQUIRED]
+	Arc *arc.Service
 	// StateCodec is the encoder/decoder used to communicate calculation state
 	// changes.
 	// [OPTIONAL]
 	StateCodec binary.Codec
+	// EnableLegacyCalculations sets whether to enable the legacy, lua-based calculated
+	// channel engine.
+	// [OPTIONAL] - Default false
+	EnableLegacyCalculations *bool
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultConfig is the default configuration for opening the calculation service.
-	DefaultConfig = ServiceConfig{StateCodec: &binary.JSONCodec{}}
+	DefaultConfig = ServiceConfig{
+		StateCodec:               &binary.JSONCodec{},
+		EnableLegacyCalculations: config.False(),
+	}
 )
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
-	validate.NotNil(v, "Framer", c.Framer)
-	validate.NotNil(v, "Channel", c.Channel)
-	validate.NotNil(v, "ChannelObservable", c.ChannelObservable)
-	validate.NotNil(v, "StateCodec", c.StateCodec)
+	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "channel_observable", c.ChannelObservable)
+	validate.NotNil(v, "state_codec", c.StateCodec)
+	validate.NotNil(v, "enable_legacy_calculations", c.EnableLegacyCalculations)
+	validate.NotNil(v, "arc", c.Arc)
+	validate.NotNil(v, "db", c.DB)
 	return v.Error()
 }
 
@@ -83,6 +100,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
 	c.StateCodec = override.Nil(c.StateCodec, other.StateCodec)
+	c.Arc = override.Nil(c.Arc, other.Arc)
+	c.EnableLegacyCalculations = override.Nil(c.EnableLegacyCalculations, other.EnableLegacyCalculations)
+	c.DB = override.Nil(c.DB, other.DB)
 	return c
 }
 
@@ -109,7 +129,8 @@ type Service struct {
 	}
 	disconnectFromChannelChanges observe.Disconnect
 	stateKey                     channel.Key
-	w                            *framer.Writer
+	writer                       *framer.Writer
+	legacy                       *legacy.Service
 }
 
 const StatusChannelName = "sy_calculation_status"
@@ -153,10 +174,25 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 
-	s := &Service{cfg: cfg, w: w, stateKey: calculationStateCh.Key()}
+	s := &Service{cfg: cfg, writer: w, stateKey: calculationStateCh.Key()}
 	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
 	s.mu.entries = make(map[channel.Key]*entry)
 
+	if err = s.migrateChannels(ctx); err != nil {
+		s.cfg.L.Error("failed to migrate legacy calculated channels", zap.Error(err))
+	}
+
+	if *cfg.EnableLegacyCalculations {
+		s.legacy, err = legacy.OpenService(ctx, legacy.ServiceConfig{
+			Channel:           cfg.Channel,
+			Framer:            cfg.Framer,
+			ChannelObservable: cfg.ChannelObservable,
+			StateCodec:        cfg.StateCodec,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 	return s, nil
 }
 
@@ -164,7 +200,7 @@ func (s *Service) setStatus(
 	_ context.Context,
 	status Status,
 ) {
-	if _, err := s.w.Write(core.UnaryFrame(
+	if _, err := s.writer.Write(core.UnaryFrame(
 		s.stateKey,
 		telem.NewSeriesStaticJSONV(status),
 	)); err != nil {
@@ -182,7 +218,7 @@ func (s *Service) handleChange(
 	}
 	// Don't stop calculating if the channel is deleted. The calculation will be
 	// automatically shut down when it is no longer needed.
-	if c.Variant != change.Set || !c.Value.IsCalculated() {
+	if c.Variant != change.Set || !c.Value.IsCalculated() || c.Value.IsLegacyCalculated() {
 		return
 	}
 	existing, found := s.mu.entries[c.Key]
@@ -197,8 +233,8 @@ func (s *Service) handleChange(
 }
 
 func (s *Service) update(ctx context.Context, ch channel.Channel) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	//s.mu.Lock()
+	//defer s.mu.Unlock()
 	e, found := s.mu.entries[ch.Key()]
 	if !found {
 		return
@@ -212,7 +248,7 @@ func (s *Service) update(ctx context.Context, ch channel.Channel) {
 		s.cfg.L.Error("failed to restart calculated channel", zap.Error(err), zap.Stringer("key", ch))
 		// Even if the operation is not successful, we still want to store the
 		// latest requirements and expression in the entry.
-		e.ch.Requires = ch.Requires
+		e.ch.Operations = ch.Operations
 		e.ch.Expression = ch.Expression
 		s.mu.entries[ch.Key()] = e
 	}
@@ -250,7 +286,7 @@ func (s *Service) Close() error {
 	for _, e := range s.mu.entries {
 		c.Exec(e.shutdown.Close)
 	}
-	c.Exec(s.w.Close)
+	c.Exec(s.writer.Close)
 	return c.Error()
 }
 
@@ -265,7 +301,13 @@ func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, erro
 	return s.startCalculation(ctx, key, 1)
 }
 
-const defaultPipelineBufferSize = 50
+const (
+	defaultPipelineBufferSize                 = 500
+	streamerAddr              address.Address = "streamer"
+	calculatorAddr            address.Address = "calculator"
+	writerAddr                address.Address = "writer"
+	writerObserverAddr        address.Address = "writer_observer"
+)
 
 func (s *Service) startCalculation(
 	ctx context.Context,
@@ -288,41 +330,36 @@ func (s *Service) startCalculation(
 			return s.releaseEntryCloser(key), nil
 		}
 
-		var requires []channel.Channel
-		if err := s.cfg.Channel.NewRetrieve().
-			WhereKeys(ch.Requires...).
-			Entries(&requires).
-			Exec(ctx, nil); err != nil {
+		c, err := OpenCalculator(ctx, CalculatorConfig{
+			ChannelSvc: s.cfg.Channel,
+			Channel:    ch,
+			Resolver:   s.cfg.Arc.SymbolResolver(),
+		})
+		if err != nil {
 			return nil, err
 		}
-
 		writer_, err := s.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
-			Keys:  channel.Keys{ch.Key()},
+			Keys:  channel.Keys{ch.Key(), ch.Index()},
 			Start: telem.Now(),
 		})
 		if err != nil {
 			return nil, err
 		}
-		streamer_, err := s.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: ch.Requires})
+		streamer_, err := s.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: c.ReadFrom()})
 		if err != nil {
 			return nil, err
 		}
 		p := plumber.New()
-		plumber.SetSegment(p, "streamer", streamer_)
-		plumber.SetSegment(p, "writer", writer_)
+		plumber.SetSegment(p, streamerAddr, streamer_)
+		plumber.SetSegment(p, writerAddr, writer_)
 
-		c, err := OpenCalculator(ch, requires)
-		if err != nil {
-			return nil, err
-		}
 		sc := newCalculationTransform([]*Calculator{c}, s.setStatus)
 		plumber.SetSegment(
 			p,
-			"Calculator",
+			calculatorAddr,
 			sc,
-			confluence.Defer(sc.close),
+			confluence.DeferErr(sc.close),
 		)
-
 		o := confluence.NewObservableSubscriber[framer.WriterResponse]()
 		o.OnChange(func(ctx context.Context, i framer.WriterResponse) {
 			s.cfg.L.DPanic(
@@ -330,10 +367,10 @@ func (s *Service) startCalculation(
 				zap.Stringer("channel", ch),
 			)
 		})
-		plumber.SetSink(p, "obs", o)
-		plumber.MustConnect[framer.StreamerResponse](p, "streamer", "Calculator", defaultPipelineBufferSize)
-		plumber.MustConnect[framer.WriterRequest](p, "Calculator", "writer", defaultPipelineBufferSize)
-		plumber.MustConnect[framer.WriterResponse](p, "writer", "obs", defaultPipelineBufferSize)
+		plumber.SetSink(p, writerObserverAddr, o)
+		plumber.MustConnect[framer.StreamerResponse](p, streamerAddr, calculatorAddr, defaultPipelineBufferSize)
+		plumber.MustConnect[framer.WriterRequest](p, calculatorAddr, writerAddr, defaultPipelineBufferSize)
+		plumber.MustConnect[framer.WriterResponse](p, writerAddr, writerObserverAddr, defaultPipelineBufferSize)
 		streamerRequests := confluence.NewStream[framer.StreamerRequest](1)
 		streamer_.InFrom(streamerRequests)
 		sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
@@ -381,8 +418,9 @@ func (t *streamCalculationTransform) transform(
 	req framer.StreamerResponse,
 ) (res framer.WriterRequest, send bool, err error) {
 	res.Command = writer.Write
+	var changed bool
 	for _, c := range t.calculators {
-		s, err := c.Next(req.Frame)
+		res.Frame, changed, err = c.Next(ctx, req.Frame, res.Frame)
 		if err != nil {
 			t.onStateChange(ctx, Status{
 				Key:         c.ch.Key().String(),
@@ -390,16 +428,17 @@ func (t *streamCalculationTransform) transform(
 				Message:     fmt.Sprintf("Failed to start calculation for %s", c.ch),
 				Description: err.Error(),
 			})
-		} else if s.Len() > 0 {
-			res.Frame = res.Frame.Append(c.ch.Key(), s)
+		} else if changed {
 			send = true
 		}
 	}
 	return res, send, nil
 }
 
-func (t *streamCalculationTransform) close() {
-	for _, c := range t.calculators {
-		c.Close()
+func (t *streamCalculationTransform) close() error {
+	c := errors.NewCatcher(errors.WithAggregation())
+	for _, calc := range t.calculators {
+		c.Exec(calc.Close)
 	}
+	return c.Error()
 }
