@@ -80,6 +80,30 @@ async def create_bool_variables(myobj, idx):
     return bools
 
 
+async def create_command_variables(myobj, idx):
+    """Create writable command variables for testing write operations."""
+    commands = []
+    for i in range(3):  # Create 3 command channels
+        cmd = await myobj.add_variable(
+            idx, f"command_{i}", 0.0, ua.VariantType.Float
+        )
+        await cmd.set_writable()
+        commands.append(cmd)
+    return commands
+
+
+async def monitor_command_changes(commands, command_values):
+    """Periodically check command variables for changes and print them."""
+    while True:
+        for i, cmd in enumerate(commands):
+            current_value = await cmd.read_value()
+            if command_values[i] != current_value:
+                timestamp = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+                print(f"[{timestamp}] COMMAND RECEIVED -> command_{i}: {current_value}")
+                command_values[i] = current_value
+        await asyncio.sleep(0.1)  # Check every 100ms
+
+
 # Data Generation Functions
 def generate_timestamps(start, rate, size):
     """Generate array of timestamps."""
@@ -170,6 +194,28 @@ async def main():
     mytimearray = await create_time_array(myobj, idx)
     floats = await create_float_variables(myobj, idx)
     bools = await create_bool_variables(myobj, idx)
+    commands = await create_command_variables(myobj, idx)
+
+    # Set up monitoring for command variable writes
+    print("\n" + "="*60)
+    print("OPC UA Server Started - Monitoring Command Variables")
+    print("="*60)
+    print("\nCommand variables (writable, monitored for external writes):")
+    command_values = []
+    for i, cmd in enumerate(commands):
+        node_id = cmd.nodeid.to_string()
+        print(f"  command_{i}: {node_id}")
+        initial_value = await cmd.read_value()
+        command_values.append(initial_value)
+
+    print("\nRead-only variables (auto-updated by server):")
+    print(f"  Arrays: my_array_0 to my_array_{ARRAY_COUNT-1}")
+    print(f"  Floats: my_float_0 to my_float_{FLOAT_COUNT-1}")
+    print(f"  Bools:  my_bool_0 to my_bool_{BOOL_COUNT-1}")
+    print("\nWaiting for commands...\n")
+
+    # Start monitoring task
+    monitor_task = asyncio.create_task(monitor_command_changes(commands, command_values))
 
     # Start server loop
     start_ref = datetime.datetime.now(datetime.timezone.utc)

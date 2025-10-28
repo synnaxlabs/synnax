@@ -8,17 +8,18 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import warnings
 from typing import Literal, Union
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from synnax.channel import ChannelKey
 from synnax.hardware.task import JSONConfigMixin, MetaTask, StarterStopperMixin, Task
 from synnax.telem import CrudeRate, Rate
 
 
-class Channel(BaseModel):
+class ReadChannel(BaseModel):
     """
     Configuration for a channel in an OPC UA read task. A list of these objects should
     be passed to the `channels` field of the `ReadConfig` constructor.
@@ -49,6 +50,46 @@ class Channel(BaseModel):
         super().__init__(**data)
 
 
+# Backward compatibility alias - DEPRECATED
+# Use ReadChannel instead. Channel will be removed in a future version.
+def Channel(*args, **kwargs):
+    warnings.warn(
+        "opcua.Channel is deprecated and will be removed in a future version. "
+        "Use opcua.ReadChannel instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return ReadChannel(*args, **kwargs)
+
+
+class WriteChannel(BaseModel):
+    """
+    Configuration for a channel in an OPC UA write task. A list of these objects should
+    be passed to the `channels` field of the `WriteTaskConfig` constructor.
+
+    :param enabled: Whether output for this channel is enabled. Defaults to True.
+    :param key: A unique key to identify this channel. Auto-generated if not provided.
+    :param cmd_channel: The Synnax channel key to read command values from. This is the
+        channel that will be monitored for commands to send to the OPC UA server.
+    :param node_id: The OPC UA node ID to write to. Format: "NS=<namespace>;I=<id>" or
+        similar OPC UA node ID format.
+    """
+
+    enabled: bool = True
+    "Whether output for this channel is enabled."
+    key: str = ""
+    "A unique key to identify this channel."
+    cmd_channel: ChannelKey = 0
+    "The Synnax channel key to read command values from."
+    node_id: str = ""
+    "The OPC UA node ID to write to."
+
+    def __init__(self, **data):
+        if "key" not in data:
+            data["key"] = str(uuid4())
+        super().__init__(**data)
+
+
 class BaseReadTaskConfig(BaseModel):
     device: str = Field(min_length=1)
     "The key of the Synnax OPC UA device to read from."
@@ -58,7 +99,7 @@ class BaseReadTaskConfig(BaseModel):
     "Whether to save data permanently within Synnax, or just stream it for real-time consumption."
     auto_start: bool = False
     "Whether to start the task automatically when it is created."
-    channels: list[Channel]
+    channels: list[ReadChannel]
 
 
 class NonArraySamplingReadTaskConfig(BaseReadTaskConfig):
@@ -131,11 +172,10 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             self.config = ArraySamplingReadTaskConfig(
                 device=device,
                 sample_rate=sample_rate,
-                stream_rate=stream_rate,
                 data_saving=data_saving,
                 array_mode=array_mode,
                 array_size=array_size,
-                channels=channels,
+                channels=channels if channels is not None else [],
             )
         else:
             self.config = NonArraySamplingReadTaskConfig(
@@ -144,6 +184,70 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
                 stream_rate=stream_rate,
                 data_saving=data_saving,
                 array_mode=array_mode,
-                array_size=array_size,
-                channels=channels,
+                channels=channels if channels is not None else [],
             )
+
+
+class WriteTaskConfig(BaseModel):
+    """
+    Configuration for an OPC UA write task.
+    """
+
+    device: str = Field(min_length=1)
+    "The key of the Synnax OPC UA device to write to."
+    data_saving: bool
+    "Whether to save data permanently within Synnax, or just stream it for real-time consumption."
+    auto_start: bool = False
+    "Whether to start the task automatically when it is created."
+    channels: list[WriteChannel]
+    "A list of WriteChannel objects that specify which OPC UA nodes to write to."
+
+    @field_validator("channels")
+    def validate_channels_not_empty(cls, v):
+        """Validate that at least one channel is provided."""
+        if len(v) == 0:
+            raise ValueError("Task must have at least one channel")
+        return v
+
+
+class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+    """A write task for sending commands to OPC UA devices. This task is a programmatic
+    representation of the OPC UA write task configurable within the Synnax console.
+    For detailed information on configuring/operating an OPC UA write task,
+    see https://docs.synnaxlabs.com/reference/driver/opc-ua/write-task
+
+
+    :param device: The key of the Synnax OPC UA device to write to.
+    :param name: A human-readable name for the task.
+    :param data_saving: Whether to save data permanently within Synnax, or just stream
+        it for real-time consumption.
+    :param auto_start: Whether to start the task automatically when it is created.
+    :param channels: A list of WriteChannel objects that specify which OPC UA nodes to
+        write to and which Synnax channels to read command values from.
+    """
+
+    TYPE = "opc_write"
+    config: WriteTaskConfig
+    _internal: Task
+
+    def __init__(
+        self,
+        internal: Task | None = None,
+        *,
+        device: str = "",
+        name: str = "",
+        data_saving: bool = False,
+        auto_start: bool = False,
+        channels: list[WriteChannel] = None,
+    ):
+        if internal is not None:
+            self._internal = internal
+            self.config = WriteTaskConfig.model_validate_json(internal.config)
+            return
+        self._internal = Task(name=name, type=self.TYPE)
+        self.config = WriteTaskConfig(
+            device=device,
+            data_saving=data_saving,
+            auto_start=auto_start,
+            channels=channels if channels is not None else [],
+        )

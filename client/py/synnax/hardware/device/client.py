@@ -169,9 +169,9 @@ class Client:
             _RetrieveResponse,
         )
         if is_single:
-            if len(res.devices) > 0:
+            if res.devices is not None and len(res.devices) > 0:
                 return res.devices[0]
             if ignore_not_found:
                 return None
             raise NotFoundError("Device not found")
-        return res.devices
+        return res.devices if res.devices is not None else []

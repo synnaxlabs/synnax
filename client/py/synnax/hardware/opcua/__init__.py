@@ -9,6 +9,10 @@
 
 from synnax.hardware.opcua.types import (
     Channel,
+    ReadChannel,
     ReadTask,
     WrappedReadTaskConfig,
+    WriteChannel,
+    WriteTask,
+    WriteTaskConfig,
 )
