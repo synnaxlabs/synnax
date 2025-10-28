@@ -32,6 +32,7 @@ I have verified that, when released, the following packages will not conflict wi
 I have verified that user-facing documentation for each of the following services has been updated to match any changes in the release candidate:
 
 - [ ] `guides/analyst`
+- [ ] `guides/comparison`
 - [ ] `guides/get-started`
 - [ ] `guides/operations`
 - [ ] `guides/sys-admin`
