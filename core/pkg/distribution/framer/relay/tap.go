@@ -245,7 +245,7 @@ func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				}
 				f.keys = req.Keys
 			case req := <-f.freeWrites.Outlet():
-				req.Frame = req.Frame.FilterKeys(f.keys)
+				req.Frame = req.Frame.KeepKeys(f.keys)
 				if !req.Frame.Empty() {
 					f.Out.Inlet() <- req
 				}

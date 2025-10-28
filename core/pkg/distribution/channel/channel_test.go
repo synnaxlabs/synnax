@@ -201,16 +201,10 @@ var _ = Describe("Channel Tests", func() {
 			Entry("DataType", channel.Channel{Leaseholder: 1, LocalKey: 1}, channel.Channel{Leaseholder: 1, LocalKey: 1, DataType: "int"}, "DataType"),
 			Entry("LocalIndex", channel.Channel{Leaseholder: 1, LocalKey: 1}, channel.Channel{Leaseholder: 1, LocalKey: 1, LocalIndex: 1}, "LocalIndex"),
 		)
-		It("Should return true even if the list of keys in requires are out of order", func() {
-			c1 := channel.Channel{Leaseholder: 1, LocalKey: 1, Requires: channel.Keys{1, 2, 3}}
-			c2 := channel.Channel{Leaseholder: 1, LocalKey: 1, Requires: channel.Keys{3, 2, 1}}
-			Expect(c1.Equals(c2)).To(BeTrue())
-		})
 		DescribeTable("Not Equal", func(c1, c2 channel.Channel, exclude ...string) {
 			Expect(c1.Equals(c2, exclude...)).To(BeFalse())
 		},
 			Entry("By LocalIndex", channel.Channel{Leaseholder: 1, LocalKey: 1, LocalIndex: 1}, channel.Channel{Leaseholder: 1, LocalKey: 1, LocalIndex: 2}),
-			Entry("By Requires", channel.Channel{Leaseholder: 1, LocalKey: 1, Requires: channel.Keys{1, 2, 3}}, channel.Channel{Leaseholder: 1, LocalKey: 1, Requires: channel.Keys{1, 2, 4}}),
 			Entry("By Name", channel.Channel{Name: "name1", LocalKey: 1}, channel.Channel{Name: "name2", LocalKey: 1}),
 			Entry("By Leaseholder", channel.Channel{Leaseholder: 1, LocalKey: 1}, channel.Channel{Leaseholder: 2, LocalKey: 1}),
 			Entry("By LocalKey", channel.Channel{Leaseholder: 1, LocalKey: 1}, channel.Channel{Leaseholder: 1, LocalKey: 2}),
