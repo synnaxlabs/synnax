@@ -30,7 +30,7 @@ namespace interval {
 /// @code
 /// interval{period: 100ms} -> tick;
 /// @endcode
-class IntervalNode : public Node {
+class Node : public arc::Node {
     std::string id_;                   ///< Node identifier
     State& state_;                     ///< State reference (non-owning)
     ChannelKey output_ch_;             ///< Output channel for tick signal
@@ -43,7 +43,7 @@ public:
     /// @param state State reference (non-owning).
     /// @param output_ch Output channel key for tick signal.
     /// @param period_ns Interval period in nanoseconds.
-    IntervalNode(std::string id,
+    Node(std::string id,
                  State* state,
                  ChannelKey output_ch,
                  uint64_t period_ns);

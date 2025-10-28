@@ -20,9 +20,10 @@
 #include "x/cpp/telem/telem.h"
 
 namespace arc {
+namespace module {
 
 std::pair<AssembledRuntime, xerrors::Error>
-ModuleLoader::load(const std::string &ir_json, const std::vector<uint8_t> &wasm_bytes) {
+Loader::load(const std::string &ir_json, const std::vector<uint8_t> &wasm_bytes) {
     // Parse IR from JSON
     ir::IR ir;
     try {
@@ -90,7 +91,7 @@ ModuleLoader::load(const std::string &ir_json, const std::vector<uint8_t> &wasm_
     return load(module);
 }
 
-std::pair<AssembledRuntime, xerrors::Error> ModuleLoader::load(const Module &module) {
+std::pair<AssembledRuntime, xerrors::Error> Loader::load(const Module &module) {
     AssembledRuntime assembled;
 
     // 1. Create queues with runtime-configured capacity
@@ -259,9 +260,9 @@ std::pair<AssembledRuntime, xerrors::Error> ModuleLoader::load(const Module &mod
 
     // 11. Create node factory with all registered node types
     MultiFactory factory;
-    factory.add(std::make_unique<interval::IntervalNodeFactory>());
+    factory.add(std::make_unique<interval::Factory>());
     if (assembled.runtime) {
-        factory.add(std::make_unique<wasm::WASMNodeFactory>(*assembled.runtime));
+        factory.add(std::make_unique<wasm::Factory>(*assembled.runtime));
     }
 
     // 12. Create nodes using factory pattern
@@ -307,7 +308,7 @@ std::pair<AssembledRuntime, xerrors::Error> ModuleLoader::load(const Module &mod
     return {std::move(assembled), xerrors::NIL};
 }
 
-std::vector<ChannelKey> ModuleLoader::extract_channel_keys(const ir::IR &ir) {
+std::vector<ChannelKey> Loader::extract_channel_keys(const ir::IR &ir) {
     std::set<ChannelKey> keys;
 
     for (const auto &node : ir.nodes) {
@@ -325,7 +326,7 @@ std::vector<ChannelKey> ModuleLoader::extract_channel_keys(const ir::IR &ir) {
     return std::vector<ChannelKey>(keys.begin(), keys.end());
 }
 
-ir::TypeKind ModuleLoader::get_channel_type(const ir::Node &node, ChannelKey channel_key) {
+ir::TypeKind Loader::get_channel_type(const ir::Node &node, ChannelKey channel_key) {
     // Check read channels
     for (const auto &[key, param] : node.channels.read) {
         if (key == channel_key) {
@@ -345,4 +346,5 @@ ir::TypeKind ModuleLoader::get_channel_type(const ir::Node &node, ChannelKey cha
     return ir::TypeKind::Invalid;
 }
 
+}  // namespace module
 }  // namespace arc

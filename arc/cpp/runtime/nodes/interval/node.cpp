@@ -12,17 +12,17 @@
 namespace arc {
 namespace interval {
 
-IntervalNode::IntervalNode(std::string id,
-                           State* state,
-                           ChannelKey output_ch,
-                           uint64_t period_ns)
+Node::Node(std::string id,
+           State* state,
+           ChannelKey output_ch,
+           uint64_t period_ns)
     : id_(std::move(id)),
       state_(*state),
       output_ch_(output_ch),
       period_ns_(period_ns),
       last_execution_(telem::TimeStamp::now()) {}
 
-xerrors::Error IntervalNode::execute(NodeContext& ctx) {
+xerrors::Error Node::execute(NodeContext& ctx) {
     auto now = telem::TimeStamp::now();
     auto elapsed = now - last_execution_;
 

@@ -12,8 +12,8 @@
 namespace arc {
 namespace interval {
 
-std::pair<std::unique_ptr<Node>, xerrors::Error>
-IntervalNodeFactory::create(const NodeFactoryConfig& cfg) {
+std::pair<std::unique_ptr<arc::Node>, xerrors::Error>
+Factory::create(const NodeFactoryConfig& cfg) {
     // Check if this is an interval node
     if (cfg.ir_node.type != "interval") {
         // Not an interval node - let another factory handle it
@@ -45,8 +45,8 @@ IntervalNodeFactory::create(const NodeFactoryConfig& cfg) {
 
     ChannelKey output_ch = cfg.ir_node.channels.write.at("output");
 
-    // Create IntervalNode
-    auto interval_node = std::make_unique<IntervalNode>(
+    // Create interval::Node
+    auto interval_node = std::make_unique<Node>(
         cfg.ir_node.key,
         &cfg.state,
         output_ch,

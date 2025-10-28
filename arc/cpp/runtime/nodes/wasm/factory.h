@@ -19,10 +19,10 @@ namespace wasm {
 ///
 /// Handles node types that correspond to user-defined Arc functions compiled
 /// to WebAssembly. Checks if the node type exists in the IR's function list,
-/// and if so, creates a WASMNode that executes the compiled function.
+/// and if so, creates a Node that executes the compiled function.
 ///
 /// Chain of Responsibility behavior:
-/// - Returns {WASMNode, NIL} if node type matches an IR function
+/// - Returns {Node, NIL} if node type matches an IR function
 /// - Returns {nullptr, NOT_FOUND} if node type is not an IR function
 /// - Returns {nullptr, error} if WASM function lookup or node creation fails
 ///
@@ -33,28 +33,27 @@ namespace wasm {
 /// }
 /// @endcode
 /// This creates a node with type="calculate_average" that maps to a WASM function.
-class WASMNodeFactory : public NodeFactory {
+class Factory : public NodeFactory {
     Runtime& runtime_;  ///< WASM runtime reference (non-owning)
 
 public:
     /// @brief Construct WASM factory with runtime reference.
     /// @param runtime WASM runtime (must outlive this factory).
-    explicit WASMNodeFactory(Runtime& runtime) : runtime_(runtime) {}
+    explicit Factory(Runtime& runtime) : runtime_(runtime) {}
 
     /// @brief Create a WASM node if the type matches an IR function.
     ///
     /// Creation steps:
     /// 1. Check if cfg.ir_node.type exists in cfg.ir->functions
     /// 2. If not found, return NOT_FOUND (not a WASM function)
-    /// 3. Verify cfg.runtime is not null (WASM runtime required)
-    /// 4. Build NodeState with input edges and output handles
-    /// 5. Find WASM function instance via Runtime::find_function()
-    /// 6. Create WASMNode with function instance and output parameter names
+    /// 3. Build state::Node with input edges and output handles
+    /// 4. Find WASM function instance via Runtime::find_function()
+    /// 5. Create Node with function instance and output parameter names
     ///
     /// @param cfg Factory configuration with IR node and dependencies.
-    /// @return {WASMNode, NIL} on success, {nullptr, NOT_FOUND} if not a WASM function,
+    /// @return {Node, NIL} on success, {nullptr, NOT_FOUND} if not a WASM function,
     ///         {nullptr, error} on failure.
-    std::pair<std::unique_ptr<Node>, xerrors::Error>
+    std::pair<std::unique_ptr<arc::Node>, xerrors::Error>
     create(const NodeFactoryConfig& cfg) override;
 };
 

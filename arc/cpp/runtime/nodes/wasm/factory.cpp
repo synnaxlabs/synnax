@@ -14,8 +14,8 @@
 namespace arc {
 namespace wasm {
 
-std::pair<std::unique_ptr<Node>, xerrors::Error>
-WASMNodeFactory::create(const NodeFactoryConfig& cfg) {
+std::pair<std::unique_ptr<arc::Node>, xerrors::Error>
+Factory::create(const NodeFactoryConfig& cfg) {
     // Check if this node type corresponds to a WASM function in the IR
     const auto* fn = cfg.ir.find_function(cfg.ir_node.type);
     if (!fn) {
@@ -32,8 +32,8 @@ WASMNodeFactory::create(const NodeFactoryConfig& cfg) {
         output_handles.push_back(Handle{cfg.ir_node.key, param});
     }
 
-    // Create NodeState with edges and handles
-    auto node_state = std::make_unique<NodeState>(
+    // Create state::Node with edges and handles
+    auto node_state = std::make_unique<state::Node>(
         &cfg.state,
         cfg.ir_node.key,
         input_edges,
@@ -49,9 +49,9 @@ WASMNodeFactory::create(const NodeFactoryConfig& cfg) {
             "' for node '" + cfg.ir_node.key + "': " + func_err.data)};
     }
 
-    // Create WASMNode (takes ownership of node_state)
+    // Create wasm::Node (takes ownership of node_state)
     // Pass output parameter names for change tracking
-    auto wasm_node = std::make_unique<WASMNode>(
+    auto wasm_node = std::make_unique<Node>(
         cfg.ir_node.key,
         std::move(node_state),
         &runtime_,

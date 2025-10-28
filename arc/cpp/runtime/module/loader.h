@@ -24,6 +24,7 @@
 #include "x/cpp/xerrors/errors.h"
 
 namespace arc {
+namespace module {
 
 /// @brief Compiled Arc module (IR + WASM bytecode).
 struct Module {
@@ -89,7 +90,7 @@ struct AssembledRuntime {
 /// 5. Create WASMNode for each IR node
 /// 6. Register nodes with scheduler at correct strata
 /// 7. Wire up thread-safe queues
-class ModuleLoader {
+class Loader {
 public:
     ModuleLoader() = default;
 
@@ -117,4 +118,5 @@ public:
     ir::TypeKind get_channel_type(const ir::Node &node, ChannelKey channel_key);
 };
 
+}  // namespace module
 }  // namespace arc

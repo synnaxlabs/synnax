@@ -12,18 +12,18 @@
 namespace arc {
 namespace wasm {
 
-WASMNode::WASMNode(std::string id,
-                   std::unique_ptr<NodeState> node_state,
-                   Runtime* runtime,
-                   wasm_function_inst_t function,
-                   std::vector<std::string> output_params)
+Node::Node(std::string id,
+           std::unique_ptr<state::Node> node_state,
+           Runtime* runtime,
+           wasm_function_inst_t function,
+           std::vector<std::string> output_params)
     : id_(std::move(id)),
       node_state_(std::move(node_state)),
       runtime_(*runtime),
       function_(function),
       output_params_(std::move(output_params)) {}
 
-xerrors::Error WASMNode::execute(NodeContext& ctx) {
+xerrors::Error Node::execute(NodeContext& ctx) {
     // Refresh inputs with temporal alignment
     // Returns false if not ready (waiting for more data)
     if (!node_state_->refresh_inputs()) {

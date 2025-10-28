@@ -22,7 +22,7 @@ TEST(NodeStateTest, ReadChannel) {
     state.register_channel(1, telem::FLOAT32_T);
 
     // Create node state (no edges, just for channel access)
-    arc::NodeState node_state(&state, "test", {}, {});
+    arc::state::Node node_state(&state, "test", {}, {});
 
     // Add data via input queue
     auto data = std::make_shared<telem::Series>(std::vector<float>{42.0f});
@@ -46,7 +46,7 @@ TEST(NodeStateTest, WriteChannel) {
 
     state.register_channel(3, telem::FLOAT64_T);
 
-    arc::NodeState node_state(&state, "test", {}, {});
+    arc::state::Node node_state(&state, "test", {}, {});
 
     // Write via NodeState
     auto err = node_state.write_channel<double>(3, 3.14);
@@ -65,7 +65,7 @@ TEST(NodeStateTest, StateVariables) {
     queue::SPSC<arc::ChannelOutput> output_queue(16);
     arc::State state(&input_queue, &output_queue);
 
-    arc::NodeState node_state(&state, "counter", {}, {});
+    arc::state::Node node_state(&state, "counter", {}, {});
 
     // Load state (should initialize)
     int32_t count = node_state.load_state_var<int32_t>(0, 0);
@@ -85,8 +85,8 @@ TEST(NodeStateTest, StateIsolationBetweenNodes) {
     queue::SPSC<arc::ChannelOutput> output_queue(16);
     arc::State state(&input_queue, &output_queue);
 
-    arc::NodeState node1_state(&state, "node1", {}, {});
-    arc::NodeState node2_state(&state, "node2", {}, {});
+    arc::state::Node node1_state(&state, "node1", {}, {});
+    arc::state::Node node2_state(&state, "node2", {}, {});
 
     // Store same var_id in different nodes
     node1_state.store_state_var<int32_t>(0, 100);
@@ -110,7 +110,7 @@ TEST(NodeStateTest, ParameterIndexedOutput) {
 
     // Create NodeState with output handle
     std::vector<arc::Handle> outputs = {arc::Handle{"add", "result"}};
-    arc::NodeState node_state(&state, "add", {}, outputs);
+    arc::state::Node node_state(&state, "add", {}, outputs);
 
     // Get output pointer (parameter index 0)
     telem::Series* out = node_state.output(0);
@@ -147,7 +147,7 @@ TEST(NodeStateTest, RefreshInputsWithSingleInput) {
 
     // Create NodeState for B
     auto edges = state.incoming_edges("B");
-    arc::NodeState node_state(&state, "B", edges, {});
+    arc::state::Node node_state(&state, "B", edges, {});
 
     // Initially no data
     EXPECT_FALSE(node_state.refresh_inputs());
@@ -197,7 +197,7 @@ TEST(NodeStateTest, RefreshInputsWithMultipleInputs) {
 
     // Create NodeState for C
     auto edges = state.incoming_edges("C");
-    arc::NodeState node_state(&state, "C", edges, {});
+    arc::state::Node node_state(&state, "C", edges, {});
 
     // A produces data at t=100
     auto& output_a = state.get_output(arc::Handle{"A", "out"});
@@ -239,7 +239,7 @@ TEST(NodeStateTest, WatermarkPreventsReprocessing) {
     state.add_edge(arc::Edge{arc::Handle{"A", "out"}, arc::Handle{"B", "in"}});
 
     auto edges = state.incoming_edges("B");
-    arc::NodeState node_state(&state, "B", edges, {});
+    arc::state::Node node_state(&state, "B", edges, {});
 
     // A produces first output at t=100
     auto& output_a = state.get_output(arc::Handle{"A", "out"});

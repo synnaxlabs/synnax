@@ -22,7 +22,7 @@ namespace interval {
 /// period has elapsed.
 ///
 /// Chain of Responsibility behavior:
-/// - Returns {IntervalNode, NIL} if node type is "interval"
+/// - Returns {Node, NIL} if node type is "interval"
 /// - Returns {nullptr, NOT_FOUND} if node type is not "interval"
 /// - Returns {nullptr, error} if configuration is invalid (missing period/output)
 ///
@@ -31,7 +31,7 @@ namespace interval {
 /// interval{period: 100ms} -> tick;
 /// @endcode
 /// This creates a node with type="interval" and config_values["period"] = 100000000 (ns).
-class IntervalNodeFactory : public NodeFactory {
+class Factory : public NodeFactory {
 public:
     /// @brief Create an interval node if the type is "interval".
     ///
@@ -40,7 +40,7 @@ public:
     /// 2. If not, return NOT_FOUND (not an interval node)
     /// 3. Extract period from config_values["period"] (uint64_t in nanoseconds)
     /// 4. Extract output channel key from channels.write["output"]
-    /// 5. Create IntervalNode with period and output channel
+    /// 5. Create Node with period and output channel
     ///
     /// Required IR node structure:
     /// - type: "interval"
@@ -48,9 +48,9 @@ public:
     /// - channels.write["output"]: ChannelKey
     ///
     /// @param cfg Factory configuration with IR node and dependencies.
-    /// @return {IntervalNode, NIL} on success, {nullptr, NOT_FOUND} if not "interval",
+    /// @return {Node, NIL} on success, {nullptr, NOT_FOUND} if not "interval",
     ///         {nullptr, error} if configuration is invalid.
-    std::pair<std::unique_ptr<Node>, xerrors::Error>
+    std::pair<std::unique_ptr<arc::Node>, xerrors::Error>
     create(const NodeFactoryConfig& cfg) override;
 };
 
