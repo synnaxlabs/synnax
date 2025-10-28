@@ -232,27 +232,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, l.Hardware) {
 		return nil, err
 	}
-	if l.Framer, err = framer.OpenService(
-		ctx,
-		framer.Config{
-			Instrumentation: cfg.Child("framer"),
-			Framer:          cfg.Distribution.Framer,
-			Channel:         cfg.Distribution.Channel,
-		},
-	); !ok(err, l.Framer) {
-		return nil, err
-	}
-	l.Console = console.NewService()
-	if l.Metrics, err = metrics.OpenService(
-		ctx,
-		metrics.Config{
-			Instrumentation: cfg.Child("metrics"),
-			Framer:          l.Framer,
-			Channel:         cfg.Distribution.Channel,
-			HostProvider:    cfg.Distribution.Cluster,
-		}); !ok(err, l.Metrics) {
-		return nil, err
-	}
+
 	if l.Status, err = status.OpenService(
 		ctx,
 		status.ServiceConfig{
@@ -290,6 +270,31 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Group:           cfg.Distribution.Group,
 		},
 	); !ok(err, l.View) {
+		return nil, err
+	}
+	cfg.Distribution.Channel.SetCalculationAnalyzer(l.Arc.AnalyzeCalculation)
+	if l.Framer, err = framer.OpenService(
+		ctx,
+		framer.Config{
+			DB:                       cfg.Distribution.DB,
+			Instrumentation:          cfg.Child("framer"),
+			Framer:                   cfg.Distribution.Framer,
+			Channel:                  cfg.Distribution.Channel,
+			Arc:                      l.Arc,
+			EnableLegacyCalculations: config.True(),
+		},
+	); !ok(err, l.Framer) {
+		return nil, err
+	}
+	l.Console = console.NewService()
+	if l.Metrics, err = metrics.OpenService(
+		ctx,
+		metrics.Config{
+			Instrumentation: cfg.Child("metrics"),
+			Framer:          l.Framer,
+			Channel:         cfg.Distribution.Channel,
+			HostProvider:    cfg.Distribution.Cluster,
+		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
 	return l, nil

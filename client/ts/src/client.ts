@@ -158,7 +158,7 @@ export default class Synnax extends framer.Client {
     );
     const racks = new rack.Client(this.transport.unary, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
-    this.arcs = new arc.Client(this.transport.unary);
+    this.arcs = new arc.Client(this.transport.unary, this.transport.stream);
     this.views = new view.Client(this.transport.unary);
   }
 

@@ -167,6 +167,7 @@ type Transport struct {
 	ArcCreate   freighter.UnaryServer[ArcCreateRequest, ArcCreateResponse]
 	ArcDelete   freighter.UnaryServer[ArcDeleteRequest, types.Nil]
 	ArcRetrieve freighter.UnaryServer[ArcRetrieveRequest, ArcRetrieveResponse]
+	ArcLSP      freighter.StreamServer[ArcLSPMessage, ArcLSPMessage]
 	// VIEW
 	ViewCreate   freighter.UnaryServer[ViewCreateRequest, ViewCreateResponse]
 	ViewRetrieve freighter.UnaryServer[ViewRetrieveRequest, ViewRetrieveResponse]
@@ -481,6 +482,7 @@ func (a *Layer) BindTo(t Transport) {
 	t.ArcCreate.BindHandler(a.Arc.Create)
 	t.ArcDelete.BindHandler(a.Arc.Delete)
 	t.ArcRetrieve.BindHandler(a.Arc.Retrieve)
+	t.ArcLSP.BindHandler(a.Arc.LSP)
 }
 
 // New instantiates the server API layer using the provided Config. This should only be called
