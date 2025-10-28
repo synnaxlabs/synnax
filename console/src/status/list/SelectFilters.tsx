@@ -97,7 +97,5 @@ const HasLabelsFilter = ({ request }: HasLabelsFilterProps) => {
 };
 
 export const Filters = ({ request }: SelectFiltersProps) => (
-  <Flex.Box x>
-    <HasLabelsFilter request={request} />
-  </Flex.Box>
+  <HasLabelsFilter request={request} />
 );

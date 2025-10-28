@@ -14,7 +14,6 @@ import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/status/Explorer";
 export * from "@/status/Create";
 export * from "@/status/Explorer";
 export * from "@/status/palette";
-export * from "@/status/Select";
 export * from "@/status/useListenForChanges";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

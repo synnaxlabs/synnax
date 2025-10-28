@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { createTestClient } from "@/testutil/client";
@@ -75,6 +76,26 @@ describe("View", () => {
       const keys = created.map((v) => v.key);
       const retrieved = await client.views.retrieve({ keys });
       expect(retrieved).toHaveLength(2);
+    });
+
+    it("should retrieve views by type", async () => {
+      const client = createTestClient();
+      const type = id.create();
+      await client.views.create([
+        {
+          name: "Type 1",
+          type,
+          query: { channels: ["ch-1"] },
+        },
+        {
+          name: "Type 2",
+          type,
+          query: { channels: ["ch-2"] },
+        },
+      ]);
+      const retrieved = await client.views.retrieve({ types: [type] });
+      expect(retrieved).toHaveLength(2);
+      retrieved.forEach((v) => expect(v.type).toEqual(type));
     });
 
     it("should search for views by name", async () => {

@@ -7,10 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status } from "@synnaxlabs/pluto";
+import { type status } from "@synnaxlabs/client";
+import { Component, Status } from "@synnaxlabs/pluto";
 
-import { type Layout } from "@/layout";
-import { List } from "@/status/list/List";
+import { Layout } from "@/layout";
+import { CREATE_LAYOUT } from "@/status/Create";
+import { Item } from "@/status/list/Item";
+import { Filters as CoreFilters, SelectFilters } from "@/status/list/SelectFilters";
+import { Explorer as CoreExplorer } from "@/view/Explorer";
+import { type FiltersProps } from "@/view/View";
 
 export const EXPLORER_LAYOUT_TYPE = "status_explorer";
 
@@ -23,16 +28,25 @@ export const EXPLORER_LAYOUT: Layout.State = {
   location: "mosaic",
 };
 
+const item = Component.renderProp(Item);
+
 export const Explorer: Layout.Renderer = () => {
-  const { data, getItem, subscribe, retrieve } = Status.useList({});
+  const listProps = Status.useList({});
+  const placeLayout = Layout.usePlacer();
   return (
-    <List
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      retrieve={retrieve}
-      enableSearch
-      enableFilters
+    <CoreExplorer<status.Key, status.Status>
+      {...listProps}
+      resourceType="status"
+      item={item}
+      filters={Filters}
+      onCreate={() => placeLayout(CREATE_LAYOUT)}
     />
   );
 };
+
+const Filters = ({ request, onRequestChange }: FiltersProps) => (
+  <>
+    <SelectFilters request={request} onRequestChange={onRequestChange} />
+    <CoreFilters request={request} onRequestChange={onRequestChange} />
+  </>
+);

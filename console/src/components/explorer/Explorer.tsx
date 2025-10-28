@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
 import {
-  Component,
+  Button,
+  type Component,
   Flex,
   type Flux,
   Icon,
@@ -19,10 +19,10 @@ import {
   type state,
 } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
+import { plural } from "pluralize";
 import { useCallback, useState } from "react";
 
-import { EmptyAction } from "@/components";
-import { Layout } from "@/layout";
+import { EmptyAction } from "@/components/EmptyAction";
 
 export interface ExplorerProps<K extends record.Key, E extends record.Keyed<K>>
   extends Pick<
@@ -30,37 +30,40 @@ export interface ExplorerProps<K extends record.Key, E extends record.Keyed<K>>
     "data" | "getItem" | "subscribe" | "retrieve"
   > {
   enableSearch?: boolean;
-  enableFilters?: boolean;
-  initialRequest?: status.MultiRetrieveArgs;
+  item: Component.RenderProp<PList.ItemProps<K>>;
+  initialRequest?: PList.PagerParams;
+  resourceType: string;
+  filters?: React.FC<FiltersProps>;
+  onCreate: () => void;
+  hideToolbar?: boolean;
+  initialEditable?: boolean;
 }
 
-const componentRenderProp = Component.renderProp(Item);
-
-const EmptyContent = () => {
-  const placeLayout = Layout.usePlacer();
-  return (
-    <EmptyAction
-      message="No statuses found."
-      action="Create a status"
-      onClick={() => placeLayout(CREATE_LAYOUT)}
-    />
-  );
-};
+export interface FiltersProps {
+  request: PList.PagerParams;
+  onRequestChange: state.Setter<PList.PagerParams>;
+}
 
 export const Explorer = <K extends record.Key, E extends record.Keyed<K>>({
   data,
   getItem,
   subscribe,
+  filters,
   retrieve,
   enableSearch = false,
-  enableFilters = false,
   initialRequest = {},
+  initialEditable = false,
+  resourceType,
+  hideToolbar = false,
+  onCreate,
+  item,
 }: ExplorerProps<K, E>) => {
-  const [request, setRequest] = useState<status.MultiRetrieveArgs>(initialRequest);
+  const [request, setRequest] = useState<PList.PagerParams>(initialRequest);
+  const [editable, setEditable] = useState(initialEditable);
   const [selected, setSelected] = useState<K[]>([]);
 
   const handleRequestChange = useCallback(
-    (setter: state.SetArg<status.MultiRetrieveArgs>, opts?: Flux.AsyncListOptions) => {
+    (setter: state.SetArg<PList.PagerParams>, opts?: Flux.AsyncListOptions) => {
       retrieve(setter, opts);
       setRequest(setter);
     },
@@ -68,8 +71,7 @@ export const Explorer = <K extends record.Key, E extends record.Keyed<K>>({
   );
 
   const handleSearch = useCallback(
-    (term: string) =>
-      handleRequestChange((p: status.MultiRetrieveArgs) => PList.search(p, term)),
+    (term: string) => handleRequestChange((p) => PList.search(p, term)),
     [handleRequestChange],
   );
 
@@ -77,6 +79,8 @@ export const Explorer = <K extends record.Key, E extends record.Keyed<K>>({
     () => handleRequestChange((r) => PList.page(r, 25), { mode: "append" }),
     [handleRequestChange],
   );
+
+  const showTopToolbar = !hideToolbar && (enableSearch || filters != null) && editable;
 
   return (
     <Flex.Box full="y" empty>
@@ -89,50 +93,70 @@ export const Explorer = <K extends record.Key, E extends record.Keyed<K>>({
         value={selected}
         onFetchMore={handleFetchMore}
       >
-        {enableSearch && (
+        {showTopToolbar && (
           <Flex.Box
             x
             bordered
             style={{ padding: "1.5rem" }}
             background={1}
             justify="between"
+            align="center"
           >
-            <Input.Text
-              size="small"
-              level="h5"
-              variant="text"
-              value={request.searchTerm ?? ""}
-              placeholder={
-                <>
-                  <Icon.Search />
-                  Search Statuses...
-                </>
-              }
-              onChange={handleSearch}
-            />
-            <CreateButton />
+            {filters != null && (
+              <>{filters({ request, onRequestChange: handleRequestChange })}</>
+            )}
+            {enableSearch && (
+              <Input.Text
+                size="small"
+                level="h5"
+                variant="text"
+                value={request.searchTerm ?? ""}
+                placeholder={`Search ${plural(resourceType)}...`}
+                onChange={handleSearch}
+              />
+            )}
+            <CreateButton onCreate={onCreate} resourceType={resourceType} />
           </Flex.Box>
         )}
-        {enableFilters && (
-          <Flex.Box
-            x
-            bordered
-            style={{ padding: "1rem 2rem", borderTop: "none" }}
-            background={1}
-            justify="between"
-          >
-            <SelectFilters request={request} onRequestChange={handleRequestChange} />
-            <Filters request={request} onRequestChange={handleRequestChange} />
-          </Flex.Box>
-        )}
-        <PList.Items<status.Key>
-          emptyContent={<EmptyContent />}
+        <Flex.Box x bordered>
+          <Button.Button onClick={() => setEditable((editable) => !editable)}>
+            {editable ? <Icon.EditOff /> : <Icon.Edit />}
+          </Button.Button>
+        </Flex.Box>
+        <PList.Items<K>
+          emptyContent={
+            <EmptyContent onCreate={onCreate} resourceType={resourceType} />
+          }
           displayItems={Infinity}
           grow
         >
-          {componentRenderProp}
+          {item}
         </PList.Items>
       </Select.Frame>
     </Flex.Box>
   );
 };
+
+interface CreateButtonProps {
+  onCreate: () => void;
+  resourceType: string;
+}
+
+const CreateButton = ({ onCreate, resourceType }: CreateButtonProps) => (
+  <Button.Button onClick={onCreate} title={`Create a ${resourceType}`}>
+    <Icon.Add />
+  </Button.Button>
+);
+
+interface EmptyContentProps {
+  onCreate: () => void;
+  resourceType: string;
+}
+
+const EmptyContent = ({ onCreate, resourceType }: EmptyContentProps) => (
+  <EmptyAction
+    message={`No ${plural(resourceType)} created.`}
+    action={`Create a ${resourceType}`}
+    onClick={onCreate}
+  />
+);

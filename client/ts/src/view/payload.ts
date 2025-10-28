@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { record } from "@synnaxlabs/x";
 import z from "zod";
 
 export const keyZ = z.uuid();
@@ -16,7 +17,7 @@ export const viewZ = z.object({
   key: keyZ,
   name: z.string(),
   type: z.string(),
-  query: z.record(z.string(), z.json()),
+  query: record.unknownZ,
 });
 export interface View extends z.infer<typeof viewZ> {}
 

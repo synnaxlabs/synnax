@@ -45,15 +45,27 @@ export interface ListQuery extends view.RetrieveMultipleParams {}
 export const useList = Flux.createList<ListQuery, view.Key, view.View, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
   retrieveCached: ({ query, store }) => {
-    let views = store.views.list();
-    if (query.keys != null && query.keys.length > 0) {
-      const { keys } = query;
-      views = views.filter((v) => keys.includes(v.key));
-    }
-    return views;
+    console.log("retrieveCached", query);
+    const { types = [], keys = [] } = query;
+    const typesSet = types.length > 0 ? new Set(types) : undefined;
+    const keysSet = keys.length > 0 ? new Set(keys) : undefined;
+    const views = store.views.list();
+    console.log("views", views);
+    if (typesSet == null && keysSet == null) return views;
+    return views.filter((v) => {
+      if (typesSet != null && !typesSet.has(v.type)) return false;
+      if (keysSet != null && !keysSet.has(v.key)) return false;
+      return true;
+    });
   },
-  retrieve: async ({ client, query }) => await client.views.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.views.retrieve({ key }),
+  retrieve: async ({ client, query }) => {
+    console.log("retrieve", query);
+    return await client.views.retrieve(query);
+  },
+  retrieveByKey: async ({ client, key }) => {
+    console.log("retrieveByKey", key);
+    return await client.views.retrieve({ key });
+  },
   mountListeners: ({ store, onChange, onDelete, query: { keys } }) => {
     const keysSet = keys ? new Set(keys) : undefined;
     return [
@@ -120,7 +132,7 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
 >({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { keys }, store }) => {
-    const cached = store.views.get(keys);
+    const cached = store.views.get((v) => keys.includes(v.key));
     const missing = keys.filter((k) => !store.views.has(k));
     if (missing.length === 0) return cached;
     const retrieved = await client.views.retrieve({ keys: missing });
