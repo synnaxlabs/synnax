@@ -24,9 +24,9 @@ namespace wasm {
 
 /// @brief WASM node that executes compiled Arc stage functions.
 ///
-/// Implements the Node interface by calling WASM functions via the Runtime.
-/// Each WASMNode corresponds to one Arc stage (function) and owns its
-/// NodeState for scoped access to channels and state variables.
+/// Implements the arc::Node interface by calling WASM functions via the Runtime.
+/// Each Node corresponds to one Arc stage (function) and owns its
+/// state::Node for scoped access to channels and state variables.
 ///
 /// Example Arc code:
 /// @code
@@ -34,12 +34,12 @@ namespace wasm {
 ///     return input / 2.0
 /// }
 /// @endcode
-class WASMNode : public Node {
-    std::string id_;                          ///< Node identifier
-    std::unique_ptr<NodeState> node_state_;   ///< Per-node state (owned)
-    Runtime& runtime_;                        ///< WASM runtime reference (non-owning)
-    wasm_function_inst_t function_;           ///< WASM function to execute
-    std::vector<std::string> output_params_;  ///< Output parameter names
+class Node : public arc::Node {
+    std::string id_;                           ///< Node identifier
+    std::unique_ptr<state::Node> node_state_;  ///< Per-node state (owned)
+    Runtime& runtime_;                         ///< WASM runtime reference (non-owning)
+    wasm_function_inst_t function_;            ///< WASM function to execute
+    std::vector<std::string> output_params_;   ///< Output parameter names
 
     // Pre-allocated buffers for function calls (RT-safe)
     static constexpr size_t MAX_ARGS = 16;
@@ -54,7 +54,7 @@ public:
     /// @param runtime WASM runtime (must outlive this node).
     /// @param function WASM function instance to execute.
     /// @param output_params Output parameter names (for change tracking).
-    WASMNode(std::string id,
+    Node(std::string id,
              std::unique_ptr<NodeState> node_state,
              Runtime* runtime,
              wasm_function_inst_t function,

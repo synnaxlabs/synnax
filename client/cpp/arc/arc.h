@@ -123,13 +123,13 @@ public:
     /// @returns A pair containing the retrieved Arc program and an error.
     /// If the Arc program does not exist or multiple programs have the same name,
     /// an error is returned.
-    [[nodiscard]] std::pair<Arc, xerrors::Error> retrieve(const std::string &name) const;
+    [[nodiscard]] std::pair<Arc, xerrors::Error> retrieve_by_name(const std::string &name) const;
 
     /// @brief Retrieves an Arc program by its key (UUID).
     /// @param key The key of the Arc program to retrieve.
     /// @returns A pair containing the retrieved Arc program and an error.
     /// If the Arc program does not exist, an error is returned.
-    [[nodiscard]] std::pair<Arc, xerrors::Error> retrieve(const std::string &key) const;
+    [[nodiscard]] std::pair<Arc, xerrors::Error> retrieve_by_key(const std::string &key) const;
 
     /// @brief Retrieves Arc programs by their names.
     /// @param names Vector of names of Arc programs to retrieve.

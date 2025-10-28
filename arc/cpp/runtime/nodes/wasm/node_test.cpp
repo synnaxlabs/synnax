@@ -9,6 +9,8 @@
 
 #include "arc/cpp/runtime/nodes/wasm/node.h"
 
+#include "arc/cpp/runtime/state/node_state.h"
+#include "arc/cpp/runtime/wasm/runtime.h"
 #include "gtest/gtest.h"
 #include "x/cpp/xtest/xtest.h"
 
@@ -33,7 +35,7 @@ TEST_F(WASMNodeTest, Construction) {
     );
 
     // Create node with null function (won't execute)
-    arc::WASMNode node("test_node", std::move(node_state), &runtime, nullptr, {});
+    arc::wasm::WASMNode node("test_node", std::move(node_state), &runtime, nullptr, {});
 
     EXPECT_EQ(node.id(), "test_node");
     EXPECT_EQ(node.state().node_id(), "test_node");
@@ -50,7 +52,7 @@ TEST_F(WASMNodeTest, SkipsExecutionWhenNoInputData) {
         &state, "test_node", std::vector<arc::Edge>{}, std::vector<arc::Handle>{}
     );
 
-    arc::WASMNode node("test_node", std::move(node_state), &runtime, nullptr, {});
+    arc::wasm::WASMNode node("test_node", std::move(node_state), &runtime, nullptr, {});
 
     // No input data, should return NIL without executing
     arc::NodeContext ctx;
@@ -93,7 +95,7 @@ TEST_F(WASMNodeTest, ExecutesWhenInputDataAvailable) {
     auto edges = state.incoming_edges("test_node");
     auto node_state = std::make_unique<arc::NodeState>(&state, "test_node", edges, std::vector<arc::Handle>{});
 
-    arc::WASMNode node("test_node", std::move(node_state), &runtime, func, {});
+    arc::wasm::WASMNode node("test_node", std::move(node_state), &runtime, func, {});
 
     // Execute - refresh_inputs should succeed, WASM call may fail (ok for test)
     arc::NodeContext ctx;
@@ -116,7 +118,7 @@ TEST_F(WASMNodeTest, NodeStateAccess) {
     std::vector<arc::Handle> outputs = {arc::Handle{"test_node", "out"}};
     auto node_state = std::make_unique<arc::NodeState>(&state, "test_node", inputs, outputs);
 
-    arc::WASMNode node("test_node", std::move(node_state), &runtime, nullptr, {});
+    arc::wasm::WASMNode node("test_node", std::move(node_state), &runtime, nullptr, {});
 
     // Access NodeState through node
     EXPECT_EQ(node.state().num_inputs(), 0);

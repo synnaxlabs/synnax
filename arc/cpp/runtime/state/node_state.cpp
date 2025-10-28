@@ -10,8 +10,9 @@
 #include "arc/cpp/runtime/state/node_state.h"
 
 namespace arc {
+namespace state {
 
-NodeState::NodeState(State *state,
+Node::Node(State *state,
                      std::string node_id,
                      std::vector<Edge> inputs,
                      std::vector<Handle> outputs)
@@ -25,7 +26,7 @@ NodeState::NodeState(State *state,
     aligned_time_.resize(inputs_.size());
 }
 
-bool NodeState::refresh_inputs() {
+bool Node::refresh_inputs() {
     // 1. Accumulate new data from source outputs beyond watermark
     for (size_t i = 0; i < inputs_.size(); i++) {
         const Edge& edge = inputs_[i];
@@ -128,7 +129,7 @@ bool NodeState::refresh_inputs() {
     return true;
 }
 
-const telem::Series& NodeState::input(size_t param_index) const {
+const telem::Series& Node::input(size_t param_index) const {
     if (param_index >= aligned_data_.size() || !aligned_data_[param_index]) {
         static const telem::Series empty{std::vector<uint8_t>{}};
         return empty;
@@ -136,7 +137,7 @@ const telem::Series& NodeState::input(size_t param_index) const {
     return *aligned_data_[param_index];
 }
 
-const telem::Series& NodeState::input_time(size_t param_index) const {
+const telem::Series& Node::input_time(size_t param_index) const {
     if (param_index >= aligned_time_.size() || !aligned_time_[param_index]) {
         static const telem::Series empty{std::vector<int64_t>{}};
         return empty;
@@ -144,7 +145,7 @@ const telem::Series& NodeState::input_time(size_t param_index) const {
     return *aligned_time_[param_index];
 }
 
-telem::Series* NodeState::output(size_t param_index) {
+telem::Series* Node::output(size_t param_index) {
     if (param_index >= outputs_.size()) {
         return nullptr;
     }
@@ -160,7 +161,7 @@ telem::Series* NodeState::output(size_t param_index) {
     return vp.data.get();
 }
 
-telem::Series* NodeState::output_time(size_t param_index) {
+telem::Series* Node::output_time(size_t param_index) {
     if (param_index >= outputs_.size()) {
         return nullptr;
     }
@@ -177,8 +178,9 @@ telem::Series* NodeState::output_time(size_t param_index) {
 }
 
 std::pair<telem::SampleValue, xerrors::Error>
-NodeState::read_channel(ChannelKey key) const {
+Node::read_channel(ChannelKey key) const {
     return state_.read_channel(key);
 }
 
+}  // namespace state
 }  // namespace arc

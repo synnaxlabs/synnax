@@ -10,3 +10,14 @@ cc_library(
         "//x/cpp/xerrors",
     ],
 )
+
+cc_test(
+    name = "factory_test",
+    size = "small",
+    srcs = ["factory_test.cpp"],
+    deps = [
+        ":factory",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

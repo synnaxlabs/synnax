@@ -18,6 +18,7 @@
 #include "x/cpp/xerrors/errors.h"
 
 namespace arc {
+namespace state {
 
 /// @brief Input accumulation buffer for temporal alignment.
 ///
@@ -50,7 +51,7 @@ struct InputEntry {
 /// - refresh_inputs() performs temporal alignment across multi-rate inputs
 /// - Parameter-indexed I/O: input(i), output(i)
 /// - Channel I/O is separate (for external Synnax channels)
-class NodeState {
+class Node {
     State& state_;                       ///< Reference to global state (non-owning)
     std::string node_id_;                ///< Node identifier
 
@@ -71,7 +72,7 @@ public:
     /// @param node_id Node identifier.
     /// @param inputs Incoming edges (source node outputs).
     /// @param outputs Output handles (this node's output parameters).
-    NodeState(State *state,
+    Node(State *state,
               std::string node_id,
               std::vector<Edge> inputs,
               std::vector<Handle> outputs);
@@ -164,12 +165,12 @@ public:
 // Template implementations
 
 template <typename T>
-xerrors::Error NodeState::write_channel(ChannelKey key, T value) {
+xerrors::Error Node::write_channel(ChannelKey key, T value) {
     return state_.write_channel(key, value);
 }
 
 template <typename T>
-T NodeState::load_state_var(uint32_t var_id, T init_value) {
+T Node::load_state_var(uint32_t var_id, T init_value) {
     // Create state key using node's function ID (hash of node_id for now)
     // In full implementation, this would come from compiled WASM metadata
     const uint32_t func_id = std::hash<std::string>{}(node_id_) & 0xFFFFFFFF;
@@ -178,10 +179,11 @@ T NodeState::load_state_var(uint32_t var_id, T init_value) {
 }
 
 template <typename T>
-void NodeState::store_state_var(uint32_t var_id, T value) {
+void Node::store_state_var(uint32_t var_id, T value) {
     const uint32_t func_id = std::hash<std::string>{}(node_id_) & 0xFFFFFFFF;
     const StateKey key = make_state_key(func_id, var_id);
     state_.store_state(key, value);
 }
 
+}  // namespace state
 }  // namespace arc

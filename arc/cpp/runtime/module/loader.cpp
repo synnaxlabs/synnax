@@ -286,6 +286,11 @@ std::pair<AssembledRuntime, xerrors::Error> ModuleLoader::load(const Module &mod
 
         auto [node, create_err] = factory.create(cfg);
         if (create_err) {
+            // Skip nodes with no matching factory (forward compatibility)
+            if (create_err.type == "NOT_FOUND") {
+                continue;
+            }
+            // Real error - fail the load
             return {AssembledRuntime{}, xerrors::Error(
                 create_err,
                 "Failed to create node '" + ir_node.key + "' of type '" + ir_node.type + "': " + create_err.data)};

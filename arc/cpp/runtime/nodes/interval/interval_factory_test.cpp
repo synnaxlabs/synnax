@@ -9,7 +9,6 @@
 
 #include "arc/cpp/runtime/nodes/interval/factory.h"
 
-#include "arc/cpp/runtime/nodes/wasm/node.h"
 #include "gtest/gtest.h"
 #include "x/cpp/xtest/xtest.h"
 #include <nlohmann/json.hpp>
@@ -34,7 +33,7 @@ protected:
 };
 
 TEST_F(IntervalNodeFactoryTest, ReturnsNotFoundForNonIntervalType) {
-    IntervalNodeFactory factory;
+    interval::IntervalNodeFactory factory;
 
     ir::Node node{"node1"};
     node.type = "not_interval";
@@ -47,7 +46,7 @@ TEST_F(IntervalNodeFactoryTest, ReturnsNotFoundForNonIntervalType) {
 }
 
 TEST_F(IntervalNodeFactoryTest, ReturnsErrorWhenPeriodMissing) {
-    IntervalNodeFactory factory;
+    interval::IntervalNodeFactory factory;
 
     ir::Node node{"interval1"};
     node.type = "interval";
@@ -62,7 +61,7 @@ TEST_F(IntervalNodeFactoryTest, ReturnsErrorWhenPeriodMissing) {
 }
 
 TEST_F(IntervalNodeFactoryTest, ReturnsErrorWhenOutputChannelMissing) {
-    IntervalNodeFactory factory;
+    interval::IntervalNodeFactory factory;
 
     ir::Node node{"interval1"};
     node.type = "interval";
@@ -77,7 +76,7 @@ TEST_F(IntervalNodeFactoryTest, ReturnsErrorWhenOutputChannelMissing) {
 }
 
 TEST_F(IntervalNodeFactoryTest, ReturnsErrorWhenPeriodInvalidType) {
-    IntervalNodeFactory factory;
+    interval::IntervalNodeFactory factory;
 
     ir::Node node{"interval1"};
     node.type = "interval";
@@ -92,7 +91,7 @@ TEST_F(IntervalNodeFactoryTest, ReturnsErrorWhenPeriodInvalidType) {
 }
 
 TEST_F(IntervalNodeFactoryTest, CreatesIntervalNodeSuccessfully) {
-    IntervalNodeFactory factory;
+    interval::IntervalNodeFactory factory;
 
     ir::Node node{"interval1"};
     node.type = "interval";
@@ -107,12 +106,12 @@ TEST_F(IntervalNodeFactoryTest, CreatesIntervalNodeSuccessfully) {
     EXPECT_EQ(created_node->id(), "interval1");
 
     // Verify it's actually an IntervalNode
-    auto* interval_node = dynamic_cast<IntervalNode*>(created_node.get());
+    auto* interval_node = dynamic_cast<interval::IntervalNode*>(created_node.get());
     ASSERT_NE(interval_node, nullptr);
 }
 
 TEST_F(IntervalNodeFactoryTest, CreatesIntervalNodeWithDifferentPeriods) {
-    IntervalNodeFactory factory;
+    interval::IntervalNodeFactory factory;
 
     // Test with 1Hz (1 second)
     ir::Node node1{"interval1"};
@@ -149,7 +148,7 @@ TEST_F(IntervalNodeFactoryTest, CreatesIntervalNodeWithDifferentPeriods) {
 }
 
 TEST_F(IntervalNodeFactoryTest, DoesNotRequireWASMRuntime) {
-    IntervalNodeFactory factory;
+    interval::IntervalNodeFactory factory;
 
     ir::Node node{"interval1"};
     node.type = "interval";

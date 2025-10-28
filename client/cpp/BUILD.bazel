@@ -9,6 +9,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/arc",
         "//client/cpp/auth",
         "//client/cpp/channel",
         "//client/cpp/framer",

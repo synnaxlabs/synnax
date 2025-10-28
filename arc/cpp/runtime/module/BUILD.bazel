@@ -17,3 +17,15 @@ cc_library(
         "@nlohmann_json//:json",
     ],
 )
+
+cc_test(
+    name = "module_test",
+    size = "small",
+    srcs = ["module_test.cpp"],
+    deps = [
+        ":module",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)

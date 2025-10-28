@@ -15,3 +15,14 @@ cc_library(
         "//x/cpp/xerrors",
     ],
 )
+
+cc_test(
+    name = "runtime_test",
+    size = "small",
+    srcs = ["runtime_test.cpp"],
+    deps = [
+        ":wasm",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

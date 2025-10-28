@@ -71,7 +71,7 @@ TEST_F(WASMNodeFactoryTest, ReturnsNotFoundForNonWASMFunction) {
     std::vector<uint8_t> dummy_wasm = {0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00};
     runtime_->load_aot_module(dummy_wasm);
 
-    WASMNodeFactory factory(*runtime_);
+    wasm::WASMNodeFactory factory(*runtime_);
 
     // Create node with type that doesn't exist in IR functions
     ir::Node unknown_node{"node2"};
@@ -85,7 +85,7 @@ TEST_F(WASMNodeFactoryTest, ReturnsNotFoundForNonWASMFunction) {
 }
 
 // Test removed - runtime is now passed to factory constructor, not config
-// If you don't have a runtime, you simply don't add WASMNodeFactory to the MultiFactory
+// If you don't have a runtime, you simply don't add wasm::WASMNodeFactory to the MultiFactory
 
 TEST_F(WASMNodeFactoryTest, CreatesWASMNodeSuccessfully) {
     // Load minimal WASM module (just magic number, will fail instantiation but that's ok)
@@ -93,7 +93,7 @@ TEST_F(WASMNodeFactoryTest, CreatesWASMNodeSuccessfully) {
     auto load_err = runtime_->load_aot_module(dummy_wasm);
     // May fail, that's ok for this test - we're testing factory logic, not WASM execution
 
-    WASMNodeFactory factory(*runtime_);
+    wasm::WASMNodeFactory factory(*runtime_);
 
     NodeFactoryConfig cfg{ir_.nodes[0], *state_, ir_};
 
@@ -113,7 +113,7 @@ TEST_F(WASMNodeFactoryTest, CreatesWASMNodeSuccessfully) {
 }
 
 TEST_F(WASMNodeFactoryTest, HandlesNodeWithEdges) {
-    WASMNodeFactory factory(*runtime_);
+    wasm::WASMNodeFactory factory(*runtime_);
 
     // Add another node as a source
     ir::Node source_node{"source"};
@@ -153,7 +153,7 @@ TEST_F(WASMNodeFactoryTest, HandlesNodeWithEdges) {
     } else {
         ASSERT_NE(node, nullptr);
         // Verify node has correct structure
-        auto* wasm_node = dynamic_cast<WASMNode*>(node.get());
+        auto* wasm_node = dynamic_cast<wasm::WASMNode*>(node.get());
         ASSERT_NE(wasm_node, nullptr);
         EXPECT_EQ(wasm_node->state().num_inputs(), 1);
     }

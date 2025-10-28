@@ -36,7 +36,10 @@ Arc::Arc(const api::v1::Arc &pb) :
     version(pb.version()) {}
 
 void Arc::to_proto(api::v1::Arc *pb) const {
-    pb->set_key(key);
+    // Only set key if it's not empty (server generates UUID for new Arcs)
+    if (!key.empty()) {
+        pb->set_key(key);
+    }
     pb->set_name(name);
     *pb->mutable_graph() = graph;
     *pb->mutable_text() = text;
@@ -110,19 +113,19 @@ std::pair<Arc, xerrors::Error> ArcClient::create(const std::string &name) const 
 // Retrieve Operations
 // ========================================================================
 
-std::pair<Arc, xerrors::Error> ArcClient::retrieve(const std::string &name) const {
+std::pair<Arc, xerrors::Error> ArcClient::retrieve_by_name(const std::string &name) const {
     auto req = api::v1::ArcRetrieveRequest();
     req.add_names(name);
 
     auto [res, err] = retrieve_client->send(ARC_RETRIEVE_ENDPOINT, req);
     if (err) return {Arc(), err};
     if (res.arcs_size() == 0) return {Arc(), unexpected_missing("arc")};
-    if (res.arcs_size() > 1) return {Arc(), too_many_results("arc", 1, res.arcs_size())};
+    if (res.arcs_size() > 1) return {Arc(), multiple_results("arc", name)};
 
     return {Arc(res.arcs(0)), xerrors::NIL};
 }
 
-std::pair<Arc, xerrors::Error> ArcClient::retrieve(const std::string &key) const {
+std::pair<Arc, xerrors::Error> ArcClient::retrieve_by_key(const std::string &key) const {
     auto req = api::v1::ArcRetrieveRequest();
     req.add_keys(key);
 

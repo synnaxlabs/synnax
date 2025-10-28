@@ -17,3 +17,25 @@ cc_library(
         "//x/cpp/xerrors",
     ],
 )
+
+cc_test(
+    name = "node_test",
+    size = "small",
+    srcs = ["node_test.cpp"],
+    deps = [
+        ":wasm_node",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "wasm_factory_test",
+    size = "small",
+    srcs = ["wasm_factory_test.cpp"],
+    deps = [
+        ":wasm_node",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

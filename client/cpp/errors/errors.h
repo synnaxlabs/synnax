@@ -18,3 +18,10 @@ inline xerrors::Error unexpected_missing(const std::string &name) {
             " returned from server on create. Please report this error to the Synnax team."
     );
 }
+
+inline xerrors::Error multiple_results(const std::string &resource_type, const std::string &identifier) {
+    return xerrors::Error(
+        xerrors::MULTIPLE_RESULTS,
+        "Multiple " + resource_type + " found for identifier '" + identifier + "'"
+    );
+}

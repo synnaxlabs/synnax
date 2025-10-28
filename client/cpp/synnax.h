@@ -13,6 +13,7 @@
 
 #include "glog/logging.h"
 
+#include "client/cpp/arc/arc.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/hardware/hardware.h"
@@ -151,6 +152,8 @@ public:
         nullptr,
         nullptr
     );
+    /// @brief Client for managing Arc automation programs.
+    ArcClient arcs = ArcClient(nullptr, nullptr, nullptr);
     std::shared_ptr<AuthMiddleware> auth = nullptr;
 
     /// @brief constructs the Synnax client from the provided configuration.
@@ -194,6 +197,7 @@ public:
             std::move(t.device_retrieve),
             std::move(t.device_delete)
         );
+        this->arcs = ArcClient(t.arc_retrieve, t.arc_create, t.arc_delete);
     }
 };
 }

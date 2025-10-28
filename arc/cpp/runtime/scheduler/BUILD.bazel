@@ -15,3 +15,25 @@ cc_library(
         "//x/cpp/xerrors",
     ],
 )
+
+cc_test(
+    name = "scheduler_test",
+    size = "small",
+    srcs = ["scheduler_test.cpp"],
+    deps = [
+        ":scheduler",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "time_wheel_test",
+    size = "small",
+    srcs = ["time_wheel_test.cpp"],
+    deps = [
+        ":scheduler",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

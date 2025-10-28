@@ -16,3 +16,25 @@ cc_library(
         "//x/cpp/xerrors",
     ],
 )
+
+cc_test(
+    name = "state_test",
+    size = "small",
+    srcs = ["state_test.cpp"],
+    deps = [
+        ":state",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "node_state_test",
+    size = "small",
+    srcs = ["node_state_test.cpp"],
+    deps = [
+        ":state",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)
