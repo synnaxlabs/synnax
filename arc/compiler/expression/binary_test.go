@@ -554,7 +554,7 @@ var _ = Describe("Binary Operations", func() {
 			int32(2),
 			OpCall,
 			uint32(240), // MathIntPowI32 for 3^2
-			OpI32Add,     // then add
+			OpI32Add,    // then add
 		),
 
 		Entry(
