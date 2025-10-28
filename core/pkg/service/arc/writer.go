@@ -65,9 +65,7 @@ func (w Writer) Create(
 		Variant: xstatus.LoadingVariant,
 		Message: "Deploying",
 		Time:    telem.Now(),
-		Details: map[string]interface{}{
-			"running": false,
-		},
+		Details: map[string]interface{}{"running": false},
 	}, otgID)
 }
 

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, TimeStamp } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it, test } from "vitest";
+import { DataType, id, TimeStamp } from "@synnaxlabs/x";
+import { describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
 import { NotFoundError, PathError } from "@/errors";
@@ -31,24 +31,23 @@ describe("Channel", () => {
     }, 80000);
 
     test("create calculated", async () => {
+      const chOneName = id.create();
       let chOne = new Channel({
-        name: "test",
-        isIndex: true,
-        dataType: DataType.TIMESTAMP,
+        name: chOneName,
+        virtual: true,
+        dataType: DataType.FLOAT32,
       });
       chOne = await client.channels.create(chOne);
       let calculatedCH = new Channel({
         name: "test2",
         virtual: true,
         dataType: DataType.FLOAT32,
-        expression: "test * 2",
-        requires: [chOne.key],
+        expression: `return ${chOne.name} * 2`,
       });
       calculatedCH = await client.channels.create(calculatedCH);
       expect(calculatedCH.key).not.toEqual(0);
       expect(calculatedCH.virtual).toEqual(true);
-      expect(calculatedCH.expression).toEqual("test * 2");
-      expect(calculatedCH.requires).toEqual([chOne.key]);
+      expect(calculatedCH.expression).toEqual(`return ${chOneName} * 2`);
     });
 
     test("create calculated, missing required channel", async () => {
@@ -58,7 +57,6 @@ describe("Channel", () => {
           virtual: true,
           dataType: DataType.FLOAT32,
           expression: "test * 2",
-          requires: [],
         });
       } catch (e) {
         expect(PathError.matches(e)).toBe(true);
@@ -289,21 +287,12 @@ describe("Channel", () => {
   });
 
   describe("update calculations", () => {
-    let idxCH: Channel;
-    beforeAll(async () => {
-      idxCH = await client.channels.create({
-        name: "idx",
-        dataType: DataType.TIMESTAMP,
-        isIndex: true,
-      });
-    });
     test("update virtual channel expression", async () => {
       const channel = await client.channels.create({
         name: "virtual-calc",
         dataType: DataType.FLOAT32,
         virtual: true,
         expression: "return 1",
-        requires: [idxCH.key],
       });
 
       const updated = await client.channels.create({
@@ -312,7 +301,6 @@ describe("Channel", () => {
         dataType: channel.dataType,
         virtual: true,
         expression: "return 2",
-        requires: [idxCH.key],
       });
 
       const channelsWithName = await client.channels.retrieve(["virtual-calc"]);
@@ -330,7 +318,6 @@ describe("Channel", () => {
         dataType: DataType.FLOAT32,
         virtual: true,
         expression: "return 1",
-        requires: [idxCH.key],
       });
 
       const updated = await client.channels.create({
@@ -339,7 +326,6 @@ describe("Channel", () => {
         dataType: channel.dataType,
         virtual: true,
         expression: channel.expression,
-        requires: [idxCH.key],
       });
       expect(updated.name).toEqual("new-name");
 

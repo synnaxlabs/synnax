@@ -3,6 +3,19 @@ cc_library(
     hdrs = ["errors.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/xlib",
         "//x/cpp/xerrors",
+    ],
+)
+
+cc_test(
+    name = "errors_test",
+    srcs = ["errors_test.cpp"],
+    deps = [
+        ":errors",
+        "//driver/labjack:labjack_errors",
+        "//driver/ni:ni_errors",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
     ],
 )

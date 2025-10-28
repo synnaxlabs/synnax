@@ -17,7 +17,6 @@ export const irNodeZ = z.object({
   key: z.string(),
   type: z.string(),
   config: record.unknownZ.or(z.string().transform(parseWithoutKeyConversion)),
-  source: z.string().optional(),
 });
 
 export const graphNodeZ = irNodeZ.extend({
