@@ -7,54 +7,99 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package text provides parsing, analysis, and compilation of Arc source code.
+//
+// The package implements a three-stage pipeline:
+//   - Parse: Converts raw text into an Abstract Syntax Tree (AST)
+//   - Analyze: Performs semantic analysis and builds Intermediate Representation (IR)
+//   - Compile: Generates WebAssembly bytecode from IR
+//
+// The analyzer uses a two-pass approach: first analyzing function declarations
+// and building the symbol table, then processing flow statements to construct
+// the execution graph of nodes and edges.
 package text
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/compiler"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 )
 
+// Text represents Arc source code with its parsed AST.
 type Text struct {
 	Raw string                 `json:"raw" msgpack:"raw"`
 	AST parser.IProgramContext `json:"-"`
 }
 
+// GenerateKey generates unique node keys for flow graph construction.
 type GenerateKey = func(name string) string
 
-func Parse(t Text) (Text, error) {
-	ast, err := parser.Parse(t.Raw)
-	if err != nil {
-		return Text{}, err
+// Parse parses Arc source code into an AST.
+//
+// Returns the Text with both Raw source and parsed AST. Returns a diagnostic object
+// that will be nil if no errors occurred during the parsing process.
+func Parse(t Text) (Text, *diagnostics.Diagnostics) {
+	ast, diag := parser.Parse(t.Raw)
+	if diag != nil {
+		return Text{}, diag
 	}
 	t.AST = ast
-	return t, err
+	return t, diag
 }
 
+// Analyze performs semantic analysis on parsed Arc code and builds the IR.
+//
+// The analysis uses a two-pass approach:
+//  1. First pass: Analyzes function declarations and builds the symbol table
+//  2. Second pass: Processes flow statements to construct nodes and edges
+//
+// The resolver parameter provides symbol resolution for external references such
+// as channels. Pass nil if no external symbols are available.
+//
+// Returns a partially complete IR even if diagnostics contain errors, enabling
+// tools like LSPs to provide the most complete understanding of the document.
 func Analyze(
 	ctx_ context.Context,
 	t Text,
-	resolver ir.SymbolResolver,
-) (ir.IR, analyzer.Diagnostics) {
-	ctx := acontext.CreateRoot(ctx_, t.AST, resolver)
-	// Stage 1: Analyse the AST.
+	resolver symbol.Resolver,
+) (ir.IR, *diagnostics.Diagnostics) {
+	var (
+		ctx = acontext.CreateRoot(ctx_, t.AST, resolver)
+		// We always return a partially complete IR to ensure that tools such as LSP's
+		// have the most complete understanding of the document.
+		i = ir.IR{Symbols: ctx.Scope, TypeMap: ctx.TypeMap}
+	)
+	// Step 1: Analyze the Program
 	if !analyzer.AnalyzeProgram(ctx) {
-		return ir.IR{}, *ctx.Diagnostics
+		return i, ctx.Diagnostics
 	}
-	i := ir.IR{Symbols: ctx.Scope, Constraints: ctx.Constraints}
 
-	// Stage 2: Iterate through the root scope children to assemble
-	// functions and stages.
+	// Step 2: Iterate through the root scope children to assemble functions
 	for _, c := range i.Symbols.Children {
-		switch c.Kind {
-		case ir.KindStage:
-			i.Stages = append(i.Stages, c.Type.(ir.Stage))
-		case ir.KindFunction:
-			i.Functions = append(i.Functions, c.Type.(ir.Function))
+		if c.Kind == symbol.KindFunction {
+			fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext)
+			var bodyAst antlr.ParserRuleContext = fnDecl
+			if ok {
+				bodyAst = fnDecl.Block()
+			}
+			i.Functions = append(i.Functions, ir.Function{
+				Key:      c.Name,
+				Body:     ir.Body{Raw: "", AST: bodyAst},
+				Config:   *c.Type.Config,
+				Inputs:   *c.Type.Inputs,
+				Outputs:  *c.Type.Outputs,
+				Channels: c.Channels.Copy(),
+			})
 		}
 	}
 
@@ -65,19 +110,35 @@ func Analyze(
 		}
 	)
 
-	// Second pass: process flow statements to build nodes and edges
+	// Step 3: Process Flow Nodes and Statements to Build Nodes/Edges
 	for _, item := range t.AST.AllTopLevelItem() {
 		if flow := item.FlowStatement(); flow != nil {
 			nodes, edges, ok := analyzeFlow(acontext.Child(ctx, flow), generateKey)
 			if !ok {
-				return ir.IR{}, *ctx.Diagnostics
+				return i, ctx.Diagnostics
 			}
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		}
 	}
 
-	return i, *ctx.Diagnostics
+	return i, ctx.Diagnostics
+}
+
+// Compile generates WebAssembly bytecode from the provided IR.
+//
+// Returns a Module containing both the IR and the compiled WebAssembly output.
+// Compiler options can be provided to customize the compilation process.
+func Compile(
+	ctx_ context.Context,
+	ir ir.IR,
+	opts ...compiler.Option,
+) (module.Module, error) {
+	o, err := compiler.Compile(ctx_, ir, opts...)
+	if err != nil {
+		return module.Module{}, err
+	}
+	return module.Module{IR: ir, Output: o}, nil
 }
 
 func analyzeFlow(
@@ -90,7 +151,7 @@ func analyzeFlow(
 		nodes      []ir.Node
 	)
 	for i, flowNode := range ctx.AST.AllFlowNode() {
-		node, handle, ok := analyzeNode(acontext.Child(ctx, flowNode), generateKey)
+		node, handle, ok := analyzeExpressionNode(acontext.Child(ctx, flowNode), generateKey)
 		if !ok {
 			return nil, nil, false
 		}
@@ -103,15 +164,15 @@ func analyzeFlow(
 	return nodes, edges, true
 }
 
-func analyzeNode(
+func analyzeExpressionNode(
 	ctx acontext.Context[parser.IFlowNodeContext],
 	generateKey GenerateKey,
 ) (ir.Node, ir.Handle, bool) {
 	if channel := ctx.AST.ChannelIdentifier(); channel != nil {
-		return analyzeChannel(acontext.Child(ctx, channel), generateKey)
+		return analyzeChannelNode(acontext.Child(ctx, channel), generateKey)
 	}
-	if stage := ctx.AST.StageInvocation(); stage != nil {
-		return analyzeStage(acontext.Child(ctx, stage), generateKey)
+	if fn := ctx.AST.Function(); fn != nil {
+		return analyzeFunctionNode(acontext.Child(ctx, fn), generateKey)
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
 		return analyzeExpression(acontext.Child(ctx, expr))
@@ -119,7 +180,7 @@ func analyzeNode(
 	return ir.Node{}, ir.Handle{}, true
 }
 
-func analyzeChannel(
+func analyzeChannelNode(
 	ctx acontext.Context[parser.IChannelIdentifierContext],
 	generateKey GenerateKey,
 ) (ir.Node, ir.Handle, bool) {
@@ -132,19 +193,19 @@ func analyzeChannel(
 	}
 	chKey := uint32(sym.ID)
 	n := ir.Node{
-		Key:      nodeKey,
-		Type:     "on",
-		Config:   map[string]any{"channel": chKey},
-		Channels: ir.NewChannels(),
+		Key:          nodeKey,
+		Type:         "on",
+		ConfigValues: map[string]any{"channel": chKey},
+		Channels:     symbol.NewChannels(),
 	}
 	n.Channels.Read.Add(chKey)
-	h := ir.Handle{Node: nodeKey}
-	return n, h, false
+	h := ir.Handle{Node: nodeKey, Param: ir.DefaultOutputParam}
+	return n, h, true
 }
 
 func extractConfigValues(
 	ctx acontext.Context[parser.IConfigValuesContext],
-	stageType ir.Stage,
+	fnType types.Type,
 	node ir.Node,
 ) (map[string]any, bool) {
 	config := make(map[string]any)
@@ -158,16 +219,16 @@ func extractConfigValues(
 		}
 	} else if anon := ctx.AST.AnonymousConfigValues(); anon != nil {
 		for i, expr := range anon.AllExpression() {
-			key, _ := stageType.Params.At(i)
+			key, _ := fnType.Inputs.At(i)
 			config[key] = getExpressionText(expr)
 		}
 	}
 	for k, v := range config {
-		t, ok := stageType.Config.Get(k)
+		t, ok := fnType.Config.Get(k)
 		if !ok {
-			panic("config key not found in stage")
+			panic("config key not found in function")
 		}
-		if _, ok = t.(ir.Chan); ok {
+		if t.Kind == types.KindChan {
 			sym, err := ctx.Scope.Resolve(ctx, v.(string))
 			if err != nil {
 				ctx.Diagnostics.AddError(err, nil)
@@ -181,8 +242,8 @@ func extractConfigValues(
 	return config, true
 }
 
-func analyzeStage(
-	ctx acontext.Context[parser.IStageInvocationContext],
+func analyzeFunctionNode(
+	ctx acontext.Context[parser.IFunctionContext],
 	generateKey GenerateKey,
 ) (ir.Node, ir.Handle, bool) {
 	var (
@@ -194,19 +255,22 @@ func analyzeStage(
 		ctx.Diagnostics.AddError(err, nil)
 		return ir.Node{}, ir.Handle{}, false
 	}
-	stageType, err := ir.Assert[ir.Stage](sym.Type)
-	if err != nil {
-		ctx.Diagnostics.AddError(err, nil)
+	fnType := sym.Type
+	if fnType.Kind != types.KindFunction {
+		ctx.Diagnostics.AddError(fmt.Errorf("expected function type, got %s", fnType), nil)
 		return ir.Node{}, ir.Handle{}, false
 	}
 	n := ir.Node{
 		Key:      key,
 		Type:     name,
-		Channels: ir.OverrideChannels(stageType.Channels),
+		Channels: sym.Channels.Copy(),
+		Config:   *sym.Type.Config,
+		Outputs:  *sym.Type.Outputs,
+		Inputs:   *sym.Type.Inputs,
 	}
 	config, ok := extractConfigValues(
 		acontext.Child(ctx, ctx.AST.ConfigValues()),
-		stageType,
+		fnType,
 		n,
 	)
 	if !ok {
@@ -219,7 +283,8 @@ func analyzeStage(
 			}
 		}
 	}
-	h := ir.Handle{Node: key, Param: "output"}
+	n.ConfigValues = config
+	h := ir.Handle{Node: key, Param: "input"}
 	return n, h, true
 }
 
@@ -229,17 +294,12 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return ir.Node{}, ir.Handle{}, false
 	}
-	stageType, err := ir.Assert[ir.Stage](sym.Type)
-	if err != nil {
-		ctx.Diagnostics.AddError(err, nil)
-		return ir.Node{}, ir.Handle{}, false
-	}
 	n := ir.Node{
 		Key:      sym.Name,
 		Type:     sym.Name,
-		Channels: ir.OverrideChannels(stageType.Channels),
+		Channels: symbol.NewChannels(),
 	}
-	h := ir.Handle{Node: sym.Name, Param: ""}
+	h := ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam}
 	return n, h, true
 }
 
@@ -249,7 +309,6 @@ func getExpressionText(expr parser.IExpressionContext) string {
 	if expr == nil {
 		return ""
 	}
-	// Resolve the original text from the token stream
 	start := expr.GetStart()
 	stop := expr.GetStop()
 	if start != nil && stop != nil {

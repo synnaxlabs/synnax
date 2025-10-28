@@ -14,7 +14,6 @@ program
 
 topLevelItem
     : functionDeclaration
-    | stageDeclaration
     | flowStatement
     ;
 
@@ -23,34 +22,35 @@ topLevelItem
 // =============================================================================
 
 functionDeclaration
-    : FUNC IDENTIFIER LPAREN parameterList? RPAREN returnType? block
+    : FUNC IDENTIFIER configBlock? LPAREN inputList? RPAREN outputType? block
     ;
 
-parameterList
-    : parameter (COMMA parameter)*
+inputList
+    : input (COMMA input)*
     ;
 
-parameter
+input
     : IDENTIFIER type
     ;
 
-returnType
-    : type
+outputType
+    : type                      // Single output (existing)
+    | multiOutputBlock          // Multiple named outputs
     ;
 
-// =============================================================================
-// Stage Declarations
-// =============================================================================
+multiOutputBlock
+    : LBRACE namedOutput* RBRACE
+    ;
 
-stageDeclaration
-    : STAGE IDENTIFIER configBlock? LPAREN parameterList? RPAREN returnType? block
+namedOutput
+    : IDENTIFIER type
     ;
 
 configBlock
-    : LBRACE configParameter* RBRACE
+    : LBRACE config* RBRACE
     ;
 
-configParameter
+config
     : IDENTIFIER type
     ;
 
@@ -59,12 +59,20 @@ configParameter
 // =============================================================================
 
 flowStatement
-    : flowNode (ARROW flowNode)+ SEMICOLON?
+    : (routingTable | flowNode) (ARROW (routingTable | flowNode))+ SEMICOLON?
+    ;
+
+routingTable
+    : LBRACE routingEntry (COMMA routingEntry)* RBRACE
+    ;
+
+routingEntry
+    : IDENTIFIER COLON flowNode (ARROW flowNode)* (COLON IDENTIFIER)?
     ;
 
 flowNode
     : channelIdentifier
-    | stageInvocation
+    | function
     | expression
     ;
 
@@ -72,7 +80,7 @@ channelIdentifier
     : IDENTIFIER
     ;
 
-stageInvocation
+function
     : IDENTIFIER configValues? arguments?
     ;
 
@@ -87,7 +95,7 @@ namedConfigValues
     ;
 
 namedConfigValue
-    : IDENTIFIER COLON expression
+    : IDENTIFIER ASSIGN expression
     ;
 
 anonymousConfigValues

@@ -30,8 +30,9 @@ type (
 )
 
 var (
-	errDBClosed        = core.NewErrResourceClosed("cesium.db")
-	ErrChannelNotFound = core.ErrChannelNotFound
+	errDBClosed          = core.NewErrResourceClosed("cesium.db")
+	ErrChannelNotFound   = core.ErrChannelNotFound
+	ZeroLeadingAlignment = core.ZeroLeadingAlignment
 )
 
 // LeadingAlignment returns an Alignment whose array index is the maximum possible value
