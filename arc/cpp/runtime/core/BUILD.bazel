@@ -1,0 +1,12 @@
+cc_library(
+    name = "core",
+    hdrs = [
+        "context.h",
+        "node.h",
+        "types.h",
+    ],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//x/cpp/xerrors",
+    ],
+)

@@ -1,0 +1,12 @@
+cc_library(
+    name = "factory",
+    srcs = ["factory.cpp"],
+    hdrs = ["factory.h"],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/core",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/xerrors",
+    ],
+)

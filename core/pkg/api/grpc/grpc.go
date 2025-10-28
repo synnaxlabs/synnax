@@ -26,6 +26,7 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	transports = append(transports, newAuth(&a))
 	transports = append(transports, newRanger(&a))
 	transports = append(transports, newHardware(&a))
+	transports = append(transports, newArc(&a)...)
 
 	// AUTH
 	a.AuthChangePassword = fnoop.UnaryServer[api.AuthChangePasswordRequest, types.Nil]{}
@@ -119,10 +120,7 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.StatusRetrieve = fnoop.UnaryServer[api.StatusRetrieveRequest, api.StatusRetrieveResponse]{}
 	a.StatusDelete = fnoop.UnaryServer[api.StatusDeleteRequest, types.Nil]{}
 
-	// arc
-	a.ArcCreate = fnoop.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse]{}
-	a.ArcDelete = fnoop.UnaryServer[api.ArcDeleteRequest, types.Nil]{}
-	a.ArcRetrieve = fnoop.UnaryServer[api.ArcRetrieveRequest, api.ArcRetrieveResponse]{}
+	// arc LSP (streaming, not implemented via gRPC yet)
 	a.ArcLSP = fnoop.StreamServer[api.ArcLSPMessage, api.ArcLSPMessage]{}
 
 	return a, transports

@@ -1,0 +1,19 @@
+cc_library(
+    name = "wasm_node",
+    srcs = [
+        "factory.cpp",
+        "node.cpp",
+    ],
+    hdrs = [
+        "factory.h",
+        "node.h",
+    ],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//arc/cpp/runtime/core",
+        "//arc/cpp/runtime/factory",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/runtime/wasm",
+        "//x/cpp/xerrors",
+    ],
+)

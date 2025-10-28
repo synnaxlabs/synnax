@@ -4,6 +4,7 @@ load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 proto_library(
     name = "api_proto",
     srcs = [
+        "arc.proto",
         "auth.proto",
         "channel.proto",
         "connectivity.proto",
@@ -17,6 +18,7 @@ proto_library(
         "//x/go/errors:errors_proto",
         "//x/go/telem:telem_proto",
         "@protobuf//:empty_proto",
+        "@protobuf//:struct_proto",
     ],
 )
 

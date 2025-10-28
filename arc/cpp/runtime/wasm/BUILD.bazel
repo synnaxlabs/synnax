@@ -1,0 +1,17 @@
+cc_library(
+    name = "wasm",
+    srcs = [
+        "bindings.cpp",
+        "runtime.cpp",
+    ],
+    hdrs = [
+        "bindings.h",
+        "runtime.h",
+    ],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//arc/cpp/runtime/state",
+        "//vendor/wamr",
+        "//x/cpp/xerrors",
+    ],
+)

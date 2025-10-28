@@ -1,0 +1,19 @@
+cc_library(
+    name = "interval",
+    srcs = [
+        "factory.cpp",
+        "node.cpp",
+    ],
+    hdrs = [
+        "factory.h",
+        "node.h",
+    ],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//arc/cpp/runtime/core",
+        "//arc/cpp/runtime/factory",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+    ],
+)

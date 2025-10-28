@@ -1,0 +1,27 @@
+cc_library(
+    name = "arc",
+    srcs = [
+        "arc.cpp",
+    ],
+    hdrs = ["arc.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/errors",
+        "//freighter/cpp:freighter",
+        "//freighter/cpp/fgrpc",
+        "//core/pkg/api/grpc/v1:api_grpc",
+        "@grpc//:grpc++",
+    ],
+)
+
+cc_test(
+    name = "arc_test",
+    srcs = ["arc_test.cpp"],
+    deps = [
+        ":arc",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

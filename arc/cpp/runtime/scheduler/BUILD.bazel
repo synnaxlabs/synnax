@@ -1,0 +1,17 @@
+cc_library(
+    name = "scheduler",
+    srcs = [
+        "scheduler.cpp",
+        "time_wheel.cpp",
+    ],
+    hdrs = [
+        "scheduler.h",
+        "time_wheel.h",
+    ],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//arc/cpp/runtime/core",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/xerrors",
+    ],
+)

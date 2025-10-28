@@ -1,0 +1,111 @@
+genrule(
+    name = "build_wamr",
+    srcs = glob(["wasm-micro-runtime/**"]),
+    outs = [
+        # WAMR headers
+        "include/wasm_export.h",
+        "include/lib_export.h",
+        "include/wasm_c_api.h",
+        # Windows binary
+        "lib/iwasm.lib",
+        # Unix binary
+        "lib/libiwasm.a",
+    ],
+    cmd_bash = select({
+        "@platforms//os:windows": """
+            rm -rf ./vendor/wamr/build && rm -rf ./vendor/wamr/out
+            mkdir -p ./vendor/wamr/build
+            cmake -DCMAKE_BUILD_TYPE=Release \\
+                  -DCMAKE_INSTALL_PREFIX=./vendor/wamr/out \\
+                  -DWAMR_BUILD_PLATFORM=windows \\
+                  -DWAMR_BUILD_TARGET=X86_64 \\
+                  -DWAMR_BUILD_AOT=1 \\
+                  -DWAMR_BUILD_INTERP=0 \\
+                  -DWAMR_BUILD_JIT=0 \\
+                  -DWAMR_BUILD_FAST_JIT=0 \\
+                  -DWAMR_BUILD_LIBC_BUILTIN=0 \\
+                  -DWAMR_BUILD_LIBC_WASI=0 \\
+                  -DWAMR_BUILD_SHARED_MEMORY=0 \\
+                  -DBUILD_SHARED_LIBS=OFF \\
+                  -B./vendor/wamr/build \\
+                  -S./vendor/wamr/wasm-micro-runtime/product-mini
+            cmake --build ./vendor/wamr/build --config Release --target install
+            cp ./vendor/wamr/build/Release/*.lib $(GENDIR)/vendor/wamr/lib/ || true
+            cp -R ./vendor/wamr/wasm-micro-runtime/core/iwasm/include/*.h $(GENDIR)/vendor/wamr/include/
+            # Create empty Unix library to satisfy Bazel
+            touch $(GENDIR)/vendor/wamr/lib/libiwasm.a
+        """,
+        "@platforms//os:macos": """
+            rm -rf ./vendor/wamr/build && rm -rf ./vendor/wamr/out
+            mkdir -p ./vendor/wamr/build
+
+            cmake -DCMAKE_BUILD_TYPE=Release \\
+                  -DCMAKE_INSTALL_PREFIX=./vendor/wamr/out \\
+                  -DWAMR_BUILD_AOT=1 \\
+                  -DWAMR_BUILD_INTERP=0 \\
+                  -DWAMR_BUILD_JIT=0 \\
+                  -DWAMR_BUILD_FAST_JIT=0 \\
+                  -DWAMR_BUILD_LIBC_BUILTIN=0 \\
+                  -DWAMR_BUILD_LIBC_WASI=0 \\
+                  -DWAMR_BUILD_SHARED_MEMORY=0 \\
+                  -B./vendor/wamr/build \\
+                  -S./vendor/wamr/wasm-micro-runtime/product-mini/platforms/darwin
+            cmake --build ./vendor/wamr/build
+            mkdir -p $(GENDIR)/vendor/wamr/lib
+            mkdir -p $(GENDIR)/vendor/wamr/include
+            cp ./vendor/wamr/build/libiwasm.a $(GENDIR)/vendor/wamr/lib/
+            cp ./vendor/wamr/wasm-micro-runtime/core/iwasm/include/*.h $(GENDIR)/vendor/wamr/include/
+            # Create empty Windows library to satisfy Bazel
+            touch $(GENDIR)/vendor/wamr/lib/iwasm.lib
+        """,
+        "//conditions:default": """
+            rm -rf ./vendor/wamr/build && rm -rf ./vendor/wamr/out
+            mkdir -p ./vendor/wamr/build
+
+            cmake -DCMAKE_BUILD_TYPE=Release \\
+                  -DCMAKE_INSTALL_PREFIX=./vendor/wamr/out \\
+                  -DWAMR_BUILD_AOT=1 \\
+                  -DWAMR_BUILD_INTERP=0 \\
+                  -DWAMR_BUILD_JIT=0 \\
+                  -DWAMR_BUILD_FAST_JIT=0 \\
+                  -DWAMR_BUILD_LIBC_BUILTIN=0 \\
+                  -DWAMR_BUILD_LIBC_WASI=0 \\
+                  -DWAMR_BUILD_SHARED_MEMORY=0 \\
+                  -B./vendor/wamr/build \\
+                  -S./vendor/wamr/wasm-micro-runtime/product-mini/platforms/linux
+            cmake --build ./vendor/wamr/build
+            mkdir -p $(GENDIR)/vendor/wamr/lib
+            mkdir -p $(GENDIR)/vendor/wamr/include
+            cp ./vendor/wamr/build/libiwasm.a $(GENDIR)/vendor/wamr/lib/
+            cp ./vendor/wamr/wasm-micro-runtime/core/iwasm/include/*.h $(GENDIR)/vendor/wamr/include/
+            # Create empty Windows library to satisfy Bazel
+            touch $(GENDIR)/vendor/wamr/lib/iwasm.lib
+        """,
+    }),
+    local = 1,  # Disable sandboxing for CMake build
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "wamr",
+    srcs = select({
+        "@platforms//os:windows": ["lib/iwasm.lib"],
+        "//conditions:default": ["lib/libiwasm.a"],
+    }),
+    hdrs = [":build_wamr"],
+    includes = ["include"],
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "@platforms//os:macos": [
+            "-ldl",
+            "-lpthread",
+        ],
+        "//conditions:default": [
+            "-ldl",
+            "-lm",
+            "-lpthread",
+        ],
+    }),
+)

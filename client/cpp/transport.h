@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "client/cpp/arc/arc.h"
 #include "client/cpp/auth/auth.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/framer/framer.h"
@@ -46,5 +47,8 @@ struct Transport {
     std::unique_ptr<HardwareCreateDeviceClient> device_create;
     std::unique_ptr<HardwareRetrieveDeviceClient> device_retrieve;
     std::unique_ptr<HardwareDeleteDeviceClient> device_delete;
+    std::shared_ptr<ArcCreateClient> arc_create;
+    std::shared_ptr<ArcRetrieveClient> arc_retrieve;
+    std::shared_ptr<ArcDeleteClient> arc_delete;
 };
 }

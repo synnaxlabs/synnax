@@ -1,0 +1,18 @@
+cc_library(
+    name = "state",
+    srcs = [
+        "node_state.cpp",
+        "state.cpp",
+    ],
+    hdrs = [
+        "node_state.h",
+        "state.h",
+    ],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//arc/cpp/runtime/core",
+        "//x/cpp/queue:SPSC",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+    ],
+)

@@ -1,0 +1,18 @@
+cc_library(
+    name = "ir",
+    srcs = ["ir.cpp"],
+    hdrs = ["ir.h"],
+    visibility = ["//visibility:public"],
+    deps = ["@nlohmann_json//:json"],
+)
+
+cc_test(
+    name = "ir_test",
+    size = "small",
+    srcs = ["ir_test.cpp"],
+    deps = [
+        ":ir",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)

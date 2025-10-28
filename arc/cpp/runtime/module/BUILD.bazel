@@ -1,0 +1,19 @@
+cc_library(
+    name = "module",
+    srcs = ["loader.cpp"],
+    hdrs = ["loader.h"],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/core",
+        "//arc/cpp/runtime/factory",
+        "//arc/cpp/runtime/nodes/interval",
+        "//arc/cpp/runtime/nodes/wasm:wasm_node",
+        "//arc/cpp/runtime/scheduler",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/runtime/wasm",
+        "//x/cpp/queue:SPSC",
+        "//x/cpp/xerrors",
+        "@nlohmann_json//:json",
+    ],
+)
