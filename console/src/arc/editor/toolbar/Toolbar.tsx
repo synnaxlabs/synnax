@@ -20,8 +20,8 @@ import {
   useSelectToolbar,
 } from "@/arc/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/arc/slice";
-import { PropertiesControls } from "@/arc/toolbar/Properties";
-import { Stages } from "@/arc/toolbar/Stages";
+import { PropertiesControls } from "@/arc/editor/toolbar/Properties";
+import { Stages } from "@/arc/editor/toolbar/Stages";
 import { Cluster } from "@/cluster";
 import { Toolbar as Core } from "@/components";
 import { Export } from "@/export";

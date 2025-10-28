@@ -13,6 +13,8 @@ import z from "zod";
 
 import { Flux } from "@/flux";
 import { type List } from "@/list";
+import { state } from "@/state";
+import { Status } from "@/status";
 
 export interface FluxStore extends Flux.UnaryStore<arc.Key, arc.Arc> {}
 
@@ -20,7 +22,7 @@ export const FLUX_STORE_KEY = "arcs";
 const RESOURCE_NAME = "Arc";
 const PLURAL_RESOURCE_NAME = "Arcs";
 
-export interface FluxSubStore extends Flux.Store {
+export interface FluxSubStore extends Status.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
@@ -46,7 +48,11 @@ const retrieveSingle = async ({
   if ("key" in query) {
     const cached = store.arcs.get(query.key);
     if (cached != null) {
-      const status = await store.statuses.get(cached.key);
+      const status = await Status.retrieveSingle({
+        store,
+        client,
+        query: { key: cached.key },
+      });
       if (status != null) cached.status = status;
       return cached;
     }
@@ -81,6 +87,15 @@ export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc, FluxSubStore
   mountListeners: ({ store, onChange, onDelete }) => [
     store.arcs.onSet((arc) => onChange(arc.key, arc)),
     store.arcs.onDelete(onDelete),
+    store.statuses.onSet((status) =>
+      onChange(
+        status.key,
+        Null() => ({
+          ...prev,
+          status,
+        }),
+      ),
+    ),
   ],
 });
 
@@ -148,5 +163,30 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   mountListeners: ({ store, query, onChange }) => {
     if (!("key" in query) || primitive.isZero(query.key)) return [];
     return [store.arcs.onSet(onChange, query.key)];
+  },
+});
+
+export const { useUpdate: useToggleDeploy } = Flux.createUpdate<arc.Key, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.UPDATE_VERBS,
+  update: async ({ client, store, data: key, rollbacks }) => {
+    const arc = await retrieveSingle({ client, store, query: { key } });
+    const updated = await client.arcs.create({ ...arc, deploy: !arc.deploy });
+    rollbacks.push(store.arcs.set(updated));
+    return key;
+  },
+});
+
+export const { useUpdate: useRename } = Flux.createUpdate<
+  { key: arc.Key; name: string },
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  verbs: Flux.UPDATE_VERBS,
+  update: async ({ client, store, data: { key, name }, rollbacks }) => {
+    const arc = await retrieveSingle({ client, store, query: { key } });
+    const updated = await client.arcs.create({ ...arc, name });
+    rollbacks.push(store.arcs.set(updated));
+    return { key, name };
   },
 });

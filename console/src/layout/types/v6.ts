@@ -21,7 +21,7 @@ const ZERO_NAV_STATE: NavState = {
     drawers: {
       left: {
         activeItem: null,
-        menuItems: ["channel", "range", "workspace", "device", "task", "user"],
+        menuItems: ["channel", "range", "workspace", "device", "task", "user", "arc"],
       },
       right: { activeItem: null, menuItems: [] },
       bottom: { activeItem: null, menuItems: ["visualization"] },
