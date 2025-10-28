@@ -452,6 +452,125 @@ var _ = Describe("Binary Operations", func() {
 			int32(4),
 			OpI32GtS,
 		),
+
+		// Power Operations
+		Entry(
+			"i32 power - simple 2^3",
+			"i32(2) ^ i32(3)",
+			types.I32(),
+			OpI32Const,
+			int32(2),
+			OpI32Const,
+			int32(3),
+			OpCall,
+			uint32(240), // MathIntPowI32
+		),
+
+		Entry(
+			"i64 power - 2^10",
+			"2 ^ 10",
+			types.I64(),
+			OpI64Const,
+			int64(2),
+			OpI64Const,
+			int64(10),
+			OpCall,
+			uint32(241), // MathIntPowI64
+		),
+
+		Entry(
+			"u32 power - 3^4",
+			"u32(3) ^ u32(4)",
+			types.U32(),
+			OpI32Const,
+			int32(3),
+			OpI32Const,
+			int32(4),
+			OpCall,
+			uint32(236), // MathIntPowU32
+		),
+
+		Entry(
+			"u64 power - 5^3",
+			"u64(5) ^ u64(3)",
+			types.U64(),
+			OpI64Const,
+			int64(5),
+			OpI64Const,
+			int64(3),
+			OpCall,
+			uint32(237), // MathIntPowU64
+		),
+
+		Entry(
+			"f32 power - 2.0^3.0",
+			"f32(2.0) ^ f32(3.0)",
+			types.F32(),
+			OpF32Const,
+			float32(2.0),
+			OpF32Const,
+			float32(3.0),
+			OpCall,
+			uint32(232), // MathPowF32
+		),
+
+		Entry(
+			"f64 power - 2.5^2.0",
+			"2.5 ^ 2.0",
+			types.F64(),
+			OpF64Const,
+			float64(2.5),
+			OpF64Const,
+			float64(2.0),
+			OpCall,
+			uint32(233), // MathPowF64
+		),
+
+		Entry(
+			"power right-associative - 2^3^2 = 2^(3^2) = 2^9",
+			"i32(2) ^ i32(3) ^ i32(2)",
+			types.I32(),
+			OpI32Const,
+			int32(2),
+			OpI32Const,
+			int32(3),
+			OpI32Const,
+			int32(2),
+			OpCall,
+			uint32(240), // MathIntPowI32 for 3^2
+			OpCall,
+			uint32(240), // MathIntPowI32 for 2^9
+		),
+
+		Entry(
+			"power with higher precedence than addition - 2 + 3^2",
+			"i32(2) + i32(3) ^ i32(2)",
+			types.I32(),
+			OpI32Const,
+			int32(2),
+			OpI32Const,
+			int32(3),
+			OpI32Const,
+			int32(2),
+			OpCall,
+			uint32(240), // MathIntPowI32 for 3^2
+			OpI32Add,     // then add
+		),
+
+		Entry(
+			"power with parentheses - (2 + 3)^2",
+			"(i32(2) + i32(3)) ^ i32(2)",
+			types.I32(),
+			OpI32Const,
+			int32(2),
+			OpI32Const,
+			int32(3),
+			OpI32Add,
+			OpI32Const,
+			int32(2),
+			OpCall,
+			uint32(240), // MathIntPowI32
+		),
 	)
 
 	Describe("Literal Coercion", func() {

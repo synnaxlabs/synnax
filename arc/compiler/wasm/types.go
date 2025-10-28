@@ -239,8 +239,6 @@ func binaryOpcode(op string, t types.Type) (Opcode, error) {
 			return OpI64GeS, nil
 		}
 		return OpI32GeS, nil
-	case "^":
-		return 0, errors.New("exponentiation not yet implemented")
 	default:
 		return 0, errors.Newf("unknown operator: %s", op)
 	}

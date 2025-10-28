@@ -76,4 +76,12 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	// Math operations
 	b.MathPowF32 = runtime.MathPowF32
 	b.MathPowF64 = runtime.MathPowF64
+	b.MathIntPowU8 = runtime.MathIntPowU8
+	b.MathIntPowU16 = runtime.MathIntPowU16
+	b.MathIntPowU32 = runtime.MathIntPowU32
+	b.MathIntPowU64 = runtime.MathIntPowU64
+	b.MathIntPowI8 = runtime.MathIntPowI8
+	b.MathIntPowI16 = runtime.MathIntPowI16
+	b.MathIntPowI32 = runtime.MathIntPowI32
+	b.MathIntPowI64 = runtime.MathIntPowI64
 }

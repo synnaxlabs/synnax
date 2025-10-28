@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/compiler/bindings"
+	runtimebindings "github.com/synnaxlabs/arc/runtime/wasm/bindings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
@@ -982,4 +983,299 @@ var _ = Describe("Compiler", func() {
 			212.0, // ((9 / 5) * 100) + 32 = (1.8 * 100) + 32 = 180 + 32 = 212
 		),
 	)
+
+	Describe("Power Expression Execution", func() {
+		BeforeEach(func() {
+			// Setup bindings for math operations with actual runtime implementations
+			b := bindings.NewBindings()
+			// Note: Math functions don't require state, so we pass nil
+			arcRuntime := runtimebindings.NewRuntime(nil, nil)
+			runtimebindings.BindRuntime(arcRuntime, b)
+			Expect(b.Bind(ctx, r)).To(Succeed())
+		})
+
+		It("Should execute i32 power: 2^3 = 8", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() i32 {
+				return i32(2) ^ i32(3)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(8)))
+		})
+
+		It("Should execute i64 power: 2^10 = 1024", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() i64 {
+				return 2 ^ 10
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1024)))
+		})
+
+		It("Should execute u32 power: 3^4 = 81", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() u32 {
+				return u32(3) ^ u32(4)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(81)))
+		})
+
+		It("Should execute u64 power: 5^3 = 125", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() u64 {
+				return u64(5) ^ u64(3)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(125)))
+		})
+
+		It("Should execute f32 power: 2.0^3.0 = 8.0", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() f32 {
+				return f32(2.0) ^ f32(3.0)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(math.Float32bits(8.0))))
+		})
+
+		It("Should execute f64 power: 2.5^2.0 = 6.25", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() f64 {
+				return 2.5 ^ 2.0
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(math.Float64bits(6.25)))
+		})
+
+		It("Should execute right-associative power: 2^3^2 = 2^(3^2) = 2^9 = 512", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() i32 {
+				return i32(2) ^ i32(3) ^ i32(2)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(512)))
+		})
+
+		It("Should execute power with higher precedence than addition: 2 + 3^2 = 2 + 9 = 11", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() i32 {
+				return i32(2) + i32(3) ^ i32(2)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(11)))
+		})
+
+		It("Should execute power with parentheses: (2 + 3)^2 = 5^2 = 25", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() i32 {
+				return (i32(2) + i32(3)) ^ i32(2)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(25)))
+		})
+
+		It("Should execute power with multiplication: 2 * 3^2 = 2 * 9 = 18", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() i32 {
+				return i32(2) * i32(3) ^ i32(2)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(18)))
+		})
+
+		It("Should execute power with variable base and exponent", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power(base i32, exp i32) i32 {
+				return base ^ exp
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			// Test 4^3 = 64
+			results := MustSucceed(power.Call(ctx, 4, 3))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(64)))
+
+			// Test 10^2 = 100
+			results = MustSucceed(power.Call(ctx, 10, 2))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(100)))
+		})
+
+		It("Should execute power with zero exponent: 5^0 = 1", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() i32 {
+				return i32(5) ^ i32(0)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		It("Should execute power with exponent one: 42^1 = 42", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() i32 {
+				return i32(42) ^ i32(1)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(42)))
+		})
+
+		It("Should execute negative base with even exponent: (-2)^4 = 16", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() i32 {
+				return i32(-2) ^ i32(4)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			// -2^4 = 16 (even exponent, positive result)
+			Expect(results[0]).To(Equal(uint64(16)))
+		})
+
+		It("Should execute negative base with odd exponent: (-2)^3 = -8", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() i32 {
+				return i32(-2) ^ i32(3)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			// -2^3 = -8 (odd exponent, negative result)
+			negEight := int32(-8)
+			Expect(results[0]).To(Equal(uint64(uint32(negEight))))
+		})
+
+		It("Should execute fractional f64 power: 27.0^(1.0/3.0) ≈ 3.0", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() f64 {
+				return 27.0 ^ (1.0 / 3.0)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			// Cube root of 27 is 3.0
+			result := math.Float64frombits(results[0])
+			Expect(result).To(BeNumerically("~", 3.0, 0.0001))
+		})
+
+		It("Should execute negative fractional f64 power: 0.5^(-1.0) = 2.0", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() f64 {
+				return 0.5 ^ -1.0
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			// 0.5^(-1) = 1/0.5 = 2.0
+			Expect(results[0]).To(Equal(math.Float64bits(2.0)))
+		})
+	})
 })

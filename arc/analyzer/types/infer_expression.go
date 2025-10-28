@@ -112,7 +112,19 @@ func InferMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionCon
 
 func InferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type {
 	if unary := ctx.AST.UnaryExpression(); unary != nil {
-		return InferFromUnaryExpression(context.Child(ctx, unary))
+		baseType := InferFromUnaryExpression(context.Child(ctx, unary))
+
+		// If no caret operator, return base type
+		if ctx.AST.CARET() == nil || ctx.AST.PowerExpression() == nil {
+			return baseType
+		}
+
+		// Recursively infer exponent type (right-associative)
+		_ = InferPower(context.Child(ctx, ctx.AST.PowerExpression()))
+
+		// Power operation returns the base type
+		// (e.g., i32 ^ i32 = i32, f64 ^ f64 = f64)
+		return baseType
 	}
 	return types.Type{}
 }

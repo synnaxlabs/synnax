@@ -464,13 +464,6 @@ var _ = Describe("Binary Opcodes", func() {
 	})
 
 	Describe("Error Cases", func() {
-		It("Should error on exponentiation operator", func() {
-			writer := wasm.NewWriter()
-			err := writer.WriteBinaryOpInferred("^", types.I32())
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("exponentiation not yet implemented"))
-		})
-
 		It("Should error on unknown operator", func() {
 			writer := wasm.NewWriter()
 			err := writer.WriteBinaryOpInferred("&", types.I32())

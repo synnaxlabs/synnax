@@ -67,6 +67,15 @@ type ImportIndex struct {
 	// Math operations (for exponentiation)
 	MathPowF32 uint32
 	MathPowF64 uint32
+	// Integer power operations
+	MathIntPowU8  uint32
+	MathIntPowU16 uint32
+	MathIntPowU32 uint32
+	MathIntPowU64 uint32
+	MathIntPowI8  uint32
+	MathIntPowI16 uint32
+	MathIntPowI32 uint32
+	MathIntPowI64 uint32
 
 	// Error handling
 	Panic uint32
@@ -307,6 +316,47 @@ func setupGenericOps(m *wasm.Module, idx *ImportIndex) {
 	idx.MathPowF64 = m.AddImport("env", "math_pow_f64", wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.F64, wasm.F64}, // base, exponent
 		Results: []wasm.ValueType{wasm.F64},
+	})
+
+	// Integer power operations
+	idx.MathIntPowU8 = m.AddImport("env", "math_int_pow_u8", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // base, exponent (u8 represented as i32)
+		Results: []wasm.ValueType{wasm.I32},
+	})
+
+	idx.MathIntPowU16 = m.AddImport("env", "math_int_pow_u16", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // base, exponent (u16 represented as i32)
+		Results: []wasm.ValueType{wasm.I32},
+	})
+
+	idx.MathIntPowU32 = m.AddImport("env", "math_int_pow_u32", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // base, exponent
+		Results: []wasm.ValueType{wasm.I32},
+	})
+
+	idx.MathIntPowU64 = m.AddImport("env", "math_int_pow_u64", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I64, wasm.I64}, // base, exponent
+		Results: []wasm.ValueType{wasm.I64},
+	})
+
+	idx.MathIntPowI8 = m.AddImport("env", "math_int_pow_i8", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // base, exponent (i8 represented as i32)
+		Results: []wasm.ValueType{wasm.I32},
+	})
+
+	idx.MathIntPowI16 = m.AddImport("env", "math_int_pow_i16", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // base, exponent (i16 represented as i32)
+		Results: []wasm.ValueType{wasm.I32},
+	})
+
+	idx.MathIntPowI32 = m.AddImport("env", "math_int_pow_i32", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // base, exponent
+		Results: []wasm.ValueType{wasm.I32},
+	})
+
+	idx.MathIntPowI64 = m.AddImport("env", "math_int_pow_i64", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I64, wasm.I64}, // base, exponent
+		Results: []wasm.ValueType{wasm.I64},
 	})
 
 	// Error handling

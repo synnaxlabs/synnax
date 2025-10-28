@@ -10,6 +10,7 @@
 package expression
 
 import (
+	"github.com/synnaxlabs/arc/compiler/bindings"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
@@ -113,17 +114,73 @@ func compileMultiplicative(
 	return compileBinaryMultiplicative(ctx)
 }
 
-// compilePower handles ^ operations
+// compilePower handles ^ operations (right-associative)
 func compilePower(
 	ctx context.Context[parser.IPowerExpressionContext],
 ) (types.Type, error) {
 	unary := ctx.AST.UnaryExpression()
 	validateNonZero(unary, "power")
-	if ctx.AST.CARET() != nil && ctx.AST.PowerExpression() != nil {
-		// TODO: Implement exponentiation (needs host function)
-		return compileUnary(context.Child(ctx, unary))
+
+	// Compile base (left operand)
+	baseType, err := compileUnary(context.Child(ctx, unary))
+	if err != nil {
+		return types.Type{}, err
 	}
-	return compileUnary(context.Child(ctx, unary))
+
+	// If no caret operator, just return the base
+	if ctx.AST.CARET() == nil || ctx.AST.PowerExpression() == nil {
+		return baseType, nil
+	}
+
+	// Compile exponent (right operand, recursive for right-associativity)
+	exponentType, err := compilePower(context.Child(ctx, ctx.AST.PowerExpression()))
+	if err != nil {
+		return types.Type{}, err
+	}
+
+	// Determine result type and call appropriate power function
+	var importIdx uint32
+	if baseType.IsInteger() && exponentType.IsInteger() {
+		// Both operands are integers, use IntPow
+		importIdx, err = getIntPowImport(ctx.Imports, baseType)
+		if err != nil {
+			return types.Type{}, err
+		}
+	} else {
+		// At least one float, use math.Pow
+		if baseType.Is64Bit() || exponentType.Is64Bit() {
+			importIdx = ctx.Imports.MathPowF64
+		} else {
+			importIdx = ctx.Imports.MathPowF32
+		}
+	}
+
+	ctx.Writer.WriteCall(importIdx)
+	return baseType, nil
+}
+
+// getIntPowImport returns the appropriate IntPow import index for the given type
+func getIntPowImport(imports *bindings.ImportIndex, t types.Type) (uint32, error) {
+	switch t.Kind {
+	case types.KindI8:
+		return imports.MathIntPowI8, nil
+	case types.KindI16:
+		return imports.MathIntPowI16, nil
+	case types.KindI32:
+		return imports.MathIntPowI32, nil
+	case types.KindI64:
+		return imports.MathIntPowI64, nil
+	case types.KindU8:
+		return imports.MathIntPowU8, nil
+	case types.KindU16:
+		return imports.MathIntPowU16, nil
+	case types.KindU32:
+		return imports.MathIntPowU32, nil
+	case types.KindU64:
+		return imports.MathIntPowU64, nil
+	default:
+		return 0, errors.Newf("no IntPow import for type %s", t)
+	}
 }
 
 func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (types.Type, error) {
