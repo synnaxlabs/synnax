@@ -131,6 +131,10 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
     :param stream_rate: The rate at which acquired data will be streamed to the Synnax
         cluster. For example, a sample rate of 100Hz and a stream rate of 25Hz will
         result in groups of 4 samples being streamed to the cluster every 40ms.
+        This parameter is only relevant when array_mode is False.
+    :param data_saving: Whether to save data permanently within Synnax, or just stream
+        it for real-time consumption.
+    :param auto_start: Whether to start the task automatically when it is created.
     :param array_mode: Whether to sample data in array mode. In array mode, the task
         will read array nodes from the OPC UA device with a consistent size (specified in
         array_size) and write the entire array to the Synnax cluster. This mode is
@@ -141,8 +145,6 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         field is only relevant if array_mode is set to True.
     :param: channels: A list of Channel objects that specify which OPC UA nodes to read
         from and how to write the data to the Synnax cluster.
-    :param data_saving: Whether to save data permanently within Synnax, or just stream
-    it for real-time consumption.
     """
 
     TYPE = "opc_read"
@@ -157,6 +159,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         sample_rate: CrudeRate = 1000,
         stream_rate: CrudeRate = 1000,
         data_saving: bool = False,
+        auto_start: bool = False,
         array_mode: bool = False,
         array_size: int = 1,
         channels: list[Channel] = None,
@@ -173,6 +176,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
                 device=device,
                 sample_rate=sample_rate,
                 data_saving=data_saving,
+                auto_start=auto_start,
                 array_mode=array_mode,
                 array_size=array_size,
                 channels=channels if channels is not None else [],
@@ -183,6 +187,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
                 sample_rate=sample_rate,
                 stream_rate=stream_rate,
                 data_saving=data_saving,
+                auto_start=auto_start,
                 array_mode=array_mode,
                 channels=channels if channels is not None else [],
             )

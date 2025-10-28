@@ -14,7 +14,7 @@ Before running this example:
 1. Start the test server:
    poetry run python driver/opc/dev/server_extended.py
 
-2. Connect the OPC UA server device in Synnax Console:
+2. Connect the OPC UA server device in Synnax:
    - Endpoint: opc.tcp://localhost:4841/
    - Name the device "OPC UA Server" (or update line 27 below)
 
@@ -70,12 +70,12 @@ tsk = opcua.ReadTask(
     channels=[
         # Bind the Synnax channels to the OPC UA node IDs
         # These IDs correspond to my_array_0 and my_array_1 in server_extended.py
-        opcua.Channel(
+        opcua.ReadChannel(
             channel=my_array_0.key,
             node_id="NS=2;I=2",  # my_array_0
             data_type="float32"
         ),
-        opcua.Channel(
+        opcua.ReadChannel(
             channel=my_array_1.key,
             node_id="NS=2;I=3",  # my_array_1
             data_type="float32"
@@ -87,7 +87,7 @@ tsk = opcua.ReadTask(
 client.hardware.tasks.configure(tsk)
 
 print("=" * 80)
-print("Starting OPC UA Array Read Task")
+print("\nStarting OPC UA Array Read Task")
 print("=" * 80)
 print("Reading array sine wave data from server_extended.py...")
 print("Running continuously - Press Ctrl+C to stop\n")
@@ -110,17 +110,13 @@ try:
                 if frame:
                     # Print the latest array values from each channel
                     if "my_array_0" in frame and len(frame["my_array_0"]) > 0:
-                        # Get the last 5 values (one complete array sample)
-                        arr0 = frame["my_array_0"][-5:]
-                        arr1 = frame["my_array_1"][-5:]
 
                         elapsed = sy.TimeStamp.now().span(start_time).seconds
-
                         sample_count += 1
 
-                        # Format arrays for display
-                        arr0_str = "[" + ", ".join(f"{v:5.2f}" for v in arr0) + "]"
-                        arr1_str = "[" + ", ".join(f"{v:5.2f}" for v in arr1) + "]"
+                        # Format arrays for display by iterating directly over MultiSeries
+                        arr0_str = "[" + ",".join(f"{v:5.2f}" for v in frame["my_array_0"]) + "]"
+                        arr1_str = "[" + ",".join(f"{v:5.2f}" for v in frame["my_array_1"]) + "]"
 
                         print(f"{sample_count:<8} {elapsed:<12.1f} {arr0_str:^35} {arr1_str:^20}", end='\r', flush=True)
 
@@ -130,8 +126,8 @@ except KeyboardInterrupt:
     print("✓ Array read task stopped by user")
     print(f"\nCollected {sample_count} array samples (each containing 5 values)")
     print("The arrays contain sine wave values:")
-    print("- my_array_0: [sin(t)+0, sin(t)+0, sin(t)+0, sin(t)+0, sin(t)+0]")
-    print("- my_array_1: [sin(t)+1, sin(t)+1, sin(t)+1, sin(t)+1, sin(t)+1]")
+    print("- my_array_0: [sin(t)+0]")
+    print("- my_array_1: [sin(t)+1]")
     print("=" * 80)
 finally:
     # Ensure cursor is always shown even if something goes wrong

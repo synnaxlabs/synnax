@@ -14,7 +14,7 @@ Before running this example:
 1. Start the test server:
    poetry run python driver/opc/dev/server_extended.py
 
-2. Connect the OPC UA server device in Synnax Console:
+2. Connect the OPC UA server device in Synnax:
    - Endpoint: opc.tcp://localhost:4841/
    - Name the device "OPC UA Server" (or update line 27 below)
 
@@ -68,12 +68,12 @@ tsk = opcua.ReadTask(
     channels=[
         # Bind the Synnax channels to the OPC UA node IDs
         # These IDs correspond to my_bool_0 and my_bool_1 in server_extended.py
-        opcua.Channel(
+        opcua.ReadChannel(
             channel=my_bool_0.key,
             node_id="NS=2;I=13",  # my_bool_0
             data_type="bool"
         ),
-        opcua.Channel(
+        opcua.ReadChannel(
             channel=my_bool_1.key,
             node_id="NS=2;I=14",  # my_bool_1
             data_type="bool"
