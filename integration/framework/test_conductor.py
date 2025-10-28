@@ -22,7 +22,6 @@ import sys
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
@@ -46,20 +45,14 @@ class STATE(Enum):
 
 
 @dataclass
-class TestResult:
+class Test:
     """Data class to store test execution results."""
 
     test_name: str
     status: STATUS
-    name: Optional[str] = None  # Custom name from test definition
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    name: Optional[str] = None
     error_message: Optional[str] = None
-    duration: Optional[float] = None
-
-    def __post_init__(self) -> None:
-        if self.start_time and self.end_time:
-            self.duration = (self.end_time - self.start_time).total_seconds()
+    range: Optional[sy.Range] = None
 
     def __str__(self) -> str:
         """Return display name for test result."""
@@ -140,23 +133,25 @@ class TestConductor:
         )
 
         # Initialize state and collections
-        self.start_time = datetime.now()
-        self.state = STATE.INITIALIZING
+        self.range: sy.Range = self.client.ranges.create(
+            name=self.name,
+            time_range=sy.TimeRange(start=sy.TimeStamp.now(), end=sy.TimeStamp.MAX),
+        )
+        self.state: STATE = STATE.INITIALIZING
         self.test_definitions: List[TestDefinition] = []
-        self.test_results: List[TestResult] = []
+        self.tests: List[Test] = []
         self.sequences: List[Dict[str, Any]] = []
         self.current_test: Optional[TestCase] = None
-        self.current_test_start_time: Optional[datetime] = None
+        self.current_test_result: Optional[Test] = None
         self.timeout_monitor_thread: Optional[threading.Thread] = None
         self.client_manager_thread: Optional[threading.Thread] = None
-        self.current_test_thread: Optional[threading.Thread] = None
-        self._timeout_result: Optional[TestResult] = None
-        self.is_running = False
-        self.should_stop = False
-        self.status_callbacks: List[Callable[[TestResult], None]] = []
+        self._timeout_result: Optional[Test] = None
+        self.is_running: bool = False
+        self.should_stop: bool = False
+        self.status_callbacks: List[Callable[[Test], None]] = []
         self.sequence_ordering: str = "Sequential"
         # For asynchronous execution, track multiple tests
-        self.active_tests: List[Tuple[TestCase, datetime]] = []
+        self.active_tests: List[Tuple[TestCase, sy.TimeStamp]] = []
 
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -470,7 +465,7 @@ class TestConductor:
         # Update telemetry
         self.tlm[f"{self.name}_test_case_count"] = len(self.test_definitions)
 
-    def run_sequence(self) -> List[TestResult]:
+    def run_sequence(self) -> List[Test]:
         """Execute all tests in the loaded sequence."""
         if not self.test_definitions:
             raise ValueError(
@@ -480,7 +475,7 @@ class TestConductor:
         self.state = STATE.RUNNING
         self.is_running = True
         self.should_stop = False
-        self.test_results = []
+        self.tests = []
 
         # Start timeout monitoring
         self.timeout_monitor_thread = threading.Thread(
@@ -526,7 +521,7 @@ class TestConductor:
 
         self.is_running = False
         self._print_summary()
-        return self.test_results
+        return self.tests
 
     def _execute_sequence(self, tests_to_execute: List[TestDefinition]) -> None:
         """Execute tests in a sequence one after another."""
@@ -536,34 +531,32 @@ class TestConductor:
                 break
 
             # Calculate global test index
-            global_test_idx = len(self.test_results) + 1
+            global_test_idx = len(self.tests) + 1
             self.log_message(
                 f"[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def} ===="
             )
 
             # Run test in separate thread
-            result_container: List[TestResult] = []
+            test_container: List[Test] = []
             test_thread = threading.Thread(
-                target=self._test_runner_thread, args=(test_def, result_container)
+                target=self._test_runner_thread, args=(test_def, test_container)
             )
 
-            self.current_test_thread = test_thread
             test_thread.start()
             test_thread.join()
 
             # Get test result
-            if result_container:
-                test_result = result_container[0]
+            if test_container:
+                test_result = test_container[0]
             else:
-                test_result = TestResult(
+                test_result = Test(
                     test_name=test_def.case,
                     name=test_def.name or test_def.case.split("/")[-1],
                     status=STATUS.FAILED,
                     error_message="Unknown error - no result returned",
                 )
 
-            self.test_results.append(test_result)
-            self.current_test_thread = None
+            self.tests.append(test_result)
             self.tlm[f"{self.name}_test_cases_ran"] += 1
 
     def _execute_sequence_asynchronously(
@@ -571,7 +564,7 @@ class TestConductor:
     ) -> None:
         """Execute tests in a sequence simultaneously."""
         test_threads = []
-        result_containers = []
+        test_containers = []
 
         for i, test_def in enumerate(tests_to_execute):
             if self.should_stop:
@@ -579,19 +572,19 @@ class TestConductor:
                 break
 
             # Calculate global test index - each test gets a unique index
-            global_test_idx = len(self.test_results) + i + 1
+            global_test_idx = len(self.tests) + i + 1
             self.log_message(
                 f"[{global_test_idx}/{len(self.test_definitions)}] ==== {test_def} ===="
             )
 
             # Create result container and thread for each test
-            result_container: List[TestResult] = []
+            test_container: List[Test] = []
             test_thread = threading.Thread(
-                target=self._test_runner_thread, args=(test_def, result_container)
+                target=self._test_runner_thread, args=(test_def, test_container)
             )
 
             test_threads.append(test_thread)
-            result_containers.append(result_container)
+            test_containers.append(test_container)
 
             # Start the test thread
             test_thread.start()
@@ -605,17 +598,17 @@ class TestConductor:
                 test_thread.join()
 
             # Get test result
-            if result_containers[i]:
-                test_result = result_containers[i][0]
+            if test_containers[i]:
+                test_result = test_containers[i][0]
             else:
-                test_result = TestResult(
+                test_result = Test(
                     test_name=tests_to_execute[i].case,
                     name=tests_to_execute[i].name,
                     status=STATUS.FAILED,
                     error_message="Unknown error - no result returned",
                 )
 
-            self.test_results.append(test_result)
+            self.tests.append(test_result)
             self.tlm[f"{self.name}_test_cases_ran"] += 1
 
     def wait_for_completion(self) -> None:
@@ -633,11 +626,6 @@ class TestConductor:
         if self.timeout_monitor_thread and self.timeout_monitor_thread.is_alive():
             self.timeout_monitor_thread.join()
 
-        # Wait for current test to complete
-        if self.current_test_thread and self.current_test_thread.is_alive():
-            self.current_test_thread.join()
-            self.log_message("Test Thread has stopped")
-
         self.state = STATE.COMPLETED
 
     def shutdown(self) -> None:
@@ -653,11 +641,11 @@ class TestConductor:
 
         self.log_message("Shutdown complete\n")
 
-    def add_status_callback(self, callback: Callable[[TestResult], None]) -> None:
+    def add_status_callback(self, callback: Callable[[Test], None]) -> None:
         """Add a callback function to be called when test status changes."""
         self.status_callbacks.append(callback)
 
-    def _notify_status_change(self, result: TestResult) -> None:
+    def _notify_status_change(self, result: Test) -> None:
         """Notify all registered callbacks about status changes."""
         for callback in self.status_callbacks:
             try:
@@ -755,13 +743,23 @@ class TestConductor:
         except Exception as e:
             raise ImportError(f"Failed to load test class from {test_def.case}: {e}\n")
 
-    def _execute_single_test(self, test_def: TestDefinition) -> TestResult:
+    def _execute_single_test(self, test_def: TestDefinition) -> Test:
         """Execute a single test case."""
-        result = TestResult(
+        test = Test(
             test_name=test_def.case,
             name=test_def.name or test_def.case.split("/")[-1],
             status=STATUS.PENDING,
-            start_time=datetime.now(),
+        )
+
+        # Get color for this test based on its index
+        test_index = len(self.tests)
+        color = COLORS[test_index % len(COLORS)]
+
+        # Create range for this test case
+        test.range = self.range.create_child_range(
+            name=test.name or test.test_name,
+            time_range=sy.TimeRange(start=sy.TimeStamp.now(), end=sy.TimeStamp.MAX),
+            color=color,
         )
 
         try:
@@ -776,27 +774,26 @@ class TestConductor:
 
             # Track test for timeout monitoring
             if self.sequence_ordering == "asynchronous":
-                self.active_tests.append((test_instance, datetime.now()))
+                self.active_tests.append((test_instance, sy.TimeStamp.now()))
             else:
                 self.current_test = test_instance
-                self.current_test_start_time = datetime.now()
+                self.current_test_start_time = sy.TimeStamp.now()
 
-            result.status = STATUS.RUNNING
-            result.start_time = datetime.now()
-            self._notify_status_change(result)
+            test.status = STATUS.RUNNING
+            self._notify_status_change(test)
 
             # Execute the test
             test_instance.execute()
-            result.status = test_instance._status
+            test.status = test_instance._status
 
         except Exception as e:
             # Check if test was killed/timed out during exception
             if self._timeout_result is not None:
-                result = self._timeout_result
+                test = self._timeout_result
                 self._timeout_result = None
             else:
-                result.status = STATUS.FAILED
-                result.error_message = str(e)
+                test.status = STATUS.FAILED
+                test.error_message = str(e)
                 self.log_message(f"{test_def.case} FAILED: {e}")
                 # Log the full traceback for debugging
                 import traceback
@@ -804,7 +801,16 @@ class TestConductor:
                 self.log_message(f"Traceback: {traceback.format_exc()}")
 
         finally:
-            result.end_time = datetime.now()
+            # Finalize the test case range
+            if test.range is not None:
+                test.range = self.client.ranges.create(
+                    key=test.range.key,
+                    name=test.range.name,
+                    time_range=sy.TimeRange(
+                        start=test.range.time_range.start,
+                        end=sy.TimeStamp.now(),
+                    ),
+                )
 
             # Clean up test tracking
             if self.sequence_ordering == "asynchronous":
@@ -818,35 +824,12 @@ class TestConductor:
                 self.current_test = None
                 self.current_test_start_time = None
 
-            self._notify_status_change(result)
+            self._notify_status_change(test)
 
-        return result
-
-    def create_ranges(self) -> None:
-        """Create a range in Synnax with the given name and time span."""
-        try:
-            conductor_range = self.client.ranges.create(
-                name=self.name,
-                time_range=sy.TimeRange(
-                    start=self.start_time,
-                    end=datetime.now(),
-                ),
-            )
-            for i, test in enumerate(self.test_results):
-                color = COLORS[i % len(COLORS)]
-                conductor_range.create_child_range(
-                    name=test.name,
-                    time_range=sy.TimeRange(
-                        start=test.start_time,
-                        end=test.end_time,
-                    ),
-                    color=color,
-                )
-        except Exception as e:
-            raise RuntimeError(f"Failed to create range for {self.name}: {e}")
+        return test
 
     def _test_runner_thread(
-        self, test_def: TestDefinition, result_container: List[TestResult]
+        self, test_def: TestDefinition, result_container: List[Test]
     ) -> None:
         """Thread function for running a single test."""
         result = self._execute_single_test(test_def)
@@ -863,8 +846,8 @@ class TestConductor:
                 and self.current_test.Expected_Timeout > 0
             ):
                 elapsed_time = (
-                    datetime.now() - self.current_test_start_time
-                ).total_seconds()
+                    sy.TimeStamp.now() - self.current_test_start_time
+                ) / sy.TimeSpan.SECOND
                 if elapsed_time > self.current_test.Expected_Timeout:
                     self.kill_current_test()
                     break
@@ -877,7 +860,9 @@ class TestConductor:
                         hasattr(test_instance, "Expected_Timeout")
                         and test_instance.Expected_Timeout > 0
                     ):
-                        elapsed_time = (datetime.now() - start_time).total_seconds()
+                        elapsed_time = (
+                            sy.TimeStamp.now() - start_time
+                        ) / sy.TimeSpan.SECOND
                         if elapsed_time > test_instance.Expected_Timeout:
                             self.log_message(
                                 f"{test_instance.name} timeout detected ({elapsed_time:.1f}s > {test_instance.Expected_Timeout}s)"
@@ -900,8 +885,8 @@ class TestConductor:
         # Create timeout result if this is a timeout kill
         if self.current_test_start_time:
             elapsed_time = (
-                datetime.now() - self.current_test_start_time
-            ).total_seconds()
+                sy.TimeStamp.now() - self.current_test_start_time
+            ) / sy.TimeSpan.SECOND
             expected_timeout = getattr(self.current_test, "Expected_Timeout", -1)
 
             # Determine if timeout or manual kill
@@ -918,7 +903,7 @@ class TestConductor:
             )
 
             # Create timeout result
-            self._timeout_result = TestResult(
+            self._timeout_result = Test(
                 test_name=current_test_name,
                 name=(
                     getattr(self.current_test, "custom_name", None)
@@ -926,8 +911,6 @@ class TestConductor:
                     else None
                 ),
                 status=status,
-                start_time=self.current_test_start_time,
-                end_time=datetime.now(),
                 error_message=error_msg,
             )
 
@@ -962,7 +945,7 @@ class TestConductor:
         return {
             "is_running": self.is_running,
             "total_tests": len(self.test_definitions),
-            "completed_tests": len(self.test_results),
+            "completed_tests": len(self.tests),
             "current_test": (
                 self.current_test.__class__.__name__ if self.current_test else None
             ),
@@ -970,16 +953,21 @@ class TestConductor:
                 {
                     "name": result.test_name,
                     "status": result.status.value,
-                    "duration": result.duration,
+                    "duration": (
+                        (result.range.time_range.end - result.range.time_range.start)
+                        / sy.TimeSpan.SECOND
+                        if result.range is not None
+                        else None
+                    ),
                     "error": result.error_message,
                 }
-                for result in self.test_results
+                for result in self.tests
             ],
         }
 
     def _get_test_statistics(self) -> Dict[str, int]:
         """Calculate and return test execution statistics."""
-        if not self.test_results:
+        if not self.tests:
             return {
                 "total": 0,
                 "passed": 0,
@@ -989,16 +977,16 @@ class TestConductor:
                 "total_failed": 0,
             }
 
-        passed = sum(1 for r in self.test_results if r.status == STATUS.PASSED)
-        failed = sum(1 for r in self.test_results if r.status == STATUS.FAILED)
-        killed = sum(1 for r in self.test_results if r.status == STATUS.KILLED)
-        timeout = sum(1 for r in self.test_results if r.status == STATUS.TIMEOUT)
+        passed = sum(1 for r in self.tests if r.status == STATUS.PASSED)
+        failed = sum(1 for r in self.tests if r.status == STATUS.FAILED)
+        killed = sum(1 for r in self.tests if r.status == STATUS.KILLED)
+        timeout = sum(1 for r in self.tests if r.status == STATUS.TIMEOUT)
 
         # KILLED and TIMEOUT tests are also considered failed
         total_failed = failed + killed + timeout
 
         return {
-            "total": len(self.test_results),
+            "total": len(self.tests),
             "passed": passed,
             "failed": failed,
             "killed": killed,
@@ -1008,7 +996,7 @@ class TestConductor:
 
     def _print_summary(self) -> None:
         """Print a summary of test execution results."""
-        if not self.test_results:
+        if not self.tests:
             return
 
         stats = self._get_test_statistics()
@@ -1016,21 +1004,23 @@ class TestConductor:
 
         # Individual Summary
         self.log_message("\n" + "=" * 60, False)
-        for result in self.test_results:
-            if result.start_time and result.end_time:
-                duration = (result.end_time - result.start_time).total_seconds()
+        for test in self.tests:
+            if test.range is not None:
+                duration = (
+                    test.range.time_range.end - test.range.time_range.start
+                ) / sy.TimeSpan.SECOND
                 duration_str = f" ({duration:.1f}s)"
             else:
                 duration_str = ""
 
-            status_symbol = SYMBOLS.get_symbol(result.status)
-            case_parts = str(result).split("/")
+            status_symbol = SYMBOLS.get_symbol(test.status)
+            case_parts = str(test).split("/")
             display_name = (
-                "/".join(case_parts[1:]) if len(case_parts) > 1 else str(result)
+                "/".join(case_parts[1:]) if len(case_parts) > 1 else str(test)
             )
             self.log_message(f"{status_symbol} {display_name}{duration_str}", False)
-            if result.error_message:
-                self.log_message(f"ERROR: {result.error_message}")
+            if test.error_message:
+                self.log_message(f"ERROR: {test.error_message}")
 
         # Header
         self.log_message("=" * 60, False)
@@ -1137,10 +1127,17 @@ def main() -> None:
         conductor.shutdown()
         raise
     finally:
-        # Ranges must be created last for the test_conductor to be available as a parent.
-        conductor.create_ranges()
+        # Update conductor range end time
+        conductor.client.ranges.create(
+            key=conductor.range.key,
+            name=conductor.range.name,
+            time_range=sy.TimeRange(
+                start=conductor.range.time_range.start,
+                end=sy.TimeStamp.now(),
+            ),
+        )
         conductor.log_message(f"Fin.")
-        if conductor.test_results:
+        if conductor.tests:
             stats = conductor._get_test_statistics()
 
             if stats["total_failed"] > 0:
