@@ -22,8 +22,20 @@ export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
+const SET_VIEW_LISTENER: Flux.ChannelListener<FluxSubStore, typeof view.viewZ> = {
+  channel: view.SET_CHANNEL_NAME,
+  schema: view.viewZ,
+  onChange: ({ store, changed }) => store.views.set(changed.key, changed),
+};
+
+const DELETE_VIEW_LISTENER: Flux.ChannelListener<FluxSubStore, typeof view.keyZ> = {
+  channel: view.DELETE_CHANNEL_NAME,
+  schema: view.keyZ,
+  onChange: ({ store, changed }) => store.views.delete(changed),
+};
+
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  listeners: [],
+  listeners: [SET_VIEW_LISTENER, DELETE_VIEW_LISTENER],
 };
 
 export interface RetrieveQuery extends view.RetrieveSingleParams {}
@@ -45,35 +57,30 @@ export interface ListQuery extends view.RetrieveMultipleParams {}
 export const useList = Flux.createList<ListQuery, view.Key, view.View, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
   retrieveCached: ({ query, store }) => {
-    console.log("retrieveCached", query);
     const { types = [], keys = [] } = query;
     const typesSet = types.length > 0 ? new Set(types) : undefined;
     const keysSet = keys.length > 0 ? new Set(keys) : undefined;
-    const views = store.views.list();
-    console.log("views", views);
-    if (typesSet == null && keysSet == null) return views;
-    return views.filter((v) => {
+    return store.views.get((v) => {
       if (typesSet != null && !typesSet.has(v.type)) return false;
       if (keysSet != null && !keysSet.has(v.key)) return false;
       return true;
     });
   },
-  retrieve: async ({ client, query }) => {
-    console.log("retrieve", query);
-    return await client.views.retrieve(query);
-  },
-  retrieveByKey: async ({ client, key }) => {
-    console.log("retrieveByKey", key);
-    return await client.views.retrieve({ key });
-  },
-  mountListeners: ({ store, onChange, onDelete, query: { keys } }) => {
+  retrieve: async ({ client, query }) => await client.views.retrieve(query),
+  retrieveByKey: async ({ client, key }) => await client.views.retrieve({ key }),
+  mountListeners: ({ store, onChange, onDelete, query: { keys, types } }) => {
     const keysSet = keys ? new Set(keys) : undefined;
+    const typesSet = types ? new Set(types) : undefined;
     return [
-      store.views.onSet(async (view) => {
-        if (keysSet != null && !keysSet.has(view.key)) return;
+      store.views.onSet((view) => {
+        if (
+          (keysSet != null && !keysSet.has(view.key)) ||
+          (typesSet != null && !typesSet.has(view.type))
+        )
+          return;
         onChange(view.key, view, { mode: "prepend" });
       }),
-      store.views.onDelete(async (key) => onDelete(key)),
+      store.views.onDelete(onDelete),
     ];
   },
 });

@@ -15,6 +15,9 @@ import { type ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { type Key, keyZ, type New, newZ, type View, viewZ } from "@/view/payload";
 
+export const SET_CHANNEL_NAME = "sy_view_set";
+export const DELETE_CHANNEL_NAME = "sy_view_delete";
+
 const createReqZ = z.object({ views: newZ.array() });
 const createResZ = z.object({ views: viewZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });

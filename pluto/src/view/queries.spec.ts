@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -44,6 +45,48 @@ describe("View queries", () => {
       expect(result.current.data.length).toBeGreaterThanOrEqual(2);
       expect(result.current.data).toContain(view1.key);
       expect(result.current.data).toContain(view2.key);
+    });
+
+    it("should retrieve a list of views by type", async () => {
+      const type = id.create();
+      const view1 = await client.views.create({
+        name: "View 1",
+        type,
+        query: { channels: ["ch1"] },
+      });
+      const view2 = await client.views.create({
+        name: "View 2",
+        type,
+        query: { channels: ["ch2"] },
+      });
+
+      const { result } = renderHook(() => View.useList(), { wrapper });
+      act(() => {
+        result.current.retrieve({ types: [type] });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data.length).toBe(2);
+      expect(result.current.data).toContain(view1.key);
+      expect(result.current.data).toContain(view2.key);
+    });
+
+    it.only("should update the list when a view is created", async () => {
+      const type = id.create();
+      const { result } = renderHook(() => View.useList({}), { wrapper });
+      act(() => {
+        result.current.retrieve({ types: [type] });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data.length).toBe(0);
+      const newView = await client.views.create({
+        name: "New View",
+        type,
+        query: { channels: ["ch3"] },
+      });
+      await waitFor(() => {
+        expect(result.current.data.length).toBe(1);
+        expect(result.current.data).toContain(newView.key);
+      });
     });
   });
 });

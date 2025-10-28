@@ -13,14 +13,13 @@ package view
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type View struct {
 	Key   uuid.UUID      `json:"key" msgpack:"key"`
 	Name  string         `json:"name" msgpack:"name"`
-	Type  ontology.Type  `json:"type" msgpack:"type"`
+	Type  string         `json:"type" msgpack:"type"`
 	Query map[string]any `json:"query" msgpack:"query"`
 }
 

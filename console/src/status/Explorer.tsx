@@ -13,15 +13,13 @@ import { Component, Status } from "@synnaxlabs/pluto";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/status/Create";
 import { Item } from "@/status/list/Item";
-import { Filters as CoreFilters, SelectFilters } from "@/status/list/SelectFilters";
+import { FilterContextMenu, Filters as CoreFilters } from "@/status/list/SelectFilters";
 import { Explorer as CoreExplorer } from "@/view/Explorer";
-import { type FiltersProps } from "@/view/View";
 
 export const EXPLORER_LAYOUT_TYPE = "status_explorer";
 
-export const EXPLORER_LAYOUT: Layout.State = {
+export const EXPLORER_LAYOUT: Layout.BaseState = {
   key: EXPLORER_LAYOUT_TYPE,
-  windowKey: EXPLORER_LAYOUT_TYPE,
   type: EXPLORER_LAYOUT_TYPE,
   name: "Status Explorer",
   icon: "Status",
@@ -38,15 +36,9 @@ export const Explorer: Layout.Renderer = () => {
       {...listProps}
       resourceType="status"
       item={item}
-      filters={Filters}
+      filters={FilterContextMenu}
+      shownFilters={CoreFilters}
       onCreate={() => placeLayout(CREATE_LAYOUT)}
     />
   );
 };
-
-const Filters = ({ request, onRequestChange }: FiltersProps) => (
-  <>
-    <SelectFilters request={request} onRequestChange={onRequestChange} />
-    <CoreFilters request={request} onRequestChange={onRequestChange} />
-  </>
-);

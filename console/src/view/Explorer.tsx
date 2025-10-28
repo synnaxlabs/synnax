@@ -7,15 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type view } from "@synnaxlabs/client";
 import {
-  type List,
+  Button,
+  Flex,
+  Icon,
+  List,
   type state,
   Status,
   Synnax,
+  Text,
   View as PView,
 } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { View, type ViewProps } from "./View";
 
@@ -54,25 +59,6 @@ export const Explorer = <K extends record.Key, E extends record.Keyed<K>>(
   const handleRequestChange = (setter: state.SetArg<List.PagerParams>) => {
     setRequest({ ...setter });
   };
-  const views = PView.useList({
-    initialQuery: {
-      types: [props.resourceType],
-    },
-  });
-  client?.views
-    .retrieve({
-      types: [props.resourceType],
-    })
-    .then((vw) => {
-      console.log(`views retrieved for ${props.resourceType}`, vw);
-    })
-    .catch((err) => {
-      console.error("error retrieving views", err);
-    });
-  useEffect(() => {
-    console.log("views", views.data);
-  }, [views.data.length]);
-
   return (
     <View
       {...props}
@@ -80,8 +66,39 @@ export const Explorer = <K extends record.Key, E extends record.Keyed<K>>(
       onRequestChange={handleRequestChange}
       initialEditable={false}
       onCreateView={handleSaveView}
-      showViews
+      views={<Views resourceType={props.resourceType} />}
       hasSaveView
     />
+  );
+};
+
+interface ViewsProps {
+  resourceType: string;
+}
+
+const Views = ({ resourceType }: ViewsProps) => {
+  const listProps = PView.useList({ initialQuery: { types: [resourceType] } });
+  return (
+    <Flex.Box x bordered align="center">
+      <Text.Text level="p" style={{ padding: "2rem" }}>
+        <Icon.View />
+        Views
+      </Text.Text>
+      <List.Frame<string, view.View> {...listProps}>
+        <List.Items<string, view.View> displayItems={Infinity} x>
+          {({ key, ...rest }) => <Item key={key} {...rest} />}
+        </List.Items>
+      </List.Frame>
+    </Flex.Box>
+  );
+};
+
+const Item = (props: List.ItemProps<string>) => {
+  const { getItem } = List.useUtilContext<string, view.View>();
+  const view = getItem?.(props.itemKey);
+  return (
+    <Button.Button level="small" bordered={false}>
+      {view?.name}
+    </Button.Button>
   );
 };

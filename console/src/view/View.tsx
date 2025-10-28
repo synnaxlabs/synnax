@@ -13,6 +13,7 @@ import {
   Button,
   type Component,
   CSS as PCSS,
+  Dialog,
   Flex,
   type Flux,
   Icon,
@@ -20,8 +21,6 @@ import {
   List,
   Select,
   type state,
-  Text,
-  View as PView,
 } from "@synnaxlabs/pluto";
 import { location, type record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
@@ -46,9 +45,9 @@ const SearchBox = ({ searchTerm, resourceType, onChange }: SearchBoxProps) => (
     onChange={onChange}
   />
 );
-export interface FiltersProps {
-  request: List.PagerParams;
-  onRequestChange: state.Setter<List.PagerParams>;
+export interface FiltersProps<R extends Request> {
+  request: R;
+  onRequestChange: state.Setter<R, Partial<R>>;
 }
 
 interface ButtonsProps {
@@ -69,65 +68,72 @@ const Buttons = ({
   resourceType,
   editable,
   onCreateView,
-}: ButtonsProps) => {
-  console.log("visible", visible);
-
-  return (
-    <Flex.Box x className={CSS(CSS.BE("view", "buttons"), PCSS.visible(visible))} pack>
+}: ButtonsProps) => (
+  <Flex.Box x className={CSS(CSS.BE("view", "buttons"), PCSS.visible(visible))} pack>
+    <Button.Button
+      onClick={onCreate}
+      tooltipLocation={location.BOTTOM_LEFT}
+      tooltip={`Create a ${resourceType}`}
+    >
+      <Icon.Add />
+    </Button.Button>
+    <Button.Toggle
+      checkedVariant="filled"
+      value={editable}
+      onChange={onEditableClick}
+      tooltipLocation={location.BOTTOM_LEFT}
+      tooltip={`${editable ? "Disable" : "Enable"} editing`}
+    >
+      {editable ? <Icon.EditOff /> : <Icon.Edit />}
+    </Button.Toggle>
+    {hasSaveView && (
       <Button.Button
-        onClick={onCreate}
+        onClick={onCreateView}
         tooltipLocation={location.BOTTOM_LEFT}
-        tooltip={`Create a ${resourceType}`}
+        tooltip="Save as view"
       >
-        <Icon.Add />
+        <Icon.View />
       </Button.Button>
-      <Button.Toggle
-        checkedVariant="filled"
-        value={editable}
-        onChange={onEditableClick}
-        tooltipLocation={location.BOTTOM_LEFT}
-        tooltip={`${editable ? "Disable" : "Enable"} editing`}
-      >
-        {editable ? <Icon.EditOff /> : <Icon.Edit />}
-      </Button.Toggle>
-      {hasSaveView && (
-        <Button.Button
-          onClick={onCreateView}
-          tooltipLocation={location.BOTTOM_LEFT}
-          tooltip="Save as view"
-        >
-          <Icon.View />
-        </Button.Button>
-      )}
-    </Flex.Box>
-  );
-};
+    )}
+  </Flex.Box>
+);
 
-export interface ViewProps<K extends record.Key, E extends record.Keyed<K>>
-  extends Pick<
-    Flux.UseListReturn<List.PagerParams, K, E>,
+export interface Request extends List.PagerParams, record.Unknown {}
+
+export interface ViewProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+  R extends Request,
+> extends Pick<
+    Flux.UseListReturn<R, K, E>,
     "data" | "getItem" | "subscribe" | "retrieve"
   > {
-  request: List.PagerParams;
-  onRequestChange: state.Setter<List.PagerParams>;
+  request: R;
+  onRequestChange: state.Setter<R>;
   onCreate: () => void;
-  filters?: React.FC<FiltersProps>;
+  filters?: React.FC<FiltersProps<R>>;
+  shownFilters?: React.FC<FiltersProps<R>>;
   onCreateView?: () => void;
   resourceType: string;
-  showViews?: boolean;
+  views?: React.ReactElement;
   initialEditable: boolean;
   hasSaveView?: boolean;
   item: Component.RenderProp<List.ItemProps<K>>;
 }
 
-export const View = <K extends record.Key, E extends record.Keyed<K>>({
+export const View = <
+  K extends record.Key,
+  E extends record.Keyed<K>,
+  R extends Request,
+>({
   data,
   getItem,
   retrieve,
   item,
   subscribe,
-  showViews = false,
+  views,
   filters,
+  shownFilters,
   request,
   onRequestChange,
   onCreate,
@@ -135,19 +141,13 @@ export const View = <K extends record.Key, E extends record.Keyed<K>>({
   resourceType,
   initialEditable,
   hasSaveView = false,
-}: ViewProps<K, E>) => {
+}: ViewProps<K, E, R>) => {
   const [editable, setEditable] = useState(initialEditable);
+  const { fetchMore, search } = List.usePager({ retrieve });
   const [selected, setSelected] = useState<K[]>([]);
-  // Track mouse activity to show/hide view buttons after inactivity.
   const [showControls, setShowControls] = useState(false);
   const inactivityTimeoutRef = useRef<NodeJS.Timeout>(undefined);
   const viewRef = useRef<HTMLDivElement>(null);
-
-  const views = PView.useList({
-    initialQuery: {
-      types: [resourceType],
-    },
-  });
 
   const handleMouseMove = useCallback(() => {
     setShowControls(true);
@@ -156,17 +156,14 @@ export const View = <K extends record.Key, E extends record.Keyed<K>>({
       setShowControls(false);
     }, 500);
   }, []);
-
   const handleMouseLeave = useCallback(() => {
     setShowControls(false);
     clearTimeout(inactivityTimeoutRef.current);
   }, []);
 
-  // Use ref-based handler registration rather than a useEffect+querySelector
-  // This attaches the handlers once the ref is set.
   useEffect(() => {
     const el = viewRef.current;
-    if (!el) return;
+    if (el == null) return;
     el.addEventListener("mousemove", handleMouseMove);
     el.addEventListener("mouseleave", handleMouseLeave);
     return () => {
@@ -177,7 +174,7 @@ export const View = <K extends record.Key, E extends record.Keyed<K>>({
   }, [handleMouseMove]);
 
   const handleRequestChange = useCallback(
-    (setter: state.SetArg<List.PagerParams>, opts?: Flux.AsyncListOptions) => {
+    (setter: state.SetArg<R, Partial<R>>, opts?: Flux.AsyncListOptions) => {
       retrieve(setter, opts);
       onRequestChange(setter);
     },
@@ -185,16 +182,17 @@ export const View = <K extends record.Key, E extends record.Keyed<K>>({
   );
   const handleSearch = useCallback(
     (searchTerm: string) => {
-      onRequestChange((p) => List.search(p, searchTerm));
+      handleRequestChange((p) => ({ ...p, ...List.search(p, searchTerm) }));
     },
-    [onRequestChange],
+    [handleRequestChange],
   );
   const handleEditableClick = useCallback(
     () => setEditable((editable) => !editable),
     [],
   );
   const handleFetchMore = useCallback(
-    () => handleRequestChange((p) => List.page(p, 25), { mode: "append" }),
+    () =>
+      handleRequestChange((p) => ({ ...p, ...List.page(p, 25) }), { mode: "append" }),
     [handleRequestChange],
   );
   return (
@@ -218,7 +216,12 @@ export const View = <K extends record.Key, E extends record.Keyed<K>>({
             align="center"
           >
             {filters != null && (
-              <>{filters({ request, onRequestChange: handleRequestChange })}</>
+              <Filters request={request} onRequestChange={handleRequestChange}>
+                {filters}
+              </Filters>
+            )}
+            {shownFilters != null && (
+              <>{shownFilters({ request, onRequestChange: handleRequestChange })}</>
             )}
             <SearchBox
               searchTerm={request.searchTerm ?? ""}
@@ -236,16 +239,7 @@ export const View = <K extends record.Key, E extends record.Keyed<K>>({
           editable={editable}
           onEditableClick={handleEditableClick}
         />
-        {showViews && views.data.length > 0 && (
-          <Flex.Box x bordered>
-            <Text.Text level="small">Views</Text.Text>
-            {views.data.map((view) => (
-              <Text.Text level="small" key={view}>
-                {view}
-              </Text.Text>
-            ))}
-          </Flex.Box>
-        )}
+        {editable && views != null && views}
         <List.Items<K>
           emptyContent={
             <EmptyContent onCreate={onCreate} resourceType={resourceType} />
@@ -271,4 +265,30 @@ const EmptyContent = ({ onCreate, resourceType }: EmptyContentProps) => (
     action={`Create a ${resourceType}`}
     onClick={onCreate}
   />
+);
+
+interface FiltersContentProps<R extends Request> {
+  request: R;
+  onRequestChange: state.Setter<R, Partial<R>>;
+  children: React.FC<FiltersProps<R>>;
+}
+
+const Filters = <R extends Request>({
+  request,
+  onRequestChange,
+  children,
+}: FiltersContentProps<R>) => (
+  <Dialog.Frame>
+    <Dialog.Trigger hideCaret tooltip="Filter">
+      <Icon.Filter />
+    </Dialog.Trigger>
+    <Dialog.Dialog
+      background={1}
+      bordered={false}
+      pack={false}
+      style={{ padding: "1rem" }}
+    >
+      <>{children({ request, onRequestChange })}</>
+    </Dialog.Dialog>
+  </Dialog.Frame>
 );
