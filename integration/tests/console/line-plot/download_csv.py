@@ -7,10 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import io
-from console.case import ConsoleCase
-import synnax as sy
 import csv
+import io
+
+import synnax as sy
+
+from console.case import ConsoleCase
 
 
 class DownloadCSV(ConsoleCase):

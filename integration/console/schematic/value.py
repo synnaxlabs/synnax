@@ -32,6 +32,7 @@ class Value(Symbol):
         averaging_window: int | None = None,
         stale_color: str | None = None,
         stale_timeout: int | None = None,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Edit Value symbol properties including channel and telemetry settings."""
         self._click_symbol()

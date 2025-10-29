@@ -18,6 +18,7 @@ class Setpoint(Symbol):
     def edit_properties(
         self,
         channel_name: str | None = None,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Edit Setpoint properties including channel settings."""
         self._click_symbol()

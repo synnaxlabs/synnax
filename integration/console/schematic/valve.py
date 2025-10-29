@@ -19,9 +19,11 @@ class Valve(Symbol):
 
     def edit_properties(
         self,
+        channel_name: str | None = None,
         state_channel: str | None = None,
         command_channel: str | None = None,
         show_control_chip: bool | None = None,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Edit Setpoint properties including channel settings."""
         self._click_symbol()

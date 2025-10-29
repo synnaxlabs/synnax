@@ -25,6 +25,7 @@ class Button(Symbol):
         mode: (
             Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"] | None
         ) = None,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Edit Setpoint properties including channel settings."""
         self._click_symbol()
