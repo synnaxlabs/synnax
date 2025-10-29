@@ -58,7 +58,7 @@ func (w Writer) Create(
 			return err
 		}
 	}
-	
+
 	return w.status.SetWithParent(ctx, &status.Status{
 		Name:    fmt.Sprintf("%s Status", c.Name),
 		Key:     c.Key.String(),

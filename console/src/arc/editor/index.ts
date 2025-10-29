@@ -9,8 +9,8 @@
 
 export {
   ContextMenu,
-  createEditor,
   type CreateArg,
+  createEditor,
   EDIT_LAYOUT_TYPE,
   type EditLayoutType,
   Editor,

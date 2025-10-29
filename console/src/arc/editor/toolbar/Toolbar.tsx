@@ -12,6 +12,8 @@ import { Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
+import { PropertiesControls } from "@/arc/editor/toolbar/Properties";
+import { Stages } from "@/arc/editor/toolbar/Stages";
 import { useExport } from "@/arc/export";
 import {
   useSelectEditable,
@@ -20,8 +22,6 @@ import {
   useSelectToolbar,
 } from "@/arc/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/arc/slice";
-import { PropertiesControls } from "@/arc/editor/toolbar/Properties";
-import { Stages } from "@/arc/editor/toolbar/Stages";
 import { Cluster } from "@/cluster";
 import { Toolbar as Core } from "@/components";
 import { Export } from "@/export";
