@@ -112,7 +112,7 @@ var (
 			telem.Uint16T:  op.AddU16,
 			telem.Uint8T:   op.AddU8,
 		},
-		"sub": {
+		"subtract": {
 			telem.Float64T: op.SubtractF64,
 			telem.Float32T: op.SubtractF32,
 			telem.Int64T:   op.SubtractI64,
@@ -124,7 +124,7 @@ var (
 			telem.Uint16T:  op.SubtractU16,
 			telem.Uint8T:   op.SubtractU8,
 		},
-		"mul": {
+		"multiply": {
 			telem.Float64T: op.MultiplyF64,
 			telem.Float32T: op.MultiplyF32,
 			telem.Int64T:   op.MultiplyI64,
@@ -136,7 +136,7 @@ var (
 			telem.Uint16T:  op.MultiplyU16,
 			telem.Uint8T:   op.MultiplyU8,
 		},
-		"div": {
+		"divide": {
 			telem.Float64T: op.DivideF64,
 			telem.Float32T: op.DivideF32,
 			telem.Int64T:   op.DivideI64,

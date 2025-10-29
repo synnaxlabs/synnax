@@ -7,6 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/arc/Arc";
-export * from "@/arc/functions";
-export * from "@/arc/queries";
+import { Symbol } from "@/arc/functions/select/Select";
+
+export const SYMBOLS = {
+  select: {
+    key: "select",
+    name: "Select",
+    Form: () => null,
+    Symbol,
+    defaultProps: () => ({}),
+    Preview: Symbol,
+    zIndex: 0,
+  },
+};
