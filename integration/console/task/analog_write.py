@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Page
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from console.console import Console
 
 # Channel type registry for NI Analog Output
-AO_CHANNEL_TYPES: dict[str, Type[Analog]] = {
+AO_CHANNEL_TYPES: dict[str, type[Analog]] = {
     "Voltage": Voltage,
     "Current": Current,
 }
@@ -43,7 +43,7 @@ class AnalogWrite(NITask):
         name: str,
         type: str,
         device: str,
-        dev_name: Optional[str] = None,
+        dev_name: str | None = None,
         **kwargs: Any,
     ) -> Analog:
         """
@@ -85,9 +85,9 @@ class AnalogWrite(NITask):
 
     def set_parameters(
         self,
-        task_name: Optional[str] = None,
-        data_saving: Optional[bool] = None,
-        auto_start: Optional[bool] = None,
+        task_name: str | None = None,
+        data_saving: bool | None = None,
+        auto_start: bool | None = None,
         **kwargs: Any,
     ) -> None:
         """

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 from playwright.sync_api import Page
 
@@ -25,16 +25,14 @@ class Plot(ConsolePage):
         self.page_type = "Line Plot"
         self.pluto_label = ".pluto-line-plot"
 
-        self.data: Dict[str, Any] = {
+        self.data: dict[str, Any] = {
             "Y1": [],
             "Y2": [],
             "Ranges": [],
             "X1": None,
         }
 
-    def add_Y(
-        self, axis: Literal["Y1", "Y2"], channel_ids: Union[str, List[str]]
-    ) -> None:
+    def add_Y(self, axis: Literal["Y1", "Y2"], channel_ids: str | list[str]) -> None:
         channels = [channel_ids] if isinstance(channel_ids, str) else channel_ids
 
         selector = self.page.get_by_text(f"{axis} Select Channels", exact=True)
@@ -49,7 +47,7 @@ class Plot(ConsolePage):
         self.console.ESCAPE
 
     def add_ranges(
-        self, ranges: List[Literal["30s", "1m", "5m", "15m", "30m"]]
+        self, ranges: list[Literal["30s", "1m", "5m", "15m", "30m"]]
     ) -> None:
         """Add time ranges to the plot."""
         self.page.get_by_text("Select Ranges").click()
@@ -61,7 +59,7 @@ class Plot(ConsolePage):
 
         self.console.ESCAPE
 
-    def set_axis(self, axis: Literal["X1", "Y1", "Y2"], config: Dict[str, Any]) -> None:
+    def set_axis(self, axis: Literal["X1", "Y1", "Y2"], config: dict[str, Any]) -> None:
         """Set axis configuration with the given parameters."""
         self.page.get_by_text("Axes").click(timeout=5000)
         self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=5000)

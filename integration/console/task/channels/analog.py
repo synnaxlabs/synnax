@@ -7,9 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Literal, Optional
-
-import synnax as sy
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from console.console import Console
@@ -29,8 +27,8 @@ class Analog:
         name: str,
         device: str,
         type: str,
-        port: Optional[int] = None,
-        terminal_config: Optional[
+        port: int | None = None,
+        terminal_config: (
             Literal[
                 "Default",
                 "Differential",
@@ -38,17 +36,11 @@ class Analog:
                 "Referenced Single Ended",
                 "Non-Referenced Single Ended",
             ]
-        ] = None,
-        min_val: Optional[float] = None,
-        max_val: Optional[float] = None,
-        custom_scale: Optional[
-            Literal[
-                "None",
-                "Linear",
-                "Map",
-                "Table",
-            ]
-        ] = None,
+            | None
+        ) = None,
+        min_val: float | None = None,
+        max_val: float | None = None,
+        custom_scale: Literal["None", "Linear", "Map", "Table"] | None = None,
     ) -> None:
         """
         Initialize analog channel with common configuration.
