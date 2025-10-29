@@ -377,10 +377,9 @@ describe("Arc queries", () => {
         deploy: true,
       });
 
-      const { result } = renderHook(
-        () => Arc.useRetrieve({ key: testArc.key }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => Arc.useRetrieve({ key: testArc.key }), {
+        wrapper,
+      });
 
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
