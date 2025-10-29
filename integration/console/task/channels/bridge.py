@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from console.task.channels.analog import Analog
 
@@ -39,28 +39,13 @@ class Bridge(Analog):
         console: "Console",
         name: str,
         device: str,
-        units: Optional[
-            Literal[
-                "mV/V",
-                "V/V",
-            ]
-        ] = None,
-        configuration: Optional[
-            Literal[
-                "Full Bridge",
-                "Half Bridge",
-                "Quarter Bridge",
-            ]
-        ] = None,
-        resistance: Optional[float] = None,
-        excitation_source: Optional[
-            Literal[
-                "Internal",
-                "External",
-                "None",
-            ]
-        ] = None,
-        excitation_value: Optional[float] = None,
+        units: Literal["mV/V", "V/V"] | None = None,
+        configuration: (
+            Literal["Full Bridge", "Half Bridge", "Quarter Bridge"] | None
+        ) = None,
+        resistance: float | None = None,
+        excitation_source: Literal["Internal", "External", "None"] | None = None,
+        excitation_value: float | None = None,
         **kwargs: Any,
     ) -> None:
 

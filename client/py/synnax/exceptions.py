@@ -9,7 +9,7 @@
 
 import json
 from dataclasses import dataclass
-from typing import Any, List, Union
+from typing import Any
 
 import freighter
 
@@ -110,10 +110,10 @@ class PathError(ValidationError):
     """Raised when a validation error occurs on a specific path."""
 
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "validation.path"
-    path: List[str]
+    path: list[str]
     error: Exception
 
-    def __init__(self, path: Union[str, List[str]], error: Exception):
+    def __init__(self, path: str | list[str], error: Exception):
         if isinstance(path, str):
             path = path.split(".")
         self.path = path

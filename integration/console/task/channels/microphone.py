@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from console.task.channels.analog import Analog
 
@@ -39,17 +39,13 @@ class Microphone(Analog):
         console: "Console",
         name: str,
         device: str,
-        sound_pressure_units: Optional[Literal["Pascals",]] = None,
-        sensitivity: Optional[float] = None,
-        max_sound_pressure_level: Optional[float] = None,
-        current_excitation_source: Optional[
-            Literal[
-                "Internal",
-                "External",
-                "None",
-            ]
-        ] = None,
-        current_excitation_value: Optional[float] = None,
+        sound_pressure_units: Literal["Pascals"] | None = None,
+        sensitivity: float | None = None,
+        max_sound_pressure_level: float | None = None,
+        current_excitation_source: (
+            Literal["Internal", "External", "None"] | None
+        ) = None,
+        current_excitation_value: float | None = None,
         **kwargs: Any,
     ) -> None:
 

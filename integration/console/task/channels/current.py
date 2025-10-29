@@ -7,9 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
-
-import synnax as sy
+from typing import TYPE_CHECKING, Any, Literal
 
 from console.task.channels.analog import Analog
 
@@ -38,13 +36,8 @@ class Current(Analog):
         console: "Console",
         name: str,
         device: str,
-        shunt_resistor: Optional[
-            Literal[
-                "Default" "Internal",
-                "External",
-            ]
-        ] = None,
-        resistance: Optional[float] = None,
+        shunt_resistor: Literal["Default" "Internal" "External"] | None = None,
+        resistance: float | None = None,
         **kwargs: Any,
     ) -> None:
 

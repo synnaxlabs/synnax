@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from console.task.channels.analog import Analog
 
@@ -44,46 +44,19 @@ class ForceBridgeTwoPointLinear(Analog):
         console: "Console",
         name: str,
         device: str,
-        force_units: Optional[
-            Literal[
-                "Newtons",
-                "Pounds",
-                "Kilograms",
-            ]
-        ] = None,
-        bridge_configuration: Optional[
-            Literal[
-                "Full Bridge",
-                "Half Bridge",
-                "Quarter Bridge",
-            ]
-        ] = None,
-        resistance: Optional[float] = None,
-        excitation_source: Optional[
-            Literal[
-                "Internal",
-                "External",
-                "None",
-            ]
-        ] = None,
-        excitation_value: Optional[float] = None,
-        physical_units: Optional[
-            Literal[
-                "Newtons",
-                "Pounds",
-                "Kilograms",
-            ]
-        ] = None,
-        electrical_units: Optional[
-            Literal[
-                "mV/V",
-                "V/V",
-            ]
-        ] = None,
-        physical_value_one: Optional[float] = None,
-        physical_value_two: Optional[float] = None,
-        electrical_value_one: Optional[float] = None,
-        electrical_value_two: Optional[float] = None,
+        force_units: Literal["Newtons", "Pounds", "Kilograms"] | None = None,
+        bridge_configuration: (
+            Literal["Full Bridge", "Half Bridge", "Quarter Bridge"] | None
+        ) = None,
+        resistance: float | None = None,
+        excitation_source: Literal["Internal", "External", "None"] | None = None,
+        excitation_value: float | None = None,
+        physical_units: Literal["Newtons", "Pounds", "Kilograms"] | None = None,
+        electrical_units: Literal["mV/V", "V/V"] | None = None,
+        physical_value_one: float | None = None,
+        physical_value_two: float | None = None,
+        electrical_value_one: float | None = None,
+        electrical_value_two: float | None = None,
         **kwargs: Any,
     ) -> None:
 

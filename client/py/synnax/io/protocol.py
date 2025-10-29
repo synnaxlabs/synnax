@@ -7,9 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Iterator
 from enum import Enum
 from pathlib import Path
-from typing import Iterator, Protocol
+from typing import Protocol
 
 from pandas import DataFrame
 
@@ -86,7 +87,7 @@ class BaseReader(File, Protocol):
         ...
 
     def seek_first(self):
-        """Seeks the reader to the first  sampele in the file."""
+        """Seeks the reader to the first sample in the file."""
         ...
 
 
