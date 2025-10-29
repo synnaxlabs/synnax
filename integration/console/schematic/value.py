@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import re
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .symbol import Symbol
 
@@ -25,19 +25,18 @@ class Value(Symbol):
 
     def edit_properties(
         self,
-        channel_name: Optional[str] = None,
+        channel_name: str | None = None,
         *,
-        notation: Optional[str] = None,
-        precision: Optional[int] = None,
-        averaging_window: Optional[int] = None,
-        stale_color: Optional[str] = None,
-        stale_timeout: Optional[int] = None,
-        **kwargs: Any,
-    ) -> Dict[str, Any]:
+        notation: str | None = None,
+        precision: int | None = None,
+        averaging_window: int | None = None,
+        stale_color: str | None = None,
+        stale_timeout: int | None = None,
+    ) -> dict[str, Any]:
         """Edit Value symbol properties including channel and telemetry settings."""
         self._click_symbol()
 
-        applied_properties: Dict[str, Any] = {}
+        applied_properties: dict[str, Any] = {}
 
         # Always enforce label = channel_name for easy identification
         if channel_name is not None:
@@ -86,14 +85,14 @@ class Value(Symbol):
 
         return applied_properties
 
-    def get_properties(self) -> Dict[str, Any]:
+    def get_properties(self) -> dict[str, Any]:
         """Get the current properties of the symbol"""
         console = self.console
         self._click_symbol()
         self.page.get_by_text("Properties").click()
         self.page.get_by_text("Telemetry").click()
 
-        props: Dict[str, Any] = {
+        props: dict[str, Any] = {
             "channel": "",
             "notation": "",
             "precision": -1,

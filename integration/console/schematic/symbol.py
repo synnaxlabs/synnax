@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
 from abc import ABC, abstractmethod
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
+from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Locator, Page
 
@@ -71,9 +71,9 @@ class Symbol(ABC):
     @abstractmethod
     def edit_properties(
         self,
-        channel_name: Optional[str] = None,
+        channel_name: str | None = None,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Edit symbol properties. Must be implemented by all child classes.
 

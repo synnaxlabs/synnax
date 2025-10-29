@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, Literal, Optional, Type
+from typing import TYPE_CHECKING, Any
 
 import synnax as sy
 from playwright.sync_api import Page
@@ -39,7 +39,7 @@ class NITask(ConsolePage):
         name: str,
         type: str,
         device: str,
-        dev_name: Optional[str] = None,
+        dev_name: str | None = None,
         **kwargs: Any,
     ) -> Analog:
         """
@@ -63,10 +63,9 @@ class NITask(ConsolePage):
     def _add_channel_helper(
         self,
         name: str,
-        type: str,
         device: str,
-        dev_name: Optional[str],
-        channel_class: Type[Analog],
+        dev_name: str | None,
+        channel_class: type[Analog],
         **kwargs: Any,
     ) -> Analog:
         """
@@ -146,10 +145,9 @@ class NITask(ConsolePage):
 
     def set_parameters(
         self,
-        task_name: Optional[str] = None,
-        data_saving: Optional[bool] = None,
-        auto_start: Optional[bool] = None,
-        **kwargs: Any,
+        task_name: str | None = None,
+        data_saving: bool | None = None,
+        auto_start: bool | None = None,
     ) -> None:
         """
         Set the parameters for the task.

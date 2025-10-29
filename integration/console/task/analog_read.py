@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Page
 
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from console.console import Console
 
 # Valid channel types for NI Analog Read tasks
-ANALOG_READ_CHANNEL_TYPES: dict[str, Type[Analog]] = {
+ANALOG_READ_CHANNEL_TYPES: dict[str, type[Analog]] = {
     "Accelerometer": Accelerometer,
     "Bridge": Bridge,
     "Current": Current,
@@ -81,7 +81,7 @@ class AnalogRead(NITask):
         name: str,
         type: str,
         device: str,
-        dev_name: Optional[str] = None,
+        dev_name: str | None = None,
         **kwargs: Any,
     ) -> Analog:
         """
@@ -117,9 +117,9 @@ class AnalogRead(NITask):
 
     def set_parameters(
         self,
-        task_name: Optional[str] = None,
-        data_saving: Optional[bool] = None,
-        auto_start: Optional[bool] = None,
+        task_name: str | None = None,
+        data_saving: bool | None = None,
+        auto_start: bool | None = None,
         **kwargs: Any,
     ) -> None:
         """
