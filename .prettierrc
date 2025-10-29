@@ -5,6 +5,10 @@
     {
       "files": ["synnax.code-workspace", ".prettierrc", ".madgerc"],
       "options": { "parser": "json", "tabWidth": 2 }
+    },
+    {
+      "files": [".github/PULL_REQUEST_TEMPLATE/**/*"],
+      "options": { "proseWrap": "never" }
     }
   ],
   "plugins": [
