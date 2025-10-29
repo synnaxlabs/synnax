@@ -154,9 +154,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      - name: Update Submodules
-        run: git submodule update --init --recursive
-
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 

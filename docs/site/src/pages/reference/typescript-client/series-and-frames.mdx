@@ -13,7 +13,7 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Series and Frames are the two fundamental structures used for working with channel data
+Series and frames are the two fundamental structures used for working with channel data
 in Synnax. This guide will walk you through how to use the `Frame` and `Series` classes
 exposed by the TypeScript client.
 
@@ -94,7 +94,7 @@ const v: TelemValue = series.at(0);
 ```
 
 This can make it difficult to write type-safe code when working with a series. If you
-know that a series should be of a certain javascript type (`number`, `string`, `object`,
+know that a series should be of a certain JavaScript type (`number`, `string`, `object`,
 `bigint`), you can use the `as` method to validate the data type and return a
 `Series<T>` of that type:
 

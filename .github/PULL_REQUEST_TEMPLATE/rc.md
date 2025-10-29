@@ -32,6 +32,7 @@ I have verified that, when released, the following packages will not conflict wi
 I have verified that user-facing documentation for each of the following services has been updated to match any changes in the release candidate:
 
 - [ ] `guides/analyst`
+- [ ] `guides/comparison`
 - [ ] `guides/get-started`
 - [ ] `guides/operations`
 - [ ] `guides/sys-admin`
@@ -754,8 +755,6 @@ I can successfully:
   - [ ] Handle device disconnection during active tasks with appropriate feedback.
   - [ ] Start multiple tasks at different times and view live data.
   - [ ] Enable and disable data saving.
-  - [ ] Enabled auto-start, and ensure that the task automatically starts after configuration.
-  - [ ] # Ensure no lag between sensor input and Synnax data recording.
   - [ ] Enabled auto-start, and ensure that the task automatically starts after configuration.
   - [ ] Ensure no lag between sensor input and Core data recording.
   - [ ] Configure and run an analog read task for the following channels:
