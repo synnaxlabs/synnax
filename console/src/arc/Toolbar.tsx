@@ -54,6 +54,7 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
+  const handleError = Status.useErrorHandler();
 
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
@@ -101,6 +102,16 @@ const Content = () => {
 
   const { update: handleToggleDeploy } = Arc.useToggleDeploy();
 
+  const rename = Modals.useRename();
+
+  const handleCreate = useCallback(() => {
+    handleError(async () => {
+      const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
+      if (name == null) return;
+      placeLayout(createEditor({ name }));
+    }, "Failed to create arc");
+  }, [rename, handleError, placeLayout]);
+
   const { update: handleRename } = Arc.useRename({
     beforeUpdate: useCallback(
       async ({ data, rollbacks }: Flux.BeforeUpdateParams<Arc.RenameParams>) => {
@@ -144,7 +155,7 @@ const Content = () => {
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Arc />}>Arcs</Toolbar.Title>
           <Toolbar.Actions>
-            <Toolbar.Action onClick={() => placeLayout(createEditor())}>
+            <Toolbar.Action onClick={handleCreate}>
               <Icon.Add />
             </Toolbar.Action>
           </Toolbar.Actions>
