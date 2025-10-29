@@ -14,27 +14,27 @@
 #include <string>
 #include <vector>
 
-#include "arc/cpp/ir/ir.h"
-#include "arc/cpp/runtime/state/node_state.h"
-#include "arc/cpp/runtime/wasm/runtime.h"
-#include "arc/cpp/runtime/scheduler/time_wheel.h"
-#include "arc/cpp/runtime/core/types.h"
-#include "arc/cpp/runtime/scheduler/scheduler.h"
-#include "arc/cpp/runtime/state/state.h"
 #include "x/cpp/xerrors/errors.h"
 
-namespace arc {
-namespace module {
+#include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/core/types.h"
+#include "arc/cpp/runtime/scheduler/scheduler.h"
+#include "arc/cpp/runtime/scheduler/time_wheel.h"
+#include "arc/cpp/runtime/state/node.h"
+#include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/runtime/wasm/runtime.h"
+
+namespace arc { namespace module {
 
 /// @brief Compiled Arc module (IR + WASM bytecode).
 struct Module {
-    ir::IR ir;                                   ///< Intermediate representation
-    std::vector<uint8_t> wasm;                   ///< WASM bytecode
-    std::map<std::string, uint32_t> output_memory_bases;  ///< Multi-output memory layout
+    ir::IR ir; ///< Intermediate representation
+    std::vector<uint8_t> wasm; ///< WASM bytecode
+    std::map<std::string, uint32_t> output_memory_bases; ///< Multi-output memory layout
 
     Module() = default;
-    Module(ir::IR ir_, std::vector<uint8_t> wasm_)
-        : ir(std::move(ir_)), wasm(std::move(wasm_)) {}
+    Module(ir::IR ir_, std::vector<uint8_t> wasm_):
+        ir(std::move(ir_)), wasm(std::move(wasm_)) {}
 };
 
 /// @brief Assembled Arc runtime ready for execution.
@@ -42,14 +42,14 @@ struct AssembledRuntime {
     /// Default queue capacity (can be configured if needed)
     static constexpr size_t DEFAULT_QUEUE_CAPACITY = 1024;
 
-    std::unique_ptr<Runtime> runtime;          ///< WASM runtime
-    std::unique_ptr<Scheduler> scheduler;      ///< Execution scheduler
-    std::unique_ptr<State> state;              ///< Runtime state
-    std::unique_ptr<TimeWheel> time_wheel;     ///< Interval timer (nullptr if no intervals)
+    std::unique_ptr<Runtime> runtime; ///< WASM runtime
+    std::unique_ptr<Scheduler> scheduler; ///< Execution scheduler
+    std::unique_ptr<State> state; ///< Runtime state
+    std::unique_ptr<TimeWheel> time_wheel; ///< Interval timer (nullptr if no intervals)
 
     /// I/O queues (capacity set at construction)
-    std::unique_ptr<queue::SPSC<ChannelUpdate>> input_queue;   ///< I/O → RT
-    std::unique_ptr<queue::SPSC<ChannelOutput>> output_queue;  ///< RT → I/O
+    std::unique_ptr<queue::SPSC<ChannelUpdate>> input_queue; ///< I/O → RT
+    std::unique_ptr<queue::SPSC<ChannelOutput>> output_queue; ///< RT → I/O
 
     AssembledRuntime() = default;
 
@@ -92,7 +92,7 @@ struct AssembledRuntime {
 /// 7. Wire up thread-safe queues
 class Loader {
 public:
-    ModuleLoader() = default;
+    Loader() = default;
 
     /// @brief Load a module and assemble the runtime.
     /// @param ir_json JSON-serialized IR.
@@ -118,5 +118,5 @@ public:
     ir::TypeKind get_channel_type(const ir::Node &node, ChannelKey channel_key);
 };
 
-}  // namespace module
-}  // namespace arc
+} // namespace module
+} // namespace arc

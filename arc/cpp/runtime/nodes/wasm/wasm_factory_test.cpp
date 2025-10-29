@@ -7,13 +7,14 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "arc/cpp/runtime/nodes/wasm/factory.h"
-
-#include "arc/cpp/runtime/nodes/wasm/node.h"
-#include "arc/cpp/runtime/state/node_state.h"
-#include "arc/cpp/runtime/wasm/runtime.h"
 #include "gtest/gtest.h"
+
 #include "x/cpp/xtest/xtest.h"
+
+#include "arc/cpp/runtime/nodes/wasm/factory.h"
+#include "arc/cpp/runtime/nodes/wasm/node.h"
+#include "arc/cpp/runtime/state/node.h"
+#include "arc/cpp/runtime/wasm/runtime.h"
 
 namespace arc {
 
@@ -71,7 +72,7 @@ TEST_F(WASMNodeFactoryTest, ReturnsNotFoundForNonWASMFunction) {
     std::vector<uint8_t> dummy_wasm = {0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00};
     runtime_->load_aot_module(dummy_wasm);
 
-    wasm::WASMNodeFactory factory(*runtime_);
+    wasm::Factory factory(*runtime_);
 
     // Create node with type that doesn't exist in IR functions
     ir::Node unknown_node{"node2"};
@@ -85,15 +86,17 @@ TEST_F(WASMNodeFactoryTest, ReturnsNotFoundForNonWASMFunction) {
 }
 
 // Test removed - runtime is now passed to factory constructor, not config
-// If you don't have a runtime, you simply don't add wasm::WASMNodeFactory to the MultiFactory
+// If you don't have a runtime, you simply don't add wasm::Factory to the MultiFactory
 
 TEST_F(WASMNodeFactoryTest, CreatesWASMNodeSuccessfully) {
-    // Load minimal WASM module (just magic number, will fail instantiation but that's ok)
+    // Load minimal WASM module (just magic number, will fail instantiation but that's
+    // ok)
     std::vector<uint8_t> dummy_wasm = {0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00};
     auto load_err = runtime_->load_aot_module(dummy_wasm);
-    // May fail, that's ok for this test - we're testing factory logic, not WASM execution
+    // May fail, that's ok for this test - we're testing factory logic, not WASM
+    // execution
 
-    wasm::WASMNodeFactory factory(*runtime_);
+    wasm::Factory factory(*runtime_);
 
     NodeFactoryConfig cfg{ir_.nodes[0], *state_, ir_};
 
@@ -113,7 +116,7 @@ TEST_F(WASMNodeFactoryTest, CreatesWASMNodeSuccessfully) {
 }
 
 TEST_F(WASMNodeFactoryTest, HandlesNodeWithEdges) {
-    wasm::WASMNodeFactory factory(*runtime_);
+    wasm::Factory factory(*runtime_);
 
     // Add another node as a source
     ir::Node source_node{"source"};
@@ -153,10 +156,10 @@ TEST_F(WASMNodeFactoryTest, HandlesNodeWithEdges) {
     } else {
         ASSERT_NE(node, nullptr);
         // Verify node has correct structure
-        auto* wasm_node = dynamic_cast<wasm::WASMNode*>(node.get());
+        auto *wasm_node = dynamic_cast<wasm::Node *>(node.get());
         ASSERT_NE(wasm_node, nullptr);
         EXPECT_EQ(wasm_node->state().num_inputs(), 1);
     }
 }
 
-}  // namespace arc
+} // namespace arc

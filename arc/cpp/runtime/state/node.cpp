@@ -7,19 +7,20 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "arc/cpp/runtime/state/node_state.h"
+#include "arc/cpp/runtime/state/node.h"
 
-namespace arc {
-namespace state {
+namespace arc { namespace state {
 
-Node::Node(State *state,
-                     std::string node_id,
-                     std::vector<Edge> inputs,
-                     std::vector<Handle> outputs)
-    : state_(*state),
-      node_id_(std::move(node_id)),
-      inputs_(std::move(inputs)),
-      outputs_(std::move(outputs)) {
+Node::Node(
+    State *state,
+    std::string node_id,
+    std::vector<Edge> inputs,
+    std::vector<Handle> outputs
+):
+    state_(*state),
+    node_id_(std::move(node_id)),
+    inputs_(std::move(inputs)),
+    outputs_(std::move(outputs)) {
     // Pre-allocate alignment buffers
     accumulated_.resize(inputs_.size());
     aligned_data_.resize(inputs_.size());
@@ -29,24 +30,18 @@ Node::Node(State *state,
 bool Node::refresh_inputs() {
     // 1. Accumulate new data from source outputs beyond watermark
     for (size_t i = 0; i < inputs_.size(); i++) {
-        const Edge& edge = inputs_[i];
-        const ValuePair& source = state_.get_output(edge.source);
+        const Edge &edge = inputs_[i];
+        const ValuePair &source = state_.get_output(edge.source);
 
         // Skip if source has no data
-        if (!source.data || source.data->empty()) {
-            continue;
-        }
-        if (!source.time || source.time->empty()) {
-            continue;
-        }
+        if (!source.data || source.data->empty()) { continue; }
+        if (!source.time || source.time->empty()) { continue; }
 
         // Get last timestamp from source
         auto last_ts = source.time->at<telem::TimeStamp>(-1);
 
         // Skip if already processed (at or before watermark)
-        if (last_ts <= accumulated_[i].watermark) {
-            continue;
-        }
+        if (last_ts <= accumulated_[i].watermark) { continue; }
 
         // Accumulate new data beyond watermark
         accumulated_[i].data.push_back(source.data);
@@ -54,9 +49,9 @@ bool Node::refresh_inputs() {
     }
 
     // 2. Check all inputs have data (not ready if any empty)
-    for (const auto& entry : accumulated_) {
+    for (const auto &entry: accumulated_) {
         if (entry.empty()) {
-            return false;  // Not ready
+            return false; // Not ready
         }
     }
 
@@ -67,7 +62,7 @@ bool Node::refresh_inputs() {
 
     for (size_t i = 0; i < inputs_.size(); i++) {
         for (size_t j = 0; j < accumulated_[i].time.size(); j++) {
-            const auto& time_series = accumulated_[i].time[j];
+            const auto &time_series = accumulated_[i].time[j];
             if (time_series->empty()) continue;
 
             auto ts = time_series->at<telem::TimeStamp>(-1);
@@ -79,13 +74,13 @@ bool Node::refresh_inputs() {
                     trigger_series_idx = j;
                     trigger_ts = ts;
                 }
-                break;  // Only check first new series per input
+                break; // Only check first new series per input
             }
         }
     }
 
     if (trigger_idx == -1) {
-        return false;  // No new data beyond watermarks
+        return false; // No new data beyond watermarks
     }
 
     // 4. Align all inputs to trigger timestamp
@@ -106,7 +101,7 @@ bool Node::refresh_inputs() {
 
     // 5. Prune consumed data (remove series with timestamp <= watermark)
     for (size_t i = 0; i < inputs_.size(); i++) {
-        auto& entry = accumulated_[i];
+        auto &entry = accumulated_[i];
 
         // Find first series with timestamp > watermark
         size_t keep_idx = 0;
@@ -129,7 +124,7 @@ bool Node::refresh_inputs() {
     return true;
 }
 
-const telem::Series& Node::input(size_t param_index) const {
+const telem::Series &Node::input(size_t param_index) const {
     if (param_index >= aligned_data_.size() || !aligned_data_[param_index]) {
         static const telem::Series empty{std::vector<uint8_t>{}};
         return empty;
@@ -137,7 +132,7 @@ const telem::Series& Node::input(size_t param_index) const {
     return *aligned_data_[param_index];
 }
 
-const telem::Series& Node::input_time(size_t param_index) const {
+const telem::Series &Node::input_time(size_t param_index) const {
     if (param_index >= aligned_time_.size() || !aligned_time_[param_index]) {
         static const telem::Series empty{std::vector<int64_t>{}};
         return empty;
@@ -145,29 +140,23 @@ const telem::Series& Node::input_time(size_t param_index) const {
     return *aligned_time_[param_index];
 }
 
-telem::Series* Node::output(size_t param_index) {
-    if (param_index >= outputs_.size()) {
-        return nullptr;
-    }
+telem::Series *Node::output(size_t param_index) {
+    if (param_index >= outputs_.size()) { return nullptr; }
 
-    const Handle& handle = outputs_[param_index];
-    ValuePair& vp = state_.get_output(handle);
+    const Handle &handle = outputs_[param_index];
+    ValuePair &vp = state_.get_output(handle);
 
     // Lazy initialize with empty vector
-    if (!vp.data) {
-        vp.data = std::make_shared<telem::Series>(std::vector<uint8_t>{});
-    }
+    if (!vp.data) { vp.data = std::make_shared<telem::Series>(std::vector<uint8_t>{}); }
 
     return vp.data.get();
 }
 
-telem::Series* Node::output_time(size_t param_index) {
-    if (param_index >= outputs_.size()) {
-        return nullptr;
-    }
+telem::Series *Node::output_time(size_t param_index) {
+    if (param_index >= outputs_.size()) { return nullptr; }
 
-    const Handle& handle = outputs_[param_index];
-    ValuePair& vp = state_.get_output(handle);
+    const Handle &handle = outputs_[param_index];
+    ValuePair &vp = state_.get_output(handle);
 
     // Lazy initialize with empty timestamp vector
     if (!vp.time) {
@@ -177,10 +166,9 @@ telem::Series* Node::output_time(size_t param_index) {
     return vp.time.get();
 }
 
-std::pair<telem::SampleValue, xerrors::Error>
-Node::read_channel(ChannelKey key) const {
+std::pair<telem::SampleValue, xerrors::Error> Node::read_channel(ChannelKey key) const {
     return state_.read_channel(key);
 }
 
-}  // namespace state
-}  // namespace arc
+} // namespace state
+} // namespace arc

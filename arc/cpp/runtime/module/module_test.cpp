@@ -16,7 +16,7 @@
 
 using json = nlohmann::json;
 
-class ModuleLoaderTest : public ::testing::Test {
+class LoaderTest : public ::testing::Test {
 protected:
     void SetUp() override {
         auto err = arc::Runtime::initialize_runtime();
@@ -26,8 +26,8 @@ protected:
     void TearDown() override { arc::Runtime::destroy_runtime(); }
 };
 
-TEST_F(ModuleLoaderTest, ExtractChannelKeys) {
-    arc::ModuleLoader loader;
+TEST_F(LoaderTest, ExtractChannelKeys) {
+    arc::module::Loader loader;
     arc::ir::IR ir;
 
     arc::ir::Node node1("node1");
@@ -50,8 +50,8 @@ TEST_F(ModuleLoaderTest, ExtractChannelKeys) {
     EXPECT_EQ(keys[2], 3);
 }
 
-TEST_F(ModuleLoaderTest, GetChannelType) {
-    arc::ModuleLoader loader;
+TEST_F(LoaderTest, GetChannelType) {
+    arc::module::Loader loader;
 
     arc::ir::Node node("test");
     node.channels.read[1] = "input_a";
@@ -62,16 +62,16 @@ TEST_F(ModuleLoaderTest, GetChannelType) {
     EXPECT_EQ(type_kind, arc::ir::TypeKind::F64);
 }
 
-TEST_F(ModuleLoaderTest, LoadEmptyModule) {
-    arc::ModuleLoader loader;
+TEST_F(LoaderTest, LoadEmptyModule) {
+    arc::module::Loader loader;
 
     // Create minimal IR
     arc::ir::IR ir;
     ir.strata = {};  // No nodes
 
-    arc::Module module(std::move(ir), {});
+    arc::module::Module mod(std::move(ir), {});
 
-    auto [runtime, err] = loader.load(module);
+    auto [runtime, err] = loader.load(mod);
     // Should succeed even with no nodes
     ASSERT_NIL(err);
     EXPECT_NE(runtime.state, nullptr);
@@ -79,8 +79,8 @@ TEST_F(ModuleLoaderTest, LoadEmptyModule) {
     EXPECT_NE(runtime.runtime, nullptr);
 }
 
-TEST_F(ModuleLoaderTest, LoadModuleWithChannels) {
-    arc::ModuleLoader loader;
+TEST_F(LoaderTest, LoadModuleWithChannels) {
+    arc::module::Loader loader;
 
     // Create IR with channel references
     arc::ir::IR ir;
@@ -94,9 +94,9 @@ TEST_F(ModuleLoaderTest, LoadModuleWithChannels) {
     ir.strata = {{"input"}};
 
     // No WASM bytecode (empty vector) - will skip WASM loading
-    arc::Module module(std::move(ir), {});
+    arc::module::Module mod(std::move(ir), {});
 
-    auto [runtime, err] = loader.load(module);
+    auto [runtime, err] = loader.load(mod);
     ASSERT_NIL(err);
 
     // Verify channel was registered
@@ -105,8 +105,8 @@ TEST_F(ModuleLoaderTest, LoadModuleWithChannels) {
     EXPECT_TRUE(ch_err.matches(xerrors::Error("arc.state.no_data")));
 }
 
-TEST_F(ModuleLoaderTest, AssembledRuntimeNext) {
-    arc::AssembledRuntime runtime;
+TEST_F(LoaderTest, AssembledRuntimeNext) {
+    arc::module::AssembledRuntime runtime;
 
     // Create queues
     auto input_queue = std::make_unique<queue::SPSC<arc::ChannelUpdate>>(16);
@@ -123,8 +123,8 @@ TEST_F(ModuleLoaderTest, AssembledRuntimeNext) {
 }
 
 // Integration test: Dataflow graph A → B → C
-TEST_F(ModuleLoaderTest, DataflowGraphIntegration) {
-    arc::ModuleLoader loader;
+TEST_F(LoaderTest, DataflowGraphIntegration) {
+    arc::module::Loader loader;
 
     // Build IR: Node A (source) → Node B (processor) → Node C (sink)
     arc::ir::IR ir;
@@ -160,7 +160,7 @@ TEST_F(ModuleLoaderTest, DataflowGraphIntegration) {
     // Strata: A (0), B (1), C (2)
     ir.strata = {{"A"}, {"B"}, {"C"}};
 
-    arc::Module module(std::move(ir), {});  // No WASM
+    arc::module::Module module(std::move(ir), {});  // No WASM
 
     auto [runtime, err] = loader.load(module);
     ASSERT_NIL(err);
@@ -183,8 +183,8 @@ TEST_F(ModuleLoaderTest, DataflowGraphIntegration) {
 }
 
 // Integration test: Multi-input temporal alignment
-TEST_F(ModuleLoaderTest, MultiInputTemporalAlignment) {
-    arc::ModuleLoader loader;
+TEST_F(LoaderTest, MultiInputTemporalAlignment) {
+    arc::module::Loader loader;
 
     // Build IR: A → C, B → C (C has two inputs)
     arc::ir::IR ir;
@@ -214,9 +214,9 @@ TEST_F(ModuleLoaderTest, MultiInputTemporalAlignment) {
 
     ir.strata = {{"A", "B"}, {"C"}};
 
-    arc::Module module(std::move(ir), {});
+    arc::module::Module mod(std::move(ir), {});
 
-    auto [runtime, err] = loader.load(module);
+    auto [runtime, err] = loader.load(mod);
     ASSERT_NIL(err);
 
     // Verify C has 2 incoming edges

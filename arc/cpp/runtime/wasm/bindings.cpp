@@ -7,17 +7,16 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
+#include "arc/cpp/runtime/state/node.h"
 #include "arc/cpp/runtime/wasm/bindings.h"
-
-#include "arc/cpp/runtime/state/node_state.h"
 
 namespace arc {
 
 namespace host {
 
-// Helper to get NodeState from execution environment
-static NodeState *get_node_state(wasm_exec_env_t exec_env) {
-    return static_cast<NodeState *>(wasm_runtime_get_user_data(exec_env));
+// Helper to get state::Node from execution environment
+static state::Node *get_node_state(wasm_exec_env_t exec_env) {
+    return static_cast<state::Node *>(wasm_runtime_get_user_data(exec_env));
 }
 
 // ============================================================================
@@ -27,20 +26,16 @@ static NodeState *get_node_state(wasm_exec_env_t exec_env) {
 int32_t channel_read_i32(wasm_exec_env_t exec_env, int32_t channel_id) {
     auto *node_state = get_node_state(exec_env);
     auto [value, err] = node_state->read_channel(channel_id);
-    if (err) return 0;  // Default on error
-    if (std::holds_alternative<int32_t>(value)) {
-        return std::get<int32_t>(value);
-    }
-    return 0;  // Type mismatch
+    if (err) return 0; // Default on error
+    if (std::holds_alternative<int32_t>(value)) { return std::get<int32_t>(value); }
+    return 0; // Type mismatch
 }
 
 int64_t channel_read_i64(wasm_exec_env_t exec_env, int32_t channel_id) {
     auto *node_state = get_node_state(exec_env);
     auto [value, err] = node_state->read_channel(channel_id);
     if (err) return 0;
-    if (std::holds_alternative<int64_t>(value)) {
-        return std::get<int64_t>(value);
-    }
+    if (std::holds_alternative<int64_t>(value)) { return std::get<int64_t>(value); }
     return 0;
 }
 
@@ -48,9 +43,7 @@ float channel_read_f32(wasm_exec_env_t exec_env, int32_t channel_id) {
     auto *node_state = get_node_state(exec_env);
     auto [value, err] = node_state->read_channel(channel_id);
     if (err) return 0.0f;
-    if (std::holds_alternative<float>(value)) {
-        return std::get<float>(value);
-    }
+    if (std::holds_alternative<float>(value)) { return std::get<float>(value); }
     return 0.0f;
 }
 
@@ -58,9 +51,7 @@ double channel_read_f64(wasm_exec_env_t exec_env, int32_t channel_id) {
     auto *node_state = get_node_state(exec_env);
     auto [value, err] = node_state->read_channel(channel_id);
     if (err) return 0.0;
-    if (std::holds_alternative<double>(value)) {
-        return std::get<double>(value);
-    }
+    if (std::holds_alternative<double>(value)) { return std::get<double>(value); }
     return 0.0;
 }
 
@@ -141,7 +132,7 @@ void state_store_f64(wasm_exec_env_t exec_env, int32_t var_id, double value) {
 // ============================================================================
 
 int64_t now(wasm_exec_env_t exec_env) {
-    (void)exec_env;  // Unused
+    (void) exec_env; // Unused
     return telem::TimeStamp::now().nanoseconds();
 }
 
@@ -165,7 +156,7 @@ void panic(wasm_exec_env_t exec_env, int32_t msg_ptr, int32_t msg_len) {
     wasm_runtime_set_exception(module_inst, error_msg.c_str());
 }
 
-}  // namespace host
+} // namespace host
 
 // ============================================================================
 // Host Function Registration
@@ -175,43 +166,75 @@ bool register_host_functions(wasm_module_inst_t module_inst) {
     // Define native symbols for WAMR
     static NativeSymbol native_symbols[] = {
         // Channel read operations (signature: (i)i/I/f/F)
-        {"channel_read_i32", reinterpret_cast<void *>(host::channel_read_i32), "(i)i",
+        {"channel_read_i32",
+         reinterpret_cast<void *>(host::channel_read_i32),
+         "(i)i",
          nullptr},
-        {"channel_read_i64", reinterpret_cast<void *>(host::channel_read_i64), "(i)I",
+        {"channel_read_i64",
+         reinterpret_cast<void *>(host::channel_read_i64),
+         "(i)I",
          nullptr},
-        {"channel_read_f32", reinterpret_cast<void *>(host::channel_read_f32), "(i)f",
+        {"channel_read_f32",
+         reinterpret_cast<void *>(host::channel_read_f32),
+         "(i)f",
          nullptr},
-        {"channel_read_f64", reinterpret_cast<void *>(host::channel_read_f64), "(i)F",
+        {"channel_read_f64",
+         reinterpret_cast<void *>(host::channel_read_f64),
+         "(i)F",
          nullptr},
 
         // Channel write operations (signature: (ii)v, (iI)v, (if)v, (iF)v)
-        {"channel_write_i32", reinterpret_cast<void *>(host::channel_write_i32), "(ii)v",
+        {"channel_write_i32",
+         reinterpret_cast<void *>(host::channel_write_i32),
+         "(ii)v",
          nullptr},
-        {"channel_write_i64", reinterpret_cast<void *>(host::channel_write_i64), "(iI)v",
+        {"channel_write_i64",
+         reinterpret_cast<void *>(host::channel_write_i64),
+         "(iI)v",
          nullptr},
-        {"channel_write_f32", reinterpret_cast<void *>(host::channel_write_f32), "(if)v",
+        {"channel_write_f32",
+         reinterpret_cast<void *>(host::channel_write_f32),
+         "(if)v",
          nullptr},
-        {"channel_write_f64", reinterpret_cast<void *>(host::channel_write_f64), "(iF)v",
+        {"channel_write_f64",
+         reinterpret_cast<void *>(host::channel_write_f64),
+         "(iF)v",
          nullptr},
 
         // State load operations (signature: (ii)i/I, (if)f, (iF)F)
-        {"state_load_i32", reinterpret_cast<void *>(host::state_load_i32), "(ii)i",
+        {"state_load_i32",
+         reinterpret_cast<void *>(host::state_load_i32),
+         "(ii)i",
          nullptr},
-        {"state_load_i64", reinterpret_cast<void *>(host::state_load_i64), "(iI)I",
+        {"state_load_i64",
+         reinterpret_cast<void *>(host::state_load_i64),
+         "(iI)I",
          nullptr},
-        {"state_load_f32", reinterpret_cast<void *>(host::state_load_f32), "(if)f",
+        {"state_load_f32",
+         reinterpret_cast<void *>(host::state_load_f32),
+         "(if)f",
          nullptr},
-        {"state_load_f64", reinterpret_cast<void *>(host::state_load_f64), "(iF)F",
+        {"state_load_f64",
+         reinterpret_cast<void *>(host::state_load_f64),
+         "(iF)F",
          nullptr},
 
         // State store operations (signature: (ii)v, (iI)v, (if)v, (iF)v)
-        {"state_store_i32", reinterpret_cast<void *>(host::state_store_i32), "(ii)v",
+        {"state_store_i32",
+         reinterpret_cast<void *>(host::state_store_i32),
+         "(ii)v",
          nullptr},
-        {"state_store_i64", reinterpret_cast<void *>(host::state_store_i64), "(iI)v",
+        {"state_store_i64",
+         reinterpret_cast<void *>(host::state_store_i64),
+         "(iI)v",
          nullptr},
-        {"state_store_f32", reinterpret_cast<void *>(host::state_store_f32), "(if)v",
+        {"state_store_f32",
+         reinterpret_cast<void *>(host::state_store_f32),
+         "(if)v",
          nullptr},
-        {"state_store_f64", reinterpret_cast<void *>(host::state_store_f64), "(iF)v",
+        {"state_store_f64",
+         reinterpret_cast<void *>(host::state_store_f64),
+         "(iF)v",
          nullptr},
 
         // Built-in functions
@@ -222,12 +245,15 @@ bool register_host_functions(wasm_module_inst_t module_inst) {
     constexpr uint32_t num_symbols = sizeof(native_symbols) / sizeof(NativeSymbol);
 
     // Register native symbols with module instance
-    if (!wasm_runtime_register_natives("env",  // Import module name
-                                       native_symbols, num_symbols)) {
+    if (!wasm_runtime_register_natives(
+            "env", // Import module name
+            native_symbols,
+            num_symbols
+        )) {
         return false;
     }
 
     return true;
 }
 
-}  // namespace arc
+} // namespace arc

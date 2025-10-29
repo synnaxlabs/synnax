@@ -7,83 +7,36 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
+#include "nlohmann/json.hpp"
+
 #include "arc/cpp/ir/ir.h"
 
-#include <nlohmann/json.hpp>
-
-namespace arc {
-namespace ir {
-
+namespace arc { namespace ir {
 size_t Type::density() const {
     switch (kind) {
-    case TypeKind::U8:
-    case TypeKind::I8:
-        return 1;
-    case TypeKind::U16:
-    case TypeKind::I16:
-        return 2;
-    case TypeKind::U32:
-    case TypeKind::I32:
-    case TypeKind::F32:
-        return 4;
-    case TypeKind::U64:
-    case TypeKind::I64:
-    case TypeKind::F64:
-    case TypeKind::TimeStamp:
-    case TypeKind::TimeSpan:
-        return 8;
-    case TypeKind::String:
-    case TypeKind::Series:
-    case TypeKind::Chan:
-        return 0;  // Variable size
-    default:
-        return 0;
+        case TypeKind::U8:
+        case TypeKind::I8:
+            return 1;
+        case TypeKind::U16:
+        case TypeKind::I16:
+            return 2;
+        case TypeKind::U32:
+        case TypeKind::I32:
+        case TypeKind::F32:
+            return 4;
+        case TypeKind::U64:
+        case TypeKind::I64:
+        case TypeKind::F64:
+        case TypeKind::TimeStamp:
+        case TypeKind::TimeSpan:
+            return 8;
+        case TypeKind::String:
+        case TypeKind::Series:
+        case TypeKind::Chan:
+            return 0; // Variable size
+        default:
+            return 0;
     }
-}
-
-// ============================================================================
-// JSON Parsing
-// ============================================================================
-
-// Helper: Parse TypeKind from string
-TypeKind parse_type_kind(const std::string &kind_str) {
-    if (kind_str == "u8") return TypeKind::U8;
-    if (kind_str == "u16") return TypeKind::U16;
-    if (kind_str == "u32") return TypeKind::U32;
-    if (kind_str == "u64") return TypeKind::U64;
-    if (kind_str == "i8") return TypeKind::I8;
-    if (kind_str == "i16") return TypeKind::I16;
-    if (kind_str == "i32") return TypeKind::I32;
-    if (kind_str == "i64") return TypeKind::I64;
-    if (kind_str == "f32") return TypeKind::F32;
-    if (kind_str == "f64") return TypeKind::F64;
-    if (kind_str == "string") return TypeKind::String;
-    if (kind_str == "timestamp") return TypeKind::TimeStamp;
-    if (kind_str == "timespan") return TypeKind::TimeSpan;
-    if (kind_str == "chan") return TypeKind::Chan;
-    if (kind_str == "series") return TypeKind::Series;
-    return TypeKind::Invalid;
-}
-
-// Parse Type from JSON
-Type parse_type(const nlohmann::json &j) {
-    if (j.is_string()) {
-        return Type(parse_type_kind(j.get<std::string>()));
-    }
-    // TODO: Handle complex types (series[f64], chan[i32], etc.)
-    return Type{};
-}
-
-// Parse Params from JSON
-Params parse_params(const nlohmann::json &j) {
-    Params params;
-    if (j.is_null() || !j.is_object()) return params;
-
-    for (auto &[key, type_json] : j.items()) {
-        params.keys.push_back(key);
-        params.values[key] = parse_type(type_json);
-    }
-    return params;
 }
 
 // Parse Channels from JSON
@@ -92,14 +45,14 @@ Channels parse_channels(const nlohmann::json &j) {
     if (j.is_null() || !j.is_object()) return channels;
 
     if (j.contains("read") && j["read"].is_object()) {
-        for (auto &[key_str, param] : j["read"].items()) {
+        for (auto &[key_str, param]: j["read"].items()) {
             uint32_t chan_key = std::stoul(key_str);
             channels.read[chan_key] = param.get<std::string>();
         }
     }
 
     if (j.contains("write") && j["write"].is_object()) {
-        for (auto &[param, key_val] : j["write"].items()) {
+        for (auto &[param, key_val]: j["write"].items()) {
             channels.write[param] = key_val.get<uint32_t>();
         }
     }
@@ -107,8 +60,8 @@ Channels parse_channels(const nlohmann::json &j) {
     return channels;
 }
 
-}  // namespace ir
-}  // namespace arc
+} // namespace ir
+} // namespace arc
 
 // ============================================================================
 // JSON Serialization (nlohmann::json integration)
@@ -117,7 +70,7 @@ Channels parse_channels(const nlohmann::json &j) {
 namespace nlohmann {
 
 // Type serialization
-template <>
+template<>
 struct adl_serializer<arc::ir::Type> {
     static void from_json(const json &j, arc::ir::Type &t) {
         t = arc::ir::parse_type(j);
@@ -125,7 +78,7 @@ struct adl_serializer<arc::ir::Type> {
 };
 
 // Handle serialization
-template <>
+template<>
 struct adl_serializer<arc::ir::Handle> {
     static void from_json(const json &j, arc::ir::Handle &h) {
         if (j.contains("node")) h.node = j["node"].get<std::string>();
@@ -134,7 +87,7 @@ struct adl_serializer<arc::ir::Handle> {
 };
 
 // Edge serialization
-template <>
+template<>
 struct adl_serializer<arc::ir::Edge> {
     static void from_json(const json &j, arc::ir::Edge &e) {
         if (j.contains("source")) e.source = j["source"].get<arc::ir::Handle>();
@@ -143,14 +96,14 @@ struct adl_serializer<arc::ir::Edge> {
 };
 
 // Node serialization
-template <>
+template<>
 struct adl_serializer<arc::ir::Node> {
     static void from_json(const json &j, arc::ir::Node &n) {
         if (j.contains("key")) n.key = j["key"].get<std::string>();
         if (j.contains("type")) n.type = j["type"].get<std::string>();
 
         if (j.contains("config_values") && j["config_values"].is_object()) {
-            for (auto &[k, v] : j["config_values"].items()) {
+            for (auto &[k, v]: j["config_values"].items()) {
                 n.config_values[k] = v;
             }
         }
@@ -159,22 +112,16 @@ struct adl_serializer<arc::ir::Node> {
             n.channels = arc::ir::parse_channels(j["channels"]);
         }
 
-        if (j.contains("config")) {
-            n.config = arc::ir::parse_params(j["config"]);
-        }
+        if (j.contains("config")) { n.config = arc::ir::parse_params(j["config"]); }
 
-        if (j.contains("inputs")) {
-            n.inputs = arc::ir::parse_params(j["inputs"]);
-        }
+        if (j.contains("inputs")) { n.inputs = arc::ir::parse_params(j["inputs"]); }
 
-        if (j.contains("outputs")) {
-            n.outputs = arc::ir::parse_params(j["outputs"]);
-        }
+        if (j.contains("outputs")) { n.outputs = arc::ir::parse_params(j["outputs"]); }
     }
 };
 
 // Function serialization
-template <>
+template<>
 struct adl_serializer<arc::ir::Function> {
     static void from_json(const json &j, arc::ir::Function &fn) {
         if (j.contains("key")) fn.key = j["key"].get<std::string>();
@@ -189,22 +136,16 @@ struct adl_serializer<arc::ir::Function> {
             fn.channels = arc::ir::parse_channels(j["channels"]);
         }
 
-        if (j.contains("config")) {
-            fn.config = arc::ir::parse_params(j["config"]);
-        }
+        if (j.contains("config")) { fn.config = arc::ir::parse_params(j["config"]); }
 
-        if (j.contains("inputs")) {
-            fn.inputs = arc::ir::parse_params(j["inputs"]);
-        }
+        if (j.contains("inputs")) { fn.inputs = arc::ir::parse_params(j["inputs"]); }
 
-        if (j.contains("outputs")) {
-            fn.outputs = arc::ir::parse_params(j["outputs"]);
-        }
+        if (j.contains("outputs")) { fn.outputs = arc::ir::parse_params(j["outputs"]); }
     }
 };
 
 // IR serialization
-template <>
+template<>
 struct adl_serializer<arc::ir::IR> {
     static void from_json(const json &j, arc::ir::IR &ir) {
         if (j.contains("functions") && j["functions"].is_array()) {
@@ -225,4 +166,4 @@ struct adl_serializer<arc::ir::IR> {
     }
 };
 
-}  // namespace nlohmann
+} // namespace nlohmann

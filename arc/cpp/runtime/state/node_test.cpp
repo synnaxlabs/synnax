@@ -7,10 +7,11 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "arc/cpp/runtime/state/node_state.h"
-
 #include "gtest/gtest.h"
+
 #include "x/cpp/xtest/xtest.h"
+
+#include "arc/cpp/runtime/state/node.h"
 
 // Test channel I/O (external Synnax channels)
 TEST(NodeStateTest, ReadChannel) {
@@ -113,16 +114,16 @@ TEST(NodeStateTest, ParameterIndexedOutput) {
     arc::state::Node node_state(&state, "add", {}, outputs);
 
     // Get output pointer (parameter index 0)
-    telem::Series* out = node_state.output(0);
+    telem::Series *out = node_state.output(0);
     ASSERT_NE(out, nullptr);
 
     // Write data to output (reconstruct via shared_ptr since Series isn't copyable)
     arc::Handle handle{"add", "result"};
-    auto& vp = state.get_output(handle);
+    auto &vp = state.get_output(handle);
     vp.data = std::make_shared<telem::Series>(std::vector<float>{1.0f, 2.0f, 3.0f});
 
     // Verify it's stored
-    const auto& vp_read = state.get_output(handle);
+    const auto &vp_read = state.get_output(handle);
     EXPECT_EQ(vp_read.data->size(), 3);
     EXPECT_EQ(vp_read.data->at<float>(0), 1.0f);
 }
@@ -153,7 +154,7 @@ TEST(NodeStateTest, RefreshInputsWithSingleInput) {
     EXPECT_FALSE(node_state.refresh_inputs());
 
     // Node A produces output
-    auto& output_a = state.get_output(arc::Handle{"A", "out"});
+    auto &output_a = state.get_output(arc::Handle{"A", "out"});
     output_a.data = std::make_shared<telem::Series>(std::vector<float>{1.0f, 2.0f});
     output_a.time = std::make_shared<telem::Series>(
         std::vector<telem::TimeStamp>{telem::TimeStamp{100}, telem::TimeStamp{200}}
@@ -163,12 +164,12 @@ TEST(NodeStateTest, RefreshInputsWithSingleInput) {
     EXPECT_TRUE(node_state.refresh_inputs());
 
     // Check aligned input
-    const auto& input = node_state.input(0);
+    const auto &input = node_state.input(0);
     EXPECT_EQ(input.size(), 2);
     EXPECT_EQ(input.at<float>(0), 1.0f);
     EXPECT_EQ(input.at<float>(1), 2.0f);
 
-    const auto& input_time = node_state.input_time(0);
+    const auto &input_time = node_state.input_time(0);
     EXPECT_EQ(input_time.size(), 2);
 }
 
@@ -200,14 +201,14 @@ TEST(NodeStateTest, RefreshInputsWithMultipleInputs) {
     arc::state::Node node_state(&state, "C", edges, {});
 
     // A produces data at t=100
-    auto& output_a = state.get_output(arc::Handle{"A", "out"});
+    auto &output_a = state.get_output(arc::Handle{"A", "out"});
     output_a.data = std::make_shared<telem::Series>(std::vector<float>{1.0f});
     output_a.time = std::make_shared<telem::Series>(
         std::vector<telem::TimeStamp>{telem::TimeStamp{100}}
     );
 
     // B produces data at t=200
-    auto& output_b = state.get_output(arc::Handle{"B", "out"});
+    auto &output_b = state.get_output(arc::Handle{"B", "out"});
     output_b.data = std::make_shared<telem::Series>(std::vector<float>{2.0f});
     output_b.time = std::make_shared<telem::Series>(
         std::vector<telem::TimeStamp>{telem::TimeStamp{200}}
@@ -242,7 +243,7 @@ TEST(NodeStateTest, WatermarkPreventsReprocessing) {
     arc::state::Node node_state(&state, "B", edges, {});
 
     // A produces first output at t=100
-    auto& output_a = state.get_output(arc::Handle{"A", "out"});
+    auto &output_a = state.get_output(arc::Handle{"A", "out"});
     output_a.data = std::make_shared<telem::Series>(std::vector<float>{1.0f});
     output_a.time = std::make_shared<telem::Series>(
         std::vector<telem::TimeStamp>{telem::TimeStamp{100}}

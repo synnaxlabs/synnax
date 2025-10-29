@@ -7,12 +7,13 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "arc/cpp/runtime/nodes/wasm/node.h"
-
-#include "arc/cpp/runtime/state/node_state.h"
-#include "arc/cpp/runtime/wasm/runtime.h"
 #include "gtest/gtest.h"
+
 #include "x/cpp/xtest/xtest.h"
+
+#include "arc/cpp/runtime/nodes/wasm/node.h"
+#include "arc/cpp/runtime/state/node.h"
+#include "arc/cpp/runtime/wasm/runtime.h"
 
 class WASMNodeTest : public ::testing::Test {
 protected:
@@ -30,8 +31,11 @@ TEST_F(WASMNodeTest, Construction) {
     arc::State state(&input_queue, &output_queue);
 
     arc::Runtime runtime;
-    auto node_state = std::make_unique<arc::NodeState>(
-        &state, "test_node", std::vector<arc::Edge>{}, std::vector<arc::Handle>{}
+    auto node_state = std::make_unique<arc::state::Node>(
+        &state,
+        "test_node",
+        std::vector<arc::Edge>{},
+        std::vector<arc::Handle>{}
     );
 
     // Create node with null function (won't execute)
@@ -48,8 +52,11 @@ TEST_F(WASMNodeTest, SkipsExecutionWhenNoInputData) {
 
     // Setup node with no inputs (will always skip refresh_inputs)
     arc::Runtime runtime;
-    auto node_state = std::make_unique<arc::NodeState>(
-        &state, "test_node", std::vector<arc::Edge>{}, std::vector<arc::Handle>{}
+    auto node_state = std::make_unique<arc::state::Node>(
+        &state,
+        "test_node",
+        std::vector<arc::Edge>{},
+        std::vector<arc::Handle>{}
     );
 
     arc::wasm::Node node("test_node", std::move(node_state), &runtime, nullptr, {});
@@ -74,10 +81,12 @@ TEST_F(WASMNodeTest, ExecutesWhenInputDataAvailable) {
     meta_test.input_params = {"in"};
     state.register_node(meta_test);
 
-    state.add_edge(arc::Edge{arc::Handle{"source_node", "out"}, arc::Handle{"test_node", "in"}});
+    state.add_edge(
+        arc::Edge{arc::Handle{"source_node", "out"}, arc::Handle{"test_node", "in"}}
+    );
 
     // Produce data from source
-    auto& source_output = state.get_output(arc::Handle{"source_node", "out"});
+    auto &source_output = state.get_output(arc::Handle{"source_node", "out"});
     source_output.data = std::make_shared<telem::Series>(std::vector<float>{42.0f});
     source_output.time = std::make_shared<telem::Series>(
         std::vector<telem::TimeStamp>{telem::TimeStamp{1000000000}}
@@ -85,7 +94,7 @@ TEST_F(WASMNodeTest, ExecutesWhenInputDataAvailable) {
 
     // Create runtime (dummy module)
     arc::Runtime runtime;
-    std::vector<uint8_t> dummy_wasm = {0x00, 0x61, 0x73, 0x6d};  // WASM magic number
+    std::vector<uint8_t> dummy_wasm = {0x00, 0x61, 0x73, 0x6d}; // WASM magic number
     runtime.load_aot_module(dummy_wasm);
     runtime.instantiate(64 * 1024, 0);
 
@@ -93,7 +102,12 @@ TEST_F(WASMNodeTest, ExecutesWhenInputDataAvailable) {
 
     // Create node with edge
     auto edges = state.incoming_edges("test_node");
-    auto node_state = std::make_unique<arc::NodeState>(&state, "test_node", edges, std::vector<arc::Handle>{});
+    auto node_state = std::make_unique<arc::state::Node>(
+        &state,
+        "test_node",
+        edges,
+        std::vector<arc::Handle>{}
+    );
 
     arc::wasm::Node node("test_node", std::move(node_state), &runtime, func, {});
 
@@ -116,7 +130,12 @@ TEST_F(WASMNodeTest, NodeStateAccess) {
 
     std::vector<arc::Edge> inputs = {};
     std::vector<arc::Handle> outputs = {arc::Handle{"test_node", "out"}};
-    auto node_state = std::make_unique<arc::NodeState>(&state, "test_node", inputs, outputs);
+    auto node_state = std::make_unique<arc::state::Node>(
+        &state,
+        "test_node",
+        inputs,
+        outputs
+    );
 
     arc::wasm::Node node("test_node", std::move(node_state), &runtime, nullptr, {});
 

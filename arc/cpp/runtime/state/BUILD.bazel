@@ -1,11 +1,11 @@
 cc_library(
     name = "state",
     srcs = [
-        "node_state.cpp",
+        "node.cpp",
         "state.cpp",
     ],
     hdrs = [
-        "node_state.h",
+        "node.h",
         "state.h",
     ],
     visibility = ["//arc/cpp/runtime:__subpackages__"],
@@ -29,9 +29,9 @@ cc_test(
 )
 
 cc_test(
-    name = "node_state_test",
+    name = "node_test",
     size = "small",
-    srcs = ["node_state_test.cpp"],
+    srcs = ["node_test.cpp"],
     deps = [
         ":state",
         "//x/cpp/xtest",

@@ -14,14 +14,10 @@
 #include <string>
 #include <vector>
 
-#include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
 namespace arc {
-
-/// @brief Channel identifier type.
-using ChannelKey = std::uint32_t;
 
 /// @brief State variable key type.
 /// Encodes funcID in upper 32 bits, varID in lower 32 bits.
@@ -54,15 +50,17 @@ constexpr std::uint32_t state_key_var_id(StateKey key) {
 /// Contains shared ownership of Series objects. I/O thread allocates and
 /// moves into queue, RT thread receives and stores in State.
 struct ChannelUpdate {
-    ChannelKey channel_id;                  ///< Target channel ID
-    std::shared_ptr<telem::Series> data;  ///< Channel data (shared ownership)
-    std::shared_ptr<telem::Series> time;  ///< Timestamps (shared ownership)
+    ChannelKey channel_id; ///< Target channel ID
+    std::shared_ptr<telem::Series> data; ///< Channel data (shared ownership)
+    std::shared_ptr<telem::Series> time; ///< Timestamps (shared ownership)
 
     ChannelUpdate() = default;
-    ChannelUpdate(ChannelKey id,
-                  std::shared_ptr<telem::Series> d,
-                  std::shared_ptr<telem::Series> t)
-        : channel_id(id), data(std::move(d)), time(std::move(t)) {}
+    ChannelUpdate(
+        ChannelKey id,
+        std::shared_ptr<telem::Series> d,
+        std::shared_ptr<telem::Series> t
+    ):
+        channel_id(id), data(std::move(d)), time(std::move(t)) {}
 };
 
 /// @brief Message for channel data output from RT thread to I/O thread.
@@ -70,62 +68,13 @@ struct ChannelUpdate {
 /// Contains single scalar values written by WASM. RT thread writes to queue,
 /// I/O thread reads and sends to Synnax cluster.
 struct ChannelOutput {
-    ChannelKey channel_id;               ///< Source channel ID
-    telem::SampleValue value;    ///< Output value
-    telem::TimeStamp timestamp;  ///< Output timestamp
+    ChannelKey channel_id; ///< Source channel ID
+    telem::SampleValue value; ///< Output value
+    telem::TimeStamp timestamp; ///< Output timestamp
 
     ChannelOutput() = default;
-    ChannelOutput(ChannelKey id,
-                  telem::SampleValue v,
-                  telem::TimeStamp ts)
-        : channel_id(id), value(std::move(v)), timestamp(ts) {}
-};
-
-/// @brief Handle referencing a node's parameter (node + param name).
-///
-/// Used to identify specific inputs/outputs in the dataflow graph.
-/// Example: Handle{"add_node", "out"} refers to the "out" parameter of "add_node".
-struct Handle {
-    std::string node;   ///< Node key
-    std::string param;  ///< Parameter name
-
-    Handle() = default;
-    Handle(std::string n, std::string p)
-        : node(std::move(n)), param(std::move(p)) {}
-
-    bool operator==(const Handle& other) const {
-        return node == other.node && param == other.param;
-    }
-
-    bool operator!=(const Handle& other) const {
-        return !(*this == other);
-    }
-};
-
-/// @brief Hash function for Handle (for use in unordered_map).
-struct HandleHash {
-    size_t operator()(const Handle& h) const {
-        size_t h1 = std::hash<std::string>{}(h.node);
-        size_t h2 = std::hash<std::string>{}(h.param);
-        return h1 ^ (h2 << 1);
-    }
-};
-
-/// @brief Edge connecting two handles in the dataflow graph.
-///
-/// Represents data flow from one node's output to another node's input.
-/// Example: Edge{Handle{"A", "out"}, Handle{"B", "in"}} means A.out → B.in
-struct Edge {
-    Handle source;  ///< Output parameter (producer)
-    Handle target;  ///< Input parameter (consumer)
-
-    Edge() = default;
-    Edge(Handle src, Handle tgt)
-        : source(std::move(src)), target(std::move(tgt)) {}
-
-    bool operator==(const Edge& other) const {
-        return source == other.source && target == other.target;
-    }
+    ChannelOutput(ChannelKey id, telem::SampleValue v, telem::TimeStamp ts):
+        channel_id(id), value(std::move(v)), timestamp(ts) {}
 };
 
 /// @brief Value pair for node outputs (data + timestamps).
@@ -133,12 +82,12 @@ struct Edge {
 /// Stores the output data and timestamps for a node's output parameter.
 /// Both data and time use shared_ptr for zero-copy sharing between nodes.
 struct ValuePair {
-    std::shared_ptr<telem::Series> data;  ///< Output data series
-    std::shared_ptr<telem::Series> time;  ///< Output timestamp series
+    std::shared_ptr<telem::Series> data; ///< Output data series
+    std::shared_ptr<telem::Series> time; ///< Output timestamp series
 
     ValuePair() = default;
-    ValuePair(std::shared_ptr<telem::Series> d, std::shared_ptr<telem::Series> t)
-        : data(std::move(d)), time(std::move(t)) {}
+    ValuePair(std::shared_ptr<telem::Series> d, std::shared_ptr<telem::Series> t):
+        data(std::move(d)), time(std::move(t)) {}
 };
 
 /// @brief Node metadata for graph traversal and initialization.
@@ -146,16 +95,15 @@ struct ValuePair {
 /// Contains structural information about a node extracted from IR.
 /// Used during initialization to build the dataflow graph.
 struct NodeMetadata {
-    std::string key;                         ///< Node identifier
-    std::string type;                        ///< Function type name
-    std::vector<std::string> input_params;   ///< Input parameter names (ordered)
-    std::vector<std::string> output_params;  ///< Output parameter names (ordered)
-    std::vector<ChannelKey> read_channels;   ///< External channels read
-    std::vector<ChannelKey> write_channels;  ///< External channels written
+    std::string key; ///< Node identifier
+    std::string type; ///< Function type name
+    std::vector<std::string> input_params; ///< Input parameter names (ordered)
+    std::vector<std::string> output_params; ///< Output parameter names (ordered)
+    std::vector<ChannelKey> read_channels; ///< External channels read
+    std::vector<ChannelKey> write_channels; ///< External channels written
 
     NodeMetadata() = default;
-    explicit NodeMetadata(std::string k)
-        : key(std::move(k)) {}
+    explicit NodeMetadata(std::string k): key(std::move(k)) {}
 };
 
-}  // namespace arc
+} // namespace arc
