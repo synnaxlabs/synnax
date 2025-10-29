@@ -54,11 +54,11 @@ func (w Writer) Create(
 	}
 	otgID := OntologyID(c.Key)
 	if !exists {
-		if err := w.otg.DefineResource(ctx, otgID); err != nil {
+		if err = w.otg.DefineResource(ctx, otgID); err != nil {
 			return err
 		}
 	}
-
+	
 	return w.status.SetWithParent(ctx, &status.Status{
 		Name:    fmt.Sprintf("%s Status", c.Name),
 		Key:     c.Key.String(),

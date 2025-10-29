@@ -9,24 +9,26 @@
 
 import "@/arc/Toolbar.css";
 
-import { type arc } from "@synnaxlabs/client";
+import { type arc, UnexpectedError } from "@synnaxlabs/client";
 import {
   Arc,
   Button,
   Flex,
+  type Flux,
   Icon,
   List,
   Menu as PMenu,
   Select,
   Status,
   stopPropagation,
-  Synnax,
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { useCallback, useMemo, useState } from "react";
+import { useDispatch } from "react-redux";
 
 import { createEditor } from "@/arc/editor";
+import { remove } from "@/arc/slice";
 import { EmptyAction, Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -38,27 +40,30 @@ const EmptyContent = () => {
   const handleClick = () => placeLayout(createEditor());
   return (
     <EmptyAction
-      message="No existing Arc automations."
-      action="Create an automation"
+      message="No existing Arcs."
+      action="Create an arc"
       onClick={handleClick}
     />
   );
 };
 
 const Content = () => {
-  const client = Synnax.use();
   const [selected, setSelected] = useState<arc.Key[]>([]);
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
   const menuProps = PMenu.useContextMenu();
   const placeLayout = Layout.usePlacer();
+  const dispatch = useDispatch();
 
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
   const { update: handleDelete } = Arc.useDelete({
     beforeUpdate: useCallback(
-      async ({ data: keys }: { data: arc.Key | arc.Key[] }) => {
+      async ({
+        data: keys,
+        rollbacks,
+      }: Flux.BeforeUpdateParams<arc.Key | arc.Key[]>) => {
         setSelected([]);
         const keyArray = array.toArray(keys);
         if (keyArray.length === 0) return false;
@@ -68,6 +73,10 @@ const Content = () => {
           cancel: { label: "Cancel" },
           confirm: { label: "Delete", variant: "error" },
         });
+        dispatch(Layout.remove({ keys: keyArray }));
+        rollbacks.push(() => dispatch(Layout.remove({ keys: keyArray })));
+        dispatch(remove({ keys: keyArray }));
+        rollbacks.push(() => dispatch(remove({ keys: keyArray })));
         if (!confirmed) return false;
         return keys;
       },
@@ -94,54 +103,27 @@ const Content = () => {
 
   const { update: handleRename } = Arc.useRename({
     beforeUpdate: useCallback(
-      async ({ data: { key, name } }: { data: { key: arc.Key; name: string } }) => {
+      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Arc.RenameParams>) => {
+        const { key, name } = data;
         const arc = getItem(key);
-        if (arc == null) return false;
-        return { key, name };
+        if (arc == null) throw new UnexpectedError(`Arc with key ${key} not found`);
+        const oldName = arc.name;
+        if (arc.status?.details.running === true) {
+          const confirmed = await confirm({
+            message: `Are you sure you want to rename ${arc.name} to ${name}?`,
+            description: `This will cause ${arc.name} to stop and be reconfigured.`,
+            cancel: { label: "Cancel" },
+            confirm: { label: "Rename", variant: "error" },
+          });
+          if (!confirmed) return false;
+        }
+        dispatch(Layout.rename({ key, name }));
+        rollbacks.push(() => dispatch(Layout.rename({ key, name: oldName })));
+        return data;
       },
-      [getItem],
+      [dispatch, getItem],
     ),
   });
-
-  const handleRename = useCallback(
-    async (key: arc.Key, name: string) => {
-      const arc = getItem(key);
-      if (arc == null || client == null) return;
-
-      const isRunning =
-        arc.status &&
-        typeof arc.status === "object" &&
-        "details" in arc.status &&
-        arc.status.details &&
-        typeof arc.status.details === "object" &&
-        "running" in arc.status.details &&
-        arc.status.details.running === true;
-
-      if (isRunning) {
-        const confirmed = await confirm({
-          message: `Are you sure you want to rename ${arc.name} to ${name}?`,
-          description: `This will cause ${arc.name} to stop and be reconfigured.`,
-          cancel: { label: "Cancel" },
-          confirm: { label: "Rename", variant: "error" },
-        });
-        if (!confirmed) return;
-      }
-
-      try {
-        await client.arcs.create({
-          ...arc,
-          name,
-        });
-      } catch (error) {
-        addStatus({
-          variant: "error",
-          message: "Failed to rename automation",
-          description: error instanceof Error ? error.message : "Unknown error",
-        });
-      }
-    },
-    [client, getItem, addStatus, confirm],
-  );
 
   const contextMenu = useCallback<NonNullable<PMenu.ContextMenuProps["menu"]>>(
     ({ keys }) => (
@@ -160,7 +142,7 @@ const Content = () => {
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
       <Ontology.Toolbar className={CSS(CSS.B("arc-toolbar"), menuProps.className)}>
         <Toolbar.Header padded>
-          <Toolbar.Title icon={<Icon.Arc />}>Arc Automations</Toolbar.Title>
+          <Toolbar.Title icon={<Icon.Arc />}>Arcs</Toolbar.Title>
           <Toolbar.Actions>
             <Toolbar.Action onClick={() => placeLayout(createEditor())}>
               <Icon.Add />
@@ -187,7 +169,7 @@ const Content = () => {
                 key={key}
                 {...p}
                 onToggleDeploy={() => handleToggleDeploy(key)}
-                onRename={(name) => handleRename(key, name)}
+                onRename={(name) => handleRename({ key, name })}
                 onDoubleClick={() => handleEdit(key)}
               />
             )}
@@ -203,7 +185,7 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   icon: <Icon.Arc />,
   content: <Content />,
   trigger: ["A"],
-  tooltip: "Arc Automations",
+  tooltip: "Arcs",
   initialSize: 300,
   minSize: 225,
   maxSize: 400,
@@ -218,20 +200,10 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
   const { itemKey } = rest;
   const arc = List.useItem<arc.Key, arc.Arc>(itemKey);
 
-  let variant = arc?.status?.variant;
+  const variant = arc?.status?.variant;
   const isLoading = variant === "loading";
-  const isRunning =
-    arc?.status &&
-    typeof arc.status === "object" &&
-    "details" in arc.status &&
-    arc.status.details &&
-    typeof arc.status.details === "object" &&
-    "running" in arc.status.details &&
-    arc.status.details.running === true;
-  const isDeploy = arc?.deploy === true;
-
-  // Use actual status variant and message, not inferred from deploy flag
-  if (!isRunning && variant === "success") variant = "info";
+  const isRunning = arc?.status?.details.running === true;
+  const isDeployed = arc?.deploy === true;
 
   const handleDeployClick = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
     (e) => {
@@ -259,7 +231,7 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
           />
         </Flex.Box>
         <Text.Text level="small" color={10}>
-          {arc?.status?.message ?? (isDeploy ? "Deployed" : "Not deployed")}
+          {arc?.status?.message ?? (isDeployed ? "Deployed" : "Not deployed")}
         </Text.Text>
       </Flex.Box>
       <Button.Button
@@ -267,9 +239,9 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
         status={isLoading ? "loading" : undefined}
         onClick={handleDeployClick}
         onDoubleClick={stopPropagation}
-        tooltip={`${isDeploy ? "Undeploy" : "Deploy"} ${arc?.name ?? ""}`}
+        tooltip={`${isDeployed ? "Undeploy" : "Deploy"} ${arc?.name ?? ""}`}
       >
-        {isDeploy ? <Icon.Pause /> : <Icon.Play />}
+        {isRunning ? <Icon.Pause /> : <Icon.Play />}
       </Button.Button>
     </Select.ListItem>
   );
