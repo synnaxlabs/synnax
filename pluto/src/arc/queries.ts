@@ -26,9 +26,21 @@ export interface FluxSubStore extends Status.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
+const SET_ARC_LISTENER: Flux.ChannelListener<FluxSubStore, typeof arc.arcZ> = {
+  channel: arc.SET_CHANNEL_NAME,
+  schema: arc.arcZ,
+  onChange: ({ store, changed }) => store.arcs.set(changed.key, changed),
+};
+
+const DELETE_ARC_LISTENER: Flux.ChannelListener<FluxSubStore, typeof arc.keyZ> = {
+  channel: arc.DELETE_CHANNEL_NAME,
+  schema: arc.keyZ,
+  onChange: ({ store, changed }) => store.arcs.delete(changed),
+};
+
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore, arc.Key, arc.Arc> =
   {
-    listeners: [],
+    listeners: [SET_ARC_LISTENER, DELETE_ARC_LISTENER],
   };
 
 export interface FluxSubStore extends Flux.Store {
