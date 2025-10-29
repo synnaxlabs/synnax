@@ -30,9 +30,10 @@ class PlotAbcd(ConsoleCase):
         console = self.console
         console.plot.new()
 
-        console.plot.add_Y("Y1", ["d_ab", "d_bc", "d_cd", "d_da"])
-        console.plot.add_Y("Y2", ["t_a", "t_b", "t_c", "t_d"])
+        console.plot.add_channels("Y1", ["d_ab", "d_bc", "d_cd", "d_da"])
+        console.plot.add_channels("Y2", ["t_a", "t_b", "t_c", "t_d"])
         console.plot.add_ranges(["30s"])
+
         console.plot.set_axis(
             "Y1",
             {

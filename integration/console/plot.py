@@ -17,6 +17,9 @@ if TYPE_CHECKING:
     from .console import Console
 
 
+Axis = Literal["Y1", "Y2", "X1"]
+
+
 class Plot(ConsolePage):
     """Plot page management interface"""
 
@@ -32,8 +35,8 @@ class Plot(ConsolePage):
             "X1": None,
         }
 
-    def add_Y(self, axis: Literal["Y1", "Y2"], channel_ids: str | list[str]) -> None:
-        channels = [channel_ids] if isinstance(channel_ids, str) else channel_ids
+    def add_channels(self, axis: Axis, channels: str | list[str]) -> None:
+        channels = [channels] if isinstance(channels, str) else channels
 
         selector = self.page.get_by_text(f"{axis} Select Channels", exact=True)
         selector.click(timeout=5000)
@@ -59,7 +62,16 @@ class Plot(ConsolePage):
 
         self.console.ESCAPE
 
-    def set_axis(self, axis: Literal["X1", "Y1", "Y2"], config: dict[str, Any]) -> None:
+    def download_csv(self) -> str:
+        """Download the plot as a CSV file."""
+        csv_button = self.page.locator(".pluto-icon--csv").locator("..")
+        with self.page.expect_download() as download_info:
+            csv_button.click()
+        download = download_info.value
+        with open(download.path(), "r") as file:
+            return file.read()
+
+    def set_axis(self, axis: Axis, config: dict[str, Any]) -> None:
         """Set axis configuration with the given parameters."""
         self.page.get_by_text("Axes").click(timeout=5000)
         self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=5000)
@@ -71,7 +83,7 @@ class Plot(ConsolePage):
 
         self.console.ENTER
 
-    def _select_axis_tab(self, axis: str) -> None:
+    def _select_axis_tab(self, axis: Axis) -> None:
         """Select the axis tab in the configuration panel."""
         selectors = [
             f"#{axis.lower()}",
