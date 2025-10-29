@@ -293,6 +293,8 @@ func Analyze(
 		if freshType.Config == nil {
 			continue
 		}
+
+		// Process provided config values
 		for key, configType := range freshType.Config.Iter() {
 			configValue, ok := n.Config[key]
 			if !ok {
@@ -316,6 +318,25 @@ func Analyze(
 						return ir.IR{}, ctx.Diagnostics
 					}
 					irNodes[i].Channels.Read.Add(k)
+				}
+			}
+		}
+
+		// Validate all required config parameters are provided
+		for configParam := range freshType.Config.Iter() {
+			if _, provided := n.Config[configParam]; !provided {
+				// Check if this parameter has a default value (is optional)
+				_, hasDefault := freshType.ConfigDefaults[configParam]
+				if !hasDefault {
+					// Required config parameter is missing
+					ctx.Diagnostics.AddError(
+						errors.Wrapf(
+							query.NotFound,
+							"node '%s' (%s) missing required config parameter '%s'",
+							n.Key,
+							n.Type,
+							configParam,
+						), nil)
 				}
 			}
 		}
@@ -354,19 +375,24 @@ func Analyze(
 		if freshType.Inputs == nil {
 			continue
 		}
-		//connected := connectedInputs[n.Key]
-		//for inputParam := range freshType.Inputs.Iter() {
-		//	if !connected[inputParam] {
-		//		ctx.Diagnostics.AddError(
-		//			errors.Wrapf(
-		//				query.NotFound,
-		//				"node '%s' (%s) missing required input '%s'",
-		//				n.Key,
-		//				n.Type,
-		//				inputParam,
-		//			), nil)
-		//	}
-		//}
+		connected := connectedInputs[n.Key]
+		for inputParam := range freshType.Inputs.Iter() {
+			if !connected[inputParam] {
+				// Check if this parameter has a default value (is optional)
+				_, hasDefault := freshType.InputDefaults[inputParam]
+				if !hasDefault {
+					// Required parameter is missing
+					ctx.Diagnostics.AddError(
+						errors.Wrapf(
+							query.NotFound,
+							"node '%s' (%s) missing required input '%s'",
+							n.Key,
+							n.Type,
+							inputParam,
+						), nil)
+				}
+			}
+		}
 	}
 	if !ctx.Diagnostics.Ok() {
 		return ir.IR{}, ctx.Diagnostics

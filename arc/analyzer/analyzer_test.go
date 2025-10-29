@@ -557,4 +557,69 @@ var _ = Describe("Analyzer", func() {
 	Describe("Function Block Parsing", func() {
 
 	})
+
+	Describe("Optional Parameters", func() {
+		It("Should parse and store default values for optional input parameters", func() {
+			prog := MustSucceed(parser.Parse(`
+				func add(x i64, y i64 = 0) i64 {
+					return x + y
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+
+			// Find the function scope
+			funcScope := ctx.Scope.FindChildByName("add")
+			Expect(funcScope).ToNot(BeNil())
+			Expect(funcScope.Type.Inputs.Count()).To(Equal(2))
+
+			// Check that y has a default value
+			Expect(funcScope.Type.InputDefaults).ToNot(BeNil())
+			Expect(funcScope.Type.InputDefaults).To(HaveKey("y"))
+			Expect(funcScope.Type.InputDefaults["y"]).To(Equal(int64(0)))
+		})
+
+		It("Should reject required parameters after optional parameters", func() {
+			prog := MustSucceed(parser.Parse(`
+				func add(x i64 = 0, y i64) i64 {
+					return x + y
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			diagnostic := (*ctx.Diagnostics)[0]
+			Expect(diagnostic.Message).To(ContainSubstring("required parameter y cannot follow optional parameters"))
+		})
+
+		It("Should handle multiple optional parameters", func() {
+			prog := MustSucceed(parser.Parse(`
+				func multi(a i32, b f64 = 1.5, c u8 = 10) f64 {
+					return f64(a) + b + f64(c)
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+
+			funcScope := ctx.Scope.FindChildByName("multi")
+			Expect(funcScope).ToNot(BeNil())
+			Expect(funcScope.Type.InputDefaults).To(HaveLen(2))
+			Expect(funcScope.Type.InputDefaults["b"]).To(Equal(float64(1.5)))
+			Expect(funcScope.Type.InputDefaults["c"]).To(Equal(uint8(10)))
+		})
+
+		It("Should handle functions with no optional parameters", func() {
+			prog := MustSucceed(parser.Parse(`
+				func multiply(x i64, y i64) i64 {
+					return x * y
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+
+			funcScope := ctx.Scope.FindChildByName("multiply")
+			Expect(funcScope).ToNot(BeNil())
+			Expect(funcScope.Type.InputDefaults).To(BeEmpty())
+		})
+	})
 })

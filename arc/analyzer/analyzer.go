@@ -11,6 +11,7 @@ package analyzer
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/antlr4-go/antlr/v4"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -223,6 +224,108 @@ func checkOutputAssignedInIfStmt(ifStmt parser.IIfStatementContext, outputName s
 	return false
 }
 
+// parseLiteralValue parses a literal AST node and returns its value.
+// It supports numeric literals (integer, float) and validates type compatibility.
+// Returns an error if the literal cannot be parsed or is incompatible with expectedType.
+func parseLiteralValue(
+	ctx acontext.Context[parser.ILiteralContext],
+	expectedType types.Type,
+) (any, error) {
+	if num := ctx.AST.NumericLiteral(); num != nil {
+		return parseNumericLiteral(num, expectedType)
+	}
+	if temp := ctx.AST.TemporalLiteral(); temp != nil {
+		// TODO: Parse temporal literals when needed
+		return nil, errors.New("temporal literals not yet supported for default values")
+	}
+	if str := ctx.AST.STRING_LITERAL(); str != nil {
+		// TODO: Parse string literals when needed
+		return nil, errors.New("string literals not yet supported for default values")
+	}
+	if series := ctx.AST.SeriesLiteral(); series != nil {
+		return nil, errors.New("series literals not supported for default values")
+	}
+	return nil, errors.New("unknown literal type")
+}
+
+// parseNumericLiteral parses a numeric literal (integer or float) and returns its value.
+func parseNumericLiteral(
+	numLit parser.INumericLiteralContext,
+	expectedType types.Type,
+) (any, error) {
+	if intLit := numLit.INTEGER_LITERAL(); intLit != nil {
+		text := intLit.GetText()
+		value, err := strconv.ParseInt(text, 10, 64)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid integer literal: %s", text)
+		}
+
+		// Convert to appropriate type based on expectedType
+		switch expectedType.Kind {
+		case types.KindI8:
+			return int8(value), nil
+		case types.KindI16:
+			return int16(value), nil
+		case types.KindI32:
+			return int32(value), nil
+		case types.KindI64:
+			return value, nil
+		case types.KindU8:
+			return uint8(value), nil
+		case types.KindU16:
+			return uint16(value), nil
+		case types.KindU32:
+			return uint32(value), nil
+		case types.KindU64:
+			return uint64(value), nil
+		case types.KindF32:
+			return float32(value), nil
+		case types.KindF64:
+			return float64(value), nil
+		default:
+			// Default to i64 if type not specified or unknown
+			return value, nil
+		}
+	}
+
+	if floatLit := numLit.FLOAT_LITERAL(); floatLit != nil {
+		text := floatLit.GetText()
+		value, err := strconv.ParseFloat(text, 64)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid float literal: %s", text)
+		}
+
+		// Convert to appropriate type based on expectedType
+		switch expectedType.Kind {
+		case types.KindF32:
+			return float32(value), nil
+		case types.KindF64:
+			return value, nil
+		case types.KindI8:
+			return int8(value), nil
+		case types.KindI16:
+			return int16(value), nil
+		case types.KindI32:
+			return int32(value), nil
+		case types.KindI64:
+			return int64(value), nil
+		case types.KindU8:
+			return uint8(value), nil
+		case types.KindU16:
+			return uint16(value), nil
+		case types.KindU32:
+			return uint32(value), nil
+		case types.KindU64:
+			return uint64(value), nil
+		default:
+			// Default to f64 if type not specified or unknown
+			return value, nil
+		}
+	}
+
+	return nil, errors.New("unknown numeric literal")
+}
+
 func analyzeInputs(
 	ctx acontext.Context[parser.IInputListContext],
 	inputTypes *maps.Ordered[string, types.Type],
@@ -230,24 +333,57 @@ func analyzeInputs(
 	if ctx.AST == nil {
 		return true
 	}
+
+	// Track whether we've seen an optional parameter for trailing-only validation
+	seenOptional := false
+
 	for _, input := range ctx.AST.AllInput() {
 		var inputType types.Type
 		if typeCtx := input.Type_(); typeCtx != nil {
 			inputType, _ = atypes.InferFromTypeContext(typeCtx)
 		}
 		inputName := input.IDENTIFIER().GetText()
+
+		// Parse default value if present
+		var defaultValue any
+		if literal := input.Literal(); literal != nil {
+			value, err := parseLiteralValue(acontext.Child(ctx, literal), inputType)
+			if err != nil {
+				ctx.Diagnostics.AddError(errors.Wrapf(err, "invalid default value for parameter %s", inputName), literal)
+				return false
+			}
+			defaultValue = value
+			seenOptional = true
+		} else if seenOptional {
+			// Required parameter after optional parameter (trailing-only violation)
+			ctx.Diagnostics.AddError(
+				errors.Newf("required parameter %s cannot follow optional parameters", inputName),
+				input,
+			)
+			return false
+		}
+
 		if !inputTypes.Put(inputName, inputType) {
 			ctx.Diagnostics.AddError(errors.Newf("duplicate input %s", inputName), input)
 			return false
 		}
 		if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
-			Name: inputName,
-			Kind: symbol.KindInput,
-			Type: inputType,
-			AST:  input,
+			Name:         inputName,
+			Kind:         symbol.KindInput,
+			Type:         inputType,
+			AST:          input,
+			DefaultValue: defaultValue,
 		}); err != nil {
 			ctx.Diagnostics.AddError(err, input)
 			return false
+		}
+
+		// Store default value in function type if present
+		if defaultValue != nil {
+			if ctx.Scope.Type.InputDefaults == nil {
+				ctx.Scope.Type.InputDefaults = make(map[string]any)
+			}
+			ctx.Scope.Type.InputDefaults[inputName] = defaultValue
 		}
 	}
 	return true

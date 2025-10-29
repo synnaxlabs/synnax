@@ -120,7 +120,13 @@ const (
 
 // NewFunctionProperties creates a new FunctionProperties with empty Inputs, Outputs, and Config.
 func NewFunctionProperties() FunctionProperties {
-	return FunctionProperties{Inputs: &Params{}, Outputs: &Params{}, Config: &Params{}}
+	return FunctionProperties{
+		Inputs:         &Params{},
+		Outputs:        &Params{},
+		Config:         &Params{},
+		InputDefaults:  make(map[string]any),
+		ConfigDefaults: make(map[string]any),
+	}
 }
 
 // Params are named, ordered parameters for a function.
@@ -135,14 +141,32 @@ type FunctionProperties struct {
 	Outputs *Params `json:"outputs,omitempty" msgpack:"outputs,omitempty"`
 	// Config are the configuration parameters for the function.
 	Config *Params `json:"config,omitempty" msgpack:"config,omitempty"`
+	// InputDefaults stores default values for optional input parameters.
+	// The map key is the parameter name, and the value is the default literal value.
+	InputDefaults map[string]any `json:"input_defaults,omitempty" msgpack:"input_defaults,omitempty"`
+	// ConfigDefaults stores default values for optional config parameters.
+	// The map key is the parameter name, and the value is the default literal value.
+	ConfigDefaults map[string]any `json:"config_defaults,omitempty" msgpack:"config_defaults,omitempty"`
 }
 
 // Copy creates a deep copy of the function properties.
 func (f FunctionProperties) Copy() FunctionProperties {
+	// Deep copy default value maps
+	inputDefaults := make(map[string]any, len(f.InputDefaults))
+	for k, v := range f.InputDefaults {
+		inputDefaults[k] = v
+	}
+	configDefaults := make(map[string]any, len(f.ConfigDefaults))
+	for k, v := range f.ConfigDefaults {
+		configDefaults[k] = v
+	}
+
 	return FunctionProperties{
-		Inputs:  f.Inputs.Copy(),
-		Outputs: f.Outputs.Copy(),
-		Config:  f.Config.Copy(),
+		Inputs:         f.Inputs.Copy(),
+		Outputs:        f.Outputs.Copy(),
+		Config:         f.Config.Copy(),
+		InputDefaults:  inputDefaults,
+		ConfigDefaults: configDefaults,
 	}
 }
 
