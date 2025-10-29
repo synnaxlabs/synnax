@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/freighter",
-  "version": "0.46.0",
+  "version": "0.47.0",
   "type": "module",
   "description": "a modular transport abstraction",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/freighter/ts",
