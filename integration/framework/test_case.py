@@ -19,7 +19,7 @@ import threading
 import traceback
 from abc import ABC, abstractmethod
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any, Callable, Dict, List, Literal, Optional, Set, Union, overload
 
@@ -217,7 +217,6 @@ class TestCase(ABC):
                 start=start_time,
                 channels=list(self.tlm.keys()),
                 name=self.name,
-                enable_auto_commit=True,
             )
 
             while self.loop.wait() and not self.should_stop:

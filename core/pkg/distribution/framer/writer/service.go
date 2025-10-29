@@ -20,6 +20,7 @@ package writer
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -73,10 +74,12 @@ type Config struct {
 	// WriterModePersistStream. See the ts.WriterMode documentation for more.
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
-	// EnableAutoCommit determines whether the writer will automatically commit after each write.
-	// If EnableAutoCommit is true, then the writer will commit after each write, and will
-	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
-	// [OPTIONAL] - Defaults to false.
+	// EnableAutoCommit determines whether the writer will automatically commit after
+	// each write. If EnableAutoCommit is true, then the writer will commit after each
+	// write, and will flush that commit to index on FS after the specified
+	// AutoIndexPersistInterval.
+	//
+	// [OPTIONAL] - Defaults to true.
 	EnableAutoCommit *bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
 	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
 	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
@@ -131,7 +134,7 @@ func DefaultConfig() Config {
 		Authorities:              []control.Authority{control.AuthorityAbsolute},
 		ErrOnUnauthorized:        config.False(),
 		Mode:                     ts.WriterPersistStream,
-		EnableAutoCommit:         config.False(),
+		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     config.False(),
 	}
@@ -247,14 +250,21 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Writers and StreamWriters for writing data to the cluster.
 type Service struct {
 	ServiceConfig
-	server *server
+	server              *server
+	freeWriteAlignments *freeWriteAlignments
 }
 
 // OpenService opens the writer service using the given configuration. Also binds a server
 // to the given transport for receiving writes from other nodes in the cluster.
 func OpenService(configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
-	return &Service{ServiceConfig: cfg, server: startServer(cfg)}, err
+	return &Service{
+		ServiceConfig: cfg,
+		server:        startServer(cfg),
+		freeWriteAlignments: &freeWriteAlignments{
+			alignments: make(map[channel.Key]*atomic.Uint32),
+		},
+	}, err
 }
 
 const (
@@ -307,7 +317,8 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 
-	if err := s.validateChannelKeys(ctx, cfg.Keys); err != nil {
+	channels, err := s.validateChannelKeys(ctx, cfg.Keys)
+	if err != nil {
 		return nil, err
 	}
 
@@ -364,7 +375,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	if hasFree {
 		routeValidatorTo = freeWriterAddr
 		switchTargets = append(switchTargets, freeWriterAddr)
-		w := s.newFree(cfg.Mode, *cfg.Sync)
+		w := s.newFree(cfg.Mode, *cfg.Sync, channels)
 		plumber.SetSegment(pipe, freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
 	}
@@ -399,10 +410,10 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	return seg, nil
 }
 
-func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) error {
+func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) ([]channel.Channel, error) {
 	v := validate.New("distribution.framer.writer")
 	if validate.NotEmptySlice(v, "keys", keys) {
-		return v.Error()
+		return nil, v.Error()
 	}
 	var channels []channel.Channel
 	if err := s.ChannelReader.
@@ -410,11 +421,11 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 		Entries(&channels).
 		WhereKeys(keys...).
 		Exec(ctx, nil); err != nil {
-		return err
+		return nil, err
 	}
 	if len(channels) != len(keys) {
 		missing, _ := lo.Difference(keys, channel.KeysFromChannels(channels))
-		return errors.Wrapf(validate.Error, "missing channels: %v", missing)
+		return nil, errors.Wrapf(validate.Error, "missing channels: %v", missing)
 	}
-	return nil
+	return channels, nil
 }

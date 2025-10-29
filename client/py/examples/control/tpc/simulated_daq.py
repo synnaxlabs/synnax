@@ -65,7 +65,7 @@ for sensor in SENSORS:
     )
     print(s.name, s.key)
 
-loop = sy.Loop(sy.Rate.HZ * 30, precise=True)
+loop = sy.Loop(sy.Rate.HZ * 10, precise=True)
 
 DAQ_STATE = {
     OX_VENT_CMD: 0,
@@ -125,11 +125,15 @@ def clamp_pts(state: dict[str, float]):
 OX_MPV_LAST_OPEN = None
 FUEL_MPV_LAST_OPEN = None
 
+calc = client.channels.create(
+    name="calc",
+    expression=f"return ({OX_PT_1} + {OX_PT_2}) / 2",
+)
+
 with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
     with client.open_writer(
         sy.TimeStamp.now(),
         channels=[*SENSORS, *[state for state in VALVES.values()], DAQ_TIME],
-        enable_auto_commit=True,
     ) as writer:
         while loop.wait():
             try:

@@ -44,7 +44,7 @@ func (d *db) Get(ctx context.Context, key []byte, opts ...any) ([]byte, io.Close
 }
 
 var _ = Describe("Verification", func() {
-	Describe("Config", func() {
+	Describe("ConfigValues", func() {
 		Describe("Validate", func() {
 			It("should return an error if the DB is nil", func() {
 				Expect(verification.DefaultConfig.Validate()).To(HaveOccurred())

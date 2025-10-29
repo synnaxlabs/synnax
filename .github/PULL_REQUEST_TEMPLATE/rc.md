@@ -6,12 +6,11 @@
 
 ## QA Template
 
-- [ ] <!-- prettier-ignore --> I have verified that any changes to the `rc.md` template in this diff have been manually added to this pull request.
+- [ ] I have verified that any changes to the `rc.md` template in this diff have been manually added to this pull request.
 
 ## Version Conflicts
 
-I have verified that, when released, the following packages will not conflict with any
-previously released packages:
+I have verified that, when released, the following packages will not conflict with any previously released packages:
 
 - [ ] [`alamos/py`](https://pypi.org/project/alamos/)
 - [ ] [`alamos/ts`](https://www.npmjs.com/package/@synnaxlabs/alamos)
@@ -30,10 +29,10 @@ previously released packages:
 
 ### Content Changes
 
-I have verified that user-facing documentation for each of the following services has
-been updated to match any changes in the release candidate:
+I have verified that user-facing documentation for each of the following services has been updated to match any changes in the release candidate:
 
 - [ ] `guides/analyst`
+- [ ] `guides/comparison`
 - [ ] `guides/get-started`
 - [ ] `guides/operations`
 - [ ] `guides/sys-admin`
@@ -61,7 +60,7 @@ I have verified that code examples for each of the following services run correc
 
 ### Broken Links
 
-- [ ] <!-- prettier-ignore --> I have used a broken link checker like [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or [Dr. LinkCheck](https://www.drlinkcheck.com/) to check that all links work on the live website.
+- [ ] I have used a broken link checker like [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or [Dr. LinkCheck](https://www.drlinkcheck.com/) to check that all links work on the live website.
 
 ### Release Notes
 
@@ -96,7 +95,7 @@ I can successfully:
 - **Calculated Channels**
   - [ ] Plot a basic calculated channel.
   - [ ] Plot a nested calculated channel.
-  - [ ] <!-- prettier-ignore --> Intentionally create a channel with an erroneous expression, plot it and make sure the server and console remain stable and the error is logged to the server and the console.
+  - [ ] Intentionally create a channel with an erroneous expression, plot it and make sure the Console and Core remain stable and the error is logged to the Core and the Console.
   - [ ] Plot a calculated channel that uses channels with hyphenated names.
   - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
     - [ ] 10 Hz
@@ -181,7 +180,7 @@ I can successfully:
   - [ ] Edit an existing label's name.
   - [ ] Change the color of an existing label.
   - [ ] Rename a label and ensure the change synchronizes with the range toolbar.
-  - [ ] <!-- prettier-ignore --> Change a label's color and ensure the change synchronizes with the range toolbar.
+  - [ ] Change a label's color and ensure the change synchronizes with the range toolbar.
 
 ### Layout
 
@@ -298,7 +297,7 @@ I can successfully:
   - [ ] Cannot switch to edit mode on a schematic.
 - **As a user without admin permissions:**
   - [ ] Cannot open the "Register User" dialog from the command palette.
-  - [ ] <!-- prettier-ignore --> Cannot delete users, open the permissions dialog, or change a username from the resources toolbar.
+  - [ ] Cannot delete users, open the permissions dialog, or change a username from the resources toolbar.
 
 ### Racks
 
@@ -579,11 +578,8 @@ I can successfully:
   - [ ] Open an existing arc automation.
 
 - **Arc Editor**
-  - [ ] Create an alarm automation that changes statuses and includes the following
-        blocks: channel source, constant, comparison, stable for, select, and status
-        change.
-  - [ ] Deploy the arc automation using `press_simulated_daq` and see statuses change
-        based on the constant condition.
+  - [ ] Create an alarm automation that changes statuses and includes the following blocks: channel source, constant, comparison, stable for, select, and status change.
+  - [ ] Deploy the arc automation using `press_simulated_daq` and see statuses change based on the constant condition.
   - [ ] Stop the arc deployment.
   - [ ] Rename an arc, re-deploy it, and ensure that the new name is displayed.
 
@@ -646,7 +642,7 @@ I can successfully:
 - [ ] Rename a workspace and ensure synchronization across:
   - Resources Toolbar
   - Workspace Selector
-- [ ] <!-- prettier-ignore --> Create a workspace in a previous version of Synnax, add visualizations, and open it in the release candidate.
+- [ ] Create a workspace in a previous version of Synnax, add visualizations, and open it in the release candidate.
 
 ## Driver
 
@@ -676,13 +672,13 @@ I can successfully:
   - [ ] Delete a control sequence.
 - **Sequence Editing**
   - [ ] Edit a control sequence and see auto-complete suggestions for channels.
-  - [ ] <!-- prettier-ignore --> Edit a control sequence and see auto-complete suggestions for the following built-in functions:
+  - [ ] Edit a control sequence and see auto-complete suggestions for the following built-in functions:
     - [ ] `elapsed_time_within`
     - [ ] `elapsed_time`
     - [ ] `iteration`
     - [ ] `set`
     - [ ] `set_authority`
-  - [ ] <!-- prettier-ignore --> Accept channel auto-complete suggestions and see the correct channel populated in the `read_from` or `write_to` fields.
+  - [ ] Accept channel auto-complete suggestions and see the correct channel populated in the `read_from` or `write_to` fields.
   - [ ] Manually configure the `read_from` and `write_to` fields.
   - [ ] Set the sequence control rate.
   - [ ] Configure, start, and correctly operate a minimal bang bang control sequence.
@@ -704,7 +700,7 @@ I can successfully:
   - [ ] Ensure no lag between sensor input and data written to the server.
   - [ ] Configure and run a read task for a thermocouple.
   - [ ] Run a read task with thermocouples, digital, and analog channels.
-  - [ ] <!-- prettier-ignore --> Disconnect a device while reading, reconnect it, and read data after reconfiguration.
+  - [ ] Disconnect a device while reading, reconnect it, and read data after reconfiguration.
   - **Reliable data plotting at the following sample rates:**
     - [ ] 1 Hz
     - [ ] 10 Hz
@@ -717,12 +713,11 @@ I can successfully:
     - [ ] Actuate a valve via a digital input.
     - [ ] Set an analog output to a specific voltage via a setpoint.
   - [ ] Stop, start, and reconfigure the task.
-  - [ ] Disconnect a device while writing, reconnect it, and read data after
-        reconfiguration.
+  - [ ] Disconnect a device while writing, reconnect it, and read data after reconfiguration.
   - **Configure response time based on the specified state rate:**
     - [ ] 1 Hz (should have a visible delay)
     - [ ] 20 Hz (should be nearly immediate)
-- [ ] <!-- prettier-ignore --> Configure simultaneous write and read tasks and stop or delete either without affecting the other.
+- [ ] Configure simultaneous write and read tasks and stop or delete either without affecting the other.
 
 ### NI
 
@@ -734,8 +729,8 @@ I can successfully:
 - [ ] Recognize and connect to physical and simulated devices.
 - [ ] Disconnect a physical device while a task is running without causing faults.
 - [ ] Ignore chassis and view devices connected to it.
-- [ ] Run the driver without NI-DAQmx and SysCfg libraries installed.
-- [ ] <!-- prettier-ignore --> Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
+- [ ] Run the Driver without NI-DAQmx and System Configuration libraries installed.
+- [ ] Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
 - **Handle invalid device configurations and receive meaningful feedback:**
   - [ ] Invalid ports.
   - [ ] Incorrect task type for devices.
@@ -760,8 +755,8 @@ I can successfully:
   - [ ] Handle device disconnection during active tasks with appropriate feedback.
   - [ ] Start multiple tasks at different times and view live data.
   - [ ] Enable and disable data saving.
-  - [ ] <!-- prettier-ignore --> Enabled auto-start, and ensure that the task automatically starts after configuration.
-  - [ ] Ensure no lag between sensor input and server data recording.
+  - [ ] Enabled auto-start, and ensure that the task automatically starts after configuration.
+  - [ ] Ensure no lag between sensor input and Core data recording.
   - [ ] Configure and run an analog read task for the following channels:
     - [ ] Current (NI-9203)
     - [ ] Resistance (NI-9219)
@@ -817,7 +812,7 @@ I can successfully:
     - [ ] Avoid driver crashes when improper array sizes are specified.
   - [ ] Obtain recommended Synnax channels based on the configured OPC UA node.
   - [ ] Connect to and read data from a physical device.
-  - [ ] <!-- prettier-ignore --> Maintain driver operation during device disconnection or channel removal while a task is running.
+  - [ ] Maintain Driver operation during device disconnection or channel removal while a task is running.
   - [ ] Enable and disable data saving.
 - **Write Task**
   - [ ] Perform control and verify changes on the connected OPC UA server.

@@ -15,9 +15,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/signal"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -69,6 +73,7 @@ var _ = Describe("Writer", func() {
 			})
 		}
 	})
+
 	Describe("Open Errors", Ordered, func() {
 		var s scenario
 		BeforeAll(func() { s = gatewayOnlyScenario() })
@@ -96,6 +101,7 @@ var _ = Describe("Writer", func() {
 			Expect(err.Error()).ToNot(ContainSubstring("1"))
 		})
 	})
+
 	Describe("Frame Errors", Ordered, func() {
 		var s scenario
 		BeforeAll(func() { s = peerOnlyScenario() })
@@ -117,6 +123,80 @@ var _ = Describe("Writer", func() {
 			))
 			Expect(err).To(HaveOccurredAs(validate.Error))
 			Expect(writer.Close()).To(HaveOccurredAs(validate.Error))
+		})
+	})
+
+	Describe("Free Write Alignment", Ordered, func() {
+		It("Should correctly set alignments on indexed free channels", func() {
+			var (
+				s     = gatewayOnlyScenario()
+				idxCh = channel.Channel{
+					Name:        "free_time",
+					IsIndex:     true,
+					DataType:    telem.TimeStampT,
+					Leaseholder: cluster.Free,
+					Virtual:     true,
+				}
+				dataCh = channel.Channel{
+					Name:        "free",
+					DataType:    telem.Float32T,
+					Leaseholder: cluster.Free,
+					Virtual:     true,
+				}
+			)
+			Expect(s.dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+			dataCh.LocalIndex = idxCh.LocalKey
+			Expect(s.dist.Channel.Create(ctx, &dataCh)).To(Succeed())
+
+			keys := []channel.Key{idxCh.Key(), dataCh.Key()}
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+				Keys:        keys,
+				SendOpenAck: config.True(),
+			}))
+			_, out := confluence.Attach(streamer, 10)
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			streamer.Flow(sCtx)
+			var res framer.StreamerResponse
+			Eventually(out.Outlet()).Should(Receive(&res))
+			writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  config.True(),
+			}))
+			data := telem.NewSeriesV[int64](1, 2)
+			idx := telem.NewSeriesSecondsTSV(10*telem.SecondTS, 11*telem.SecondTS)
+			MustSucceed(writer.Write(core.MultiFrame(
+				keys,
+				[]telem.Series{idx, data},
+			)))
+			Eventually(out.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.KeysSlice()).To(Equal(keys))
+			writtenData := res.Frame.Get(dataCh.Key()).Series[0]
+			Expect(writtenData).To(telem.MatchSeriesData(data))
+			writtenIdx := res.Frame.Get(idxCh.Key()).Series[0]
+			Expect(writtenIdx).To(telem.MatchSeriesData(idx))
+			Expect(writtenData.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
+			Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(0))
+			Expect(writtenIdx.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
+			Expect(writtenIdx.Alignment.SampleIndex()).To(BeEquivalentTo(0))
+			data = telem.NewSeriesV[int64](3, 4)
+			idx = telem.NewSeriesSecondsTSV(12*telem.SecondTS, 13*telem.SecondTS)
+			MustSucceed(writer.Write(core.MultiFrame(
+				keys,
+				[]telem.Series{idx, data},
+			)))
+			Eventually(out.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.KeysSlice()).To(Equal(keys))
+			writtenData = res.Frame.Get(dataCh.Key()).Series[0]
+			Expect(writtenData).To(telem.MatchSeriesData(data))
+			writtenIdx = res.Frame.Get(idxCh.Key()).Series[0]
+			Expect(writtenIdx).To(telem.MatchSeriesData(idx))
+			Expect(writtenData.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
+			Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(2))
+			Expect(writtenIdx.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
+			Expect(writtenIdx.Alignment.SampleIndex()).To(BeEquivalentTo(2))
+			Expect(writer.Close()).To(Succeed())
 		})
 	})
 })

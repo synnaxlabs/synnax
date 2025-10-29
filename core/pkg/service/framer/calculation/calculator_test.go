@@ -10,719 +10,730 @@
 package calculation_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Calculator", func() {
+var _ = Describe("Calculator", Ordered, func() {
+	var (
+		c      *calculation.Service
+		arcSvc *arc.Service
+		dist   mock.Node
+	)
+	BeforeAll(func() {
+		distB := mock.NewCluster()
+		dist = distB.Provision(ctx)
+		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+		}))
+		statusSvc := MustSucceed(svcstatus.OpenService(ctx, svcstatus.ServiceConfig{
+			DB:       dist.DB,
+			Label:    labelSvc,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+		}))
+		arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+			Channel:  dist.Channel,
+			Ontology: dist.Ontology,
+			DB:       dist.DB,
+			Framer:   dist.Framer,
+			Status:   statusSvc,
+			Signals:  dist.Signals,
+		}))
+		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
+			DB:                dist.DB,
+			Framer:            dist.Framer,
+			Channel:           dist.Channel,
+			ChannelObservable: dist.Channel.NewObservable(),
+			Arc:               arcSvc,
+		}))
+	})
 
-	Context("Single Channel Calculation", func() {
-		It("Should correctly calculate the output value", func() {
-			out := channel.Channel{
-				Leaseholder: 1,
-				LocalKey:    1,
-				Name:        "out",
-				DataType:    telem.Float32T,
-				Expression:  "return in_ch * 2",
+	AfterAll(func() {
+		Expect(c.Close()).To(Succeed())
+		Expect(dist.Close()).To(Succeed())
+	})
+
+	open := func(
+		indexes, bases *[]channel.Channel,
+		calc *channel.Channel,
+	) *calculation.Calculator {
+		if indexes != nil {
+			Expect(dist.Channel.CreateMany(ctx, indexes)).To(Succeed())
+		}
+		for i, channel := range *bases {
+			if channel.Virtual {
+				continue
 			}
-			in := channel.Channel{
-				Leaseholder: 1,
-				LocalKey:    2,
-				Name:        "in_ch",
-				DataType:    telem.Float32T,
+			toGet := i
+			if len(*indexes) == 1 {
+				toGet = 0
 			}
-			calc := MustSucceed(calculation.OpenCalculator(
-				out,
-				[]channel.Channel{in},
-			))
-			outSeries := MustSucceed(calc.Next(core.UnaryFrame(in.Key(), telem.NewSeriesV[float32](1, 2, 3))))
-			Expect(outSeries.Len()).To(Equal(int64(3)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](2, 4, 6))
+			channel.LocalIndex = (*indexes)[toGet].LocalKey
+			(*bases)[i] = channel
+		}
+		Expect(dist.Channel.CreateMany(ctx, bases)).To(Succeed())
+		Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
+		return MustSucceed(calculation.OpenCalculator(
+			ctx,
+			calculation.CalculatorConfig{
+				ChannelSvc: dist.Channel,
+				Channel:    *calc,
+				Resolver:   arcSvc.SymbolResolver(),
+			},
+		))
+	}
+
+	Describe("Alignment", func() {
+		Specify("Single alignment propagation", func() {
+			base := []channel.Channel{{
+				Name:     "base",
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return base * 2",
+			}
+			c := open(nil, &base, &calc)
+			d := telem.NewSeriesV[int64](10, 20, 30)
+			d.Alignment = telem.NewAlignment(100, 50)
+			fr := core.UnaryFrame(base[0].Key(), d)
+			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			Expect(changed).To(BeTrue())
+			od := of.Get(calc.Key()).Series[0]
+			Expect(od).To(telem.MatchSeriesDataV[int64](20, 40, 60))
+			Expect(od.Alignment).To(Equal(telem.NewAlignment(100, 50)))
+			Expect(c.Close()).To(Succeed())
+		})
+
+		Specify("Multiple alignments accumulation", func() {
+			bases := []channel.Channel{
+				{
+					Name:     "base_1",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				},
+				{
+					Name:     "base_2",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				},
+			}
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return base_1 + base_2",
+			}
+			c := open(nil, &bases, &calc)
+			d1 := telem.NewSeriesV[int64](1, 2)
+			d1.Alignment = telem.NewAlignment(10, 5)
+			d2 := telem.NewSeriesV[int64](3, 4)
+			d2.Alignment = telem.NewAlignment(20, 3)
+			fr := core.MultiFrame(
+				[]channel.Key{bases[0].Key(), bases[1].Key()},
+				[]telem.Series{d1, d2},
+			)
+			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			Expect(changed).To(BeTrue())
+			od := of.Get(calc.Key()).Series[0]
+			Expect(od).To(telem.MatchSeriesDataV[int64](4, 6))
+			Expect(od.Alignment).To(Equal(telem.NewAlignment(30, 8)))
+			Expect(c.Close()).To(Succeed())
+		})
+
+		Specify("Alignment persistence across calls", func() {
+			base := []channel.Channel{{
+				Name:     "base",
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return base + 5",
+			}
+			c := open(nil, &base, &calc)
+			d1 := telem.NewSeriesV[int64](1)
+			d1.Alignment = telem.NewAlignment(15, 2)
+			fr1 := core.UnaryFrame(base[0].Key(), d1)
+			of, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
+			Expect(changed).To(BeTrue())
+			od := of.Get(calc.Key()).Series[0]
+			Expect(od).To(telem.MatchSeriesDataV[int64](6))
+			Expect(od.Alignment).To(Equal(telem.NewAlignment(15, 2)))
+			d2 := telem.NewSeriesV[int64](2)
+			d2.Alignment = telem.NewAlignment(25, 7)
+			fr2 := core.UnaryFrame(base[0].Key(), d2)
+			of, changed = MustSucceed2(c.Next(ctx, fr2, core.Frame{}))
+			Expect(changed).To(BeTrue())
+			od = of.Get(calc.Key()).Series[0]
+			Expect(od).To(telem.MatchSeriesDataV[int64](7))
+			Expect(od.Alignment).To(Equal(telem.NewAlignment(25, 7)))
+			Expect(c.Close()).To(Succeed())
+		})
+
+		Specify("Mixed alignment sources", func() {
+			bases := []channel.Channel{
+				{
+					Name:     "base_1",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				},
+				{
+					Name:     "base_2",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				},
+				{
+					Name:     "base_3",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				},
+			}
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return base_1 + base_2 + base_3",
+			}
+			c := open(nil, &bases, &calc)
+			d1 := telem.NewSeriesV[int64](1)
+			d1.Alignment = telem.NewAlignment(10, 3)
+			d2 := telem.NewSeriesV[int64](2)
+			d3 := telem.NewSeriesV[int64](3)
+			d3.Alignment = telem.NewAlignment(5, 1)
+			fr := core.MultiFrame(
+				[]channel.Key{bases[0].Key(), bases[1].Key(), bases[2].Key()},
+				[]telem.Series{d1, d2, d3},
+			)
+			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			Expect(changed).To(BeTrue())
+			od := of.Get(calc.Key()).Series[0]
+			Expect(od).To(telem.MatchSeriesDataV[int64](6))
+			Expect(od.Alignment).To(Equal(telem.NewAlignment(15, 4)))
+			Expect(c.Close()).To(Succeed())
 		})
 	})
 
-	Context("Multi-Channel Calculation", func() {
-		var (
-			inCh1 = channel.Channel{
-				Leaseholder: 1,
-				LocalKey:    1,
-				Name:        "in_ch_1",
-				DataType:    telem.Float32T,
+	Describe("Channel Configurations", func() {
+		Specify("Two virtual channels", func() {
+			bases := []channel.Channel{
+				{
+					Name:     "sensor_a",
+					DataType: telem.Float32T,
+					Virtual:  true,
+				},
+				{
+					Name:     "sensor_b",
+					DataType: telem.Float32T,
+					Virtual:  true,
+				},
 			}
-			inCh2 = channel.Channel{
-				Leaseholder: 1,
-				LocalKey:    2,
-				Name:        "in_ch_2",
-				DataType:    telem.Float32T,
-			}
-			out = channel.Channel{
-				Leaseholder: 1,
-				LocalKey:    1,
-				Name:        "out",
-				DataType:    telem.Float32T,
-				Expression:  "return in_ch_1 * in_ch_2",
-			}
-			calc *calculation.Calculator
-		)
-		BeforeEach(func() {
-			calc = MustSucceed(calculation.OpenCalculator(
-				out,
-				[]channel.Channel{inCh1, inCh2},
-			))
-		})
-		AfterEach(func() {
-			calc.Close()
-		})
-
-		Context("Aligned", func() {
-			It("Should correctly calculate the output value", func() {
-				inSeries1 := telem.NewSeriesV[float32](1, 2, 3)
-				inSeries1.TimeRange = telem.NewRangeSeconds(5, 10)
-				inSeries2 := telem.NewSeriesV[float32](1, 2, 3)
-				inSeries2.TimeRange = telem.NewRangeSeconds(5, 10)
-				outSeries := MustSucceed(calc.Next(core.MultiFrame(
-					[]channel.Key{inCh1.Key(), inCh2.Key()},
-					[]telem.Series{inSeries1, inSeries2},
-				)))
-				Expect(outSeries.Len()).To(Equal(int64(3)))
-				Expect(outSeries.Alignment).To(Equal(telem.Alignment(0)))
-				Expect(outSeries.TimeRange).To(Equal(telem.NewRangeSeconds(5, 10)))
-				Expect(outSeries.AlignmentBounds().Upper).To(Equal(telem.Alignment(3)))
-				Expect(outSeries).To(telem.MatchSeriesDataV[float32](1, 4, 9))
-			})
-		})
-
-		Context("Misaligned", func() {
-			It("Should correctly align the series and calculate the output value", func() {
-				inCh1Series := telem.NewSeriesV[float32](1, 2, 3)
-				inCh1Series.Alignment = 3
-				inCh1Series.TimeRange = telem.NewRangeSeconds(5, 10)
-
-				inCh2Series := telem.NewSeriesV[float32](1, 2, 3)
-				inCh2Series.Alignment = 3
-				inCh2Series.TimeRange = telem.NewRangeSeconds(5, 10)
-				outSeries := MustSucceed(calc.Next(core.UnaryFrame(
-					inCh1.Key(),
-					inCh1Series,
-				)))
-				Expect(outSeries.Len()).To(Equal(int64(0)))
-				Expect(outSeries.Alignment).To(Equal(telem.Alignment(0)))
-				Expect(outSeries.TimeRange).To(Equal(telem.TimeRangeZero))
-
-				outSeries = MustSucceed(calc.Next(core.UnaryFrame(
-					inCh2.Key(),
-					inCh2Series,
-				)))
-				Expect(outSeries.Len()).To(Equal(int64(3)))
-				Expect(outSeries.Alignment).To(Equal(telem.Alignment(3)))
-				Expect(outSeries.TimeRange).To(Equal(telem.NewRangeSeconds(5, 10)))
-				Expect(outSeries.AlignmentBounds().Upper).To(Equal(telem.Alignment(6)))
-
-				Expect(outSeries).To(telem.MatchSeriesDataV[float32](1, 4, 9))
-			})
-		})
-	})
-
-	Describe("Channel", func() {
-		It("Should return information about the channel being calculated", func() {
-			in := channel.Channel{
-				Name:     "Cat",
-				LocalKey: 12,
-				DataType: telem.Float32T,
-			}
-			c := MustSucceed(calculation.OpenCalculator(in, []channel.Channel{}))
-			Expect(c.Channel().Name).To(Equal("Cat"))
-			Expect(c.Channel().LocalKey).To(BeEquivalentTo(12))
-		})
-	})
-
-	Describe("High Water Mark Behavior", func() {
-		var (
-			inCh1 = channel.Channel{
-				Leaseholder: 1,
-				LocalKey:    1,
-				Name:        "in_ch_1",
-				DataType:    telem.Float32T,
-			}
-			inCh2 = channel.Channel{
-				Leaseholder: 1,
-				LocalKey:    2,
-				Name:        "in_ch_2",
-				DataType:    telem.Float32T,
-			}
-			out = channel.Channel{
-				Leaseholder: 1,
-				LocalKey:    3,
-				Name:        "out",
-				DataType:    telem.Float32T,
-				Expression:  "return in_ch_1 + in_ch_2",
-			}
-			calc *calculation.Calculator
-		)
-
-		BeforeEach(func() {
-			calc = MustSucceed(calculation.OpenCalculator(
-				out,
-				[]channel.Channel{inCh1, inCh2},
-			))
-		})
-
-		AfterEach(func() {
-			calc.Close()
-		})
-
-		It("Should maintain high water mark across multiple frames", func() {
-			// First frame: send data for both channels
-			inSeries1 := telem.NewSeriesV[float32](1, 2, 3)
-			inSeries1.Alignment = 0
-			inSeries1.TimeRange = telem.NewRangeSeconds(0, 3)
-
-			inSeries2 := telem.NewSeriesV[float32](10, 20, 30)
-			inSeries2.Alignment = 0
-			inSeries2.TimeRange = telem.NewRangeSeconds(0, 3)
-
-			outSeries := MustSucceed(calc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{inSeries1, inSeries2},
-			)))
-
-			// Should calculate all 3 samples
-			Expect(outSeries.Len()).To(Equal(int64(3)))
-			Expect(outSeries.Alignment).To(Equal(telem.Alignment(0)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](11, 22, 33))
-
-			// Second frame: send more data with alignment starting after high water mark
-			inSeries1 = telem.NewSeriesV[float32](4, 5, 6)
-			inSeries1.Alignment = 3
-			inSeries1.TimeRange = telem.NewRangeSeconds(3, 6)
-
-			inSeries2 = telem.NewSeriesV[float32](40, 50, 60)
-			inSeries2.Alignment = 3
-			inSeries2.TimeRange = telem.NewRangeSeconds(3, 6)
-
-			outSeries = MustSucceed(calc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{inSeries1, inSeries2},
-			)))
-
-			// Should calculate 3 more samples
-			Expect(outSeries.Len()).To(Equal(int64(3)))
-			Expect(outSeries.Alignment).To(Equal(telem.Alignment(3)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](44, 55, 66))
-		})
-
-		It("Should not recalculate data before high water mark", func() {
-			// First frame
-			inSeries1 := telem.NewSeriesV[float32](1, 2, 3, 4, 5)
-			inSeries1.Alignment = 0
-			inSeries1.TimeRange = telem.NewRangeSeconds(0, 5)
-
-			inSeries2 := telem.NewSeriesV[float32](10, 20, 30, 40, 50)
-			inSeries2.Alignment = 0
-			inSeries2.TimeRange = telem.NewRangeSeconds(0, 5)
-
-			outSeries := MustSucceed(calc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{inSeries1, inSeries2},
-			)))
-
-			Expect(outSeries.Len()).To(Equal(int64(5)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](11, 22, 33, 44, 55))
-
-			// Second frame: send overlapping data
-			// Data with alignment 2-6 (overlapping with 2-4 from previous)
-			inSeries1 = telem.NewSeriesV[float32](3, 4, 5, 6, 7)
-			inSeries1.Alignment = 2
-			inSeries1.TimeRange = telem.NewRangeSeconds(2, 7)
-
-			inSeries2 = telem.NewSeriesV[float32](30, 40, 50, 60, 70)
-			inSeries2.Alignment = 2
-			inSeries2.TimeRange = telem.NewRangeSeconds(2, 7)
-
-			outSeries = MustSucceed(calc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{inSeries1, inSeries2},
-			)))
-
-			// Should only calculate new data (alignment 5-6)
-			Expect(outSeries.Len()).To(Equal(int64(2)))
-			Expect(outSeries.Alignment).To(Equal(telem.Alignment(5)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](66, 77))
-		})
-
-		It("Should handle gaps in data with high water mark", func() {
-			// First frame: ch1 only
-			inSeries1 := telem.NewSeriesV[float32](1, 2, 3)
-			inSeries1.Alignment = 0
-			inSeries1.TimeRange = telem.NewRangeSeconds(0, 3)
-
-			outSeries := MustSucceed(calc.Next(core.UnaryFrame(
-				inCh1.Key(),
-				inSeries1,
-			)))
-
-			// No output yet, waiting for ch2
-			Expect(outSeries.Len()).To(Equal(int64(0)))
-
-			// Second frame: ch2 with partial overlap
-			inSeries2 := telem.NewSeriesV[float32](10, 20)
-			inSeries2.Alignment = 0
-			inSeries2.TimeRange = telem.NewRangeSeconds(0, 2)
-
-			outSeries = MustSucceed(calc.Next(core.UnaryFrame(
-				inCh2.Key(),
-				inSeries2,
-			)))
-
-			// Should calculate first 2 samples
-			Expect(outSeries.Len()).To(Equal(int64(2)))
-			Expect(outSeries.Alignment).To(Equal(telem.Alignment(0)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](11, 22))
-
-			// Third frame: more ch2 data
-			inSeries2 = telem.NewSeriesV[float32](30, 40, 50)
-			inSeries2.Alignment = 2
-			inSeries2.TimeRange = telem.NewRangeSeconds(2, 5)
-
-			outSeries = MustSucceed(calc.Next(core.UnaryFrame(
-				inCh2.Key(),
-				inSeries2,
-			)))
-
-			// Should calculate third sample (alignment 2)
-			Expect(outSeries.Len()).To(Equal(int64(1)))
-			Expect(outSeries.Alignment).To(Equal(telem.Alignment(2)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](33))
-
-			// Fourth frame: more ch1 data
-			inSeries1 = telem.NewSeriesV[float32](4, 5, 6)
-			inSeries1.Alignment = 3
-			inSeries1.TimeRange = telem.NewRangeSeconds(3, 6)
-
-			outSeries = MustSucceed(calc.Next(core.UnaryFrame(
-				inCh1.Key(),
-				inSeries1,
-			)))
-
-			// Should calculate alignment 3-4
-			Expect(outSeries.Len()).To(Equal(int64(2)))
-			Expect(outSeries.Alignment).To(Equal(telem.Alignment(3)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](44, 55))
-		})
-
-		It("Should correctly update high water mark with different domain indices", func() {
-			// First frame with domain index 0
-			inSeries1 := telem.NewSeriesV[float32](1, 2, 3)
-			inSeries1.Alignment = 0
-			inSeries1.TimeRange = telem.NewRangeSeconds(0, 3)
-
-			inSeries2 := telem.NewSeriesV[float32](10, 20, 30)
-			inSeries2.Alignment = 0
-			inSeries2.TimeRange = telem.NewRangeSeconds(0, 3)
-
-			outSeries := MustSucceed(calc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{inSeries1, inSeries2},
-			)))
-
-			Expect(outSeries.Len()).To(Equal(int64(3)))
-
-			// Second frame with new domain index (simulating time jump)
-			inSeries1 = telem.NewSeriesV[float32](4, 5, 6)
-			inSeries1.Alignment = telem.NewAlignment(1, 0)
-			inSeries1.TimeRange = telem.NewRangeSeconds(100, 103)
-
-			inSeries2 = telem.NewSeriesV[float32](40, 50, 60)
-			inSeries2.Alignment = telem.NewAlignment(1, 0)
-			inSeries2.TimeRange = telem.NewRangeSeconds(100, 103)
-
-			outSeries = MustSucceed(calc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{inSeries1, inSeries2},
-			)))
-
-			// Should calculate all 3 samples with new domain
-			Expect(outSeries.Len()).To(Equal(int64(3)))
-			Expect(outSeries.Alignment.DomainIndex()).To(Equal(uint32(1)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](44, 55, 66))
-		})
-
-		It("Should handle single channel with high water mark", func() {
-			singleOut := channel.Channel{
-				Leaseholder: 1,
-				LocalKey:    4,
-				Name:        "single_out",
-				DataType:    telem.Float32T,
-				Expression:  "return in_ch_1 * 3",
-			}
-			singleCalc := MustSucceed(calculation.OpenCalculator(
-				singleOut,
-				[]channel.Channel{inCh1},
-			))
-			defer singleCalc.Close()
-
-			// First frame
-			inSeries := telem.NewSeriesV[float32](1, 2, 3)
-			inSeries.Alignment = 0
-			inSeries.TimeRange = telem.NewRangeSeconds(0, 3)
-
-			outSeries := MustSucceed(singleCalc.Next(core.UnaryFrame(
-				inCh1.Key(),
-				inSeries,
-			)))
-
-			Expect(outSeries.Len()).To(Equal(int64(3)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](3, 6, 9))
-
-			// Second frame with overlap
-			inSeries = telem.NewSeriesV[float32](2, 3, 4, 5)
-			inSeries.Alignment = 1
-			inSeries.TimeRange = telem.NewRangeSeconds(1, 5)
-
-			outSeries = MustSucceed(singleCalc.Next(core.UnaryFrame(
-				inCh1.Key(),
-				inSeries,
-			)))
-
-			// Should only calculate new data (alignment 3-4)
-			Expect(outSeries.Len()).To(Equal(int64(2)))
-			Expect(outSeries.Alignment).To(Equal(telem.Alignment(3)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](12, 15))
-		})
-
-		It("Should handle empty frames without affecting high water mark", func() {
-			// First frame with data
-			inSeries1 := telem.NewSeriesV[float32](1, 2, 3)
-			inSeries1.Alignment = 0
-			inSeries1.TimeRange = telem.NewRangeSeconds(0, 3)
-
-			inSeries2 := telem.NewSeriesV[float32](10, 20, 30)
-			inSeries2.Alignment = 0
-			inSeries2.TimeRange = telem.NewRangeSeconds(0, 3)
-
-			outSeries := MustSucceed(calc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{inSeries1, inSeries2},
-			)))
-
-			Expect(outSeries.Len()).To(Equal(int64(3)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](11, 22, 33))
-
-			// Empty frame
-			emptyFrame := core.Frame{}
-			outSeries = MustSucceed(calc.Next(emptyFrame))
-			Expect(outSeries.Len()).To(Equal(int64(0)))
-
-			// Third frame after empty - should continue from high water mark
-			inSeries1 = telem.NewSeriesV[float32](4, 5)
-			inSeries1.Alignment = 3
-			inSeries1.TimeRange = telem.NewRangeSeconds(3, 5)
-
-			inSeries2 = telem.NewSeriesV[float32](40, 50)
-			inSeries2.Alignment = 3
-			inSeries2.TimeRange = telem.NewRangeSeconds(3, 5)
-
-			outSeries = MustSucceed(calc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{inSeries1, inSeries2},
-			)))
-
-			Expect(outSeries.Len()).To(Equal(int64(2)))
-			Expect(outSeries.Alignment).To(Equal(telem.Alignment(3)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](44, 55))
-		})
-
-		It("Should handle zero-length series", func() {
-			// First frame with zero-length series
-			emptySeriesCh1 := telem.NewSeriesV[float32]()
-			emptySeriesCh1.Alignment = 0
-			emptySeriesCh1.TimeRange = telem.TimeRangeZero
-
-			emptySeriesCh2 := telem.NewSeriesV[float32]()
-			emptySeriesCh2.Alignment = 0
-			emptySeriesCh2.TimeRange = telem.TimeRangeZero
-
-			outSeries := MustSucceed(calc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{emptySeriesCh1, emptySeriesCh2},
-			)))
-
-			Expect(outSeries.Len()).To(Equal(int64(0)))
-
-			// Second frame with actual data
-			inSeries1 := telem.NewSeriesV[float32](1, 2, 3)
-			inSeries1.Alignment = 0
-			inSeries1.TimeRange = telem.NewRangeSeconds(0, 3)
-
-			inSeries2 := telem.NewSeriesV[float32](10, 20, 30)
-			inSeries2.Alignment = 0
-			inSeries2.TimeRange = telem.NewRangeSeconds(0, 3)
-
-			outSeries = MustSucceed(calc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{inSeries1, inSeries2},
-			)))
-
-			Expect(outSeries.Len()).To(Equal(int64(3)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](11, 22, 33))
-		})
-
-		It("Should handle backwards alignment (data arriving out of order)", func() {
-			// First frame with alignment 5-8
-			inSeries1 := telem.NewSeriesV[float32](5, 6, 7, 8)
-			inSeries1.Alignment = 5
-			inSeries1.TimeRange = telem.NewRangeSeconds(5, 9)
-
-			inSeries2 := telem.NewSeriesV[float32](50, 60, 70, 80)
-			inSeries2.Alignment = 5
-			inSeries2.TimeRange = telem.NewRangeSeconds(5, 9)
-
-			outSeries := MustSucceed(calc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{inSeries1, inSeries2},
-			)))
-
-			// Should calculate all 4 samples
-			Expect(outSeries.Len()).To(Equal(int64(4)))
-			Expect(outSeries.Alignment).To(Equal(telem.Alignment(5)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](55, 66, 77, 88))
-
-			// Second frame with earlier alignment (2-4) - should be ignored
-			inSeries1 = telem.NewSeriesV[float32](2, 3, 4)
-			inSeries1.Alignment = 2
-			inSeries1.TimeRange = telem.NewRangeSeconds(2, 5)
-
-			inSeries2 = telem.NewSeriesV[float32](20, 30, 40)
-			inSeries2.Alignment = 2
-			inSeries2.TimeRange = telem.NewRangeSeconds(2, 5)
-
-			outSeries = MustSucceed(calc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{inSeries1, inSeries2},
-			)))
-
-			// Should return empty series as data is before high water mark
-			Expect(outSeries.Len()).To(Equal(int64(0)))
-
-			// Third frame continuing from alignment 9
-			inSeries1 = telem.NewSeriesV[float32](9, 10)
-			inSeries1.Alignment = 9
-			inSeries1.TimeRange = telem.NewRangeSeconds(9, 11)
-
-			inSeries2 = telem.NewSeriesV[float32](90, 100)
-			inSeries2.Alignment = 9
-			inSeries2.TimeRange = telem.NewRangeSeconds(9, 11)
-
-			outSeries = MustSucceed(calc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{inSeries1, inSeries2},
-			)))
-
-			Expect(outSeries.Len()).To(Equal(int64(2)))
-			Expect(outSeries.Alignment).To(Equal(telem.Alignment(9)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](99, 110))
-		})
-
-		It("Should handle very large alignment jumps", func() {
-			// Create a fresh calculator for this test
-			localCalc := MustSucceed(calculation.OpenCalculator(
-				out,
-				[]channel.Channel{inCh1, inCh2},
-			))
-			defer localCalc.Close()
-
-			// First frame
-			inSeries1 := telem.NewSeriesV[float32](1, 2)
-			inSeries1.Alignment = 0
-			inSeries1.TimeRange = telem.NewRangeSeconds(0, 2)
-
-			inSeries2 := telem.NewSeriesV[float32](10, 20)
-			inSeries2.Alignment = 0
-			inSeries2.TimeRange = telem.NewRangeSeconds(0, 2)
-
-			outSeries := MustSucceed(localCalc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{inSeries1, inSeries2},
-			)))
-
-			Expect(outSeries.Len()).To(Equal(int64(2)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](11, 22))
-
-			// Second frame with huge alignment jump (different domain)
-			largeAlignment := telem.NewAlignment(1, 0)
-			inSeries1 = telem.NewSeriesV[float32](3, 4)
-			inSeries1.Alignment = largeAlignment
-			inSeries1.TimeRange = telem.NewRangeSeconds(1000000, 1000002)
-
-			inSeries2 = telem.NewSeriesV[float32](30, 40)
-			inSeries2.Alignment = largeAlignment
-			inSeries2.TimeRange = telem.NewRangeSeconds(1000000, 1000002)
-
-			outSeries = MustSucceed(localCalc.Next(core.MultiFrame(
-				[]channel.Key{inCh1.Key(), inCh2.Key()},
-				[]telem.Series{inSeries1, inSeries2},
-			)))
-
-			Expect(outSeries.Len()).To(Equal(int64(2)))
-			Expect(outSeries.Alignment).To(Equal(largeAlignment))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](33, 44))
-		})
-
-		It("Should handle channels with no data requirement (constants only)", func() {
-			constOut := channel.Channel{
-				Leaseholder: 1,
-				LocalKey:    5,
-				Name:        "const_out",
-				DataType:    telem.Float32T,
-				Expression:  "return 42.0",
-			}
-			constCalc := MustSucceed(calculation.OpenCalculator(
-				constOut,
-				[]channel.Channel{}, // No input channels
-			))
-			defer constCalc.Close()
-
-			// Send empty frame - should still produce no output since no inputs
-			emptyFrame := core.Frame{}
-			outSeries := MustSucceed(constCalc.Next(emptyFrame))
-			Expect(outSeries.Len()).To(Equal(int64(0)))
-		})
-
-		It("Should handle mixed data types in multi-channel calculation", func() {
-			intCh := channel.Channel{
-				Leaseholder: 1,
-				LocalKey:    10,
-				Name:        "int_ch",
-				DataType:    telem.Int32T,
-			}
-			floatCh := channel.Channel{
-				Leaseholder: 1,
-				LocalKey:    11,
-				Name:        "float_ch",
-				DataType:    telem.Float32T,
-			}
-			mixedOut := channel.Channel{
-				Leaseholder: 1,
-				LocalKey:    12,
-				Name:        "mixed_out",
-				DataType:    telem.Float32T,
-				Expression:  "return int_ch + float_ch",
-			}
-			mixedCalc := MustSucceed(calculation.OpenCalculator(
-				mixedOut,
-				[]channel.Channel{intCh, floatCh},
-			))
-			defer mixedCalc.Close()
-
-			intSeries := telem.NewSeriesV[int32](1, 2, 3)
-			intSeries.Alignment = 0
-			intSeries.TimeRange = telem.NewRangeSeconds(0, 3)
-
-			floatSeries := telem.NewSeriesV[float32](0.5, 1.5, 2.5)
-			floatSeries.Alignment = 0
-			floatSeries.TimeRange = telem.NewRangeSeconds(0, 3)
-
-			outSeries := MustSucceed(mixedCalc.Next(core.MultiFrame(
-				[]channel.Key{intCh.Key(), floatCh.Key()},
-				[]telem.Series{intSeries, floatSeries},
-			)))
-
-			Expect(outSeries.Len()).To(Equal(int64(3)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](1.5, 3.5, 5.5))
-
-			// Test high water mark with mixed types
-			intSeries = telem.NewSeriesV[int32](4, 5)
-			intSeries.Alignment = 3
-			intSeries.TimeRange = telem.NewRangeSeconds(3, 5)
-
-			floatSeries = telem.NewSeriesV[float32](3.5, 4.5)
-			floatSeries.Alignment = 3
-			floatSeries.TimeRange = telem.NewRangeSeconds(3, 5)
-
-			outSeries = MustSucceed(mixedCalc.Next(core.MultiFrame(
-				[]channel.Key{intCh.Key(), floatCh.Key()},
-				[]telem.Series{intSeries, floatSeries},
-			)))
-
-			Expect(outSeries.Len()).To(Equal(int64(2)))
-			Expect(outSeries.Alignment).To(Equal(telem.Alignment(3)))
-			Expect(outSeries).To(telem.MatchSeriesDataV[float32](7.5, 9.5))
-		})
-	})
-
-	Describe("Error Handling", func() {
-		It("Should return an error if the calculation fails to compile", func() {
-			out := channel.Channel{
-				Name:       "Cat",
-				LocalKey:   12,
+			calc := channel.Channel{
+				Name:       "calc",
 				DataType:   telem.Float32T,
-				Expression: "/////",
+				Virtual:    true,
+				Expression: "return sensor_a - sensor_b",
 			}
-			c, err := calculation.OpenCalculator(out, []channel.Channel{})
-			Expect(err).To(MatchError(ContainSubstring("syntax error")))
-			Expect(c).To(BeNil())
+			c := open(nil, &bases, &calc)
+			fr := core.MultiFrame(
+				[]channel.Key{bases[0].Key(), bases[1].Key()},
+				[]telem.Series{
+					telem.NewSeriesV[float32](10.5, 20.5, 30.5),
+					telem.NewSeriesV[float32](0.5, 1.5, 2.5),
+				},
+			)
+			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](10.0, 19.0, 28.0))
+			Expect(c.Close()).To(Succeed())
 		})
 
-		It("Should return an error if the calculation has an undefined variable", func() {
-			out := channel.Channel{
-				Name:       "Cat",
-				LocalKey:   12,
-				DataType:   telem.Float32T,
-				Expression: "return dog * cat",
+		Specify("Three virtual channels", func() {
+			bases := []channel.Channel{
+				{
+					Name:     "x",
+					DataType: telem.Int32T,
+					Virtual:  true,
+				},
+				{
+					Name:     "y",
+					DataType: telem.Int32T,
+					Virtual:  true,
+				},
+				{
+					Name:     "z",
+					DataType: telem.Int32T,
+					Virtual:  true,
+				},
 			}
-			in := channel.Channel{
-				Name:     "cat",
-				LocalKey: 12,
-				DataType: telem.Float32T,
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Int32T,
+				Virtual:    true,
+				Expression: "return x * y + z",
 			}
-			c := MustSucceed(calculation.OpenCalculator(out, []channel.Channel{in}))
-			o, err := c.Next(core.UnaryFrame(in.Key(), telem.NewSeriesV[float32](1, 2, 3)))
-			Expect(o.Len()).To(Equal(int64(0)))
-			Expect(err).To(MatchError(ContainSubstring("nil")))
+			c := open(nil, &bases, &calc)
+			fr := core.MultiFrame(
+				[]channel.Key{bases[0].Key(), bases[1].Key(), bases[2].Key()},
+				[]telem.Series{
+					telem.NewSeriesV[int32](2, 3),
+					telem.NewSeriesV[int32](4, 5),
+					telem.NewSeriesV[int32](1, 2),
+				},
+			)
+			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int32](9, 17))
+			Expect(c.Close()).To(Succeed())
 		})
+
+		Specify("Single persisted channel", func() {
+			indexes := []channel.Channel{{
+				Name:     "idx",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}}
+			bases := []channel.Channel{{
+				Name:     "data",
+				DataType: telem.Float64T,
+			}}
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return data / 2",
+			}
+			c := open(&indexes, &bases, &calc)
+			idxData := telem.NewSeriesSecondsTSV(1, 2, 3)
+			idxData.Alignment = telem.NewAlignment(10, 5)
+			valData := telem.NewSeriesV[float64](100.0, 200.0, 300.0)
+			valData.Alignment = telem.NewAlignment(10, 5)
+			fr := core.MultiFrame(
+				[]channel.Key{indexes[0].Key(), bases[0].Key()},
+				[]telem.Series{idxData, valData},
+			)
+			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float64](50.0, 100.0, 150.0))
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
+			))
+			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 5)))
+			Expect(c.Close()).To(Succeed())
+		})
+
+		Specify("Two persisted channels shared index", func() {
+			indexes := []channel.Channel{{
+				Name:     "time",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}}
+			bases := []channel.Channel{
+				{
+					Name:     "temp",
+					DataType: telem.Int64T,
+				},
+				{
+					Name:     "pressure",
+					DataType: telem.Int64T,
+				},
+			}
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return temp + pressure",
+			}
+			c := open(&indexes, &bases, &calc)
+			idxData := telem.NewSeriesSecondsTSV(10, 20, 30)
+			idxData.Alignment = telem.NewAlignment(5, 2)
+			tempData := telem.NewSeriesV[int64](15, 25, 35)
+			tempData.Alignment = telem.NewAlignment(5, 2)
+			pressureData := telem.NewSeriesV[int64](5, 10, 15)
+			pressureData.Alignment = telem.NewAlignment(5, 2)
+			fr := core.MultiFrame(
+				[]channel.Key{indexes[0].Key(), bases[0].Key(), bases[1].Key()},
+				[]telem.Series{idxData, tempData, pressureData},
+			)
+			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](20, 35, 50))
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+				10*telem.SecondTS, 20*telem.SecondTS, 30*telem.SecondTS,
+			))
+			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(5, 2)))
+			Expect(c.Close()).To(Succeed())
+		})
+
+		Specify("Two persisted channels unique indexes", func() {
+			indexes := []channel.Channel{
+				{
+					Name:     "time_1",
+					DataType: telem.TimeStampT,
+					IsIndex:  true,
+				},
+				{
+					Name:     "time_2",
+					DataType: telem.TimeStampT,
+					IsIndex:  true,
+				},
+			}
+			bases := []channel.Channel{
+				{
+					Name:     "voltage",
+					DataType: telem.Float32T,
+				},
+				{
+					Name:     "current",
+					DataType: telem.Float32T,
+				},
+			}
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: "return voltage * current",
+			}
+			c := open(&indexes, &bases, &calc)
+			idx1Data := telem.NewSeriesSecondsTSV(1, 2)
+			idx1Data.Alignment = telem.NewAlignment(3, 1)
+			voltageData := telem.NewSeriesV[float32](2.0, 4.0)
+			voltageData.Alignment = telem.NewAlignment(3, 1)
+			idx2Data := telem.NewSeriesSecondsTSV(10, 20)
+			idx2Data.Alignment = telem.NewAlignment(7, 3)
+			currentData := telem.NewSeriesV[float32](3.0, 5.0)
+			currentData.Alignment = telem.NewAlignment(7, 3)
+			fr := core.MultiFrame(
+				[]channel.Key{indexes[0].Key(), bases[0].Key(), indexes[1].Key(), bases[1].Key()},
+				[]telem.Series{idx1Data, voltageData, idx2Data, currentData},
+			)
+			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](6.0, 20.0))
+			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 4)))
+			Expect(c.Close()).To(Succeed())
+		})
+
+		Specify("Mixed virtual and persisted", func() {
+			indexes := []channel.Channel{{
+				Name:     "time",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}}
+			bases := []channel.Channel{
+				{
+					Name:     "persisted_ch",
+					DataType: telem.Int64T,
+				},
+				{
+					Name:     "virtual_ch",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				},
+			}
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return persisted_ch - virtual_ch",
+			}
+			c := open(&indexes, &bases, &calc)
+			idxData := telem.NewSeriesSecondsTSV(5, 10)
+			idxData.Alignment = telem.NewAlignment(8, 4)
+			persistedData := telem.NewSeriesV[int64](100, 200)
+			persistedData.Alignment = telem.NewAlignment(8, 4)
+			virtualData := telem.NewSeriesV[int64](30, 50)
+			virtualData.Alignment = telem.NewAlignment(12, 2)
+			fr := core.MultiFrame(
+				[]channel.Key{indexes[0].Key(), bases[0].Key(), bases[1].Key()},
+				[]telem.Series{idxData, persistedData, virtualData},
+			)
+			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](70, 150))
+			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(20, 6)))
+			Expect(c.Close()).To(Succeed())
+		})
+	})
+
+	Describe("Data Types", func() {
+		Specify("Float32", func() {
+			bases := []channel.Channel{
+				{
+					Name:     "a",
+					DataType: telem.Float32T,
+					Virtual:  true,
+				},
+				{
+					Name:     "b",
+					DataType: telem.Float32T,
+					Virtual:  true,
+				},
+			}
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: "return a / b",
+			}
+			c := open(nil, &bases, &calc)
+			fr := core.MultiFrame(
+				[]channel.Key{bases[0].Key(), bases[1].Key()},
+				[]telem.Series{
+					telem.NewSeriesV[float32](10.0, 20.0, 30.0),
+					telem.NewSeriesV[float32](2.0, 4.0, 5.0),
+				},
+			)
+			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](5.0, 5.0, 6.0))
+			Expect(c.Close()).To(Succeed())
+		})
+	})
+
+	Describe("Accumulation", func() {
+		Specify("Index after data", func() {
+			indexes := []channel.Channel{{
+				Name:     "time",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}}
+			bases := []channel.Channel{{
+				Name:     "sensor",
+				DataType: telem.Int64T,
+			}}
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return sensor * 3",
+			}
+			c := open(&indexes, &bases, &calc)
+			dataOnly := telem.NewSeriesV[int64](10, 20, 30)
+			dataOnly.Alignment = telem.NewAlignment(5, 2)
+			fr1 := core.UnaryFrame(bases[0].Key(), dataOnly)
+			of, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
+			Expect(changed).To(BeFalse())
+			idxData := telem.NewSeriesSecondsTSV(1, 2, 3)
+			idxData.Alignment = telem.NewAlignment(5, 2)
+			fr2 := core.UnaryFrame(indexes[0].Key(), idxData)
+			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](30, 60, 90))
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
+			))
+			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(5, 2)))
+			Expect(c.Close()).To(Succeed())
+		})
+
+		Specify("Data after index", func() {
+			indexes := []channel.Channel{{
+				Name:     "time",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}}
+			bases := []channel.Channel{{
+				Name:     "sensor",
+				DataType: telem.Int64T,
+			}}
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return sensor * 2",
+			}
+			c := open(&indexes, &bases, &calc)
+			idxData := telem.NewSeriesSecondsTSV(1, 2, 3)
+			idxData.Alignment = telem.NewAlignment(3, 1)
+			fr1 := core.UnaryFrame(indexes[0].Key(), idxData)
+			of, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
+			Expect(changed).To(BeFalse())
+			dataOnly := telem.NewSeriesV[int64](15, 25, 35)
+			dataOnly.Alignment = telem.NewAlignment(3, 1)
+			fr2 := core.UnaryFrame(bases[0].Key(), dataOnly)
+			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](30, 50, 70))
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
+			))
+			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(3, 1)))
+			Expect(c.Close()).To(Succeed())
+		})
+
+		Specify("Interleaved", func() {
+			indexes := []channel.Channel{{
+				Name:     "time",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}}
+			bases := []channel.Channel{{
+				Name:     "sensor",
+				DataType: telem.Int64T,
+			}}
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return sensor + 10",
+			}
+			c := open(&indexes, &bases, &calc)
+			data1 := telem.NewSeriesV[int64](5, 15)
+			data1.Alignment = telem.NewAlignment(2, 1)
+			fr1 := core.UnaryFrame(bases[0].Key(), data1)
+			_, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
+			Expect(changed).To(BeFalse())
+
+			idx1 := telem.NewSeriesSecondsTSV(1, 2)
+			idx1.Alignment = telem.NewAlignment(2, 1)
+			fr2 := core.UnaryFrame(indexes[0].Key(), idx1)
+			of := core.Frame{}
+			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](15, 25))
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+				1*telem.SecondTS, 2*telem.SecondTS,
+			))
+			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(2, 1)))
+
+			data2 := telem.NewSeriesV[int64](25)
+			data2.Alignment = telem.NewAlignment(3, 2)
+			fr3 := core.UnaryFrame(bases[0].Key(), data2)
+			of = core.Frame{}
+			_, changed = MustSucceed2(c.Next(ctx, fr3, of))
+			Expect(changed).To(BeFalse())
+
+			idx2 := telem.NewSeriesSecondsTSV(3)
+			idx2.Alignment = telem.NewAlignment(3, 2)
+			fr4 := core.UnaryFrame(indexes[0].Key(), idx2)
+			of = core.Frame{}
+			of, changed = MustSucceed2(c.Next(ctx, fr4, of))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](3 * telem.SecondTS))
+			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(3, 2)))
+
+			Expect(c.Close()).To(Succeed())
+		})
+
+		Specify("Sequential channel arrivals", func() {
+			indexes := []channel.Channel{{
+				Name:     "time",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}}
+			bases := []channel.Channel{
+				{
+					Name:     "ch1",
+					DataType: telem.Float64T,
+				},
+				{
+					Name:     "ch2",
+					DataType: telem.Float64T,
+				},
+			}
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Float64T,
+				Virtual:    true,
+				Expression: "return ch1 + ch2",
+			}
+			c := open(&indexes, &bases, &calc)
+			idx := telem.NewSeriesSecondsTSV(1, 2, 3)
+			idx.Alignment = telem.NewAlignment(5, 1)
+			fr1 := core.UnaryFrame(indexes[0].Key(), idx)
+			_, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
+			Expect(changed).To(BeFalse())
+			ch1Data := telem.NewSeriesV[float64](10.0, 20.0, 30.0)
+			ch1Data.Alignment = telem.NewAlignment(5, 1)
+			fr2 := core.UnaryFrame(bases[0].Key(), ch1Data)
+			of := core.Frame{}
+			_, changed = MustSucceed2(c.Next(ctx, fr2, of))
+			Expect(changed).To(BeFalse())
+			ch2Data := telem.NewSeriesV[float64](1.0, 2.0, 3.0)
+			ch2Data.Alignment = telem.NewAlignment(5, 1)
+			fr3 := core.UnaryFrame(bases[1].Key(), ch2Data)
+			of = core.Frame{}
+			of, changed = MustSucceed2(c.Next(ctx, fr3, of))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float64](11.0, 22.0, 33.0))
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
+			))
+			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(5, 1)))
+			Expect(c.Close()).To(Succeed())
+		})
+	})
+
+	It("Operations", func() {
+		idx := []channel.Channel{{
+			Name:     "time",
+			DataType: telem.TimeStampT,
+			IsIndex:  true,
+		}}
+		base := []channel.Channel{{
+			Name:     "base",
+			DataType: telem.Int64T,
+		}}
+		calc := channel.Channel{
+			Name:       "calc",
+			DataType:   telem.Int64T,
+			Virtual:    true,
+			Expression: "return base",
+			Operations: []channel.Operation{
+				{
+					Type:     "avg",
+					Duration: 6 * telem.Second,
+				},
+			},
+		}
+		c := open(&idx, &base, &calc)
+		d := telem.NewSeriesV[int64](10, 20, 30)
+		i := telem.NewSeriesSecondsTSV(1, 2, 3)
+		d.Alignment = telem.NewAlignment(1, 0)
+		i.Alignment = d.Alignment
+		fr := core.MultiFrame(
+			[]channel.Key{idx[0].Key(), base[0].Key()},
+			[]telem.Series{i, d},
+		)
+		o, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+		Expect(changed).To(BeTrue())
+		Expect(o.Len()).To(BeEquivalentTo(1))
+		Expect(o.Get(calc.Index()).Series[0]).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(3)))
+		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](20))
+
+		d = telem.NewSeriesV[int64](40, 50, 60)
+		i = telem.NewSeriesSecondsTSV(4, 5, 6)
+		d.Alignment = telem.NewAlignment(1, 3)
+		i.Alignment = d.Alignment
+		fr = core.MultiFrame(
+			[]channel.Key{idx[0].Key(), base[0].Key()},
+			[]telem.Series{i, d},
+		)
+		o, changed = MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+		Expect(changed).To(BeTrue())
+		Expect(o.Len()).To(BeEquivalentTo(1))
+		Expect(o.Get(calc.Index()).Series[0]).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(6)))
+		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
 	})
 })
-
-func BenchmarkCalculator(b *testing.B) {
-	inCh1 := channel.Channel{
-		Leaseholder: 1,
-		LocalKey:    1,
-		Name:        "in_ch_1",
-		DataType:    telem.Float32T,
-	}
-	inCh2 := channel.Channel{
-		Leaseholder: 1,
-		LocalKey:    2,
-		Name:        "in_ch_2",
-		DataType:    telem.Float32T,
-	}
-	out := channel.Channel{
-		Leaseholder: 1,
-		LocalKey:    3,
-		Name:        "out",
-		DataType:    telem.Float32T,
-		Expression:  "return in_ch_1 * in_ch_2",
-	}
-	calc := MustSucceed(calculation.OpenCalculator(
-		out,
-		[]channel.Channel{inCh1, inCh2},
-	))
-	data1 := telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-	data2 := telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-
-	for b.Loop() {
-		_, _ = calc.Next(core.MultiFrame(
-			[]channel.Key{inCh1.Key(), inCh2.Key()},
-			[]telem.Series{data1, data2},
-		))
-		data1.Alignment = data1.AlignmentBounds().Upper
-		data2.Alignment = data2.AlignmentBounds().Upper
-	}
-}

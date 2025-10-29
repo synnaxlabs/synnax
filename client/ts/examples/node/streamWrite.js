@@ -63,7 +63,6 @@ const roughRate = Rate.hz(25);
 const writer = await client.openWriter({
   start,
   channels: [timeChannel.key, dataChannel1.key, dataChannel2.key],
-  enableAutoCommit: true,
 });
 
 try {

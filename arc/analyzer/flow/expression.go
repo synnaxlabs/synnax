@@ -10,64 +10,40 @@
 package flow
 
 import (
-	"context"
-
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 )
 
-// analyzeExpression converts an inline expression into a synthetic stage
+// analyzeExpression converts an inline expression into a syntenic function that
+// can be used as a node in a flow graph.
 func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
-	exprType := atypes.InferFromExpression(ctx)
-	// If the expression type is a channel, the stage returns the channel's value type
-	// (because the stage will read from the channel)
-	if chanType, ok := exprType.(ir.Chan); ok {
-		exprType = chanType.ValueType
-	}
-	t := ir.Stage{Return: exprType, Channels: ir.NewChannels()}
-	stageScope, err := ctx.Scope.Root().Add(ctx, ir.Symbol{
-		Name:       "",
-		Kind:       ir.KindStage,
-		Type:       t,
-		ParserRule: ctx.AST,
+	exprType := atypes.InferFromExpression(ctx).Unwrap()
+	t := types.Function(types.FunctionProperties{})
+	t.Outputs.Put(ir.DefaultOutputParam, exprType)
+	fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
+		Name: "",
+		Kind: symbol.KindFunction,
+		Type: t,
+		AST:  ctx.AST,
 	})
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-	stageScope = stageScope.AutoName("__expr_")
-	t.Key = stageScope.Name
-	blockScope, err := stageScope.Add(ctx, ir.Symbol{
-		Name:       "",
-		Kind:       ir.KindBlock,
-		Type:       t,
-		ParserRule: ctx.AST,
+	fnScope = fnScope.AutoName("__expr_")
+	blockScope, err := fnScope.Add(ctx, symbol.Symbol{
+		Name: "",
+		Kind: symbol.KindBlock,
+		AST:  ctx.AST,
 	})
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-	blockScope.OnResolve = func(ctx_ context.Context, s *ir.Scope) error {
-		_, ok := s.Type.(ir.Chan)
-		if !ok {
-			ctx.Diagnostics.AddError(errors.Newf(
-				"type mismatch: only channels can be used in flow expressions, encountered symbol %s with type %s",
-				s.Name,
-				s.Type.String(),
-			), s.ParserRule)
-		}
-		if s.Kind == ir.KindChannel {
-			t.Channels.Read.Add(uint32(s.ID))
-		}
-		return nil
-	}
-	if !expression.Analyze(ctx.WithScope(blockScope)) {
-		return false
-	}
-	stageScope.Type = t
-	return true
+	return expression.Analyze(ctx.WithScope(blockScope))
 }

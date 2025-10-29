@@ -411,7 +411,7 @@ struct WriterConfig {
     /// @brief sets whether auto commit is enabled for the writer. If true, samples
     /// will be made immediately available for reads. If false, samples will be made
     /// available for reads only after a call to Writer::commit().
-    bool enable_auto_commit = false;
+    bool enable_auto_commit = true;
 
     /// @brief sets whether the writer returns error if the writer attempts to write
     /// to a channel that it does not have authority to write to. If false, the
