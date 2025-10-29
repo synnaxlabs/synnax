@@ -3,7 +3,6 @@ name = "bench"
 version = "0.1.0"
 description = ""
 authors = ["Emiliano Bonilla <56323762+emilbon99@users.noreply.github.com>"]
-readme = "README.md"
 packages = [{ include = "bench/**/*.py" }]
 
 [tool.poetry.dependencies]
