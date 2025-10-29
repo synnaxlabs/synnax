@@ -14,11 +14,6 @@ export const OPERATIONS_NAV: PageNavNode = {
   name: "Test and Operations",
   children: [
     {
-      name: "Synnax for Test and Operations",
-      href: "/guides/operations/overview",
-      key: "/guides/operations/overview",
-    },
-    {
       name: "Writing Automated Control Sequences",
       href: "/guides/operations/automated-control",
       key: "/guides/operations/automated-control",
