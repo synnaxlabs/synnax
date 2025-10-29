@@ -580,7 +580,7 @@ I can successfully:
 - **Arc Toolbar**
   - [ ] Toggle Arc toolbar visibility with "A" keyboard shortcut
   - [ ] Create a new Arc automation with the "+" button
-  - [ ] Deploy/undeploy an Arc automation with the play/pause button
+  - [ ] Start/stop an Arc automation with the play/pause button
   - [ ] Double-click an Arc to open the editor
   - [ ] Rename the arc automation via the context menu, ensuring that a warning that arcs will get redeployed on rename.
   - [ ] Delete the arc automation via the context menu, ensuring that any arc layouts get removes from the console mosaic.

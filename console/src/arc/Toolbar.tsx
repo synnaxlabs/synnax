@@ -27,7 +27,7 @@ import { array } from "@synnaxlabs/x";
 import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { createEditor } from "@/arc/editor";
+import { Editor } from "@/arc/editor";
 import { remove } from "@/arc/slice";
 import { EmptyAction, Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
@@ -37,7 +37,7 @@ import { Ontology } from "@/ontology";
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const handleClick = () => placeLayout(createEditor());
+  const handleClick = () => placeLayout(Editor.create());
   return (
     <EmptyAction
       message="No existing Arcs."
@@ -95,7 +95,7 @@ const Content = () => {
           message: "Failed to open Arc editor",
           description: `Arc with key ${key} not found`,
         });
-      placeLayout(createEditor({ key, name: arc.name }));
+      placeLayout(Editor.create({ key, name: arc.name }));
     },
     [getItem, addStatus, placeLayout],
   );
@@ -108,7 +108,7 @@ const Content = () => {
     handleError(async () => {
       const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
       if (name == null) return;
-      placeLayout(createEditor({ name }));
+      placeLayout(Editor.create({ name }));
     }, "Failed to create arc");
   }, [rename, handleError, placeLayout]);
 
@@ -242,7 +242,7 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
           />
         </Flex.Box>
         <Text.Text level="small" color={10}>
-          {arc?.status?.message ?? (isDeployed ? "Deployed" : "Not deployed")}
+          {arc?.status?.message ?? (isDeployed ? "Started" : "Stopped")}
         </Text.Text>
       </Flex.Box>
       <Button.Button
@@ -250,7 +250,7 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
         status={isLoading ? "loading" : undefined}
         onClick={handleDeployClick}
         onDoubleClick={stopPropagation}
-        tooltip={`${isDeployed ? "Undeploy" : "Deploy"} ${arc?.name ?? ""}`}
+        tooltip={`${isDeployed ? "Stop" : "Start"} ${arc?.name ?? ""}`}
       >
         {isRunning ? <Icon.Pause /> : <Icon.Play />}
       </Button.Button>
@@ -274,17 +274,17 @@ const ContextMenu = ({
   onToggleDeploy,
 }: ContextMenuProps) => {
   const canDeploy = arcs.some((arc) => arc.deploy === false);
-  const canUndeploy = arcs.some((arc) => arc.deploy === true);
+  const canstop = arcs.some((arc) => arc.deploy === true);
   const someSelected = arcs.length > 0;
   const isSingle = arcs.length === 1;
 
   const handleChange = useMemo<PMenu.MenuProps["onChange"]>(
     () => ({
-      deploy: () =>
+      start: () =>
         arcs.forEach((arc) => {
           if (!arc.deploy) onToggleDeploy(arc.key);
         }),
-      undeploy: () =>
+      stop: () =>
         arcs.forEach((arc) => {
           if (arc.deploy) onToggleDeploy(arc.key);
         }),
@@ -298,18 +298,18 @@ const ContextMenu = ({
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleChange}>
       {canDeploy && (
-        <PMenu.Item itemKey="deploy">
+        <PMenu.Item itemKey="start">
           <Icon.Play />
-          Deploy
+          Start
         </PMenu.Item>
       )}
-      {canUndeploy && (
-        <PMenu.Item itemKey="undeploy">
+      {canstop && (
+        <PMenu.Item itemKey="stop">
           <Icon.Pause />
-          Undeploy
+          Stop
         </PMenu.Item>
       )}
-      {(canDeploy || canUndeploy) && <PMenu.Divider />}
+      {(canDeploy || canstop) && <PMenu.Divider />}
       {isSingle && (
         <>
           <PMenu.Item itemKey="edit">

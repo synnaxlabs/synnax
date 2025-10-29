@@ -175,12 +175,12 @@ const Controls = ({ arc }: StatusChipProps) => {
       >
         <Status.Summary
           variant="disabled"
-          message="Arc not deployed"
+          message="Arc not started"
           status={status.data}
         />
         <Button.Button onClick={handleDeploy} variant="filled">
           {isRunning ? <Icon.Pause /> : <Icon.Play />}
-          {isRunning ? "Stop" : "Deploy"}
+          {isRunning ? "Stop" : "Start"}
         </Button.Button>
       </Flex.Box>
     </Flex.Box>
@@ -391,23 +391,23 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 };
 
-export const EDIT_LAYOUT_TYPE = "arc_editor";
-export type EditLayoutType = typeof EDIT_LAYOUT_TYPE;
+export const LAYOUT_TYPE = "arc_editor";
+export type LayoutType = typeof LAYOUT_TYPE;
 
 export const SELECTABLE: Selector.Selectable = {
-  key: EDIT_LAYOUT_TYPE,
+  key: LAYOUT_TYPE,
   title: "Arc Automation",
   icon: <Icon.Arc />,
   create: async ({ layoutKey, rename }) => {
     const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
     if (name == null) return null;
-    return createEditor({ key: layoutKey, name });
+    return create({ key: layoutKey, name });
   },
 };
 
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 
-export const createEditor =
+export const create =
   (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Arc Editor", location = "mosaic", window, tab, ...rest } = initial;
@@ -418,7 +418,7 @@ export const createEditor =
       location,
       name,
       icon: "Arc",
-      type: EDIT_LAYOUT_TYPE,
+      type: LAYOUT_TYPE,
       window: { navTop: true, showTitle: true },
       tab,
     };
