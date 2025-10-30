@@ -25,10 +25,16 @@ const Content = (): ReactElement => {
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
         <Toolbar.Actions>
-          <Toolbar.Action onClick={() => placeLayout(CALCULATED_LAYOUT)}>
+          <Toolbar.Action
+            onClick={() => placeLayout(CALCULATED_LAYOUT)}
+            tooltip="Create Calculated Channel"
+          >
             <Channel.CreateCalculatedIcon />
           </Toolbar.Action>
-          <Toolbar.Action onClick={() => placeLayout(CREATE_LAYOUT)}>
+          <Toolbar.Action
+            onClick={() => placeLayout(CREATE_LAYOUT)}
+            tooltip="Create Channel"
+          >
             <Icon.Add />
           </Toolbar.Action>
         </Toolbar.Actions>

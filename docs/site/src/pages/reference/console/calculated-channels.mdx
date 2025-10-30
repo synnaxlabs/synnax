@@ -469,7 +469,8 @@ section explains how they work under the hood.
 Calculated channels don't run continuously in the background. Instead, they only execute
 when someone actively reads or streams the channel. When you start visualizing a
 calculated channel in a line plot or request its data through the API, Synnax
-automatically activates the calculation. When you stop streaming, the calculation pauses.
+automatically activates the calculation. When you stop streaming, the calculation
+pauses.
 
 This on-demand approach conserves system resources: calculations only consume CPU and
 memory when their results are actually needed.
@@ -486,8 +487,9 @@ the calculation had been running at that time. For this to work:
   historical queries
 
 **Example:** If your calculation depends on `sensor_1` and `sensor_2`, you can query
-historical data for any time range where both sensors have recorded data. The calculation
-will be applied to the historical data as if it had been running continuously.
+historical data for any time range where both sensors have recorded data. The
+calculation will be applied to the historical data as if it had been running
+continuously.
 
 **Nested calculations** also work historically. If `calc_2` depends on `calc_1`, and
 `calc_1` depends on persisted channels, you can query `calc_2` historically as long as
@@ -495,7 +497,8 @@ the underlying data exists.
 
 ### Nested Calculations
 
-Calculated channels can depend on other calculated channels, creating calculation chains:
+Calculated channels can depend on other calculated channels, creating calculation
+chains:
 
 ```
 sensor_raw → temp_celsius → temp_fahrenheit → temp_status
@@ -529,10 +532,12 @@ return temperature + pressure
 ```
 
 If the frame contains:
+
 - `temperature`: 10 samples `[20, 21, 22, 23, 24, 25, 26, 27, 28, 29]`
 - `pressure`: 5 samples `[30, 31, 32, 33, 34]`
 
 The calculation produces **10 output samples**:
+
 1. Pressure's last value (34) repeats for positions 6-10
 2. Elementwise addition: `[50, 52, 54, 56, 58, 59, 60, 61, 62, 63]`
 

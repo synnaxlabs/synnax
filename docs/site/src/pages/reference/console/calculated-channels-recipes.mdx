@@ -17,8 +17,8 @@ export const components = mdxOverrides;
 This page provides practical recipes for common calculated channel patterns. Each recipe
 includes a description, Arc expression, and configuration notes.
 
-For fundamentals, see the
-[Calculated Channels](/reference/console/calculated-channels) documentation.
+For fundamentals, see the [Calculated Channels](/reference/console/calculated-channels)
+documentation.
 
 <Divider.Divider x />
 
@@ -32,7 +32,7 @@ Multiply a sensor reading by a constant factor:
 return sensor * 2.5
 ```
 
- ^ Use case: ^  Converting raw ADC values to engineering units, applying calibration
+^ Use case: ^ Converting raw ADC values to engineering units, applying calibration
 factors.
 
 ### Offset
@@ -43,7 +43,7 @@ Add or subtract a constant value:
 return temperature + 273.15
 ```
 
- ^ Use case: ^  Converting Celsius to Kelvin, applying zero-point corrections.
+^ Use case: ^ Converting Celsius to Kelvin, applying zero-point corrections.
 
 ### Linear Transformation
 
@@ -54,7 +54,7 @@ scaled := raw_sensor * 0.5
 return scaled + 10
 ```
 
- ^ Use case: ^  General calibration `y = mx + b` where `m = 0.5` and `b = 10`.
+^ Use case: ^ General calibration `y = mx + b` where `m = 0.5` and `b = 10`.
 
 ### Inversion
 
@@ -64,7 +64,7 @@ Invert a signal:
 return -1 * signal
 ```
 
- ^ Use case: ^  Reversing polarity, converting pressure drop to pressure rise.
+^ Use case: ^ Reversing polarity, converting pressure drop to pressure rise.
 
 <Divider.Divider x />
 
@@ -118,7 +118,7 @@ Add multiple channels together:
 return ch1 + ch2 + ch3
 ```
 
- ^ Use case: ^  Total flow from multiple sensors, combined force measurements.
+^ Use case: ^ Total flow from multiple sensors, combined force measurements.
 
 ### Average
 
@@ -128,7 +128,7 @@ Compute the mean of multiple channels:
 return (temp_1 + temp_2 + temp_3 + temp_4) / 4
 ```
 
- ^ Use case: ^  Average temperature from redundant sensors, sensor voting.
+^ Use case: ^ Average temperature from redundant sensors, sensor voting.
 
 ### Differential
 
@@ -138,7 +138,7 @@ Subtract one channel from another:
 return inlet_pressure - outlet_pressure
 ```
 
- ^ Use case: ^  Pressure drop across a component, differential measurements.
+^ Use case: ^ Pressure drop across a component, differential measurements.
 
 ### Weighted Average
 
@@ -148,7 +148,7 @@ Combine channels with different weights:
 return (sensor_a * 0.5 + sensor_b * 0.3 + sensor_c * 0.2)
 ```
 
- ^ Use case: ^  Sensor fusion with confidence weights, blended measurements.
+^ Use case: ^ Sensor fusion with confidence weights, blended measurements.
 
 ### Ratio
 
@@ -162,7 +162,7 @@ if (denominator == 0) {
 }
 ```
 
- ^ Use case: ^  Efficiency calculations, mixture ratios.
+^ Use case: ^ Efficiency calculations, mixture ratios.
 
 <Note.Note variant="info">
   Always check for division by zero in ratio calculations to avoid errors.
@@ -248,7 +248,7 @@ if (pressure > 100) {
 }
 ```
 
- ^ Use case: ^  Binary alarm when pressure exceeds limit.
+^ Use case: ^ Binary alarm when pressure exceeds limit.
 
 ### Multi-Level Thresholds
 
@@ -264,7 +264,7 @@ if (temp > 100) {
 }
 ```
 
- ^ Use case: ^  Traffic light alarms with multiple severity levels.
+^ Use case: ^ Traffic light alarms with multiple severity levels.
 
 ### Hysteresis (Dead Band)
 
@@ -278,7 +278,7 @@ if (value > 105) {
 }
 ```
 
- ^ Note: ^  For true hysteresis, use a stateful Arc program or external logic. This
+^ Note: ^ For true hysteresis, use a stateful Arc program or external logic. This
 example shows the concept but requires additional implementation.
 
 ### Range Checking
@@ -303,7 +303,7 @@ if (value > max_limit) {
 }
 ```
 
- ^ Use case: ^  Preventing output from exceeding safe operating limits.
+^ Use case: ^ Preventing output from exceeding safe operating limits.
 
 <Divider.Divider x />
 
@@ -318,7 +318,7 @@ Track the maximum value over time:
 - Window: `0` (continuous)
 - Reset Channel: `manual_reset`
 
- ^ Use case: ^  Peak detection, maximum load tracking.
+^ Use case: ^ Peak detection, maximum load tracking.
 
 {/* [VIDEO NEEDED] Operations in action showing aggregation over time */}
 
@@ -331,7 +331,7 @@ Track the minimum value over time:
 - Window: `60` seconds
 - Reset Channel: (none)
 
- ^ Use case: ^  Minimum temperature in last minute, valley detection.
+^ Use case: ^ Minimum temperature in last minute, valley detection.
 
 ### Rolling Average
 
@@ -342,7 +342,7 @@ Compute average over a time window:
 - Window: `10` seconds
 - Reset Channel: (none)
 
- ^ Use case: ^  Smoothing noisy signals, trend analysis.
+^ Use case: ^ Smoothing noisy signals, trend analysis.
 
 ### Peak-to-Peak
 
@@ -352,7 +352,7 @@ Combine two calculated channels:
 2. Create `min_channel` with `min` operation
 3. Create `peak_to_peak` with expression: `return max_channel - min_channel`
 
- ^ Use case: ^  Signal amplitude measurement, vibration analysis.
+^ Use case: ^ Signal amplitude measurement, vibration analysis.
 
 <Divider.Divider x />
 
@@ -369,7 +369,7 @@ correction_factor := 1 - temp_error
 return raw_sensor * correction_factor
 ```
 
- ^ Use case: ^  Compensating for thermal drift in sensors.
+^ Use case: ^ Compensating for thermal drift in sensors.
 
 ### Altitude Pressure Compensation
 
@@ -391,7 +391,7 @@ smoothed := alpha * current_value + (1 - alpha) * previous_smoothed
 return smoothed
 ```
 
- ^ Note: ^  True exponential moving average requires stateful computation. For production
+^ Note: ^ True exponential moving average requires stateful computation. For production
 use, consider the built-in `avg` operation.
 
 ### State Machine (Simple)
@@ -425,7 +425,7 @@ if (s1 >= s2 && s1 <= s3) {
 }
 ```
 
- ^ Note: ^  This assumes `s1`, `s2`, `s3` are three redundant sensors. For more complex
+^ Note: ^ This assumes `s1`, `s2`, `s3` are three redundant sensors. For more complex
 voting algorithms, consider breaking into multiple calculated channels.
 
 ### Efficiency Calculation
@@ -439,7 +439,7 @@ if (input_power == 0) {
 }
 ```
 
- ^ Use case: ^  Motor efficiency, heat exchanger effectiveness, system performance.
+^ Use case: ^ Motor efficiency, heat exchanger effectiveness, system performance.
 
 <Divider.Divider x />
 
@@ -527,7 +527,7 @@ if (noise_power == 0) {
 }
 ```
 
- ^ Note: ^  Arc currently doesn't have built-in `log10`. For logarithmic operations,
+^ Note: ^ Arc currently doesn't have built-in `log10`. For logarithmic operations,
 consider pre-processing or using full Arc programs.
 
 <Divider.Divider x />
@@ -571,7 +571,8 @@ Use operations for stateful aggregations rather than implementing them in expres
 
 ### Debugging
 
-Start simple and build complexity incrementally. Test each step before adding more logic.
+Start simple and build complexity incrementally. Test each step before adding more
+logic.
 
 <Divider.Divider x />
 
