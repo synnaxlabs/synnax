@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import arcGrammar from "../../syntaxes/arc.tmLanguage.json" with { type: "json" };
+// TextMate grammar definition for Arc language syntax highlighting
+import arcGrammar from "syntaxes/arc.tmLanguage.json" with { type: "json" };
 
 /**
  * TextMate grammar for the Arc language.
  * Compatible with Shiki syntax highlighter and other TextMate-based tools.
  */
-export interface ArcGrammar {
+export interface Grammar {
   name: string;
   scopeName: string;
-  patterns: any[];
-  repository: Record<string, any>;
+  patterns: unknown[];
+  repository: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 /**
@@ -38,10 +40,10 @@ export interface ArcGrammar {
  * });
  * ```
  */
-export const grammar: ArcGrammar = {
+export const grammar = {
   ...arcGrammar,
   name: "arc",
   scopeName: "source.arc",
-} as ArcGrammar;
+} as any;
 
 export default grammar;
