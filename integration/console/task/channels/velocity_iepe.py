@@ -52,7 +52,7 @@ class VelocityIEPE(Analog):
             console=console,
             name=name,
             device=device,
-            type="Velocity IEPE",
+            chan_type="Velocity IEPE",
             **kwargs,
         )
 

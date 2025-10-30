@@ -68,7 +68,7 @@ class StrainGauge(Analog):
             console=console,
             name=name,
             device=device,
-            type="Strain Gauge",
+            chan_type="Strain Gauge",
             **kwargs,
         )
 

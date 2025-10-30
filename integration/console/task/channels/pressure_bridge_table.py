@@ -58,7 +58,7 @@ class PressureBridgeTable(Analog):
             console=console,
             name=name,
             device=device,
-            type="Pressure Bridge Table",
+            chan_type="Pressure Bridge Table",
             **kwargs,
         )
 

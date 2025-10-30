@@ -60,7 +60,7 @@ class RTD(Analog):
             console=console,
             name=name,
             device=device,
-            type="RTD",
+            chan_type="RTD",
             **kwargs,
         )
 

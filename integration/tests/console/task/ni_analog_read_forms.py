@@ -111,13 +111,13 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="v0",
-            type=type,
+            chan_type=type,
             device=device_name,
             terminal_config="Default",
         )
         console.ni_ai.add_channel(
             name="v1",
-            type=type,
+            chan_type=type,
             device=device_name,
             terminal_config="Differential",
             min_val=-0.1,
@@ -125,7 +125,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="v2",
-            type=type,
+            chan_type=type,
             device=device_name,
             terminal_config="Pseudo-Differential",
             min_val=-10,
@@ -133,13 +133,13 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="v3",
-            type=type,
+            chan_type=type,
             device=device_name,
             terminal_config="Referenced Single Ended",
         )
         console.ni_ai.add_channel(
             name="v4",
-            type=type,
+            chan_type=type,
             device=device_name,
             terminal_config="Non-Referenced Single Ended",
         )
@@ -152,12 +152,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="Accel_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="Accel_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             sensitivity=0.25,
             units="mV/g",
@@ -166,14 +166,14 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="Accel_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             units="V/g",
             excitation_source="External",
         )
         console.ni_ai.add_channel(
             name="Accel_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             excitation_source="None",
         )
@@ -186,12 +186,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="Bridge_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="Bridge_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             units="mV/V",
             configuration="Full Bridge",
@@ -201,7 +201,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="Bridge_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             units="V/V",
             configuration="Half Bridge",
@@ -209,7 +209,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="Bridge_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             configuration="Quarter Bridge",
             excitation_source="None",
@@ -223,22 +223,25 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="Current_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="Current_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             shunt_resistor="Default",
             resistance=0.1,
         )
         console.ni_ai.add_channel(
-            name="Current_3", type=type, device=device_name, shunt_resistor="Internal"
+            name="Current_3",
+            chan_type=type,
+            device=device_name,
+            shunt_resistor="Internal",
         )
         console.ni_ai.add_channel(
             name="Current_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             shunt_resistor="External",
         )
@@ -251,12 +254,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="ForceBridge_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="ForceBridge_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             force_units="Newtons",
             bridge_configuration="Full Bridge",
@@ -268,7 +271,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="ForceBridge_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             force_units="Pounds",
             bridge_configuration="Half Bridge",
@@ -278,7 +281,7 @@ class NIAnalogReadForms(ConsoleCase):
         ),
         console.ni_ai.add_channel(
             name="ForceBridge_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             force_units="Kilograms",
             physical_units="Kilograms",
@@ -292,12 +295,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="ForceBridge2Pt_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="ForceBridge2Pt_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             force_units="Newtons",
             bridge_configuration="Full Bridge",
@@ -313,7 +316,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="ForceBridge2Pt_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             force_units="Pounds",
             bridge_configuration="Half Bridge",
@@ -323,7 +326,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="ForceBridge2Pt_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             force_units="Kilograms",
             bridge_configuration="Quarter Bridge",
@@ -339,12 +342,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="ForceIEPE_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="ForceIEPE_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             force_units="Newtons",
             sensitivity=2.5,
@@ -354,7 +357,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="ForceIEPE_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             force_units="Pounds",
             sensitivity_units="mV/lb",
@@ -362,7 +365,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="ForceIEPE_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             sensitivity_units="mV/N",
             current_excitation_source="None",
@@ -376,12 +379,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="Microphone_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="Microphone_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             sound_pressure_units="Pascals",
             sensitivity=2.5,
@@ -391,13 +394,13 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="Microphone_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             current_excitation_source="External",
         )
         console.ni_ai.add_channel(
             name="Microphone_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             current_excitation_source="None",
         )
@@ -410,12 +413,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="PressureBridge_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="PressureBridge_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             pressure_units="Pascals",
             bridge_configuration="Full Bridge",
@@ -427,7 +430,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="PressureBridge_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             pressure_units="PSI",
             bridge_configuration="Half Bridge",
@@ -437,7 +440,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="PressureBridge_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             bridge_configuration="Quarter Bridge",
             excitation_source="None",
@@ -452,12 +455,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="PressureBridge2Pt_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="PressureBridge2Pt_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             pressure_units="Pascals",
             bridge_configuration="Full Bridge",
@@ -473,7 +476,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="PressureBridge2Pt_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             pressure_units="PSI",
             bridge_configuration="Half Bridge",
@@ -483,7 +486,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="PressureBridge2Pt_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             bridge_configuration="Quarter Bridge",
             excitation_source="None",
@@ -497,12 +500,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="Resistance_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="Resistance_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             resistance_configuration="2-Wire",
             current_excitation_source="Internal",
@@ -510,14 +513,14 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="Resistance_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             resistance_configuration="3-Wire",
             current_excitation_source="External",
         )
         console.ni_ai.add_channel(
             name="Resistance_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             resistance_configuration="4-Wire",
             current_excitation_source="None",
@@ -531,12 +534,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="RTD_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="RTD_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             temperature_units="Celsius",
             rtd_type="Pt3750",
@@ -547,7 +550,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="RTD_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             temperature_units="Fahrenheit",
             rtd_type="Pt3851",
@@ -556,7 +559,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="RTD_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             temperature_units="Kelvin",
             rtd_type="Pt3928",
@@ -572,12 +575,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="StrainGauge_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="StrainGauge_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             strain_configuration="Full Bridge I",
             excitation_source="Internal",
@@ -590,21 +593,21 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="StrainGauge_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             strain_configuration="Half Bridge I",
             excitation_source="External",
         )
         console.ni_ai.add_channel(
             name="StrainGauge_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             strain_configuration="Full Bridge III",
             excitation_source="None",
         )
         console.ni_ai.add_channel(
             name="StrainGauge_5",
-            type=type,
+            chan_type=type,
             device=device_name,
             strain_configuration="Quarter Bridge I",
         )
@@ -617,30 +620,30 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="TempBuiltIn_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="TempBuiltIn_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             temperature_units="Celsius",
         )
         console.ni_ai.add_channel(
             name="TempBuiltIn_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             temperature_units="Fahrenheit",
         )
         console.ni_ai.add_channel(
             name="TempBuiltIn_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             temperature_units="Kelvin",
         )
         console.ni_ai.add_channel(
             name="TempBuiltIn_5",
-            type=type,
+            chan_type=type,
             device=device_name,
             temperature_units="Rankine",
         )
@@ -653,12 +656,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="Thermocouple_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="Thermocouple_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             temperature_units="Celsius",
             thermocouple_type="J",
@@ -666,7 +669,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="Thermocouple_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             temperature_units="Fahrenheit",
             thermocouple_type="K",
@@ -675,7 +678,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="Thermocouple_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             temperature_units="Rankine",
             thermocouple_type="E",
@@ -689,12 +692,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="TorqueBridgeTable_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="TorqueBridgeTable_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             torque_units="Newton Meters",
             bridge_configuration="Full Bridge",
@@ -705,7 +708,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="TorqueBridgeTable_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             torque_units="Foot Pounds",
             bridge_configuration="Half Bridge",
@@ -715,7 +718,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="TorqueBridgeTable_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             torque_units="Inch Ounces",
             bridge_configuration="Quarter Bridge",
@@ -732,12 +735,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="TorqueBridge2Pt_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="TorqueBridge2Pt_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             torque_units="Newton Meters",
             bridge_configuration="Full Bridge",
@@ -753,7 +756,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="TorqueBridge2Pt_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             torque_units="Foot Pounds",
             bridge_configuration="Half Bridge",
@@ -763,7 +766,7 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="TorqueBridge2Pt_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             torque_units="Inch Ounces",
             bridge_configuration="Quarter Bridge",
@@ -780,12 +783,12 @@ class NIAnalogReadForms(ConsoleCase):
 
         console.ni_ai.add_channel(
             name="VelocityIEPE_1",
-            type=type,
+            chan_type=type,
             device=device_name,
         )
         console.ni_ai.add_channel(
             name="VelocityIEPE_2",
-            type=type,
+            chan_type=type,
             device=device_name,
             velocity_units="m/s",
             sensitivity=10.0,
@@ -795,14 +798,14 @@ class NIAnalogReadForms(ConsoleCase):
         )
         console.ni_ai.add_channel(
             name="VelocityIEPE_3",
-            type=type,
+            chan_type=type,
             device=device_name,
             velocity_units="in/s",
             sensitivity_units="mV/in/s",
         )
         console.ni_ai.add_channel(
             name="VelocityIEPE_4",
-            type=type,
+            chan_type=type,
             device=device_name,
             velocity_units="m/s",
             sensitivity_units="mV/mm/s",
