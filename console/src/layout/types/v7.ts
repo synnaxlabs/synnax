@@ -14,14 +14,14 @@ import { type NavState } from "@/layout/types/v0";
 import * as v1 from "@/layout/types/v1";
 import * as v5 from "@/layout/types/v5";
 
-export const VERSION = "6.0.0";
+const VERSION = "7.0.0";
 
 const ZERO_NAV_STATE: NavState = {
   main: {
     drawers: {
       left: {
         activeItem: null,
-        menuItems: ["channel", "range", "workspace", "device", "task", "user"],
+        menuItems: ["channel", "range", "workspace", "device", "task", "user", "arc"],
       },
       right: { activeItem: null, menuItems: [] },
       bottom: { activeItem: null, menuItems: ["visualization"] },

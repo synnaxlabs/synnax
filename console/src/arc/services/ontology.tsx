@@ -35,7 +35,7 @@ const load = async (client: Synnax, id: ontology.ID, placeLayout: Layout.Placer)
   const arc = await client.arcs.retrieve({ key: id.key });
   const graph = translateGraphToconsole(arc.graph);
   placeLayout(
-    Arc.createEditor({
+    Arc.Editor.create({
       name: arc.name,
       version: "0.0.0",
       key: arc.key,

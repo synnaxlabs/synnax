@@ -143,9 +143,11 @@ func (s *Scheduler) makeContext(ctx context.Context, nodeKey string) node.Contex
 // Only nodes in stratum-0 have their Init method called. Downstream nodes are
 // initialized implicitly through their first Next execution when marked as changed.
 func (s *Scheduler) Init(ctx context.Context) {
-	for _, nodeKey := range s.strata[0] {
-		s.currState = s.nodes[nodeKey]
-		s.currState.node.Init(s.makeContext(ctx, nodeKey))
+	for _, stratum := range s.strata {
+		for _, nodeKey := range stratum {
+			s.currState = s.nodes[nodeKey]
+			s.currState.node.Init(s.makeContext(ctx, nodeKey))
+		}
 	}
 }
 

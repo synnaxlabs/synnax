@@ -7,15 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Arc } from "@/arc";
-import { type LinePlot } from "@/lineplot";
-import { type Log } from "@/log";
-import { type Schematic } from "@/schematic";
-import { type Table } from "@/table";
-
-export type LayoutType =
-  | LinePlot.LayoutType
-  | Log.LayoutType
-  | Schematic.LayoutType
-  | Table.LayoutType
-  | Arc.Editor.LayoutType;
+export * as Editor from "@/arc/editor/external";
