@@ -119,8 +119,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(dist.Channel.Create(ctx, dataCh2)).To(Succeed())
 				keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
-					Start: telem.SecondTS,
-					Keys:  keys,
+					Start:            telem.SecondTS,
+					Keys:             keys,
+					EnableAutoCommit: config.True(),
 				}))
 				idxData = telem.MultiSeries{Series: []telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
@@ -180,6 +181,29 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(v.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
 				Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 				Expect(iter.Close()).To(Succeed())
+			})
+
+			Describe("Legacy Calculation", func() {
+				It("Should correctly calculate output values", func() {
+					legacyCalculation := &channel.Channel{
+						Name:       "legacy_calculation",
+						DataType:   telem.Float32T,
+						Expression: "return sensor_1",
+						Requires:   []channel.Key{dataCh1.Key()},
+					}
+					Expect(dist.Channel.Create(ctx, legacyCalculation)).To(Succeed())
+					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+						Keys:   []channel.Key{legacyCalculation.Key()},
+						Bounds: telem.TimeRangeMax,
+					}))
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+					v := iter.Value().Get(legacyCalculation.Key())
+					Expect(v.Series).To(HaveLen(1))
+					Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](6, 7, 8, 9, 10))
+					Expect(v.Series[0].Alignment).To(Equal(telem.NewAlignment(1, 0)))
+					Expect(iter.Close()).To(Succeed())
+				})
 			})
 		})
 	})

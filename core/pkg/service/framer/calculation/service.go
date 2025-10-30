@@ -325,6 +325,9 @@ func (s *Service) startCalculation(
 		if !ch.IsCalculated() {
 			return nil, errors.Wrapf(validate.Error, "channel %v is not calculated", ch)
 		}
+		if ch.IsLegacyCalculated() {
+			return s.legacy.Request(ctx, ch.Key())
+		}
 		if _, exists := s.mu.entries[key]; exists {
 			s.mu.entries[key].count++
 			return s.releaseEntryCloser(key), nil

@@ -18,8 +18,9 @@ import (
 )
 
 type cacheEntry struct {
-	ch   channel.Channel
-	data telem.MultiSeries
+	ch                     channel.Channel
+	data                   telem.MultiSeries
+	hasInitializedThisLoop bool
 }
 
 // Calculator is an extension of the lua-based computron.Calculator to provide
