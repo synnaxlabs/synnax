@@ -826,6 +826,33 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(0))) // false
 		})
+
+		It("Should infer f32 from conditional return with integer constant and f32 value", func() {
+			// This tests the regression for SY-3195
+			// Integer constant (0) should be coerced to f32 when mixed with f32 returns
+			output := MustSucceed(compile(`
+			func conditionalReturn(condition u8, value f32) f32 {
+				if (condition == 1) {
+					return 0    // Integer constant
+				}
+				return value   // F32 value
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			conditionalReturn := mod.ExportedFunction("conditionalReturn")
+			Expect(conditionalReturn).ToNot(BeNil())
+
+			// Test case 1: condition == 1, should return 0.0 (as f32)
+			results := MustSucceed(conditionalReturn.Call(ctx, 1, uint64(math.Float32bits(42.5))))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(math.Float32bits(0.0))))
+
+			// Test case 2: condition != 1, should return the f32 value (42.5)
+			results = MustSucceed(conditionalReturn.Call(ctx, 0, uint64(math.Float32bits(42.5))))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(math.Float32bits(42.5))))
+		})
 	})
 
 	DescribeTable("PEMDAS", func(expr string, expected float64) {

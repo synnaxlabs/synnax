@@ -554,7 +554,4 @@ var _ = Describe("Analyzer", func() {
 		})
 	})
 
-	Describe("Function Block Parsing", func() {
-
-	})
 })
