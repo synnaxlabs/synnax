@@ -334,9 +334,10 @@ func (s *Service) startCalculation(
 		}
 
 		c, err := OpenCalculator(ctx, CalculatorConfig{
-			ChannelSvc: s.cfg.Channel,
-			Channel:    ch,
-			Resolver:   s.cfg.Arc.SymbolResolver(),
+			ChannelSvc:          s.cfg.Channel,
+			Channel:             ch,
+			Resolver:            s.cfg.Arc.SymbolResolver(),
+			CalculateAlignments: config.False(),
 		})
 		if err != nil {
 			return nil, err

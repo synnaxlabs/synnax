@@ -85,13 +85,15 @@ func (w *freeWriter) alignFrame(fr core.Frame) core.Frame {
 		idx channel.Key
 		ok  bool
 	)
-	//for rawI, s := range fr.RawSeries() {
-	//	if fr.ShouldExcludeRaw(rawI) {
-	//		continue
-	//	}
-	//	s.Alignment = w.alignments[w.indexes[fr.RawKeyAt(rawI)]]
-	//	fr.SetRawSeriesAt(rawI, s)
-	//}
+	for rawI, s := range fr.RawSeries() {
+		if fr.ShouldExcludeRaw(rawI) {
+			continue
+		}
+		if s.Alignment == 0 {
+			s.Alignment = w.alignments[w.indexes[fr.RawKeyAt(rawI)]]
+			fr.SetRawSeriesAt(rawI, s)
+		}
+	}
 
 	for rawI, rawKey := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(rawI) {
@@ -101,7 +103,8 @@ func (w *freeWriter) alignFrame(fr core.Frame) core.Frame {
 		if !ok || rawKey != idx {
 			continue
 		}
-		w.alignments[idx] = w.alignments[idx].AddSamples(uint32(fr.RawSeriesAt(rawI).Len()))
+		s := fr.RawSeriesAt(rawI)
+		w.alignments[idx] = w.alignments[idx].AddSamples(uint32(s.Len()))
 	}
 	return fr
 }
