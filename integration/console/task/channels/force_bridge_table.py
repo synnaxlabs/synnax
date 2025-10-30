@@ -58,7 +58,7 @@ class ForceBridgeTable(Analog):
             console=console,
             name=name,
             device=device,
-            type="Force Bridge Table",
+            chan_type="Force Bridge Table",
             **kwargs,
         )
 

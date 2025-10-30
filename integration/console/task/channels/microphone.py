@@ -54,7 +54,7 @@ class Microphone(Analog):
             console=console,
             name=name,
             device=device,
-            type="Microphone",
+            chan_type="Microphone",
             **kwargs,
         )
 

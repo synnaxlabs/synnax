@@ -50,7 +50,7 @@ class Resistance(Analog):
             console=console,
             name=name,
             device=device,
-            type="Resistance",
+            chan_type="Resistance",
             **kwargs,
         )
 

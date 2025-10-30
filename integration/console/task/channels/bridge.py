@@ -54,7 +54,7 @@ class Bridge(Analog):
             console=console,
             name=name,
             device=device,
-            type="Bridge",
+            chan_type="Bridge",
             **kwargs,
         )
 

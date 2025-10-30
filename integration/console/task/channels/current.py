@@ -46,7 +46,7 @@ class Current(Analog):
             console=console,
             name=name,
             device=device,
-            type="Current",
+            chan_type="Current",
             **kwargs,
         )
 

@@ -62,7 +62,7 @@ class TorqueBridgeTable(Analog):
             console=console,
             name=name,
             device=device,
-            type="Torque Bridge Table",
+            chan_type="Torque Bridge Table",
             **kwargs,
         )
 

@@ -54,7 +54,7 @@ class ForceIEPE(Analog):
             console=console,
             name=name,
             device=device,
-            type="Force IEPE",
+            chan_type="Force IEPE",
             **kwargs,
         )
 

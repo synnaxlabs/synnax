@@ -37,7 +37,7 @@ class NITask(ConsolePage):
     def add_channel(
         self,
         name: str,
-        type: str,
+        chan_type: str,
         device: str,
         dev_name: str | None = None,
         **kwargs: Any,
@@ -50,7 +50,7 @@ class NITask(ConsolePage):
 
         Args:
             name: Channel name
-            type: Channel type string for UI selection
+            chan_type: Channel type string for UI selection
             device: Device identifier
             dev_name: Optional device name
             **kwargs: Additional channel-specific configuration
@@ -73,7 +73,6 @@ class NITask(ConsolePage):
 
         Args:
             name: Channel name
-            type: Channel type string for UI selection
             device: Device identifier
             dev_name: Optional device name
             channel_class: Channel class to instantiate

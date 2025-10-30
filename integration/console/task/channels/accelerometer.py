@@ -50,7 +50,7 @@ class Accelerometer(Analog):
             console=console,
             name=name,
             device=device,
-            type="Accelerometer",
+            chan_type="Accelerometer",
             **kwargs,
         )
 

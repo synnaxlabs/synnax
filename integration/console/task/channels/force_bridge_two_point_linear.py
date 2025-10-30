@@ -65,7 +65,7 @@ class ForceBridgeTwoPointLinear(Analog):
             console=console,
             name=name,
             device=device,
-            type="Force Bridge Two-Point Linear",
+            chan_type="Force Bridge Two-Point Linear",
             **kwargs,
         )
 

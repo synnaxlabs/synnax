@@ -79,7 +79,7 @@ class AnalogRead(NITask):
     def add_channel(
         self,
         name: str,
-        type: str,
+        chan_type: str,
         device: str,
         dev_name: str | None = None,
         **kwargs: Any,
@@ -89,7 +89,7 @@ class AnalogRead(NITask):
 
         Args:
             name: Channel name
-            type: Channel type (must be valid for analog read tasks)
+            chan_type: Channel type (must be valid for analog read tasks)
             device: Device identifier
             dev_name: Optional device name
             **kwargs: Additional channel-specific configuration
@@ -100,18 +100,17 @@ class AnalogRead(NITask):
         Raises:
             ValueError: If channel type is not valid for analog read tasks
         """
-        if type not in ANALOG_READ_CHANNEL_TYPES:
+        if chan_type not in ANALOG_READ_CHANNEL_TYPES:
             raise ValueError(
-                f"Invalid channel type for NI Analog Read: {type}. "
+                f"Invalid channel type for NI Analog Read: {chan_type}. "
                 f"Valid types: {list(ANALOG_READ_CHANNEL_TYPES.keys())}"
             )
 
         return self._add_channel_helper(
             name=name,
-            type=type,
             device=device,
             dev_name=dev_name,
-            channel_class=ANALOG_READ_CHANNEL_TYPES[type],
+            channel_class=ANALOG_READ_CHANNEL_TYPES[chan_type],
             **kwargs,
         )
 

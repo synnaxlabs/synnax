@@ -66,7 +66,7 @@ class PressureBridgeTwoPointLinear(Analog):
             console=console,
             name=name,
             device=device,
-            type="Pressure Bridge Two-Point Linear",
+            chan_type="Pressure Bridge Two-Point Linear",
             **kwargs,
         )
 

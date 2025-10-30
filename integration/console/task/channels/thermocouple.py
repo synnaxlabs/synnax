@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from console.task.channels.analog import Analog
 
@@ -49,6 +49,7 @@ class Thermocouple(Analog):
         cjc_source: Literal["Built In", "Constant Value", "Channel"] | None = None,
         cjc_value: float | None = None,
         cjc_port: int | None = None,
+        **kwargs: Any,
     ) -> None:
 
         # Does not call super()

@@ -70,7 +70,7 @@ class TorqueBridgeTwoPointLinear(Analog):
             console=console,
             name=name,
             device=device,
-            type="Torque Bridge Two-Point Linear",
+            chan_type="Torque Bridge Two-Point Linear",
             **kwargs,
         )
 
