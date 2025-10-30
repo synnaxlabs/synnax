@@ -47,7 +47,7 @@ const useRename = ({
     },
     [firstID],
   );
-  const { update, status } = User.useRename({ beforeUpdate });
+  const { update } = User.useRename({ beforeUpdate });
   return useCallback(
     () => update({ key: firstID.key, username: getResource(firstID).name }),
     [update, firstID, getResource],
