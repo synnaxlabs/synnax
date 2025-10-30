@@ -27,8 +27,8 @@ func compileLiteral(
 	if temp := ctx.AST.TemporalLiteral(); temp != nil {
 		return types.TimeSpan(), nil
 	}
-	if str := ctx.AST.STRING_LITERAL(); str != nil {
-		return types.Type{}, errors.New("string literals are not yet supported")
+	if str := ctx.AST.STR_LITERAL(); str != nil {
+		return types.Type{}, errors.New("str literals are not yet supported")
 	}
 	if series := ctx.AST.SeriesLiteral(); series != nil {
 		return types.Type{}, errors.New("series literals not yet implemented")

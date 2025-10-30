@@ -82,7 +82,7 @@ var _ = Describe("Identifier Compilation", func() {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "enabled", Kind: symbol.KindVariable, Type: types.U8()}))
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "ready", Kind: symbol.KindVariable, Type: types.U8()}))
-			bytecode, exprType := compileWithCtx(ctx, "enabled && ready")
+			bytecode, exprType := compileWithCtx(ctx, "enabled and ready")
 			Expect(bytecode).To(MatchOpcodes(
 				// Load 'enabled'
 				OpLocalGet, 0,

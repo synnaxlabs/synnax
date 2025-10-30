@@ -433,7 +433,7 @@ var _ = Describe("Statement Compiler", func() {
 		Entry("Complex condition with logical operators",
 			`
 			x := 0
-			if 8 > 5 && 3 < 4 {
+			if 8 > 5 and 3 < 4 {
 				x = 10
 			}
 			`,
