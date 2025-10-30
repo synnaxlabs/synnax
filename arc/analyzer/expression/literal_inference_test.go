@@ -125,6 +125,16 @@ func test{} () {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
+		It("Should infer the correct type for cahnenl and literal operations in power expressiosn", func() {
+			program := MustSucceed(parser.Parse(`
+			func cat() f64 {
+				return sensor ^ 2
+			}
+			`))
+			ctx := acontext.CreateRoot(bCtx, program, testResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
 		It("Should infer the correct type for channel and several literal operations", func() {
 			program := MustSucceed(parser.Parse(`
 			func cat() f64 {
@@ -155,6 +165,86 @@ func test{} () {
 			program := MustSucceed(parser.Parse(`
 			func cat() i8 {
 				return integer_sensor
+			}
+			`))
+			ctx := acontext.CreateRoot(bCtx, program, testResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+	})
+
+	Describe("Power operator regression tests (SY-3207)", func() {
+		BeforeEach(func() {
+			testResolver["f32_sensor"] = symbol.Symbol{
+				Name: "f32_sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+			}
+			testResolver["f64_sensor"] = symbol.Symbol{
+				Name: "f64_sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+			}
+			testResolver["i32_sensor"] = symbol.Symbol{
+				Name: "i32_sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I32()),
+			}
+		})
+
+		It("Should infer integer literal as f32 in power expression with f32 channel", func() {
+			program := MustSucceed(parser.Parse(`
+			func test() f32 {
+				return f32_sensor ^ 2
+			}
+			`))
+			ctx := acontext.CreateRoot(bCtx, program, testResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should infer integer literal as f64 in power expression with f64 channel", func() {
+			program := MustSucceed(parser.Parse(`
+			func test() f64 {
+				return f64_sensor ^ 3
+			}
+			`))
+			ctx := acontext.CreateRoot(bCtx, program, testResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should infer integer literal as i32 in power expression with i32 channel", func() {
+			program := MustSucceed(parser.Parse(`
+			func test() i32 {
+				return i32_sensor ^ 2
+			}
+			`))
+			ctx := acontext.CreateRoot(bCtx, program, testResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should handle float literal as exponent with float channel", func() {
+			program := MustSucceed(parser.Parse(`
+			func test() f64 {
+				return f64_sensor ^ 2.5
+			}
+			`))
+			ctx := acontext.CreateRoot(bCtx, program, testResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should handle chained power operations with literals", func() {
+			program := MustSucceed(parser.Parse(`
+			func test() f32 {
+				return f32_sensor ^ 2 ^ 3
+			}
+			`))
+			ctx := acontext.CreateRoot(bCtx, program, testResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should handle power in complex expression with literals", func() {
+			program := MustSucceed(parser.Parse(`
+			func test() f32 {
+				return 2 * f32_sensor ^ 2 + 3
 			}
 			`))
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)

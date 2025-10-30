@@ -78,7 +78,7 @@ var _ = Describe("Analyzer", func() {
 				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign string to i32"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign str to i32"))
 			})
 
 			It("Should allow compatible types in local variable declaration", func() {
@@ -179,7 +179,7 @@ var _ = Describe("Analyzer", func() {
 			prog := MustSucceed(parser.Parse(`
 				func dog() {
 					my_var i32 := 1
-					cat string := "abc"
+					cat str := "abc"
 					bob = cat
 				}
 			`))
@@ -196,7 +196,7 @@ var _ = Describe("Analyzer", func() {
 			prog := MustSucceed(parser.Parse(`
 				func dog() {
 					my_var i32 := 1
-					cat string := "abc"
+					cat str := "abc"
 					cat = bob
 				}
 			`))
@@ -211,7 +211,7 @@ var _ = Describe("Analyzer", func() {
 			prog := MustSucceed(parser.Parse(`
 				func dog() {
 					v1 i32 := 1
-					v2 string := "abc"
+					v2 str := "abc"
 					v2 = v1
 				}
 			`))
@@ -219,7 +219,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
-			Expect(first.Message).To(ContainSubstring("type mismatch: cannot assign i32 to variable of type string"))
+			Expect(first.Message).To(ContainSubstring("type mismatch: cannot assign i32 to variable of type str"))
 		})
 	})
 

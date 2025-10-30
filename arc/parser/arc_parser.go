@@ -1,12 +1,3 @@
-// Copyright 2025 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
@@ -43,22 +34,22 @@ func arcparserParserInit() {
 	staticData.LiteralNames = []string{
 		"", "'func'", "'if'", "'else'", "'return'", "'now'", "'len'", "'chan'",
 		"'<-chan'", "'->chan'", "'i8'", "'i16'", "'i32'", "'i64'", "'u8'", "'u16'",
-		"'u32'", "'u64'", "'f32'", "'f64'", "'string'", "'timestamp'", "'timespan'",
+		"'u32'", "'u64'", "'f32'", "'f64'", "'str'", "'timestamp'", "'timespan'",
 		"'series'", "'->'", "'<-'", "':='", "'$='", "'='", "'+'", "'-'", "'*'",
-		"'/'", "'%'", "'^'", "'=='", "'!='", "'<'", "'>'", "'<='", "'>='", "'&&'",
-		"'||'", "'!'", "'('", "')'", "'{'", "'}'", "'['", "']'", "','", "':'",
+		"'/'", "'%'", "'^'", "'=='", "'!='", "'<'", "'>'", "'<='", "'>='", "'and'",
+		"'or'", "'not'", "'('", "')'", "'{'", "'}'", "'['", "']'", "','", "':'",
 		"';'",
 	}
 	staticData.SymbolicNames = []string{
 		"", "FUNC", "IF", "ELSE", "RETURN", "NOW", "LEN", "CHAN", "RECV_CHAN",
 		"SEND_CHAN", "I8", "I16", "I32", "I64", "U8", "U16", "U32", "U64", "F32",
-		"F64", "STRING", "TIMESTAMP", "TIMESPAN", "SERIES", "ARROW", "RECV",
-		"DECLARE", "STATE_DECLARE", "ASSIGN", "PLUS", "MINUS", "STAR", "SLASH",
-		"PERCENT", "CARET", "EQ", "NEQ", "LT", "GT", "LEQ", "GEQ", "AND", "OR",
-		"NOT", "LPAREN", "RPAREN", "LBRACE", "RBRACE", "LBRACKET", "RBRACKET",
-		"COMMA", "COLON", "SEMICOLON", "TEMPORAL_LITERAL", "FREQUENCY_LITERAL",
-		"INTEGER_LITERAL", "FLOAT_LITERAL", "STRING_LITERAL", "IDENTIFIER",
-		"SINGLE_LINE_COMMENT", "MULTI_LINE_COMMENT", "WS",
+		"F64", "STR", "TIMESTAMP", "TIMESPAN", "SERIES", "ARROW", "RECV", "DECLARE",
+		"STATE_DECLARE", "ASSIGN", "PLUS", "MINUS", "STAR", "SLASH", "PERCENT",
+		"CARET", "EQ", "NEQ", "LT", "GT", "LEQ", "GEQ", "AND", "OR", "NOT",
+		"LPAREN", "RPAREN", "LBRACE", "RBRACE", "LBRACKET", "RBRACKET", "COMMA",
+		"COLON", "SEMICOLON", "TEMPORAL_LITERAL", "FREQUENCY_LITERAL", "INTEGER_LITERAL",
+		"FLOAT_LITERAL", "STR_LITERAL", "IDENTIFIER", "SINGLE_LINE_COMMENT",
+		"MULTI_LINE_COMMENT", "WS",
 	}
 	staticData.RuleNames = []string{
 		"program", "topLevelItem", "functionDeclaration", "inputList", "input",
@@ -388,7 +379,7 @@ const (
 	ArcParserU64                 = 17
 	ArcParserF32                 = 18
 	ArcParserF64                 = 19
-	ArcParserSTRING              = 20
+	ArcParserSTR                 = 20
 	ArcParserTIMESTAMP           = 21
 	ArcParserTIMESPAN            = 22
 	ArcParserSERIES              = 23
@@ -425,7 +416,7 @@ const (
 	ArcParserFREQUENCY_LITERAL   = 54
 	ArcParserINTEGER_LITERAL     = 55
 	ArcParserFLOAT_LITERAL       = 56
-	ArcParserSTRING_LITERAL      = 57
+	ArcParserSTR_LITERAL         = 57
 	ArcParserIDENTIFIER          = 58
 	ArcParserSINGLE_LINE_COMMENT = 59
 	ArcParserMULTI_LINE_COMMENT  = 60
@@ -780,7 +771,7 @@ func (p *ArcParser) TopLevelItem() (localctx ITopLevelItemContext) {
 			p.FunctionDeclaration()
 		}
 
-	case ArcParserNOW, ArcParserLEN, ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTRING, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES, ArcParserRECV, ArcParserMINUS, ArcParserNOT, ArcParserLPAREN, ArcParserLBRACE, ArcParserLBRACKET, ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTRING_LITERAL, ArcParserIDENTIFIER:
+	case ArcParserNOW, ArcParserLEN, ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTR, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES, ArcParserRECV, ArcParserMINUS, ArcParserNOT, ArcParserLPAREN, ArcParserLBRACE, ArcParserLBRACKET, ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTR_LITERAL, ArcParserIDENTIFIER:
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(143)
@@ -1450,7 +1441,7 @@ func (p *ArcParser) OutputType() (localctx IOutputTypeContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTRING, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES:
+	case ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTR, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES:
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(172)
@@ -2249,7 +2240,7 @@ func (p *ArcParser) FlowStatement() (localctx IFlowStatementContext) {
 			p.RoutingTable()
 		}
 
-	case ArcParserNOW, ArcParserLEN, ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTRING, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES, ArcParserRECV, ArcParserMINUS, ArcParserNOT, ArcParserLPAREN, ArcParserLBRACKET, ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTRING_LITERAL, ArcParserIDENTIFIER:
+	case ArcParserNOW, ArcParserLEN, ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTR, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES, ArcParserRECV, ArcParserMINUS, ArcParserNOT, ArcParserLPAREN, ArcParserLBRACKET, ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTR_LITERAL, ArcParserIDENTIFIER:
 		{
 			p.SetState(201)
 			p.FlowNode()
@@ -2288,7 +2279,7 @@ func (p *ArcParser) FlowStatement() (localctx IFlowStatementContext) {
 				p.RoutingTable()
 			}
 
-		case ArcParserNOW, ArcParserLEN, ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTRING, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES, ArcParserRECV, ArcParserMINUS, ArcParserNOT, ArcParserLPAREN, ArcParserLBRACKET, ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTRING_LITERAL, ArcParserIDENTIFIER:
+		case ArcParserNOW, ArcParserLEN, ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTR, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES, ArcParserRECV, ArcParserMINUS, ArcParserNOT, ArcParserLPAREN, ArcParserLBRACKET, ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTR_LITERAL, ArcParserIDENTIFIER:
 			{
 				p.SetState(206)
 				p.FlowNode()
@@ -6863,7 +6854,7 @@ func (p *ArcParser) Type_() (localctx ITypeContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTRING, ArcParserTIMESTAMP, ArcParserTIMESPAN:
+	case ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTR, ArcParserTIMESTAMP, ArcParserTIMESPAN:
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(404)
@@ -6911,7 +6902,7 @@ type IPrimitiveTypeContext interface {
 
 	// Getter signatures
 	NumericType() INumericTypeContext
-	STRING() antlr.TerminalNode
+	STR() antlr.TerminalNode
 
 	// IsPrimitiveTypeContext differentiates from other interfaces.
 	IsPrimitiveTypeContext()
@@ -6965,8 +6956,8 @@ func (s *PrimitiveTypeContext) NumericType() INumericTypeContext {
 	return t.(INumericTypeContext)
 }
 
-func (s *PrimitiveTypeContext) STRING() antlr.TerminalNode {
-	return s.GetToken(ArcParserSTRING, 0)
+func (s *PrimitiveTypeContext) STR() antlr.TerminalNode {
+	return s.GetToken(ArcParserSTR, 0)
 }
 
 func (s *PrimitiveTypeContext) GetRuleContext() antlr.RuleContext {
@@ -7006,11 +6997,11 @@ func (p *ArcParser) PrimitiveType() (localctx IPrimitiveTypeContext) {
 			p.NumericType()
 		}
 
-	case ArcParserSTRING:
+	case ArcParserSTR:
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(410)
-			p.Match(ArcParserSTRING)
+			p.Match(ArcParserSTR)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -7686,7 +7677,7 @@ func (p *ArcParser) ChannelType() (localctx IChannelTypeContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTRING, ArcParserTIMESTAMP, ArcParserTIMESPAN:
+	case ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTR, ArcParserTIMESTAMP, ArcParserTIMESPAN:
 		{
 			p.SetState(425)
 			p.PrimitiveType()
@@ -9371,7 +9362,7 @@ func (p *ArcParser) UnaryExpression() (localctx IUnaryExpressionContext) {
 			p.BlockingReadExpr()
 		}
 
-	case ArcParserNOW, ArcParserLEN, ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTRING, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES, ArcParserLPAREN, ArcParserLBRACKET, ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTRING_LITERAL, ArcParserIDENTIFIER:
+	case ArcParserNOW, ArcParserLEN, ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTR, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES, ArcParserLPAREN, ArcParserLBRACKET, ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTR_LITERAL, ArcParserIDENTIFIER:
 		p.EnterOuterAlt(localctx, 4)
 		{
 			p.SetState(492)
@@ -10273,7 +10264,7 @@ func (p *ArcParser) PrimaryExpression() (localctx IPrimaryExpressionContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case ArcParserLBRACKET, ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTRING_LITERAL:
+	case ArcParserLBRACKET, ArcParserTEMPORAL_LITERAL, ArcParserFREQUENCY_LITERAL, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTR_LITERAL:
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(527)
@@ -10314,7 +10305,7 @@ func (p *ArcParser) PrimaryExpression() (localctx IPrimaryExpressionContext) {
 			}
 		}
 
-	case ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTRING, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES:
+	case ArcParserCHAN, ArcParserRECV_CHAN, ArcParserSEND_CHAN, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTR, ArcParserTIMESTAMP, ArcParserTIMESPAN, ArcParserSERIES:
 		p.EnterOuterAlt(localctx, 4)
 		{
 			p.SetState(533)
@@ -10695,7 +10686,7 @@ type ILiteralContext interface {
 	// Getter signatures
 	NumericLiteral() INumericLiteralContext
 	TemporalLiteral() ITemporalLiteralContext
-	STRING_LITERAL() antlr.TerminalNode
+	STR_LITERAL() antlr.TerminalNode
 	SeriesLiteral() ISeriesLiteralContext
 
 	// IsLiteralContext differentiates from other interfaces.
@@ -10766,8 +10757,8 @@ func (s *LiteralContext) TemporalLiteral() ITemporalLiteralContext {
 	return t.(ITemporalLiteralContext)
 }
 
-func (s *LiteralContext) STRING_LITERAL() antlr.TerminalNode {
-	return s.GetToken(ArcParserSTRING_LITERAL, 0)
+func (s *LiteralContext) STR_LITERAL() antlr.TerminalNode {
+	return s.GetToken(ArcParserSTR_LITERAL, 0)
 }
 
 func (s *LiteralContext) SeriesLiteral() ISeriesLiteralContext {
@@ -10830,11 +10821,11 @@ func (p *ArcParser) Literal() (localctx ILiteralContext) {
 			p.TemporalLiteral()
 		}
 
-	case ArcParserSTRING_LITERAL:
+	case ArcParserSTR_LITERAL:
 		p.EnterOuterAlt(localctx, 3)
 		{
 			p.SetState(554)
-			p.Match(ArcParserSTRING_LITERAL)
+			p.Match(ArcParserSTR_LITERAL)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit

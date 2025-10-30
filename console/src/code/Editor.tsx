@@ -106,9 +106,7 @@ const use = ({
     let model: Monaco.editor.ITextModel | null = null;
     if (customURI != null) {
       const uri = monaco.Uri.parse(customURI);
-      console.log("[Arc Editor] Creating model with URI:", uri.toString());
       model = monaco.editor.createModel(value, language, uri);
-      console.log("[Arc Editor] Model created, URI:", model.uri.toString());
     }
 
     editorRef.current = monaco.editor.create(editorContainerRef.current, {

@@ -228,7 +228,6 @@ const retrieveInitialFormValues = async ({
 >) => {
   if (key == null) return undefined;
   const res = await retrieveSingle({ client, store, query: { key, rangeKey } });
-  console.log(res);
   reset(channelToFormValues(res));
 };
 

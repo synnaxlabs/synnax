@@ -48,7 +48,6 @@ const useRename = ({
     [firstID],
   );
   const { update, status } = User.useRename({ beforeUpdate });
-  console.log(status);
   return useCallback(
     () => update({ key: firstID.key, username: getResource(firstID).name }),
     [update, firstID, getResource],

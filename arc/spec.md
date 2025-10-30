@@ -18,7 +18,7 @@ MultiLineComment ::= '/*' .*? '*/'
 ```
 Type ::= PrimitiveType | ChannelType | SeriesType
 
-PrimitiveType ::= NumericType | 'string'
+PrimitiveType ::= NumericType | 'str'
 
 NumericType ::= IntegerType | FloatType | TemporalType
 
@@ -108,9 +108,9 @@ Type `u8` serves as boolean: `0` is false, non-zero is true. Logical operators n
 to `0` or `1` with short-circuit evaluation.
 
 ```arc
-result := 2 && 3        // 1 (both truthy)
-result := 5 || 0        // 1 (short-circuits)
-negated := !5           // 0
+result := 2 and 3       // 1 (both truthy)
+result := 5 or 0        // 1 (short-circuits)
+negated := not 5        // 0
 ```
 
 ### Zero Values
@@ -205,21 +205,21 @@ Declaration once per scope. Type inference from initial value.
 ```
 Expression ::= UnaryExpression | BinaryExpression | PrimaryExpression
 
-UnaryOperator ::= '-' | '!'
+UnaryOperator ::= '-' | 'not'
 BinaryOperator ::= ArithmeticOp | ComparisonOp | LogicalOp
 ArithmeticOp ::= '+' | '-' | '*' | '/' | '%' | '^'
 ComparisonOp ::= '==' | '!=' | '<' | '>' | '<=' | '>='
-LogicalOp ::= '&&' | '||'
+LogicalOp ::= 'and' | 'or'
 ```
 
 **Precedence** (highest to lowest):
 
 1. `^` (right-associative)
-2. `-`, `!` (unary, right-associative)
+2. `-`, `not` (unary, right-associative)
 3. `*`, `/`, `%` (left-associative)
 4. `+`, `-` (left-associative)
 5. `<`, `>`, `<=`, `>=`, `==`, `!=`
-6. `&&`, `||` (short-circuit)
+6. `and`, `or` (short-circuit)
 
 **Note**: `^` is exponentiation, not XOR. No bitwise operations.
 
@@ -229,7 +229,7 @@ Examples:
 power := 2 ^ 8           // 256
 neg := -2 ^ 2            // -4 (^ binds tighter than unary -)
 remainder := 10 % 3      // 1
-in_range := temp >= 20 && temp <= 30
+in_range := temp >= 20 and temp <= 30
 ```
 
 ## Functions
@@ -299,7 +299,7 @@ stage controller{
 } (enable u8) {              // runtime parameter
     integral $= 0.0           // stateful variable
 
-    if !enable {
+    if not enable {
         0 -> actuator
         return
     }
@@ -406,9 +406,9 @@ alarm_detector{} -> {
 **Inline expressions** can act as implicit stages in flows:
 
 ```arc
-temperature > 100 -> alarm{}              // comparison
-(sensor1 + sensor2) / 2 -> display        // arithmetic
-pressure > 100 || emergency -> shutdown{} // logical
+temperature > 100 -> alarm{}             // comparison
+(sensor1 + sensor2) / 2 -> display       // arithmetic
+pressure > 100 or emergency -> shutdown{} // logical
 ```
 
 Expressions can only reference channels and literals, not variables.

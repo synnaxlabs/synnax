@@ -94,10 +94,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{
-		cfg:   cfg,
-		group: g,
-	}
+	s = &Service{cfg: cfg, group: g}
 	s.mu.statuses = make(map[string]status.Status[any])
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
