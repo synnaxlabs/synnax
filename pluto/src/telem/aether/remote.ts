@@ -286,11 +286,24 @@ export class StreamChannelData
         useIndexOfChannel,
       );
       const tr = this.now().spanRange(-timeSpan);
-      if (!this.channel.virtual || this.channel.isCalculated) {
-        const res = await this.client.read(tr, this.channel.key);
-        res.acquire();
-        this.data.push(res);
-      }
+      if (!this.channel.virtual || this.channel.isCalculated)
+        try {
+          const res = await this.client.read(tr, this.channel.key);
+          res.acquire();
+          this.data.push(res);
+        } catch (e) {
+          // Certain calculated channels can fail to read because they need access
+          // to virtual channels that cannot be read from historically. Instead of
+          // throwing an
+          if (
+            this.channel.isCalculated &&
+            e instanceof Error &&
+            e.message.includes("cannot open iterator on virtual channel")
+          )
+            console.warn("failed to read calculated channel data", e);
+          else throw e;
+        }
+
       this.stopStreaming?.();
       const handler: client.StreamHandler = (res) => {
         if (this.channel == null) return;
