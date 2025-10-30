@@ -48,12 +48,12 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
       else onClose();
     },
   });
-  const isLegacyCalculated =
-    Form.useFieldValue<
-      channel.Key[],
-      channel.Key[],
-      typeof Channel.calculatedFormSchema
-    >("requires", { ctx: form, optional: true })?.length > 0;
+  const requiresValue = Form.useFieldValue<
+    channel.Key[],
+    channel.Key[],
+    typeof Channel.calculatedFormSchema
+  >("requires", { ctx: form, optional: true });
+  const isLegacyCalculated = requiresValue != null && requiresValue.length > 0;
   const [createMore, setCreateMore] = useState(false);
   if (variant !== "success") return <Status.Summary status={status} />;
   return (

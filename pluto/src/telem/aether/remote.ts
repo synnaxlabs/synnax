@@ -296,7 +296,6 @@ export class StreamChannelData
           // to virtual channels that cannot be read from historically. Instead of
           // throwing an
           if (
-            this.channel.isCalculated &&
             e instanceof Error &&
             e.message.includes("cannot open iterator on virtual channel")
           )
