@@ -297,7 +297,8 @@ export class StreamChannelData
           // throwing an
           if (
             e instanceof Error &&
-            e.message.includes("cannot open iterator on virtual channel")
+            (e.message.includes("cannot open iterator on virtual channel") ||
+              e.message.includes("cannot read from free channel"))
           )
             console.warn("failed to read calculated channel data", e);
           else throw e;
