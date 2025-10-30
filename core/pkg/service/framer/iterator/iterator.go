@@ -116,6 +116,10 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	if err != nil {
 		return nil, err
 	}
+	legacyCalcTransform, err := s.newLegacyCalculationTransform(ctx, &cfg)
+	if err != nil {
+		return nil, err
+	}
 	dist, err := s.cfg.DistFramer.NewStreamIterator(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -129,8 +133,18 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 			calcTransform,
 			confluence.DeferErr(calcTransform.close),
 		)
-		plumber.MustConnect[Response](p, "distribution", "calculation", 25)
+		plumber.MustConnect[Response](p, routeOutletFrom, "calculation", 25)
 		routeOutletFrom = "calculation"
+	}
+
+	if legacyCalcTransform != nil {
+		plumber.SetSegment(
+			p,
+			"legacy_calculation",
+			legacyCalcTransform,
+		)
+		plumber.MustConnect[Response](p, routeOutletFrom, "legacy_calculation", 25)
+		routeOutletFrom = "legacy_calculation"
 	}
 	return &plumber.Segment[Request, Response]{
 		Pipeline:         p,
@@ -180,7 +194,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 		return nil, err
 	}
 	for _, ch := range channels {
-		if ch.IsCalculated() {
+		if ch.IsCalculated() && !ch.IsLegacyCalculated() {
 			calculator, err := s.openCalculator(ctx, ch)
 			if err != nil {
 				return nil, err
@@ -189,6 +203,9 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 			calculated.Add(ch.Key())
 			required.Add(calculator.ReadFrom()...)
 		}
+	}
+	if len(calculators) == 0 {
+		return nil, nil
 	}
 	var requiredChannels []channel.Channel
 	if err := s.cfg.Channel.NewRetrieve().

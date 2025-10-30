@@ -715,8 +715,15 @@ func unifyReturnTypes(
 	if len(returnTypes) == 0 {
 		return types.Type{}, nil
 	}
-	if len(returnTypes) == 1 {
-		t := returnTypes[0]
+
+	// Unwrap all types first (Chan(T) -> T, Series(T) -> T) for consistent handling
+	unwrappedTypes := make([]types.Type, len(returnTypes))
+	for i, t := range returnTypes {
+		unwrappedTypes[i] = t.Unwrap()
+	}
+
+	if len(unwrappedTypes) == 1 {
+		t := unwrappedTypes[0]
 		// If it's a type variable (literal), resolve it to a concrete default type
 		if t.Kind == types.KindVariable {
 			if t.Constraint != nil && t.Constraint.Kind == types.KindIntegerConstant {
@@ -732,10 +739,10 @@ func unifyReturnTypes(
 		return t, nil
 	}
 
-	// Separate type variables from concrete types
+	// Separate type variables from concrete types (now all unwrapped)
 	var concreteTypes []types.Type
 	var typeVariables []types.Type
-	for _, t := range returnTypes {
+	for _, t := range unwrappedTypes {
 		if t.Kind == types.KindVariable {
 			typeVariables = append(typeVariables, t)
 		} else {
@@ -762,8 +769,8 @@ func unifyReturnTypes(
 
 	// If we have concrete types, use them to guide the unification
 	// Replace type variables with types compatible with the concrete types
-	resolvedTypes := make([]types.Type, 0, len(returnTypes))
-	for _, t := range returnTypes {
+	resolvedTypes := make([]types.Type, 0, len(unwrappedTypes))
+	for _, t := range unwrappedTypes {
 		if t.Kind == types.KindVariable {
 			// Infer appropriate type based on concrete types present
 			resolved := resolveTypeVariableWithContext(t, concreteTypes)
@@ -797,9 +804,12 @@ func unifyReturnTypes(
 			break
 		}
 
-		if t.IsFloat() {
+		// Unwrap channel/series types to get the actual value type for classification
+		unwrapped := t.Unwrap()
+
+		if unwrapped.IsFloat() {
 			hasFloat = true
-			if t.Kind == types.KindF32 {
+			if unwrapped.Kind == types.KindF32 {
 				if maxBits < 32 {
 					maxBits = 32
 				}
@@ -808,14 +818,14 @@ func unifyReturnTypes(
 					maxBits = 64
 				}
 			}
-		} else if t.IsInteger() {
-			if t.IsSignedInteger() {
+		} else if unwrapped.IsInteger() {
+			if unwrapped.IsSignedInteger() {
 				hasSigned = true
-			} else if t.IsUnsignedInteger() {
+			} else if unwrapped.IsUnsignedInteger() {
 				hasUnsigned = true
 			}
 
-			bits := getTypeBits(t)
+			bits := getTypeBits(unwrapped)
 			if bits > maxBits {
 				maxBits = bits
 			}
@@ -904,9 +914,19 @@ func resolveTypeVariableWithContext(tv types.Type, concreteTypes []types.Type) t
 		return tv
 	}
 	if tv.Constraint != nil && tv.Constraint.Kind == types.KindIntegerConstant {
+		// Check if any concrete type is a float - integer literals can be coerced to floats
+		for _, t := range concreteTypes {
+			if t.IsFloat() {
+				// Integer constant can be coerced to match the float type
+				return t
+			}
+		}
+
+		// All concrete types are integers, determine the best matching integer type
 		allUnsigned := true
 		for _, t := range concreteTypes {
 			if !t.IsInteger() {
+				// Not a numeric type we can work with, default to I32
 				return types.I32()
 			}
 			if t.IsSignedInteger() {
@@ -933,6 +953,11 @@ func resolveTypeVariableWithContext(tv types.Type, concreteTypes []types.Type) t
 		return types.I32()
 	}
 	if tv.Constraint != nil && tv.Constraint.Kind == types.KindFloatConstant {
+		for _, t := range concreteTypes {
+			if t.IsFloat() {
+				return t
+			}
+		}
 		return types.F64()
 	}
 	if tv.Constraint != nil && tv.Constraint.Kind == types.KindNumericConstant {
