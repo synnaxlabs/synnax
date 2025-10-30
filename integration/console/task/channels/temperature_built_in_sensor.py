@@ -33,6 +33,7 @@ class TemperatureBuiltInSensor(Analog):
     def __init__(
         self,
         console: "Console",
+        name: str,
         device: str,
         port: int | None = None,
         temperature_units: (
@@ -44,6 +45,7 @@ class TemperatureBuiltInSensor(Analog):
         # Does not call super()
 
         self.console = console
+        self.name = name
         self.device = device
 
         values = {}

@@ -33,7 +33,7 @@ class NIAnalogReadForms(ConsoleCase):
         # there is a balance between small (and fast) chunks and
         # initializing multiple, resource-intensive playwright instances
 
-        mode = self.name[-1]  # A, B, C, D
+        mode = self.params.get("mode", "a")
 
         # Talks to NI MAX sim devices
         rack_name = f"TestRack_{random.randint(100, 999)}"
