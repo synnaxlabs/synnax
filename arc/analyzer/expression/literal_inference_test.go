@@ -125,7 +125,7 @@ func test{} () {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should infer the correct type for cahnenl and literal operations in power expressiosn", func() {
+		It("Should infer the correct type for channel and literal operations in power expressiosn", func() {
 			program := MustSucceed(parser.Parse(`
 			func cat() f64 {
 				return sensor ^ 2
