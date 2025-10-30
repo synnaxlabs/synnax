@@ -65,10 +65,6 @@ fields:
       <td>A name for the channel.</td>
     </tr>
     <tr>
-      <td>Data Type</td>
-      <td>The type of data the channel stores. This is automatically inferred from the Arc expression.</td>
-    </tr>
-    <tr>
       <td>Expression</td>
       {
         <td>
@@ -111,11 +107,6 @@ fields:
   </tbody>
 </Table>
 
-<Note.Note variant="warning">
-  Calculated channels are [virtual](/reference/concepts/channels#virtual-channels),
-  meaning data written to them **will not** be stored permanently.
-</Note.Note>
-
 <Divider.Divider x />
 
 ## Writing Expressions
@@ -128,7 +119,7 @@ processing.
 
 #### Channel References
 
-Reference channels directly by name—no prefix or special syntax needed:
+Reference channels directly by name without any prefix or special syntax:
 
 ```arc
 return temperature
@@ -467,6 +458,95 @@ This computes the average temperature over 10-second windows.
 
 <Divider.Divider x />
 
+## How Calculated Channels Work
+
+Calculated channels are [virtual](/reference/concepts/channels#virtual-channels),
+meaning their data is computed on-demand rather than stored permanently to disk. This
+section explains how they work under the hood.
+
+### On-Demand Computation
+
+Calculated channels don't run continuously in the background. Instead, they only execute
+when someone actively reads or streams the channel. When you start visualizing a
+calculated channel in a line plot or request its data through the API, Synnax
+automatically activates the calculation. When you stop streaming, the calculation pauses.
+
+This on-demand approach conserves system resources: calculations only consume CPU and
+memory when their results are actually needed.
+
+### Historical Evaluation
+
+Calculated channels can be evaluated historically, allowing you to query past data as if
+the calculation had been running at that time. For this to work:
+
+- **All input channels** must have data available in the time range you're querying
+- **Simple expressions** (like `return pressure * 1.5`) work reliably with historical
+  data
+- **Operations** (min, max, avg) with time-based windows may have limitations with
+  historical queries
+
+**Example:** If your calculation depends on `sensor_1` and `sensor_2`, you can query
+historical data for any time range where both sensors have recorded data. The calculation
+will be applied to the historical data as if it had been running continuously.
+
+**Nested calculations** also work historically. If `calc_2` depends on `calc_1`, and
+`calc_1` depends on persisted channels, you can query `calc_2` historically as long as
+the underlying data exists.
+
+### Nested Calculations
+
+Calculated channels can depend on other calculated channels, creating calculation chains:
+
+```
+sensor_raw → temp_celsius → temp_fahrenheit → temp_status
+```
+
+When data arrives at `sensor_raw`, it automatically propagates through the chain:
+
+1. `temp_celsius` calculates and outputs its result
+2. `temp_fahrenheit` receives that output and calculates its result
+3. `temp_status` receives that output and produces the final result
+
+There's no limit to nesting depth, but keep in mind that each level adds computation
+time. Design your calculations thoughtfully to balance clarity and performance.
+
+### Handling Different Arrival Rates
+
+Calculated channels operate on **series (arrays of samples)**, not individual scalar
+values. When you write `return temperature + pressure`, you're performing an elementwise
+operation on arrays.
+
+When inputs have different numbers of samples, Arc uses **last-value-hold** semantics:
+
+- The output length equals the **maximum** of the input lengths
+- Shorter series repeat their last value for remaining positions
+- This happens **per frame**, not across time
+
+**Example:** Consider a frame where:
+
+```arc
+return temperature + pressure
+```
+
+If the frame contains:
+- `temperature`: 10 samples `[20, 21, 22, 23, 24, 25, 26, 27, 28, 29]`
+- `pressure`: 5 samples `[30, 31, 32, 33, 34]`
+
+The calculation produces **10 output samples**:
+1. Pressure's last value (34) repeats for positions 6-10
+2. Elementwise addition: `[50, 52, 54, 56, 58, 59, 60, 61, 62, 63]`
+
+**What this means for different rates:**
+
+If `temperature` updates at 100 Hz and `pressure` at 10 Hz, when a frame arrives with
+100 temperature samples and 10 pressure samples, the calculated channel produces **100
+output samples**. Pressure's 10th value is used for output samples 11-100.
+
+**Note:** This is not interpolation; it's a last-value-hold. The system doesn't create
+new pressure values; it reuses the most recent one.
+
+<Divider.Divider x />
+
 ## Migration from Lua
 
 If you have existing Lua-based calculated channels, here's how to migrate them to Arc:
@@ -586,9 +666,9 @@ return offset
 
 ### Channel Naming for Arc
 
-**Important**: Arc identifiers can only contain letters, digits, and underscores, and must
-start with a letter or underscore. Channel names with special characters (like dashes,
-spaces, or dots) **cannot be directly referenced** in Arc expressions.
+**Important**: Arc identifiers can only contain letters, digits, and underscores, and
+must start with a letter or underscore. Channel names with special characters (like
+dashes, spaces, or dots) **cannot be directly referenced** in Arc expressions.
 
 **Best Practice**: When creating channels that will be used in Arc calculated channels,
 use underscores instead of special characters:
