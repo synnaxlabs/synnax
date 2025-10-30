@@ -83,7 +83,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		streamer := MustSucceed(
 			dist.Framer.NewStreamer(
 				ctx,
-				framer.StreamerConfig{Keys: streamKeys, SendOpenAck: config.True()},
+				framer.StreamerConfig{Keys: []channel.Key{streamKeys[1]}, SendOpenAck: config.True()},
 			),
 		)
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
