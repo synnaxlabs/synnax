@@ -25,7 +25,7 @@ import {
   AiOutlineMinus,
   AiOutlineSync,
 } from "react-icons/ai";
-import { BiLinkExternal, BiMath, BiRename } from "react-icons/bi";
+import { BiLinkExternal, BiRename } from "react-icons/bi";
 import {
   BsBorderWidth,
   BsFillInfoSquareFill,
