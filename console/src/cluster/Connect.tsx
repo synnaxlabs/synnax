@@ -9,7 +9,7 @@
 
 import "@/cluster/Connect.css";
 
-import { checkConnection, type connection, Synnax as Client } from "@synnaxlabs/client";
+import { checkConnection, type connection } from "@synnaxlabs/client";
 import { Button, Flex, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { useState } from "react";
@@ -17,13 +17,11 @@ import { useDispatch } from "react-redux";
 import { type z } from "zod";
 
 import { useSelectAllNames } from "@/cluster/selectors";
-import { clusterZ, set, setActive } from "@/cluster/slice";
-import { testConnection } from "@/cluster/testConnection";
+import { clusterZ, set } from "@/cluster/slice";
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
-import { useCreateOrRetrieve } from "@/workspace/useCreateOrRetrieve";
 
 export const CONNECT_LAYOUT_TYPE = "connectCluster";
 

@@ -13,11 +13,11 @@ import { Logo } from "@synnaxlabs/media";
 import { Nav, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { LOGO_LOCATION } from "@/layouts/nav/logo";
 import { Palette } from "@/palette";
+import { User } from "@/user";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -45,7 +45,7 @@ export const Top = (): ReactElement | null => {
       </Nav.Bar.Center>
       <Nav.Bar.End justify="end" align="center" data-tauri-drag-region gap="small">
         <Version.Badge />
-        <Cluster.Connection />
+        <User.Badge />
         <Docs.OpenButton />
         <Layout.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>

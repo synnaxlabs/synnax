@@ -49,8 +49,8 @@ export interface ChangeKeyPayload {
 }
 
 const checkName = (state: SliceState, name: string) => {
-  // if (Object.values(state.clusters).some((c) => c.name === name))
-  //   throw new Error(`A cluster with the name ${name} already exists.`);
+  if (Object.values(state.clusters).some((c) => c.name === name))
+    throw new Error(`A cluster with the name ${name} already exists.`);
 };
 
 const {

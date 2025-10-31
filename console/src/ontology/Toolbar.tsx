@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Cluster } from "@/cluster";
 import { Toolbar as Core } from "@/components";
 
 export interface ToolbarProps extends Core.ContentProps {}
 
-export const Toolbar = (props: ToolbarProps) => (
-  <Cluster.NoneConnectedBoundary>
-    <Core.Content {...props} />
-  </Cluster.NoneConnectedBoundary>
-);
+export const Toolbar = (props: ToolbarProps) => <Core.Content {...props} />;
