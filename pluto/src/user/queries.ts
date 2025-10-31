@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, user } from "@synnaxlabs/client";
+import { ontology, UnexpectedError, user } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -154,11 +154,17 @@ export const { useRetrieve } = Flux.createRetrieve<
   retrieve: async ({ client, query, store }) => {
     const { key } = query;
     if (key == null) {
-      const user = client?.auth?.user;
-      if (user == null) await client.connectivity.check();
-      return client?.auth?.user as user.User;
+      const user = client.auth?.user;
+      if (user == null) {
+        const res = await client.connectivity.check();
+        if (res.error != null) throw res.error;
+      }
+      if (client?.auth?.user == null)
+        throw new UnexpectedError(
+          "Expected user to be available after successfully connecting to cluster",
+        );
+      return client.auth.user;
     }
-    const user = await retrieveSingle({ client, query: { key }, store });
-    return user;
+    return await retrieveSingle({ client, query: { key }, store });
   },
 });
