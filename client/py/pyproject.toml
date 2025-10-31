@@ -16,26 +16,26 @@ Repository = "https://github.com/synnaxlabs/synnax"
 
 [tool.poetry.dependencies]
 alamos = { path = "../../alamos/py", develop = true }
-click = "^8.2.1"
+click = "^8.3.0"
 keyring = "^25.6.0"
-matplotlib = "^3.10.6"
+matplotlib = "^3.10.7"
 nptdms = "^1.10.0"
-numpy = "^2.3.3"
-pandas = "^2.3.2"
-pydantic = "^2.11.9"
-rich = "^14.1.0"
+numpy = "^2.3.4"
+pandas = "^2.3.3"
+pydantic = "^2.12.3"
+rich = "^14.2.0"
 synnax-freighter = { path = "../../freighter/py", develop = true }
 urllib3 = "^2.5.0"
 
 [tool.poetry.group.dev.dependencies]
-black = "^25.1.0"
-isort = "^6.0.1"
-mypy = "^1.18.1"
-poetry = "^2.2.0"
+black = "^25.9.0"
+isort = "^6.1.0"
+mypy = "^1.18.2"
+poetry = "^2.2.1"
 pytest = "^8.4.2"
 pytest-asyncio = "^1.2.0"
-scipy = "^1.16.2"
-vermin = "^1.6.0"
+scipy = "^1.16.3"
+vermin = "^1.7.0"
 
 [tool.isort]
 profile = "black"
