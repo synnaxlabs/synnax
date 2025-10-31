@@ -20,6 +20,7 @@
     "check-types:alamos": "npx turbo check-types --filter @synnaxlabs/alamos",
     "check-types:client": "npx turbo check-types --filter @synnaxlabs/client",
     "check-types:console": "npx turbo check-types --filter @synnaxlabs/console",
+    "check-types:docs": "npx turbo check-types --filter @synnaxlabs/docs",
     "check-types:drift": "npx turbo check-types --filter @synnaxlabs/drift",
     "check-types:freighter": "npx turbo check-types --filter @synnaxlabs/freighter",
     "check-types:media": "npx turbo check-types --filter @synnaxlabs/media",
