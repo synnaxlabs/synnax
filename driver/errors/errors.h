@@ -9,11 +9,10 @@
 
 #pragma once
 
-/// std
 #include <string>
 
-/// module
 #include "x/cpp/xerrors/errors.h"
+#include "x/cpp/xlib/xlib.h"
 
 namespace driver {
 const xerrors::Error BASE_ERROR = xerrors::SY.sub("driver");
@@ -21,4 +20,21 @@ const xerrors::Error HARDWARE_ERROR = BASE_ERROR.sub("hardware");
 const xerrors::Error CRITICAL_HARDWARE_ERROR = HARDWARE_ERROR.sub("critical");
 const xerrors::Error TEMPORARY_HARDWARE_ERROR = HARDWARE_ERROR.sub("temporary");
 const xerrors::Error CONFIGURATION_ERROR = BASE_ERROR.sub("configuration");
+
+/// Vendor library definitions
+struct LibraryInfo {
+    std::string name;
+    std::string url;
+};
+
+/// Standardized missing library error
+inline xerrors::Error missing_lib(const LibraryInfo &lib) {
+    std::string message = lib.name + " library is not installed.";
+    if (!lib.url.empty()) {
+        message += " Download here: " + lib.url +
+                   ". Restart Driver after installation.";
+    }
+    return xerrors::Error(xlib::LOAD_ERROR, message);
+}
+
 }

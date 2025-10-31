@@ -1,3 +1,12 @@
+#  Copyright 2025 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
 from bench.config import TestConfig
 import synnax as sy
 from contextlib import contextmanager
@@ -19,9 +28,7 @@ def start_synnax():
         print(f"Docker volume '{VOLUME_NAME}' created.")
 
     # Define volume bindings
-    volumes = {
-        VOLUME_NAME: {'bind': '/var/lib/synnax/data', 'mode': 'rw'}
-    }
+    volumes = {VOLUME_NAME: {"bind": "/var/lib/synnax/data", "mode": "rw"}}
     client.containers.run(
         "synnaxlabs/synnax",
         detach=True,
@@ -60,7 +67,6 @@ def bench_synnax(cfg: TestConfig):
         with client.open_writer(
             start=cfg._start_time,
             channels=[c.key for c in cfg.channels],
-            enable_auto_commit=True,
             auto_index_persist_interval=sy.TimeSpan(-1),
         ) as w:
             for i, df in enumerate(cfg.frames(index=False)):

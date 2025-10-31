@@ -15,7 +15,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 This page walks you through what channels are, their important properties, and how to
-use them when structuring your cluster.
+use them when in your Core.
 
 If you’re looking for a practical guide on creating or retrieving channels, visit the
 respective pages for the [Python](/reference/python-client/channels) and
@@ -166,11 +166,14 @@ channels.
 ### Expression
 
 The expression field is only used for
-[calculated channels](/reference/console/calculated-channels). This experssion is a Lua
-string that calculated what value should be written to the channel and returns it with
-`return`.
+[calculated channels](/reference/console/calculated-channels). This expression is an
+[Arc](/reference/arc) string that calculates what value should be written to the channel
+and returns it with `return`. Channel dependencies are automatically detected from the
+expression.
 
 ### Requires
 
-Requires is a list of channels that a calculated channel depends on. Calculated channels
-must include at least one channel in the `requires` list.
+The `requires` field was used by legacy Lua-based calculated channels to specify
+dependencies. Modern Arc-based calculated channels automatically detect dependencies
+from the expression, making this field obsolete. It is maintained for backward
+compatibility with legacy channels.

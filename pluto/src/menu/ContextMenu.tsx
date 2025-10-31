@@ -18,6 +18,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { useClickOutside } from "@/hooks";
+import { CONTEXT_MENU_CLASS, CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 
 interface ContextMenuState {
   visible: boolean;
@@ -55,9 +56,6 @@ const INITIAL_STATE: ContextMenuState = {
   keys: [],
 };
 
-export const CONTEXT_SELECTED = CSS.BM("context", "selected");
-export const CONTEXT_TARGET = CSS.BE("context", "target");
-export const CONTEXT_MENU_CLASS = CSS.B("menu-context");
 const CONTEXT_MENU_CONTAINER = CSS.BE("menu-context", "container");
 
 const findTarget = (target: HTMLElement): HTMLElement | null => {

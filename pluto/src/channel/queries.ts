@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType, type group, ontology, ranger } from "@synnaxlabs/client";
-import { array, deep, type Optional, primitive } from "@synnaxlabs/x";
+import { array, deep, type Optional, primitive, TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -93,6 +93,7 @@ export const formSchema = channel.newZ
   .extend({
     name: z.string().min(1, "Name must not be empty"),
     dataType: DataType.z.transform((v) => v.toString()),
+    requires: channel.keyZ.array().optional(),
   })
   .refine(
     (v) => !v.isIndex || DataType.z.parse(v.dataType).equals(DataType.TIMESTAMP),
@@ -110,19 +111,14 @@ export const formSchema = channel.newZ
     path: ["dataType"],
   });
 
-export const calculatedFormSchema = formSchema
-  .safeExtend({
-    expression: z
-      .string()
-      .min(1, "Expression must not be empty")
-      .refine((v) => v.includes("return"), {
-        message: "Expression must contain a return statement",
-      }),
-  })
-  .refine((v) => v.requires?.length > 0, {
-    message: "Expression must use at least one channel",
-    path: ["requires"],
-  });
+export const calculatedFormSchema = formSchema.safeExtend({
+  expression: z
+    .string()
+    .min(1, "Expression must not be empty")
+    .refine((v) => v.includes("return"), {
+      message: "Expression must contain a return statement",
+    }),
+});
 
 const channelToFormValues = (ch: channel.Channel) => ({
   ...ch.payload,
@@ -146,7 +142,13 @@ export const ZERO_FORM_VALUES: z.infer<
   leaseholder: 0,
   virtual: false,
   expression: "",
-  requires: [],
+  operations: [
+    {
+      type: "none",
+      resetChannel: 0,
+      duration: TimeSpan.ZERO,
+    },
+  ],
 };
 
 const retrieveSingle = async ({
@@ -164,11 +166,7 @@ const retrieveSingle = async ({
     let alias = store.rangeAliases.get(aliasKey);
     if (alias == null) {
       const aliasName = await client.ranges.retrieveAlias(rangeKey, ch.key);
-      alias = {
-        alias: aliasName,
-        channel: ch.key,
-        range: rangeKey,
-      };
+      alias = { alias: aliasName, channel: ch.key, range: rangeKey };
       store.rangeAliases.set(aliasKey, alias);
     }
     if (alias != null) ch.alias = alias.alias;
@@ -337,6 +335,8 @@ const updateForm = async ({
   typeof formSchema | typeof calculatedFormSchema,
   FluxSubStore
 >) => {
+  const values = value();
+  if (values.requires != null) delete values.requires;
   const ch = await client.channels.create(value());
   store.channels.set(ch.key, ch);
   set("key", ch.key);
@@ -396,24 +396,24 @@ export const useList = Flux.createList<
   FluxSubStore
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ query: params, store }) => {
-    if (params.searchTerm != null && params.searchTerm.length > 0) return [];
+  retrieveCached: ({ query, store }) => {
+    if (query.searchTerm != null && query.searchTerm.length > 0) return [];
     return store.channels.get((ch) => {
-      if (params.internal != null && ch.internal !== params.internal) return false;
-      if (params.calculated != null && ch.isCalculated !== params.calculated)
+      if (query.internal != null && ch.internal !== query.internal) return false;
+      if (query.calculated != null && ch.isCalculated !== query.calculated)
         return false;
       if (
-        primitive.isNonZero(params.notDataTypes) &&
-        params.notDataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
+        primitive.isNonZero(query.notDataTypes) &&
+        query.notDataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
       )
         return false;
       if (
-        primitive.isNonZero(params.dataTypes) &&
-        !params.dataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
+        primitive.isNonZero(query.dataTypes) &&
+        !query.dataTypes.some((dt) => new DataType(dt).equals(ch.dataType))
       )
         return false;
-      if (params.isIndex != null && ch.isIndex !== params.isIndex) return false;
-      if (params.virtual != null && ch.virtual !== params.virtual) return false;
+      if (query.isIndex != null && ch.isIndex !== query.isIndex) return false;
+      if (query.virtual != null && ch.virtual !== query.virtual) return false;
       return true;
     });
   },
@@ -427,17 +427,23 @@ export const useList = Flux.createList<
   },
   retrieveByKey: async ({ client, key, query, store }) =>
     await retrieveSingle({ client, query: { ...query, key }, store }),
-  mountListeners: ({ store, onChange, onDelete, client }) => [
-    store.channels.onSet((channel) => onChange(channel.key, channel)),
-    store.channels.onDelete((key) => onDelete(key)),
-    store.rangeAliases.onSet((alias) => {
-      if (alias == null) return;
-      onChange(alias.channel, (prev) => {
-        if (prev == null) return prev;
-        return client.channels.sugar({ ...prev, alias: alias.alias });
-      });
-    }),
-  ],
+  mountListeners: ({ store, onChange, onDelete, query: { rangeKey }, client }) => {
+    const destructors = [
+      store.channels.onSet(onChange),
+      store.channels.onDelete(onDelete),
+    ];
+    if (rangeKey != null)
+      destructors.push(
+        store.rangeAliases.onSet((alias) => {
+          if (alias.range !== rangeKey) return;
+          onChange(alias.channel, (prev) => {
+            if (prev == null) return prev;
+            return client.channels.sugar({ ...prev, alias: alias.alias });
+          });
+        }),
+      );
+    return destructors;
+  },
 });
 
 export interface RenameParams extends Pick<channel.Payload, "key" | "name"> {}

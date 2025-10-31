@@ -9,16 +9,12 @@
 
 #pragma once
 
-/// module
 #include "glog/logging.h"
 
-
-/// module
 #include "client/cpp/hardware/hardware.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
 
-/// internal
 #include "driver/pipeline/base.h"
 #include "driver/task/common/status.h"
 #include "driver/task/task.h"
@@ -154,7 +150,6 @@ public:
             scan_rate,
             std::make_unique<SynnaxClusterAPI>(ctx->client)
         ) {}
-
 
     void run() override {
         if (const auto err = this->scanner->start()) {
@@ -299,6 +294,8 @@ public:
     }
 
     std::string name() const override { return this->task_name; }
+
+    using pipeline::Base::stop;
 
     void stop(bool will_reconfigure) override { pipeline::Base::stop(); }
 };

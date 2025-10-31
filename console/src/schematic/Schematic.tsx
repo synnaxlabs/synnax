@@ -251,7 +251,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const calculateCursorPosition = useCallback(
     (cursor: xy.Crude) =>
       Diagram.calculateCursorPosition(
-        box.construct(ref.current),
+        box.construct(ref.current ?? box.ZERO),
         cursor,
         viewportRef.current,
       ),

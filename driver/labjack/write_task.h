@@ -9,15 +9,12 @@
 
 #pragma once
 
-/// std
 #include <string>
 #include <vector>
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/labjack/device/device.h"
 #include "driver/labjack/labjack.h"
 #include "driver/task/common/write_task.h"
@@ -196,7 +193,7 @@ public:
         return this->write_buf_to_dev();
     }
 
-    /// @brief flushes the current value buffer to the labjack device, executing the
+    /// @brief flushes the current value buffer to the LabJack device, executing the
     /// write.
     xerrors::Error write_buf_to_dev() const {
         int err_addr = 0;
@@ -209,7 +206,7 @@ public:
         );
     }
 
-    /// @brief implements pipeline::Sink to write to the Labjack device.
+    /// @brief implements pipeline::Sink to write to the LabJack device.
     xerrors::Error write(const synnax::Frame &frame) override {
         this->reset_buffer(this->cfg.channels.size());
         for (const auto &[cmd_key, s]: frame)

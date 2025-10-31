@@ -50,6 +50,7 @@ const disableCommandPalette = (
 
 interface UseProps extends Input.Control<string> {
   language: string;
+  isBlock?: boolean;
 }
 
 const useTheme = () => {
@@ -80,16 +81,38 @@ const use = ({
   value,
   onChange,
   language,
+  isBlock = false,
 }: UseProps): RefObject<HTMLDivElement | null> => {
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const theme = useTheme();
   const monaco = useMonaco();
+
+  const customURIRef = useRef<string | undefined>(undefined);
+  if (customURIRef.current === undefined && isBlock) {
+    const metadata = { is_block: true };
+    const json = JSON.stringify(metadata);
+    const encoded = btoa(json);
+    const id = Math.random().toString(36).substring(7);
+    const uri = `arc://block/${id}#${encoded}`;
+    customURIRef.current = uri;
+  }
+  const customURI = customURIRef.current;
+
   useEffect(() => {
     if (monaco == null || editorContainerRef.current == null) return;
+
+    // Create model with custom URI if this is a block
+    let model: Monaco.editor.ITextModel | null = null;
+    if (customURI != null) {
+      const uri = monaco.Uri.parse(customURI);
+      model = monaco.editor.createModel(value, language, uri);
+    }
+
     editorRef.current = monaco.editor.create(editorContainerRef.current, {
-      value,
-      language,
+      value: customURI != null ? undefined : value,
+      model: model ?? undefined,
+      language: customURI != null ? undefined : language,
       theme,
       ...ZERO_OPTIONS,
     });
@@ -105,14 +128,17 @@ const use = ({
     return () => {
       dispose.dispose();
       if (editorRef.current != null) editorRef.current.dispose();
+      if (model != null) model.dispose();
     };
-  }, [theme, monaco]);
+  }, [theme, monaco, customURI]);
+
   return editorContainerRef;
 };
 export interface EditorProps
   extends Input.Control<string>,
     Omit<Flex.BoxProps, "value" | "onChange"> {
   language: string;
+  isBlock?: boolean;
 }
 
 export const Editor = ({
@@ -120,17 +146,12 @@ export const Editor = ({
   onChange,
   className,
   language,
+  isBlock,
   ...rest
 }: EditorProps) => {
-  const editorContainerRef = use({ value, onChange, language });
+  const editorContainerRef = use({ value, onChange, language, isBlock });
   return (
-    <Flex.Box
-      y
-      grow
-      {...rest}
-      className={CSS(className, CSS.B("editor"))}
-      style={{ height: "100%", position: "relative", overflow: "hidden" }}
-    >
+    <Flex.Box y grow {...rest} className={CSS(className, CSS.B("editor"))}>
       <div ref={editorContainerRef} style={{ height: "100%" }} />
     </Flex.Box>
   );

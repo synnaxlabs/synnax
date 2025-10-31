@@ -7,18 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <atomic>
 #include <memory>
 
-/// module
 #include "x/cpp/xargs/xargs.h"
 
-/// internal
 #include "driver/cmd/cmd.h"
 
 int cmd::sub::start(xargs::Parser &args) {
-    LOG(INFO) << xlog::BLUE() << "starting synnax driver " << cmd::version()
+    LOG(INFO) << xlog::BLUE() << "starting Synnax Driver " << cmd::version()
               << xlog::RESET();
 
     const bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");

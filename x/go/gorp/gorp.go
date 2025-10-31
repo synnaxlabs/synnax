@@ -22,7 +22,9 @@ import (
 func Wrap(kv kv.DB, opts ...Option) *DB { return &DB{DB: kv, options: newOptions(opts)} }
 
 // DB is a wrapper around a kv.DB that queries can be executed against. DB implements
-// the Writer interface, so it can be provided to Params.set.
+// the transaction (Tx) interface. Using a DB as a Tx will execute the query
+// directly against the underlying key-value store, outside of the isolated context of
+// a transaction.
 type DB struct {
 	kv.DB
 	options
@@ -81,6 +83,14 @@ func OverrideTx(base, override Tx) Tx { return lo.Ternary(override != nil, overr
 type Tx interface {
 	kv.Tx
 	Tools
+}
+
+// Context is an extension of the built-in context.Context type that adds additional
+// fields useful in gorp callbacks.
+type Context struct {
+	context.Context
+	// Tx is the transaction the query is operating under.
+	Tx Tx
 }
 
 type tx struct {

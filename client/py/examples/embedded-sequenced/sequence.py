@@ -20,7 +20,7 @@ This script will create two sequences. The first sequence will generate a float3
 wave and a uint8 sawtooth wave. The second sequence will read both waves, and change the
 inputs to a modulated waveform and a uint7 sawtooth wave.
 
-A sequence is a task that is used to execute a script on a Synnax driver. The script is
+A sequence is a task that is used to execute a script on a Synnax Driver. The script is
 written in Lua and is used to control the behavior of the sequence. For more information
 about sequences in general, visit
 https://docs.synnaxlabs.com/reference/control/embedded.

@@ -9,7 +9,8 @@
 
 from __future__ import annotations
 
-from typing import Iterator, overload
+from collections.abc import Iterator
+from typing import overload
 
 from freighter import Payload
 from pandas import DataFrame

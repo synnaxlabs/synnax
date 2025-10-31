@@ -122,7 +122,7 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 		return err
 	}
 
-	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_iterator")))
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Child("frame_iterator")))
 	// Cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or iterator internal) and we need to free all
 	// resources, OR the client executed the close command on the iterator (in
@@ -184,7 +184,7 @@ const (
 )
 
 func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error {
-	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_streamer")))
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Child("frame_streamer")))
 	defer cancel()
 	streamer, err := s.openStreamer(sCtx, getSubject(ctx), stream)
 	if err != nil {
@@ -258,9 +258,11 @@ type FrameWriterConfig struct {
 	// that require control handoff, this value should be set to false.
 	// [OPTIONAL] - Defaults to false.
 	ErrOnUnauthorized bool `json:"err_on_unauthorized" msgpack:"err_on_unauthorized"`
-	// EnableAutoCommit determines whether the writer will automatically commit after each write.
-	// If EnableAutoCommit is true, then the writer will commit after each write, and will
-	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
+	// EnableAutoCommit determines whether the writer will automatically commit after
+	// each write. If EnableAutoCommit is true, then the writer will commit after each
+	// write, and will flush that commit to index on FS after the specified
+	// AutoIndexPersistInterval.
+	//
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
 	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
@@ -319,7 +321,7 @@ const (
 // and then wait for a reasonable amount of time for the client to close the
 // connection before forcibly terminating the connection.
 func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) error {
-	ctx, cancel := signal.WithCancel(_ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_writer")))
+	ctx, cancel := signal.WithCancel(_ctx, signal.WithInstrumentation(s.Child("frame_writer")))
 	// cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or writer internal) and we need to free all
 	// resources, OR the client executed the close command on the writer (in
@@ -541,7 +543,7 @@ func (c *WSFramerCodec) encodeWriteRequest(
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return err
 	}
-	return c.Codec.EncodeStream(nil, w, v.Payload.Frame)
+	return c.Codec.EncodeStream(ctx, w, v.Payload.Frame)
 }
 
 func (c *WSFramerCodec) decodeStreamResponse(
@@ -578,7 +580,7 @@ func (c *WSFramerCodec) encodeStreamResponse(
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
 		return err
 	}
-	return c.Codec.EncodeStream(nil, w, v.Payload.Frame)
+	return c.Codec.EncodeStream(ctx, w, v.Payload.Frame)
 }
 
 func (c *WSFramerCodec) decodeStreamRequest(

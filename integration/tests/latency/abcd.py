@@ -7,15 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
 
 import numpy as np
 import synnax as sy
 
-from framework.test_case import TestCase
+from tests.latency.latency import Latency
 
 
-class LatencyABCD(TestCase):
+class Abcd(Latency):
     """
 
     Testing the general, periodic latency of 3 async processes.
@@ -49,13 +48,17 @@ class LatencyABCD(TestCase):
     """
 
     def setup(self) -> None:
+        super().setup()
         """
         Setup the test case.
         """
-        self._log_message("WARNING (⚠️): This test does not have any reporting.")
+        self.log("WARNING (⚠️): This test does not have any reporting.")
         self.configure(loop_rate=0.01, manual_timeout=20)
 
-        self.mode = self.name[-1]  # A, B, C, D
+        # Get mode from matrix parameters
+        self.mode = self.params.get("mode")
+        if self.mode is None:
+            raise ValueError("Missing required parameter 'mode' from matrix")
 
         if self.mode == "a":
             self.add_channel(
@@ -101,7 +104,7 @@ class LatencyABCD(TestCase):
         """
         Run the test case.
         """
-        self._log_message("Starting run()")
+        self.log("Starting run()")
         if self.mode == "a":
             while self.loop.wait() and self.should_continue:
                 td = self.read_tlm("t_c", None)
@@ -131,7 +134,6 @@ class LatencyABCD(TestCase):
             idx = 0
 
             while self.loop.wait() and self.should_continue:
-
                 # Just assume we'll never exceed
                 # the 20 second limit for the np arrays
                 t_a = self.read_tlm("t_a")
@@ -162,4 +164,4 @@ class LatencyABCD(TestCase):
 
                 idx += 1
 
-            self._log_message("WARNING (⚠️): LatencyABC Report not implemented...")
+            self.log("WARNING (⚠️): LatencyABC Report not implemented...")

@@ -26,7 +26,7 @@ type ObservablePublisher[V Value] struct {
 // Flow implements the Flow interface.
 func (s *ObservablePublisher[V]) Flow(ctx signal.Context, opts ...Option) {
 	ctx.Go(func(ctx context.Context) error {
-		remove := s.Observable.OnChange(func(ctx context.Context, v V) {
+		remove := s.OnChange(func(ctx context.Context, v V) {
 			_ = signal.SendUnderContext(ctx, s.Out.Inlet(), v)
 		})
 		<-ctx.Done()
@@ -49,7 +49,7 @@ func (ts *ObservableTransformPublisher[V, T]) Flow(ctx signal.Context, opts ...O
 	o := NewOptions(opts)
 	o.AttachClosables(ts.Out)
 	ctx.Go(func(ctx context.Context) error {
-		remove := ts.Observable.OnChange(func(ctx context.Context, v V) {
+		remove := ts.OnChange(func(ctx context.Context, v V) {
 			if t, ok, _ := ts.Transform(ctx, v); ok {
 				_ = signal.SendUnderContext(ctx, ts.Out.Inlet(), t)
 			}
@@ -67,14 +67,14 @@ type ObservableSubscriber[V Value] struct {
 }
 
 func (o *ObservableSubscriber[V]) sink(ctx context.Context, v V) error {
-	o.Observer.Notify(ctx, v)
+	o.Notify(ctx, v)
 	return nil
 }
 
 // NewObservableSubscriber creates a new ObservableSubscriber Segment.
 func NewObservableSubscriber[V Value]() *ObservableSubscriber[V] {
 	o := &ObservableSubscriber[V]{Observer: observe.New[V]()}
-	o.UnarySink.Sink = o.sink
+	o.Sink = o.sink
 	return o
 }
 
@@ -91,7 +91,7 @@ func NewObservableTransformSubscriber[V Value, T Value](
 		Transform: f,
 		Observer:  observe.New[T](),
 	}
-	o.UnarySink.Sink = o.sink
+	o.Sink = o.sink
 	return o
 }
 
@@ -100,7 +100,7 @@ func (o *ObservableTransformSubscriber[V, T]) sink(ctx context.Context, v V) err
 	if err != nil || !ok {
 		return err
 	}
-	o.Observer.Notify(ctx, t)
+	o.Notify(ctx, t)
 	return nil
 }
 
@@ -117,7 +117,7 @@ func NewGeneratorTransformObservable[V Value, T Value](
 		Generator: f,
 		Observer:  observe.New[T](),
 	}
-	o.UnarySink.Sink = o.sink
+	o.Sink = o.sink
 	return o
 }
 
@@ -126,6 +126,6 @@ func (o *GeneratorTransformObservable[V, T]) sink(ctx context.Context, v V) erro
 	if err != nil || !ok {
 		return err
 	}
-	o.Observer.NotifyGenerator(ctx, t)
+	o.NotifyGenerator(ctx, t)
 	return nil
 }

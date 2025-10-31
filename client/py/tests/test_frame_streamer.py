@@ -42,6 +42,13 @@ class TestStreamer:
             with client.open_streamer([123]):
                 pass
 
+    def test_open_streamer_channel_key_zero(self, client: sy.Synnax):
+        """Should throw an exception when a streamer is opened with a channel key of
+        zero"""
+        with pytest.raises(sy.NotFoundError):
+            with client.open_streamer([0, 0, 0]):
+                pass
+
     def test_update_channels(self, virtual_channel: sy.Channel, client: sy.Synnax):
         """Should update the list of channels to stream"""
         with client.open_streamer([]) as s:
@@ -114,9 +121,7 @@ class TestStreamer:
         )
         assert_eventually_channels_are_found(client, [idx.key, data.key])
         with client.open_streamer(data.key) as s:
-            with client.open_writer(
-                sy.TimeStamp.now(), [idx.key, data.key], enable_auto_commit=True
-            ) as w:
+            with client.open_writer(sy.TimeStamp.now(), [idx.key, data.key]) as w:
                 w.write({idx.key: [sy.TimeStamp.now()], data.key: [1]})
                 f = s.read(timeout=1)
                 assert f is not None
@@ -150,7 +155,7 @@ class TestStreamer:
         assert_eventually_channels_are_found(node_2_client, [idx.key, data.key])
         with node_1_client.open_streamer(data.key) as s:
             with node_2_client.open_writer(
-                sy.TimeStamp.now(), [idx.key, data.key], enable_auto_commit=True
+                sy.TimeStamp.now(), [idx.key, data.key]
             ) as w:
                 w.write({idx.key: [sy.TimeStamp.now()], data.key: [1]})
                 f = s.read(timeout=1)

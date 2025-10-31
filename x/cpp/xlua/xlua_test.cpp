@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
 extern "C" {
@@ -15,8 +14,8 @@ extern "C" {
 #include <lualib.h>
 }
 
-/// internal
 #include "x/cpp/xlua/xlua.h"
+#include "x/cpp/xtest/xtest.h"
 
 class XLuaTest : public ::testing::Test {
 protected:
@@ -92,14 +91,22 @@ TEST_F(XLuaTest, SetGlobalTelemInt8) {
 }
 
 TEST_F(XLuaTest, SetGlobalTelemUInt32) {
-    xlua::set_global_sample_value(L, "val", telem::UINT32_T, uint32_t{4294967295});
+    const auto err = xlua::set_global_sample_value(
+        L,
+        "val",
+        telem::UINT32_T,
+        uint32_t{4294967295}
+    );
+    ASSERT_FALSE(err) << err;
     lua_getglobal(L, "val");
     EXPECT_EQ(lua_tointeger(L, -1), 4294967295);
     lua_pop(L, 1);
 }
 
 TEST_F(XLuaTest, SetGlobalTelemUInt16) {
-    xlua::set_global_sample_value(L, "val", telem::UINT16_T, uint16_t{65535});
+    const auto
+        err = xlua::set_global_sample_value(L, "val", telem::UINT16_T, uint16_t{65535});
+    ASSERT_FALSE(err) << err;
     lua_getglobal(L, "val");
     EXPECT_EQ(lua_tointeger(L, -1), 65535);
     lua_pop(L, 1);
@@ -398,7 +405,7 @@ TEST_F(XLuaTest, SetGlobalTelemJsonComplex) {
         {"array", {1, 2, 3}},
         {"object", {{"nested", "value"}, {"bool", true}, {"null", nullptr}}}
     };
-    xlua::set_global_sample_value(L, "val", telem::JSON_T, j.dump());
+    ASSERT_NIL(xlua::set_global_sample_value(L, "val", telem::JSON_T, j.dump()));
 
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_istable(L, -1));

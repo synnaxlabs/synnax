@@ -27,6 +27,7 @@ import {
   type MouseEvent,
   type PropsWithChildren,
   type ReactElement,
+  type ReactNode,
   useCallback,
   useMemo,
   useState,
@@ -81,23 +82,19 @@ const ListItem = ({ validateName, ...rest }: ListItemProps): ReactElement | null
   );
 };
 
-export interface NoneConnectedProps extends PropsWithChildren {
-  disabled?: boolean;
-}
+export interface NoneConnectedBoundaryProps extends PropsWithChildren {}
 
 export const NoneConnectedBoundary = ({
   children,
-  disabled,
-  ...rest
-}: NoneConnectedProps): ReactElement => {
+}: NoneConnectedBoundaryProps): ReactNode => {
   const client = Synnax.use();
-  if (client != null || disabled) return <>{children}</>;
-  return <NoneConnected {...rest} />;
+  if (client != null) return children;
+  return <NoneConnected />;
 };
 
 export interface NoneConnectedProps extends Flex.BoxProps<"div"> {}
 
-export const NoneConnected = ({ ...rest }: NoneConnectedProps): ReactElement => {
+export const NoneConnected = (props: NoneConnectedProps): ReactElement => {
   const placeLayout = Layout.usePlacer();
 
   const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
@@ -107,10 +104,10 @@ export const NoneConnected = ({ ...rest }: NoneConnectedProps): ReactElement => 
 
   return (
     <EmptyAction
-      message="No cluster connected."
-      action="Connect a cluster"
+      message="No Core connected."
+      action="Connect a Core"
       onClick={handleCluster}
-      {...rest}
+      {...props}
     />
   );
 };
@@ -145,8 +142,8 @@ export const Dropdown = (): ReactElement => {
       if (!allNames.includes(name)) return true;
       addStatus({
         variant: "error",
-        message: `Cannot rename cluster to ${name}`,
-        description: `A cluster with name "${name}" already exists.`,
+        message: `Cannot rename Core to ${name}`,
+        description: `A Core with name "${name}" already exists.`,
       });
       return false;
     },
@@ -205,7 +202,7 @@ export const Dropdown = (): ReactElement => {
           </PMenu.Item>
           <Link.CopyMenuItem />
           <PMenu.Divider />
-          <Menu.HardReloadItem />
+          <Menu.ReloadConsoleItem />
         </PMenu.Menu>
       );
     },
@@ -229,7 +226,7 @@ export const Dropdown = (): ReactElement => {
             hideCaret
           >
             {disconnected ? <Icon.Connect /> : <Icon.Cluster />}
-            {cluster?.name ?? "Connect Cluster"}
+            {cluster?.name ?? "Connect a Core"}
           </Dialog.Trigger>
           <ConnectionBadge />
         </Flex.Box>
@@ -239,7 +236,7 @@ export const Dropdown = (): ReactElement => {
             <Header.Header grow borderColor={6} gap="small" x>
               <Header.Title level="h5">
                 <Icon.Cluster />
-                Clusters
+                Cores
               </Header.Title>
             </Header.Header>
             <Button.Button

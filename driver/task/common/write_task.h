@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// module
 #include "x/cpp/loop/loop.h"
 
-/// internal
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
@@ -99,7 +97,6 @@ public:
         return synnax::WriterConfig{
             .channels = keys,
             .mode = synnax::data_saving_writer_mode(this->data_saving),
-            .enable_auto_commit = true,
         };
     }
 

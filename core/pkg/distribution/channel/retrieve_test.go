@@ -10,14 +10,14 @@
 package channel_test
 
 import (
-	"time"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 const internalChannelCount = 1
@@ -169,20 +169,28 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "catalina",
 				},
 			}
-			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
-			Expect(err).ToNot(HaveOccurred())
-			time.Sleep(5 * time.Millisecond)
-			var resChannels []channel.Channel
-			err = mockCluster.Nodes[1].Channel.
-				NewRetrieve().
-				Search("catalina").
-				Entries(&resChannels).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(resChannels)).To(BeNumerically(">", 0))
-			Expect(resChannels[0].Name).To(Equal("catalina"))
-
+			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Eventually(func(g Gomega) {
+				var resChannels []channel.Channel
+				g.Expect(mockCluster.Nodes[1].Channel.
+					NewRetrieve().
+					Search("catalina").
+					Entries(&resChannels).
+					Exec(ctx, nil)).To(Succeed())
+				g.Expect(len(resChannels)).To(BeNumerically(">", 0))
+				g.Expect(resChannels[0].Name).To(Equal("catalina"))
+			}).Should(Succeed())
 		})
+
+		It("Should return an error when retrieving a channel with a key of 0", func() {
+			var resChannels []channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.
+				NewRetrieve().
+				WhereKeys(0).
+				Entries(&resChannels).
+				Exec(ctx, nil)).To(HaveOccurredAs(query.NotFound))
+		})
+
 	})
 	Describe("Exists", func() {
 		It("Should return true if a channel exists", func() {

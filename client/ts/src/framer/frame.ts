@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, unique } from "@synnaxlabs/x";
 import {
+  array,
   MultiSeries,
   Series,
   type SeriesDigest,
@@ -17,7 +17,8 @@ import {
   type TelemValue,
   TimeRange,
   TimeStamp,
-} from "@synnaxlabs/x/telem";
+  unique,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -221,9 +222,9 @@ export class Frame {
 
   /**
    * @returns true if the frame is horizontal. Horizontal frames have a single channel,
-   * and are strongly aligned by default.A horizontal frame typically has a single array
-   * (in which case, it's also 'square'), although it can have multiple series if all
-   * the series are continuous in time.
+   * and are strongly aligned by default. A horizontal frame typically has a single
+   * array (in which case, it's also 'square'), although it can have multiple series if
+   * all the series are continuous in time.
    */
   get isHorizontal(): boolean {
     return this.uniqueColumns.length === 1;

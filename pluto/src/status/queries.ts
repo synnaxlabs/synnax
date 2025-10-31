@@ -24,7 +24,7 @@ const PLURAL_RESOURCE_NAME = "Statuses";
 
 export interface FluxStore extends Flux.UnaryStore<status.Key, status.Status> {}
 
-interface FluxSubStore extends Label.FluxSubStore {
+export interface FluxSubStore extends Label.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
@@ -75,7 +75,7 @@ export const useList = Flux.createList<
         if (keysSet != null && !keysSet.has(status.key)) return;
         onChange(status.key, status, { mode: "prepend" });
       }),
-      store.statuses.onDelete(async (key) => onDelete(key)),
+      store.statuses.onDelete(onDelete),
     ];
   },
 });
@@ -118,7 +118,7 @@ interface RetrieveSingleParams<DetailsSchema extends z.ZodType = z.ZodNever>
   detailsSchema?: DetailsSchema;
 }
 
-const retrieveSingle = async <DetailsSchema extends z.ZodType = z.ZodNever>({
+export const retrieveSingle = async <DetailsSchema extends z.ZodType = z.ZodNever>({
   store,
   client,
   query,

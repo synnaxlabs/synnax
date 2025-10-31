@@ -23,25 +23,22 @@ class ConsoleCase(TestCase):
 
     browser: Browser
     page: Page
-    headless: bool
+    headed: bool
     default_timeout: int
     default_nav_timeout: int
     console: Console
 
     def setup(self) -> None:
-
-        headless = self.params.get("headless", True)
+        headed = self.params.get("headed", False)
         slow_mo = self.params.get("slow_mo", 0)
-        default_timeout = self.params.get("default_timeout", 5000)  # 5s
-        default_nav_timeout = self.params.get("default_nav_timeout", 5000)  # 5s
+        default_timeout = self.params.get("default_timeout", 15000)  # 15s
+        default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
 
         # Open page
-        self._log_message(
-            f"Opening browser in {'headless' if headless else 'visible'} mode"
-        )
+        self.log(f"Opening browser in {'headed' if headed else 'headless'} mode")
         self.playwright = sync_playwright().start()
         browser_engine = self.determine_browser()
-        self.browser = browser_engine.launch(headless=headless, slow_mo=slow_mo)
+        self.browser = browser_engine.launch(headless=not headed, slow_mo=slow_mo)
         self.page = self.browser.new_page()
 
         # Set timeouts
@@ -57,7 +54,7 @@ class ConsoleCase(TestCase):
             port = 5173
             self.page.goto(f"http://{host}:{port}/", timeout=15000)
 
-        self._log_message(f"Console found on port {port}")
+        self.log(f"Console found on port {port}")
 
         # Wait for and fill login form
         username = self.synnax_connection.username
@@ -72,7 +69,7 @@ class ConsoleCase(TestCase):
         self.console = Console(self.page)
 
         # Toggle theme
-        self.page.wait_for_timeout(1000)
+        self.page.wait_for_timeout(3000)  # <- Change with wait_for
         self.console.command_palette("Toggle Color Theme")
 
     def teardown(self) -> None:
@@ -88,6 +85,6 @@ class ConsoleCase(TestCase):
         # Webkit failing on Win in CI
         browsers = ["chromium"]
         selected = random.choice(browsers)
-        self._log_message(f"Randomly selected browser: {selected}")
+        self.log(f"Randomly selected browser: {selected}")
         browser_attr = getattr(self.playwright, selected)
         return cast(BrowserType, browser_attr)

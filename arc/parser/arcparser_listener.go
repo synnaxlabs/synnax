@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
@@ -16,26 +25,35 @@ type ArcParserListener interface {
 	// EnterFunctionDeclaration is called when entering the functionDeclaration production.
 	EnterFunctionDeclaration(c *FunctionDeclarationContext)
 
-	// EnterParameterList is called when entering the parameterList production.
-	EnterParameterList(c *ParameterListContext)
+	// EnterInputList is called when entering the inputList production.
+	EnterInputList(c *InputListContext)
 
-	// EnterParameter is called when entering the parameter production.
-	EnterParameter(c *ParameterContext)
+	// EnterInput is called when entering the input production.
+	EnterInput(c *InputContext)
 
-	// EnterReturnType is called when entering the returnType production.
-	EnterReturnType(c *ReturnTypeContext)
+	// EnterOutputType is called when entering the outputType production.
+	EnterOutputType(c *OutputTypeContext)
 
-	// EnterStageDeclaration is called when entering the stageDeclaration production.
-	EnterStageDeclaration(c *StageDeclarationContext)
+	// EnterMultiOutputBlock is called when entering the multiOutputBlock production.
+	EnterMultiOutputBlock(c *MultiOutputBlockContext)
+
+	// EnterNamedOutput is called when entering the namedOutput production.
+	EnterNamedOutput(c *NamedOutputContext)
 
 	// EnterConfigBlock is called when entering the configBlock production.
 	EnterConfigBlock(c *ConfigBlockContext)
 
-	// EnterConfigParameter is called when entering the configParameter production.
-	EnterConfigParameter(c *ConfigParameterContext)
+	// EnterConfig is called when entering the config production.
+	EnterConfig(c *ConfigContext)
 
 	// EnterFlowStatement is called when entering the flowStatement production.
 	EnterFlowStatement(c *FlowStatementContext)
+
+	// EnterRoutingTable is called when entering the routingTable production.
+	EnterRoutingTable(c *RoutingTableContext)
+
+	// EnterRoutingEntry is called when entering the routingEntry production.
+	EnterRoutingEntry(c *RoutingEntryContext)
 
 	// EnterFlowNode is called when entering the flowNode production.
 	EnterFlowNode(c *FlowNodeContext)
@@ -43,8 +61,8 @@ type ArcParserListener interface {
 	// EnterChannelIdentifier is called when entering the channelIdentifier production.
 	EnterChannelIdentifier(c *ChannelIdentifierContext)
 
-	// EnterStageInvocation is called when entering the stageInvocation production.
-	EnterStageInvocation(c *StageInvocationContext)
+	// EnterFunction is called when entering the function production.
+	EnterFunction(c *FunctionContext)
 
 	// EnterConfigValues is called when entering the configValues production.
 	EnterConfigValues(c *ConfigValuesContext)
@@ -208,26 +226,35 @@ type ArcParserListener interface {
 	// ExitFunctionDeclaration is called when exiting the functionDeclaration production.
 	ExitFunctionDeclaration(c *FunctionDeclarationContext)
 
-	// ExitParameterList is called when exiting the parameterList production.
-	ExitParameterList(c *ParameterListContext)
+	// ExitInputList is called when exiting the inputList production.
+	ExitInputList(c *InputListContext)
 
-	// ExitParameter is called when exiting the parameter production.
-	ExitParameter(c *ParameterContext)
+	// ExitInput is called when exiting the input production.
+	ExitInput(c *InputContext)
 
-	// ExitReturnType is called when exiting the returnType production.
-	ExitReturnType(c *ReturnTypeContext)
+	// ExitOutputType is called when exiting the outputType production.
+	ExitOutputType(c *OutputTypeContext)
 
-	// ExitStageDeclaration is called when exiting the stageDeclaration production.
-	ExitStageDeclaration(c *StageDeclarationContext)
+	// ExitMultiOutputBlock is called when exiting the multiOutputBlock production.
+	ExitMultiOutputBlock(c *MultiOutputBlockContext)
+
+	// ExitNamedOutput is called when exiting the namedOutput production.
+	ExitNamedOutput(c *NamedOutputContext)
 
 	// ExitConfigBlock is called when exiting the configBlock production.
 	ExitConfigBlock(c *ConfigBlockContext)
 
-	// ExitConfigParameter is called when exiting the configParameter production.
-	ExitConfigParameter(c *ConfigParameterContext)
+	// ExitConfig is called when exiting the config production.
+	ExitConfig(c *ConfigContext)
 
 	// ExitFlowStatement is called when exiting the flowStatement production.
 	ExitFlowStatement(c *FlowStatementContext)
+
+	// ExitRoutingTable is called when exiting the routingTable production.
+	ExitRoutingTable(c *RoutingTableContext)
+
+	// ExitRoutingEntry is called when exiting the routingEntry production.
+	ExitRoutingEntry(c *RoutingEntryContext)
 
 	// ExitFlowNode is called when exiting the flowNode production.
 	ExitFlowNode(c *FlowNodeContext)
@@ -235,8 +262,8 @@ type ArcParserListener interface {
 	// ExitChannelIdentifier is called when exiting the channelIdentifier production.
 	ExitChannelIdentifier(c *ChannelIdentifierContext)
 
-	// ExitStageInvocation is called when exiting the stageInvocation production.
-	ExitStageInvocation(c *StageInvocationContext)
+	// ExitFunction is called when exiting the function production.
+	ExitFunction(c *FunctionContext)
 
 	// ExitConfigValues is called when exiting the configValues production.
 	ExitConfigValues(c *ConfigValuesContext)

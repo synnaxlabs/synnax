@@ -89,6 +89,8 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
+const freeWritePipelineBuffer = 4000
+
 // Open opens a new service using the provided configuration(s). Fields defined in
 // each subsequent configuration override those in previous configurations. See the
 // Config struct for information required fields.
@@ -108,14 +110,14 @@ func Open(configs ...Config) (*Service, error) {
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Iterator(),
 		Channels:        cfg.ChannelReader,
-		Instrumentation: cfg.Instrumentation.Child("writer"),
+		Instrumentation: cfg.Child("writer"),
 	})
 	if err != nil {
 		return nil, err
 	}
-	freeWrites := confluence.NewStream[relay.Response](25)
+	freeWrites := confluence.NewStream[relay.Response](freeWritePipelineBuffer)
 	s.Relay, err = relay.Open(relay.Config{
-		Instrumentation: cfg.Instrumentation.Child("relay"),
+		Instrumentation: cfg.Child("relay"),
 		ChannelReader:   cfg.ChannelReader,
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
@@ -130,7 +132,7 @@ func Open(configs ...Config) (*Service, error) {
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Writer(),
 		ChannelReader:   cfg.ChannelReader,
-		Instrumentation: cfg.Instrumentation.Child("writer"),
+		Instrumentation: cfg.Child("writer"),
 		FreeWrites:      freeWrites,
 	})
 	if err != nil {

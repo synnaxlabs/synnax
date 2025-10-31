@@ -12,7 +12,7 @@ import { Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
 import { useEffect } from "react";
 
 import { CSS } from "@/css";
-import { useKey } from "@/hardware/common/task/Form";
+import { useKey } from "@/hardware/common/task/useKey";
 
 export const Rack = () => {
   const { data: rack, retrieve } = PRack.useRetrieveStateful();

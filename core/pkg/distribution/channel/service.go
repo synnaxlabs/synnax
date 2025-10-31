@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -30,6 +31,7 @@ type Service interface {
 	Writeable
 	ontology.Service
 	Group() group.Group
+	SetCalculationAnalyzer(calc CalculationAnalyzer)
 }
 
 type Writeable interface {
@@ -47,6 +49,8 @@ type ReadWriteable interface {
 	Readable
 }
 
+type CalculationAnalyzer = func(ctx context.Context, expr string) (telem.DataType, error)
+
 // service is central entity for managing channels within delta's distribution layer. It
 // provides facilities for creating and retrieving channels.
 type service struct {
@@ -55,6 +59,10 @@ type service struct {
 	proxy *leaseProxy
 	otg   *ontology.Ontology
 	group group.Group
+}
+
+func (s *service) SetCalculationAnalyzer(calc CalculationAnalyzer) {
+	s.proxy.analyzeCalculation = calc
 }
 
 var _ Service = (*service)(nil)
@@ -134,7 +142,7 @@ func New(ctx context.Context, cfgs ...ServiceConfig) (Service, error) {
 }
 
 func (s *service) NewWriter(tx gorp.Tx) Writer {
-	return writer{svc: s, tx: s.DB.OverrideTx(tx)}
+	return writer{svc: s, tx: s.OverrideTx(tx)}
 }
 
 func (s *service) Group() group.Group { return s.group }

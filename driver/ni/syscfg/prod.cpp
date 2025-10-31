@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,15 +11,17 @@
 #include <cstdarg>
 #include <cstring>
 #include <iostream>
+
 #include <stdio.h>
 
 /// internal.
+#include "x/cpp/xos/xos.h"
+
+#include "driver/errors/errors.h"
+#include "driver/ni/errors.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/nisyscfg_errors.h"
 #include "driver/ni/syscfg/prod.h"
-
-/// module
-#include "x/cpp/xos/xos.h"
 
 #ifdef _WIN32
 static const std::string LIB_NAME = "nisyscfg.dll";
@@ -28,10 +30,7 @@ static const std::string LIB_NAME = "libnisyscfg.so";
 #endif
 
 namespace syscfg {
-const auto LOAD_ERROR = xerrors::Error(
-    xlib::LOAD_ERROR,
-    "failed to load ni system configuration library. is it installed?"
-);
+const auto LOAD_ERROR = driver::missing_lib(ni::NI_SYSCFG);
 
 std::pair<std::shared_ptr<API>, xerrors::Error> ProdAPI::load() {
     if (xos::get() == xos::MACOS_NAME) return {nullptr, xerrors::NIL};
@@ -130,7 +129,17 @@ NISYSCFGCDECL ProdAPI::SetFilterProperty(
     ...
 ) {
     va_list args;
+    // Note: Enum types undergo default argument promotion to int in varargs.
+    // This is a known limitation of C varargs but is how the NI API is designed.
+    // Suppressing the warning to maintain semantic type safety of the enum.
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wvarargs"
+#endif
     va_start(args, propertyID);
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
     NISysCfgStatus status = SetFilterPropertyV(filterHandle, propertyID, args);
     va_end(args);
     return status;

@@ -125,7 +125,7 @@ jobs:
             });
 
   build:
-    needs: [setup, create-release]
+    needs: setup
     name: Build (${{ matrix.os }})
     permissions:
       contents: write
@@ -133,6 +133,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       NODE_OPTIONS: "--max_old_space_size=4096"
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
       fail-fast: false
       matrix:
@@ -160,7 +162,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev autoconf automake libtool
 
-      - name: Install Deps on Macos
+      - name: Install Deps on macOS
         if: matrix.os == 'macos-latest'
         run: brew install autoconf automake libtool
 
@@ -175,16 +177,16 @@ jobs:
         if: matrix.os != 'windows-latest'
         run: |
           if [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
-            TMPDIR=/tmp bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc --verbose_failures --subcommands --sandbox_debug //driver
+            TMPDIR=/tmp bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc --verbose_failures //driver
           else
-            TMPDIR=/tmp bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc --verbose_failures --subcommands --sandbox_debug //driver
+            TMPDIR=/tmp bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc --verbose_failures //driver
           fi
 
       - name: Build Driver (Windows)
         if: matrix.os == 'windows-latest'
         run:
           bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
-          --announce_rc //driver
+          --announce_rc --verbose_failures //driver
 
       - name: Download relic for Windows signing
         if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
@@ -346,15 +348,23 @@ jobs:
         run: cp -r console/dist/* core/pkg/service/console/dist/
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.work
-          cache-dependency-path: go.work.sum
+          cache-dependency-path: |
+            go.work.sum
+            **/go.sum
 
       - name: Build
         working-directory: core
+        shell: bash
         run: |
-          go build -tags console,driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
+          go build -tags console,driver \
+            -ldflags="-w -s \
+              -X github.com/synnaxlabs/synnax/pkg/version.Version=${{ needs.setup.outputs.VERSION }} \
+              -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=${{ github.sha }} \
+              -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Sign macOS Server Binary
         if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
@@ -409,11 +419,13 @@ jobs:
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
-      - name: Download Latest Earthly
-        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
-        uses: earthly/actions-setup@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up QEMU
+        if: matrix.os == 'ubuntu-latest'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: matrix.os == 'ubuntu-latest'
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
         if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
@@ -423,39 +435,39 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to Github Container Registry
-        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
+        if: matrix.os == 'ubuntu-latest'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Image
-        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
-        run: earthly --push +docker -tag=${{ needs.setup.outputs.VERSION }}
-        working-directory: core
-
-      - name: Push to Github Container Registry
-        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
-        run: |
-          docker push ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:latest
-            docker push ghcr.io/synnaxlabs/synnax:latest
-          elif [ "${{ github.ref }}" = "refs/heads/rc" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:rc
-            docker push ghcr.io/synnaxlabs/synnax:rc
-          fi
-
-      - name: Push to Docker Hub
-        if: matrix.os == 'ubuntu-latest' && github.event_name != 'pull_request'
-        run: |
-          docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
-          docker push synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:latest
-            docker push synnaxlabs/synnax:latest
-          elif [ "${{ github.ref }}" = "refs/heads/rc" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:rc
-            docker push synnaxlabs/synnax:rc
-          fi
+      - name: Build and Push Docker Images
+        if: matrix.os == 'ubuntu-latest'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./core/Dockerfile
+          platforms:
+            ${{ github.event_name == 'pull_request' && 'linux/amd64' ||
+            'linux/amd64,linux/arm64' }}
+          push: true
+          tags: |
+            ${{ github.event_name == 'pull_request' && format('ghcr.io/synnaxlabs/synnax:{0}', github.sha) || '' }}
+            ${{ github.event_name != 'pull_request' && format('ghcr.io/synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
+            ${{ github.event_name != 'pull_request' && format('synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
+            ${{ github.ref == 'refs/heads/main' && 'ghcr.io/synnaxlabs/synnax:latest' || '' }}
+            ${{ github.ref == 'refs/heads/main' && 'synnaxlabs/synnax:latest' || '' }}
+            ${{ github.ref == 'refs/heads/rc' && 'ghcr.io/synnaxlabs/synnax:rc' || '' }}
+            ${{ github.ref == 'refs/heads/rc' && 'synnaxlabs/synnax:rc' || '' }}
+          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
+          cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}
+          sbom: ${{ github.event_name != 'pull_request' }}
+          provenance:
+            ${{ github.event_name != 'pull_request' && 'mode=max' || 'false' }}
+          build-args: |
+            DRIVER_ENABLED=true
+            CONSOLE_ENABLED=true
+            VERSION=${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || needs.setup.outputs.VERSION }}
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}

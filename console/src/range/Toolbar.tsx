@@ -30,6 +30,7 @@ import { useDispatch, useStore } from "react-redux";
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { Ontology } from "@/ontology";
 import { ContextMenu } from "@/range/ContextMenu";
 import { CREATE_LAYOUT } from "@/range/Create";
 import { EXPLORER_LAYOUT } from "@/range/Explorer";
@@ -166,7 +167,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
-    <Toolbar.Content>
+    <Ontology.Toolbar>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
         <Toolbar.Actions>
@@ -186,7 +187,7 @@ const Content = (): ReactElement => {
         </Toolbar.Actions>
       </Toolbar.Header>
       <List />
-    </Toolbar.Content>
+    </Ontology.Toolbar>
   );
 };
 

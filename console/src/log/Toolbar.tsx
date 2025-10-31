@@ -33,7 +33,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const handleExport = useExport();
   if (state == null) return null;
   return (
-    <Core.Content disableClusterBoundary>
+    <Core.Content>
       <Core.Header>
         <Core.Title icon={<Icon.Log />}>{name}</Core.Title>
         <Flex.Box x style={{ width: 66 }} empty>
@@ -49,7 +49,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           <Channel.SelectSingle
             value={state.channels[0]}
             onChange={handleChannelChange}
-            initialQuery={{ internal: IS_DEV }}
+            initialQuery={{ internal: IS_DEV ? undefined : false }}
           />
         </Input.Item>
       </Flex.Box>

@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/sequence/sequence.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/status/status.h"
+
+#include "driver/sequence/sequence.h"
 
 sequence::Task::Task(
     const std::shared_ptr<task::Context> &ctx,

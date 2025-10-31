@@ -73,7 +73,6 @@ calc_avg_sum_div_50_sine = client.channels.create(
     expression="return ("
     + " + ".join([f"sine_50_channel_{i + 1}" for i in range(50)])
     + ") / 50.0",
-    requires=[ch.key for ch in sine_50_channels],
     retrieve_if_name_exists=True,
 )
 
@@ -84,7 +83,6 @@ calc_avg_explicit_50_sine = client.channels.create(
     name="calc_avg_explicit_50_sine",
     data_type=sy.DataType.FLOAT32,
     expression=f"return ({running_sum}) / {count}",
-    requires=[ch.key for ch in sine_50_channels],
     retrieve_if_name_exists=True,
 )
 
@@ -98,7 +96,6 @@ calc_avg_pairwise_50_sine = client.channels.create(
     name="calc_avg_pairwise_50_sine",
     data_type=sy.DataType.FLOAT32,
     expression=f"return {pairwise_avg}",
-    requires=[ch.key for ch in sine_50_channels],
     retrieve_if_name_exists=True,
 )
 
@@ -129,7 +126,6 @@ all_channels = (
 with client.open_writer(
     sy.TimeStamp.now(),
     channels=[ch.key for ch in all_channels],
-    enable_auto_commit=True,
 ) as writer:
     i = 0
     while loop.wait():

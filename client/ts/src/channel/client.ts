@@ -8,15 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, status } from "@synnaxlabs/x";
 import {
+  array,
   type CrudeDensity,
   type CrudeTimeRange,
   type CrudeTimeStamp,
   DataType,
   type MultiSeries,
+  status,
   type TypedArray,
-} from "@synnaxlabs/x/telem";
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -25,6 +26,7 @@ import {
   keyZ,
   type Name,
   type New,
+  type Operation,
   type Params,
   type Payload,
   payloadZ,
@@ -112,9 +114,7 @@ export class Channel {
    * the calculated value
    */
   readonly expression: string;
-  /**
-   * Only used for calculated channels. Specifies the channels required for calculation
-   */
+  readonly operations: Operation[];
   readonly requires: Key[];
   /**
    * The status of the channel.
@@ -134,12 +134,15 @@ export class Channel {
     alias,
     status: argsStatus,
     expression = "",
+    operations = [],
     requires = [],
   }: New & {
     internal?: boolean;
     frameClient?: framer.Client;
     density?: CrudeDensity;
     status?: status.Crude;
+    operations?: Operation[];
+    requires?: Key[];
   }) {
     this.key = keyZ.parse(key);
     this.name = name;
@@ -151,7 +154,8 @@ export class Channel {
     this.alias = alias;
     this.virtual = virtual;
     this.expression = expression;
-    this.requires = keyZ.array().parse(requires ?? []);
+    this.operations = operations;
+    this.requires = requires;
     if (argsStatus != null) this.status = status.create(argsStatus);
     this._frameClient = frameClient ?? null;
   }
@@ -177,9 +181,10 @@ export class Channel {
       isIndex: this.isIndex,
       internal: this.internal,
       virtual: this.virtual,
-      expression: this.expression,
       requires: this.requires,
+      expression: this.expression,
       status: this.status,
+      operations: this.operations,
     });
   }
 
@@ -434,7 +439,15 @@ export class Client {
 export const isCalculated = ({ virtual, expression }: Payload): boolean =>
   virtual && expression !== "";
 
-export const resolveCalculatedIndex = async (
+export const isLegacyCalculated = (pld: Payload): boolean =>
+  isCalculated(pld) && pld.requires.length > 0;
+
+export const ontologyID = (key: Key): ontology.ID => ({
+  type: "channel",
+  key: key.toString(),
+});
+
+export const resolveLegacyCalculatedIndex = async (
   retrieve: (key: Key) => Promise<Payload | null>,
   channel: Payload,
 ): Promise<Key | null> => {
@@ -448,14 +461,9 @@ export const resolveCalculatedIndex = async (
     const requiredChannel = await retrieve(required);
     if (requiredChannel == null) return null;
     if (isCalculated(requiredChannel)) {
-      const index = await resolveCalculatedIndex(retrieve, requiredChannel);
+      const index = await resolveLegacyCalculatedIndex(retrieve, requiredChannel);
       if (index != null) return index;
     }
   }
   return null;
 };
-
-export const ontologyID = (key: Key): ontology.ID => ({
-  type: "channel",
-  key: key.toString(),
-});

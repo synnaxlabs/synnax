@@ -36,7 +36,10 @@ export const LINK_HANDLERS: Record<string, Link.Handler> = {
   task: Task.handleLink,
 };
 
-export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = Task.NAV_DRAWER_ITEMS;
+export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [
+  ...Device.NAV_DRAWER_ITEMS,
+  ...Task.NAV_DRAWER_ITEMS,
+];
 
 export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] =
   Device.NOTIFICATION_ADAPTERS;

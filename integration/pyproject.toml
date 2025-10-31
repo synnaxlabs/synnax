@@ -1,6 +1,6 @@
 [project]
 name = "synnax-test-framework"
-version = "0.46.0"
+version = "0.47.0"
 description = "Integration test framework for Synnax Labs"
 authors = [{ name = "Nico Alba", email = "nico@synnaxlabs.com" }]
 requires-python = ">=3.12,<4"
@@ -25,6 +25,7 @@ isort = "^6.0.1"
 mypy = "^1.18.1"
 
 [tool.poetry.scripts]
+tc = "framework.test_conductor:main"
 test-conductor = "framework.test_conductor:main"
 
 [tool.isort]

@@ -281,6 +281,21 @@ var _ = Describe("Signal", func() {
 			Expect(ctx.Wait()).To(BeNil())
 		})
 
+		It("Should wrap an error panic with routine key", func() {
+			ctx, _ := signal.Isolated()
+			originalErr := errors.New("original panic error")
+
+			ctx.Go(func(ctx context.Context) error {
+				panic(originalErr)
+			}, signal.RecoverWithErrOnPanic(), signal.WithKey("test-routine"))
+
+			err := ctx.Wait()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("routine test-routine recovered"))
+			Expect(err.Error()).To(ContainSubstring("original panic error"))
+			Expect(errors.Is(err, originalErr)).To(BeTrue())
+		})
+
 		It("Should try to restart when instructed to", func() {
 			var (
 				counter = 0
@@ -333,7 +348,7 @@ var _ = Describe("Signal", func() {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				ctx.Wait()
+				Expect(ctx.Wait()).To(Succeed())
 				close(done)
 			}()
 

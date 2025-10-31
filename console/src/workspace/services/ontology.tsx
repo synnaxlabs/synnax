@@ -237,40 +237,40 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         <>
           <PMenu.Item itemKey="createPlot">
             <LinePlotServices.CreateIcon />
-            Create Line Plot
+            Create line plot
           </PMenu.Item>
           <PMenu.Item itemKey="createLog">
             <LogServices.CreateIcon />
-            Create Log
+            Create log
           </PMenu.Item>
           <PMenu.Item itemKey="createTable">
             <TableServices.CreateIcon />
-            Create Table
+            Create table
           </PMenu.Item>
           {canCreateSchematic && (
             <PMenu.Item itemKey="createSchematic">
               <SchematicServices.CreateIcon />
-              Create Schematic
+              Create schematic
             </PMenu.Item>
           )}
           <PMenu.Divider />
           <PMenu.Item itemKey="importPlot">
             <LinePlotServices.ImportIcon />
-            Import Line Plot(s)
+            Import line plot(s)
           </PMenu.Item>
           <PMenu.Item itemKey="importLog">
             <LogServices.ImportIcon />
-            Import Log(s)
+            Import log(s)
           </PMenu.Item>
           {canCreateSchematic && (
             <PMenu.Item itemKey="importSchematic">
               <SchematicServices.ImportIcon />
-              Import Schematic(s)
+              Import schematic(s)
             </PMenu.Item>
           )}
           <PMenu.Item itemKey="importTable">
             <TableServices.ImportIcon />
-            Import Table(s)
+            Import table(s)
           </PMenu.Item>
           <PMenu.Divider />
           <Export.MenuItem />
@@ -279,7 +279,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           <PMenu.Divider />
         </>
       )}
-      <Menu.HardReloadItem />
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 };

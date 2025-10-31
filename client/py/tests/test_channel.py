@@ -146,7 +146,6 @@ class TestChannel:
             name="test",
             data_type=sy.DataType.FLOAT32,
             expression="return 1 + 1",
-            requires=[base_v_channel.key],
             virtual=True,
         )
         channel = client.channels.create(channel)
@@ -167,11 +166,9 @@ class TestChannel:
             name="test",
             data_type=sy.DataType.FLOAT32,
             expression="return 1 + 1",
-            requires=[base_v_channel.key],
         )
         res = client.channels.retrieve(channel.key)
         assert res.expression == "return 1 + 1"
-        assert res.requires == [base_v_channel.key]
 
     @pytest.mark.multi_node
     def test_create_with_leaseholder(self, client: sy.Synnax):
@@ -427,6 +424,16 @@ class TestChannel:
             assert channel.name.startswith("sensor")
             assert channel.key != ""
             assert isinstance(channel.data_type.density, sy.Density)
+
+    def test_retrieve_zero_key_single(self, client: sy.Synnax):
+        """Should retrieve a channel with a key of zero"""
+        with pytest.raises(sy.NotFoundError):
+            client.channels.retrieve(0)
+
+    def test_retrieve_zero_key_multiple(self, client: sy.Synnax):
+        """Should retrieve a list of channels with a key of zero"""
+        with pytest.raises(sy.NotFoundError):
+            client.channels.retrieve([0, 0, 0])
 
 
 class TestChannelRetriever:

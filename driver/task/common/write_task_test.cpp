@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// module
 #include "x/cpp/xtest/xtest.h"
 
-/// internal
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/task/common/write_task.h"
 
@@ -111,7 +108,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
 
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 1);
     ASSERT_EVENTUALLY_EQ(writes->size(), 1);
-    auto check_state_writes = [&] -> uint8_t {
+    auto check_state_writes = [&]() -> uint8_t {
         const auto fr = std::move(
             mock_writer_factory->writes->at(mock_writer_factory->writes->size() - 1)
         );

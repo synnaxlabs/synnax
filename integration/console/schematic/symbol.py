@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
 from abc import ABC, abstractmethod
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
+from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Locator, Page
 
@@ -31,7 +31,6 @@ class Symbol(ABC):
     def __init__(
         self, page: Page, console: "Console", symbol_id: str, channel_name: str
     ):
-
         if channel_name.strip() == "":
             raise ValueError("Channel name cannot be empty")
 
@@ -72,9 +71,9 @@ class Symbol(ABC):
     @abstractmethod
     def edit_properties(
         self,
-        channel_name: Optional[str] = None,
+        channel_name: str | None = None,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Edit symbol properties. Must be implemented by all child classes.
 
@@ -115,3 +114,14 @@ class Symbol(ABC):
     def delete(self) -> None:
         self._click_symbol()
         self.console.DELETE
+
+    def toggle_absolute_control(self) -> None:
+        """Toggle absolute control authority for this symbol by clicking its control chip button."""
+        # Locate the control chip button within this specific symbol's container
+        control_chip = self.symbol.locator(".pluto-control-chip").first
+
+        # Bring to front and click to ensure visibility and interaction
+        with self.bring_to_front(control_chip) as chip:
+            chip.click(force=True)
+
+        self.console.page.wait_for_timeout(100)

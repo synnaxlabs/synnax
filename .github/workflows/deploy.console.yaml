@@ -113,6 +113,8 @@ jobs:
       NODE_OPTIONS: "--max_old_space_size=4096"
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
       fail-fast: false
       matrix:
@@ -152,9 +154,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      - name: Update Submodules
-        run: git submodule update --init --recursive
-
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 
@@ -180,14 +179,6 @@ jobs:
         with:
           workspaces: console/src-tauri -> target
           shared-key: ${{ runner.os }}
-
-      - name: Turbo Cache
-        uses: actions/cache@v4
-        with:
-          path: .turbo-cache
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
 
       - name: Install Dependencies
         run: pnpm install

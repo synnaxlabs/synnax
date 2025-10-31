@@ -39,7 +39,8 @@ type WriterConfig struct {
 	// each write. If EnableAutoCommit is true, then the writer will commit after each
 	// write, and will flush that commit to index on FS after the specified
 	// AutoIndexPersistInterval.
-	// [OPTIONAL] - Defaults to false.
+	//
+	// [OPTIONAL] - Defaults to true.
 	EnableAutoCommit *bool
 	// AutoIndexPersistInterval is the frequency at which the changes to index are
 	// persisted to the disk. If AutoIndexPersistInterval <=0, then the writer persists
@@ -51,7 +52,10 @@ type WriterConfig struct {
 
 var (
 	errWriterClosed     = core.NewErrResourceClosed("domain.writer")
-	DefaultWriterConfig = WriterConfig{EnableAutoCommit: config.False(), AutoIndexPersistInterval: 1 * telem.Second}
+	DefaultWriterConfig = WriterConfig{
+		EnableAutoCommit:         config.True(),
+		AutoIndexPersistInterval: 1 * telem.Second,
+	}
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -168,7 +172,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 	db.resourceCount.Add(1)
 	w := &Writer{
 		WriterConfig:     cfg,
-		Instrumentation:  db.cfg.Instrumentation.Child("writer"),
+		Instrumentation:  db.cfg.Child("writer"),
 		fileKey:          key,
 		fc:               db.fc,
 		fileSize:         telem.Size(size),
@@ -225,7 +229,7 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 		now = telem.Now()
 		// the only time we do not shouldPersist is when EnableAutoCommit and the interval is
 		// not met yet.
-		shouldPersist = !(*w.EnableAutoCommit && w.lastIndexPersist.Span(now) < w.AutoIndexPersistInterval)
+		shouldPersist = !*w.EnableAutoCommit || w.lastIndexPersist.Span(now) >= w.AutoIndexPersistInterval
 	)
 
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 && shouldPersist {

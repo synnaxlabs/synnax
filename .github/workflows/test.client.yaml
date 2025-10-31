@@ -33,6 +33,7 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - scripts/check_clang_format.sh
+      - scripts/sanitizers/**
       - turbo.json
       - x/cpp/**
       - x/go/**
@@ -72,6 +73,7 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - scripts/check_clang_format.sh
+      - scripts/sanitizers/**
       - turbo.json
       - x/cpp/**
       - x/go/**
@@ -118,6 +120,7 @@ jobs:
               - MODULE.bazel
               - MODULE.bazel.lock
               - scripts/check_clang_format.sh
+              - scripts/sanitizers/**
               - x/cpp/**
             py:
               - *shared
@@ -149,6 +152,9 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to Github Container Registry
         uses: docker/login-action@v3
         with:
@@ -156,17 +162,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download Earthly
-        uses: earthly/actions-setup@v1
+      - name: Build and Push Image
+        uses: docker/build-push-action@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Image
-        run: earthly --push +docker -tag=${GITHUB_SHA} -driver=false
-        working-directory: core
-
-      - name: Push to Github Container Registry
-        run: docker push ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
+          context: .
+          file: ./core/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+          cache-from: type=gha,scope=test-client
+          cache-to: type=gha,mode=max,scope=test-client
+          build-args: |
+            DRIVER_ENABLED=false
 
   cpp:
     name: Test - C++
@@ -207,8 +214,10 @@ jobs:
       - name: Check Formatting
         run: scripts/check_clang_format.sh client/cpp
 
-      - name: Test
-        run: bazel test --test_output=all //client/cpp/... --nocache_test_results
+      - name: Test (Ubuntu)
+        run:
+          bazel test --config=asan-leak --test_output=all //client/cpp/...
+          --nocache_test_results
 
   py:
     name: Test - Python
@@ -263,6 +272,9 @@ jobs:
     needs: [changes, server]
     if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     services:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -292,8 +304,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build:client
+      - name: Check Types
+        run: pnpm check-types:client
+
+      - name: Madge
+        run: pnpm madge:client
 
       - name: Lint
         run: pnpm lint:client

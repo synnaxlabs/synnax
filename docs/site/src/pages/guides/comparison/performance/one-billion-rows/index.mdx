@@ -124,10 +124,10 @@ The Synnax storage engine,
 performance and extremely low latency for limited cardinality data. As we'll show in the
 results, Synnax dramatically outperforms Timescale and Influx when ingesting, reading,
 and streaming large volumes of data from small numbers of sensors (1 - 10,000 channels
-at KHz rates).
+at kHz rates).
 
 Synnax performs comparably worse than Timescale and Influx when dealing with large
-numbers of sensors (millions of channels) at very low data rates (1Hz or lower).
+numbers of sensors (millions of channels) at very low data rates (1 Hz or lower).
 
 Synnax is so fast and reliable that teams often use it in high-performance, mission
 critical environments such as firing rocket and jet engines.
@@ -211,7 +211,7 @@ single machine with the following specifications:
 We'll pull the latest open source versions of each database, which, at the time of
 writing, are:
 
-- [Synnax v0.32](/reference/cluster/installation?platform=linux)
+- [Synnax v0.32](/reference/core/installation?platform=linux)
 - [InfluxDB v2.7.10](https://www.influxdata.com/downloads/)
 - [Timescale v2.17.1](https://github.com/timescale/timescaledb/releases)
 
@@ -295,20 +295,20 @@ test:
       <td>50</td>
       <td>100</td>
       <td>500</td>
-      <td>1K</td>
-      <td>5K</td>
-      <td>10K</td>
-      <td>50K</td>
-      <td>100K</td>
+      <td>1k</td>
+      <td>5k</td>
+      <td>10k</td>
+      <td>50k</td>
+      <td>100k</td>
       <td>1M</td>
     </tr>
     <tr>
       <td>
         <b>Batch Count</b>
       </td>
-      <td>5K</td>
-      <td>2K</td>
-      <td>1K</td>
+      <td>5k</td>
+      <td>2k</td>
+      <td>1k</td>
       <td>500</td>
       <td>250</td>
       <td>100</td>
@@ -346,12 +346,12 @@ We'll also measure the average memory and CPU usage of each database during the 
     themed={false}
   />
   {/* prettier-ignore */}
-  <figcaption>Throughput Comparison: Synnax dramatically outperforms alternatives at large batch    sizes.  </figcaption>
+  <figcaption>Throughput Comparison: Synnax dramatically outperforms alternatives at large batch sizes.</figcaption>
 </figure>
 
 <Details>
   {/* prettier-ignore */}
-  <Text.Text slot="summary" level="small" size="medium" weight={500}><Icon.Table  /> Tabulated Data - Throughput in Samples/s  </Text.Text>
+  <Text.Text slot="summary" level="small" size="medium" weight={500}><Icon.Table />Tabulated Data - Throughput in Samples/s</Text.Text>
   <Table>
     <tbody>
       <tr>
@@ -373,7 +373,7 @@ We'll also measure the average memory and CPU usage of each database during the 
         <td>
           <b>Synnax</b>
         </td>
-        <td>271K</td>
+        <td>271k</td>
         <td>1.3M</td>
         <td>2.5M</td>
         <td>11.9M</td>
@@ -388,9 +388,9 @@ We'll also measure the average memory and CPU usage of each database during the 
         <td>
           <b>Timescale</b>
         </td>
-        <td>96K</td>
-        <td>490K</td>
-        <td>895K</td>
+        <td>96k</td>
+        <td>490k</td>
+        <td>895k</td>
         <td>2.2M</td>
         <td>2.7M</td>
         <td>7.1M</td>
@@ -403,8 +403,8 @@ We'll also measure the average memory and CPU usage of each database during the 
         <td>
           <b>Influx</b>
         </td>
-        <td>270K</td>
-        <td>776K</td>
+        <td>270k</td>
+        <td>776k</td>
         <td>1M</td>
         <td>1.4M</td>
         <td>1.5M</td>
@@ -431,11 +431,11 @@ the other two databases.
     themed={false}
   />
   {/* prettier-ignore */}
-  <figcaption>Memory Comparison: Synnax uses more memory than alternatives. Timescale balloons in memory usage at large batch sizes. </figcaption>
+  <figcaption>Memory Comparison: Synnax uses more memory than alternatives. Timescale balloons in memory usage at large batch sizes.</figcaption>
 </figure>
 <Details>
 <div slot="summary">
-<Text.Text level="small" size="medium" weight={500}><Icon.Table  />Tabulated Data - Memory usage in GB</Text.Text>
+<Text.Text level="small" size="medium" weight={500}><Icon.Table />Tabulated Data - Memory usage in GB</Text.Text>
 </div>
 <Table>
   <tbody>
@@ -541,7 +541,7 @@ the other two databases.
 
 <Details>
   {/* prettier-ignore */}
-  <Text.Text slot="summary" level="small" size="medium" weight={500}>  <Icon.Table  />    Tabulated Data - CPU Usage  </Text.Text>
+  <Text.Text slot="summary" level="small" size="medium" weight={500}><Icon.Table  />Tabulated Data - CPU Usage</Text.Text>
   <Table>
     <tbody>
       <tr>
@@ -691,34 +691,34 @@ channels we insert data for.
       <td>100</td>
       <td>200</td>
       <td>500</td>
-      <td>1K</td>
-      <td>5K</td>
-      <td>10K</td>
+      <td>1k</td>
+      <td>5k</td>
+      <td>10k</td>
     </tr>
 
     <tr>
       <td>
         <b>Batch Size</b>
-        <td>1K</td>
-        <td>1K</td>
-        <td>1K</td>
-        <td>1K</td>
-        <td>1K</td>
-        <td>1K</td>
-        <td>1K</td>
-        <td>1K</td>
-        <td>1K</td>
-        <td>1K</td>
-        <td>1K</td>
+        <td>1k</td>
+        <td>1k</td>
+        <td>1k</td>
+        <td>1k</td>
+        <td>1k</td>
+        <td>1k</td>
+        <td>1k</td>
+        <td>1k</td>
+        <td>1k</td>
+        <td>1k</td>
+        <td>1k</td>
       </td>
     </tr>
     <tr>
       <td>
         <b>Batch Count</b>
-        <td>3000</td>
-        <td>2500</td>
-        <td>2000</td>
-        <td>1500</td>
+        <td>3k</td>
+        <td>2.5k</td>
+        <td>2k</td>
+        <td>1.5k</td>
         <td>500</td>
         <td>250</td>
         <td>200</td>
@@ -843,7 +843,7 @@ channels we insert data for.
 </Details>
 
 At low channel counts, Synnax outperforms both Timescale and Influx by a wide margin. As
-the counts increase past 1000, Synnax's performance begins to degrade, while Timescale
+the counts increase past 1,000, Synnax's performance begins to degrade, while Timescale
 and Influx remain relatively stable.
 
 ### Memory Usage
@@ -1044,9 +1044,9 @@ and Influx remain relatively stable.
 ## <StepText level="h2" name="Test" step={3}>  One Billion Row Ingestion</StepText>
 
 Inspired by the
-[1 billion row challenge](https://www.morling.dev/blog/one-billion-row-challenge/),
-we'll be inserting 1 billion rows of data into each database to see how they handle the
-load.
+[One Billion Row Challenge](https://www.morling.dev/blog/one-billion-row-challenge/),
+we'll be inserting one billion rows of data into each database to see how they handle
+the load.
 
 We'll use 50 channels, each with a batch size of 50,000 rows per channel to insert the
 data.
@@ -1059,7 +1059,7 @@ data.
     style={{ padding: "5rem", background: "var(--pluto-dark-gray-l0)" }}
   />
   {/* prettier-ignore */}
-  <figcaption>Synnax Ingests 1 Billion Rows in 44 seconds, 12x faster than Timescale and 17x faster than Influx.</figcaption>
+  <figcaption>Synnax ingests one billion rows in 44 seconds, 12x faster than Timescale and 17x faster than Influx.</figcaption>
 </figure>
 
 <Divider.Divider x />
@@ -1083,8 +1083,8 @@ on disk.
 
 #### Background - Paging, OLTP, and Concurrency Control
 
-Data inside these databases is stored chunks called _pages_ that are between 4kb and
-16kb in size. These pages contain a certain number of rows. When accepting writes, the
+Data inside these databases is stored chunks called _pages_ that are between 4 kB and 16
+kB in size. These pages contain a certain number of rows. When accepting writes, the
 database engine will fill up a page in-memory, and then flush that page to disk in a
 single I/O operation once the page has reached capacity.
 

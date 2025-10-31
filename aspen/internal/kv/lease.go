@@ -105,7 +105,7 @@ func (lf *leaseSender) send(_ context.Context, br TxRequest) error {
 	if err != nil {
 		return nil
 	}
-	_, err = lf.Config.LeaseTransportClient.Send(br.Context, addr, br)
+	_, err = lf.LeaseTransportClient.Send(br.Context, addr, br)
 	return nil
 }
 

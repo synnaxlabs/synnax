@@ -2,27 +2,11 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "Async_ABC",
-      "sequence_order": "asynchronous",
+      "sequence_name": "Driver_Latency",
+      "sequence_order": "sequential",
       "tests": [
         {
-          "case": "console/plot_abcd"
-        },
-        {
-          "case": "latency/abcd",
-          "name": "async_a"
-        },
-        {
-          "case": "latency/abcd",
-          "name": "async_b"
-        },
-        {
-          "case": "latency/abcd",
-          "name": "async_c"
-        },
-        {
-          "case": "latency/abcd",
-          "name": "async_d"
+          "case": "latency/driver_ni_digital_write"
         }
       ]
     },
@@ -35,6 +19,22 @@
         },
         {
           "case": "latency/bench_report"
+        }
+      ]
+    },
+    {
+      "sequence_name": "Async_ABC",
+      "sequence_order": "asynchronous",
+      "tests": [
+        {
+          "case": "console/line-plot/abcd"
+        },
+        {
+          "case": "latency/abcd",
+          "name": "async",
+          "parameters": {
+            "mode": ["a", "b", "c", "d"]
+          }
         }
       ]
     }

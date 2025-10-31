@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package core_test
 
 import (
@@ -79,14 +88,14 @@ var _ = Describe("Frame", func() {
 		})
 	})
 
-	Describe("FilterKeys", func() {
+	Describe("KeepKeys", func() {
 		It("Should filter frame to only include specified keys", func() {
 			f := core.MultiFrame([]channel.Key{1, 2, 3}, []telem.Series{
 				telem.NewSeriesV[int64](1, 2, 3),
 				telem.NewSeriesV[int64](4, 5, 6),
 				telem.NewSeriesV[int64](7, 8, 9),
 			})
-			filtered := f.FilterKeys([]channel.Key{1, 3})
+			filtered := f.KeepKeys([]channel.Key{1, 3})
 			Expect(filtered.KeysSlice()).To(Equal([]channel.Key{1, 3}))
 			Expect(filtered.Count()).To(Equal(2))
 			Expect(filtered.SeriesAt(0)).To(Equal(telem.NewSeriesV[int64](1, 2, 3)))
@@ -126,7 +135,7 @@ var _ = Describe("Frame", func() {
 	})
 
 	Describe("ShallowCopy", func() {
-		It("Should create a shall;ow copy of the frame", func() {
+		It("Should create a shallow copy of the frame", func() {
 			original := core.MultiFrame(
 				[]channel.Key{1, 2, 3},
 				[]telem.Series{

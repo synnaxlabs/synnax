@@ -16,15 +16,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
-type mockAddressable struct {
-	addr address.Address
-}
-
-// Implement the Addressable interface
-func (m mockAddressable) Address() address.Address {
-	return m.addr
-}
-
 var _ = Describe("Address", func() {
 	Describe("Newf", func() {
 		It("Should create a new address with formatted string", func() {

@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/freighter"
-	. "github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -22,12 +22,12 @@ import (
 // interface for receiving messages from a network freighter.
 type Receiver[M freighter.Payload] struct {
 	Receiver freighter.StreamReceiver[M]
-	AbstractUnarySource[M]
+	confluence.AbstractUnarySource[M]
 }
 
 // Flow implements Flow.
-func (r *Receiver[M]) Flow(ctx signal.Context, opts ...Option) {
-	fo := NewOptions(opts)
+func (r *Receiver[M]) Flow(ctx signal.Context, opts ...confluence.Option) {
+	fo := confluence.NewOptions(opts)
 	fo.AttachClosables(r.Out)
 	ctx.Go(r.receive, fo.Signal...)
 }
@@ -52,15 +52,15 @@ func (r *Receiver[M]) receive(ctx context.Context) error {
 	}
 }
 
-type TransformReceiver[I Value, M freighter.Payload] struct {
+type TransformReceiver[I confluence.Value, M freighter.Payload] struct {
 	Receiver freighter.StreamReceiver[M]
-	AbstractUnarySource[I]
-	Transform TransformFunc[M, I]
+	confluence.AbstractUnarySource[I]
+	Transform confluence.TransformFunc[M, I]
 }
 
 // Flow implements Flow.
-func (r *TransformReceiver[I, M]) Flow(ctx signal.Context, opts ...Option) {
-	o := NewOptions(opts)
+func (r *TransformReceiver[I, M]) Flow(ctx signal.Context, opts ...confluence.Option) {
+	o := confluence.NewOptions(opts)
 	o.AttachClosables(r.Out)
 	ctx.Go(r.receive, o.Signal...)
 }
@@ -95,30 +95,30 @@ o:
 
 type FilterReceiver[I freighter.Payload] struct {
 	Receiver freighter.StreamReceiver[I]
-	AbstractUnarySource[I]
-	Filter  FilterFunc[I]
-	Rejects Inlet[I]
+	confluence.AbstractUnarySource[I]
+	Filter  confluence.FilterFunc[I]
+	Rejects confluence.Inlet[I]
 }
 
-func (f *FilterReceiver[I]) Flow(ctx signal.Context, opts ...Option) {
-	o := NewOptions(opts)
+func (f *FilterReceiver[I]) Flow(ctx signal.Context, opts ...confluence.Option) {
+	o := confluence.NewOptions(opts)
 	o.AttachClosables(f.Out, f.Rejects)
 	ctx.Go(f.receive, o.Signal...)
 }
 
-func (f *FilterReceiver[I]) OutTo(inlets ...Inlet[I]) {
+func (f *FilterReceiver[I]) OutTo(inlets ...confluence.Inlet[I]) {
 	if len(inlets) > 2 || len(inlets) == 0 {
 		panic("[confluence.ApplySink] - provide at most two and at least one inlet")
 	}
 
 	if len(inlets) == 1 {
-		if f.AbstractUnarySource.Out != nil {
+		if f.Out != nil {
 			f.Rejects = inlets[0]
 			return
 		}
 	}
 
-	f.AbstractUnarySource.OutTo(inlets[0])
+	f.OutTo(inlets[0])
 	if len(inlets) == 2 {
 		f.Rejects = inlets[1]
 	}

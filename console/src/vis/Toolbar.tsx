@@ -29,7 +29,7 @@ const TOOLBARS: Record<LayoutType, FC<ToolbarProps>> = {
   [Log.LAYOUT_TYPE]: Log.Toolbar,
   [Schematic.LAYOUT_TYPE]: Schematic.Toolbar,
   [Table.LAYOUT_TYPE]: Table.Toolbar,
-  [Arc.EDIT_LAYOUT_TYPE]: Arc.Toolbar,
+  [Arc.Editor.LAYOUT_TYPE]: Arc.Editor.Toolbar,
 };
 
 const NoVis = (): ReactElement => {
@@ -38,7 +38,7 @@ const NoVis = (): ReactElement => {
     placeLayout(createSelectorLayout());
   };
   return (
-    <Toolbar.Content disableClusterBoundary>
+    <Toolbar.Content>
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Visualize />}>Visualization</Toolbar.Title>
       </Toolbar.Header>

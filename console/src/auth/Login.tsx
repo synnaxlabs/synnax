@@ -73,7 +73,7 @@ export const Login = ({ connection, onSuccess }: LoginProps): ReactElement => {
       if (state.nodeVersion != null) dispatch(setVersion(state.nodeVersion));
       onSuccess({
         key: state.clusterKey,
-        name: "Cluster",
+        name: "Core",
         ...connection,
         ...credentials,
       });

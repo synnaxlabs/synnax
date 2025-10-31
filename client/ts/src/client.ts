@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker } from "@synnaxlabs/x";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
-import { URL } from "@synnaxlabs/x/url";
+import { breaker, TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access";
@@ -158,7 +156,7 @@ export default class Synnax extends framer.Client {
     );
     const racks = new rack.Client(this.transport.unary, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
-    this.arcs = new arc.Client(this.transport.unary);
+    this.arcs = new arc.Client(this.transport.unary, this.transport.stream);
   }
 
   get key(): string {

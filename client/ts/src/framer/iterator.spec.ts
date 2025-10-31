@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { AUTO_SPAN } from "@/framer/iterator";
@@ -68,7 +68,6 @@ describe("Iterator", () => {
     const writer = await client.openWriter({
       start: TimeStamp.SECOND,
       channels,
-      enableAutoCommit: true,
     });
     await writer.write({
       [idx_ch.key]: secondsLinspace(1, 10),

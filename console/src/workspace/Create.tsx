@@ -83,7 +83,11 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             form="create-workspace"
             status={status.keepVariants(variant, "loading")}
             disabled={client == null}
-            tooltip={client == null ? "No Cluster Connected" : "Save to Cluster"}
+            tooltip={
+              client == null
+                ? "No Core Connected"
+                : `Save to ${client.props.name ?? "Synnax"}`
+            }
             onClick={() => save()}
             trigger={Triggers.SAVE}
           >

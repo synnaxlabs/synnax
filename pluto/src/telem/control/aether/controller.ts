@@ -20,7 +20,7 @@ import {
 import {
   color,
   compare,
-  control as xControl,
+  control as xcontrol,
   type CrudeSeries,
   type Destructor,
   type status as xstatus,
@@ -37,8 +37,7 @@ import { telem } from "@/telem/aether";
 import { AbstractSink } from "@/telem/aether/telem";
 import { StateProvider } from "@/telem/control/aether/state";
 
-export const STATUSES = ["acquired", "released", "overridden", "failed"] as const;
-export const statusZ = z.enum(STATUSES);
+export const statusZ = z.enum(["acquired", "released", "overridden", "failed"]);
 export type Status = z.infer<typeof statusZ>;
 
 export const controllerStateZ = z.object({
@@ -130,7 +129,7 @@ export class Controller
     const { client, addStatus } = this.internal;
     if (client == null)
       return addStatus({
-        message: `Cannot acquire control on ${this.state.name} because no cluster has been connected.`,
+        message: `Cannot acquire control on ${this.state.name} because no Core has been connected.`,
         variant: "warning",
       });
 
@@ -153,7 +152,6 @@ export class Controller
         channels: needsControlOf,
         controlSubject: { key: this.key, name: this.state.name },
         authorities: this.state.authority,
-        enableAutoCommit: true,
       });
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (e) {
@@ -278,7 +276,7 @@ export class SetChannelValue
   set(...values: number[]): void {
     this.runAsync(async () => {
       const { client } = this.controller.internal;
-      if (client == null) throw new DisconnectedError("No cluster connected");
+      if (client == null) throw new DisconnectedError("No Core connected");
       if (this.props.channel === 0)
         throw new ValidationError("No command channel specified for actuator");
       const ch = await client.channels.retrieve(this.props.channel);
@@ -397,7 +395,7 @@ export class AuthoritySource
     if (this.valid) return;
     const { channel: ch } = this.props;
     this.stopListening?.();
-    const filter = xControl.filterTransfersByChannelKey(ch);
+    const filter = xcontrol.filterTransfersByChannelKey(ch);
     this.stopListening = this.prov.onChange((t) => {
       if (filter(t).length === 0) return;
       this.notify?.();
