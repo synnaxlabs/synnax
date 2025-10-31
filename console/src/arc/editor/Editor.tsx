@@ -54,10 +54,7 @@ import {
   type State,
   ZERO_STATE,
 } from "@/arc/slice";
-import {
-  translateGraphToconsole as translateGraphToConsole,
-  translateGraphToServer,
-} from "@/arc/types/translate";
+import { translateGraphToConsole, translateGraphToServer } from "@/arc/types/translate";
 import { TYPE } from "@/arc/types/v0";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";

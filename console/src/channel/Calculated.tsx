@@ -21,7 +21,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
+import { DataType, status } from "@synnaxlabs/x";
 import { type ReactElement, useRef, useState } from "react";
 
 import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
