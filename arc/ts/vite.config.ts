@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/channel/AliasInput";
-export * from "@/channel/CreateCalculatedIcon";
-export * from "@/channel/LinePlot";
-export * from "@/channel/queries";
-export * from "@/channel/Select";
+import { lib } from "@synnaxlabs/vite-plugin";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [lib({ name: "arc" })],
+});

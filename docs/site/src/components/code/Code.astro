@@ -2,18 +2,25 @@
 import { Button, Icon } from "@synnaxlabs/pluto";
 import { Fragment } from "react";
 
-const { tabindex, variant, wrap = false, ...rest } = Astro.props;
+const { tabindex, variant, wrap = false, hideCopyButton = false, ...rest } = Astro.props;
 let className = "astro-code-wrapper";
 if (variant != null) className += ` ${variant}`;
 if (wrap) className += " wrap";
 ---
 
 <div class={className} tabindex={tabindex}>
-    <Button.Button variant="outlined" size="medium" square>
-        <Fragment>
-            <Icon.Copy className="copy" /><Icon.Check className="check" />
-        </Fragment>
-    </Button.Button>
+    {
+        !hideCopyButton && (
+            <Button.Button variant="outlined" size="medium" square>
+                <Fragment>
+                    <>
+                        <Icon.Copy className="copy" />
+                        <Icon.Check className="check" />
+                    </>
+                </Fragment>
+            </Button.Button>
+        )
+    }
     <pre {...rest} class="styled-scrollbar"><slot /></pre>
 </div>
 
