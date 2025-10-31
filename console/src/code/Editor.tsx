@@ -106,9 +106,7 @@ const use = ({
     let model: Monaco.editor.ITextModel | null = null;
     if (customURI != null) {
       const uri = monaco.Uri.parse(customURI);
-      console.log("[Arc Editor] Creating model with URI:", uri.toString());
       model = monaco.editor.createModel(value, language, uri);
-      console.log("[Arc Editor] Model created, URI:", model.uri.toString());
     }
 
     editorRef.current = monaco.editor.create(editorContainerRef.current, {
@@ -154,7 +152,7 @@ export const Editor = ({
   const editorContainerRef = use({ value, onChange, language, isBlock });
   return (
     <Flex.Box y grow {...rest} className={CSS(className, CSS.B("editor"))}>
-      <div ref={editorContainerRef} style={{ height: "100%" }} />
+      <Flex.Box ref={editorContainerRef} full role="textbox" />
     </Flex.Box>
   );
 };

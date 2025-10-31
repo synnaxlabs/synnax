@@ -37,8 +37,8 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	b.ChannelWriteF32 = runtime.ChannelWriteF32
 	b.ChannelReadF64 = runtime.ChannelReadF64
 	b.ChannelWriteF64 = runtime.ChannelWriteF64
-	b.ChannelReadString = runtime.ChannelReadString
-	b.ChannelWriteString = runtime.ChannelWriteString
+	b.ChannelReadStr = runtime.ChannelReadStr
+	b.ChannelWriteStr = runtime.ChannelWriteStr
 
 	// State operations
 	b.StateLoadU8 = runtime.StateLoadU8
@@ -61,8 +61,8 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	b.StateStoreF32 = runtime.StateStoreF32
 	b.StateLoadF64 = runtime.StateLoadF64
 	b.StateStoreF64 = runtime.StateStoreF64
-	b.StateLoadString = runtime.StateLoadString
-	b.StateStoreString = runtime.StateStoreString
+	b.StateLoadStr = runtime.StateLoadStr
+	b.StateStoreStr = runtime.StateStoreStr
 
 	// String operations
 	b.StringFromLiteral = runtime.StringFromLiteral

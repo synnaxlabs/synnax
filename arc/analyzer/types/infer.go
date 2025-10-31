@@ -36,7 +36,7 @@ func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
 	if numeric := ctx.NumericType(); numeric != nil {
 		return inferNumericType(numeric)
 	}
-	if ctx.STRING() != nil {
+	if ctx.STR() != nil {
 		return types.String(), nil
 	}
 	return types.Type{}, errors.New("unknown primitive type")

@@ -110,7 +110,7 @@ var _ = Describe("Parser", func() {
 			})
 
 			It("Should parse logical NOT", func() {
-				expr := mustParseExpression("!true")
+				expr := mustParseExpression("not true")
 				unary := getPowerExpression(expr).UnaryExpression()
 				Expect(unary.NOT()).NotTo(BeNil())
 			})
@@ -723,21 +723,21 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 
 			It("Should parse complex logical expressions", func() {
-				// !a && b || c && !d
-				// Should be: ((!a) && b) || (c && (!d))
-				expr := mustParseExpression("!a && b || c && !d")
+				// not a and b or c and not d
+				// Should be: ((not a) and b) or (c and (not d))
+				expr := mustParseExpression("not a and b or c and not d")
 
 				// Top level is OR
 				logicalOr := expr.LogicalOrExpression()
 				Expect(logicalOr.AllLogicalAndExpression()).To(HaveLen(2))
 				Expect(logicalOr.OR(0)).NotTo(BeNil())
 
-				// Left side: !a && b
+				// Left side: not a and b
 				leftAnd := logicalOr.LogicalAndExpression(0)
 				Expect(leftAnd.AllEqualityExpression()).To(HaveLen(2))
 				Expect(leftAnd.AND(0)).NotTo(BeNil())
 
-				// Right side: c && !d
+				// Right side: c and not d
 				rightAnd := logicalOr.LogicalAndExpression(1)
 				Expect(rightAnd.AllEqualityExpression()).To(HaveLen(2))
 				Expect(rightAnd.AND(0)).NotTo(BeNil())

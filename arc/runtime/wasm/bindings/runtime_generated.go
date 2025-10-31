@@ -692,8 +692,8 @@ func (r *Runtime) StringEqual(ctx context.Context, handle1 uint32, handle2 uint3
 	return 0
 }
 
-// ChannelReadString reads the latest string from a channel and returns a handle.
-func (r *Runtime) ChannelReadString(ctx context.Context, channelID uint32) uint32 {
+// ChannelReadStr reads the latest string from a channel and returns a handle.
+func (r *Runtime) ChannelReadStr(ctx context.Context, channelID uint32) uint32 {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -719,8 +719,8 @@ func (r *Runtime) ChannelReadString(ctx context.Context, channelID uint32) uint3
 	return handle
 }
 
-// ChannelWriteString writes a string to a channel (queued for flush).
-func (r *Runtime) ChannelWriteString(ctx context.Context, channelID uint32, handle uint32) {
+// ChannelWriteStr writes a string to a channel (queued for flush).
+func (r *Runtime) ChannelWriteStr(ctx context.Context, channelID uint32, handle uint32) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -741,8 +741,8 @@ func (r *Runtime) ChannelWriteString(ctx context.Context, channelID uint32, hand
 	r.state.WriteChannelValue(channelID, series)
 }
 
-// StateLoadString loads a stateful string variable's value, or initializes it if it doesn't exist.
-func (r *Runtime) StateLoadString(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
+// StateLoadStr loads a stateful string variable's value, or initializes it if it doesn't exist.
+func (r *Runtime) StateLoadStr(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -763,8 +763,8 @@ func (r *Runtime) StateLoadString(ctx context.Context, funcID uint32, varID uint
 	return initHandle
 }
 
-// StateStoreString stores a stateful string variable's value.
-func (r *Runtime) StateStoreString(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
+// StateStoreStr stores a stateful string variable's value.
+func (r *Runtime) StateStoreStr(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

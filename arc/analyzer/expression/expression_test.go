@@ -41,8 +41,8 @@ var _ = Describe("Expressions", func() {
 		It("Should reject arithmetic operations on strings", func() {
 			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
-						x string := "hello"
-						y string := "world"
+						x str := "hello"
+						y str := "world"
 						z := x + y
 					}
 				`))
@@ -51,7 +51,7 @@ var _ = Describe("Expressions", func() {
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			first := (*ctx.Diagnostics)[0]
 			Expect(first.Severity).To(Equal(diagnostics.Error))
-			Expect(first.Message).To(ContainSubstring("cannot use string in + operation"))
+			Expect(first.Message).To(ContainSubstring("cannot use str in + operation"))
 		})
 
 		It("Should reject mixed type arithmetic", func() {
@@ -128,8 +128,8 @@ var _ = Describe("Expressions", func() {
 					func testFunc() {
 						a u8 := 0
 						b u8 := 1
-						c := a && b
-						d := a || b
+						c := a and b
+						d := a or b
 					}
 				`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
@@ -141,13 +141,13 @@ var _ = Describe("Expressions", func() {
 					func testFunc() {
 						x i32 := 10
 						y i32 := 20
-						z := x && y
+						z := x and y
 					}
 				`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cannot use i32 in && operation"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cannot use i32 in and operation"))
 		})
 
 		It("Should reject logical OR operations on non-booleans", func() {
@@ -155,7 +155,7 @@ var _ = Describe("Expressions", func() {
 					func testFunc() {
 					x i32 := 10
 					y i32 := 20
-					z := x || y
+					z := x or y
 					}
 				`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
@@ -193,21 +193,21 @@ var _ = Describe("Expressions", func() {
 		It("Should reject unary negation on non-numeric types", func() {
 			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
-						x string := "hello"
+						x str := "hello"
 						y := -x
 					}
 				`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("operator - not supported for type string"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("operator - not supported for type str"))
 		})
 
 		It("Should validate logical not on booleans", func() {
 			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x u8 := 1
-						y := !x
+						y := not x
 					}
 				`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
@@ -218,13 +218,13 @@ var _ = Describe("Expressions", func() {
 			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
-						y := !x
+						y := not x
 					}
 				`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("operator ! requires boolean operand"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("operator 'not' requires boolean operand"))
 		})
 	})
 
@@ -257,7 +257,7 @@ var _ = Describe("Expressions", func() {
 			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x := "hello world"
-						y string := "test"
+						y str := "test"
 					}
 				`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
@@ -310,8 +310,8 @@ var _ = Describe("Expressions", func() {
 						a u8 := 1
 						b u8 := 0
 						c u8 := 1
-						result := a && b || c
-						result2 := a || b && c
+						result := a and b or c
+						result2 := a or b and c
 					}
 				`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
@@ -326,7 +326,7 @@ var _ = Describe("Expressions", func() {
 						z i32 := 30
 						a u8 := x < y
 						b u8 := y > z
-						result := a && b || (x + y == z)
+						result := a and b or (x + y == z)
 					}
 				`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
@@ -337,7 +337,7 @@ var _ = Describe("Expressions", func() {
 			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x i32 := 10
-						y string := "20"
+						y str := "20"
 						z u8 := true
 						result := x + y * z
 					}

@@ -11,6 +11,7 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { defineConfig } from "astro/config";
+import { grammar as arcGrammar } from "@synnaxlabs/arc";
 
 const shikiResourcePaths = Object.keys(
   import.meta.glob([
@@ -24,7 +25,12 @@ export default defineConfig({
   integrations: [react(), mdx()],
   output: "server",
   adapter: vercel({ includeFiles: shikiResourcePaths }),
-  markdown: { shikiConfig: { theme: "css-variables" } },
+  markdown: {
+    shikiConfig: {
+      theme: "css-variables",
+      langs: [arcGrammar],
+    },
+  },
   redirects: {
     "/reference/device-drivers/standalone": "/reference/driver/installation",
     "/reference/cluster/[...slug]": "/reference/core/[...slug]",

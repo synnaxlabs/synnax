@@ -49,7 +49,7 @@ var _ = Describe("Statement", func() {
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				Expect(statement.Analyze(ctx)).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign string to i32"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign str to i32"))
 			})
 
 			It("Should detect duplicate variable declaration", func() {
@@ -286,7 +286,7 @@ var _ = Describe("Statement", func() {
 				ctx := context.CreateRoot(bCtx, stmt, channelResolver)
 				Expect(statement.Analyze(ctx)).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot write string to channel of type f64"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot write str to channel of type f64"))
 			})
 
 			It("Should analyze channel write with variable", func() {

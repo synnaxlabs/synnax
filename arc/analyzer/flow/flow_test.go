@@ -168,7 +168,7 @@ var _ = Describe("Flow Statements", func() {
 			func typed_task{
 				threshold f64
 				count u32
-				message string
+				message str
 				input <-chan f64
 			} () {
 				value := <-input
@@ -178,9 +178,9 @@ var _ = Describe("Flow Statements", func() {
 			}
 
 			// Type mismatches:
-			// - threshold should be f64, but given string
+			// - threshold should be f64, but given str
 			// - count should be u32, but given f64
-			// - message should be string, but given number
+			// - message should be str, but given number
 			sensor_chan -> typed_task{
 				threshold="not a number",
 				count=3.14,
@@ -208,7 +208,7 @@ var _ = Describe("Flow Statements", func() {
 			func typed_task{
 				threshold f64
 				count u32
-				message string
+				message str
 				input <-chan f64
 			} () {
 				value := <-input

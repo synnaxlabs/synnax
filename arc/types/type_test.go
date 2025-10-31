@@ -528,7 +528,7 @@ var _ = Describe("Types", func() {
 			Entry("U64", types.U64(), "u64"),
 			Entry("F32", types.F32(), "f32"),
 			Entry("F64", types.F64(), "f64"),
-			Entry("String", types.String(), "string"),
+			Entry("String", types.String(), "str"),
 			Entry("TimeStamp", types.TimeStamp(), "timestamp"),
 			Entry("TimeSpan", types.TimeSpan(), "timespan"),
 		)

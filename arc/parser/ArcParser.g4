@@ -202,7 +202,7 @@ type
 
 primitiveType
     : numericType
-    | STRING
+    | STR
     ;
 
 numericType
@@ -318,7 +318,7 @@ builtinFunction
 literal
     : numericLiteral
     | temporalLiteral
-    | STRING_LITERAL
+    | STR_LITERAL
     | seriesLiteral
     ;
 

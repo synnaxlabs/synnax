@@ -332,7 +332,7 @@ var _ = Describe("Type Inference", func() {
 		})
 
 		It("should infer string type", func() {
-			stmt := MustSucceed(parser.ParseStatement("s string := \"hello\""))
+			stmt := MustSucceed(parser.ParseStatement("s str := \"hello\""))
 			varDecl := stmt.VariableDeclaration().LocalVariable()
 			typeCtx := varDecl.Type_()
 			t, err := atypes.InferFromTypeContext(typeCtx)

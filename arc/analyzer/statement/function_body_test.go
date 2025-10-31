@@ -203,6 +203,24 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.F32()))
 		})
+
+		It("Should infer the correct type for channel and literal operations in power expressiosn", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				return f32_chan ^ 2
+			}`))
+			globalResolver := symbol.MapResolver{
+				"f32_chan": symbol.Symbol{
+					Name: "f32_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+				},
+			}
+			ctx := context.CreateRoot(bCtx, block, globalResolver)
+			inferredType, ok := statement.AnalyzeFunctionBody(ctx)
+			Expect(ok).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(inferredType).To(Equal(types.F32()))
+		})
+
 		It("Should infer f32 from float constant and f32 channel", func() {
 			block := MustSucceed(parser.ParseBlock(`{
 				if (condition == 1) {
@@ -557,7 +575,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		It("Should report type incompatibility clearly", func() {
 			block := MustSucceed(parser.ParseBlock(`{
 				x i32 := 1
-				y string := "hello"
+				y str := "hello"
 				if x > 0 {
 					return x
 				}

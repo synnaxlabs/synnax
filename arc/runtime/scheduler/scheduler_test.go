@@ -111,7 +111,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.initCalled).To(BeTrue())
 			Expect(nodeB.initCalled).To(BeTrue())
 		})
-		It("Should not execute nodes in higher strata", func() {
+		It("Should execute nodes in higher strata", func() {
 			prog = ir.IR{
 				Nodes: []ir.Node{
 					{Key: "a"},
@@ -124,7 +124,7 @@ var _ = Describe("Scheduler", func() {
 			s = scheduler.New(ctx, prog, nodes)
 			s.Init(ctx)
 			Expect(nodeA.initCalled).To(BeTrue())
-			Expect(nodeB.initCalled).To(BeFalse())
+			Expect(nodeB.initCalled).To(BeTrue())
 		})
 		It("Should provide context with MarkChanged callback", func() {
 			markedParams := []string{}

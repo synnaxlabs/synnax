@@ -29,6 +29,7 @@ import {
   type NodeProps as RFNodeProps,
   type ProOptions,
   ReactFlow,
+  type ReactFlowInstance,
   type ReactFlowProps,
   ReactFlowProvider,
   reconnectEdge,
@@ -491,6 +492,13 @@ const Core = ({
 
   const combinedRefs = useCombinedRefs(triggerRef, resizeRef);
 
+  const handleInit = useCallback(
+    (i: ReactFlowInstance<RFNode, RFEdge<record.Unknown>>) => {
+      void i.fitView(fitViewOptions);
+    },
+    [fitViewOptions],
+  );
+
   const ctxValue = useMemo(
     () => ({
       visible,
@@ -519,6 +527,18 @@ const Core = ({
     ],
   );
 
+  const defaultEdgeOptions = useMemo(
+    () => ({
+      type: edgeRenderer == null ? "smoothstep" : "default",
+    }),
+    [edgeRenderer],
+  );
+
+  const style = useMemo(
+    () => ({ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }),
+    [viewport.zoom, rest.style],
+  );
+
   return (
     <Context value={ctxValue}>
       <Aether.Composite path={path}>
@@ -544,9 +564,7 @@ const Core = ({
             onReconnect={handleEdgeUpdate}
             defaultViewport={translateViewportForward(viewport)}
             elevateEdgesOnSelect
-            defaultEdgeOptions={{
-              type: edgeRenderer == null ? "smoothstep" : "default",
-            }}
+            defaultEdgeOptions={defaultEdgeOptions}
             minZoom={fitViewOptions.minZoom}
             maxZoom={fitViewOptions.maxZoom}
             isValidConnection={isValidConnection}
@@ -558,9 +576,10 @@ const Core = ({
             snapGrid={snapGrid}
             snapToGrid={snapToGrid}
             {...rest}
-            style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }}
+            style={style}
             {...editableProps}
             nodesDraggable={editable}
+            onInit={handleInit}
           />
         )}
       </Aether.Composite>

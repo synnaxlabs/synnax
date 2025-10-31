@@ -1,0 +1,32 @@
+{
+  "name": "@synnaxlabs/arc",
+  "version": "0.47.0",
+  "type": "module",
+  "description": "TypeScript/JavaScript utilities for the Arc language",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/synnaxlabs/synnax.git",
+    "directory": "arc/ts"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/arc.js",
+      "require": "./dist/arc.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "syntaxes"
+  ],
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "check-types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@synnaxlabs/tsconfig": "workspace:^",
+    "@synnaxlabs/vite-plugin": "workspace:^",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}

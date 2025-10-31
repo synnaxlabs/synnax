@@ -91,7 +91,7 @@ func mapTokenType(antlrType int) *uint32 {
 		tokenType = SemanticTokenTypeKeyword
 	case parser.ArcLexerI8, parser.ArcLexerI16, parser.ArcLexerI32, parser.ArcLexerI64,
 		parser.ArcLexerU8, parser.ArcLexerU16, parser.ArcLexerU32, parser.ArcLexerU64,
-		parser.ArcLexerF32, parser.ArcLexerF64, parser.ArcLexerSTRING,
+		parser.ArcLexerF32, parser.ArcLexerF64, parser.ArcLexerSTR,
 		parser.ArcLexerTIMESTAMP, parser.ArcLexerTIMESPAN, parser.ArcLexerSERIES,
 		parser.ArcLexerCHAN, parser.ArcLexerRECV_CHAN, parser.ArcLexerSEND_CHAN:
 		tokenType = SemanticTokenTypeType
@@ -103,7 +103,7 @@ func mapTokenType(antlrType int) *uint32 {
 		parser.ArcLexerLEQ, parser.ArcLexerGEQ, parser.ArcLexerAND, parser.ArcLexerOR,
 		parser.ArcLexerNOT:
 		tokenType = SemanticTokenTypeOperator
-	case parser.ArcLexerSTRING_LITERAL:
+	case parser.ArcLexerSTR_LITERAL:
 		tokenType = SemanticTokenTypeString
 	case parser.ArcLexerINTEGER_LITERAL, parser.ArcLexerFLOAT_LITERAL,
 		parser.ArcLexerTEMPORAL_LITERAL, parser.ArcLexerFREQUENCY_LITERAL:
