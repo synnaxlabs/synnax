@@ -68,6 +68,7 @@ build:windows --copt=/wd4127  # conditional expression is constant
 build:windows --copt=/wd4018  # signed/unsigned mismatch
 build:windows --copt=/wd5267  # definition of implicit copy constructor is deprecated
 build:windows --copt=/wd5219  # implicit conversion, possible loss of data
+build:windows --copt=/wd4305  # truncation from double to float
 build:windows --per_file_copt=external/.*@/WX-,/w
 build:windows --per_file_copt=vendor/.*@/WX-,/w
 
