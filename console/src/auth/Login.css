@@ -17,22 +17,25 @@
 
 .console-login__content {
     cursor: default;
-    padding: clamp(2rem, 3vw, 4rem);
 }
 
 .console-login__logo {
-    height: clamp(8rem, 8vh, 12rem);
+    height: 10rem;
     cursor: default;
 }
 
 .console-login__container {
-    width: clamp(700px, 70vw, 900px);
-    height: clamp(350px, 50vh, 450px);
+    width: 800px;
+    height: 400px;
+}
+
+.console-login__container.console--narrow {
+    width: 400px;
 }
 
 .console-login__form {
-    padding: clamp(5rem, 6vw, 10rem);
-    width: 50%;
+    padding: 10rem;
+    width: 400px;
     flex-shrink: 0;
 }
 

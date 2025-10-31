@@ -55,11 +55,12 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
 };
 
 export const Login = (): ReactElement => {
+  const servingCluster = Cluster.detectConnection();
   const [stat, setStatus] = useState<status.Status>(() =>
     status.create({ variant: "disabled", message: "" }),
   );
-  const initialSelected = Cluster.useSelectMany()[0]?.key;
-  const [selectedKey, setSelectedKey] = useState<string | undefined>(initialSelected);
+  const clusters = Cluster.useSelectMany();
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(clusters[0]?.key);
   const selectedCluster = Cluster.useSelect(selectedKey);
   const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
@@ -102,7 +103,9 @@ export const Login = (): ReactElement => {
       <Flex.Box y empty className={CSS.B("login")}>
         <LoginNav />
         <Flex.Box
-          center
+          y
+          align="center"
+          justify="center"
           background={1}
           gap="huge"
           grow
@@ -117,12 +120,17 @@ export const Login = (): ReactElement => {
           <Flex.Box
             pack
             x
-            className={CSS.BE("login", "container")}
+            className={CSS(
+              CSS.BE("login", "container"),
+              servingCluster != null && CSS.M("narrow"),
+            )}
             grow={false}
             rounded={1.5}
             background={0}
           >
-            <Cluster.List value={selectedKey} onChange={setSelectedKey} />
+            {servingCluster == null && (
+              <Cluster.List value={selectedKey} onChange={setSelectedKey} />
+            )}
             <Flex.Box
               y
               gap="huge"
@@ -134,7 +142,9 @@ export const Login = (): ReactElement => {
               <Form.Form<typeof credentialsZ> {...methods}>
                 <Flex.Box y align="center" grow gap="huge" shrink={false}>
                   <Text.Text level="h2" color={11} weight={450}>
-                    Log in to {selectedCluster?.name}
+                    {servingCluster != null
+                      ? "Log in"
+                      : `Log in to ${selectedCluster?.name}`}
                   </Text.Text>
                   <Flex.Box y full="x" empty>
                     <Form.TextField path="username" inputProps={USERNAME_INPUT_PROPS} />

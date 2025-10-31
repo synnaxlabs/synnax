@@ -26,11 +26,7 @@ export const { useRetrieve: useConnectionState } = Flux.createRetrieve<
 >({
   name: "connectionState",
   allowDisconnected: true,
-  retrieve: async ({ query }) => {
-    console.log(query);
-    const res = await checkConnection(query);
-    return res;
-  },
+  retrieve: async ({ query }) => await checkConnection(query),
   mountListeners: ({ onChange, query }) => {
     const checker = newConnectionChecker(query);
     checker.onChange(onChange);
