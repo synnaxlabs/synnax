@@ -9,6 +9,7 @@ import Diagram from "@/components/Diagram.astro";
 
 <Release
     version="0.47.0"
+    breakingChanges
     date="Oct 24, 2025"
     title="Arc-Based Calculated Channels"
 >
@@ -17,48 +18,47 @@ import Diagram from "@/components/Diagram.astro";
   <Image client:only="react" id="releases/0-47-0/thumbnail" themed={false} />
 </Diagram>
 
-Our lua-based calculated channels were a powerful first step towards deriving values in
+Our Lua-based calculated channels were a powerful first step towards deriving values in
 real-time from a set of input channels. They also came with several limitations, notably
 the inability to create calculations that relied on channels with different indexes, and
-the lack of statistical functions such as averages, min, max, standard deviation, etc.
+the lack of statistical functions such as averages, minimum, maximum, and standard
+deviation.
 
-Our new arc language is becoming the bedrock for building automations in Synnax, and the
-next step in it's evolution is the introduction of arc-based calculated channels. This
+Our new Arc language is becoming the bedrock for building automations in Synnax, and the
+next step in its evolution is the introduction of Arc-based calculated channels. This
 uses a new, text-based syntax. It allows for calculations using mixes of persisted
 channels with different indexes, virtual channels, and even other calculated channels.
 
-We've also added three statistical aggregation functions, `avg`, `min`, and `max`. These
+We've also added three statistical aggregation functions: `avg`, `min`, and `max`. These
 functions can be used to calculate the average, minimum, and maximum values of a
-calculation over a time or trigger based window.
+calculation over a time- or trigger-based window.
 
 ### Deprecation of Lua-Based Calculations
 
-With the introduction of arc-based calculated channels, Lua-based calculations are
+With the introduction of Arc-based calculated channels, Lua-based calculations are
 deprecated and will be removed in a future release. We'll automatically attempt to
-migrate compatible lua-based calculations to their arc equivalent, and will provide
+migrate compatible Lua-based calculations to their Arc equivalent, and will provide
 warnings for incompatible calculations that must be manually re-written.
 
-In this release, lua-based calculations will continue to function normally, but creating
-new lua-based calculations will not be allowed.
+In this release, Lua-based calculations will continue to function normally, but creating
+new Lua-based calculations will not be allowed.
 
 <Divider.Divider x />
 
 ## Important Breaking Changes
 
-Synnax v0.47 introduces two, important breaking changes.
-
 ### Auto-Commit is now Enabled by Default with All Writers
 
-[Auto-Commit](/reference/writes#auto-commit) is used to immediately persist written data
-to Synnax, as oppoed to calling `commit` manually.
+[Auto-Commit](/reference/concepts/writes#auto-commit) is used to immediately persist
+written data to Synnax, as opposed to calling `commit` manually.
 
 Over the course of several release, we've observed that it's far more common to write
 data in scenarios where you'd want to have auto-commit enabled (telemetry streaming,
 control) than in scenarios where you'd want to disable it.
 
 As a result, we've made the decision to enable auto-commit by default with writers in
-all of our SDKs. Any code that implicitly disables auto-commit will now need to
-explicitly disable it.
+all of our client libraries. Any code that implicitly disables auto-commit will now need
+to explicitly disable it.
 
 ### Changes to Writer Behavior Under Mixed Control Authority
 
@@ -68,8 +68,8 @@ schematic.
 
 In this scenario, a schematic will have mixed control over a set of actuators. For
 example, a schematic is controlling `cmd_channel_1` and `cmd_channel_2`. Both of these
-have independent, associated indexeds (`cmd_channel_1_time` and `cmd_channel_2_time`).
-In the scenario where the schematic operator has control over `cmd_channel_1` but not
+have independent, associated indexes (`cmd_channel_1_time` and `cmd_channel_2_time`). In
+the scenario where the schematic operator has control over `cmd_channel_1` but not
 `cmd_channel_2` and auto commit is enabled, any writes to `cmd_channel_1` would fail
 regardless of the fact that the operator has control over it.
 
@@ -83,6 +83,12 @@ scenarios where multiple systems or users may be managing different aspects of t
 system simultaneously.
 
 ### Bug Fixes and Other Improvements
+
+#### Core
+
+- Fixed an issue where devices would accidentally regroup on startup.
+- Fixed channel renaming synchronization issues across Synnax.
+- Fixed issues with opening streamers when the channel key is 0.
 
 #### Console
 
@@ -99,19 +105,13 @@ system simultaneously.
 - Added a copy properties context menu item to ontology toolbars for easier
   configuration management.
 
-#### Driver System
+#### Driver
 
 - Fixed OPC UA write task reliability, including proper handling of boolean writes.
 - Fixed OPC UA browser status display to show accurate connection states.
-- Added validation for National Instruments AI minimum sample rate to prevent
-  configuration errors.
+- Added validation for NI Analog Read task minimum sample rate to prevent configuration
+  errors.
 - Fixed startup warnings in the embedded driver for cleaner initialization.
 - Enabled auto-commit for Modbus driver to improve data persistence.
-
-#### Core
-
-- Fixed an issue where devices would accidentally regroup on Core startup.
-- Fixed channel renaming synchronization issues across the system.
-- Fixed issues with opening streamers when channel key is 0.
 
 </Release>
