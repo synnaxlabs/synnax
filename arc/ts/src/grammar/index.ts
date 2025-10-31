@@ -44,6 +44,6 @@ export const grammar = {
   ...arcGrammar,
   name: "arc",
   scopeName: "source.arc",
-} as any;
+};
 
 export default grammar;

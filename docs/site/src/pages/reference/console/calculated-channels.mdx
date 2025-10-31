@@ -29,8 +29,6 @@ such as:
   continue to work but should be [migrated to Arc](#migration-from-lua).
 </Note.Note>
 
-{/* [SCREENSHOT NEEDED] Console showing legacy channel deprecation warning */}
-
 <Divider.Divider x />
 
 ## Creating Calculated Channels
@@ -42,9 +40,6 @@ Calculated Channel" command.
 - Alternatively, press `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (macOS).
 
 <Video client:only="react" id="console/calculated-channels/create" />
-
-{/* [SCREENSHOT NEEDED] Calculated channel creation dialog with Arc editor */}
-{/* [SCREENSHOT NEEDED] Arc code editor showing syntax highlighting */}
 
 ### Channel Parameters
 
@@ -156,7 +151,8 @@ Arc supports standard operators for calculations:
 return (temp_1 + temp_2 + temp_3) / 3  // Average
 ```
 
-**Comparison:** `==`, `!=`, `<`, `>`, <code
+**Comparison:** <code style={{fontVariantLigatures: 'none'}}>==</code>, <code
+style={{fontVariantLigatures: 'none'}}>!=</code>, `<`, `>`, <code
 style={{fontVariantLigatures: 'none'}}>&lt;=</code>, <code
 style={{fontVariantLigatures: 'none'}}>&gt;=</code>
 
@@ -221,7 +217,7 @@ averages.
 
 Operations process the expression result before writing to the output channel:
 
-<Code showCopyButton={false}>
+<Code hideCopyButton>
   <code>
     {`Expression Result → Operation → Output Channel
                        ↑
@@ -535,25 +531,23 @@ If the frame contains:
 
 The calculation produces **10 output samples**:
 
-1. Pressure's last value (34) repeats for positions 6-10
+1. `pressure`'s last value (34) repeats for positions 6-10
 2. Elementwise addition: `[50, 52, 54, 56, 58, 59, 60, 61, 62, 63]`
 
 **What this means for different rates:**
 
 If `temperature` updates at 100 Hz and `pressure` at 10 Hz, when a frame arrives with
-100 temperature samples and 10 pressure samples, the calculated channel produces **100
-output samples**. Pressure's 10th value is used for output samples 11-100.
+100 `temperature` samples and 10 `pressure` samples, the calculated channel produces
+**100 output samples**. `pressure`'s 10th value is used for output samples 11-100.
 
 **Note:** This is not interpolation; it's a last-value-hold. The system doesn't create
-new pressure values; it reuses the most recent one.
+new `pressure` values; it reuses the most recent one.
 
 <Divider.Divider x />
 
 ## Migration from Lua
 
 If you have existing Lua-based calculated channels, here's how to migrate them to Arc:
-
-{/* [SCREENSHOT NEEDED] Side-by-side Lua vs Arc comparison in Console */}
 
 ### Syntax Comparison
 
@@ -598,8 +592,8 @@ If you have existing Lua-based calculated channels, here's how to migrate them t
     </tr>
     <tr>
       <td>Not Equal</td>
-      <td>`~=`</td>
-      <td>`!=`</td>
+      <td style={{fontVariantLigatures: 'none'}}>`~=`</td>
+      <td style={{fontVariantLigatures: 'none'}}>`!=`</td>
     </tr>
     <tr>
       <td>Return</td>
@@ -614,7 +608,7 @@ If you have existing Lua-based calculated channels, here's how to migrate them t
 **Simple scaling:**
 
 ```lua
-// Lua
+-- Lua
 return channels.sensor * 2
 ```
 
@@ -626,7 +620,7 @@ return sensor * 2
 **Conditional logic:**
 
 ```lua
-// Lua
+-- Lua
 if channels.temp > 100 then
     return 1
 else
@@ -646,7 +640,7 @@ if (temp > 100) {
 **Multi-step with variables:**
 
 ```lua
-// Lua
+-- Lua
 local scaled = channels.pressure * 2.5
 local offset = scaled + 10
 return offset
@@ -679,5 +673,4 @@ use underscores instead of special characters:
 - ❌ `sensor-1`, `temp reading`, `channel.a`
 
 For complex calculations involving loops or tables, consider breaking them into multiple
-calculated channels or exploring
-[Arc's more advanced features](https://docs.synnax.com/reference/arc).
+calculated channels.

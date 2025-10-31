@@ -2,16 +2,15 @@
 import { Button, Icon } from "@synnaxlabs/pluto";
 import { Fragment } from "react";
 
-const { tabindex, variant, wrap = false, showCopyButton = true, ...rest } = Astro.props;
+const { tabindex, variant, wrap = false, hideCopyButton = false, ...rest } = Astro.props;
 let className = "astro-code-wrapper";
 if (variant != null) className += ` ${variant}`;
 if (wrap) className += " wrap";
-if (!showCopyButton) className += " no-copy-button";
 ---
 
 <div class={className} tabindex={tabindex}>
     {
-        showCopyButton && (
+        !hideCopyButton && (
             <Button.Button variant="outlined" size="medium" square>
                 <Fragment>
                     <>
