@@ -13,11 +13,9 @@ import Diagram from "@/components/Diagram.astro";
     title="Arc-Based Calculated Channels"
 >
 
-<Diagram preview style="height: 500px; padding: 9rem">
+<Diagram preview style="height: 425px; padding: 0rem 9rem">
   <Image client:only="react" id="releases/0-47-0/thumbnail" themed={false} />
 </Diagram>
-
-## Arc-Based Calculated Channels
 
 Our lua-based calculated channels were a powerful first step towards deriving values in
 real-time from a set of input channels. They also came with several limitations, notably
@@ -42,6 +40,8 @@ warnings for incompatible calculations that must be manually re-written.
 
 In this release, lua-based calculations will continue to function normally, but creating
 new lua-based calculations will not be allowed.
+
+<Divider.Divider x />
 
 ## Important Breaking Changes
 
@@ -81,5 +81,37 @@ all writes to a channel that it has control over will succeed.
 This fix significantly improves the reliability of schematics in complex control
 scenarios where multiple systems or users may be managing different aspects of the
 system simultaneously.
+
+### Bug Fixes and Other Improvements
+
+#### Console
+
+- Added a new Arc toolbar with language server support for improved code editing and
+  development experience.
+- Fixed an issue where CSV exports failed for channels with different indexes, allowing
+  proper data export from line plots.
+- Improved workspace management with better synchronization and export functionality
+  that now uses layout names for JSON files.
+- Fixed schematic edge selection, node selectors, and symbol creation for more reliable
+  schematic editing.
+- Fixed styling issues for long channel names in task configuration dialogs.
+- Fixed tooltip coloring to improve visual consistency.
+- Added a copy properties context menu item to ontology toolbars for easier
+  configuration management.
+
+#### Driver System
+
+- Fixed OPC UA write task reliability, including proper handling of boolean writes.
+- Fixed OPC UA browser status display to show accurate connection states.
+- Added validation for National Instruments AI minimum sample rate to prevent
+  configuration errors.
+- Fixed startup warnings in the embedded driver for cleaner initialization.
+- Enabled auto-commit for Modbus driver to improve data persistence.
+
+#### Core
+
+- Fixed an issue where devices would accidentally regroup on Core startup.
+- Fixed channel renaming synchronization issues across the system.
+- Fixed issues with opening streamers when channel key is 0.
 
 </Release>
