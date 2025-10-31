@@ -33,8 +33,6 @@ export default defineConfig({
   },
   redirects: {
     "/reference/device-drivers/standalone": "/reference/driver/installation",
-    "/reference/cluster/[...slug]": "/reference/core/[...slug]",
-    "/reference/device-drivers/[...slug]": "/reference/driver/[...slug]",
     "/reference/console/clusters": "/reference/console/cores",
   },
   site: "https://docs.synnaxlabs.com",

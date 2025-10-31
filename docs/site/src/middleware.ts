@@ -9,7 +9,20 @@
 
 import type { MiddlewareHandler } from "astro";
 
-export const onRequest: MiddlewareHandler = async (_, next) => {
+export const onRequest: MiddlewareHandler = async (context, next) => {
+  const { pathname } = context.url;
+
+  // Handle dynamic redirects (catch-all patterns don't work in Astro config on Vercel)
+  if (pathname.startsWith("/reference/cluster/")) {
+    const slug = pathname.replace("/reference/cluster/", "");
+    return context.redirect(`/reference/core/${slug}`, 301);
+  }
+
+  if (pathname.startsWith("/reference/device-drivers/")) {
+    const slug = pathname.replace("/reference/device-drivers/", "");
+    return context.redirect(`/reference/driver/${slug}`, 301);
+  }
+
   const response = await next();
 
   response.headers.set(
