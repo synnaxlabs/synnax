@@ -7,13 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Layout } from "@/layout";
-import { Register, REGISTER_LAYOUT_TYPE } from "@/user/Register";
-
-export * from "@/user/Badge";
-export * from "@/user/Register";
-export * from "@/user/selectors";
-
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [REGISTER_LAYOUT_TYPE]: Register,
-};
+export * as Cluster from "@/cluster/queries";

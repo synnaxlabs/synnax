@@ -11,7 +11,15 @@ export { access } from "@/access";
 export { arc } from "@/arc";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
-export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";
+export {
+  type CheckConnectionParams,
+  newConnectionChecker,
+  default as Synnax,
+  type SynnaxParams,
+  type SynnaxProps,
+  synnaxPropsZ,
+} from "@/client";
+export { checkConnection } from "@/client";
 export * from "@/connection";
 export { control } from "@/control";
 export {
