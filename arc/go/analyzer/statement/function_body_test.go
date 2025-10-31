@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -64,6 +65,201 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return x
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			Expect(inferredType).To(Equal(types.F32()))
+		})
+
+		It("Should infer f32 from an integer constant and an f32 channel", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				if (u8_channel == 1) {
+					return 0
+				}
+				return f32_chan
+			}`))
+			globalResolver := symbol.MapResolver{
+				"u8_channel": symbol.Symbol{
+					Name: "u8_channel",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+				},
+				"f32_chan": symbol.Symbol{
+					Name: "f32_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+				},
+			}
+			ctx := context.CreateRoot(bCtx, block, globalResolver)
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			Expect(inferredType).To(Equal(types.F32()))
+		})
+
+		It("Should infer f32 from integer constant and f32 series", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				if (condition == 1) {
+					return 0
+				}
+				return f32_series
+			}`))
+			globalResolver := symbol.MapResolver{
+				"condition": symbol.Symbol{
+					Name: "condition",
+					Kind: symbol.KindVariable,
+					Type: types.U8(),
+				},
+				"f32_series": symbol.Symbol{
+					Name: "f32_series",
+					Kind: symbol.KindVariable,
+					Type: types.Series(types.F32()),
+				},
+			}
+			ctx := context.CreateRoot(bCtx, block, globalResolver)
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			Expect(inferredType).To(Equal(types.F32()))
+		})
+		It("Should infer f32 from integer constant and plain f32 variable", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				x f32 := 3.5
+				if (x > 0) {
+					return 0
+				}
+				return x
+			}`))
+			ctx := context.CreateRoot(bCtx, block, nil)
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			Expect(inferredType).To(Equal(types.F32()))
+		})
+
+		It("Should infer f64 from integer constant and f64 channel", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				if (condition == 1) {
+					return 0
+				}
+				return f64_chan
+			}`))
+			globalResolver := symbol.MapResolver{
+				"condition": symbol.Symbol{
+					Name: "condition",
+					Kind: symbol.KindVariable,
+					Type: types.U8(),
+				},
+				"f64_chan": symbol.Symbol{
+					Name: "f64_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+			}
+			ctx := context.CreateRoot(bCtx, block, globalResolver)
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			Expect(inferredType).To(Equal(types.F64()))
+		})
+		It("Should infer i32 from integer constant and i32 channel", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				if (condition == 1) {
+					return 0
+				}
+				return i32_chan
+			}`))
+			globalResolver := symbol.MapResolver{
+				"condition": symbol.Symbol{
+					Name: "condition",
+					Kind: symbol.KindVariable,
+					Type: types.U8(),
+				},
+				"i32_chan": symbol.Symbol{
+					Name: "i32_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I32()),
+				},
+			}
+			ctx := context.CreateRoot(bCtx, block, globalResolver)
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			Expect(inferredType).To(Equal(types.I32()))
+		})
+
+		It("Should infer f32 from multiple integer constants and one f32 channel", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				if (a == 1) {
+					return 0
+				} else if (a == 2) {
+					return 1
+				} else if (a == 3) {
+					return 2
+				}
+				return f32_chan
+			}`))
+			globalResolver := symbol.MapResolver{
+				"a": symbol.Symbol{
+					Name: "a",
+					Kind: symbol.KindVariable,
+					Type: types.U8(),
+				},
+				"f32_chan": symbol.Symbol{
+					Name: "f32_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+				},
+			}
+			ctx := context.CreateRoot(bCtx, block, globalResolver)
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			Expect(inferredType).To(Equal(types.F32()))
+		})
+
+		It("Should infer the correct type for channel and literal operations in power expressiosn", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				return f32_chan ^ 2
+			}`))
+			globalResolver := symbol.MapResolver{
+				"f32_chan": symbol.Symbol{
+					Name: "f32_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+				},
+			}
+			ctx := context.CreateRoot(bCtx, block, globalResolver)
+			inferredType, ok := statement.AnalyzeFunctionBody(ctx)
+			Expect(ok).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(inferredType).To(Equal(types.F32()))
+		})
+
+		It("Should infer f32 from float constant and f32 channel", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				if (condition == 1) {
+					return 3.14
+				}
+				return f32_chan
+			}`))
+			globalResolver := symbol.MapResolver{
+				"condition": symbol.Symbol{
+					Name: "condition",
+					Kind: symbol.KindVariable,
+					Type: types.U8(),
+				},
+				"f32_chan": symbol.Symbol{
+					Name: "f32_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+				},
+			}
+			ctx := context.CreateRoot(bCtx, block, globalResolver)
+			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			Expect(inferredType).To(Equal(types.F32()))
+		})
+		It("Should infer f32 from channel and plain variable of same type", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				x f32 := 2.5
+				if (x > 0) {
+					return f32_chan
+				}
+				return x
+			}`))
+			globalResolver := symbol.MapResolver{
+				"f32_chan": symbol.Symbol{
+					Name: "f32_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+				},
+			}
+			ctx := context.CreateRoot(bCtx, block, globalResolver)
 			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.F32()))
 		})
@@ -379,7 +575,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		It("Should report type incompatibility clearly", func() {
 			block := MustSucceed(parser.ParseBlock(`{
 				x i32 := 1
-				y string := "hello"
+				y str := "hello"
 				if x > 0 {
 					return x
 				}
@@ -424,5 +620,6 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.U16()))
 		})
+
 	})
 })

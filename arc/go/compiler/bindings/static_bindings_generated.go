@@ -20,63 +20,63 @@ import (
 // Bindings provides type-safe bindings for all runtime operations
 type Bindings struct {
 	// Channel operations - use proper Go types, handle WASM conversion internally
-	ChannelReadU8             func(context.Context, uint32) uint8
-	ChannelWriteU8            func(context.Context, uint32, uint8)
-	ChannelBlockingReadU8     func(context.Context, uint32) uint8
-	ChannelReadU16            func(context.Context, uint32) uint16
-	ChannelWriteU16           func(context.Context, uint32, uint16)
-	ChannelBlockingReadU16    func(context.Context, uint32) uint16
-	ChannelReadU32            func(context.Context, uint32) uint32
-	ChannelWriteU32           func(context.Context, uint32, uint32)
-	ChannelBlockingReadU32    func(context.Context, uint32) uint32
-	ChannelReadU64            func(context.Context, uint32) uint64
-	ChannelWriteU64           func(context.Context, uint32, uint64)
-	ChannelBlockingReadU64    func(context.Context, uint32) uint64
-	ChannelReadI8             func(context.Context, uint32) int8
-	ChannelWriteI8            func(context.Context, uint32, int8)
-	ChannelBlockingReadI8     func(context.Context, uint32) int8
-	ChannelReadI16            func(context.Context, uint32) int16
-	ChannelWriteI16           func(context.Context, uint32, int16)
-	ChannelBlockingReadI16    func(context.Context, uint32) int16
-	ChannelReadI32            func(context.Context, uint32) int32
-	ChannelWriteI32           func(context.Context, uint32, int32)
-	ChannelBlockingReadI32    func(context.Context, uint32) int32
-	ChannelReadI64            func(context.Context, uint32) int64
-	ChannelWriteI64           func(context.Context, uint32, int64)
-	ChannelBlockingReadI64    func(context.Context, uint32) int64
-	ChannelReadF32            func(context.Context, uint32) float32
-	ChannelWriteF32           func(context.Context, uint32, float32)
-	ChannelBlockingReadF32    func(context.Context, uint32) float32
-	ChannelReadF64            func(context.Context, uint32) float64
-	ChannelWriteF64           func(context.Context, uint32, float64)
-	ChannelBlockingReadF64    func(context.Context, uint32) float64
-	ChannelReadString         func(context.Context, uint32) uint32
-	ChannelWriteString        func(context.Context, uint32, uint32)
-	ChannelBlockingReadString func(context.Context, uint32) uint32
+	ChannelReadU8          func(context.Context, uint32) uint8
+	ChannelWriteU8         func(context.Context, uint32, uint8)
+	ChannelBlockingReadU8  func(context.Context, uint32) uint8
+	ChannelReadU16         func(context.Context, uint32) uint16
+	ChannelWriteU16        func(context.Context, uint32, uint16)
+	ChannelBlockingReadU16 func(context.Context, uint32) uint16
+	ChannelReadU32         func(context.Context, uint32) uint32
+	ChannelWriteU32        func(context.Context, uint32, uint32)
+	ChannelBlockingReadU32 func(context.Context, uint32) uint32
+	ChannelReadU64         func(context.Context, uint32) uint64
+	ChannelWriteU64        func(context.Context, uint32, uint64)
+	ChannelBlockingReadU64 func(context.Context, uint32) uint64
+	ChannelReadI8          func(context.Context, uint32) int8
+	ChannelWriteI8         func(context.Context, uint32, int8)
+	ChannelBlockingReadI8  func(context.Context, uint32) int8
+	ChannelReadI16         func(context.Context, uint32) int16
+	ChannelWriteI16        func(context.Context, uint32, int16)
+	ChannelBlockingReadI16 func(context.Context, uint32) int16
+	ChannelReadI32         func(context.Context, uint32) int32
+	ChannelWriteI32        func(context.Context, uint32, int32)
+	ChannelBlockingReadI32 func(context.Context, uint32) int32
+	ChannelReadI64         func(context.Context, uint32) int64
+	ChannelWriteI64        func(context.Context, uint32, int64)
+	ChannelBlockingReadI64 func(context.Context, uint32) int64
+	ChannelReadF32         func(context.Context, uint32) float32
+	ChannelWriteF32        func(context.Context, uint32, float32)
+	ChannelBlockingReadF32 func(context.Context, uint32) float32
+	ChannelReadF64         func(context.Context, uint32) float64
+	ChannelWriteF64        func(context.Context, uint32, float64)
+	ChannelBlockingReadF64 func(context.Context, uint32) float64
+	ChannelReadStr         func(context.Context, uint32) uint32
+	ChannelWriteStr        func(context.Context, uint32, uint32)
+	ChannelBlockingReadStr func(context.Context, uint32) uint32
 
 	// State operations - use proper Go types (load takes initValue)
-	StateLoadU8      func(context.Context, uint32, uint32, uint8) uint8
-	StateStoreU8     func(context.Context, uint32, uint32, uint8)
-	StateLoadU16     func(context.Context, uint32, uint32, uint16) uint16
-	StateStoreU16    func(context.Context, uint32, uint32, uint16)
-	StateLoadU32     func(context.Context, uint32, uint32, uint32) uint32
-	StateStoreU32    func(context.Context, uint32, uint32, uint32)
-	StateLoadU64     func(context.Context, uint32, uint32, uint64) uint64
-	StateStoreU64    func(context.Context, uint32, uint32, uint64)
-	StateLoadI8      func(context.Context, uint32, uint32, int8) int8
-	StateStoreI8     func(context.Context, uint32, uint32, int8)
-	StateLoadI16     func(context.Context, uint32, uint32, int16) int16
-	StateStoreI16    func(context.Context, uint32, uint32, int16)
-	StateLoadI32     func(context.Context, uint32, uint32, int32) int32
-	StateStoreI32    func(context.Context, uint32, uint32, int32)
-	StateLoadI64     func(context.Context, uint32, uint32, int64) int64
-	StateStoreI64    func(context.Context, uint32, uint32, int64)
-	StateLoadF32     func(context.Context, uint32, uint32, float32) float32
-	StateStoreF32    func(context.Context, uint32, uint32, float32)
-	StateLoadF64     func(context.Context, uint32, uint32, float64) float64
-	StateStoreF64    func(context.Context, uint32, uint32, float64)
-	StateLoadString  func(context.Context, uint32, uint32, uint32) uint32
-	StateStoreString func(context.Context, uint32, uint32, uint32)
+	StateLoadU8   func(context.Context, uint32, uint32, uint8) uint8
+	StateStoreU8  func(context.Context, uint32, uint32, uint8)
+	StateLoadU16  func(context.Context, uint32, uint32, uint16) uint16
+	StateStoreU16 func(context.Context, uint32, uint32, uint16)
+	StateLoadU32  func(context.Context, uint32, uint32, uint32) uint32
+	StateStoreU32 func(context.Context, uint32, uint32, uint32)
+	StateLoadU64  func(context.Context, uint32, uint32, uint64) uint64
+	StateStoreU64 func(context.Context, uint32, uint32, uint64)
+	StateLoadI8   func(context.Context, uint32, uint32, int8) int8
+	StateStoreI8  func(context.Context, uint32, uint32, int8)
+	StateLoadI16  func(context.Context, uint32, uint32, int16) int16
+	StateStoreI16 func(context.Context, uint32, uint32, int16)
+	StateLoadI32  func(context.Context, uint32, uint32, int32) int32
+	StateStoreI32 func(context.Context, uint32, uint32, int32)
+	StateLoadI64  func(context.Context, uint32, uint32, int64) int64
+	StateStoreI64 func(context.Context, uint32, uint32, int64)
+	StateLoadF32  func(context.Context, uint32, uint32, float32) float32
+	StateStoreF32 func(context.Context, uint32, uint32, float32)
+	StateLoadF64  func(context.Context, uint32, uint32, float64) float64
+	StateStoreF64 func(context.Context, uint32, uint32, float64)
+	StateLoadStr  func(context.Context, uint32, uint32, uint32) uint32
+	StateStoreStr func(context.Context, uint32, uint32, uint32)
 
 	// Series operations
 	SeriesCreateEmptyU8 func(context.Context, uint32) uint32
@@ -492,19 +492,19 @@ func (b *Bindings) setDefaultStubs() {
 			panic("channel_blocking_read_f64 not implemented")
 		}
 	}
-	if b.ChannelReadString == nil {
-		b.ChannelReadString = func(ctx context.Context, channelID uint32) uint32 {
-			panic("channel_read_string not implemented")
+	if b.ChannelReadStr == nil {
+		b.ChannelReadStr = func(ctx context.Context, channelID uint32) uint32 {
+			panic("channel_read_str not implemented")
 		}
 	}
-	if b.ChannelWriteString == nil {
-		b.ChannelWriteString = func(ctx context.Context, channelID uint32, value uint32) {
-			panic("channel_write_string not implemented")
+	if b.ChannelWriteStr == nil {
+		b.ChannelWriteStr = func(ctx context.Context, channelID uint32, value uint32) {
+			panic("channel_write_str not implemented")
 		}
 	}
-	if b.ChannelBlockingReadString == nil {
-		b.ChannelBlockingReadString = func(ctx context.Context, channelID uint32) uint32 {
-			panic("channel_blocking_read_string not implemented")
+	if b.ChannelBlockingReadStr == nil {
+		b.ChannelBlockingReadStr = func(ctx context.Context, channelID uint32) uint32 {
+			panic("channel_blocking_read_str not implemented")
 		}
 	}
 
@@ -609,14 +609,14 @@ func (b *Bindings) setDefaultStubs() {
 			panic("state_store_f64 not implemented")
 		}
 	}
-	if b.StateLoadString == nil {
-		b.StateLoadString = func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
-			panic("state_load_string not implemented")
+	if b.StateLoadStr == nil {
+		b.StateLoadStr = func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
+			panic("state_load_str not implemented")
 		}
 	}
-	if b.StateStoreString == nil {
-		b.StateStoreString = func(ctx context.Context, taskID uint32, key uint32, value uint32) {
-			panic("state_store_string not implemented")
+	if b.StateStoreStr == nil {
+		b.StateStoreStr = func(ctx context.Context, taskID uint32, key uint32, value uint32) {
+			panic("state_store_str not implemented")
 		}
 	}
 
@@ -1665,9 +1665,9 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadF64()).Export("channel_read_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteF64()).Export("channel_write_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingReadF64()).Export("channel_blocking_read_f64")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadString()).Export("channel_read_string")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteString()).Export("channel_write_string")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingReadString()).Export("channel_blocking_read_string")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadStr()).Export("channel_read_str")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteStr()).Export("channel_write_str")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingReadStr()).Export("channel_blocking_read_str")
 
 	// Bind state operations with type conversion wrappers
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapStateLoadU8()).Export("state_load_u8")
@@ -1690,8 +1690,8 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapStateStoreF32()).Export("state_store_f32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapStateLoadF64()).Export("state_load_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapStateStoreF64()).Export("state_store_f64")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapStateLoadString()).Export("state_load_string")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapStateStoreString()).Export("state_store_string")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapStateLoadStr()).Export("state_load_str")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapStateStoreStr()).Export("state_store_str")
 
 	// Bind series operations with type conversion wrappers
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesCreateEmptyU8).Export("series_create_empty_u8")
@@ -2292,38 +2292,38 @@ func (b *Bindings) wrapStateStoreF64() func(context.Context, uint32, uint32, flo
 	}
 }
 
-// Channel operation wrappers for string
-func (b *Bindings) wrapChannelReadString() func(context.Context, uint32) uint32 {
+// Channel operation wrappers for str
+func (b *Bindings) wrapChannelReadStr() func(context.Context, uint32) uint32 {
 	return func(ctx context.Context, channelID uint32) uint32 {
-		result := b.ChannelReadString(ctx, channelID)
+		result := b.ChannelReadStr(ctx, channelID)
 		return uint32(result)
 	}
 }
 
-func (b *Bindings) wrapChannelWriteString() func(context.Context, uint32, uint32) {
+func (b *Bindings) wrapChannelWriteStr() func(context.Context, uint32, uint32) {
 	return func(ctx context.Context, channelID uint32, value uint32) {
-		b.ChannelWriteString(ctx, channelID, uint32(value))
+		b.ChannelWriteStr(ctx, channelID, uint32(value))
 	}
 }
 
-func (b *Bindings) wrapChannelBlockingReadString() func(context.Context, uint32) uint32 {
+func (b *Bindings) wrapChannelBlockingReadStr() func(context.Context, uint32) uint32 {
 	return func(ctx context.Context, channelID uint32) uint32 {
-		result := b.ChannelBlockingReadString(ctx, channelID)
+		result := b.ChannelBlockingReadStr(ctx, channelID)
 		return uint32(result)
 	}
 }
 
-// State operation wrappers for string
-func (b *Bindings) wrapStateLoadString() func(context.Context, uint32, uint32, uint32) uint32 {
+// State operation wrappers for str
+func (b *Bindings) wrapStateLoadStr() func(context.Context, uint32, uint32, uint32) uint32 {
 	return func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
-		result := b.StateLoadString(ctx, taskID, key, uint32(initValue))
+		result := b.StateLoadStr(ctx, taskID, key, uint32(initValue))
 		return uint32(result)
 	}
 }
 
-func (b *Bindings) wrapStateStoreString() func(context.Context, uint32, uint32, uint32) {
+func (b *Bindings) wrapStateStoreStr() func(context.Context, uint32, uint32, uint32) {
 	return func(ctx context.Context, taskID uint32, key uint32, value uint32) {
-		b.StateStoreString(ctx, taskID, key, uint32(value))
+		b.StateStoreStr(ctx, taskID, key, uint32(value))
 	}
 }
 

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Literal
 
 from playwright.sync_api import Page
 
@@ -80,11 +80,11 @@ class Schematic(ConsolePage):
     def create_button(
         self,
         channel_name: str,
-        activation_delay: Optional[float] = None,
-        show_control_chip: Optional[bool] = None,
-        mode: Optional[
-            Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"]
-        ] = None,
+        activation_delay: float | None = None,
+        show_control_chip: bool | None = None,
+        mode: (
+            Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"] | None
+        ) = None,
     ) -> Button:
         """Create a button symbol on the schematic."""
         button_id = self._add_symbol("Button")
@@ -100,7 +100,7 @@ class Schematic(ConsolePage):
     def create_valve(
         self,
         channel_name: str,
-        show_control_chip: Optional[bool] = None,
+        show_control_chip: bool | None = None,
         no_state_channel: bool = False,
     ) -> Valve:
         """Create a button symbol on the schematic.
@@ -127,11 +127,11 @@ class Schematic(ConsolePage):
     def create_value(
         self,
         channel_name: str,
-        notation: Optional[str] = None,
-        precision: Optional[int] = None,
-        averaging_window: Optional[int] = None,
-        stale_color: Optional[str] = None,
-        stale_timeout: Optional[int] = None,
+        notation: str | None = None,
+        precision: int | None = None,
+        averaging_window: int | None = None,
+        stale_color: str | None = None,
+        stale_timeout: int | None = None,
     ) -> Value:
         """Create a value symbol on the schematic."""
         value_id = self._add_symbol("Value")
@@ -164,7 +164,7 @@ class Schematic(ConsolePage):
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
 
-    def find_symbol_handle(self, symbol: Symbol, handle: str) -> Tuple[float, float]:
+    def find_symbol_handle(self, symbol: Symbol, handle: str) -> tuple[float, float]:
         """Calculate the coordinates of a symbol's connection handle."""
         symbol_box = symbol.symbol.bounding_box()
         if not symbol_box:
