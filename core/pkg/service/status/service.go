@@ -60,10 +60,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config
 func (c ServiceConfig) Validate() error {
 	v := validate.New("status.service")
-	validate.NotNil(v, "DB", c.DB)
-	validate.NotNil(v, "Ontology", c.Ontology)
-	validate.NotNil(v, "Group", c.Group)
-	validate.NotNil(v, "Label", c.Label)
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "label", c.Label)
 	return v.Error()
 }
 
@@ -94,10 +94,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{
-		cfg:   cfg,
-		group: g,
-	}
+	s = &Service{cfg: cfg, group: g}
 	s.mu.statuses = make(map[string]status.Status[any])
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {

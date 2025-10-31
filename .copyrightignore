@@ -7,3 +7,4 @@
 **/nisyscfg_errors.h
 **/nisyscfg.h
 **/nidaqmx.h
+vendor/**

@@ -10,15 +10,15 @@
 package types
 
 import (
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
-// InferFromTypeContext infers a types.Type from a parser type context
-func InferFromTypeContext(ctx parser.ITypeContext) (ir.Type, error) {
+// InferFromTypeContext extracts the concrete type from an Arc type annotation.
+func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 	if ctx == nil {
-		return nil, nil
+		return types.Type{}, nil
 	}
 	if primitive := ctx.PrimitiveType(); primitive != nil {
 		return inferPrimitiveType(primitive)
@@ -29,20 +29,20 @@ func InferFromTypeContext(ctx parser.ITypeContext) (ir.Type, error) {
 	if series := ctx.SeriesType(); series != nil {
 		return inferSeriesType(series)
 	}
-	return nil, errors.New("unknown type")
+	return types.Type{}, errors.New("unknown type")
 }
 
-func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (ir.Type, error) {
+func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
 	if numeric := ctx.NumericType(); numeric != nil {
 		return inferNumericType(numeric)
 	}
-	if ctx.STRING() != nil {
-		return ir.String{}, nil
+	if ctx.STR() != nil {
+		return types.String(), nil
 	}
-	return nil, errors.New("unknown primitive type")
+	return types.Type{}, errors.New("unknown primitive type")
 }
 
-func inferNumericType(ctx parser.INumericTypeContext) (ir.Type, error) {
+func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
 	if integer := ctx.IntegerType(); integer != nil {
 		return inferIntegerType(integer)
 	}
@@ -52,59 +52,59 @@ func inferNumericType(ctx parser.INumericTypeContext) (ir.Type, error) {
 	if temporal := ctx.TemporalType(); temporal != nil {
 		return inferTemporalType(temporal)
 	}
-	return nil, errors.New("unknown numeric type")
+	return types.Type{}, errors.New("unknown numeric type")
 }
 
-func inferTemporalType(ctx parser.ITemporalTypeContext) (ir.Type, error) {
+func inferTemporalType(ctx parser.ITemporalTypeContext) (types.Type, error) {
 	text := ctx.GetText()
 	switch text {
 	case "timestamp":
-		return ir.TimeStamp{}, nil
+		return types.TimeStamp(), nil
 	case "timespan":
-		return ir.TimeSpan{}, nil
+		return types.TimeSpan(), nil
 	default:
-		return nil, errors.New("unknown temporal type")
+		return types.Type{}, errors.New("unknown temporal type")
 	}
 }
 
-func inferIntegerType(ctx parser.IIntegerTypeContext) (ir.Type, error) {
+func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {
 	text := ctx.GetText()
 	switch text {
 	case "i8":
-		return ir.I8{}, nil
+		return types.I8(), nil
 	case "i16":
-		return ir.I16{}, nil
+		return types.I16(), nil
 	case "i32":
-		return ir.I32{}, nil
+		return types.I32(), nil
 	case "i64":
-		return ir.I64{}, nil
+		return types.I64(), nil
 	case "u8":
-		return ir.U8{}, nil
+		return types.U8(), nil
 	case "u16":
-		return ir.U16{}, nil
+		return types.U16(), nil
 	case "u32":
-		return ir.U32{}, nil
+		return types.U32(), nil
 	case "u64":
-		return ir.U64{}, nil
+		return types.U64(), nil
 	default:
-		return nil, errors.Newf("unknown integer type: %s", text)
+		return types.Type{}, errors.Newf("unknown integer type: %s", text)
 	}
 }
 
-func inferFloatType(ctx parser.IFloatTypeContext) (ir.Type, error) {
+func inferFloatType(ctx parser.IFloatTypeContext) (types.Type, error) {
 	text := ctx.GetText()
 	switch text {
 	case "f32":
-		return ir.F32{}, nil
+		return types.F32(), nil
 	case "f64":
-		return ir.F64{}, nil
+		return types.F64(), nil
 	default:
-		return nil, errors.Newf("unknown float type: %s", text)
+		return types.Type{}, errors.Newf("unknown float type: %s", text)
 	}
 }
 
-func inferChannelType(ctx parser.IChannelTypeContext) (ir.Type, error) {
-	var valueType ir.Type
+func inferChannelType(ctx parser.IChannelTypeContext) (types.Type, error) {
+	var valueType types.Type
 	var err error
 	if primitive := ctx.PrimitiveType(); primitive != nil {
 		valueType, err = inferPrimitiveType(primitive)
@@ -112,55 +112,80 @@ func inferChannelType(ctx parser.IChannelTypeContext) (ir.Type, error) {
 		valueType, err = inferSeriesType(series)
 	}
 	if err != nil {
-		return nil, err
+		return types.Type{}, err
 	}
-	return ir.Chan{ValueType: valueType}, nil
+	return types.Chan(valueType), nil
 }
 
-func inferSeriesType(ctx parser.ISeriesTypeContext) (ir.Type, error) {
+func inferSeriesType(ctx parser.ISeriesTypeContext) (types.Type, error) {
 	if primitive := ctx.PrimitiveType(); primitive != nil {
 		valueType, err := inferPrimitiveType(primitive)
 		if err != nil {
-			return nil, err
+			return types.Type{}, err
 		}
-		return ir.Series{ValueType: valueType}, nil
+		return types.Series(valueType), nil
 	}
-	return nil, errors.New("series must have primitive type")
+	return types.Type{}, errors.New("series must have primitive type")
 }
 
-// Compatible checks if two types are compatible for operations
-func Compatible(
-	t1, t2 ir.Type,
-) bool {
-	if t1 == nil || t2 == nil {
+// Compatible returns true if t1 and t2 are structurally compatible after unwrapping
+// one level of channel or series wrapper. This is used during expression type inference
+// where channels are automatically read to access their value type.
+//
+// The function ensures that wrapper types are preserved - channels only match channels,
+// and series only match series. After unwrapping, the underlying types are compared
+// using structural equality.
+//
+// This function should NOT be used for:
+//   - Type variables (use the constraint system instead)
+//   - Strict type checking (use Check function)
+//
+// Examples:
+//
+//	chan<int> ~ chan<int>    -> true
+//	chan<int> ~ int          -> true (one is wrapped, one is not)
+//	series<f32> ~ series<f32> -> true
+//	chan<int> ~ series<int>  -> false (different wrapper types)
+//	f32 ~ f64                -> false (incompatible base types)
+func Compatible(t1, t2 types.Type) bool {
+	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
 		return false
 	}
-	if t1Chan, ok := t1.(ir.Chan); ok {
-		t1 = t1Chan.ValueType
+
+	// Type variables should use the constraint system, not this function
+	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
+		return false
 	}
-	if t2Chan, ok := t2.(ir.Chan); ok {
-		t2 = t2Chan.ValueType
+
+	// If both types are wrapped (channel or series), they must use the same wrapper
+	if (t1.Kind == types.KindChan || t1.Kind == types.KindSeries) &&
+		(t2.Kind == types.KindChan || t2.Kind == types.KindSeries) {
+		if t1.Kind != t2.Kind {
+			return false
+		}
 	}
-	if t1.String() == t2.String() {
-		return true
-	}
-	return false
+
+	t1 = t1.Unwrap()
+	t2 = t2.Unwrap()
+	return types.Equal(t1, t2)
 }
 
+// LiteralAssignmentCompatible returns true if a literal of literalType can be assigned
+// to variableType with implicit numeric widening.
 func LiteralAssignmentCompatible(
-	variableType, literalType ir.Type,
+	variableType, literalType types.Type,
 ) bool {
-	if variableType == nil || literalType == nil {
+	if variableType.Kind == types.KindInvalid || literalType.Kind == types.KindInvalid {
 		return false
 	}
+	// Unwrap channels to their value type, just like Compatible does
+	variableType = variableType.Unwrap()
+	literalType = literalType.Unwrap()
 	if variableType.String() == literalType.String() {
 		return true
 	}
-	if ir.IsInteger(variableType) && ir.IsSignedInteger(literalType) {
+	if variableType.IsInteger() && literalType.IsSignedInteger() {
 		return true
 	}
-	if ir.IsFloat(variableType) && ir.IsNumeric(literalType) {
-		return true
-	}
-	return false
+	return variableType.IsFloat() && literalType.IsNumeric()
 }

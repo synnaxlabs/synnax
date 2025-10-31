@@ -5,7 +5,6 @@ lexer grammar ArcLexer;
 // =============================================================================
 
 FUNC        : 'func';
-STAGE        : 'stage';
 IF          : 'if';
 ELSE        : 'else';
 RETURN      : 'return';
@@ -28,7 +27,7 @@ U32         : 'u32';
 U64         : 'u64';
 F32         : 'f32';
 F64         : 'f64';
-STRING      : 'string';
+STR         : 'str';
 TIMESTAMP   : 'timestamp';
 TIMESPAN    : 'timespan';
 SERIES      : 'series';
@@ -63,9 +62,9 @@ LEQ         : '<=';
 GEQ         : '>=';
 
 // Logical
-AND         : '&&';
-OR          : '||';
-NOT         : '!';
+AND         : 'and';
+OR          : 'or';
+NOT         : 'not';
 
 // =============================================================================
 // Delimiters
@@ -110,7 +109,7 @@ FLOAT_LITERAL
     ;
 
 // String literal
-STRING_LITERAL
+STR_LITERAL
     : '"' (~["\\\r\n] | ESCAPE_SEQUENCE)* '"'
     ;
 

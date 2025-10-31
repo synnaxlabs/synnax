@@ -226,28 +226,42 @@ func (w *streamWriter) maybeSendRes(
 	return signal.SendUnderContext(ctx, w.Out.Inlet(), res)
 }
 
-func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error) {
+func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
+	var (
+		accumulatedErr      error
+		err                 error
+		excludeUnauthorized []ChannelKey
+	)
 	for _, idx := range w.internal {
-		req.Frame, err = idx.Write(req.Frame)
-		if err != nil {
-			return
+		if req.Frame, err = idx.write(&excludeUnauthorized, req.Frame); err != nil {
+			accumulatedErr = err
+			if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
+				return accumulatedErr
+			}
+			continue
 		}
 
 		if *w.EnableAutoCommit {
 			if _, err = idx.Commit(ctx); err != nil {
-				return err
+				accumulatedErr = err
+				if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
+					return accumulatedErr
+				}
 			}
 		}
 	}
 	if w.virtual.internal != nil {
-		if req.Frame, err = w.virtual.write(req.Frame); err != nil {
-			return err
+		if req.Frame, err = w.virtual.write(&excludeUnauthorized, req.Frame); err != nil {
+			accumulatedErr = err
+			if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
+				return accumulatedErr
+			}
 		}
 	}
 	if w.Mode.Stream() {
-		w.relay.Inlet() <- req.Frame
+		w.relay.Inlet() <- req.Frame.ExcludeKeys(excludeUnauthorized)
 	}
-	return err
+	return accumulatedErr
 }
 
 func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
@@ -333,15 +347,19 @@ type idxWriter struct {
 	sampleCount int64
 }
 
-func (w *idxWriter) Write(fr Frame) (Frame, error) {
+func (w *idxWriter) write(
+	excludeUnauthorized *[]ChannelKey,
+	fr Frame,
+) (Frame, error) {
 	w.numWriteCalls++
 	err := w.validateWrite(fr)
 	if err != nil {
 		return fr, err
 	}
-
-	var incrementedSampleCount bool
-
+	var (
+		incrementedSampleCount bool
+		accumulatedErr         error
+	)
 	for i, key := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(i) {
 			continue
@@ -360,7 +378,12 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 
 		alignment, err := uWriter.Write(series)
 		if err != nil {
-			return fr, err
+			accumulatedErr = err
+			if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
+				return fr, accumulatedErr
+			}
+			*excludeUnauthorized = append(*excludeUnauthorized, key)
+			continue
 		}
 		if !incrementedSampleCount {
 			w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
@@ -369,8 +392,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 		series.Alignment = alignment
 		fr.SetRawSeriesAt(i, series)
 	}
-
-	return fr, nil
+	return fr, accumulatedErr
 }
 
 func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
@@ -567,7 +589,8 @@ type virtualWriter struct {
 	digestKey core.ChannelKey
 }
 
-func (w virtualWriter) write(fr Frame) (Frame, error) {
+func (w virtualWriter) write(filterUnauthorized *[]ChannelKey, fr Frame) (Frame, error) {
+	var accumulatedErr error
 	for rawI, k := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
@@ -579,12 +602,17 @@ func (w virtualWriter) write(fr Frame) (Frame, error) {
 		s := fr.RawSeriesAt(rawI)
 		alignment, err := v.Write(s)
 		if err != nil {
-			return fr, err
+			accumulatedErr = err
+			if !errors.Is(err, xcontrol.ErrUnauthorized) {
+				return fr, err
+			}
+			*filterUnauthorized = append(*filterUnauthorized, k)
+			continue
 		}
 		s.Alignment = alignment
 		fr.SetRawSeriesAt(rawI, s)
 	}
-	return fr, nil
+	return fr, accumulatedErr
 }
 
 func (w virtualWriter) Close() (ControlUpdate, error) {

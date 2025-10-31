@@ -98,7 +98,7 @@ export const selectSelectedElementsProps = (
       key: node.key,
       type: "node",
       node,
-      props: schematic.props[node.key],
+      props: schematic.props[node.key] ?? {},
     }));
   const edges: ElementInfo[] = schematic.edges
     .filter((edge) => edge.selected)
@@ -154,7 +154,7 @@ export const selectSelectedElementNames = (
 ): (string | null)[] => {
   const elements = selectSelectedElementsProps(state, layoutKey);
   return elements.map((element) => {
-    if (element.type === "node" && element.props.label?.label != null)
+    if (element.type === "node" && element.props?.label?.label != null)
       return element.props.label.label;
     return null;
   });

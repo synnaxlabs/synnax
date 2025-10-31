@@ -30,7 +30,6 @@ var _ = Describe("Retrieve", func() {
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
-			// Retrieve the arc
 			var retrievedArc arc.Arc
 			Expect(svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrievedArc).Exec(ctx, tx)).To(Succeed())
 			Expect(retrievedArc).To(Equal(a))

@@ -208,6 +208,22 @@
     }
 }
 
+.pluto-input-symbol {
+    --pluto-border-color: var(--pluto-gray-l7-40);
+    .pluto-input {
+        width: min-content;
+    }
+    input {
+        min-width: 25rem;
+    }
+    &.pluto-input-symbol--preview {
+        input {
+            flex-grow: 1;
+            min-width: 18rem;
+        }
+    }
+}
+
 .pluto-arrow {
     &.pluto--location-top {
         transform: rotate(-90deg);

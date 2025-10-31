@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/console",
   "private": true,
-  "version": "0.46.9",
+  "version": "0.47.1",
   "type": "module",
   "scripts": {
     "check-types": "tsc --noEmit",

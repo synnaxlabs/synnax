@@ -258,3 +258,6 @@ src/**.js
 freighter/integration/integration
 integration/integration
 core/synnax
+
+# ||| VSCODE EXTENSIONS |||
+*.vsix

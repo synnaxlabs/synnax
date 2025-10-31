@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import ssl
-from typing import Any, Generic, Literal, MutableMapping, Self
+from collections.abc import MutableMapping
+from typing import Any, Generic, Literal, Self
 
 from pydantic import BaseModel
 from websockets.asyncio.client import ClientConnection as AsyncClientConnection

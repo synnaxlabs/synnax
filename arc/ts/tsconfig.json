@@ -1,0 +1,15 @@
+{
+  "extends": "@synnaxlabs/tsconfig/base.json",
+  "compilerOptions": {
+    "composite": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "syntaxes/*": ["syntaxes/*"]
+    }
+  },
+  "include": ["src", "syntaxes/*.json"],
+  "exclude": ["node_modules", "dist"]
+}

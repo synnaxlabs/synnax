@@ -1,3 +1,0 @@
-func subtract(first number, second number) number {
-    return first - second
-}
