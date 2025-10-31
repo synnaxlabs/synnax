@@ -89,13 +89,13 @@ TEST(BreakerTests, testInfiniteRetries) {
             if (retry_count >= 100) break; // Safety break to prevent infinite test
         }
     });
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
     EXPECT_TRUE(b.stop());
     EXPECT_FALSE(b.running());
     t.join();
 
     // Verify that we got multiple retries and didn't stop at the default max (50)
-    ASSERT_GE(retry_count, 50);
+    ASSERT_GT(retry_count, 50);
 }
 
 /// @brief it should return false when attempting to start a breaker that was
