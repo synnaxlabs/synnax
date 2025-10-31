@@ -107,7 +107,8 @@ TEST_F(XTestTest, TestMustSucceedSuccess) {
     auto successful_op = []() -> std::pair<int, xerrors::Error> {
         return {42, xerrors::NIL};
     };
-    EXPECT_EQ(ASSERT_NIL_P(successful_op()), 42);
+    auto result = ASSERT_NIL_P(successful_op());
+    EXPECT_EQ(result, 42);
 }
 
 TEST_F(XTestTest, TestEventuallyTrue) {
