@@ -87,5 +87,5 @@ jobs:
 
       - name: Test (Windows)
         if: matrix.os == 'windows-latest'
-        run: bazel test --test_output=all //x/cpp/... --test_tag_filters=-no-asan
+        run: bazel test --test_output=all //x/cpp/...
         shell: bash
