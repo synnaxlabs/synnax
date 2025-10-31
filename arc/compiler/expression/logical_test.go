@@ -22,7 +22,7 @@ var _ = Describe("Logical Operations", func() {
 		// Logical AND Operations
 		Entry(
 			"simple AND of comparisons",
-			"(i32(5) > i32(3)) && (i32(10) < i32(20))",
+			"(i32(5) > i32(3)) and (i32(10) < i32(20))",
 			types.U8(),
 			// First comparison: 5 > 3
 			OpI32Const, int32(5),
@@ -47,7 +47,7 @@ var _ = Describe("Logical Operations", func() {
 
 		Entry(
 			"AND with false left operand (short-circuits)",
-			"(i32(2) < i32(1)) && (i32(10) / i32(0))",
+			"(i32(2) < i32(1)) and (i32(10) / i32(0))",
 			types.U8(),
 			// First comparison: 2 < 1 (false)
 			OpI32Const, int32(2),
@@ -72,7 +72,7 @@ var _ = Describe("Logical Operations", func() {
 
 		Entry(
 			"chained AND operations",
-			"(i32(1) == i32(1)) && (i32(2) == i32(2)) && (i32(3) == i32(3))",
+			"(i32(1) == i32(1)) and (i32(2) == i32(2)) and (i32(3) == i32(3))",
 			types.U8(),
 			// First: 1 == 1
 			OpI32Const, int32(1),
@@ -109,7 +109,7 @@ var _ = Describe("Logical Operations", func() {
 		// Logical OR Operations
 		Entry(
 			"simple OR of comparisons",
-			"(i32(5) < i32(3)) || (i32(10) < i32(20))",
+			"(i32(5) < i32(3)) or (i32(10) < i32(20))",
 			types.U8(),
 			// First comparison: 5 < 3 (false)
 			OpI32Const, int32(5),
@@ -133,7 +133,7 @@ var _ = Describe("Logical Operations", func() {
 
 		Entry(
 			"OR with true left operand (short-circuits)",
-			"(i32(5) > i32(3)) || (i32(10) / i32(0))",
+			"(i32(5) > i32(3)) or (i32(10) / i32(0))",
 			types.U8(),
 			// First comparison: 5 > 3 (true)
 			OpI32Const, int32(5),
@@ -157,7 +157,7 @@ var _ = Describe("Logical Operations", func() {
 
 		Entry(
 			"chained OR operations",
-			"(i32(1) == i32(0)) || (i32(2) == i32(0)) || (i32(3) == i32(3))",
+			"(i32(1) == i32(0)) or (i32(2) == i32(0)) or (i32(3) == i32(3))",
 			types.U8(),
 			// First: 1 == 0 (false)
 			OpI32Const, int32(1),
@@ -192,7 +192,7 @@ var _ = Describe("Logical Operations", func() {
 		// Mixed Logical Operations
 		Entry(
 			"mixed AND and OR",
-			"(i32(1) == i32(1)) && ((i32(2) < i32(1)) || (i32(3) > i32(2)))",
+			"(i32(1) == i32(1)) and ((i32(2) < i32(1)) or (i32(3) > i32(2)))",
 			types.U8(),
 			// First: 1 == 1
 			OpI32Const, int32(1),
@@ -231,7 +231,7 @@ var _ = Describe("Logical Operations", func() {
 		// Normalization Tests
 		Entry(
 			"AND normalizes non-boolean values",
-			"i32(42) && i32(100)",
+			"i32(42) and i32(100)",
 			types.U8(),
 			// First: 42 (truthy)
 			OpI32Const, int32(42),
@@ -251,7 +251,7 @@ var _ = Describe("Logical Operations", func() {
 
 		Entry(
 			"OR normalizes non-boolean values",
-			"i32(0) || i32(42)",
+			"i32(0) or i32(42)",
 			types.U8(),
 			// First: 0 (falsy)
 			OpI32Const, int32(0),

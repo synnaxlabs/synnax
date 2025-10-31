@@ -224,7 +224,7 @@ var _ = Describe("Type Casts", func() {
 				func testFunc() {
 					x u8 := 1
 					y u8 := 0
-					result := x && y
+					result := x and y
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)

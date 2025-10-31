@@ -93,6 +93,7 @@ export const formSchema = channel.newZ
   .extend({
     name: z.string().min(1, "Name must not be empty"),
     dataType: DataType.z.transform((v) => v.toString()),
+    requires: channel.keyZ.array().optional(),
   })
   .refine(
     (v) => !v.isIndex || DataType.z.parse(v.dataType).equals(DataType.TIMESTAMP),
@@ -227,7 +228,6 @@ const retrieveInitialFormValues = async ({
 >) => {
   if (key == null) return undefined;
   const res = await retrieveSingle({ client, store, query: { key, rangeKey } });
-  console.log(res);
   reset(channelToFormValues(res));
 };
 
@@ -335,7 +335,8 @@ const updateForm = async ({
   typeof formSchema | typeof calculatedFormSchema,
   FluxSubStore
 >) => {
-  console.log(value());
+  const values = value();
+  if (values.requires != null) delete values.requires;
   const ch = await client.channels.create(value());
   store.channels.set(ch.key, ch);
   set("key", ch.key);

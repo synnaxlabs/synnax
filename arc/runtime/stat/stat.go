@@ -65,13 +65,14 @@ var (
 )
 
 type reduction struct {
-	state       *state.Node
-	resetIdx    int
-	reductionFn func(telem.Series, int64, *telem.Series) int64
-	sampleCount int64
-	duration    telem.TimeSpan
-	resetCount  int64
-	startTime   telem.TimeStamp
+	state         *state.Node
+	resetIdx      int
+	reductionFn   func(telem.Series, int64, *telem.Series) int64
+	sampleCount   int64
+	duration      telem.TimeSpan
+	resetCount    int64
+	startTime     telem.TimeStamp
+	lastResetTime telem.TimeStamp // Track last processed reset timestamp to avoid re-processing
 }
 
 func (r *reduction) Init(_ node.Context) {
@@ -93,11 +94,19 @@ func (r *reduction) Next(ctx node.Context) {
 	// Signal-based reset
 	if r.resetIdx >= 0 {
 		resetData := r.state.Input(r.resetIdx)
-		if resetData.Len() > 0 {
-			resetValue := telem.ValueAt[uint8](resetData, -1)
-			if resetValue == 1 {
+		resetTime := r.state.InputTime(r.resetIdx)
+		// Check if any NEW value in the reset series is 1 (catches fast pulses)
+		// Only look at values with timestamps > lastResetTime to avoid re-processing
+		for i := int64(0); i < resetData.Len(); i++ {
+			ts := telem.ValueAt[telem.TimeStamp](resetTime, int(i))
+			if ts > r.lastResetTime && telem.ValueAt[uint8](resetData, int(i)) == 1 {
 				shouldReset = true
+				break
 			}
+		}
+		// Update lastResetTime to the last timestamp in this series
+		if resetTime.Len() > 0 {
+			r.lastResetTime = telem.ValueAt[telem.TimeStamp](resetTime, -1)
 		}
 	}
 
@@ -159,6 +168,9 @@ func (f *reductionFactory) Create(_ context.Context, cfg NodeConfig) (node.Node,
 		Param: resetParam,
 	}); found {
 		resetIdx = 1
+		// Initialize optional reset input with dummy value to prevent alignment blocking
+		// Use timestamp=1 so it's > initial watermark of 0
+		cfg.State.InitInput(resetIdx, telem.NewSeriesV[uint8](0), telem.NewSeriesV[telem.TimeStamp](1))
 	}
 	var duration telem.TimeSpan
 	if durationVal, ok := cfg.Node.ConfigValues[durationParam]; ok {

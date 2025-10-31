@@ -11,6 +11,7 @@ import { group } from "@synnaxlabs/client";
 import { Channel, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { CALCULATED_LAYOUT } from "@/channel/calculatedLayout";
 import { CREATE_LAYOUT } from "@/channel/Create";
 import { Toolbar } from "@/components";
 import { Layout } from "@/layout";
@@ -24,7 +25,16 @@ const Content = (): ReactElement => {
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
         <Toolbar.Actions>
-          <Toolbar.Action onClick={() => placeLayout(CREATE_LAYOUT)}>
+          <Toolbar.Action
+            onClick={() => placeLayout(CALCULATED_LAYOUT)}
+            tooltip="Create Calculated Channel"
+          >
+            <Channel.CreateCalculatedIcon />
+          </Toolbar.Action>
+          <Toolbar.Action
+            onClick={() => placeLayout(CREATE_LAYOUT)}
+            tooltip="Create Channel"
+          >
             <Icon.Add />
           </Toolbar.Action>
         </Toolbar.Actions>
