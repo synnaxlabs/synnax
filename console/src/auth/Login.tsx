@@ -77,64 +77,62 @@ export const Login = (): ReactElement => {
       <Layout.Modals />
       <Flex.Box center background={1} gap="huge">
         <Logo variant="title" style={{ height: "10rem" }} />
-        <Flex.Box y>
+        <Flex.Box
+          pack
+          x
+          style={{ width: "800px", height: "400px" }}
+          grow={false}
+          rounded={1.5}
+          background={0}
+        >
+          <Cluster.List value={selectedKey} onChange={setSelectedKey} />
           <Flex.Box
-            pack
-            x
-            style={{ width: "800px", height: "400px" }}
-            grow={false}
-            rounded={1.5}
-            background={0}
+            y
+            gap="huge"
+            style={{ padding: "10rem" }}
+            bordered
+            grow
+            shrink={false}
           >
-            <Cluster.List value={selectedKey} onChange={setSelectedKey} />
-            <Flex.Box
-              y
-              gap="huge"
-              style={{ padding: "10rem" }}
-              bordered
-              grow
-              shrink={false}
-            >
-              <Form.Form<typeof credentialsZ> {...methods}>
-                <Flex.Box y align="center" grow gap="huge" shrink={false}>
-                  <Text.Text level="h2" color={11} weight={450}>
-                    Log in to {selectedCluster?.name}
-                  </Text.Text>
-                  <Flex.Box y full="x" empty>
-                    <Form.TextField
-                      path="username"
-                      inputProps={{
-                        placeholder: "synnax",
-                        autoFocus: true,
-                        size: "large",
-                      }}
-                    />
-                    <Form.TextField
-                      path="password"
-                      inputProps={{
-                        placeholder: "seldon",
-                        type: "password",
-                        size: "large",
-                      }}
-                    />
-                  </Flex.Box>
-                  <Flex.Box style={{ height: "5rem" }}>
-                    {stat.message !== "" && (
-                      <Status.Summary variant={stat.variant} message={stat.message} />
-                    )}
-                  </Flex.Box>
-                  <Button.Button
-                    onClick={handleSubmit}
-                    status={stat.variant}
-                    trigger={SIGN_IN_TRIGGER}
-                    variant="filled"
-                    size="large"
-                  >
-                    Log In
-                  </Button.Button>
+            <Form.Form<typeof credentialsZ> {...methods}>
+              <Flex.Box y align="center" grow gap="huge" shrink={false}>
+                <Text.Text level="h2" color={11} weight={450}>
+                  Log in to {selectedCluster?.name}
+                </Text.Text>
+                <Flex.Box y full="x" empty>
+                  <Form.TextField
+                    path="username"
+                    inputProps={{
+                      placeholder: "synnax",
+                      autoFocus: true,
+                      size: "large",
+                    }}
+                  />
+                  <Form.TextField
+                    path="password"
+                    inputProps={{
+                      placeholder: "seldon",
+                      type: "password",
+                      size: "large",
+                    }}
+                  />
                 </Flex.Box>
-              </Form.Form>
-            </Flex.Box>
+                <Flex.Box style={{ height: "5rem" }}>
+                  {stat.message !== "" && (
+                    <Status.Summary variant={stat.variant} message={stat.message} />
+                  )}
+                </Flex.Box>
+                <Button.Button
+                  onClick={handleSubmit}
+                  status={stat.variant}
+                  trigger={SIGN_IN_TRIGGER}
+                  variant="filled"
+                  size="large"
+                >
+                  Log In
+                </Button.Button>
+              </Flex.Box>
+            </Form.Form>
           </Flex.Box>
         </Flex.Box>
       </Flex.Box>

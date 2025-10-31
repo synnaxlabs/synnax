@@ -10,7 +10,7 @@
 import "@/cluster/Connect.css";
 
 import { checkConnection, type connection } from "@synnaxlabs/client";
-import { Button, Flex, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, type Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
@@ -48,10 +48,14 @@ const ZERO_VALUES: z.infer<typeof baseFormSchema> = {
   secure: false,
 };
 
-/**
- * Connect implements the LayoutRenderer component type to provide a form for connecting
- * to a cluster.
- */
+const PORT_FIELD_PROPS: Partial<Input.TextProps> = {
+  placeholder: "9090",
+};
+
+const HOST_FIELD_PROPS: Partial<Input.TextProps> = {
+  placeholder: "localhost",
+};
+
 export const Connect: Layout.Renderer = ({ onClose }) => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<connection.State | null>(null);
@@ -114,12 +118,9 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
             }}
           />
           <Flex.Box x align="stretch">
-            <Form.Field<string> path="host" grow>
-              {(p) => <Input.Text placeholder="localhost" {...p} full="x" />}
-            </Form.Field>
-            <Form.Field<string> path="port">
-              {(p) => <Input.Text placeholder="9090" {...p} />}
-            </Form.Field>
+            <Form.TextField path="host" grow inputProps={HOST_FIELD_PROPS} />
+            <Form.TextField path="port" inputProps={PORT_FIELD_PROPS} />
+            <Form.SwitchField path="secure" />
           </Flex.Box>
         </Flex.Box>
       </Form.Form>
