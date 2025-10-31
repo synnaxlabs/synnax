@@ -82,18 +82,10 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
       const data = methods.value();
       setConnState(null);
       setLoading("submit");
-      await checkConnection(data);
+      const state = await checkConnection(data);
       setLoading(null);
-      setConnState({
-        status: "connected",
-        message: "Connected to cluster",
-        clusterKey: "123",
-        nodeVersion: "1.0.0",
-        clientVersion: "1.0.0",
-        clientServerCompatible: true,
-      });
-      const clusterProps = { ...data, key: "123" };
-      dispatch(set({ ...clusterProps, username: "", password: "" }));
+      setConnState(state);
+      dispatch(set({ ...data, key: state.clusterKey, username: "", password: "" }));
       onClose();
     }, "Failed to connect to cluster");
 
