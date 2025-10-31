@@ -93,10 +93,10 @@ export const Login = (): ReactElement => {
               style={{ padding: "10rem" }}
               bordered
               grow
-              className="magicpattern"
+              shrink={false}
             >
               <Form.Form<typeof credentialsZ> {...methods}>
-                <Flex.Box y align="center" grow gap="huge">
+                <Flex.Box y align="center" grow gap="huge" shrink={false}>
                   <Text.Text level="h2" color={11} weight={450}>
                     Log in to {selectedCluster?.name}
                   </Text.Text>

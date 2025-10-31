@@ -88,11 +88,9 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
         clientVersion: "1.0.0",
         clientServerCompatible: true,
       });
-      setTimeout(() => {
-        const clusterProps = { ...data, key: "123" };
-        dispatch(set({ ...clusterProps, username: "", password: "" }));
-        onClose();
-      }, 500);
+      const clusterProps = { ...data, key: "123" };
+      dispatch(set({ ...clusterProps, username: "", password: "" }));
+      onClose();
     }, "Failed to connect to cluster");
 
   return (
