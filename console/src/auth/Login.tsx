@@ -15,12 +15,11 @@ import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { ClusterList } from "@/auth/Guard";
 import { Cluster } from "@/cluster";
 import { setActive } from "@/cluster/slice";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
-import { set as setVersion } from "@/version/slice";
+import { Version } from "@/version";
 
 const SIGN_IN_TRIGGER: Triggers.Trigger = ["Enter"];
 
@@ -67,11 +66,10 @@ export const Login = (): ReactElement => {
         const message = state.message ?? "Unknown error";
         return setStatus(status.create({ variant: "error", message }));
       }
-      // Use the cluster's version as the console version on web.
-      if (state.nodeVersion != null) dispatch(setVersion(state.nodeVersion));
+      if (state.nodeVersion != null) dispatch(Version.set(state.nodeVersion));
       dispatch(Cluster.set({ ...selectedCluster, ...credentials }));
       dispatch(setActive(selectedCluster.key));
-    }, "Failed to sign in");
+    }, "Failed to log in");
 
   return (
     <>
@@ -88,7 +86,7 @@ export const Login = (): ReactElement => {
             rounded={1.5}
             background={0}
           >
-            <ClusterList value={selectedKey} onChange={setSelectedKey} />
+            <Cluster.List value={selectedKey} onChange={setSelectedKey} />
             <Flex.Box
               y
               gap="huge"
@@ -132,7 +130,7 @@ export const Login = (): ReactElement => {
                     variant="filled"
                     size="large"
                   >
-                    Sign In
+                    Log In
                   </Button.Button>
                 </Flex.Box>
               </Form.Form>

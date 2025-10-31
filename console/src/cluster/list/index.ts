@@ -7,13 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PropsWithChildren, type ReactNode } from "react";
-
-import { Login } from "@/auth/Login";
-import { useSelect } from "@/cluster/selectors";
-
-export const Guard = ({ children }: PropsWithChildren): ReactNode => {
-  const active = useSelect();
-  if (active != null) return children;
-  return <Login />;
-};
+export * from "@/cluster/list/List";

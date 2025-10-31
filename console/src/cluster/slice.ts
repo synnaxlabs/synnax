@@ -21,19 +21,12 @@ const getPredefinedClusterKey = latest.getPredefinedClusterKey;
 
 export const SLICE_NAME = "cluster";
 
-/**
- * Represents a partial view of a larger store that contains the cluster slice. This is
- * typically used for hooks that accept the entire store state as a parameter but only
- * need access to the cluster slice.
- */
 export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-/** Signature for the setCluster action. */
 export type SetPayload = Cluster;
 
-/** Signature for the setActiveCluster action. */
 export type SetActivePayload = string | null;
 
 export type RemovePayload = string | string[];
@@ -48,23 +41,17 @@ export interface ChangeKeyPayload {
   newKey: string;
 }
 
-const checkName = (state: SliceState, name: string) => {
-  if (Object.values(state.clusters).some((c) => c.name === name))
+const checkName = (state: SliceState, name: string, key?: string) => {
+  if (Object.values(state.clusters).some((c) => c.name === name && c.key !== key))
     throw new Error(`A cluster with the name ${name} already exists.`);
 };
 
-const {
-  actions,
-  /**
-   * The reducer for the cluster slice.
-   */
-  reducer,
-} = createSlice({
+const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
     set: (state, { payload: cluster }: PayloadAction<SetPayload>) => {
-      checkName(state, cluster.name);
+      checkName(state, cluster.name, cluster.key);
       const predefinedKey = getPredefinedClusterKey(cluster);
       if (predefinedKey != null) delete state.clusters[predefinedKey];
       state.clusters[cluster.key] = cluster;
@@ -90,21 +77,7 @@ const {
   },
 });
 
-export const {
-  /**
-   * Sets the cluster with the given key in state.
-   * @params payload.cluster - The cluster to set.
-   */
-  set,
-  /**
-   * Sets the active cluster key in state.
-   * @params payload - The key of the cluster to set as active.
-   */
-  setActive,
-  remove,
-  rename,
-  changeKey,
-} = actions;
+export const { set, setActive, remove, rename, changeKey } = actions;
 
 export { reducer };
 

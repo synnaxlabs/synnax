@@ -16,6 +16,7 @@ export * from "@/cluster/Badges";
 export * from "@/cluster/Connect";
 export * from "@/cluster/CopyLinkToolbarButton";
 export * from "@/cluster/detectConnection";
+export * from "@/cluster/list";
 export * from "@/cluster/selectors";
 export * from "@/cluster/slice";
 export * from "@/cluster/testConnection";
