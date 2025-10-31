@@ -11,4 +11,4 @@ import { ConnectionBadge } from "@/cluster/Badges";
 import { Dropdown } from "@/cluster/Dropdown";
 import { Runtime } from "@/runtime";
 
-export const Connection = Runtime.ENGINE === "tauri" ? Dropdown : ConnectionBadge;
+export const Connection = Dropdown;

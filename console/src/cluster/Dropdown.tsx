@@ -22,6 +22,7 @@ import { ConnectionBadge } from "@/cluster/Badges";
 import { CONNECT_LAYOUT } from "@/cluster/Connect";
 import { setActive } from "@/cluster/slice";
 import { EmptyAction } from "@/components";
+import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Workspace } from "@/workspace";
 
@@ -66,21 +67,21 @@ export const Dropdown = (): ReactElement => {
         <Flex.Box x pack>
           <Flex.Box
             square
+            className={CSS.B("avatar", "container")}
             style={{
               minWidth: "4.5rem",
               height: "4.5rem",
-              padding: "0.5rem",
               background: "var(--pluto-gray-l0)",
             }}
             bordered
             borderColor={6}
           >
             <div
+              className={CSS.B("avatar")}
               style={{
                 background: User.avatar(u?.username ?? ""),
                 width: "100%",
                 height: "100%",
-                borderRadius: "0.5rem",
               }}
             />
           </Flex.Box>

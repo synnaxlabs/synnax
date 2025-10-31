@@ -9,23 +9,44 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-cluster-dropdown {
-    > button {
-        border-top-right-radius: 0 !important;
-        border-bottom-right-radius: 0;
-        max-width: 175px;
+.console-avatar-container {
+  position: relative;
+  overflow: hidden;
+  border: none !important;
+  z-index: 20;
+  opacity: 0.8;
+  &::after {
+    content: "";
+    position: absolute;
+    border: 1px solid var(--pluto-gray-l10-20);
+    top: 0px;
+    left: 0px;
+    bottom: 0px;
+    right: 0px;
 
-        > :nth-child(2) {
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+    border-radius: var(--pluto-border-radius);
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+}
+
+.console-cluster-dropdown {
+  > button {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0;
+    max-width: 175px;
+
+    > :nth-child(2) {
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
+  }
 }
 
 .console-cluster-list {
-    width: 400px;
-    overflow-y: auto;
-    .pluto-list__item {
-        min-height: 10rem;
-    }
+  width: 400px;
+  overflow-y: auto;
+  .pluto-list__item {
+    min-height: 10rem;
+  }
 }

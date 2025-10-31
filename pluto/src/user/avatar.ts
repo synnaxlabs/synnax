@@ -18,6 +18,6 @@ export const avatar = (username: string): string => {
   const baseHash = stringToHash(username);
   const color1 = hashToHSL(baseHash, 0);
   const color2 = hashToHSL(baseHash, 120);
-  const color3 = hashToHSL(baseHash, 240);
-  return `linear-gradient(135deg, ${color1}, ${color2}, ${color3})`;
+  // const color3 = hashToHSL(baseHash, 240);
+  return `linear-gradient(135deg, ${color1}, ${color2})`;
 };
