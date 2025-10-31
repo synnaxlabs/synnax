@@ -7,16 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/auth/Login.css";
+
 import { Synnax as Client } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
-import { Button, Flex, Form, Status, Text, type Triggers } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Flex,
+  Form,
+  type Input,
+  Status,
+  Text,
+  type Triggers,
+} from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
+import { LoginNav } from "@/auth/LoginNav";
 import { Cluster } from "@/cluster";
 import { setActive } from "@/cluster/slice";
+import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { Version } from "@/version";
@@ -29,6 +41,18 @@ const credentialsZ = z.object({
 });
 
 export interface Credentials extends z.infer<typeof credentialsZ> {}
+
+const USERNAME_INPUT_PROPS: Partial<Input.TextProps> = {
+  placeholder: "synnax",
+  autoFocus: true,
+  size: "large",
+};
+
+const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
+  placeholder: "seldon",
+  type: "password",
+  size: "large",
+};
 
 export const Login = (): ReactElement => {
   const [stat, setStatus] = useState<status.Status>(() =>
@@ -75,64 +99,64 @@ export const Login = (): ReactElement => {
     <>
       <Layouts.Notifications />
       <Layout.Modals />
-      <Flex.Box center background={1} gap="huge">
-        <Logo variant="title" style={{ height: "10rem" }} />
+      <Flex.Box y empty className={CSS.B("login")}>
+        <LoginNav />
         <Flex.Box
-          pack
-          x
-          style={{ width: "800px", height: "400px" }}
-          grow={false}
-          rounded={1.5}
-          background={0}
+          center
+          background={1}
+          gap="huge"
+          grow
+          data-tauri-drag-region
+          className={CSS.BE("login", "content")}
         >
-          <Cluster.List value={selectedKey} onChange={setSelectedKey} />
+          <Logo
+            variant="title"
+            className={CSS.BE("login", "logo")}
+            data-tauri-drag-region
+          />
           <Flex.Box
-            y
-            gap="huge"
-            style={{ padding: "10rem" }}
-            bordered
-            grow
-            shrink={false}
+            pack
+            x
+            className={CSS.BE("login", "container")}
+            grow={false}
+            rounded={1.5}
+            background={0}
           >
-            <Form.Form<typeof credentialsZ> {...methods}>
-              <Flex.Box y align="center" grow gap="huge" shrink={false}>
-                <Text.Text level="h2" color={11} weight={450}>
-                  Log in to {selectedCluster?.name}
-                </Text.Text>
-                <Flex.Box y full="x" empty>
-                  <Form.TextField
-                    path="username"
-                    inputProps={{
-                      placeholder: "synnax",
-                      autoFocus: true,
-                      size: "large",
-                    }}
-                  />
-                  <Form.TextField
-                    path="password"
-                    inputProps={{
-                      placeholder: "seldon",
-                      type: "password",
-                      size: "large",
-                    }}
-                  />
+            <Cluster.List value={selectedKey} onChange={setSelectedKey} />
+            <Flex.Box
+              y
+              gap="huge"
+              className={CSS.BE("login", "form")}
+              bordered
+              grow
+              shrink={false}
+            >
+              <Form.Form<typeof credentialsZ> {...methods}>
+                <Flex.Box y align="center" grow gap="huge" shrink={false}>
+                  <Text.Text level="h2" color={11} weight={450}>
+                    Log in to {selectedCluster?.name}
+                  </Text.Text>
+                  <Flex.Box y full="x" empty>
+                    <Form.TextField path="username" inputProps={USERNAME_INPUT_PROPS} />
+                    <Form.TextField path="password" inputProps={PASSWORD_INPUT_PROPS} />
+                  </Flex.Box>
+                  <Flex.Box className={CSS.BE("login", "status")}>
+                    {stat.message !== "" && (
+                      <Status.Summary variant={stat.variant} message={stat.message} />
+                    )}
+                  </Flex.Box>
+                  <Button.Button
+                    onClick={handleSubmit}
+                    status={stat.variant}
+                    trigger={SIGN_IN_TRIGGER}
+                    variant="filled"
+                    size="large"
+                  >
+                    Log In
+                  </Button.Button>
                 </Flex.Box>
-                <Flex.Box style={{ height: "5rem" }}>
-                  {stat.message !== "" && (
-                    <Status.Summary variant={stat.variant} message={stat.message} />
-                  )}
-                </Flex.Box>
-                <Button.Button
-                  onClick={handleSubmit}
-                  status={stat.variant}
-                  trigger={SIGN_IN_TRIGGER}
-                  variant="filled"
-                  size="large"
-                >
-                  Log In
-                </Button.Button>
-              </Flex.Box>
-            </Form.Form>
+              </Form.Form>
+            </Flex.Box>
           </Flex.Box>
         </Flex.Box>
       </Flex.Box>

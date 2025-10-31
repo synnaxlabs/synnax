@@ -10,19 +10,22 @@
 import "@/user/Badge.css";
 
 import { Button, Dialog, Flex, Icon, User } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { ConnectionBadge } from "@/cluster/Badges";
-import { setActive } from "@/cluster/slice";
+import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
 import { Workspace } from "@/workspace";
 
-export const Badge = (): ReactElement => {
+export const Badge = (): ReactElement | null => {
   const dispatch = useDispatch();
   const { data: u } = User.useRetrieve({});
-  let text = u?.username;
-  if (u?.firstName != "") text = `${u?.firstName}`;
+  const handleLogout = useCallback(() => {
+    dispatch(Cluster.setActive(null));
+    dispatch(Workspace.setActive(null));
+    dispatch(Layout.clearWorkspace());
+  }, [dispatch]);
+  if (u == null) return null;
   return (
     <Dialog.Frame>
       <Flex.Box x>
@@ -35,21 +38,12 @@ export const Badge = (): ReactElement => {
             gap="small"
             weight={400}
           >
-            {text}
+            {u.firstName != "" ? `${u.firstName}` : u.username}
           </Dialog.Trigger>
         </Flex.Box>
-        <ConnectionBadge />
       </Flex.Box>
       <Dialog.Dialog bordered borderColor={6} style={{ padding: "1rem", width: 200 }}>
-        <Button.Button
-          onClick={() => {
-            dispatch(Workspace.setActive(null));
-            dispatch(setActive(null));
-            dispatch(Layout.clearWorkspace());
-          }}
-          variant="text"
-          full="x"
-        >
+        <Button.Button onClick={handleLogout} variant="text" full="x">
           <Icon.Logout />
           Log out
         </Button.Button>

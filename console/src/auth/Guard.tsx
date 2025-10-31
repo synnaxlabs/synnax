@@ -10,10 +10,10 @@
 import { type PropsWithChildren, type ReactNode } from "react";
 
 import { Login } from "@/auth/Login";
-import { useSelect } from "@/cluster/selectors";
+import { Cluster } from "@/cluster";
 
 export const Guard = ({ children }: PropsWithChildren): ReactNode => {
-  const active = useSelect();
+  const active = Cluster.useSelectActiveKey();
   if (active != null) return children;
   return <Login />;
 };
