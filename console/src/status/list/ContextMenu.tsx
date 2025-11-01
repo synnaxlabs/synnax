@@ -22,6 +22,7 @@ export interface ContextMenuProps extends PMenu.ContextMenuMenuProps {
 export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const statuses = getItem(keys);
   const isEmpty = statuses.length === 0;
+  const isSingle = statuses.length === 1;
   const confirm = useConfirmDelete({
     type: "Status",
     description: "This action cannot be undone.",
@@ -56,8 +57,19 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
 
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
-      {!isEmpty && <Menu.DeleteItem />}
-      <Menu.RenameItem />
+      {isSingle && (
+        <>
+          <Menu.RenameItem />
+          <PMenu.Divider />
+        </>
+      )}
+      {!isEmpty && (
+        <>
+          <Menu.DeleteItem />
+          <PMenu.Divider />
+        </>
+      )}
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 };

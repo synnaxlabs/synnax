@@ -7,32 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status } from "@synnaxlabs/pluto";
+import { type status } from "@synnaxlabs/client";
+import { Component, Status } from "@synnaxlabs/pluto";
 
-import { type Layout } from "@/layout";
-import { List } from "@/status/list/List";
+import { Layout } from "@/layout";
+import { CREATE_LAYOUT } from "@/status/Create";
+import { Item } from "@/status/list/Item";
+import { FilterContextMenu, Filters as CoreFilters } from "@/status/list/SelectFilters";
+import { View } from "@/view/View";
 
 export const EXPLORER_LAYOUT_TYPE = "status_explorer";
 
-export const EXPLORER_LAYOUT: Layout.State = {
+export const EXPLORER_LAYOUT: Layout.BaseState = {
   key: EXPLORER_LAYOUT_TYPE,
-  windowKey: EXPLORER_LAYOUT_TYPE,
   type: EXPLORER_LAYOUT_TYPE,
   name: "Status Explorer",
   icon: "Status",
   location: "mosaic",
 };
 
+const item = Component.renderProp(Item);
+
 export const Explorer: Layout.Renderer = () => {
-  const { data, getItem, subscribe, retrieve } = Status.useList({});
+  const listProps = Status.useList({});
+  const placeLayout = Layout.usePlacer();
   return (
-    <List
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      retrieve={retrieve}
-      enableSearch
-      enableFilters
+    <View<status.Key, status.Status, status.MultiRetrieveArgs>
+      {...listProps}
+      resourceType="status"
+      item={item}
+      initialRequest={{}}
+      filters={FilterContextMenu}
+      shownFilters={CoreFilters}
+      onCreate={() => placeLayout(CREATE_LAYOUT)}
     />
   );
 };

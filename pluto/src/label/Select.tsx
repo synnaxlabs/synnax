@@ -85,7 +85,7 @@ export const SelectMultiple = ({
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Multiple<label.Key, label.Label | undefined>
-      resourceName="Label"
+      resourceName="label"
       haulType={HAUL_TYPE}
       value={value}
       onChange={onChange}

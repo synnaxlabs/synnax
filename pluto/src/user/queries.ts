@@ -21,7 +21,7 @@ export type UseDeleteArgs = user.Key | user.Key[];
 export interface FluxStore extends Flux.UnaryStore<user.Key, user.User> {}
 
 export const FLUX_STORE_KEY = "users";
-const RESOURCE_NAME = "User";
+const RESOURCE_NAME = "user";
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   FluxSubStore,
@@ -97,7 +97,7 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   ontology.ID | undefined,
   FluxSubStore
 >({
-  name: "User Group",
+  name: "Users Group",
   retrieve: async ({ client, store }) => {
     const rels = store.relationships.get((rel) =>
       ontology.matchRelationship(rel, {

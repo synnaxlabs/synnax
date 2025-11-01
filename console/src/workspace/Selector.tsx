@@ -91,7 +91,7 @@ export const Selector = (): ReactElement => {
           weight={400}
         >
           <Icon.Workspace key="workspace" />
-          {active?.name ?? "No Workspace"}
+          {active?.name ?? "No workspace"}
         </Dialog.Trigger>
         <Dialog.Dialog style={DIALOG_STYLE} bordered={client == null} borderColor={6}>
           <Cluster.NoneConnectedBoundary>
