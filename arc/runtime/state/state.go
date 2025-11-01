@@ -284,6 +284,19 @@ func (n *Node) Input(paramIndex int) telem.Series {
 	return n.alignedData[paramIndex]
 }
 
+// InitInput initializes an input's source output with dummy values.
+// This is used for optional inputs to prevent alignment blocking when no real data has arrived yet.
+// The timestamp should be > 0 to ensure it's above the initial watermark.
+func (n *Node) InitInput(paramIndex int, data, time telem.Series) {
+	if paramIndex >= 0 && paramIndex < len(n.inputs) {
+		sourceHandle := n.inputs[paramIndex].Source
+		if v, ok := n.state.outputs[sourceHandle]; ok {
+			v.data = data
+			v.time = time
+		}
+	}
+}
+
 // Output returns a mutable pointer to the data series for the output at the given parameter index.
 // Nodes write their computed results to this series.
 func (n *Node) Output(paramIndex int) *telem.Series {

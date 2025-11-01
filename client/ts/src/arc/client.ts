@@ -29,6 +29,9 @@ import {
 import { type ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
+export const SET_CHANNEL_NAME = "sy_arc_set";
+export const DELETE_CHANNEL_NAME = "sy_arc_delete";
+
 const RETRIEVE_ENDPOINT = "/arc/retrieve";
 const CREATE_ENDPOINT = "/arc/create";
 const DELETE_ENDPOINT = "/arc/delete";

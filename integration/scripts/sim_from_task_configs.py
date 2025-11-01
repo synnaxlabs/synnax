@@ -22,7 +22,7 @@ import random
 import signal
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import synnax as sy
 
@@ -34,21 +34,21 @@ class SimDAQ:
         self.config_dir = config_dir
 
         # Channel tracking
-        self.sensor_channels: List[Tuple[str, str]] = []  # (name, type)
-        self.valve_pairs: List[Tuple[str, str]] = []  # (cmd_name, state_name)
-        self.ao_pairs: List[Tuple[str, str]] = []  # (cmd_name, state_name)
+        self.sensor_channels: list[tuple[str, str]] = []  # (name, type)
+        self.valve_pairs: list[tuple[str, str]] = []  # (cmd_name, state_name)
+        self.ao_pairs: list[tuple[str, str]] = []  # (cmd_name, state_name)
 
         # Simulation state
-        self.valve_states: Dict[str, float] = {}
-        self.ao_states: Dict[str, float] = {}
+        self.valve_states: dict[str, float] = {}
+        self.ao_states: dict[str, float] = {}
         self.time_offset = sy.TimeStamp.now()
         self.noise = random.Random()
 
         # Index channels
-        self.indices: Dict[str, sy.Channel] = {}
+        self.indices: dict[str, sy.Channel] = {}
 
         # Channel mapping: config_key -> {name, synnax_key}
-        self.channel_mapping: List[Dict[str, Any]] = []
+        self.channel_mapping: list[dict[str, Any]] = []
 
     def get_index(self, name: str) -> sy.Channel:
         """Get or create an index channel."""
@@ -109,7 +109,7 @@ class SimDAQ:
         self._save_channel_mapping()
 
     def _create_digital_outputs(
-        self, channels: list[Dict[str, Any]], filename: str
+        self, channels: list[dict[str, Any]], filename: str
     ) -> None:
         """Create digital output channels (valves)."""
         print(f"[{filename}] Digital outputs")
@@ -168,7 +168,7 @@ class SimDAQ:
             print(f"  ✓ {cmd_name} / {state_name}")
 
     def _create_analog_inputs(
-        self, channels: list[Dict[str, Any]], filename: str
+        self, channels: list[dict[str, Any]], filename: str
     ) -> None:
         """Create analog input channels (sensors)."""
         print(f"[{filename}] Analog inputs")
@@ -207,7 +207,7 @@ class SimDAQ:
             print(f"  ✓ {name}")
 
     def _create_analog_outputs(
-        self, channels: list[Dict[str, Any]], filename: str
+        self, channels: list[dict[str, Any]], filename: str
     ) -> None:
         """Create analog output channels."""
         print(f"[{filename}] Analog outputs")
@@ -266,7 +266,7 @@ class SimDAQ:
             print(f"  ✓ {cmd_name} / {state_name}")
 
     def _generate_sensor_name(
-        self, ch: Dict[str, Any], port: int, ch_type: str, index: int
+        self, ch: dict[str, Any], port: int, ch_type: str, index: int
     ) -> str:
         """Generate a descriptive sensor name."""
         if ch_type == "ai_voltage":

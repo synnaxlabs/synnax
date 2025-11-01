@@ -16,7 +16,7 @@
 //   - Integer types: u8, u16, u32, u64, i8, i16, i32, i64
 //   - Floating-point types: f32, f64
 //   - Temporal types: timestamp, timespan
-//   - String type: string
+//   - String type: str
 //
 // Compound Types:
 //   - chan T: Channel type wrapping value type T
@@ -208,7 +208,7 @@ func (t Type) String() string {
 	case KindF64:
 		return "f64"
 	case KindString:
-		return "string"
+		return "str"
 	case KindTimeStamp:
 		return "timestamp"
 	case KindTimeSpan:

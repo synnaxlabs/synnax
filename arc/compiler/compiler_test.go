@@ -826,6 +826,33 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(0))) // false
 		})
+
+		It("Should infer f32 from conditional return with integer constant and f32 value", func() {
+			// This tests the regression for SY-3195
+			// Integer constant (0) should be coerced to f32 when mixed with f32 returns
+			output := MustSucceed(compile(`
+			func conditionalReturn(condition u8, value f32) f32 {
+				if (condition == 1) {
+					return 0    // Integer constant
+				}
+				return value   // F32 value
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			conditionalReturn := mod.ExportedFunction("conditionalReturn")
+			Expect(conditionalReturn).ToNot(BeNil())
+
+			// Test case 1: condition == 1, should return 0.0 (as f32)
+			results := MustSucceed(conditionalReturn.Call(ctx, 1, uint64(math.Float32bits(42.5))))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(math.Float32bits(0.0))))
+
+			// Test case 2: condition != 1, should return the f32 value (42.5)
+			results = MustSucceed(conditionalReturn.Call(ctx, 0, uint64(math.Float32bits(42.5))))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(math.Float32bits(42.5))))
+		})
 	})
 
 	DescribeTable("PEMDAS", func(expr string, expected float64) {
@@ -1276,6 +1303,127 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(HaveLen(1))
 			// 0.5^(-1) = 1/0.5 = 2.0
 			Expect(results[0]).To(Equal(math.Float64bits(2.0)))
+		})
+	})
+
+	Describe("Power operator with literal type inference (SY-3207)", func() {
+		BeforeEach(func() {
+			// Setup bindings for math operations with actual runtime implementations
+			b := bindings.NewBindings()
+			arcRuntime := runtimebindings.NewRuntime(nil, nil)
+			runtimebindings.BindRuntime(arcRuntime, b)
+			Expect(b.Bind(ctx, r)).To(Succeed())
+		})
+
+		It("Should execute f32 variable with integer literal: x^2", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() f32 {
+				x f32 := 3.0
+				return x ^ 2
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			// 3.0^2 = 9.0
+			Expect(results[0]).To(Equal(uint64(math.Float32bits(9.0))))
+		})
+
+		It("Should execute f64 variable with integer literal: x^3", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() f64 {
+				x f64 := 2.0
+				return x ^ 3
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			// 2.0^3 = 8.0
+			Expect(results[0]).To(Equal(math.Float64bits(8.0)))
+		})
+
+		It("Should execute i32 variable with integer literal: x^2", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() i32 {
+				x i32 := 5
+				return x ^ 2
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			// 5^2 = 25
+			Expect(int32(results[0])).To(Equal(int32(25)))
+		})
+
+		It("Should execute f32 with float literal exponent: x^2.5", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() f32 {
+				x f32 := 4.0
+				return x ^ 2.5
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			// 4.0^2.5 = 32.0
+			result := math.Float32frombits(uint32(results[0]))
+			Expect(result).To(BeNumerically("~", 32.0, 0.0001))
+		})
+
+		It("Should execute complex expression with power and literals: 2 * x^2 + 3", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() f32 {
+				x f32 := 3.0
+				return 2 * x ^ 2 + 3
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			// 2 * 3.0^2 + 3 = 2 * 9.0 + 3 = 21.0
+			result := math.Float32frombits(uint32(results[0]))
+			Expect(result).To(BeNumerically("~", 21.0, 0.0001))
+		})
+
+		It("Should execute chained power with literals: x^2^3", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func power() f32 {
+				x f32 := 2.0
+				return x ^ 2 ^ 3
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			power := mod.ExportedFunction("power")
+			Expect(power).ToNot(BeNil())
+
+			results := MustSucceed(power.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			// 2.0^(2^3) = 2.0^8 = 256.0
+			result := math.Float32frombits(uint32(results[0]))
+			Expect(result).To(BeNumerically("~", 256.0, 0.0001))
 		})
 	})
 })

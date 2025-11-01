@@ -107,15 +107,15 @@ var _ = Describe("OP", func() {
 		Entry("Float64 Add", "add", telem.NewSeriesV[float64](10.5, 20.5, 30.5), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[float64](5.5, 10.5, 15.5), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[float64](16.0, 31.0, 46.0), telem.NewSeriesSecondsTSV(5, 10, 15)),
 		Entry("Int64 Add", "add", telem.NewSeriesV[int64](100, 200, 300), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int64](50, 75, 100), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int64](150, 275, 400), telem.NewSeriesSecondsTSV(1, 2, 3)),
 		Entry("Uint32 Add", "add", telem.NewSeriesV[uint32](10, 20, 30), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[uint32](5, 10, 15), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[uint32](15, 30, 45), telem.NewSeriesSecondsTSV(10, 20, 30)),
-		Entry("Float32 Sub", "sub", telem.NewSeriesV[float32](10.0, 20.0, 30.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](3.0, 5.0, 7.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](7.0, 15.0, 23.0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int32 Sub", "sub", telem.NewSeriesV[int32](100, 200, 300), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int32](25, 50, 75), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int32](75, 150, 225), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Uint16 Sub", "sub", telem.NewSeriesV[uint16](500, 400, 300), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint16](100, 150, 200), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint16](400, 250, 100), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Float64 Mul", "mul", telem.NewSeriesV[float64](2.5, 3.0, 4.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float64](2.0, 3.0, 5.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float64](5.0, 9.0, 20.0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int64 Mul", "mul", telem.NewSeriesV[int64](10, 20, 30), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](2, 3, 4), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](20, 60, 120), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Uint8 Mul", "mul", telem.NewSeriesV[uint8](5, 10, 15), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](2, 3, 4), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](10, 30, 60), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Float32 Div", "div", telem.NewSeriesV[float32](10.0, 20.0, 30.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](2.0, 4.0, 5.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](5.0, 5.0, 6.0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int64 Div", "div", telem.NewSeriesV[int64](100, 200, 300), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](10, 20, 30), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](10, 10, 10), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Uint32 Div", "div", telem.NewSeriesV[uint32](100, 250, 500), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint32](10, 25, 50), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint32](10, 10, 10), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Float32 Subtract", "subtract", telem.NewSeriesV[float32](10.0, 20.0, 30.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](3.0, 5.0, 7.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](7.0, 15.0, 23.0), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Int32 Subtract", "subtract", telem.NewSeriesV[int32](100, 200, 300), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int32](25, 50, 75), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int32](75, 150, 225), telem.NewSeriesSecondsTSV(5, 10, 15)),
+		Entry("Uint16 Subtract", "subtract", telem.NewSeriesV[uint16](500, 400, 300), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint16](100, 150, 200), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint16](400, 250, 100), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Float64 Multiply", "multiply", telem.NewSeriesV[float64](2.5, 3.0, 4.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float64](2.0, 3.0, 5.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float64](5.0, 9.0, 20.0), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Int64 Multiply", "multiply", telem.NewSeriesV[int64](10, 20, 30), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](2, 3, 4), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](20, 60, 120), telem.NewSeriesSecondsTSV(5, 10, 15)),
+		Entry("Uint8 Multiply", "multiply", telem.NewSeriesV[uint8](5, 10, 15), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](2, 3, 4), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](10, 30, 60), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Float32 Divide", "divide", telem.NewSeriesV[float32](10.0, 20.0, 30.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](2.0, 4.0, 5.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](5.0, 5.0, 6.0), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Int64 Divide", "divide", telem.NewSeriesV[int64](100, 200, 300), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](10, 20, 30), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](10, 10, 10), telem.NewSeriesSecondsTSV(5, 10, 15)),
+		Entry("Uint32 Divide", "divide", telem.NewSeriesV[uint32](100, 250, 500), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint32](10, 25, 50), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint32](10, 10, 10), telem.NewSeriesSecondsTSV(1, 2, 3)),
 		Entry("Uint8 OR - all false", "or", telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
 		Entry("Uint8 OR - all true", "or", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3)),
 		Entry("Uint8 OR - mixed", "or", telem.NewSeriesV[uint8](0, 1, 0, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[uint8](0, 0, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[uint8](0, 1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3, 4)),
@@ -250,7 +250,7 @@ var _ = Describe("OP", func() {
 		It("Should handle different time bases", func() {
 			opNode := ir.Node{
 				Key:  "op",
-				Type: "mul",
+				Type: "multiply",
 				Inputs: types.Params{
 					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
 					Values: []types.Type{types.I32(), types.I32()},
@@ -370,7 +370,7 @@ var _ = Describe("OP", func() {
 		It("Should handle repeated calls to Next with input changes", func() {
 			opNode := ir.Node{
 				Key:  "op",
-				Type: "sub",
+				Type: "subtract",
 				Inputs: types.Params{
 					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
 					Values: []types.Type{types.I64(), types.I64()},
@@ -437,7 +437,7 @@ var _ = Describe("OP", func() {
 		It("Should handle single value series", func() {
 			opNode := ir.Node{
 				Key:  "op",
-				Type: "mul",
+				Type: "multiply",
 				Inputs: types.Params{
 					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
 					Values: []types.Type{types.U32(), types.U32()},

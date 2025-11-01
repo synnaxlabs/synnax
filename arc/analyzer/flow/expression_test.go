@@ -120,7 +120,7 @@ var _ = Describe("Expression func Conversion", func() {
 	Context("Complex logical expressions", func() {
 		It("should handle logical AND with multiple channels", func() {
 			ast := MustSucceed(parser.Parse(`
-				ox_pt_1 > 100 && pressure > 50 -> alarm_ch
+				ox_pt_1 > 100 and pressure > 50 -> alarm_ch
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())

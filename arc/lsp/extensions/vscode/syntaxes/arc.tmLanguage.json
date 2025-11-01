@@ -57,6 +57,10 @@
           "match": "\\b(if|else|return)\\b"
         },
         {
+          "name": "keyword.operator.logical.arc",
+          "match": "\\b(and|or|not)\\b"
+        },
+        {
           "name": "keyword.other.arc",
           "match": "\\b(func|stage)\\b"
         },
@@ -132,7 +136,7 @@
       "patterns": [
         {
           "name": "support.type.primitive.arc",
-          "match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|string|timestamp|timespan|bool)\\b"
+          "match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|str|timestamp|timespan|bool)\\b"
         },
         {
           "name": "support.type.composite.arc",
@@ -149,10 +153,6 @@
         {
           "name": "keyword.operator.comparison.arc",
           "match": "==|!=|<=?|>=?"
-        },
-        {
-          "name": "keyword.operator.logical.arc",
-          "match": "&&|\\|\\||!"
         },
         {
           "name": "keyword.operator.assignment.declare.arc",

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from console.task.channels.analog import Analog
 
@@ -35,21 +35,17 @@ class TemperatureBuiltInSensor(Analog):
         console: "Console",
         name: str,
         device: str,
-        port: Optional[int] = None,
-        temperature_units: Optional[
-            Literal[
-                "Celsius",
-                "Fahrenheit",
-                "Kelvin",
-                "Rankine",
-            ]
-        ] = None,
+        port: int | None = None,
+        temperature_units: (
+            Literal["Celsius", "Fahrenheit", "Kelvin", "Rankine"] | None
+        ) = None,
         **kwargs: Any,
     ) -> None:
 
         # Does not call super()
 
         self.console = console
+        self.name = name
         self.device = device
 
         values = {}

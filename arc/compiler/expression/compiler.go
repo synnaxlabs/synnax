@@ -133,7 +133,9 @@ func compilePower(
 	}
 
 	// Compile exponent (right operand, recursive for right-associativity)
-	exponentType, err := compilePower(context.Child(ctx, ctx.AST.PowerExpression()))
+	exponentType, err := compilePower(
+		context.Child(ctx, ctx.AST.PowerExpression()).WithHint(baseType.Unwrap()),
+	)
 	if err != nil {
 		return types.Type{}, err
 	}

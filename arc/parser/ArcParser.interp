@@ -19,7 +19,7 @@ null
 'u64'
 'f32'
 'f64'
-'string'
+'str'
 'timestamp'
 'timespan'
 'series'
@@ -40,9 +40,9 @@ null
 '>'
 '<='
 '>='
-'&&'
-'||'
-'!'
+'and'
+'or'
+'not'
 '('
 ')'
 '{'
@@ -83,7 +83,7 @@ U32
 U64
 F32
 F64
-STRING
+STR
 TIMESTAMP
 TIMESPAN
 SERIES
@@ -120,7 +120,7 @@ TEMPORAL_LITERAL
 FREQUENCY_LITERAL
 INTEGER_LITERAL
 FLOAT_LITERAL
-STRING_LITERAL
+STR_LITERAL
 IDENTIFIER
 SINGLE_LINE_COMMENT
 MULTI_LINE_COMMENT

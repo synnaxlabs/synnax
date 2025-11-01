@@ -252,5 +252,144 @@ var _ = Describe("Stat", func() {
 			timeVals = telem.UnmarshalSeries[telem.TimeStamp](resultTime)
 			Expect(timeVals[0]).To(Equal(telem.SecondTS * 6)) // Last input timestamp after reset
 		})
+		It("Should work without optional reset signal connected", func() {
+			cfg := state.Config{
+				Nodes: []ir.Node{
+					{
+						Key: "input",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.U64()},
+						},
+					},
+					{
+						Key:  "max",
+						Type: "max",
+						Inputs: types.Params{
+							Keys:   []string{ir.DefaultInputParam, "reset"},
+							Values: []types.Type{types.U64(), types.U8()},
+						},
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.U64()},
+						},
+					},
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "max", Param: ir.DefaultInputParam},
+					},
+					// Note: No reset edge connected - testing optional input
+				},
+			}
+			s := state.New(cfg)
+			inputNode := s.Node("input")
+			factory := stat.NewFactory(stat.Config{})
+			inter := ir.IR{Edges: cfg.Edges}
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   cfg.Nodes[1],
+				State:  s.Node("max"),
+				Module: module.Module{IR: inter},
+			}))
+			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			// Should work even without reset signal
+			*inputNode.Output(0) = telem.NewSeriesV[uint64](10, 50, 30)
+			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("max").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[uint64](result)
+			Expect(vals[0]).To(Equal(uint64(50)))
+			// Should continue accumulating without reset
+			*inputNode.Output(0) = telem.NewSeriesV[uint64](25, 80, 40)
+			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
+			changed = make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result = *s.Node("max").Output(0)
+			vals = telem.UnmarshalSeries[uint64](result)
+			Expect(vals[0]).To(Equal(uint64(80))) // Max across both batches
+		})
+		It("Should catch fast reset pulses (1->0 transition)", func() {
+			cfg := state.Config{
+				Nodes: []ir.Node{
+					{
+						Key: "input",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64()},
+						},
+					},
+					{
+						Key: "reset_signal",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.U8()},
+						},
+					},
+					{
+						Key:  "avg",
+						Type: "avg",
+						Inputs: types.Params{
+							Keys:   []string{ir.DefaultInputParam, "reset"},
+							Values: []types.Type{types.I64(), types.U8()},
+						},
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64()},
+						},
+					},
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "avg", Param: ir.DefaultInputParam},
+					},
+					{
+						Source: ir.Handle{Node: "reset_signal", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "avg", Param: "reset"},
+					},
+				},
+			}
+			s := state.New(cfg)
+			inputNode := s.Node("input")
+			resetNode := s.Node("reset_signal")
+			factory := stat.NewFactory(stat.Config{})
+			inter := ir.IR{Edges: cfg.Edges}
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   cfg.Nodes[2],
+				State:  s.Node("avg"),
+				Module: module.Module{IR: inter},
+			}))
+			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			// Accumulate some data
+			*inputNode.Output(0) = telem.NewSeriesV[int64](10, 20, 30)
+			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+			*resetNode.Output(0) = telem.NewSeriesV[uint8](0)
+			*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("avg").Output(0)
+			vals := telem.UnmarshalSeries[int64](result)
+			Expect(vals[0]).To(Equal(int64(20))) // (10+20+30)/3 = 20
+			// Fast pulse: reset goes 1 then immediately back to 0 in same series
+			*inputNode.Output(0) = telem.NewSeriesV[int64](40, 50, 60)
+			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
+			// Reset pulse: 1 at time 4, 0 at time 5
+			*resetNode.Output(0) = telem.NewSeriesV[uint8](1, 0)
+			*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5)
+			changed = make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result = *s.Node("avg").Output(0)
+			vals = telem.UnmarshalSeries[int64](result)
+			// Should have caught the reset pulse and restarted averaging
+			// Average of just [40, 50, 60] = 50, not (10+20+30+40+50+60)/6 = 35
+			Expect(vals[0]).To(Equal(int64(50)))
+		})
 	})
 })
