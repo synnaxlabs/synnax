@@ -47,6 +47,7 @@ import { Palette } from "@/palette";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
+import { Settings } from "@/settings";
 import { Status } from "@/status";
 import { store } from "@/store";
 import { Table } from "@/table";
@@ -69,6 +70,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Modals.LAYOUTS,
   ...Range.LAYOUTS,
   ...Schematic.LAYOUTS,
+  ...Settings.LAYOUTS,
   ...Table.LAYOUTS,
   ...User.LAYOUTS,
   ...Version.LAYOUTS,

@@ -25,7 +25,6 @@ import { useTriggers } from "@/layouts/useTriggers";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
 import { LogServices } from "@/log/services";
-import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
@@ -62,7 +61,6 @@ const SideEffect = (): null => {
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
   Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });
-  Permissions.useFetchPermissions();
   Layout.useDropOutside();
   return null;
 };

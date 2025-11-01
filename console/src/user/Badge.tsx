@@ -9,23 +9,29 @@
 
 import "@/user/Badge.css";
 
-import { Button, Dialog, Flex, Icon, User } from "@synnaxlabs/pluto";
+import { Access, Button, Dialog, Divider, Flex, Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
+import { Settings } from "@/settings";
 import { Workspace } from "@/workspace";
 
 export const Badge = (): ReactElement | null => {
   const dispatch = useDispatch();
   const { data: u } = User.useRetrieve({});
+  const isAdmin = Access.useIsAdmin();
+  const placeLayout = Layout.usePlacer();
+
   const handleLogout = useCallback(() => {
     dispatch(Cluster.setActive(null));
     dispatch(Workspace.setActive(null));
     dispatch(Layout.clearWorkspace());
   }, [dispatch]);
+
   if (u == null) return null;
+
   return (
     <Dialog.Frame>
       <Flex.Box x>
@@ -43,6 +49,19 @@ export const Badge = (): ReactElement | null => {
         </Flex.Box>
       </Flex.Box>
       <Dialog.Dialog bordered borderColor={6} style={{ padding: "1rem", width: 200 }}>
+        {isAdmin && (
+          <>
+            <Button.Button
+              onClick={() => placeLayout(Settings.CLUSTER_SETTINGS_LAYOUT)}
+              variant="text"
+              full="x"
+            >
+              <Icon.Settings />
+              Cluster Settings
+            </Button.Button>
+            <Divider.Divider />
+          </>
+        )}
         <Button.Button onClick={handleLogout} variant="text" full="x">
           <Icon.Logout />
           Log out

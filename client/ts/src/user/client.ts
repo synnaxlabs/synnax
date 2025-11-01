@@ -74,6 +74,9 @@ const CHANGE_USERNAME_ENDPOINT = "/user/change-username";
 const RENAME_ENDPOINT = "/user/rename";
 const DELETE_ENDPOINT = "/user/delete";
 
+export const SET_CHANNEL_NAME = "sy_user_set";
+export const DELETE_CHANNEL_NAME = "sy_user_delete";
+
 export class Client {
   private readonly client: UnaryClient;
 

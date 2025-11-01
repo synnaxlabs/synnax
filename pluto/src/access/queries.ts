@@ -12,6 +12,7 @@ import z from "zod";
 
 import { type access as aetherAccess } from "@/access/aether";
 import { Flux } from "@/flux";
+import { Synnax } from "@/synnax";
 
 export type Action = "create" | "delete" | "retrieve" | "update";
 
@@ -40,7 +41,6 @@ const retrievePoliciesForSubject = async ({
     const roles = store.roles.get(rels.map((r) => r.to.key));
     return store.policies.get(roles.flatMap((r) => r.policies));
   }
-  const roles = await client.access.roles.retrieve({ for: subject });
   return await client.access.policies.retrieve({ for: subject });
 };
 
@@ -68,6 +68,18 @@ export const { useRetrieve: useHasPermission } = Flux.createRetrieve<
   name: "Permissions",
   retrieve: hasPermission,
 });
+
+export const useIsAdmin = (): boolean => {
+  const client = Synnax.use();
+  const userKey = client?.auth?.user?.key;
+  const isRootUser = client?.auth?.user?.rootUser;
+  const { data: canManageUsers } = useHasPermission({
+    subject: userKey != null ? user.ontologyID(userKey) : undefined,
+    objects: [user.ontologyID("")],
+    actions: "create",
+  });
+  return (isRootUser ?? false) || (canManageUsers ?? false);
+};
 
 const roleFormSchema = z.object({
   key: z.uuid().optional(),

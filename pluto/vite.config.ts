@@ -51,6 +51,7 @@ export default defineConfig({
         list: path.resolve(".", "src/list/index.ts"),
         css: path.resolve(".", "src/css/index.ts"),
         color: path.resolve(".", "src/color/index.ts"),
+        access: path.resolve(".", "src/access/index.ts"),
       },
     },
     rollupOptions: {
