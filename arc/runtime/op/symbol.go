@@ -92,21 +92,21 @@ func createNegateSymbol(name string) symbol.Symbol {
 }
 
 const (
-	geSymbolName       = "ge"
-	gtSymbolName       = "gt"
-	leSymbolName       = "le"
-	ltSymbolName       = "lt"
-	eqSymbolName       = "eq"
-	neSymbolName       = "ne"
-	andSymbolName      = "and"
-	orSymbolName       = "or"
-	addSymbolName      = "add"
-	subSymbolName      = "subtract"
-	mulSymbolName      = "multiply"
-	divSymbolName      = "divide"
-	modSymbolName      = "mod"
-	notSymbolName      = "not"
-	negSymbolName      = "neg"
+	geSymbolName  = "ge"
+	gtSymbolName  = "gt"
+	leSymbolName  = "le"
+	ltSymbolName  = "lt"
+	eqSymbolName  = "eq"
+	neSymbolName  = "ne"
+	andSymbolName = "and"
+	orSymbolName  = "or"
+	addSymbolName = "add"
+	subSymbolName = "subtract"
+	mulSymbolName = "multiply"
+	divSymbolName = "divide"
+	modSymbolName = "mod"
+	notSymbolName = "not"
+	negSymbolName = "neg"
 )
 
 var SymbolResolver = symbol.MapResolver{

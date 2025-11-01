@@ -249,14 +249,18 @@ NamedOutput ::= Identifier Type
 
 ### Optional Parameters
 
-Parameters can be made optional by providing a default value using the `=` operator. Optional parameters must appear after all required parameters (trailing-only constraint).
+Parameters can be made optional by providing a default value using the `=` operator.
+Optional parameters must appear after all required parameters (trailing-only
+constraint).
 
 **Rules:**
+
 - Default values must be literals (numeric, float, or temporal constants)
 - Optional parameters must follow all required parameters
 - When a parameter with a default is omitted at the call site, the default value is used
 
 **Example:**
+
 ```arc
 func add(x f64, y f64 = 0) f64 {
     return x + y

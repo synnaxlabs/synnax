@@ -825,7 +825,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				// Regression test: lexer errors were not being captured properly
 				// Using && instead of 'and' should produce lexer token recognition errors
 				_, err := parser.ParseExpression("a > 5 && b < 10")
-				Expect(err).NotTo(BeNil())
+				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(ContainSubstring("token recognition error at: '&'")))
 			})
 
