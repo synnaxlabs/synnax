@@ -12,6 +12,7 @@ package stat_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -28,8 +29,18 @@ var _ = Describe("Stat", func() {
 	Describe("avg", func() {
 
 		It("Should compute running average with count-based reset", func() {
-			cfg := state.Config{
-				Nodes: []ir.Node{
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "input", Type: "input"},
+					{Key: "avg", Type: "avg"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "avg", Param: ir.DefaultInputParam},
+					},
+				},
+				Functions: []graph.Function{
 					{
 						Key: "input",
 						Outputs: types.Params{
@@ -38,8 +49,7 @@ var _ = Describe("Stat", func() {
 						},
 					},
 					{
-						Key:  "avg",
-						Type: "avg",
+						Key: "avg",
 						Inputs: types.Params{
 							Keys:   []string{ir.DefaultInputParam},
 							Values: []types.Type{types.F64()},
@@ -48,24 +58,17 @@ var _ = Describe("Stat", func() {
 							Keys:   []string{ir.DefaultOutputParam},
 							Values: []types.Type{types.F64()},
 						},
-						ConfigValues: map[string]interface{}{
-							"count": int64(3),
-						},
-					},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "avg", Param: ir.DefaultInputParam},
 					},
 				},
 			}
-			s := state.New(cfg)
-			inputNode := s.Node("input")
+			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			inputNode := s.Node(ctx, "input")
 			factory := stat.NewFactory()
 			n := MustSucceed(factory.Create(ctx, node.Config{
-				Node:  cfg.Nodes[1],
-				State: s.Node("avg"),
+				Node:  ir.Node{Type: "avg", ConfigValues: map[string]interface{}{"count": int64(3)}},
+				State: s.Node(ctx, "avg"),
 			}))
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			*inputNode.Output(0) = telem.NewSeriesV[float64](10.0, 20.0, 30.0)
@@ -73,8 +76,8 @@ var _ = Describe("Stat", func() {
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node("avg").Output(0)
-			resultTime := *s.Node("avg").OutputTime(0)
+			result := *s.Node(ctx, "avg").Output(0)
+			resultTime := *s.Node(ctx, "avg").OutputTime(0)
 			Expect(result.Len()).To(Equal(int64(1)))
 			Expect(resultTime.Len()).To(Equal(int64(1)))
 			vals := telem.UnmarshalSeries[float64](result)
@@ -86,8 +89,8 @@ var _ = Describe("Stat", func() {
 			changed = make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result = *s.Node("avg").Output(0)
-			resultTime = *s.Node("avg").OutputTime(0)
+			result = *s.Node(ctx, "avg").Output(0)
+			resultTime = *s.Node(ctx, "avg").OutputTime(0)
 			Expect(result.Len()).To(Equal(int64(1)))
 			Expect(resultTime.Len()).To(Equal(int64(1)))
 			vals = telem.UnmarshalSeries[float64](result)
@@ -99,8 +102,18 @@ var _ = Describe("Stat", func() {
 
 	Describe("min", func() {
 		It("Should compute running minimum with duration-based reset", func() {
-			cfg := state.Config{
-				Nodes: []ir.Node{
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "input", Type: "input"},
+					{Key: "min", Type: "min"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "min", Param: ir.DefaultInputParam},
+					},
+				},
+				Functions: []graph.Function{
 					{
 						Key: "input",
 						Outputs: types.Params{
@@ -109,34 +122,29 @@ var _ = Describe("Stat", func() {
 						},
 					},
 					{
-						Key:  "min",
-						Type: "min",
+						Key: "min",
 						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam},
-							Values: []types.Type{types.I32()},
+							Keys:   []string{ir.DefaultInputParam, "reset"},
+							Values: []types.Type{types.I32(), types.U8()},
+						},
+						InputDefaults: map[string]any{
+							"reset": uint8(0),
 						},
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
 							Values: []types.Type{types.I32()},
 						},
-						ConfigValues: map[string]any{
-							"duration": telem.Second * 5,
-						},
-					},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "min", Param: ir.DefaultInputParam},
 					},
 				},
 			}
-			s := state.New(cfg)
-			inputNode := s.Node("input")
+			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			inputNode := s.Node(ctx, "input")
 			factory := stat.NewFactory()
 			n := MustSucceed(factory.Create(ctx, node.Config{
-				Node:  cfg.Nodes[1],
-				State: s.Node("min"),
+				Node:  ir.Node{Type: "min", ConfigValues: map[string]any{"duration": telem.Second * 5}},
+				State: s.Node(ctx, "min"),
 			}))
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			// First batch: timestamps [1s, 2s, 3s] with duration 5s
@@ -146,8 +154,8 @@ var _ = Describe("Stat", func() {
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node("min").Output(0)
-			resultTime := *s.Node("min").OutputTime(0)
+			result := *s.Node(ctx, "min").Output(0)
+			resultTime := *s.Node(ctx, "min").OutputTime(0)
 			Expect(result.Len()).To(Equal(int64(1)))
 			Expect(resultTime.Len()).To(Equal(int64(1)))
 			vals := telem.UnmarshalSeries[int32](result)
@@ -163,8 +171,8 @@ var _ = Describe("Stat", func() {
 			changed = make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result = *s.Node("min").Output(0)
-			resultTime = *s.Node("min").OutputTime(0)
+			result = *s.Node(ctx, "min").Output(0)
+			resultTime = *s.Node(ctx, "min").OutputTime(0)
 			Expect(result.Len()).To(Equal(int64(1)))
 			Expect(resultTime.Len()).To(Equal(int64(1)))
 			vals = telem.UnmarshalSeries[int32](result)
@@ -176,8 +184,23 @@ var _ = Describe("Stat", func() {
 
 	Describe("max", func() {
 		It("Should compute running maximum with signal-based reset", func() {
-			cfg := state.Config{
-				Nodes: []ir.Node{
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "input", Type: "input"},
+					{Key: "reset_signal", Type: "reset_signal"},
+					{Key: "max", Type: "max"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "max", Param: ir.DefaultInputParam},
+					},
+					{
+						Source: ir.Handle{Node: "reset_signal", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "max", Param: "reset"},
+					},
+				},
+				Functions: []graph.Function{
 					{
 						Key: "input",
 						Outputs: types.Params{
@@ -193,11 +216,13 @@ var _ = Describe("Stat", func() {
 						},
 					},
 					{
-						Key:  "max",
-						Type: "max",
+						Key: "max",
 						Inputs: types.Params{
 							Keys:   []string{ir.DefaultInputParam, "reset"},
 							Values: []types.Type{types.U64(), types.U8()},
+						},
+						InputDefaults: map[string]any{
+							"reset": uint8(0),
 						},
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
@@ -205,26 +230,17 @@ var _ = Describe("Stat", func() {
 						},
 					},
 				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "max", Param: ir.DefaultInputParam},
-					},
-					{
-						Source: ir.Handle{Node: "reset_signal", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "max", Param: "reset"},
-					},
-				},
 			}
-			s := state.New(cfg)
-			inputNode := s.Node("input")
-			resetNode := s.Node("reset_signal")
+			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			inputNode := s.Node(ctx, "input")
+			resetNode := s.Node(ctx, "reset_signal")
 			factory := stat.NewFactory()
-			inter := ir.IR{Edges: cfg.Edges}
 			n := MustSucceed(factory.Create(ctx, node.Config{
-				Node:   cfg.Nodes[2],
-				State:  s.Node("max"),
-				Module: module.Module{IR: inter},
+				Node:   ir.Node{Type: "max"},
+				State:  s.Node(ctx, "max"),
+				Module: module.Module{IR: analyzed},
 			}))
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			*inputNode.Output(0) = telem.NewSeriesV[uint64](10, 50, 30)
@@ -234,8 +250,8 @@ var _ = Describe("Stat", func() {
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node("max").Output(0)
-			resultTime := *s.Node("max").OutputTime(0)
+			result := *s.Node(ctx, "max").Output(0)
+			resultTime := *s.Node(ctx, "max").OutputTime(0)
 			Expect(result.Len()).To(Equal(int64(1)))
 			Expect(resultTime.Len()).To(Equal(int64(1)))
 			vals := telem.UnmarshalSeries[uint64](result)
@@ -249,8 +265,8 @@ var _ = Describe("Stat", func() {
 			changed = make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result = *s.Node("max").Output(0)
-			resultTime = *s.Node("max").OutputTime(0)
+			result = *s.Node(ctx, "max").Output(0)
+			resultTime = *s.Node(ctx, "max").OutputTime(0)
 			Expect(result.Len()).To(Equal(int64(1)))
 			Expect(resultTime.Len()).To(Equal(int64(1)))
 			vals = telem.UnmarshalSeries[uint64](result)
@@ -260,8 +276,19 @@ var _ = Describe("Stat", func() {
 		})
 
 		It("Should work without optional reset signal connected", func() {
-			cfg := state.Config{
-				Nodes: []ir.Node{
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "input", Type: "input"},
+					{Key: "max", Type: "max"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "max", Param: ir.DefaultInputParam},
+					},
+					// Note: No reset edge connected - testing optional input
+				},
+				Functions: []graph.Function{
 					{
 						Key: "input",
 						Outputs: types.Params{
@@ -270,11 +297,13 @@ var _ = Describe("Stat", func() {
 						},
 					},
 					{
-						Key:  "max",
-						Type: "max",
+						Key: "max",
 						Inputs: types.Params{
 							Keys:   []string{ir.DefaultInputParam, "reset"},
 							Values: []types.Type{types.U64(), types.U8()},
+						},
+						InputDefaults: map[string]any{
+							"reset": uint8(0),
 						},
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
@@ -282,22 +311,16 @@ var _ = Describe("Stat", func() {
 						},
 					},
 				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "max", Param: ir.DefaultInputParam},
-					},
-					// Note: No reset edge connected - testing optional input
-				},
 			}
-			s := state.New(cfg)
-			inputNode := s.Node("input")
+			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			inputNode := s.Node(ctx, "input")
 			factory := stat.NewFactory()
-			inter := ir.IR{Edges: cfg.Edges}
 			n := MustSucceed(factory.Create(ctx, node.Config{
-				Node:   cfg.Nodes[1],
-				State:  s.Node("max"),
-				Module: module.Module{IR: inter},
+				Node:   ir.Node{Type: "max"},
+				State:  s.Node(ctx, "max"),
+				Module: module.Module{IR: analyzed},
 			}))
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			// Should work even without reset signal
@@ -306,7 +329,7 @@ var _ = Describe("Stat", func() {
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node("max").Output(0)
+			result := *s.Node(ctx, "max").Output(0)
 			Expect(result.Len()).To(Equal(int64(1)))
 			vals := telem.UnmarshalSeries[uint64](result)
 			Expect(vals[0]).To(Equal(uint64(50)))
@@ -316,14 +339,29 @@ var _ = Describe("Stat", func() {
 			changed = make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result = *s.Node("max").Output(0)
+			result = *s.Node(ctx, "max").Output(0)
 			vals = telem.UnmarshalSeries[uint64](result)
 			Expect(vals[0]).To(Equal(uint64(80))) // Max across both batches
 		})
 
 		It("Should catch fast reset pulses (1->0 transition)", func() {
-			cfg := state.Config{
-				Nodes: []ir.Node{
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "input", Type: "input"},
+					{Key: "reset_signal", Type: "reset_signal"},
+					{Key: "avg", Type: "avg"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "avg", Param: ir.DefaultInputParam},
+					},
+					{
+						Source: ir.Handle{Node: "reset_signal", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "avg", Param: "reset"},
+					},
+				},
+				Functions: []graph.Function{
 					{
 						Key: "input",
 						Outputs: types.Params{
@@ -339,11 +377,13 @@ var _ = Describe("Stat", func() {
 						},
 					},
 					{
-						Key:  "avg",
-						Type: "avg",
+						Key: "avg",
 						Inputs: types.Params{
 							Keys:   []string{ir.DefaultInputParam, "reset"},
 							Values: []types.Type{types.I64(), types.U8()},
+						},
+						InputDefaults: map[string]any{
+							"reset": uint8(0),
 						},
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
@@ -351,26 +391,17 @@ var _ = Describe("Stat", func() {
 						},
 					},
 				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "avg", Param: ir.DefaultInputParam},
-					},
-					{
-						Source: ir.Handle{Node: "reset_signal", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "avg", Param: "reset"},
-					},
-				},
 			}
-			s := state.New(cfg)
-			inputNode := s.Node("input")
-			resetNode := s.Node("reset_signal")
+			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			inputNode := s.Node(ctx, "input")
+			resetNode := s.Node(ctx, "reset_signal")
 			factory := stat.NewFactory()
-			inter := ir.IR{Edges: cfg.Edges}
 			n := MustSucceed(factory.Create(ctx, node.Config{
-				Node:   cfg.Nodes[2],
-				State:  s.Node("avg"),
-				Module: module.Module{IR: inter},
+				Node:   ir.Node{Type: "avg"},
+				State:  s.Node(ctx, "avg"),
+				Module: module.Module{IR: analyzed},
 			}))
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			// Accumulate some data
@@ -381,7 +412,7 @@ var _ = Describe("Stat", func() {
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node("avg").Output(0)
+			result := *s.Node(ctx, "avg").Output(0)
 			vals := telem.UnmarshalSeries[int64](result)
 			Expect(vals[0]).To(Equal(int64(20))) // (10+20+30)/3 = 20
 			// Fast pulse: reset goes 1 then immediately back to 0 in same series
@@ -393,7 +424,7 @@ var _ = Describe("Stat", func() {
 			changed = make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result = *s.Node("avg").Output(0)
+			result = *s.Node(ctx, "avg").Output(0)
 			vals = telem.UnmarshalSeries[int64](result)
 			// Should have caught the reset pulse and restarted averaging
 			// Average of just [40, 50, 60] = 50, not (10+20+30+40+50+60)/6 = 35

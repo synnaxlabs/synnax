@@ -91,19 +91,38 @@ func createNegateSymbol(name string) symbol.Symbol {
 	)
 }
 
+const (
+	geSymbolName       = "ge"
+	gtSymbolName       = "gt"
+	leSymbolName       = "le"
+	ltSymbolName       = "lt"
+	eqSymbolName       = "eq"
+	neSymbolName       = "ne"
+	andSymbolName      = "and"
+	orSymbolName       = "or"
+	addSymbolName      = "add"
+	subSymbolName      = "subtract"
+	mulSymbolName      = "multiply"
+	divSymbolName      = "divide"
+	modSymbolName      = "mod"
+	notSymbolName      = "not"
+	negSymbolName      = "neg"
+)
+
 var SymbolResolver = symbol.MapResolver{
-	"ge":  createComparisonSymbol("ge"),
-	"gt":  createComparisonSymbol("gt"),
-	"le":  createComparisonSymbol("le"),
-	"lt":  createComparisonSymbol("lt"),
-	"eq":  createComparisonSymbol("eq"),
-	"and": createArithmeticSymbol("and"),
-	"or":  createArithmeticSymbol("or"),
-	"add": createArithmeticSymbol("add"),
-	"sub": createArithmeticSymbol("sub"),
-	"mul": createArithmeticSymbol("mul"),
-	"div": createArithmeticSymbol("div"),
-	"mod": createArithmeticSymbol("mod"),
-	"not": createNotSymbol("not"),
-	"neg": createNegateSymbol("neg"),
+	geSymbolName:  createComparisonSymbol(geSymbolName),
+	gtSymbolName:  createComparisonSymbol(gtSymbolName),
+	leSymbolName:  createComparisonSymbol(leSymbolName),
+	ltSymbolName:  createComparisonSymbol(ltSymbolName),
+	eqSymbolName:  createComparisonSymbol(eqSymbolName),
+	neSymbolName:  createComparisonSymbol(neSymbolName),
+	andSymbolName: createArithmeticSymbol(andSymbolName),
+	orSymbolName:  createArithmeticSymbol(orSymbolName),
+	addSymbolName: createArithmeticSymbol(addSymbolName),
+	subSymbolName: createArithmeticSymbol(subSymbolName),
+	mulSymbolName: createArithmeticSymbol(mulSymbolName),
+	divSymbolName: createArithmeticSymbol(divSymbolName),
+	modSymbolName: createArithmeticSymbol(modSymbolName),
+	notSymbolName: createNotSymbol(notSymbolName),
+	negSymbolName: createNegateSymbol(negSymbolName),
 }

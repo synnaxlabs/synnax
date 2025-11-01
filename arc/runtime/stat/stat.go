@@ -132,8 +132,6 @@ func (r *stat) Next(ctx node.Context) {
 	if shouldReset {
 		r.sampleCount = 0
 		r.state.Output(0).Resize(0)
-		// Refresh inputs again after reset to pick up fresh data (needed for time alignment/high water marking)
-		r.state.RefreshInputs()
 		// Re-read input time after reset
 		inputTime = r.state.InputTime(0)
 	}
@@ -175,17 +173,10 @@ func (f *statFactory) Create(_ context.Context, nodeCfg node.Config) (node.Node,
 		resetIdx    = -1
 	)
 	if _, found := nodeCfg.Module.Edges.FindByTarget(ir.Handle{
-		Node:  nodeCfg.Node.Key,
+		Node:  nodeCfg.Node.Type,
 		Param: resetInputParam,
 	}); found {
 		resetIdx = 1
-		// Initialize optional reset input with dummy value to prevent alignment blocking
-		// Use timestamp=1 so it's > initial watermark of 0
-		nodeCfg.State.InitInput(
-			resetIdx,
-			telem.NewSeriesV[uint8](0),
-			telem.NewSeriesV[telem.TimeStamp](1),
-		)
 	}
 	var cfg ConfigValues
 	if err := configSchema.Parse(nodeCfg.Node.ConfigValues, &cfg); err != nil {

@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -37,29 +38,24 @@ var _ = Describe("Constant", func() {
 		var s *state.State
 		BeforeEach(func() {
 			factory = constant.NewFactory()
-			s = state.New(state.Config{
-				Edges: ir.Edges{
-					{Source: ir.Handle{
-						Node:  "const",
-						Param: ir.DefaultOutputParam,
-					}, Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam}},
-				},
-				Nodes: ir.Nodes{
-					{
-						Key:  "const",
-						Type: "constant",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
+			g := graph.Graph{
+				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
+				Functions: []graph.Function{{
+					Key: "constant",
+					Outputs: types.Params{
+						Keys:   []string{ir.DefaultOutputParam},
+						Values: []types.Type{types.I64()},
 					},
-				},
-			})
+				}},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s = state.New(state.Config{IR: analyzed})
 		})
 		It("Should create node for constant type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 42}},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
 			n, err := factory.Create(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
@@ -68,7 +64,7 @@ var _ = Describe("Constant", func() {
 		It("Should return NotFound for unknown type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
 			_, err := factory.Create(ctx, cfg)
 			Expect(err).To(Equal(query.NotFound))
@@ -76,7 +72,7 @@ var _ = Describe("Constant", func() {
 		It("Should handle float64 value", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 3.14}},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
 			n, err := factory.Create(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
@@ -85,7 +81,7 @@ var _ = Describe("Constant", func() {
 		It("Should handle int value", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 100}},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
 			n, err := factory.Create(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
@@ -94,7 +90,7 @@ var _ = Describe("Constant", func() {
 		It("Should handle uint8 value", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": uint8(255)}},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
 			n, err := factory.Create(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
@@ -107,27 +103,25 @@ var _ = Describe("Constant", func() {
 		var outputs []string
 		BeforeEach(func() {
 			factory = constant.NewFactory()
-			s = state.New(state.Config{
-				Edges: ir.Edges{
-					{Source: ir.Handle{Node: "const", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam}},
-				},
-				Nodes: ir.Nodes{
-					{
-						Key:  "const",
-						Type: "constant",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
+			g := graph.Graph{
+				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
+				Functions: []graph.Function{{
+					Key: "constant",
+					Outputs: types.Params{
+						Keys:   []string{ir.DefaultOutputParam},
+						Values: []types.Type{types.I64()},
 					},
-				},
-			})
+				}},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s = state.New(state.Config{IR: analyzed})
 			outputs = []string{}
 		})
 		It("Should emit output on Init with int value", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 42}},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
 			n, _ := factory.Create(ctx, cfg)
 			n.Init(node.Context{Context: ctx, MarkChanged: func(output string) {
@@ -139,11 +133,11 @@ var _ = Describe("Constant", func() {
 		It("Should set output data on Init", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": int64(100)}},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
 			n, _ := factory.Create(ctx, cfg)
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
-			out := s.Node("const").Output(0)
+			out := s.Node(ctx, "const").Output(0)
 			Expect(out.Len()).To(Equal(int64(1)))
 		})
 		It("Should set output time on Init", func() {
@@ -152,11 +146,11 @@ var _ = Describe("Constant", func() {
 					Type:         "constant",
 					ConfigValues: map[string]interface{}{"value": 3.14},
 				},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
 			n, _ := factory.Create(ctx, cfg)
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
-			outTime := s.Node("const").OutputTime(0)
+			outTime := s.Node(ctx, "const").OutputTime(0)
 			Expect(outTime.Len()).To(Equal(int64(1)))
 			times := telem.UnmarshalSeries[telem.TimeStamp](*outTime)
 			Expect(times[0]).To(BeNumerically(">", int64(0)))
@@ -164,9 +158,9 @@ var _ = Describe("Constant", func() {
 		It("Should handle float64 constant", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 2.718}},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
-			constNode := s.Node("const")
+			constNode := s.Node(ctx, "const")
 			*constNode.Output(0) = telem.NewSeriesV[float64](0)
 			n, _ := factory.Create(ctx, cfg)
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
@@ -177,9 +171,9 @@ var _ = Describe("Constant", func() {
 		It("Should handle int32 constant", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": int32(42)}},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
-			constNode := s.Node("const")
+			constNode := s.Node(ctx, "const")
 			*constNode.Output(0) = telem.NewSeriesV[int32](0)
 			n, _ := factory.Create(ctx, cfg)
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
@@ -190,9 +184,9 @@ var _ = Describe("Constant", func() {
 		It("Should handle uint8 constant", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": uint8(255)}},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
-			constNode := s.Node("const")
+			constNode := s.Node(ctx, "const")
 			*constNode.Output(0) = telem.NewSeriesV[uint8](0)
 			n, _ := factory.Create(ctx, cfg)
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
@@ -201,17 +195,20 @@ var _ = Describe("Constant", func() {
 			Expect(vals[0]).To(Equal(uint8(255)))
 		})
 		It("Should allow downstream nodes to read constant", func() {
-			s = state.New(state.Config{
-				Edges: ir.Edges{
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "const", Type: "constant"},
+					{Key: "sink", Type: "sink"},
+				},
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "const", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
 					},
 				},
-				Nodes: ir.Nodes{
+				Functions: []graph.Function{
 					{
-						Key:  "const",
-						Type: "constant",
+						Key: "constant",
 						Outputs: types.Params{
 							Keys:   []string{ir.DefaultOutputParam},
 							Values: []types.Type{types.I64()},
@@ -225,16 +222,19 @@ var _ = Describe("Constant", func() {
 						},
 					},
 				},
-			})
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s = state.New(state.Config{IR: analyzed})
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": int64(999)}},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
-			constNode := s.Node("const")
+			constNode := s.Node(ctx, "const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
-			sink := s.Node("sink")
+			sink := s.Node(ctx, "sink")
 			recalc := sink.RefreshInputs()
 			Expect(recalc).To(BeTrue())
 			input := sink.Input(0)
@@ -244,9 +244,9 @@ var _ = Describe("Constant", func() {
 		It("Should handle zero value constant", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 0}},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
-			constNode := s.Node("const")
+			constNode := s.Node(ctx, "const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
@@ -257,9 +257,9 @@ var _ = Describe("Constant", func() {
 		It("Should handle negative value constant", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": -42}},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
-			constNode := s.Node("const")
+			constNode := s.Node(ctx, "const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
@@ -270,27 +270,25 @@ var _ = Describe("Constant", func() {
 	})
 	Describe("constant.Next", func() {
 		It("Should do nothing on Next", func() {
-			s := state.New(state.Config{
-				Edges: ir.Edges{
-					{Source: ir.Handle{Node: "const", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam}},
-				},
-				Nodes: ir.Nodes{
-					{
-						Key:  "const",
-						Type: "constant",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
+			g := graph.Graph{
+				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
+				Functions: []graph.Function{{
+					Key: "constant",
+					Outputs: types.Params{
+						Keys:   []string{ir.DefaultOutputParam},
+						Values: []types.Type{types.I64()},
 					},
-				},
-			})
+				}},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			factory := constant.NewFactory()
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 42}},
-				State: s.Node("const"),
+				State: s.Node(ctx, "const"),
 			}
-			constNode := s.Node("const")
+			constNode := s.Node(ctx, "const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
