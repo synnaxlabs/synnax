@@ -573,39 +573,6 @@ var _ = Describe("Graph", func() {
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("type mismatch"))
 			})
-
-			//It("Should allow edges to stages with no parameters (ignored like JS)", func() {
-			//	g := graph.Graph{
-			//		Functions: []ir.Function{
-			//			{
-			//				Key: "source",
-			//				Outputs: types.Params{
-			//					Keys:   []string{ir.DefaultOutputParam},
-			//					Values: []types.Type{types.F32()},
-			//				},
-			//			},
-			//			{
-			//				Key: "sink_with_no_params",
-			//				// No parameters defined - should ignore incoming edges
-			//			},
-			//		},
-			//		Nodes: []graph.Node{
-			//			{Key: "src", Type: "source"},
-			//			{Key: "sink", Type: "sink_with_no_params"},
-			//		},
-			//		Edges: []ir.Edge{
-			//			{
-			//				Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
-			//				Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
-			//			},
-			//		},
-			//	}
-			//	g = MustSucceed(graph.Parse(g))
-			//	inter, diagnostics := graph.Analyze(ctx, g, nil)
-			//	// Should succeed - the sink just ignores the input
-			//	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			//	Expect(inter.Edges).To(HaveLen(1))
-			//})
 		})
 
 		Describe("Integration", func() {
@@ -919,6 +886,7 @@ var _ = Describe("Graph", func() {
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 					Expect(inter.Edges).To(HaveLen(2))
 				})
+
 				It("Should allow nodes with no inputs to exist without edges", func() {
 					g := graph.Graph{
 						Functions: []ir.Function{
@@ -942,7 +910,83 @@ var _ = Describe("Graph", func() {
 					Expect(inter.Nodes).To(HaveLen(2))
 				})
 			})
+
+			Describe("Missing Required Edges", func() {
+				It("Should return an error when a graph is missing a required edge", func() {
+					g := graph.Graph{
+						Functions: []ir.Function{
+							{
+								Key: "source",
+								Outputs: types.Params{
+									Keys:   []string{ir.DefaultOutputParam},
+									Values: []types.Type{types.F32()},
+								},
+							},
+							{
+								Key: "add",
+								Inputs: types.Params{
+									Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+									Values: []types.Type{types.F32(), types.F32()},
+								},
+							},
+						},
+						Nodes: []graph.Node{
+							{Key: "src1", Type: "source"},
+							{Key: "add1", Type: "add"},
+						},
+						Edges: []ir.Edge{
+							{
+								Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
+								Target: ir.Handle{Node: "add1", Param: ir.LHSInputParam},
+							},
+						},
+					}
+					g = MustSucceed(graph.Parse(g))
+					_, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+					Expect(diagnostics).To(MatchError(ContainSubstring("missing required input 'b'")))
+				})
+
+				FIt("Should not return an error when the edge is optional", func() {
+					g := graph.Graph{
+						Functions: []ir.Function{
+							{
+								Key: "source",
+								Outputs: types.Params{
+									Keys:   []string{ir.DefaultOutputParam},
+									Values: []types.Type{types.F32()},
+								},
+							},
+							{
+								Key: "add",
+								Inputs: types.Params{
+									Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+									Values: []types.Type{types.F32(), types.F32()},
+								},
+								InputDefaults: map[string]any{
+									ir.RHSInputParam: 1,
+								},
+							},
+						},
+						Nodes: []graph.Node{
+							{Key: "src1", Type: "source"},
+							{Key: "add1", Type: "add"},
+						},
+						Edges: []ir.Edge{
+							{
+								Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
+								Target: ir.Handle{Node: "add1", Param: ir.LHSInputParam},
+							},
+						},
+					}
+					g = MustSucceed(graph.Parse(g))
+					_, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				})
+
+			})
 		})
+
 		Describe("Duplicate Edge Targets", func() {
 			It("Should error when multiple edges target the same input parameter", func() {
 				g := graph.Graph{
@@ -987,6 +1031,7 @@ var _ = Describe("Graph", func() {
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("multiple edges"))
 			})
+
 			It("Should allow multiple edges from the same source parameter", func() {
 				g := graph.Graph{
 					Functions: []ir.Function{

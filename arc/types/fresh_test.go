@@ -7,20 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ir_test
+package types_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("FreshType", func() {
+var _ = Describe("Freshen", func() {
 	It("Should rename type variables with prefix", func() {
 		tv := types.Variable("T", nil)
-		fresh := ir.FreshType(tv, "node1")
+		fresh := types.Freshen(tv, "node1")
 		Expect(fresh.Kind).To(Equal(types.KindVariable))
 		Expect(fresh.Name).To(Equal("node1_T"))
 	})
@@ -28,7 +27,7 @@ var _ = Describe("FreshType", func() {
 	It("Should recursively freshen constrained type variables", func() {
 		constraint := types.I64()
 		tv := types.Variable("T", &constraint)
-		fresh := ir.FreshType(tv, "node2")
+		fresh := types.Freshen(tv, "node2")
 		Expect(fresh.Name).To(Equal("node2_T"))
 		Expect(fresh.Constraint).ToNot(BeNil())
 	})
@@ -36,7 +35,7 @@ var _ = Describe("FreshType", func() {
 	It("Should freshen channel types recursively", func() {
 		tv := types.Variable("T", nil)
 		chanType := types.Chan(tv)
-		fresh := ir.FreshType(chanType, "node3")
+		fresh := types.Freshen(chanType, "node3")
 		Expect(fresh.Kind).To(Equal(types.KindChan))
 		Expect(fresh.ValueType).ToNot(BeNil())
 		Expect(fresh.ValueType.Kind).To(Equal(types.KindVariable))
@@ -46,7 +45,7 @@ var _ = Describe("FreshType", func() {
 	It("Should freshen series types recursively", func() {
 		tv := types.Variable("T", nil)
 		seriesType := types.Series(tv)
-		fresh := ir.FreshType(seriesType, "node4")
+		fresh := types.Freshen(seriesType, "node4")
 		Expect(fresh.Kind).To(Equal(types.KindSeries))
 		Expect(fresh.ValueType).ToNot(BeNil())
 		Expect(fresh.ValueType.Kind).To(Equal(types.KindVariable))
@@ -57,7 +56,7 @@ var _ = Describe("FreshType", func() {
 		inputs := types.Params{}
 		inputs.Put("x", types.I64())
 		fnType := types.Function(types.FunctionProperties{Inputs: &inputs})
-		fresh := ir.FreshType(fnType, "node5")
+		fresh := types.Freshen(fnType, "node5")
 		Expect(fresh.Kind).To(Equal(types.KindFunction))
 		Expect(fresh.Inputs).ToNot(BeNil())
 		Expect(fresh.Inputs.Count()).To(Equal(1))
@@ -73,7 +72,7 @@ var _ = Describe("FreshType", func() {
 			types.TimeSpan(),
 		}
 		for _, prim := range primitives {
-			fresh := ir.FreshType(prim, "prefix")
+			fresh := types.Freshen(prim, "prefix")
 			Expect(fresh.Kind).To(Equal(prim.Kind))
 		}
 	})
@@ -82,7 +81,7 @@ var _ = Describe("FreshType", func() {
 		constraint := types.I64()
 		tv := types.Variable("T", &constraint)
 		chanType := types.Chan(tv)
-		fresh := ir.FreshType(chanType, "test")
+		fresh := types.Freshen(chanType, "test")
 		Expect(fresh.ValueType.Name).To(Equal("test_T"))
 		Expect(fresh.ValueType.Constraint).ToNot(BeNil())
 		Expect(fresh.ValueType.Constraint.Kind).To(Equal(types.KindI64))
@@ -95,7 +94,7 @@ var _ = Describe("FreshType", func() {
 		inputs.Put("a", tv)
 		inputs.Put("b", tv) // Same T
 		fnType := types.Function(types.FunctionProperties{Inputs: &inputs})
-		fresh := ir.FreshType(fnType, "test")
+		fresh := types.Freshen(fnType, "test")
 
 		// Both inputs should have same fresh type variable name
 		aType := MustBeOk(fresh.Inputs.Get("a"))
@@ -107,12 +106,13 @@ var _ = Describe("FreshType", func() {
 
 	It("Should handle deeply nested constrained type variables", func() {
 		// Create a chain: T3 <: T2 <: T1 <: i64
-		i64Constraint := types.I64()
-		t1 := types.Variable("T1", &i64Constraint)
-		t2 := types.Variable("T2", &t1)
-		t3 := types.Variable("T3", &t2)
-
-		fresh := ir.FreshType(t3, "node")
+		var (
+			i64Constraint = types.I64()
+			t1            = types.Variable("T1", &i64Constraint)
+			t2            = types.Variable("T2", &t1)
+			t3            = types.Variable("T3", &t2)
+		)
+		fresh := types.Freshen(t3, "node")
 		Expect(fresh.Name).To(Equal("node_T3"))
 		Expect(fresh.Constraint).ToNot(BeNil())
 		Expect(fresh.Constraint.Name).To(Equal("node_T2"))
@@ -123,11 +123,12 @@ var _ = Describe("FreshType", func() {
 	})
 
 	It("Should handle series of channels of type variables", func() {
-		tv := types.Variable("T", nil)
-		chanType := types.Chan(tv)
-		seriesType := types.Series(chanType)
-
-		fresh := ir.FreshType(seriesType, "prefix")
+		var (
+			tv         = types.Variable("T", nil)
+			chanType   = types.Chan(tv)
+			seriesType = types.Series(chanType)
+		)
+		fresh := types.Freshen(seriesType, "prefix")
 		Expect(fresh.Kind).To(Equal(types.KindSeries))
 		Expect(fresh.ValueType.Kind).To(Equal(types.KindChan))
 		Expect(fresh.ValueType.ValueType.Kind).To(Equal(types.KindVariable))
@@ -148,7 +149,7 @@ var _ = Describe("FreshType", func() {
 			Outputs: &outputs,
 		})
 
-		fresh := ir.FreshType(fnType, "node")
+		fresh := types.Freshen(fnType, "node")
 
 		// Generic params should be freshened
 		genericInput := MustBeOk(fresh.Inputs.Get("generic"))
@@ -167,7 +168,7 @@ var _ = Describe("FreshType", func() {
 
 	It("Should handle empty function parameters", func() {
 		fnType := types.Function(types.FunctionProperties{})
-		fresh := ir.FreshType(fnType, "test")
+		fresh := types.Freshen(fnType, "test")
 
 		Expect(fresh.Kind).To(Equal(types.KindFunction))
 		Expect(fresh.Inputs).ToNot(BeNil())
@@ -187,7 +188,7 @@ var _ = Describe("FreshType", func() {
 		inputs.Put("b", tvB)
 
 		fnType := types.Function(types.FunctionProperties{Inputs: &inputs})
-		fresh := ir.FreshType(fnType, "node")
+		fresh := types.Freshen(fnType, "node")
 
 		aType := MustBeOk(fresh.Inputs.Get("a"))
 		bType := MustBeOk(fresh.Inputs.Get("b"))

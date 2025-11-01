@@ -54,9 +54,10 @@
 package types
 
 import (
+	"maps"
 	"slices"
 
-	"github.com/synnaxlabs/x/maps"
+	xmaps "github.com/synnaxlabs/x/maps"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -130,7 +131,7 @@ func NewFunctionProperties() FunctionProperties {
 }
 
 // Params are named, ordered parameters for a function.
-type Params = maps.Ordered[string, Type]
+type Params = xmaps.Ordered[string, Type]
 
 // FunctionProperties holds the inputs, outputs, and configuration parameters for function
 // types.
@@ -151,22 +152,12 @@ type FunctionProperties struct {
 
 // Copy creates a deep copy of the function properties.
 func (f FunctionProperties) Copy() FunctionProperties {
-	// Deep copy default value maps
-	inputDefaults := make(map[string]any, len(f.InputDefaults))
-	for k, v := range f.InputDefaults {
-		inputDefaults[k] = v
-	}
-	configDefaults := make(map[string]any, len(f.ConfigDefaults))
-	for k, v := range f.ConfigDefaults {
-		configDefaults[k] = v
-	}
-
 	return FunctionProperties{
 		Inputs:         f.Inputs.Copy(),
 		Outputs:        f.Outputs.Copy(),
 		Config:         f.Config.Copy(),
-		InputDefaults:  inputDefaults,
-		ConfigDefaults: configDefaults,
+		InputDefaults:  maps.Clone(f.InputDefaults),
+		ConfigDefaults: maps.Clone(f.ConfigDefaults),
 	}
 }
 

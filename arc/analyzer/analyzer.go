@@ -238,7 +238,7 @@ func parseLiteralValue(
 		// TODO: Parse temporal literals when needed
 		return nil, errors.New("temporal literals not yet supported for default values")
 	}
-	if str := ctx.AST.STRING_LITERAL(); str != nil {
+	if str := ctx.AST.STR_LITERAL(); str != nil {
 		// TODO: Parse string literals when needed
 		return nil, errors.New("string literals not yet supported for default values")
 	}

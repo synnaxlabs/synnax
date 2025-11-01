@@ -600,7 +600,7 @@ var _ = Describe("Analyzer", func() {
 			funcScope := ctx.Scope.FindChildByName("multi")
 			Expect(funcScope).ToNot(BeNil())
 			Expect(funcScope.Type.InputDefaults).To(HaveLen(2))
-			Expect(funcScope.Type.InputDefaults["b"]).To(Equal(float64(1.5)))
+			Expect(funcScope.Type.InputDefaults["b"]).To(Equal(1.5))
 			Expect(funcScope.Type.InputDefaults["c"]).To(Equal(uint8(10)))
 		})
 
