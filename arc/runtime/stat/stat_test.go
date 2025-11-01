@@ -24,7 +24,9 @@ import (
 )
 
 var _ = Describe("Stat", func() {
+
 	Describe("avg", func() {
+
 		It("Should compute running average with count-based reset", func() {
 			cfg := state.Config{
 				Nodes: []ir.Node{
@@ -60,7 +62,7 @@ var _ = Describe("Stat", func() {
 			}
 			s := state.New(cfg)
 			inputNode := s.Node("input")
-			factory := stat.NewFactory(stat.Config{})
+			factory := stat.NewFactory()
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:  cfg.Nodes[1],
 				State: s.Node("avg"),
@@ -94,6 +96,7 @@ var _ = Describe("Stat", func() {
 			Expect(timeVals[0]).To(Equal(telem.SecondTS * 6)) // Last input timestamp after reset
 		})
 	})
+
 	Describe("min", func() {
 		It("Should compute running minimum with duration-based reset", func() {
 			cfg := state.Config{
@@ -116,7 +119,7 @@ var _ = Describe("Stat", func() {
 							Keys:   []string{ir.DefaultOutputParam},
 							Values: []types.Type{types.I32()},
 						},
-						ConfigValues: map[string]interface{}{
+						ConfigValues: map[string]any{
 							"duration": telem.Second * 5,
 						},
 					},
@@ -130,7 +133,7 @@ var _ = Describe("Stat", func() {
 			}
 			s := state.New(cfg)
 			inputNode := s.Node("input")
-			factory := stat.NewFactory(stat.Config{})
+			factory := stat.NewFactory()
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:  cfg.Nodes[1],
 				State: s.Node("min"),
@@ -138,7 +141,7 @@ var _ = Describe("Stat", func() {
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			// First batch: timestamps [1s, 2s, 3s] with duration 5s
 			// No reset: 3s - 1s = 2s < 5s
-			*inputNode.Output(0) = telem.NewSeriesV[int32](50, 30, 70)
+			*inputNode.Output(0) = telem.NewSeriesV[int32](50, 10, 70)
 			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
@@ -148,12 +151,14 @@ var _ = Describe("Stat", func() {
 			Expect(result.Len()).To(Equal(int64(1)))
 			Expect(resultTime.Len()).To(Equal(int64(1)))
 			vals := telem.UnmarshalSeries[int32](result)
-			Expect(vals[0]).To(Equal(int32(30)))
+			Expect(vals[0]).To(Equal(int32(10)))
 			timeVals := telem.UnmarshalSeries[telem.TimeStamp](resultTime)
-			Expect(timeVals[0]).To(Equal(telem.SecondTS * 3)) // Last input timestamp
+			Expect(timeVals[0]).To(Equal(telem.SecondTS * 3))
 			// Second batch: timestamps [6s, 7s, 8s]
 			// Reset: 6s - 1s = 5s >= 5s (triggers reset)
-			*inputNode.Output(0) = telem.NewSeriesV[int32](40, 20, 60)
+			// After reset, min should be 40 (min of second batch only)
+			// Without reset, min would still be 10 (min across both batches)
+			*inputNode.Output(0) = telem.NewSeriesV[int32](80, 40, 60)
 			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(6, 7, 8)
 			changed = make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
@@ -163,11 +168,12 @@ var _ = Describe("Stat", func() {
 			Expect(result.Len()).To(Equal(int64(1)))
 			Expect(resultTime.Len()).To(Equal(int64(1)))
 			vals = telem.UnmarshalSeries[int32](result)
-			Expect(vals[0]).To(Equal(int32(20)))
+			Expect(vals[0]).To(Equal(int32(40)))
 			timeVals = telem.UnmarshalSeries[telem.TimeStamp](resultTime)
-			Expect(timeVals[0]).To(Equal(telem.SecondTS * 8)) // Last input timestamp after reset
+			Expect(timeVals[0]).To(Equal(telem.SecondTS * 8))
 		})
 	})
+
 	Describe("max", func() {
 		It("Should compute running maximum with signal-based reset", func() {
 			cfg := state.Config{
@@ -213,7 +219,7 @@ var _ = Describe("Stat", func() {
 			s := state.New(cfg)
 			inputNode := s.Node("input")
 			resetNode := s.Node("reset_signal")
-			factory := stat.NewFactory(stat.Config{})
+			factory := stat.NewFactory()
 			inter := ir.IR{Edges: cfg.Edges}
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
@@ -252,6 +258,7 @@ var _ = Describe("Stat", func() {
 			timeVals = telem.UnmarshalSeries[telem.TimeStamp](resultTime)
 			Expect(timeVals[0]).To(Equal(telem.SecondTS * 6)) // Last input timestamp after reset
 		})
+
 		It("Should work without optional reset signal connected", func() {
 			cfg := state.Config{
 				Nodes: []ir.Node{
@@ -285,7 +292,7 @@ var _ = Describe("Stat", func() {
 			}
 			s := state.New(cfg)
 			inputNode := s.Node("input")
-			factory := stat.NewFactory(stat.Config{})
+			factory := stat.NewFactory()
 			inter := ir.IR{Edges: cfg.Edges}
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[1],
@@ -313,6 +320,7 @@ var _ = Describe("Stat", func() {
 			vals = telem.UnmarshalSeries[uint64](result)
 			Expect(vals[0]).To(Equal(uint64(80))) // Max across both batches
 		})
+
 		It("Should catch fast reset pulses (1->0 transition)", func() {
 			cfg := state.Config{
 				Nodes: []ir.Node{
@@ -357,7 +365,7 @@ var _ = Describe("Stat", func() {
 			s := state.New(cfg)
 			inputNode := s.Node("input")
 			resetNode := s.Node("reset_signal")
-			factory := stat.NewFactory(stat.Config{})
+			factory := stat.NewFactory()
 			inter := ir.IR{Edges: cfg.Edges}
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
