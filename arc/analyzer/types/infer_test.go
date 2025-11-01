@@ -275,8 +275,7 @@ var _ = Describe("Type Inference", func() {
 		It("should error on channel type mismatch", func() {
 			ast := testutil.NewMockAST(1)
 			err := atypes.Check(cs, types.Chan(types.F32()), types.F32(), ast, "test")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("type mismatch"))
+			Expect(err).To(MatchError(ContainSubstring("type mismatch")))
 		})
 
 		It("should recursively check series types", func() {
@@ -288,8 +287,7 @@ var _ = Describe("Type Inference", func() {
 		It("should error on series type mismatch", func() {
 			ast := testutil.NewMockAST(1)
 			err := atypes.Check(cs, types.Series(types.I64()), types.I64(), ast, "test")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("type mismatch"))
+			Expect(err).To(MatchError(ContainSubstring("type mismatch")))
 		})
 
 		It("should check concrete types for equality", func() {
@@ -301,8 +299,7 @@ var _ = Describe("Type Inference", func() {
 		It("should error on concrete type mismatch", func() {
 			ast := testutil.NewMockAST(1)
 			err := atypes.Check(cs, types.F32(), types.F64(), ast, "test")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("type mismatch"))
+			Expect(err).To(MatchError(ContainSubstring("type mismatch")))
 		})
 	})
 

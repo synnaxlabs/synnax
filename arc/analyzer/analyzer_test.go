@@ -617,5 +617,31 @@ var _ = Describe("Analyzer", func() {
 			Expect(funcScope).ToNot(BeNil())
 			Expect(funcScope.Type.InputDefaults).To(BeEmpty())
 		})
+
+		It("Should reject default values that overflow target type", func() {
+			prog := MustSucceed(parser.Parse(`
+				func foo(x i8 = 128) i8 {
+					return x
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
+			diagnostic := (*ctx.Diagnostics)[0]
+			Expect(diagnostic.Message).To(ContainSubstring("out of range for i8"))
+		})
+
+		It("Should reject default values with non-exact float-to-int conversion", func() {
+			prog := MustSucceed(parser.Parse(`
+				func foo(x i32 = 3.14) i32 {
+					return x
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
+			diagnostic := (*ctx.Diagnostics)[0]
+			Expect(diagnostic.Message).To(ContainSubstring("cannot convert non-integer float"))
+		})
 	})
 })

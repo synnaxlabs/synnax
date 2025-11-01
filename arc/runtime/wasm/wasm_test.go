@@ -102,12 +102,11 @@ var _ = Describe("Wasm", func() {
 				Expect(wasmMod.Close()).To(Succeed())
 			}()
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
-			n, err := factory.Create(ctx, node.Config{
+			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   analyzed.Nodes.Get("add"),
 				State:  s.Node(ctx, "add"),
 				Module: mod,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
@@ -187,12 +186,11 @@ var _ = Describe("Wasm", func() {
 				Expect(wasmMod.Close()).To(Succeed())
 			}()
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
-			n, err := factory.Create(ctx, node.Config{
+			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   analyzed.Nodes.Get("multiply"),
 				State:  s.Node(ctx, "multiply"),
 				Module: mod,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
@@ -272,12 +270,11 @@ var _ = Describe("Wasm", func() {
 				Expect(wasmMod.Close()).To(Succeed())
 			}()
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
-			n, err := factory.Create(ctx, node.Config{
+			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   analyzed.Nodes.Get("subtract"),
 				State:  s.Node(ctx, "subtract"),
 				Module: mod,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())

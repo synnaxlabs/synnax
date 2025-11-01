@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var ctx = context.Background()
@@ -54,8 +55,7 @@ var _ = Describe("Telem", func() {
 					},
 					State: s.Node(ctx, "test"),
 				}
-				node, err := factory.Create(ctx, cfg)
-				Expect(err).ToNot(HaveOccurred())
+				node := MustSucceed(factory.Create(ctx, cfg))
 				Expect(node).ToNot(BeNil())
 			})
 			It("Should parse channel from config", func() {
@@ -68,8 +68,7 @@ var _ = Describe("Telem", func() {
 					},
 					State: s.Node(ctx, "test"),
 				}
-				node, err := factory.Create(ctx, cfg)
-				Expect(err).ToNot(HaveOccurred())
+				node := MustSucceed(factory.Create(ctx, cfg))
 				Expect(node).ToNot(BeNil())
 			})
 			It("Should coerce channel to uint32", func() {
@@ -82,8 +81,7 @@ var _ = Describe("Telem", func() {
 					},
 					State: s.Node(ctx, "test"),
 				}
-				node, err := factory.Create(ctx, cfg)
-				Expect(err).ToNot(HaveOccurred())
+				node := MustSucceed(factory.Create(ctx, cfg))
 				Expect(node).ToNot(BeNil())
 			})
 		})
@@ -99,8 +97,7 @@ var _ = Describe("Telem", func() {
 					},
 					State: s.Node(ctx, "test"),
 				}
-				node, err := factory.Create(ctx, cfg)
-				Expect(err).ToNot(HaveOccurred())
+				node := MustSucceed(factory.Create(ctx, cfg))
 				Expect(node).ToNot(BeNil())
 			})
 		})
@@ -177,7 +174,7 @@ var _ = Describe("Telem", func() {
 
 		Describe("Data Reading", func() {
 			It("Should read channel data after ingestion", func() {
-				source, err := factory.Create(ctx, rnode.Config{
+				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type: "on",
 						ConfigValues: map[string]any{
@@ -185,8 +182,7 @@ var _ = Describe("Telem", func() {
 						},
 					},
 					State: s.Node(ctx, "source"),
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				fr := telem.Frame[uint32]{}
 				fr = fr.Append(10, telem.NewSeriesV[float32](1.5, 2.5, 3.5))
 				fr = fr.Append(11, telem.NewSeriesSecondsTSV(100, 101, 102))
@@ -199,7 +195,7 @@ var _ = Describe("Telem", func() {
 			})
 
 			It("Should handle channel without index", func() {
-				source, err := factory.Create(ctx, rnode.Config{
+				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type: "on",
 						ConfigValues: map[string]any{
@@ -207,8 +203,7 @@ var _ = Describe("Telem", func() {
 						},
 					},
 					State: s.Node(ctx, "source"),
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				fr := telem.UnaryFrame[uint32](20, telem.NewSeriesV[int32](100, 200))
 				s.Ingest(fr)
 				var outputChanged bool
@@ -219,7 +214,7 @@ var _ = Describe("Telem", func() {
 			})
 
 			It("Should not trigger on empty channel", func() {
-				source, err := factory.Create(ctx, rnode.Config{
+				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type: "on",
 						ConfigValues: map[string]any{
@@ -227,8 +222,7 @@ var _ = Describe("Telem", func() {
 						},
 					},
 					State: s.Node(ctx, "source"),
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				var outputChanged bool
 				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { outputChanged = true }})
 				Expect(outputChanged).To(BeFalse())
@@ -236,7 +230,7 @@ var _ = Describe("Telem", func() {
 
 			It("Should handle multiple series in MultiSeries", func() {
 				nodeState := s.Node(ctx, "source")
-				source, err := factory.Create(ctx, rnode.Config{
+				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type: "on",
 						ConfigValues: map[string]any{
@@ -244,8 +238,7 @@ var _ = Describe("Telem", func() {
 						},
 					},
 					State: nodeState,
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				fr1 := telem.Frame[uint32]{}
 				d1 := telem.NewSeriesV[float32](1.0)
 				d1.Alignment = telem.NewAlignment(1, 0)
@@ -284,7 +277,7 @@ var _ = Describe("Telem", func() {
 
 		Describe("Alignment Validation", func() {
 			It("Should skip data when index series count mismatch", func() {
-				source, err := factory.Create(ctx, rnode.Config{
+				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type: "on",
 						ConfigValues: map[string]any{
@@ -292,8 +285,7 @@ var _ = Describe("Telem", func() {
 						},
 					},
 					State: s.Node(ctx, "source"),
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				fr1 := telem.Frame[uint32]{}
 				fr1 = fr1.Append(10, telem.NewSeriesV[float32](1.0))
 				fr1 = fr1.Append(11, telem.NewSeriesSecondsTSV(10))
@@ -326,7 +318,7 @@ var _ = Describe("Telem", func() {
 					},
 				}
 				s2 := state.New(cfg)
-				source, err := factory.Create(ctx, rnode.Config{
+				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type: "on",
 						ConfigValues: map[string]any{
@@ -334,8 +326,7 @@ var _ = Describe("Telem", func() {
 						},
 					},
 					State: s2.Node(ctx, "misaligned"),
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				dataSeries := telem.NewSeriesV[float64](1.0, 2.0)
 				dataSeries.Alignment = 100
 				timeSeries := telem.NewSeriesSecondsTSV(10, 20)
@@ -352,7 +343,7 @@ var _ = Describe("Telem", func() {
 
 		Describe("Lifecycle", func() {
 			It("Should initialize without error", func() {
-				source, err := factory.Create(ctx, rnode.Config{
+				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type: "on",
 						ConfigValues: map[string]any{
@@ -360,8 +351,7 @@ var _ = Describe("Telem", func() {
 						},
 					},
 					State: s.Node(ctx, "source"),
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				source.Init(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
 			})
 		})
@@ -413,7 +403,7 @@ var _ = Describe("Telem", func() {
 		})
 		Describe("Data Writing", func() {
 			It("Should write channel data when input available", func() {
-				sink, err := factory.Create(ctx, rnode.Config{
+				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type: "write",
 						ConfigValues: map[string]any{
@@ -421,8 +411,7 @@ var _ = Describe("Telem", func() {
 						},
 					},
 					State: s.Node(ctx, "sink"),
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				upstream := s.Node(ctx, "upstream")
 				*upstream.Output(0) = telem.NewSeriesV[float32](7.7, 8.8)
 				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(500, 501)
@@ -436,7 +425,7 @@ var _ = Describe("Telem", func() {
 				Expect(fr.Get(101).Series[0]).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(500, 501)))
 			})
 			It("Should respect RefreshInputs guard", func() {
-				sink, err := factory.Create(ctx, rnode.Config{
+				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type: "write",
 						ConfigValues: map[string]any{
@@ -444,15 +433,14 @@ var _ = Describe("Telem", func() {
 						},
 					},
 					State: s.Node(ctx, "sink"),
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
 				fr, changed := s.FlushWrites(telem.Frame[uint32]{})
 				Expect(changed).To(BeFalse())
 				Expect(fr.Get(100).Series).To(BeEmpty())
 			})
 			It("Should not write when input is empty", func() {
-				sink, err := factory.Create(ctx, rnode.Config{
+				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type: "write",
 						ConfigValues: map[string]any{
@@ -460,8 +448,7 @@ var _ = Describe("Telem", func() {
 						},
 					},
 					State: s.Node(ctx, "sink"),
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				upstream := s.Node(ctx, "upstream")
 				*upstream.Output(0) = telem.NewSeriesV[float32]()
 				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV()
@@ -474,7 +461,7 @@ var _ = Describe("Telem", func() {
 		})
 		Describe("Multiple Writes", func() {
 			It("Should handle sequential writes", func() {
-				sink, err := factory.Create(ctx, rnode.Config{
+				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type: "write",
 						ConfigValues: map[string]any{
@@ -482,8 +469,7 @@ var _ = Describe("Telem", func() {
 						},
 					},
 					State: s.Node(ctx, "sink"),
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				upstream := s.Node(ctx, "upstream")
 				*upstream.Output(0) = telem.NewSeriesV[float32](1.0)
 				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
@@ -503,7 +489,7 @@ var _ = Describe("Telem", func() {
 		})
 		Describe("Lifecycle", func() {
 			It("Should initialize without error", func() {
-				sink, err := factory.Create(ctx, rnode.Config{
+				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type: "write",
 						ConfigValues: map[string]any{
@@ -511,8 +497,7 @@ var _ = Describe("Telem", func() {
 						},
 					},
 					State: s.Node(ctx, "sink"),
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				sink.Init(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
 			})
 		})

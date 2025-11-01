@@ -64,14 +64,12 @@ var _ = Describe("IR", func() {
 			}
 
 			// Marshal to JSON
-			data, err := json.Marshal(original)
-			Expect(err).ToNot(HaveOccurred())
+			data := MustSucceed(json.Marshal(original))
 			Expect(data).ToNot(BeEmpty())
 
 			// Unmarshal from JSON
 			var restored ir.IR
-			err = json.Unmarshal(data, &restored)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 
 			Expect(restored.Functions).To(HaveLen(1))
 			Expect(restored.Functions[0].Key).To(Equal("add"))
@@ -118,8 +116,7 @@ var _ = Describe("IR", func() {
 				Symbols:   symbol.CreateRootScope(nil),
 			}
 
-			data, err := json.Marshal(original)
-			Expect(err).ToNot(HaveOccurred())
+			data := MustSucceed(json.Marshal(original))
 
 			jsonStr := string(data)
 			Expect(jsonStr).ToNot(ContainSubstring("\"symbols\""))

@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var ctx = context.Background()
@@ -80,8 +81,7 @@ var _ = Describe("Select", func() {
 				Node:  ir.Node{Type: "select"},
 				State: s.Node(ctx, "select"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It("Should return NotFound for unknown type", func() {

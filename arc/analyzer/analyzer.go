@@ -11,7 +11,6 @@ package analyzer
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/antlr4-go/antlr/v4"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -19,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -225,105 +225,16 @@ func checkOutputAssignedInIfStmt(ifStmt parser.IIfStatementContext, outputName s
 }
 
 // parseLiteralValue parses a literal AST node and returns its value.
-// It supports numeric literals (integer, float) and validates type compatibility.
-// Returns an error if the literal cannot be parsed or is incompatible with expectedType.
+// It uses the shared literal parser to handle all literal types with proper validation.
 func parseLiteralValue(
 	ctx acontext.Context[parser.ILiteralContext],
 	expectedType types.Type,
 ) (any, error) {
-	if num := ctx.AST.NumericLiteral(); num != nil {
-		return parseNumericLiteral(num, expectedType)
+	parsed, err := literal.Parse(ctx.AST, expectedType)
+	if err != nil {
+		return nil, err
 	}
-	if temp := ctx.AST.TemporalLiteral(); temp != nil {
-		// TODO: Parse temporal literals when needed
-		return nil, errors.New("temporal literals not yet supported for default values")
-	}
-	if str := ctx.AST.STR_LITERAL(); str != nil {
-		// TODO: Parse string literals when needed
-		return nil, errors.New("string literals not yet supported for default values")
-	}
-	if series := ctx.AST.SeriesLiteral(); series != nil {
-		return nil, errors.New("series literals not supported for default values")
-	}
-	return nil, errors.New("unknown literal type")
-}
-
-// parseNumericLiteral parses a numeric literal (integer or float) and returns its value.
-func parseNumericLiteral(
-	numLit parser.INumericLiteralContext,
-	expectedType types.Type,
-) (any, error) {
-	if intLit := numLit.INTEGER_LITERAL(); intLit != nil {
-		text := intLit.GetText()
-		value, err := strconv.ParseInt(text, 10, 64)
-		if err != nil {
-			return nil, errors.Wrapf(err, "invalid integer literal: %s", text)
-		}
-
-		// Convert to appropriate type based on expectedType
-		switch expectedType.Kind {
-		case types.KindI8:
-			return int8(value), nil
-		case types.KindI16:
-			return int16(value), nil
-		case types.KindI32:
-			return int32(value), nil
-		case types.KindI64:
-			return value, nil
-		case types.KindU8:
-			return uint8(value), nil
-		case types.KindU16:
-			return uint16(value), nil
-		case types.KindU32:
-			return uint32(value), nil
-		case types.KindU64:
-			return uint64(value), nil
-		case types.KindF32:
-			return float32(value), nil
-		case types.KindF64:
-			return float64(value), nil
-		default:
-			// Default to i64 if type not specified or unknown
-			return value, nil
-		}
-	}
-
-	if floatLit := numLit.FLOAT_LITERAL(); floatLit != nil {
-		text := floatLit.GetText()
-		value, err := strconv.ParseFloat(text, 64)
-		if err != nil {
-			return nil, errors.Wrapf(err, "invalid float literal: %s", text)
-		}
-
-		// Convert to appropriate type based on expectedType
-		switch expectedType.Kind {
-		case types.KindF32:
-			return float32(value), nil
-		case types.KindF64:
-			return value, nil
-		case types.KindI8:
-			return int8(value), nil
-		case types.KindI16:
-			return int16(value), nil
-		case types.KindI32:
-			return int32(value), nil
-		case types.KindI64:
-			return int64(value), nil
-		case types.KindU8:
-			return uint8(value), nil
-		case types.KindU16:
-			return uint16(value), nil
-		case types.KindU32:
-			return uint32(value), nil
-		case types.KindU64:
-			return uint64(value), nil
-		default:
-			// Default to f64 if type not specified or unknown
-			return value, nil
-		}
-	}
-
-	return nil, errors.New("unknown numeric literal")
+	return parsed.Value, nil
 }
 
 func analyzeInputs(
