@@ -149,7 +149,7 @@ var _ = Describe("Type Inference", func() {
 		})
 
 		It("should handle logical expressions", func() {
-			expr := MustSucceed(parser.ParseExpression(`temp_sensor > 100 && pressure < 50`))
+			expr := MustSucceed(parser.ParseExpression(`temp_sensor > 100 and pressure < 50`))
 			ctx := acontext.CreateRoot(bCtx, expr, testResolver)
 			inferredType := atypes.InferFromExpression(ctx)
 

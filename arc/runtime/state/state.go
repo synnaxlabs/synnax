@@ -214,8 +214,8 @@ func (n *Node) RefreshInputs() (recalculate bool) {
 		// Update snapshot if source has new data (timestamp advanced)
 		if ts > n.accumulated[i].lastTimestamp {
 			n.accumulated[i] = inputEntry{
-				data:          src.data.DeepCopy(),
-				time:          src.time.DeepCopy(),
+				data:          src.data,
+				time:          src.time,
 				lastTimestamp: ts,
 				consumed:      false,
 			}
