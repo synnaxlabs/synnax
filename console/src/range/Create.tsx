@@ -112,7 +112,7 @@ export const Create: Layout.Renderer = (props) => {
     [args?.key],
   );
 
-  const saveName = `Save to ${client?.props.name ?? "Synnax"}`;
+  const saveName = `Save to ${client?.params.name ?? "Synnax"}`;
 
   return (
     <Flex.Box className={CSS.B("range-create-layout")} grow empty>
