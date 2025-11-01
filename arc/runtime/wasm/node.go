@@ -66,16 +66,6 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		longestInputTime = n.state.InputTime(longestInputIdx)
 	}
 	for i := int64(0); i < maxLength; i++ {
-		// Check cancellation periodically (every 100 samples)
-		if i%100 == 0 {
-			select {
-			case <-ctx.Done():
-				ctx.ReportError(ctx.Err())
-				return
-			default:
-			}
-		}
-
 		for j := range n.ir.Inputs.Count() {
 			inputLen := n.state.Input(j).Len()
 			n.inputs[j] = valueAt(n.state.Input(j), int(i%inputLen))

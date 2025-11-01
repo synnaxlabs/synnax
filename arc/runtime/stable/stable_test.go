@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/stable"
@@ -53,31 +54,47 @@ var _ = Describe("StableFor", func() {
 				Values: []types.Type{types.U8()},
 			},
 		}
-		s = state.New(state.Config{
-			Nodes: ir.Nodes{
-				{
-					Key:  "source",
-					Type: "source",
-					Outputs: types.Params{
-						Keys:   []string{ir.DefaultOutputParam},
-						Values: []types.Type{types.U8()},
-					},
-				},
-				irNode,
+		g := graph.Graph{
+			Nodes: []graph.Node{
+				{Key: "source", Type: "source"},
+				{Key: "stable", Type: "stable_for"},
 			},
-			Edges: ir.Edges{
+			Edges: []graph.Edge{
 				{
 					Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
 				},
 			},
-		})
+			Functions: []graph.Function{
+				{
+					Key: "source",
+					Outputs: types.Params{
+						Keys:   []string{ir.DefaultOutputParam},
+						Values: []types.Type{types.U8()},
+					},
+				},
+				{
+					Key: "stable_for",
+					Inputs: types.Params{
+						Keys:   []string{ir.DefaultInputParam},
+						Values: []types.Type{types.U8()},
+					},
+					Outputs: types.Params{
+						Keys:   []string{ir.DefaultOutputParam},
+						Values: []types.Type{types.U8()},
+					},
+				},
+			},
+		}
+		analyzed, diagnostics := graph.Analyze(ctx, g, stable.SymbolResolver)
+		Expect(diagnostics.Ok()).To(BeTrue())
+		s = state.New(state.Config{IR: analyzed})
 	})
 
 	Describe("Factory.Create", func() {
 		It("Should create node for stable_for type", func() {
 			n := MustSucceed(factory.Create(ctx, node.Config{
-				Node: irNode, State: s.Node(irNode.Key),
+				Node: irNode, State: s.Node(ctx, irNode.Key),
 			}))
 			Expect(n).ToNot(BeNil())
 		})
@@ -85,7 +102,7 @@ var _ = Describe("StableFor", func() {
 		It("Should return NotFound for unknown type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
-				State: s.Node("stable"),
+				State: s.Node(ctx, "stable"),
 			}
 			_, err := factory.Create(ctx, cfg)
 			Expect(err).To(HaveOccurredAs(query.NotFound))
@@ -94,8 +111,8 @@ var _ = Describe("StableFor", func() {
 
 	Describe("Next", func() {
 		It("Should handle empty input", func() {
-			cfg := node.Config{Node: irNode, State: s.Node("stable")}
-			source := s.Node("source")
+			cfg := node.Config{Node: irNode, State: s.Node(ctx, "stable")}
+			source := s.Node(ctx, "source")
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
 			n, _ := factory.Create(ctx, cfg)
@@ -105,8 +122,8 @@ var _ = Describe("StableFor", func() {
 		})
 
 		It("Should not emit when value is not stable for duration", func() {
-			cfg := node.Config{Node: irNode, State: s.Node("stable")}
-			source := s.Node("source")
+			cfg := node.Config{Node: irNode, State: s.Node(ctx, "stable")}
+			source := s.Node(ctx, "source")
 			currentTime = 0
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
@@ -128,9 +145,9 @@ var _ = Describe("StableFor", func() {
 						"duration": int64(telem.SecondTS),
 					},
 				},
-				State: s.Node("stable"),
+				State: s.Node(ctx, "stable"),
 			}
-			source := s.Node("source")
+			source := s.Node(ctx, "source")
 			currentTime = 0
 			// Send value 5 at time 1s
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
@@ -148,7 +165,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { outputs.Add(output) }})
 			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeTrue())
 
-			stableNode := s.Node("stable")
+			stableNode := s.Node(ctx, "stable")
 			output := stableNode.Output(0)
 			Expect(output.Len()).To(Equal(int64(1)))
 			outputVals := telem.UnmarshalSeries[uint8](*output)
@@ -163,9 +180,9 @@ var _ = Describe("StableFor", func() {
 						"duration": int64(telem.SecondTS),
 					},
 				},
-				State: s.Node("stable"),
+				State: s.Node(ctx, "stable"),
 			}
-			source := s.Node("source")
+			source := s.Node(ctx, "source")
 			currentTime = 0
 			// Send value 5 at time 0
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
@@ -205,9 +222,9 @@ var _ = Describe("StableFor", func() {
 						"duration": int64(telem.SecondTS),
 					},
 				},
-				State: s.Node("stable"),
+				State: s.Node(ctx, "stable"),
 			}
-			source := s.Node("source")
+			source := s.Node(ctx, "source")
 			currentTime = 0
 			// Send value 5 at time 1
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
@@ -239,9 +256,9 @@ var _ = Describe("StableFor", func() {
 						"duration": int64(telem.SecondTS),
 					},
 				},
-				State: s.Node("stable"),
+				State: s.Node(ctx, "stable"),
 			}
-			source := s.Node("source")
+			source := s.Node(ctx, "source")
 			currentTime = 0
 			// Send value 5
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
@@ -265,7 +282,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { outputs.Add(output) }})
 			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeTrue())
 
-			stableNode := s.Node("stable")
+			stableNode := s.Node(ctx, "stable")
 			output := stableNode.Output(0)
 			outputVals := telem.UnmarshalSeries[uint8](*output)
 			Expect(outputVals).To(Equal([]uint8{10}))
@@ -279,9 +296,9 @@ var _ = Describe("StableFor", func() {
 						"duration": int64(telem.SecondTS),
 					},
 				},
-				State: s.Node("stable"),
+				State: s.Node(ctx, "stable"),
 			}
-			source := s.Node("source")
+			source := s.Node(ctx, "source")
 			currentTime = 0
 			// Send multiple values, ending with 7 at 0.4s (400ms)
 			*source.Output(0) = telem.NewSeriesV[uint8](3, 4, 5, 6, 7)
@@ -301,7 +318,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { outputs.Add(output) }})
 			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeTrue())
 
-			stableNode := s.Node("stable")
+			stableNode := s.Node(ctx, "stable")
 			output := stableNode.Output(0)
 			outputVals := telem.UnmarshalSeries[uint8](*output)
 			Expect(outputVals).To(Equal([]uint8{7}))
@@ -315,9 +332,9 @@ var _ = Describe("StableFor", func() {
 						"duration": int64(telem.SecondTS),
 					},
 				},
-				State: s.Node("stable"),
+				State: s.Node(ctx, "stable"),
 			}
-			source := s.Node("source")
+			source := s.Node(ctx, "source")
 			currentTime = 0
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
@@ -331,7 +348,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { outputs.Add(output) }})
 			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeTrue())
 
-			stableNode := s.Node("stable")
+			stableNode := s.Node(ctx, "stable")
 			outputTime := stableNode.OutputTime(0)
 			outputTimes := telem.UnmarshalSeries[telem.TimeStamp](*outputTime)
 			Expect(outputTimes).To(Equal([]telem.TimeStamp{telem.SecondTS * 100}))
@@ -345,9 +362,9 @@ var _ = Describe("StableFor", func() {
 						"duration": int64(telem.SecondTS),
 					},
 				},
-				State: s.Node("stable"),
+				State: s.Node(ctx, "stable"),
 			}
-			source := s.Node("source")
+			source := s.Node(ctx, "source")
 			currentTime = 0
 			// Send same value multiple times
 			*source.Output(0) = telem.NewSeriesV[uint8](5, 5, 5, 5)

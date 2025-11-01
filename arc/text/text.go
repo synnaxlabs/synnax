@@ -93,12 +93,14 @@ func Analyze(
 				bodyAst = fnDecl.Block()
 			}
 			i.Functions = append(i.Functions, ir.Function{
-				Key:      c.Name,
-				Body:     ir.Body{Raw: "", AST: bodyAst},
-				Config:   *c.Type.Config,
-				Inputs:   *c.Type.Inputs,
-				Outputs:  *c.Type.Outputs,
-				Channels: c.Channels.Copy(),
+				Key:            c.Name,
+				Body:           ir.Body{Raw: "", AST: bodyAst},
+				Config:         *c.Type.Config,
+				Inputs:         *c.Type.Inputs,
+				Outputs:        *c.Type.Outputs,
+				Channels:       c.Channels.Copy(),
+				InputDefaults:  c.Type.InputDefaults,
+				ConfigDefaults: c.Type.ConfigDefaults,
 			})
 		}
 	}

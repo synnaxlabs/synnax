@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
@@ -54,12 +55,15 @@ var _ = Describe("Node", func() {
 				factory2 = &mockFactory{nodeType: "type2", returnNode: &mockNode{}}
 				factory3 = &mockFactory{nodeType: "type3"}
 				multi    = node.MultiFactory{factory1, factory2, factory3}
-				s        = state.New(state.Config{
-					Nodes: []ir.Node{{Key: "n1"}},
-				})
-				cfg = node.Config{
+				g        = graph.Graph{
+					Nodes:     []graph.Node{{Key: "n1", Type: "type2"}},
+					Functions: []graph.Function{{Key: "type2"}},
+				}
+				analyzed, _ = graph.Analyze(ctx, g, nil)
+				s           = state.New(state.Config{IR: analyzed})
+				cfg         = node.Config{
 					Node:  ir.Node{Type: "type2"},
-					State: s.Node("n1"),
+					State: s.Node(ctx, "n1"),
 				}
 				n = MustSucceed(multi.Create(ctx, cfg))
 			)
@@ -73,12 +77,15 @@ var _ = Describe("Node", func() {
 				factory1 = &mockFactory{nodeType: "type1"}
 				factory2 = &mockFactory{nodeType: "type2"}
 				multi    = node.MultiFactory{factory1, factory2}
-				s        = state.New(state.Config{
-					Nodes: []ir.Node{{Key: "n1"}},
-				})
-				cfg = node.Config{
+				g        = graph.Graph{
+					Nodes:     []graph.Node{{Key: "n1", Type: "type2"}},
+					Functions: []graph.Function{{Key: "type2"}},
+				}
+				analyzed, _ = graph.Analyze(ctx, g, nil)
+				s           = state.New(state.Config{IR: analyzed})
+				cfg         = node.Config{
 					Node:  ir.Node{Type: "unknown"},
-					State: s.Node("n1"),
+					State: s.Node(ctx, "n1"),
 				}
 				_, err = multi.Create(ctx, cfg)
 			)
@@ -96,12 +103,15 @@ var _ = Describe("Node", func() {
 				}
 				factory3 = &mockFactory{nodeType: "type3"}
 				multi    = node.MultiFactory{factory1, factory2, factory3}
-				s        = state.New(state.Config{
-					Nodes: []ir.Node{{Key: "n1"}},
-				})
-				cfg = node.Config{
+				g        = graph.Graph{
+					Nodes:     []graph.Node{{Key: "n1", Type: "type2"}},
+					Functions: []graph.Function{{Key: "type2"}},
+				}
+				analyzed, _ = graph.Analyze(ctx, g, nil)
+				s           = state.New(state.Config{IR: analyzed})
+				cfg         = node.Config{
 					Node:  ir.Node{Type: "type2"},
-					State: s.Node("n1"),
+					State: s.Node(ctx, "n1"),
 				}
 				_, err = multi.Create(ctx, cfg)
 			)
@@ -113,12 +123,15 @@ var _ = Describe("Node", func() {
 		It("Should handle empty factory list", func() {
 			var (
 				multi = node.MultiFactory{}
-				s     = state.New(state.Config{
-					Nodes: []ir.Node{{Key: "n1"}},
-				})
-				cfg = node.Config{
+				g     = graph.Graph{
+					Nodes:     []graph.Node{{Key: "n1", Type: "test"}},
+					Functions: []graph.Function{{Key: "test"}},
+				}
+				analyzed, _ = graph.Analyze(ctx, g, nil)
+				s           = state.New(state.Config{IR: analyzed})
+				cfg         = node.Config{
 					Node:  ir.Node{Type: "test"},
-					State: s.Node("n1"),
+					State: s.Node(ctx, "n1"),
 				}
 				_, err = multi.Create(ctx, cfg)
 			)
@@ -131,12 +144,15 @@ var _ = Describe("Node", func() {
 					returnNode: &mockNode{},
 				}
 				multi = node.MultiFactory{factory}
-				s     = state.New(state.Config{
-					Nodes: []ir.Node{{Key: "n1"}},
-				})
-				cfg = node.Config{
+				g     = graph.Graph{
+					Nodes:     []graph.Node{{Key: "n1", Type: "test"}},
+					Functions: []graph.Function{{Key: "test"}},
+				}
+				analyzed, _ = graph.Analyze(ctx, g, nil)
+				s           = state.New(state.Config{IR: analyzed})
+				cfg         = node.Config{
 					Node:  ir.Node{Type: "test"},
-					State: s.Node("n1"),
+					State: s.Node(ctx, "n1"),
 				}
 				n = MustSucceed(multi.Create(ctx, cfg))
 			)
@@ -149,12 +165,15 @@ var _ = Describe("Node", func() {
 				factory2 = &mockFactory{nodeType: "type2"}
 				factory3 = &mockFactory{nodeType: "type3"}
 				multi    = node.MultiFactory{factory1, factory2, factory3}
-				s        = state.New(state.Config{
-					Nodes: []ir.Node{{Key: "n1"}},
-				})
-				cfg = node.Config{
+				g        = graph.Graph{
+					Nodes:     []graph.Node{{Key: "n1", Type: "type2"}},
+					Functions: []graph.Function{{Key: "type2"}},
+				}
+				analyzed, _ = graph.Analyze(ctx, g, nil)
+				s           = state.New(state.Config{IR: analyzed})
+				cfg         = node.Config{
 					Node:  ir.Node{Type: "unknown"},
-					State: s.Node("n1"),
+					State: s.Node(ctx, "n1"),
 				}
 				_, err = multi.Create(ctx, cfg)
 			)
@@ -176,12 +195,15 @@ var _ = Describe("Node", func() {
 					returnNode: &mockNode{},
 				}
 				multi = node.MultiFactory{factory1, factory2, factory3}
-				s     = state.New(state.Config{
-					Nodes: []ir.Node{{Key: "n1"}},
-				})
-				cfg = node.Config{
+				g     = graph.Graph{
+					Nodes:     []graph.Node{{Key: "n1", Type: "test"}},
+					Functions: []graph.Function{{Key: "test"}},
+				}
+				analyzed, _ = graph.Analyze(ctx, g, nil)
+				s           = state.New(state.Config{IR: analyzed})
+				cfg         = node.Config{
 					Node:  ir.Node{Type: "test"},
-					State: s.Node("n1"),
+					State: s.Node(ctx, "n1"),
 				}
 				n = MustSucceed(multi.Create(ctx, cfg))
 			)
@@ -193,8 +215,13 @@ var _ = Describe("Node", func() {
 		It("Should hold node configuration", func() {
 			var (
 				irNode = ir.Node{Key: "test", Type: "constant"}
-				s      = state.New(state.Config{Nodes: []ir.Node{irNode}})
-				cfg    = node.Config{Node: irNode, State: s.Node("test")}
+				g      = graph.Graph{
+					Nodes:     []graph.Node{{Key: "test", Type: "constant"}},
+					Functions: []graph.Function{{Key: "constant"}},
+				}
+				analyzed, _ = graph.Analyze(ctx, g, nil)
+				s           = state.New(state.Config{IR: analyzed})
+				cfg         = node.Config{Node: irNode, State: s.Node(ctx, "test")}
 			)
 			Expect(cfg.Node.Key).To(Equal("test"))
 			Expect(cfg.Node.Type).To(Equal("constant"))

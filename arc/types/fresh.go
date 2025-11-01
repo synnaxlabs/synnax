@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ir
+package types
 
-import "github.com/synnaxlabs/arc/types"
+import (
+	"maps"
+)
 
-// FreshType creates a copy of t with all type variables renamed using the given prefix.
+// Freshen creates a copy of t with all type variables renamed using the given prefix.
 // This is essential when instantiating generic functions to avoid type variable conflicts
 // during unification.
 //
@@ -25,51 +27,53 @@ import "github.com/synnaxlabs/arc/types"
 //   - Function input, output, and config parameters
 //
 // Primitive types (i64, f64, string, etc.) are returned unchanged.
-func FreshType(t types.Type, prefix string) types.Type {
-	return freshTypeWithMap(t, prefix, make(map[string]types.Type))
+func Freshen(t Type, prefix string) Type {
+	return freshen(t, prefix, make(map[string]Type))
 }
 
 func freshenParams(
-	params *types.Params,
+	params *Params,
 	prefix string,
-	mapping map[string]types.Type,
-) *types.Params {
-	fresh := &types.Params{}
+	mapping map[string]Type,
+) *Params {
+	fresh := &Params{}
 	for k, v := range params.Iter() {
-		fresh.Put(k, freshTypeWithMap(v, prefix, mapping))
+		fresh.Put(k, freshen(v, prefix, mapping))
 	}
 	return fresh
 }
 
-func freshTypeWithMap(t types.Type, prefix string, mapping map[string]types.Type) types.Type {
-	if t.Kind == types.KindVariable {
+func freshen(t Type, prefix string, mapping map[string]Type) Type {
+	if t.Kind == KindVariable {
 		if cached, ok := mapping[t.Name]; ok {
 			return cached
 		}
 		freshConstraint := t.Constraint
 		if freshConstraint != nil {
-			fresh := freshTypeWithMap(*freshConstraint, prefix, mapping)
+			fresh := freshen(*freshConstraint, prefix, mapping)
 			freshConstraint = &fresh
 		}
-		freshVar := types.Type{
-			Kind:       types.KindVariable,
+		freshVar := Type{
+			Kind:       KindVariable,
 			Name:       prefix + "_" + t.Name,
 			Constraint: freshConstraint,
 		}
 		mapping[t.Name] = freshVar
 		return freshVar
 	}
-	if t.Kind == types.KindChan || t.Kind == types.KindSeries {
-		ft := freshTypeWithMap(t.Unwrap(), prefix, mapping)
-		return types.Type{Kind: t.Kind, ValueType: &ft}
+	if t.Kind == KindChan || t.Kind == KindSeries {
+		ft := freshen(t.Unwrap(), prefix, mapping)
+		return Type{Kind: t.Kind, ValueType: &ft}
 	}
-	if t.Kind == types.KindFunction {
-		props := types.FunctionProperties{
-			Inputs:  freshenParams(t.Inputs, prefix, mapping),
-			Outputs: freshenParams(t.Outputs, prefix, mapping),
-			Config:  freshenParams(t.Config, prefix, mapping),
+	if t.Kind == KindFunction {
+		props := FunctionProperties{
+			Inputs:         freshenParams(t.Inputs, prefix, mapping),
+			Outputs:        freshenParams(t.Outputs, prefix, mapping),
+			Config:         freshenParams(t.Config, prefix, mapping),
+			InputDefaults:  maps.Clone(t.InputDefaults),
+			ConfigDefaults: maps.Clone(t.ConfigDefaults),
 		}
-		return types.Type{Kind: types.KindFunction, FunctionProperties: props}
+		return Type{Kind: KindFunction, FunctionProperties: props}
 	}
 	return t
 }

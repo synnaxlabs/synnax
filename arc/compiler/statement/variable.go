@@ -40,7 +40,7 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile initialization expression for '%s'", name)
 	}
-	if varType != exprType {
+	if !types.Equal(varType, exprType) {
 		if err = expression.EmitCast(ctx, exprType, varType); err != nil {
 			return err
 		}
@@ -100,7 +100,7 @@ func compileAssignment(
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile assignment expression for '%s'", name)
 	}
-	if varType != exprType {
+	if !types.Equal(varType, exprType) {
 		if err = expression.EmitCast(ctx, exprType, varType); err != nil {
 			return err
 		}

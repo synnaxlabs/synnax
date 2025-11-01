@@ -41,14 +41,20 @@ type Function struct {
 	Outputs types.Params `json:"outputs"`
 	// Channels contains references to external channels used by this function.
 	Channels symbol.Channels `json:"channels"`
+	// InputDefaults stores default values for optional input parameters.
+	InputDefaults map[string]any `json:"input_defaults,omitempty"`
+	// ConfigDefaults stores default values for optional config parameters.
+	ConfigDefaults map[string]any `json:"config_defaults,omitempty"`
 }
 
 // Type returns the type signature of f.
 func (f Function) Type() types.Type {
 	return types.Function(types.FunctionProperties{
-		Config:  &f.Config,
-		Inputs:  &f.Inputs,
-		Outputs: &f.Outputs,
+		Config:         &f.Config,
+		Inputs:         &f.Inputs,
+		Outputs:        &f.Outputs,
+		InputDefaults:  f.InputDefaults,
+		ConfigDefaults: f.ConfigDefaults,
 	})
 }
 

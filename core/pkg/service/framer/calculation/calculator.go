@@ -101,7 +101,7 @@ func OpenCalculator(
 	telemFactory := ntelem.NewTelemFactory()
 	selectFactory := selector.NewFactory()
 	constantFactory := constant.NewFactory()
-	statFactory := stat.NewFactory(stat.Config{})
+	statFactory := stat.NewFactory()
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
 	wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
@@ -128,7 +128,7 @@ func OpenCalculator(
 		n, err := f.Create(ctx, node.Config{
 			Node:   irNode,
 			Module: module,
-			State:  progState.Node(irNode.Key),
+			State:  progState.Node(ctx, irNode.Key),
 		})
 		if err != nil {
 			return nil, err

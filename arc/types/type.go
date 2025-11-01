@@ -54,9 +54,10 @@
 package types
 
 import (
+	"maps"
 	"slices"
 
-	"github.com/synnaxlabs/x/maps"
+	xmaps "github.com/synnaxlabs/x/maps"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -120,11 +121,17 @@ const (
 
 // NewFunctionProperties creates a new FunctionProperties with empty Inputs, Outputs, and Config.
 func NewFunctionProperties() FunctionProperties {
-	return FunctionProperties{Inputs: &Params{}, Outputs: &Params{}, Config: &Params{}}
+	return FunctionProperties{
+		Inputs:         &Params{},
+		Outputs:        &Params{},
+		Config:         &Params{},
+		InputDefaults:  make(map[string]any),
+		ConfigDefaults: make(map[string]any),
+	}
 }
 
 // Params are named, ordered parameters for a function.
-type Params = maps.Ordered[string, Type]
+type Params = xmaps.Ordered[string, Type]
 
 // FunctionProperties holds the inputs, outputs, and configuration parameters for function
 // types.
@@ -135,14 +142,22 @@ type FunctionProperties struct {
 	Outputs *Params `json:"outputs,omitempty" msgpack:"outputs,omitempty"`
 	// Config are the configuration parameters for the function.
 	Config *Params `json:"config,omitempty" msgpack:"config,omitempty"`
+	// InputDefaults stores default values for optional input parameters.
+	// The map key is the parameter name, and the value is the default literal value.
+	InputDefaults map[string]any `json:"input_defaults,omitempty" msgpack:"input_defaults,omitempty"`
+	// ConfigDefaults stores default values for optional config parameters.
+	// The map key is the parameter name, and the value is the default literal value.
+	ConfigDefaults map[string]any `json:"config_defaults,omitempty" msgpack:"config_defaults,omitempty"`
 }
 
 // Copy creates a deep copy of the function properties.
 func (f FunctionProperties) Copy() FunctionProperties {
 	return FunctionProperties{
-		Inputs:  f.Inputs.Copy(),
-		Outputs: f.Outputs.Copy(),
-		Config:  f.Config.Copy(),
+		Inputs:         f.Inputs.Copy(),
+		Outputs:        f.Outputs.Copy(),
+		Config:         f.Config.Copy(),
+		InputDefaults:  maps.Clone(f.InputDefaults),
+		ConfigDefaults: maps.Clone(f.ConfigDefaults),
 	}
 }
 
