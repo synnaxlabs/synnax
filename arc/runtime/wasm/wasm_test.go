@@ -25,6 +25,13 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var (
+	dummyBodyI32 = ir.Body{Raw: `{ return 1 }`}
+	dummyBodyI64 = ir.Body{Raw: `{ return 1 }`}
+	dummyBodyF32 = ir.Body{Raw: `{ return 1.0 }`}
+	dummyBodyF64 = ir.Body{Raw: `{ return 1.0 }`}
+)
+
 var _ = Describe("Wasm", func() {
 	Describe("Next with mismatched input lengths", func() {
 		It("Should repeat shorter input values to match longest input", func() {
@@ -44,10 +51,23 @@ var _ = Describe("Wasm", func() {
 							return lhs + rhs
 						}`},
 					},
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64()},
+						},
+						Body: dummyBodyI64,
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64()},
+						},
+						Body: dummyBodyI64,
+					},
 				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-			graphCfg := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "lhs", Type: "lhs"},
 					{Key: "rhs", Type: "rhs"},
@@ -63,25 +83,9 @@ var _ = Describe("Wasm", func() {
 						Target: ir.Handle{Node: "add", Param: "rhs"},
 					},
 				},
-				Functions: []graph.Function{
-					{
-						Key: "lhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
-					},
-					{
-						Key: "rhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
-					},
-					g.Functions[0],
-				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, graphCfg, nil)
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			lhsNode := s.Node(ctx, "lhs")
@@ -129,13 +133,26 @@ var _ = Describe("Wasm", func() {
 							Values: []types.Type{types.I32()},
 						},
 						Body: ir.Body{Raw: `{
-							return a * b
-						}`},
+						return a * b
+					}`},
+					},
+					{
+						Key: "a",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I32()},
+						},
+						Body: dummyBodyI32,
+					},
+					{
+						Key: "b",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I32()},
+						},
+						Body: dummyBodyI32,
 					},
 				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-			graphCfg := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "a", Type: "a"},
 					{Key: "b", Type: "b"},
@@ -151,25 +168,9 @@ var _ = Describe("Wasm", func() {
 						Target: ir.Handle{Node: "multiply", Param: "b"},
 					},
 				},
-				Functions: []graph.Function{
-					{
-						Key: "a",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
-						},
-					},
-					{
-						Key: "b",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
-						},
-					},
-					g.Functions[0],
-				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, graphCfg, nil)
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			aNode := s.Node(ctx, "a")
@@ -217,13 +218,26 @@ var _ = Describe("Wasm", func() {
 							Values: []types.Type{types.F32()},
 						},
 						Body: ir.Body{Raw: `{
-							return x - y
-						}`},
+						return x - y
+					}`},
+					},
+					{
+						Key: "x",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.F32()},
+						},
+						Body: dummyBodyF32,
+					},
+					{
+						Key: "y",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.F32()},
+						},
+						Body: dummyBodyF32,
 					},
 				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-			graphCfg := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "x", Type: "x"},
 					{Key: "y", Type: "y"},
@@ -239,25 +253,9 @@ var _ = Describe("Wasm", func() {
 						Target: ir.Handle{Node: "subtract", Param: "y"},
 					},
 				},
-				Functions: []graph.Function{
-					{
-						Key: "x",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
-						},
-					},
-					{
-						Key: "y",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
-						},
-					},
-					g.Functions[0],
-				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, graphCfg, nil)
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			xNode := s.Node(ctx, "x")
@@ -311,10 +309,23 @@ var _ = Describe("Wasm", func() {
 							product = a * b
 						}`},
 					},
+					{
+						Key: "a",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64()},
+						},
+						Body: dummyBodyI64,
+					},
+					{
+						Key: "b",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64()},
+						},
+						Body: dummyBodyI64,
+					},
 				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-			graphCfg := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "a", Type: "a"},
 					{Key: "b", Type: "b"},
@@ -330,25 +341,9 @@ var _ = Describe("Wasm", func() {
 						Target: ir.Handle{Node: "math_ops", Param: "b"},
 					},
 				},
-				Functions: []graph.Function{
-					{
-						Key: "a",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
-					},
-					{
-						Key: "b",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
-					},
-					g.Functions[0],
-				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, graphCfg, nil)
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			aNode := s.Node(ctx, "a")
@@ -420,18 +415,12 @@ var _ = Describe("Wasm", func() {
 						}`},
 					},
 				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g, arc.WithResolver(resolver)))
-
-			graphCfg := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "read_channel", Type: "read_channel"},
 				},
-				Functions: []graph.Function{
-					g.Functions[0],
-				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, graphCfg, resolver)
+			mod := MustSucceed(arc.CompileGraph(ctx, g, arc.WithResolver(resolver)))
+			analyzed, diagnostics := graph.Analyze(ctx, g, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{
 				IR: analyzed,
@@ -492,18 +481,12 @@ var _ = Describe("Wasm", func() {
 						}`},
 					},
 				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-
-			graphCfg := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "counter", Type: "counter"},
 				},
-				Functions: []graph.Function{
-					g.Functions[0],
-				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, graphCfg, nil)
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
@@ -567,10 +550,15 @@ var _ = Describe("Wasm", func() {
 							return x + y
 						}`},
 					},
+					{
+						Key: "x",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64()},
+						},
+						Body: dummyBodyI64,
+					},
 				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-			graphCfg := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "x", Type: "x"},
 					{Key: "add", Type: "add"},
@@ -581,18 +569,9 @@ var _ = Describe("Wasm", func() {
 						Target: ir.Handle{Node: "add", Param: "x"},
 					},
 				},
-				Functions: []graph.Function{
-					{
-						Key: "x",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
-					},
-					g.Functions[0],
-				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, graphCfg, nil)
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			xNode := s.Node(ctx, "x")
@@ -641,10 +620,15 @@ var _ = Describe("Wasm", func() {
 							return a * b + c
 						}`},
 					},
+					{
+						Key: "a",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I32()},
+						},
+						Body: dummyBodyI32,
+					},
 				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-			graphCfg := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "a", Type: "a"},
 					{Key: "compute", Type: "compute"},
@@ -655,18 +639,9 @@ var _ = Describe("Wasm", func() {
 						Target: ir.Handle{Node: "compute", Param: "a"},
 					},
 				},
-				Functions: []graph.Function{
-					{
-						Key: "a",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
-						},
-					},
-					g.Functions[0],
-				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, graphCfg, nil)
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			aNode := s.Node(ctx, "a")
@@ -714,10 +689,15 @@ var _ = Describe("Wasm", func() {
 							return value * factor
 						}`},
 					},
+					{
+						Key: "value",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.F64()},
+						},
+						Body: dummyBodyF64,
+					},
 				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-			graphCfg := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "value", Type: "value"},
 					{Key: "scale", Type: "scale"},
@@ -728,18 +708,9 @@ var _ = Describe("Wasm", func() {
 						Target: ir.Handle{Node: "scale", Param: "value"},
 					},
 				},
-				Functions: []graph.Function{
-					{
-						Key: "value",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
-						},
-					},
-					g.Functions[0],
-				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, graphCfg, nil)
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			valueNode := s.Node(ctx, "value")
@@ -787,10 +758,23 @@ var _ = Describe("Wasm", func() {
 							return x + y
 						}`},
 					},
+					{
+						Key: "x",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64()},
+						},
+						Body: dummyBodyI64,
+					},
+					{
+						Key: "y",
+						Outputs: types.Params{
+							Keys:   []string{ir.DefaultOutputParam},
+							Values: []types.Type{types.I64()},
+						},
+						Body: dummyBodyI64,
+					},
 				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-			graphCfg := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "x", Type: "x"},
 					{Key: "y", Type: "y"},
@@ -806,25 +790,9 @@ var _ = Describe("Wasm", func() {
 						Target: ir.Handle{Node: "add", Param: "y"},
 					},
 				},
-				Functions: []graph.Function{
-					{
-						Key: "x",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
-					},
-					{
-						Key: "y",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
-					},
-					g.Functions[0],
-				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, graphCfg, nil)
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			xNode := s.Node(ctx, "x")
