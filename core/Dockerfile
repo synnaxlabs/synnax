@@ -15,7 +15,7 @@ COPY alamos/go/go.mod alamos/go/go.sum ./alamos/go/
 COPY x/go/go.mod x/go/go.sum ./x/go/
 COPY cesium/go.mod cesium/go.sum ./cesium/
 COPY aspen/go.mod aspen/go.sum ./aspen/
-COPY arc/go.mod arc/go.sum ./arc/
+COPY arc/go/go.mod arc/go/go.sum ./arc/go/
 
 # Download dependencies with cache mount for go modules
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -31,7 +31,7 @@ COPY alamos/go ./alamos/go
 COPY x/go ./x/go
 COPY cesium ./cesium
 COPY aspen ./aspen
-COPY arc ./arc
+COPY arc/go ./arc/go
 COPY core ./core
 
 # Build with cache mounts for both go modules and build cache
