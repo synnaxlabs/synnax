@@ -282,7 +282,7 @@ func Analyze(
 			ctx.Diagnostics.AddError(err, nil)
 			return ir.IR{}, ctx.Diagnostics
 		}
-		freshFuncTypes[n.Key] = ir.FreshType(fnSym.Type, n.Key)
+		freshFuncTypes[n.Key] = types.Freshen(fnSym.Type, n.Key)
 		irNodes[i] = ir.Node{
 			Key:          n.Key,
 			Type:         n.Type,

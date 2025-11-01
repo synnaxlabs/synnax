@@ -947,7 +947,7 @@ var _ = Describe("Graph", func() {
 					Expect(diagnostics).To(MatchError(ContainSubstring("missing required input 'b'")))
 				})
 
-				FIt("Should not return an error when the edge is optional", func() {
+				It("Should not return an error when the edge is optional", func() {
 					g := graph.Graph{
 						Functions: []ir.Function{
 							{
