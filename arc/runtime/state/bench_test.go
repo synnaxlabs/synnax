@@ -37,25 +37,27 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 			},
 		},
 	}
-	ir, diagnostics := graph.Analyze(ctx, g, nil)
+	inter, diagnostics := graph.Analyze(ctx, g, nil)
 	if !diagnostics.Ok() {
 		b.Fatalf("Failed to analyze graph: %s", diagnostics.String())
 	}
-	cfg := state.Config{IR: ir}
+	cfg := state.Config{IR: inter}
 	s := state.New(cfg)
-	b.Run("Single Input", func(b *testing.B) {
-		b.ReportAllocs()
-		b.ResetTimer()
-		sourceNode := s.Node(ctx, "source")
-		targetNode := s.Node(ctx, "target")
-		*sourceNode.Output(0) = telem.NewSeriesV[float32](0)
-		*sourceNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-		for i := 0; i < b.N; i++ {
-			telem.SetValueAt[float32](*sourceNode.Output(0), 0, float32(i))
-			telem.SetValueAt[telem.TimeStamp](*sourceNode.OutputTime(0), 0, telem.TimeStamp(i+1)*telem.SecondTS)
-			if !targetNode.RefreshInputs() {
-				b.Fatal("Failed to refresh inputs")
-			}
+	b.ReportAllocs()
+	b.ResetTimer()
+	sourceNode := s.Node(ctx, "source")
+	targetNode := s.Node(ctx, "target")
+	*sourceNode.Output(0) = telem.NewSeriesV[float32](0)
+	*sourceNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+	for i := 0; i < b.N; i++ {
+		telem.SetValueAt[float32](*sourceNode.Output(0), 0, float32(i))
+		telem.SetValueAt[telem.TimeStamp](
+			*sourceNode.OutputTime(0),
+			0,
+			telem.TimeStamp(i+1)*telem.SecondTS,
+		)
+		if !targetNode.RefreshInputs() {
+			b.Fatal("Failed to refresh inputs")
 		}
-	})
+	}
 }
