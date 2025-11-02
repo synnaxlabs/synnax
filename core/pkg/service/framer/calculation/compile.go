@@ -27,8 +27,7 @@ func compile(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) {
 			{
 				Key: "calculation",
 				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.FromTelem(cfg.Channel.DataType)},
+					{Name: ir.DefaultOutputParam, Type: types.FromTelem(cfg.Channel.DataType)},
 				},
 				Body: ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Channel.Expression)},
 			},
@@ -121,7 +120,9 @@ func compile(ctx context.Context, cfg CalculatorConfig) (arc.Module, error) {
 		if err != nil {
 			return arc.Module{}, err
 		}
-		g2.Functions[0].Inputs.Put(sym.Name, *sym.Type.ValueType)
+		g2.Functions[0].Inputs = append(
+			g2.Functions[0].Inputs, types.Param{Name: sym.Name, Type: *sym.Type.ValueType},
+		)
 		g2.Nodes = append(g2.Nodes, graph.Node{
 			Key:    sym.Name,
 			Type:   "on",

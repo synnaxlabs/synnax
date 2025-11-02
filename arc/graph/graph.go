@@ -293,13 +293,8 @@ func Analyze(
 			Inputs:   freshType.Inputs,
 			Outputs:  freshType.Outputs,
 		}
-		irNodes[i] = node
-		if freshType.Config == nil {
-			continue
-		}
-
 		// Process provided config values
-		for i, configParam := range freshType.Config {
+		for j, configParam := range freshType.Config {
 			configValue, ok := n.Config[configParam.Name]
 			if !ok {
 				continue
@@ -321,11 +316,12 @@ func Analyze(
 						ctx.Diagnostics.AddError(err, nil)
 						return ir.IR{}, ctx.Diagnostics
 					}
-					irNodes[i].Channels.Read.Add(k)
+					node.Channels.Read.Add(k)
 				}
 			}
-			node.Config[i].Value = configValue
+			node.Config[j].Value = configValue
 		}
+		irNodes[i] = node
 
 		// Validate all required config parameters are provided
 		for _, configParam := range freshType.Config {

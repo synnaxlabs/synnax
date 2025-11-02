@@ -265,9 +265,9 @@ func analyzeFunctionNode(
 		Inputs:   slices.Clone(sym.Type.Inputs),
 	}
 	var ok bool
-	fnType.Config, ok = extractConfigValues(
+	n.Config, ok = extractConfigValues(
 		acontext.Child(ctx, ctx.AST.ConfigValues()),
-		fnType.Config,
+		n.Config,
 		n,
 	)
 	if !ok {
@@ -276,7 +276,7 @@ func analyzeFunctionNode(
 	if args := ctx.AST.Arguments(); args != nil {
 		if argList := args.ArgumentList(); argList != nil {
 			for i, expr := range argList.AllExpression() {
-				fnType.Config[i].Value = getExpressionText(expr)
+				fnType.Inputs[i].Value = getExpressionText(expr)
 			}
 		}
 	}
