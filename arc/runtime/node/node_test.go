@@ -63,7 +63,7 @@ var _ = Describe("Node", func() {
 				s           = state.New(state.Config{IR: analyzed})
 				cfg         = node.Config{
 					Node:  ir.Node{Type: "type2"},
-					State: s.Node(ctx, "n1"),
+					State: s.Node("n1"),
 				}
 				n = MustSucceed(multi.Create(ctx, cfg))
 			)
@@ -85,7 +85,7 @@ var _ = Describe("Node", func() {
 				s           = state.New(state.Config{IR: analyzed})
 				cfg         = node.Config{
 					Node:  ir.Node{Type: "unknown"},
-					State: s.Node(ctx, "n1"),
+					State: s.Node("n1"),
 				}
 				_, err = multi.Create(ctx, cfg)
 			)
@@ -111,7 +111,7 @@ var _ = Describe("Node", func() {
 				s           = state.New(state.Config{IR: analyzed})
 				cfg         = node.Config{
 					Node:  ir.Node{Type: "type2"},
-					State: s.Node(ctx, "n1"),
+					State: s.Node("n1"),
 				}
 				_, err = multi.Create(ctx, cfg)
 			)
@@ -131,7 +131,7 @@ var _ = Describe("Node", func() {
 				s           = state.New(state.Config{IR: analyzed})
 				cfg         = node.Config{
 					Node:  ir.Node{Type: "test"},
-					State: s.Node(ctx, "n1"),
+					State: s.Node("n1"),
 				}
 				_, err = multi.Create(ctx, cfg)
 			)
@@ -152,7 +152,7 @@ var _ = Describe("Node", func() {
 				s           = state.New(state.Config{IR: analyzed})
 				cfg         = node.Config{
 					Node:  ir.Node{Type: "test"},
-					State: s.Node(ctx, "n1"),
+					State: s.Node("n1"),
 				}
 				n = MustSucceed(multi.Create(ctx, cfg))
 			)
@@ -173,7 +173,7 @@ var _ = Describe("Node", func() {
 				s           = state.New(state.Config{IR: analyzed})
 				cfg         = node.Config{
 					Node:  ir.Node{Type: "unknown"},
-					State: s.Node(ctx, "n1"),
+					State: s.Node("n1"),
 				}
 				_, err = multi.Create(ctx, cfg)
 			)
@@ -203,7 +203,7 @@ var _ = Describe("Node", func() {
 				s           = state.New(state.Config{IR: analyzed})
 				cfg         = node.Config{
 					Node:  ir.Node{Type: "test"},
-					State: s.Node(ctx, "n1"),
+					State: s.Node("n1"),
 				}
 				n = MustSucceed(multi.Create(ctx, cfg))
 			)
@@ -221,7 +221,7 @@ var _ = Describe("Node", func() {
 				}
 				analyzed, _ = graph.Analyze(ctx, g, nil)
 				s           = state.New(state.Config{IR: analyzed})
-				cfg         = node.Config{Node: irNode, State: s.Node(ctx, "test")}
+				cfg         = node.Config{Node: irNode, State: s.Node("test")}
 			)
 			Expect(cfg.Node.Key).To(Equal("test"))
 			Expect(cfg.Node.Type).To(Equal("constant"))

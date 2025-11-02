@@ -60,21 +60,21 @@ var _ = Describe("OP", func() {
 		analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 		Expect(diagnostics.Ok()).To(BeTrue())
 		s := state.New(state.Config{IR: analyzed})
-		lhsNode := s.Node(ctx, "lhs")
-		rhsNode := s.Node(ctx, "rhs")
+		lhsNode := s.Node("lhs")
+		rhsNode := s.Node("rhs")
 		*lhsNode.Output(0) = lhs
 		*lhsNode.OutputTime(0) = lhsTime
 		*rhsNode.Output(0) = rhs
 		*rhsNode.OutputTime(0) = rhsTime
 		c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
 			Node:  ir.Node{Type: t},
-			State: s.Node(ctx, "op"),
+			State: s.Node("op"),
 		}))
 		changed := make(set.Set[string])
 		c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-		Expect(*s.Node(ctx, "op").Output(0)).To(telem.MatchSeries(output))
-		Expect(*s.Node(ctx, "op").OutputTime(0)).To(telem.MatchSeries(outputTime))
+		Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(output))
+		Expect(*s.Node("op").OutputTime(0)).To(telem.MatchSeries(outputTime))
 	},
 		Entry("Float32 GE", "ge", telem.NewSeriesV[float32](1, 2, 3), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](0, 1, 5), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](1, 1, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
 		Entry("Float64 GE", "ge", telem.NewSeriesV[float64](2.5, 3.5, 1.5), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[float64](2.5, 3.0, 2.0), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[uint8](1, 1, 0), telem.NewSeriesSecondsTSV(10, 20, 30)),
@@ -144,18 +144,18 @@ var _ = Describe("OP", func() {
 		analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 		Expect(diagnostics.Ok()).To(BeTrue())
 		s := state.New(state.Config{IR: analyzed})
-		inputNode := s.Node(ctx, "input")
+		inputNode := s.Node("input")
 		*inputNode.Output(0) = input
 		*inputNode.OutputTime(0) = inputTime
 		c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
 			Node:  ir.Node{Type: t},
-			State: s.Node(ctx, "op"),
+			State: s.Node("op"),
 		}))
 		changed := make(set.Set[string])
 		c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
 		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-		Expect(*s.Node(ctx, "op").Output(0)).To(telem.MatchSeries(output))
-		Expect(*s.Node(ctx, "op").OutputTime(0)).To(telem.MatchSeries(outputTime))
+		Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(output))
+		Expect(*s.Node("op").OutputTime(0)).To(telem.MatchSeries(outputTime))
 	},
 		Entry("Uint8 NOT - all false", "not", telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](255, 255, 255), telem.NewSeriesSecondsTSV(1, 2, 3)),
 		Entry("Uint8 NOT - all true", "not", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](254, 254, 254), telem.NewSeriesSecondsTSV(1, 2, 3)),
@@ -206,20 +206,20 @@ var _ = Describe("OP", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			lhsNode := s.Node(ctx, "lhs")
-			rhsNode := s.Node(ctx, "rhs")
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[float32](1, 2, 3, 4, 5)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			*rhsNode.Output(0) = telem.NewSeriesV[float32](10, 20)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "add"},
-				State: s.Node(ctx, "op"),
+				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
 			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node(ctx, "op").Output(0)
+			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
 		})
 		It("Should handle different time bases", func() {
@@ -257,20 +257,20 @@ var _ = Describe("OP", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			lhsNode := s.Node(ctx, "lhs")
-			rhsNode := s.Node(ctx, "rhs")
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[int32](2, 3, 4)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(100, 200, 300)
 			*rhsNode.Output(0) = telem.NewSeriesV[int32](5, 6, 7)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 150, 250)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "multiply"},
-				State: s.Node(ctx, "op"),
+				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
 			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			resultTime := *s.Node(ctx, "op").OutputTime(0)
+			resultTime := *s.Node("op").OutputTime(0)
 			Expect(resultTime).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100, 200, 300)))
 		})
 		It("Should handle repeated calls to Next with no input changes", func() {
@@ -308,15 +308,15 @@ var _ = Describe("OP", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			lhsNode := s.Node(ctx, "lhs")
-			rhsNode := s.Node(ctx, "rhs")
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[float64](1.5, 2.5)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20)
 			*rhsNode.Output(0) = telem.NewSeriesV[float64](3.5, 4.5)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "add"},
-				State: s.Node(ctx, "op"),
+				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
 			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
@@ -361,20 +361,20 @@ var _ = Describe("OP", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			lhsNode := s.Node(ctx, "lhs")
-			rhsNode := s.Node(ctx, "rhs")
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[int64](100)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
 			*rhsNode.Output(0) = telem.NewSeriesV[int64](30)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "subtract"},
-				State: s.Node(ctx, "op"),
+				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
 			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			Expect(*s.Node(ctx, "op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](70)))
+			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](70)))
 			*lhsNode.Output(0) = telem.NewSeriesV[int64](200)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
 			*rhsNode.Output(0) = telem.NewSeriesV[int64](50)
@@ -382,7 +382,7 @@ var _ = Describe("OP", func() {
 			changed = make(set.Set[string])
 			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			Expect(*s.Node(ctx, "op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](150)))
+			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](150)))
 		})
 
 		It("Should handle single value series", func() {
@@ -420,20 +420,20 @@ var _ = Describe("OP", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			lhsNode := s.Node(ctx, "lhs")
-			rhsNode := s.Node(ctx, "rhs")
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint32](7)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			*rhsNode.Output(0) = telem.NewSeriesV[uint32](8)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "multiply"},
-				State: s.Node(ctx, "op"),
+				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
 			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			Expect(*s.Node(ctx, "op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint32](56)))
+			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint32](56)))
 		})
 		It("Should handle lhs longer than rhs", func() {
 			g := graph.Graph{
@@ -470,20 +470,20 @@ var _ = Describe("OP", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			lhsNode := s.Node(ctx, "lhs")
-			rhsNode := s.Node(ctx, "rhs")
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7)
 			*rhsNode.Output(0) = telem.NewSeriesV[float32](2, 3, 4)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "ge"},
-				State: s.Node(ctx, "op"),
+				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
 			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node(ctx, "op").Output(0)
+			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(7)))
 		})
 		It("Should handle rhs longer than lhs", func() {
@@ -521,20 +521,20 @@ var _ = Describe("OP", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			lhsNode := s.Node(ctx, "lhs")
-			rhsNode := s.Node(ctx, "rhs")
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[int16](10, 20)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5, 10)
 			*rhsNode.Output(0) = telem.NewSeriesV[int16](10, 20, 30, 40, 50)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5, 10, 15, 20, 25)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "eq"},
-				State: s.Node(ctx, "op"),
+				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
 			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node(ctx, "op").Output(0)
+			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
 		})
 
@@ -573,20 +573,20 @@ var _ = Describe("OP", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			lhsNode := s.Node(ctx, "lhs")
-			rhsNode := s.Node(ctx, "rhs")
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint8](0, 1, 0, 1, 1)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			*rhsNode.Output(0) = telem.NewSeriesV[uint8](1, 0)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "or"},
-				State: s.Node(ctx, "op"),
+				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
 			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node(ctx, "op").Output(0)
+			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
 		})
 
@@ -625,20 +625,20 @@ var _ = Describe("OP", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			lhsNode := s.Node(ctx, "lhs")
-			rhsNode := s.Node(ctx, "rhs")
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint8](1, 1)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
 			*rhsNode.Output(0) = telem.NewSeriesV[uint8](1, 0, 1, 1, 0)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "and"},
-				State: s.Node(ctx, "op"),
+				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
 			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node(ctx, "op").Output(0)
+			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
 		})
 
@@ -677,20 +677,20 @@ var _ = Describe("OP", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			lhsNode := s.Node(ctx, "lhs")
-			rhsNode := s.Node(ctx, "rhs")
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint8](0)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			*rhsNode.Output(0) = telem.NewSeriesV[uint8](1)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "or"},
-				State: s.Node(ctx, "op"),
+				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
 			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			Expect(*s.Node(ctx, "op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
+			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
 		})
 
 		It("Should handle logical AND with single values", func() {
@@ -728,20 +728,20 @@ var _ = Describe("OP", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			lhsNode := s.Node(ctx, "lhs")
-			rhsNode := s.Node(ctx, "rhs")
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint8](1)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			*rhsNode.Output(0) = telem.NewSeriesV[uint8](1)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
 				Node:  ir.Node{Type: "and"},
-				State: s.Node(ctx, "op"),
+				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
 			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			Expect(*s.Node(ctx, "op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
+			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
 		})
 	})
 })
