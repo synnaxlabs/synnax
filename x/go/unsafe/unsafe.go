@@ -40,6 +40,16 @@ func CastSlice[A, B any](in []A) []B {
 	return unsafe.Slice((*B)(unsafe.Pointer(&in[0])), newLen)
 }
 
+// CastBytes reinterprets a byte slice as a single value of type T. This is equivalent
+// to CastSlice[byte, T](bytes)[0] but more convenient for single-value conversions.
+// The byte slice must contain at least sizeof(T) bytes.
+//
+// IMPORTANT: This function operates at the byte level and does not perform type conversion.
+// IF YOU DON'T KNOW WHAT YOU'RE DOING, DON'T USE THIS.
+func CastBytes[T any](bytes []byte) T {
+	return CastSlice[byte, T](bytes)[0]
+}
+
 // ReinterpretMap re-interprets a map of one type as a map of another type. Note that the input
 // and output maps must have compatible memory layouts in order for this to work. IF
 // YOU DON'T KNOW WHAT YOU'RE DOING, DON'T USE THIS.

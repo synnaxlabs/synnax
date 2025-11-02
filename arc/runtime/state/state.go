@@ -202,57 +202,48 @@ func (n *Node) RefreshInputs() (recalculate bool) {
 		return true
 	}
 
-	// Phase 1: Snapshot latest series from each source
+	// Single-pass algorithm: snapshot, validate, and detect unconsumed data
+	hasUnconsumed := false
 	for i, edge := range n.inputs {
 		src := n.state.outputs[edge.Source]
-		if src == nil || src.time.Len() == 0 {
-			continue
-		}
-		ts := telem.ValueAt[telem.TimeStamp](src.time, -1)
+
 		// Update snapshot if source has new data (timestamp advanced)
-		if ts > n.accumulated[i].lastTimestamp {
-			n.accumulated[i] = inputEntry{
-				data:          src.data,
-				time:          src.time,
-				lastTimestamp: ts,
-				consumed:      false,
+		if src != nil && src.time.Len() > 0 {
+			ts := telem.ValueAt[telem.TimeStamp](src.time, -1)
+			if ts > n.accumulated[i].lastTimestamp {
+				n.accumulated[i] = inputEntry{
+					data:          src.data,
+					time:          src.time,
+					lastTimestamp: ts,
+					consumed:      false,
+				}
+				hasUnconsumed = true
 			}
 		}
-	}
 
-	// Phase 2: Check all inputs have data
-	for i := range n.inputs {
+		// Early exit if any input has no data
 		if n.accumulated[i].data.Len() == 0 {
 			return false
 		}
-	}
 
-	// Phase 3: Check if there's any unconsumed data
-	hasUnconsumed := false
-	for i := range n.inputs {
-		if !n.accumulated[i].consumed {
+		// Track if we have any unconsumed data
+		if !hasUnconsumed && !n.accumulated[i].consumed {
 			hasUnconsumed = true
-			break
 		}
 	}
 
+	// No unconsumed data - all inputs already processed
 	if !hasUnconsumed {
-		return false // All data already consumed
+		return false
 	}
 
-	// Phase 4: Align all inputs - provide complete series for node to process
-	// Note: We align even if some inputs are already consumed (reuse pattern)
+	// Align all inputs and mark as consumed in single pass
 	for i := range n.inputs {
 		n.alignedData[i] = n.accumulated[i].data
 		n.alignedTime[i] = n.accumulated[i].time
+		n.accumulated[i].consumed = true
 	}
 
-	// Mark all unconsumed inputs as consumed
-	for i := range n.inputs {
-		if !n.accumulated[i].consumed {
-			n.accumulated[i].consumed = true
-		}
-	}
 	return true
 }
 
