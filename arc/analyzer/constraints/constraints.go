@@ -127,7 +127,7 @@ func (s *System) applySubstitutionsWithVisited(t types.Type, visited map[string]
 	}
 
 	if t.Kind == types.KindFunction {
-		props := t.FunctionProperties.Copy()
+		props := t.Copy()
 		for i, p := range t.Inputs {
 			props.Inputs[i].Type = s.applySubstitutionsWithVisited(p.Type, visited)
 		}

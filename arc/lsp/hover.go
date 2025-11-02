@@ -180,7 +180,7 @@ func formatFunctionSignature(sym *symbol.Scope) string {
 	sig.WriteString("```arc\n")
 	sig.WriteString("func ")
 	sig.WriteString(sym.Name)
-	if sym.Type.Config != nil && len(sym.Type.Config) > 0 {
+	if len(sym.Type.Config) > 0 {
 		sig.WriteString("{")
 		first := true
 		for _, param := range sym.Type.Config {
@@ -193,7 +193,7 @@ func formatFunctionSignature(sym *symbol.Scope) string {
 		sig.WriteString("\n}")
 	}
 	sig.WriteString("(")
-	if sym.Type.Inputs != nil && len(sym.Type.Inputs) > 0 {
+	if len(sym.Type.Inputs) > 0 {
 		first := true
 		for _, param := range sym.Type.Inputs {
 			if !first {
@@ -204,7 +204,7 @@ func formatFunctionSignature(sym *symbol.Scope) string {
 		}
 	}
 	sig.WriteString(")")
-	if sym.Type.Outputs != nil && len(sym.Type.Outputs) > 0 {
+	if len(sym.Type.Outputs) > 0 {
 		sig.WriteString(" ")
 		if len(sym.Type.Outputs) == 1 {
 			outputType := sym.Type.Outputs[0].Type
