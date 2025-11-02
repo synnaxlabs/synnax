@@ -21,8 +21,6 @@
 package state
 
 import (
-	"context"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
@@ -122,7 +120,7 @@ func (s *State) writeChannel(key uint32, data, time telem.Series) {
 
 // Node creates a node-specific state accessor for the given node key.
 // It initializes alignment buffers and watermark tracking for the node's inputs.
-func (s *State) Node(ctx context.Context, key string) *Node {
+func (s *State) Node(key string) *Node {
 	var (
 		n           = s.cfg.IR.Nodes.Get(key)
 		inputs      = make([]ir.Edge, len(n.Inputs))

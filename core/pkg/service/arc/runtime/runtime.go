@@ -288,7 +288,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		n, err := f.Create(ctx, node.Config{
 			Node:   irNode,
 			Module: cfg.Module,
-			State:  progState.Node(ctx, irNode.Key),
+			State:  progState.Node(irNode.Key),
 		})
 		if err != nil {
 			return nil, err

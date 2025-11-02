@@ -85,8 +85,8 @@ var _ = Describe("Wasm", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			lhsNode := s.Node(ctx, "lhs")
-			rhsNode := s.Node(ctx, "rhs")
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[int64](1, 2, 3, 4, 5)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			*rhsNode.Output(0) = telem.NewSeriesV[int64](10, 20)
@@ -101,17 +101,17 @@ var _ = Describe("Wasm", func() {
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   analyzed.Nodes.Get("add"),
-				State:  s.Node(ctx, "add"),
+				State:  s.Node("add"),
 				Module: mod,
 			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node(ctx, "add").Output(0)
+			result := *s.Node("add").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
 			vals := telem.UnmarshalSeries[int64](result)
 			Expect(vals).To(Equal([]int64{11, 22, 13, 24, 15}))
-			resultTime := *s.Node(ctx, "add").OutputTime(0)
+			resultTime := *s.Node("add").OutputTime(0)
 			Expect(resultTime.Len()).To(Equal(int64(5)))
 			Expect(resultTime).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
 		})
@@ -166,8 +166,8 @@ var _ = Describe("Wasm", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			aNode := s.Node(ctx, "a")
-			bNode := s.Node(ctx, "b")
+			aNode := s.Node("a")
+			bNode := s.Node("b")
 			*aNode.Output(0) = telem.NewSeriesV[int32](2, 3, 4)
 			*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30)
 			*bNode.Output(0) = telem.NewSeriesV[int32](5, 6, 7)
@@ -182,17 +182,17 @@ var _ = Describe("Wasm", func() {
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   analyzed.Nodes.Get("multiply"),
-				State:  s.Node(ctx, "multiply"),
+				State:  s.Node("multiply"),
 				Module: mod,
 			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node(ctx, "multiply").Output(0)
+			result := *s.Node("multiply").Output(0)
 			Expect(result.Len()).To(Equal(int64(3)))
 			vals := telem.UnmarshalSeries[int32](result)
 			Expect(vals).To(Equal([]int32{10, 18, 28}))
-			resultTime := *s.Node(ctx, "multiply").OutputTime(0)
+			resultTime := *s.Node("multiply").OutputTime(0)
 			Expect(resultTime.Len()).To(Equal(int64(3)))
 			Expect(resultTime).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(10, 20, 30)))
 		})
@@ -247,8 +247,8 @@ var _ = Describe("Wasm", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			xNode := s.Node(ctx, "x")
-			yNode := s.Node(ctx, "y")
+			xNode := s.Node("x")
+			yNode := s.Node("y")
 			*xNode.Output(0) = telem.NewSeriesV[float32](100.0, 200.0, 300.0, 400.0)
 			*xNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5, 10, 15, 20)
 			*yNode.Output(0) = telem.NewSeriesV[float32](25.0)
@@ -263,17 +263,17 @@ var _ = Describe("Wasm", func() {
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   analyzed.Nodes.Get("subtract"),
-				State:  s.Node(ctx, "subtract"),
+				State:  s.Node("subtract"),
 				Module: mod,
 			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node(ctx, "subtract").Output(0)
+			result := *s.Node("subtract").Output(0)
 			Expect(result.Len()).To(Equal(int64(4)))
 			vals := telem.UnmarshalSeries[float32](result)
 			Expect(vals).To(Equal([]float32{75.0, 175.0, 275.0, 375.0}))
-			resultTime := *s.Node(ctx, "subtract").OutputTime(0)
+			resultTime := *s.Node("subtract").OutputTime(0)
 			Expect(resultTime.Len()).To(Equal(int64(4)))
 			Expect(resultTime).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(5, 10, 15, 20)))
 		})
@@ -332,8 +332,8 @@ var _ = Describe("Wasm", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			aNode := s.Node(ctx, "a")
-			bNode := s.Node(ctx, "b")
+			aNode := s.Node("a")
+			bNode := s.Node("b")
 			*aNode.Output(0) = telem.NewSeriesV[int64](10, 20, 30)
 			*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			*bNode.Output(0) = telem.NewSeriesV[int64](5)
@@ -348,25 +348,25 @@ var _ = Describe("Wasm", func() {
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   analyzed.Nodes.Get("math_ops"),
-				State:  s.Node(ctx, "math_ops"),
+				State:  s.Node("math_ops"),
 				Module: mod,
 			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains("sum")).To(BeTrue())
 			Expect(changed.Contains("product")).To(BeTrue())
-			sumResult := *s.Node(ctx, "math_ops").Output(0)
+			sumResult := *s.Node("math_ops").Output(0)
 			Expect(sumResult.Len()).To(Equal(int64(3)))
 			sumVals := telem.UnmarshalSeries[int64](sumResult)
 			Expect(sumVals).To(Equal([]int64{15, 25, 35}))
-			productResult := *s.Node(ctx, "math_ops").Output(1)
+			productResult := *s.Node("math_ops").Output(1)
 			Expect(productResult.Len()).To(Equal(int64(3)))
 			productVals := telem.UnmarshalSeries[int64](productResult)
 			Expect(productVals).To(Equal([]int64{50, 100, 150}))
-			sumTime := *s.Node(ctx, "math_ops").OutputTime(0)
+			sumTime := *s.Node("math_ops").OutputTime(0)
 			Expect(sumTime.Len()).To(Equal(int64(3)))
 			Expect(sumTime).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1, 2, 3)))
-			productTime := *s.Node(ctx, "math_ops").OutputTime(1)
+			productTime := *s.Node("math_ops").OutputTime(1)
 			Expect(productTime.Len()).To(Equal(int64(3)))
 			Expect(productTime).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1, 2, 3)))
 		})
@@ -426,7 +426,7 @@ var _ = Describe("Wasm", func() {
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   analyzed.Nodes.Get("read_channel"),
-				State:  s.Node(ctx, "read_channel"),
+				State:  s.Node("read_channel"),
 				Module: mod,
 			}))
 
@@ -435,7 +435,7 @@ var _ = Describe("Wasm", func() {
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 
 			// Verify result
-			result := *s.Node(ctx, "read_channel").Output(0)
+			result := *s.Node("read_channel").Output(0)
 			Expect(result.Len()).To(BeNumerically(">", 0))
 			vals := telem.UnmarshalSeries[int32](result)
 			Expect(vals[0]).To(Equal(int32(42)))
@@ -477,14 +477,14 @@ var _ = Describe("Wasm", func() {
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   analyzed.Nodes.Get("counter"),
-				State:  s.Node(ctx, "counter"),
+				State:  s.Node("counter"),
 				Module: mod,
 			}))
 
 			// First call - should return 1
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			result1 := *s.Node(ctx, "counter").Output(0)
+			result1 := *s.Node("counter").Output(0)
 			Expect(result1.Len()).To(Equal(int64(1)))
 			vals1 := telem.UnmarshalSeries[int64](result1)
 			Expect(vals1[0]).To(Equal(int64(1)))
@@ -492,7 +492,7 @@ var _ = Describe("Wasm", func() {
 			// Second call - should return 2 (state persisted)
 			changed = make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			result2 := *s.Node(ctx, "counter").Output(0)
+			result2 := *s.Node("counter").Output(0)
 			Expect(result2.Len()).To(Equal(int64(1)))
 			vals2 := telem.UnmarshalSeries[int64](result2)
 			Expect(vals2[0]).To(Equal(int64(2)))
@@ -500,7 +500,7 @@ var _ = Describe("Wasm", func() {
 			// Third call - should return 3 (state persisted)
 			changed = make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			result3 := *s.Node(ctx, "counter").Output(0)
+			result3 := *s.Node("counter").Output(0)
 			Expect(result3.Len()).To(Equal(int64(1)))
 			vals3 := telem.UnmarshalSeries[int64](result3)
 			Expect(vals3[0]).To(Equal(int64(3)))
@@ -547,7 +547,7 @@ var _ = Describe("Wasm", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			xNode := s.Node(ctx, "x")
+			xNode := s.Node("x")
 			*xNode.Output(0) = telem.NewSeriesV[int64](5, 15, 25)
 			*xNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
@@ -560,13 +560,13 @@ var _ = Describe("Wasm", func() {
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   analyzed.Nodes.Get("add"),
-				State:  s.Node(ctx, "add"),
+				State:  s.Node("add"),
 				Module: mod,
 			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node(ctx, "add").Output(0)
+			result := *s.Node("add").Output(0)
 			Expect(result.Len()).To(Equal(int64(3)))
 			vals := telem.UnmarshalSeries[int64](result)
 			Expect(vals).To(Equal([]int64{15, 25, 35}))
@@ -612,7 +612,7 @@ var _ = Describe("Wasm", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			aNode := s.Node(ctx, "a")
+			aNode := s.Node("a")
 			*aNode.Output(0) = telem.NewSeriesV[int32](5, 10)
 			*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
 			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
@@ -625,13 +625,13 @@ var _ = Describe("Wasm", func() {
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   analyzed.Nodes.Get("compute"),
-				State:  s.Node(ctx, "compute"),
+				State:  s.Node("compute"),
 				Module: mod,
 			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node(ctx, "compute").Output(0)
+			result := *s.Node("compute").Output(0)
 			Expect(result.Len()).To(Equal(int64(2)))
 			vals := telem.UnmarshalSeries[int32](result)
 			Expect(vals).To(Equal([]int32{13, 23}))
@@ -676,7 +676,7 @@ var _ = Describe("Wasm", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			valueNode := s.Node(ctx, "value")
+			valueNode := s.Node("value")
 			*valueNode.Output(0) = telem.NewSeriesV[float64](10.0, 20.0)
 			*valueNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
 			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
@@ -689,13 +689,13 @@ var _ = Describe("Wasm", func() {
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   analyzed.Nodes.Get("scale"),
-				State:  s.Node(ctx, "scale"),
+				State:  s.Node("scale"),
 				Module: mod,
 			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node(ctx, "scale").Output(0)
+			result := *s.Node("scale").Output(0)
 			Expect(result.Len()).To(Equal(int64(2)))
 			vals := telem.UnmarshalSeries[float64](result)
 			Expect(vals).To(Equal([]float64{25.0, 50.0}))
@@ -752,8 +752,8 @@ var _ = Describe("Wasm", func() {
 			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
-			xNode := s.Node(ctx, "x")
-			yNode := s.Node(ctx, "y")
+			xNode := s.Node("x")
+			yNode := s.Node("y")
 			*xNode.Output(0) = telem.NewSeriesV[int64](5)
 			*xNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			*yNode.Output(0) = telem.NewSeriesV[int64](100)
@@ -768,13 +768,13 @@ var _ = Describe("Wasm", func() {
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   analyzed.Nodes.Get("add"),
-				State:  s.Node(ctx, "add"),
+				State:  s.Node("add"),
 				Module: mod,
 			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			result := *s.Node(ctx, "add").Output(0)
+			result := *s.Node("add").Output(0)
 			Expect(result.Len()).To(Equal(int64(1)))
 			vals := telem.UnmarshalSeries[int64](result)
 			Expect(vals).To(Equal([]int64{105}))
