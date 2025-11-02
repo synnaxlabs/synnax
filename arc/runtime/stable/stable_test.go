@@ -42,16 +42,14 @@ var _ = Describe("StableFor", func() {
 		irNode = ir.Node{
 			Key:  "stable",
 			Type: "stable_for",
-			ConfigValues: map[string]interface{}{
-				"duration": telem.Second * 1,
+			Config: types.Params{
+				{Name: "duration", Type: types.TimeSpan(), Value: telem.Second * 1},
 			},
 			Inputs: types.Params{
-				Keys:   []string{ir.DefaultInputParam},
-				Values: []types.Type{types.U8()},
+				{Name: ir.DefaultInputParam, Type: types.U8()},
 			},
 			Outputs: types.Params{
-				Keys:   []string{ir.DefaultOutputParam},
-				Values: []types.Type{types.U8()},
+				{Name: ir.DefaultOutputParam, Type: types.U8()},
 			},
 		}
 		g := graph.Graph{
@@ -69,19 +67,16 @@ var _ = Describe("StableFor", func() {
 				{
 					Key: "source",
 					Outputs: types.Params{
-						Keys:   []string{ir.DefaultOutputParam},
-						Values: []types.Type{types.U8()},
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
 				},
 				{
 					Key: "stable_for",
 					Inputs: types.Params{
-						Keys:   []string{ir.DefaultInputParam},
-						Values: []types.Type{types.U8()},
+						{Name: ir.DefaultInputParam, Type: types.U8()},
 					},
 					Outputs: types.Params{
-						Keys:   []string{ir.DefaultOutputParam},
-						Values: []types.Type{types.U8()},
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
 				},
 			},
@@ -141,8 +136,8 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
 				State: s.Node(ctx, "stable"),
@@ -176,8 +171,8 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
 				State: s.Node(ctx, "stable"),
@@ -218,8 +213,8 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
 				State: s.Node(ctx, "stable"),
@@ -252,8 +247,8 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
 				State: s.Node(ctx, "stable"),
@@ -292,8 +287,8 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
 				State: s.Node(ctx, "stable"),
@@ -328,8 +323,8 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
 				State: s.Node(ctx, "stable"),
@@ -358,8 +353,8 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
 				State: s.Node(ctx, "stable"),

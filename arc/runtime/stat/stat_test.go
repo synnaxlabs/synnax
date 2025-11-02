@@ -44,19 +44,7 @@ var _ = Describe("Stat", func() {
 					{
 						Key: "input",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
-						},
-					},
-					{
-						Key: "avg",
-						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam},
-							Values: []types.Type{types.F64()},
-						},
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
 						},
 					},
 				},
@@ -67,7 +55,7 @@ var _ = Describe("Stat", func() {
 			inputNode := s.Node(ctx, "input")
 			factory := stat.NewFactory()
 			n := MustSucceed(factory.Create(ctx, node.Config{
-				Node:  ir.Node{Type: "avg", ConfigValues: map[string]interface{}{"count": int64(3)}},
+				Node:  ir.Node{Type: "avg", Config: types.Params{{Name: "count", Type: types.I64(), Value: int64(3)}}},
 				State: s.Node(ctx, "avg"),
 			}))
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
@@ -117,22 +105,7 @@ var _ = Describe("Stat", func() {
 					{
 						Key: "input",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
-						},
-					},
-					{
-						Key: "min",
-						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam, "reset"},
-							Values: []types.Type{types.I32(), types.U8()},
-						},
-						InputDefaults: map[string]any{
-							"reset": uint8(0),
-						},
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 					},
 				},
@@ -143,7 +116,7 @@ var _ = Describe("Stat", func() {
 			inputNode := s.Node(ctx, "input")
 			factory := stat.NewFactory()
 			n := MustSucceed(factory.Create(ctx, node.Config{
-				Node:  ir.Node{Type: "min", ConfigValues: map[string]any{"duration": telem.Second * 5}},
+				Node:  ir.Node{Type: "min", Config: types.Params{{Name: "duration", Type: types.TimeSpan(), Value: telem.Second * 5}}},
 				State: s.Node(ctx, "min"),
 			}))
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
@@ -204,29 +177,13 @@ var _ = Describe("Stat", func() {
 					{
 						Key: "input",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U64()},
+							{Name: ir.DefaultOutputParam, Type: types.U64()},
 						},
 					},
 					{
 						Key: "reset_signal",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					{
-						Key: "max",
-						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam, "reset"},
-							Values: []types.Type{types.U64(), types.U8()},
-						},
-						InputDefaults: map[string]any{
-							"reset": uint8(0),
-						},
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U64()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 					},
 				},
@@ -292,28 +249,13 @@ var _ = Describe("Stat", func() {
 					{
 						Key: "input",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U64()},
-						},
-					},
-					{
-						Key: "max",
-						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam, "reset"},
-							Values: []types.Type{types.U64(), types.U8()},
-						},
-						InputDefaults: map[string]any{
-							"reset": uint8(0),
-						},
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U64()},
+							{Name: ir.DefaultOutputParam, Type: types.U64()},
 						},
 					},
 				},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
-			Expect(diagnostics.Ok()).To(BeTrue())
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			s := state.New(state.Config{IR: analyzed})
 			inputNode := s.Node(ctx, "input")
 			factory := stat.NewFactory()
@@ -365,29 +307,13 @@ var _ = Describe("Stat", func() {
 					{
 						Key: "input",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 					},
 					{
 						Key: "reset_signal",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					{
-						Key: "avg",
-						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam, "reset"},
-							Values: []types.Type{types.I64(), types.U8()},
-						},
-						InputDefaults: map[string]any{
-							"reset": uint8(0),
-						},
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 					},
 				},

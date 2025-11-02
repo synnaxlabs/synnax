@@ -46,15 +46,13 @@ var _ = Describe("OP", func() {
 				{
 					Key: "lhs",
 					Outputs: types.Params{
-						Keys:   []string{ir.DefaultOutputParam},
-						Values: []types.Type{types.FromTelem(lhs.DataType)},
+						{Name: ir.DefaultOutputParam, Type: types.FromTelem(lhs.DataType)},
 					},
 				},
 				{
 					Key: "rhs",
 					Outputs: types.Params{
-						Keys:   []string{ir.DefaultOutputParam},
-						Values: []types.Type{types.FromTelem(rhs.DataType)},
+						{Name: ir.DefaultOutputParam, Type: types.FromTelem(rhs.DataType)},
 					},
 				},
 			},
@@ -138,8 +136,7 @@ var _ = Describe("OP", func() {
 				{
 					Key: "input",
 					Outputs: types.Params{
-						Keys:   []string{ir.DefaultOutputParam},
-						Values: []types.Type{types.FromTelem(input.DataType)},
+						{Name: ir.DefaultOutputParam, Type: types.FromTelem(input.DataType)},
 					},
 				},
 			},
@@ -195,15 +192,13 @@ var _ = Describe("OP", func() {
 					{
 						Key: "lhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 					},
 					{
 						Key: "rhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 					},
 				},
@@ -248,15 +243,13 @@ var _ = Describe("OP", func() {
 					{
 						Key: "lhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 					},
 					{
 						Key: "rhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 					},
 				},
@@ -301,15 +294,13 @@ var _ = Describe("OP", func() {
 					{
 						Key: "lhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
 						},
 					},
 					{
 						Key: "rhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
 						},
 					},
 				},
@@ -356,15 +347,13 @@ var _ = Describe("OP", func() {
 					{
 						Key: "lhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 					},
 					{
 						Key: "rhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 					},
 				},
@@ -417,15 +406,13 @@ var _ = Describe("OP", func() {
 					{
 						Key: "lhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U32()},
+							{Name: ir.DefaultOutputParam, Type: types.U32()},
 						},
 					},
 					{
 						Key: "rhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U32()},
+							{Name: ir.DefaultOutputParam, Type: types.U32()},
 						},
 					},
 				},
@@ -469,15 +456,13 @@ var _ = Describe("OP", func() {
 					{
 						Key: "lhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 					},
 					{
 						Key: "rhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 					},
 				},
@@ -522,15 +507,13 @@ var _ = Describe("OP", func() {
 					{
 						Key: "lhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I16()},
+							{Name: ir.DefaultOutputParam, Type: types.I16()},
 						},
 					},
 					{
 						Key: "rhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I16()},
+							{Name: ir.DefaultOutputParam, Type: types.I16()},
 						},
 					},
 				},
@@ -576,15 +559,13 @@ var _ = Describe("OP", func() {
 					{
 						Key: "lhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 					},
 					{
 						Key: "rhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 					},
 				},
@@ -630,15 +611,13 @@ var _ = Describe("OP", func() {
 					{
 						Key: "lhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 					},
 					{
 						Key: "rhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 					},
 				},
@@ -684,15 +663,13 @@ var _ = Describe("OP", func() {
 					{
 						Key: "lhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 					},
 					{
 						Key: "rhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 					},
 				},
@@ -737,15 +714,13 @@ var _ = Describe("OP", func() {
 					{
 						Key: "lhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 					},
 					{
 						Key: "rhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 					},
 				},

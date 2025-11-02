@@ -73,9 +73,9 @@ func New(cfg Config) *State {
 		s.indexes[d.Key] = d.Index
 	}
 	for _, node := range cfg.IR.Nodes {
-		for p, ot := range node.Outputs.Iter() {
-			s.outputs[ir.Handle{Node: node.Key, Param: p}] = &value{
-				data: telem.Series{DataType: types.ToTelem(ot)},
+		for _, p := range node.Outputs {
+			s.outputs[ir.Handle{Node: node.Key, Param: p.Name}] = &value{
+				data: telem.Series{DataType: types.ToTelem(p.Type)},
 				time: telem.Series{DataType: telem.TimeStampT},
 			}
 		}
@@ -125,26 +125,24 @@ func (s *State) writeChannel(key uint32, data, time telem.Series) {
 func (s *State) Node(ctx context.Context, key string) *Node {
 	var (
 		n           = s.cfg.IR.Nodes.Get(key)
-		f           = lo.Must(s.cfg.IR.Symbols.Resolve(ctx, n.Type))
-		inputs      = make([]ir.Edge, n.Inputs.Count())
-		alignedData = make([]telem.Series, n.Inputs.Count())
+		inputs      = make([]ir.Edge, len(n.Inputs))
+		alignedData = make([]telem.Series, len(n.Inputs))
 		alignedTime = make([]telem.Series, len(alignedData))
-		accumulated = make([]inputEntry, n.Inputs.Count())
+		accumulated = make([]inputEntry, len(n.Inputs))
 	)
 	for i := range alignedData {
 		alignedTime[i] = telem.Series{DataType: telem.TimeStampT}
 	}
-	for i, paramName := range n.Inputs.Keys {
-		paramType := n.Inputs.Values[i]
-		edge, found := s.cfg.IR.Edges.FindByTarget(ir.Handle{Node: key, Param: paramName})
+	for i, p := range n.Inputs {
+		edge, found := s.cfg.IR.Edges.FindByTarget(ir.Handle{Node: key, Param: p.Name})
 		if found {
 			inputs[i] = edge
 			alignedData[i] = telem.Series{DataType: s.outputs[edge.Source].data.DataType}
 		} else {
 			// Unconnected input - create synthetic edge pointing to a synthetic source
-			syntheticSource := ir.Handle{Node: "__default_" + key + "_" + paramName, Param: ir.DefaultOutputParam}
-			inputs[i] = ir.Edge{Source: syntheticSource, Target: ir.Handle{Node: key, Param: paramName}}
-			data := telem.NewSeriesFromAny(f.Type.InputDefaults[paramName], types.ToTelem(paramType))
+			syntheticSource := ir.Handle{Node: "__default_" + key + "_" + p.Name, Param: ir.DefaultOutputParam}
+			inputs[i] = ir.Edge{Source: syntheticSource, Target: ir.Handle{Node: key, Param: p.Name}}
+			data := telem.NewSeriesFromAny(p.Value, types.ToTelem(p.Type))
 			time := telem.NewSeriesV[telem.TimeStamp](0)
 			alignedData[i] = data
 			alignedTime[i] = time
@@ -163,8 +161,8 @@ func (s *State) Node(ctx context.Context, key string) *Node {
 
 	return &Node{
 		inputs: inputs,
-		outputs: lo.Map(n.Outputs.Keys, func(item string, _ int) ir.Handle {
-			return ir.Handle{Node: key, Param: item}
+		outputs: lo.Map(n.Outputs, func(item types.Param, _ int) ir.Handle {
+			return ir.Handle{Node: key, Param: item.Name}
 		}),
 		state:       s,
 		accumulated: accumulated,

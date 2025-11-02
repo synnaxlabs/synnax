@@ -40,12 +40,11 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "add",
 						Inputs: types.Params{
-							Keys:   []string{"lhs", "rhs"},
-							Values: []types.Type{types.I64(), types.I64()},
+							{Name: "lhs", Type: types.I64()},
+							{Name: "rhs", Type: types.I64()},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 						Body: ir.Body{Raw: `{
 							return lhs + rhs
@@ -54,16 +53,14 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "lhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 						Body: dummyBodyI64,
 					},
 					{
 						Key: "rhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 						Body: dummyBodyI64,
 					},
@@ -124,12 +121,11 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "multiply",
 						Inputs: types.Params{
-							Keys:   []string{"a", "b"},
-							Values: []types.Type{types.I32(), types.I32()},
+							{Name: "a", Type: types.I32()},
+							{Name: "b", Type: types.I32()},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 						Body: ir.Body{Raw: `{
 						return a * b
@@ -138,16 +134,14 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "a",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 						Body: dummyBodyI32,
 					},
 					{
 						Key: "b",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 						Body: dummyBodyI32,
 					},
@@ -208,12 +202,11 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "subtract",
 						Inputs: types.Params{
-							Keys:   []string{"x", "y"},
-							Values: []types.Type{types.F32(), types.F32()},
+							{Name: "x", Type: types.F32()},
+							{Name: "y", Type: types.F32()},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 						Body: ir.Body{Raw: `{
 						return x - y
@@ -222,16 +215,14 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "x",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 						Body: dummyBodyF32,
 					},
 					{
 						Key: "y",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 						Body: dummyBodyF32,
 					},
@@ -294,12 +285,12 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "math_ops",
 						Inputs: types.Params{
-							Keys:   []string{"a", "b"},
-							Values: []types.Type{types.I64(), types.I64()},
+							{Name: "a", Type: types.I64()},
+							{Name: "b", Type: types.I64()},
 						},
 						Outputs: types.Params{
-							Keys:   []string{"sum", "product"},
-							Values: []types.Type{types.I64(), types.I64()},
+							{Name: "sum", Type: types.I64()},
+							{Name: "product", Type: types.I64()},
 						},
 						Body: ir.Body{Raw: `{
 							sum = a + b
@@ -309,16 +300,14 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "a",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 						Body: dummyBodyI64,
 					},
 					{
 						Key: "b",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 						Body: dummyBodyI64,
 					},
@@ -397,14 +386,10 @@ var _ = Describe("Wasm", func() {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
-						Key: "read_channel",
-						Inputs: types.Params{
-							Keys:   []string{},
-							Values: []types.Type{},
-						},
+						Key:    "read_channel",
+						Inputs: types.Params{},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 						Body: ir.Body{Raw: `{
 							value i32 := sensor
@@ -462,14 +447,10 @@ var _ = Describe("Wasm", func() {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
-						Key: "counter",
-						Inputs: types.Params{
-							Keys:   []string{},
-							Values: []types.Type{},
-						},
+						Key:    "counter",
+						Inputs: types.Params{},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 						Body: ir.Body{Raw: `{
 							count i64 $= 0
@@ -533,15 +514,11 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "add",
 						Inputs: types.Params{
-							Keys:   []string{"x", "y"},
-							Values: []types.Type{types.I64(), types.I64()},
+							{Name: "x", Type: types.I64()},
+							{Name: "y", Type: types.I64(), Value: int64(10)},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
-						InputDefaults: map[string]any{
-							"y": int64(10),
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 						Body: ir.Body{Raw: `{
 							return x + y
@@ -550,8 +527,7 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "x",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 						Body: dummyBodyI64,
 					},
@@ -602,16 +578,12 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "compute",
 						Inputs: types.Params{
-							Keys:   []string{"a", "b", "c"},
-							Values: []types.Type{types.I32(), types.I32(), types.I32()},
+							{Name: "a", Type: types.I32()},
+							{Name: "b", Type: types.I32(), Value: int32(2)},
+							{Name: "c", Type: types.I32(), Value: int32(3)},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
-						},
-						InputDefaults: map[string]any{
-							"b": int32(2),
-							"c": int32(3),
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 						Body: ir.Body{Raw: `{
 							return a * b + c
@@ -620,8 +592,7 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "a",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 						Body: dummyBodyI32,
 					},
@@ -672,15 +643,11 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "scale",
 						Inputs: types.Params{
-							Keys:   []string{"value", "factor"},
-							Values: []types.Type{types.F64(), types.F64()},
+							{Name: "value", Type: types.F64()},
+							{Name: "factor", Type: types.F64(), Value: 2.5},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
-						},
-						InputDefaults: map[string]any{
-							"factor": 2.5,
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
 						},
 						Body: ir.Body{Raw: `{
 							return value * factor
@@ -689,8 +656,7 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "value",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
 						},
 						Body: dummyBodyF64,
 					},
@@ -741,15 +707,11 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "add",
 						Inputs: types.Params{
-							Keys:   []string{"x", "y"},
-							Values: []types.Type{types.I64(), types.I64()},
+							{Name: "x", Type: types.I64()},
+							{Name: "y", Type: types.I64(), Value: int64(10)},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
-						InputDefaults: map[string]any{
-							"y": int64(10),
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 						Body: ir.Body{Raw: `{
 							return x + y
@@ -758,16 +720,14 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "x",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 						Body: dummyBodyI64,
 					},
 					{
 						Key: "y",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 						Body: dummyBodyI64,
 					},

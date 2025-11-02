@@ -156,8 +156,8 @@ func compileOutputAssignment(
 
 	// Step 2: Find the output index
 	outputIndex := -1
-	for i, key := range ctx.Outputs.Keys {
-		if key == outputName {
+	for i, oParam := range ctx.Outputs {
+		if oParam.Name == outputName {
 			outputIndex = i
 			break
 		}
@@ -169,7 +169,7 @@ func compileOutputAssignment(
 	// Step 3: Calculate memory offset for this output
 	offset := ctx.OutputMemoryBase + 8 // Skip dirty flags
 	for i := 0; i < outputIndex; i++ {
-		offset += uint32(ctx.Outputs.Values[i].Density())
+		offset += uint32(ctx.Outputs[i].Type.Density())
 	}
 
 	// Step 4: Write value to output memory

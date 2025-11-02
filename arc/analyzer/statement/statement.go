@@ -310,7 +310,8 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	}
 	var expectedReturnType types.Type
 	if enclosingScope.Kind == symbol.KindFunction {
-		expectedReturnType, _ = enclosingScope.Type.Outputs.Get(ir.DefaultOutputParam)
+		param, _ := enclosingScope.Type.Outputs.Get(ir.DefaultOutputParam)
+		expectedReturnType = param.Type
 	}
 	returnExpr := ctx.AST.Expression()
 	if returnExpr != nil {
@@ -566,12 +567,8 @@ func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) (types.Type,
 	ctx.InTypeInferenceMode = true
 	funcScope, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindFunction,
-		Type: types.Function(types.FunctionProperties{
-			Inputs:  &types.Params{},
-			Outputs: &types.Params{},
-			Config:  &types.Params{},
-		}),
-		AST: ctx.AST,
+		Type: types.Function(types.FunctionProperties{}),
+		AST:  ctx.AST,
 	})
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)

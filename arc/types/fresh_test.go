@@ -54,12 +54,12 @@ var _ = Describe("Freshen", func() {
 
 	It("Should copy function types", func() {
 		inputs := types.Params{}
-		inputs.Put("x", types.I64())
-		fnType := types.Function(types.FunctionProperties{Inputs: &inputs})
+		inputs = append(inputs, types.Param{Name: "x", Type: types.I64()})
+		fnType := types.Function(types.FunctionProperties{Inputs: inputs})
 		fresh := types.Freshen(fnType, "node5")
 		Expect(fresh.Kind).To(Equal(types.KindFunction))
 		Expect(fresh.Inputs).ToNot(BeNil())
-		Expect(fresh.Inputs.Count()).To(Equal(1))
+		Expect(len(fresh.Inputs)).To(Equal(1))
 	})
 
 	It("Should return primitive types unchanged", func() {
@@ -90,18 +90,16 @@ var _ = Describe("Freshen", func() {
 	It("Should maintain consistent mapping for repeated type variables", func() {
 		// Test that T maps to same fresh variable in multiple locations
 		tv := types.Variable("T", nil)
-		inputs := types.Params{}
-		inputs.Put("a", tv)
-		inputs.Put("b", tv) // Same T
-		fnType := types.Function(types.FunctionProperties{Inputs: &inputs})
+		inputs := types.Params{{Name: "a", Type: tv}, {Name: "b", Type: tv}}
+		fnType := types.Function(types.FunctionProperties{Inputs: inputs})
 		fresh := types.Freshen(fnType, "test")
 
 		// Both inputs should have same fresh type variable name
-		aType := MustBeOk(fresh.Inputs.Get("a"))
-		bType := MustBeOk(fresh.Inputs.Get("b"))
-		Expect(aType.Name).To(Equal("test_T"))
-		Expect(bType.Name).To(Equal("test_T"))
-		Expect(aType.Name).To(Equal(bType.Name))
+		aType := fresh.Inputs[0]
+		bType := fresh.Inputs[1]
+		Expect(aType.Type.Name).To(Equal("test_T"))
+		Expect(bType.Type.Name).To(Equal("test_T"))
+		Expect(aType.Type.Name).To(Equal(bType.Type.Name))
 	})
 
 	It("Should handle deeply nested constrained type variables", func() {
@@ -138,32 +136,32 @@ var _ = Describe("Freshen", func() {
 	It("Should handle function with mixed generic and concrete parameters", func() {
 		tv := types.Variable("T", nil)
 		inputs := types.Params{}
-		inputs.Put("generic", tv)
-		inputs.Put("concrete", types.I64())
+		inputs = append(inputs, types.Param{Name: "generic", Type: tv})
+		inputs = append(inputs, types.Param{Name: "concrete", Type: types.I64()})
 
 		outputs := types.Params{}
-		outputs.Put("result", tv)
+		outputs = append(outputs, types.Param{Name: "result", Type: tv})
 
 		fnType := types.Function(types.FunctionProperties{
-			Inputs:  &inputs,
-			Outputs: &outputs,
+			Inputs:  inputs,
+			Outputs: outputs,
 		})
 
 		fresh := types.Freshen(fnType, "node")
 
 		// Generic params should be freshened
-		genericInput := MustBeOk(fresh.Inputs.Get("generic"))
-		Expect(genericInput.Kind).To(Equal(types.KindVariable))
-		Expect(genericInput.Name).To(Equal("node_T"))
+		genericInput := fresh.Inputs[0]
+		Expect(genericInput.Type.Kind).To(Equal(types.KindVariable))
+		Expect(genericInput.Type.Name).To(Equal("node_T"))
 
 		// Concrete params should remain unchanged
-		concreteInput := MustBeOk(fresh.Inputs.Get("concrete"))
-		Expect(concreteInput.Kind).To(Equal(types.KindI64))
+		concreteInput := fresh.Inputs[1]
+		Expect(concreteInput.Type.Kind).To(Equal(types.KindI64))
 
 		// Output should use same freshened variable
-		output := MustBeOk(fresh.Outputs.Get("result"))
-		Expect(output.Name).To(Equal("node_T"))
-		Expect(output.Name).To(Equal(genericInput.Name))
+		output := fresh.Outputs[0]
+		Expect(output.Type.Name).To(Equal("node_T"))
+		Expect(output.Type.Name).To(Equal(genericInput.Type.Name))
 	})
 
 	It("Should handle empty function parameters", func() {
@@ -171,12 +169,9 @@ var _ = Describe("Freshen", func() {
 		fresh := types.Freshen(fnType, "test")
 
 		Expect(fresh.Kind).To(Equal(types.KindFunction))
-		Expect(fresh.Inputs).ToNot(BeNil())
-		Expect(fresh.Outputs).ToNot(BeNil())
-		Expect(fresh.Config).ToNot(BeNil())
-		Expect(fresh.Inputs.Count()).To(Equal(0))
-		Expect(fresh.Outputs.Count()).To(Equal(0))
-		Expect(fresh.Config.Count()).To(Equal(0))
+		Expect(fresh.Inputs).To(BeNil())
+		Expect(fresh.Outputs).To(BeNil())
+		Expect(fresh.Config).To(BeNil())
 	})
 
 	It("Should handle multiple distinct type variables", func() {
@@ -184,17 +179,17 @@ var _ = Describe("Freshen", func() {
 		tvB := types.Variable("B", nil)
 
 		inputs := types.Params{}
-		inputs.Put("a", tvA)
-		inputs.Put("b", tvB)
+		inputs = append(inputs, types.Param{Name: "a", Type: tvA})
+		inputs = append(inputs, types.Param{Name: "b", Type: tvB})
 
-		fnType := types.Function(types.FunctionProperties{Inputs: &inputs})
+		fnType := types.Function(types.FunctionProperties{Inputs: inputs})
 		fresh := types.Freshen(fnType, "node")
 
 		aType := MustBeOk(fresh.Inputs.Get("a"))
 		bType := MustBeOk(fresh.Inputs.Get("b"))
 
-		Expect(aType.Name).To(Equal("node_A"))
-		Expect(bType.Name).To(Equal("node_B"))
-		Expect(aType.Name).ToNot(Equal(bType.Name))
+		Expect(aType.Type.Name).To(Equal("node_A"))
+		Expect(bType.Type.Name).To(Equal("node_B"))
+		Expect(aType.Type.Name).ToNot(Equal(bType.Type.Name))
 	})
 })

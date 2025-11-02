@@ -33,7 +33,7 @@ type Runtime struct {
 	stringHandleCounter uint32
 
 	// State storage for stateful variables
-	// Key: (funcID << 32) | varID
+	// Name: (funcID << 32) | varID
 	stateU8     map[uint64]uint8
 	stateU16    map[uint64]uint16
 	stateU32    map[uint64]uint32
@@ -90,7 +90,7 @@ func (r *Runtime) ChannelReadU8(ctx context.Context, channelID uint32) uint8 {
 
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
-		return uint8(0) // Default value
+		return uint8(0) // Value value
 	}
 
 	// Return the last (most recent) value
@@ -116,7 +116,7 @@ func (r *Runtime) ChannelReadU16(ctx context.Context, channelID uint32) uint16 {
 
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
-		return uint16(0) // Default value
+		return uint16(0) // Value value
 	}
 
 	// Return the last (most recent) value
@@ -142,7 +142,7 @@ func (r *Runtime) ChannelReadU32(ctx context.Context, channelID uint32) uint32 {
 
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
-		return uint32(0) // Default value
+		return uint32(0) // Value value
 	}
 
 	// Return the last (most recent) value
@@ -168,7 +168,7 @@ func (r *Runtime) ChannelReadU64(ctx context.Context, channelID uint32) uint64 {
 
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
-		return uint64(0) // Default value
+		return uint64(0) // Value value
 	}
 
 	// Return the last (most recent) value
@@ -194,7 +194,7 @@ func (r *Runtime) ChannelReadI8(ctx context.Context, channelID uint32) int8 {
 
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
-		return int8(0) // Default value
+		return int8(0) // Value value
 	}
 
 	// Return the last (most recent) value
@@ -220,7 +220,7 @@ func (r *Runtime) ChannelReadI16(ctx context.Context, channelID uint32) int16 {
 
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
-		return int16(0) // Default value
+		return int16(0) // Value value
 	}
 
 	// Return the last (most recent) value
@@ -246,7 +246,7 @@ func (r *Runtime) ChannelReadI32(ctx context.Context, channelID uint32) int32 {
 
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
-		return int32(0) // Default value
+		return int32(0) // Value value
 	}
 
 	// Return the last (most recent) value
@@ -272,7 +272,7 @@ func (r *Runtime) ChannelReadI64(ctx context.Context, channelID uint32) int64 {
 
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
-		return int64(0) // Default value
+		return int64(0) // Value value
 	}
 
 	// Return the last (most recent) value
@@ -298,7 +298,7 @@ func (r *Runtime) ChannelReadF32(ctx context.Context, channelID uint32) float32 
 
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
-		return float32(0) // Default value
+		return float32(0) // Value value
 	}
 
 	// Return the last (most recent) value
@@ -324,7 +324,7 @@ func (r *Runtime) ChannelReadF64(ctx context.Context, channelID uint32) float64 
 
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
-		return float64(0) // Default value
+		return float64(0) // Value value
 	}
 
 	// Return the last (most recent) value

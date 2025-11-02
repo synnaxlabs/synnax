@@ -238,14 +238,14 @@ var _ = Describe("Analyzer", func() {
 				Expect(funcScope.ID).To(Equal(0))
 				Expect(funcScope.Name).To(Equal("add"))
 				output := MustBeOk(funcScope.Type.Outputs.Get(ir.DefaultOutputParam))
-				Expect(output).To(Equal(types.F64()))
-				Expect(funcScope.Type.Inputs.Count()).To(Equal(2))
-				name, t := funcScope.Type.Inputs.At(0)
-				Expect(name).To(Equal("x"))
-				Expect(t).To(Equal(types.F64()))
-				name, t = funcScope.Type.Inputs.At(1)
-				Expect(t).To(Equal(types.F64()))
-				Expect(name).To(Equal("y"))
+				Expect(output.Type).To(Equal(types.F64()))
+				Expect(funcScope.Type.Inputs).To(HaveLen(2))
+				p0 := funcScope.Type.Inputs[0]
+				Expect(p0.Name).To(Equal("x"))
+				Expect(p0.Type).To(Equal(types.F64()))
+				p1 := funcScope.Type.Inputs[1]
+				Expect(p1.Name).To(Equal("y"))
+				Expect(p1.Type).To(Equal(types.F64()))
 				Expect(funcScope.Children).To(HaveLen(3))
 				paramChildren := funcScope.FilterChildrenByKind(symbol.KindInput)
 				Expect(paramChildren).To(HaveLen(2))
@@ -273,26 +273,26 @@ var _ = Describe("Analyzer", func() {
 				fScope := MustSucceed(ctx.Scope.Resolve(ctx, "controller"))
 				Expect(fScope.ID).To(Equal(0))
 				Expect(fScope.Name).To(Equal("controller"))
-				output, _ := fScope.Type.Outputs.Get(ir.DefaultOutputParam)
-				Expect(output).To(Equal(types.F64()))
+				output := MustBeOk(fScope.Type.Outputs.Get(ir.DefaultOutputParam))
+				Expect(output.Type).To(Equal(types.F64()))
 
 				By("Having the correct config parameters")
-				Expect(fScope.Type.Config.Count()).To(Equal(3))
-				name, t := fScope.Type.Config.At(0)
-				Expect(name).To(Equal("setpoint"))
-				Expect(t).To(Equal(types.F64()))
-				name, t = fScope.Type.Config.At(1)
-				Expect(name).To(Equal("sensor"))
-				Expect(t).To(Equal(types.Chan(types.F64())))
-				name, t = fScope.Type.Config.At(2)
-				Expect(name).To(Equal("actuator"))
-				Expect(t).To(Equal(types.Chan(types.F64())))
+				Expect(fScope.Type.Config).To(HaveLen(3))
+				p0 := fScope.Type.Config[0]
+				Expect(p0.Name).To(Equal("setpoint"))
+				Expect(p0.Type).To(Equal(types.F64()))
+				p1 := fScope.Type.Config[1]
+				Expect(p1.Name).To(Equal("sensor"))
+				Expect(p1.Type).To(Equal(types.Chan(types.F64())))
+				p2 := fScope.Type.Config[2]
+				Expect(p2.Name).To(Equal("actuator"))
+				Expect(p2.Type).To(Equal(types.Chan(types.F64())))
 
 				By("Having the correct parameters")
-				Expect(fScope.Type.Inputs.Count()).To(Equal(1))
-				name, t = fScope.Type.Inputs.At(0)
-				Expect(name).To(Equal("enable"))
-				Expect(t).To(Equal(types.U8()))
+				Expect(fScope.Type.Inputs).To(HaveLen(1))
+				p0 = fScope.Type.Inputs[0]
+				Expect(p0.Name).To(Equal("enable"))
+				Expect(p0.Type).To(Equal(types.U8()))
 
 				By("Having the correct symbols")
 				Expect(len(fScope.Children)).To(Equal(5))
@@ -567,12 +567,16 @@ var _ = Describe("Analyzer", func() {
 			// Find the function scope
 			funcScope := ctx.Scope.FindChildByName("add")
 			Expect(funcScope).ToNot(BeNil())
-			Expect(funcScope.Type.Inputs.Count()).To(Equal(2))
+			Expect(funcScope.Type.Inputs).To(HaveLen(2))
 
 			// Check that y has a default value
-			Expect(funcScope.Type.InputDefaults).ToNot(BeNil())
-			Expect(funcScope.Type.InputDefaults).To(HaveKey("y"))
-			Expect(funcScope.Type.InputDefaults["y"]).To(Equal(int64(0)))
+			p0 := funcScope.Type.Inputs[0]
+			Expect(p0.Name).To(Equal("x"))
+			Expect(p0.Type).To(Equal(types.I64()))
+			p1 := funcScope.Type.Inputs[1]
+			Expect(p1.Name).To(Equal("y"))
+			Expect(p1.Type).To(Equal(types.I64()))
+			Expect(p1.Value).To(Equal(int64(0)))
 		})
 
 		It("Should reject required parameters after optional parameters", func() {
@@ -599,9 +603,18 @@ var _ = Describe("Analyzer", func() {
 
 			funcScope := ctx.Scope.FindChildByName("multi")
 			Expect(funcScope).ToNot(BeNil())
-			Expect(funcScope.Type.InputDefaults).To(HaveLen(2))
-			Expect(funcScope.Type.InputDefaults["b"]).To(Equal(1.5))
-			Expect(funcScope.Type.InputDefaults["c"]).To(Equal(uint8(10)))
+			Expect(funcScope.Type.Inputs).To(HaveLen(3))
+			p0 := funcScope.Type.Inputs[0]
+			Expect(p0.Name).To(Equal("a"))
+			Expect(p0.Type).To(Equal(types.I32()))
+			p1 := funcScope.Type.Inputs[1]
+			Expect(p1.Name).To(Equal("b"))
+			Expect(p1.Type).To(Equal(types.F64()))
+			Expect(p1.Value).To(Equal(1.5))
+			p2 := funcScope.Type.Inputs[2]
+			Expect(p2.Name).To(Equal("c"))
+			Expect(p2.Type).To(Equal(types.U8()))
+			Expect(p2.Value).To(Equal(uint8(10)))
 		})
 
 		It("Should handle functions with no optional parameters", func() {
@@ -615,7 +628,9 @@ var _ = Describe("Analyzer", func() {
 
 			funcScope := ctx.Scope.FindChildByName("multiply")
 			Expect(funcScope).ToNot(BeNil())
-			Expect(funcScope.Type.InputDefaults).To(BeEmpty())
+			for _, p := range funcScope.Type.Inputs {
+				Expect(p.Value).To(BeNil())
+			}
 		})
 
 		It("Should reject default values that overflow target type", func() {

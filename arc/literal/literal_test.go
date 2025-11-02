@@ -125,7 +125,7 @@ var _ = Describe("Literal Parser", func() {
 		Entry("f32 literal", "3.14", types.F32(), true, float32(3.14), types.F32(), ""),
 		Entry("f64 literal", "3.14159", types.F64(), true, 3.14159, types.F64(), ""),
 
-		// Default type inference
+		// Value type inference
 		Entry("integer defaults to i64", "42", types.Type{}, true, int64(42), types.I64(), ""),
 		Entry("float defaults to f64", "3.14", types.Type{}, true, 3.14, types.F64(), ""),
 

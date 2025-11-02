@@ -180,39 +180,39 @@ func formatFunctionSignature(sym *symbol.Scope) string {
 	sig.WriteString("```arc\n")
 	sig.WriteString("func ")
 	sig.WriteString(sym.Name)
-	if sym.Type.Config != nil && sym.Type.Config.Count() > 0 {
+	if sym.Type.Config != nil && len(sym.Type.Config) > 0 {
 		sig.WriteString("{")
 		first := true
-		for name, t := range sym.Type.Config.Iter() {
+		for _, param := range sym.Type.Config {
 			if !first {
 				sig.WriteString(", ")
 			}
-			sig.WriteString(fmt.Sprintf("\n    %s %s", name, t))
+			sig.WriteString(fmt.Sprintf("\n    %s %s", param.Name, param.Type))
 			first = false
 		}
 		sig.WriteString("\n}")
 	}
 	sig.WriteString("(")
-	if sym.Type.Inputs != nil && sym.Type.Inputs.Count() > 0 {
+	if sym.Type.Inputs != nil && len(sym.Type.Inputs) > 0 {
 		first := true
-		for name, t := range sym.Type.Inputs.Iter() {
+		for _, param := range sym.Type.Inputs {
 			if !first {
 				sig.WriteString(", ")
 			}
-			sig.WriteString(fmt.Sprintf("%s %s", name, t))
+			sig.WriteString(fmt.Sprintf("%s %s", param.Name, param.Type))
 			first = false
 		}
 	}
 	sig.WriteString(")")
-	if sym.Type.Outputs != nil && sym.Type.Outputs.Count() > 0 {
+	if sym.Type.Outputs != nil && len(sym.Type.Outputs) > 0 {
 		sig.WriteString(" ")
-		if sym.Type.Outputs.Count() == 1 {
-			_, outputType := sym.Type.Outputs.At(0)
+		if len(sym.Type.Outputs) == 1 {
+			outputType := sym.Type.Outputs[0].Type
 			sig.WriteString(outputType.String())
 		} else {
 			sig.WriteString("{")
-			for name, t := range sym.Type.Outputs.Iter() {
-				sig.WriteString(fmt.Sprintf("\n    %s %s", name, t))
+			for _, param := range sym.Type.Outputs {
+				sig.WriteString(fmt.Sprintf("\n    %s %s", param.Name, param.Type))
 			}
 			sig.WriteString("\n}")
 		}

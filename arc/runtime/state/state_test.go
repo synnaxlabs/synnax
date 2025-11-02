@@ -214,29 +214,27 @@ var _ = Describe("State", func() {
 					{
 						Key: "in1",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 					},
 					{
 						Key: "in2",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 					},
 					{
 						Key: "in3",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 					},
 					{
 						Key: "target",
 						Inputs: types.Params{
-							Keys:   []string{"in1", "in2", "in3"},
-							Values: []types.Type{types.I32(), types.F32(), types.U8()},
+							{Name: "in1", Type: types.I32()},
+							{Name: "in2", Type: types.F32()},
+							{Name: "in3", Type: types.U8()},
 						},
 					},
 				},
@@ -272,15 +270,13 @@ var _ = Describe("State", func() {
 					{
 						Key: "first",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 					},
 					{
 						Key: "second",
 						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultInputParam, Type: types.F32()},
 						},
 					},
 				},
@@ -311,15 +307,13 @@ var _ = Describe("State", func() {
 					{
 						Key: "src",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 					},
 					{
 						Key: "dest",
 						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultInputParam, Type: types.I32()},
 						},
 					},
 				},
@@ -351,15 +345,13 @@ var _ = Describe("State", func() {
 					{
 						Key: "producer",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
 						},
 					},
 					{
 						Key: "consumer",
 						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam},
-							Values: []types.Type{types.F64()},
+							{Name: ir.DefaultInputParam, Type: types.F64()},
 						},
 					},
 				},
@@ -391,22 +383,20 @@ var _ = Describe("State", func() {
 					{
 						Key: "a",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 					},
 					{
 						Key: "b",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 					},
 					{
 						Key: "target",
 						Inputs: types.Params{
-							Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-							Values: []types.Type{types.F32(), types.F32()},
+							{Name: ir.LHSInputParam, Type: types.F32()},
+							{Name: ir.RHSInputParam, Type: types.F32()},
 						},
 					},
 				},
@@ -449,22 +439,20 @@ var _ = Describe("State", func() {
 					{
 						Key: "early",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 					},
 					{
 						Key: "late",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 					},
 					{
 						Key: "target",
 						Inputs: types.Params{
-							Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-							Values: []types.Type{types.I32(), types.I32()},
+							{Name: ir.LHSInputParam, Type: types.I32()},
+							{Name: ir.RHSInputParam, Type: types.I32()},
 						},
 					},
 				},
@@ -504,15 +492,13 @@ var _ = Describe("State", func() {
 					{
 						Key: "source",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 					},
 					{
 						Key: "sink",
 						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultInputParam, Type: types.I32()},
 						},
 					},
 				},
@@ -547,22 +533,20 @@ var _ = Describe("State", func() {
 					{
 						Key: "a",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 					},
 					{
 						Key: "b",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 					},
 					{
 						Key: "target",
 						Inputs: types.Params{
-							Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-							Values: []types.Type{types.F32(), types.F32()},
+							{Name: ir.LHSInputParam, Type: types.F32()},
+							{Name: ir.RHSInputParam, Type: types.F32()},
 						},
 					},
 				},
@@ -607,15 +591,13 @@ var _ = Describe("State", func() {
 					{
 						Key: "src",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 					},
 					{
 						Key: "dst",
 						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultInputParam, Type: types.I64()},
 						},
 					},
 				},
@@ -655,22 +637,20 @@ var _ = Describe("State", func() {
 						{
 							Key: "lhs",
 							Outputs: types.Params{
-								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.F64()},
+								{Name: ir.DefaultOutputParam, Type: types.F64()},
 							},
 						},
 						{
 							Key: "rhs",
 							Outputs: types.Params{
-								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.F64()},
+								{Name: ir.DefaultOutputParam, Type: types.F64()},
 							},
 						},
 						{
 							Key: "op",
 							Inputs: types.Params{
-								Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-								Values: []types.Type{types.F64(), types.F64()},
+								{Name: ir.LHSInputParam, Type: types.F64()},
+								{Name: ir.RHSInputParam, Type: types.F64()},
 							},
 						},
 					},
@@ -711,22 +691,20 @@ var _ = Describe("State", func() {
 						{
 							Key: "a",
 							Outputs: types.Params{
-								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.I32()},
+								{Name: ir.DefaultOutputParam, Type: types.I32()},
 							},
 						},
 						{
 							Key: "b",
 							Outputs: types.Params{
-								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.I32()},
+								{Name: ir.DefaultOutputParam, Type: types.I32()},
 							},
 						},
 						{
 							Key: "compute",
 							Inputs: types.Params{
-								Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-								Values: []types.Type{types.I32(), types.I32()},
+								{Name: ir.LHSInputParam, Type: types.I32()},
+								{Name: ir.RHSInputParam, Type: types.I32()},
 							},
 						},
 					},
@@ -768,22 +746,20 @@ var _ = Describe("State", func() {
 						{
 							Key: "early",
 							Outputs: types.Params{
-								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.F32()},
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
 							},
 						},
 						{
 							Key: "late",
 							Outputs: types.Params{
-								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.F32()},
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
 							},
 						},
 						{
 							Key: "target",
 							Inputs: types.Params{
-								Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-								Values: []types.Type{types.F32(), types.F32()},
+								{Name: ir.LHSInputParam, Type: types.F32()},
+								{Name: ir.RHSInputParam, Type: types.F32()},
 							},
 						},
 					},
@@ -830,22 +806,20 @@ var _ = Describe("State", func() {
 						{
 							Key: "x",
 							Outputs: types.Params{
-								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.U32()},
+								{Name: ir.DefaultOutputParam, Type: types.U32()},
 							},
 						},
 						{
 							Key: "y",
 							Outputs: types.Params{
-								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.U32()},
+								{Name: ir.DefaultOutputParam, Type: types.U32()},
 							},
 						},
 						{
 							Key: "processor",
 							Inputs: types.Params{
-								Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-								Values: []types.Type{types.U32(), types.U32()},
+								{Name: ir.LHSInputParam, Type: types.U32()},
+								{Name: ir.RHSInputParam, Type: types.U32()},
 							},
 						},
 					},
@@ -890,29 +864,27 @@ var _ = Describe("State", func() {
 						{
 							Key: "a",
 							Outputs: types.Params{
-								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.I64()},
+								{Name: ir.DefaultOutputParam, Type: types.I64()},
 							},
 						},
 						{
 							Key: "b",
 							Outputs: types.Params{
-								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.I64()},
+								{Name: ir.DefaultOutputParam, Type: types.I64()},
 							},
 						},
 						{
 							Key: "c",
 							Outputs: types.Params{
-								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.I64()},
+								{Name: ir.DefaultOutputParam, Type: types.I64()},
 							},
 						},
 						{
 							Key: "combiner",
 							Inputs: types.Params{
-								Keys:   []string{"in0", "in1", "in2"},
-								Values: []types.Type{types.I64(), types.I64(), types.I64()},
+								{Name: "in0", Type: types.I64()},
+								{Name: "in1", Type: types.I64()},
+								{Name: "in2", Type: types.I64()},
 							},
 						},
 					},
@@ -965,22 +937,17 @@ var _ = Describe("State", func() {
 					{
 						Key: "source",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 					},
 					{
 						Key: "processor",
 						Inputs: types.Params{
-							Keys:   []string{"data", "multiplier"},
-							Values: []types.Type{types.F32(), types.F32()},
-						},
-						InputDefaults: map[string]any{
-							"multiplier": float32(2.0),
+							{Name: "data", Type: types.F32()},
+							{Name: "multiplier", Type: types.F32(), Value: float32(2.0)},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 					},
 				},
@@ -1014,29 +981,23 @@ var _ = Describe("State", func() {
 					{
 						Key: "data_source",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 					},
 					{
 						Key: "multiplier_source",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 					},
 					{
 						Key: "processor",
 						Inputs: types.Params{
-							Keys:   []string{"value", "factor"},
-							Values: []types.Type{types.I32(), types.I32()},
-						},
-						InputDefaults: map[string]any{
-							"factor": int32(10),
+							{Name: "value", Type: types.I32()},
+							{Name: "factor", Type: types.I32(), Value: int32(10)},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 					},
 				},
@@ -1077,23 +1038,18 @@ var _ = Describe("State", func() {
 					{
 						Key: "input",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
 						},
 					},
 					{
 						Key: "calculator",
 						Inputs: types.Params{
-							Keys:   []string{"x", "offset", "scale"},
-							Values: []types.Type{types.F64(), types.F64(), types.F64()},
-						},
-						InputDefaults: map[string]any{
-							"offset": float64(5.0),
-							"scale":  float64(2.5),
+							{Name: "x", Type: types.F64()},
+							{Name: "offset", Type: types.F64(), Value: float64(5.0)},
+							{Name: "scale", Type: types.F64(), Value: float64(2.5)},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
 						},
 					},
 				},
@@ -1128,30 +1084,24 @@ var _ = Describe("State", func() {
 					{
 						Key: "src1",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 					},
 					{
 						Key: "src2",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 					},
 					{
 						Key: "combiner",
 						Inputs: types.Params{
-							Keys:   []string{"a", "b", "c"},
-							Values: []types.Type{types.I64(), types.I64(), types.I64()},
-						},
-						InputDefaults: map[string]any{
-							"b": int64(20),
-							"c": int64(30),
+							{Name: "a", Type: types.I64()},
+							{Name: "b", Type: types.I64(), Value: int64(20)},
+							{Name: "c", Type: types.I64(), Value: int64(30)},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 					},
 				},
@@ -1194,23 +1144,18 @@ var _ = Describe("State", func() {
 					{
 						Key: "data",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 					},
 					{
 						Key: "processor",
 						Inputs: types.Params{
-							Keys:   []string{"data", "enabled", "threshold"},
-							Values: []types.Type{types.F32(), types.U8(), types.I32()},
-						},
-						InputDefaults: map[string]any{
-							"enabled":   uint8(1),
-							"threshold": int32(50),
+							{Name: "data", Type: types.F32()},
+							{Name: "enabled", Type: types.U8(), Value: uint8(1)},
+							{Name: "threshold", Type: types.I32(), Value: int32(50)},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 					},
 				},
@@ -1244,22 +1189,17 @@ var _ = Describe("State", func() {
 					{
 						Key: "source",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U32()},
+							{Name: ir.DefaultOutputParam, Type: types.U32()},
 						},
 					},
 					{
 						Key: "processor",
 						Inputs: types.Params{
-							Keys:   []string{"value", "offset"},
-							Values: []types.Type{types.U32(), types.U32()},
-						},
-						InputDefaults: map[string]any{
-							"offset": uint32(100),
+							{Name: "value", Type: types.U32()},
+							{Name: "offset", Type: types.U32(), Value: uint32(100)},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U32()},
+							{Name: ir.DefaultOutputParam, Type: types.U32()},
 						},
 					},
 				},
@@ -1308,22 +1248,17 @@ var _ = Describe("State", func() {
 					{
 						Key: "input",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 					},
 					{
 						Key: "adder",
 						Inputs: types.Params{
-							Keys:   []string{"base", "offset"},
-							Values: []types.Type{types.I32(), types.I32()},
-						},
-						InputDefaults: map[string]any{
-							"offset": int32(0),
+							{Name: "base", Type: types.I32()},
+							{Name: "offset", Type: types.I32(), Value: int32(0)},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 					},
 				},
@@ -1356,16 +1291,11 @@ var _ = Describe("State", func() {
 					{
 						Key: "generator",
 						Inputs: types.Params{
-							Keys:   []string{"seed", "multiplier"},
-							Values: []types.Type{types.I64(), types.I64()},
-						},
-						InputDefaults: map[string]any{
-							"seed":       int64(42),
-							"multiplier": int64(7),
+							{Name: "seed", Type: types.I64(), Value: int64(42)},
+							{Name: "multiplier", Type: types.I64(), Value: int64(7)},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 					},
 				},

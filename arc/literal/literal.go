@@ -121,7 +121,7 @@ func parseIntegerLiteral(text string, targetType types.Type) (ParsedValue, error
 	case types.KindF64:
 		return ParsedValue{Value: float64(value), Type: types.F64()}, nil
 	default:
-		// Default to i64 if type not recognized
+		// Value to i64 if type not recognized
 		return ParsedValue{Value: value, Type: types.I64()}, nil
 	}
 }
@@ -215,7 +215,7 @@ func parseFloatLiteral(text string, targetType types.Type) (ParsedValue, error) 
 		}
 		return ParsedValue{Value: uint64(value), Type: types.U64()}, nil
 	default:
-		// Default to f64 if type not recognized
+		// Value to f64 if type not recognized
 		return ParsedValue{Value: value, Type: types.F64()}, nil
 	}
 }

@@ -66,28 +66,20 @@ var _ = Describe("Text", func() {
 
 			f := inter.Functions[0]
 			Expect(f.Key).To(Equal("add"))
-			Expect(f.Inputs.Count()).To(Equal(2))
-			v, ok := f.Inputs.Get("a")
-			Expect(ok).To(BeTrue())
-			Expect(v).To(Equal(types.I64()))
-			v, ok = f.Inputs.Get("b")
-			Expect(ok).To(BeTrue())
-			Expect(v).To(Equal(types.I64()))
+			Expect(f.Inputs).To(HaveLen(2))
+			Expect(f.Inputs[0].Type).To(Equal(types.I64()))
+			Expect(f.Inputs[1].Type).To(Equal(types.I64()))
 
 			s := inter.Functions[1]
 			Expect(s.Key).To(Equal("adder"))
-			Expect(s.Inputs.Count()).To(Equal(2))
-			v, ok = s.Inputs.Get("a")
-			Expect(ok).To(BeTrue())
-			Expect(v).To(Equal(types.I64()))
-			v, ok = s.Inputs.Get("b")
-			Expect(ok).To(BeTrue())
-			Expect(v).To(Equal(types.I64()))
+			Expect(s.Inputs).To(HaveLen(2))
+			Expect(s.Inputs[0].Type).To(Equal(types.I64()))
+			Expect(s.Inputs[1].Type).To(Equal(types.I64()))
 
 			n1 := inter.Nodes[0]
 			Expect(n1.Key).To(Equal("adder_0"))
 			Expect(n1.Type).To(Equal("adder"))
-			Expect(n1.ConfigValues).To(HaveLen(0))
+			Expect(n1.Config).To(HaveLen(0))
 			Expect(n1.Channels.Read).ToNot(BeNil())
 			Expect(n1.Channels.Read).To(BeEmpty())
 			Expect(n1.Channels.Write).ToNot(BeNil())
@@ -122,8 +114,9 @@ var _ = Describe("Text", func() {
 				channelNode := inter.Nodes[0]
 				Expect(channelNode.Key).To(Equal("on_0"))
 				Expect(channelNode.Type).To(Equal("on"))
-				Expect(channelNode.ConfigValues).To(HaveKey("channel"))
-				Expect(channelNode.ConfigValues["channel"]).To(Equal(uint32(42)))
+				Expect(channelNode.Config).To(HaveLen(1))
+				Expect(channelNode.Config[0].Name).To(Equal("channel"))
+				Expect(channelNode.Config[0].Type).To(Equal(types.Chan(types.I32())))
 				Expect(channelNode.Channels.Read.Contains(42)).To(BeTrue())
 
 				// Second node should be print function
@@ -167,9 +160,13 @@ var _ = Describe("Text", func() {
 
 				// Verify channel nodes
 				Expect(inter.Nodes[0].Type).To(Equal("on"))
-				Expect(inter.Nodes[0].ConfigValues["channel"]).To(Equal(uint32(10)))
+				Expect(inter.Nodes[0].Config).To(HaveLen(1))
+				Expect(inter.Nodes[0].Config[0].Name).To(Equal("channel"))
+				Expect(inter.Nodes[0].Config[0].Type).To(Equal(types.Chan(types.I32())))
 				Expect(inter.Nodes[2].Type).To(Equal("on"))
-				Expect(inter.Nodes[2].ConfigValues["channel"]).To(Equal(uint32(20)))
+				Expect(inter.Nodes[2].Config).To(HaveLen(1))
+				Expect(inter.Nodes[2].Config[0].Name).To(Equal("channel"))
+				Expect(inter.Nodes[2].Config[0].Type).To(Equal(types.Chan(types.F64())))
 			})
 
 			It("Should report error for unresolved channel", func() {
@@ -241,10 +238,13 @@ var _ = Describe("Text", func() {
 				Expect(inter.Nodes).To(HaveLen(2))
 				node := inter.Nodes[0]
 				Expect(node.Type).To(Equal("processor"))
-				Expect(node.ConfigValues).To(HaveKey("threshold"))
-				Expect(node.ConfigValues).To(HaveKey("scale"))
-				Expect(node.ConfigValues["threshold"]).To(Equal("100"))
-				Expect(node.ConfigValues["scale"]).To(Equal("2.5"))
+				Expect(len(node.Config)).To(Equal(2))
+				Expect(node.Config[0].Name).To(Equal("threshold"))
+				Expect(node.Config[0].Type).To(Equal(types.I64()))
+				Expect(node.Config[0].Value).To(Equal("100"))
+				Expect(node.Config[1].Name).To(Equal("scale"))
+				Expect(node.Config[1].Type).To(Equal(types.F64()))
+				Expect(node.Config[1].Value).To(Equal("2.5"))
 			})
 
 			It("Should handle simple config with multiple values", func() {
@@ -268,9 +268,16 @@ var _ = Describe("Text", func() {
 
 				node := inter.Nodes[0]
 				Expect(node.Type).To(Equal("calculator"))
-				Expect(node.ConfigValues["a"]).To(Equal("10"))
-				Expect(node.ConfigValues["b"]).To(Equal("20"))
-				Expect(node.ConfigValues["c"]).To(Equal("30"))
+				Expect(len(node.Config)).To(Equal(3))
+				Expect(node.Config[0].Name).To(Equal("a"))
+				Expect(node.Config[0].Type).To(Equal(types.I64()))
+				Expect(node.Config[0].Value).To(Equal("10"))
+				Expect(node.Config[1].Name).To(Equal("b"))
+				Expect(node.Config[1].Type).To(Equal(types.I64()))
+				Expect(node.Config[1].Value).To(Equal("20"))
+				Expect(node.Config[2].Name).To(Equal("c"))
+				Expect(node.Config[2].Type).To(Equal(types.I64()))
+				Expect(node.Config[2].Value).To(Equal("30"))
 			})
 		})
 

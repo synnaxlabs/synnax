@@ -48,10 +48,8 @@ var _ = Describe("Telem", func() {
 			It("Should create source node for on type", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
-						Type: "on",
-						ConfigValues: map[string]any{
-							"channel": uint32(42),
-						},
+						Type:   "on",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(42)}},
 					},
 					State: s.Node(ctx, "test"),
 				}
@@ -61,10 +59,8 @@ var _ = Describe("Telem", func() {
 			It("Should parse channel from config", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
-						Type: "on",
-						ConfigValues: map[string]any{
-							"channel": 123,
-						},
+						Type:   "on",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(123)}},
 					},
 					State: s.Node(ctx, "test"),
 				}
@@ -74,10 +70,8 @@ var _ = Describe("Telem", func() {
 			It("Should coerce channel to uint32", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
-						Type: "on",
-						ConfigValues: map[string]any{
-							"channel": float64(99),
-						},
+						Type:   "on",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(99)}},
 					},
 					State: s.Node(ctx, "test"),
 				}
@@ -90,10 +84,8 @@ var _ = Describe("Telem", func() {
 			It("Should create sink node for write type", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
-						Type: "write",
-						ConfigValues: map[string]any{
-							"channel": uint32(10),
-						},
+						Type:   "write",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
 					},
 					State: s.Node(ctx, "test"),
 				}
@@ -106,10 +98,8 @@ var _ = Describe("Telem", func() {
 			It("Should return query.NotFound for unknown node type", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
-						Type: "unknown",
-						ConfigValues: map[string]any{
-							"channel": uint32(1),
-						},
+						Type:   "unknown",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(1)}},
 					},
 					State: s.Node(ctx, "test"),
 				}
@@ -120,10 +110,8 @@ var _ = Describe("Telem", func() {
 			It("Should return error for invalid config", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
-						Type: "on",
-						ConfigValues: map[string]any{
-							"invalid": "field",
-						},
+						Type:   "on",
+						Config: types.Params{{Name: "invalid", Type: types.String(), Value: "field"}},
 					},
 					State: s.Node(ctx, "test"),
 				}
@@ -133,8 +121,8 @@ var _ = Describe("Telem", func() {
 			It("Should return error for missing channel", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
-						Type:         "on",
-						ConfigValues: map[string]any{},
+						Type:   "on",
+						Config: types.Params{},
 					},
 					State: s.Node(ctx, "test"),
 				}
@@ -155,8 +143,7 @@ var _ = Describe("Telem", func() {
 				Functions: []graph.Function{{
 					Key: "on",
 					Outputs: types.Params{
-						Keys:   []string{ir.DefaultOutputParam},
-						Values: []types.Type{types.F32()},
+						{Name: ir.DefaultOutputParam, Type: types.F32()},
 					},
 				}},
 			}
@@ -176,10 +163,8 @@ var _ = Describe("Telem", func() {
 			It("Should read channel data after ingestion", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type: "on",
-						ConfigValues: map[string]any{
-							"channel": uint32(10),
-						},
+						Type:   "on",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
 					},
 					State: s.Node(ctx, "source"),
 				}))
@@ -197,10 +182,8 @@ var _ = Describe("Telem", func() {
 			It("Should handle channel without index", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type: "on",
-						ConfigValues: map[string]any{
-							"channel": uint32(20),
-						},
+						Type:   "on",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}},
 					},
 					State: s.Node(ctx, "source"),
 				}))
@@ -216,10 +199,8 @@ var _ = Describe("Telem", func() {
 			It("Should not trigger on empty channel", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type: "on",
-						ConfigValues: map[string]any{
-							"channel": uint32(999),
-						},
+						Type:   "on",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(999)}},
 					},
 					State: s.Node(ctx, "source"),
 				}))
@@ -232,10 +213,8 @@ var _ = Describe("Telem", func() {
 				nodeState := s.Node(ctx, "source")
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type: "on",
-						ConfigValues: map[string]any{
-							"channel": uint32(10),
-						},
+						Type:   "on",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
 					},
 					State: nodeState,
 				}))
@@ -279,10 +258,8 @@ var _ = Describe("Telem", func() {
 			It("Should skip data when index series count mismatch", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type: "on",
-						ConfigValues: map[string]any{
-							"channel": uint32(10),
-						},
+						Type:   "on",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
 					},
 					State: s.Node(ctx, "source"),
 				}))
@@ -302,11 +279,8 @@ var _ = Describe("Telem", func() {
 				g2 := graph.Graph{
 					Nodes: []graph.Node{{Key: "misaligned", Type: "on"}},
 					Functions: []graph.Function{{
-						Key: "on",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
-						},
+						Key:     "on",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
 					}},
 				}
 				analyzed2, diagnostics2 := graph.Analyze(ctx, g2, rtelem.SymbolResolver)
@@ -320,10 +294,8 @@ var _ = Describe("Telem", func() {
 				s2 := state.New(cfg)
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type: "on",
-						ConfigValues: map[string]any{
-							"channel": uint32(30),
-						},
+						Type:   "on",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(30)}},
 					},
 					State: s2.Node(ctx, "misaligned"),
 				}))
@@ -345,10 +317,8 @@ var _ = Describe("Telem", func() {
 			It("Should initialize without error", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type: "on",
-						ConfigValues: map[string]any{
-							"channel": uint32(10),
-						},
+						Type:   "on",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
 					},
 					State: s.Node(ctx, "source"),
 				}))
@@ -376,18 +346,12 @@ var _ = Describe("Telem", func() {
 				},
 				Functions: []graph.Function{
 					{
-						Key: "producer",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
-						},
+						Key:     "producer",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
 					},
 					{
-						Key: "write",
-						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam},
-							Values: []types.Type{types.F32()},
-						},
+						Key:    "write",
+						Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.F32()}},
 					},
 				},
 			}
@@ -405,10 +369,8 @@ var _ = Describe("Telem", func() {
 			It("Should write channel data when input available", func() {
 				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type: "write",
-						ConfigValues: map[string]any{
-							"channel": uint32(100),
-						},
+						Type:   "write",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
 					},
 					State: s.Node(ctx, "sink"),
 				}))
@@ -427,10 +389,8 @@ var _ = Describe("Telem", func() {
 			It("Should respect RefreshInputs guard", func() {
 				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type: "write",
-						ConfigValues: map[string]any{
-							"channel": uint32(100),
-						},
+						Type:   "write",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
 					},
 					State: s.Node(ctx, "sink"),
 				}))
@@ -442,10 +402,8 @@ var _ = Describe("Telem", func() {
 			It("Should not write when input is empty", func() {
 				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type: "write",
-						ConfigValues: map[string]any{
-							"channel": uint32(100),
-						},
+						Type:   "write",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
 					},
 					State: s.Node(ctx, "sink"),
 				}))
@@ -463,10 +421,8 @@ var _ = Describe("Telem", func() {
 			It("Should handle sequential writes", func() {
 				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type: "write",
-						ConfigValues: map[string]any{
-							"channel": uint32(100),
-						},
+						Type:   "write",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
 					},
 					State: s.Node(ctx, "sink"),
 				}))
@@ -491,10 +447,8 @@ var _ = Describe("Telem", func() {
 			It("Should initialize without error", func() {
 				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type: "write",
-						ConfigValues: map[string]any{
-							"channel": uint32(100),
-						},
+						Type:   "write",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
 					},
 					State: s.Node(ctx, "sink"),
 				}))
@@ -519,18 +473,12 @@ var _ = Describe("Telem", func() {
 					},
 					Functions: []graph.Function{
 						{
-							Key: "on",
-							Outputs: types.Params{
-								Keys:   []string{ir.DefaultOutputParam},
-								Values: []types.Type{types.I32()},
-							},
+							Key:     "on",
+							Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
 						},
 						{
-							Key: "write",
-							Inputs: types.Params{
-								Keys:   []string{ir.DefaultInputParam},
-								Values: []types.Type{types.I32()},
-							},
+							Key:    "write",
+							Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.I32()}},
 						},
 					},
 				}
@@ -546,20 +494,16 @@ var _ = Describe("Telem", func() {
 				factory := rtelem.NewTelemFactory()
 				source, err := factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type: "on",
-						ConfigValues: map[string]any{
-							"channel": uint32(1),
-						},
+						Type:   "on",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(1)}},
 					},
 					State: s.Node(ctx, "read"),
 				})
 				Expect(err).ToNot(HaveOccurred())
 				sink, err := factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type: "write",
-						ConfigValues: map[string]any{
-							"channel": uint32(3),
-						},
+						Type:   "write",
+						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(3)}},
 					},
 					State: s.Node(ctx, "write"),
 				})
@@ -594,13 +538,13 @@ var _ = Describe("Telem", func() {
 					},
 					Functions: []graph.Function{
 						{Key: "on", Outputs: types.Params{
-							Keys: []string{ir.DefaultOutputParam}, Values: []types.Type{types.F32()}}},
+							{Name: ir.DefaultOutputParam, Type: types.F32()}}},
 						{Key: "on2", Outputs: types.Params{
-							Keys: []string{ir.DefaultOutputParam}, Values: []types.Type{types.F64()}}},
+							{Name: ir.DefaultOutputParam, Type: types.F64()}}},
 						{Key: "write", Inputs: types.Params{
-							Keys: []string{ir.DefaultInputParam}, Values: []types.Type{types.F32()}}},
+							{Name: ir.DefaultInputParam, Type: types.F32()}}},
 						{Key: "write2", Inputs: types.Params{
-							Keys: []string{ir.DefaultInputParam}, Values: []types.Type{types.F64()}}},
+							{Name: ir.DefaultInputParam, Type: types.F64()}}},
 					},
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, rtelem.SymbolResolver)
@@ -616,19 +560,19 @@ var _ = Describe("Telem", func() {
 				})
 				factory := rtelem.NewTelemFactory()
 				source1, _ := factory.Create(ctx, rnode.Config{
-					Node:  ir.Node{Type: "on", ConfigValues: map[string]any{"channel": uint32(10)}},
+					Node:  ir.Node{Type: "on", Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}}},
 					State: s.Node(ctx, "read1"),
 				})
 				source2, _ := factory.Create(ctx, rnode.Config{
-					Node:  ir.Node{Type: "on", ConfigValues: map[string]any{"channel": uint32(20)}},
+					Node:  ir.Node{Type: "on", Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}}},
 					State: s.Node(ctx, "read2"),
 				})
 				sink1, _ := factory.Create(ctx, rnode.Config{
-					Node:  ir.Node{Type: "write", ConfigValues: map[string]any{"channel": uint32(30)}},
+					Node:  ir.Node{Type: "write", Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(30)}}},
 					State: s.Node(ctx, "write1"),
 				})
 				sink2, _ := factory.Create(ctx, rnode.Config{
-					Node:  ir.Node{Type: "write", ConfigValues: map[string]any{"channel": uint32(40)}},
+					Node:  ir.Node{Type: "write", Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(40)}}},
 					State: s.Node(ctx, "write2"),
 				})
 				fr := telem.Frame[uint32]{}

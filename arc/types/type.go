@@ -54,10 +54,9 @@
 package types
 
 import (
-	"maps"
 	"slices"
 
-	xmaps "github.com/synnaxlabs/x/maps"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -121,43 +120,62 @@ const (
 
 // NewFunctionProperties creates a new FunctionProperties with empty Inputs, Outputs, and Config.
 func NewFunctionProperties() FunctionProperties {
-	return FunctionProperties{
-		Inputs:         &Params{},
-		Outputs:        &Params{},
-		Config:         &Params{},
-		InputDefaults:  make(map[string]any),
-		ConfigDefaults: make(map[string]any),
-	}
+	return FunctionProperties{}
 }
 
 // Params are named, ordered parameters for a function.
-type Params = xmaps.Ordered[string, Type]
+type Params []Param
+
+func (p Params) Get(name string) (Param, bool) {
+	return lo.Find(p, func(item Param) bool {
+		return item.Name == name
+	})
+}
+
+func (p Params) GetIndex(name string) int {
+	_, i, ok := lo.FindIndexOf(p, func(item Param) bool {
+		return item.Name == name
+	})
+	if !ok {
+		return -1
+	}
+	return i
+}
+
+func (p Params) Has(name string) bool {
+	_, ok := p.Get(name)
+	return ok
+}
+
+func (p Params) ValueMap() map[string]any {
+	return lo.SliceToMap(p, func(item Param) (string, any) {
+		return item.Name, item.Value
+	})
+}
+
+type Param struct {
+	Name  string `json:"name"`
+	Type  Type   `json:"type"`
+	Value any    `json:"value"`
+}
 
 // FunctionProperties holds the inputs, outputs, and configuration parameters for function
 // types.
 type FunctionProperties struct {
 	// Inputs are the input parameters for the function.
-	Inputs *Params `json:"inputs,omitempty" msgpack:"inputs,omitempty"`
+	Inputs Params `json:"inputs,omitempty" msgpack:"inputs,omitempty"`
 	// Outputs are the output/return values for the function.
-	Outputs *Params `json:"outputs,omitempty" msgpack:"outputs,omitempty"`
+	Outputs Params `json:"outputs,omitempty" msgpack:"outputs,omitempty"`
 	// Config are the configuration parameters for the function.
-	Config *Params `json:"config,omitempty" msgpack:"config,omitempty"`
-	// InputDefaults stores default values for optional input parameters.
-	// The map key is the parameter name, and the value is the default literal value.
-	InputDefaults map[string]any `json:"input_defaults,omitempty" msgpack:"input_defaults,omitempty"`
-	// ConfigDefaults stores default values for optional config parameters.
-	// The map key is the parameter name, and the value is the default literal value.
-	ConfigDefaults map[string]any `json:"config_defaults,omitempty" msgpack:"config_defaults,omitempty"`
+	Config Params `json:"config,omitempty" msgpack:"config,omitempty"`
 }
 
 // Copy creates a deep copy of the function properties.
 func (f FunctionProperties) Copy() FunctionProperties {
 	return FunctionProperties{
-		Inputs:         f.Inputs.Copy(),
-		Outputs:        f.Outputs.Copy(),
-		Config:         f.Config.Copy(),
-		InputDefaults:  maps.Clone(f.InputDefaults),
-		ConfigDefaults: maps.Clone(f.ConfigDefaults),
+		Inputs:  slices.Clone(f.Inputs),
+		Outputs: slices.Clone(f.Outputs),
+		Config:  slices.Clone(f.Config),
 	}
 }
 
@@ -295,15 +313,6 @@ func FloatConstraint() Type { return Type{Kind: KindFloatConstant} }
 
 // Function creates a function type with the given inputs, outputs, and optional config
 func Function(props FunctionProperties) Type {
-	if props.Inputs == nil {
-		props.Inputs = &Params{}
-	}
-	if props.Outputs == nil {
-		props.Outputs = &Params{}
-	}
-	if props.Config == nil {
-		props.Config = &Params{}
-	}
 	return Type{Kind: KindFunction, FunctionProperties: props}
 }
 
@@ -442,25 +451,22 @@ func Equal(t Type, v Type) bool {
 	return true
 }
 
-// paramsEqual checks if two Params (maps.Ordered) are equal
-func paramsEqual(a, b *Params) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
+func paramsEqual(a, b Params) bool {
+	if len(a) != len(b) {
 		return false
 	}
-	if a.Count() != b.Count() {
-		return false
-	}
-	for k, vA := range a.Iter() {
-		vB, ok := b.Get(k)
-		if !ok {
+	for i, pA := range a {
+		pB := b[i]
+		if pB.Name != pA.Name {
 			return false
 		}
-		if !Equal(vA, vB) {
+		if pB.Value != pA.Value {
 			return false
 		}
+		if !Equal(pA.Type, pB.Type) {
+			return false
+		}
+
 	}
 	return true
 }

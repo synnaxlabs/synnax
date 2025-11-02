@@ -10,7 +10,7 @@
 package types
 
 import (
-	"maps"
+	"slices"
 )
 
 // Freshen creates a copy of t with all type variables renamed using the given prefix.
@@ -32,13 +32,13 @@ func Freshen(t Type, prefix string) Type {
 }
 
 func freshenParams(
-	params *Params,
+	params Params,
 	prefix string,
 	mapping map[string]Type,
-) *Params {
-	fresh := &Params{}
-	for k, v := range params.Iter() {
-		fresh.Put(k, freshen(v, prefix, mapping))
+) Params {
+	fresh := slices.Clone(params)
+	for i, v := range params {
+		fresh[i].Type = freshen(v.Type, prefix, mapping)
 	}
 	return fresh
 }
@@ -67,11 +67,9 @@ func freshen(t Type, prefix string, mapping map[string]Type) Type {
 	}
 	if t.Kind == KindFunction {
 		props := FunctionProperties{
-			Inputs:         freshenParams(t.Inputs, prefix, mapping),
-			Outputs:        freshenParams(t.Outputs, prefix, mapping),
-			Config:         freshenParams(t.Config, prefix, mapping),
-			InputDefaults:  maps.Clone(t.InputDefaults),
-			ConfigDefaults: maps.Clone(t.ConfigDefaults),
+			Inputs:  freshenParams(t.Inputs, prefix, mapping),
+			Outputs: freshenParams(t.Outputs, prefix, mapping),
+			Config:  freshenParams(t.Config, prefix, mapping),
 		}
 		return Type{Kind: KindFunction, FunctionProperties: props}
 	}

@@ -24,11 +24,11 @@ var _ = Describe("IR", func() {
 	Describe("JSON Marshaling", func() {
 		It("Should marshal and unmarshal a complete IR structure", func() {
 			inputs := types.Params{}
-			inputs.Put("a", types.I64())
-			inputs.Put("b", types.I64())
+			inputs = append(inputs, types.Param{Name: "a", Type: types.I64()})
+			inputs = append(inputs, types.Param{Name: "b", Type: types.I64()})
 
 			outputs := types.Params{}
-			outputs.Put(ir.DefaultOutputParam, types.I64())
+			outputs = append(outputs, types.Param{Name: ir.DefaultOutputParam, Type: types.I64()})
 
 			original := &ir.IR{
 				Functions: ir.Functions{
@@ -40,16 +40,16 @@ var _ = Describe("IR", func() {
 				},
 				Nodes: ir.Nodes{
 					{
-						Key:          "node1",
-						Type:         "add",
-						ConfigValues: map[string]any{"multiplier": 2.0},
-						Inputs:       inputs,
-						Outputs:      outputs,
+						Key:     "node1",
+						Type:    "add",
+						Config:  types.Params{{Name: "multiplier", Type: types.F64(), Value: 2.0}},
+						Inputs:  inputs,
+						Outputs: outputs,
 					},
 				},
 				Edges: ir.Edges{
 					{
-						Source: ir.Handle{Node: "input_a", Param: "value"},
+						Source: ir.Handle{Node: "input_a", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "node1", Param: "a"},
 					},
 					{
@@ -73,13 +73,13 @@ var _ = Describe("IR", func() {
 
 			Expect(restored.Functions).To(HaveLen(1))
 			Expect(restored.Functions[0].Key).To(Equal("add"))
-			Expect(restored.Functions[0].Inputs.Count()).To(Equal(2))
-			Expect(restored.Functions[0].Outputs.Count()).To(Equal(1))
+			Expect(restored.Functions[0].Inputs).To(HaveLen(2))
+			Expect(restored.Functions[0].Outputs).To(HaveLen(1))
 
 			Expect(restored.Nodes).To(HaveLen(1))
 			Expect(restored.Nodes[0].Key).To(Equal("node1"))
 			Expect(restored.Nodes[0].Type).To(Equal("add"))
-			Expect(restored.Nodes[0].ConfigValues["multiplier"]).To(Equal(2.0))
+			Expect(restored.Nodes[0].Config[0].Value).To(Equal(2.0))
 
 			Expect(restored.Edges).To(HaveLen(2))
 			Expect(restored.Edges[0].Source.Node).To(Equal("input_a"))
@@ -126,12 +126,14 @@ var _ = Describe("IR", func() {
 
 	Describe("Complete IR Construction", func() {
 		It("Should build a complete IR with all components", func() {
-			inputs := types.Params{}
-			inputs.Put(ir.LHSInputParam, types.I64())
-			inputs.Put(ir.RHSInputParam, types.I64())
+			inputs := types.Params{
+				{Name: ir.LHSInputParam, Type: types.I64()},
+				{Name: ir.RHSInputParam, Type: types.I64()},
+			}
 
-			outputs := types.Params{}
-			outputs.Put(ir.DefaultOutputParam, types.I64())
+			outputs := types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.I64()},
+			}
 
 			program := &ir.IR{
 				Functions: ir.Functions{

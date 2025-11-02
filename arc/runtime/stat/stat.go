@@ -38,22 +38,16 @@ func createBaseSymbol(name string) symbol.Symbol {
 		Name: name,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Config: &types.Params{
-				Keys:   []string{durationConfigParam, countConfigParam},
-				Values: []types.Type{types.TimeSpan(), types.I64()},
+			Config: types.Params{
+				{Name: durationConfigParam, Type: types.TimeSpan(), Value: telem.TimeSpanZero},
+				{Name: countConfigParam, Type: types.I64(), Value: 0},
 			},
-			Inputs: &types.Params{
-				Keys:   []string{ir.DefaultInputParam, resetInputParam},
-				Values: []types.Type{types.Variable("T", &constraint), types.U8()},
+			Inputs: types.Params{
+				{Name: ir.DefaultInputParam, Type: types.Variable("T", &constraint)},
+				{Name: resetInputParam, Type: types.U8(), Value: 0},
 			},
-			Outputs: &types.Params{
-				Keys:   []string{ir.DefaultOutputParam},
-				Values: []types.Type{types.Variable("T", &constraint)},
-			},
-			InputDefaults: map[string]any{resetInputParam: 0},
-			ConfigDefaults: map[string]any{
-				durationConfigParam: telem.TimeSpan(0),
-				countConfigParam:    0,
+			Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)},
 			},
 		}),
 	}
@@ -179,7 +173,7 @@ func (f *statFactory) Create(_ context.Context, nodeCfg node.Config) (node.Node,
 		resetIdx = 1
 	}
 	var cfg ConfigValues
-	if err := configSchema.Parse(nodeCfg.Node.ConfigValues, &cfg); err != nil {
+	if err := configSchema.Parse(nodeCfg.Node.Config.ValueMap(), &cfg); err != nil {
 		return nil, err
 	}
 	return &stat{

@@ -21,14 +21,11 @@ func createBinaryOpSymbol(name string, outputs types.Params) symbol.Symbol {
 		Name: name,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Inputs: &types.Params{
-				Keys: []string{ir.LHSInputParam, ir.RHSInputParam},
-				Values: []types.Type{
-					types.Variable("T", &constraint),
-					types.Variable("T", &constraint),
-				},
+			Inputs: types.Params{
+				{Name: ir.LHSInputParam, Type: types.Variable("T", &constraint)},
+				{Name: ir.RHSInputParam, Type: types.Variable("T", &constraint)},
 			},
-			Outputs: &outputs,
+			Outputs: outputs,
 		}),
 	}
 }
@@ -36,10 +33,7 @@ func createBinaryOpSymbol(name string, outputs types.Params) symbol.Symbol {
 func createComparisonSymbol(name string) symbol.Symbol {
 	return createBinaryOpSymbol(
 		name,
-		types.Params{
-			Keys:   []string{ir.DefaultOutputParam},
-			Values: []types.Type{types.U8()},
-		},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 	)
 }
 
@@ -47,10 +41,7 @@ func createArithmeticSymbol(name string) symbol.Symbol {
 	constraint := types.NumericConstraint()
 	return createBinaryOpSymbol(
 		name,
-		types.Params{
-			Keys:   []string{ir.DefaultOutputParam},
-			Values: []types.Type{types.Variable("T", &constraint)},
-		},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)}},
 	)
 }
 
@@ -59,11 +50,8 @@ func createUnaryOpSymbol(name string, inputType types.Type, outputs types.Params
 		Name: name,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Inputs: &types.Params{
-				Keys:   []string{ir.DefaultInputParam},
-				Values: []types.Type{inputType},
-			},
-			Outputs: &outputs,
+			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: inputType}},
+			Outputs: outputs,
 		}),
 	}
 }
@@ -72,10 +60,7 @@ func createNotSymbol(name string) symbol.Symbol {
 	return createUnaryOpSymbol(
 		name,
 		types.U8(),
-		types.Params{
-			Keys:   []string{ir.DefaultOutputParam},
-			Values: []types.Type{types.U8()},
-		},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 	)
 }
 
@@ -84,10 +69,7 @@ func createNegateSymbol(name string) symbol.Symbol {
 	return createUnaryOpSymbol(
 		name,
 		types.Variable("T", &constraint),
-		types.Params{
-			Keys:   []string{ir.DefaultOutputParam},
-			Values: []types.Type{types.Variable("T", &constraint)},
-		},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)}},
 	)
 }
 

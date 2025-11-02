@@ -286,7 +286,7 @@ var _ = Describe("Type Unification", func() {
 			})
 		})
 
-		Describe("Default Type Selection", func() {
+		Describe("Value Type Selection", func() {
 			It("should default numeric constraint to f64", func() {
 				constraint := types.NumericConstraint()
 				tv := types.Variable("T", &constraint)

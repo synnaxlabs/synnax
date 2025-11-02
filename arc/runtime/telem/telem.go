@@ -28,14 +28,8 @@ var (
 		Name: sourceSymbolName,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Outputs: &types.Params{
-				Keys:   []string{ir.DefaultOutputParam},
-				Values: []types.Type{types.Variable("T", nil)},
-			},
-			Config: &types.Params{
-				Keys:   []string{"channel"},
-				Values: []types.Type{types.Chan(types.Variable("T", nil))},
-			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)}},
+			Config:  types.Params{{Name: "channel", Type: types.Chan(types.Variable("T", nil))}},
 		}),
 	}
 	sinkSymbolName = "write"
@@ -43,14 +37,8 @@ var (
 		Name: sinkSymbolName,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Inputs: &types.Params{
-				Keys:   []string{ir.DefaultInputParam},
-				Values: []types.Type{types.Variable("T", nil)},
-			},
-			Config: &types.Params{
-				Keys:   []string{"channel"},
-				Values: []types.Type{types.Chan(types.Variable("T", nil))},
-			},
+			Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
+			Config: types.Params{{Name: "channel", Type: types.Chan(types.Variable("T", nil))}},
 		}),
 	}
 	SymbolResolver = symbol.MapResolver{
@@ -146,7 +134,7 @@ func (t telemFactory) Create(_ context.Context, cfg node.Config) (node.Node, err
 		return nil, query.NotFound
 	}
 	var nodeCfg config
-	if err := schema.Parse(cfg.Node.ConfigValues, &nodeCfg); err != nil {
+	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
 		return nil, err
 	}
 	if isSource {

@@ -55,19 +55,17 @@ var _ = Describe("Select", func() {
 					{
 						Key: "source",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 					},
 					{
 						Key: "select",
 						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultInputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
-							Keys:   []string{"true", "false"},
-							Values: []types.Type{types.U8(), types.U8()},
+							{Name: "true", Type: types.U8()},
+							{Name: "false", Type: types.U8()},
 						},
 					},
 				},
@@ -110,19 +108,17 @@ var _ = Describe("Select", func() {
 					{
 						Key: "source",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 					},
 					{
 						Key: "select",
 						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultInputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
-							Keys:   []string{"true", "false"},
-							Values: []types.Type{types.U8(), types.U8()},
+							{Name: "true", Type: types.U8()},
+							{Name: "false", Type: types.U8()},
 						},
 					},
 				},
@@ -163,19 +159,17 @@ var _ = Describe("Select", func() {
 					{
 						Key: "source",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 					},
 					{
 						Key: "select",
 						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam},
-							Values: []types.Type{types.U8()},
+							{Name: ir.DefaultInputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
-							Keys:   []string{"true", "false"},
-							Values: []types.Type{types.U8(), types.U8()},
+							{Name: "true", Type: types.U8()},
+							{Name: "false", Type: types.U8()},
 						},
 					},
 				},

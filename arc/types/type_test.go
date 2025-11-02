@@ -93,8 +93,8 @@ var _ = Describe("Types", func() {
 		Describe("Function types", func() {
 			It("should return function type unchanged", func() {
 				props := types.NewFunctionProperties()
-				props.Inputs.Put("x", types.I32())
-				props.Outputs.Put("result", types.I32())
+				props.Inputs = append(props.Inputs, types.Param{Name: "x", Type: types.I32()})
+				props.Outputs = append(props.Outputs, types.Param{Name: "result", Type: types.I32()})
 				fnType := types.Function(props)
 				Expect(fnType.Unwrap()).To(Equal(fnType))
 			})
@@ -414,63 +414,63 @@ var _ = Describe("Types", func() {
 
 		It("Should compare function types", func() {
 			props1 := types.NewFunctionProperties()
-			props1.Inputs.Put("x", types.I32())
-			props1.Outputs.Put("y", types.I32())
+			props1.Inputs = append(props1.Inputs, types.Param{Name: "x", Type: types.I32()})
+			props1.Outputs = append(props1.Outputs, types.Param{Name: "y", Type: types.I32()})
 
 			props2 := types.NewFunctionProperties()
-			props2.Inputs.Put("x", types.I32())
-			props2.Outputs.Put("y", types.I32())
+			props2.Inputs = append(props2.Inputs, types.Param{Name: "x", Type: types.I32()})
+			props2.Outputs = append(props2.Outputs, types.Param{Name: "y", Type: types.I32()})
 
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeTrue())
 		})
 
 		It("Should return false for function types with different inputs", func() {
 			props1 := types.NewFunctionProperties()
-			props1.Inputs.Put("x", types.I32())
+			props1.Inputs = append(props1.Inputs, types.Param{Name: "x", Type: types.I32()})
 
 			props2 := types.NewFunctionProperties()
-			props2.Inputs.Put("y", types.I32())
+			props2.Inputs = append(props2.Inputs, types.Param{Name: "y", Type: types.I32()})
 
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
 
 		It("Should return false for function types with different input types", func() {
 			props1 := types.NewFunctionProperties()
-			props1.Inputs.Put("x", types.I32())
+			props1.Inputs = append(props1.Inputs, types.Param{Name: "x", Type: types.I32()})
 
 			props2 := types.NewFunctionProperties()
-			props2.Inputs.Put("x", types.F64())
+			props2.Inputs = append(props2.Inputs, types.Param{Name: "x", Type: types.F64()})
 
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
 
 		It("Should return false for function types with different input counts", func() {
 			props1 := types.NewFunctionProperties()
-			props1.Inputs.Put("x", types.I32())
-			props1.Inputs.Put("y", types.I32())
+			props1.Inputs = append(props1.Inputs, types.Param{Name: "x", Type: types.I32()})
+			props1.Inputs = append(props1.Inputs, types.Param{Name: "y", Type: types.I32()})
 
 			props2 := types.NewFunctionProperties()
-			props2.Inputs.Put("x", types.I32())
+			props2.Inputs = append(props2.Inputs, types.Param{Name: "x", Type: types.I32()})
 
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
 
 		It("Should return false for function types with different outputs", func() {
 			props1 := types.NewFunctionProperties()
-			props1.Outputs.Put("result", types.I32())
+			props1.Outputs = append(props1.Outputs, types.Param{Name: "result", Type: types.I32()})
 
 			props2 := types.NewFunctionProperties()
-			props2.Outputs.Put("result", types.F64())
+			props2.Outputs = append(props2.Outputs, types.Param{Name: "result", Type: types.F64()})
 
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
 
 		It("Should return false for function types with different config", func() {
 			props1 := types.NewFunctionProperties()
-			props1.Config.Put("option", types.I32())
+			props1.Config = append(props1.Config, types.Param{Name: "option", Type: types.I32()})
 
 			props2 := types.NewFunctionProperties()
-			props2.Config.Put("option", types.F64())
+			props2.Config = append(props2.Config, types.Param{Name: "option", Type: types.F64()})
 
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
@@ -479,19 +479,18 @@ var _ = Describe("Types", func() {
 	Describe("FunctionProperties", func() {
 		It("Should create a deep copy of function properties", func() {
 			props := types.NewFunctionProperties()
-			props.Inputs.Put("x", types.I32())
-			props.Outputs.Put("y", types.F64())
-			props.Config.Put("debug", types.U8())
+			props.Inputs = append(props.Inputs, types.Param{Name: "x", Type: types.I32()})
+			props.Outputs = append(props.Outputs, types.Param{Name: "y", Type: types.F64()})
+			props.Config = append(props.Config, types.Param{Name: "debug", Type: types.U8()})
 
 			copied := props.Copy()
 
-			Expect(copied.Inputs.Count()).To(Equal(1))
-			Expect(copied.Outputs.Count()).To(Equal(1))
-			Expect(copied.Config.Count()).To(Equal(1))
+			Expect(len(copied.Inputs)).To(Equal(1))
+			Expect(len(copied.Outputs)).To(Equal(1))
+			Expect(len(copied.Config)).To(Equal(1))
 
-			inputX, ok := copied.Inputs.Get("x")
-			Expect(ok).To(BeTrue())
-			Expect(inputX).To(Equal(types.I32()))
+			inputX := copied.Inputs[0]
+			Expect(inputX.Type).To(Equal(types.I32()))
 		})
 	})
 
@@ -500,16 +499,16 @@ var _ = Describe("Types", func() {
 			var props types.FunctionProperties
 			fn := types.Function(props)
 			Expect(fn.Kind).To(Equal(types.KindFunction))
-			Expect(fn.Inputs).NotTo(BeNil())
-			Expect(fn.Outputs).NotTo(BeNil())
-			Expect(fn.Config).NotTo(BeNil())
+			Expect(fn.Inputs).To(BeNil())
+			Expect(fn.Outputs).To(BeNil())
+			Expect(fn.Config).To(BeNil())
 		})
 
 		It("Should preserve provided inputs/outputs/config", func() {
 			props := types.NewFunctionProperties()
-			props.Inputs.Put("x", types.I32())
+			props.Inputs = append(props.Inputs, types.Param{Name: "x", Type: types.I32()})
 			fn := types.Function(props)
-			Expect(fn.Inputs.Count()).To(Equal(1))
+			Expect(len(fn.Inputs)).To(Equal(1))
 		})
 	})
 
