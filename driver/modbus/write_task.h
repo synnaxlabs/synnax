@@ -100,9 +100,10 @@ public:
     xerrors::Error initialize_state(const std::shared_ptr<device::Device> &dev) {
         if (!this->state.empty()) return xerrors::NIL;
         const auto &last_ch = channels.back();
+        // Use ceiling division to convert bytes to 16-bit registers
         state.resize(
             last_ch.address - channels.front().address +
-            last_ch.value_type.density() / 2
+            (last_ch.value_type.density() + 1) / 2
         );
         return dev->read_registers(
             device::HoldingRegister,

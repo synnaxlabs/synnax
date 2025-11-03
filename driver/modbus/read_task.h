@@ -70,7 +70,8 @@ public:
         BaseReader(chs), register_type(register_type) {
         auto first_addr = this->channels.front().address;
         auto last_addr = this->channels.back().address;
-        last_addr += this->channels.back().value_type.density() / 2;
+        // Use ceiling division to convert bytes to 16-bit registers
+        last_addr += (this->channels.back().value_type.density() + 1) / 2;
         this->buffer.resize(last_addr - first_addr);
     }
 

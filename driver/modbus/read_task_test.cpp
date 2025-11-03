@@ -441,3 +441,135 @@ TEST_F(ModbusReadTest, testModbusDriverSetsAutoCommitTrue) {
     auto writer_cfg = task_cfg->writer_config();
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
 }
+
+/// Regression test for buffer size calculation bug with UINT8 registers.
+/// This test ensures that multiple sequential UINT8 input registers are read correctly,
+/// especially the last channel which was previously always zero due to an off-by-one
+/// error in the buffer size calculation (density / 2 should be ceiling division).
+TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
+    // Set up mock slave with multiple UINT8 input register values
+    modbus::mock::SlaveConfig slave_cfg;
+    slave_cfg.input_registers[0] = 100;
+    slave_cfg.input_registers[1] = 150;
+    slave_cfg.input_registers[2] = 200;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = modbus::mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer stop_slave([&slave] { slave.stop(); });
+
+    // Create three UINT8 channels for sequential input registers
+    auto input0 = ASSERT_NIL_P(
+        sy->channels.create("input_reg_0", telem::UINT8_T, index_channel.key)
+    );
+    auto input1 = ASSERT_NIL_P(
+        sy->channels.create("input_reg_1", telem::UINT8_T, index_channel.key)
+    );
+    auto input2 = ASSERT_NIL_P(
+        sy->channels.create("input_reg_2", telem::UINT8_T, index_channel.key)
+    );
+
+    // Create task configuration with three sequential UINT8 input registers
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(create_channel_config("register_input", input0, 0));
+    cfg["channels"].push_back(create_channel_config("register_input", input1, 1));
+    cfg["channels"].push_back(create_channel_config("register_input", input2, 2));
+
+    auto p = xjson::Parser(cfg);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    ASSERT_NIL(p.error());
+
+    auto devs = std::make_shared<modbus::device::Manager>();
+    auto modbus_dev = ASSERT_NIL_P(
+        devs->acquire(modbus::device::ConnectionConfig{"127.0.0.1", 1502})
+    );
+
+    auto task = common::ReadTask(
+        synnax::Task(rack.key, "uint8_test", "modbus_read", ""),
+        ctx,
+        breaker::default_config("uint8_test"),
+        std::make_unique<modbus::ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        mock_factory
+    );
+
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
+    task.stop("stop_cmd", true);
+
+    auto &fr = mock_factory->writes->at(0);
+    ASSERT_EQ(fr.size(), 4); // 3 data channels + 1 index channel
+    ASSERT_EQ(fr.length(), 1);
+    // All three channels should have correct values, including the last one
+    ASSERT_EQ(fr.at<uint8_t>(input0.key, 0), 100);
+    ASSERT_EQ(fr.at<uint8_t>(input1.key, 0), 150);
+    ASSERT_EQ(fr.at<uint8_t>(input2.key, 0), 200); // This would have been 0 before the fix
+}
+
+/// Regression test for buffer size calculation bug with UINT8 holding registers.
+/// Similar to testMultipleUint8InputRegisters but tests holding registers instead.
+TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
+    // Set up mock slave with multiple UINT8 holding register values
+    modbus::mock::SlaveConfig slave_cfg;
+    slave_cfg.holding_registers[0] = 50;
+    slave_cfg.holding_registers[1] = 75;
+    slave_cfg.holding_registers[2] = 125;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = modbus::mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer stop_slave([&slave] { slave.stop(); });
+
+    // Create three UINT8 channels for sequential holding registers
+    auto holding0 = ASSERT_NIL_P(
+        sy->channels.create("holding_reg_0", telem::UINT8_T, index_channel.key)
+    );
+    auto holding1 = ASSERT_NIL_P(
+        sy->channels.create("holding_reg_1", telem::UINT8_T, index_channel.key)
+    );
+    auto holding2 = ASSERT_NIL_P(
+        sy->channels.create("holding_reg_2", telem::UINT8_T, index_channel.key)
+    );
+
+    // Create task configuration with three sequential UINT8 holding registers
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(
+        create_channel_config("holding_register_input", holding0, 0)
+    );
+    cfg["channels"].push_back(
+        create_channel_config("holding_register_input", holding1, 1)
+    );
+    cfg["channels"].push_back(
+        create_channel_config("holding_register_input", holding2, 2)
+    );
+
+    auto p = xjson::Parser(cfg);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    ASSERT_NIL(p.error());
+
+    auto devs = std::make_shared<modbus::device::Manager>();
+    auto modbus_dev = ASSERT_NIL_P(
+        devs->acquire(modbus::device::ConnectionConfig{"127.0.0.1", 1502})
+    );
+
+    auto task = common::ReadTask(
+        synnax::Task(rack.key, "uint8_holding_test", "modbus_read", ""),
+        ctx,
+        breaker::default_config("uint8_holding_test"),
+        std::make_unique<modbus::ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        mock_factory
+    );
+
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
+    task.stop("stop_cmd", true);
+
+    auto &fr = mock_factory->writes->at(0);
+    ASSERT_EQ(fr.size(), 4); // 3 data channels + 1 index channel
+    ASSERT_EQ(fr.length(), 1);
+    // All three channels should have correct values, including the last one
+    ASSERT_EQ(fr.at<uint8_t>(holding0.key, 0), 50);
+    ASSERT_EQ(fr.at<uint8_t>(holding1.key, 0), 75);
+    ASSERT_EQ(fr.at<uint8_t>(holding2.key, 0), 125); // This would have been 0 before the fix
+}
