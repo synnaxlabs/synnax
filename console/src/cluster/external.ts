@@ -19,7 +19,6 @@ export * from "@/cluster/detectConnection";
 export * from "@/cluster/list";
 export * from "@/cluster/selectors";
 export * from "@/cluster/slice";
-export * from "@/cluster/testConnection";
 export * from "@/cluster/useCopyLinkToClipboard";
 export * from "@/cluster/useSyncClusterKey";
 
