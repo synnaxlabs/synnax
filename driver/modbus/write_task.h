@@ -145,9 +145,15 @@ struct WriteTaskConfig {
     device::ConnectionConfig conn;
     /// @brief the list of writers to use for writing data to the device.
     std::vector<std::unique_ptr<Writer>> writers;
+    /// @brief whether to save data permanently or just stream it.
+    bool data_saving;
+    /// @brief whether to automatically start the task after configuration.
+    bool auto_start;
 
     WriteTaskConfig(const std::shared_ptr<synnax::Synnax> &client, xjson::Parser &cfg):
-        device_key(cfg.required<std::string>("device")) {
+        device_key(cfg.required<std::string>("device")),
+        data_saving(cfg.optional<bool>("data_saving", false)),
+        auto_start(cfg.optional<bool>("auto_start", false)) {
         auto [dev_info, dev_err] = client->hardware.retrieve_device(this->device_key);
         if (dev_err) {
             cfg.field_err("device", dev_err);

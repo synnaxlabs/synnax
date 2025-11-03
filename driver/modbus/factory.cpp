@@ -35,6 +35,7 @@ common::ConfigureResult configure_read(
         breaker::default_config(task.name),
         std::make_unique<ReadTaskSource>(dev, std::move(cfg))
     );
+    result.auto_start = cfg.auto_start;
     return result;
 }
 
@@ -65,6 +66,7 @@ common::ConfigureResult configure_write(
         breaker::default_config(task.name),
         std::make_unique<WriteTaskSink>(dev, std::move(cfg))
     );
+    result.auto_start = cfg.auto_start;
     return result;
 }
 
