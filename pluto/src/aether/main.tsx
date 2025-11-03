@@ -340,9 +340,6 @@ export interface UseUnidirectionalProps<S extends z.ZodType>
   state: z.input<S>;
 }
 
-export interface UseUnidirectionalReturn<S extends z.ZodType<state.State>>
-  extends UseLifecycleReturn<S> {}
-
 /***
  * A simpler version of {@link use} that assumes the caller only wants to propagate
  * state to the aether component, and not receive state from the aether component.
@@ -350,14 +347,14 @@ export interface UseUnidirectionalReturn<S extends z.ZodType<state.State>>
 export const useUnidirectional = <S extends z.ZodType<state.State>>({
   state,
   ...rest
-}: UseUnidirectionalProps<S>): UseUnidirectionalReturn<S> => {
+}: UseUnidirectionalProps<S>): ComponentContext => {
   const { path, setState } = useLifecycle<S>({ ...rest, initialState: state });
   const ref = useRef<z.input<S> | z.infer<S> | null>(null);
   if (!deep.equal(ref.current, state)) {
     ref.current = state;
     setState(state);
   }
-  return { path, setState };
+  return { path };
 };
 
 /**

@@ -72,16 +72,17 @@ export const Measure = ({
   const handleClick: Viewport.UseHandler = useCallback(
     ({ mode, cursor }): void => {
       const measureMode = measureModeRef.current;
-      console.log(measureMode, mode, cursor);
       if (mode === "click") {
         const isOne = measureMode === "one";
         const isTwo = measureMode === "two";
         if (isOne || isTwo) {
           setState((p) => ({ ...p, [measureMode]: cursor }));
-          if (isOne && !hasSecondRef.current)
-            setTimeout(() => onModeChange?.("two"), 10);
-          if (isTwo && !hasFirstRef.current)
-            setTimeout(() => onModeChange?.("one"), 10);
+          const moveToTwo = isOne && !hasSecondRef.current;
+          const moveToOne = isTwo && !hasFirstRef.current;
+          if (moveToTwo || moveToOne)
+            // Add a small delay to allow the aether state to propagate. This ensures
+            // that we don't accidentally clear the new point state we just set.
+            setTimeout(() => onModeChange?.(moveToTwo ? "two" : "one"), 10);
           return;
         }
         if (measureMode === "clear") setState((p) => ({ ...p, one: null, two: null }));
