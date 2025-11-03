@@ -35,6 +35,7 @@ import (
 
 // nodeState holds the runtime state for a single node in the scheduler.
 type nodeState struct {
+	key string
 	// node is the executable node instance.
 	node node.Node
 	// outgoing contains all edges where this node is the source.
@@ -58,6 +59,9 @@ type Scheduler struct {
 	currState *nodeState
 	// errorHandler receives errors from node execution.
 	errorHandler ErrorHandler
+	// nodeCtx is a reusable context struct passed to nodes during execution.
+	// This eliminates allocations by reusing the same struct across all executions.
+	nodeCtx node.Context
 }
 
 // ErrorHandler receives errors from node execution.
@@ -90,11 +94,19 @@ func New(
 
 	for _, n := range prog.Nodes {
 		s.nodes[n.Key] = &nodeState{
+			key: n.Key,
 			outgoing: lo.Filter(prog.Edges, func(item ir.Edge, _ int) bool {
 				return item.Source.Node == n.Key
 			}),
 			node: nodes[n.Key],
 		}
+	}
+
+	// Initialize the reusable node context with method references.
+	// This context is reused across all node executions, eliminating allocations.
+	s.nodeCtx = node.Context{
+		MarkChanged: s.markChanged,
+		ReportError: s.reportError,
 	}
 
 	return s
@@ -120,19 +132,11 @@ func (s *Scheduler) markChanged(param string) {
 	}
 }
 
-func (s *Scheduler) makeReportError(nodeKey string) func(error) {
-	return func(err error) {
-		if s.errorHandler != nil {
-			s.errorHandler.HandleError(nodeKey, err)
-		}
-	}
-}
-
-func (s *Scheduler) makeContext(ctx context.Context, nodeKey string) node.Context {
-	return node.Context{
-		Context:     ctx,
-		MarkChanged: s.markChanged,
-		ReportError: s.makeReportError(nodeKey),
+// reportError reports an error from the currently executing node.
+// This method uses s.currNodeKey to identify the node without requiring closure allocation.
+func (s *Scheduler) reportError(err error) {
+	if s.errorHandler != nil {
+		s.errorHandler.HandleError(s.currState.key, err)
 	}
 }
 
@@ -143,10 +147,11 @@ func (s *Scheduler) makeContext(ctx context.Context, nodeKey string) node.Contex
 // Only nodes in stratum-0 have their Init method called. Downstream nodes are
 // initialized implicitly through their first Next execution when marked as changed.
 func (s *Scheduler) Init(ctx context.Context) {
+	s.nodeCtx.Context = ctx
 	for _, stratum := range s.strata {
 		for _, nodeKey := range stratum {
 			s.currState = s.nodes[nodeKey]
-			s.currState.node.Init(s.makeContext(ctx, nodeKey))
+			s.currState.node.Init(s.nodeCtx)
 		}
 	}
 }
@@ -160,11 +165,12 @@ func (s *Scheduler) Init(ctx context.Context) {
 // Nodes can mark their outputs as changed during execution via MarkChanged callbacks,
 // which will schedule downstream nodes for the next cycle.
 func (s *Scheduler) Next(ctx context.Context) {
+	s.nodeCtx.Context = ctx
 	for i, stratum := range s.strata {
 		for _, nodeKey := range stratum {
 			if i == 0 || s.changed.Contains(nodeKey) {
 				s.currState = s.nodes[nodeKey]
-				s.currState.node.Next(s.makeContext(ctx, nodeKey))
+				s.currState.node.Next(s.nodeCtx)
 			}
 		}
 	}
