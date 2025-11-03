@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import functools
 import warnings
-from typing import Callable, overload
+from collections.abc import Callable
+from typing import overload
 from uuid import UUID
 
 import numpy as np

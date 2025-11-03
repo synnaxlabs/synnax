@@ -54,7 +54,7 @@ func (w Writer) Create(
 	}
 	otgID := OntologyID(c.Key)
 	if !exists {
-		if err := w.otg.DefineResource(ctx, otgID); err != nil {
+		if err = w.otg.DefineResource(ctx, otgID); err != nil {
 			return err
 		}
 	}
@@ -65,9 +65,7 @@ func (w Writer) Create(
 		Variant: xstatus.LoadingVariant,
 		Message: "Deploying",
 		Time:    telem.Now(),
-		Details: map[string]interface{}{
-			"running": false,
-		},
+		Details: map[string]interface{}{"running": false},
 	}, otgID)
 }
 

@@ -19,9 +19,10 @@ import threading
 import traceback
 from abc import ABC, abstractmethod
 from collections import deque
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Literal, Optional, Set, Union, overload
+from typing import Any, Literal, overload
 
 import synnax as sy
 
@@ -101,7 +102,7 @@ class TestCase(ABC):
     DEFAULT_MANUAL_TIMEOUT: int = -1
 
     logger: logging.Logger
-    frame_in: Optional[sy.Frame]
+    frame_in: sy.Frame | None
 
     def __init__(
         self,
@@ -128,7 +129,7 @@ class TestCase(ABC):
         self.start_time: sy.TimeStamp = sy.TimeStamp.now()
         self._timeout_limit: int = self.DEFAULT_TIMEOUT_LIMIT  # -1 = no timeout
         self._manual_timeout: int = self.DEFAULT_MANUAL_TIMEOUT
-        self.read_frame: Optional[Dict[str, Union[int, float]]] = None
+        self.read_frame: dict[str, int | float] | None = None
         self.read_timeout = self.DEFAULT_READ_TIMEOUT
 
         self.name = validate_and_sanitize_name(name)
@@ -152,7 +153,7 @@ class TestCase(ABC):
         self._should_stop = False
         self.is_running = True
 
-        self.subscribed_channels: Set[str] = set()
+        self.subscribed_channels: set[str] = set()
 
         self.time_index = self.client.channels.create(
             name=f"{self.name}_time",
@@ -367,7 +368,7 @@ class TestCase(ABC):
         if self._status == STATUS.PENDING:
             self.STATUS = STATUS.PASSED
 
-    def _wait_for_client_completion(self, timeout: Optional[float] = None) -> None:
+    def _wait_for_client_completion(self, timeout: float | None = None) -> None:
         """Wait for client threads to complete."""
         # Wait for streamer thread
         if self.streamer_thread.is_alive():
@@ -441,7 +442,7 @@ class TestCase(ABC):
         self.tlm[tlm_name] = initial_value
 
     def subscribe(
-        self, channels: Union[str, List[str]], timeout: Optional[sy.TimeSpan] = 10
+        self, channels: str | list[str], timeout: sy.TimeSpan | None = 10
     ) -> None:
         """
         Subscribe to channels.
@@ -520,14 +521,14 @@ class TestCase(ABC):
     @overload
     def read_tlm(
         self, key: str, default: Literal[None] = None
-    ) -> Optional[Union[int, float]]: ...
+    ) -> int | float | None: ...
 
     @overload
-    def read_tlm(self, key: str, default: Union[int, float]) -> Union[int, float]: ...
+    def read_tlm(self, key: str, default: int | float) -> int | float: ...
 
     def read_tlm(
-        self, key: str, default: Optional[Union[int, float]] = None
-    ) -> Optional[Union[int, float]]:
+        self, key: str, default: int | float | None = None
+    ) -> int | float | None:
         try:
             if self.read_frame is not None:
                 value = self.read_frame.get(key, default)
@@ -563,14 +564,14 @@ class TestCase(ABC):
     @overload
     def get_state(
         self, key: str, default: Literal[None] = None
-    ) -> Optional[Union[int, float]]: ...
+    ) -> int | float | None: ...
 
     @overload
-    def get_state(self, key: str, default: Union[int, float]) -> Union[int, float]: ...
+    def get_state(self, key: str, default: int | float) -> int | float: ...
 
     def get_state(
-        self, key: str, default: Optional[Union[int, float]] = None
-    ) -> Optional[Union[int, float]]:
+        self, key: str, default: int | float | None = None
+    ) -> int | float | None:
         """
         Easily get state of this object.
 
@@ -741,7 +742,7 @@ class TestCase(ABC):
         """Get writer thread status."""
         return "Running" if self.writer_thread.is_alive() else "Stopped"
 
-    def fail(self, message: Optional[str] = None) -> None:
+    def fail(self, message: str | None = None) -> None:
         if message is not None:
             self.log(f"FAILED: {message}")
         self.STATUS = STATUS.FAILED

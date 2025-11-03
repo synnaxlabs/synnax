@@ -9,7 +9,8 @@
 
 from __future__ import annotations
 
-from typing import Callable, Concatenate, ParamSpec, Protocol, TypeVar
+from collections.abc import Callable
+from typing import Concatenate, ParamSpec, Protocol, TypeVar
 
 from alamos.environment import Environment
 from alamos.log import NOOP_LOGGER, Logger
