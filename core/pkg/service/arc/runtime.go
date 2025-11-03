@@ -26,6 +26,7 @@ import (
 
 type entry struct {
 	runtime *runtime.Runtime
+	arc     Arc
 }
 
 func (s *Service) handleChange(
@@ -46,7 +47,7 @@ func (s *Service) handleChange(
 			if err := s.cfg.Status.NewWriter(nil).SetWithParent(
 				ctx,
 				&status.Status{
-					Name:    a.Name,
+					Name:    existing.arc.Name,
 					Key:     a.Key.String(),
 					Variant: xstatus.DisabledVariant,
 					Message: "Stopped",
@@ -102,7 +103,7 @@ func (s *Service) handleChange(
 			}
 			continue
 		}
-		s.mu.entries[e.Key] = &entry{runtime: r}
+		s.mu.entries[e.Key] = &entry{runtime: r, arc: a}
 		if err := s.cfg.Status.NewWriter(nil).SetWithParent(
 			ctx,
 			&status.Status{

@@ -9,7 +9,7 @@
 
 import numpy as np
 import pandas as pd
-from typing import Iterator
+from collections.abc import Iterator
 import synnax as sy
 
 SAMPLES_PER_CHANNEL = 1_000_000
@@ -19,6 +19,7 @@ CHANNEL_COUNT = 2
 TOTAL_SAMPLES = SAMPLES_PER_CHANNEL * ITERATIONS * CHANNEL_COUNT
 
 START_TIME = sy.TimeStamp.now()
+
 
 class TestConfig:
     _channels: list[sy.Channel]
@@ -31,11 +32,7 @@ class TestConfig:
     def __init__(self):
         c = CHANNEL_COUNT
         c -= 1
-        idx = sy.Channel(
-            name="timestamps",
-            data_type="timestamp",
-            is_index=True
-        )
+        idx = sy.Channel(name="timestamps", data_type="timestamp", is_index=True)
         self._channels = [idx]
         for i in range(c):
             ch = sy.Channel(name=f"channel_{i}", data_type="float32", index=idx.key)
@@ -57,19 +54,23 @@ class TestConfig:
     def frames(self, index: bool = False) -> Iterator[pd.DataFrame]:
         start = self._start_time
         end = start + (SAMPLES_PER_CHANNEL_PER_ITERATION * sy.TimeSpan.MICROSECOND)
-        timestamps = np.linspace(start, end, SAMPLES_PER_CHANNEL_PER_ITERATION, dtype=np.int64)
+        timestamps = np.linspace(
+            start, end, SAMPLES_PER_CHANNEL_PER_ITERATION, dtype=np.int64
+        )
         values = np.linspace(0, 1, SAMPLES_PER_CHANNEL_PER_ITERATION, dtype=np.float32)
         self._cached_data = {
-            'timestamps': np.linspace(start, end, SAMPLES_PER_CHANNEL_PER_ITERATION, dtype=np.int64),
-            **{f'channel_{i}': values for i in range(CHANNEL_COUNT)}
+            "timestamps": np.linspace(
+                start, end, SAMPLES_PER_CHANNEL_PER_ITERATION, dtype=np.int64
+            ),
+            **{f"channel_{i}": values for i in range(CHANNEL_COUNT)},
         }
         for i in range(ITERATIONS):
-            timestamps += (SAMPLES_PER_CHANNEL_PER_ITERATION * sy.TimeSpan.MICROSECOND)
+            timestamps += SAMPLES_PER_CHANNEL_PER_ITERATION * sy.TimeSpan.MICROSECOND
             if index:
                 df = pd.DataFrame(self._cached_data)
-                df.set_index('timestamps', inplace=True)
-                df.index.name = 'time'
+                df.set_index("timestamps", inplace=True)
+                df.index.name = "time"
                 yield df
             else:
-                df['timestamps'] = timestamps
+                df["timestamps"] = timestamps
                 yield pd.DataFrame(self._cached_data)

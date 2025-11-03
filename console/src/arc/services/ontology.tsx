@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 
 import { Arc } from "@/arc";
-import { translateGraphToconsole } from "@/arc//types/translate";
+import { translateGraphToConsole } from "@/arc//types/translate";
 import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
@@ -33,9 +33,9 @@ const handleSelect: Ontology.HandleSelect = ({
 
 const load = async (client: Synnax, id: ontology.ID, placeLayout: Layout.Placer) => {
   const arc = await client.arcs.retrieve({ key: id.key });
-  const graph = translateGraphToconsole(arc.graph);
+  const graph = translateGraphToConsole(arc.graph);
   placeLayout(
-    Arc.createEditor({
+    Arc.Editor.create({
       name: arc.name,
       version: "0.0.0",
       key: arc.key,

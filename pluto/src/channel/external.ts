@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/channel/AliasInput";
+export * from "@/channel/CreateCalculatedIcon";
 export * from "@/channel/LinePlot";
 export * from "@/channel/queries";
 export * from "@/channel/Select";

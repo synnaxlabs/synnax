@@ -2,7 +2,7 @@ go 1.25.1
 
 use (
 	./alamos/go
-	./arc
+	./arc/go
 	./aspen
 	./cesium
 	./core

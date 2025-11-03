@@ -18,7 +18,7 @@ export const diagramStateZ = z.object({
   position: xy.xy,
   zoom: z.number(),
   region: box.box,
-  clearOverScan: xy.crudeZ.optional().default(10),
+  clearOverScan: xy.crudeZ.optional().default(5),
   visible: z.boolean().optional().default(true),
   autoRenderInterval: z.number().optional(),
 });

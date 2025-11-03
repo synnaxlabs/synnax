@@ -62,11 +62,11 @@ jobs:
         if: matrix.lint
         uses: golangci/golangci-lint-action@v8
         with:
-          working-directory: arc
+          working-directory: arc/go
 
       - name: Test
         run:
           go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
           --randomize-suites --fail-on-pending --fail-on-empty --keep-going --race
           --trace --github-output
-        working-directory: arc
+        working-directory: arc/go

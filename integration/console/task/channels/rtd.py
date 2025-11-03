@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from console.task.channels.analog import Analog
 
@@ -40,40 +40,18 @@ class RTD(Analog):
         console: "Console",
         name: str,
         device: str,
-        temperature_units: Optional[
-            Literal[
-                "Celsius",
-                "Fahrenheit",
-                "Kelvin",
-                "Rankine",
-            ]
-        ] = None,
-        rtd_type: Optional[
-            Literal[
-                "Pt3750",
-                "Pt3851",
-                "Pt3911",
-                "Pt3916",
-                "Pt3920",
-                "Pt3928",
-            ]
-        ] = None,
-        resistance_configuration: Optional[
-            Literal[
-                "2-Wire",
-                "3-Wire",
-                "4-Wire",
-            ]
-        ] = None,
-        current_excitation_source: Optional[
-            Literal[
-                "Internal",
-                "External",
-                "None",
-            ]
-        ] = None,
-        current_excitation_value: Optional[float] = None,
-        r0_resistance: Optional[float] = None,
+        temperature_units: (
+            Literal["Celsius", "Fahrenheit", "Kelvin", "Rankine"] | None
+        ) = None,
+        rtd_type: (
+            Literal["Pt3750", "Pt3851", "Pt3911", "Pt3916", "Pt3920", "Pt3928"] | None
+        ) = None,
+        resistance_configuration: Literal["2-Wire", "3-Wire", "4-Wire"] | None = None,
+        current_excitation_source: (
+            Literal["Internal", "External", "None"] | None
+        ) = None,
+        current_excitation_value: float | None = None,
+        r0_resistance: float | None = None,
         **kwargs: Any,
     ) -> None:
 
@@ -82,7 +60,7 @@ class RTD(Analog):
             console=console,
             name=name,
             device=device,
-            type="RTD",
+            chan_type="RTD",
             **kwargs,
         )
 

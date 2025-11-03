@@ -222,9 +222,9 @@ export class Frame {
 
   /**
    * @returns true if the frame is horizontal. Horizontal frames have a single channel,
-   * and are strongly aligned by default.A horizontal frame typically has a single array
-   * (in which case, it's also 'square'), although it can have multiple series if all
-   * the series are continuous in time.
+   * and are strongly aligned by default. A horizontal frame typically has a single
+   * array (in which case, it's also 'square'), although it can have multiple series if
+   * all the series are continuous in time.
    */
   get isHorizontal(): boolean {
     return this.uniqueColumns.length === 1;

@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import struct
-from typing import Dict, List, Union
 
 from freighter import JSONCodec
 from freighter.codec import Codec as FreighterCodec
@@ -74,10 +73,10 @@ class CodecFlags:
 
 class CodecState:
     keys: ChannelKeys
-    data_types: Dict[ChannelKey, DataType]
+    data_types: dict[ChannelKey, DataType]
     has_variable_data_types: bool
 
-    def __init__(self, keys: ChannelKeys, data_types: List[DataType]) -> None:
+    def __init__(self, keys: ChannelKeys, data_types: list[DataType]) -> None:
         self.keys = sorted(keys)
         self.data_types = {k: dt for k, dt in zip(keys, data_types)}
         self.has_variable_data_types = any(dt.is_variable for dt in data_types)
@@ -90,7 +89,7 @@ class Codec:
     _curr_state: CodecState = None
 
     def __init__(
-        self, keys: ChannelKeys = None, data_types: List[DataType] = None
+        self, keys: ChannelKeys = None, data_types: list[DataType] = None
     ) -> None:
         self._seq_num = 0
         self._states = dict()
@@ -109,7 +108,7 @@ class Codec:
                 f"Please call update() before calling {op_name}()."
             )
 
-    def encode(self, frame: Union[Frame, FramePayload], start_offset: int = 0) -> bytes:
+    def encode(self, frame: Frame | FramePayload, start_offset: int = 0) -> bytes:
         self.throw_if_not_updated("encode")
         pld = frame if isinstance(frame, FramePayload) else frame.to_payload()
         indices = sorted(range(len(pld.keys)), key=lambda i: pld.keys[i])
