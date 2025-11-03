@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Synnax, synnaxPropsZ } from "@synnaxlabs/client";
+import { Synnax, synnaxParamsZ } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 
 const stateZ = z.object({
-  props: synnaxPropsZ.nullable(),
+  props: synnaxParamsZ.nullable(),
   state: Synnax.connectivity.connectionStateZ.nullable(),
 });
 

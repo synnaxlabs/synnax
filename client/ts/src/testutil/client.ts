@@ -11,7 +11,7 @@ import { TimeSpan } from "@synnaxlabs/x";
 
 import Synnax, { type SynnaxParams } from "@/client";
 
-export const TEST_CLIENT_PROPS: SynnaxParams = {
+export const TEST_CLIENT_PARAMS: SynnaxParams = {
   host: "localhost",
   port: 9090,
   username: "synnax",
@@ -23,5 +23,5 @@ export const TEST_CLIENT_PROPS: SynnaxParams = {
   },
 };
 
-export const createTestClient = (props?: Partial<SynnaxParams>): Synnax =>
-  new Synnax({ ...TEST_CLIENT_PROPS, ...props });
+export const createTestClient = (params?: Partial<SynnaxParams>): Synnax =>
+  new Synnax({ ...TEST_CLIENT_PARAMS, ...params });

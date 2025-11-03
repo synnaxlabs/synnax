@@ -159,7 +159,7 @@ export const { useRetrieve } = Flux.createRetrieve<
         const res = await client.connectivity.check();
         if (res.error != null) throw res.error;
       }
-      if (client?.auth?.user == null)
+      if (client.auth?.user == null)
         throw new UnexpectedError(
           "Expected user to be available after successfully connecting to cluster",
         );

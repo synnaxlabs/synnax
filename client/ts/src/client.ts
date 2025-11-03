@@ -30,7 +30,7 @@ import { Transport } from "@/transport";
 import { user } from "@/user";
 import { workspace } from "@/workspace";
 
-export const synnaxPropsZ = z.object({
+export const synnaxParamsZ = z.object({
   host: z.string({ error: "Host is required" }).min(1, "Host is required"),
   port: z
     .number({ error: "Port is required" })
@@ -43,10 +43,8 @@ export const synnaxPropsZ = z.object({
   retry: breaker.breakerConfigZ.optional(),
 });
 
-export interface SynnaxParams extends z.input<typeof synnaxPropsZ> {}
-export type SynnaxProps = SynnaxParams;
-export interface ParsedSynnaxParams extends z.infer<typeof synnaxPropsZ> {}
-export type ParsedSynnaxProps = ParsedSynnaxParams;
+export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
+export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
 /**
  * Client to perform operations against a Synnax cluster.
@@ -95,8 +93,8 @@ export default class Synnax extends framer.Client {
    * A Synnax client must be closed when it is no longer needed. This will stop
    * the client from polling the cluster for connectivity information.
    */
-  constructor(params: SynnaxProps) {
-    const parsedParams = synnaxPropsZ.parse(params);
+  constructor(params: SynnaxParams) {
+    const parsedParams = synnaxParamsZ.parse(params);
     const {
       host,
       port,

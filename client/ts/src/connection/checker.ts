@@ -51,8 +51,6 @@ const createWarning = (
   https://docs.synnaxlabs.com/reference/typescript-client/troubleshooting#old-${toUpgrade}-version`;
 };
 
-const ENDPOINT = "/connectivity/check";
-
 /** Polls a synnax cluster for connectivity information. */
 export class Checker {
   static readonly DEFAULT: State = DEFAULT;
@@ -100,7 +98,7 @@ export class Checker {
     try {
       const res = await sendRequired(
         this.client,
-        ENDPOINT,
+        "/connectivity/check",
         undefined,
         requestZ,
         responseZ,
