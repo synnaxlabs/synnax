@@ -10,6 +10,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
 import { type Viewport } from "@synnaxlabs/pluto";
+import { type measure } from "@synnaxlabs/pluto/ether";
 import { array, deep, record, unique } from "@synnaxlabs/x";
 
 import {
@@ -165,6 +166,11 @@ interface TypedLineKey {
 
 export interface SetRemoteCreatedPayload {
   key: string;
+}
+
+export interface SetMeasureModePayload {
+  key: string;
+  mode: measure.Mode;
 }
 
 export const typedLineKeyToString = (key: TypedLineKey): string =>
@@ -361,6 +367,9 @@ export const { actions, reducer } = createSlice({
       }));
       state.plots[payload.key].toolbar.activeTab = "annotations";
     },
+    setMeasureMode: (state, { payload }: PayloadAction<SetMeasureModePayload>) => {
+      state.plots[payload.key].measure.mode = payload.mode;
+    },
   },
 });
 
@@ -383,6 +392,7 @@ export const {
   setSelectedRule,
   setRemoteCreated,
   setSelection,
+  setMeasureMode,
   create: internalCreate,
 } = actions;
 

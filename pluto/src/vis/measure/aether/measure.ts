@@ -17,10 +17,14 @@ import { Draw2D } from "@/vis/draw2d";
 import { type FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
+export const modeZ = z.enum(["one", "two", "clear", "empty"]);
+export type Mode = z.infer<typeof modeZ>;
+
 export const measureStateZ = z.object({
   one: xy.xy.nullable(),
   two: xy.xy.nullable(),
   hover: xy.xy.nullable(),
+  mode: modeZ.optional().default("one"),
   color: z
     .union([
       color.colorZ,
@@ -43,6 +47,41 @@ interface InternalState {
   dataOne: xy.XY | null;
   dataTwo: xy.XY | null;
 }
+
+const measureModeText = (mode: Mode): string => {
+  if (mode === "one") return "1";
+  return "2";
+};
+
+const xLabelColor = (t: Theme) => t.colors.error.z;
+const yLabelColor = (t: Theme) => t.colors.secondary.z;
+const slopeLabelColor = (t: Theme) => t.colors.gray.l9;
+
+const LABEL_CONTAINER_PADDING = 6;
+const LABEL_CONTAINER_HEIGHT = 14;
+const LABEL_CHAR_WIDTH = 8;
+const VALUE_CHAR_WIDTH = 8;
+const LABEL_VALUE_SPACING = 3;
+
+const HOVER_CIRCLE_OUTER_RADIUS = 9;
+const HOVER_CIRCLE_INNER_RADIUS = 8;
+
+const POINT_CIRCLE_RADIUS_OUTER = 8;
+const POINT_CIRCLE_RADIUS_MID = 5;
+const POINT_CIRCLE_RADIUS_INNER = 2;
+const POINT_CIRCLE_ALPHA_OUTER = 0.5;
+const POINT_CIRCLE_ALPHA_MID = 0.8;
+
+const PROXIMITY_THRESHOLD = 50;
+const LABEL_OFFSET_VERY_CLOSE_X = 80;
+const LABEL_OFFSET_VERY_CLOSE_Y = 80;
+const LABEL_OFFSET_VERTICAL_Y = 60;
+const LABEL_OFFSET_HORIZONTAL_X = 35;
+const LABEL_OFFSET_HORIZONTAL_SLOPE = 35;
+const LABEL_OFFSET_VERY_CLOSE_X_DOWN = 40;
+
+const LABEL_OVERLAP_X_THRESHOLD = 100;
+const LABEL_OVERLAP_Y_THRESHOLD = 30;
 
 export interface MeasureProps {
   findByXDecimal: (target: number) => FindResult[];
@@ -102,45 +141,149 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     if (one == null || two == null) return null;
     const { one: prevOne, two: prevTwo } = this.prevState;
     const { dataOne, dataTwo } = this.internal;
-    if (
-      prevOne != null &&
-      xy.equals(one, prevOne) &&
-      prevTwo != null &&
-      xy.equals(two, prevTwo) &&
-      dataOne != null &&
-      dataTwo != null
-    ) {
-      const [one, two] = [props.findByXValue(dataOne.x), props.findByXValue(dataTwo.x)];
-      if (one.length === 0 || two.length === 0) return null;
-      return [
-        one.sort(
+
+    let oneResult: FindResult | null = null;
+    if (prevOne != null && xy.equals(one, prevOne) && dataOne != null) {
+      const results = props.findByXValue(dataOne.x);
+      if (results.length > 0)
+        oneResult = results.sort(
           (a, b) => xy.distance(dataOne, a.value) - xy.distance(dataOne, b.value),
-        )[0],
-        two.sort(
-          (a, b) => xy.distance(dataTwo, a.value) - xy.distance(dataTwo, b.value),
-        )[0],
-      ];
+        )[0];
     }
+
+    let twoResult: FindResult | null = null;
+    if (prevTwo != null && xy.equals(two, prevTwo) && dataTwo != null) {
+      const results = props.findByXValue(dataTwo.x);
+      if (results.length > 0)
+        twoResult = results.sort(
+          (a, b) => xy.distance(dataTwo, a.value) - xy.distance(dataTwo, b.value),
+        )[0];
+    }
+
     const s = scale.XY.scale(props.region).scale(box.DECIMAL);
-    const [scaledOne, scaledTwo] = [s.pos(one), s.pos(two)];
-    const [oneValues, twoValues] = [
-      props.findByXDecimal(scaledOne.x),
-      props.findByXDecimal(scaledTwo.x),
-    ];
-    if (oneValues.length === 0 || twoValues.length === 0) return null;
-    const [oneValue, twoValue] = [
-      oneValues.sort(
+
+    if (oneResult == null) {
+      const scaledOne = s.pos(one);
+      const oneValues = props.findByXDecimal(scaledOne.x);
+      if (oneValues.length === 0) return null;
+      oneResult = oneValues.sort(
         (a, b) =>
           xy.distance(scaledOne, a.position) - xy.distance(scaledOne, b.position),
-      )[0],
-      twoValues.sort(
+      )[0];
+      this.internal.dataOne = oneResult.value;
+    }
+
+    if (twoResult == null) {
+      const scaledTwo = s.pos(two);
+      const twoValues = props.findByXDecimal(scaledTwo.x);
+      if (twoValues.length === 0) return null;
+      twoResult = twoValues.sort(
         (a, b) =>
           xy.distance(scaledTwo, a.position) - xy.distance(scaledTwo, b.position),
-      )[0],
-    ];
-    this.internal.dataOne = oneValue.value;
-    this.internal.dataTwo = twoValue.value;
-    return [oneValue, twoValue];
+      )[0];
+      this.internal.dataTwo = twoResult.value;
+    }
+
+    return [oneResult, twoResult];
+  }
+
+  private drawLabelValue(
+    label: string,
+    value: string,
+    position: xy.XY,
+    labelColor: (t: Theme) => color.Color,
+  ): void {
+    const { draw } = this.internal;
+    const padding = xy.construct(LABEL_CONTAINER_PADDING);
+    const approxLabelWidth = label.length * LABEL_CHAR_WIDTH;
+    const approxValueWidth = value.length * VALUE_CHAR_WIDTH;
+    const width = approxLabelWidth + approxValueWidth + padding.x * LABEL_VALUE_SPACING;
+    const height = LABEL_CONTAINER_HEIGHT + padding.y * 2;
+
+    const region = box.construct(position, width, height);
+
+    draw.container({
+      region,
+      backgroundColor: (t) => t.colors.gray.l1,
+    });
+
+    draw.text({
+      text: label,
+      position: xy.translate(box.topLeft(region), padding),
+      level: "small",
+      weight: 500,
+      color: labelColor(this.internal.theme),
+    });
+
+    draw.text({
+      text: value,
+      position: xy.translate(box.topRight(region), [-padding.x - 1, padding.y - 1]),
+      level: "small",
+      justify: "right",
+      code: true,
+      shade: 10,
+    });
+  }
+
+  private drawPointMarker(position: xy.XY, pointColor: color.Color): void {
+    const { draw } = this.internal;
+    draw.circle({
+      fill: color.setAlpha(pointColor, POINT_CIRCLE_ALPHA_OUTER),
+      radius: POINT_CIRCLE_RADIUS_OUTER,
+      position,
+    });
+    draw.circle({
+      fill: color.setAlpha(pointColor, POINT_CIRCLE_ALPHA_MID),
+      radius: POINT_CIRCLE_RADIUS_MID,
+      position,
+    });
+    draw.circle({
+      fill: color.WHITE,
+      radius: POINT_CIRCLE_RADIUS_INNER,
+      position,
+    });
+  }
+
+  private calculateYLabelPosition(
+    basePos: xy.XY,
+    isVeryClose: boolean,
+    isVertical: boolean,
+  ): xy.XY {
+    if (isVeryClose) return xy.translateX(basePos, LABEL_OFFSET_VERY_CLOSE_Y);
+    if (isVertical) return xy.translateX(basePos, LABEL_OFFSET_VERTICAL_Y);
+    return basePos;
+  }
+
+  private calculateXLabelPosition(
+    basePos: xy.XY,
+    isVeryClose: boolean,
+    isHorizontal: boolean,
+  ): xy.XY {
+    if (isVeryClose) return xy.translateY(basePos, LABEL_OFFSET_VERY_CLOSE_X_DOWN);
+    if (isHorizontal) return xy.translateY(basePos, LABEL_OFFSET_HORIZONTAL_X);
+    return basePos;
+  }
+
+  private calculateSlopeLabelPosition(
+    basePos: xy.XY,
+    yLabelPos: xy.XY,
+    isVeryClose: boolean,
+    isHorizontal: boolean,
+    xPixelDist: number,
+    yPixelDist: number,
+  ): xy.XY {
+    if (isVeryClose) return xy.translateX(basePos, LABEL_OFFSET_VERY_CLOSE_X);
+    if (isHorizontal) return xy.translateY(basePos, -LABEL_OFFSET_HORIZONTAL_SLOPE);
+
+    const slopeYLabelOverlap =
+      Math.abs(basePos.x - yLabelPos.x) < LABEL_OVERLAP_X_THRESHOLD &&
+      Math.abs(basePos.y - yLabelPos.y) < LABEL_OVERLAP_Y_THRESHOLD;
+    if (slopeYLabelOverlap) {
+      if (xPixelDist < yPixelDist)
+        return xy.translateY(basePos, -LABEL_OFFSET_HORIZONTAL_SLOPE);
+      return xy.translateX(basePos, LABEL_OFFSET_VERY_CLOSE_X);
+    }
+    return basePos;
   }
 
   private renderHover(props: MeasureProps): void {
@@ -156,10 +299,23 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     )[0];
     const { draw } = this.internal;
 
+    const position = s.reverse().pos(v.position);
     draw.circle({
-      fill: color.setAlpha(v.color, 0.5),
-      radius: 9,
-      position: s.reverse().pos(v.position),
+      fill: color.setAlpha(v.color, 1),
+      radius: HOVER_CIRCLE_OUTER_RADIUS,
+      position,
+    });
+    draw.circle({
+      fill: this.internal.theme.colors.gray.l3,
+      radius: HOVER_CIRCLE_INNER_RADIUS,
+      position,
+    });
+    draw.text({
+      text: measureModeText(this.state.mode),
+      position,
+      level: "small",
+      align: "middle",
+      justify: "center",
     });
   }
 
@@ -174,9 +330,18 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const s = scale.XY.scale(box.DECIMAL).scale(props.region);
     const onePos = s.pos(oneValue.position);
     const twoPos = s.pos(twoValue.position);
+
     const xDist = new TimeSpan(Math.abs(oneValue.value.x - twoValue.value.x));
     const yDist = Math.abs(oneValue.value.y - twoValue.value.y);
     const slope = yDist / xDist.seconds;
+
+    const xPixelDist = Math.abs(onePos.x - twoPos.x);
+    const yPixelDist = Math.abs(onePos.y - twoPos.y);
+    const isHorizontal = yPixelDist < PROXIMITY_THRESHOLD;
+    const isVertical = xPixelDist < PROXIMITY_THRESHOLD;
+    const isVeryClose =
+      xPixelDist < PROXIMITY_THRESHOLD && yPixelDist < PROXIMITY_THRESHOLD;
+
     draw.line({
       start: xy.construct(onePos.x, onePos.y),
       end: xy.construct(onePos.x, twoPos.y),
@@ -184,12 +349,14 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       lineDash: strokeDash,
       lineWidth: strokeWidth,
     });
-    draw.textContainer({
-      text: [`${yDist.toFixed(2)} ${oneValue.units ?? ""}`],
-      direction: "x",
-      position: xy.construct(onePos.x, (onePos.y + twoPos.y) / 2),
-      level: "small",
-    });
+    const yValue = `${yDist.toFixed(2)} ${oneValue.units ?? ""}`;
+    const yLabelPos = this.calculateYLabelPosition(
+      xy.construct(onePos.x, (onePos.y + twoPos.y) / 2),
+      isVeryClose,
+      isVertical,
+    );
+    this.drawLabelValue("Y", yValue, yLabelPos, yLabelColor);
+
     draw.line({
       start: xy.construct(onePos.x, twoPos.y),
       end: xy.construct(twoPos.x, twoPos.y),
@@ -197,12 +364,17 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       lineDash: strokeDash,
       lineWidth: strokeWidth,
     });
-    draw.textContainer({
-      text: [xDist.truncate(TimeSpan.MILLISECOND).toString()],
-      direction: "x",
-      position: xy.construct((onePos.x + twoPos.x) / 2, twoPos.y),
-      level: "small",
-    });
+    const trunc = xDist.lessThan(TimeSpan.milliseconds(10))
+      ? TimeSpan.MICROSECOND
+      : TimeSpan.MILLISECOND;
+    const xValue = xDist.truncate(trunc).toString();
+    const xLabelPos = this.calculateXLabelPosition(
+      xy.construct((onePos.x + twoPos.x) / 2, twoPos.y),
+      isVeryClose,
+      isHorizontal,
+    );
+    this.drawLabelValue("X", xValue, xLabelPos, xLabelColor);
+
     draw.line({
       start: xy.construct(onePos.x, onePos.y),
       end: xy.construct(twoPos.x, twoPos.y),
@@ -210,35 +382,21 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       lineDash: strokeDash,
       lineWidth: strokeWidth,
     });
-    draw.textContainer({
-      text: [`${slope.toFixed(2)} ${oneValue.units ?? ""} / S`],
-      direction: "x",
-      position: xy.construct((onePos.x + twoPos.x) / 2, (onePos.y + twoPos.y) / 2),
-      level: "small",
-    });
-    draw.circle({
-      fill: color.setAlpha(oneValue.color, 0.5),
-      radius: 8,
-      position: onePos,
-    });
-    draw.circle({
-      fill: color.setAlpha(oneValue.color, 0.8),
-      radius: 5,
-      position: onePos,
-    });
-    draw.circle({ fill: color.WHITE, radius: 2, position: onePos });
+    let slopeValue = slope.toFixed(2);
+    if (oneValue.units != null && oneValue.units.length > 0)
+      slopeValue += ` ${oneValue.units} / S`;
+    const slopeLabelPos = this.calculateSlopeLabelPosition(
+      xy.construct((onePos.x + twoPos.x) / 2, (onePos.y + twoPos.y) / 2),
+      yLabelPos,
+      isVeryClose,
+      isHorizontal,
+      xPixelDist,
+      yPixelDist,
+    );
+    this.drawLabelValue("Slope", slopeValue, slopeLabelPos, slopeLabelColor);
 
-    draw.circle({
-      fill: color.setAlpha(twoValue.color, 0.5),
-      radius: 8,
-      position: twoPos,
-    });
-    draw.circle({
-      fill: color.setAlpha(twoValue.color, 0.8),
-      radius: 5,
-      position: twoPos,
-    });
-    draw.circle({ fill: color.WHITE, radius: 2, position: twoPos });
+    this.drawPointMarker(onePos, oneValue.color);
+    this.drawPointMarker(twoPos, twoValue.color);
   }
 }
 

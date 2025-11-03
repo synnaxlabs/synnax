@@ -328,6 +328,7 @@ export class Draw2D {
         this.canvas.font = font;
         this.canvas.fillStyle = color.hex(this.theme.colors.text);
         this.canvas.textBaseline = "top";
+        this.canvas.textAlign = "start";
         text.forEach((v, i) => {
           this.canvas.fillText(v, position.x, position.y + offset * i);
         });
