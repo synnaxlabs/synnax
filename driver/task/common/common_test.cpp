@@ -9,8 +9,9 @@
 
 #include "gtest/gtest.h"
 
-#include "driver/task/common/common.h"
 #include "x/cpp/xjson/xjson.h"
+
+#include "driver/task/common/common.h"
 
 /// @brief it should return PersistStream when data_saving is true.
 TEST(DataSavingWriterMode, testDataSavingTrue) {
@@ -26,10 +27,7 @@ TEST(DataSavingWriterMode, testDataSavingFalse) {
 
 /// @brief it should parse BaseTaskConfig with both fields present.
 TEST(BaseTaskConfig, testParseWithBothFields) {
-    const auto json = nlohmann::json{
-        {"data_saving", false},
-        {"auto_start", true}
-    };
+    const auto json = nlohmann::json{{"data_saving", false}, {"auto_start", true}};
     auto parser = xjson::Parser(json);
     const auto config = common::BaseTaskConfig(parser);
 
@@ -43,40 +41,33 @@ TEST(BaseTaskConfig, testParseWithDefaults) {
     auto parser = xjson::Parser(json);
     const auto config = common::BaseTaskConfig(parser);
 
-    EXPECT_TRUE(config.data_saving);  // defaults to true
-    EXPECT_FALSE(config.auto_start);   // defaults to false
+    EXPECT_TRUE(config.data_saving); // defaults to true
+    EXPECT_FALSE(config.auto_start); // defaults to false
 }
 
 /// @brief it should parse with only data_saving present.
 TEST(BaseTaskConfig, testParseWithDataSavingOnly) {
-    const auto json = nlohmann::json{
-        {"data_saving", false}
-    };
+    const auto json = nlohmann::json{{"data_saving", false}};
     auto parser = xjson::Parser(json);
     const auto config = common::BaseTaskConfig(parser);
 
     EXPECT_FALSE(config.data_saving);
-    EXPECT_FALSE(config.auto_start);  // defaults to false
+    EXPECT_FALSE(config.auto_start); // defaults to false
 }
 
 /// @brief it should parse with only auto_start present.
 TEST(BaseTaskConfig, testParseWithAutoStartOnly) {
-    const auto json = nlohmann::json{
-        {"auto_start", true}
-    };
+    const auto json = nlohmann::json{{"auto_start", true}};
     auto parser = xjson::Parser(json);
     const auto config = common::BaseTaskConfig(parser);
 
-    EXPECT_TRUE(config.data_saving);  // defaults to true
+    EXPECT_TRUE(config.data_saving); // defaults to true
     EXPECT_TRUE(config.auto_start);
 }
 
 /// @brief it should support move construction.
 TEST(BaseTaskConfig, testMoveConstruction) {
-    const auto json = nlohmann::json{
-        {"data_saving", false},
-        {"auto_start", true}
-    };
+    const auto json = nlohmann::json{{"data_saving", false}, {"auto_start", true}};
     auto parser = xjson::Parser(json);
     auto config1 = common::BaseTaskConfig(parser);
 
