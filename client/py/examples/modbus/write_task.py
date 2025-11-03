@@ -104,6 +104,7 @@ tsk = modbus.WriteTask(
 
 # Configure the task with Synnax
 client.hardware.tasks.configure(tsk)
+print("✓ Task configured successfully")
 
 print("=" * 70)
 print("Starting Modbus Write Task")

@@ -15,4 +15,6 @@ from synnax.hardware.opcua.types import (
     WriteChannel,
     WriteTask,
     WriteTaskConfig,
+    create_device,
+    device_props,
 )

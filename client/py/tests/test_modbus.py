@@ -481,3 +481,222 @@ class TestModbusWriteTask:
                 assert retr_ch.data_type == orig_ch.data_type
                 assert retr_ch.swap_bytes == orig_ch.swap_bytes
                 assert retr_ch.swap_words == orig_ch.swap_words
+
+
+@pytest.mark.modbus
+class TestModbusDevicePropertyUpdates:
+    """Tests that device properties are correctly updated with channel mappings."""
+
+    def test_read_task_updates_device_properties(self, client: sy.Synnax):
+        """Test that configuring a ReadTask updates device properties with channel mappings."""
+        import json
+        from synnax.hardware import modbus
+
+        # Create a rack
+        rack = client.hardware.racks.retrieve_embedded_rack()
+
+        # Create a device
+        device = modbus.create_device(
+            client=client,
+            name="Test Modbus Device",
+            location="127.0.0.1:502",
+            rack=rack.key,
+            properties=json.dumps(
+                modbus.device_props(
+                    host="127.0.0.1",
+                    port=502,
+                    swap_bytes=False,
+                    swap_words=False,
+                )
+            ),
+        )
+
+        # Create channels
+        time_ch = client.channels.create(
+            name="modbus_time",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+        )
+
+        ch1 = client.channels.create(
+            name="register_0",
+            data_type=sy.DataType.UINT8,
+            index=time_ch.key,
+        )
+
+        ch2 = client.channels.create(
+            name="register_1",
+            data_type=sy.DataType.UINT16,
+            index=time_ch.key,
+        )
+
+        # Create task with multiple channel types
+        task = modbus.ReadTask(
+            name="Test Read Task",
+            device=device.key,
+            sample_rate=10,
+            stream_rate=10,
+            data_saving=True,
+            channels=[
+                modbus.InputRegisterChan(
+                    channel=ch1.key,
+                    address=0,
+                    data_type="uint8",
+                ),
+                modbus.HoldingRegisterInputChan(
+                    channel=ch2.key,
+                    address=5,
+                    data_type="uint16",
+                ),
+            ],
+        )
+
+        # Trigger device property update
+        task._update_device_properties(client.hardware.devices)
+
+        # Retrieve device and check properties
+        updated_device = client.hardware.devices.retrieve(key=device.key)
+        props = json.loads(updated_device.properties)
+
+        # Verify read.channels mapping exists
+        assert "read" in props
+        assert "channels" in props["read"]
+
+        # Verify channel keys match Console format:
+        # InputRegisterChan: "register-input-{address}-{dataType}"
+        # HoldingRegisterInputChan: "holding-register-input-{address}-{dataType}"
+        channels = props["read"]["channels"]
+
+        # Check InputRegisterChan mapping (type-address-dataType, underscores replaced with hyphens)
+        assert "register-input-0-uint8" in channels
+        assert channels["register-input-0-uint8"] == ch1.key
+
+        # Check HoldingRegisterInputChan mapping
+        assert "holding-register-input-5-uint16" in channels
+        assert channels["holding-register-input-5-uint16"] == ch2.key
+
+    def test_write_task_updates_device_properties(self, client: sy.Synnax):
+        """Test that configuring a WriteTask updates device properties with channel mappings."""
+        import json
+        from synnax.hardware import modbus
+
+        # Create a rack
+        rack = client.hardware.racks.retrieve_embedded_rack()
+
+        # Create a device
+        device = modbus.create_device(
+            client=client,
+            name="Test Modbus Write Device",
+            location="127.0.0.1:502",
+            rack=rack.key,
+            properties=json.dumps(
+                modbus.device_props(
+                    host="127.0.0.1",
+                    port=502,
+                    swap_bytes=False,
+                    swap_words=False,
+                )
+            ),
+        )
+
+        # Create command channels
+        cmd_time = client.channels.create(
+            name="cmd_time",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+        )
+
+        coil_cmd = client.channels.create(
+            name="coil_command",
+            data_type=sy.DataType.UINT8,
+            index=cmd_time.key,
+        )
+
+        holding_cmd = client.channels.create(
+            name="holding_command",
+            data_type=sy.DataType.FLOAT32,
+            index=cmd_time.key,
+        )
+
+        # Create write task
+        task = modbus.WriteTask(
+            name="Test Write Task",
+            device=device.key,
+            data_saving=True,
+            channels=[
+                modbus.CoilOutputChan(
+                    channel=coil_cmd.key,
+                    address=10,
+                ),
+                modbus.HoldingRegisterOutputChan(
+                    channel=holding_cmd.key,
+                    address=20,
+                    data_type="float32",
+                ),
+            ],
+        )
+
+        # Trigger device property update
+        task._update_device_properties(client.hardware.devices)
+
+        # Retrieve device and check properties
+        updated_device = client.hardware.devices.retrieve(key=device.key)
+        props = json.loads(updated_device.properties)
+
+        # Verify write.channels mapping exists
+        assert "write" in props
+        assert "channels" in props["write"]
+
+        # Verify channel keys match Console format (type-address, no dataType for write)
+        channels = props["write"]["channels"]
+
+        # Check CoilOutputChan mapping (type-address, underscores replaced with hyphens)
+        assert "coil-output-10" in channels
+        assert channels["coil-output-10"] == coil_cmd.key
+
+        # Check HoldingRegisterOutputChan mapping
+        assert "holding-register-output-20" in channels
+        assert channels["holding-register-output-20"] == holding_cmd.key
+
+    def test_device_property_key_format(self):
+        """Test that the key format matches Console expectations."""
+        from synnax.hardware.modbus import (
+            InputRegisterChan,
+            HoldingRegisterInputChan,
+            CoilOutputChan,
+        )
+
+        # Test InputRegisterChan key format
+        ch = InputRegisterChan(
+            channel=123,
+            address=5,
+            data_type="uint8",
+        )
+        expected_key = "register-input-5-uint8"
+        key = f"{ch.type}-{ch.address}"
+        if hasattr(ch, "data_type"):
+            key += f"-{ch.data_type}"
+        key = key.replace("_", "-")
+        assert key == expected_key
+
+        # Test HoldingRegisterInputChan key format
+        ch2 = HoldingRegisterInputChan(
+            channel=456,
+            address=10,
+            data_type="float32",
+        )
+        expected_key2 = "holding-register-input-10-float32"
+        key2 = f"{ch2.type}-{ch2.address}"
+        if hasattr(ch2, "data_type"):
+            key2 += f"-{ch2.data_type}"
+        key2 = key2.replace("_", "-")
+        assert key2 == expected_key2
+
+        # Test CoilOutputChan key format (no dataType)
+        ch3 = CoilOutputChan(
+            channel=789,
+            address=15,
+        )
+        expected_key3 = "coil-output-15"
+        key3 = f"{ch3.type}-{ch3.address}".replace("_", "-")
+        assert key3 == expected_key3

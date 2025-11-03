@@ -287,6 +287,30 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             channels=channels if channels is not None else [],
         )
 
+    def _update_device_properties(self, device_client):
+        """Internal: Update device properties before task configuration."""
+        import json
+
+        dev = device_client.retrieve(key=self.config.device)
+        props = json.loads(dev.properties) if isinstance(dev.properties, str) else dev.properties
+
+        if "read" not in props:
+            props["read"] = {"index": 0, "channels": {}}
+
+        for ch in self.config.channels:
+            # Generate key matching Console's readMapKey format
+            key = f"{ch.type}-{ch.address}"
+            # Variable density channels (holding_register_input, register_input) include dataType
+            if hasattr(ch, "data_type"):
+                key += f"-{ch.data_type}"
+            # Replace underscores with hyphens
+            key = key.replace("_", "-")
+
+            props["read"]["channels"][key] = ch.channel
+
+        dev.properties = json.dumps(props)
+        device_client.create(dev)
+
 
 class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
     """
@@ -331,6 +355,25 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             auto_start=auto_start,
             channels=channels if channels is not None else [],
         )
+
+    def _update_device_properties(self, device_client):
+        """Internal: Update device properties before task configuration."""
+        import json
+
+        dev = device_client.retrieve(key=self.config.device)
+        props = json.loads(dev.properties) if isinstance(dev.properties, str) else dev.properties
+
+        if "write" not in props:
+            props["write"] = {"channels": {}}
+
+        for ch in self.config.channels:
+            # Generate key matching Console's writeMapKey format
+            # Write channels don't include dataType in the key
+            key = f"{ch.type}-{ch.address}".replace("_", "-")
+            props["write"]["channels"][key] = ch.channel
+
+        dev.properties = json.dumps(props)
+        device_client.create(dev)
 
 
 # ================================ DEVICE HELPERS ================================

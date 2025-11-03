@@ -22,6 +22,7 @@ from pydantic import BaseModel, ValidationError
 from synnax import UnexpectedError
 from synnax.exceptions import ConfigurationError
 from synnax.framer import Client as FrameClient
+from synnax.hardware import device
 from synnax.hardware.rack import Client as RackClient
 from synnax.hardware.rack import Rack
 from synnax.hardware.task.payload import TaskPayload, TaskStatus
@@ -235,6 +236,7 @@ class Client:
     _frame_client: FrameClient
     _default_rack: Rack | None
     _racks: RackClient
+    _device_client: "device.Client | None"
     instrumentation: Instrumentation = NOOP
 
     def __init__(
@@ -242,11 +244,13 @@ class Client:
         client: UnaryClient,
         frame_client: FrameClient,
         rack_client: RackClient,
+        device_client: "device.Client | None" = None,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
         self._frame_client = frame_client
         self._racks = rack_client
+        self._device_client = device_client
         self._default_rack = None
         self.instrumentation = instrumentation
 
@@ -304,6 +308,10 @@ class Client:
         return pld
 
     def configure(self, task: MetaTask, timeout: float = 5) -> MetaTask:
+        # Call task-specific device property update if it exists (e.g., for Modbus)
+        if hasattr(task, "_update_device_properties") and self._device_client is not None:
+            task._update_device_properties(self._device_client)
+
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
             pld = self.maybe_assign_def_rack(task.to_payload())
             req = _CreateRequest(tasks=[pld])

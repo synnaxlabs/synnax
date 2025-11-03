@@ -15,6 +15,7 @@
 
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/mock/slave.h"
+#include "driver/modbus/modbus.h"
 #include "driver/modbus/read_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
@@ -572,4 +573,133 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
     ASSERT_EQ(fr.at<uint8_t>(holding0.key, 0), 50);
     ASSERT_EQ(fr.at<uint8_t>(holding1.key, 0), 75);
     ASSERT_EQ(fr.at<uint8_t>(holding2.key, 0), 125); // This would have been 0 before the fix
+}
+
+/// Test that auto_start=true causes the task to start automatically
+TEST_F(ModbusReadTest, testAutoStartTrue) {
+    // Set up mock slave
+    modbus::mock::SlaveConfig slave_cfg;
+    slave_cfg.input_registers[0] = 42;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = modbus::mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer stop_slave([&slave] { slave.stop(); });
+
+    // Create data channel
+    auto data_channel = ASSERT_NIL_P(
+        sy->channels.create("input_reg", telem::UINT8_T, index_channel.key, false)
+    );
+
+    // Create task with auto_start=true
+    json config{
+        {"data_saving", false},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", device.key},
+        {"auto_start", true}, // Enable auto-start
+        {"channels",
+         json::array(
+             {{{"type", "register_input"},
+               {"enabled", true},
+               {"channel", data_channel.key},
+               {"address", 0},
+               {"data_type", "uint8"}}}
+         )}
+    };
+
+    task = synnax::Task(rack.key, "test_task", "modbus_read", config.dump(), false);
+
+    // Configure task through factory
+    auto factory = modbus::Factory();
+    auto [configured_task, ok] = factory.configure_task(ctx, task);
+
+    ASSERT_TRUE(ok);
+    ASSERT_NE(configured_task, nullptr);
+
+    // Task should have auto-started - check that a start status was sent
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    bool found_start = false;
+    for (const auto &s : ctx->states) {
+        if (s.details.running && s.variant == "success") {
+            found_start = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found_start);
+
+    // Stop the task to clean up
+    task::Command stop_cmd(task.key, "stop", {});
+    configured_task->exec(stop_cmd);
+}
+
+/// Test that auto_start=false does NOT start the task automatically
+TEST_F(ModbusReadTest, testAutoStartFalse) {
+    // Set up mock slave
+    modbus::mock::SlaveConfig slave_cfg;
+    slave_cfg.input_registers[0] = 99;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = modbus::mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer stop_slave([&slave] { slave.stop(); });
+
+    // Create data channel
+    auto data_channel = ASSERT_NIL_P(
+        sy->channels.create("input_reg_2", telem::UINT8_T, index_channel.key, false)
+    );
+
+    // Create task with auto_start=false
+    json config{
+        {"data_saving", false},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", device.key},
+        {"auto_start", false}, // Disable auto-start
+        {"channels",
+         json::array(
+             {{{"type", "register_input"},
+               {"enabled", true},
+               {"channel", data_channel.key},
+               {"address", 0},
+               {"data_type", "uint8"}}}
+         )}
+    };
+
+    task = synnax::Task(rack.key, "test_task_no_auto", "modbus_read", config.dump(), false);
+
+    // Configure task through factory
+    auto factory = modbus::Factory();
+    auto [configured_task, ok] = factory.configure_task(ctx, task);
+
+    ASSERT_TRUE(ok);
+    ASSERT_NE(configured_task, nullptr);
+
+    // Task should NOT have auto-started - check that the status is "configured" not "running"
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    const auto &initial_state = ctx->states[0];
+    ASSERT_FALSE(initial_state.details.running);
+    ASSERT_EQ(initial_state.variant, "success");
+    ASSERT_EQ(initial_state.message, "Task configured successfully");
+
+    // Manually start the task
+    task::Command start_cmd(task.key, "start", {});
+    configured_task->exec(start_cmd);
+
+    // Now task should be running
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
+    bool found_start = false;
+    for (const auto &s : ctx->states) {
+        if (s.details.running && s.variant == "success") {
+            found_start = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found_start);
+
+    // Stop the task to clean up
+    task::Command stop_cmd(task.key, "stop", {});
+    configured_task->exec(stop_cmd);
 }

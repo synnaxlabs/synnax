@@ -29,9 +29,11 @@ Configuration:
     Modify the constants below to match your OPC UA server configuration.
 """
 
+import json
 from uuid import uuid4
 
 import synnax as sy
+from synnax.hardware import opcua
 
 # Configuration
 DEVICE_NAME = "OPC UA Server"
@@ -83,15 +85,13 @@ if response in ("", "y", "yes"):
         rack = client.hardware.racks.retrieve_embedded_rack()
         print(f"Using rack: {rack.name} (key={rack.key})")
 
-        # Create the device with a unique key
-        device_key = str(uuid4())
-        device = client.hardware.devices.create(
-            key=device_key,
+        # Create the device with proper connection properties
+        device = opcua.create_device(
+            client=client,
             name=DEVICE_NAME,
             location=ENDPOINT,
-            make="opc",
-            model="",
             rack=rack.key,
+            properties=json.dumps(opcua.device_props(endpoint=ENDPOINT)),
         )
 
         print("✓ Device connected successfully!")

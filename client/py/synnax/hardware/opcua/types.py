@@ -256,3 +256,98 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             auto_start=auto_start,
             channels=channels if channels is not None else [],
         )
+
+
+MAKE = "opc"
+MODEL = "OPC UA"
+
+
+def device_props(
+    endpoint: str,
+    username: str = "",
+    password: str = "",
+    security_mode: str = "None",
+    security_policy: str = "None",
+    client_cert: str = "",
+    client_private_key: str = "",
+    server_cert: str = "",
+) -> dict:
+    """
+    Create device properties for an OPC UA connection.
+
+    Args:
+        endpoint: The OPC UA server endpoint URL (e.g., "opc.tcp://localhost:4840/")
+        username: Username for authentication (optional)
+        password: Password for authentication (optional)
+        security_mode: Security mode - "None", "Sign", or "SignAndEncrypt" (default: "None")
+        security_policy: Security policy - "None", "Basic128Rsa15", "Basic256", etc. (default: "None")
+        client_cert: Client certificate for secure connections (optional)
+        client_private_key: Client private key for secure connections (optional)
+        server_cert: Trusted server certificate for secure connections (optional)
+
+    Returns:
+        Dictionary of device properties with the correct structure for the driver
+    """
+    connection = {
+        "endpoint": endpoint,
+    }
+
+    if username:
+        connection["username"] = username
+    if password:
+        connection["password"] = password
+    if security_mode != "None":
+        connection["security_mode"] = security_mode
+    if security_policy != "None":
+        connection["security_policy"] = security_policy
+    if client_cert:
+        connection["client_certificate"] = client_cert
+    if client_private_key:
+        connection["client_private_key"] = client_private_key
+    if server_cert:
+        connection["server_certificate"] = server_cert
+
+    return {
+        "connection": connection,
+        "read": {
+            "index": 0,
+            "channels": {}
+        },
+        "write": {
+            "channels": {}
+        }
+    }
+
+
+def create_device(client, **kwargs):
+    """
+    Create an OPC UA device with make, model, and key automatically set.
+
+    This is a thin wrapper around client.hardware.devices.create() that
+    automatically fills in:
+    - make: "opc"
+    - model: "OPC UA"
+    - key: auto-generated UUID if not provided
+
+    All other parameters are passed through unchanged.
+
+    Example:
+        >>> import json
+        >>> from synnax.hardware import opcua
+        >>> device = opcua.create_device(
+        ...     client=client,
+        ...     name="OPC UA Server",
+        ...     location="opc.tcp://localhost:4840/",
+        ...     rack=rack.key,
+        ...     properties=json.dumps(opcua.device_props(endpoint="opc.tcp://localhost:4840/"))
+        ... )
+    """
+    from uuid import uuid4
+
+    # Auto-generate key if not provided
+    if "key" not in kwargs:
+        kwargs["key"] = str(uuid4())
+
+    kwargs["make"] = MAKE
+    kwargs["model"] = MODEL
+    return client.hardware.devices.create(**kwargs)
