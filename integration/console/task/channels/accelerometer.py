@@ -7,9 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
-
-import synnax as sy
+from typing import TYPE_CHECKING, Any, Literal
 
 from console.task.channels.analog import Analog
 
@@ -40,15 +38,10 @@ class Accelerometer(Analog):
         console: "Console",
         name: str,
         device: str,
-        sensitivity: Optional[float] = None,
-        units: Optional[
-            Literal[
-                "mV/g",
-                "V/g",
-            ]
-        ] = None,
-        excitation_source: Optional[Literal["Internal", "External", "None"]] = None,
-        current_excitation_value: Optional[float] = None,
+        sensitivity: float | None = None,
+        units: Literal["mV/g", "V/g"] | None = None,
+        excitation_source: Literal["Internal", "External", "None"] | None = None,
+        current_excitation_value: float | None = None,
         **kwargs: Any,
     ) -> None:
 
@@ -57,7 +50,7 @@ class Accelerometer(Analog):
             console=console,
             name=name,
             device=device,
-            type="Accelerometer",
+            chan_type="Accelerometer",
             **kwargs,
         )
 

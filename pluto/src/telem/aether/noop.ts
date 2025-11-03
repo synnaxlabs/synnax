@@ -32,6 +32,8 @@ import {
   type SeriesSourceSpec,
   type Spec,
   type StatusSourceSpec,
+  type StringSink,
+  type StringSinkSpec,
   type StringSourceSpec,
   type Telem,
 } from "@/telem/aether/telem";
@@ -94,6 +96,19 @@ export const noopNumericSourceSpec: NumberSourceSpec = {
   props: {},
   variant: "source",
   valueType: "number",
+};
+
+class NoopStringSink extends Noop implements StringSink {
+  static readonly TYPE = "noop-string-sink";
+
+  set(): void {}
+}
+
+export const noopStringSinkSpec: StringSinkSpec = {
+  type: NoopStringSink.TYPE,
+  props: {},
+  variant: "sink",
+  valueType: "string",
 };
 
 class StringSource extends Noop implements StringSource {
@@ -165,6 +180,7 @@ export const noopSeriesSourceSpec: SeriesSourceSpec = {
 const REGISTRY: Record<string, new () => Telem> = {
   [NoopBooleanSink.TYPE]: NoopBooleanSink,
   [NumericSink.TYPE]: NumericSink,
+  [NoopStringSink.TYPE]: NoopStringSink,
   [NoopBooleanSource.TYPE]: NoopBooleanSource,
   [NumericSource.TYPE]: NumericSource,
   [StatusSource.TYPE]: StatusSource,

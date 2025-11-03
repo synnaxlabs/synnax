@@ -108,7 +108,10 @@ class NoDevice(ConsoleCase):
 
         # Add channel
         console.ni_ai.add_channel(
-            name="new_channel", type="Voltage", device=dev_name, dev_name="usb_6000"
+            name="new_channel",
+            chan_type="Voltage",
+            device=dev_name,
+            dev_name="usb_6000",
         )
 
         self.log("Configuring task")

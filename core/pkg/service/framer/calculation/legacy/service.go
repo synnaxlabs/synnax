@@ -182,13 +182,23 @@ func (s *Service) handleChange(
 	}
 	// Don't stop calculating if the channel is deleted. The calculation will be
 	// automatically shut down when it is no longer needed.
-	if c.Variant != change.Set || !c.Value.IsCalculated() || !c.Value.IsLegacyCalculated() {
+	if c.Variant != change.Set || !c.Value.IsCalculated() {
 		return
 	}
+	// If the channel is a legacy calculated channel
 	existing, found := s.mu.entries[c.Key]
 	if !found {
+		if !c.Value.IsLegacyCalculated() {
+			return
+		}
 		s.update(ctx, c.Value)
 		return
+	}
+	if existing.ch.IsLegacyCalculated() && !c.Value.IsLegacyCalculated() {
+		existing.calculation.Close()
+		if err := existing.shutdown.Close(); err != nil {
+			s.cfg.L.Error("failed to shutdown calculation", zap.Error(err))
+		}
 	}
 	if existing.ch.Equals(c.Value, "Name") {
 		return

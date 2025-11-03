@@ -27,10 +27,7 @@ import (
 //go:embed dist/*
 var embeddedAssets embed.FS
 
-const (
-	rootHTMLFile = "index.html"
-	distDir      = "dist"
-)
+const rootHTMLFile = "index.html"
 
 // Service serves the web-based console UI.
 type Service struct{ fs fs.FS }
@@ -39,15 +36,15 @@ var _ fhttp.BindableTransport = (*Service)(nil)
 
 // NewService creates a new console UI service with embedded assets.
 func NewService() *Service {
-	subFS, err := fs.Sub(embeddedAssets, distDir)
+	subFS, err := fs.Sub(embeddedAssets, "dist")
 	if err != nil {
 		zap.S().DPanic("Failed to load embedded assets", zap.Error(err))
 	}
 	return &Service{fs: subFS}
 }
 
-// BindTo binds the console UI service to the provided Fiber app.
-// In the ui build, it serves the embedded console assets.
+// BindTo binds the console UI service to the provided Fiber app. In the ui build, it
+// serves the embedded console assets.
 func (s *Service) BindTo(app *fiber.App) {
 	app.Use("/", filesystem.New(filesystem.Config{
 		Root:         http.FS(s.fs),
@@ -58,7 +55,7 @@ func (s *Service) BindTo(app *fiber.App) {
 	}))
 }
 
-func (s *Service) Use(middleware ...freighter.Middleware) {}
+func (s *Service) Use(...freighter.Middleware) {}
 
 // Report implements alamos.ReportProvider.
 func (s *Service) Report() alamos.Report { return alamos.Report{"console": "enabled"} }

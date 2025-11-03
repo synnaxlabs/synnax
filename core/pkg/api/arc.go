@@ -27,14 +27,13 @@ import (
 
 type Arc struct {
 	arc.Arc
-	Status status.Status `json:"status" msgpack:"status"`
+	Status *status.Status `json:"status" msgpack:"status"`
 }
 
 type ArcService struct {
 	dbProvider
 	accessProvider
 	alamos.Instrumentation
-
 	internal *arc.Service
 	status   *status.Service
 }
@@ -45,6 +44,7 @@ func NewArcService(p Provider) *ArcService {
 		accessProvider:  p.access,
 		Instrumentation: p.Instrumentation,
 		internal:        p.Service.Arc,
+		status:          p.Service.Status,
 	}
 }
 
@@ -140,14 +140,17 @@ func (s *ArcService) Retrieve(ctx context.Context, req ArcRetrieveRequest) (res 
 
 	if req.IncludeStatus != nil && *req.IncludeStatus {
 		statuses := make([]status.Status, 0, len(res.Arcs))
-		uuidStrings := lo.Map(req.Keys, func(item uuid.UUID, _ int) string {
-			return item.String()
+		uuidStrings := lo.Map(res.Arcs, func(a Arc, _ int) string {
+			return a.Key.String()
 		})
-		if err = s.status.NewRetrieve().WhereKeys(uuidStrings...).Entries(&statuses).Exec(ctx, nil); err != nil {
+		if err = s.status.NewRetrieve().
+			WhereKeys(uuidStrings...).
+			Entries(&statuses).
+			Exec(ctx, nil); err != nil {
 			return ArcRetrieveResponse{}, err
 		}
 		for i, stat := range statuses {
-			res.Arcs[i].Status = stat
+			res.Arcs[i].Status = &stat
 		}
 	}
 	if err = s.access.Enforce(ctx, access.Request{
