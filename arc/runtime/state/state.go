@@ -259,16 +259,6 @@ func (n *Node) RefreshInputs() (recalculate bool) {
 	return true
 }
 
-func (n *Node) output(paramIndex int) *value {
-	handle := n.outputs[paramIndex]
-	v, ok := n.state.outputs[handle]
-	if !ok {
-		v = &value{}
-		n.state.outputs[handle] = v
-	}
-	return v
-}
-
 // InputTime returns the timestamp series for the input at the given parameter index.
 // This is the aligned temporal metadata corresponding to Input(paramIndex).
 func (n *Node) InputTime(paramIndex int) telem.Series {
