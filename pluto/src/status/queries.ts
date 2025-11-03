@@ -24,7 +24,7 @@ const PLURAL_RESOURCE_NAME = "statuses";
 
 export interface FluxStore extends Flux.UnaryStore<status.Key, status.Status> {}
 
-interface FluxSubStore extends Label.FluxSubStore {
+export interface FluxSubStore extends Label.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
@@ -118,7 +118,7 @@ interface RetrieveSingleParams<DetailsSchema extends z.ZodType = z.ZodNever>
   detailsSchema?: DetailsSchema;
 }
 
-const retrieveSingle = async <DetailsSchema extends z.ZodType = z.ZodNever>({
+export const retrieveSingle = async <DetailsSchema extends z.ZodType = z.ZodNever>({
   store,
   client,
   query,

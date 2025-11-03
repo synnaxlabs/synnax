@@ -351,3 +351,315 @@ class TestCalculatedChannelIteration:
                     calc_channel.index,
                 ],
             )
+
+    def test_nested_calculated_channels_2_level(self, client: sy.Synnax):
+        """Should correctly handle 2-level nested calculated channels (C → B → A)"""
+        # Create index and base concrete channel
+        timestamp_channel = client.channels.create(
+            name="test_timestamp_nested",
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+        )
+        sensor_1 = client.channels.create(
+            sy.Channel(
+                name=rand_name(),
+                index=timestamp_channel.key,
+                data_type=sy.DataType.FLOAT32,
+            ),
+        )
+
+        # Create B: calculated channel that depends on concrete channel A (sensor_1)
+        calc_b = client.channels.create(
+            name="calc_b_2level",
+            expression=f"return {sensor_1.name} * 2",
+        )
+
+        # Create C: calculated channel that depends on calculated channel B
+        calc_c = client.channels.create(
+            name="calc_c_2level",
+            expression=f"return {calc_b.name} + 10",
+        )
+
+        # Write data
+        idx_data = [
+            1 * sy.TimeSpan.SECOND,
+            2 * sy.TimeSpan.SECOND,
+            3 * sy.TimeSpan.SECOND,
+            4 * sy.TimeSpan.SECOND,
+            5 * sy.TimeSpan.SECOND,
+        ]
+        src_data = [1.0, 2.0, 3.0, 4.0, 5.0]
+        client.write(
+            1 * sy.TimeSpan.SECOND,
+            {
+                timestamp_channel.key: idx_data,
+                sensor_1.key: src_data,
+            },
+        )
+
+        # Read the top-level calculated channel C
+        res = client.read(
+            tr=sy.TimeRange.MAX,
+            channels=[calc_c.key, calc_c.index],
+        )
+
+        # Verify results
+        # sensor_1 = [1, 2, 3, 4, 5]
+        # calc_b = sensor_1 * 2 = [2, 4, 6, 8, 10]
+        # calc_c = calc_b + 10 = [12, 14, 16, 18, 20]
+
+        # Verify requested channels are present and have correct data
+        assert calc_c.key in res.channels
+        assert calc_c.index in res.channels
+
+        data_ser = res[calc_c.key]
+        ts_ser = res[calc_c.index]
+        assert len(ts_ser) == 5
+        assert np.array_equal(
+            data_ser, np.array([12.0, 14.0, 16.0, 18.0, 20.0], dtype=np.float32)
+        )
+        assert np.array_equal(ts_ser, np.array(idx_data, dtype=ts_ser.data_type.np))
+
+    def test_nested_calculated_channels_3_level(self, client: sy.Synnax):
+        """Should correctly handle 3-level nested calculated channels (D → C → B → A)"""
+        # Create index and base concrete channel
+        timestamp_channel = client.channels.create(
+            name="test_timestamp_nested_3",
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+        )
+        sensor_1 = client.channels.create(
+            sy.Channel(
+                name=rand_name(),
+                index=timestamp_channel.key,
+                data_type=sy.DataType.FLOAT32,
+            ),
+        )
+
+        # Create B: depends on sensor_1 (concrete)
+        calc_b = client.channels.create(
+            name="calc_b_3level",
+            expression=f"return {sensor_1.name} * 2",
+        )
+
+        # Create C: depends on B (calculated)
+        calc_c = client.channels.create(
+            name="calc_c_3level",
+            expression=f"return {calc_b.name} + 5",
+        )
+
+        # Create D: depends on C (calculated)
+        calc_d = client.channels.create(
+            name="calc_d_3level",
+            expression=f"return {calc_c.name} * 3",
+        )
+
+        # Write data
+        idx_data = [
+            1 * sy.TimeSpan.SECOND,
+            2 * sy.TimeSpan.SECOND,
+            3 * sy.TimeSpan.SECOND,
+            4 * sy.TimeSpan.SECOND,
+            5 * sy.TimeSpan.SECOND,
+        ]
+        src_data = [1.0, 2.0, 3.0, 4.0, 5.0]
+        client.write(
+            1 * sy.TimeSpan.SECOND,
+            {
+                timestamp_channel.key: idx_data,
+                sensor_1.key: src_data,
+            },
+        )
+
+        # Read the top-level calculated channel D
+        res = client.read(
+            tr=sy.TimeRange.MAX,
+            channels=[calc_d.key, calc_d.index],
+        )
+
+        # Verify results
+        # sensor_1 = [1, 2, 3, 4, 5]
+        # calc_b = sensor_1 * 2 = [2, 4, 6, 8, 10]
+        # calc_c = calc_b + 5 = [7, 9, 11, 13, 15]
+        # calc_d = calc_c * 3 = [21, 27, 33, 39, 45]
+        assert calc_d.key in res.channels
+        assert calc_d.index in res.channels
+
+        data_ser = res[calc_d.key]
+        ts_ser = res[calc_d.index]
+        assert len(ts_ser) == 5
+        assert np.array_equal(
+            data_ser, np.array([21.0, 27.0, 33.0, 39.0, 45.0], dtype=np.float32)
+        )
+        assert np.array_equal(ts_ser, np.array(idx_data, dtype=ts_ser.data_type.np))
+
+    def test_nested_calculated_channels_diamond(self, client: sy.Synnax):
+        """Should correctly handle diamond dependency pattern (E → C & D → A)"""
+        # Create index and base concrete channel
+        timestamp_channel = client.channels.create(
+            name="test_timestamp_diamond",
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+        )
+        sensor_1 = client.channels.create(
+            sy.Channel(
+                name=rand_name(),
+                index=timestamp_channel.key,
+                data_type=sy.DataType.FLOAT32,
+            ),
+        )
+
+        # Create C: depends on sensor_1 (concrete)
+        calc_c = client.channels.create(
+            name="calc_c_diamond",
+            expression=f"return {sensor_1.name} + 10",
+        )
+
+        # Create D: also depends on sensor_1 (concrete)
+        calc_d = client.channels.create(
+            name="calc_d_diamond",
+            expression=f"return {sensor_1.name} * 5",
+        )
+
+        # Create E: depends on both C and D (calculated)
+        calc_e = client.channels.create(
+            name="calc_e_diamond",
+            expression=f"return {calc_c.name} + {calc_d.name}",
+        )
+
+        # Write data
+        idx_data = [
+            1 * sy.TimeSpan.SECOND,
+            2 * sy.TimeSpan.SECOND,
+            3 * sy.TimeSpan.SECOND,
+            4 * sy.TimeSpan.SECOND,
+            5 * sy.TimeSpan.SECOND,
+        ]
+        src_data = [1.0, 2.0, 3.0, 4.0, 5.0]
+        client.write(
+            1 * sy.TimeSpan.SECOND,
+            {
+                timestamp_channel.key: idx_data,
+                sensor_1.key: src_data,
+            },
+        )
+
+        # Read the top-level calculated channel E
+        res = client.read(
+            tr=sy.TimeRange.MAX,
+            channels=[calc_e.key, calc_e.index],
+        )
+
+        # Verify results
+        # sensor_1 = [1, 2, 3, 4, 5]
+        # calc_c = sensor_1 + 10 = [11, 12, 13, 14, 15]
+        # calc_d = sensor_1 * 5 = [5, 10, 15, 20, 25]
+        # calc_e = calc_c + calc_d = [16, 22, 28, 34, 40]
+        assert calc_e.key in res.channels
+        assert calc_e.index in res.channels
+
+        data_ser = res[calc_e.key]
+        ts_ser = res[calc_e.index]
+        assert len(ts_ser) == 5
+        assert np.array_equal(
+            data_ser, np.array([16.0, 22.0, 28.0, 34.0, 40.0], dtype=np.float32)
+        )
+        assert np.array_equal(ts_ser, np.array(idx_data, dtype=ts_ser.data_type.np))
+
+    def test_circular_dependency_detection(self, client: sy.Synnax):
+        """Should detect circular dependencies at channel creation time"""
+        # In Python/API, Arc validates channel references at creation time,
+        # so circular dependencies are caught immediately when trying to create
+        # a channel that references a non-existent channel.
+
+        # Trying to create a channel that references a non-existent channel fails
+        with pytest.raises(Exception, match="undefined symbol"):
+            client.channels.create(
+                name="calc_circ_invalid",
+                expression="return nonexistent_channel + 1",
+            )
+
+    def test_mixed_calculated_and_concrete_channels(self, client: sy.Synnax):
+        """Should correctly handle requesting both calculated and concrete channels together"""
+        # Create index and base concrete channels
+        timestamp_channel = client.channels.create(
+            name="test_timestamp_mixed",
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+        )
+        sensor_1 = client.channels.create(
+            sy.Channel(
+                name=rand_name(),
+                index=timestamp_channel.key,
+                data_type=sy.DataType.FLOAT32,
+            ),
+        )
+        sensor_2 = client.channels.create(
+            sy.Channel(
+                name=rand_name(),
+                index=timestamp_channel.key,
+                data_type=sy.DataType.FLOAT32,
+            ),
+        )
+
+        # Create calculated channel that depends on both sensors
+        calc_mixed = client.channels.create(
+            name="calc_mixed",
+            expression=f"return {sensor_1.name} + {sensor_2.name}",
+        )
+
+        # Create nested calculated channel
+        calc_mixed_nested = client.channels.create(
+            name="calc_mixed_nested",
+            expression=f"return {calc_mixed.name} * 2",
+        )
+
+        # Write data
+        idx_data = [
+            1 * sy.TimeSpan.SECOND,
+            2 * sy.TimeSpan.SECOND,
+            3 * sy.TimeSpan.SECOND,
+            4 * sy.TimeSpan.SECOND,
+            5 * sy.TimeSpan.SECOND,
+        ]
+        src_data_1 = [1.0, 2.0, 3.0, 4.0, 5.0]
+        src_data_2 = [-2.0, -3.0, -4.0, -5.0, -6.0]
+        client.write(
+            1 * sy.TimeSpan.SECOND,
+            {
+                timestamp_channel.key: idx_data,
+                sensor_1.key: src_data_1,
+                sensor_2.key: src_data_2,
+            },
+        )
+
+        # Read both concrete and calculated channels together
+        res = client.read(
+            tr=sy.TimeRange.MAX,
+            channels=[
+                sensor_1.key,
+                sensor_2.key,
+                calc_mixed_nested.key,
+                calc_mixed_nested.index,
+            ],
+        )
+
+        # Verify concrete channels have original values
+        assert sensor_1.key in res.channels
+        data_ser = res[sensor_1.key]
+        assert np.array_equal(data_ser, np.array(src_data_1, dtype=np.float32))
+
+        assert sensor_2.key in res.channels
+        data_ser = res[sensor_2.key]
+        assert np.array_equal(data_ser, np.array(src_data_2, dtype=np.float32))
+
+        # Verify calculated channel has correct values
+        # sensor_1 = [1, 2, 3, 4, 5]
+        # sensor_2 = [-2, -3, -4, -5, -6]
+        # calc_mixed = sensor_1 + sensor_2 = [-1, -1, -1, -1, -1]
+        # calc_mixed_nested = calc_mixed * 2 = [-2, -2, -2, -2, -2]
+        assert calc_mixed_nested.key in res.channels
+        data_ser = res[calc_mixed_nested.key]
+        assert np.array_equal(
+            data_ser, np.array([-2.0, -2.0, -2.0, -2.0, -2.0], dtype=np.float32)
+        )

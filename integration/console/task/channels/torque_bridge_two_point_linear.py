@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from console.task.channels.analog import Analog
 
@@ -45,53 +45,32 @@ class TorqueBridgeTwoPointLinear(Analog):
         console: "Console",
         name: str,
         device: str,
-        torque_units: Optional[
-            Literal[
-                "Newton Meters",
-                "Inch Ounces",
-                "Foot Pounds",
-            ]
-        ] = None,
-        bridge_configuration: Optional[
-            Literal[
-                "Full Bridge",
-                "Half Bridge",
-                "Quarter Bridge",
-            ]
-        ] = None,
-        nominal_bridge_resistance: Optional[float] = None,
-        voltage_excitation_source: Optional[
-            Literal[
-                "Internal",
-                "External",
-                "None",
-            ]
-        ] = None,
-        voltage_excitation_value: Optional[float] = None,
-        physical_units: Optional[
-            Literal[
-                "Newton Meters",
-                "Inch Ounces",
-                "Foot Pounds",
-            ]
-        ] = None,
-        electrical_units: Optional[
-            Literal[
-                "mV/V",
-                "V/V",
-            ]
-        ] = None,
-        physical_value_one: Optional[float] = None,
-        physical_value_two: Optional[float] = None,
-        electrical_value_one: Optional[float] = None,
-        electrical_value_two: Optional[float] = None,
+        torque_units: (
+            Literal["Newton Meters", "Inch Ounces", "Foot Pounds"] | None
+        ) = None,
+        bridge_configuration: (
+            Literal["Full Bridge", "Half Bridge", "Quarter Bridge"] | None
+        ) = None,
+        nominal_bridge_resistance: float | None = None,
+        voltage_excitation_source: (
+            Literal["Internal", "External", "None"] | None
+        ) = None,
+        voltage_excitation_value: float | None = None,
+        physical_units: (
+            Literal["Newton Meters", "Inch Ounces", "Foot Pounds"] | None
+        ) = None,
+        electrical_units: Literal["mV/V", "V/V"] | None = None,
+        physical_value_one: float | None = None,
+        physical_value_two: float | None = None,
+        electrical_value_one: float | None = None,
+        electrical_value_two: float | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(
             console=console,
             name=name,
             device=device,
-            type="Torque Bridge Two-Point Linear",
+            chan_type="Torque Bridge Two-Point Linear",
             **kwargs,
         )
 
