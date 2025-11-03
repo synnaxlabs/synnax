@@ -63,6 +63,7 @@ markers = [
     "internal: mark test as an internal test",
     "io: mark test as an io test",
     "multi_node: mark test as a multi_node test",
+    "modbus: mark test as a modbus test",
     "ni: mark test as a ni test",
     "ontology: mark test as an ontology test",
     "opcua: mark test as an opcua test",
