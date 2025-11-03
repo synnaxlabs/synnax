@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import MutableMapping
 from dataclasses import dataclass
-from typing import Any, Literal, MutableMapping
+from typing import Any, Literal
 
 Role = Literal["client", "server"]
 

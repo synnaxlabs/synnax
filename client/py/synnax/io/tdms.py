@@ -7,21 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Iterator
 from math import ceil
 from pathlib import Path
-from typing import Iterator
 
 import pandas as pd
-from nptdms import TdmsChannel, TdmsFile, TdmsGroup
-from pandas.io.parsers import TextFileReader
+from nptdms import TdmsFile
 
-from synnax.exceptions import ValidationError
 from synnax.io.matcher import new_extension_matcher
 from synnax.io.protocol import (
-    BaseReader,
     ChannelMeta,
     ColumnFileReader,
-    File,
     ReaderType,
 )
 

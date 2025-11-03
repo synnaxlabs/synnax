@@ -375,11 +375,6 @@ enum WriterMode : uint8_t {
     StreamOnly = 3
 };
 
-inline WriterMode data_saving_writer_mode(const bool data_saving) {
-    if (data_saving) return WriterMode::PersistStream;
-    return WriterMode::StreamOnly;
-}
-
 /// @brief configuration for opening a new Writer. For more information on writers,
 /// see https://docs.synnaxlabs.com/concepts/write.
 struct WriterConfig {

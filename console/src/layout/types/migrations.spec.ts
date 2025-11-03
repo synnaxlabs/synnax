@@ -17,6 +17,7 @@ import * as v3 from "@/layout/types/v3";
 import * as v4 from "@/layout/types/v4";
 import * as v5 from "@/layout/types/v5";
 import * as v6 from "@/layout/types/v6";
+import * as v7 from "@/layout/types/v7";
 
 const STATES: AnySliceState[] = [
   v0.ZERO_SLICE_STATE,
@@ -26,6 +27,7 @@ const STATES: AnySliceState[] = [
   v4.ZERO_SLICE_STATE,
   v5.ZERO_SLICE_STATE,
   v6.ZERO_SLICE_STATE,
+  v7.ZERO_SLICE_STATE,
 ];
 
 describe("migrations", () => {

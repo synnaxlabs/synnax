@@ -39,6 +39,6 @@ class Voltage(Analog):
             console=console,
             name=name,
             device=device,
-            type="Voltage",
+            chan_type="Voltage",
             **kwargs,
         )

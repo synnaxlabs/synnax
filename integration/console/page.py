@@ -10,7 +10,7 @@
 import os
 import re
 import time
-from typing import TYPE_CHECKING, Literal, Optional, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 
@@ -28,9 +28,9 @@ class ConsolePage:
         # Page identification - subclasses should set these
         self.page_type: "PageType" = "Log"  # Default, overridden by subclasses
         self.pluto_label: str = ""
-        self.tab_locator: Optional[Locator] = None
-        self.pane_locator: Optional[Locator] = None
-        self.id: Optional[str] = None
+        self.tab_locator: Locator | None = None
+        self.pane_locator: Locator | None = None
+        self.id: str | None = None
 
     def close(self, page_name: str) -> None:
         """
@@ -65,7 +65,7 @@ class ConsolePage:
         self._dblclick_canvas()
         return self.id or ""
 
-    def screenshot(self, path: Optional[str] = None) -> None:
+    def screenshot(self, path: str | None = None) -> None:
         """Save a screenshot of the pane area with margin."""
         if path is None:
             results_dir = os.path.join(

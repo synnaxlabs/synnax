@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Page
 
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from console.console import Console
 
 # Valid channel types for NI Analog Read tasks
-ANALOG_READ_CHANNEL_TYPES: dict[str, Type[Analog]] = {
+ANALOG_READ_CHANNEL_TYPES: dict[str, type[Analog]] = {
     "Accelerometer": Accelerometer,
     "Bridge": Bridge,
     "Current": Current,
@@ -79,9 +79,9 @@ class AnalogRead(NITask):
     def add_channel(
         self,
         name: str,
-        type: str,
+        chan_type: str,
         device: str,
-        dev_name: Optional[str] = None,
+        dev_name: str | None = None,
         **kwargs: Any,
     ) -> Analog:
         """
@@ -89,7 +89,7 @@ class AnalogRead(NITask):
 
         Args:
             name: Channel name
-            type: Channel type (must be valid for analog read tasks)
+            chan_type: Channel type (must be valid for analog read tasks)
             device: Device identifier
             dev_name: Optional device name
             **kwargs: Additional channel-specific configuration
@@ -100,26 +100,25 @@ class AnalogRead(NITask):
         Raises:
             ValueError: If channel type is not valid for analog read tasks
         """
-        if type not in ANALOG_READ_CHANNEL_TYPES:
+        if chan_type not in ANALOG_READ_CHANNEL_TYPES:
             raise ValueError(
-                f"Invalid channel type for NI Analog Read: {type}. "
+                f"Invalid channel type for NI Analog Read: {chan_type}. "
                 f"Valid types: {list(ANALOG_READ_CHANNEL_TYPES.keys())}"
             )
 
         return self._add_channel_helper(
             name=name,
-            type=type,
             device=device,
             dev_name=dev_name,
-            channel_class=ANALOG_READ_CHANNEL_TYPES[type],
+            channel_class=ANALOG_READ_CHANNEL_TYPES[chan_type],
             **kwargs,
         )
 
     def set_parameters(
         self,
-        task_name: Optional[str] = None,
-        data_saving: Optional[bool] = None,
-        auto_start: Optional[bool] = None,
+        task_name: str | None = None,
+        data_saving: bool | None = None,
+        auto_start: bool | None = None,
         **kwargs: Any,
     ) -> None:
         """

@@ -11,7 +11,7 @@ COPY freighter/integration/go.mod freighter/integration/go.sum ./freighter/integ
 COPY freighter/go/go.mod freighter/go/go.sum ./freighter/go/
 COPY alamos/go/go.mod alamos/go/go.sum ./alamos/go/
 COPY x/go/go.mod x/go/go.sum ./x/go/
-COPY arc/go.mod arc/go.sum ./arc/
+COPY arc/go/go.mod arc/go/go.sum ./arc/go/
 COPY aspen/go.mod aspen/go.sum ./aspen/
 COPY cesium/go.mod cesium/go.sum ./cesium/
 COPY core/go.mod core/go.sum ./core/

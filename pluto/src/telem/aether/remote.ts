@@ -130,8 +130,23 @@ const fetchChannelProperties = async (
 ): Promise<SelectedChannelProperties> => {
   const c = await client.retrieveChannel(ch);
   const isCalculated = channel.isCalculated(c);
+  const isLegacyCalculated = channel.isLegacyCalculated(c);
   if (!fetchIndex || c.isIndex)
     return { key: c.key, dataType: c.dataType, virtual: c.virtual, isCalculated };
+  if (isLegacyCalculated) {
+    const indexKey = await channel.resolveLegacyCalculatedIndex(
+      client.retrieveChannel.bind(client),
+      c,
+    );
+    if (indexKey == null) throw new NotFoundError("Failed to resolve calculated index");
+    const indexCH = await client.retrieveChannel(indexKey);
+    return {
+      key: indexCH.key,
+      dataType: DataType.TIMESTAMP,
+      virtual: false,
+      isCalculated,
+    };
+  }
   if (c.virtual && !isCalculated)
     throw new NotFoundError("cannot use virtual channels as a data source");
   return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
@@ -271,11 +286,24 @@ export class StreamChannelData
         useIndexOfChannel,
       );
       const tr = this.now().spanRange(-timeSpan);
-      if (!this.channel.virtual || this.channel.isCalculated) {
-        const res = await this.client.read(tr, this.channel.key);
-        res.acquire();
-        this.data.push(res);
-      }
+      if (!this.channel.virtual || this.channel.isCalculated)
+        try {
+          const res = await this.client.read(tr, this.channel.key);
+          res.acquire();
+          this.data.push(res);
+        } catch (e) {
+          // Certain calculated channels can fail to read because they need access
+          // to virtual channels that cannot be read from historically. Instead of
+          // throwing an
+          if (
+            e instanceof Error &&
+            (e.message.includes("cannot open iterator on virtual channel") ||
+              e.message.includes("cannot read from free channel"))
+          )
+            console.warn("failed to read calculated channel data", e);
+          else throw e;
+        }
+
       this.stopStreaming?.();
       const handler: client.StreamHandler = (res) => {
         if (this.channel == null) return;

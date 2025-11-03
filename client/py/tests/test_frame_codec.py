@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import List
 
 import numpy as np
 import pytest
@@ -27,7 +26,7 @@ class TestCodec:
             self,
             name: str,
             channels: ChannelKeys,
-            data_types: List[DataType],
+            data_types: list[DataType],
             frame: Frame,
         ):
             self.name = name

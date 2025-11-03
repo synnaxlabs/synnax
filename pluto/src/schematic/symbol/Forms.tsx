@@ -41,6 +41,7 @@ import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Text } from "@/text";
 import { Button as CoreButton } from "@/vis/button";
+import { type Input as CoreInput } from "@/vis/input";
 import { type Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
 import { Value } from "@/vis/value";
@@ -957,6 +958,90 @@ export const SetpointForm = (): ReactElement => {
 
   const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
 
+  return <Tabs.Tabs {...props} />;
+};
+
+interface InputTelemFormProps {
+  path: string;
+}
+
+const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
+  const { value, onChange } = Form.useField<
+    Omit<CoreInput.UseProps, "aetherKey"> & {
+      control: ControlStateProps;
+      disabled?: boolean;
+    }
+  >(path);
+  const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
+  const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
+
+  const handleSinkChange = (v: channel.Key | null): void => {
+    v ??= 0;
+    const t = telem.sinkPipeline("string", {
+      connections: [],
+      segments: { setter: control.setChannelValue({ channel: v }) },
+      inlet: "setter",
+    });
+
+    const authSource = control.authoritySource({ channel: v });
+
+    const controlChipSink = control.acquireChannelControl({
+      channel: v,
+      authority: 255,
+    });
+
+    onChange({
+      ...value,
+      sink: t,
+      control: {
+        ...value.control,
+        showChip: true,
+        chip: { sink: controlChipSink, source: authSource },
+        showIndicator: true,
+        indicator: { statusSource: authSource },
+      },
+      disabled: v == 0,
+    });
+  };
+
+  return (
+    <FormWrapper x grow align="stretch">
+      <Input.Item label="Command Channel" grow>
+        <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
+      </Input.Item>
+    </FormWrapper>
+  );
+};
+
+export const InputForm = (): ReactElement => {
+  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
+    switch (tabKey) {
+      case "control":
+        return <InputTelemForm path="" />;
+      default:
+        return (
+          <FormWrapper x>
+            <Flex.Box y align="stretch" grow gap="small">
+              <LabelControls path="label" />
+              <Flex.Box x>
+                <Form.Field<Component.Size>
+                  path="size"
+                  label="Size"
+                  hideIfNull
+                  padHelpText={false}
+                >
+                  {({ value, onChange }) => (
+                    <Component.SelectSize value={value} onChange={onChange} />
+                  )}
+                </Form.Field>
+                <ColorControl path="color" />
+              </Flex.Box>
+            </Flex.Box>
+          </FormWrapper>
+        );
+    }
+  }, []);
+  const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
   return <Tabs.Tabs {...props} />;
 };
 

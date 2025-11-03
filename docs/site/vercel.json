@@ -1,0 +1,14 @@
+{
+  "redirects": [
+    {
+      "source": "/reference/cluster/:slug*",
+      "destination": "/reference/core/:slug*",
+      "permanent": true
+    },
+    {
+      "source": "/reference/device-drivers/:slug*",
+      "destination": "/reference/driver/:slug*",
+      "permanent": true
+    }
+  ]
+}

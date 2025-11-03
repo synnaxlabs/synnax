@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import functools
-from typing import Any, Callable, TypeVar, cast
+from collections.abc import Callable
+from typing import Any, TypeVar, cast
 
 # Define a generic type variable for the function
 F = TypeVar("F", bound=Callable[..., Any])
