@@ -214,7 +214,7 @@ func (n *Node) RefreshInputs() (recalculate bool) {
 		return true
 	}
 
-	// Single-pass algorithm: snapshot, validate, and detect unconsumed data
+	// Single-pass: snapshot new data, validate all inputs have data, detect unconsumed data
 	hasUnconsumed := false
 	for i := range n.inputs {
 		src := n.inputSources[i]
@@ -229,7 +229,6 @@ func (n *Node) RefreshInputs() (recalculate bool) {
 					lastTimestamp: ts,
 					consumed:      false,
 				}
-				hasUnconsumed = true
 			}
 		}
 
@@ -238,8 +237,8 @@ func (n *Node) RefreshInputs() (recalculate bool) {
 			return false
 		}
 
-		// Track if we have any unconsumed data
-		if !hasUnconsumed && !n.accumulated[i].consumed {
+		// Track if any input has unconsumed data
+		if !n.accumulated[i].consumed {
 			hasUnconsumed = true
 		}
 	}
@@ -249,7 +248,7 @@ func (n *Node) RefreshInputs() (recalculate bool) {
 		return false
 	}
 
-	// Align all inputs and mark as consumed in single pass
+	// Align all inputs and mark as consumed
 	for i := range n.inputs {
 		n.alignedData[i] = n.accumulated[i].data
 		n.alignedTime[i] = n.accumulated[i].time
