@@ -36,6 +36,7 @@ import (
 // Calculator is an extension of the lua-based computron.Calculator to provide
 // specific functionality for evaluating calculations on channels using frame data.
 type Calculator struct {
+	cfg        CalculatorConfig
 	ch         channel.Channel
 	state      *state.State
 	scheduler  *scheduler.Scheduler
@@ -45,14 +46,17 @@ type Calculator struct {
 }
 
 type CalculatorConfig struct {
-	ChannelSvc channel.Readable
-	Channel    channel.Channel
-	Resolver   arc.SymbolResolver
+	ChannelSvc          channel.Readable
+	Channel             channel.Channel
+	Resolver            arc.SymbolResolver
+	CalculateAlignments *bool
 }
 
 var (
 	_                       config.Config[CalculatorConfig] = CalculatorConfig{}
-	DefaultCalculatorConfig                                 = CalculatorConfig{}
+	DefaultCalculatorConfig                                 = CalculatorConfig{
+		CalculateAlignments: config.True(),
+	}
 )
 
 // Override implements config.Config.
@@ -60,12 +64,14 @@ func (c CalculatorConfig) Override(other CalculatorConfig) CalculatorConfig {
 	c.ChannelSvc = override.Nil(c.ChannelSvc, other.ChannelSvc)
 	c.Channel = other.Channel
 	c.Resolver = override.Nil(c.Resolver, other.Resolver)
+	c.CalculateAlignments = override.Nil(c.CalculateAlignments, other.CalculateAlignments)
 	return c
 }
 
 // Validate implements config.Config.
 func (c CalculatorConfig) Validate() error {
 	v := validate.New("arc.runtime")
+	validate.NotNil(v, "calculate_alignments", c.CalculateAlignments)
 	return v.Error()
 }
 
@@ -141,6 +147,7 @@ func OpenCalculator(
 		}
 	}
 	return &Calculator{
+		cfg:        cfg,
 		scheduler:  sched,
 		state:      progState,
 		ch:         cfg.Channel,
@@ -168,20 +175,22 @@ func (c *Calculator) Next(
 	inputFrame,
 	outputFrame framer.Frame,
 ) (framer.Frame, bool, error) {
-	for rawI, rawKey := range inputFrame.RawKeys() {
-		if inputFrame.ShouldExcludeRaw(rawI) {
-			continue
-		}
-		v, ok := c.alignments[rawKey]
-		s := inputFrame.RawSeriesAt(rawI)
-		if ok && v == 0 {
-			c.alignments[rawKey] = s.Alignment
-		}
-		if c.timeRange.Start == 0 || s.TimeRange.Start < c.timeRange.Start {
-			c.timeRange.Start = s.TimeRange.Start
-		}
-		if c.timeRange.End == 0 || s.TimeRange.End > c.timeRange.End {
-			c.timeRange.End = s.TimeRange.End
+	if *c.cfg.CalculateAlignments {
+		for rawI, rawKey := range inputFrame.RawKeys() {
+			if inputFrame.ShouldExcludeRaw(rawI) {
+				continue
+			}
+			v, ok := c.alignments[rawKey]
+			s := inputFrame.RawSeriesAt(rawI)
+			if ok && v == 0 {
+				c.alignments[rawKey] = s.Alignment
+			}
+			if c.timeRange.Start == 0 || s.TimeRange.Start < c.timeRange.Start {
+				c.timeRange.Start = s.TimeRange.Start
+			}
+			if c.timeRange.End == 0 || s.TimeRange.End > c.timeRange.End {
+				c.timeRange.End = s.TimeRange.End
+			}
 		}
 	}
 	c.state.Ingest(inputFrame.ToStorage())
@@ -201,18 +210,21 @@ func (c *Calculator) Next(
 	if !changed {
 		return outputFrame, changed, nil
 	}
-	var alignment telem.Alignment
-	for k, v := range c.alignments {
-		alignment += v
-		c.alignments[k] = 0
-	}
-	for rawI, s := range ofr.RawSeries() {
-		if rawI < len(ofr.RawSeries())-2 {
-			continue
+	c.state.ClearReads()
+	if *c.cfg.CalculateAlignments {
+		var alignment telem.Alignment
+		for k, v := range c.alignments {
+			alignment += v
+			c.alignments[k] = 0
 		}
-		s.Alignment = alignment
-		s.TimeRange = c.timeRange
-		ofr.SetRawSeriesAt(rawI, s)
+		for rawI, s := range ofr.RawSeries() {
+			if rawI < len(ofr.RawSeries())-2 {
+				continue
+			}
+			s.Alignment = alignment
+			s.TimeRange = c.timeRange
+			ofr.SetRawSeriesAt(rawI, s)
+		}
 	}
 	return core.NewFrameFromStorage(ofr), true, nil
 }

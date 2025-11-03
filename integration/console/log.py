@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 from playwright.sync_api import Page
 from synnax.channel.payload import (
@@ -23,14 +23,14 @@ if TYPE_CHECKING:
 class Log(ConsolePage):
     """Log page management interface"""
 
-    channel_name: Optional[ChannelName]
+    channel_name: ChannelName | None
 
     def __init__(self, page: Page, console: "Console") -> None:
         super().__init__(page, console)
         self.page_type = "Log"
         self.pluto_label = ".pluto-log"
 
-    def new(self, channel_name: Optional[ChannelName] = None) -> str:
+    def new(self, channel_name: ChannelName | None = None) -> str:
         page_id = super().new()
         if channel_name is not None:
             self.set_channel(channel_name)

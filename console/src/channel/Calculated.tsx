@@ -21,7 +21,8 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { status } from "@synnaxlabs/x";
+import { type ReactElement, useRef, useState } from "react";
 
 import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
 import { Code } from "@/code";
@@ -41,32 +42,53 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
 export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   const args = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
   const isEdit = args?.channelKey !== 0;
-  const { form, variant, save, status } = Channel.useCalculatedForm({
+  const {
+    form,
+    variant,
+    save,
+    status: stat,
+  } = Channel.useCalculatedForm({
     query: { key: args?.channelKey },
     afterSave: ({ reset }) => {
       if (createMore) reset();
       else onClose();
     },
   });
+  const requiresValue = Form.useFieldValue<
+    channel.Key[],
+    channel.Key[],
+    typeof Channel.calculatedFormSchema
+  >("requires", { ctx: form, optional: true });
+  const isLegacyCalculated = requiresValue != null && requiresValue.length > 0;
   const [createMore, setCreateMore] = useState(false);
-  if (variant !== "success") return <Status.Summary status={status} />;
+  const initialLoaded = useRef(false);
+  if (!initialLoaded.current && variant !== "loading") initialLoaded.current = true;
   return (
     <Flex.Box className={CSS.B("channel", "edit", "calculated")} grow empty>
       <Flex.Box className={CSS.B("form")} style={{ padding: "3rem" }} grow>
         <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
           <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
-          <Form.Field<string> path="expression" grow>
-            {({ value, onChange }) => (
-              <Code.Editor
-                value={value}
-                language={Arc.LANGUAGE}
-                onChange={onChange}
-                isBlock
-                bordered
-                rounded
-              />
-            )}
-          </Form.Field>
+          {initialLoaded.current && (
+            <Form.Field<string> path="expression" grow>
+              {({ value, onChange }) => (
+                <Code.Editor
+                  value={value}
+                  language={Arc.LANGUAGE}
+                  onChange={onChange}
+                  isBlock
+                  bordered
+                  rounded
+                />
+              )}
+            </Form.Field>
+          )}
+          {isLegacyCalculated && (
+            <Text.Text level="p" status="warning">
+              Legacy Calculated Channels are deprecated and will be removed in a future
+              release. Please edit this expression to match the new arc-based calculated
+              channel syntax.
+            </Text.Text>
+          )}
           <Flex.Box x>
             <Form.Field<channel.OperationType>
               path="operations.0.type"
@@ -113,7 +135,13 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
         </Form.Form>
       </Flex.Box>
       <Modals.BottomNavBar>
-        <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
+        <Nav.Bar.Start>
+          {variant == "success" ? (
+            <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
+          ) : (
+            <Status.Summary status={stat} center={false} />
+          )}
+        </Nav.Bar.Start>
         <Nav.Bar.End align="center" gap="large">
           {isEdit && (
             <Flex.Box x align="center" gap="small">
@@ -123,7 +151,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
           )}
           <Flex.Box x align="center">
             <Button.Button
-              status={variant}
+              status={status.keepVariants(variant, "loading")}
               trigger={Triggers.SAVE}
               variant="filled"
               onClick={() => save()}

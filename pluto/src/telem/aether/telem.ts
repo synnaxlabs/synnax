@@ -129,6 +129,10 @@ export type StringSource = Source<string>;
 export const stringSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("string") });
 export type StringSourceSpec = z.infer<typeof stringSourceSpecZ>;
 
+export type StringSink = Sink<string>;
+export const stringSinkSpecZ = sinkSpecZ.extend({ valueType: z.literal("string") });
+export type StringSinkSpec = z.infer<typeof stringSinkSpecZ>;
+
 export abstract class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
   private props_: z.infer<P> | undefined = undefined;
   private readonly uProps_: unknown | undefined = undefined;

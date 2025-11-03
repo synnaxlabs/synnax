@@ -12,7 +12,7 @@ import { color, xy } from "@synnaxlabs/x";
 
 import { type GraphState } from "@/arc/types";
 
-export const translateGraphToconsole = (module: arc.Graph): GraphState => ({
+export const translateGraphToConsole = (module: arc.Graph): GraphState => ({
   nodes: module.nodes.map((n) => ({
     key: n.key,
     position: n.position,

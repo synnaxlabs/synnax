@@ -10,15 +10,9 @@
         },
         {
           "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_a"
-        },
-        {
-          "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_b"
-        },
-        {
-          "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_c"
+          "parameters": {
+            "mode": ["a", "b", "c"]
+          }
         }
       ]
     },
@@ -28,15 +22,9 @@
       "tests": [
         {
           "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_d"
-        },
-        {
-          "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_e"
-        },
-        {
-          "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_f"
+          "parameters": {
+            "mode": ["d", "e", "f"]
+          }
         }
       ]
     },

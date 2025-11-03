@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import time
-from typing import Callable
+from collections.abc import Callable
 
 
 def assert_eventually(

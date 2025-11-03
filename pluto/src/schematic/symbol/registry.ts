@@ -24,6 +24,7 @@ import {
   CommonToggleForm,
   CylinderForm,
   GaugeForm,
+  InputForm,
   LightForm,
   OffPageReferenceForm,
   SetpointForm,
@@ -151,6 +152,9 @@ import {
   type HeatExchangerStraightTubeProps,
   HelicalAgitator,
   type HelicalAgitatorProps,
+  Input,
+  InputPreview,
+  type InputProps,
   ISOBurstDisc,
   type ISOBurstDiscProps,
   ISOCap,
@@ -303,6 +307,7 @@ const VARIANTS = [
   "flowmeterOrifice",
   "fourWayValve",
   "helicalAgitator",
+  "input",
   "isoCap",
   "isoCheckValve",
   "isoFilter",
@@ -399,6 +404,15 @@ const ZERO_NUMERIC_SINK_PROPS = {
   }),
 };
 
+const ZERO_STRING_SINK_PROPS = {
+  ...ZERO_PROPS,
+  sink: telem.sinkPipeline("string", {
+    connections: [],
+    segments: { setter: control.setChannelValue({ channel: 0 }) },
+    inlet: "setter",
+  }),
+};
+
 const ZERO_BOOLEAN_SOURCE_PROPS = {
   ...ZERO_PROPS,
   source: telem.sourcePipeline("boolean", {
@@ -433,7 +447,7 @@ type zeroLabelReturn = { label: LabelExtensionProps };
 const zeroLabel = (label: string): zeroLabelReturn => ({
   label: {
     label,
-    level: "p",
+    level: "small",
     orientation: "top",
     maxInlineSize: 150,
     align: "center",
@@ -1182,6 +1196,21 @@ const light: Spec<LightProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const input: Spec<InputProps> = {
+  name: "Input",
+  key: "input",
+  Symbol: Input,
+  Form: InputForm,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l11,
+    size: "small",
+    ...zeroLabel("Input"),
+    ...ZERO_STRING_SINK_PROPS,
+  }),
+  Preview: InputPreview,
+  zIndex: Z_INDEX_UPPER,
+};
+
 const setpoint: Spec<SetpointProps> = {
   name: "Setpoint",
   key: "setpoint",
@@ -1863,6 +1892,7 @@ export const REGISTRY: Record<Variant, Spec<any>> = {
   tJunction,
   crossJunction,
   switch: switch_,
+  input,
   offPageReference,
   light,
   setpoint,
@@ -1970,6 +2000,7 @@ export const GROUPS: Group[] = [
       "textBox",
       "offPageReference",
       "button",
+      "input",
       "switch",
       "light",
       "polygon",

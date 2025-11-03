@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Arc } from "@/arc";
 import { ChannelServices } from "@/channel/services";
 import { Hardware } from "@/hardware";
 import { type Layout } from "@/layout";
@@ -17,6 +18,7 @@ import { WorkspaceServices } from "@/workspace/services";
 
 export const DRAWER_ITEMS: Layout.NavDrawerItem[] = [
   ...Hardware.NAV_DRAWER_ITEMS,
+  Arc.TOOLBAR,
   Range.TOOLBAR,
   Vis.TOOLBAR,
   ChannelServices.TOOLBAR,

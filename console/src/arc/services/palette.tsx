@@ -20,7 +20,7 @@ const CREATE_COMMAND: Palette.Command = {
     handleError(async () => {
       const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
       if (name == null) return;
-      placeLayout(Arc.createEditor({ name }));
+      placeLayout(Arc.Editor.create({ name }));
     }, "Failed to create arc");
   },
 };

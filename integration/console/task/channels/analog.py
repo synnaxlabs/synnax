@@ -7,9 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Literal, Optional
-
-import synnax as sy
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from console.console import Console
@@ -28,9 +26,9 @@ class Analog:
         console: "Console",
         name: str,
         device: str,
-        type: str,
-        port: Optional[int] = None,
-        terminal_config: Optional[
+        chan_type: str,
+        port: int | None = None,
+        terminal_config: (
             Literal[
                 "Default",
                 "Differential",
@@ -38,17 +36,11 @@ class Analog:
                 "Referenced Single Ended",
                 "Non-Referenced Single Ended",
             ]
-        ] = None,
-        min_val: Optional[float] = None,
-        max_val: Optional[float] = None,
-        custom_scale: Optional[
-            Literal[
-                "None",
-                "Linear",
-                "Map",
-                "Table",
-            ]
-        ] = None,
+            | None
+        ) = None,
+        min_val: float | None = None,
+        max_val: float | None = None,
+        custom_scale: Literal["None", "Linear", "Map", "Table"] | None = None,
     ) -> None:
         """
         Initialize analog channel with common configuration.
@@ -57,7 +49,7 @@ class Analog:
             console: Console automation interface
             name: Channel name
             device: Device identifier
-            type: Channel type (e.g., "Voltage", "Accelerometer")
+            chan_type: Channel type (e.g., "Voltage", "Accelerometer")
             port: Physical port number
             terminal_config: "Default", "Differential", "Pseudo-Differential",
                            "Referenced Single Ended", "Non-Referenced Single Ended"
@@ -73,8 +65,8 @@ class Analog:
 
         # Configure channel type
         console.click_btn("Channel Type")
-        console.select_from_dropdown(type)
-        values["Channel Type"] = type
+        console.select_from_dropdown(chan_type)
+        values["Channel Type"] = chan_type
 
         # Get device (set by task.add_channel)
         values["Device"] = console.get_dropdown_value("Device")
@@ -98,20 +90,20 @@ class Analog:
         if min_val is not None:
             console.fill_input_field("Minimum Value", str(min_val))
             values["Minimum Value"] = str(min_val)
-        elif type != "Microphone":
+        elif chan_type != "Microphone":
             values["Minimum Value"] = console.get_input_field("Minimum Value")
 
         if max_val is not None:
             console.fill_input_field("Maximum Value", str(max_val))
             values["Maximum Value"] = str(max_val)
-        elif type != "Microphone":
+        elif chan_type != "Microphone":
             values["Maximum Value"] = console.get_input_field("Maximum Value")
 
         if custom_scale is not None:
             console.click_btn("Custom Scaling")
             console.select_from_dropdown(custom_scale)
             values["Custom Scaling"] = custom_scale
-        elif type != "RTD":
+        elif chan_type != "RTD":
             values["Custom Scaling"] = console.get_dropdown_value("Custom Scaling")
 
         self.form_values = values

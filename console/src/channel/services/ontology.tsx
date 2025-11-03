@@ -17,6 +17,7 @@ import {
   type Schematic as PSchematic,
   telem,
   Text,
+  Tooltip,
   Tree,
 } from "@synnaxlabs/pluto";
 import { primitive, type record } from "@synnaxlabs/x";
@@ -280,9 +281,11 @@ export const Item = ({ id, resource, icon: _, ...rest }: Ontology.TreeItemProps)
   if (primitive.isNonZero(res?.alias)) name = res?.alias;
   const data = resource.data as channel.Payload;
   const DataTypeIcon = PChannel.resolveIcon(data);
-  return (
+  const isLegacy = res?.requires != null && res.requires.length > 0;
+  const color = isLegacy ? "var(--pluto-warning-z)" : undefined;
+  const content = (
     <Tree.Item {...rest}>
-      <DataTypeIcon color={10} />
+      <DataTypeIcon color={color ?? 10} />
       <Text.MaybeEditable
         id={ontology.idToString(id)}
         allowDoubleClick={false}
@@ -292,9 +295,21 @@ export const Item = ({ id, resource, icon: _, ...rest }: Ontology.TreeItemProps)
         grow
         disabled={!allowRename(resource)}
         onChange
+        color={color}
       />
       {data.virtual && <Icon.Virtual color={8} />}
+      {isLegacy && <Icon.Warning color={color} />}
     </Tree.Item>
+  );
+  if (!isLegacy) return content;
+  return (
+    <Tooltip.Dialog>
+      <Text.Text>
+        Uses legacy-based lua calculation syntax and couldn't be automatically migrated.
+        It will not work in future releases. Please update the calculation manually.
+      </Text.Text>
+      {content}
+    </Tooltip.Dialog>
   );
 };
 
