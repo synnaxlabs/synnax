@@ -598,12 +598,15 @@ var _ = Describe("Calculator", Ordered, func() {
 				Expression: "return sensor + 10",
 			}
 			c := open(&indexes, &bases, &calc)
+
+			// First write: Data Series 1. Should not Calculate
 			data1 := telem.NewSeriesV[int64](5, 15)
 			data1.Alignment = telem.NewAlignment(2, 1)
 			fr1 := core.UnaryFrame(bases[0].Key(), data1)
 			_, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
 			Expect(changed).To(BeFalse())
 
+			// Second Write: Data Series 2. Should Not Calculate
 			idx1 := telem.NewSeriesSecondsTSV(1, 2)
 			idx1.Alignment = telem.NewAlignment(2, 1)
 			fr2 := core.UnaryFrame(indexes[0].Key(), idx1)

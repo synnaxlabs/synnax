@@ -210,6 +210,7 @@ func (c *Calculator) Next(
 	if !changed {
 		return outputFrame, changed, nil
 	}
+	c.state.ClearReads()
 	if *c.cfg.CalculateAlignments {
 		var alignment telem.Alignment
 		for k, v := range c.alignments {
