@@ -192,6 +192,24 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
                 channels=channels if channels is not None else [],
             )
 
+    def _update_device_properties(self, device_client):
+        """Internal: Update device properties before task configuration."""
+        import json
+
+        dev = device_client.retrieve(key=self.config.device)
+        props = json.loads(dev.properties) if isinstance(dev.properties, str) else dev.properties
+
+        if "read" not in props:
+            props["read"] = {"index": 0, "channels": {}}
+
+        # Map node_id -> channel key for Console
+        for ch in self.config.channels:
+            if ch.node_id:
+                props["read"]["channels"][ch.node_id] = ch.channel
+
+        dev.properties = json.dumps(props)
+        device_client.create(dev)
+
 
 class WriteTaskConfig(BaseModel):
     """
@@ -257,6 +275,24 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             channels=channels if channels is not None else [],
         )
 
+    def _update_device_properties(self, device_client):
+        """Internal: Update device properties before task configuration."""
+        import json
+
+        dev = device_client.retrieve(key=self.config.device)
+        props = json.loads(dev.properties) if isinstance(dev.properties, str) else dev.properties
+
+        if "write" not in props:
+            props["write"] = {"channels": {}}
+
+        # Map node_id -> cmd_channel key for Console
+        for ch in self.config.channels:
+            if ch.node_id:
+                props["write"]["channels"][ch.node_id] = ch.cmd_channel
+
+        dev.properties = json.dumps(props)
+        device_client.create(dev)
+
 
 MAKE = "opc"
 MODEL = "OPC UA"
@@ -286,20 +322,20 @@ def device_props(
         server_cert: Trusted server certificate for secure connections (optional)
 
     Returns:
-        Dictionary of device properties with the correct structure for the driver
+        Dictionary of device properties with the correct structure for Console
     """
+    # Driver expects snake_case property names (see driver/opc/connection/connection.h)
     connection = {
         "endpoint": endpoint,
+        "security_mode": security_mode,  # Always include, even if "None"
+        "security_policy": security_policy,  # Always include, even if "None"
     }
 
+    # Optional fields - only include if non-empty
     if username:
         connection["username"] = username
     if password:
         connection["password"] = password
-    if security_mode != "None":
-        connection["security_mode"] = security_mode
-    if security_policy != "None":
-        connection["security_policy"] = security_policy
     if client_cert:
         connection["client_certificate"] = client_cert
     if client_private_key:
@@ -350,4 +386,5 @@ def create_device(client, **kwargs):
 
     kwargs["make"] = MAKE
     kwargs["model"] = MODEL
+    kwargs["configured"] = True
     return client.hardware.devices.create(**kwargs)

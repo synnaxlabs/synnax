@@ -68,6 +68,7 @@ class Client:
         name: str = "",
         make: str = "",
         model: str = "",
+        configured: bool = False,
         properties: str = "",
     ): ...
 
@@ -87,6 +88,7 @@ class Client:
         name: str = "",
         make: str = "",
         model: str = "",
+        configured: bool = False,
         properties: str = "",
     ):
         is_single = not isinstance(devices, list)
@@ -99,6 +101,7 @@ class Client:
                     name=name,
                     make=make,
                     model=model,
+                    configured=configured,
                     properties=properties,
                 )
             ]

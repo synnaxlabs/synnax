@@ -61,7 +61,7 @@ my_array_1 = client.channels.create(
 # provides data in array format with a consistent size.
 # In this mode, each sample from the server contains an entire array of values.
 tsk = opcua.ReadTask(
-    name="OPC UA Python Example - Array Read Task",
+    name="OPC UA Py - Read Task (Array)",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
     array_mode=True,  # Enable array mode

@@ -60,7 +60,7 @@ my_bool_1 = client.channels.create(
 # Using node IDs to reference the OPC UA boolean variables.
 # The server creates booleans with sequential square wave patterns offset by 0.2 seconds.
 tsk = opcua.ReadTask(
-    name="OPC UA Python Example - Boolean Read Task",
+    name="OPC UA Py - Read Task (Boolean)",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
     stream_rate=sy.Rate.HZ * 10,  # Stream at 10 Hz

@@ -60,7 +60,7 @@ my_float_1 = client.channels.create(
 # Using node_name to reference the OPC UA variables directly by their names.
 # This is more reliable than using node IDs which can change between server restarts.
 tsk = opcua.ReadTask(
-    name="OPC UA Python Example - Read Task",
+    name="OPC UA Py - Read Task",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
     stream_rate=sy.Rate.HZ * 10,  # Stream at 10 Hz
