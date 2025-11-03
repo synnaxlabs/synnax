@@ -9,8 +9,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from freighter.transport import Payload
 
@@ -36,7 +36,7 @@ def _parse_exception_payload(
 
     1. An ExceptionPayload instance. In this case, a copy of the payload is
     returned.
-    2. A string encoded ExceptionPayload seperated by a '---' separator.
+    2. A string encoded ExceptionPayload separated by a '---' separator.
     3. A payload type and corresponding data.
 
     :returns: the parsed exception payload. If the payload cannot be parsed,

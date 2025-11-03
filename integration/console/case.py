@@ -23,22 +23,22 @@ class ConsoleCase(TestCase):
 
     browser: Browser
     page: Page
-    headless: bool
+    headed: bool
     default_timeout: int
     default_nav_timeout: int
     console: Console
 
     def setup(self) -> None:
-        headless = self.params.get("headless", True)
+        headed = self.params.get("headed", False)
         slow_mo = self.params.get("slow_mo", 0)
         default_timeout = self.params.get("default_timeout", 15000)  # 15s
         default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
 
         # Open page
-        self.log(f"Opening browser in {'headless' if headless else 'visible'} mode")
+        self.log(f"Opening browser in {'headed' if headed else 'headless'} mode")
         self.playwright = sync_playwright().start()
         browser_engine = self.determine_browser()
-        self.browser = browser_engine.launch(headless=headless, slow_mo=slow_mo)
+        self.browser = browser_engine.launch(headless=not headed, slow_mo=slow_mo)
         self.page = self.browser.new_page()
 
         # Set timeouts

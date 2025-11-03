@@ -31,8 +31,8 @@ var _ fhttp.BindableTransport = (*Service)(nil)
 // NewService creates a new console UI service.
 func NewService() *Service { return &Service{} }
 
-// BindTo binds the console UI service to the provided Fiber app.
-// In the non-ui build, it serves a fallback page indicating the console is not available.
+// BindTo binds the console UI service to the provided Fiber app. In the non-ui build,
+// it serves a fallback page indicating the Console is not available.
 func (s *Service) BindTo(app *fiber.App) {
 	app.Get("/", func(c *fiber.Ctx) error {
 		c.Set("Content-Type", "text/html")
@@ -44,6 +44,4 @@ func (s *Service) BindTo(app *fiber.App) {
 func (s *Service) Use(...freighter.Middleware) {}
 
 // Report implements alamos.ReportProvider.
-func (s *Service) Report() alamos.Report {
-	return alamos.Report{"console": "disabled"}
-}
+func (s *Service) Report() alamos.Report { return alamos.Report{"console": "disabled"} }

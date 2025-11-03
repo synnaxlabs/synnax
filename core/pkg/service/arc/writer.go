@@ -54,7 +54,7 @@ func (w Writer) Create(
 	}
 	otgID := OntologyID(c.Key)
 	if !exists {
-		if err := w.otg.DefineResource(ctx, otgID); err != nil {
+		if err = w.otg.DefineResource(ctx, otgID); err != nil {
 			return err
 		}
 	}

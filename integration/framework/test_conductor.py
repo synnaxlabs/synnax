@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import argparse
-import gc
 import glob
 import importlib.util
 import itertools
@@ -21,11 +20,12 @@ import string
 import sys
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, cast
 
 import synnax as sy
 
@@ -51,11 +51,11 @@ class TestResult:
 
     test_name: str
     status: STATUS
-    name: Optional[str] = None  # Custom name from test definition
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    error_message: Optional[str] = None
-    duration: Optional[float] = None
+    name: str | None = None  # Custom name from test definition
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    error_message: str | None = None
+    duration: float | None = None
 
     def __post_init__(self) -> None:
         if self.start_time and self.end_time:
@@ -73,8 +73,8 @@ class TestDefinition:
     """Data class representing a test case definition from the sequence file."""
 
     case: str
-    name: Optional[str] = None  # Optional custom name for the test case
-    parameters: Dict[str, Union[Any, List[Any]]] = field(default_factory=dict)
+    name: str | None = None  # Optional custom name for the test case
+    parameters: dict[str, Any | list[Any]] = field(default_factory=dict)
     expect: str = "PASSED"  # Expected test outcome, defaults to "PASSED"
 
     def __str__(self) -> str:
@@ -84,7 +84,7 @@ class TestDefinition:
         return self.case
 
 
-COLORS: List[str] = [
+COLORS: list[str] = [
     "#FF0000",  # Red (0°)
     "#FF8000",  # Orange (30°)
     "#FFFF00",  # Yellow (60°)
@@ -105,8 +105,8 @@ class TestConductor:
 
     def __init__(
         self,
-        name: Optional[str] = None,
-        synnax_connection: Optional[SynnaxConnection] = None,
+        name: str | None = None,
+        synnax_connection: SynnaxConnection | None = None,
     ) -> None:
         """
         Initialize test conductor with connection parameters.
@@ -142,21 +142,21 @@ class TestConductor:
         # Initialize state and collections
         self.start_time = datetime.now()
         self.state = STATE.INITIALIZING
-        self.test_definitions: List[TestDefinition] = []
-        self.test_results: List[TestResult] = []
-        self.sequences: List[Dict[str, Any]] = []
-        self.current_test: Optional[TestCase] = None
-        self.current_test_start_time: Optional[datetime] = None
-        self.timeout_monitor_thread: Optional[threading.Thread] = None
-        self.client_manager_thread: Optional[threading.Thread] = None
-        self.current_test_thread: Optional[threading.Thread] = None
-        self._timeout_result: Optional[TestResult] = None
+        self.test_definitions: list[TestDefinition] = []
+        self.test_results: list[TestResult] = []
+        self.sequences: list[dict[str, Any]] = []
+        self.current_test: TestCase | None = None
+        self.current_test_start_time: datetime | None = None
+        self.timeout_monitor_thread: threading.Thread | None = None
+        self.client_manager_thread: threading.Thread | None = None
+        self.current_test_thread: threading.Thread | None = None
+        self._timeout_result: TestResult | None = None
         self.is_running = False
         self.should_stop = False
-        self.status_callbacks: List[Callable[[TestResult], None]] = []
+        self.status_callbacks: list[Callable[[TestResult], None]] = []
         self.sequence_ordering: str = "Sequential"
         # For asynchronous execution, track multiple tests
-        self.active_tests: List[Tuple[TestCase, datetime]] = []
+        self.active_tests: list[tuple[TestCase, datetime]] = []
 
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -303,9 +303,7 @@ class TestConductor:
             if hasattr(handler, "flush"):
                 handler.flush()
 
-    def load_test_sequence(
-        self, sequence: Optional[Union[str, List[str]]] = None
-    ) -> None:
+    def load_test_sequence(self, sequence: str | list[str] | None = None) -> None:
         """Load test sequence from JSON configuration file(s) or auto-discover test.json files."""
         self.state = STATE.LOADING
 
@@ -347,7 +345,7 @@ class TestConductor:
 
         self._process_sequences(all_sequences)
 
-    def _expand_parameters(self, test_def: TestDefinition) -> List[TestDefinition]:
+    def _expand_parameters(self, test_def: TestDefinition) -> list[TestDefinition]:
         """
         Expand a test definition with parameters into multiple test definitions.
 
@@ -411,7 +409,7 @@ class TestConductor:
 
         return expanded_tests
 
-    def _process_sequences(self, sequences_array: List[Any]) -> None:
+    def _process_sequences(self, sequences_array: list[Any]) -> None:
         """Process a list of sequences and populate test_definitions and sequences."""
         self.test_definitions = []
         self.sequences = []
@@ -470,7 +468,7 @@ class TestConductor:
         # Update telemetry
         self.tlm[f"{self.name}_test_case_count"] = len(self.test_definitions)
 
-    def run_sequence(self) -> List[TestResult]:
+    def run_sequence(self) -> list[TestResult]:
         """Execute all tests in the loaded sequence."""
         if not self.test_definitions:
             raise ValueError(
@@ -528,7 +526,7 @@ class TestConductor:
         self._print_summary()
         return self.test_results
 
-    def _execute_sequence(self, tests_to_execute: List[TestDefinition]) -> None:
+    def _execute_sequence(self, tests_to_execute: list[TestDefinition]) -> None:
         """Execute tests in a sequence one after another."""
         for test_def in tests_to_execute:
             if self.should_stop:
@@ -542,7 +540,7 @@ class TestConductor:
             )
 
             # Run test in separate thread
-            result_container: List[TestResult] = []
+            result_container: list[TestResult] = []
             test_thread = threading.Thread(
                 target=self._test_runner_thread, args=(test_def, result_container)
             )
@@ -567,7 +565,7 @@ class TestConductor:
             self.tlm[f"{self.name}_test_cases_ran"] += 1
 
     def _execute_sequence_asynchronously(
-        self, sequence_name: str, tests_to_execute: List[TestDefinition]
+        self, sequence_name: str, tests_to_execute: list[TestDefinition]
     ) -> None:
         """Execute tests in a sequence simultaneously."""
         test_threads = []
@@ -585,7 +583,7 @@ class TestConductor:
             )
 
             # Create result container and thread for each test
-            result_container: List[TestResult] = []
+            result_container: list[TestResult] = []
             test_thread = threading.Thread(
                 target=self._test_runner_thread, args=(test_def, result_container)
             )
@@ -846,7 +844,7 @@ class TestConductor:
             raise RuntimeError(f"Failed to create range for {self.name}: {e}")
 
     def _test_runner_thread(
-        self, test_def: TestDefinition, result_container: List[TestResult]
+        self, test_def: TestDefinition, result_container: list[TestResult]
     ) -> None:
         """Thread function for running a single test."""
         result = self._execute_single_test(test_def)
@@ -957,7 +955,7 @@ class TestConductor:
             else:
                 self.log_message("Client manager stopped successfully")
 
-    def get_current_status(self) -> Dict[str, Any]:
+    def get_current_status(self) -> dict[str, Any]:
         """Get the current status of test execution."""
         return {
             "is_running": self.is_running,
@@ -977,7 +975,7 @@ class TestConductor:
             ],
         }
 
-    def _get_test_statistics(self) -> Dict[str, int]:
+    def _get_test_statistics(self) -> dict[str, int]:
         """Calculate and return test execution statistics."""
         if not self.test_results:
             return {
@@ -1100,7 +1098,7 @@ def main() -> None:
 
     try:
         # Handle sequence parameter - support both single file and list
-        sequence_input: Optional[Union[str, List[str]]] = None
+        sequence_input: str | list[str] | None = None
         if args.sequence:
             # Check if it's a comma-separated list
             if "," in args.sequence:

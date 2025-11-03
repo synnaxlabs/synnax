@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from console.task.channels.analog import Analog
 
@@ -42,7 +42,7 @@ class StrainGauge(Analog):
         console: "Console",
         name: str,
         device: str,
-        strain_configuration: Optional[
+        strain_configuration: (
             Literal[
                 "Full Bridge I",
                 "Full Bridge II",
@@ -51,20 +51,15 @@ class StrainGauge(Analog):
                 "Half Bridge II",
                 "Quarter Bridge I",
             ]
-        ] = None,
-        excitation_source: Optional[
-            Literal[
-                "Internal",
-                "External",
-                "None",
-            ]
-        ] = None,
-        excitation_value: Optional[float] = None,
-        gage_factor: Optional[float] = None,
-        initial_bridge_voltage: Optional[float] = None,
-        nominal_gage_resistance: Optional[float] = None,
-        poisson_ratio: Optional[float] = None,
-        lead_wire_resistance: Optional[float] = None,
+            | None
+        ) = None,
+        excitation_source: Literal["Internal", "External", "None"] | None = None,
+        excitation_value: float | None = None,
+        gage_factor: float | None = None,
+        initial_bridge_voltage: float | None = None,
+        nominal_gage_resistance: float | None = None,
+        poisson_ratio: float | None = None,
+        lead_wire_resistance: float | None = None,
         **kwargs: Any,
     ) -> None:
 
@@ -73,7 +68,7 @@ class StrainGauge(Analog):
             console=console,
             name=name,
             device=device,
-            type="Strain Gauge",
+            chan_type="Strain Gauge",
             **kwargs,
         )
 
