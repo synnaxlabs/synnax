@@ -43,12 +43,12 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 	}
 	cfg := state.Config{IR: inter}
 	s := state.New(cfg)
-	b.ReportAllocs()
-	b.ResetTimer()
-	sourceNode := s.Node(ctx, "source")
-	targetNode := s.Node(ctx, "target")
+	sourceNode := s.Node("source")
+	targetNode := s.Node("target")
 	*sourceNode.Output(0) = telem.NewSeriesV[float32](0)
 	*sourceNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+	b.ReportAllocs()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		telem.SetValueAt[float32](*sourceNode.Output(0), 0, float32(i))
 		telem.SetValueAt[telem.TimeStamp](
