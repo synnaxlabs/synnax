@@ -75,7 +75,7 @@ holding_reg_cmd_1 = client.channels.create(
 # Create the Modbus Write Task
 # Demonstrates writing to both coils (1-bit digital) and holding registers (16-bit analog)
 tsk = modbus.WriteTask(
-    name="Modbus Python Example - Write Task",
+    name="Modbus Py - Write Task",
     device=dev.key,
     data_saving=True,
     channels=[

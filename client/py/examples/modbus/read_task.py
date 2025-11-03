@@ -61,7 +61,7 @@ input_reg_1 = client.channels.create(
 # Create the Modbus Read Task
 # Reads two input registers with sine wave data from the test server.
 tsk = modbus.ReadTask(
-    name="Modbus Python Example - Read Task",
+    name="Modbus Py - Read Task",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
     stream_rate=sy.Rate.HZ * 10,  # Stream at 10 Hz

@@ -30,9 +30,9 @@ Configuration:
 """
 
 import json
-from uuid import uuid4
 
 import synnax as sy
+from synnax.hardware import modbus
 
 # Configuration
 DEVICE_NAME = "Modbus Server"
@@ -85,28 +85,19 @@ if response in ("", "y", "yes"):
         rack = client.hardware.racks.retrieve_embedded_rack()
         print(f"Using rack: {rack.name} (key={rack.key})")
 
-        # Create the device with a unique key
-        device_key = str(uuid4())
-
-        # Create device properties with connection information
-        # Must be JSON string, not dict
-        properties = {
-            "connection": {
-                "host": HOST,
-                "port": PORT,
-                "swap_bytes": False,  # Byte order within 16-bit words
-                "swap_words": False,  # Word order for 32-bit+ values
-            }
-        }
-
-        device = client.hardware.devices.create(
-            key=device_key,
+        device = modbus.create_device(
+            client=client,
             name=DEVICE_NAME,
             location=f"{HOST}:{PORT}",
-            make="modbus",
-            model="",
             rack=rack.key,
-            properties=json.dumps(properties),
+            properties=json.dumps(
+                modbus.device_props(
+                    host=HOST,
+                    port=PORT,
+                    swap_bytes=False,
+                    swap_words=False,
+                )
+            ),
         )
 
         print("✓ Server connected successfully!")

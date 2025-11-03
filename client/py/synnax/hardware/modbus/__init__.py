@@ -18,4 +18,6 @@ from synnax.hardware.modbus.types import (
     ReadTaskConfig,
     WriteTask,
     WriteTaskConfig,
+    create_device,
+    device_props,
 )

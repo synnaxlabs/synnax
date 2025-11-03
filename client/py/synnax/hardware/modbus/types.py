@@ -16,6 +16,10 @@ from synnax.channel import ChannelKey
 from synnax.hardware.task import JSONConfigMixin, MetaTask, StarterStopperMixin, Task
 from synnax.telem import CrudeRate
 
+# Device identifiers - must match Console expectations
+MAKE = "Modbus"
+MODEL = "Modbus"
+
 
 class BaseChan(BaseModel):
     """Base class for all Modbus channels."""
@@ -327,3 +331,73 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             auto_start=auto_start,
             channels=channels if channels is not None else [],
         )
+
+
+# ================================ DEVICE HELPERS ================================
+
+
+def device_props(
+    host: str,
+    port: int,
+    swap_bytes: bool = False,
+    swap_words: bool = False,
+) -> dict:
+    """
+    Create device properties for a Modbus TCP connection.
+
+    Args:
+        host: The IP address or hostname of the Modbus server
+        port: The TCP port number (typically 502)
+        swap_bytes: Whether to swap byte order within 16-bit words
+        swap_words: Whether to swap word order for 32-bit+ values
+
+    Returns:
+        Dictionary of device properties with the correct structure for Console
+    """
+    return {
+        "connection": {
+            "host": host,
+            "port": port,
+            "swap_bytes": swap_bytes,
+            "swap_words": swap_words,
+        },
+        "read": {
+            "index": 0,
+            "channels": {}
+        },
+        "write": {
+            "channels": {}
+        }
+    }
+
+
+def create_device(client, **kwargs):
+    """
+    Create a Modbus device with make, model, and key automatically set.
+
+    This is a thin wrapper around client.hardware.devices.create() that
+    automatically fills in:
+    - make: "Modbus"
+    - model: "Modbus"
+    - key: auto-generated UUID if not provided
+
+    All other parameters are passed through unchanged.
+
+    Example:
+        >>> device = modbus.create_device(
+        ...     client=client,
+        ...     name="Modbus Server",
+        ...     location="127.0.0.1:502",
+        ...     rack=rack.key,
+        ...     properties=json.dumps({...})
+        ... )
+    """
+    from uuid import uuid4
+
+    # Auto-generate key if not provided
+    if "key" not in kwargs:
+        kwargs["key"] = str(uuid4())
+
+    kwargs["make"] = MAKE
+    kwargs["model"] = MODEL
+    return client.hardware.devices.create(**kwargs)
