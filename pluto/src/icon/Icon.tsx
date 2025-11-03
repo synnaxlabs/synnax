@@ -41,17 +41,22 @@ const SUB_POSITIONS: Record<location.CornerXYString, { x: number; y: number }> =
   bottomRight: { x: BASE_SIZE - SUB_SIZE, y: BASE_SIZE - SUB_SIZE },
 };
 
-const createSubIcon = (key: location.CornerXYString, Icon: FC): ReactElement | null => (
-  <g transform={`translate(${SUB_POSITIONS[key].x}, ${SUB_POSITIONS[key].y})`}>
-    <circle
-      className={CSS.BE("sub", "bg")}
-      r={SUB_SIZE / 2}
-      cx={SUB_SIZE / 2}
-      cy={SUB_SIZE / 2}
-    />
-    <Icon className={CSS(CSS.B("sub"), CSS.M(key))} size={SUB_SIZE} />
-  </g>
-);
+const createSubIcon = (key: location.CornerXYString, Icon: FC): ReactElement | null => {
+  // TODO: fix
+  if (Icon == null) return null;
+
+  return (
+    <g transform={`translate(${SUB_POSITIONS[key].x}, ${SUB_POSITIONS[key].y})`}>
+      <circle
+        className={CSS.BE("sub", "bg")}
+        r={SUB_SIZE / 2}
+        cx={SUB_SIZE / 2}
+        cy={SUB_SIZE / 2}
+      />
+      <Icon className={CSS(CSS.B("sub"), CSS.M(key))} size={SUB_SIZE} />
+    </g>
+  );
+};
 
 export interface FC extends ReactFC<IconProps> {}
 
