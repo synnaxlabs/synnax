@@ -130,7 +130,8 @@ type ChannelRetrieveRequest struct {
 	// IsIndex filters for channels that are indexes if true, or are not indexes if false.
 	IsIndex *bool `json:"is_index" msgpack:"is_index"`
 	// Internal filters for channels that are internal if true, or are not internal if false.
-	Internal *bool `json:"internal" msgpack:"internal"`
+	Internal         *bool `json:"internal" msgpack:"internal"`
+	LegacyCalculated *bool `json:"legacy_calculated" msgpack:"legacy_calculated"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
@@ -208,6 +209,9 @@ func (s *ChannelService) Retrieve(
 	}
 	if req.Internal != nil {
 		q = q.WhereInternal(*req.Internal)
+	}
+	if req.LegacyCalculated != nil && *req.LegacyCalculated {
+		q = q.WhereLegacyCalculated()
 	}
 	if err := q.Exec(ctx, nil); err != nil {
 		return ChannelRetrieveResponse{}, err

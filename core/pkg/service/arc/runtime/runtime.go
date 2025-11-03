@@ -143,6 +143,9 @@ type Runtime struct {
 func (r *Runtime) Close() error {
 	c := errors.NewCatcher(errors.WithAggregation())
 	c.Exec(r.streamer.Close)
+	if r.writer != nil {
+		c.Exec(r.writer.Close)
+	}
 	c.Exec(r.closer.Close)
 	return c.Error()
 }

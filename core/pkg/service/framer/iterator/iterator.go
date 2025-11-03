@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -116,6 +115,10 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	if err != nil {
 		return nil, err
 	}
+	legacyCalcTransform, err := s.newLegacyCalculationTransform(ctx, &cfg)
+	if err != nil {
+		return nil, err
+	}
 	dist, err := s.cfg.DistFramer.NewStreamIterator(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -129,8 +132,18 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 			calcTransform,
 			confluence.DeferErr(calcTransform.close),
 		)
-		plumber.MustConnect[Response](p, "distribution", "calculation", 25)
+		plumber.MustConnect[Response](p, routeOutletFrom, "calculation", 25)
 		routeOutletFrom = "calculation"
+	}
+
+	if legacyCalcTransform != nil {
+		plumber.SetSegment(
+			p,
+			"legacy_calculation",
+			legacyCalcTransform,
+		)
+		plumber.MustConnect[Response](p, routeOutletFrom, "legacy_calculation", 25)
+		routeOutletFrom = "legacy_calculation"
 	}
 	return &plumber.Segment[Request, Response]{
 		Pipeline:         p,
@@ -167,55 +180,73 @@ func (s *Service) openCalculator(ctx context.Context, ch channel.Channel) (*calc
 }
 
 func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*calculationTransform, error) {
-	var (
-		channels    []channel.Channel
-		calculators []*calculation.Calculator
-		required    = make(set.Set[channel.Key], len(channels))
-		calculated  = make(set.Set[channel.Key], len(channels))
-	)
+	originalKeys := slices.Clone(cfg.Keys)
+
+	// Fetch the requested channels
+	var channels []channel.Channel
 	if err := s.cfg.Channel.NewRetrieve().
 		WhereKeys(cfg.Keys...).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	for _, ch := range channels {
-		if ch.IsCalculated() {
-			calculator, err := s.openCalculator(ctx, ch)
-			if err != nil {
-				return nil, err
-			}
-			calculators = append(calculators, calculator)
-			calculated.Add(ch.Key())
-			required.Add(calculator.ReadFrom()...)
-		}
-	}
-	var requiredChannels []channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().
-		Entries(&requiredChannels).
-		WhereKeys(required.Keys()...).
-		Exec(ctx, nil); err != nil {
+
+	// Build dependency graph to recursively resolve all nested calculated channels
+	calculators, calculatedKeys, concreteBaseKeys, err := s.buildDependencyGraph(ctx, channels)
+	if err != nil {
 		return nil, err
 	}
-	originalKeys := slices.Clone(cfg.Keys)
-	cfg.Keys = lo.Uniq(append(cfg.Keys, required.Keys()...))
+
+	// If no calculated channels, no transform needed
+	if len(calculators) == 0 {
+		return nil, nil
+	}
+
+	// Fetch concrete base channel metadata to get their indices
+	var concreteBaseChannels []channel.Channel
+	if len(concreteBaseKeys) > 0 {
+		if err := s.cfg.Channel.NewRetrieve().
+			Entries(&concreteBaseChannels).
+			WhereKeys(concreteBaseKeys.Keys()...).
+			Exec(ctx, nil); err != nil {
+			return nil, err
+		}
+	}
+
+	// Update cfg.Keys to include concrete base keys and their indices
+	cfg.Keys = lo.Uniq(append(cfg.Keys, concreteBaseKeys.Keys()...))
 	cfg.Keys = lo.Uniq(append(cfg.Keys, lo.FilterMap(
-		requiredChannels,
+		concreteBaseChannels,
 		func(item channel.Channel, index int) (channel.Key, bool) {
 			return item.Index(), !item.Virtual
 		})...,
 	))
+
+	// Remove ALL calculated keys (including nested ones) from cfg.Keys
 	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
-		return !calculated.Contains(item) && !item.Free()
+		return !calculatedKeys.Contains(item) && !item.Free()
 	})
-	// PurgeKeys are channels inside cfg.Keys that are required in ReadFrom
-	// but were not requested
-	purgeKeys := make([]channel.Key, 0, len(cfg.Keys))
+
+	// PurgeKeys are channels that are required but were not requested
+	// This includes both:
+	// 1. Concrete channels added for dependencies
+	// 2. Intermediate calculated channels not originally requested
+	purgeKeys := make([]channel.Key, 0, len(cfg.Keys)+len(calculatedKeys))
+
+	// Add concrete channels not originally requested
 	for _, key := range cfg.Keys {
 		if !lo.Contains(originalKeys, key) {
 			purgeKeys = append(purgeKeys, key)
 		}
 	}
+
+	// Add calculated channels not originally requested
+	for _, calcKey := range calculatedKeys.Keys() {
+		if !lo.Contains(originalKeys, calcKey) {
+			purgeKeys = append(purgeKeys, calcKey)
+		}
+	}
+
 	return newCalculationTransform(purgeKeys, calculators), nil
 }
 
