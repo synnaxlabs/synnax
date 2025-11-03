@@ -69,7 +69,7 @@ func (s *source) Init(node.Context) {}
 
 func (s *source) Next(ctx node.Context) {
 	data, indexData, ok := s.ReadChan(s.key)
-	if !ok || len(data.Series) == 0 {
+	if !ok {
 		return
 	}
 	for i, ser := range data.Series {
