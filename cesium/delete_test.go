@@ -534,17 +534,17 @@ var _ = Describe("Delete", func() {
 						Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(12 * telem.SecondTS))
 
 						series0Data := telem.UnmarshalSlice[int64](frame.SeriesAt(0).Data, telem.Int64T)
-						Expect(series0Data).To(ContainElement(0))
-						Expect(series0Data).To(ContainElement(1))
-						Expect(series0Data).ToNot(ContainElement(2))
+						Expect(series0Data).To(ContainElement(int64(0)))
+						Expect(series0Data).To(ContainElement(int64(1)))
+						Expect(series0Data).ToNot(ContainElement(int64(2)))
 
 						Expect(frame.SeriesAt(1).TimeRange.Start).To(Equal(17 * telem.SecondTS))
 						series1Data := telem.UnmarshalSlice[int64](frame.SeriesAt(1).Data, telem.Int64T)
 
-						Expect(series1Data).ToNot(ContainElement(6))
-						Expect(series1Data).To(ContainElement(7))
-						Expect(series1Data).To(ContainElement(8))
-						Expect(series1Data).To(ContainElement(9))
+						Expect(series1Data).ToNot(ContainElement(int64(6)))
+						Expect(series1Data).To(ContainElement(int64(7)))
+						Expect(series1Data).To(ContainElement(int64(8)))
+						Expect(series1Data).To(ContainElement(int64(9)))
 					})
 				})
 

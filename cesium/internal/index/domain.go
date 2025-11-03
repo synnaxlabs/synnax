@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 // Domain is an implementation of Index backed by a domain-based database that stores
@@ -540,7 +541,10 @@ func newStampReader() func(r io.ReaderAt, offset telem.Size) (telem.TimeStamp, e
 	buf := make([]byte, sampleDensity)
 	return func(r io.ReaderAt, offset telem.Size) (telem.TimeStamp, error) {
 		_, err := r.ReadAt(buf, int64(offset))
-		return telem.UnmarshalTimeStamp[telem.TimeStamp](buf), err
+		if err != nil {
+			return 0, err
+		}
+		return unsafe.CastBytes[telem.TimeStamp](buf), nil
 	}
 }
 

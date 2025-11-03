@@ -84,11 +84,11 @@ var _ = Describe("Delete", func() {
 						Expect(frame.Count()).To(Equal(2))
 						Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(12 * telem.SecondTS))
 						series0Data := telem.UnmarshalSlice[int64](frame.SeriesAt(0).Data, telem.Int64T)
-						Expect(series0Data).To(ConsistOf(0, 1))
+						Expect(series0Data).To(ConsistOf(int64(0), int64(1)))
 
 						Expect(frame.SeriesAt(1).TimeRange.Start).To(Equal(17 * telem.SecondTS))
 						series1Data := telem.UnmarshalSlice[int64](frame.SeriesAt(1).Data, telem.Int64T)
-						Expect(series1Data).To(ConsistOf(7, 8, 9))
+						Expect(series1Data).To(ConsistOf(int64(7), int64(8), int64(9)))
 					})
 					It("Should delete chunks of a channel without exact timestamps", func() {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 12, 15, 17, 19, 20, 23))).To(Succeed())
@@ -127,7 +127,7 @@ var _ = Describe("Delete", func() {
 
 						Expect(frame.SeriesAt(0).TimeRange.Start).To(Equal(18 * telem.SecondTS))
 						series1Data := telem.UnmarshalSlice[int64](frame.SeriesAt(0).Data, telem.Int64T)
-						Expect(series1Data).To(ConsistOf(8, 9))
+						Expect(series1Data).To(ConsistOf(int64(8), int64(9)))
 					})
 					It("Should delete chunks of a channel if the end is out of the pointer", func() {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
@@ -145,7 +145,7 @@ var _ = Describe("Delete", func() {
 
 						Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(13 * telem.SecondTS))
 						series0Data := telem.UnmarshalSlice[int64](frame.SeriesAt(0).Data, telem.Int64T)
-						Expect(series0Data).To(ConsistOf(0, 1, 2))
+						Expect(series0Data).To(ConsistOf(int64(0), int64(1), int64(2)))
 					})
 					It("Should delete the whole channel", func() {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
@@ -281,12 +281,13 @@ var _ = Describe("Delete", func() {
 
 							Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(13*telem.SecondTS + 1))
 							series0Data := telem.UnmarshalSlice[int64](frame.SeriesAt(0).Data, telem.Int64T)
-							Expect(series0Data).To(ConsistOf(10, 13))
+							Expect(series0Data).To(ConsistOf(int64(10), int64(13)))
 
 							Expect(frame.SeriesAt(1).TimeRange.Start).To(Equal(25100 * telem.MillisecondTS))
 							series1Data := telem.UnmarshalSlice[int64](frame.SeriesAt(1).Data, telem.Int64T)
-							Expect(series1Data).To(ConsistOf(251, 278))
+							Expect(series1Data).To(ConsistOf(int64(251), int64(278)))
 						})
+
 						It("Should delete full domains", func() {
 							Expect(dataDB.Delete(ctx, telem.TimeRange{
 								Start: 10 * telem.SecondTS,
@@ -299,8 +300,16 @@ var _ = Describe("Delete", func() {
 
 							Expect(frame.SeriesAt(0).TimeRange.Start).To(Equal(20 * telem.SecondTS))
 							series0Data := telem.UnmarshalSlice[int64](frame.SeriesAt(0).Data, telem.Int64T)
-							Expect(series0Data).To(ConsistOf(200, 235, 236, 238, 251, 278))
+							Expect(series0Data).To(ConsistOf(
+								int64(200),
+								int64(235),
+								int64(236),
+								int64(238),
+								int64(251),
+								int64(278),
+							))
 						})
+
 						It("Should delete entire dataDB", func() {
 							Expect(dataDB.Delete(ctx, telem.TimeRangeMax)).To(Succeed())
 							frame, err := dataDB.Read(ctx, telem.TimeRangeMax)
@@ -395,12 +404,12 @@ var _ = Describe("Delete", func() {
 							Expect(frame.Count()).To(Equal(6))
 
 							series0Data := telem.UnmarshalSlice[int64](frame.SeriesAt(0).Data, telem.Int64T)
-							Expect(series0Data).ToNot(ContainElement(200))
+							Expect(series0Data).ToNot(ContainElement(int64(200)))
 
 							Expect(frame.SeriesAt(1).TimeRange.Start).To(Equal(50 * telem.SecondTS))
 							series1Data := telem.UnmarshalSlice[int64](frame.SeriesAt(1).Data, telem.Int64T)
-							Expect(series1Data).ToNot(ContainElement(490))
-							Expect(series1Data).To(ContainElement(500))
+							Expect(series1Data).ToNot(ContainElement(int64(490)))
+							Expect(series1Data).To(ContainElement(int64(500)))
 
 							Expect(frame.SeriesAt(5).TimeRange.End).To(BeNumerically("<", 100*telem.SecondTS))
 						})
