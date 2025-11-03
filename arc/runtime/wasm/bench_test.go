@@ -114,12 +114,10 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 	// Create state manager
 	s := state.New(state.Config{IR: a})
 
-	// Seed input data - create realistic sensor data pattern
 	xNode := s.Node("x")
 	aNode := s.Node("a")
 	bNode := s.Node("b")
 
-	// Open WASM module
 	wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
 		Module: mod,
 		State:  s,
@@ -133,13 +131,11 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 		}
 	}()
 
-	// Create WASM node factory
 	factory, err := wasm.NewFactory(wasmMod)
 	if err != nil {
 		b.Fatalf("Failed to create WASM factory: %v", err)
 	}
 
-	// Create the affine transformation node
 	affineNode := s.Node("affine")
 	n, err := factory.Create(ctx, node.Config{
 		Node:   a.Nodes.Get("affine"),
@@ -155,24 +151,20 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 		MarkChanged: func(output string) {},
 	}
 
-	// Benchmark the Next() execution
 	b.ReportAllocs()
-	b.ResetTimer()
-
 	*aNode.Output(0) = telem.NewSeriesV[float32](1)
 	*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 	*bNode.Output(0) = telem.NewSeriesV[float32](1)
 	*bNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		*xNode.Output(0) = telem.NewSeriesV[float32](1)
 		*xNode.OutputTime(0) = telem.NewSeriesSecondsTSV(telem.TimeStamp(i))
 		n.Next(nodeCtx)
 	}
 
 	b.StopTimer()
 
-	// Report custom metrics
 	throughput := float64(b.N) / b.Elapsed().Seconds()
 	b.ReportMetric(throughput, "samples/sec")
 	b.ReportMetric(float64(b.Elapsed().Nanoseconds())/float64(b.N), "ns/sample")

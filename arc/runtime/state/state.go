@@ -168,8 +168,8 @@ func (s *State) Node(key string) *Node {
 	}
 
 	return &Node{
-		inputs:       inputs,
-		outputs:      lo.Map(n.Outputs, func(item types.Param, _ int) ir.Handle {
+		inputs: inputs,
+		outputs: lo.Map(n.Outputs, func(item types.Param, _ int) ir.Handle {
 			return ir.Handle{Node: key, Param: item.Name}
 		}),
 		state:        s,
