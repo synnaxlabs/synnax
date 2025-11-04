@@ -185,6 +185,90 @@ var _ = Describe("State", func() {
 				Expect(len(fr.Get(3).Series)).To(Equal(1))
 			})
 		})
+		Describe("ClearReads", func() {
+			It("Should clear all channel read buffers", func() {
+				s := state.New(state.Config{Nodes: []ir.Node{{Key: "test"}}})
+				fr := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2, 3))
+				s.Ingest(fr)
+				n := s.Node("test")
+				data, _, ok := n.ReadChan(10)
+				Expect(ok).To(BeTrue())
+				Expect(data.Series).To(HaveLen(1))
+				s.ClearReads()
+				data, _, ok = n.ReadChan(10)
+				Expect(ok).To(BeTrue())
+				Expect(data.Series).To(BeEmpty())
+			})
+			It("Should clear multiple channels", func() {
+				cfg := state.Config{
+					ChannelDigests: []state.ChannelDigest{
+						{Key: 1, Index: 2},
+						{Key: 3, Index: 4},
+					},
+					Nodes: []ir.Node{{Key: "test"}},
+				}
+				s := state.New(cfg)
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(1, telem.NewSeriesV[int32](100, 200))
+				fr = fr.Append(2, telem.NewSeriesSecondsTSV(10, 20))
+				fr = fr.Append(3, telem.NewSeriesV[float64](1.5, 2.5))
+				fr = fr.Append(4, telem.NewSeriesSecondsTSV(30, 40))
+				s.Ingest(fr)
+				n := s.Node("test")
+				data1, time1, ok1 := n.ReadChan(1)
+				Expect(ok1).To(BeTrue())
+				Expect(data1.Series).To(HaveLen(1))
+				Expect(time1.Series).To(HaveLen(1))
+				data2, time2, ok2 := n.ReadChan(3)
+				Expect(ok2).To(BeTrue())
+				Expect(data2.Series).To(HaveLen(1))
+				Expect(time2.Series).To(HaveLen(1))
+				s.ClearReads()
+				_, _, ok1 = n.ReadChan(1)
+				Expect(ok1).To(BeFalse())
+				_, _, ok2 = n.ReadChan(3)
+				Expect(ok2).To(BeFalse())
+			})
+			It("Should allow new data to be ingested after clearing", func() {
+				s := state.New(state.Config{Nodes: []ir.Node{{Key: "test"}}})
+				fr1 := telem.UnaryFrame[uint32](5, telem.NewSeriesV[uint8](10, 20))
+				s.Ingest(fr1)
+				n := s.Node("test")
+				data, _, ok := n.ReadChan(5)
+				Expect(ok).To(BeTrue())
+				Expect(data.Series).To(HaveLen(1))
+				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[uint8](10, 20)))
+				s.ClearReads()
+				fr2 := telem.UnaryFrame[uint32](5, telem.NewSeriesV[uint8](30, 40))
+				s.Ingest(fr2)
+				data, _, ok = n.ReadChan(5)
+				Expect(ok).To(BeTrue())
+				Expect(data.Series).To(HaveLen(1))
+				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[uint8](30, 40)))
+			})
+			It("Should not affect channels that had no data", func() {
+				cfg := state.Config{
+					ChannelDigests: []state.ChannelDigest{
+						{Key: 10, Index: 11},
+					},
+					Nodes: []ir.Node{{Key: "test"}},
+				}
+				s := state.New(cfg)
+				fr := telem.UnaryFrame[uint32](10, telem.NewSeriesV[int32](1))
+				s.Ingest(fr)
+				s.ClearReads()
+				n := s.Node("test")
+				_, _, ok := n.ReadChan(999)
+				Expect(ok).To(BeFalse())
+			})
+			It("Should handle empty state", func() {
+				s := state.New(state.Config{Nodes: []ir.Node{{Key: "test"}}})
+				s.ClearReads()
+				n := s.Node("test")
+				_, _, ok := n.ReadChan(1)
+				Expect(ok).To(BeFalse())
+			})
+		})
 	})
 
 	Describe("Input Alignment", func() {

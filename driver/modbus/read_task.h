@@ -312,8 +312,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(idx);
         return synnax::WriterConfig{
             .channels = keys,
-            .start = telem::TimeStamp::now(),
-            .mode = synnax::data_saving_writer_mode(this->data_saving),
+            .mode = common::data_saving_writer_mode(this->data_saving),
         };
     }
 };

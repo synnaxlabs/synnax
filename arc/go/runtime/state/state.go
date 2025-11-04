@@ -118,6 +118,9 @@ func (s *State) writeChannel(key uint32, data, time telem.Series) {
 	}
 }
 
+// ClearReads empties all channel read buffers while preserving their underlying capacity.
+// This is typically called after processing channel reads to prepare for the next batch of data.
+// Unlike FlushWrites, ClearReads does not extract data; it simply discards buffered channel reads.
 func (s *State) ClearReads() {
 	for key, ser := range s.channel.reads {
 		ser.Series = ser.Series[:0]
