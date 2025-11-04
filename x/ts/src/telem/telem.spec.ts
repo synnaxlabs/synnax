@@ -106,15 +106,13 @@ describe("TimeStamp", () => {
       expect(ts.valueOf()).toEqual(utcTS.valueOf());
     });
 
-    test("should parse as local when tzInfo is local", () => {
-      const localTS = new TimeStamp("2025-11-03T17:44:45.500", "local");
-      const utcTS = new TimeStamp("2025-11-03T17:44:45.500Z");
-
-      expect(localTS.valueOf()).not.toEqual(utcTS.valueOf());
+    test("should handle 1-digit milliseconds with default UTC", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45.5");
+      expect(ts.millisecond).toBe(500);
     });
 
-    test("should handle 1-digit milliseconds", () => {
-      const ts = new TimeStamp("2025-11-03T17:44:45.5");
+    test("should handle 1-digit milliseconds with local", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45.5", "local");
       expect(ts.millisecond).toBe(500);
     });
 

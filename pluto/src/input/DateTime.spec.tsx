@@ -13,148 +13,69 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
 
+interface DateTimeTestCase {
+  name: string;
+  initialValue: string;
+  changeValue: string;
+}
+
 describe("Input.DateTime", () => {
-  it("should handle 1-digit milliseconds", () => {
-    const handleChange = vi.fn();
-    const initialValue = new TimeStamp([2025, 11, 3], "local")
-      .add(TimeStamp.hours(17))
-      .add(TimeStamp.minutes(44))
-      .add(TimeStamp.seconds(45))
-      .add(TimeStamp.milliseconds(500));
+  const testCases: DateTimeTestCase[] = [
+    {
+      name: "changing from 2-digit milliseconds",
+      initialValue: "2025-11-03T17:44:45.500",
+      changeValue: "2025-11-03T17:44:45.501",
+    },
+    {
+      name: "changing from .809 milliseconds",
+      initialValue: "2025-11-03T17:44:45.809",
+      changeValue: "2025-11-03T17:44:45.808",
+    },
+    {
+      name: "3-digit milliseconds",
+      initialValue: "2025-11-03T17:44:45.808",
+      changeValue: "2025-11-03T17:44:45.809",
+    },
+    {
+      name: "changing milliseconds without blocking",
+      initialValue: "2025-11-03T17:44:45.809",
+      changeValue: "2025-11-03T17:44:45.810",
+    },
+    {
+      name: "dates in summer (DST) when current date is in winter",
+      initialValue: "2025-07-15T14:30:00.000",
+      changeValue: "2025-07-15T14:30:00.100",
+    },
+    {
+      name: "dates in winter when current date is in summer",
+      initialValue: "2025-01-15T10:00:00.000",
+      changeValue: "2025-01-15T10:00:00.100",
+    },
+  ];
 
-    const c = render(
-      <Input.DateTime value={Number(initialValue.valueOf())} onChange={handleChange} />,
-    );
+  testCases.forEach(({ name, initialValue, changeValue }) => {
+    it(`should handle ${name}`, () => {
+      const handleChange = vi.fn();
+      const ts = new TimeStamp(initialValue, "local");
 
-    const input = c.container.querySelector(
-      'input[type="datetime-local"]',
-    ) as HTMLInputElement;
-    expect(input).toBeTruthy();
+      const c = render(
+        <Input.DateTime value={Number(ts.valueOf())} onChange={handleChange} />,
+      );
 
-    fireEvent.change(input, {
-      target: { value: "2025-11-03T17:44:45.5" },
+      const input = c.container.querySelector(
+        'input[type="datetime-local"]',
+      ) as HTMLInputElement;
+      expect(input).toBeTruthy();
+
+      fireEvent.change(input, { target: { value: changeValue } });
+
+      expect(handleChange).toHaveBeenCalledOnce();
+
+      const receivedValue = handleChange.mock.calls[0][0];
+      const expectedTS = new TimeStamp(changeValue, "local");
+      const expectedValue = Number(expectedTS.valueOf());
+
+      expect(receivedValue).toEqual(expectedValue);
     });
-
-    expect(handleChange).toHaveBeenCalled();
-  });
-
-  it("should handle 2-digit milliseconds", () => {
-    const handleChange = vi.fn();
-    const initialValue = new TimeStamp([2025, 11, 3], "local")
-      .add(TimeStamp.hours(17))
-      .add(TimeStamp.minutes(44))
-      .add(TimeStamp.seconds(45))
-      .add(TimeStamp.milliseconds(500));
-
-    const c = render(
-      <Input.DateTime value={Number(initialValue.valueOf())} onChange={handleChange} />,
-    );
-
-    const input = c.container.querySelector(
-      'input[type="datetime-local"]',
-    ) as HTMLInputElement;
-    expect(input).toBeTruthy();
-
-    fireEvent.change(input, {
-      target: { value: "2025-11-03T17:44:45.50" },
-    });
-
-    expect(handleChange).toHaveBeenCalled();
-  });
-
-  it("should handle 3-digit milliseconds", () => {
-    const handleChange = vi.fn();
-    const initialValue = new TimeStamp([2025, 11, 3], "local")
-      .add(TimeStamp.hours(17))
-      .add(TimeStamp.minutes(44))
-      .add(TimeStamp.seconds(45))
-      .add(TimeStamp.milliseconds(809));
-
-    const c = render(
-      <Input.DateTime value={Number(initialValue.valueOf())} onChange={handleChange} />,
-    );
-
-    const input = c.container.querySelector(
-      'input[type="datetime-local"]',
-    ) as HTMLInputElement;
-    expect(input).toBeTruthy();
-
-    fireEvent.change(input, {
-      target: { value: "2025-11-03T17:44:45.809" },
-    });
-
-    expect(handleChange).toHaveBeenCalled();
-  });
-
-  it("should allow changing milliseconds without blocking", () => {
-    const handleChange = vi.fn();
-    const initialValue = new TimeStamp([2025, 11, 3], "local")
-      .add(TimeStamp.hours(17))
-      .add(TimeStamp.minutes(44))
-      .add(TimeStamp.seconds(45))
-      .add(TimeStamp.milliseconds(809));
-
-    const c = render(
-      <Input.DateTime value={Number(initialValue.valueOf())} onChange={handleChange} />,
-    );
-
-    const input = c.container.querySelector(
-      'input[type="datetime-local"]',
-    ) as HTMLInputElement;
-    expect(input).toBeTruthy();
-
-    fireEvent.change(input, {
-      target: { value: "2025-11-03T17:44:45.810" },
-    });
-
-    expect(handleChange).toHaveBeenCalled();
-  });
-
-  it("should handle dates in summer (DST) when current date is in winter", () => {
-    const handleChange = vi.fn();
-    const summerDate = new TimeStamp([2025, 7, 15], "local")
-      .add(TimeStamp.hours(14))
-      .add(TimeStamp.minutes(30))
-      .add(TimeStamp.seconds(0))
-      .add(TimeStamp.milliseconds(0));
-
-    const c = render(
-      <Input.DateTime value={Number(summerDate.valueOf())} onChange={handleChange} />,
-    );
-
-    const input = c.container.querySelector(
-      'input[type="datetime-local"]',
-    ) as HTMLInputElement;
-    expect(input).toBeTruthy();
-
-    fireEvent.change(input, {
-      target: { value: "2025-07-15T14:30:00.000" },
-    });
-
-    expect(handleChange).toHaveBeenCalled();
-  });
-
-  it("should handle dates in winter when current date is in summer", () => {
-    const handleChange = vi.fn();
-    const winterDate = new TimeStamp([2025, 1, 15], "local")
-      .add(TimeStamp.hours(10))
-      .add(TimeStamp.minutes(0))
-      .add(TimeStamp.seconds(0))
-      .add(TimeStamp.milliseconds(0));
-
-    const c = render(
-      <Input.DateTime value={Number(winterDate.valueOf())} onChange={handleChange} />,
-    );
-
-    const input = c.container.querySelector(
-      'input[type="datetime-local"]',
-    ) as HTMLInputElement;
-    expect(input).toBeTruthy();
-
-    fireEvent.change(input, {
-      target: { value: "2025-01-15T10:00:00.000" },
-    });
-
-    expect(handleChange).toHaveBeenCalled();
   });
 });

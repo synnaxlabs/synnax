@@ -162,12 +162,12 @@ export class TimeStamp
       let datePart = str;
       let ms = 0;
 
-      if (str.includes("."))
-        [datePart, ms] = str
-          .split(".")
-          .map((part, i) =>
-            i === 0 ? part : parseInt(part.padEnd(3, "0").slice(0, 3)),
-          ) as [string, number];
+      if (str.includes(".")) {
+        const parts = str.split(".");
+        datePart = parts[0];
+        const msPart = parts[1] || "0";
+        ms = parseInt(msPart.padEnd(3, "0").slice(0, 3));
+      }
 
       const d =
         tzInfo === "local"
