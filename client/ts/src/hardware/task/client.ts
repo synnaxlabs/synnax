@@ -236,11 +236,6 @@ const retrieveResZ = <
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
-const RETRIEVE_ENDPOINT = "/hardware/task/retrieve";
-const CREATE_ENDPOINT = "/hardware/task/create";
-const DELETE_ENDPOINT = "/hardware/task/delete";
-const COPY_ENDPOINT = "/hardware/task/copy";
-
 const createReqZ = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
@@ -319,7 +314,7 @@ export class Client {
     const createRes = createResZ(schemas);
     const res = await sendRequired(
       this.client,
-      CREATE_ENDPOINT,
+      "/hardware/task/create",
       { tasks: array.toArray(task) } as z.infer<typeof createReq>,
       createReq,
       createRes,
@@ -334,7 +329,7 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
-      DELETE_ENDPOINT,
+      "/hardware/task/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       deleteResZ,
@@ -370,7 +365,7 @@ export class Client {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/hardware/task/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ(schemas),
@@ -385,7 +380,7 @@ export class Client {
     const copyRes = copyResZ();
     const response = await sendRequired(
       this.client,
-      COPY_ENDPOINT,
+      "/hardware/task/copy",
       { key, name, snapshot },
       copyReqZ,
       copyRes,

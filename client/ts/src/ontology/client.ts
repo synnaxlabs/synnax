@@ -25,8 +25,6 @@ import {
 } from "@/ontology/payload";
 import { Writer } from "@/ontology/writer";
 
-const RETRIEVE_ENDPOINT = "/ontology/retrieve";
-
 const retrieveReqZ = z.object({
   ids: idZ.array().optional(),
   children: z.boolean().optional(),
@@ -174,7 +172,7 @@ export class Client {
   private async execRetrieve(request: RetrieveRequest): Promise<Resource[]> {
     const { resources } = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/ontology/retrieve",
       request,
       retrieveReqZ,
       retrieveResZ,

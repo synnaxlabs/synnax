@@ -189,8 +189,6 @@ const retrieveArgsZ = retrieveRequestZ
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
-const RETRIEVE_ENDPOINT = "/range/retrieve";
-
 const retrieveResZ = z.object({ ranges: array.nullableZ(payloadZ) });
 
 export class Client {
@@ -244,7 +242,7 @@ export class Client {
     const isSingle = typeof params === "string";
     const { ranges } = await sendRequired(
       this.unaryClient,
-      RETRIEVE_ENDPOINT,
+      "/range/retrieve",
       params,
       retrieveArgsZ,
       retrieveResZ,
@@ -271,7 +269,7 @@ export class Client {
   }
 
   async retrieveAlias(range: Key, channel: channel.Key): Promise<string> {
-    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    const aliaser = new Aliaser(range, this.unaryClient);
     return await aliaser.retrieve(channel);
   }
 
@@ -279,22 +277,22 @@ export class Client {
     range: Key,
     channels: channel.Key[],
   ): Promise<Record<channel.Key, string>> {
-    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    const aliaser = new Aliaser(range, this.unaryClient);
     return await aliaser.retrieve(channels);
   }
 
   async listAliases(range: Key): Promise<Record<channel.Key, string>> {
-    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    const aliaser = new Aliaser(range, this.unaryClient);
     return await aliaser.list();
   }
 
   async setAlias(range: Key, channel: channel.Key, alias: string): Promise<void> {
-    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    const aliaser = new Aliaser(range, this.unaryClient);
     await aliaser.set({ [channel]: alias });
   }
 
   async deleteAlias(range: Key, channels: channel.Key | channel.Key[]): Promise<void> {
-    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    const aliaser = new Aliaser(range, this.unaryClient);
     await aliaser.delete(channels);
   }
 
@@ -302,7 +300,7 @@ export class Client {
     return new Range(payload, {
       frameClient: this.frameClient,
       kv: new KV(payload.key, this.unaryClient),
-      aliaser: new Aliaser(payload.key, this.frameClient, this.unaryClient),
+      aliaser: new Aliaser(payload.key, this.unaryClient),
       channels: this.channels,
       labelClient: this.labelClient,
       ontologyClient: this.ontologyClient,

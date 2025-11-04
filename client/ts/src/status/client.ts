@@ -29,10 +29,6 @@ const setResZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 
-const SET_ENDPOINT = "/status/set";
-const DELETE_ENDPOINT = "/status/delete";
-const RETRIEVE_ENDPOINT = "/status/retrieve";
-
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   searchTerm: z.string().optional(),
@@ -79,7 +75,7 @@ export class Client {
     const isSingle = "key" in args;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/status/retrieve",
       args,
       retrieveArgsZ,
       retrieveResponseZ<DetailsSchema>(args.detailsSchema),
@@ -105,7 +101,7 @@ export class Client {
       ReturnType<typeof setResZ<DetailsSchema>>
     >(
       this.client,
-      SET_ENDPOINT,
+      "/status/set",
       {
         statuses: array.toArray(statuses),
         parent: opts.parent,
@@ -120,7 +116,7 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof emptyResZ>(
       this.client,
-      DELETE_ENDPOINT,
+      "/status/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,

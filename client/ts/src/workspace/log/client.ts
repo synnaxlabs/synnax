@@ -24,12 +24,6 @@ import {
 } from "@/workspace/log/payload";
 import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
 
-const RETRIEVE_ENDPOINT = "/workspace/log/retrieve";
-const CREATE_ENDPOINT = "/workspace/log/create";
-const RENAME_ENDPOINT = "/workspace/log/rename";
-const SET_DATA_ENDPOINT = "/workspace/log/set-data";
-const DELETE_ENDPOINT = "/workspace/log/delete";
-
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const setDataReqZ = z.object({ key: keyZ, data: z.string() });
@@ -65,7 +59,7 @@ export class Client {
     const isMany = Array.isArray(logs);
     const res = await sendRequired(
       this.client,
-      CREATE_ENDPOINT,
+      "/workspace/log/create",
       { workspace, logs: array.toArray(logs) },
       createReqZ,
       createResZ,
@@ -76,7 +70,7 @@ export class Client {
   async rename(key: Key, name: string): Promise<void> {
     await sendRequired(
       this.client,
-      RENAME_ENDPOINT,
+      "/workspace/log/rename",
       { key, name },
       renameReqZ,
       emptyResZ,
@@ -86,7 +80,7 @@ export class Client {
   async setData(key: Key, data: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
-      SET_DATA_ENDPOINT,
+      "/workspace/log/set-data",
       { key, data: JSON.stringify(data) },
       setDataReqZ,
       emptyResZ,
@@ -101,7 +95,7 @@ export class Client {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/workspace/log/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
@@ -113,7 +107,7 @@ export class Client {
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,
-      DELETE_ENDPOINT,
+      "/workspace/log/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,

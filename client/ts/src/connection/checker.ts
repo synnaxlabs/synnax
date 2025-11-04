@@ -52,7 +52,6 @@ const createWarning = (
 
 /** Polls a synnax cluster for connectivity information. */
 export class Checker {
-  private static readonly ENDPOINT = "/connectivity/check";
   static readonly DEFAULT: State = DEFAULT;
   private readonly _state: State;
   private readonly pollFrequency = TimeSpan.seconds(30);
@@ -97,7 +96,7 @@ export class Checker {
     const prevStatus = this._state.status;
     try {
       const [res, err] = await this.client.send(
-        Checker.ENDPOINT,
+        "/connectivity/check",
         {},
         z.object({}),
         responseZ,

@@ -29,10 +29,6 @@ import { schematic } from "@/workspace/schematic";
 import { table } from "@/workspace/table";
 
 const RETRIEVE_ENDPOINT = "/workspace/retrieve";
-const CREATE_ENDPOINT = "/workspace/create";
-const RENAME_ENDPOINT = "/workspace/rename";
-const SET_LAYOUT_ENDPOINT = "/workspace/set-layout";
-const DELETE_ENDPOINT = "/workspace/delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -80,7 +76,7 @@ export class Client {
     const isMany = Array.isArray(workspaces);
     const res = await sendRequired(
       this.client,
-      CREATE_ENDPOINT,
+      "/workspace/create",
       { workspaces: array.toArray(workspaces) },
       createReqZ,
       createResZ,
@@ -91,7 +87,7 @@ export class Client {
   async rename(key: Key, name: string): Promise<void> {
     await sendRequired(
       this.client,
-      RENAME_ENDPOINT,
+      "/workspace/rename",
       { key, name },
       renameReqZ,
       emptyResZ,
@@ -101,7 +97,7 @@ export class Client {
   async setLayout(key: Key, layout: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
-      SET_LAYOUT_ENDPOINT,
+      "/workspace/set-layout",
       { key, layout },
       setLayoutReqZ,
       emptyResZ,
@@ -143,7 +139,7 @@ export class Client {
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,
-      DELETE_ENDPOINT,
+      "/workspace/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,
