@@ -12,7 +12,7 @@ import { array, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type ontology } from "@/ontology";
-import { type Key as UserKey, keyZ as userKeyZ } from "@/user/payload";
+import { keyZ as userKeyZ } from "@/user/payload";
 import { lineplot } from "@/workspace/lineplot";
 import { log } from "@/workspace/log";
 import {
@@ -27,8 +27,6 @@ import {
 } from "@/workspace/payload";
 import { schematic } from "@/workspace/schematic";
 import { table } from "@/workspace/table";
-
-const RETRIEVE_ENDPOINT = "/workspace/retrieve";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -115,23 +113,12 @@ export class Client {
     else req = keys;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/workspace/retrieve",
       req,
       retrieveReqZ,
       retrieveResZ,
     );
     return isMany ? res.workspaces : res.workspaces[0];
-  }
-
-  async retrieveByAuthor(author: UserKey): Promise<Workspace[]> {
-    const res = await sendRequired(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { author },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return res.workspaces;
   }
 
   async delete(key: Key): Promise<void>;
