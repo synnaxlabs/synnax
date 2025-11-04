@@ -11,10 +11,12 @@ from typing import TYPE_CHECKING, Any, Optional, Type
 
 from playwright.sync_api import Page
 
+from console.task.channels.angular_position import AngularPosition
 from console.task.channels.angular_velocity import AngularVelocity
 from console.task.channels.counter import Counter
 from console.task.channels.edge_count import EdgeCount
 from console.task.channels.frequency import Frequency
+from console.task.channels.linear_position import LinearPosition
 from console.task.channels.linear_velocity import LinearVelocity
 from console.task.channels.period import Period
 from console.task.channels.pulse_width import PulseWidth
@@ -28,9 +30,11 @@ if TYPE_CHECKING:
 
 # Valid channel types for NI Counter Read tasks
 COUNTER_READ_CHANNEL_TYPES: dict[str, Type[Counter]] = {
+    "Angular Position": AngularPosition,
     "Angular Velocity": AngularVelocity,
     "Edge Count": EdgeCount,
     "Frequency": Frequency,
+    "Linear Position": LinearPosition,
     "Linear Velocity": LinearVelocity,
     "Period": Period,
     "Pulse Width": PulseWidth,

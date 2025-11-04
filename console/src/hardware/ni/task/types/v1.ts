@@ -307,6 +307,20 @@ const ZERO_CI_ANGULAR_VELOCITY_CHAN: CIAngularVelocityChan = {
   ...ZERO_CI_CHAN_EXTENSION,
 };
 
+const ciLinearPositionChanZ = v0.ciLinearPositionChanZ.extend(ciChanExtensionShape);
+interface CILinearPositionChan extends z.infer<typeof ciLinearPositionChanZ> {}
+const ZERO_CI_LINEAR_POSITION_CHAN: CILinearPositionChan = {
+  ...v0.ZERO_CI_LINEAR_POSITION_CHAN,
+  ...ZERO_CI_CHAN_EXTENSION,
+};
+
+const ciAngularPositionChanZ = v0.ciAngularPositionChanZ.extend(ciChanExtensionShape);
+interface CIAngularPositionChan extends z.infer<typeof ciAngularPositionChanZ> {}
+const ZERO_CI_ANGULAR_POSITION_CHAN: CIAngularPositionChan = {
+  ...v0.ZERO_CI_ANGULAR_POSITION_CHAN,
+  ...ZERO_CI_CHAN_EXTENSION,
+};
+
 const ciChannelZ = z.union([
   ciFrequencyChanZ,
   ciEdgeCountChanZ,
@@ -316,6 +330,8 @@ const ciChannelZ = z.union([
   ciTwoEdgeSepChanZ,
   ciLinearVelocityChanZ,
   ciAngularVelocityChanZ,
+  ciLinearPositionChanZ,
+  ciAngularPositionChanZ,
 ]);
 export type CIChannel = z.infer<typeof ciChannelZ>;
 
@@ -328,6 +344,8 @@ export const CI_CHANNEL_SCHEMAS: Record<v0.CIChannelType, z.ZodType<CIChannel>> 
   [v0.CI_TWO_EDGE_SEP_CHAN_TYPE]: ciTwoEdgeSepChanZ,
   [v0.CI_VELOCITY_LINEAR_CHAN_TYPE]: ciLinearVelocityChanZ,
   [v0.CI_VELOCITY_ANGULAR_CHAN_TYPE]: ciAngularVelocityChanZ,
+  [v0.CI_POSITION_LINEAR_CHAN_TYPE]: ciLinearPositionChanZ,
+  [v0.CI_POSITION_ANGULAR_CHAN_TYPE]: ciAngularPositionChanZ,
 };
 
 export const ZERO_CI_CHANNELS: Record<v0.CIChannelType, CIChannel> = {
@@ -339,6 +357,8 @@ export const ZERO_CI_CHANNELS: Record<v0.CIChannelType, CIChannel> = {
   [v0.CI_TWO_EDGE_SEP_CHAN_TYPE]: ZERO_CI_TWO_EDGE_SEP_CHAN,
   [v0.CI_VELOCITY_LINEAR_CHAN_TYPE]: ZERO_CI_LINEAR_VELOCITY_CHAN,
   [v0.CI_VELOCITY_ANGULAR_CHAN_TYPE]: ZERO_CI_ANGULAR_VELOCITY_CHAN,
+  [v0.CI_POSITION_LINEAR_CHAN_TYPE]: ZERO_CI_LINEAR_POSITION_CHAN,
+  [v0.CI_POSITION_ANGULAR_CHAN_TYPE]: ZERO_CI_ANGULAR_POSITION_CHAN,
 };
 export const ZERO_CI_CHANNEL: CIChannel = ZERO_CI_CHANNELS[v0.CI_FREQUENCY_CHAN_TYPE];
 

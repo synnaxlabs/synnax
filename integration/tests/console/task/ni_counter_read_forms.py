@@ -63,6 +63,9 @@ class NICounterReadForms(ConsoleCase):
         if mode == "d":
             self.verify_linear_velocity_inputs(device_name)
             self.verify_angular_velocity_inputs(device_name)
+        if mode == "e":
+            self.verify_linear_position_inputs(device_name)
+            self.verify_angular_position_inputs(device_name)
 
         # Assert the set values with form state
         ch_names = console.ni_ci.channels_by_name.copy()
@@ -334,4 +337,84 @@ class NICounterReadForms(ConsoleCase):
             units="Degrees/s",
             decoding_type="Two Pulse",
             pulses_per_rev=360,
+        )
+
+    def verify_linear_position_inputs(self, device_name: str) -> None:
+        """Validate Linear Position inputs"""
+        self.log("Configuring channels of type Linear Position")
+        console = self.console
+        channel_type = "Linear Position"
+
+        console.ni_ci.add_channel(
+            name="LinearPosition_1",
+            type=channel_type,
+            device=device_name,
+            units="Meters",
+            decoding_type="X4",
+            dist_per_pulse=0.001,
+            initial_pos=0.0,
+            z_index_enable=True,
+            z_index_val=0.0,
+            z_index_phase="A High B High",
+        )
+        console.ni_ci.add_channel(
+            name="LinearPosition_2",
+            type=channel_type,
+            device=device_name,
+            units="Inches",
+            decoding_type="X2",
+            dist_per_pulse=0.01,
+            initial_pos=5.0,
+            z_index_enable=False,
+        )
+        console.ni_ci.add_channel(
+            name="LinearPosition_3",
+            type=channel_type,
+            device=device_name,
+            units="Ticks",
+            decoding_type="X1",
+            dist_per_pulse=0.005,
+            z_index_enable=True,
+            z_index_val=10.0,
+            z_index_phase="A Low B Low",
+        )
+
+    def verify_angular_position_inputs(self, device_name: str) -> None:
+        """Validate Angular Position inputs"""
+        self.log("Configuring channels of type Angular Position")
+        console = self.console
+        channel_type = "Angular Position"
+
+        console.ni_ci.add_channel(
+            name="AngularPosition_1",
+            type=channel_type,
+            device=device_name,
+            units="Degrees",
+            decoding_type="X4",
+            pulses_per_rev=24,
+            initial_angle=0.0,
+            z_index_enable=True,
+            z_index_val=0.0,
+            z_index_phase="A High B High",
+        )
+        console.ni_ci.add_channel(
+            name="AngularPosition_2",
+            type=channel_type,
+            device=device_name,
+            units="Radians",
+            decoding_type="X2",
+            pulses_per_rev=100,
+            initial_angle=1.57,
+            z_index_enable=False,
+        )
+        console.ni_ci.add_channel(
+            name="AngularPosition_3",
+            type=channel_type,
+            device=device_name,
+            units="Ticks",
+            decoding_type="Two Pulse",
+            pulses_per_rev=360,
+            z_index_enable=True,
+            z_index_val=90.0,
+            z_index_phase="A High B Low",
         )

@@ -1232,6 +1232,100 @@ export const ZERO_CI_ANGULAR_VELOCITY_CHAN: CIAngularVelocityChan = {
   terminalB: "",
 };
 
+// Counter Input Z Index Phase
+const A_HIGH_B_HIGH = "AHighBHigh";
+const A_HIGH_B_LOW = "AHighBLow";
+const A_LOW_B_HIGH = "ALowBHigh";
+const A_LOW_B_LOW = "ALowBLow";
+const ciZIndexPhaseZ = z.enum([A_HIGH_B_HIGH, A_HIGH_B_LOW, A_LOW_B_HIGH, A_LOW_B_LOW]);
+export type CIZIndexPhase = z.infer<typeof ciZIndexPhaseZ>;
+
+const zIndexShape = {
+  zIndexEnable: z.boolean(),
+  zIndexVal: z.number(),
+  zIndexPhase: ciZIndexPhaseZ,
+  terminalZ: z.string(),
+};
+interface ZIndex extends z.infer<z.ZodObject<typeof zIndexShape>> {}
+const ZERO_Z_INDEX: ZIndex = {
+  zIndexEnable: false,
+  zIndexVal: 0,
+  zIndexPhase: A_HIGH_B_HIGH,
+  terminalZ: "",
+};
+
+// Counter Input linear position units
+const ciLinearPositionUnitsZ = z.enum([
+  METERS,
+  INCHES,
+  TICKS,
+  FROM_CUSTOM_SCALE,
+]);
+export type CILinearPositionUnits = z.infer<typeof ciLinearPositionUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinencoder.html
+export const CI_POSITION_LINEAR_CHAN_TYPE = "ci_position_linear";
+export const ciLinearPositionChanZ = baseCIChanZ.extend({
+  ...customScaleShape,
+  ...zIndexShape,
+  type: z.literal(CI_POSITION_LINEAR_CHAN_TYPE),
+  units: ciLinearPositionUnitsZ,
+  decodingType: ciDecodingTypeZ,
+  distPerPulse: z.number(),
+  initialPos: z.number(),
+  terminalA: z.string(),
+  terminalB: z.string(),
+});
+export interface CILinearPositionChan extends z.infer<typeof ciLinearPositionChanZ> {}
+export const ZERO_CI_LINEAR_POSITION_CHAN: CILinearPositionChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_CUSTOM_SCALE,
+  ...ZERO_Z_INDEX,
+  type: CI_POSITION_LINEAR_CHAN_TYPE,
+  units: METERS,
+  decodingType: X4,
+  distPerPulse: 0.000001,
+  initialPos: 0.0,
+  terminalA: "",
+  terminalB: "",
+};
+
+// Counter Input angular position units
+const ciAngularPositionUnitsZ = z.enum([
+  DEGREES,
+  RADIANS,
+  TICKS,
+  FROM_CUSTOM_SCALE,
+]);
+export type CIAngularPositionUnits = z.infer<typeof ciAngularPositionUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangencoder.html
+export const CI_POSITION_ANGULAR_CHAN_TYPE = "ci_position_angular";
+export const ciAngularPositionChanZ = baseCIChanZ.extend({
+  ...customScaleShape,
+  ...zIndexShape,
+  type: z.literal(CI_POSITION_ANGULAR_CHAN_TYPE),
+  units: ciAngularPositionUnitsZ,
+  decodingType: ciDecodingTypeZ,
+  pulsesPerRev: z.number(),
+  initialAngle: z.number(),
+  terminalA: z.string(),
+  terminalB: z.string(),
+});
+export interface CIAngularPositionChan extends z.infer<typeof ciAngularPositionChanZ> {}
+export const ZERO_CI_ANGULAR_POSITION_CHAN: CIAngularPositionChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_CUSTOM_SCALE,
+  ...ZERO_Z_INDEX,
+  type: CI_POSITION_ANGULAR_CHAN_TYPE,
+  units: DEGREES,
+  decodingType: X4,
+  pulsesPerRev: 24,
+  initialAngle: 0.0,
+  terminalA: "",
+  terminalB: "",
+};
+
 const ciChannelZ = z.union([
   ciFrequencyChanZ,
   ciEdgeCountChanZ,
@@ -1241,6 +1335,8 @@ const ciChannelZ = z.union([
   ciTwoEdgeSepChanZ,
   ciLinearVelocityChanZ,
   ciAngularVelocityChanZ,
+  ciLinearPositionChanZ,
+  ciAngularPositionChanZ,
 ]);
 
 type CIChannel = z.infer<typeof ciChannelZ>;
@@ -1255,6 +1351,8 @@ export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
   [CI_TWO_EDGE_SEP_CHAN_TYPE]: "Two Edge Separation",
   [CI_VELOCITY_LINEAR_CHAN_TYPE]: "Linear Velocity",
   [CI_VELOCITY_ANGULAR_CHAN_TYPE]: "Angular Velocity",
+  [CI_POSITION_LINEAR_CHAN_TYPE]: "Linear Position",
+  [CI_POSITION_ANGULAR_CHAN_TYPE]: "Angular Position",
 };
 
 export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
@@ -1266,6 +1364,8 @@ export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
   [CI_TWO_EDGE_SEP_CHAN_TYPE]: Icon.AutoFitWidth,
   [CI_VELOCITY_LINEAR_CHAN_TYPE]: Icon.Circle,
   [CI_VELOCITY_ANGULAR_CHAN_TYPE]: Icon.Circle,
+  [CI_POSITION_LINEAR_CHAN_TYPE]: Icon.Circle,
+  [CI_POSITION_ANGULAR_CHAN_TYPE]: Icon.Circle,
 };
 
 // Counter Output Channels

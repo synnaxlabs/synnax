@@ -1314,6 +1314,198 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
     EXPECT_EQ(ci_ang_vel_chan->loc(), "cDAQ1Mod3/ctr2");
 }
 
+TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
+    json j = {
+        {"type", "ci_position_linear"},
+        {"key", "ks1VnWdrSVA"},
+        {"port", 0},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", -10},
+        {"max_val", 10},
+        {"units", "Meters"},
+        {"decoding_type", "X4"},
+        {"dist_per_pulse", 0.001},
+        {"initial_pos", 0.0},
+        {"z_index_enable", true},
+        {"z_index_val", 0.0},
+        {"z_index_phase", "AHighBHigh"},
+        {"terminalA", "PFI0"},
+        {"terminalB", "PFI1"},
+        {"terminalZ", "PFI2"},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_lin_pos_chan = dynamic_cast<channel::CILinearPosition *>(chan.get());
+    ASSERT_NE(ci_lin_pos_chan, nullptr);
+    EXPECT_EQ(ci_lin_pos_chan->enabled, true);
+    EXPECT_EQ(ci_lin_pos_chan->port, 0);
+    EXPECT_EQ(ci_lin_pos_chan->min_val, -10);
+    EXPECT_EQ(ci_lin_pos_chan->max_val, 10);
+    EXPECT_EQ(ci_lin_pos_chan->units, DAQmx_Val_Meters);
+    EXPECT_EQ(ci_lin_pos_chan->decoding_type, DAQmx_Val_X4);
+    EXPECT_DOUBLE_EQ(ci_lin_pos_chan->dist_per_pulse, 0.001);
+    EXPECT_DOUBLE_EQ(ci_lin_pos_chan->initial_pos, 0.0);
+    EXPECT_EQ(ci_lin_pos_chan->z_index_enable, true);
+    EXPECT_DOUBLE_EQ(ci_lin_pos_chan->z_index_val, 0.0);
+    EXPECT_EQ(ci_lin_pos_chan->z_index_phase, DAQmx_Val_AHighBHigh);
+    EXPECT_EQ(ci_lin_pos_chan->terminal_a, "PFI0");
+    EXPECT_EQ(ci_lin_pos_chan->terminal_b, "PFI1");
+    EXPECT_EQ(ci_lin_pos_chan->terminal_z, "PFI2");
+    ci_lin_pos_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_lin_pos_chan->loc(), "cDAQ1Mod3/ctr0");
+}
+
+TEST(ChannelsTest, ParseCILinearPositionChanInches) {
+    json j = {
+        {"type", "ci_position_linear"},
+        {"key", "ks1VnWdrSVB"},
+        {"port", 1},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", -100},
+        {"max_val", 100},
+        {"units", "Inches"},
+        {"decoding_type", "X2"},
+        {"dist_per_pulse", 0.01},
+        {"initial_pos", 5.0},
+        {"z_index_enable", false},
+        {"z_index_val", 0.0},
+        {"z_index_phase", "AHighBLow"},
+        {"terminalA", ""},
+        {"terminalB", ""},
+        {"terminalZ", ""},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_lin_pos_chan = dynamic_cast<channel::CILinearPosition *>(chan.get());
+    ASSERT_NE(ci_lin_pos_chan, nullptr);
+    EXPECT_EQ(ci_lin_pos_chan->enabled, true);
+    EXPECT_EQ(ci_lin_pos_chan->port, 1);
+    EXPECT_EQ(ci_lin_pos_chan->min_val, -100);
+    EXPECT_EQ(ci_lin_pos_chan->max_val, 100);
+    EXPECT_EQ(ci_lin_pos_chan->units, DAQmx_Val_Inches);
+    EXPECT_EQ(ci_lin_pos_chan->decoding_type, DAQmx_Val_X2);
+    EXPECT_DOUBLE_EQ(ci_lin_pos_chan->dist_per_pulse, 0.01);
+    EXPECT_DOUBLE_EQ(ci_lin_pos_chan->initial_pos, 5.0);
+    EXPECT_EQ(ci_lin_pos_chan->z_index_enable, false);
+    EXPECT_DOUBLE_EQ(ci_lin_pos_chan->z_index_val, 0.0);
+    EXPECT_EQ(ci_lin_pos_chan->z_index_phase, DAQmx_Val_AHighBLow);
+    EXPECT_EQ(ci_lin_pos_chan->terminal_a, "");
+    EXPECT_EQ(ci_lin_pos_chan->terminal_b, "");
+    EXPECT_EQ(ci_lin_pos_chan->terminal_z, "");
+    ci_lin_pos_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_lin_pos_chan->loc(), "cDAQ1Mod3/ctr1");
+}
+
+TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
+    json j = {
+        {"type", "ci_position_angular"},
+        {"key", "ks1VnWdrSVC"},
+        {"port", 0},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", -180},
+        {"max_val", 180},
+        {"units", "Degrees"},
+        {"decoding_type", "X4"},
+        {"pulses_per_rev", 24},
+        {"initial_angle", 0.0},
+        {"z_index_enable", true},
+        {"z_index_val", 0.0},
+        {"z_index_phase", "AHighBHigh"},
+        {"terminalA", "PFI10"},
+        {"terminalB", "PFI12"},
+        {"terminalZ", "PFI11"},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_ang_pos_chan = dynamic_cast<channel::CIAngularPosition *>(chan.get());
+    ASSERT_NE(ci_ang_pos_chan, nullptr);
+    EXPECT_EQ(ci_ang_pos_chan->enabled, true);
+    EXPECT_EQ(ci_ang_pos_chan->port, 0);
+    EXPECT_EQ(ci_ang_pos_chan->min_val, -180);
+    EXPECT_EQ(ci_ang_pos_chan->max_val, 180);
+    EXPECT_EQ(ci_ang_pos_chan->units, DAQmx_Val_Degrees);
+    EXPECT_EQ(ci_ang_pos_chan->decoding_type, DAQmx_Val_X4);
+    EXPECT_EQ(ci_ang_pos_chan->pulses_per_rev, 24);
+    EXPECT_DOUBLE_EQ(ci_ang_pos_chan->initial_angle, 0.0);
+    EXPECT_EQ(ci_ang_pos_chan->z_index_enable, true);
+    EXPECT_DOUBLE_EQ(ci_ang_pos_chan->z_index_val, 0.0);
+    EXPECT_EQ(ci_ang_pos_chan->z_index_phase, DAQmx_Val_AHighBHigh);
+    EXPECT_EQ(ci_ang_pos_chan->terminal_a, "PFI10");
+    EXPECT_EQ(ci_ang_pos_chan->terminal_b, "PFI12");
+    EXPECT_EQ(ci_ang_pos_chan->terminal_z, "PFI11");
+    ci_ang_pos_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_ang_pos_chan->loc(), "cDAQ1Mod3/ctr0");
+}
+
+TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
+    json j = {
+        {"type", "ci_position_angular"},
+        {"key", "ks1VnWdrSVD"},
+        {"port", 2},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", -3.14},
+        {"max_val", 3.14},
+        {"units", "Radians"},
+        {"decoding_type", "X1"},
+        {"pulses_per_rev", 100},
+        {"initial_angle", 1.57},
+        {"z_index_enable", false},
+        {"z_index_val", 0.0},
+        {"z_index_phase", "ALowBLow"},
+        {"terminalA", ""},
+        {"terminalB", ""},
+        {"terminalZ", ""},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_ang_pos_chan = dynamic_cast<channel::CIAngularPosition *>(chan.get());
+    ASSERT_NE(ci_ang_pos_chan, nullptr);
+    EXPECT_EQ(ci_ang_pos_chan->enabled, true);
+    EXPECT_EQ(ci_ang_pos_chan->port, 2);
+    EXPECT_EQ(ci_ang_pos_chan->min_val, -3.14);
+    EXPECT_EQ(ci_ang_pos_chan->max_val, 3.14);
+    EXPECT_EQ(ci_ang_pos_chan->units, DAQmx_Val_Radians);
+    EXPECT_EQ(ci_ang_pos_chan->decoding_type, DAQmx_Val_X1);
+    EXPECT_EQ(ci_ang_pos_chan->pulses_per_rev, 100);
+    EXPECT_DOUBLE_EQ(ci_ang_pos_chan->initial_angle, 1.57);
+    EXPECT_EQ(ci_ang_pos_chan->z_index_enable, false);
+    EXPECT_DOUBLE_EQ(ci_ang_pos_chan->z_index_val, 0.0);
+    EXPECT_EQ(ci_ang_pos_chan->z_index_phase, DAQmx_Val_ALowBLow);
+    EXPECT_EQ(ci_ang_pos_chan->terminal_a, "");
+    EXPECT_EQ(ci_ang_pos_chan->terminal_b, "");
+    EXPECT_EQ(ci_ang_pos_chan->terminal_z, "");
+    ci_ang_pos_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_ang_pos_chan->loc(), "cDAQ1Mod3/ctr2");
+}
+
 TEST(ChannelsTest, ParseCOPulseOutputChan) {
     json j = {
         {"type", "co_pulse_output"},

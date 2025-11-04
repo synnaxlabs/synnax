@@ -18,6 +18,8 @@ import {
   CI_EDGE_COUNT_CHAN_TYPE,
   CI_FREQUENCY_CHAN_TYPE,
   CI_PERIOD_CHAN_TYPE,
+  CI_POSITION_ANGULAR_CHAN_TYPE,
+  CI_POSITION_LINEAR_CHAN_TYPE,
   CI_PULSE_WIDTH_CHAN_TYPE,
   CI_SEMI_PERIOD_CHAN_TYPE,
   CI_TWO_EDGE_SEP_CHAN_TYPE,
@@ -346,6 +348,89 @@ const PulsesPerRevField = Form.buildNumericField({
   inputProps: {},
 });
 
+const InitialPosField = Form.buildNumericField({
+  fieldKey: "initialPos",
+  fieldProps: { label: "Initial Position" },
+  inputProps: {},
+});
+
+const InitialAngleField = Form.buildNumericField({
+  fieldKey: "initialAngle",
+  fieldProps: { label: "Initial Angle" },
+  inputProps: {},
+});
+
+const ZIndexEnableField: FC<{ path: string; grow?: boolean }> = ({ path }) => (
+  <Form.SwitchField path={`${path}.zIndexEnable`} label="Z Index Enable" />
+);
+
+const ZIndexValField = Form.buildNumericField({
+  fieldKey: "zIndexVal",
+  fieldProps: { label: "Value" },
+  inputProps: {},
+});
+
+const ZIndexPhaseField = Form.buildSelectField<
+  string,
+  record.KeyedNamed<string>
+>({
+  fieldKey: "zIndexPhase",
+  fieldProps: { label: "Phase" },
+  inputProps: {
+    resourceName: "Phase",
+    data: [
+      { key: "AHighBHigh", name: "A High B High" },
+      { key: "AHighBLow", name: "A High B Low" },
+      { key: "ALowBHigh", name: "A Low B High" },
+      { key: "ALowBLow", name: "A Low B Low" },
+    ],
+  },
+});
+
+const TerminalZField = Form.buildSelectField<string, record.KeyedNamed>({
+  fieldKey: "terminalZ",
+  fieldProps: { label: "Input Terminal Z" },
+  inputProps: {
+    resourceName: "Input Terminal Z",
+    allowNone: true,
+    data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
+  },
+});
+
+const LinearPositionUnitsField = Form.buildSelectField<
+  string,
+  record.KeyedNamed<string>
+>({
+  fieldKey: "units",
+  fieldProps: { label: "Units" },
+  inputProps: {
+    resourceName: "Units",
+    data: [
+      { key: "Meters", name: "Meters" },
+      { key: "Inches", name: "Inches" },
+      { key: "Ticks", name: "Ticks" },
+      { key: "FromCustomScale", name: "Custom" },
+    ],
+  },
+});
+
+const AngularPositionUnitsField = Form.buildSelectField<
+  string,
+  record.KeyedNamed<string>
+>({
+  fieldKey: "units",
+  fieldProps: { label: "Units" },
+  inputProps: {
+    resourceName: "Units",
+    data: [
+      { key: "Degrees", name: "Degrees" },
+      { key: "Radians", name: "Radians" },
+      { key: "Ticks", name: "Ticks" },
+      { key: "FromCustomScale", name: "Custom" },
+    ],
+  },
+});
+
 const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
   [CI_FREQUENCY_CHAN_TYPE]: ({ prefix }) => (
     <>
@@ -462,6 +547,54 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <Flex.Box x>
         <TerminalAField path={prefix} grow />
         <TerminalBField path={prefix} grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  [CI_POSITION_LINEAR_CHAN_TYPE]: ({ prefix }: FormProps) => (
+    <>
+      <Flex.Box x>
+        <InitialPosField path={prefix} grow />
+        <DistPerPulseField path={prefix} grow />
+        <LinearPositionUnitsField path={prefix} grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <TerminalAField path={prefix} grow />
+        <TerminalBField path={prefix} grow />
+        <DecodingTypeField path={prefix} grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <ZIndexEnableField path={prefix} grow />
+        <ZIndexValField path={prefix} grow />
+        <ZIndexPhaseField path={prefix} grow />
+        <TerminalZField path={prefix} grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  [CI_POSITION_ANGULAR_CHAN_TYPE]: ({ prefix }: FormProps) => (
+    <>
+      <Flex.Box x>
+        <PulsesPerRevField path={prefix} grow />
+        <InitialAngleField path={prefix} grow />
+        <AngularPositionUnitsField path={prefix} grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <TerminalAField path={prefix} grow />
+        <TerminalBField path={prefix} grow />
+        <DecodingTypeField path={prefix} grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <ZIndexEnableField path={prefix} grow />
+        <ZIndexValField path={prefix} grow />
+        <ZIndexPhaseField path={prefix} grow />
+        <TerminalZField path={prefix} grow />
       </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />
