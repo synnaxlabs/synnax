@@ -118,6 +118,16 @@ func (s *State) writeChannel(key uint32, data, time telem.Series) {
 	}
 }
 
+// ClearReads empties all channel read buffers while preserving their underlying capacity.
+// This is typically called after processing channel reads to prepare for the next batch of data.
+// Unlike FlushWrites, ClearReads does not extract data; it simply discards buffered channel reads.
+func (s *State) ClearReads() {
+	for key, ser := range s.channel.reads {
+		ser.Series = ser.Series[:0]
+		s.channel.reads[key] = ser
+	}
+}
+
 // Node creates a node-specific state accessor for the given node key.
 // It initializes alignment buffers and watermark tracking for the node's inputs.
 func (s *State) Node(key string) *Node {
@@ -306,7 +316,7 @@ func (n *Node) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSer
 	if !ok {
 		return telem.MultiSeries{}, telem.MultiSeries{}, false
 	}
-	return data, time, true
+	return data, time, len(time.Series) > 0 && len(data.Series) > 0
 }
 
 // WriteChan buffers data and time series for writing to a channel.
