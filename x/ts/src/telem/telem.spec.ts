@@ -98,6 +98,57 @@ describe("TimeStamp", () => {
     ).toBe(true);
   });
 
+  describe("datetime-local format parsing", () => {
+    test("should parse as UTC by default", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45.500");
+      const utcTS = new TimeStamp("2025-11-03T17:44:45.500Z");
+
+      expect(ts.valueOf()).toEqual(utcTS.valueOf());
+    });
+
+    test("should parse as local when tzInfo is local", () => {
+      const localTS = new TimeStamp("2025-11-03T17:44:45.500", "local");
+      const utcTS = new TimeStamp("2025-11-03T17:44:45.500Z");
+
+      expect(localTS.valueOf()).not.toEqual(utcTS.valueOf());
+    });
+
+    test("should handle 1-digit milliseconds", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45.5");
+      expect(ts.millisecond).toBe(500);
+    });
+
+    test("should handle 2-digit milliseconds", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45.50");
+      expect(ts.millisecond).toBe(500);
+    });
+
+    test("should handle 3-digit milliseconds", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45.809");
+      expect(ts.millisecond).toBe(809);
+    });
+
+    test("should handle 810 milliseconds", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45.810");
+      expect(ts.millisecond).toBeGreaterThanOrEqual(809);
+      expect(ts.millisecond).toBeLessThanOrEqual(810);
+    });
+
+    test("should handle datetime without milliseconds", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45");
+      expect(ts.millisecond).toBe(0);
+    });
+
+    test("should round-trip when using local tzInfo", () => {
+      const input = "2025-11-03T17:44:45.809";
+      const ts1 = new TimeStamp(input, "local");
+      const output = ts1.toString("ISO", "local").slice(0, -1);
+      const ts2 = new TimeStamp(output, "local");
+
+      expect(ts1.valueOf()).toEqual(ts2.valueOf());
+    });
+  });
+
   test("construct from date", () => {
     const ts = new TimeStamp([2021, 1, 1], "UTC");
     expect(ts.date().getUTCFullYear()).toEqual(2021);
