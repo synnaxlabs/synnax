@@ -5,16 +5,16 @@ name = "alamos"
 version = "0.47.0"
 description = ""
 optional = false
-python-versions = ">=3.11,<4"
+python-versions = ">=3.11,<3.14"
 groups = ["main"]
 files = []
 develop = true
 
 [package.dependencies]
-opentelemetry-api = ">=1.35.0,<2"
-opentelemetry-sdk = ">=1.35.0,<2"
-pydantic = ">=2.11.9,<3.0"
-uptrace = ">=1.35.0,<2"
+opentelemetry-api = ">=1.37.0,<2"
+opentelemetry-sdk = ">=1.37.0,<2"
+pydantic = ">=2.12.3,<3.0"
+uptrace = ">=1.37.0,<2"
 
 [package.source]
 type = "directory"
@@ -2380,5 +2380,5 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.11,<4"
-content-hash = "388679f3023981d91accab17048352c141e15d13c8788ad4ae95647cae8a1722"
+python-versions = ">=3.11,<3.14"
+content-hash = "005e3d1c1d8d07ec72c46fb59e0373fe0073d8d894f59aa992aabec6778ddac8"

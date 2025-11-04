@@ -2,7 +2,7 @@
 name = "alamos"
 version = "0.47.0"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.11,<4"
+requires-python = ">=3.11,<3.14"
 dependencies = [
     "opentelemetry-api>=1.37.0,<2",
     "opentelemetry-sdk>=1.37.0,<2",

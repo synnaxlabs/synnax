@@ -5,7 +5,7 @@ name = "alamos"
 version = "0.47.0"
 description = ""
 optional = false
-python-versions = ">=3.11,<4"
+python-versions = ">=3.11,<3.14"
 groups = ["main"]
 files = []
 develop = true
@@ -2771,7 +2771,7 @@ name = "synnax-freighter"
 version = "0.47.0"
 description = ""
 optional = false
-python-versions = ">=3.11,<4"
+python-versions = ">=3.11,<3.14"
 groups = ["main"]
 files = []
 develop = true
@@ -3291,5 +3291,5 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.11,<4"
-content-hash = "0ee32d658d1267da9087e3298e851555482182d0e0dd2ae725c7b897633cac68"
+python-versions = ">=3.11,<3.14"
+content-hash = "65ce78f598586b626b618e7fd6ecf18714532aff1af7d27711d8e4d149d83f7d"
