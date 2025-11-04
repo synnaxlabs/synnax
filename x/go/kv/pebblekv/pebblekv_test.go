@@ -167,7 +167,7 @@ var _ = Describe("Pebblekv", Ordered, func() {
 	})
 
 	It("Should handle iterator bounds correctly", func() {
-		for i := byte(0); i < 5; i++ {
+		for i := range byte(5) {
 			key := []byte{i}
 			Expect(db.Set(ctx, key, []byte{i + 10})).To(Succeed())
 		}

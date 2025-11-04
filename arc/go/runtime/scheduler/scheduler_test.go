@@ -518,7 +518,7 @@ var _ = Describe("Scheduler", func() {
 		})
 		It("Should handle wide graph with many nodes per stratum", func() {
 			wideNodes := make(map[string]node.Node)
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				wideNodes[string(rune('a'+i))] = &mockNode{}
 			}
 			prog = ir.IR{
@@ -539,7 +539,7 @@ var _ = Describe("Scheduler", func() {
 			strata := make(ir.Strata, 10)
 			irNodes := make([]ir.Node, 10)
 			edges := make([]ir.Edge, 9)
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				key := string(rune('a' + i))
 				deepNodes[key] = &mockNode{
 					onNext: func(ctx node.Context) {

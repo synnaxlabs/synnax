@@ -58,7 +58,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should create node for constant type", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 42}},
+				Node:  ir.Node{Type: "constant", ConfigValues: map[string]any{"value": 42}},
 				State: s.Node("const"),
 			}
 			n, err := factory.Create(ctx, cfg)
@@ -75,7 +75,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle float64 value", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 3.14}},
+				Node:  ir.Node{Type: "constant", ConfigValues: map[string]any{"value": 3.14}},
 				State: s.Node("const"),
 			}
 			n, err := factory.Create(ctx, cfg)
@@ -84,7 +84,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle int value", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 100}},
+				Node:  ir.Node{Type: "constant", ConfigValues: map[string]any{"value": 100}},
 				State: s.Node("const"),
 			}
 			n, err := factory.Create(ctx, cfg)
@@ -93,7 +93,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle uint8 value", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": uint8(255)}},
+				Node:  ir.Node{Type: "constant", ConfigValues: map[string]any{"value": uint8(255)}},
 				State: s.Node("const"),
 			}
 			n, err := factory.Create(ctx, cfg)
@@ -126,7 +126,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should emit output on Init with int value", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 42}},
+				Node:  ir.Node{Type: "constant", ConfigValues: map[string]any{"value": 42}},
 				State: s.Node("const"),
 			}
 			n, _ := factory.Create(ctx, cfg)
@@ -138,7 +138,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should set output data on Init", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": int64(100)}},
+				Node:  ir.Node{Type: "constant", ConfigValues: map[string]any{"value": int64(100)}},
 				State: s.Node("const"),
 			}
 			n, _ := factory.Create(ctx, cfg)
@@ -150,7 +150,7 @@ var _ = Describe("Constant", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type:         "constant",
-					ConfigValues: map[string]interface{}{"value": 3.14},
+					ConfigValues: map[string]any{"value": 3.14},
 				},
 				State: s.Node("const"),
 			}
@@ -163,7 +163,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle float64 constant", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 2.718}},
+				Node:  ir.Node{Type: "constant", ConfigValues: map[string]any{"value": 2.718}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -176,7 +176,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle int32 constant", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": int32(42)}},
+				Node:  ir.Node{Type: "constant", ConfigValues: map[string]any{"value": int32(42)}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -189,7 +189,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle uint8 constant", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": uint8(255)}},
+				Node:  ir.Node{Type: "constant", ConfigValues: map[string]any{"value": uint8(255)}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -227,7 +227,7 @@ var _ = Describe("Constant", func() {
 				},
 			})
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": int64(999)}},
+				Node:  ir.Node{Type: "constant", ConfigValues: map[string]any{"value": int64(999)}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -243,7 +243,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle zero value constant", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 0}},
+				Node:  ir.Node{Type: "constant", ConfigValues: map[string]any{"value": 0}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -256,7 +256,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle negative value constant", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": -42}},
+				Node:  ir.Node{Type: "constant", ConfigValues: map[string]any{"value": -42}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -287,7 +287,7 @@ var _ = Describe("Constant", func() {
 			})
 			factory := constant.NewFactory()
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 42}},
+				Node:  ir.Node{Type: "constant", ConfigValues: map[string]any{"value": 42}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")

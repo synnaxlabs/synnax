@@ -433,7 +433,7 @@ func analyzeInputRoutingTable(
 	nodes []parser.IFlowNodeContext,
 ) bool {
 	var nextFunc parser.IFunctionContext
-	for i := 0; i < len(nodes); i++ {
+	for i := range len(nodes) {
 		if fn := nodes[i].Function(); fn != nil {
 			nextFunc = fn
 			break

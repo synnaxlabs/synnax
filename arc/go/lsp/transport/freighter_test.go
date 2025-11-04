@@ -119,7 +119,7 @@ var _ = Describe("Freighter Transport", func() {
 				var receivedCount atomic.Int32
 				go func() {
 					defer GinkgoRecover()
-					for i := 0; i < 2; i++ {
+					for range 2 {
 						msg := MustSucceed(clientStream.Receive())
 						if msg.Content == json1 || msg.Content == json2 {
 							receivedCount.Add(1)

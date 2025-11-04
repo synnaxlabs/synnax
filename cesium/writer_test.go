@@ -446,7 +446,7 @@ var _ = Describe("Writer Behavior", func() {
 							for range 100 {
 								stamps := make([]telem.TimeStamp, 100)
 								data := make([]int64, 100)
-								for j := telem.TimeStamp(0); j < 100; j++ {
+								for j := range telem.TimeStamp(100) {
 									stamps[j] = start + j*10*telem.MicrosecondTS
 									data[j] = 1
 								}

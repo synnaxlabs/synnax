@@ -29,7 +29,6 @@ var _ = Describe("Counter", func() {
 	}
 
 	for fsName, makeFS := range fileSystems {
-		fsName, makeFS := fsName, makeFS
 		var fsRoot, fs xfs.FS
 
 		Context("FS:"+fsName, Ordered, func() {
@@ -76,7 +75,6 @@ var _ = Describe("Counter", func() {
 
 				wg.Add(1000)
 				for i := range 1000 {
-					i := i
 					go func() {
 						defer wg.Done()
 						val, err := c.Add(1)

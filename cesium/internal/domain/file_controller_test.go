@@ -236,9 +236,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					acquired := make(chan struct{})
 
 					wg := sync.WaitGroup{}
-					wg.Add(1)
-					go func() {
-						defer wg.Done()
+					wg.Go(func() {
 						w3, err := db.OpenWriter(ctx, domain.WriterConfig{
 							Start: 30 * telem.SecondTS,
 							End:   40 * telem.SecondTS,
@@ -246,7 +244,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 						acquired <- struct{}{}
 						Expect(w3.Close()).To(Succeed())
-					}()
+					})
 
 					By("Expecting the channel acquisition to fail")
 					Consistently(acquired).WithTimeout(50 * telem.Millisecond.Duration()).ShouldNot(Receive())

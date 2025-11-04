@@ -117,7 +117,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, output *telem.Series) {
 	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
 	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		outData[i] = {{.Op}}inData[i]
 	}
 }
@@ -135,7 +135,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	{{if eq .Name "Avg"}}
 	// Compute sum of new input samples
 	var newSum {{$.Type.GoType}}
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		newSum += inData[i]
 	}
 
@@ -165,7 +165,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 
 	// Find minimum in new input samples
 	newMin := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] < newMin {
 			newMin = inData[i]
 		}
@@ -191,7 +191,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 
 	// Find maximum in new input samples
 	newMax := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] > newMax {
 			newMax = inData[i]
 		}
@@ -222,10 +222,7 @@ func {{.Name}}{{$.Type.Name}}(data, time telem.Series, output *telem.Series) {
 		return
 	}
 
-	minLen := dataLen
-	if timeLen < minLen {
-		minLen = timeLen
-	}
+	minLen := min(dataLen, timeLen)
 
 	// Set DataType BEFORE Resize so it can calculate the correct buffer size
 	{{if $.Type.IsFloat}}
@@ -283,10 +280,7 @@ const funcTemplate = `{{range $.Operations}}{{if .IsComp}}
 func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
@@ -301,7 +295,7 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -323,10 +317,7 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
@@ -341,7 +332,7 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]

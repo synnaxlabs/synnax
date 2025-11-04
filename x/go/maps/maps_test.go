@@ -190,7 +190,7 @@ var _ = Describe("Ordered", func() {
 
 		It("should work with multiple values", func() {
 			m := &maps.Ordered[string, int]{}
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				key := string(rune('a' + i))
 				ok := m.Put(key, i)
 				Expect(ok).To(BeTrue())

@@ -30,7 +30,7 @@ func (m *MockClient) LogMessage(context.Context, *protocol.LogMessageParams) err
 	return nil
 }
 
-func (m *MockClient) Telemetry(context.Context, interface{}) error {
+func (m *MockClient) Telemetry(context.Context, any) error {
 	return nil
 }
 

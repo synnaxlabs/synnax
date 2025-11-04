@@ -409,7 +409,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							}))
 						}
 						for i, w := range writers {
-							i, w := i, w
 							go func(i int, w *domain.Writer) {
 								defer wg.Done()
 								MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))

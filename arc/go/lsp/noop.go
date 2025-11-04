@@ -81,15 +81,15 @@ func (s *Server) DocumentLink(context.Context, *protocol.DocumentLinkParams) ([]
 	return nil, nil
 }
 
-func (s *Server) DocumentSymbol(context.Context, *protocol.DocumentSymbolParams) ([]interface{}, error) {
-	return []interface{}{}, nil
+func (s *Server) DocumentSymbol(context.Context, *protocol.DocumentSymbolParams) ([]any, error) {
+	return []any{}, nil
 }
 
 func (s *Server) DocumentLinkResolve(context.Context, *protocol.DocumentLink) (*protocol.DocumentLink, error) {
 	return nil, nil
 }
 
-func (s *Server) ExecuteCommand(context.Context, *protocol.ExecuteCommandParams) (interface{}, error) {
+func (s *Server) ExecuteCommand(context.Context, *protocol.ExecuteCommandParams) (any, error) {
 	return nil, nil
 }
 
@@ -175,7 +175,7 @@ func (s *Server) SelectionRange(context.Context, *protocol.SelectionRangeParams)
 
 // SemanticTokensFull is implemented in semantic.go
 
-func (s *Server) SemanticTokensFullDelta(context.Context, *protocol.SemanticTokensDeltaParams) (interface{}, error) {
+func (s *Server) SemanticTokensFullDelta(context.Context, *protocol.SemanticTokensDeltaParams) (any, error) {
 	return nil, nil
 }
 
@@ -231,7 +231,7 @@ func (s *Server) CodeLensRefresh(context.Context) error {
 	return nil
 }
 
-func (s *Server) Request(context.Context, string, interface{}) (interface{}, error) {
+func (s *Server) Request(context.Context, string, any) (any, error) {
 	return nil, nil
 }
 

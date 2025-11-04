@@ -41,7 +41,7 @@ var _ = Describe("StableFor", func() {
 		irNode = ir.Node{
 			Key:  "stable",
 			Type: "stable_for",
-			ConfigValues: map[string]interface{}{
+			ConfigValues: map[string]any{
 				"duration": telem.Second * 1,
 			},
 			Inputs: types.Params{
@@ -124,7 +124,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
+					ConfigValues: map[string]any{
 						"duration": int64(telem.SecondTS),
 					},
 				},
@@ -159,7 +159,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
+					ConfigValues: map[string]any{
 						"duration": int64(telem.SecondTS),
 					},
 				},
@@ -201,7 +201,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
+					ConfigValues: map[string]any{
 						"duration": int64(telem.SecondTS),
 					},
 				},
@@ -235,7 +235,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
+					ConfigValues: map[string]any{
 						"duration": int64(telem.SecondTS),
 					},
 				},
@@ -275,7 +275,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
+					ConfigValues: map[string]any{
 						"duration": int64(telem.SecondTS),
 					},
 				},
@@ -285,7 +285,7 @@ var _ = Describe("StableFor", func() {
 			currentTime = 0
 			// Send multiple values, ending with 7 at 0.4s (400ms)
 			*source.Output(0) = telem.NewSeriesV[uint8](3, 4, 5, 6, 7)
-			*source.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](
+			*source.OutputTime(0) = telem.NewSeriesV(
 				0,
 				telem.SecondTS/10,   // 0.1s = 100ms
 				telem.SecondTS/5,    // 0.2s = 200ms
@@ -311,7 +311,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
+					ConfigValues: map[string]any{
 						"duration": int64(telem.SecondTS),
 					},
 				},
@@ -341,7 +341,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
+					ConfigValues: map[string]any{
 						"duration": int64(telem.SecondTS),
 					},
 				},
@@ -351,7 +351,7 @@ var _ = Describe("StableFor", func() {
 			currentTime = 0
 			// Send same value multiple times
 			*source.Output(0) = telem.NewSeriesV[uint8](5, 5, 5, 5)
-			*source.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](
+			*source.OutputTime(0) = telem.NewSeriesV(
 				0,
 				telem.SecondTS/10,   // 0.1s = 100ms
 				telem.SecondTS/5,    // 0.2s = 200ms

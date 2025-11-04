@@ -26,7 +26,9 @@ type StringZ struct{ baseZ }
 // String creates a new string schema. This is the entry point for creating string
 // validation schemas.
 func String() StringZ {
-	s := StringZ{baseZ: baseZ{dataType: StringT, expectedType: reflect.TypeOf("")}}
+	s := StringZ{
+		baseZ: baseZ{dataType: StringT, expectedType: reflect.TypeFor[string]()},
+	}
 	s.wrapper = s
 	return s
 }
@@ -63,7 +65,7 @@ func (s StringZ) validateDestinationValue(dest reflect.Value) error {
 // UUID marks the string field as a UUID. This enables UUID-specific validation and
 // conversion. The field will be validated to ensure it's a valid UUID format.
 func (s StringZ) UUID() StringZ {
-	s.expectedType = reflect.TypeOf(uuid.UUID{})
+	s.expectedType = reflect.TypeFor[uuid.UUID]()
 	s.dataType = UUIDT
 	return s
 }
@@ -95,7 +97,7 @@ func (s StringZ) Dump(data any) (any, error) {
 		}
 		val = val.Elem()
 	}
-	if s.expectedType != nil && s.expectedType == reflect.TypeOf(uuid.UUID{}) {
+	if s.expectedType != nil && s.expectedType == reflect.TypeFor[uuid.UUID]() {
 		switch val.Kind() {
 		case reflect.String:
 			if _, err := uuid.Parse(val.String()); err != nil {
@@ -106,7 +108,7 @@ func (s StringZ) Dump(data any) (any, error) {
 			}
 			return val.String(), nil
 		case reflect.Array:
-			if val.Type() == reflect.TypeOf(uuid.UUID{}) {
+			if val.Type() == reflect.TypeFor[uuid.UUID]() {
 				return val.Interface().(uuid.UUID).String(), nil
 			}
 			fallthrough
@@ -149,7 +151,7 @@ func (s StringZ) Parse(data any, dest any) error {
 		return err
 	}
 	dataVal := reflect.ValueOf(data)
-	if s.expectedType != nil && s.expectedType == reflect.TypeOf(uuid.UUID{}) {
+	if s.expectedType != nil && s.expectedType == reflect.TypeFor[uuid.UUID]() {
 		switch v := data.(type) {
 		case string:
 			if _, err := uuid.Parse(v); err != nil {
@@ -195,7 +197,7 @@ func (s StringZ) Parse(data any, dest any) error {
 		destVal = destVal.Elem()
 	}
 	// If UUID type is expected, handle both string and UUID destinations
-	if s.expectedType != nil && s.expectedType == reflect.TypeOf(uuid.UUID{}) {
+	if s.expectedType != nil && s.expectedType == reflect.TypeFor[uuid.UUID]() {
 		parsedUUID, err := uuid.Parse(data_)
 		if err != nil {
 			return invalidUUIDStringError()
@@ -204,7 +206,7 @@ func (s StringZ) Parse(data any, dest any) error {
 			destVal.SetString(parsedUUID.String())
 			return nil
 		}
-		if destVal.Type() == reflect.TypeOf(uuid.UUID{}) {
+		if destVal.Type() == reflect.TypeFor[uuid.UUID]() {
 			destVal.Set(reflect.ValueOf(parsedUUID))
 			return nil
 		}

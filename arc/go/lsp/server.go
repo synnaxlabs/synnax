@@ -96,7 +96,7 @@ func New(cfgs ...Config) (*Server, error) {
 			},
 			DefinitionProvider:     true,
 			DocumentSymbolProvider: true,
-			SemanticTokensProvider: map[string]interface{}{
+			SemanticTokensProvider: map[string]any{
 				"legend": protocol.SemanticTokensLegend{
 					TokenTypes: convertToSemanticTokenTypes(semanticTokenTypes),
 				},
@@ -235,7 +235,7 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 		if err != nil {
 			pDiagnostics = translateDiagnostics(*err)
 		} else {
-			aCtx := acontext.CreateRoot[parser.IBlockContext](
+			aCtx := acontext.CreateRoot(
 				ctx,
 				t,
 				s.cfg.GlobalResolver,

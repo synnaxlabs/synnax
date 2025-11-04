@@ -345,12 +345,10 @@ var _ = Describe("Signal", func() {
 			ctx, cancel := signal.Isolated()
 			ctx.Go(f, signal.WithBreaker(breaker.Config{MaxRetries: breaker.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 1.01}))
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				Expect(ctx.Wait()).To(Succeed())
 				close(done)
-			}()
+			})
 
 			cancel()
 			wg.Wait()
@@ -391,7 +389,7 @@ var _ = Describe("Signal", func() {
 	Describe("Regression", func() {
 		// This test was added to address the bug where if maxRestart is set, even in
 		// the case where the goroutine did not panic, it would attempt to restart.
-		// This is not the desired behaviour since a goroutine should not attempt to
+		// This is not the desired behavior since a goroutine should not attempt to
 		// restart if it did not panic.
 		It("Should NOT restart if there was not a panic - definite restart", func() {
 			var (

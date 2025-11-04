@@ -195,7 +195,6 @@ func (s *Server) startBranches(
 	}
 	bc := s.baseBranchContext()
 	for i, b := range branches {
-		b, i := b, i
 		sCtx.Go(func(context.Context) error {
 			bc.Lis = listeners[i]
 			return filterCloserError(b.Serve(bc))

@@ -22,7 +22,7 @@ import (
 // Returns an error if constraints conflict or cannot converge within iteration limit.
 func (s *System) Unify() error {
 	const maxIterations = 100
-	for iteration := 0; iteration < maxIterations; iteration++ {
+	for iteration := range maxIterations {
 		var (
 			changed      = false
 			previousSubs = maps.Clone(s.Substitutions)

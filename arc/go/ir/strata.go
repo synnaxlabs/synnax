@@ -9,6 +9,8 @@
 
 package ir
 
+import "slices"
+
 // Strata represents the execution stratification of a dataflow graph. Each stratum
 // is a slice of node keys that can execute in parallel. Nodes in stratum N depend
 // only on nodes in strata 0 to N-1. Stratification enables single-pass, glitch-free
@@ -18,10 +20,8 @@ type Strata [][]string
 // Get returns the stratum level of the node with the given key, or -1 if not found.
 func (s Strata) Get(key string) int {
 	for i, nodes := range s {
-		for _, node := range nodes {
-			if node == key {
-				return i
-			}
+		if slices.Contains(nodes, key) {
+			return i
 		}
 	}
 	return -1

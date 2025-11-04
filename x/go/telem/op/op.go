@@ -17,10 +17,7 @@ import (
 func GreaterThanF64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float64](lhs.Data)
@@ -35,7 +32,7 @@ func GreaterThanF64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -57,10 +54,7 @@ func GreaterThanF64(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanOrEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float64](lhs.Data)
@@ -75,7 +69,7 @@ func GreaterThanOrEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -97,10 +91,7 @@ func GreaterThanOrEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanF64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float64](lhs.Data)
@@ -115,7 +106,7 @@ func LessThanF64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -137,10 +128,7 @@ func LessThanF64(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanOrEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float64](lhs.Data)
@@ -155,7 +143,7 @@ func LessThanOrEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -177,10 +165,7 @@ func LessThanOrEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 func EqualF64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float64](lhs.Data)
@@ -195,7 +180,7 @@ func EqualF64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -217,10 +202,7 @@ func EqualF64(lhs, rhs telem.Series, output *telem.Series) {
 func NotEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float64](lhs.Data)
@@ -235,7 +217,7 @@ func NotEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -257,10 +239,7 @@ func NotEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 func AddF64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float64](lhs.Data)
@@ -275,7 +254,7 @@ func AddF64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -293,10 +272,7 @@ func AddF64(lhs, rhs telem.Series, output *telem.Series) {
 func SubtractF64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float64](lhs.Data)
@@ -311,7 +287,7 @@ func SubtractF64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -329,10 +305,7 @@ func SubtractF64(lhs, rhs telem.Series, output *telem.Series) {
 func MultiplyF64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float64](lhs.Data)
@@ -347,7 +320,7 @@ func MultiplyF64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -365,10 +338,7 @@ func MultiplyF64(lhs, rhs telem.Series, output *telem.Series) {
 func DivideF64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float64](lhs.Data)
@@ -383,7 +353,7 @@ func DivideF64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -401,10 +371,7 @@ func DivideF64(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanF32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float32](lhs.Data)
@@ -419,7 +386,7 @@ func GreaterThanF32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -441,10 +408,7 @@ func GreaterThanF32(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanOrEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float32](lhs.Data)
@@ -459,7 +423,7 @@ func GreaterThanOrEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -481,10 +445,7 @@ func GreaterThanOrEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanF32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float32](lhs.Data)
@@ -499,7 +460,7 @@ func LessThanF32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -521,10 +482,7 @@ func LessThanF32(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanOrEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float32](lhs.Data)
@@ -539,7 +497,7 @@ func LessThanOrEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -561,10 +519,7 @@ func LessThanOrEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 func EqualF32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float32](lhs.Data)
@@ -579,7 +534,7 @@ func EqualF32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -601,10 +556,7 @@ func EqualF32(lhs, rhs telem.Series, output *telem.Series) {
 func NotEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float32](lhs.Data)
@@ -619,7 +571,7 @@ func NotEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -641,10 +593,7 @@ func NotEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 func AddF32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float32](lhs.Data)
@@ -659,7 +608,7 @@ func AddF32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -677,10 +626,7 @@ func AddF32(lhs, rhs telem.Series, output *telem.Series) {
 func SubtractF32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float32](lhs.Data)
@@ -695,7 +641,7 @@ func SubtractF32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -713,10 +659,7 @@ func SubtractF32(lhs, rhs telem.Series, output *telem.Series) {
 func MultiplyF32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float32](lhs.Data)
@@ -731,7 +674,7 @@ func MultiplyF32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -749,10 +692,7 @@ func MultiplyF32(lhs, rhs telem.Series, output *telem.Series) {
 func DivideF32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, float32](lhs.Data)
@@ -767,7 +707,7 @@ func DivideF32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -785,10 +725,7 @@ func DivideF32(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanI64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int64](lhs.Data)
@@ -803,7 +740,7 @@ func GreaterThanI64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -825,10 +762,7 @@ func GreaterThanI64(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanOrEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int64](lhs.Data)
@@ -843,7 +777,7 @@ func GreaterThanOrEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -865,10 +799,7 @@ func GreaterThanOrEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanI64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int64](lhs.Data)
@@ -883,7 +814,7 @@ func LessThanI64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -905,10 +836,7 @@ func LessThanI64(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanOrEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int64](lhs.Data)
@@ -923,7 +851,7 @@ func LessThanOrEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -945,10 +873,7 @@ func LessThanOrEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 func EqualI64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int64](lhs.Data)
@@ -963,7 +888,7 @@ func EqualI64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -985,10 +910,7 @@ func EqualI64(lhs, rhs telem.Series, output *telem.Series) {
 func NotEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int64](lhs.Data)
@@ -1003,7 +925,7 @@ func NotEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1025,10 +947,7 @@ func NotEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 func AddI64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int64](lhs.Data)
@@ -1043,7 +962,7 @@ func AddI64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1061,10 +980,7 @@ func AddI64(lhs, rhs telem.Series, output *telem.Series) {
 func SubtractI64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int64](lhs.Data)
@@ -1079,7 +995,7 @@ func SubtractI64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1097,10 +1013,7 @@ func SubtractI64(lhs, rhs telem.Series, output *telem.Series) {
 func MultiplyI64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int64](lhs.Data)
@@ -1115,7 +1028,7 @@ func MultiplyI64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1133,10 +1046,7 @@ func MultiplyI64(lhs, rhs telem.Series, output *telem.Series) {
 func DivideI64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int64](lhs.Data)
@@ -1151,7 +1061,7 @@ func DivideI64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1169,10 +1079,7 @@ func DivideI64(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanI32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int32](lhs.Data)
@@ -1187,7 +1094,7 @@ func GreaterThanI32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1209,10 +1116,7 @@ func GreaterThanI32(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanOrEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int32](lhs.Data)
@@ -1227,7 +1131,7 @@ func GreaterThanOrEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1249,10 +1153,7 @@ func GreaterThanOrEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanI32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int32](lhs.Data)
@@ -1267,7 +1168,7 @@ func LessThanI32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1289,10 +1190,7 @@ func LessThanI32(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanOrEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int32](lhs.Data)
@@ -1307,7 +1205,7 @@ func LessThanOrEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1329,10 +1227,7 @@ func LessThanOrEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 func EqualI32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int32](lhs.Data)
@@ -1347,7 +1242,7 @@ func EqualI32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1369,10 +1264,7 @@ func EqualI32(lhs, rhs telem.Series, output *telem.Series) {
 func NotEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int32](lhs.Data)
@@ -1387,7 +1279,7 @@ func NotEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1409,10 +1301,7 @@ func NotEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 func AddI32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int32](lhs.Data)
@@ -1427,7 +1316,7 @@ func AddI32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1445,10 +1334,7 @@ func AddI32(lhs, rhs telem.Series, output *telem.Series) {
 func SubtractI32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int32](lhs.Data)
@@ -1463,7 +1349,7 @@ func SubtractI32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1481,10 +1367,7 @@ func SubtractI32(lhs, rhs telem.Series, output *telem.Series) {
 func MultiplyI32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int32](lhs.Data)
@@ -1499,7 +1382,7 @@ func MultiplyI32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1517,10 +1400,7 @@ func MultiplyI32(lhs, rhs telem.Series, output *telem.Series) {
 func DivideI32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int32](lhs.Data)
@@ -1535,7 +1415,7 @@ func DivideI32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1553,10 +1433,7 @@ func DivideI32(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanI16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int16](lhs.Data)
@@ -1571,7 +1448,7 @@ func GreaterThanI16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1593,10 +1470,7 @@ func GreaterThanI16(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanOrEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int16](lhs.Data)
@@ -1611,7 +1485,7 @@ func GreaterThanOrEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1633,10 +1507,7 @@ func GreaterThanOrEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanI16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int16](lhs.Data)
@@ -1651,7 +1522,7 @@ func LessThanI16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1673,10 +1544,7 @@ func LessThanI16(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanOrEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int16](lhs.Data)
@@ -1691,7 +1559,7 @@ func LessThanOrEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1713,10 +1581,7 @@ func LessThanOrEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 func EqualI16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int16](lhs.Data)
@@ -1731,7 +1596,7 @@ func EqualI16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1753,10 +1618,7 @@ func EqualI16(lhs, rhs telem.Series, output *telem.Series) {
 func NotEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int16](lhs.Data)
@@ -1771,7 +1633,7 @@ func NotEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1793,10 +1655,7 @@ func NotEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 func AddI16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int16](lhs.Data)
@@ -1811,7 +1670,7 @@ func AddI16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1829,10 +1688,7 @@ func AddI16(lhs, rhs telem.Series, output *telem.Series) {
 func SubtractI16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int16](lhs.Data)
@@ -1847,7 +1703,7 @@ func SubtractI16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1865,10 +1721,7 @@ func SubtractI16(lhs, rhs telem.Series, output *telem.Series) {
 func MultiplyI16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int16](lhs.Data)
@@ -1883,7 +1736,7 @@ func MultiplyI16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1901,10 +1754,7 @@ func MultiplyI16(lhs, rhs telem.Series, output *telem.Series) {
 func DivideI16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int16](lhs.Data)
@@ -1919,7 +1769,7 @@ func DivideI16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1937,10 +1787,7 @@ func DivideI16(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanI8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int8](lhs.Data)
@@ -1955,7 +1802,7 @@ func GreaterThanI8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -1977,10 +1824,7 @@ func GreaterThanI8(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanOrEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int8](lhs.Data)
@@ -1995,7 +1839,7 @@ func GreaterThanOrEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2017,10 +1861,7 @@ func GreaterThanOrEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanI8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int8](lhs.Data)
@@ -2035,7 +1876,7 @@ func LessThanI8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2057,10 +1898,7 @@ func LessThanI8(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanOrEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int8](lhs.Data)
@@ -2075,7 +1913,7 @@ func LessThanOrEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2097,10 +1935,7 @@ func LessThanOrEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 func EqualI8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int8](lhs.Data)
@@ -2115,7 +1950,7 @@ func EqualI8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2137,10 +1972,7 @@ func EqualI8(lhs, rhs telem.Series, output *telem.Series) {
 func NotEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int8](lhs.Data)
@@ -2155,7 +1987,7 @@ func NotEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2177,10 +2009,7 @@ func NotEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 func AddI8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int8](lhs.Data)
@@ -2195,7 +2024,7 @@ func AddI8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2213,10 +2042,7 @@ func AddI8(lhs, rhs telem.Series, output *telem.Series) {
 func SubtractI8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int8](lhs.Data)
@@ -2231,7 +2057,7 @@ func SubtractI8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2249,10 +2075,7 @@ func SubtractI8(lhs, rhs telem.Series, output *telem.Series) {
 func MultiplyI8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int8](lhs.Data)
@@ -2267,7 +2090,7 @@ func MultiplyI8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2285,10 +2108,7 @@ func MultiplyI8(lhs, rhs telem.Series, output *telem.Series) {
 func DivideI8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, int8](lhs.Data)
@@ -2303,7 +2123,7 @@ func DivideI8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2321,10 +2141,7 @@ func DivideI8(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanU64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint64](lhs.Data)
@@ -2339,7 +2156,7 @@ func GreaterThanU64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2361,10 +2178,7 @@ func GreaterThanU64(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanOrEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint64](lhs.Data)
@@ -2379,7 +2193,7 @@ func GreaterThanOrEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2401,10 +2215,7 @@ func GreaterThanOrEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanU64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint64](lhs.Data)
@@ -2419,7 +2230,7 @@ func LessThanU64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2441,10 +2252,7 @@ func LessThanU64(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanOrEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint64](lhs.Data)
@@ -2459,7 +2267,7 @@ func LessThanOrEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2481,10 +2289,7 @@ func LessThanOrEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 func EqualU64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint64](lhs.Data)
@@ -2499,7 +2304,7 @@ func EqualU64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2521,10 +2326,7 @@ func EqualU64(lhs, rhs telem.Series, output *telem.Series) {
 func NotEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint64](lhs.Data)
@@ -2539,7 +2341,7 @@ func NotEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2561,10 +2363,7 @@ func NotEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 func AddU64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint64](lhs.Data)
@@ -2579,7 +2378,7 @@ func AddU64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2597,10 +2396,7 @@ func AddU64(lhs, rhs telem.Series, output *telem.Series) {
 func SubtractU64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint64](lhs.Data)
@@ -2615,7 +2411,7 @@ func SubtractU64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2633,10 +2429,7 @@ func SubtractU64(lhs, rhs telem.Series, output *telem.Series) {
 func MultiplyU64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint64](lhs.Data)
@@ -2651,7 +2444,7 @@ func MultiplyU64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2669,10 +2462,7 @@ func MultiplyU64(lhs, rhs telem.Series, output *telem.Series) {
 func DivideU64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint64](lhs.Data)
@@ -2687,7 +2477,7 @@ func DivideU64(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2705,10 +2495,7 @@ func DivideU64(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanU32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint32](lhs.Data)
@@ -2723,7 +2510,7 @@ func GreaterThanU32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2745,10 +2532,7 @@ func GreaterThanU32(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanOrEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint32](lhs.Data)
@@ -2763,7 +2547,7 @@ func GreaterThanOrEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2785,10 +2569,7 @@ func GreaterThanOrEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanU32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint32](lhs.Data)
@@ -2803,7 +2584,7 @@ func LessThanU32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2825,10 +2606,7 @@ func LessThanU32(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanOrEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint32](lhs.Data)
@@ -2843,7 +2621,7 @@ func LessThanOrEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2865,10 +2643,7 @@ func LessThanOrEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 func EqualU32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint32](lhs.Data)
@@ -2883,7 +2658,7 @@ func EqualU32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2905,10 +2680,7 @@ func EqualU32(lhs, rhs telem.Series, output *telem.Series) {
 func NotEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint32](lhs.Data)
@@ -2923,7 +2695,7 @@ func NotEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2945,10 +2717,7 @@ func NotEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 func AddU32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint32](lhs.Data)
@@ -2963,7 +2732,7 @@ func AddU32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -2981,10 +2750,7 @@ func AddU32(lhs, rhs telem.Series, output *telem.Series) {
 func SubtractU32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint32](lhs.Data)
@@ -2999,7 +2765,7 @@ func SubtractU32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3017,10 +2783,7 @@ func SubtractU32(lhs, rhs telem.Series, output *telem.Series) {
 func MultiplyU32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint32](lhs.Data)
@@ -3035,7 +2798,7 @@ func MultiplyU32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3053,10 +2816,7 @@ func MultiplyU32(lhs, rhs telem.Series, output *telem.Series) {
 func DivideU32(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint32](lhs.Data)
@@ -3071,7 +2831,7 @@ func DivideU32(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3089,10 +2849,7 @@ func DivideU32(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanU16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint16](lhs.Data)
@@ -3107,7 +2864,7 @@ func GreaterThanU16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3129,10 +2886,7 @@ func GreaterThanU16(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanOrEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint16](lhs.Data)
@@ -3147,7 +2901,7 @@ func GreaterThanOrEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3169,10 +2923,7 @@ func GreaterThanOrEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanU16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint16](lhs.Data)
@@ -3187,7 +2938,7 @@ func LessThanU16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3209,10 +2960,7 @@ func LessThanU16(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanOrEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint16](lhs.Data)
@@ -3227,7 +2975,7 @@ func LessThanOrEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3249,10 +2997,7 @@ func LessThanOrEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 func EqualU16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint16](lhs.Data)
@@ -3267,7 +3012,7 @@ func EqualU16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3289,10 +3034,7 @@ func EqualU16(lhs, rhs telem.Series, output *telem.Series) {
 func NotEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint16](lhs.Data)
@@ -3307,7 +3049,7 @@ func NotEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3329,10 +3071,7 @@ func NotEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 func AddU16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint16](lhs.Data)
@@ -3347,7 +3086,7 @@ func AddU16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3365,10 +3104,7 @@ func AddU16(lhs, rhs telem.Series, output *telem.Series) {
 func SubtractU16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint16](lhs.Data)
@@ -3383,7 +3119,7 @@ func SubtractU16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3401,10 +3137,7 @@ func SubtractU16(lhs, rhs telem.Series, output *telem.Series) {
 func MultiplyU16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint16](lhs.Data)
@@ -3419,7 +3152,7 @@ func MultiplyU16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3437,10 +3170,7 @@ func MultiplyU16(lhs, rhs telem.Series, output *telem.Series) {
 func DivideU16(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint16](lhs.Data)
@@ -3455,7 +3185,7 @@ func DivideU16(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3473,10 +3203,7 @@ func DivideU16(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
@@ -3491,7 +3218,7 @@ func GreaterThanU8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3513,10 +3240,7 @@ func GreaterThanU8(lhs, rhs telem.Series, output *telem.Series) {
 func GreaterThanOrEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
@@ -3531,7 +3255,7 @@ func GreaterThanOrEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3553,10 +3277,7 @@ func GreaterThanOrEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
@@ -3571,7 +3292,7 @@ func LessThanU8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3593,10 +3314,7 @@ func LessThanU8(lhs, rhs telem.Series, output *telem.Series) {
 func LessThanOrEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
@@ -3611,7 +3329,7 @@ func LessThanOrEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3633,10 +3351,7 @@ func LessThanOrEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 func EqualU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
@@ -3651,7 +3366,7 @@ func EqualU8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3673,10 +3388,7 @@ func EqualU8(lhs, rhs telem.Series, output *telem.Series) {
 func NotEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
@@ -3691,7 +3403,7 @@ func NotEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3713,10 +3425,7 @@ func NotEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 func AddU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
@@ -3731,7 +3440,7 @@ func AddU8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3749,10 +3458,7 @@ func AddU8(lhs, rhs telem.Series, output *telem.Series) {
 func SubtractU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
@@ -3767,7 +3473,7 @@ func SubtractU8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3785,10 +3491,7 @@ func SubtractU8(lhs, rhs telem.Series, output *telem.Series) {
 func MultiplyU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
@@ -3803,7 +3506,7 @@ func MultiplyU8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3821,10 +3524,7 @@ func MultiplyU8(lhs, rhs telem.Series, output *telem.Series) {
 func DivideU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
@@ -3839,7 +3539,7 @@ func DivideU8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3857,10 +3557,7 @@ func DivideU8(lhs, rhs telem.Series, output *telem.Series) {
 func AndU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
@@ -3875,7 +3572,7 @@ func AndU8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3893,10 +3590,7 @@ func AndU8(lhs, rhs telem.Series, output *telem.Series) {
 func OrU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
@@ -3911,7 +3605,7 @@ func OrU8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3929,10 +3623,7 @@ func OrU8(lhs, rhs telem.Series, output *telem.Series) {
 func XorU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
+	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
 	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
@@ -3947,7 +3638,7 @@ func XorU8(lhs, rhs telem.Series, output *telem.Series) {
 		rhsLast = rhsData[rhsLen-1]
 	}
 
-	for i := int64(0); i < maxLen; i++ {
+	for i := range maxLen {
 		lhsVal := lhsLast
 		if i < lhsLen {
 			lhsVal = lhsData[i]
@@ -3969,7 +3660,7 @@ func NotU8(input telem.Series, output *telem.Series) {
 	inData := xunsafe.CastSlice[uint8, uint8](input.Data)
 	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
 
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		outData[i] = ^inData[i]
 	}
 }
@@ -3981,7 +3672,7 @@ func NegateF64(input telem.Series, output *telem.Series) {
 	inData := xunsafe.CastSlice[uint8, float64](input.Data)
 	outData := xunsafe.CastSlice[uint8, float64](output.Data)
 
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		outData[i] = -inData[i]
 	}
 }
@@ -3993,7 +3684,7 @@ func NegateF32(input telem.Series, output *telem.Series) {
 	inData := xunsafe.CastSlice[uint8, float32](input.Data)
 	outData := xunsafe.CastSlice[uint8, float32](output.Data)
 
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		outData[i] = -inData[i]
 	}
 }
@@ -4005,7 +3696,7 @@ func NegateI64(input telem.Series, output *telem.Series) {
 	inData := xunsafe.CastSlice[uint8, int64](input.Data)
 	outData := xunsafe.CastSlice[uint8, int64](output.Data)
 
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		outData[i] = -inData[i]
 	}
 }
@@ -4017,7 +3708,7 @@ func NegateI32(input telem.Series, output *telem.Series) {
 	inData := xunsafe.CastSlice[uint8, int32](input.Data)
 	outData := xunsafe.CastSlice[uint8, int32](output.Data)
 
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		outData[i] = -inData[i]
 	}
 }
@@ -4029,7 +3720,7 @@ func NegateI16(input telem.Series, output *telem.Series) {
 	inData := xunsafe.CastSlice[uint8, int16](input.Data)
 	outData := xunsafe.CastSlice[uint8, int16](output.Data)
 
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		outData[i] = -inData[i]
 	}
 }
@@ -4041,7 +3732,7 @@ func NegateI8(input telem.Series, output *telem.Series) {
 	inData := xunsafe.CastSlice[uint8, int8](input.Data)
 	outData := xunsafe.CastSlice[uint8, int8](output.Data)
 
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		outData[i] = -inData[i]
 	}
 }
@@ -4056,7 +3747,7 @@ func AvgF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Compute sum of new input samples
 	var newSum float64
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		newSum += inData[i]
 	}
 
@@ -4096,7 +3787,7 @@ func MinF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find minimum in new input samples
 	newMin := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] < newMin {
 			newMin = inData[i]
 		}
@@ -4132,7 +3823,7 @@ func MaxF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find maximum in new input samples
 	newMax := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] > newMax {
 			newMax = inData[i]
 		}
@@ -4162,7 +3853,7 @@ func AvgF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Compute sum of new input samples
 	var newSum float32
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		newSum += inData[i]
 	}
 
@@ -4202,7 +3893,7 @@ func MinF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find minimum in new input samples
 	newMin := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] < newMin {
 			newMin = inData[i]
 		}
@@ -4238,7 +3929,7 @@ func MaxF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find maximum in new input samples
 	newMax := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] > newMax {
 			newMax = inData[i]
 		}
@@ -4268,7 +3959,7 @@ func AvgI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Compute sum of new input samples
 	var newSum int64
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		newSum += inData[i]
 	}
 
@@ -4308,7 +3999,7 @@ func MinI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find minimum in new input samples
 	newMin := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] < newMin {
 			newMin = inData[i]
 		}
@@ -4344,7 +4035,7 @@ func MaxI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find maximum in new input samples
 	newMax := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] > newMax {
 			newMax = inData[i]
 		}
@@ -4374,7 +4065,7 @@ func AvgI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Compute sum of new input samples
 	var newSum int32
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		newSum += inData[i]
 	}
 
@@ -4414,7 +4105,7 @@ func MinI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find minimum in new input samples
 	newMin := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] < newMin {
 			newMin = inData[i]
 		}
@@ -4450,7 +4141,7 @@ func MaxI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find maximum in new input samples
 	newMax := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] > newMax {
 			newMax = inData[i]
 		}
@@ -4480,7 +4171,7 @@ func AvgI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Compute sum of new input samples
 	var newSum int16
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		newSum += inData[i]
 	}
 
@@ -4520,7 +4211,7 @@ func MinI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find minimum in new input samples
 	newMin := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] < newMin {
 			newMin = inData[i]
 		}
@@ -4556,7 +4247,7 @@ func MaxI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find maximum in new input samples
 	newMax := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] > newMax {
 			newMax = inData[i]
 		}
@@ -4586,7 +4277,7 @@ func AvgI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Compute sum of new input samples
 	var newSum int8
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		newSum += inData[i]
 	}
 
@@ -4626,7 +4317,7 @@ func MinI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find minimum in new input samples
 	newMin := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] < newMin {
 			newMin = inData[i]
 		}
@@ -4662,7 +4353,7 @@ func MaxI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find maximum in new input samples
 	newMax := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] > newMax {
 			newMax = inData[i]
 		}
@@ -4692,7 +4383,7 @@ func AvgU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Compute sum of new input samples
 	var newSum uint64
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		newSum += inData[i]
 	}
 
@@ -4732,7 +4423,7 @@ func MinU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find minimum in new input samples
 	newMin := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] < newMin {
 			newMin = inData[i]
 		}
@@ -4768,7 +4459,7 @@ func MaxU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find maximum in new input samples
 	newMax := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] > newMax {
 			newMax = inData[i]
 		}
@@ -4798,7 +4489,7 @@ func AvgU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Compute sum of new input samples
 	var newSum uint32
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		newSum += inData[i]
 	}
 
@@ -4838,7 +4529,7 @@ func MinU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find minimum in new input samples
 	newMin := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] < newMin {
 			newMin = inData[i]
 		}
@@ -4874,7 +4565,7 @@ func MaxU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find maximum in new input samples
 	newMax := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] > newMax {
 			newMax = inData[i]
 		}
@@ -4904,7 +4595,7 @@ func AvgU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Compute sum of new input samples
 	var newSum uint16
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		newSum += inData[i]
 	}
 
@@ -4944,7 +4635,7 @@ func MinU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find minimum in new input samples
 	newMin := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] < newMin {
 			newMin = inData[i]
 		}
@@ -4980,7 +4671,7 @@ func MaxU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find maximum in new input samples
 	newMax := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] > newMax {
 			newMax = inData[i]
 		}
@@ -5010,7 +4701,7 @@ func AvgU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Compute sum of new input samples
 	var newSum uint8
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		newSum += inData[i]
 	}
 
@@ -5050,7 +4741,7 @@ func MinU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find minimum in new input samples
 	newMin := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] < newMin {
 			newMin = inData[i]
 		}
@@ -5086,7 +4777,7 @@ func MaxU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	// Find maximum in new input samples
 	newMax := inData[0]
-	for i := int64(1); i < inputLen; i++ {
+	for i := range inputLen {
 		if inData[i] > newMax {
 			newMax = inData[i]
 		}
@@ -5115,10 +4806,7 @@ func DerivativeF64(data, time telem.Series, output *telem.Series) {
 		return
 	}
 
-	minLen := dataLen
-	if timeLen < minLen {
-		minLen = timeLen
-	}
+	minLen := min(dataLen, timeLen)
 
 	// Set DataType BEFORE Resize so it can calculate the correct buffer size
 
@@ -5160,10 +4848,7 @@ func DerivativeF32(data, time telem.Series, output *telem.Series) {
 		return
 	}
 
-	minLen := dataLen
-	if timeLen < minLen {
-		minLen = timeLen
-	}
+	minLen := min(dataLen, timeLen)
 
 	// Set DataType BEFORE Resize so it can calculate the correct buffer size
 
@@ -5205,10 +4890,7 @@ func DerivativeI64(data, time telem.Series, output *telem.Series) {
 		return
 	}
 
-	minLen := dataLen
-	if timeLen < minLen {
-		minLen = timeLen
-	}
+	minLen := min(dataLen, timeLen)
 
 	// Set DataType BEFORE Resize so it can calculate the correct buffer size
 
@@ -5250,10 +4932,7 @@ func DerivativeI32(data, time telem.Series, output *telem.Series) {
 		return
 	}
 
-	minLen := dataLen
-	if timeLen < minLen {
-		minLen = timeLen
-	}
+	minLen := min(dataLen, timeLen)
 
 	// Set DataType BEFORE Resize so it can calculate the correct buffer size
 
@@ -5295,10 +4974,7 @@ func DerivativeI16(data, time telem.Series, output *telem.Series) {
 		return
 	}
 
-	minLen := dataLen
-	if timeLen < minLen {
-		minLen = timeLen
-	}
+	minLen := min(dataLen, timeLen)
 
 	// Set DataType BEFORE Resize so it can calculate the correct buffer size
 
@@ -5340,10 +5016,7 @@ func DerivativeI8(data, time telem.Series, output *telem.Series) {
 		return
 	}
 
-	minLen := dataLen
-	if timeLen < minLen {
-		minLen = timeLen
-	}
+	minLen := min(dataLen, timeLen)
 
 	// Set DataType BEFORE Resize so it can calculate the correct buffer size
 
@@ -5385,10 +5058,7 @@ func DerivativeU64(data, time telem.Series, output *telem.Series) {
 		return
 	}
 
-	minLen := dataLen
-	if timeLen < minLen {
-		minLen = timeLen
-	}
+	minLen := min(dataLen, timeLen)
 
 	// Set DataType BEFORE Resize so it can calculate the correct buffer size
 
@@ -5436,10 +5106,7 @@ func DerivativeU32(data, time telem.Series, output *telem.Series) {
 		return
 	}
 
-	minLen := dataLen
-	if timeLen < minLen {
-		minLen = timeLen
-	}
+	minLen := min(dataLen, timeLen)
 
 	// Set DataType BEFORE Resize so it can calculate the correct buffer size
 
@@ -5487,10 +5154,7 @@ func DerivativeU16(data, time telem.Series, output *telem.Series) {
 		return
 	}
 
-	minLen := dataLen
-	if timeLen < minLen {
-		minLen = timeLen
-	}
+	minLen := min(dataLen, timeLen)
 
 	// Set DataType BEFORE Resize so it can calculate the correct buffer size
 
@@ -5538,10 +5202,7 @@ func DerivativeU8(data, time telem.Series, output *telem.Series) {
 		return
 	}
 
-	minLen := dataLen
-	if timeLen < minLen {
-		minLen = timeLen
-	}
+	minLen := min(dataLen, timeLen)
 
 	// Set DataType BEFORE Resize so it can calculate the correct buffer size
 

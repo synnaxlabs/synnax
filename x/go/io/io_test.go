@@ -172,7 +172,7 @@ var _ = Describe("CombinedReadWriteCloser", func() {
 			// Concurrent write
 			go func() {
 				defer GinkgoRecover()
-				for i := 0; i < 10; i++ {
+				for range 10 {
 					n, err := combined.Write([]byte("test"))
 					Expect(err).ToNot(HaveOccurred())
 					Expect(n).To(Equal(4))

@@ -46,7 +46,7 @@ var _ = Describe("Stat", func() {
 							Keys:   []string{ir.DefaultOutputParam},
 							Values: []types.Type{types.F64()},
 						},
-						ConfigValues: map[string]interface{}{
+						ConfigValues: map[string]any{
 							"count": int64(3),
 						},
 					},
@@ -66,7 +66,7 @@ var _ = Describe("Stat", func() {
 				State: s.Node("avg"),
 			}))
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
-			*inputNode.Output(0) = telem.NewSeriesV[float64](10.0, 20.0, 30.0)
+			*inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
@@ -79,7 +79,7 @@ var _ = Describe("Stat", func() {
 			Expect(vals[0]).To(BeNumerically("~", 20.0, 0.01))
 			timeVals := telem.UnmarshalSeries[telem.TimeStamp](resultTime)
 			Expect(timeVals[0]).To(Equal(telem.SecondTS * 3)) // Last input timestamp
-			*inputNode.Output(0) = telem.NewSeriesV[float64](40.0, 50.0, 60.0)
+			*inputNode.Output(0) = telem.NewSeriesV(40.0, 50.0, 60.0)
 			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
 			changed = make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
@@ -116,7 +116,7 @@ var _ = Describe("Stat", func() {
 							Keys:   []string{ir.DefaultOutputParam},
 							Values: []types.Type{types.I32()},
 						},
-						ConfigValues: map[string]interface{}{
+						ConfigValues: map[string]any{
 							"duration": telem.Second * 5,
 						},
 					},
