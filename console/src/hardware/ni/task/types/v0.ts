@@ -1370,10 +1370,10 @@ export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
   [CI_PULSE_WIDTH_CHAN_TYPE]: Icon.AutoFitWidth,
   [CI_SEMI_PERIOD_CHAN_TYPE]: Icon.Range,
   [CI_TWO_EDGE_SEP_CHAN_TYPE]: Icon.AutoFitWidth,
-  [CI_POSITION_ANGULAR_CHAN_TYPE]: Icon.Circle,
-  [CI_POSITION_LINEAR_CHAN_TYPE]: Icon.Circle,
-  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: Icon.Circle,
-  [CI_VELOCITY_LINEAR_CHAN_TYPE]: Icon.Circle,
+  [CI_POSITION_ANGULAR_CHAN_TYPE]: Icon.Rotate,
+  [CI_POSITION_LINEAR_CHAN_TYPE]: Icon.Linear,
+  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: Icon.Rotate,
+  [CI_VELOCITY_LINEAR_CHAN_TYPE]: Icon.Linear,
 };
 
 // Counter Output Channels
