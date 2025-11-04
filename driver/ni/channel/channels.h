@@ -1592,6 +1592,35 @@ struct CIAngularPosition final : CounterCustomScale {
     }
 };
 
+/// @brief Counter input duty cycle measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecidutycyclechan.html
+struct CIDutyCycle final : CICustomScale {
+    const int32_t edge;
+    const std::string terminal;
+
+    explicit CIDutyCycle(xjson::Parser &cfg):
+        Base(cfg),
+        CICustomScale(cfg),
+        edge(get_edge(cfg.required<std::string>("activeEdge"))),
+        terminal(cfg.optional<std::string>("terminal", "")) {}
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCIDutyCycleChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->edge,
+            scale_key
+        );
+    }
+};
+
 /// @brief Counter output pulse generation channel.
 /// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateco
 /// pulsechantime.html
@@ -2230,6 +2259,7 @@ static const std::map<std::string, Factory<Input>> INPUTS = {
     INPUT_CHAN_FACTORY("ci_velocity_linear", CILinearVelocity),
     INPUT_CHAN_FACTORY("ci_position_angular", CIAngularPosition),
     INPUT_CHAN_FACTORY("ci_position_linear", CILinearPosition),
+    INPUT_CHAN_FACTORY("ci_duty_cycle", CIDutyCycle),
     INPUT_CHAN_FACTORY("digital_input", DI)
 };
 

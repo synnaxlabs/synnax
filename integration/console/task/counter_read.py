@@ -14,6 +14,7 @@ from playwright.sync_api import Page
 from console.task.channels.angular_position import AngularPosition
 from console.task.channels.angular_velocity import AngularVelocity
 from console.task.channels.counter import Counter
+from console.task.channels.duty_cycle import DutyCycle
 from console.task.channels.edge_count import EdgeCount
 from console.task.channels.frequency import Frequency
 from console.task.channels.linear_position import LinearPosition
@@ -32,6 +33,7 @@ if TYPE_CHECKING:
 COUNTER_READ_CHANNEL_TYPES: dict[str, Type[Counter]] = {
     "Position Angular": AngularPosition,
     "Velocity Angular": AngularVelocity,
+    "Duty Cycle": DutyCycle,
     "Edge Count": EdgeCount,
     "Frequency": Frequency,
     "Position Linear": LinearPosition,

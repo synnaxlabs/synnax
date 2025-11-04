@@ -1263,12 +1263,7 @@ const ZERO_Z_INDEX: ZIndex = {
 };
 
 // Counter Input linear position units
-const ciLinearPositionUnitsZ = z.enum([
-  METERS,
-  INCHES,
-  TICKS,
-  FROM_CUSTOM_SCALE,
-]);
+const ciLinearPositionUnitsZ = z.enum([METERS, INCHES, TICKS, FROM_CUSTOM_SCALE]);
 export type CILinearPositionUnits = z.infer<typeof ciLinearPositionUnitsZ>;
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinencoder.html
@@ -1299,12 +1294,7 @@ export const ZERO_CI_LINEAR_POSITION_CHAN: CILinearPositionChan = {
 };
 
 // Counter Input angular position units
-const ciAngularPositionUnitsZ = z.enum([
-  DEGREES,
-  RADIANS,
-  TICKS,
-  FROM_CUSTOM_SCALE,
-]);
+const ciAngularPositionUnitsZ = z.enum([DEGREES, RADIANS, TICKS, FROM_CUSTOM_SCALE]);
 export type CIAngularPositionUnits = z.infer<typeof ciAngularPositionUnitsZ>;
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangencoder.html
@@ -1334,6 +1324,27 @@ export const ZERO_CI_ANGULAR_POSITION_CHAN: CIAngularPositionChan = {
   terminalB: "",
 };
 
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecidutycyclechan.html
+export const CI_DUTY_CYCLE_CHAN_TYPE = "ci_duty_cycle";
+export const ciDutyCycleChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_DUTY_CYCLE_CHAN_TYPE),
+  activeEdge: ciEdgeZ,
+  terminal: z.string(),
+});
+export interface CIDutyCycleChan extends z.infer<typeof ciDutyCycleChanZ> {}
+export const ZERO_CI_DUTY_CYCLE_CHAN: CIDutyCycleChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_DUTY_CYCLE_CHAN_TYPE,
+  minVal: 2,
+  maxVal: 10000,
+  activeEdge: RISING_EDGE,
+  terminal: "",
+};
+
 const ciChannelZ = z.union([
   ciFrequencyChanZ,
   ciEdgeCountChanZ,
@@ -1345,6 +1356,7 @@ const ciChannelZ = z.union([
   ciAngularVelocityChanZ,
   ciLinearPositionChanZ,
   ciAngularPositionChanZ,
+  ciDutyCycleChanZ,
 ]);
 
 type CIChannel = z.infer<typeof ciChannelZ>;
@@ -1361,6 +1373,7 @@ export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
   [CI_POSITION_LINEAR_CHAN_TYPE]: "Position Linear",
   [CI_VELOCITY_ANGULAR_CHAN_TYPE]: "Velocity Angular",
   [CI_VELOCITY_LINEAR_CHAN_TYPE]: "Velocity Linear",
+  [CI_DUTY_CYCLE_CHAN_TYPE]: "Duty Cycle",
 };
 
 export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
@@ -1374,6 +1387,7 @@ export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
   [CI_POSITION_LINEAR_CHAN_TYPE]: Icon.Linear,
   [CI_VELOCITY_ANGULAR_CHAN_TYPE]: Icon.Rotate,
   [CI_VELOCITY_LINEAR_CHAN_TYPE]: Icon.Linear,
+  [CI_DUTY_CYCLE_CHAN_TYPE]: Icon.Wave.Square,
 };
 
 // Counter Output Channels

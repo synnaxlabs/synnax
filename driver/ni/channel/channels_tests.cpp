@@ -1506,6 +1506,70 @@ TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
     EXPECT_EQ(ci_ang_pos_chan->loc(), "cDAQ1Mod3/ctr2");
 }
 
+TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
+    json j = {
+        {"type", "ci_duty_cycle"},
+        {"key", "ks1VnWdrSVA"},
+        {"port", 0},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", 2},
+        {"max_val", 10000},
+        {"activeEdge", "Rising"},
+        {"terminal", "PFI0"},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_duty_cycle_chan = dynamic_cast<channel::CIDutyCycle *>(chan.get());
+    ASSERT_NE(ci_duty_cycle_chan, nullptr);
+    EXPECT_EQ(ci_duty_cycle_chan->enabled, true);
+    EXPECT_EQ(ci_duty_cycle_chan->port, 0);
+    EXPECT_EQ(ci_duty_cycle_chan->min_val, 2);
+    EXPECT_EQ(ci_duty_cycle_chan->max_val, 10000);
+    EXPECT_EQ(ci_duty_cycle_chan->edge, DAQmx_Val_Rising);
+    EXPECT_EQ(ci_duty_cycle_chan->terminal, "PFI0");
+    ci_duty_cycle_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_duty_cycle_chan->loc(), "cDAQ1Mod3/ctr0");
+}
+
+TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
+    json j = {
+        {"type", "ci_duty_cycle"},
+        {"key", "ks1VnWdrSVB"},
+        {"port", 1},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", 10},
+        {"max_val", 5000},
+        {"activeEdge", "Falling"},
+        {"terminal", ""},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_duty_cycle_chan = dynamic_cast<channel::CIDutyCycle *>(chan.get());
+    ASSERT_NE(ci_duty_cycle_chan, nullptr);
+    EXPECT_EQ(ci_duty_cycle_chan->enabled, true);
+    EXPECT_EQ(ci_duty_cycle_chan->port, 1);
+    EXPECT_EQ(ci_duty_cycle_chan->min_val, 10);
+    EXPECT_EQ(ci_duty_cycle_chan->max_val, 5000);
+    EXPECT_EQ(ci_duty_cycle_chan->edge, DAQmx_Val_Falling);
+    EXPECT_EQ(ci_duty_cycle_chan->terminal, "");
+    ci_duty_cycle_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_duty_cycle_chan->loc(), "cDAQ1Mod3/ctr1");
+}
+
 TEST(ChannelsTest, ParseCOPulseOutputChan) {
     json j = {
         {"type", "co_pulse_output"},

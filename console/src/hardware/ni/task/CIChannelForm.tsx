@@ -15,6 +15,7 @@ import { Device } from "@/hardware/ni/device";
 import { CustomScaleForm } from "@/hardware/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/hardware/ni/task/MinMaxValueFields";
 import {
+  CI_DUTY_CYCLE_CHAN_TYPE,
   CI_EDGE_COUNT_CHAN_TYPE,
   CI_FREQUENCY_CHAN_TYPE,
   CI_PERIOD_CHAN_TYPE,
@@ -680,6 +681,18 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       </>
     );
   },
+  [CI_DUTY_CYCLE_CHAN_TYPE]: ({ prefix }: FormProps) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <ActiveEdgeField path={prefix} grow />
+        <TerminalField path={prefix} grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
 };
 
 export interface CIChannelFormProps {

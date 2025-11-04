@@ -66,6 +66,8 @@ class NICounterReadForms(ConsoleCase):
         if mode == "e":
             self.verify_linear_position_inputs(device_name)
             self.verify_angular_position_inputs(device_name)
+        if mode == "f":
+            self.verify_duty_cycle_inputs(device_name)
 
         # Assert the set values with form state
         ch_names = console.ni_ci.channels_by_name.copy()
@@ -417,4 +419,35 @@ class NICounterReadForms(ConsoleCase):
             z_index_enable=True,
             z_index_val=90.0,
             z_index_phase="A High B Low",
+        )
+
+    def verify_duty_cycle_inputs(self, device_name: str) -> None:
+        """Validate Duty Cycle inputs"""
+        self.log("Configuring channels of type Duty Cycle")
+        console = self.console
+        channel_type = "Duty Cycle"
+
+        console.ni_ci.add_channel(
+            name="DutyCycle_1",
+            type=channel_type,
+            device=device_name,
+            min_val=2,
+            max_val=10000,
+            edge="Rising",
+        )
+        console.ni_ci.add_channel(
+            name="DutyCycle_2",
+            type=channel_type,
+            device=device_name,
+            min_val=10,
+            max_val=5000,
+            edge="Falling",
+        )
+        console.ni_ci.add_channel(
+            name="DutyCycle_3",
+            type=channel_type,
+            device=device_name,
+            min_val=5,
+            max_val=20000,
+            edge="Rising",
         )
