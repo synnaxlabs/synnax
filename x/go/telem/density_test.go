@@ -37,5 +37,4 @@ var _ = Describe("Density", func() {
 			}).To(PanicWith("attempted to call Size() on undefined density"))
 		})
 	})
-
 })

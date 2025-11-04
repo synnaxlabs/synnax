@@ -153,7 +153,7 @@ func (t *Tracer) child(meta InstrumentationMeta) (nt *Tracer) {
 	if t != nil {
 		nt = &Tracer{meta: meta, config: t.config}
 	}
-	return
+	return nt
 }
 
 type span struct {

@@ -97,6 +97,5 @@ var _ = Describe("Delete", Ordered, func() {
 			exists := MustSucceed(gorp.NewRetrieve[int, entry]().WhereKeys(22).Exists(ctx, tx))
 			Expect(exists).To(BeTrue())
 		})
-
 	})
 })

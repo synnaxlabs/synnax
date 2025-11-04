@@ -64,9 +64,7 @@ func (s *mockIndexingService) RetrieveResource(
 }
 
 var _ = Describe("SearchTerm Indexing", func() {
-	var (
-		mockSvc *mockIndexingService
-	)
+	var mockSvc *mockIndexingService
 
 	BeforeEach(func() {
 		z := zyn.Object(nil)

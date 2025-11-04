@@ -33,7 +33,7 @@ func (w Writer) Create(
 		l.Key = uuid.New()
 	}
 	if err = gorp.NewCreate[uuid.UUID, Label]().Entry(l).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	return w.otg.DefineResource(ctx, OntologyID(l.Key))
 }
@@ -46,7 +46,7 @@ func (w Writer) CreateMany(
 ) (err error) {
 	for i, l := range *ls {
 		if err = w.Create(ctx, &l); err != nil {
-			return
+			return err
 		}
 		(*ls)[i] = l
 	}
@@ -60,7 +60,7 @@ func (w Writer) Delete(
 	k uuid.UUID,
 ) (err error) {
 	if err = gorp.NewDelete[uuid.UUID, Label]().WhereKeys(k).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	return w.otg.DeleteResource(ctx, OntologyID(k))
 }
@@ -72,7 +72,7 @@ func (w Writer) DeleteMany(
 ) (err error) {
 	for _, k := range ks {
 		if err = w.Delete(ctx, k); err != nil {
-			return
+			return err
 		}
 	}
 	return err

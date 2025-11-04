@@ -67,7 +67,6 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(child.Name).To(Equal("child"))
 		})
-
 	})
 
 	Describe("Retrieve", func() {

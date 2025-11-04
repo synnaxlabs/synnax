@@ -68,7 +68,6 @@ var _ = Describe("OtelProvider", func() {
 				}))
 				Expect(prov.NodePrivate()).ToNot(BeNil())
 			})
-
 		})
 	})
 	Describe("Insecure", func() {

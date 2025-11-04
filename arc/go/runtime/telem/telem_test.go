@@ -578,19 +578,27 @@ var _ = Describe("Telem", func() {
 					},
 					Nodes: []ir.Node{
 						{Key: "read1", Type: "on", Outputs: types.Params{
-							Keys: []string{ir.DefaultOutputParam}, Values: []types.Type{types.F32()}}},
+							Keys: []string{ir.DefaultOutputParam}, Values: []types.Type{types.F32()},
+						}},
 						{Key: "read2", Type: "on", Outputs: types.Params{
-							Keys: []string{ir.DefaultOutputParam}, Values: []types.Type{types.F64()}}},
+							Keys: []string{ir.DefaultOutputParam}, Values: []types.Type{types.F64()},
+						}},
 						{Key: "write1", Type: "write", Inputs: types.Params{
-							Keys: []string{ir.DefaultInputParam}, Values: []types.Type{types.F32()}}},
+							Keys: []string{ir.DefaultInputParam}, Values: []types.Type{types.F32()},
+						}},
 						{Key: "write2", Type: "write", Inputs: types.Params{
-							Keys: []string{ir.DefaultInputParam}, Values: []types.Type{types.F64()}}},
+							Keys: []string{ir.DefaultInputParam}, Values: []types.Type{types.F64()},
+						}},
 					},
 					Edges: []ir.Edge{
-						{Source: ir.Handle{Node: "read1", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "write1", Param: ir.DefaultInputParam}},
-						{Source: ir.Handle{Node: "read2", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "write2", Param: ir.DefaultInputParam}},
+						{
+							Source: ir.Handle{Node: "read1", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "write1", Param: ir.DefaultInputParam},
+						},
+						{
+							Source: ir.Handle{Node: "read2", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "write2", Param: ir.DefaultInputParam},
+						},
 					},
 				})
 				factory := rtelem.NewTelemFactory()

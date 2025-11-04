@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/auth/base"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-
 	"github.com/synnaxlabs/x/errors"
 )
 

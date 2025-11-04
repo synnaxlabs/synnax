@@ -53,7 +53,6 @@ var _ = Describe("Delete", Ordered, func() {
 			BeforeEach(func() {
 				fs, cleanUp = makeFS()
 				db = MustSucceed(domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger()}))
-
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())

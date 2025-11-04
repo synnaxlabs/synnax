@@ -168,7 +168,6 @@ var _ = Describe("Validate", func() {
 		})
 
 		Describe("Zeroable", func() {
-
 			It("Should validate non-zero zeroables", func() {
 				z := testZeroable{value: 42}
 				Expect(validate.NonZeroable(v, "field", z)).To(BeFalse())

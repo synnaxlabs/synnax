@@ -12,17 +12,20 @@ package version
 import (
 	"embed"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 //go:embed VERSION
 var fs embed.FS
 
-const unknown = "unknown"
-const errorMsg = "unexpected failure to resolve version"
+const (
+	unknown  = "unknown"
+	errorMsg = "unexpected failure to resolve version"
+)
 
 // These variables can be set at build time using -ldflags:
 // -X github.com/synnaxlabs/synnax/pkg/version.Version=1.0.0

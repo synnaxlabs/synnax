@@ -152,7 +152,6 @@ var _ = Describe("Rack", Ordered, func() {
 				}
 				Expect(keys[i] - keys[i-1]).To(BeEquivalentTo(1))
 			}
-
 		})
 	})
 })

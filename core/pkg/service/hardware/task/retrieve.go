@@ -110,7 +110,7 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) (err error) {
 	if r, err = r.execSearch(ctx); err != nil {
-		return
+		return err
 	}
 	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

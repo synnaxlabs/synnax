@@ -174,7 +174,6 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 					Start:          1 * telem.SecondTS,
 					Channels:       writerChannels,
 				})
-
 				if err != nil {
 					b.Errorf("Writer open error %s", err)
 					return
@@ -292,7 +291,6 @@ func BenchRead(
 		Start:          1 * telem.SecondTS,
 		Channels:       keys,
 	})
-
 	if err != nil {
 		b.Errorf("Writer open error %s", err)
 		return
@@ -351,7 +349,6 @@ func BenchRead(
 
 	for b.Loop() {
 		_, err = db.Read(ctx, telem.TimeRangeMax, keys...)
-
 		if err != nil {
 			b.Error("Read failed")
 			break
@@ -450,7 +447,6 @@ func BenchStream(
 					Start:          1 * telem.SecondTS,
 					Channels:       writerChannels,
 				})
-
 				if err != nil {
 					b.Errorf("Writer open error %s", err)
 					return

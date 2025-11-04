@@ -201,7 +201,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.View()).To(Equal((23 * telem.SecondTS).SpanRange(10 * telem.Second)))
 						Expect(iter.Len()).To(Equal(int64(3)))
 						Expect(iter.Close()).To(Succeed())
-
 					})
 					Describe("Auto Span", func() {
 						Specify("Single Domain - Leftover chunk", func() {
@@ -895,7 +894,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						// behaviour was that it was unable to find the correct start/end
 						// approximations due to the inexact start.
 						It("Should auto-span with a cut-off domain", func() {
-
 							i := MustSucceed(indexDB2.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax, AutoChunkSize: 7}))
 							Expect(i.SeekFirst(ctx)).To(BeTrue())
 							Expect(i.Next(ctx, cesium.AutoSpan)).To(BeTrue())
@@ -1010,7 +1008,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 		// properly.
 		Describe(`Correctly aligning effectively contiguous domains across index
 						and data channels with different densities`, func() {
-
 			It("Should correctly align effectively contiguous domains with different densities", func() {
 				var (
 					indexKey cesium.ChannelKey = 1
@@ -1094,7 +1091,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				Expect(firstSeries.Alignment.DomainIndex()).To(Equal(uint32(1)))
 				Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(1)))
 				Expect(i.Close()).To(Succeed())
-
 			})
 
 			It("Should correctly align across three different densities", func() {
@@ -1229,7 +1225,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				Expect(firstSeries.Alignment.SampleIndex()).To(Equal(uint32(0)))
 				Expect(firstSeries.Data).To(Equal(telem.NewSeriesV[uint8](11).Data))
 			})
-
 		})
 	})
 })

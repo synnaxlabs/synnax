@@ -139,7 +139,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 
 		err = db.removeChannel(ch)
 		if err != nil {
-			return
+			return err
 		}
 
 		// Rename the files first, so we can avoid hogging the mutex while deleting the
@@ -148,7 +148,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
-			return
+			return err
 		}
 
 		directoriesToRemove = append(directoriesToRemove, newName)
@@ -158,20 +158,20 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	for _, ch := range indexChannels {
 		err = db.removeChannel(ch)
 		if err != nil {
-			return
+			return err
 		}
 
 		oldName := keyToDirName(ch)
 		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
-			return
+			return err
 		}
 
 		directoriesToRemove = append(directoriesToRemove, newName)
 	}
 
-	return
+	return err
 }
 
 // removeChannel removes ch from db.mu.unaryDBs or db.mu.virtualDBs. If the channel or

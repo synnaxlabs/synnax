@@ -40,18 +40,18 @@ func (w Writer) Create(
 	} else {
 		exists, err = gorp.NewRetrieve[uuid.UUID, Table]().WhereKeys(s.Key).Exists(ctx, w.tx)
 		if err != nil {
-			return
+			return err
 		}
 	}
 	if err = gorp.NewCreate[uuid.UUID, Table]().Entry(s).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	if exists {
-		return
+		return err
 	}
 	otgID := OntologyID(s.Key)
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
-		return
+		return err
 	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
@@ -96,12 +96,12 @@ func (w Writer) Delete(
 	keys ...uuid.UUID,
 ) (err error) {
 	if err = gorp.NewDelete[uuid.UUID, Table]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	for _, key := range keys {
 		if err = w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return
+			return err
 		}
 	}
-	return
+	return err
 }

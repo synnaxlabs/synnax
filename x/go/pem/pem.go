@@ -16,8 +16,9 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"github.com/synnaxlabs/x/errors"
 	"io"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 const (
@@ -90,7 +91,7 @@ func Read(r io.Reader) (*pem.Block, error) {
 func ReadMany(r io.Reader) (blocks []*pem.Block, err error) {
 	b, err := io.ReadAll(r)
 	if err != nil {
-		return
+		return blocks, err
 	}
 	for {
 		var p *pem.Block
@@ -100,6 +101,5 @@ func ReadMany(r io.Reader) (blocks []*pem.Block, err error) {
 		}
 		blocks = append(blocks, p)
 	}
-	return
-
+	return blocks, err
 }

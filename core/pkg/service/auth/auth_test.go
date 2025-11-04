@@ -69,9 +69,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 		})
 	})
 	Describe("Changing the username", func() {
-		var (
-			newCreds auth.InsecureCredentials
-		)
+		var newCreds auth.InsecureCredentials
 		BeforeAll(func() {
 			newCreds = auth.InsecureCredentials{
 				Username: "new-username",
@@ -127,9 +125,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 		})
 	})
 	Describe("Updating a password", func() {
-		var (
-			newCreds auth.InsecureCredentials
-		)
+		var newCreds auth.InsecureCredentials
 		BeforeAll(func() {
 			newCreds = auth.InsecureCredentials{
 				Username: creds.Username,
@@ -185,6 +181,5 @@ var _ = Describe("KV", Ordered, Serial, func() {
 			Entry("ExpiredToken", auth.ExpiredToken),
 			Entry("Error", auth.Error),
 		)
-
 	})
 })

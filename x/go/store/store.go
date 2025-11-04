@@ -110,9 +110,7 @@ type ObservableConfig[S, O any] struct {
 	GoNotify *bool
 }
 
-var (
-	_ config.Config[ObservableConfig[any, any]] = ObservableConfig[any, any]{}
-)
+var _ config.Config[ObservableConfig[any, any]] = ObservableConfig[any, any]{}
 
 func PassthroughTransform[S any](prev, next S) (S, bool) { return next, true }
 

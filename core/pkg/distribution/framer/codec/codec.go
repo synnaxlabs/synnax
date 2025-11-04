@@ -37,10 +37,10 @@ type state struct {
 
 func readTimeRange(reader io.Reader) (tr telem.TimeRange, err error) {
 	if err = read(reader, &tr.Start); err != nil {
-		return
+		return tr, err
 	}
 	err = read(reader, &tr.End)
-	return
+	return tr, err
 }
 
 func writeTimeRange(w *xbinary.Writer, tr telem.TimeRange) {
@@ -430,31 +430,31 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 		flagB        byte
 	)
 	if err = read(reader, &flagB); err != nil {
-		return
+		return frame, err
 	}
 	if err = read(reader, &seqNum); err != nil {
-		return
+		return frame, err
 	}
 	cState, ok := c.mu.states[seqNum]
 	if !ok {
 		states := lo.Keys(c.mu.states)
 		err = errors.Wrapf(validate.Error, "[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v", seqNum, states)
-		return
+		return frame, err
 	}
 	fgs := decodeFlags(flagB)
 	if fgs.equalLens {
 		if err = read(reader, &dataLen); err != nil {
-			return
+			return frame, err
 		}
 	}
 	if fgs.equalTimeRanges && !fgs.timeRangesZero {
 		if refTr, err = readTimeRange(reader); err != nil {
-			return
+			return frame, err
 		}
 	}
 	if fgs.equalAlignments && !fgs.zeroAlignments {
 		if err = read(reader, &refAlignment); err != nil {
-			return
+			return frame, err
 		}
 	}
 
@@ -463,7 +463,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 		dataLenOrSize := dataLen
 		if !fgs.equalLens {
 			if err = read(reader, &dataLenOrSize); err != nil {
-				return
+				return err
 			}
 		}
 		dataType, exists := cState.keyDataTypes[key]
@@ -481,36 +481,36 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 		}
 		if !fgs.equalTimeRanges {
 			if s.TimeRange, err = readTimeRange(reader); err != nil {
-				return
+				return err
 			}
 		}
 		if !fgs.equalAlignments {
 			if err = read(reader, &s.Alignment); err != nil {
-				return
+				return err
 			}
 		}
 		frame = frame.Append(key, s)
-		return
+		return err
 	}
 
 	if fgs.allChannelsPresent {
 		frame = core.AllocFrame(len(cState.keys))
 		for _, k := range cState.keys {
 			if err = decodeSeries(k); err != nil {
-				return
+				return frame, err
 			}
 		}
-		return
+		return frame, err
 	}
 
 	var k channel.Key
 	for {
 		if err = read(reader, &k); err != nil {
 			err = errors.Skip(err, io.EOF)
-			return
+			return frame, err
 		}
 		if err = decodeSeries(k); err != nil {
-			return
+			return frame, err
 		}
 	}
 }

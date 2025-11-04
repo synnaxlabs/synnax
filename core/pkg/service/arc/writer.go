@@ -74,12 +74,12 @@ func (w Writer) Delete(
 	keys ...uuid.UUID,
 ) (err error) {
 	if err = gorp.NewDelete[uuid.UUID, Arc]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	for _, key := range keys {
 		if err = w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return
+			return err
 		}
 	}
-	return
+	return err
 }

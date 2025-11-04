@@ -12,7 +12,6 @@ package address_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"github.com/synnaxlabs/x/address"
 )
 
@@ -84,5 +83,4 @@ var _ = Describe("Address", func() {
 			}
 		})
 	})
-
 })

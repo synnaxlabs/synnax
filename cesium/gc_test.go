@@ -257,8 +257,10 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							telem.NewSeriesSecondsTSV(300, 301, 302),
 						},
 					))).To(Succeed())
-					Expect([]int64{MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/3.domain"))).Size(),
-						MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/4.domain"))).Size()}).
+					Expect([]int64{
+						MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/3.domain"))).Size(),
+						MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/4.domain"))).Size(),
+					}).
 						To(ConsistOf(int64(24), int64(0)))
 
 					By("Asserting that the data is correct", func() {

@@ -32,6 +32,7 @@ type (
 	Text           = text.Text
 	Module         = module.Module
 )
+
 type options struct {
 	resolver SymbolResolver
 }

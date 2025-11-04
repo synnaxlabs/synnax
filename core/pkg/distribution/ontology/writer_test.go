@@ -203,7 +203,6 @@ var _ = Describe("Writer", func() {
 						Entries(&res2).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(res2).To(HaveLen(1))
-
 				})
 			})
 			Describe("DeleteOutgoingRelationshipsOfType", func() {

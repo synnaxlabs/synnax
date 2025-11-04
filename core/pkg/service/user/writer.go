@@ -73,7 +73,7 @@ func (w Writer) ChangeUsername(ctx context.Context, key uuid.UUID, newUsername s
 
 // ChangeName updates the first and last name of the user with the given key. If either
 // first or last is an empty string, the corresponding field will not be updated.
-func (w Writer) ChangeName(ctx context.Context, key uuid.UUID, first string, last string) error {
+func (w Writer) ChangeName(ctx context.Context, key uuid.UUID, first, last string) error {
 	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(key).Change(func(_ gorp.Context, u User) User {
 		if first != "" {
 			u.FirstName = first

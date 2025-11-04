@@ -37,7 +37,7 @@ func (w *Writer) Write(frame core.Frame) (authorized bool, err error) {
 		return false, err
 	}
 	authorized = !*w.cfg.Sync || res.Authorized
-	return
+	return authorized, err
 }
 
 func (w *Writer) Commit() (telem.TimeStamp, error) {
@@ -89,5 +89,4 @@ func (w *Writer) close(err error) error {
 	}
 	w.closeErr = ErrClosed
 	return nil
-
 }

@@ -317,5 +317,4 @@ var _ = Describe("Text", func() {
 			})
 		})
 	})
-
 })

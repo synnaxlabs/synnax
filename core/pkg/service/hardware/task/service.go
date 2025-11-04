@@ -80,25 +80,25 @@ const groupName = "Tasks"
 func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
-		return
+		return s, err
 	}
 	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
 	if err != nil {
-		return
+		return s, err
 	}
 	s = &Service{cfg: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
 	s.cleanupInternalOntologyResources(ctx)
 	if cfg.Signals == nil {
-		return
+		return s, err
 	}
 	cdcS, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T))
 	if err != nil {
-		return
+		return s, err
 	}
 	s.shutdownSignals = cdcS
 
-	return
+	return s, err
 }
 
 // cleanupInternalOntologyResources purges existing internal task resources from the ontology.

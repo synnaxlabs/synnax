@@ -74,7 +74,8 @@ type StreamServer[RQ, RS freighter.Payload] struct {
 // BindHandler implements the freighter.Stream interface.
 func (s *StreamServer[RQ, RS]) BindHandler(handler func(
 	ctx context.Context,
-	srv freighter.ServerStream[RQ, RS]) error) {
+	srv freighter.ServerStream[RQ, RS]) error,
+) {
 	s.Handler = handler
 }
 

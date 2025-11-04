@@ -30,7 +30,7 @@ func NewErrDiscontinuousTR(tr telem.TimeRange) error {
 	return errors.Wrapf(ErrDiscontinuous, "the time range %s is not continuous in the index", tr)
 }
 
-func NewErrDiscontinuousOffset(offset int64, domainLen int64) error {
+func NewErrDiscontinuousOffset(offset, domainLen int64) error {
 	return errors.Wrapf(ErrDiscontinuous, "failed to resolve position %d in continuous index of length %d", offset, domainLen)
 }
 

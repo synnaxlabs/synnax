@@ -70,10 +70,10 @@ type changes[K Key, E Entry[K]] []ChangeFunc[K, E]
 func (c changes[K, E]) exec(ctx Context, entry E) (o E, err error) {
 	for _, change := range c {
 		if o, err = change(ctx, entry); err != nil {
-			return
+			return o, err
 		}
 	}
-	return
+	return o, err
 }
 
 func addChange[K Key, E Entry[K]](q query.Parameters, change ChangeFunc[K, E]) {

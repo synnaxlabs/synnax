@@ -81,7 +81,6 @@ var _ = Describe("Delta", func() {
 			v2 := <-outputTwo.Outlet()
 			Expect(v1).To(Equal(2))
 			Expect(v2).To(Equal(2))
-
 		})
 		It("Should close inlets when the delta is closed", func() {
 			delta := &DeltaTransformMultiplier[int, int]{}
@@ -172,5 +171,4 @@ var _ = Describe("Delta", func() {
 			})
 		})
 	})
-
 })

@@ -27,5 +27,4 @@ var _ = Describe("Flag", func() {
 			Expect(b).To(Equal(uint8(128)))
 		})
 	})
-
 })

@@ -383,7 +383,7 @@ func (t *Type) IsValid() bool { return t.Kind != KindInvalid }
 // For compound types (chan, series), it recursively compares value types.
 // For type variables, it compares names and constraints.
 // For function types, it compares inputs, outputs, and config parameters.
-func Equal(t Type, v Type) bool {
+func Equal(t, v Type) bool {
 	if t.Kind != v.Kind {
 		return false
 	}

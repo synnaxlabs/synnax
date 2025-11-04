@@ -14,6 +14,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"io"
+	"io/fs"
+	"os"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -21,9 +25,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"io"
-	"io/fs"
-	"os"
 )
 
 // LoaderConfig is the configuration for creating a new Loader.
@@ -118,7 +119,7 @@ func (l *Loader) LoadCAPair() (c *x509.Certificate, k crypto.PrivateKey, err err
 	if errors.Is(err, fs.ErrNotExist) {
 		err = errors.Wrapf(err, "CA certificate not found")
 	}
-	return
+	return c, k, err
 }
 
 // LoadCAs loads all CA certificates from the CA certificate file.
@@ -148,7 +149,7 @@ func (l *Loader) LoadNodePair() (c *x509.Certificate, k crypto.PrivateKey, err e
 	if errors.Is(err, fs.ErrNotExist) {
 		err = errors.Wrapf(err, "node certificate not found")
 	}
-	return
+	return c, k, err
 }
 
 // LoadNodeTLS loads the node TLS certificate.
@@ -157,7 +158,7 @@ func (l *Loader) LoadNodeTLS() (c *tls.Certificate, err error) {
 	if errors.Is(err, fs.ErrNotExist) {
 		err = errors.Wrapf(err, "node certificate not found")
 	}
-	return
+	return c, err
 }
 
 func (l *Loader) loadX509(certPath, keyPath string) (*x509.Certificate, crypto.PrivateKey, error) {

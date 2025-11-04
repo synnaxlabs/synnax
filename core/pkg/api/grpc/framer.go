@@ -105,11 +105,11 @@ func translateControlSubjectForward(cs control.Subject) *control.ControlSubject 
 
 func translateControlSubjectBackward(cs *control.ControlSubject) (of control.Subject) {
 	if cs == nil {
-		return
+		return of
 	}
 	of.Key = cs.GetKey()
 	of.Name = cs.GetName()
-	return
+	return of
 }
 
 func (t frameWriterRequestTranslator) Forward(
@@ -143,7 +143,7 @@ func (t frameWriterRequestTranslator) Backward(
 	msg *gapi.FrameWriterRequest,
 ) (r api.FrameWriterRequest, err error) {
 	if msg == nil {
-		return
+		return r, err
 	}
 	r.Command = writer.Command(msg.GetCommand())
 	if msg.GetConfig() != nil {
@@ -280,10 +280,10 @@ func (t frameStreamerResponseTranslator) Forward(
 	res = &gapi.FrameStreamerResponse{}
 	if t.codec.Initialized() {
 		res.Buffer, err = t.codec.Encode(ctx, msg.Frame)
-		return
+		return res, err
 	}
 	res.Frame = translateFrameForward(msg.Frame)
-	return
+	return res, err
 }
 
 func (t frameStreamerResponseTranslator) Backward(

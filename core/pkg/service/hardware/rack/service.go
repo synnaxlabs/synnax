@@ -101,7 +101,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	}
 	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
 	if err != nil {
-		return
+		return s, err
 	}
 	counterKey := []byte(cfg.HostProvider.HostKey().String() + localKeyCounterSuffix)
 	c, err := kv.OpenCounter(ctx, cfg.DB, counterKey)

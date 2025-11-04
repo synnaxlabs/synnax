@@ -18,7 +18,7 @@ import "fmt"
 func Truncate[T any](slice []T, maxDisplayValues int) (first, last []T) {
 	if len(slice) <= maxDisplayValues || maxDisplayValues <= 0 {
 		first = slice
-		return
+		return first, last
 	}
 	startCount := maxDisplayValues / 2
 	endCount := maxDisplayValues - startCount
@@ -32,7 +32,7 @@ func Truncate[T any](slice []T, maxDisplayValues int) (first, last []T) {
 // for the slice.
 //
 // Panics if the negative index is out of bounds.
-func ConvertNegativeIndex(i int, len int) int {
+func ConvertNegativeIndex(i, len int) int {
 	if i < 0 {
 		adjusted := i + len
 		if adjusted > len || adjusted < 0 {

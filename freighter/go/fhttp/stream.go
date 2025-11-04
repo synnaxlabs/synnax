@@ -311,13 +311,13 @@ func (s *streamClient[RQ, RS]) Stream(
 			)
 			msg, err := core.receiveRaw()
 			if err != nil {
-				return
+				return oCtx, err
 			}
 			if msg.Type != WSMessageTypeOpen {
 				return oCtx, errors.Decode(ctx, msg.Err)
 			}
 			stream = &clientStream[RQ, RS]{streamCore: core}
-			return
+			return oCtx, err
 		}),
 	)
 	return stream, err

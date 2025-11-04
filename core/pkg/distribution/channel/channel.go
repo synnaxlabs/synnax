@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
@@ -113,12 +112,12 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys Keys, err error) {
 		if id.Type == OntologyType {
 			key, err = ParseKey(id.Key)
 			if err != nil {
-				return
+				return keys, err
 			}
 			keys = append(keys, key)
 		}
 	}
-	return
+	return keys, err
 }
 
 // Storage returns the storage layer representation of the channel keys.

@@ -19,7 +19,7 @@ func TranslateTimeRangeBackward(tr *PBTimeRange) (otr TimeRange) {
 	}
 	otr.Start = TimeStamp(tr.GetStart())
 	otr.End = TimeStamp(tr.GetEnd())
-	return
+	return otr
 }
 
 func TranslateSeriesForward(s Series) *PBSeries {

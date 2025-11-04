@@ -48,9 +48,7 @@ var _ = Describe("Control", func() {
 			})
 
 			Describe("Nominal", func() {
-				var (
-					db *cesium.DB
-				)
+				var db *cesium.DB
 				BeforeAll(func() {
 					db = openDBOnFS(fs)
 					Expect(db.ConfigureControlUpdateChannel(ctx, math.MaxUint32, "control")).To(Succeed())
@@ -374,7 +372,6 @@ var _ = Describe("Control", func() {
 
 						var r cesium.StreamerResponse
 						Eventually(dataStreamerOut.Outlet()).Should(Receive(&r))
-
 					})
 
 					It("Should stream partially successful writes", func() {
@@ -401,7 +398,7 @@ var _ = Describe("Control", func() {
 				// changes between contending writers.
 				Describe("Control digests", func() {
 					It("Should propagate the control states of channels", func() {
-						var k1, k2, k3 = GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
+						k1, k2, k3 := GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
 						Expect(db.CreateChannel(ctx,
 							cesium.Channel{Name: "Seattle", Key: k1, Virtual: true, DataType: telem.StringT},
 							cesium.Channel{Name: "Austin", Key: k2, DataType: telem.TimeStampT, IsIndex: true},
@@ -430,7 +427,6 @@ var _ = Describe("Control", func() {
 						Expect(w1.Close()).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
 					})
-
 				})
 			})
 
@@ -454,7 +450,6 @@ var _ = Describe("Control", func() {
 					Expect(db.Close()).To(Succeed())
 				})
 			})
-
 		})
 	}
 })

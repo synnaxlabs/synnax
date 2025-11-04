@@ -13,10 +13,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 )
 
 func TestSignals(t *testing.T) {

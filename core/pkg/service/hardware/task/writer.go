@@ -44,7 +44,7 @@ func (w Writer) Create(ctx context.Context, t *Task) (err error) {
 		Entry(t).
 		// We don't create ontology resources for internal tasks.
 		Exec(ctx, w.tx); err != nil || t.Internal {
-		return
+		return err
 	}
 	otgID := OntologyID(t.Key)
 	exists, err := w.otg.HasResource(ctx, otgID)

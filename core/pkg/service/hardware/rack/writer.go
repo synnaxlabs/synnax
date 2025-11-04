@@ -38,14 +38,14 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 	if r.Key.IsZero() {
 		r.Key, err = w.newKey()
 		if err != nil {
-			return
+			return err
 		}
 	}
 	if err = r.Validate(); err != nil {
 		return err
 	}
 	if err = gorp.NewCreate[Key, Rack]().Entry(r).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	otgID := OntologyID(r.Key)
 	if err = w.otg.DefineResource(ctx, otgID); err != nil {

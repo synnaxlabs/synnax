@@ -55,5 +55,4 @@ var _ = Describe("Cluster", func() {
 			Expect(mockCluster.Close()).To(Succeed())
 		})
 	})
-
 })

@@ -195,7 +195,7 @@ func (tr TimeRange) Intersection(rng TimeRange) (ret TimeRange) {
 
 // Split returns the time between the start of the time range and the given
 // timestamp and the time between the end of the time range and the given timestamp.
-func (tr TimeRange) Split(ts TimeStamp) (before TimeRange, after TimeRange) {
+func (tr TimeRange) Split(ts TimeStamp) (before, after TimeRange) {
 	return TimeRange{Start: tr.Start, End: ts}, TimeRange{Start: ts, End: tr.End}
 }
 

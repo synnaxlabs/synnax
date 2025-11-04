@@ -48,6 +48,5 @@ var _ = Describe("Writer", func() {
 		err := retriever.Entry(&policy).WhereKeys(changePasswordPolicy.Key).Exec(ctx, nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(policy).To(Equal(changePasswordPolicy))
-
 	})
 })

@@ -129,11 +129,11 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if w.accumulatedErr != nil {
 					err = w.accumulatedErr
 				}
-				return
+				return err
 			case req, ok := <-w.In.Outlet():
 				if !ok {
 					err = w.accumulatedErr
-					return
+					return err
 				}
 				var commitEnd telem.TimeStamp
 				if w.accumulatedErr == nil {
@@ -153,14 +153,14 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) (commitEn
 	}
 	if req.Command == WriterSetAuthority {
 		err = w.setAuthority(ctx, req.Config)
-		return
+		return commitEnd, err
 	}
 	if req.Command == WriterCommit {
 		commitEnd, err = w.commit(ctx)
-		return
+		return commitEnd, err
 	}
 	err = w.write(ctx, req)
-	return
+	return commitEnd, err
 }
 
 func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error {
@@ -489,7 +489,6 @@ func missingChannelError(
 func incorrectNumberOfSeriesError(
 	expected int,
 	received int,
-
 ) error {
 	return errors.Wrapf(
 		validate.Error,

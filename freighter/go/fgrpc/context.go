@@ -25,7 +25,6 @@ func parseServerContext(
 	serviceName string,
 	variant freighter.Variant,
 ) freighter.Context {
-
 	oCtx := freighter.Context{
 		Context:  ctx,
 		Role:     freighter.Server,

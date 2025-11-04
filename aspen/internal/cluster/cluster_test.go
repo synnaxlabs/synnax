@@ -11,6 +11,8 @@ package cluster_test
 
 import (
 	"context"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
@@ -21,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
-	"time"
 )
 
 var _ = Describe("Cluster", func() {
@@ -44,7 +45,6 @@ var _ = Describe("Cluster", func() {
 	})
 
 	Describe("Node", func() {
-
 		It("Should return a node by its Name", func() {
 			c1, err := builder.New(clusterCtx, cluster.Config{})
 			Expect(err).ToNot(HaveOccurred())
@@ -59,11 +59,9 @@ var _ = Describe("Cluster", func() {
 				return n.Key
 			}).Should(Equal(c2.HostKey()))
 		})
-
 	})
 
 	Describe("Resolve", func() {
-
 		It("Should resolve the address of a node by its Name", func() {
 			c1, err := builder.New(clusterCtx, cluster.Config{})
 			Expect(err).ToNot(HaveOccurred())
@@ -78,7 +76,5 @@ var _ = Describe("Cluster", func() {
 				return addr
 			}).Should(Equal(address.Address("localhost:0")))
 		})
-
 	})
-
 })

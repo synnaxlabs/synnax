@@ -313,7 +313,7 @@ func (n NumberZ) Dump(data any) (any, error) {
 // conversion and validation based on the destination type. For integer types, it
 // ensures the value is within the valid range. For floating-point types, it handles
 // precision conversion.
-func (n NumberZ) Parse(data any, dest any) error {
+func (n NumberZ) Parse(data, dest any) error {
 	destVal := reflect.ValueOf(dest)
 	if err := n.validateDestination(destVal); err != nil {
 		return err

@@ -340,7 +340,6 @@ var _ = Describe("Domain", func() {
 
 			Describe("Stamp", func() {
 				Context("Forward", func() {
-
 					Context("Continuous", func() {
 						BeforeEach(func() {
 							Expect(domain.Write(

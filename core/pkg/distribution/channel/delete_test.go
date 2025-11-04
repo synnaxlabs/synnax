@@ -28,9 +28,7 @@ var _ = Describe("Delete", Ordered, func() {
 	})
 	Describe("Channel Deletion", func() {
 		Context("Single Channel", func() {
-			var (
-				idxCh, ch channel.Channel
-			)
+			var idxCh, ch channel.Channel
 			JustBeforeEach(func() {
 				idxCh.Name = "SG01_time"
 				idxCh.DataType = telem.TimeStampT
@@ -97,5 +95,4 @@ var _ = Describe("Delete", Ordered, func() {
 			})
 		})
 	})
-
 })

@@ -48,6 +48,7 @@ func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Con
 		OutputMemoryBase: ctx.OutputMemoryBase,
 	}
 }
+
 func (c Context[AstNode]) WithHint(hint types.Type) Context[AstNode] {
 	c.Hint = hint
 	return c

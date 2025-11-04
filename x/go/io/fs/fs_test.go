@@ -391,7 +391,7 @@ var _ = Describe("FS", func() {
 					Expect(l[0].Name()).To(Equal("sub1"))
 				})
 			})
-			var _ = Describe("Exists", func() {
+			_ = Describe("Exists", func() {
 				It("Should return false if a file does not exist and true if it does", func() {
 					Expect(fs.Exists("yum.txt")).To(BeFalse())
 					f := MustSucceed(fs.Open("yum.txt", os.O_CREATE))

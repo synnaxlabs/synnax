@@ -13,16 +13,15 @@ import (
 	"context"
 	"strings"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"go.uber.org/zap"
-
-	"github.com/gofiber/fiber/v2"
-	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
+	"go.uber.org/zap"
 )
 
 const tokenRefreshHeader = "Refresh-Token"

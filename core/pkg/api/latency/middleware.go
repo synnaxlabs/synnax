@@ -10,8 +10,9 @@
 package latency
 
 import (
-	"github.com/synnaxlabs/freighter"
 	"time"
+
+	"github.com/synnaxlabs/freighter"
 )
 
 func Middleware(delay time.Duration) freighter.Middleware {

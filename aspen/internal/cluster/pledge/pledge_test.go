@@ -76,7 +76,6 @@ var _ = Describe("PledgeServer", func() {
 	})
 
 	Describe("PledgeServer", func() {
-
 		Context("No nodes Responding", func() {
 			It("Should submit round robin proposals at scaled intervals", func() {
 				var (
@@ -111,7 +110,7 @@ var _ = Describe("PledgeServer", func() {
 	Describe("Responsible", func() {
 		Context("Cluster State is Synchronized", func() {
 			It("Should correctly assign an Name", func() {
-				var nodes = make(node.Group)
+				nodes := make(node.Group)
 				provisionCandidates(net, nodes, nil, nil)
 				candidates := allCandidates(nodes)
 				ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
@@ -188,7 +187,7 @@ var _ = Describe("PledgeServer", func() {
 		})
 		Context("Too Few Healthy UniqueLeaseholders To Form a Quorum", func() {
 			It("Should return an errQuorumUnreachable", func() {
-				var nodes = make(node.Group)
+				nodes := make(node.Group)
 				provisionCandidates(net, nodes, nil, func(i int) node.State {
 					return lo.Ternary(i%2 == 0, node.StateHealthy, node.StateDead)
 				})
@@ -208,7 +207,7 @@ var _ = Describe("PledgeServer", func() {
 		})
 		Describe("Cancelling a pledge", func() {
 			It("Should stop all operations and return a cancellation error", func() {
-				var nodes = make(node.Group)
+				nodes := make(node.Group)
 				provisionCandidates(net, nodes, nil, nil)
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
@@ -266,9 +265,6 @@ var _ = Describe("PledgeServer", func() {
 				wg.Wait()
 				Expect(len(lo.Uniq(ids))).To(Equal(numPledges))
 			})
-
 		})
-
 	})
-
 })

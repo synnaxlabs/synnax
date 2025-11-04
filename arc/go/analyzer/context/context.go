@@ -114,7 +114,6 @@ func CreateRoot[ASTNode antlr.ParserRuleContext](
 		TypeMap:     make(map[antlr.ParserRuleContext]types.Type),
 		AST:         ast,
 	}
-
 }
 
 // Child creates a new child context for a different AST node. Child is the primary

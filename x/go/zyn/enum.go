@@ -103,7 +103,7 @@ func (e EnumZ) Dump(data any) (any, error) {
 // Parse converts the given data from an enum value to the destination type. It
 // validates the data and returns an error if the data is invalid. The function ensures
 // the value is one of the allowed enum values.
-func (e EnumZ) Parse(data any, dest any) error {
+func (e EnumZ) Parse(data, dest any) error {
 	destVal := reflect.ValueOf(dest)
 	if err := e.validateDestination(destVal); err != nil {
 		return err

@@ -84,7 +84,7 @@ type ObservableTransformSubscriber[V Value, T Value] struct {
 	observe.Observer[T]
 }
 
-func NewObservableTransformSubscriber[V Value, T Value](
+func NewObservableTransformSubscriber[V, T Value](
 	f TransformFunc[V, T],
 ) *ObservableTransformSubscriber[V, T] {
 	o := &ObservableTransformSubscriber[V, T]{
@@ -110,7 +110,7 @@ type GeneratorTransformObservable[V Value, T Value] struct {
 	observe.Observer[T]
 }
 
-func NewGeneratorTransformObservable[V Value, T Value](
+func NewGeneratorTransformObservable[V, T Value](
 	f GeneratorFunc[V, T],
 ) *GeneratorTransformObservable[V, T] {
 	o := &GeneratorTransformObservable[V, T]{

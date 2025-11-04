@@ -27,5 +27,4 @@ var _ = Describe("Retrieve", func() {
 			Expect(res).To(ConsistOf(ws1, ws2))
 		})
 	})
-
 })

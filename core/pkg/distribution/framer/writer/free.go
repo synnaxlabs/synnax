@@ -115,7 +115,7 @@ func (w *freeWriter) transform(ctx context.Context, req Request) (res Response, 
 			ctx, w.freeWrites.Inlet(),
 			relay.Response{Frame: w.alignFrame(req.Frame)},
 		); err != nil || !w.sync {
-			return
+			return res, ok, err
 		}
 	}
 	return Response{Command: req.Command, SeqNum: req.SeqNum, Authorized: true}, true, nil

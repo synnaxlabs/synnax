@@ -91,7 +91,7 @@ func (s *LabelService) Retrieve(
 ) (res LabelRetrieveResponse, err error) {
 	if !req.For.IsZero() {
 		res.Labels, err = s.internal.RetrieveFor(ctx, req.For, nil)
-		return
+		return res, err
 	}
 
 	q := s.internal.NewRetrieve()

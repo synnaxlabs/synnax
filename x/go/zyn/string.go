@@ -142,7 +142,7 @@ func (s StringZ) Dump(data any) (any, error) {
 //   - string values
 //   - numeric values (converted to string)
 //   - boolean values (converted to string)
-func (s StringZ) Parse(data any, dest any) error {
+func (s StringZ) Parse(data, dest any) error {
 	destVal := reflect.ValueOf(dest)
 	if err := s.validateDestinationValue(destVal); err != nil {
 		return err

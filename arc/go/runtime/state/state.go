@@ -324,7 +324,7 @@ func (n *Node) OutputTime(paramIndex int) *telem.Series {
 // ReadChan reads buffered data and time series from a channel.
 // If the channel has an index, both data and time are returned.
 // Returns ok=false if the channel has no buffered data.
-func (n *Node) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSeries, ok bool) {
+func (n *Node) ReadChan(key uint32) (data, time telem.MultiSeries, ok bool) {
 	data, ok = n.state.readChannel(key)
 	if !ok {
 		return telem.MultiSeries{}, telem.MultiSeries{}, false

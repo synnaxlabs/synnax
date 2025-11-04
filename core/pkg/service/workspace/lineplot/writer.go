@@ -34,14 +34,14 @@ func (w Writer) Create(
 	} else {
 		exists, err = gorp.NewRetrieve[uuid.UUID, LinePlot]().WhereKeys(p.Key).Exists(ctx, w.tx)
 		if err != nil {
-			return
+			return err
 		}
 	}
 	if err = gorp.NewCreate[uuid.UUID, LinePlot]().Entry(p).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	if exists {
-		return
+		return err
 	}
 	otgID := OntologyID(p.Key)
 	if err := w.otg.DefineResource(ctx, otgID); err != nil {

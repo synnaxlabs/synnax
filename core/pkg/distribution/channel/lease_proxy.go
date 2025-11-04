@@ -387,12 +387,12 @@ func (lp *leaseProxy) retrieveExistingAndAssignKeys(
 			}
 			return exists, nil
 		}).Exec(ctx, tx); err != nil {
-			return
+			return toCreate, err
 		}
 	}
 	nextCounterValue, err := counter.add(incCounterBy)
 	if err != nil {
-		return
+		return toCreate, err
 	}
 
 	originalCounterValue := nextCounterValue - incCounterBy

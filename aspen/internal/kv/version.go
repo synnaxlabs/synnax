@@ -28,7 +28,7 @@ type versionFilter struct {
 	confluence.BatchSwitch[TxRequest, TxRequest]
 }
 
-func newVersionFilter(cfg Config, acceptedTo address.Address, rejectedTo address.Address) segment {
+func newVersionFilter(cfg Config, acceptedTo, rejectedTo address.Address) segment {
 	s := &versionFilter{Config: cfg, acceptedTo: acceptedTo, rejectedTo: rejectedTo, memKV: cfg.Engine}
 	s.Switch = s._switch
 	return s

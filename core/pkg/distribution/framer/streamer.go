@@ -63,7 +63,7 @@ func (c *controlStateSender) transform(ctx context.Context, req StreamerRequest)
 		send = true
 		res.Frame = c.getControlUpdateFrame(ctx)
 	}
-	return
+	return res, send, err
 }
 
 const (

@@ -461,7 +461,7 @@ func translateRangeBackward(r *gapi.Range) (or api.Range, err error) {
 	}
 	or.Name = r.GetName()
 	or.TimeRange = telem.TranslateTimeRangeBackward(r.GetTimeRange())
-	return
+	return or, err
 }
 
 func translateRangesBackward(r []*gapi.Range) ([]api.Range, error) {

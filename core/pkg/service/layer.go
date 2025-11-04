@@ -79,7 +79,6 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "distribution", c.Distribution)
 	validate.NotNil(v, "security", c.Security)
 	return v.Error()
-
 }
 
 // Layer contains all relevant services within the Synnax service layer.

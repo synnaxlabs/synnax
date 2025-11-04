@@ -33,7 +33,6 @@ var _ = Describe("Catcher", func() {
 				}
 			})
 			It("Should continue to execute functions", func() {
-
 				Expect(counter).To(Equal(5))
 			})
 			It("Should contain a nil error", func() {
@@ -70,10 +69,9 @@ var _ = Describe("Catcher", func() {
 					Expect(catcher.Error()).To(BeNil())
 				})
 			})
-
 		})
 		Context("Aggregation", func() {
-			var catcher = errors.NewCatcher(errors.WithAggregation())
+			catcher := errors.NewCatcher(errors.WithAggregation())
 			It("Should aggregate the errors", func() {
 				counter := 1
 				for range 4 {
@@ -87,5 +85,4 @@ var _ = Describe("Catcher", func() {
 			})
 		})
 	})
-
 })

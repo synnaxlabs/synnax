@@ -20,8 +20,10 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 )
 
-const metaFile = "meta.json"
-const metaTempFile = "meta.json.tmp"
+const (
+	metaFile     = "meta.json"
+	metaTempFile = "meta.json.tmp"
+)
 
 // ErrIgnoreChannel lets callers know that this channel is no longer valid and should be
 // ignored when opening a DB.

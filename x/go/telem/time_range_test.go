@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -98,7 +97,6 @@ var _ = Describe("TimeRange", func() {
 	})
 
 	Describe("BoundBy", func() {
-
 		It("Should bound the time range to the provided constraints", func() {
 			tr := telem.TimeRange{
 				Start: telem.TimeStamp(telem.Second),
@@ -111,11 +109,9 @@ var _ = Describe("TimeRange", func() {
 			bounded := tr.BoundBy(bound)
 			Expect(bounded.Start).To(Equal(bound.Start))
 			Expect(bounded.End).To(Equal(bound.End))
-
 		})
 
 		It("Should bound the time range even if the start is after the end", func() {
-
 			tr := telem.TimeRange{
 				Start: telem.TimeStamp(telem.Second * 4),
 				End:   telem.TimeStamp(telem.Second),
@@ -273,7 +269,6 @@ var _ = Describe("TimeRange", func() {
 				Expect(tr.OverlapsWith(tr2)).To(BeTrue())
 			})
 		})
-
 	})
 
 	Describe("Swap", func() {
@@ -326,7 +321,6 @@ var _ = Describe("TimeRange", func() {
 			intersection := tr.Intersection(tr2)
 			Expect(intersection).To(Equal(telem.TimeRangeZero))
 		})
-
 	})
 
 	DescribeTable("Split", func(
@@ -392,7 +386,6 @@ var _ = Describe("TimeRange", func() {
 	})
 
 	Describe("Union", func() {
-
 		Specify("Overlap, first before second", func() {
 			tr := (0 * telem.SecondTS).Range(5 * telem.SecondTS)
 			tr2 := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
@@ -424,6 +417,5 @@ var _ = Describe("TimeRange", func() {
 			Expect(union.Start).To(Equal(1 * telem.SecondTS))
 			Expect(union.End).To(Equal(8 * telem.SecondTS))
 		})
-
 	})
 })

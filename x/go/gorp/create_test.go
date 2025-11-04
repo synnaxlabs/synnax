@@ -122,7 +122,7 @@ var _ = Describe("Create", Ordered, func() {
 				Data: "The answer to life, the universe, and everything",
 			}
 			Expect(gorp.NewCreate[int, entry]().Entry(e).Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewCreate[int, entry]().Entry(e).MergeExisting(func(_ gorp.Context, c entry, e entry) (entry, error) {
+			Expect(gorp.NewCreate[int, entry]().Entry(e).MergeExisting(func(_ gorp.Context, c, e entry) (entry, error) {
 				Expect(e.GorpKey()).To(Equal(42))
 				return entry{ID: e.ID, Data: e.Data + "!"}, nil
 			}).Exec(ctx, tx)).To(Succeed())

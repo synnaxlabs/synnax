@@ -38,10 +38,10 @@ var _ = Describe("Integer Set", Ordered, func() {
 			s.Insert(1)
 			Expect(s.NumLessThan(2)).To(Equal(2))
 			Expect(s.Size()).To(Equal(2))
-			s.Insert(nums[0:3]...)
+			s.Insert(nums[:3]...)
 			Expect(s.NumLessThan(3)).To(Equal(3))
 			Expect(s.Size()).To(Equal(3))
-			s.Insert(nums[0:10]...)
+			s.Insert(nums[:10]...)
 			Expect(s.NumLessThan(10)).To(Equal(10))
 			Expect(s.Size()).To(Equal(10))
 
@@ -53,7 +53,7 @@ var _ = Describe("Integer Set", Ordered, func() {
 
 			s.Remove(nums[10:100]...)
 			newSlice := make([]int, 40)
-			copy(newSlice[0:10], nums[0:10])
+			copy(newSlice[:10], nums[:10])
 			copy(newSlice[10:30], nums[20:40])
 			copy(newSlice[30:40], nums[50:60])
 			s.Insert(newSlice...)
@@ -70,7 +70,7 @@ var _ = Describe("Integer Set", Ordered, func() {
 	Describe("Check compression", func() {
 		It("Should create a compressed set", func() {
 			Expect(len(s)).To(Equal(0))
-			s.Insert(nums[0:10]...)
+			s.Insert(nums[:10]...)
 			Expect(len(s)).To(Equal(1))
 			s.Insert(11)
 			Expect(len(s)).To(Equal(2))
@@ -84,7 +84,7 @@ var _ = Describe("Integer Set", Ordered, func() {
 		})
 		It("should check edge cases", func() {
 			s.Insert(nums[2:12]...)
-			s.Insert(nums[0:2]...)
+			s.Insert(nums[:2]...)
 			s.Insert(nums[15:20]...)
 			s.Insert(nums[20:24]...)
 			s.Insert(nums[12:15]...)
@@ -94,28 +94,28 @@ var _ = Describe("Integer Set", Ordered, func() {
 	})
 	Describe("Check retrieval of nums", func() {
 		It("Should retrieve the correct number while in the middle of an intRange", func() {
-			s.Insert(nums[0:25]...)
+			s.Insert(nums[:25]...)
 			Expect(s.NumLessThan(nums[15])).To(Equal(15))
 		})
 	})
 	Describe("Check removal of nums", func() {
 		It("Should accurately delete and reinsert slices of nums", func() {
-			s.Insert(nums[0:25]...)
+			s.Insert(nums[:25]...)
 			s.Remove(nums[10:20]...)
 			Expect(len(s)).To(Equal(2))
 			Expect(s.NumLessThan(nums[25])).To(Equal(15))
 			Expect(s.NumLessThan(nums[10])).To(Equal(10))
 			Expect(s.NumLessThan(nums[20])).To(Equal(10))
-			s.Remove(nums[0:10]...)
+			s.Remove(nums[:10]...)
 			s.Remove(nums[20:25]...)
 			Expect(len(s)).To(Equal(0))
 			Expect(s.NumLessThan(nums[10])).To(Equal(0))
 		})
 		It("Should be idempotent when removing nums", func() {
-			s.Remove(nums[0:100]...)
+			s.Remove(nums[:100]...)
 			Expect(len(s)).To(Equal(0))
 			Expect(s.NumLessThan(nums[50])).To(Equal(0))
-			s.Insert(nums[0:10]...)
+			s.Insert(nums[:10]...)
 			s.Insert(nums[25:50]...)
 			s.Remove(nums[5:30]...)
 			Expect(len(s)).To(Equal(2))
@@ -126,9 +126,9 @@ var _ = Describe("Integer Set", Ordered, func() {
 		It("Should be able to get sizes from an empty set", func() {
 			Expect(s.NumLessThan(nums[10])).To(Equal(0))
 			Expect(len(s)).To(Equal(0))
-			s.Insert(nums[0:10]...)
-			s.Remove(nums[0:10]...)
-			s.Remove(nums[0:10]...)
+			s.Insert(nums[:10]...)
+			s.Remove(nums[:10]...)
+			s.Remove(nums[:10]...)
 			Expect(s.Size()).To(Equal(0))
 			Expect(s.Contains(0)).To(BeFalse())
 			Expect(s.NumGreaterThan(0)).To(Equal(0))

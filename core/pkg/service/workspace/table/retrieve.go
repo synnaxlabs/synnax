@@ -11,6 +11,7 @@ package table
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 )

@@ -51,7 +51,7 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 	if err = f(txn); err == nil {
 		err = txn.Commit(ctx)
 	}
-	return
+	return err
 }
 
 // OverrideTx replaces the given Tx with the DB if the given Tx is nil. This

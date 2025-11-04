@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/domain"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
-
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -71,7 +70,6 @@ var _ = Describe("DB", func() {
 					Expect(w.Close()).To(Succeed())
 					Expect(db.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
-
 				})
 			})
 		})

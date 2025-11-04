@@ -59,5 +59,4 @@ var _ = Describe("HttpRedirect", func() {
 		Expect(received).To(BeTrue())
 		Expect(b.Close()).To(Succeed())
 	})
-
 })

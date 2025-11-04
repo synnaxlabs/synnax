@@ -67,7 +67,6 @@ var _ = Describe("Migrate", func() {
 			required := MustSucceed(pebblekv.RequiresMigration(nonExistentPath, vfs.Default))
 			Expect(required).To(BeFalse())
 		})
-
 	})
 
 	Context("Migrate", func() {
@@ -102,7 +101,6 @@ var _ = Describe("Migrate", func() {
 			requiresMigration = MustSucceed(pebblekv.RequiresMigration(dbPath, vfs.Default))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(requiresMigration).To(BeFalse())
-
 		})
 
 		It("should handle migration of empty database", func() {

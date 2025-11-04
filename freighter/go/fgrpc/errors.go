@@ -11,6 +11,7 @@ package fgrpc
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/errors"
 )
 

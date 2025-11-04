@@ -33,7 +33,6 @@ var _ = Describe("Retrieve", Ordered, func() {
 		for i := range 10 {
 			entries = append(entries, entry{ID: i, Data: "data"})
 		}
-
 	})
 	AfterAll(func() { Expect(kv.Close()).To(Succeed()) })
 	BeforeEach(func() {
@@ -157,7 +156,6 @@ var _ = Describe("Retrieve", Ordered, func() {
 			).To(Succeed())
 			Expect(res).To(Equal([]prefixEntry{r}))
 		})
-
 	})
 	Describe("Where", func() {
 		It("Should retrieve the entry by a filter parameter", func() {

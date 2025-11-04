@@ -157,7 +157,6 @@ var _ = Describe("Meta", func() {
 				Expect(ch2.Name).To(Equal("Faraday"))
 				Expect(ch2.Virtual).To(BeTrue())
 				Expect(ch2.DataType).To(Equal(telem.Int64T))
-
 			})
 		})
 	}

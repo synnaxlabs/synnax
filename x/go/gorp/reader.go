@@ -214,7 +214,7 @@ func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bo
 		panic(err)
 	}
 	op.Key = op.Value.GorpKey()
-	return
+	return op, ok
 }
 
 type next[E any] struct {

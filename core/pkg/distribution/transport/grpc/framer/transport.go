@@ -112,7 +112,8 @@ func New(pool *fgrpc.Pool) Transport {
 					RequestTranslator:  writerRequestTranslator{},
 					ResponseTranslator: writerResponseTranslator{},
 					ServiceDesc:        &framerv1.WriterService_ServiceDesc,
-				}},
+				},
+			},
 		},
 		iterator: iteratorTransport{
 			server: &iteratorServer{iteratorServerCore: iteratorServerCore{

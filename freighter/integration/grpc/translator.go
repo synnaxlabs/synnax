@@ -11,6 +11,7 @@ package grpc
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/freighter/fgrpc"
 	echov1 "github.com/synnaxlabs/freighter/integration/grpc/gen/proto/go/v1"
 	"github.com/synnaxlabs/freighter/integration/http"

@@ -10,10 +10,11 @@
 package mock
 
 import (
+	"go/types"
+
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/x/address"
-	"go/types"
 )
 
 type FramerDeleterNetwork struct {

@@ -253,7 +253,6 @@ var _ = Describe("Control", func() {
 		})
 
 		Describe("Authorization, Transfer, and Release", func() {
-
 			Context("One Gate", func() {
 				It("Should authorize the gate with absolute control", func() {
 					cfg, createCount := baseConfig(10)
@@ -528,7 +527,6 @@ var _ = Describe("Control", func() {
 							_, err = g1.Authorize()
 							Expect(err).To(HaveOccurredAs(xcontrol.ErrUnauthorized))
 						})
-
 					})
 
 					Context("Open gate 2 with equal authority, release gate 1", func() {
@@ -555,7 +553,6 @@ var _ = Describe("Control", func() {
 							Expect(t.IsTransfer()).To(BeTrue())
 							Expect(v.value).To(Equal(1))
 						})
-
 					})
 
 					Context("Open gate 2 with higher authority, release gate 1", func() {
@@ -620,7 +617,6 @@ var _ = Describe("Control", func() {
 							_, err = g2.Authorize()
 							Expect(err).ToNot(HaveOccurred())
 						})
-
 					})
 
 					Context("Release both gates", func() {
@@ -826,7 +822,6 @@ var _ = Describe("Control", func() {
 							_, err = g3.Authorize()
 							Expect(err).ToNot(HaveOccurred())
 						})
-
 					})
 
 					Context("Open gate 1 highest, gate 2 medium, gate 3 lowest, release g1", func() {
@@ -871,7 +866,6 @@ var _ = Describe("Control", func() {
 					})
 				})
 			})
-
 		})
 
 		Describe("PeekResource", func() {
@@ -945,6 +939,5 @@ var _ = Describe("Control", func() {
 			_, err = g2.Authorize()
 			Expect(err).ToNot(HaveOccurred())
 		})
-
 	})
 })

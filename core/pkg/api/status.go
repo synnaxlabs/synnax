@@ -53,7 +53,6 @@ func translateStatusesFromService(statuses []status.Status) []Status {
 	return lo.Map(statuses, func(s status.Status, _ int) Status {
 		return Status{Status: s}
 	})
-
 }
 
 // StatusSetRequest is a request to set (create or update) statuses in the cluster.

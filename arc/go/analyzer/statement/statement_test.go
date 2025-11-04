@@ -337,7 +337,6 @@ var _ = Describe("Statement", func() {
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined"))
 			})
 		})
-
 	})
 
 	Describe("Mixed Type Scenarios", func() {

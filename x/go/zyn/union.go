@@ -82,7 +82,7 @@ func (u UnionZ) Dump(data any) (any, error) {
 
 // Parse converts the given data according to the union schema. It tries each schema in
 // sequence until one succeeds. Returns an error if no schema can handle the data.
-func (u UnionZ) Parse(data any, dest any) error {
+func (u UnionZ) Parse(data, dest any) error {
 	destVal := reflect.ValueOf(dest)
 	if err := u.validateDestination(destVal); err != nil {
 		return err

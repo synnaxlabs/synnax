@@ -17,9 +17,7 @@ import (
 )
 
 var _ = Describe("Stream", func() {
-	var (
-		addr address.Address = "addr"
-	)
+	var addr address.Address = "addr"
 	Describe("internal Stream", func() {
 		Describe("Address", func() {
 			Context("Stream", func() {
@@ -34,10 +32,9 @@ var _ = Describe("Stream", func() {
 					Expect(stream.OutletAddress()).To(Equal(addr))
 				})
 			})
-
 		})
 		Describe("Communication", func() {
-			var stream = NewStream[int](1)
+			stream := NewStream[int](1)
 			It("Should return the correct channel when calling Inlet", func() {
 				stream.Inlet() <- 1
 				Expect(<-stream.Outlet()).To(Equal(1))

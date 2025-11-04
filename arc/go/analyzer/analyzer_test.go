@@ -314,7 +314,6 @@ var _ = Describe("Analyzer", func() {
 			`))
 				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-
 			})
 
 			It("Should correctly infer a literal return type", func() {
@@ -325,7 +324,6 @@ var _ = Describe("Analyzer", func() {
 			`))
 				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-
 			})
 
 			It("Should correctly infer an expression literal return type", func() {
@@ -336,7 +334,6 @@ var _ = Describe("Analyzer", func() {
 			`))
 				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-
 			})
 
 			It("Should return an error for a floating point literal on an integer return", func() {
@@ -360,7 +357,6 @@ var _ = Describe("Analyzer", func() {
 			`))
 				ctx := context.CreateRoot(bCtx, prog, nil)
 				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-
 			})
 
 			It("Should return an error when there is a return statement on a void function", func() {
@@ -470,7 +466,6 @@ var _ = Describe("Analyzer", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-
 		})
 
 		It("Should return the correct symbol table for an if-else statement", func() {
@@ -553,5 +548,4 @@ var _ = Describe("Analyzer", func() {
 			Expect(thirdBlock.Children).To(BeEmpty())
 		})
 	})
-
 })

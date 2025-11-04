@@ -70,7 +70,7 @@ func (s *selectNode) Next(ctx node.Context) {
 	trueTime.Resize(trueCount)
 	falseData.Resize(falseCount)
 	falseTime.Resize(falseCount)
-	var trueIdx, falseIdx = 0, 0
+	trueIdx, falseIdx := 0, 0
 	for i := range data.Data {
 		if data.Data[i] == 1 {
 			trueData.Data[trueIdx] = 1

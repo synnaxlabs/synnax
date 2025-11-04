@@ -120,5 +120,5 @@ func WithTx(ctx context.Context, db DB, f func(tx Tx) error) (err error) {
 	if err = f(txn); err == nil {
 		err = txn.Commit(ctx)
 	}
-	return
+	return err
 }

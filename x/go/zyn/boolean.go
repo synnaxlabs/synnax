@@ -96,7 +96,7 @@ func (b BoolZ) Dump(data any) (any, error) {
 //   - boolean values
 //   - string values ("true", "false", "1", "0")
 //   - numeric values (non-zero is true, zero is false)
-func (b BoolZ) Parse(data any, dest any) error {
+func (b BoolZ) Parse(data, dest any) error {
 	destVal := reflect.ValueOf(dest)
 	if err := b.validateDestination(destVal); err != nil {
 		return err

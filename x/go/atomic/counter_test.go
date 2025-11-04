@@ -60,5 +60,4 @@ var _ = Describe("Counter", func() {
 			})
 		})
 	})
-
 })

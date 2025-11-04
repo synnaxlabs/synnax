@@ -163,7 +163,6 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 		})
 		Describe("OverwriteIfNameExists", func() {
-
 			It("Should overwrite the channel if it already exists by name and the new channel has different properties than the old one", func() {
 				ch := channel.Channel{
 					Virtual:     true,
@@ -437,7 +436,7 @@ var _ = Describe("Create", Ordered, func() {
 				WhereNames(indexName).
 				Entries(&indexChannels).
 				Exec(ctx, nil)
-			// Should either return NotFound error or empty result
+				// Should either return NotFound error or empty result
 			if err != nil {
 				Expect(err).To(MatchError(query.NotFound))
 			}
@@ -651,5 +650,4 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(resChannels[1].Name).To(Equal("UpdatedName"))
 			})
 	})
-
 })

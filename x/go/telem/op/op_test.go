@@ -434,5 +434,4 @@ var _ = Describe("Vectorized Operations", func() {
 			})
 		})
 	})
-
 })

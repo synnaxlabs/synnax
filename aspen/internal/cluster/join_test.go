@@ -10,6 +10,8 @@
 package cluster_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
@@ -21,12 +23,10 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/signal"
-	"time"
 )
 
 var _ = Describe("Open", func() {
 	Context("Valid Properties", func() {
-
 		var (
 			gossipNet *fmock.Network[gossip.Message, gossip.Message]
 			pledgeNet *fmock.Network[pledge.Request, pledge.Response]
@@ -38,9 +38,7 @@ var _ = Describe("Open", func() {
 		})
 
 		Context("Name Cluster", func() {
-
 			It("Should correctly join the Cluster", func() {
-
 				By("Initializing the Cluster correctly")
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
@@ -91,13 +89,10 @@ var _ = Describe("Open", func() {
 				Expect(clusterOne.Close()).To(Succeed())
 				Expect(clusterTwo.Close()).To(Succeed())
 			})
-
 		})
 
 		Context("Existing Cluster in Storage", func() {
-
 			It("Should restart Cluster activities using the persisted state", func() {
-
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
 				clusterOne, err := cluster.Open(
@@ -154,9 +149,7 @@ var _ = Describe("Open", func() {
 				Expect(clusterTwoAgain.Close()).To(Succeed())
 				Expect(kvDB.Close()).To(Succeed())
 			})
-
 		})
-
 	})
 
 	Context("Invalid Properties", func() {

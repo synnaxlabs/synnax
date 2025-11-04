@@ -164,7 +164,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 //
 // Field names can be in PascalCase or snake_case. All fields are validated according to
 // their defined schemas.
-func (o ObjectZ) Parse(data any, dest any) error {
+func (o ObjectZ) Parse(data, dest any) error {
 	destVal := reflect.ValueOf(dest)
 	if err := o.validateDestination(destVal); err != nil {
 		return err

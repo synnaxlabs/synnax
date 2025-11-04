@@ -42,7 +42,6 @@ var _ = Describe("Calculation", Ordered, func() {
 		indexChannels,
 		baseChannels,
 		calculations *[]channel.Channel,
-
 	) (*framer.Writer, confluence.Outlet[streamer.Response], context.CancelFunc) {
 		if indexChannels != nil {
 			Expect(dist.Channel.CreateMany(ctx, indexChannels)).To(Succeed())

@@ -98,7 +98,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s.mu.statuses = make(map[string]status.Status[any])
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
-		return
+		return s, err
 	}
 	statusSignals, err := signals.PublishFromGorp(
 		ctx,
@@ -106,10 +106,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		signals.GorpPublisherConfigString[Status](cfg.DB),
 	)
 	if err != nil {
-		return
+		return s, err
 	}
 	s.shutdownSignals = xio.MultiCloser{statusSignals}
-	return
+	return s, err
 }
 
 // Close closes the service and releases any resources that it may have acquired. Close

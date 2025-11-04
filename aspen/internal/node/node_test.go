@@ -18,7 +18,6 @@ import (
 )
 
 var _ = Describe("Node", func() {
-
 	Describe("Parse", func() {
 		It("Should parse the Name of a node from a string", func() {
 			id, err := node.Key(0).Parse("1")
@@ -28,9 +27,7 @@ var _ = Describe("Node", func() {
 	})
 
 	Describe("Group", func() {
-
 		Describe("Filter", func() {
-
 			It("Should filter nodes correctly", func() {
 				g := node.Group{
 					1: node.Node{
@@ -46,11 +43,9 @@ var _ = Describe("Node", func() {
 				Expect(g.WhereActive()).To(HaveLen(2))
 				Expect(g.WhereNot(1)).To(HaveLen(1))
 			})
-
 		})
 
 		Describe("Addresses", func() {
-
 			It("Should return the addresses of the nodes in the cluster", func() {
 				g := node.Group{
 					1: node.Node{
@@ -68,11 +63,9 @@ var _ = Describe("Node", func() {
 					Expect(addr).To(BeElementOf([]address.Address{"localhost:0", "localhost:1"}))
 				}
 			})
-
 		})
 
 		Describe("Digests", func() {
-
 			It("Should return the digests of the nodes", func() {
 				g := node.Group{
 					1: node.Node{
@@ -96,13 +89,10 @@ var _ = Describe("Node", func() {
 				Expect(g.Digests()).To(HaveLen(2))
 				Expect(g.Digests()[1]).To(Equal(g[1].Digest()))
 			})
-
 		})
-
 	})
 
 	Describe("CopyState", func() {
-
 		It("Should copy a group of nodes", func() {
 			g := node.Group{
 				1: node.Node{
@@ -128,7 +118,5 @@ var _ = Describe("Node", func() {
 			Expect(g2).To(HaveLen(1))
 			Expect(g).To(HaveLen(2))
 		})
-
 	})
-
 })

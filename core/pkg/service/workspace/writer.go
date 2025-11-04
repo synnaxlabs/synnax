@@ -33,7 +33,7 @@ func (w Writer) Create(
 		ws.Key = uuid.New()
 	}
 	if err = gorp.NewCreate[uuid.UUID, Workspace]().Entry(ws).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	otgID := OntologyID(ws.Key)
 	if err := w.otg.DefineResource(ctx, otgID); err != nil {

@@ -119,7 +119,7 @@ func runRecovery(ctx context.Context, cfg Config) error {
 func loadHighWater(ctx context.Context, cfg Config) (highWater version.Counter, err error) {
 	iter, err := cfg.Engine.OpenIterator(kv.IterPrefix([]byte(digestPrefix)))
 	if err != nil {
-		return
+		return highWater, err
 	}
 	defer func() {
 		err = errors.Combine(err, iter.Close())
@@ -129,13 +129,13 @@ func loadHighWater(ctx context.Context, cfg Config) (highWater version.Counter, 
 	for iter.First(); iter.Valid(); iter.Next() {
 		v := iter.Value()
 		if err = codec.Decode(ctx, v, &dig); err != nil {
-			return
+			return highWater, err
 		}
 		if dig.Version.NewerThan(highWater) {
 			highWater = dig.Version
 		}
 	}
-	return
+	return highWater, err
 }
 
 func runSingleNodeRecovery(

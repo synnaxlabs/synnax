@@ -179,5 +179,4 @@ func formatNameMatcher(name string) func(name string) bool {
 		return func(s string) bool { return s == name }
 	}
 	return rx.MatchString
-
 }

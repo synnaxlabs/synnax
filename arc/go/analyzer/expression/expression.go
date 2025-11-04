@@ -92,7 +92,7 @@ func getRelationalOperator(ctx antlr.ParserRuleContext) string {
 	return "comparison"
 }
 
-func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
+func validateType[T, N antlr.ParserRuleContext](
 	ctx context.Context[N],
 	items []T,
 	getOperator func(ctx antlr.ParserRuleContext) string,

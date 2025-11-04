@@ -48,7 +48,6 @@ func (d dagWriter) DefineManyResources(ctx context.Context, ids []ID) error {
 	}
 	resources := lo.Map(ids, func(id ID, _ int) Resource { return Resource{ID: id} })
 	return gorp.NewCreate[ID, Resource]().Entries(&resources).Exec(ctx, d.tx)
-
 }
 
 // DeleteResource implements the Writer interface.

@@ -267,7 +267,7 @@ func setWherePrefix(q query.Parameters, prefix []byte) {
 func getWherePrefix(q query.Parameters) (r []byte) {
 	p, ok := q.Get(wherePrefixKey)
 	if !ok {
-		return
+		return r
 	}
 	return p.(wherePrefix).prefix
 }

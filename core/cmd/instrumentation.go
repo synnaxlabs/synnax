@@ -77,8 +77,8 @@ func configureLogger() (logger *alamos.Logger, err error) {
 	if logger, err = alamos.NewLogger(alamos.LoggerConfig{
 		ZapLogger: zap.New(core, opts...),
 	}); err != nil {
-		return
+		return logger, err
 	}
 	zap.ReplaceGlobals(logger.Zap())
-	return
+	return logger, err
 }

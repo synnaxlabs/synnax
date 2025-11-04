@@ -37,10 +37,7 @@ looking for the longest sequential count of either 1 or 0. This will be used to 
 on the size for the run-length encoding.
 */
 func preCompile(src []byte) (size int) {
-
-	var (
-		longestCount, curCount = 1, 1
-	)
+	longestCount, curCount := 1, 1
 
 	for i := 1; i < len(src); i++ {
 		if src[i] == src[i-1] {
@@ -119,7 +116,6 @@ func (b Bool) Compress(src []byte) (dst []byte, err error) {
 }
 
 func (b Bool) Decompress(src []byte) (dst []byte, err error) {
-
 	var (
 		maxShift, sum, count = int(src[0]), 0, 0
 		cur                  = byte(0)

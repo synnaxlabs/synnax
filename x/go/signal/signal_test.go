@@ -42,9 +42,7 @@ func returnErrAfterContextCancel(ctx context.Context) error {
 }
 
 var _ = Describe("Signal", func() {
-
 	Describe("Coordination", func() {
-
 		Describe("CancelOnExit", func() {
 			It("Should cancel the context when the first routine exits", func() {
 				ctx, cancel := signal.Isolated()
@@ -80,15 +78,11 @@ var _ = Describe("Signal", func() {
 				Expect(ctx.Wait()).To(Succeed())
 				Expect(c).To(Equal(0))
 			})
-
 		})
-
 	})
 
 	Describe("Go Utilities", func() {
-
 		Describe("GoRange", func() {
-
 			It("Should range over a channel until the context is cancelled", func() {
 				v := make(chan int, 3)
 				ctx, cancel := signal.Isolated()
@@ -138,7 +132,6 @@ var _ = Describe("Signal", func() {
 				Expect(ctx.Wait()).To(HaveOccurredAs(errors.New("routine failed")))
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
-
 		})
 
 		Describe("GoTick", func() {
@@ -156,11 +149,9 @@ var _ = Describe("Signal", func() {
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
 		})
-
 	})
 
 	Describe("GoOptions", func() {
-
 		Describe("Defer", func() {
 			It("Should defer a function until the routine exit", func() {
 				ctx, cancel := signal.Isolated()
@@ -174,11 +165,9 @@ var _ = Describe("Signal", func() {
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
 		})
-
 	})
 
 	Describe("Profiler Labels", func() {
-
 		It("Should add a profiler label with the routine key", func() {
 			ctx, cancel := signal.Isolated()
 			defer cancel()
@@ -191,11 +180,9 @@ var _ = Describe("Signal", func() {
 			}, signal.WithKey("routine-1"))
 			Expect(ctx.Wait()).To(Succeed())
 		})
-
 	})
 
 	Describe("Census", func() {
-
 		It("Should return the routines running under the context", func() {
 			ctx, cancel := signal.Isolated()
 			defer cancel()
@@ -203,11 +190,9 @@ var _ = Describe("Signal", func() {
 			Expect(ctx.Wait()).ToNot(HaveOccurred())
 			Expect(ctx.Routines()).To(HaveLen(1))
 		})
-
 	})
 
 	Describe("SendUnderContext", func() {
-
 		It("Should send a value to the channel", func() {
 			v := make(chan int, 1)
 			_ = signal.SendUnderContext(context.Background(), v, 1)
@@ -221,11 +206,9 @@ var _ = Describe("Signal", func() {
 			cancel()
 			Expect(v).ToNot(Receive())
 		})
-
 	})
 
 	Describe("RecvUnderContext", func() {
-
 		It("Should receive a value from the channel", func() {
 			v := make(chan int, 1)
 			v <- 1
@@ -252,11 +235,9 @@ var _ = Describe("Signal", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(val).To(Equal(1))
 		})
-
 	})
 
 	Describe("Panic recovery", func() {
-
 		// We cannot test with a test case that a goroutine indeed panics when it is
 		// instructed to propagate its panic since there is no way to capture a panic
 		// in another goroutine. However, we have manually tested that it indeed
@@ -383,7 +364,6 @@ var _ = Describe("Signal", func() {
 			Eventually(done).Should(BeClosed())
 			Expect(time.Since(start)).To(BeNumerically("~", 511*time.Millisecond, 150*time.Millisecond))
 		})
-
 	})
 
 	Describe("Regression", func() {
@@ -461,5 +441,4 @@ var _ = Describe("Signal", func() {
 			Eventually(ctx.Stopped()).Should(BeClosed())
 		})
 	})
-
 })

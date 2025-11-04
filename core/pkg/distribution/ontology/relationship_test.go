@@ -34,5 +34,4 @@ var _ = Describe("Relationship", func() {
 			Expect(err).To(HaveOccurredAs(validate.Error))
 		})
 	})
-
 })

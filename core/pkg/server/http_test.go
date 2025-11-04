@@ -21,8 +21,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type integerServer struct {
-}
+type integerServer struct{}
 
 func (b integerServer) BindTo(router *fhttp.Router) {
 	g := fhttp.UnaryServer[int, int](router, "/basic")

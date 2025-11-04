@@ -32,7 +32,7 @@ func (w *Writer) Reset() { w.offset = 0 }
 // Resize resizes the writer's buffer to the given capacity.
 func (w *Writer) Resize(size int) {
 	if size < len(w.buf) {
-		w.buf = w.buf[0:size]
+		w.buf = w.buf[:size]
 		if size < w.offset {
 			w.offset = size
 		}

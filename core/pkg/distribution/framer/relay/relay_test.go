@@ -19,12 +19,11 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -41,7 +40,6 @@ type scenario struct {
 
 var _ = Describe("Relay", func() {
 	Describe("Happy Path", Ordered, func() {
-
 		scenarios := []func() scenario{
 			gatewayOnlyScenario,
 			peerOnlyScenario,
@@ -173,6 +171,7 @@ func peerOnlyScenario() scenario {
 		close:    dist,
 	}
 }
+
 func mixedScenario() scenario {
 	channels := newChannelSet()
 	cluster_ := mock.ProvisionCluster(ctx, 3)

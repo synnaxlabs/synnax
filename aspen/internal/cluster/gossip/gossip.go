@@ -11,6 +11,8 @@ package gossip
 
 import (
 	"context"
+	"time"
+
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -18,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/rand"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
-	"time"
 )
 
 type Gossip struct{ Config }
@@ -59,7 +60,7 @@ func (g *Gossip) GossipOnce(ctx context.Context) (err error) {
 	if peer.Address != "" {
 		err = g.GossipOnceWith(ctx, peer.Address)
 	}
-	return
+	return err
 }
 
 func (g *Gossip) GossipOnceWith(ctx context.Context, addr address.Address) error {
@@ -115,7 +116,6 @@ func (g *Gossip) sync(sync Message) (ack Message) {
 	}
 
 	for _, n := range snap.Nodes {
-
 		// If we have a node that the initiator doesn't have,
 		// send it to them.
 		if _, ok := sync.Digests[n.Key]; !ok {

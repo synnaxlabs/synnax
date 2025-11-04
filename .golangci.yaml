@@ -1,4 +1,25 @@
 version: "2"
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+    - swaggo
+  settings:
+    gci:
+      no-inline-comments: true
+      no-prefix-comments: true
+    gofmt:
+      rewrite-rules:
+        - pattern: "interface{}"
+          replacement: "any"
+        - pattern: "a[b:len(a)]"
+          replacement: "a[b:]"
+        - pattern: "a[0:b]"
+          replacement: "a[:b]"
+    gofumpt:
+      extra-rules: true
 linters:
   enable:
     - arangolint

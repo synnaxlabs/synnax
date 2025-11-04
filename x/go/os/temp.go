@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-func WriteTemp(dir string, prefix string, data []byte) (string, error) {
+func WriteTemp(dir, prefix string, data []byte) (string, error) {
 	cfgFile, err := os.CreateTemp(dir, prefix)
 	if err != nil {
 		return cfgFile.Name(), err

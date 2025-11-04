@@ -61,5 +61,4 @@ var _ = Describe("Ontology", Ordered, func() {
 			Expect(resU).To(Equal(u))
 		})
 	})
-
 })

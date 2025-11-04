@@ -70,7 +70,6 @@ var _ = Describe("Retrieve", Ordered, func() {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(resChannelsTwo).To(HaveLen(len(created) + internalChannelCount))
 			})
-
 		})
 		It("Should correctly retrieve a channel by its key", func() {
 			created := []channel.Channel{
@@ -154,7 +153,6 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Exec(ctx, nil)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Channels with keys [435] not found"))
-
 		})
 		It("Should correctly filter channels by search term", func() {
 			created := []channel.Channel{
@@ -190,7 +188,6 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Entries(&resChannels).
 				Exec(ctx, nil)).To(HaveOccurredAs(query.NotFound))
 		})
-
 	})
 	Describe("Exists", func() {
 		It("Should return true if a channel exists", func() {
@@ -217,5 +214,4 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(exists).To(BeTrue())
 		})
 	})
-
 })

@@ -82,7 +82,6 @@ var _ = Describe("Ferrors", Ordered, func() {
 				Expect(pld.Data).To(Equal("unknown"))
 			})
 		})
-
 	})
 	Describe("Decode", func() {
 		Context("Internal is true", func() {

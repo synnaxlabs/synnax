@@ -24,20 +24,20 @@ import (
 
 var _ = Describe("OP", func() {
 	DescribeTable("Outputs", func(
-		t string, lhs, lhsTime, rhs, rhsTime, output, outputTime telem.Series) {
-		opNode :=
-			ir.Node{
-				Key:  "op",
-				Type: t,
-				Inputs: types.Params{
-					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-					Values: []types.Type{types.FromTelem(lhs.DataType), types.FromTelem(rhs.DataType)},
-				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.FromTelem(output.DataType)},
-				},
-			}
+		t string, lhs, lhsTime, rhs, rhsTime, output, outputTime telem.Series,
+	) {
+		opNode := ir.Node{
+			Key:  "op",
+			Type: t,
+			Inputs: types.Params{
+				Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
+				Values: []types.Type{types.FromTelem(lhs.DataType), types.FromTelem(rhs.DataType)},
+			},
+			Outputs: types.Params{
+				Keys:   []string{ir.DefaultOutputParam},
+				Values: []types.Type{types.FromTelem(output.DataType)},
+			},
+		}
 		cfg := state.Config{
 			Nodes: []ir.Node{
 				{
@@ -128,20 +128,20 @@ var _ = Describe("OP", func() {
 		Entry("Uint8 AND - second false", "and", telem.NewSeriesV[uint8](1, 1, 1), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](0, 0, 0), telem.NewSeriesSecondsTSV(1, 2, 3)),
 	)
 	DescribeTable("Unary Outputs", func(
-		t string, input, inputTime, output, outputTime telem.Series) {
-		opNode :=
-			ir.Node{
-				Key:  "op",
-				Type: t,
-				Inputs: types.Params{
-					Keys:   []string{ir.DefaultInputParam},
-					Values: []types.Type{types.FromTelem(input.DataType)},
-				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.FromTelem(output.DataType)},
-				},
-			}
+		t string, input, inputTime, output, outputTime telem.Series,
+	) {
+		opNode := ir.Node{
+			Key:  "op",
+			Type: t,
+			Inputs: types.Params{
+				Keys:   []string{ir.DefaultInputParam},
+				Values: []types.Type{types.FromTelem(input.DataType)},
+			},
+			Outputs: types.Params{
+				Keys:   []string{ir.DefaultOutputParam},
+				Values: []types.Type{types.FromTelem(output.DataType)},
+			},
+		}
 		cfg := state.Config{
 			Nodes: []ir.Node{
 				{

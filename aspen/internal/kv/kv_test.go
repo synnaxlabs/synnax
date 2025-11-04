@@ -47,19 +47,15 @@ var _ = Describe("txn", func() {
 	})
 
 	Describe("StreamServer", func() {
-
 		It("Should open a new database without error", func() {
 			kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv).ToNot(BeNil())
 		})
-
 	})
 
 	Describe("SetNode", func() {
-
 		Describe("Gateway Leaseholder", func() {
-
 			It("Should commit the operation to storage", func() {
 				kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
@@ -123,7 +119,6 @@ var _ = Describe("txn", func() {
 					Expect(err).To(HaveOccurred())
 					Expect(errors.Is(err, kv.ErrLeaseNotTransferable)).To(BeTrue())
 				})
-
 		})
 
 		Describe("Peers Leaseholder", func() {
@@ -148,7 +143,6 @@ var _ = Describe("txn", func() {
 				Expect(kv.Set(ctx, []byte("key"), []byte("value"), "2")).To(HaveOccurred())
 			})
 		})
-
 	})
 
 	Describe("Tx", func() {
@@ -169,11 +163,9 @@ var _ = Describe("txn", func() {
 			Expect(v).To(Equal([]byte("value2")))
 			Expect(closer.Close()).To(Succeed())
 		})
-
 	})
 
 	Describe("delete", func() {
-
 		Describe("Gateway Leaseholder", func() {
 			It("Should apply the operation to storage", func() {
 				kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
@@ -208,7 +200,6 @@ var _ = Describe("txn", func() {
 				}).Should(Succeed())
 			})
 		})
-
 	})
 
 	Describe("Request Recovery", func() {

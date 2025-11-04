@@ -235,7 +235,7 @@ func (c *Factory) withFile(p string, flag int, fn func(fs xfs.File) error) (err 
 		err = errors.Combine(err, f.Close())
 	}()
 	err = fn(f)
-	return
+	return err
 }
 
 func (c *Factory) writeFlag() int {

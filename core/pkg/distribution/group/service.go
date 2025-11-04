@@ -103,13 +103,13 @@ func (w Writer) Create(
 	g.Name = name
 	id := OntologyID(g.Key)
 	if err = gorp.NewCreate[uuid.UUID, Group]().Entry(&g).Exec(ctx, w.tx); err != nil {
-		return
+		return g, err
 	}
 	if err = w.otg.DefineResource(ctx, id); err != nil {
-		return
+		return g, err
 	}
 	if err = w.otg.DefineRelationship(ctx, parent, ontology.ParentOf, id); err != nil {
-		return
+		return g, err
 	}
 	return g, err
 }
@@ -127,13 +127,13 @@ func (w Writer) CreateWithKey(
 	g.Name = name
 	id := OntologyID(g.Key)
 	if err = gorp.NewCreate[uuid.UUID, Group]().Entry(&g).Exec(ctx, w.tx); err != nil {
-		return
+		return g, err
 	}
 	if err = w.otg.DefineResource(ctx, id); err != nil {
-		return
+		return g, err
 	}
 	if err = w.otg.DefineRelationship(ctx, parent, ontology.ParentOf, id); err != nil {
-		return
+		return g, err
 	}
 	return g, err
 }

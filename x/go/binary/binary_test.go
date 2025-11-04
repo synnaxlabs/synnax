@@ -24,5 +24,4 @@ var _ = Describe("Binary", func() {
 			Expect(copied).ToNot(BeIdenticalTo(bytes))
 		})
 	})
-
 })

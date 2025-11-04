@@ -98,7 +98,6 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Copy", func() {
-
 		It("Should copy a task", func() {
 			m := &task.Task{
 				Key:  task.NewKey(rack_.Key, 0),
@@ -125,7 +124,6 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Key).To(Equal(task.NewKey(rack_.Key, 7)))
 			Expect(t.Snapshot).To(BeTrue())
 		})
-
 	})
 
 	Describe("Retrieve", func() {

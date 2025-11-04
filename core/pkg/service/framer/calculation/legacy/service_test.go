@@ -10,24 +10,21 @@
 package legacy_test
 
 import (
-	"time"
-
 	"encoding/json"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-	calculation "github.com/synnaxlabs/synnax/pkg/service/framer/calculation/legacy"
-	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/status"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	calculation "github.com/synnaxlabs/synnax/pkg/service/framer/calculation/legacy"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )

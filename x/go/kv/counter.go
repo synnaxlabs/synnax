@@ -12,6 +12,7 @@ package kv
 import (
 	"context"
 	"encoding/binary"
+
 	atomicx "github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/errors"
 )

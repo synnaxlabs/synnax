@@ -31,5 +31,4 @@ var _ = Describe("CompoundRetrieve", func() {
 			Expect(r).To(Equal(nr))
 		})
 	})
-
 })

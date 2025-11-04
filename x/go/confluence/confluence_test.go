@@ -83,7 +83,7 @@ var _ = Describe("Confluence", func() {
 			var s seg
 			s.InFrom(i)
 			s.OutTo(o)
-			var a = atomic.Int32Counter{}
+			a := atomic.Int32Counter{}
 			s.Flow(
 				ctx,
 				CloseOutputInletsOnExit(),

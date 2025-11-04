@@ -359,7 +359,7 @@ func main() {
 
 	// Generate regular operations for all types
 	for _, typ := range types {
-		err := tmpl.Execute(&buf, map[string]interface{}{
+		err := tmpl.Execute(&buf, map[string]any{
 			"Type":       typ,
 			"Operations": operations,
 		})
@@ -370,7 +370,7 @@ func main() {
 
 	// Generate logical operations for uint8 only
 	uint8Type := TypeInfo{Name: "U8", GoType: "uint8", Size: 1, IsUnsigned: true}
-	err := tmpl.Execute(&buf, map[string]interface{}{
+	err := tmpl.Execute(&buf, map[string]any{
 		"Type":       uint8Type,
 		"Operations": logicalOperations,
 	})
@@ -380,7 +380,7 @@ func main() {
 
 	// Generate Not operation for uint8 only
 	notOp := []UnaryOperation{{Name: "Not", FuncName: "Not", Op: "^"}}
-	err = unaryTmpl.Execute(&buf, map[string]interface{}{
+	err = unaryTmpl.Execute(&buf, map[string]any{
 		"Type":     uint8Type,
 		"UnaryOps": notOp,
 	})
@@ -392,7 +392,7 @@ func main() {
 	negateOp := []UnaryOperation{{Name: "Negate", FuncName: "Neg", Op: "-"}}
 	for _, typ := range types {
 		if typ.IsSigned || typ.IsFloat {
-			err = unaryTmpl.Execute(&buf, map[string]interface{}{
+			err = unaryTmpl.Execute(&buf, map[string]any{
 				"Type":     typ,
 				"UnaryOps": negateOp,
 			})
@@ -404,7 +404,7 @@ func main() {
 
 	// Generate reduction operations for all types
 	for _, typ := range types {
-		err := reductionTmpl.Execute(&buf, map[string]interface{}{
+		err := reductionTmpl.Execute(&buf, map[string]any{
 			"Type":       typ,
 			"Reductions": reductionOperations,
 		})
@@ -415,7 +415,7 @@ func main() {
 
 	// Generate derivative operations for all types
 	for _, typ := range types {
-		err := derivativeTmpl.Execute(&buf, map[string]interface{}{
+		err := derivativeTmpl.Execute(&buf, map[string]any{
 			"Type":        typ,
 			"Derivatives": derivativeOperations,
 		})
@@ -425,7 +425,7 @@ func main() {
 	}
 
 	output := buf.String()
-	err = os.WriteFile("op.go", []byte(output), 0644)
+	err = os.WriteFile("op.go", []byte(output), 0o644)
 	if err != nil {
 		panic(err)
 	}

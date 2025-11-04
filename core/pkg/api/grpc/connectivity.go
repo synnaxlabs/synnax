@@ -30,9 +30,7 @@ type (
 	]
 )
 
-var (
-	_ fgrpc.Translator[api.ConnectivityCheckResponse, *gapi.ConnectivityCheckResponse] = (*connectivityResponseTranslator)(nil)
-)
+var _ fgrpc.Translator[api.ConnectivityCheckResponse, *gapi.ConnectivityCheckResponse] = (*connectivityResponseTranslator)(nil)
 
 func (c connectivityResponseTranslator) Forward(
 	ctx context.Context,

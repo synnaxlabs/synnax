@@ -155,7 +155,7 @@ func (c *Controller[R]) LeadingState() (state *State) {
 	if len(c.regions) != 0 && len(c.regions[0].gates) != 0 {
 		state = c.regions[0].curr.state()
 	}
-	return
+	return state
 }
 
 // OpenGate opens a new gate for the region occupying the specified time range. If the
@@ -181,7 +181,7 @@ func (c *Controller[R]) OpenGate(cfg GateConfig[R]) (g *Gate[R], t Transfer, err
 			}
 			// If there is an existing region, we open a new gate on that region.
 			if g, t, err = reg.open(cfg); err != nil {
-				return
+				return g, t, err
 			}
 			exists = true
 		}
@@ -191,7 +191,7 @@ func (c *Controller[R]) OpenGate(cfg GateConfig[R]) (g *Gate[R], t Transfer, err
 	}
 	var res R
 	if res, err = cfg.OpenResource(); err != nil {
-		return
+		return g, t, err
 	}
 	reg := c.unsafeInsertNewRegion(cfg.TimeRange, res)
 	return reg.open(cfg)
@@ -207,7 +207,7 @@ func (c *Controller[R]) unsafeInsertNewRegion(
 		timeRange:  t,
 		controller: c,
 	}
-	pos, _ := slices.BinarySearchFunc(c.regions, r, func(a *region[R], b *region[R]) int {
+	pos, _ := slices.BinarySearchFunc(c.regions, r, func(a, b *region[R]) int {
 		return int(a.timeRange.Start - b.timeRange.Start)
 	})
 	c.regions = slices.Insert(c.regions, pos, r)

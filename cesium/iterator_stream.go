@@ -188,7 +188,7 @@ func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) (ok bool
 	case IterSetBounds:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { i.SetBounds(req.Bounds); return true })
 	}
-	return
+	return ok, err
 }
 
 func (s *streamIterator) execWithResponse(seqNum int, f func(i *unary.Iterator) bool) (ok bool) {
@@ -212,7 +212,7 @@ func (s *streamIterator) execWithoutResponse(f func(i *unary.Iterator) bool) (ok
 			ok = true
 		}
 	}
-	return
+	return ok
 }
 
 func (s *streamIterator) error() error {

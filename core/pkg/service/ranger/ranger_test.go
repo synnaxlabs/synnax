@@ -409,7 +409,6 @@ var _ = Describe("Ranger", Ordered, func() {
 	})
 
 	Describe("Alias", func() {
-
 		Describe("Set", func() {
 			It("Should set an Alias for a channel on a range", func() {
 				r := ranger.Range{
@@ -520,7 +519,6 @@ var _ = Describe("Ranger", Ordered, func() {
 		})
 
 		Describe("Resolve", func() {
-
 			It("Should resolve an Alias for a channel on a range", func() {
 				r := ranger.Range{
 					Name: "Range",
@@ -639,7 +637,6 @@ var _ = Describe("Ranger", Ordered, func() {
 		})
 
 		Describe("List", func() {
-
 			It("Should list the aliases on a range", func() {
 				r := ranger.Range{
 					Name: "Range",
@@ -687,7 +684,6 @@ var _ = Describe("Ranger", Ordered, func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(aliases).To(HaveKeyWithValue(ch.Key(), "Alias"))
 			})
-
 		})
 
 		Context("Ontology", func() {

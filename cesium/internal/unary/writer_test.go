@@ -536,7 +536,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					var (
 						w, t = MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 							Start:   10 * telem.SecondTS,
-							Subject: control.Subject{Key: "foo"}},
+							Subject: control.Subject{Key: "foo"},
+						},
 						))
 						e = core.NewErrResourceClosed("unary.writer")
 					)
@@ -555,7 +556,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					_, _, err := db.OpenWriter(ctx, unary.WriterConfig{
 						Start:   10 * telem.SecondTS,
-						Subject: control.Subject{Key: "foo"}},
+						Subject: control.Subject{Key: "foo"},
+					},
 					)
 					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("unary.db")))
 					Expect(err).To(MatchError(ContainSubstring("channel [gauss]<%d>", key)))

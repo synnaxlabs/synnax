@@ -11,8 +11,9 @@ package fgrpc
 
 import (
 	"context"
-	"github.com/synnaxlabs/freighter"
 	"go/types"
+
+	"github.com/synnaxlabs/freighter"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

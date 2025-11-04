@@ -14,7 +14,6 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/telem"
 )

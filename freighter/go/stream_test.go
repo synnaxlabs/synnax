@@ -61,9 +61,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			Expect(impl.stop()).ToNot(HaveOccurred())
 		})
 		Context("Implementation "+impl.name(), func() {
-
 			Describe("Normal Operation", func() {
-
 				It("Should exchange messages between a client and a server", func() {
 					closed := make(chan struct{})
 
@@ -161,10 +159,8 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					Expect(client.CloseSend()).To(Succeed())
 					Eventually(serverClosed).Should(BeClosed())
 				})
-
 			})
 			Describe("Error Handling", func() {
-
 				Describe("Stream returns a non-nil error", func() {
 					It("Should send the error to the client", func() {
 						serverClosed := make(chan struct{})
@@ -203,7 +199,6 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						Expect(err).To(HaveOccurredAs(freighter.EOF))
 						Eventually(serverClosed).Should(BeClosed())
 					})
-
 				})
 
 				Describe("StreamClient cancels the context", func() {
@@ -251,7 +246,6 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						Expect(err).To(HaveOccurredAs(freighter.EOF))
 						Eventually(serverClosed).Should(BeClosed())
 					})
-
 				})
 				Describe("StreamClient attempts to send a message after the server closes", func() {
 					It("Should return a EOF error", func() {

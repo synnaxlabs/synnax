@@ -620,6 +620,5 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
 			Expect(inferredType).To(Equal(types.U16()))
 		})
-
 	})
 })

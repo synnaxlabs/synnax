@@ -11,6 +11,11 @@ package main
 
 import (
 	"context"
+	"log"
+	"net"
+	"os"
+	"os/signal"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	igrp "github.com/synnaxlabs/freighter/integration/grpc"
@@ -18,10 +23,6 @@ import (
 	xsig "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"log"
-	"net"
-	"os"
-	"os/signal"
 )
 
 func main() {
@@ -56,7 +57,6 @@ func main() {
 		cancel()
 		return sCtx.Wait()
 	}()
-
 	if err != nil {
 		zap.S().Fatalw("failed to start server", "error", err)
 	}

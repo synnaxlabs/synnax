@@ -234,16 +234,16 @@ func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {
 		defer s.mu.Unlock()
 		e, found := s.mu.entries[key]
 		if !found {
-			return
+			return err
 		}
 		e.count--
 		if e.count != 0 {
-			return
+			return err
 		}
 		s.cfg.L.Debug("closing calculated channel", zap.Stringer("key", key))
 		e.calculation.Close()
 		delete(s.mu.entries, key)
-		return
+		return err
 	})
 }
 

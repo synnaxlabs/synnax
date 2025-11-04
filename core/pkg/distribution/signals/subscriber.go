@@ -81,7 +81,7 @@ func decodeChanges(
 			})
 		}
 	}
-	return
+	return changes
 }
 
 func (s *Provider) Subscribe(

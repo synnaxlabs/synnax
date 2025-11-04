@@ -523,8 +523,16 @@ var _ = Describe("Scheduler", func() {
 			}
 			prog = ir.IR{
 				Nodes: []ir.Node{
-					{Key: "a"}, {Key: "b"}, {Key: "c"}, {Key: "d"}, {Key: "e"},
-					{Key: "f"}, {Key: "g"}, {Key: "h"}, {Key: "i"}, {Key: "j"},
+					{Key: "a"},
+					{Key: "b"},
+					{Key: "c"},
+					{Key: "d"},
+					{Key: "e"},
+					{Key: "f"},
+					{Key: "g"},
+					{Key: "h"},
+					{Key: "i"},
+					{Key: "j"},
 				},
 				Strata: ir.Strata{{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}},
 			}

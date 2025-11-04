@@ -637,7 +637,7 @@ var _ = Describe("Object", func() {
 		Describe("UUID Object", func() {
 			It("Should parse correctly", func() {
 				type MyStruct struct{ Value uuid.UUID }
-				var schema = zyn.Object(map[string]zyn.Schema{"value": zyn.UUID()})
+				schema := zyn.Object(map[string]zyn.Schema{"value": zyn.UUID()})
 				value := uuid.New()
 				data := map[string]any{"value": value.String()}
 				var res MyStruct

@@ -144,8 +144,7 @@ func (c Config) Override(other Config) Config {
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Framer = override.Nil(c.Framer, other.Framer)
-	c.RackStateAliveThreshold =
-		override.Numeric(c.RackStateAliveThreshold, other.RackStateAliveThreshold)
+	c.RackStateAliveThreshold = override.Numeric(c.RackStateAliveThreshold, other.RackStateAliveThreshold)
 	c.Device = override.Nil(c.Device, other.Device)
 	return c
 }
@@ -246,8 +245,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 		t.mu.Devices[dev.Key] = deviceState
 	}
 
-	if err =
-		cfg.Channels.DeleteByName(ctx, "sy_rack_heartbeat", true); err != nil {
+	if err = cfg.Channels.DeleteByName(ctx, "sy_rack_heartbeat", true); err != nil {
 		return nil, err
 	}
 	channels := []channel.Channel{
@@ -486,7 +484,6 @@ func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Ke
 				TaskStatuses: make(map[task.Key]task.Status),
 				Status:       newUnknownRackStatus(c.Key),
 			}
-
 		}
 	}
 }

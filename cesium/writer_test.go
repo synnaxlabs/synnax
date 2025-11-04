@@ -155,7 +155,6 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(sCtx.Wait()).To(Succeed())
 							Expect(w.Close()).To(Succeed())
 						})
-
 					})
 				})
 
@@ -249,7 +248,6 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(f.SeriesAt(1).Data).To(Equal(telem.NewSeriesV[int64](10, 11, 13, 17).Data))
 					})
 					It("Should not write an empty frame", func() {
-
 						var (
 							idx  = GenerateChannelKey()
 							data = GenerateChannelKey()
@@ -510,7 +508,7 @@ var _ = Describe("Writer Behavior", func() {
 								_, err := f.ReadAt(buf, 0)
 								Expect(err).ToNot(HaveOccurred())
 								Expect(f.Close()).To(Succeed())
-								Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
+								Expect(binary.LittleEndian.Uint64(buf[:8])).To(Equal(uint64(10 * telem.SecondTS)))
 								Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(12*telem.SecondTS + 1)))
 								Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(16)))
 
@@ -519,10 +517,9 @@ var _ = Describe("Writer Behavior", func() {
 								_, err = f.ReadAt(buf, 0)
 								Expect(err).ToNot(HaveOccurred())
 								Expect(f.Close()).To(Succeed())
-								Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
+								Expect(binary.LittleEndian.Uint64(buf[:8])).To(Equal(uint64(10 * telem.SecondTS)))
 								Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(12*telem.SecondTS + 1)))
 								Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(16)))
-
 							})
 
 							It("Should auto persist every second when the interval is not set", func() {
@@ -567,7 +564,7 @@ var _ = Describe("Writer Behavior", func() {
 									_, err := f.Read(buf)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
-									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
+									g.Expect(binary.LittleEndian.Uint64(buf[:8])).To(Equal(uint64(10 * telem.SecondTS)))
 									g.Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(24*telem.SecondTS + 1)))
 									g.Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(56)))
 
@@ -576,7 +573,7 @@ var _ = Describe("Writer Behavior", func() {
 									_, err = f.Read(buf)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
-									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
+									g.Expect(binary.LittleEndian.Uint64(buf[:8])).To(Equal(uint64(10 * telem.SecondTS)))
 									g.Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(24*telem.SecondTS + 1)))
 									g.Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(56)))
 								}).Should(Succeed())
@@ -653,7 +650,7 @@ var _ = Describe("Writer Behavior", func() {
 									_, err := f.ReadAt(buf, 0)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
-									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
+									g.Expect(binary.LittleEndian.Uint64(buf[:8])).To(Equal(uint64(10 * telem.SecondTS)))
 									g.Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(24*telem.SecondTS + 1)))
 									g.Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(56)))
 
@@ -662,7 +659,7 @@ var _ = Describe("Writer Behavior", func() {
 									_, err = f.ReadAt(buf, 0)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
-									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
+									g.Expect(binary.LittleEndian.Uint64(buf[:8])).To(Equal(uint64(10 * telem.SecondTS)))
 									g.Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(24*telem.SecondTS + 1)))
 									g.Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(56)))
 								}).Should(Succeed())
@@ -701,7 +698,7 @@ var _ = Describe("Writer Behavior", func() {
 									_, err := f.Read(buf)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
-									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
+									g.Expect(binary.LittleEndian.Uint64(buf[:8])).To(Equal(uint64(10 * telem.SecondTS)))
 									g.Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(43*telem.SecondTS + 1)))
 									g.Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(13 * 8)))
 
@@ -710,7 +707,7 @@ var _ = Describe("Writer Behavior", func() {
 									_, err = f.ReadAt(buf, 0)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
-									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
+									g.Expect(binary.LittleEndian.Uint64(buf[:8])).To(Equal(uint64(10 * telem.SecondTS)))
 									g.Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(43*telem.SecondTS + 1)))
 									g.Expect(binary.LittleEndian.Uint32(buf[22:26])).To(Equal(uint32(13 * 8)))
 								}).Should(Succeed())
@@ -1257,7 +1254,6 @@ var _ = Describe("Writer Behavior", func() {
 				})
 
 				Context("Missing Channel", func() {
-
 					Specify("Frame With Index Channel but without Data Channel", func() {
 						w := MustSucceed(db.OpenWriter(
 							ctx,
@@ -1404,7 +1400,7 @@ var _ = Describe("Writer Behavior", func() {
 			Describe("Data Type Errors", func() {
 				ShouldNotLeakRoutinesJustBeforeEach()
 				Specify("Invalid Data Type for series", func() {
-					var dtErr = GenerateChannelKey()
+					dtErr := GenerateChannelKey()
 					Expect(db.CreateChannel(
 						ctx,
 						cesium.Channel{
@@ -1477,7 +1473,7 @@ var _ = Describe("Writer Behavior", func() {
 			Describe("Virtual Channel", func() {
 				ShouldNotLeakRoutinesJustBeforeEach()
 				It("Should write to virtual channel", func() {
-					var virtual1 = GenerateChannelKey()
+					virtual1 := GenerateChannelKey()
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
@@ -1625,6 +1621,5 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 		})
-
 	}
 })

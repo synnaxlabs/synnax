@@ -15,11 +15,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
-
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -123,6 +122,5 @@ var _ = Describe("Migrate", Ordered, func() {
 			Expect(newCalcIndex.Virtual).To(BeTrue())
 			Expect(newCalcIndex.Expression).To(BeEmpty())
 		})
-
 	})
 })

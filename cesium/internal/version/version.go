@@ -11,6 +11,8 @@ package version
 
 type Version = uint8
 
-const V1 Version = 1
-const V2 Version = 2
-const Current = V2
+const (
+	V1      Version = 1
+	V2      Version = 2
+	Current         = V2
+)

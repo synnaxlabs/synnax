@@ -179,7 +179,7 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	}()
 	if i.atEnd() {
 		i.reset(i.bounds.End.SpanRange(0))
-		return
+		return ok
 	}
 
 	if span == AutoSpan {
@@ -189,19 +189,19 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	i.reset(i.view.End.SpanRange(span).BoundBy(i.bounds))
 
 	if i.view.Span().IsZero() || i.view.End.BeforeEq(i.internal.TimeRange().Start) {
-		return
+		return ok
 	}
 
 	i.accumulate(ctx)
 	if i.satisfied() || i.err != nil {
-		return
+		return ok
 	}
 
 	for i.internal.Next() &&
 		i.accumulate(ctx) &&
 		!i.satisfied() {
 	}
-	return
+	return ok
 }
 
 func (i *Iterator) autoNext(ctx context.Context) bool {
@@ -334,7 +334,7 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 	if i.atStart() {
 		i.reset(i.bounds.Start.SpanRange(0))
-		return
+		return ok
 	}
 
 	if span == AutoSpan {
@@ -344,19 +344,19 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	i.reset(i.view.Start.SpanRange(-1 * span).BoundBy(i.bounds))
 
 	if i.view.Span().IsZero() || i.view.Start.AfterEq(i.internal.TimeRange().End) {
-		return
+		return ok
 	}
 
 	i.accumulate(ctx)
 	if i.satisfied() || i.err != nil {
-		return
+		return ok
 	}
 
 	for i.internal.Prev() &&
 		i.accumulate(ctx) &&
 		!i.satisfied() {
 	}
-	return
+	return ok
 }
 
 // Len returns the number of samples in the iterator's frame.
@@ -517,7 +517,7 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 		target := i.internal.TimeRange().Start.Range(i.view.End)
 		endApprox, _, err = i.idx.Distance(ctx, target, index.MustBeContinuous)
 	}
-	return
+	return endApprox, err
 }
 
 // satisfied returns whether an iterator collected all telemetry in its view. An

@@ -90,7 +90,7 @@ func GreaterThanEq[T types.Numeric](
 	)
 }
 
-func LessThan[T types.Numeric](v *Validator, field string, value T, threshold T) bool {
+func LessThan[T types.Numeric](v *Validator, field string, value, threshold T) bool {
 	return v.Ternaryf(field, value >= threshold, "must be less than %v", threshold)
 }
 

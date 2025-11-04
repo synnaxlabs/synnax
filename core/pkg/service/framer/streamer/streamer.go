@@ -130,7 +130,7 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
 	}
 	plumber.SetSegment(p, utAddr, ut)
 	plumber.MustConnect[framer.StreamerRequest](p, utAddr, distAddr, requestBufferSize)
-	var routeOutletFrom = distAddr
+	routeOutletFrom := distAddr
 	if cfg.DownsampleFactor > 1 {
 		plumber.SetSegment(p, downsampleAddr, newDownsampler(cfg))
 		plumber.MustConnect[Response](p, routeOutletFrom, downsampleAddr, responseBufferSize)

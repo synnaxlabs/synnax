@@ -12,14 +12,13 @@ package math_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/types"
 )
 
 func testIntPow[T types.Numeric]() {
 	DescribeTable("Should correctly compute integer powers",
-		func(x int, n int, expected int) {
+		func(x, n, expected int) {
 			Expect(math.IntPow(T(x), n)).To(BeEquivalentTo(expected))
 		},
 		Entry("0^0 = 1", 0, 0, 1),
@@ -63,7 +62,7 @@ func testIntPowFloating[T types.Floating]() {
 
 func testIntPowSignedInt[T types.SignedInteger]() {
 	DescribeTable("Should correctly compute integer powers",
-		func(x int, n int, expected int) {
+		func(x, n, expected int) {
 			Expect(math.IntPow(T(x), n)).WithOffset(1).To(BeEquivalentTo(expected))
 		},
 		Entry("For integers, -2^-2 = 0", -2, -2, 0),
@@ -75,7 +74,7 @@ func testIntPowSignedInt[T types.SignedInteger]() {
 
 func testIntPowInt[T types.Integer]() {
 	DescribeTable("Should correctly compute integer powers",
-		func(x int, n int, expected int) {
+		func(x, n, expected int) {
 			Expect(math.IntPow(T(x), n)).To(BeEquivalentTo(expected))
 		},
 		Entry("For integers, 2^-2 = 0", 2, -2, 0),
@@ -85,7 +84,7 @@ func testIntPowInt[T types.Integer]() {
 
 func testIntPowSigned[T types.Signed]() {
 	DescribeTable("Should correctly compute integer powers",
-		func(x int, n int, expected int) {
+		func(x, n, expected int) {
 			Expect(math.IntPow(T(x), n)).To(BeEquivalentTo(expected))
 		},
 		Entry("-2^0 = 1", -2, 0, 1),

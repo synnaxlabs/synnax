@@ -22,7 +22,6 @@ import (
 )
 
 var _ = Describe("Calculator", func() {
-
 	Context("Single Channel Calculation", func() {
 		It("Should correctly calculate the output value", func() {
 			out := channel.Channel{

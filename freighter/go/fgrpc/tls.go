@@ -12,12 +12,13 @@ package fgrpc
 import (
 	"context"
 	"crypto/tls"
+	"net"
+
 	"github.com/cockroachdb/cmux"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/credentials"
-	"net"
 )
 
 // MuxCredentials implements the grpc.TransportCredentials interface that allows
