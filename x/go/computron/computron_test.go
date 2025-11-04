@@ -95,14 +95,6 @@ var _ = Describe("Computron", func() {
 		})
 	})
 
-	Describe("LValueFromSeries", func() {
-		It("Should return the correct lua value from the series", func() {
-			series := telem.NewSeriesV[float32](1.0)
-			v := computron.LValueFromSeries(series, 0)
-			Expect(v).To(Equal(lua.LNumber(1.0)))
-		})
-	})
-
 	Describe("LValueFromMultiSeriesAlignment", func() {
 		It("Should return the correct lua value for int32 type", func() {
 			series1 := telem.MakeSeries(telem.Int32T, 1)

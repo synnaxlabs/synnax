@@ -50,15 +50,6 @@ var _ = Describe("Iter", func() {
 			Expect(v).To(Equal(0))
 		})
 	})
-	Describe("ToSlice", func() {
-		It("Should exhaust the iterator and return a slice of values", func() {
-			n := 5
-			values := make([]int, n)
-			i := iter.All(values)
-			slice := iter.ToSlice(ctx, i)
-			Expect(slice).To(Equal(values))
-		})
-	})
 	Describe("MapToSliceWithFilter", func() {
 		It("Should map and filter values from an iterator", func() {
 			values := []int{1, 2, 3, 4, 5, 6}

@@ -57,35 +57,6 @@ var _ = Describe("Validate", func() {
 		})
 	})
 
-	Describe("Func", func() {
-		It("Should execute the validation function and accumulate error", func() {
-			executed := false
-			v.Func(func() bool {
-				executed = true
-				return true
-			}, "error message")
-			Expect(executed).To(BeTrue())
-			Expect(v.Error()).To(HaveOccurred())
-		})
-
-		It("Should not accumulate error if function returns false", func() {
-			v.Func(func() bool {
-				return false
-			}, "error message")
-			Expect(v.Error()).NotTo(HaveOccurred())
-		})
-
-		It("Should short circuit if previous error exists", func() {
-			v.Ternary("field1", true, "first error")
-			executed := false
-			v.Func(func() bool {
-				executed = true
-				return true
-			}, "second error")
-			Expect(executed).To(BeFalse())
-		})
-	})
-
 	Describe("Validation Helpers", func() {
 		Describe("NotNil", func() {
 			It("Should validate non-nil values", func() {
@@ -110,30 +81,6 @@ var _ = Describe("Validate", func() {
 
 				It("Should catch non-positive numbers", func() {
 					Expect(validate.Positive(v, "field", 0)).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
-				})
-			})
-
-			Describe("Filtering", func() {
-				It("Should validate numbers greater than threshold", func() {
-					Expect(validate.GreaterThan(v, "field", 10, 5)).To(BeFalse())
-					Expect(v.Error()).NotTo(HaveOccurred())
-				})
-
-				It("Should catch numbers less than or equal to threshold", func() {
-					Expect(validate.GreaterThan(v, "field", 5, 5)).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
-				})
-			})
-
-			Describe("LessThan", func() {
-				It("Should validate numbers less than threshold", func() {
-					Expect(validate.LessThan(v, "field", 5, 10)).To(BeFalse())
-					Expect(v.Error()).NotTo(HaveOccurred())
-				})
-
-				It("Should catch numbers greater than or equal to threshold", func() {
-					Expect(validate.LessThan(v, "field", 10, 10)).To(BeTrue())
 					Expect(v.Error()).To(HaveOccurred())
 				})
 			})

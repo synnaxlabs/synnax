@@ -25,36 +25,6 @@ type Calculator struct {
 	compiledExpr *lua.LFunction
 }
 
-// LValueFromSeries converts a numeric series value at an index to a lua value.
-func LValueFromSeries(s telem.Series, i int) lua.LValue {
-	switch s.DataType {
-	case telem.Int8T:
-		return lua.LNumber(telem.ValueAt[int8](s, i))
-	case telem.Int16T:
-		return lua.LNumber(telem.ValueAt[int16](s, i))
-	case telem.Int32T:
-		return lua.LNumber(telem.ValueAt[int32](s, i))
-	case telem.Int64T:
-		return lua.LNumber(telem.ValueAt[int64](s, i))
-	case telem.Uint8T:
-		return lua.LNumber(telem.ValueAt[uint8](s, i))
-	case telem.Uint16T:
-		return lua.LNumber(telem.ValueAt[uint16](s, i))
-	case telem.Uint32T:
-		return lua.LNumber(telem.ValueAt[uint32](s, i))
-	case telem.Uint64T:
-		return lua.LNumber(telem.ValueAt[uint64](s, i))
-	case telem.Float32T:
-		return lua.LNumber(telem.ValueAt[float32](s, i))
-	case telem.Float64T:
-		return lua.LNumber(telem.ValueAt[float64](s, i))
-	case telem.StringT:
-		return lua.LString(s.At(i))
-	default:
-		return lua.LNil
-	}
-}
-
 // LValueFromMultiSeriesAlignment gets the value in the multi-series at the given
 // alignment and converts it into an LValue with the correct data type.
 func LValueFromMultiSeriesAlignment(series telem.MultiSeries, a telem.Alignment) lua.LValue {

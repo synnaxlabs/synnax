@@ -43,15 +43,6 @@ func (v *Validator) Ternaryf(field string, cond bool, format string, args ...any
 	return v.Error() != nil
 }
 
-func (v *Validator) New(msg string) error {
-	return errors.Wrapf(Error, "[%s] - "+msg, v.scope)
-}
-
-func (v *Validator) Func(f func() bool, msg string) bool {
-	v.Exec(func() error { return lo.Ternary(f(), v.New(msg), nil) })
-	return v.Error() != nil
-}
-
 func NotNil(v *Validator, field string, value any) bool {
 	isNil := value == nil ||
 		(reflect.ValueOf(value).Kind() == reflect.Pointer &&
@@ -61,15 +52,6 @@ func NotNil(v *Validator, field string, value any) bool {
 
 func Positive[T types.Numeric](v *Validator, field string, value T) bool {
 	return v.Ternary(field, value <= 0, "must be positive")
-}
-
-func GreaterThan[T types.Numeric](
-	v *Validator,
-	field string,
-	value T,
-	threshold T,
-) bool {
-	return v.Ternaryf(field, value <= threshold, "must be greater than %v", threshold)
 }
 
 func GreaterThanEq[T types.Numeric](
@@ -84,10 +66,6 @@ func GreaterThanEq[T types.Numeric](
 		"must be greater than or equal to %v",
 		threshold,
 	)
-}
-
-func LessThan[T types.Numeric](v *Validator, field string, value T, threshold T) bool {
-	return v.Ternaryf(field, value >= threshold, "must be less than %v", threshold)
 }
 
 func LessThanEq[T types.Numeric](

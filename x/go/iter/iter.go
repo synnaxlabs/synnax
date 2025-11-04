@@ -122,15 +122,6 @@ func (n NexterTranslator[I, O]) Next(ctx context.Context) (tv O, ok bool) {
 	return n.Translate(val), ok
 }
 
-// ToSlice iterates over a Nexter and returns a slice of values.
-func ToSlice[T any](ctx context.Context, n Nexter[T]) []T {
-	var values []T
-	for v, ok := n.Next(ctx); ok; v, ok = n.Next(ctx) {
-		values = append(values, v)
-	}
-	return values
-}
-
 func MapToSlice[I, O any](ctx context.Context, n Nexter[I], f func(I) O) []O {
 	var values []O
 	for v, ok := n.Next(ctx); ok; v, ok = n.Next(ctx) {
