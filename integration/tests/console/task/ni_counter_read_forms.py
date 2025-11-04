@@ -60,6 +60,9 @@ class NICounterReadForms(ConsoleCase):
         if mode == "c":
             self.verify_semi_period_inputs(device_name)
             self.verify_two_edge_sep_inputs(device_name)
+        if mode == "d":
+            self.verify_linear_velocity_inputs(device_name)
+            self.verify_angular_velocity_inputs(device_name)
 
         # Assert the set values with form state
         ch_names = console.ni_ci.channels_by_name.copy()
@@ -265,4 +268,70 @@ class NICounterReadForms(ConsoleCase):
             units="Ticks",
             first_edge="Falling",
             second_edge="Rising",
+        )
+
+    def verify_linear_velocity_inputs(self, device_name: str) -> None:
+        """Validate Linear Velocity inputs"""
+        self.log("Configuring channels of type Linear Velocity")
+        console = self.console
+        channel_type = "Linear Velocity"
+
+        console.ni_ci.add_channel(
+            name="LinearVelocity_1",
+            type=channel_type,
+            device=device_name,
+            min_val=0,
+            max_val=10,
+            units="m/s",
+            decoding_type="X4",
+            dist_per_pulse=0.001,
+        )
+        console.ni_ci.add_channel(
+            name="LinearVelocity_2",
+            type=channel_type,
+            device=device_name,
+            units="in/s",
+            decoding_type="X1",
+            dist_per_pulse=0.01,
+        )
+        console.ni_ci.add_channel(
+            name="LinearVelocity_3",
+            type=channel_type,
+            device=device_name,
+            units="Custom",
+            decoding_type="X2",
+            dist_per_pulse=0.005,
+        )
+
+    def verify_angular_velocity_inputs(self, device_name: str) -> None:
+        """Validate Angular Velocity inputs"""
+        self.log("Configuring channels of type Angular Velocity")
+        console = self.console
+        channel_type = "Angular Velocity"
+
+        console.ni_ci.add_channel(
+            name="AngularVelocity_1",
+            type=channel_type,
+            device=device_name,
+            min_val=0,
+            max_val=1000,
+            units="RPM",
+            decoding_type="X4",
+            pulses_per_rev=24,
+        )
+        console.ni_ci.add_channel(
+            name="AngularVelocity_2",
+            type=channel_type,
+            device=device_name,
+            units="Radians/s",
+            decoding_type="X2",
+            pulses_per_rev=100,
+        )
+        console.ni_ci.add_channel(
+            name="AngularVelocity_3",
+            type=channel_type,
+            device=device_name,
+            units="Degrees/s",
+            decoding_type="Two Pulse",
+            pulses_per_rev=360,
         )

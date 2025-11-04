@@ -1148,6 +1148,90 @@ export const ZERO_CI_TWO_EDGE_SEP_CHAN: CITwoEdgeSepChan = {
   secondEdge: FALLING_EDGE,
 };
 
+// Counter Input decoding type
+const X1 = "X1";
+const X2 = "X2";
+const X4 = "X4";
+const TWO_PULSE = "TwoPulse";
+const ciDecodingTypeZ = z.enum([X1, X2, X4, TWO_PULSE]);
+export type CIDecodingType = z.infer<typeof ciDecodingTypeZ>;
+
+// Counter Input linear velocity units
+const CI_METERS_PER_SECOND = "m/s";
+const CI_INCHES_PER_SECOND = "in/s";
+const ciLinearVelocityUnitsZ = z.enum([
+  CI_METERS_PER_SECOND,
+  CI_INCHES_PER_SECOND,
+  FROM_CUSTOM_SCALE,
+]);
+export type CILinearVelocityUnits = z.infer<typeof ciLinearVelocityUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinvelocitychan.html
+export const CI_VELOCITY_LINEAR_CHAN_TYPE = "ci_velocity_linear";
+export const ciLinearVelocityChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_VELOCITY_LINEAR_CHAN_TYPE),
+  units: ciLinearVelocityUnitsZ,
+  decodingType: ciDecodingTypeZ,
+  distPerPulse: z.number(),
+  terminalA: z.string(),
+  terminalB: z.string(),
+});
+export interface CILinearVelocityChan extends z.infer<typeof ciLinearVelocityChanZ> {}
+export const ZERO_CI_LINEAR_VELOCITY_CHAN: CILinearVelocityChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_VELOCITY_LINEAR_CHAN_TYPE,
+  minVal: 0,
+  maxVal: 1,
+  units: CI_METERS_PER_SECOND,
+  decodingType: X4,
+  distPerPulse: 0.001,
+  terminalA: "",
+  terminalB: "",
+};
+
+// Counter Input angular velocity units
+const RPM = "RPM";
+const RADIANS_PER_SECOND = "Radians/s";
+const DEGREES_PER_SECOND = "Degrees/s";
+const ciAngularVelocityUnitsZ = z.enum([
+  RPM,
+  RADIANS_PER_SECOND,
+  DEGREES_PER_SECOND,
+  FROM_CUSTOM_SCALE,
+]);
+export type CIAngularVelocityUnits = z.infer<typeof ciAngularVelocityUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangvelocitychan.html
+export const CI_VELOCITY_ANGULAR_CHAN_TYPE = "ci_velocity_angular";
+export const ciAngularVelocityChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_VELOCITY_ANGULAR_CHAN_TYPE),
+  units: ciAngularVelocityUnitsZ,
+  decodingType: ciDecodingTypeZ,
+  pulsesPerRev: z.number(),
+  terminalA: z.string(),
+  terminalB: z.string(),
+});
+export interface CIAngularVelocityChan extends z.infer<typeof ciAngularVelocityChanZ> {}
+export const ZERO_CI_ANGULAR_VELOCITY_CHAN: CIAngularVelocityChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_VELOCITY_ANGULAR_CHAN_TYPE,
+  minVal: 0,
+  maxVal: 1,
+  units: RPM,
+  decodingType: X4,
+  pulsesPerRev: 24,
+  terminalA: "",
+  terminalB: "",
+};
+
 const ciChannelZ = z.union([
   ciFrequencyChanZ,
   ciEdgeCountChanZ,
@@ -1155,6 +1239,8 @@ const ciChannelZ = z.union([
   ciPulseWidthChanZ,
   ciSemiPeriodChanZ,
   ciTwoEdgeSepChanZ,
+  ciLinearVelocityChanZ,
+  ciAngularVelocityChanZ,
 ]);
 
 type CIChannel = z.infer<typeof ciChannelZ>;
@@ -1167,6 +1253,8 @@ export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
   [CI_PULSE_WIDTH_CHAN_TYPE]: "Pulse Width",
   [CI_SEMI_PERIOD_CHAN_TYPE]: "Semi Period",
   [CI_TWO_EDGE_SEP_CHAN_TYPE]: "Two Edge Separation",
+  [CI_VELOCITY_LINEAR_CHAN_TYPE]: "Linear Velocity",
+  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: "Angular Velocity",
 };
 
 export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
@@ -1176,6 +1264,8 @@ export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
   [CI_PULSE_WIDTH_CHAN_TYPE]: Icon.AutoFitWidth,
   [CI_SEMI_PERIOD_CHAN_TYPE]: Icon.Range,
   [CI_TWO_EDGE_SEP_CHAN_TYPE]: Icon.AutoFitWidth,
+  [CI_VELOCITY_LINEAR_CHAN_TYPE]: Icon.Circle,
+  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: Icon.Circle,
 };
 
 // Counter Output Channels

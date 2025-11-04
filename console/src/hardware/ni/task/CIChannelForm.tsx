@@ -21,10 +21,15 @@ import {
   CI_PULSE_WIDTH_CHAN_TYPE,
   CI_SEMI_PERIOD_CHAN_TYPE,
   CI_TWO_EDGE_SEP_CHAN_TYPE,
+  CI_VELOCITY_ANGULAR_CHAN_TYPE,
+  CI_VELOCITY_LINEAR_CHAN_TYPE,
+  type CIAngularVelocityUnits,
   type CIChannelType,
   type CICountDirection,
+  type CIDecodingType,
   type CIEdge,
   type CIFreqUnits,
+  type CILinearVelocityUnits,
   type CIMeasMethod,
   type CIPeriodUnits,
   type CIPulseWidthUnits,
@@ -259,6 +264,88 @@ const _SecondTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
   },
 });
 
+const TerminalAField = Form.buildSelectField<string, record.KeyedNamed>({
+  fieldKey: "terminalA",
+  fieldProps: { label: "Input Terminal A" },
+  inputProps: {
+    resourceName: "Input Terminal A",
+    allowNone: true,
+    data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
+  },
+});
+
+const TerminalBField = Form.buildSelectField<string, record.KeyedNamed>({
+  fieldKey: "terminalB",
+  fieldProps: { label: "Input Terminal B" },
+  inputProps: {
+    resourceName: "Input Terminal B",
+    allowNone: true,
+    data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
+  },
+});
+
+const DecodingTypeField = Form.buildSelectField<
+  CIDecodingType,
+  record.KeyedNamed<CIDecodingType>
+>({
+  fieldKey: "decodingType",
+  fieldProps: { label: "Decoding Type" },
+  inputProps: {
+    resourceName: "Decoding Type",
+    data: [
+      { key: "X1", name: "X1" },
+      { key: "X2", name: "X2" },
+      { key: "X4", name: "X4" },
+      { key: "TwoPulse", name: "Two Pulse" },
+    ],
+  },
+});
+
+const LinearVelocityUnitsField = Form.buildSelectField<
+  CILinearVelocityUnits,
+  record.KeyedNamed<CILinearVelocityUnits>
+>({
+  fieldKey: "units",
+  fieldProps: { label: "Scaled Units" },
+  inputProps: {
+    resourceName: "Scaled Units",
+    data: [
+      { key: "m/s", name: "m/s" },
+      { key: "in/s", name: "in/s" },
+      { key: "FromCustomScale", name: "Custom" },
+    ],
+  },
+});
+
+const AngularVelocityUnitsField = Form.buildSelectField<
+  CIAngularVelocityUnits,
+  record.KeyedNamed<CIAngularVelocityUnits>
+>({
+  fieldKey: "units",
+  fieldProps: { label: "Scaled Units" },
+  inputProps: {
+    resourceName: "Scaled Units",
+    data: [
+      { key: "RPM", name: "RPM" },
+      { key: "Radians/s", name: "Radians/s" },
+      { key: "Degrees/s", name: "Degrees/s" },
+      { key: "FromCustomScale", name: "Custom" },
+    ],
+  },
+});
+
+const DistPerPulseField = Form.buildNumericField({
+  fieldKey: "distPerPulse",
+  fieldProps: { label: "Distance / Pulse" },
+  inputProps: {},
+});
+
+const PulsesPerRevField = Form.buildNumericField({
+  fieldKey: "pulsesPerRev",
+  fieldProps: { label: "Pulses / Rev" },
+  inputProps: {},
+});
+
 const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
   [CI_FREQUENCY_CHAN_TYPE]: ({ prefix }) => (
     <>
@@ -337,6 +424,44 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <Flex.Box x>
         <FirstEdgeField path={prefix} grow />
         <SecondEdgeField path={prefix} grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  [CI_VELOCITY_LINEAR_CHAN_TYPE]: ({ prefix }: FormProps) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <LinearVelocityUnitsField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <DistPerPulseField path={prefix} grow />
+        <DecodingTypeField path={prefix} grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <TerminalAField path={prefix} grow />
+        <TerminalBField path={prefix} grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <CustomScaleForm prefix={prefix} />
+    </>
+  ),
+  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: ({ prefix }: FormProps) => (
+    <>
+      <MinMaxValueFields path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <AngularVelocityUnitsField path={prefix} />
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <PulsesPerRevField path={prefix} grow />
+        <DecodingTypeField path={prefix} grow />
+      </Flex.Box>
+      <Divider.Divider x padded="bottom" />
+      <Flex.Box x>
+        <TerminalAField path={prefix} grow />
+        <TerminalBField path={prefix} grow />
       </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <CustomScaleForm prefix={prefix} />

@@ -1162,6 +1162,158 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
     EXPECT_EQ(ci_two_edge_sep_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
+TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
+    json j = {
+        {"type", "ci_velocity_linear"},
+        {"key", "ks1VnWdrSVW"},
+        {"port", 0},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", 0},
+        {"max_val", 10},
+        {"units", "m/s"},
+        {"decoding_type", "X4"},
+        {"dist_per_pulse", 0.001},
+        {"terminalA", "PFI0"},
+        {"terminalB", "PFI1"},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_lin_vel_chan = dynamic_cast<channel::CILinearVelocity *>(chan.get());
+    ASSERT_NE(ci_lin_vel_chan, nullptr);
+    EXPECT_EQ(ci_lin_vel_chan->enabled, true);
+    EXPECT_EQ(ci_lin_vel_chan->port, 0);
+    EXPECT_EQ(ci_lin_vel_chan->min_val, 0);
+    EXPECT_EQ(ci_lin_vel_chan->max_val, 10);
+    EXPECT_EQ(ci_lin_vel_chan->units, DAQmx_Val_MetersPerSecond);
+    EXPECT_EQ(ci_lin_vel_chan->decoding_type, DAQmx_Val_X4);
+    EXPECT_DOUBLE_EQ(ci_lin_vel_chan->dist_per_pulse, 0.001);
+    EXPECT_EQ(ci_lin_vel_chan->terminal_a, "PFI0");
+    EXPECT_EQ(ci_lin_vel_chan->terminal_b, "PFI1");
+    ci_lin_vel_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_lin_vel_chan->loc(), "cDAQ1Mod3/ctr0");
+}
+
+TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
+    json j = {
+        {"type", "ci_velocity_linear"},
+        {"key", "ks1VnWdrSVX"},
+        {"port", 1},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", 0},
+        {"max_val", 100},
+        {"units", "in/s"},
+        {"decoding_type", "X2"},
+        {"dist_per_pulse", 0.01},
+        {"terminalA", ""},
+        {"terminalB", ""},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_lin_vel_chan = dynamic_cast<channel::CILinearVelocity *>(chan.get());
+    ASSERT_NE(ci_lin_vel_chan, nullptr);
+    EXPECT_EQ(ci_lin_vel_chan->enabled, true);
+    EXPECT_EQ(ci_lin_vel_chan->port, 1);
+    EXPECT_EQ(ci_lin_vel_chan->min_val, 0);
+    EXPECT_EQ(ci_lin_vel_chan->max_val, 100);
+    EXPECT_EQ(ci_lin_vel_chan->units, DAQmx_Val_InchesPerSecond);
+    EXPECT_EQ(ci_lin_vel_chan->decoding_type, DAQmx_Val_X2);
+    EXPECT_DOUBLE_EQ(ci_lin_vel_chan->dist_per_pulse, 0.01);
+    EXPECT_EQ(ci_lin_vel_chan->terminal_a, "");
+    EXPECT_EQ(ci_lin_vel_chan->terminal_b, "");
+    ci_lin_vel_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_lin_vel_chan->loc(), "cDAQ1Mod3/ctr1");
+}
+
+TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
+    json j = {
+        {"type", "ci_velocity_angular"},
+        {"key", "ks1VnWdrSVY"},
+        {"port", 0},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", 0},
+        {"max_val", 1000},
+        {"units", "RPM"},
+        {"decoding_type", "X4"},
+        {"pulses_per_rev", 24},
+        {"terminalA", "PFI2"},
+        {"terminalB", "PFI3"},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_ang_vel_chan = dynamic_cast<channel::CIAngularVelocity *>(chan.get());
+    ASSERT_NE(ci_ang_vel_chan, nullptr);
+    EXPECT_EQ(ci_ang_vel_chan->enabled, true);
+    EXPECT_EQ(ci_ang_vel_chan->port, 0);
+    EXPECT_EQ(ci_ang_vel_chan->min_val, 0);
+    EXPECT_EQ(ci_ang_vel_chan->max_val, 1000);
+    EXPECT_EQ(ci_ang_vel_chan->units, DAQmx_Val_RPM);
+    EXPECT_EQ(ci_ang_vel_chan->decoding_type, DAQmx_Val_X4);
+    EXPECT_EQ(ci_ang_vel_chan->pulses_per_rev, 24);
+    EXPECT_EQ(ci_ang_vel_chan->terminal_a, "PFI2");
+    EXPECT_EQ(ci_ang_vel_chan->terminal_b, "PFI3");
+    ci_ang_vel_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_ang_vel_chan->loc(), "cDAQ1Mod3/ctr0");
+}
+
+TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
+    json j = {
+        {"type", "ci_velocity_angular"},
+        {"key", "ks1VnWdrSVZ"},
+        {"port", 2},
+        {"enabled", true},
+        {"name", ""},
+        {"channel", 0},
+        {"min_val", 0},
+        {"max_val", 100},
+        {"units", "Radians/s"},
+        {"decoding_type", "X1"},
+        {"pulses_per_rev", 100},
+        {"terminalA", ""},
+        {"terminalB", ""},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cDAQ1Mod3"}
+    };
+
+    xjson::Parser p(j);
+    const auto chan = channel::parse_input(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    const auto ci_ang_vel_chan = dynamic_cast<channel::CIAngularVelocity *>(chan.get());
+    ASSERT_NE(ci_ang_vel_chan, nullptr);
+    EXPECT_EQ(ci_ang_vel_chan->enabled, true);
+    EXPECT_EQ(ci_ang_vel_chan->port, 2);
+    EXPECT_EQ(ci_ang_vel_chan->min_val, 0);
+    EXPECT_EQ(ci_ang_vel_chan->max_val, 100);
+    EXPECT_EQ(ci_ang_vel_chan->units, DAQmx_Val_RadiansPerSecond);
+    EXPECT_EQ(ci_ang_vel_chan->decoding_type, DAQmx_Val_X1);
+    EXPECT_EQ(ci_ang_vel_chan->pulses_per_rev, 100);
+    EXPECT_EQ(ci_ang_vel_chan->terminal_a, "");
+    EXPECT_EQ(ci_ang_vel_chan->terminal_b, "");
+    ci_ang_vel_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    EXPECT_EQ(ci_ang_vel_chan->loc(), "cDAQ1Mod3/ctr2");
+}
+
 TEST(ChannelsTest, ParseCOPulseOutputChan) {
     json j = {
         {"type", "co_pulse_output"},
