@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -68,15 +67,6 @@ func (s *service) SetCalculationAnalyzer(calc CalculationAnalyzer) {
 var _ Service = (*service)(nil)
 
 type IntOverflowChecker = func(types.Uint20) error
-
-func FixedOverflowChecker(limit int) IntOverflowChecker {
-	return func(count types.Uint20) error {
-		if count > types.Uint20(limit) {
-			return errors.New("channel limit exceeded")
-		}
-		return nil
-	}
-}
 
 type ServiceConfig struct {
 	HostResolver     cluster.HostResolver
