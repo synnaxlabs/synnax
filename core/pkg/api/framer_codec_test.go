@@ -10,6 +10,8 @@
 package api_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/fhttp"
@@ -40,6 +42,7 @@ var _ = Describe("FramerCodec", func() {
 				),
 			}
 			msg := fhttp.WSMessage[api.FrameWriterRequest]{Type: "data", Payload: req}
+			ctx := context.Background()
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			Expect(encoded[0]).To(Equal(uint8(255)))
 			var resMsg fhttp.WSMessage[api.FrameWriterRequest]
@@ -68,6 +71,7 @@ var _ = Describe("FramerCodec", func() {
 				),
 			}
 			msg := fhttp.WSMessage[api.FrameStreamerResponse]{Type: "data", Payload: res}
+			ctx := context.Background()
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			Expect(encoded[0]).To(Equal(uint8(255)))
 			var resMsg fhttp.WSMessage[api.FrameStreamerResponse]

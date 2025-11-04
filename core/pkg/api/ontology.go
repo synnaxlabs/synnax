@@ -23,14 +23,14 @@ import (
 
 type OntologyService struct {
 	dbProvider
-	OntologyProvider
+	ontologyProvider
 	accessProvider
 	group *group.Service
 }
 
 func NewOntologyService(p Provider) *OntologyService {
 	return &OntologyService{
-		OntologyProvider: p.ontology,
+		ontologyProvider: p.ontology,
 		accessProvider:   p.access,
 		dbProvider:       p.db,
 		group:            p.Distribution.Group,
@@ -40,8 +40,8 @@ func NewOntologyService(p Provider) *OntologyService {
 type (
 	OntologyRetrieveRequest struct {
 		IDs              []ontology.ID   `json:"ids" msgpack:"ids" validate:"required"`
-		Children         *bool           `json:"children" msgpack:"children"`
-		Parents          *bool           `json:"parents" msgpack:"parents"`
+		Children         bool            `json:"children" msgpack:"children"`
+		Parents          bool            `json:"parents" msgpack:"parents"`
 		ExcludeFieldData bool            `json:"exclude_field_data" msgpack:"exclude_field_data"`
 		Types            []ontology.Type `json:"types" msgpack:"types"`
 		SearchTerm       string          `json:"search_term" msgpack:"search_term"`
@@ -58,20 +58,20 @@ func (o *OntologyService) Retrieve(
 	req OntologyRetrieveRequest,
 ) (OntologyRetrieveResponse, error) {
 	if req.SearchTerm != "" {
-		resources, err := o.Ontology.Search(ctx, search.Request{Term: req.SearchTerm})
+		resources, err := o.ontology.Search(ctx, search.Request{Term: req.SearchTerm})
 		if err != nil {
 			return OntologyRetrieveResponse{}, err
 		}
 		return OntologyRetrieveResponse{Resources: resources}, nil
 	}
-	q := o.Ontology.NewRetrieve()
+	q := o.ontology.NewRetrieve()
 	if len(req.IDs) > 0 {
 		q = q.WhereIDs(req.IDs...)
 	}
-	if req.Children != nil && *req.Children {
+	if req.Children {
 		q = q.TraverseTo(ontology.Children)
 	}
-	if req.Parents != nil && *req.Parents {
+	if req.Parents {
 		q = q.TraverseTo(ontology.Parents)
 	}
 	if len(req.Types) > 0 {
@@ -191,7 +191,7 @@ func (o *OntologyService) AddChildren(
 		return res, err
 	}
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.Ontology.NewWriter(tx)
+		w := o.ontology.NewWriter(tx)
 		for _, child := range req.Children {
 			if err := w.DefineRelationship(ctx, req.ID, ontology.ParentOf, child); err != nil {
 				return err
@@ -218,7 +218,7 @@ func (o *OntologyService) RemoveChildren(
 		return res, err
 	}
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.Ontology.NewWriter(tx)
+		w := o.ontology.NewWriter(tx)
 		for _, child := range req.Children {
 			if err := w.DeleteRelationship(ctx, req.ID, ontology.ParentOf, child); err != nil {
 				return err
@@ -246,7 +246,7 @@ func (o *OntologyService) MoveChildren(
 		return res, err
 	}
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.Ontology.NewWriter(tx)
+		w := o.ontology.NewWriter(tx)
 		for _, child := range req.Children {
 			if err = w.DeleteRelationship(ctx, req.From, ontology.ParentOf, child); err != nil {
 				return err

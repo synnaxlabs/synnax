@@ -335,7 +335,7 @@ func (a *Layer) BindTo(t Transport) {
 		t.StatusRetrieve,
 		t.StatusDelete,
 
-		// Arc
+		// ARC
 		t.ArcCreate,
 		t.ArcDelete,
 		t.ArcRetrieve,
