@@ -50,6 +50,10 @@ UnitsNewtonMeters = Literal["NewtonMeters"]
 UnitsInchLbs = Literal["InchPounds"]
 UnitsInOz = Literal["InchOunces"]
 UnitsFtLbs = Literal["FootPounds"]
+UnitsRPM = Literal["RPM"]
+UnitsRadiansPerSecond = Literal["Radians/s"]
+UnitsMetersPerSecond = Literal["MetersPerSecond"]
+UnitsInchesPerSecond = Literal["InchesPerSecond"]
 
 Units = (
     UnitsVolts
@@ -80,6 +84,10 @@ Units = (
     | UnitsInchLbs
     | UnitsInOz
     | UnitsFtLbs
+    | UnitsRPM
+    | UnitsRadiansPerSecond
+    | UnitsMetersPerSecond
+    | UnitsInchesPerSecond
 )
 
 
@@ -975,6 +983,105 @@ class CITwoEdgeSepChan(BaseCIChan, MinMaxVal):
     custom_scale: Scale = NoScale()
 
 
+class CILinearVelocityChan(BaseCIChan, MinMaxVal):
+    """
+    Counter Input Linear Velocity Measurement Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateci
+    linvelocitychan.html>
+    """
+
+    type: Literal["ci_velocity_linear"] = "ci_velocity_linear"
+    units: Literal["MetersPerSecond", "InchesPerSecond"] = "MetersPerSecond"
+    decoding_type: Literal["X1", "X2", "X4", "TwoPulse"] = "X4"
+    dist_per_pulse: float
+    terminalA: str = ""
+    terminalB: str = ""
+    custom_scale: Scale = NoScale()
+
+
+class CIAngularVelocityChan(BaseCIChan, MinMaxVal):
+    """
+    Counter Input Angular Velocity Measurement Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecia
+    ngvelocitychan.html>
+    """
+
+    type: Literal["ci_velocity_angular"] = "ci_velocity_angular"
+    units: Literal["RPM", "Radians/s", "Degrees"] = "RPM"
+    decoding_type: Literal["X1", "X2", "X4", "TwoPulse"] = "X4"
+    pulses_per_rev: int
+    terminalA: str = ""
+    terminalB: str = ""
+    custom_scale: Scale = NoScale()
+
+
+class CILinearPositionChan(BaseCIChan):
+    """
+    Counter Input Linear Position Measurement Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecil
+    inencoderchan.html>
+    """
+
+    type: Literal["ci_position_linear"] = "ci_position_linear"
+    units: Literal["Meters", "Inches"] = "Meters"
+    decoding_type: Literal["X1", "X2", "X4", "TwoPulse"] = "X4"
+    dist_per_pulse: float
+    initial_pos: float = 0.0
+    z_index_enable: bool = False
+    z_index_val: float = 0.0
+    z_index_phase: Literal["AHighBHigh", "AHighBLow", "ALowBHigh", "ALowBLow"] = (
+        "AHighBHigh"
+    )
+    terminalA: str = ""
+    terminalB: str = ""
+    terminalZ: str = ""
+    custom_scale: Scale = NoScale()
+
+
+class CIAngularPositionChan(BaseCIChan):
+    """
+    Counter Input Angular Position Measurement Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecia
+    ngencoderchan.html>
+    """
+
+    type: Literal["ci_position_angular"] = "ci_position_angular"
+    units: Literal["Degrees", "Radians"] = "Degrees"
+    decoding_type: Literal["X1", "X2", "X4", "TwoPulse"] = "X4"
+    pulses_per_rev: int
+    initial_angle: float = 0.0
+    z_index_enable: bool = False
+    z_index_val: float = 0.0
+    z_index_phase: Literal["AHighBHigh", "AHighBLow", "ALowBHigh", "ALowBLow"] = (
+        "AHighBHigh"
+    )
+    terminalA: str = ""
+    terminalB: str = ""
+    terminalZ: str = ""
+    custom_scale: Scale = NoScale()
+
+
+class CIDutyCycleChan(BaseCIChan, MinMaxVal):
+    """
+    Counter Input Duty Cycle Measurement Channel
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecidutycyclechan.html>
+    """
+
+    type: Literal["ci_duty_cycle"] = "ci_duty_cycle"
+    activeEdge: Literal["Rising", "Falling"] = "Rising"
+    custom_scale: Scale = NoScale()
+
+
 CIChan = (
     CIFrequencyChan
     | CIEdgeCountChan
@@ -982,6 +1089,11 @@ CIChan = (
     | CIPulseWidthChan
     | CISemiPeriodChan
     | CITwoEdgeSepChan
+    | CILinearVelocityChan
+    | CIAngularVelocityChan
+    | CILinearPositionChan
+    | CIAngularPositionChan
+    | CIDutyCycleChan
 )
 
 

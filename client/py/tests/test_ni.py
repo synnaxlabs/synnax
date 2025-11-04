@@ -459,6 +459,143 @@ class TestNITask:
         }
         CounterReadConfig.model_validate(data)
 
+    def test_parse_counter_read_linear_velocity_task(self):
+        data = {
+            "sample_rate": 1000,
+            "stream_rate": 500,
+            "channels": [
+                {
+                    "key": "LinearVel1",
+                    "type": "ci_velocity_linear",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "channel": 1048631,
+                    "port": 0,
+                    "min_val": 0.0,
+                    "max_val": 100.0,
+                    "units": "MetersPerSecond",
+                    "decoding_type": "X4",
+                    "dist_per_pulse": 0.001,
+                    "terminalA": "",
+                    "terminalB": "",
+                    "custom_scale": {"type": "none"},
+                }
+            ],
+            "data_saving": True,
+            "auto_start": False,
+        }
+        CounterReadConfig.model_validate(data)
+
+    def test_parse_counter_read_angular_velocity_task(self):
+        data = {
+            "sample_rate": 1000,
+            "stream_rate": 500,
+            "channels": [
+                {
+                    "key": "AngularVel1",
+                    "type": "ci_velocity_angular",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "channel": 1048632,
+                    "port": 1,
+                    "min_val": 0.0,
+                    "max_val": 10000.0,
+                    "units": "RPM",
+                    "decoding_type": "X4",
+                    "pulses_per_rev": 1024,
+                    "terminalA": "",
+                    "terminalB": "",
+                    "custom_scale": {"type": "none"},
+                }
+            ],
+            "data_saving": True,
+            "auto_start": False,
+        }
+        CounterReadConfig.model_validate(data)
+
+    def test_parse_counter_read_linear_position_task(self):
+        data = {
+            "sample_rate": 1000,
+            "stream_rate": 500,
+            "channels": [
+                {
+                    "key": "LinearPos1",
+                    "type": "ci_position_linear",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "channel": 1048633,
+                    "port": 2,
+                    "units": "Meters",
+                    "decoding_type": "X4",
+                    "dist_per_pulse": 0.001,
+                    "initial_pos": 0.0,
+                    "z_index_enable": False,
+                    "z_index_val": 0.0,
+                    "z_index_phase": "AHighBHigh",
+                    "terminalA": "",
+                    "terminalB": "",
+                    "terminalZ": "",
+                    "custom_scale": {"type": "none"},
+                }
+            ],
+            "data_saving": True,
+            "auto_start": False,
+        }
+        CounterReadConfig.model_validate(data)
+
+    def test_parse_counter_read_angular_position_task(self):
+        data = {
+            "sample_rate": 1000,
+            "stream_rate": 500,
+            "channels": [
+                {
+                    "key": "AngularPos1",
+                    "type": "ci_position_angular",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "channel": 1048634,
+                    "port": 3,
+                    "units": "Degrees",
+                    "decoding_type": "X4",
+                    "pulses_per_rev": 1024,
+                    "initial_angle": 0.0,
+                    "z_index_enable": False,
+                    "z_index_val": 0.0,
+                    "z_index_phase": "AHighBHigh",
+                    "terminalA": "",
+                    "terminalB": "",
+                    "terminalZ": "",
+                    "custom_scale": {"type": "none"},
+                }
+            ],
+            "data_saving": True,
+            "auto_start": False,
+        }
+        CounterReadConfig.model_validate(data)
+
+    def test_parse_counter_read_duty_cycle_task(self):
+        data = {
+            "sample_rate": 1000,
+            "stream_rate": 500,
+            "channels": [
+                {
+                    "key": "DutyCycle1",
+                    "type": "ci_duty_cycle",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "channel": 1048635,
+                    "port": 4,
+                    "min_val": 0.0,
+                    "max_val": 1.0,
+                    "activeEdge": "Rising",
+                    "custom_scale": {"type": "none"},
+                }
+            ],
+            "data_saving": True,
+            "auto_start": False,
+        }
+        CounterReadConfig.model_validate(data)
+
     def test_parse_counter_write_task(self):
         data = {
             "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
