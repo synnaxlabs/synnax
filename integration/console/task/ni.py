@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, Literal, Optional, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import synnax as sy
 from playwright.sync_api import Page
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from console.console import Console
 
 # Union type for all NI channel types
-NIChannel = Union[Analog, Counter]
+NIChannel = Analog | Counter
 NIChannelT = TypeVar("NIChannelT", bound=NIChannel)
 
 
@@ -42,9 +42,9 @@ class NITask(ConsolePage):
     def add_channel(
         self,
         name: str,
-        type: str,
+        chan_type: str,
         device: str,
-        dev_name: Optional[str] = None,
+        dev_name: str | None = None,
         **kwargs: Any,
     ) -> NIChannel:
         """
@@ -55,7 +55,7 @@ class NITask(ConsolePage):
 
         Args:
             name: Channel name
-            type: Channel type string for UI selection
+            chan_type: Channel type string for UI selection
             device: Device identifier
             dev_name: Optional device name
             **kwargs: Additional channel-specific configuration
@@ -68,10 +68,9 @@ class NITask(ConsolePage):
     def _add_channel_helper(
         self,
         name: str,
-        type: str,
         device: str,
-        dev_name: Optional[str],
-        channel_class: Type[NIChannelT],
+        dev_name: str | None,
+        channel_class: type[NIChannelT],
         **kwargs: Any,
     ) -> NIChannelT:
         """
@@ -79,7 +78,6 @@ class NITask(ConsolePage):
 
         Args:
             name: Channel name
-            type: Channel type string for UI selection
             device: Device identifier
             dev_name: Optional device name
             channel_class: Channel class to instantiate
@@ -151,10 +149,9 @@ class NITask(ConsolePage):
 
     def set_parameters(
         self,
-        task_name: Optional[str] = None,
-        data_saving: Optional[bool] = None,
-        auto_start: Optional[bool] = None,
-        **kwargs: Any,
+        task_name: str | None = None,
+        data_saving: bool | None = None,
+        auto_start: bool | None = None,
     ) -> None:
         """
         Set the parameters for the task.

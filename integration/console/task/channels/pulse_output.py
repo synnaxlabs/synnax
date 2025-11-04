@@ -31,7 +31,7 @@ class PulseOutput(Counter):
     name: str
     console: "Console"
     device: str
-    form_values: dict[str, str]
+    form_values: dict[str, str | bool]
 
     def __init__(
         self,
@@ -51,7 +51,7 @@ class PulseOutput(Counter):
         self.device = device
         self.name = name
 
-        values = {}
+        values: dict[str, str | bool] = {}
 
         # Configure channel type
         console.click_btn("Channel Type")

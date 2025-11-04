@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from console.task.channels.analog import Analog
 
@@ -39,36 +39,16 @@ class Thermocouple(Analog):
         console: "Console",
         name: str,
         device: str,
-        port: Optional[int] = None,
-        temperature_units: Optional[
-            Literal[
-                "Celsius",
-                "Fahrenheit",
-                "Kelvin",
-                "Rankine",
-            ]
-        ] = None,
-        thermocouple_type: Optional[
-            Literal[
-                "B",
-                "E",
-                "J",
-                "K",
-                "N",
-                "R",
-                "S",
-                "T",
-            ]
-        ] = None,
-        cjc_source: Optional[
-            Literal[
-                "Built In",
-                "Constant Value",
-                "Channel",
-            ]
-        ] = None,
-        cjc_value: Optional[float] = None,
-        cjc_port: Optional[int] = None,
+        port: int | None = None,
+        temperature_units: (
+            Literal["Celsius", "Fahrenheit", "Kelvin", "Rankine"] | None
+        ) = None,
+        thermocouple_type: (
+            Literal["B", "E", "J", "K", "N", "R", "S", "T"] | None
+        ) = None,
+        cjc_source: Literal["Built In", "Constant Value", "Channel"] | None = None,
+        cjc_value: float | None = None,
+        cjc_port: int | None = None,
         **kwargs: Any,
     ) -> None:
 
@@ -78,7 +58,7 @@ class Thermocouple(Analog):
         self.device = device
         self.name = name
 
-        values = {}
+        values: dict[str, str | bool] = {}
 
         # Configure channel type
         console.click_btn("Channel Type")

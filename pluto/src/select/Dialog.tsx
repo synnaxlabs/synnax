@@ -31,9 +31,14 @@ export interface DefaultEmptyContentProps extends Status.SummaryProps {
   resourceName?: string;
 }
 
+const pluralize = (word: string): string => {
+  if (word.endsWith("s")) return word;
+  return `${word}s`;
+};
+
 const DefaultEmptyContent = ({ resourceName = "result" }: DefaultEmptyContentProps) => (
   <Text.Text center status="disabled">
-    No {resourceName.toLowerCase()}s found
+    No {pluralize(resourceName.toLowerCase())} found
   </Text.Text>
 );
 
@@ -78,7 +83,7 @@ export const Core = memo(
           <SearchInput
             dialogVariant="floating"
             onSearch={onSearch}
-            searchPlaceholder={`Search ${resourceName}s...`}
+            searchPlaceholder={`Search ${pluralize(resourceName)}...`}
             actions={actions}
           />
         )}

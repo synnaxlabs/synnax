@@ -10,7 +10,7 @@
 import os
 import random
 import re
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Literal
 
 from playwright.sync_api import Locator, Page
 
@@ -19,7 +19,7 @@ from .log import Log
 from .page import ConsolePage
 from .plot import Plot
 from .schematic import Schematic
-from .task import AnalogRead, AnalogWrite, CounterRead, CounterWrite, NITask
+from .task import AnalogRead, AnalogWrite, CounterRead, CounterWrite
 
 # Define literal types for page creation
 PageType = Literal[
@@ -95,9 +95,7 @@ class Console:
             > 0
         )
 
-    def select_from_dropdown(
-        self, text: str, placeholder: Optional[str] = None
-    ) -> None:
+    def select_from_dropdown(self, text: str, placeholder: str | None = None) -> None:
         """Select an item from an open dropdown."""
         self.page.wait_for_timeout(300)
         target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
@@ -127,7 +125,7 @@ class Console:
         )
 
     def create_page(
-        self, page_type: PageType, page_name: Optional[str] = None
+        self, page_type: PageType, page_name: str | None = None
     ) -> tuple[Locator, str]:
         """
         Public method for creating a new page in one of two ways:
@@ -147,7 +145,7 @@ class Console:
         return page_tab, page_id
 
     def _create_page_by_new_page_button(
-        self, page_type: PageType, page_name: Optional[str] = None
+        self, page_type: PageType, page_name: str | None = None
     ) -> tuple[Locator, str]:
         """Create a new page via the New Page (+) button."""
 
@@ -158,7 +156,7 @@ class Console:
         return page_tab, page_id
 
     def _create_page_by_command_palette(
-        self, page_type: PageType, page_name: Optional[str] = None
+        self, page_type: PageType, page_name: str | None = None
     ) -> tuple[Locator, str]:
         """Create a new page via command palette"""
 
@@ -178,7 +176,7 @@ class Console:
         return page_tab, page_id
 
     def _handle_new_page(
-        self, page_type: PageType, page_name: Optional[str] = None
+        self, page_type: PageType, page_name: str | None = None
     ) -> tuple[Locator, str]:
         """Handle the new page creation"""
         if self.MODAL_OPEN:
@@ -225,7 +223,7 @@ class Console:
             self.page.get_by_text("Try again").click()
             self.page.wait_for_timeout(200)
 
-    def check_for_notifications(self) -> list[Dict[str, Any]]:
+    def check_for_notifications(self) -> list[dict[str, Any]]:
         """
         Check for notifications in the bottom right corner.
         Returns a list of notification dictionaries with details.
@@ -319,7 +317,7 @@ class Console:
 
         return closed_count
 
-    def screenshot(self, name: Optional[str] = None) -> None:
+    def screenshot(self, name: str | None = None) -> None:
         """Take a screenshot of the entire console page."""
         results_dir = os.path.join(os.path.dirname(__file__), "..", "tests", "results")
         os.makedirs(results_dir, exist_ok=True)
@@ -411,7 +409,7 @@ class Console:
 
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
-    def click(self, selector: str, timeout: Optional[int] = 5000) -> None:
+    def click(self, selector: str, timeout: int | None = 5000) -> None:
         """Wait for and click a selector (by text)"""
         self.page.wait_for_selector(f"text={selector}", timeout=timeout)
         element = self.page.get_by_text(selector, exact=True).first

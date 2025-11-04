@@ -70,9 +70,10 @@ export interface ProviderProps extends PropsWithChildren {
 const isInputOrContentEditable = (e: KeyboardEvent): boolean => {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
     return true;
+  const isHTMLElement = e.target instanceof HTMLElement;
   if (
-    e.target instanceof HTMLElement &&
-    e.target.getAttribute("contenteditable") === "true"
+    isHTMLElement &&
+    (e.target.getAttribute("contenteditable") === "true" || e.target.role === "textbox")
   )
     return true;
   return false;

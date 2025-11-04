@@ -8,8 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import csv
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 import pandas as pd
 from pandas.io.parsers import TextFileReader

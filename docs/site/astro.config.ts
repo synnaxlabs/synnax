@@ -10,6 +10,7 @@
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
+import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { defineConfig } from "astro/config";
 
 const shikiResourcePaths = Object.keys(
@@ -24,11 +25,14 @@ export default defineConfig({
   integrations: [react(), mdx()],
   output: "server",
   adapter: vercel({ includeFiles: shikiResourcePaths }),
-  markdown: { shikiConfig: { theme: "css-variables" } },
+  markdown: {
+    shikiConfig: {
+      theme: "css-variables",
+      langs: [arcGrammar],
+    },
+  },
   redirects: {
     "/reference/device-drivers/standalone": "/reference/driver/installation",
-    "/reference/cluster/[...slug]": "/reference/core/[...slug]",
-    "/reference/device-drivers/[...slug]": "/reference/driver/[...slug]",
     "/reference/console/clusters": "/reference/console/cores",
   },
   site: "https://docs.synnaxlabs.com",

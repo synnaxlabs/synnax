@@ -54,12 +54,17 @@ class NICounterReadForms(ConsoleCase):
         if mode == "a":
             self.verify_edge_count_inputs(device_name)
             self.verify_frequency_inputs(device_name)
-        if mode == "b":
             self.verify_period_inputs(device_name)
+        if mode == "b":
             self.verify_pulse_width_inputs(device_name)
-        if mode == "c":
             self.verify_semi_period_inputs(device_name)
             self.verify_two_edge_sep_inputs(device_name)
+            self.verify_duty_cycle_inputs(device_name)
+        if mode == "c":
+            self.verify_linear_velocity_inputs(device_name)
+            self.verify_angular_velocity_inputs(device_name)
+            self.verify_linear_position_inputs(device_name)
+            self.verify_angular_position_inputs(device_name)
 
         # Assert the set values with form state
         ch_names = console.ni_ci.channels_by_name.copy()
@@ -94,7 +99,7 @@ class NICounterReadForms(ConsoleCase):
 
         console.ni_ci.add_channel(
             name="EdgeCount_1",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             active_edge="Rising",
             count_direction="Count Up",
@@ -103,14 +108,14 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="EdgeCount_2",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             active_edge="Falling",
             count_direction="Count Down",
         )
         console.ni_ci.add_channel(
             name="EdgeCount_3",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             count_direction="Externally Controlled",
         )
@@ -123,7 +128,7 @@ class NICounterReadForms(ConsoleCase):
 
         console.ni_ci.add_channel(
             name="Frequency_1",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             min_val=0,
             max_val=1000,
@@ -133,7 +138,7 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="Frequency_2",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             edge="Falling",
             units="Ticks",
@@ -141,7 +146,7 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="Frequency_3",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             meas_method="2 Counters (Large Range)",
         )
@@ -154,7 +159,7 @@ class NICounterReadForms(ConsoleCase):
 
         console.ni_ci.add_channel(
             name="Period_1",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             min_val=0,
             max_val=1,
@@ -165,7 +170,7 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="Period_2",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             starting_edge="Falling",
             units="Ticks",
@@ -173,14 +178,14 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="Period_3",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             units="Custom",
             meas_method="2 Counters (Large Range)",
         )
         console.ni_ci.add_channel(
             name="Period_4",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             meas_method="Dynamic Averaging",
         )
@@ -193,13 +198,13 @@ class NICounterReadForms(ConsoleCase):
 
         console.ni_ci.add_channel(
             name="PulseWidth_1",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             units="Custom",
         )
         console.ni_ci.add_channel(
             name="PulseWidth_2",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             starting_edge="Rising",
             units="Seconds",
@@ -207,7 +212,7 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="PulseWidth_3",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             min_val=0.001,
             max_val=10,
@@ -223,13 +228,13 @@ class NICounterReadForms(ConsoleCase):
 
         console.ni_ci.add_channel(
             name="SemiPeriod_1",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             units="Custom",
         )
         console.ni_ci.add_channel(
             name="SemiPeriod_2",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             min_val=0,
             max_val=1,
@@ -237,7 +242,7 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="SemiPeriod_3",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             units="Ticks",
         )
@@ -250,7 +255,7 @@ class NICounterReadForms(ConsoleCase):
 
         console.ni_ci.add_channel(
             name="TwoEdgeSep_1",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             min_val=0,
             max_val=1,
@@ -260,9 +265,186 @@ class NICounterReadForms(ConsoleCase):
         )
         console.ni_ci.add_channel(
             name="TwoEdgeSep_2",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             units="Ticks",
             first_edge="Falling",
             second_edge="Rising",
+        )
+
+    def verify_linear_velocity_inputs(self, device_name: str) -> None:
+        """Validate Linear Velocity inputs"""
+        self.log("Configuring channels of type Velocity Linear")
+        console = self.console
+        channel_type = "Velocity Linear"
+
+        console.ni_ci.add_channel(
+            name="LinearVelocity_1",
+            chan_type=channel_type,
+            device=device_name,
+            min_val=0,
+            max_val=10,
+            units="m/s",
+            decoding_type="X4",
+            dist_per_pulse=0.001,
+        )
+        console.ni_ci.add_channel(
+            name="LinearVelocity_2",
+            chan_type=channel_type,
+            device=device_name,
+            units="in/s",
+            decoding_type="X1",
+            dist_per_pulse=0.01,
+        )
+        console.ni_ci.add_channel(
+            name="LinearVelocity_3",
+            chan_type=channel_type,
+            device=device_name,
+            units="Custom",
+            decoding_type="X2",
+            dist_per_pulse=0.005,
+        )
+
+    def verify_angular_velocity_inputs(self, device_name: str) -> None:
+        """Validate Angular Velocity inputs"""
+        self.log("Configuring channels of type Velocity Angular")
+        console = self.console
+        channel_type = "Velocity Angular"
+
+        console.ni_ci.add_channel(
+            name="AngularVelocity_1",
+            chan_type=channel_type,
+            device=device_name,
+            min_val=0,
+            max_val=1000,
+            units="RPM",
+            decoding_type="X4",
+            pulses_per_rev=24,
+        )
+        console.ni_ci.add_channel(
+            name="AngularVelocity_2",
+            chan_type=channel_type,
+            device=device_name,
+            units="Radians/s",
+            decoding_type="X2",
+            pulses_per_rev=100,
+        )
+        console.ni_ci.add_channel(
+            name="AngularVelocity_3",
+            chan_type=channel_type,
+            device=device_name,
+            units="Degrees/s",
+            decoding_type="Two Pulse",
+            pulses_per_rev=360,
+        )
+
+    def verify_linear_position_inputs(self, device_name: str) -> None:
+        """Validate Linear Position inputs"""
+        self.log("Configuring channels of type Position Linear")
+        console = self.console
+        channel_type = "Position Linear"
+
+        console.ni_ci.add_channel(
+            name="LinearPosition_1",
+            chan_type=channel_type,
+            device=device_name,
+            units="Meters",
+            decoding_type="X4",
+            dist_per_pulse=0.001,
+            initial_pos=0,
+            z_index_enable=True,
+            z_index_val=0,
+            z_index_phase="A High B High",
+        )
+        console.ni_ci.add_channel(
+            name="LinearPosition_2",
+            chan_type=channel_type,
+            device=device_name,
+            units="Inches",
+            decoding_type="X2",
+            dist_per_pulse=0.01,
+            initial_pos=5,
+            z_index_enable=False,
+        )
+        console.ni_ci.add_channel(
+            name="LinearPosition_3",
+            chan_type=channel_type,
+            device=device_name,
+            units="Ticks",
+            decoding_type="X1",
+            dist_per_pulse=0.005,
+            z_index_enable=True,
+            z_index_val=10,
+            z_index_phase="A Low B Low",
+        )
+
+    def verify_angular_position_inputs(self, device_name: str) -> None:
+        """Validate Angular Position inputs"""
+        self.log("Configuring channels of type Position Angular")
+        console = self.console
+        channel_type = "Position Angular"
+
+        console.ni_ci.add_channel(
+            name="AngularPosition_1",
+            chan_type=channel_type,
+            device=device_name,
+            units="Degrees",
+            decoding_type="X4",
+            pulses_per_rev=24,
+            initial_angle=0,
+            z_index_enable=True,
+            z_index_val=0,
+            z_index_phase="A High B High",
+        )
+        console.ni_ci.add_channel(
+            name="AngularPosition_2",
+            chan_type=channel_type,
+            device=device_name,
+            units="Radians",
+            decoding_type="X2",
+            pulses_per_rev=100,
+            initial_angle=1.57,
+            z_index_enable=False,
+        )
+        console.ni_ci.add_channel(
+            name="AngularPosition_3",
+            chan_type=channel_type,
+            device=device_name,
+            units="Ticks",
+            decoding_type="Two Pulse",
+            pulses_per_rev=360,
+            z_index_enable=True,
+            z_index_val=90,
+            z_index_phase="A High B Low",
+        )
+
+    def verify_duty_cycle_inputs(self, device_name: str) -> None:
+        """Validate Duty Cycle inputs"""
+        self.log("Configuring channels of type Duty Cycle")
+        console = self.console
+        channel_type = "Duty Cycle"
+
+        console.ni_ci.add_channel(
+            name="DutyCycle_1",
+            chan_type=channel_type,
+            device=device_name,
+            min_val=2,
+            max_val=10000,
+            edge="Rising",
+        )
+        console.ni_ci.add_channel(
+            name="DutyCycle_2",
+            chan_type=channel_type,
+            device=device_name,
+            min_val=10,
+            max_val=5000,
+            edge="Falling",
+        )
+        console.ni_ci.add_channel(
+            name="DutyCycle_3",
+            chan_type=channel_type,
+            device=device_name,
+            min_val=5,
+            max_val=20000,
+            edge="Rising",
         )

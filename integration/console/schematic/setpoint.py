@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .symbol import Symbol
 
@@ -17,13 +17,13 @@ class Setpoint(Symbol):
 
     def edit_properties(
         self,
-        channel_name: Optional[str] = None,
+        channel_name: str | None = None,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Edit Setpoint properties including channel settings."""
         self._click_symbol()
 
-        applied_properties: Dict[str, Any] = {}
+        applied_properties: dict[str, Any] = {}
         if channel_name is not None:
             self.set_label(channel_name)
 

@@ -54,6 +54,7 @@ describe("channelchannel.Retriever", () => {
         index: 0,
         virtual: false,
         expression: "",
+        operations: [],
         requires: [],
       }));
     });
@@ -83,6 +84,7 @@ describe("channelchannel.Retriever", () => {
         index: 0,
         virtual: false,
         expression: "",
+        operations: [],
         requires: [],
       }));
     });

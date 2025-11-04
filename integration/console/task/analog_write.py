@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Page
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from console.console import Console
 
 # Channel type registry for NI Analog Output
-AO_CHANNEL_TYPES: dict[str, Type[Analog]] = {
+AO_CHANNEL_TYPES: dict[str, type[Analog]] = {
     "Voltage": Voltage,
     "Current": Current,
 }
@@ -41,9 +41,9 @@ class AnalogWrite(NITask):
     def add_channel(
         self,
         name: str,
-        type: str,
+        chan_type: str,
         device: str,
-        dev_name: Optional[str] = None,
+        dev_name: str | None = None,
         **kwargs: Any,
     ) -> NIChannel:
         """
@@ -52,7 +52,7 @@ class AnalogWrite(NITask):
 
         Args:
             name: Channel name
-            type: Channel type (must be "Voltage" or "Current")
+            chan_type: Channel type (must be "Voltage" or "Current")
             device: Device identifier
             dev_name: Optional device name
             **kwargs: Additional channel-specific configuration
@@ -63,9 +63,9 @@ class AnalogWrite(NITask):
         Raises:
             ValueError: If channel type is not valid for analog write tasks
         """
-        if type not in AO_CHANNEL_TYPES:
+        if chan_type not in AO_CHANNEL_TYPES:
             raise ValueError(
-                f"Invalid channel type for NI Analog Write: {type}. "
+                f"Invalid channel type for NI Analog Write: {chan_type}. "
                 f"Valid types: {list(AO_CHANNEL_TYPES.keys())}"
             )
 
@@ -76,19 +76,18 @@ class AnalogWrite(NITask):
 
         return self._add_channel_helper(
             name=name,
-            type=type,
             device=device,
             dev_name=dev_name,
-            channel_class=AO_CHANNEL_TYPES[type],
+            channel_class=AO_CHANNEL_TYPES[chan_type],
             **kwargs,
         )
 
     def set_parameters(
         self,
-        task_name: Optional[str] = None,
-        data_saving: Optional[bool] = None,
-        auto_start: Optional[bool] = None,
-        state_update_rate: Optional[float] = None,
+        task_name: str | None = None,
+        data_saving: bool | None = None,
+        auto_start: bool | None = None,
+        state_update_rate: float | None = None,
         **kwargs: Any,
     ) -> None:
         """

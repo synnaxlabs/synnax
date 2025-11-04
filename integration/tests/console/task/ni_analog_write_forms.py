@@ -79,12 +79,12 @@ class NIAnalogWriteForms(ConsoleCase):
 
         console.ni_ao.add_channel(
             name="v0",
-            type="Voltage",
+            chan_type="Voltage",
             device=device_name,
         )
         console.ni_ao.add_channel(
             name="v1",
-            type="Voltage",
+            chan_type="Voltage",
             device=device_name,
             min_val=-0.1,
             max_val=6.5,
@@ -97,12 +97,12 @@ class NIAnalogWriteForms(ConsoleCase):
 
         console.ni_ao.add_channel(
             name="Current_1",
-            type="Current",
+            chan_type="Current",
             device=device_name,
         )
         console.ni_ao.add_channel(
             name="Current_2",
-            type="Current",
+            chan_type="Current",
             device=device_name,
             min_val=-0.1,
             max_val=6.5,

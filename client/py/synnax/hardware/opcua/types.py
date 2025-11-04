@@ -8,8 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
-import warnings
-from typing import Literal, Union
+from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -113,7 +112,7 @@ class ArraySamplingReadTaskConfig(BaseReadTaskConfig):
 
 
 class WrappedReadTaskConfig(BaseModel):
-    config: Union[NonArraySamplingReadTaskConfig, ArraySamplingReadTaskConfig] = Field(
+    config: NonArraySamplingReadTaskConfig | ArraySamplingReadTaskConfig = Field(
         discriminator="array_mode"
     )
 

@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/pluto",
-  "version": "0.46.7",
+  "version": "0.47.1",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && vite build",

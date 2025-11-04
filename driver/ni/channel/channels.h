@@ -109,6 +109,22 @@ static int32_t get_ci_count_direction(const std::string &s) {
     return DAQmx_Val_CountUp;
 }
 
+static int32_t get_ci_decoding_type(const std::string &s) {
+    if (s == "X1") return DAQmx_Val_X1;
+    if (s == "X2") return DAQmx_Val_X2;
+    if (s == "X4") return DAQmx_Val_X4;
+    if (s == "TwoPulse") return DAQmx_Val_TwoPulseCounting;
+    return DAQmx_Val_X4;
+}
+
+static int32_t get_ci_z_index_phase(const std::string &s) {
+    if (s == "AHighBHigh") return DAQmx_Val_AHighBHigh;
+    if (s == "AHighBLow") return DAQmx_Val_AHighBLow;
+    if (s == "ALowBHigh") return DAQmx_Val_ALowBHigh;
+    if (s == "ALowBLow") return DAQmx_Val_ALowBLow;
+    return DAQmx_Val_AHighBHigh;
+}
+
 struct ExcitationConfig {
     const int32_t source;
     const double val;
@@ -1408,6 +1424,222 @@ struct CITwoEdgeSep final : CICustomScale {
     }
 };
 
+/// @brief Counter input linear velocity measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateci
+/// linvelocitychan.html
+struct CILinearVelocity final : CICustomScale {
+    const int32_t decoding_type;
+    const double dist_per_pulse;
+    const std::string terminal_a;
+    const std::string terminal_b;
+
+    explicit CILinearVelocity(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
+        dist_per_pulse(cfg.required<double>("dist_per_pulse")),
+        terminal_a(cfg.optional<std::string>("terminalA", "")),
+        terminal_b(cfg.optional<std::string>("terminalB", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCILinVelocityChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->decoding_type,
+            this->units,
+            this->dist_per_pulse,
+            scale_key
+        );
+    }
+};
+
+/// @brief Counter input angular velocity measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecia
+/// ngvelocitychan.html
+struct CIAngularVelocity final : CICustomScale {
+    const int32_t decoding_type;
+    const uint32_t pulses_per_rev;
+    const std::string terminal_a;
+    const std::string terminal_b;
+
+    explicit CIAngularVelocity(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
+        pulses_per_rev(cfg.required<uint32_t>("pulses_per_rev")),
+        terminal_a(cfg.optional<std::string>("terminalA", "")),
+        terminal_b(cfg.optional<std::string>("terminalB", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCIAngVelocityChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->decoding_type,
+            this->units,
+            this->pulses_per_rev,
+            scale_key
+        );
+    }
+};
+
+/// @brief Counter input linear position measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecil
+/// inencoderchan.html
+struct CILinearPosition final : CICustomScale {
+    const int32_t decoding_type;
+    const double dist_per_pulse;
+    const double initial_pos;
+    const bool z_index_enable;
+    const double z_index_val;
+    const int32_t z_index_phase;
+    const std::string terminal_a;
+    const std::string terminal_b;
+    const std::string terminal_z;
+
+    explicit CILinearPosition(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
+        dist_per_pulse(cfg.required<double>("dist_per_pulse")),
+        initial_pos(cfg.optional<double>("initial_pos", 0.0)),
+        z_index_enable(cfg.optional<bool>("z_index_enable", false)),
+        z_index_val(cfg.optional<double>("z_index_val", 0.0)),
+        z_index_phase(get_ci_z_index_phase(
+            cfg.optional<std::string>("z_index_phase", "AHighBHigh")
+        )),
+        terminal_a(cfg.optional<std::string>("terminalA", "")),
+        terminal_b(cfg.optional<std::string>("terminalB", "")),
+        terminal_z(cfg.optional<std::string>("terminalZ", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCILinEncoderChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->decoding_type,
+            this->z_index_enable,
+            this->z_index_val,
+            this->z_index_phase,
+            this->units,
+            this->dist_per_pulse,
+            this->initial_pos,
+            scale_key
+        );
+    }
+};
+
+/// @brief Counter input angular position measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecia
+/// ngencoderchan.html
+struct CIAngularPosition final : CICustomScale {
+    const int32_t decoding_type;
+    const uint32_t pulses_per_rev;
+    const double initial_angle;
+    const bool z_index_enable;
+    const double z_index_val;
+    const int32_t z_index_phase;
+    const std::string terminal_a;
+    const std::string terminal_b;
+    const std::string terminal_z;
+
+    explicit CIAngularPosition(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
+        pulses_per_rev(cfg.required<uint32_t>("pulses_per_rev")),
+        initial_angle(cfg.optional<double>("initial_angle", 0.0)),
+        z_index_enable(cfg.optional<bool>("z_index_enable", false)),
+        z_index_val(cfg.optional<double>("z_index_val", 0.0)),
+        z_index_phase(get_ci_z_index_phase(
+            cfg.optional<std::string>("z_index_phase", "AHighBHigh")
+        )),
+        terminal_a(cfg.optional<std::string>("terminalA", "")),
+        terminal_b(cfg.optional<std::string>("terminalB", "")),
+        terminal_z(cfg.optional<std::string>("terminalZ", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCIAngEncoderChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->decoding_type,
+            this->z_index_enable,
+            this->z_index_val,
+            this->z_index_phase,
+            this->units,
+            this->pulses_per_rev,
+            this->initial_angle,
+            scale_key
+        );
+    }
+};
+
+/// @brief Counter input duty cycle measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecidutycyclechan.html
+struct CIDutyCycle final : CICustomScale {
+    const int32_t edge;
+    const std::string terminal;
+
+    explicit CIDutyCycle(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        edge(get_ci_edge(cfg.required<std::string>("activeEdge"))),
+        terminal(cfg.optional<std::string>("terminal", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        return dmx->CreateCIDutyCycleChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->edge,
+            scale_key
+        );
+    }
+};
+
 /// @brief Counter output pulse generation channel.
 /// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateco
 /// pulsechantime.html
@@ -2042,6 +2274,11 @@ static const std::map<std::string, Factory<Input>> INPUTS = {
     INPUT_CHAN_FACTORY("ci_pulse_width", CIPulseWidth),
     INPUT_CHAN_FACTORY("ci_semi_period", CISemiPeriod),
     INPUT_CHAN_FACTORY("ci_two_edge_sep", CITwoEdgeSep),
+    INPUT_CHAN_FACTORY("ci_velocity_angular", CIAngularVelocity),
+    INPUT_CHAN_FACTORY("ci_velocity_linear", CILinearVelocity),
+    INPUT_CHAN_FACTORY("ci_position_angular", CIAngularPosition),
+    INPUT_CHAN_FACTORY("ci_position_linear", CILinearPosition),
+    INPUT_CHAN_FACTORY("ci_duty_cycle", CIDutyCycle),
     INPUT_CHAN_FACTORY("digital_input", DI)
 };
 

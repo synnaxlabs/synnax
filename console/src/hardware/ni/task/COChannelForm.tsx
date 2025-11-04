@@ -50,12 +50,13 @@ const UnitsField = Form.buildSelectField<string, record.KeyedNamed<string>>({
 const CHANNEL_FORMS: Record<COChannelType, FC<FormProps>> = {
   [CO_PULSE_OUTPUT_CHAN_TYPE]: ({ path }) => (
     <>
-      <Form.NumericField
-        path={`${path}.initialDelay`}
-        label="Initial Delay"
-        inputProps={{ endContent: "s" }}
-      />
       <Flex.Box x>
+        <Form.NumericField
+          path={`${path}.initialDelay`}
+          label="Initial Delay"
+          inputProps={{ endContent: "s" }}
+          grow
+        />
         <Form.NumericField
           path={`${path}.highTime`}
           label="High Time"
@@ -70,8 +71,8 @@ const CHANNEL_FORMS: Record<COChannelType, FC<FormProps>> = {
         />
       </Flex.Box>
       <Flex.Box x>
-        <UnitsField path={path} grow />
         <IdleStateField path={path} grow />
+        <UnitsField path={path} grow />
       </Flex.Box>
     </>
   ),

@@ -39,7 +39,7 @@ class SemiPeriod(Counter):
             console=console,
             name=name,
             device=device,
-            type="Semi Period",
+            chan_type="Semi Period",
             **kwargs,
         )
 

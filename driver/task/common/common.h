@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "client/cpp/framer/framer.h"
+
 #include "driver/task/task.h"
 
 namespace common {
@@ -27,7 +29,7 @@ struct BaseTaskConfig {
     const BaseTaskConfig &operator=(const BaseTaskConfig &other) = delete;
 
     explicit BaseTaskConfig(xjson::Parser &parser):
-        data_saving(parser.optional<bool>("data_saving", false)),
+        data_saving(parser.optional<bool>("data_saving", true)),
         auto_start(parser.optional<bool>("auto_start", false)) {}
 };
 
@@ -43,4 +45,10 @@ struct ConfigureResult {
     /// field should be set to xerrors::NIL.
     xerrors::Error error = xerrors::NIL;
 };
+
+/// @brief converts a data_saving boolean to the appropriate WriterMode.
+inline synnax::WriterMode data_saving_writer_mode(const bool data_saving) {
+    if (data_saving) return synnax::WriterMode::PersistStream;
+    return synnax::WriterMode::StreamOnly;
+}
 }

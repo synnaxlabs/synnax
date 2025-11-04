@@ -11,9 +11,14 @@ from typing import TYPE_CHECKING, Any, Optional, Type
 
 from playwright.sync_api import Page
 
+from console.task.channels.angular_position import AngularPosition
+from console.task.channels.angular_velocity import AngularVelocity
 from console.task.channels.counter import Counter
+from console.task.channels.duty_cycle import DutyCycle
 from console.task.channels.edge_count import EdgeCount
 from console.task.channels.frequency import Frequency
+from console.task.channels.linear_position import LinearPosition
+from console.task.channels.linear_velocity import LinearVelocity
 from console.task.channels.period import Period
 from console.task.channels.pulse_width import PulseWidth
 from console.task.channels.semi_period import SemiPeriod
@@ -26,8 +31,13 @@ if TYPE_CHECKING:
 
 # Valid channel types for NI Counter Read tasks
 COUNTER_READ_CHANNEL_TYPES: dict[str, Type[Counter]] = {
+    "Position Angular": AngularPosition,
+    "Velocity Angular": AngularVelocity,
+    "Duty Cycle": DutyCycle,
     "Edge Count": EdgeCount,
     "Frequency": Frequency,
+    "Position Linear": LinearPosition,
+    "Velocity Linear": LinearVelocity,
     "Period": Period,
     "Pulse Width": PulseWidth,
     "Semi Period": SemiPeriod,
@@ -49,7 +59,7 @@ class CounterRead(NITask):
     def add_channel(
         self,
         name: str,
-        type: str,
+        chan_type: str,
         device: str,
         dev_name: Optional[str] = None,
         **kwargs: Any,
@@ -59,7 +69,7 @@ class CounterRead(NITask):
 
         Args:
             name: Channel name
-            type: Channel type (must be valid for counter read tasks)
+            chan_type: Channel type (must be valid for counter read tasks)
             device: Device identifier
             dev_name: Optional device name
             **kwargs: Additional channel-specific configuration
@@ -70,18 +80,17 @@ class CounterRead(NITask):
         Raises:
             ValueError: If channel type is not valid for counter read tasks
         """
-        if type not in COUNTER_READ_CHANNEL_TYPES:
+        if chan_type not in COUNTER_READ_CHANNEL_TYPES:
             raise ValueError(
-                f"Invalid channel type for NI Counter Read: {type}. "
+                f"Invalid channel type for NI Counter Read: {chan_type}. "
                 f"Valid types: {list(COUNTER_READ_CHANNEL_TYPES.keys())}"
             )
 
         return self._add_channel_helper(
             name=name,
-            type=type,
             device=device,
             dev_name=dev_name,
-            channel_class=COUNTER_READ_CHANNEL_TYPES[type],
+            channel_class=COUNTER_READ_CHANNEL_TYPES[chan_type],
             **kwargs,
         )
 

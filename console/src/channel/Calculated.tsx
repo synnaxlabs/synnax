@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import "@/channel/Calculated.css";
+
+import { channel, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
   Channel,
@@ -15,161 +17,131 @@ import {
   Form,
   Input,
   Nav,
+  Select,
   Status,
-  Synnax,
-  Telem,
   Text,
-  useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { unique } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { status } from "@synnaxlabs/x";
+import { type ReactElement, useRef, useState } from "react";
 
 import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
 import { Code } from "@/code";
-import { Lua } from "@/code/lua";
-import {
-  usePhantomGlobals,
-  type UsePhantomGlobalsReturn,
-  type Variable,
-} from "@/code/phantom";
-import { bindChannelsAsGlobals, useSuggestChannels } from "@/code/useSuggestChannels";
+import { Arc } from "@/code/arc";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
-const FAILED_TO_UPDATE_AUTOCOMPLETE =
-  "Failed to update calculated channel auto-complete";
-
-const GLOBALS: Variable[] = [
-  {
-    key: "get",
-    name: "get",
-    value: `
-    -- Get a channel's value by its name. This function should be used when
-    -- the channel name cannot be used directly as a variable. For example,
-    -- hyphenated names such as 'my-channel' should be accessed with get("my-channel")
-    -- instead of just my-channel.
-    function get(name)
-    end
-    `,
-  },
-];
+const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
+  autoFocus: true,
+  level: "h2",
+  variant: "text",
+  placeholder: "Name",
+};
 
 export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
-  const client = Synnax.use();
   const args = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
   const isEdit = args?.channelKey !== 0;
-
-  const { form, variant, save, status } = Channel.useCalculatedForm({
+  const {
+    form,
+    variant,
+    save,
+    status: stat,
+  } = Channel.useCalculatedForm({
     query: { key: args?.channelKey },
     afterSave: ({ reset }) => {
       if (createMore) reset();
       else onClose();
     },
   });
-
-  const handleError = Status.useErrorHandler();
-  const [createMore, setCreateMore] = useState(false);
-
-  const isIndex = Form.useFieldValue<
-    boolean,
-    boolean,
+  const requiresValue = Form.useFieldValue<
+    channel.Key[],
+    channel.Key[],
     typeof Channel.calculatedFormSchema
-  >("isIndex", { ctx: form });
-
-  const globals = usePhantomGlobals({
-    language: Lua.LANGUAGE,
-    stringifyVar: Lua.stringifyVar,
-    initialVars: GLOBALS,
-  });
-  useAsyncEffect(
-    async (signal) => {
-      if (client == null) return;
-      const channels = form.get<channel.Key[]>("requires").value;
-      try {
-        const chs = await client.channels.retrieve(channels);
-        if (signal.aborted) return;
-        chs.forEach((ch) => globals.set(ch.key.toString(), ch.name, ch.key.toString()));
-      } catch (e) {
-        handleError(e, FAILED_TO_UPDATE_AUTOCOMPLETE);
-      }
-    },
-    [form, globals, client],
-  );
-
-  if (variant !== "success") return <Status.Summary status={status} />;
-
+  >("requires", { ctx: form, optional: true });
+  const isLegacyCalculated = requiresValue != null && requiresValue.length > 0;
+  const [createMore, setCreateMore] = useState(false);
+  const initialLoaded = useRef(false);
+  if (!initialLoaded.current && variant !== "loading") initialLoaded.current = true;
   return (
-    <Flex.Box className={CSS.B("channel-edit-layout")} grow empty>
-      <Flex.Box className="console-form" style={{ padding: "3rem" }} grow>
+    <Flex.Box className={CSS.B("channel", "edit", "calculated")} grow empty>
+      <Flex.Box className={CSS.B("form")} style={{ padding: "3rem" }} grow>
         <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
-          <Form.Field<string> path="name" label="Name">
-            {(p) => (
-              <Input.Text
-                autoFocus
-                level="h2"
-                variant="text"
-                placeholder="Name"
-                {...p}
-              />
-            )}
-          </Form.Field>
-
-          <Form.Field<string> path="expression" grow>
-            {({ value, onChange }) => (
-              <Editor
-                value={value}
-                language={Lua.LANGUAGE}
-                onChange={onChange}
-                bordered
-                rounded
-                style={{ height: 150 }}
-                globals={globals}
-              />
-            )}
-          </Form.Field>
-          <Flex.Box x>
-            <Form.Field<string>
-              path="dataType"
-              label="Output Data Type"
-              style={{ width: 150 }}
-            >
-              {({ variant: _, ...p }) => (
-                <Telem.SelectDataType
-                  {...p}
-                  disabled={isIndex}
-                  zIndex={100}
-                  style={{ width: 150 }}
+          <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
+          {initialLoaded.current && (
+            <Form.Field<string> path="expression" grow>
+              {({ value, onChange }) => (
+                <Code.Editor
+                  value={value}
+                  language={Arc.LANGUAGE}
+                  onChange={onChange}
+                  isBlock
+                  bordered
+                  rounded
                 />
               )}
             </Form.Field>
-            <Form.Field<channel.Key[]>
-              path="requires"
-              required
-              label="Required Channels"
-              grow
-              onChange={(v, extra) => {
-                if (client == null) return;
-                handleError(
-                  async () =>
-                    await bindChannelsAsGlobals(
-                      client,
-                      extra.get<channel.Key[]>("requires").value,
-                      v,
-                      globals,
-                    ),
-                  FAILED_TO_UPDATE_AUTOCOMPLETE,
-                );
-              }}
+          )}
+          {isLegacyCalculated && (
+            <Text.Text level="p" status="warning">
+              Legacy Calculated Channels are deprecated and will be removed in a future
+              release. Please edit this expression to match the new arc-based calculated
+              channel syntax.
+            </Text.Text>
+          )}
+          <Flex.Box x>
+            <Form.Field<channel.OperationType>
+              path="operations.0.type"
+              label="Operation"
             >
-              {({ variant: _, ...p }) => <Channel.SelectMultiple zIndex={100} {...p} />}
+              {(p) => (
+                <Select.Buttons keys={channel.OPERATION_TYPES} {...p}>
+                  <Select.Button itemKey="none">None</Select.Button>
+                  <Select.Button itemKey="min">Min</Select.Button>
+                  <Select.Button itemKey="max">Max</Select.Button>
+                  <Select.Button itemKey="avg">Average</Select.Button>
+                </Select.Buttons>
+              )}
+            </Form.Field>
+            <Form.Field<TimeSpan>
+              path="operations.0.duration"
+              label="Window"
+              helpText="The value will be reset after this duration. If zero, the value will never be reset."
+              grow
+            >
+              {({ value, onChange }) => (
+                <Input.Numeric
+                  value={new TimeSpan(value).seconds}
+                  onChange={(v) => onChange(TimeSpan.seconds(v))}
+                  endContent="S"
+                />
+              )}
+            </Form.Field>
+            <Form.Field<channel.Key>
+              path="operations.0.resetChannel"
+              label="Reset Channel"
+              helpText="When this channel is triggered, the calculation will be reset."
+            >
+              {({ value, onChange }) => (
+                <Channel.SelectSingle
+                  value={value}
+                  onChange={(v: channel.Key | undefined) => onChange(v ?? 0)}
+                  grow
+                  allowNone
+                />
+              )}
             </Form.Field>
           </Flex.Box>
         </Form.Form>
       </Flex.Box>
       <Modals.BottomNavBar>
-        <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
+        <Nav.Bar.Start>
+          {variant == "success" ? (
+            <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
+          ) : (
+            <Status.Summary status={stat} center={false} />
+          )}
+        </Nav.Bar.Start>
         <Nav.Bar.End align="center" gap="large">
           {isEdit && (
             <Flex.Box x align="center" gap="small">
@@ -179,7 +151,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
           )}
           <Flex.Box x align="center">
             <Button.Button
-              status={variant}
+              status={status.keepVariants(variant, "loading")}
               trigger={Triggers.SAVE}
               variant="filled"
               onClick={() => save()}
@@ -191,27 +163,4 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
       </Modals.BottomNavBar>
     </Flex.Box>
   );
-};
-
-interface EditorProps extends Code.EditorProps {
-  globals?: UsePhantomGlobalsReturn;
-}
-
-const Editor = ({ globals, ...props }: EditorProps): ReactElement => {
-  const methods = Form.useContext();
-  const onAccept = useCallback(
-    (channel: channel.Payload) => {
-      if (globals == null) return;
-      globals.set(channel.key.toString(), channel.name, channel.key.toString());
-      methods.set(
-        "requires",
-        unique.unique([...methods.get<channel.Key[]>("requires").value, channel.key]),
-      );
-    },
-    [methods, globals],
-  );
-
-  useSuggestChannels(onAccept);
-
-  return <Code.Editor {...props} />;
 };

@@ -148,6 +148,21 @@ importers:
         specifier: 'catalog:'
         version: 3.2.4(@types/debug@4.1.12)(@types/node@24.4.0)(jiti@2.6.1)(jsdom@27.0.0(postcss@8.5.6))(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.1)
 
+  arc/ts:
+    devDependencies:
+      '@synnaxlabs/tsconfig':
+        specifier: workspace:^
+        version: link:../../configs/ts
+      '@synnaxlabs/vite-plugin':
+        specifier: workspace:^
+        version: link:../../configs/vite
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.2
+      vite:
+        specifier: 'catalog:'
+        version: 7.1.5(@types/node@24.4.0)(jiti@2.6.1)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.1)
+
   client/ts:
     dependencies:
       '@synnaxlabs/freighter':
@@ -453,6 +468,9 @@ importers:
       '@fontsource/geist-mono':
         specifier: 'catalog:'
         version: 5.2.6
+      '@synnaxlabs/arc':
+        specifier: workspace:^
+        version: link:../../arc/ts
       '@synnaxlabs/client':
         specifier: workspace:^
         version: link:../../client/ts
@@ -10834,7 +10852,6 @@ snapshots:
       '@esbuild/win32-arm64': 0.25.10
       '@esbuild/win32-ia32': 0.25.10
       '@esbuild/win32-x64': 0.25.10
-    optional: true
 
   esbuild@0.25.9:
     optionalDependencies:
@@ -14107,7 +14124,7 @@ snapshots:
 
   vite@7.1.5(@types/node@24.4.0)(jiti@2.6.1)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.1):
     dependencies:
-      esbuild: 0.25.9
+      esbuild: 0.25.10
       fdir: 6.5.0(picomatch@4.0.3)
       picomatch: 4.0.3
       postcss: 8.5.6

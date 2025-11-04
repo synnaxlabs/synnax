@@ -2,10 +2,17 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "Task Status Verification",
+      "sequence_name": "NI Counter Forms",
+      "sequence_order": "asynchronous",
       "tests": [
         {
-          "case": "console/task/no_device"
+          "case": "console/task/ni_counter_write_forms"
+        },
+        {
+          "case": "console/task/ni_counter_read_forms",
+          "parameters": {
+            "mode": ["a", "b", "c"]
+          }
         }
       ]
     },
@@ -18,7 +25,9 @@
         },
         {
           "case": "console/task/ni_analog_read_forms",
-          "matrix": { "mode": ["a", "b", "c"] }
+          "parameters": {
+            "mode": ["a", "b", "c"]
+          }
         }
       ]
     },
@@ -28,20 +37,17 @@
       "tests": [
         {
           "case": "console/task/ni_analog_read_forms",
-          "matrix": { "mode": ["d", "e", "f"] }
+          "parameters": {
+            "mode": ["d", "e", "f"]
+          }
         }
       ]
     },
     {
-      "sequence_name": "NI Counter Forms",
-      "sequence_order": "asynchronous",
+      "sequence_name": "Task Status Verification",
       "tests": [
         {
-          "case": "console/task/ni_counter_read_forms",
-          "matrix": { "mode": ["a", "b", "c"] }
-        },
-        {
-          "case": "console/task/ni_counter_write_forms"
+          "case": "console/task/no_device"
         }
       ]
     }

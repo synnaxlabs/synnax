@@ -43,7 +43,7 @@ class PulseWidth(Counter):
             console=console,
             name=name,
             device=device,
-            type="Pulse Width",
+            chan_type="Pulse Width",
             **kwargs,
         )
 

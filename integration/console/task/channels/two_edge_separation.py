@@ -43,7 +43,7 @@ class TwoEdgeSeparation(Counter):
             console=console,
             name=name,
             device=device,
-            type="Two Edge Separation",
+            chan_type="Two Edge Separation",
             **kwargs,
         )
 
