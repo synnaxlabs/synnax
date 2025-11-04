@@ -1518,7 +1518,9 @@ struct CILinearPosition final : CounterCustomScale {
         initial_pos(cfg.optional<double>("initial_pos", 0.0)),
         z_index_enable(cfg.optional<bool>("z_index_enable", false)),
         z_index_val(cfg.optional<double>("z_index_val", 0.0)),
-        z_index_phase(get_ci_z_index_phase(cfg.optional<std::string>("z_index_phase", "AHighBHigh"))),
+        z_index_phase(get_ci_z_index_phase(
+            cfg.optional<std::string>("z_index_phase", "AHighBHigh")
+        )),
         terminal_a(cfg.optional<std::string>("terminalA", "")),
         terminal_b(cfg.optional<std::string>("terminalB", "")),
         terminal_z(cfg.optional<std::string>("terminalZ", "")) {}
@@ -1566,7 +1568,9 @@ struct CIAngularPosition final : CounterCustomScale {
         initial_angle(cfg.optional<double>("initial_angle", 0.0)),
         z_index_enable(cfg.optional<bool>("z_index_enable", false)),
         z_index_val(cfg.optional<double>("z_index_val", 0.0)),
-        z_index_phase(get_ci_z_index_phase(cfg.optional<std::string>("z_index_phase", "AHighBHigh"))),
+        z_index_phase(get_ci_z_index_phase(
+            cfg.optional<std::string>("z_index_phase", "AHighBHigh")
+        )),
         terminal_a(cfg.optional<std::string>("terminalA", "")),
         terminal_b(cfg.optional<std::string>("terminalB", "")),
         terminal_z(cfg.optional<std::string>("terminalZ", "")) {}
