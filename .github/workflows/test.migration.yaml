@@ -65,8 +65,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version-file: client/py/pyproject.toml
+          python-version: "3.13"
           cache: poetry
+          cache-dependency-path: client/py/poetry.lock
 
       - name: Install Dependencies
         run: poetry install
@@ -120,8 +121,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version-file: client/py/pyproject.toml
+          python-version: "3.13"
           cache: poetry
+          cache-dependency-path: client/py/poetry.lock
 
       - name: Install Dependencies
         run: poetry install
