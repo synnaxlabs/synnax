@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -22,13 +22,13 @@ import (
 type calculationTransform struct {
 	confluence.LinearTransform[framer.IteratorResponse, framer.IteratorResponse]
 	excludeKeys      channel.Keys
-	calculators      []*calculation.Calculator
+	calculators      []*calculator.Calculator
 	accumulatedError error
 }
 
 func newCalculationTransform(
 	excludeKeys channel.Keys,
-	calculators []*calculation.Calculator,
+	calculators []*calculator.Calculator,
 ) *calculationTransform {
 	t := &calculationTransform{calculators: calculators, excludeKeys: excludeKeys}
 	t.Transform = t.transform

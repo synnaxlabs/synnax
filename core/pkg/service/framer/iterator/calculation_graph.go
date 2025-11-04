@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
@@ -32,7 +32,7 @@ type dependencyGraph struct {
 type dependencyNode struct {
 	key        channel.Key
 	channel    channel.Channel
-	calculator *calculation.Calculator
+	calculator *calculator.Calculator
 	// dependencies are the channel keys this node depends on
 	dependencies []channel.Key
 	// visited tracks if this node has been visited during topological sort
@@ -49,7 +49,7 @@ type dependencyNode struct {
 func (s *Service) buildDependencyGraph(
 	ctx context.Context,
 	requestedChannels []channel.Channel,
-) ([]*calculation.Calculator, set.Set[channel.Key], set.Set[channel.Key], error) {
+) ([]*calculator.Calculator, set.Set[channel.Key], set.Set[channel.Key], error) {
 	graph := &dependencyGraph{
 		nodes:            make(map[channel.Key]*dependencyNode),
 		calculatedKeys:   make(set.Set[channel.Key]),
@@ -135,8 +135,8 @@ func (s *Service) addChannelToGraph(
 // topologicalSort performs a topological sort on the dependency graph using DFS.
 // Returns calculators in dependency order (dependencies first) or an error if
 // a circular dependency is detected.
-func (g *dependencyGraph) topologicalSort() ([]*calculation.Calculator, error) {
-	var sorted []*calculation.Calculator
+func (g *dependencyGraph) topologicalSort() ([]*calculator.Calculator, error) {
+	var sorted []*calculator.Calculator
 	var stack []channel.Key
 
 	// Visit each node
@@ -155,7 +155,7 @@ func (g *dependencyGraph) topologicalSort() ([]*calculation.Calculator, error) {
 // It also detects cycles by tracking nodes in the current stack.
 func (g *dependencyGraph) dfsVisit(
 	key channel.Key,
-	sorted *[]*calculation.Calculator,
+	sorted *[]*calculator.Calculator,
 	stack *[]channel.Key,
 ) error {
 	node := g.nodes[key]

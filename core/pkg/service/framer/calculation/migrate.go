@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/x/gorp"
 	"go.uber.org/zap"
 )
@@ -25,13 +26,13 @@ func (s *Service) migrateChannels(ctx context.Context) error {
 		Exec(ctx, nil); err != nil {
 		return err
 	}
+	resolver := s.cfg.Arc.SymbolResolver()
 	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		writer := s.cfg.Channel.NewWriter(tx)
 		for _, calc := range legacyCalculations {
-			if _, err := compile(ctx, CalculatorConfig{
-				ChannelSvc: s.cfg.Channel,
-				Channel:    calc,
-				Resolver:   s.cfg.Arc.SymbolResolver(),
+			if _, err := compiler.Compile(ctx, compiler.Config{
+				Channel:        calc,
+				SymbolResolver: resolver,
 			}); err == nil {
 				calc.Requires = nil
 				if err = writer.Create(ctx, &calc); err != nil {

@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -170,11 +170,11 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
-func (s *Service) openCalculator(ctx context.Context, ch channel.Channel) (*calculation.Calculator, error) {
-	c, err := calculation.OpenCalculator(ctx, calculation.CalculatorConfig{
-		Channel:    ch,
-		ChannelSvc: s.cfg.Channel,
-		Resolver:   s.cfg.Arc.SymbolResolver(),
+func (s *Service) openCalculator(ctx context.Context, ch channel.Channel) (*calculator.Calculator, error) {
+	c, err := calculator.Open(ctx, calculator.Config{
+		Channel:        ch,
+		Channels:       s.cfg.Channel,
+		SymbolResolver: s.cfg.Arc.SymbolResolver(),
 	})
 	return c, err
 }

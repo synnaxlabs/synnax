@@ -31,6 +31,20 @@ func FromSlice[T comparable](values []T) Set[T] {
 	return s
 }
 
+func Union[T comparable, V any](sets ...Mapped[T, V]) Mapped[T, V] {
+	count := 0
+	for _, set := range sets {
+		count += len(set)
+	}
+	s := make(Mapped[T, V], count)
+	for _, set := range sets {
+		for k, v := range set {
+			s[k] = v
+		}
+	}
+	return s
+}
+
 // Reset removes all elements from the set, leaving it empty.
 // The underlying map is cleared but not deallocated.
 func (s Mapped[T, V]) Reset() { clear(s) }
