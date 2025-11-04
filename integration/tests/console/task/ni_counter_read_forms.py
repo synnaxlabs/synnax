@@ -275,9 +275,9 @@ class NICounterReadForms(ConsoleCase):
 
     def verify_linear_velocity_inputs(self, device_name: str) -> None:
         """Validate Linear Velocity inputs"""
-        self.log("Configuring channels of type Linear Velocity")
+        self.log("Configuring channels of type Velocity Linear")
         console = self.console
-        channel_type = "Linear Velocity"
+        channel_type = "Velocity Linear"
 
         console.ni_ci.add_channel(
             name="LinearVelocity_1",
@@ -308,9 +308,9 @@ class NICounterReadForms(ConsoleCase):
 
     def verify_angular_velocity_inputs(self, device_name: str) -> None:
         """Validate Angular Velocity inputs"""
-        self.log("Configuring channels of type Angular Velocity")
+        self.log("Configuring channels of type Velocity Angular")
         console = self.console
-        channel_type = "Angular Velocity"
+        channel_type = "Velocity Angular"
 
         console.ni_ci.add_channel(
             name="AngularVelocity_1",
@@ -341,9 +341,9 @@ class NICounterReadForms(ConsoleCase):
 
     def verify_linear_position_inputs(self, device_name: str) -> None:
         """Validate Linear Position inputs"""
-        self.log("Configuring channels of type Linear Position")
+        self.log("Configuring channels of type Position Linear")
         console = self.console
-        channel_type = "Linear Position"
+        channel_type = "Position Linear"
 
         console.ni_ci.add_channel(
             name="LinearPosition_1",
@@ -381,9 +381,9 @@ class NICounterReadForms(ConsoleCase):
 
     def verify_angular_position_inputs(self, device_name: str) -> None:
         """Validate Angular Position inputs"""
-        self.log("Configuring channels of type Angular Position")
+        self.log("Configuring channels of type Position Angular")
         console = self.console
-        channel_type = "Angular Position"
+        channel_type = "Position Angular"
 
         console.ni_ci.add_channel(
             name="AngularPosition_1",

@@ -30,12 +30,12 @@ if TYPE_CHECKING:
 
 # Valid channel types for NI Counter Read tasks
 COUNTER_READ_CHANNEL_TYPES: dict[str, Type[Counter]] = {
-    "Angular Position": AngularPosition,
-    "Angular Velocity": AngularVelocity,
+    "Position Angular": AngularPosition,
+    "Velocity Angular": AngularVelocity,
     "Edge Count": EdgeCount,
     "Frequency": Frequency,
-    "Linear Position": LinearPosition,
-    "Linear Velocity": LinearVelocity,
+    "Position Linear": LinearPosition,
+    "Velocity Linear": LinearVelocity,
     "Period": Period,
     "Pulse Width": PulseWidth,
     "Semi Period": SemiPeriod,

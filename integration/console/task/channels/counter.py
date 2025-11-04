@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from console.console import Console
@@ -27,9 +27,9 @@ class Counter:
         name: str,
         device: str,
         type: str,
-        port: Optional[int] = None,
-        min_val: Optional[float] = None,
-        max_val: Optional[float] = None,
+        port: int | None = None,
+        min_val: float | None = None,
+        max_val: float | None = None,
     ) -> None:
         """
         Initialize counter read channel with common configuration.

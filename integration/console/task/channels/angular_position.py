@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from console.task.channels.counter import Counter
 
@@ -38,16 +38,16 @@ class AngularPosition(Counter):
         console: "Console",
         name: str,
         device: str,
-        units: Optional[Literal["Degrees", "Radians", "Ticks"]] = None,
-        decoding_type: Optional[Literal["X1", "X2", "X4", "Two Pulse"]] = None,
-        pulses_per_rev: Optional[int] = None,
-        initial_angle: Optional[float] = None,
-        z_index_enable: Optional[bool] = None,
-        z_index_val: Optional[float] = None,
-        z_index_phase: Optional[Literal["A High B High", "A High B Low", "A Low B High", "A Low B Low"]] = None,
-        terminal_a: Optional[str] = None,
-        terminal_b: Optional[str] = None,
-        terminal_z: Optional[str] = None,
+        units: Literal["Degrees", "Radians", "Ticks"] | None = None,
+        decoding_type: Literal["X1", "X2", "X4", "Two Pulse"] | None = None,
+        pulses_per_rev: int | None = None,
+        initial_angle: float | None = None,
+        z_index_enable: bool | None = None,
+        z_index_val: float | None = None,
+        z_index_phase: Literal["A High B High", "A High B Low", "A Low B High", "A Low B Low"] | None = None,
+        terminal_a: str | None = None,
+        terminal_b: str | None = None,
+        terminal_z: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize angular position channel with configuration."""
@@ -55,7 +55,7 @@ class AngularPosition(Counter):
             console=console,
             name=name,
             device=device,
-            type="Angular Position",
+            type="Position Angular",
             **kwargs,
         )
 

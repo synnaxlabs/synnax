@@ -24,7 +24,7 @@ class Frequency(Counter):
         min_val (float): Minimum value
         max_val (float): Maximum value
         edge (str): "Rising" or "Falling"
-        units (str): "Hz" or "Ticks"
+        units (str): "Hz", "Ticks", or "Custom"
         terminal (str): Input terminal (e.g., "PFI0", "PFI1", etc.)
         meas_method (str): "1 Counter (Low Frequency)", "2 Counters (High Frequency)", "2 Counters (Large Range)", "Dynamic Averaging"
     """
@@ -35,7 +35,7 @@ class Frequency(Counter):
         name: str,
         device: str,
         edge: Optional[Literal["Rising", "Falling"]] = None,
-        units: Optional[Literal["Hz", "Ticks"]] = None,
+        units: Optional[Literal["Hz", "Ticks", "Custom"]] = None,
         terminal: Optional[str] = None,
         meas_method: Optional[
             Literal[

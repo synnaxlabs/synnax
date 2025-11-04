@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider, Flex, Form } from "@synnaxlabs/pluto";
+import { Divider, Flex, Form, Select } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -51,6 +51,7 @@ const UnitsField = Form.buildSelectField<CIFreqUnits, record.KeyedNamed<CIFreqUn
     data: [
       { key: "Hz", name: "Hz" },
       { key: "Ticks", name: "Ticks" },
+      { key: "FromCustomScale", name: "Custom" },
     ],
   },
 });
@@ -191,6 +192,18 @@ const MeasMethodField = Form.buildSelectField<
       { key: "DynamicAvg", name: "Dynamic Averaging" },
     ],
   },
+});
+
+const MeasTimeField = Form.buildNumericField({
+  fieldKey: "measTime",
+  fieldProps: { label: "Measurement Time (s)" },
+  inputProps: {},
+});
+
+const DivisorField = Form.buildNumericField({
+  fieldKey: "divisor",
+  fieldProps: { label: "Divisor" },
+  inputProps: {},
 });
 
 const COUNTER_TERMINALS = [
@@ -364,38 +377,56 @@ const ZIndexEnableField: FC<{ path: string; grow?: boolean }> = ({ path }) => (
   <Form.SwitchField path={`${path}.zIndexEnable`} label="Z Index Enable" />
 );
 
-const ZIndexValField = Form.buildNumericField({
-  fieldKey: "zIndexVal",
-  fieldProps: { label: "Value" },
-  inputProps: {},
-});
+const ZIndexValField: FC<{ path: string; grow?: boolean; disabled?: boolean }> = ({
+  path,
+  disabled,
+}) => (
+  <Form.NumericField
+    path={`${path}.zIndexVal`}
+    label="Value"
+    inputProps={{ disabled }}
+  />
+);
 
-const ZIndexPhaseField = Form.buildSelectField<
-  string,
-  record.KeyedNamed<string>
->({
-  fieldKey: "zIndexPhase",
-  fieldProps: { label: "Phase" },
-  inputProps: {
-    resourceName: "Phase",
-    data: [
-      { key: "AHighBHigh", name: "A High B High" },
-      { key: "AHighBLow", name: "A High B Low" },
-      { key: "ALowBHigh", name: "A Low B High" },
-      { key: "ALowBLow", name: "A Low B Low" },
-    ],
-  },
-});
+const ZIndexPhaseField: FC<{ path: string; grow?: boolean; disabled?: boolean }> = ({
+  path,
+  disabled,
+}) => (
+  <Form.Field<string> path={`${path}.zIndexPhase`} label="Phase">
+    {({ value, onChange }) => (
+      <Select.Static
+        value={value}
+        onChange={(v: string) => onChange(v)}
+        disabled={disabled}
+        resourceName="Phase"
+        data={[
+          { key: "AHighBHigh", name: "A High B High" },
+          { key: "AHighBLow", name: "A High B Low" },
+          { key: "ALowBHigh", name: "A Low B High" },
+          { key: "ALowBLow", name: "A Low B Low" },
+        ]}
+      />
+    )}
+  </Form.Field>
+);
 
-const TerminalZField = Form.buildSelectField<string, record.KeyedNamed>({
-  fieldKey: "terminalZ",
-  fieldProps: { label: "Input Terminal Z" },
-  inputProps: {
-    resourceName: "Input Terminal Z",
-    allowNone: true,
-    data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
-  },
-});
+const TerminalZField: FC<{ path: string; grow?: boolean; disabled?: boolean }> = ({
+  path,
+  disabled,
+}) => (
+  <Form.Field<string> path={`${path}.terminalZ`} label="Input Terminal Z">
+    {({ value, onChange }) => (
+      <Select.Static
+        value={value}
+        onChange={(v: string | null) => onChange(v ?? "")}
+        allowNone
+        disabled={disabled}
+        resourceName="Input Terminal Z"
+        data={COUNTER_TERMINALS.map((t) => ({ key: t, name: t }))}
+      />
+    )}
+  </Form.Field>
+);
 
 const LinearPositionUnitsField = Form.buildSelectField<
   string,
@@ -431,23 +462,53 @@ const AngularPositionUnitsField = Form.buildSelectField<
   },
 });
 
+const useMeasMethodVisibility = (prefix: string) => {
+  const measMethod = Form.useFieldValue<CIMeasMethod>(`${prefix}.measMethod`, {
+    optional: true,
+  });
+  return {
+    showMeasTime: measMethod === "HighFreq2Ctr",
+    showDivisor: measMethod === "LargeRng2Ctr",
+  };
+};
+
+const useZIndexFieldsDisabled = (prefix: string) => {
+  const zIndexEnable = Form.useFieldValue<boolean>(`${prefix}.zIndexEnable`, {
+    optional: true,
+  });
+  return !zIndexEnable;
+};
+
 const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
-  [CI_FREQUENCY_CHAN_TYPE]: ({ prefix }) => (
-    <>
-      <MinMaxValueFields path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <EdgeField path={prefix} grow />
-        <UnitsField path={prefix} grow />
-      </Flex.Box>
-      <Flex.Box x>
-        <TerminalField path={prefix} grow />
-        <MeasMethodField path={prefix} grow />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <CustomScaleForm prefix={prefix} />
-    </>
-  ),
+  [CI_FREQUENCY_CHAN_TYPE]: ({ prefix }) => {
+    const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
+    return (
+      <>
+        <MinMaxValueFields path={prefix} />
+        <Divider.Divider x padded="bottom" />
+        <Flex.Box x>
+          <EdgeField path={prefix} grow />
+          <UnitsField path={prefix} grow />
+        </Flex.Box>
+        <Flex.Box x>
+          <TerminalField path={prefix} grow />
+          <MeasMethodField path={prefix} grow />
+        </Flex.Box>
+        {showMeasTime && (
+          <Flex.Box x>
+            <MeasTimeField path={prefix} grow />
+          </Flex.Box>
+        )}
+        {showDivisor && (
+          <Flex.Box x>
+            <DivisorField path={prefix} grow />
+          </Flex.Box>
+        )}
+        <Divider.Divider x padded="bottom" />
+        <CustomScaleForm prefix={prefix} />
+      </>
+    );
+  },
   [CI_EDGE_COUNT_CHAN_TYPE]: ({ prefix }: FormProps) => (
     <>
       <Flex.Box x>
@@ -460,22 +521,35 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       </Flex.Box>
     </>
   ),
-  [CI_PERIOD_CHAN_TYPE]: ({ prefix }: FormProps) => (
-    <>
-      <MinMaxValueFields path={prefix} />
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <StartingEdgeField path={prefix} grow />
-        <PeriodUnitsField path={prefix} grow />
-      </Flex.Box>
-      <Flex.Box x>
-        <TerminalField path={prefix} grow />
-        <MeasMethodField path={prefix} grow />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <CustomScaleForm prefix={prefix} />
-    </>
-  ),
+  [CI_PERIOD_CHAN_TYPE]: ({ prefix }: FormProps) => {
+    const { showMeasTime, showDivisor } = useMeasMethodVisibility(prefix);
+    return (
+      <>
+        <MinMaxValueFields path={prefix} />
+        <Divider.Divider x padded="bottom" />
+        <Flex.Box x>
+          <StartingEdgeField path={prefix} grow />
+          <PeriodUnitsField path={prefix} grow />
+        </Flex.Box>
+        <Flex.Box x>
+          <TerminalField path={prefix} grow />
+          <MeasMethodField path={prefix} grow />
+        </Flex.Box>
+        {showMeasTime && (
+          <Flex.Box x>
+            <MeasTimeField path={prefix} grow />
+          </Flex.Box>
+        )}
+        {showDivisor && (
+          <Flex.Box x>
+            <DivisorField path={prefix} grow />
+          </Flex.Box>
+        )}
+        <Divider.Divider x padded="bottom" />
+        <CustomScaleForm prefix={prefix} />
+      </>
+    );
+  },
   [CI_PULSE_WIDTH_CHAN_TYPE]: ({ prefix }: FormProps) => (
     <>
       <MinMaxValueFields path={prefix} />
@@ -552,54 +626,60 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <CustomScaleForm prefix={prefix} />
     </>
   ),
-  [CI_POSITION_LINEAR_CHAN_TYPE]: ({ prefix }: FormProps) => (
-    <>
-      <Flex.Box x>
-        <InitialPosField path={prefix} grow />
-        <DistPerPulseField path={prefix} grow />
-        <LinearPositionUnitsField path={prefix} grow />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <TerminalAField path={prefix} grow />
-        <TerminalBField path={prefix} grow />
-        <DecodingTypeField path={prefix} grow />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ZIndexEnableField path={prefix} grow />
-        <ZIndexValField path={prefix} grow />
-        <ZIndexPhaseField path={prefix} grow />
-        <TerminalZField path={prefix} grow />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <CustomScaleForm prefix={prefix} />
-    </>
-  ),
-  [CI_POSITION_ANGULAR_CHAN_TYPE]: ({ prefix }: FormProps) => (
-    <>
-      <Flex.Box x>
-        <PulsesPerRevField path={prefix} grow />
-        <InitialAngleField path={prefix} grow />
-        <AngularPositionUnitsField path={prefix} grow />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <TerminalAField path={prefix} grow />
-        <TerminalBField path={prefix} grow />
-        <DecodingTypeField path={prefix} grow />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ZIndexEnableField path={prefix} grow />
-        <ZIndexValField path={prefix} grow />
-        <ZIndexPhaseField path={prefix} grow />
-        <TerminalZField path={prefix} grow />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <CustomScaleForm prefix={prefix} />
-    </>
-  ),
+  [CI_POSITION_LINEAR_CHAN_TYPE]: ({ prefix }: FormProps) => {
+    const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
+    return (
+      <>
+        <Flex.Box x>
+          <InitialPosField path={prefix} grow />
+          <DistPerPulseField path={prefix} grow />
+          <LinearPositionUnitsField path={prefix} grow />
+        </Flex.Box>
+        <Divider.Divider x padded="bottom" />
+        <Flex.Box x>
+          <TerminalAField path={prefix} grow />
+          <TerminalBField path={prefix} grow />
+          <DecodingTypeField path={prefix} grow />
+        </Flex.Box>
+        <Divider.Divider x padded="bottom" />
+        <Flex.Box x>
+          <ZIndexEnableField path={prefix} grow />
+          <ZIndexValField path={prefix} grow disabled={zIndexFieldsDisabled} />
+          <ZIndexPhaseField path={prefix} grow disabled={zIndexFieldsDisabled} />
+          <TerminalZField path={prefix} grow disabled={zIndexFieldsDisabled} />
+        </Flex.Box>
+        <Divider.Divider x padded="bottom" />
+        <CustomScaleForm prefix={prefix} />
+      </>
+    );
+  },
+  [CI_POSITION_ANGULAR_CHAN_TYPE]: ({ prefix }: FormProps) => {
+    const zIndexFieldsDisabled = useZIndexFieldsDisabled(prefix);
+    return (
+      <>
+        <Flex.Box x>
+          <PulsesPerRevField path={prefix} grow />
+          <InitialAngleField path={prefix} grow />
+          <AngularPositionUnitsField path={prefix} grow />
+        </Flex.Box>
+        <Divider.Divider x padded="bottom" />
+        <Flex.Box x>
+          <TerminalAField path={prefix} grow />
+          <TerminalBField path={prefix} grow />
+          <DecodingTypeField path={prefix} grow />
+        </Flex.Box>
+        <Divider.Divider x padded="bottom" />
+        <Flex.Box x>
+          <ZIndexEnableField path={prefix} grow />
+          <ZIndexValField path={prefix} grow disabled={zIndexFieldsDisabled} />
+          <ZIndexPhaseField path={prefix} grow disabled={zIndexFieldsDisabled} />
+          <TerminalZField path={prefix} grow disabled={zIndexFieldsDisabled} />
+        </Flex.Box>
+        <Divider.Divider x padded="bottom" />
+        <CustomScaleForm prefix={prefix} />
+      </>
+    );
+  },
 };
 
 export interface CIChannelFormProps {

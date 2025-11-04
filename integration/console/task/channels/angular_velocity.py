@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from console.task.channels.counter import Counter
 
@@ -35,11 +35,11 @@ class AngularVelocity(Counter):
         console: "Console",
         name: str,
         device: str,
-        units: Optional[Literal["RPM", "Radians/s", "Degrees/s"]] = None,
-        decoding_type: Optional[Literal["X1", "X2", "X4", "Two Pulse"]] = None,
-        pulses_per_rev: Optional[int] = None,
-        terminal_a: Optional[str] = None,
-        terminal_b: Optional[str] = None,
+        units: Literal["RPM", "Radians/s", "Degrees/s"] | None = None,
+        decoding_type: Literal["X1", "X2", "X4", "Two Pulse"] | None = None,
+        pulses_per_rev: int | None = None,
+        terminal_a: str | None = None,
+        terminal_b: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize angular velocity channel with configuration."""
@@ -47,7 +47,7 @@ class AngularVelocity(Counter):
             console=console,
             name=name,
             device=device,
-            type="Angular Velocity",
+            type="Velocity Angular",
             **kwargs,
         )
 

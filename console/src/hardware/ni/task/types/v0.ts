@@ -988,7 +988,7 @@ export type CIMeasMethod = z.infer<typeof ciMeasMethodZ>;
 
 // Counter Input frequency units
 const TICKS = "Ticks";
-const ciFreqUnitsZ = z.enum([HZ, TICKS]);
+const ciFreqUnitsZ = z.enum([HZ, TICKS, FROM_CUSTOM_SCALE]);
 export type CIFreqUnits = z.infer<typeof ciFreqUnitsZ>;
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecifreqchan.html
@@ -1000,6 +1000,8 @@ export const ciFrequencyChanZ = baseCIChanZ.extend({
   units: ciFreqUnitsZ,
   edge: ciEdgeZ,
   measMethod: ciMeasMethodZ,
+  measTime: z.number().optional(),
+  divisor: z.number().int().positive().optional(),
   terminal: z.string(),
 });
 export interface CIFrequencyChan extends z.infer<typeof ciFrequencyChanZ> {}
@@ -1013,6 +1015,8 @@ export const ZERO_CI_FREQUENCY_CHAN: CIFrequencyChan = {
   units: HZ,
   edge: RISING_EDGE,
   measMethod: DYNAMIC_AVG,
+  measTime: 0.000006,
+  divisor: 4,
   terminal: "",
 };
 
@@ -1055,6 +1059,8 @@ export const ciPeriodChanZ = baseCIChanZ.extend({
   units: ciPeriodUnitsZ,
   startingEdge: ciEdgeZ,
   measMethod: ciMeasMethodZ,
+  measTime: z.number().optional(),
+  divisor: z.number().int().positive().optional(),
   terminal: z.string(),
 });
 export interface CIPeriodChan extends z.infer<typeof ciPeriodChanZ> {}
@@ -1068,6 +1074,8 @@ export const ZERO_CI_PERIOD_CHAN: CIPeriodChan = {
   units: SECONDS,
   startingEdge: RISING_EDGE,
   measMethod: DYNAMIC_AVG,
+  measTime: 0.001,
+  divisor: 4,
   terminal: "",
 };
 
@@ -1349,10 +1357,10 @@ export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
   [CI_PULSE_WIDTH_CHAN_TYPE]: "Pulse Width",
   [CI_SEMI_PERIOD_CHAN_TYPE]: "Semi Period",
   [CI_TWO_EDGE_SEP_CHAN_TYPE]: "Two Edge Separation",
-  [CI_VELOCITY_LINEAR_CHAN_TYPE]: "Linear Velocity",
-  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: "Angular Velocity",
-  [CI_POSITION_LINEAR_CHAN_TYPE]: "Linear Position",
-  [CI_POSITION_ANGULAR_CHAN_TYPE]: "Angular Position",
+  [CI_POSITION_ANGULAR_CHAN_TYPE]: "Position Angular",
+  [CI_POSITION_LINEAR_CHAN_TYPE]: "Position Linear",
+  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: "Velocity Angular",
+  [CI_VELOCITY_LINEAR_CHAN_TYPE]: "Velocity Linear",
 };
 
 export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
@@ -1362,10 +1370,10 @@ export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
   [CI_PULSE_WIDTH_CHAN_TYPE]: Icon.AutoFitWidth,
   [CI_SEMI_PERIOD_CHAN_TYPE]: Icon.Range,
   [CI_TWO_EDGE_SEP_CHAN_TYPE]: Icon.AutoFitWidth,
-  [CI_VELOCITY_LINEAR_CHAN_TYPE]: Icon.Circle,
-  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: Icon.Circle,
-  [CI_POSITION_LINEAR_CHAN_TYPE]: Icon.Circle,
   [CI_POSITION_ANGULAR_CHAN_TYPE]: Icon.Circle,
+  [CI_POSITION_LINEAR_CHAN_TYPE]: Icon.Circle,
+  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: Icon.Circle,
+  [CI_VELOCITY_LINEAR_CHAN_TYPE]: Icon.Circle,
 };
 
 // Counter Output Channels
