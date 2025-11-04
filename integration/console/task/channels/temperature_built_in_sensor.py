@@ -48,7 +48,7 @@ class TemperatureBuiltInSensor(Analog):
         self.name = name
         self.device = device
 
-        values = {}
+        values: dict[str, str | bool] = {}
 
         # Configure channel type
         console.click_btn("Channel Type")

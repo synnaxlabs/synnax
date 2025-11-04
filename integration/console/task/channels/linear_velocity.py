@@ -47,7 +47,7 @@ class LinearVelocity(Counter):
             console=console,
             name=name,
             device=device,
-            type="Velocity Linear",
+            chan_type="Velocity Linear",
             **kwargs,
         )
 

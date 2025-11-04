@@ -19,7 +19,7 @@ class Analog:
     name: str
     console: "Console"
     device: str
-    form_values: dict[str, str]
+    form_values: dict[str, str | bool]
 
     def __init__(
         self,
@@ -61,7 +61,7 @@ class Analog:
         self.device = device
         self.name = name
 
-        values = {}
+        values: dict[str, str | bool] = {}
 
         # Configure channel type
         console.click_btn("Channel Type")
@@ -109,16 +109,38 @@ class Analog:
         self.form_values = values
 
     def assert_form(self) -> None:
-
+        """Assert that form values match expected values."""
         for key, expected_value in self.form_values.items():
-            try:
+            actual_value: str | bool
+            if isinstance(expected_value, bool):
+                actual_value = self.console.get_toggle(key)
+            elif self._is_numeric_string(expected_value):
                 actual_value = self.console.get_input_field(key)
-            except Exception:
+            else:
                 actual_value = self.console.get_dropdown_value(key)
 
             assert (
                 actual_value == expected_value
             ), f"Channel {self.name} Form value '{key}' - Expected: {expected_value} - Actual: {actual_value}"
+
+    @staticmethod
+    def _is_numeric_string(value: str | bool) -> bool:
+        """Check if a string represents a numeric value."""
+        if not isinstance(value, str):
+            return False
+        # Remove leading/trailing whitespace and check if it's a valid number
+        value = value.strip()
+        if not value:
+            return False
+        # Handle negative numbers and decimals
+        if value.startswith("-"):
+            value = value[1:]
+        # Split on decimal point
+        parts = value.split(".")
+        if len(parts) > 2:
+            return False
+        # Check all parts are digits
+        return all(part.isdigit() for part in parts if part)
 
     def has_terminal_config(self) -> bool:
         try:

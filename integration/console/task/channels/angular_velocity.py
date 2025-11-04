@@ -47,7 +47,7 @@ class AngularVelocity(Counter):
             console=console,
             name=name,
             device=device,
-            type="Velocity Angular",
+            chan_type="Velocity Angular",
             **kwargs,
         )
 
@@ -66,9 +66,7 @@ class AngularVelocity(Counter):
             console.fill_input_field("Pulses / Rev", str(pulses_per_rev))
             self.form_values["Pulses / Rev"] = str(pulses_per_rev)
         else:
-            self.form_values["Pulses / Rev"] = console.get_input_field(
-                "Pulses / Rev"
-            )
+            self.form_values["Pulses / Rev"] = console.get_input_field("Pulses / Rev")
 
         # Decoding Type
         if decoding_type is not None:

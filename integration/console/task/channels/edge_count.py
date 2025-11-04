@@ -45,7 +45,7 @@ class EdgeCount(Counter):
             console=console,
             name=name,
             device=device,
-            type="Edge Count",
+            chan_type="Edge Count",
             **kwargs,
         )
 

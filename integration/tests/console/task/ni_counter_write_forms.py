@@ -79,7 +79,7 @@ class NICounterWriteForms(ConsoleCase):
         # Test with different idle state
         console.ni_co.add_channel(
             name="PulseOutput_1",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             port=2,
             idle_state="High",
@@ -88,7 +88,7 @@ class NICounterWriteForms(ConsoleCase):
         # Test with all parameters
         console.ni_co.add_channel(
             name="PulseOutput_2",
-            type=channel_type,
+            chan_type=channel_type,
             device=device_name,
             port=3,
             initial_delay=1,

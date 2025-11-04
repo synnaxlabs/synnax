@@ -58,7 +58,7 @@ class Thermocouple(Analog):
         self.device = device
         self.name = name
 
-        values = {}
+        values: dict[str, str | bool] = {}
 
         # Configure channel type
         console.click_btn("Channel Type")

@@ -52,7 +52,7 @@ class Frequency(Counter):
             console=console,
             name=name,
             device=device,
-            type="Frequency",
+            chan_type="Frequency",
             **kwargs,
         )
 

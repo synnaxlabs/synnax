@@ -19,7 +19,7 @@ from .log import Log
 from .page import ConsolePage
 from .plot import Plot
 from .schematic import Schematic
-from .task import AnalogRead, AnalogWrite
+from .task import AnalogRead, AnalogWrite, CounterRead, CounterWrite
 
 # Define literal types for page creation
 PageType = Literal[

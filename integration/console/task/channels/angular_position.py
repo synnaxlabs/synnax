@@ -44,7 +44,10 @@ class AngularPosition(Counter):
         initial_angle: float | None = None,
         z_index_enable: bool | None = None,
         z_index_val: float | None = None,
-        z_index_phase: Literal["A High B High", "A High B Low", "A Low B High", "A Low B Low"] | None = None,
+        z_index_phase: (
+            Literal["A High B High", "A High B Low", "A Low B High", "A Low B Low"]
+            | None
+        ) = None,
         terminal_a: str | None = None,
         terminal_b: str | None = None,
         terminal_z: str | None = None,
@@ -55,7 +58,7 @@ class AngularPosition(Counter):
             console=console,
             name=name,
             device=device,
-            type="Position Angular",
+            chan_type="Position Angular",
             **kwargs,
         )
 
@@ -72,18 +75,14 @@ class AngularPosition(Counter):
             console.fill_input_field("Initial Angle", str(initial_angle))
             self.form_values["Initial Angle"] = str(initial_angle)
         else:
-            self.form_values["Initial Angle"] = console.get_input_field(
-                "Initial Angle"
-            )
+            self.form_values["Initial Angle"] = console.get_input_field("Initial Angle")
 
         # Pulses per Revolution
         if pulses_per_rev is not None:
             console.fill_input_field("Pulses / Rev", str(pulses_per_rev))
             self.form_values["Pulses / Rev"] = str(pulses_per_rev)
         else:
-            self.form_values["Pulses / Rev"] = console.get_input_field(
-                "Pulses / Rev"
-            )
+            self.form_values["Pulses / Rev"] = console.get_input_field("Pulses / Rev")
 
         # Decoding Type
         if decoding_type is not None:
@@ -97,14 +96,12 @@ class AngularPosition(Counter):
 
         # Z Index Enable
         if z_index_enable is not None:
-            current_state = console.get_switch_state("Z Index Enable")
+            current_state = console.get_toggle("Z Index Enable")
             if current_state != z_index_enable:
-                console.click_switch("Z Index Enable")
+                console.click_checkbox("Z Index Enable")
             self.form_values["Z Index Enable"] = z_index_enable
         else:
-            self.form_values["Z Index Enable"] = console.get_switch_state(
-                "Z Index Enable"
-            )
+            self.form_values["Z Index Enable"] = console.get_toggle("Z Index Enable")
 
         # Z Index Value
         if z_index_val is not None:

@@ -52,7 +52,7 @@ class Period(Counter):
             console=console,
             name=name,
             device=device,
-            type="Period",
+            chan_type="Period",
             **kwargs,
         )
 

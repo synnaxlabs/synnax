@@ -41,7 +41,7 @@ class DutyCycle(Counter):
             console=console,
             name=name,
             device=device,
-            type="Duty Cycle",
+            chan_type="Duty Cycle",
             **kwargs,
         )
 
@@ -51,9 +51,7 @@ class DutyCycle(Counter):
             console.select_from_dropdown(edge)
             self.form_values["Active Edge"] = edge
         else:
-            self.form_values["Active Edge"] = console.get_dropdown_value(
-                "Active Edge"
-            )
+            self.form_values["Active Edge"] = console.get_dropdown_value("Active Edge")
 
         # Terminal
         if terminal is not None:

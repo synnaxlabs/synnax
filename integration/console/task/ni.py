@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import synnax as sy
 from playwright.sync_api import Page
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from console.console import Console
 
 # Union type for all NI channel types
-NIChannel = Union[Analog, Counter]
+NIChannel = Analog | Counter
 NIChannelT = TypeVar("NIChannelT", bound=NIChannel)
 
 
@@ -70,7 +70,7 @@ class NITask(ConsolePage):
         name: str,
         device: str,
         dev_name: str | None,
-        channel_class: type[Analog],
+        channel_class: type[NIChannelT],
         **kwargs: Any,
     ) -> NIChannelT:
         """

@@ -19,14 +19,14 @@ class Counter:
     name: str
     console: "Console"
     device: str
-    form_values: dict[str, str]
+    form_values: dict[str, str | bool]
 
     def __init__(
         self,
         console: "Console",
         name: str,
         device: str,
-        type: str,
+        chan_type: str,
         port: int | None = None,
         min_val: float | None = None,
         max_val: float | None = None,
@@ -38,7 +38,7 @@ class Counter:
             console: Console automation interface
             name: Channel name
             device: Device identifier
-            type: Channel type (e.g., "Edge Count", "Frequency")
+            chan_type: Channel type (e.g., "Edge Count", "Frequency")
             port: Physical port number
             min_val: Minimum value
             max_val: Maximum value
@@ -47,12 +47,12 @@ class Counter:
         self.device = device
         self.name = name
 
-        values = {}
+        values: dict[str, str | bool] = {}
 
         # Configure channel type
         console.click_btn("Channel Type")
-        console.select_from_dropdown(type)
-        values["Channel Type"] = type
+        console.select_from_dropdown(chan_type)
+        values["Channel Type"] = chan_type
 
         # Get device (set by task.add_channel)
         values["Device"] = console.get_dropdown_value("Device")
@@ -82,14 +82,36 @@ class Counter:
     def assert_form(self) -> None:
         """Assert that form values match expected values."""
         for key, expected_value in self.form_values.items():
-            try:
+            actual_value: str | bool
+            if isinstance(expected_value, bool):
+                actual_value = self.console.get_toggle(key)
+            elif self._is_numeric_string(expected_value):
                 actual_value = self.console.get_input_field(key)
-            except Exception:
+            else:
                 actual_value = self.console.get_dropdown_value(key)
 
             assert (
                 actual_value == expected_value
             ), f"Channel {self.name} Form value '{key}' - Expected: {expected_value} - Actual: {actual_value}"
+
+    @staticmethod
+    def _is_numeric_string(value: str | bool) -> bool:
+        """Check if a string represents a numeric value."""
+        if not isinstance(value, str):
+            return False
+        # Remove leading/trailing whitespace and check if it's a valid number
+        value = value.strip()
+        if not value:
+            return False
+        # Handle negative numbers and decimals
+        if value.startswith("-"):
+            value = value[1:]
+        # Split on decimal point
+        parts = value.split(".")
+        if len(parts) > 2:
+            return False
+        # Check all parts are digits
+        return all(part.isdigit() for part in parts if part)
 
     def has_min_max(self) -> bool:
         """Check if this channel type has min/max value fields."""
