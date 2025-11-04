@@ -5,16 +5,16 @@ name = "alamos"
 version = "0.47.0"
 description = ""
 optional = false
-python-versions = ">=3.11,<4"
+python-versions = ">=3.11,<3.14"
 groups = ["main"]
 files = []
 develop = true
 
 [package.dependencies]
-opentelemetry-api = ">=1.35.0,<2"
-opentelemetry-sdk = ">=1.35.0,<2"
-pydantic = ">=2.11.9,<3.0"
-uptrace = ">=1.35.0,<2"
+opentelemetry-api = ">=1.37.0,<2"
+opentelemetry-sdk = ">=1.37.0,<2"
+pydantic = ">=2.12.3,<3.0"
+uptrace = ">=1.37.0,<2"
 
 [package.source]
 type = "directory"
@@ -2202,21 +2202,21 @@ name = "synnax"
 version = "0.47.0"
 description = "Synnax Client Library"
 optional = false
-python-versions = ">=3.11,<4"
+python-versions = ">=3.11,<3.14"
 groups = ["main"]
 files = []
 develop = true
 
 [package.dependencies]
 alamos = {path = "../../alamos/py", develop = true}
-click = "^8.2.1"
+click = "^8.3.0"
 keyring = "^25.6.0"
-matplotlib = "^3.10.6"
+matplotlib = "^3.10.7"
 nptdms = "^1.10.0"
-numpy = "^2.3.3"
-pandas = "^2.3.2"
-pydantic = "^2.11.9"
-rich = "^14.1.0"
+numpy = "^2.3.4"
+pandas = "^2.3.3"
+pydantic = "^2.12.3"
+rich = "^14.2.0"
 synnax-freighter = {path = "../../freighter/py", develop = true}
 urllib3 = "^2.5.0"
 
@@ -2229,15 +2229,15 @@ name = "synnax-freighter"
 version = "0.47.0"
 description = ""
 optional = false
-python-versions = ">=3.11,<4"
+python-versions = ">=3.11,<3.14"
 groups = ["main"]
 files = []
 develop = true
 
 [package.dependencies]
 alamos = {path = "../../alamos/py", develop = true}
-msgpack = "^1.1.1"
-pydantic = "^2.11.9"
+msgpack = "^1.1.2"
+pydantic = "^2.12.3"
 urllib3 = "^2.5.0"
 websockets = "^15.0.1"
 
@@ -2512,5 +2512,5 @@ type = ["pytest-mypy"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.12,<4"
-content-hash = "4186764835268e2d32c3b327829d30eabb9f36ffc03276c3ec53abaae70e1a54"
+python-versions = ">=3.12,<3.14"
+content-hash = "74ea2bc19b0fb985ec7fd77d6cc9d1bd13dea475529b21142b3d96ce1ebc38b3"

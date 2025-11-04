@@ -2,7 +2,7 @@
 name = "synnax-freighter"
 version = "0.47.0"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.11,<4"
+requires-python = ">=3.11,<3.14"
 dynamic = ["dependencies"]
 
 [tool.poetry]
