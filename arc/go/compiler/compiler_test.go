@@ -26,9 +26,9 @@ import (
 	"github.com/tetratelabs/wazero"
 )
 
-func compile(source string, resolver symbol.Resolver) (compiler.Output, error) {
+func compile(source string) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
-	inter, diag := text.Analyze(ctx, prog, resolver)
+	inter, diag := text.Analyze(ctx, prog, nil)
 	Expect(diag.Ok()).To(BeTrue())
 	return compiler.Compile(ctx, inter, compiler.DisableHostImport())
 }
@@ -62,7 +62,7 @@ var _ = Describe("Compiler", func() {
 				}
 				return b
 			}
-			`, nil))
+			`))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			dog := mod.ExportedFunction("dog")
 			Expect(dog).ToNot(BeNil())
@@ -87,7 +87,7 @@ var _ = Describe("Compiler", func() {
 			func add(a i64, b i64) i64 {
 				return a + b
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			add := mod.ExportedFunction("add")
@@ -107,7 +107,7 @@ var _ = Describe("Compiler", func() {
 					return b
 				}
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			add := mod.ExportedFunction("add")
@@ -134,7 +134,7 @@ var _ = Describe("Compiler", func() {
 					}
 				}
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			nested := mod.ExportedFunction("nested")
@@ -175,7 +175,7 @@ var _ = Describe("Compiler", func() {
 				}
 				return x
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			partial := mod.ExportedFunction("partial")
@@ -214,7 +214,7 @@ var _ = Describe("Compiler", func() {
 					return 0
 				}
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			deep := mod.ExportedFunction("deep")
@@ -260,7 +260,7 @@ var _ = Describe("Compiler", func() {
 				}
 				return result + 1
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			mixed := mod.ExportedFunction("mixed")
@@ -296,7 +296,7 @@ var _ = Describe("Compiler", func() {
 			} (b i64) i64 {
 				return a + b
 			}
-			`, nil))
+			`))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			add := mod.ExportedFunction("add")
 			Expect(add).ToNot(BeNil())
@@ -358,7 +358,7 @@ var _ = Describe("Compiler", func() {
 			} {
 				out = x + y
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			debug := mod.ExportedFunction("debug")
@@ -388,7 +388,7 @@ var _ = Describe("Compiler", func() {
 					low = value
 				}
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			classifier := mod.ExportedFunction("classifier")
@@ -436,7 +436,7 @@ var _ = Describe("Compiler", func() {
 				}
 				sum = x + y
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			router := mod.ExportedFunction("router")
@@ -485,7 +485,7 @@ var _ = Describe("Compiler", func() {
 				asInt = i32(42)
 				original = value
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			converter := mod.ExportedFunction("converter")
@@ -521,7 +521,7 @@ var _ = Describe("Compiler", func() {
 				quotient = a / b
 				remainder = a % b
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			divMod := mod.ExportedFunction("divMod")
@@ -544,7 +544,7 @@ var _ = Describe("Compiler", func() {
 			func addTwo(x f32) f32 {
 				return x + 2
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			addTwo := mod.ExportedFunction("addTwo")
@@ -562,7 +562,7 @@ var _ = Describe("Compiler", func() {
 			func compare(x i32) u8 {
 				return x > 5.0
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			compare := mod.ExportedFunction("compare")
@@ -584,7 +584,7 @@ var _ = Describe("Compiler", func() {
 			func celsiusToFahrenheit(celsius f32) f32 {
 				return celsius * 1.8 + 32
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			celsiusToFahrenheit := mod.ExportedFunction("celsiusToFahrenheit")
@@ -608,7 +608,7 @@ var _ = Describe("Compiler", func() {
 				offset f32 := 10
 				return base * multiplier + offset
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			calculate := mod.ExportedFunction("calculate")
@@ -625,7 +625,7 @@ var _ = Describe("Compiler", func() {
 			func increment(x i64) i64 {
 				return x + 1
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			increment := mod.ExportedFunction("increment")
@@ -643,7 +643,7 @@ var _ = Describe("Compiler", func() {
 				result = a * 2 + b * 3.5 - 10
 				return result
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			calculate := mod.ExportedFunction("calculate")
@@ -663,7 +663,7 @@ var _ = Describe("Compiler", func() {
 			func getConstant() f32 {
 				return 3.14159
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			getConstant := mod.ExportedFunction("getConstant")
@@ -683,7 +683,7 @@ var _ = Describe("Compiler", func() {
 				result = result * 2
 				return result
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			process := mod.ExportedFunction("process")
@@ -701,7 +701,7 @@ var _ = Describe("Compiler", func() {
 				x := 42
 				return x
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			getAnswer := mod.ExportedFunction("getAnswer")
@@ -718,7 +718,7 @@ var _ = Describe("Compiler", func() {
 				x := 3.14
 				return x
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			getPi := mod.ExportedFunction("getPi")
@@ -735,7 +735,7 @@ var _ = Describe("Compiler", func() {
 			func isPositive(x i64) u8 {
 				return x > 0.0
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			isPositive := mod.ExportedFunction("isPositive")
@@ -764,7 +764,7 @@ var _ = Describe("Compiler", func() {
 				offset f32 := 10
 				return value * scale + offset
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			scaleAndOffset := mod.ExportedFunction("scaleAndOffset")
@@ -786,7 +786,7 @@ var _ = Describe("Compiler", func() {
 				}
 				return b
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			calculate := mod.ExportedFunction("calculate")
@@ -808,7 +808,7 @@ var _ = Describe("Compiler", func() {
 			func test(a i32) u8 {
 				return a > -10
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			test := mod.ExportedFunction("test")
@@ -837,7 +837,7 @@ var _ = Describe("Compiler", func() {
 				}
 				return value   // F32 value
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			conditionalReturn := mod.ExportedFunction("conditionalReturn")
@@ -859,7 +859,7 @@ var _ = Describe("Compiler", func() {
 		output := MustSucceed(compile(fmt.Sprintf(`
 			func dog(b i64) f64 {
 				return %s
-			}`, expr), nil))
+			}`, expr)))
 		mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 		dog := mod.ExportedFunction("dog")
 		Expect(dog).ToNot(BeNil())

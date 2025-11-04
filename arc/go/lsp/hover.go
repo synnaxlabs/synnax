@@ -135,7 +135,7 @@ func parseInt(s string) int {
 	return n
 }
 
-// getUserSymbolHover returns hover documentation for user-defined symbols
+// getUserSymbolHover returns hover documentation for user-defined symbols.
 func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string) string {
 	sym, err := scope.Resolve(context.Background(), name)
 	if err != nil {
@@ -273,7 +273,7 @@ func (s *Server) findScopeAtPositionRecursive(
 	}
 }
 
-// symbolToLocation converts a symbol to an LSP Location pointing to its definition
+// symbolToLocation converts a symbol to an LSP Location pointing to its definition.
 func (s *Server) symbolToLocation(
 	uri protocol.DocumentURI,
 	sym *symbol.Scope,

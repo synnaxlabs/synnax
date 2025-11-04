@@ -18,7 +18,6 @@ import (
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
@@ -92,8 +91,8 @@ func translateFrameBackward(f *gapi.Frame) api.Frame {
 		return api.Frame{}
 	}
 	return core.MultiFrame(
-		translateChannelKeysBackward(f.Keys),
-		telem.TranslateManySeriesBackward(f.Series),
+		translateChannelKeysBackward(f.GetKeys()),
+		telem.TranslateManySeriesBackward(f.GetSeries()),
 	)
 }
 
@@ -108,8 +107,8 @@ func translateControlSubjectBackward(cs *control.ControlSubject) (of control.Sub
 	if cs == nil {
 		return
 	}
-	of.Key = cs.Key
-	of.Name = cs.Name
+	of.Key = cs.GetKey()
+	of.Name = cs.GetName()
 	return
 }
 
@@ -146,26 +145,26 @@ func (t frameWriterRequestTranslator) Backward(
 	if msg == nil {
 		return
 	}
-	r.Command = writer.Command(msg.Command)
-	if msg.Config != nil {
-		keys := translateChannelKeysBackward(msg.Config.Keys)
+	r.Command = writer.Command(msg.GetCommand())
+	if msg.GetConfig() != nil {
+		keys := translateChannelKeysBackward(msg.GetConfig().GetKeys())
 		r.Config = api.FrameWriterConfig{
 			Keys:                     keys,
-			Start:                    telem.TimeStamp(msg.Config.Start),
-			Mode:                     writer.Mode(msg.Config.Mode),
-			Authorities:              msg.Config.Authorities,
-			EnableAutoCommit:         msg.Config.EnableAutoCommit,
-			AutoIndexPersistInterval: telem.TimeSpan(msg.Config.AutoIndexPersistInterval),
-			ControlSubject:           translateControlSubjectBackward(msg.Config.ControlSubject),
-			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
+			Start:                    telem.TimeStamp(msg.GetConfig().GetStart()),
+			Mode:                     writer.Mode(msg.GetConfig().GetMode()),
+			Authorities:              msg.GetConfig().GetAuthorities(),
+			EnableAutoCommit:         msg.GetConfig().GetEnableAutoCommit(),
+			AutoIndexPersistInterval: telem.TimeSpan(msg.GetConfig().GetAutoIndexPersistInterval()),
+			ControlSubject:           translateControlSubjectBackward(msg.GetConfig().GetControlSubject()),
+			ErrOnUnauthorized:        msg.GetConfig().GetErrOnUnauthorized(),
 		}
 		if err = t.codec.Update(ctx, keys); err != nil {
 			return r, err
 		}
 	}
-	r.Frame = translateFrameBackward(msg.Frame)
-	if t.codec != nil && len(msg.Buffer) > 0 {
-		r.Frame, err = t.codec.Decode(msg.Buffer)
+	r.Frame = translateFrameBackward(msg.GetFrame())
+	if t.codec != nil && len(msg.GetBuffer()) > 0 {
+		r.Frame, err = t.codec.Decode(msg.GetBuffer())
 	}
 	return r, err
 }
@@ -186,9 +185,9 @@ func (t frameWriterResponseTranslator) Backward(
 	msg *gapi.FrameWriterResponse,
 ) (api.FrameWriterResponse, error) {
 	return api.FrameWriterResponse{
-		Command: writer.Command(msg.Command),
-		End:     telem.TimeStamp(msg.End),
-		Err:     errors.TranslatePayloadBackward(msg.Error),
+		Command: writer.Command(msg.GetCommand()),
+		End:     telem.TimeStamp(msg.GetEnd()),
+		Err:     errors.TranslatePayloadBackward(msg.GetError()),
 	}, nil
 }
 
@@ -211,12 +210,12 @@ func (t frameIteratorRequestTranslator) Backward(
 	msg *gapi.FrameIteratorRequest,
 ) (api.FrameIteratorRequest, error) {
 	return api.FrameIteratorRequest{
-		Command:   iterator.Command(msg.Command),
-		Span:      telem.TimeSpan(msg.Span),
-		Bounds:    telem.TranslateTimeRangeBackward(msg.Range),
-		Keys:      translateChannelKeysBackward(msg.Keys),
-		Stamp:     telem.TimeStamp(msg.Stamp),
-		ChunkSize: msg.ChunkSize,
+		Command:   iterator.Command(msg.GetCommand()),
+		Span:      telem.TimeSpan(msg.GetSpan()),
+		Bounds:    telem.TranslateTimeRangeBackward(msg.GetRange()),
+		Keys:      translateChannelKeysBackward(msg.GetKeys()),
+		Stamp:     telem.TimeStamp(msg.GetStamp()),
+		ChunkSize: msg.GetChunkSize(),
 	}, nil
 }
 
@@ -240,13 +239,13 @@ func (t frameIteratorResponseTranslator) Backward(
 	msg *gapi.FrameIteratorResponse,
 ) (api.FrameIteratorResponse, error) {
 	return api.FrameIteratorResponse{
-		Variant: iterator.ResponseVariant(msg.Variant),
-		Command: iterator.Command(msg.Command),
-		NodeKey: cluster.NodeKey(msg.NodeKey),
-		Ack:     msg.Ack,
-		SeqNum:  int(msg.SeqNum),
-		Frame:   translateFrameBackward(msg.Frame),
-		Error:   fgrpc.DecodeError(ctx, msg.Error),
+		Variant: iterator.ResponseVariant(msg.GetVariant()),
+		Command: iterator.Command(msg.GetCommand()),
+		NodeKey: cluster.NodeKey(msg.GetNodeKey()),
+		Ack:     msg.GetAck(),
+		SeqNum:  int(msg.GetSeqNum()),
+		Frame:   translateFrameBackward(msg.GetFrame()),
+		Error:   fgrpc.DecodeError(ctx, msg.GetError()),
 	}, nil
 }
 
@@ -265,10 +264,10 @@ func (t frameStreamerRequestTranslator) Backward(
 	msg *gapi.FrameStreamerRequest,
 ) (api.FrameStreamerRequest, error) {
 	rq := api.FrameStreamerRequest{
-		Keys:             translateChannelKeysBackward(msg.Keys),
-		DownsampleFactor: int(msg.DownsampleFactor),
+		Keys:             translateChannelKeysBackward(msg.GetKeys()),
+		DownsampleFactor: int(msg.GetDownsampleFactor()),
 	}
-	if msg.EnableExperimentalCodec {
+	if msg.GetEnableExperimentalCodec() {
 		return rq, t.codec.Update(ctx, rq.Keys)
 	}
 	return rq, nil
@@ -291,7 +290,7 @@ func (t frameStreamerResponseTranslator) Backward(
 	_ context.Context,
 	msg *gapi.FrameStreamerResponse,
 ) (api.FrameStreamerResponse, error) {
-	return api.FrameStreamerResponse{Frame: translateFrameBackward(msg.Frame)}, nil
+	return api.FrameStreamerResponse{Frame: translateFrameBackward(msg.GetFrame())}, nil
 }
 
 func (t FrameDeleteRequestTranslator) Forward(
@@ -310,9 +309,9 @@ func (t FrameDeleteRequestTranslator) Backward(
 	msg *gapi.FrameDeleteRequest,
 ) (api.FrameDeleteRequest, error) {
 	return api.FrameDeleteRequest{
-		Keys:   channel.KeysFromUint32(msg.Keys),
-		Names:  msg.Names,
-		Bounds: telem.TranslateTimeRangeBackward(msg.Bounds),
+		Keys:   channel.KeysFromUint32(msg.GetKeys()),
+		Names:  msg.GetNames(),
+		Bounds: telem.TranslateTimeRangeBackward(msg.GetBounds()),
 	}, nil
 }
 

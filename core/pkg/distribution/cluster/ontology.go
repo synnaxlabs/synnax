@@ -17,9 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	ontologycore "github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -116,7 +114,7 @@ func (s *NodeOntologyService) RetrieveResource(_ context.Context, key string, _ 
 }
 
 func newNodeResource(n Node) ontology.Resource {
-	return ontologycore.NewResource(
+	return ontology.NewResource(
 		nodeSchema,
 		NodeOntologyID(n.Key),
 		fmt.Sprintf("Node %v", n.Key),
@@ -144,13 +142,13 @@ func (s *OntologyService) RetrieveResource(context.Context, string, gorp.Tx) (on
 	return newClusterResource(s.Cluster.Key()), nil
 }
 
-// OpenNexter implements ontology.Service.Relationship
+// OpenNexter implements ontology.Service.Relationship.
 func (s *OntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	return iter.NexterNopCloser(iter.All([]ontology.Resource{})), nil
 }
 
 func newClusterResource(key uuid.UUID) ontology.Resource {
-	return ontologycore.NewResource(
+	return ontology.NewResource(
 		schema,
 		OntologyID(key),
 		"Cluster",

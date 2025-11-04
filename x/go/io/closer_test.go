@@ -10,12 +10,11 @@
 package io_test
 
 import (
-	"errors"
 	"io"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 )
 
@@ -311,7 +310,7 @@ var _ = Describe("MultiCloser", func() {
 	})
 })
 
-// mockCloser is a test helper that tracks Close() calls
+// mockCloser is a test helper that tracks Close() calls.
 type mockCloser struct {
 	closed bool
 	err    error

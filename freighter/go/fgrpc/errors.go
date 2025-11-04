@@ -26,5 +26,5 @@ func EncodeError(ctx context.Context, err error, internal bool) *errors.PBPayloa
 // type is TypeUnknown, returns an error with the payload's data as the message. If the
 // payload's type is TypeNil, returns nil.
 func DecodeError(ctx context.Context, pld *errors.PBPayload) error {
-	return errors.Decode(ctx, errors.Payload{Type: pld.Type, Data: pld.Data})
+	return errors.Decode(ctx, errors.Payload{Type: pld.GetType(), Data: pld.GetData()})
 }

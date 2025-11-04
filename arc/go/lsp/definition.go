@@ -28,7 +28,7 @@ func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionPara
 	scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, searchPos)
 	sym, err := scopeAtCursor.Resolve(ctx, word)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 	location := s.symbolToLocation(params.TextDocument.URI, sym)
 	if location == nil {

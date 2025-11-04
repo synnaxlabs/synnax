@@ -104,10 +104,7 @@ func (w Writer) Delete(
 // MaybeSetRootUser will set the only user in the key-value store as the root user. This
 // function is implemented to provide backwards compatibility with older versions of the
 // key-value store from before v0.31.0.
-func (w Writer) MaybeSetRootUser(
-	ctx context.Context,
-	username string,
-) error {
+func (w Writer) MaybeSetRootUser(ctx context.Context) error {
 	var users []User
 	if err := w.svc.NewRetrieve().Entries(&users).Exec(ctx, w.tx); err != nil {
 		return err

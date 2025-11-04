@@ -20,7 +20,6 @@ import (
 )
 
 // Cluster is a utility for provisioning a set of storage layers in a mock cluster.
-// The provisioned
 type Cluster struct {
 	// cfg is the configuration used to provision new stores.
 	cfg storage.Config

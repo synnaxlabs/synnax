@@ -34,7 +34,7 @@ func (o OPCodes) String() string {
 	}), " ")
 }
 
-// Control flow instructions
+// Control flow instructions.
 const (
 	OpUnreachable Opcode = 0x00 // unreachable
 	OpNop         Opcode = 0x01 // nop
@@ -49,13 +49,13 @@ const (
 	OpReturn      Opcode = 0x0f // return
 )
 
-// Call instructions
+// Call instructions.
 const (
 	OpCall         Opcode = 0x10 // call
 	OpCallIndirect Opcode = 0x11 // call_indirect
 )
 
-// Variable instructions
+// Variable instructions.
 const (
 	OpLocalGet  Opcode = 0x20 // local.get
 	OpLocalSet  Opcode = 0x21 // local.set
@@ -64,7 +64,7 @@ const (
 	OpGlobalSet Opcode = 0x24 // global.set
 )
 
-// Memory instructions
+// Memory instructions.
 const (
 	OpI32Load    Opcode = 0x28 // i32.load
 	OpI64Load    Opcode = 0x29 // i64.load
@@ -84,7 +84,7 @@ const (
 	OpMemoryGrow Opcode = 0x40 // memory.grow
 )
 
-// Constant instructions
+// Constant instructions.
 const (
 	OpI32Const Opcode = 0x41 // i32.const
 	OpI64Const Opcode = 0x42 // i64.const
@@ -92,7 +92,7 @@ const (
 	OpF64Const Opcode = 0x44 // f64.const
 )
 
-// i32 comparison instructions
+// i32 comparison instructions.
 const (
 	OpI32Eqz Opcode = 0x45 // i32.eqz
 	OpI32Eq  Opcode = 0x46 // i32.eq
@@ -107,7 +107,7 @@ const (
 	OpI32GeU Opcode = 0x4f // i32.ge_u
 )
 
-// i64 comparison instructions
+// i64 comparison instructions.
 const (
 	OpI64Eqz Opcode = 0x50 // i64.eqz
 	OpI64Eq  Opcode = 0x51 // i64.eq
@@ -122,7 +122,7 @@ const (
 	OpI64GeU Opcode = 0x5a // i64.ge_u
 )
 
-// f32 comparison instructions
+// f32 comparison instructions.
 const (
 	OpF32Eq Opcode = 0x5b // f32.eq
 	OpF32Ne Opcode = 0x5c // f32.ne
@@ -132,7 +132,7 @@ const (
 	OpF32Ge Opcode = 0x60 // f32.ge
 )
 
-// f64 comparison instructions
+// f64 comparison instructions.
 const (
 	OpF64Eq Opcode = 0x61 // f64.eq
 	OpF64Ne Opcode = 0x62 // f64.ne
@@ -142,7 +142,7 @@ const (
 	OpF64Ge Opcode = 0x66 // f64.ge
 )
 
-// i32 arithmetic instructions
+// i32 arithmetic instructions.
 const (
 	OpI32Clz    Opcode = 0x67 // i32.clz (count leading zeros)
 	OpI32Ctz    Opcode = 0x68 // i32.ctz (count trailing zeros)
@@ -164,7 +164,7 @@ const (
 	OpI32Rotr   Opcode = 0x78 // i32.rotr (rotate right)
 )
 
-// i64 arithmetic instructions
+// i64 arithmetic instructions.
 const (
 	OpI64Clz    Opcode = 0x79 // i64.clz
 	OpI64Ctz    Opcode = 0x7a // i64.ctz
@@ -186,7 +186,7 @@ const (
 	OpI64Rotr   Opcode = 0x8a // i64.rotr
 )
 
-// f32 arithmetic instructions
+// f32 arithmetic instructions.
 const (
 	OpF32Abs      Opcode = 0x8b // f32.abs
 	OpF32Neg      Opcode = 0x8c // f32.neg
@@ -204,7 +204,7 @@ const (
 	OpF32Copysign Opcode = 0x98 // f32.copysign
 )
 
-// f64 arithmetic instructions
+// f64 arithmetic instructions.
 const (
 	OpF64Abs      Opcode = 0x99 // f64.abs
 	OpF64Neg      Opcode = 0x9a // f64.neg
@@ -222,7 +222,7 @@ const (
 	OpF64Copysign Opcode = 0xa6 // f64.copysign
 )
 
-// Conversion instructions
+// Conversion instructions.
 const (
 	OpI32WrapI64        Opcode = 0xa7 // i32.wrap_i64
 	OpI32TruncF32S      Opcode = 0xa8 // i32.trunc_f32_s

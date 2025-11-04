@@ -57,7 +57,7 @@ func scanForStopKeyword(interruptC chan os.Signal) {
 	}
 }
 
-// startCmd represents the start command
+// startCmd represents the start command.
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Starts a Synnax Node",

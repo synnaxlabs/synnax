@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -35,7 +34,7 @@ func newPeerSender(generateSeqNums bool) *peerSender {
 	return s
 }
 
-func (s *peerSender) transform(ctx context.Context, in Request) (out Request, ok bool, err error) {
+func (s *peerSender) transform(_ context.Context, in Request) (out Request, ok bool, err error) {
 	if s.generateSeqNums {
 		s.seqNum++
 		in.SeqNum = s.seqNum

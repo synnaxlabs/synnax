@@ -29,7 +29,7 @@ import (
 
 const FreeCount = 50
 
-// Config is the configuration for a verification service
+// Config is the configuration for a verification service.
 type Config struct {
 	// Instrumentation is for logging, tracing, and metrics.
 	//

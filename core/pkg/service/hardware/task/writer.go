@@ -57,7 +57,7 @@ func (w Writer) Create(ctx context.Context, t *Task) (err error) {
 	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
 }
 
-func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
+func (w Writer) Delete(ctx context.Context, key Key, _ bool) error {
 	q := gorp.NewDelete[Key, Task]().WhereKeys(key)
 	if err := q.Exec(ctx, w.tx); err != nil {
 		return err

@@ -141,17 +141,12 @@ func (r *reduction) Next(ctx node.Context) {
 	// Output has 1 value, so output time must also have 1 timestamp
 	if inputTime.Len() > 0 {
 		lastTimestamp := telem.ValueAt[telem.TimeStamp](inputTime, -1)
-		*r.state.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](lastTimestamp)
+		*r.state.OutputTime(0) = telem.NewSeriesV(lastTimestamp)
 	}
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
-type Config struct {
-}
-
-type reductionFactory struct {
-	cfg Config
-}
+type reductionFactory struct{}
 
 type NodeConfig = node.Config
 
@@ -190,9 +185,7 @@ func (f *reductionFactory) Create(_ context.Context, cfg NodeConfig) (node.Node,
 	}, nil
 }
 
-func NewFactory(cfg Config) node.Factory {
-	return &reductionFactory{cfg: cfg}
-}
+func NewFactory() node.Factory { return &reductionFactory{} }
 
 var reductions = map[string]map[telem.DataType]func(telem.Series, int64, *telem.Series) int64{
 	avgSymbolName: {

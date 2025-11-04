@@ -32,7 +32,7 @@ var (
 // sugarEncodingErr adds additional context to encoding errors.
 func sugarEncodingErr(value any, base error) error {
 	if base == nil {
-		return base
+		return nil
 	}
 	val := reflect.ValueOf(value)
 	main := errors.Wrapf(EncodeError, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
@@ -42,7 +42,7 @@ func sugarEncodingErr(value any, base error) error {
 // sugarDecodingErr adds additional context to decoding errors.
 func sugarDecodingErr(data []byte, value any, base error) error {
 	if base == nil {
-		return base
+		return nil
 	}
 	val := reflect.ValueOf(value)
 	main := errors.Wrapf(DecodeError, "kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
@@ -335,7 +335,7 @@ func (f *decodeFallbackCodec) EncodeStream(ctx context.Context, w io.Writer, val
 func (f *decodeFallbackCodec) Decode(ctx context.Context, data []byte, value any) error {
 	for _, c := range f.Codecs {
 		if err := c.Decode(ctx, data, value); err == nil {
-			return err
+			return nil
 		}
 	}
 	return nil
@@ -358,7 +358,7 @@ func (f *decodeFallbackCodec) DecodeStream(
 	}
 	for _, c := range f.Codecs {
 		if err = c.DecodeStream(ctx, bytes.NewReader(data), value); err == nil {
-			return err
+			return nil
 		}
 	}
 	return err

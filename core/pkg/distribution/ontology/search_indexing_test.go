@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// mockIndexingService implements the Service interface for testing startup indexing
+// mockIndexingService implements the Service interface for testing startup indexing.
 type mockIndexingService struct {
 	observe.Observer[iter.Nexter[ontology.Change]]
 	resources []ontology.Resource
@@ -47,7 +47,7 @@ func (s *mockIndexingService) Schema() zyn.Schema {
 }
 
 func (s *mockIndexingService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	return iter.NexterNopCloser[ontology.Resource](iter.All[ontology.Resource](s.resources)), nil
+	return iter.NexterNopCloser(iter.All(s.resources)), nil
 }
 
 func (s *mockIndexingService) RetrieveResource(

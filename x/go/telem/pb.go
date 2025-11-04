@@ -17,8 +17,8 @@ func TranslateTimeRangeBackward(tr *PBTimeRange) (otr TimeRange) {
 	if tr == nil {
 		return otr
 	}
-	otr.Start = TimeStamp(tr.Start)
-	otr.End = TimeStamp(tr.End)
+	otr.Start = TimeStamp(tr.GetStart())
+	otr.End = TimeStamp(tr.GetEnd())
 	return
 }
 
@@ -41,10 +41,10 @@ func TranslateManySeriesForward(s []Series) []*PBSeries {
 
 func TranslateSeriesBackward(s *PBSeries) Series {
 	return Series{
-		DataType:  DataType(s.DataType),
-		TimeRange: TranslateTimeRangeBackward(s.TimeRange),
-		Data:      s.Data,
-		Alignment: Alignment(s.Alignment),
+		DataType:  DataType(s.GetDataType()),
+		TimeRange: TranslateTimeRangeBackward(s.GetTimeRange()),
+		Data:      s.GetData(),
+		Alignment: Alignment(s.GetAlignment()),
 	}
 }
 

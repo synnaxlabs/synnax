@@ -87,9 +87,6 @@ func New(key string, options ...Option) Instrumentation {
 	if ins.T != nil {
 		ins.T.meta = ins.Meta
 	}
-	if ins.R != nil {
-		ins.R.meta = ins.Meta
-	}
 	return ins
 }
 
@@ -111,7 +108,7 @@ func (i Instrumentation) Child(key string) Instrumentation {
 		Meta: meta,
 		L:    i.L.child(meta),
 		T:    i.T.child(meta),
-		R:    i.R.sub(meta),
+		R:    i.R.sub(),
 	}
 	i.children[key] = ins
 	return ins

@@ -20,7 +20,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Migratable represents a type that can be migrated between versions
+// Migratable represents a type that can be migrated between versions.
 type Migratable interface {
 	GetVersion() version.Counter
 }
@@ -33,10 +33,10 @@ type Context struct {
 	alamos.Instrumentation
 }
 
-// Migration represents a function that can migrate data from one version to another
+// Migration represents a function that can migrate data from one version to another.
 type Migration[I, O Migratable] func(Context, I) (O, error)
 
-// MigrationConfig holds the configuration for creating a migration
+// MigrationConfig holds the configuration for creating a migration.
 type MigrationConfig[I, O Migratable] struct {
 	// Name is the name of the migration
 	Name string
@@ -44,7 +44,7 @@ type MigrationConfig[I, O Migratable] struct {
 	Migrate Migration[I, O]
 }
 
-// CreateMigration creates a new migration with logging
+// CreateMigration creates a new migration with logging.
 func CreateMigration[I, O Migratable](cfg MigrationConfig[I, O]) Migration[Migratable, Migratable] {
 	return func(ctx Context, input Migratable) (Migratable, error) {
 		var zero O
@@ -65,7 +65,7 @@ func CreateMigration[I, O Migratable](cfg MigrationConfig[I, O]) Migration[Migra
 	}
 }
 
-// Migrations is a map of version strings to migration functions
+// Migrations is a map of version strings to migration functions.
 type Migrations map[version.Counter]Migration[Migratable, Migratable]
 
 // LatestVersion returns the most recent (highest) version in the migrations.
@@ -79,7 +79,7 @@ func (m Migrations) LatestVersion() version.Counter {
 	return latestV
 }
 
-// MigratorConfig holds the configuration for creating a migrator
+// MigratorConfig holds the configuration for creating a migrator.
 type MigratorConfig[I, O Migratable] struct {
 	alamos.Instrumentation
 	Name       string
@@ -87,7 +87,7 @@ type MigratorConfig[I, O Migratable] struct {
 	Default    O
 }
 
-// NewMigrator creates a function that can migrate data from one version to another
+// NewMigrator creates a function that can migrate data from one version to another.
 func NewMigrator[I, O Migratable](cfg MigratorConfig[I, O]) func(I) O {
 	if len(cfg.Migrations) == 0 {
 		return func(v I) O {

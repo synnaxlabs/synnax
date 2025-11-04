@@ -113,9 +113,8 @@ func (s *Service) RootGroup() group.Group { return s.group }
 // operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    gorp.OverrideTx(s.cfg.DB, tx),
-		otg:   s.cfg.Ontology.NewWriter(tx),
-		group: s.group,
+		tx:  gorp.OverrideTx(s.cfg.DB, tx),
+		otg: s.cfg.Ontology.NewWriter(tx),
 	}
 }
 

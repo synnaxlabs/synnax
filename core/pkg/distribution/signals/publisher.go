@@ -119,7 +119,7 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 	}
 	t := &confluence.ObservableTransformPublisher[[]change.Change[[]byte, struct{}], framer.WriterRequest]{
 		Observable: cfg.Observable,
-		Transform: func(ctx context.Context, r []change.Change[[]byte, struct{}]) (framer.WriterRequest, bool, error) {
+		Transform: func(_ context.Context, r []change.Change[[]byte, struct{}]) (framer.WriterRequest, bool, error) {
 			if len(r) == 0 {
 				return framer.WriterRequest{}, false, nil
 			}
@@ -148,7 +148,7 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 	plumber.SetSource(p, "source", t)
 	plumber.SetSegment(p, "writer", w)
 	responses := &confluence.UnarySink[framer.WriterResponse]{
-		Sink: func(ctx context.Context, value framer.WriterResponse) error {
+		Sink: func(_ context.Context, value framer.WriterResponse) error {
 			s.L.Error("unexpected writer response", zap.Int("seqNum", value.SeqNum))
 			return nil
 		},

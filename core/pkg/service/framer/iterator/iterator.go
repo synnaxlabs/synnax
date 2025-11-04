@@ -217,13 +217,13 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 	cfg.Keys = lo.Uniq(append(cfg.Keys, concreteBaseKeys.Keys()...))
 	cfg.Keys = lo.Uniq(append(cfg.Keys, lo.FilterMap(
 		concreteBaseChannels,
-		func(item channel.Channel, index int) (channel.Key, bool) {
+		func(item channel.Channel, _ int) (channel.Key, bool) {
 			return item.Index(), !item.Virtual
 		})...,
 	))
 
 	// Remove ALL calculated keys (including nested ones) from cfg.Keys
-	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
+	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, _ int) bool {
 		return !calculatedKeys.Contains(item) && !item.Free()
 	})
 

@@ -365,7 +365,7 @@ func (s *Service) startCalculation(
 			confluence.DeferErr(sc.close),
 		)
 		o := confluence.NewObservableSubscriber[framer.WriterResponse]()
-		o.OnChange(func(ctx context.Context, i framer.WriterResponse) {
+		o.OnChange(func(context.Context, framer.WriterResponse) {
 			s.cfg.L.DPanic(
 				"write of calculated channel value failed",
 				zap.Stringer("channel", ch),

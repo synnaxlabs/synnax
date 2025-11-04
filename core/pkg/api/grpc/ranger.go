@@ -135,7 +135,7 @@ func translatePairsForward(p []api.RangeKVPair) []*gapi.KVPair {
 }
 
 func translatePairBackward(p *gapi.KVPair) api.RangeKVPair {
-	return api.RangeKVPair{Key: p.Key, Value: p.Value}
+	return api.RangeKVPair{Key: p.GetKey(), Value: p.GetValue()}
 }
 
 func translatePairsBackward(p []*gapi.KVPair) []api.RangeKVPair {
@@ -157,7 +157,7 @@ func (t rangeCreateRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeCreateRequest,
 ) (api.RangeCreateRequest, error) {
-	ranges, err := translateRangesBackward(r.Ranges)
+	ranges, err := translateRangesBackward(r.GetRanges())
 	return api.RangeCreateRequest{Ranges: ranges}, err
 }
 
@@ -172,7 +172,7 @@ func (t rangeCreateResponseTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeCreateResponse,
 ) (api.RangeCreateResponse, error) {
-	ranges, err := translateRangesBackward(r.Ranges)
+	ranges, err := translateRangesBackward(r.GetRanges())
 	return api.RangeCreateResponse{Ranges: ranges}, err
 }
 
@@ -191,15 +191,15 @@ func (t rangeRetrieveRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeRetrieveRequest,
 ) (api.RangeRetrieveRequest, error) {
-	keys := make([]uuid.UUID, len(r.Keys))
-	for i := range r.Keys {
-		key, err := uuid.Parse(r.Keys[i])
+	keys := make([]uuid.UUID, len(r.GetKeys()))
+	for i := range r.GetKeys() {
+		key, err := uuid.Parse(r.GetKeys()[i])
 		if err != nil {
 			return api.RangeRetrieveRequest{}, err
 		}
 		keys[i] = key
 	}
-	return api.RangeRetrieveRequest{Keys: keys, Names: r.Names}, nil
+	return api.RangeRetrieveRequest{Keys: keys, Names: r.GetNames()}, nil
 }
 
 func (t rangeRetrieveResponseTranslator) Forward(
@@ -213,7 +213,7 @@ func (t rangeRetrieveResponseTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeRetrieveResponse,
 ) (api.RangeRetrieveResponse, error) {
-	ranges, err := translateRangesBackward(r.Ranges)
+	ranges, err := translateRangesBackward(r.GetRanges())
 	return api.RangeRetrieveResponse{Ranges: ranges}, err
 }
 
@@ -231,10 +231,10 @@ func (t rangeKVGetRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeKVGetRequest,
 ) (api.RangeKVGetRequest, error) {
-	key, err := uuid.Parse(r.RangeKey)
+	key, err := uuid.Parse(r.GetRangeKey())
 	return api.RangeKVGetRequest{
 		Range: key,
-		Keys:  r.Keys,
+		Keys:  r.GetKeys(),
 	}, err
 }
 
@@ -249,7 +249,7 @@ func (t rangeKVGetResponseTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeKVGetResponse,
 ) (api.RangeKVGetResponse, error) {
-	return api.RangeKVGetResponse{Pairs: translatePairsBackward(r.Pairs)}, nil
+	return api.RangeKVGetResponse{Pairs: translatePairsBackward(r.GetPairs())}, nil
 }
 
 func (t rangeKVSetRequestTranslator) Forward(
@@ -266,10 +266,10 @@ func (t rangeKVSetRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeKVSetRequest,
 ) (api.RangeKVSetRequest, error) {
-	key, err := uuid.Parse(r.RangeKey)
+	key, err := uuid.Parse(r.GetRangeKey())
 	return api.RangeKVSetRequest{
 		Range: key,
-		Pairs: translatePairsBackward(r.Pairs),
+		Pairs: translatePairsBackward(r.GetPairs()),
 	}, err
 }
 
@@ -287,10 +287,10 @@ func (t rangeKVDeleteRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeKVDeleteRequest,
 ) (api.RangeKVDeleteRequest, error) {
-	key, err := uuid.Parse(r.RangeKey)
+	key, err := uuid.Parse(r.GetRangeKey())
 	return api.RangeKVDeleteRequest{
 		Range: key,
-		Keys:  r.Keys,
+		Keys:  r.GetKeys(),
 	}, err
 }
 
@@ -308,10 +308,10 @@ func (t rangeAliasSetRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeAliasSetRequest,
 ) (api.RangeAliasSetRequest, error) {
-	key, err := uuid.Parse(r.Range)
+	key, err := uuid.Parse(r.GetRange())
 	return api.RangeAliasSetRequest{
 		Range:   key,
-		Aliases: unsafe.ReinterpretMap[uint32, string, channel.Key, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMap[uint32, string, channel.Key, string](r.GetAliases()),
 	}, err
 }
 
@@ -329,10 +329,10 @@ func (t rangeAliasDeleteRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeAliasDeleteRequest,
 ) (api.RangeAliasDeleteRequest, error) {
-	key, err := uuid.Parse(r.Range)
+	key, err := uuid.Parse(r.GetRange())
 	return api.RangeAliasDeleteRequest{
 		Range:    key,
-		Channels: unsafe.ReinterpretSlice[uint32, channel.Key](r.Channels),
+		Channels: unsafe.ReinterpretSlice[uint32, channel.Key](r.GetChannels()),
 	}, err
 }
 
@@ -350,10 +350,10 @@ func (t rangeAliasResolveRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeAliasResolveRequest,
 ) (api.RangeAliasResolveRequest, error) {
-	key, err := uuid.Parse(r.Range)
+	key, err := uuid.Parse(r.GetRange())
 	return api.RangeAliasResolveRequest{
 		Range:   key,
-		Aliases: r.Aliases,
+		Aliases: r.GetAliases(),
 	}, err
 }
 
@@ -370,7 +370,7 @@ func (t rangeAliasListRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeAliasListRequest,
 ) (api.RangeAliasListRequest, error) {
-	key, err := uuid.Parse(r.Range)
+	key, err := uuid.Parse(r.GetRange())
 	return api.RangeAliasListRequest{
 		Range: key,
 	}, err
@@ -390,7 +390,7 @@ func (t rangeAliasResolveResponseTranslator) Backward(
 	r *gapi.RangeAliasResolveResponse,
 ) (api.RangeAliasResolveResponse, error) {
 	return api.RangeAliasResolveResponse{
-		Aliases: unsafe.ReinterpretMap[string, uint32, string, channel.Key](r.Aliases),
+		Aliases: unsafe.ReinterpretMap[string, uint32, string, channel.Key](r.GetAliases()),
 	}, nil
 }
 
@@ -408,7 +408,7 @@ func (t rangeAliasListResponseTranslator) Backward(
 	r *gapi.RangeAliasListResponse,
 ) (api.RangeAliasListResponse, error) {
 	return api.RangeAliasListResponse{
-		Aliases: unsafe.ReinterpretMap[uint32, string, channel.Key, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMap[uint32, string, channel.Key, string](r.GetAliases()),
 	}, nil
 }
 
@@ -425,9 +425,9 @@ func (t rangeDeleteRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeDeleteRequest,
 ) (api.RangeDeleteRequest, error) {
-	keys := make([]uuid.UUID, len(r.Keys))
-	for i := range r.Keys {
-		key, err := uuid.Parse(r.Keys[i])
+	keys := make([]uuid.UUID, len(r.GetKeys()))
+	for i := range r.GetKeys() {
+		key, err := uuid.Parse(r.GetKeys()[i])
 		if err != nil {
 			return api.RangeDeleteRequest{}, err
 		}
@@ -453,14 +453,14 @@ func translateRangesForward(r []api.Range) []*gapi.Range {
 }
 
 func translateRangeBackward(r *gapi.Range) (or api.Range, err error) {
-	if r.Key != "" {
-		or.Key, err = uuid.Parse(r.Key)
+	if r.GetKey() != "" {
+		or.Key, err = uuid.Parse(r.GetKey())
 		if err != nil {
 			return api.Range{}, err
 		}
 	}
-	or.Name = r.Name
-	or.TimeRange = telem.TranslateTimeRangeBackward(r.TimeRange)
+	or.Name = r.GetName()
+	or.TimeRange = telem.TranslateTimeRangeBackward(r.GetTimeRange())
 	return
 }
 

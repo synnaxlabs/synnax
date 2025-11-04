@@ -79,7 +79,7 @@ func (d *Driver) start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var mf func(ctx context.Context) error
+	var mf func(context.Context) error
 	mf = func(ctx context.Context) error {
 		d.mu.Lock()
 		b, err := configCodec.Encode(ctx, d.cfg.format())
@@ -139,7 +139,7 @@ func (d *Driver) start(ctx context.Context) error {
 		internalSCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 		defer cancel()
 
-		internalSCtx.Go(func(ctx context.Context) error {
+		internalSCtx.Go(func(context.Context) error {
 			pipeOutputToLogger(stdoutPipe, d.cfg.L, d.started)
 			return nil
 		},
@@ -147,7 +147,7 @@ func (d *Driver) start(ctx context.Context) error {
 			signal.RecoverWithErrOnPanic(),
 			signal.WithRetryOnPanic(),
 		)
-		internalSCtx.Go(func(ctx context.Context) error {
+		internalSCtx.Go(func(context.Context) error {
 			pipeOutputToLogger(stderrPipe, d.cfg.L, d.started)
 			return nil
 		},
@@ -155,7 +155,7 @@ func (d *Driver) start(ctx context.Context) error {
 			signal.RecoverWithErrOnPanic(),
 			signal.WithRetryOnPanic(),
 		)
-		internalSCtx.Go(func(ctx context.Context) error {
+		internalSCtx.Go(func(context.Context) error {
 			err := d.cmd.Wait()
 			return err
 		},

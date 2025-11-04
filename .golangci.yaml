@@ -1,4 +1,37 @@
 version: "2"
 linters:
   enable:
+    - arangolint
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - copyloopvar
+    - dogsled
+    - durationcheck
+    - err113
+    - errorlint
+    - exptostd
+    - gocheckcompilerdirectives
+    - godot
+    - goprintffuncname
+    - misspell
     - modernize
+    - nilnesserr
+    - nolintlint
+    - nosprintfhostport
+    - perfsprint
+    - promlinter
+    - protogetter
+    - reassign
+    - testpackage
+    - tparallel
+    - unconvert
+    - unparam
+    - unqueryvet
+  settings:
+    unused:
+      field-writes-are-uses: false
+      local-variables-are-used: false
+      generated-is-used: false

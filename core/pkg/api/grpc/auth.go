@@ -12,17 +12,16 @@ package grpc
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/x/telem"
-
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/grpc"
 )
 
@@ -62,7 +61,7 @@ func (l loginRequestTranslator) Backward(
 	_ context.Context,
 	req *gapi.LoginRequest,
 ) (api.AuthLoginRequest, error) {
-	creds := auth.InsecureCredentials{Username: req.Username, Password: password.Raw(req.Password)}
+	creds := auth.InsecureCredentials{Username: req.GetUsername(), Password: password.Raw(req.GetPassword())}
 	return api.AuthLoginRequest{InsecureCredentials: creds}, nil
 }
 
@@ -89,18 +88,18 @@ func (l loginResponseTranslator) Backward(
 	_ context.Context,
 	r *gapi.LoginResponse,
 ) (api.AuthLoginResponse, error) {
-	key, err := uuid.Parse(r.User.Key)
+	key, err := uuid.Parse(r.GetUser().GetKey())
 	return api.AuthLoginResponse{
-		Token: r.Token,
+		Token: r.GetToken(),
 		User: user.User{
 			Key:      key,
-			Username: r.User.Username,
+			Username: r.GetUser().GetUsername(),
 		},
 		ClusterInfo: api.ClusterInfo{
-			ClusterKey:  r.ClusterInfo.ClusterKey,
-			NodeVersion: r.ClusterInfo.NodeVersion,
-			NodeKey:     cluster.NodeKey(r.ClusterInfo.NodeKey),
-			NodeTime:    telem.TimeStamp(r.ClusterInfo.NodeTime),
+			ClusterKey:  r.GetClusterInfo().GetClusterKey(),
+			NodeVersion: r.GetClusterInfo().GetNodeVersion(),
+			NodeKey:     cluster.NodeKey(r.GetClusterInfo().GetNodeKey()),
+			NodeTime:    telem.TimeStamp(r.GetClusterInfo().GetNodeTime()),
 		},
 	}, err
 }

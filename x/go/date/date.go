@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// The date package contains a few functions and variables that are helpful for
-// working with dates.
-
+// Package date contains a few functions and variables that are helpful for working with
+// dates.
 package date
 
 // DaysInMonth is a map that represents the number of days in each month for a
-// non-leap year
+// non-leap year.
 var DaysInMonth = map[int]int{
 	1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30,
 	7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31,

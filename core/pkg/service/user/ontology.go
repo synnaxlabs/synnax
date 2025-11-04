@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -29,7 +29,7 @@ func OntologyID(key uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: key.String()}
 }
 
-// OntologyIDsFromKeys returns a slice of unique identifiers from a slice of keys
+// OntologyIDsFromKeys returns a slice of unique identifiers from a slice of keys.
 func OntologyIDsFromKeys(keys []uuid.UUID) []ontology.ID {
 	ids := make([]ontology.ID, len(keys))
 	for i, key := range keys {
@@ -87,7 +87,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 	return newResource(u), err
 }
 
-type change = changex.Change[uuid.UUID, User]
+type change = xchange.Change[uuid.UUID, User]
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(context.Context, iter.Nexter[ontology.Change])) observe.Disconnect {

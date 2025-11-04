@@ -13,7 +13,6 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -63,7 +62,7 @@ func (f Frame) SplitByLeaseholder() map[cluster.NodeKey]Frame {
 // SplitByHost splits the frame into three frames based on the leaseholder of each channel:
 // - local: contains series for channels leased by the specified host
 // - remote: contains series for channels leased by other hosts
-// - free: contains series for channels that are not leased by any host
+// - free: contains series for channels that are not leased by any host.
 func (f Frame) SplitByHost(host cluster.NodeKey) (local Frame, remote Frame, free Frame) {
 	for key, series := range f.Entries() {
 		if key.Leaseholder() == host {

@@ -116,7 +116,7 @@ func maybeProvisionRootUser(
 		return dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			// For cluster versions before v0.31.0, the root user flag was not set. We
 			// need to set it here.
-			if err = svc.User.NewWriter(tx).MaybeSetRootUser(ctx, creds.Username); err != nil {
+			if err = svc.User.NewWriter(tx).MaybeSetRootUser(ctx); err != nil {
 				return err
 			}
 

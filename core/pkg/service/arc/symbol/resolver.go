@@ -67,7 +67,7 @@ func (r *channelResolver) ResolvePrefix(ctx context.Context, name string) ([]arc
 		Entries(&results).Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	return lo.Map(results, func(item channel.Channel, index int) arc.Symbol {
+	return lo.Map(results, func(item channel.Channel, _ int) arc.Symbol {
 		return channelToSymbol(item)
 	}), nil
 }

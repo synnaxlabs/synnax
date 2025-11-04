@@ -58,7 +58,6 @@ func NewStreams[RQ, RS freighter.Payload](
 			requests:     req,
 			responses:    res,
 			serverClosed: serverClosed,
-			clientClosed: clientClosed,
 		}
 }
 
@@ -164,7 +163,6 @@ type ServerStream[RQ, RS freighter.Payload] struct {
 	requests     <-chan message[RQ]
 	responses    chan<- message[RS]
 	serverClosed chan struct{}
-	clientClosed <-chan struct{}
 	receiveErr   error
 	sendErr      error
 }
@@ -285,7 +283,7 @@ func (c *ClientStream[RQ, RS]) Receive() (res RS, err error) {
 // CloseSend implements the freighter.StreamCloser interface.
 func (c *ClientStream[RQ, RS]) CloseSend() error {
 	if c.sendErr != nil {
-		return nil
+		return c.sendErr
 	}
 	c.sendErr = freighter.StreamClosed
 	c.requests <- message[RQ]{error: errors.Encode(c.ctx, freighter.EOF, true)}

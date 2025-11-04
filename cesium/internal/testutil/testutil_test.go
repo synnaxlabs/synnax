@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package testutil
+package testutil_test
 
 import (
 	"os"
@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 

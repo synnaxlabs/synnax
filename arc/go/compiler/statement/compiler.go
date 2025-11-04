@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Compile compiles a statement and returns whether execution diverged (return/break/etc)
+// Compile compiles a statement and returns whether execution diverged (return/break/etc).
 func Compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err error) {
 	if varDecl := ctx.AST.VariableDeclaration(); varDecl != nil {
 		return false, compileVariableDeclaration(context.Child(ctx, varDecl))
@@ -39,7 +39,7 @@ func Compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err 
 	return false, errors.New("unknown statement type")
 }
 
-// CompileBlock compiles a block and returns whether all paths diverged
+// CompileBlock compiles a block and returns whether all paths diverged.
 func CompileBlock(ctx context.Context[parser.IBlockContext]) (diverged bool, err error) {
 	if ctx.AST == nil {
 		return false, nil

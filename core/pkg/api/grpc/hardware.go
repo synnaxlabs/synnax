@@ -120,7 +120,7 @@ func translateRackForward(r *api.Rack) *gapi.Rack {
 }
 
 func translateRackBackward(r *gapi.Rack) *api.Rack {
-	return &api.Rack{Key: rack.Key(r.Key), Name: r.Name}
+	return &api.Rack{Key: rack.Key(r.GetKey()), Name: r.GetName()}
 }
 
 func translateRacksForward(rs []api.Rack) []*gapi.Rack {
@@ -144,7 +144,7 @@ func (rackCreateRequestTranslator) Forward(_ context.Context, req api.HardwareCr
 }
 
 func (rackCreateRequestTranslator) Backward(_ context.Context, req *gapi.HardwareCreateRackRequest) (api.HardwareCreateRackRequest, error) {
-	return api.HardwareCreateRackRequest{Racks: translateRacksBackward(req.Racks)}, nil
+	return api.HardwareCreateRackRequest{Racks: translateRacksBackward(req.GetRacks())}, nil
 }
 
 func (rackCreateResponseTranslator) Forward(_ context.Context, res api.HardwareCreateRackResponse) (*gapi.HardwareCreateRackResponse, error) {
@@ -152,7 +152,7 @@ func (rackCreateResponseTranslator) Forward(_ context.Context, res api.HardwareC
 }
 
 func (rackCreateResponseTranslator) Backward(_ context.Context, res *gapi.HardwareCreateRackResponse) (api.HardwareCreateRackResponse, error) {
-	return api.HardwareCreateRackResponse{Racks: translateRacksBackward(res.Racks)}, nil
+	return api.HardwareCreateRackResponse{Racks: translateRacksBackward(res.GetRacks())}, nil
 }
 
 func (rackRetrieveRequestTranslator) Forward(_ context.Context, req api.HardwareRetrieveRackRequest) (*gapi.HardwareRetrieveRackRequest, error) {
@@ -164,8 +164,8 @@ func (rackRetrieveRequestTranslator) Forward(_ context.Context, req api.Hardware
 
 func (rackRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.HardwareRetrieveRackRequest) (api.HardwareRetrieveRackRequest, error) {
 	return api.HardwareRetrieveRackRequest{
-		Keys:  unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys),
-		Names: req.Names,
+		Keys:  unsafe.ReinterpretSlice[uint32, rack.Key](req.GetKeys()),
+		Names: req.GetNames(),
 	}, nil
 }
 
@@ -174,7 +174,7 @@ func (rackRetrieveResponseTranslator) Forward(_ context.Context, res api.Hardwar
 }
 
 func (rackRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.HardwareRetrieveRackResponse) (api.HardwareRetrieveRackResponse, error) {
-	return api.HardwareRetrieveRackResponse{Racks: translateRacksBackward(res.Racks)}, nil
+	return api.HardwareRetrieveRackResponse{Racks: translateRacksBackward(res.GetRacks())}, nil
 }
 
 func (rackDeleteRequestTranslator) Forward(_ context.Context, req api.HardwareDeleteRackRequest) (*gapi.HardwareDeleteRackRequest, error) {
@@ -182,7 +182,7 @@ func (rackDeleteRequestTranslator) Forward(_ context.Context, req api.HardwareDe
 }
 
 func (rackDeleteRequestTranslator) Backward(_ context.Context, req *gapi.HardwareDeleteRackRequest) (api.HardwareDeleteRackRequest, error) {
-	return api.HardwareDeleteRackRequest{Keys: unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys)}, nil
+	return api.HardwareDeleteRackRequest{Keys: unsafe.ReinterpretSlice[uint32, rack.Key](req.GetKeys())}, nil
 }
 
 func translateTaskForward(m *api.Task) *gapi.Task {
@@ -198,12 +198,12 @@ func translateTaskForward(m *api.Task) *gapi.Task {
 
 func translateTaskBackward(m *gapi.Task) *api.Task {
 	return &api.Task{
-		Key:      task.Key(m.Key),
-		Name:     m.Name,
-		Type:     m.Type,
-		Config:   m.Config,
-		Internal: m.Internal,
-		Snapshot: m.Snapshot,
+		Key:      task.Key(m.GetKey()),
+		Name:     m.GetName(),
+		Type:     m.GetType(),
+		Config:   m.GetConfig(),
+		Internal: m.GetInternal(),
+		Snapshot: m.GetSnapshot(),
 	}
 }
 
@@ -228,7 +228,7 @@ func (taskCreateRequestTranslator) Forward(_ context.Context, req api.HardwareCr
 }
 
 func (taskCreateRequestTranslator) Backward(_ context.Context, req *gapi.HardwareCreateTaskRequest) (api.HardwareCreateTaskRequest, error) {
-	return api.HardwareCreateTaskRequest{Tasks: translateTasksBackward(req.Tasks)}, nil
+	return api.HardwareCreateTaskRequest{Tasks: translateTasksBackward(req.GetTasks())}, nil
 }
 
 func (taskCreateResponseTranslator) Forward(_ context.Context, res api.HardwareCreateTaskResponse) (*gapi.HardwareCreateTaskResponse, error) {
@@ -236,7 +236,7 @@ func (taskCreateResponseTranslator) Forward(_ context.Context, res api.HardwareC
 }
 
 func (taskCreateResponseTranslator) Backward(_ context.Context, res *gapi.HardwareCreateTaskResponse) (api.HardwareCreateTaskResponse, error) {
-	return api.HardwareCreateTaskResponse{Tasks: translateTasksBackward(res.Tasks)}, nil
+	return api.HardwareCreateTaskResponse{Tasks: translateTasksBackward(res.GetTasks())}, nil
 }
 
 func (taskRetrieveRequestTranslator) Forward(_ context.Context, req api.HardwareRetrieveTaskRequest) (*gapi.HardwareRetrieveTaskRequest, error) {
@@ -250,10 +250,10 @@ func (taskRetrieveRequestTranslator) Forward(_ context.Context, req api.Hardware
 
 func (taskRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.HardwareRetrieveTaskRequest) (api.HardwareRetrieveTaskRequest, error) {
 	return api.HardwareRetrieveTaskRequest{
-		Rack:  rack.Key(req.Rack),
-		Keys:  unsafe.ReinterpretSlice[uint64, task.Key](req.Keys),
-		Names: req.Names,
-		Types: req.Types,
+		Rack:  rack.Key(req.GetRack()),
+		Keys:  unsafe.ReinterpretSlice[uint64, task.Key](req.GetKeys()),
+		Names: req.GetNames(),
+		Types: req.GetTypes(),
 	}, nil
 }
 
@@ -262,7 +262,7 @@ func (taskRetrieveResponseTranslator) Forward(_ context.Context, res api.Hardwar
 }
 
 func (taskRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.HardwareRetrieveTaskResponse) (api.HardwareRetrieveTaskResponse, error) {
-	return api.HardwareRetrieveTaskResponse{Tasks: translateTasksBackward(res.Tasks)}, nil
+	return api.HardwareRetrieveTaskResponse{Tasks: translateTasksBackward(res.GetTasks())}, nil
 }
 
 func (taskDeleteRequestTranslator) Forward(_ context.Context, req api.HardwareDeleteTaskRequest) (*gapi.HardwareDeleteTaskRequest, error) {
@@ -270,7 +270,7 @@ func (taskDeleteRequestTranslator) Forward(_ context.Context, req api.HardwareDe
 }
 
 func (taskDeleteRequestTranslator) Backward(_ context.Context, req *gapi.HardwareDeleteTaskRequest) (api.HardwareDeleteTaskRequest, error) {
-	return api.HardwareDeleteTaskRequest{Keys: unsafe.ReinterpretSlice[uint64, task.Key](req.Keys)}, nil
+	return api.HardwareDeleteTaskRequest{Keys: unsafe.ReinterpretSlice[uint64, task.Key](req.GetKeys())}, nil
 }
 
 func translateDeviceForward(d *api.Device) *gapi.Device {
@@ -288,14 +288,14 @@ func translateDeviceForward(d *api.Device) *gapi.Device {
 
 func translateDeviceBackward(d *gapi.Device) *api.Device {
 	return &api.Device{
-		Key:        d.Key,
-		Name:       d.Name,
-		Rack:       rack.Key(d.Rack),
-		Location:   d.Location,
-		Make:       d.Make,
-		Model:      d.Model,
-		Properties: d.Properties,
-		Configured: d.Configured,
+		Key:        d.GetKey(),
+		Name:       d.GetName(),
+		Rack:       rack.Key(d.GetRack()),
+		Location:   d.GetLocation(),
+		Make:       d.GetMake(),
+		Model:      d.GetModel(),
+		Properties: d.GetProperties(),
+		Configured: d.GetConfigured(),
 	}
 }
 
@@ -320,7 +320,7 @@ func (deviceCreateRequestTranslator) Forward(_ context.Context, req api.Hardware
 }
 
 func (deviceCreateRequestTranslator) Backward(_ context.Context, req *gapi.HardwareCreateDeviceRequest) (api.HardwareCreateDeviceRequest, error) {
-	return api.HardwareCreateDeviceRequest{Devices: translateDevicesBackward(req.Devices)}, nil
+	return api.HardwareCreateDeviceRequest{Devices: translateDevicesBackward(req.GetDevices())}, nil
 }
 
 func (deviceCreateResponseTranslator) Forward(_ context.Context, res api.HardwareCreateDeviceResponse) (*gapi.HardwareCreateDeviceResponse, error) {
@@ -328,7 +328,7 @@ func (deviceCreateResponseTranslator) Forward(_ context.Context, res api.Hardwar
 }
 
 func (deviceCreateResponseTranslator) Backward(_ context.Context, res *gapi.HardwareCreateDeviceResponse) (api.HardwareCreateDeviceResponse, error) {
-	return api.HardwareCreateDeviceResponse{Devices: translateDevicesBackward(res.Devices)}, nil
+	return api.HardwareCreateDeviceResponse{Devices: translateDevicesBackward(res.GetDevices())}, nil
 }
 
 func (deviceRetrieveRequestTranslator) Forward(_ context.Context, req api.HardwareRetrieveDeviceRequest) (*gapi.HardwareRetrieveDeviceRequest, error) {
@@ -348,16 +348,16 @@ func (deviceRetrieveRequestTranslator) Forward(_ context.Context, req api.Hardwa
 
 func (deviceRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.HardwareRetrieveDeviceRequest) (api.HardwareRetrieveDeviceRequest, error) {
 	return api.HardwareRetrieveDeviceRequest{
-		Keys:           req.Keys,
-		Names:          req.Names,
-		Makes:          req.Makes,
-		Models:         req.Models,
-		Locations:      req.Locations,
-		SearchTerm:     req.Search,
-		Limit:          int(req.Limit),
-		Racks:          unsafe.ReinterpretSlice[uint32, rack.Key](req.Racks),
-		Offset:         int(req.Offset),
-		IgnoreNotFound: req.IgnoreNotFound,
+		Keys:           req.GetKeys(),
+		Names:          req.GetNames(),
+		Makes:          req.GetMakes(),
+		Models:         req.GetModels(),
+		Locations:      req.GetLocations(),
+		SearchTerm:     req.GetSearch(),
+		Limit:          int(req.GetLimit()),
+		Racks:          unsafe.ReinterpretSlice[uint32, rack.Key](req.GetRacks()),
+		Offset:         int(req.GetOffset()),
+		IgnoreNotFound: req.GetIgnoreNotFound(),
 	}, nil
 }
 
@@ -366,7 +366,7 @@ func (deviceRetrieveResponseTranslator) Forward(_ context.Context, res api.Hardw
 }
 
 func (deviceRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.HardwareRetrieveDeviceResponse) (api.HardwareRetrieveDeviceResponse, error) {
-	return api.HardwareRetrieveDeviceResponse{Devices: translateDevicesBackward(res.Devices)}, nil
+	return api.HardwareRetrieveDeviceResponse{Devices: translateDevicesBackward(res.GetDevices())}, nil
 }
 
 func (deviceDeleteRequestTranslator) Forward(_ context.Context, req api.HardwareDeleteDeviceRequest) (*gapi.HardwareDeleteDeviceRequest, error) {
@@ -374,7 +374,7 @@ func (deviceDeleteRequestTranslator) Forward(_ context.Context, req api.Hardware
 }
 
 func (deviceDeleteRequestTranslator) Backward(_ context.Context, req *gapi.HardwareDeleteDeviceRequest) (api.HardwareDeleteDeviceRequest, error) {
-	return api.HardwareDeleteDeviceRequest{Keys: req.Keys}, nil
+	return api.HardwareDeleteDeviceRequest{Keys: req.GetKeys()}, nil
 }
 
 func newHardware(a *api.Transport) fgrpc.BindableTransport {

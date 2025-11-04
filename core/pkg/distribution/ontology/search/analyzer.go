@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	lo.Must0(registry.RegisterTokenizer(separatorTokenizer, func(config map[string]any, cache *registry.Cache) (analysis.Tokenizer, error) {
+	lo.Must0(registry.RegisterTokenizer(separatorTokenizer, func(map[string]any, *registry.Cache) (analysis.Tokenizer, error) {
 		return &SepTokenizer{}, nil
 	}))
 }

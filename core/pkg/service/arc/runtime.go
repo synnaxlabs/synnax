@@ -11,13 +11,12 @@ package arc
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -59,7 +58,7 @@ func (s *Service) handleChange(
 				s.cfg.L.Error("failed to set arc status", zap.Error(err))
 			}
 		}
-		if e.Variant == changex.Delete || !a.Deploy {
+		if e.Variant == xchange.Delete || !a.Deploy {
 			return
 		}
 		mod, err := arc.CompileGraph(ctx, e.Value.Graph, arc.WithResolver(s.symbolResolver))
@@ -67,7 +66,7 @@ func (s *Service) handleChange(
 			if err := s.cfg.Status.NewWriter(nil).SetWithParent(
 				ctx,
 				&status.Status{
-					Name:        fmt.Sprintf("%s Status", a.Name),
+					Name:        a.Name + " Status",
 					Key:         a.Key.String(),
 					Variant:     xstatus.ErrorVariant,
 					Message:     "Deployment Failed",
@@ -89,7 +88,7 @@ func (s *Service) handleChange(
 			if err := s.cfg.Status.NewWriter(nil).SetWithParent(
 				ctx,
 				&status.Status{
-					Name:        fmt.Sprintf("%s Status", a.Name),
+					Name:        a.Name + " Status",
 					Key:         a.Key.String(),
 					Message:     "Deployment Failed",
 					Variant:     xstatus.ErrorVariant,
@@ -107,7 +106,7 @@ func (s *Service) handleChange(
 		if err := s.cfg.Status.NewWriter(nil).SetWithParent(
 			ctx,
 			&status.Status{
-				Name:    fmt.Sprintf("%s Status", a.Name),
+				Name:    a.Name + " Status",
 				Key:     a.Key.String(),
 				Message: "Deployment Successful",
 				Variant: xstatus.SuccessVariant,

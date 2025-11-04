@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/version"
 )
 
-// Test types to simulate migrations
+// Test types to simulate migrations.
 type ResourceV0 struct {
 	Name string
 }

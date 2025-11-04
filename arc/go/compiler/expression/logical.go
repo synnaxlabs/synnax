@@ -79,7 +79,7 @@ func compileLogicalAndImpl(ctx context.Context[parser.ILogicalAndExpressionConte
 	return types.U8(), nil
 }
 
-// normalizeBoolean converts any non-zero i32 value to 1
+// normalizeBoolean converts any non-zero i32 value to 1.
 func normalizeBoolean[ASTNode antlr.ParserRuleContext](ctx context.Context[ASTNode]) {
 	// Convert any non-zero value to 1
 	// value != 0 ? 1 : 0

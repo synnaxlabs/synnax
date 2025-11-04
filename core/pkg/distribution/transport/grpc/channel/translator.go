@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel/v1"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
@@ -42,8 +41,8 @@ func translateOptionsForward(opts channel.CreateOptions) *channelv1.CreateOption
 
 func translateOptionsBackward(opts *channelv1.CreateOptions) channel.CreateOptions {
 	return channel.CreateOptions{
-		RetrieveIfNameExists:                        opts.RetrieveIfNameExists,
-		OverwriteIfNameExistsAndDifferentProperties: opts.OverwriteIfNameExists,
+		RetrieveIfNameExists:                        opts.GetRetrieveIfNameExists(),
+		OverwriteIfNameExistsAndDifferentProperties: opts.GetOverwriteIfNameExists(),
 	}
 }
 
@@ -72,18 +71,18 @@ func (c createMessageTranslator) Backward(
 	_ context.Context,
 	msg *channelv1.CreateMessage,
 ) (channel.CreateMessage, error) {
-	tr := channel.CreateMessage{Opts: translateOptionsBackward(msg.Opts)}
-	for _, ch := range msg.Channels {
+	tr := channel.CreateMessage{Opts: translateOptionsBackward(msg.GetOpts())}
+	for _, ch := range msg.GetChannels() {
 		tr.Channels = append(tr.Channels, channel.Channel{
-			Name:        ch.Name,
-			Leaseholder: cluster.NodeKey(ch.Leaseholder),
-			DataType:    telem.DataType(ch.DataType),
-			IsIndex:     ch.IsIndex,
-			LocalKey:    channel.LocalKey(ch.LocalKey),
-			LocalIndex:  channel.LocalKey(ch.LocalIndex),
-			Virtual:     ch.Virtual,
-			Concurrency: control.Concurrency(ch.Concurrency),
-			Internal:    ch.Internal,
+			Name:        ch.GetName(),
+			Leaseholder: cluster.NodeKey(ch.GetLeaseholder()),
+			DataType:    telem.DataType(ch.GetDataType()),
+			IsIndex:     ch.GetIsIndex(),
+			LocalKey:    channel.LocalKey(ch.GetLocalKey()),
+			LocalIndex:  channel.LocalKey(ch.GetLocalIndex()),
+			Virtual:     ch.GetVirtual(),
+			Concurrency: control.Concurrency(ch.GetConcurrency()),
+			Internal:    ch.GetInternal(),
 		})
 	}
 	return tr, nil
@@ -100,7 +99,7 @@ func (d deleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *channelv1.DeleteRequest,
 ) (channel.DeleteRequest, error) {
-	return channel.DeleteRequest{Keys: channel.KeysFromUint32(msg.Keys)}, nil
+	return channel.DeleteRequest{Keys: channel.KeysFromUint32(msg.GetKeys())}, nil
 }
 
 func (r renameMessageTranslator) Forward(
@@ -118,7 +117,7 @@ func (r renameMessageTranslator) Backward(
 	msg *channelv1.RenameRequest,
 ) (channel.RenameRequest, error) {
 	return channel.RenameRequest{
-		Names: msg.Names,
-		Keys:  channel.KeysFromUint32(msg.Keys),
+		Names: msg.GetNames(),
+		Keys:  channel.KeysFromUint32(msg.GetKeys()),
 	}, nil
 }

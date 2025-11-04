@@ -136,11 +136,13 @@ func parseSyntaxError(err error) error {
 	if err == nil {
 		return nil
 	}
-	apiErr, ok := err.(*lua.ApiError)
+	apiErr := &lua.ApiError{}
+	ok := errors.As(err, &apiErr)
 	if !ok {
 		return err
 	}
-	pErr, ok := apiErr.Cause.(*parse.Error)
+	pErr := &parse.Error{}
+	ok = errors.As(apiErr.Cause, &pErr)
 	if !ok {
 		return err
 	}

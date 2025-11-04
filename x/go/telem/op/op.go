@@ -3971,12 +3971,12 @@ func AvgI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	if freshStart {
 		// Fresh start: compute average of input samples
-		outData[0] = newSum / int64(inputLen)
+		outData[0] = newSum / inputLen
 	} else {
 		// Weighted average: combine previous average with new samples
 		prevAvg := outData[0]
 		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*int64(prevCount) + newSum) / int64(totalCount)
+		outData[0] = (prevAvg*prevCount + newSum) / totalCount
 	}
 
 	return prevCount + inputLen

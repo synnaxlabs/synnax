@@ -19,10 +19,9 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
@@ -34,7 +33,7 @@ import (
 // and use it throughout its lifecycle. To update the requested keys, the entity
 // should send a demand with variant Label, and to remove the demand, it should
 // send a demand with variant DeleteChannel.
-type demand = changex.Change[address.Address, Request]
+type demand = xchange.Change[address.Address, Request]
 
 // tap is a tap into a relay, whether another node's distribution relay or the hosts
 // relay. It can receive updates for channels to stream, and sends frames it receives
@@ -88,7 +87,7 @@ func (t *tapper) sink(ctx context.Context, d demand) error {
 // updateDemands modifies the current set of locations that the relay needs to stream
 // channel data from.
 func (t *tapper) updateDemands(d demand) map[cluster.NodeKey]channel.Keys {
-	if d.Variant == changex.Delete {
+	if d.Variant == xchange.Delete {
 		delete(t.demands, d.Key)
 	} else {
 		t.demands[d.Key] = d.Value.Keys
@@ -167,7 +166,7 @@ func (t *tapper) tapInto(
 		tapKey string
 	)
 	if nodeKey.IsFree() {
-		tp, err = t.tapIntoFreeWrites()
+		tp = t.tapIntoFreeWrites()
 		tapKey = "free_write_tap"
 	} else if nodeKey == t.HostResolver.HostKey() {
 		tp, err = t.tapIntoGateway(ctx, keys)
@@ -189,7 +188,7 @@ func (t *tapper) tapInto(
 
 // tapIntoGateway opens a new tap over the given storage layer streamer.
 func (t *tapper) tapIntoGateway(ctx context.Context, keys channel.Keys) (tap, error) {
-	return cesium.NewTranslatedStreamer[Request, Response](
+	return cesium.NewTranslatedStreamer(
 		ctx,
 		t.TS,
 		ts.StreamerConfig{Channels: keys.Storage()},
@@ -212,16 +211,16 @@ func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey cluster.NodeKey) (tap,
 	receiver := &freightfluence.Receiver[Response]{Receiver: stream}
 	sender := &freightfluence.Sender[Request]{Sender: stream}
 	p := plumber.New()
-	plumber.SetSink[Request](p, "sender", sender)
-	plumber.SetSource[Response](p, "receiver", receiver)
+	plumber.SetSink(p, "sender", sender)
+	plumber.SetSource(p, "receiver", receiver)
 	seg := &plumber.Segment[Request, Response]{Pipeline: p}
 	lo.Must0(seg.RouteOutletFrom("receiver"))
 	lo.Must0(seg.RouteInletTo("sender"))
 	return seg, nil
 }
 
-func (t *tapper) tapIntoFreeWrites() (tap, error) {
-	return &freeWriteTap{freeWrites: t.freeWrites}, nil
+func (t *tapper) tapIntoFreeWrites() tap {
+	return &freeWriteTap{freeWrites: t.freeWrites}
 }
 
 type freeWriteTap struct {

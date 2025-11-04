@@ -26,7 +26,7 @@ type integerServer struct {
 
 func (b integerServer) BindTo(router *fhttp.Router) {
 	g := fhttp.UnaryServer[int, int](router, "/basic")
-	g.BindHandler(func(ctx context.Context, req int) (int, error) {
+	g.BindHandler(func(_ context.Context, req int) (int, error) {
 		req++
 		return req, nil
 	})

@@ -30,7 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	rstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -172,7 +172,7 @@ func retrieveChannels(
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	indexes := lo.FilterMap(channels, func(item channel.Channel, index int) (channel.Key, bool) {
+	indexes := lo.FilterMap(channels, func(item channel.Channel, _ int) (channel.Key, bool) {
 		return item.Index(), !item.Virtual
 	})
 	indexChannels := make([]channel.Channel, 0, len(indexes))
@@ -235,7 +235,7 @@ func createWritePipeline(
 	}
 	r.writer.Sink = r.writer.sink
 	plumber.SetSegment(p, writerAddr, w)
-	plumber.SetSegment[framer.WriterResponse, framer.WriterRequest](p, runtimeAddr, r.writer)
+	plumber.SetSegment(p, runtimeAddr, r.writer)
 	plumber.MustConnect[framer.WriterResponse](p, writerAddr, runtimeAddr, 10)
 	plumber.MustConnect[framer.WriterRequest](p, runtimeAddr, writerAddr, 10)
 	return p, nil
@@ -257,7 +257,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	constantFactory := constant.NewFactory()
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
-	statusFactory := rstatus.NewFactory(cfg.Status)
+	statusFactory := arcstatus.NewFactory(cfg.Status)
 
 	f := node.MultiFactory{
 		opFactory,

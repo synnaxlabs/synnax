@@ -160,7 +160,7 @@ type Type struct {
 	FunctionProperties
 }
 
-// String returns the string representation of the type
+// String returns the string representation of the type.
 func (t Type) String() string {
 	switch t.Kind {
 	case KindU8:
@@ -278,7 +278,7 @@ func IntegerConstraint() Type { return Type{Kind: KindIntegerConstant} }
 // FloatConstraint returns a constraint accepting any floating-point type.
 func FloatConstraint() Type { return Type{Kind: KindFloatConstant} }
 
-// Function creates a function type with the given inputs, outputs, and optional config
+// Function creates a function type with the given inputs, outputs, and optional config.
 func Function(props FunctionProperties) Type {
 	if props.Inputs == nil {
 		props.Inputs = &Params{}
@@ -427,7 +427,7 @@ func Equal(t Type, v Type) bool {
 	return true
 }
 
-// paramsEqual checks if two Params (maps.Ordered) are equal
+// paramsEqual checks if two Params (maps.Ordered) are equal.
 func paramsEqual(a, b *Params) bool {
 	if a == nil && b == nil {
 		return true

@@ -54,7 +54,6 @@ const (
 
 type FrameService struct {
 	alamos.Instrumentation
-	authProvider
 	dbProvider
 	accessProvider
 	Channel  channel.Readable
@@ -66,7 +65,6 @@ func NewFrameService(p Provider) *FrameService {
 		Instrumentation: p.Instrumentation,
 		Internal:        p.Service.Framer,
 		Channel:         p.Distribution.Channel,
-		authProvider:    p.auth,
 		dbProvider:      p.db,
 		accessProvider:  p.access,
 	}
@@ -89,7 +87,7 @@ func (s *FrameService) FrameDelete(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(gorp.Tx) error {
 		c := errors.NewCatcher(errors.WithAggregation())
 		w := s.Internal.NewDeleter()
 		if len(req.Keys) > 0 {
@@ -139,8 +137,8 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	}
 	pipe := plumber.New()
 	plumber.SetSegment(pipe, frameIteratorAddr, iter)
-	plumber.SetSink[iterator.Response](pipe, frameSenderAddr, sender)
-	plumber.SetSource[iterator.Request](pipe, frameReceiverAddr, receiver)
+	plumber.SetSink(pipe, frameSenderAddr, sender)
+	plumber.SetSource(pipe, frameReceiverAddr, receiver)
 	plumber.MustConnect[iterator.Response](pipe, frameIteratorAddr, frameSenderAddr, iteratorResponseBufferSize)
 	plumber.MustConnect[iterator.Request](pipe, frameReceiverAddr, frameIteratorAddr, iteratorRequestBufferSize)
 
@@ -198,9 +196,9 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 		pipe = plumber.New()
 	)
 
-	plumber.SetSegment[FrameStreamerRequest, FrameStreamerResponse](pipe, framerStreamerAddr, streamer)
-	plumber.SetSink[FrameStreamerResponse](pipe, frameSenderAddr, sender)
-	plumber.SetSource[FrameStreamerRequest](pipe, frameReceiverAddr, receiver)
+	plumber.SetSegment(pipe, framerStreamerAddr, streamer)
+	plumber.SetSink(pipe, frameSenderAddr, sender)
+	plumber.SetSource(pipe, frameReceiverAddr, receiver)
 	plumber.MustConnect[FrameStreamerRequest](pipe, frameReceiverAddr, framerStreamerAddr, streamingRequestBufferSize)
 	plumber.MustConnect[FrameStreamerResponse](pipe, framerStreamerAddr, frameSenderAddr, streamingResponseBufferSize)
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
@@ -362,8 +360,8 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	pipe := plumber.New()
 
 	plumber.SetSegment(pipe, "writer", w)
-	plumber.SetSource[framer.WriterRequest](pipe, frameReceiverAddr, receiver)
-	plumber.SetSink[framer.WriterResponse](pipe, frameSenderAddr, sender)
+	plumber.SetSource(pipe, frameReceiverAddr, receiver)
+	plumber.SetSink(pipe, frameSenderAddr, sender)
 	plumber.MustConnect[framer.WriterRequest](pipe, frameReceiverAddr, frameWriterAddr, writerRequestBufferSize)
 	plumber.MustConnect[framer.WriterResponse](pipe, frameWriterAddr, frameSenderAddr, writerResponseBufferSize)
 

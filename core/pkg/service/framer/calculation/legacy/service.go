@@ -334,7 +334,7 @@ func (s *Service) startCalculation(
 		)
 
 		o := confluence.NewObservableSubscriber[framer.WriterResponse]()
-		o.OnChange(func(ctx context.Context, i framer.WriterResponse) {
+		o.OnChange(func(context.Context, framer.WriterResponse) {
 			s.cfg.L.DPanic(
 				"write of calculated channel value failed",
 				zap.Stringer("channel", ch),
@@ -368,7 +368,7 @@ func (s *Service) startCalculation(
 	return closer, err
 }
 
-type onStatusChange func(ctx context.Context, status Status)
+type onStatusChange func(context.Context, Status)
 
 type streamCalculationTransform struct {
 	confluence.LinearTransform[framer.StreamerResponse, framer.WriterRequest]

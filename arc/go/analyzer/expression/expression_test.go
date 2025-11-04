@@ -467,7 +467,7 @@ var _ = Describe("Expressions", func() {
 	})
 
 	Describe("Channels in Expressions", func() {
-		It("Should correctly resolve an instantaneous channel read an an expression", func() {
+		It("Should correctly resolve an instantaneous channel read of an expression", func() {
 			ast := MustSucceed(parser.Parse(`
 				func testFunc() i32 {
 					return (ox_pt_1 + ox_pt_2) / 2

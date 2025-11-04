@@ -51,21 +51,17 @@ func (r ReporterConfig) Override(other ReporterConfig) ReporterConfig {
 
 // Reporter is used to attach reports (key-value metadata) to Instrumentation. It's
 // typically used for recording the configuration of a service.
-type Reporter struct {
-	meta    InstrumentationMeta
-	reports map[string]ReportProvider
-	config  ReporterConfig
-}
+type Reporter struct{ reports map[string]ReportProvider }
 
 // NewReporter instantiates a new Reporter using the given configurations. If no configurations
 // are provided, the function will return an error. To use a no-op reporter, simply
 // pass a nil-pointer.
 func NewReporter(configs ...ReporterConfig) (*Reporter, error) {
-	cfg, err := config.New(DefaultReporterConfig, configs...)
+	_, err := config.New(DefaultReporterConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	return &Reporter{config: cfg}, nil
+	return &Reporter{}, nil
 }
 
 // Debug attaches the given ReportProvider to the Reporter with the given key in the
@@ -122,9 +118,9 @@ func (r Report) zapFields(prefix string) []zap.Field {
 	return args
 }
 
-func (r *Reporter) sub(meta InstrumentationMeta) *Reporter {
+func (r *Reporter) sub() *Reporter {
 	if r == nil {
 		return nil
 	}
-	return &Reporter{meta: meta, reports: r.reports}
+	return &Reporter{reports: r.reports}
 }

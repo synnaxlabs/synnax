@@ -171,10 +171,10 @@ func translateArcsFromService(arcs []arc.Arc) []Arc {
 	return lo.Map(arcs, func(a arc.Arc, _ int) Arc { return Arc{Arc: a} })
 }
 
-// ArcLSPMessage represents a single JSON-RPC message for the LSP
+// ArcLSPMessage represents a single JSON-RPC message for the LSP.
 type ArcLSPMessage = arctransport.JSONRPCMessage
 
-// LSP handles LSP protocol messages over a Freighter stream
+// LSP handles LSP protocol messages over a Freighter stream.
 func (s *ArcService) LSP(ctx context.Context, stream freighter.ServerStream[ArcLSPMessage, ArcLSPMessage]) error {
 	// Create a new LSP server instance for this connection with a no-op logger
 	// to avoid nil pointer panics

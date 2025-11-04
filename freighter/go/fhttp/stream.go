@@ -189,7 +189,7 @@ func (s *clientStream[RQ, RS]) Receive() (RS, error) {
 // CloseSend implements the freighter.ClientStream interface.
 func (s *clientStream[RQ, RS]) CloseSend() error {
 	if s.peerCloseErr != nil || s.sendClosed {
-		return nil
+		return s.peerCloseErr
 	}
 	s.sendClosed = true
 	return s.send(WSMessage[RQ]{Type: WSMessageTypeClose})
@@ -298,6 +298,9 @@ func (s *streamClient[RQ, RS]) Stream(
 			if res.StatusCode != fiber.StatusSwitchingProtocols {
 				return oCtx, errors.New("[ws] - unable to upgrade connection")
 			}
+			if err := res.Body.Close(); err != nil {
+				return oCtx, err
+			}
 			core := newStreamCore[RS, RQ](
 				coreConfig{
 					conn:            conn,
@@ -353,7 +356,7 @@ const closeReadWriteDeadline = 500 * time.Millisecond
 // fiberHandler handles the incoming websocket connection and upgrades the connection
 // to a websocket connection.
 //
-// NOTE: shortLivedFiberCtx is a temporary fiber context
+// NOTE: shortLivedFiberCtx is a temporary fiber context.
 func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx *fiber.Ctx) error {
 	// If the caller is hitting this endpoint with a standard HTTP request, tell them
 	// they can only use websockets.

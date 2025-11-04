@@ -130,7 +130,7 @@ func (s *Service) Close() error {
 func (s *Service) Deploy(ctx context.Context, key uuid.UUID) error {
 	var prog Arc
 	if err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil); err != nil {
-		return nil
+		return err
 	}
 	prog.Deploy = true
 	return s.NewWriter(nil).Create(ctx, &prog)
@@ -139,7 +139,7 @@ func (s *Service) Deploy(ctx context.Context, key uuid.UUID) error {
 func (s *Service) Stop(ctx context.Context, key uuid.UUID) error {
 	var prog Arc
 	if err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil); err != nil {
-		return nil
+		return err
 	}
 	prog.Deploy = false
 	return s.NewWriter(nil).Create(ctx, &prog)
@@ -194,8 +194,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting arcs in Synnax. If
-// tx is provided, the writer will use that transaction. If tx is nil, the Writer
-// will execute the operations directly on the underlyinu gorp.DB.
+// tx is provided, the writer will use that transaction. If tx is nil, the Writer will
+// execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:     gorp.OverrideTx(s.cfg.DB, tx),

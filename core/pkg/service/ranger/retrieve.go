@@ -54,15 +54,16 @@ func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve {
 
 // WhereNames filters for ranges whose Name attribute matches the provided name.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
-	r.gorp.Where(func(ctx gorp.Context, rng *Range) (bool, error) {
+	r.gorp.Where(func(_ gorp.Context, rng *Range) (bool, error) {
 		return lo.Contains(names, rng.Name), nil
 	})
 	return r
 }
 
-// WhereOverlapsWith filters for ranges whose TimeRange overlaps with the
+// WhereOverlapsWith filters for ranges whose TimeRange overlaps with the provided time
+// range.
 func (r Retrieve) WhereOverlapsWith(tr telem.TimeRange) Retrieve {
-	r.gorp.Where(func(ctx gorp.Context, rng *Range) (bool, error) {
+	r.gorp.Where(func(_ gorp.Context, rng *Range) (bool, error) {
 		return rng.TimeRange.OverlapsWith(tr), nil
 	})
 	return r

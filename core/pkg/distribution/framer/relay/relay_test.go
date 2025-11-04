@@ -34,7 +34,6 @@ import (
 
 type scenario struct {
 	resCount int
-	name     string
 	channels []channel.Channel
 	dist     mock.Node
 	close    io.Closer
@@ -146,7 +145,6 @@ func gatewayOnlyScenario() scenario {
 	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	return scenario{
 		resCount: 1,
-		name:     "Gateway Only",
 		channels: channels,
 		dist:     svc,
 		close:    svc,
@@ -170,7 +168,6 @@ func peerOnlyScenario() scenario {
 	}).Should(Succeed())
 	return scenario{
 		resCount: 3,
-		name:     "Peer Only",
 		channels: channels,
 		dist:     dist,
 		close:    dist,
@@ -193,7 +190,6 @@ func mixedScenario() scenario {
 	}).Should(Succeed())
 	return scenario{
 		resCount: 3,
-		name:     "Mixed Gateway and Peer",
 		channels: channels,
 		dist:     node,
 		close:    cluster_,
@@ -217,7 +213,6 @@ func freeScenario() scenario {
 			Exec(ctx, nil)).To(Succeed())
 	})
 	return scenario{
-		name:     "Free Channel",
 		resCount: 1,
 		channels: channels,
 		dist:     dist,

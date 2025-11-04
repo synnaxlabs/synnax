@@ -53,7 +53,7 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error { return nil }
 
-// Server implements the Language Server Protocol for arc
+// Server implements the Language Server Protocol for Arc.
 type Server struct {
 	cfg          Config
 	client       protocol.Client
@@ -64,7 +64,7 @@ type Server struct {
 
 var _ protocol.Server = (*Server)(nil)
 
-// Document represents an open document
+// Document represents an open document.
 type Document struct {
 	URI     protocol.DocumentURI
 	Version int32
@@ -76,7 +76,7 @@ type Document struct {
 	Metadata    *DocumentMetadata // Metadata for calculated channels
 }
 
-// New creates a new LSP server
+// New creates a new LSP server.
 func New(cfgs ...Config) (*Server, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -106,12 +106,12 @@ func New(cfgs ...Config) (*Server, error) {
 	}, nil
 }
 
-// SetClient sets the LSP client for sending notifications
+// SetClient sets the LSP client for sending notifications.
 func (s *Server) SetClient(client protocol.Client) {
 	s.client = client
 }
 
-// Logger returns the server's logger
+// Logger returns the server's logger.
 func (s *Server) Logger() *zap.Logger {
 	if s.cfg.L == nil {
 		return zap.NewNop()
@@ -129,7 +129,7 @@ func (s *Server) getDocument(uri protocol.DocumentURI) (*Document, bool) {
 	return doc, ok
 }
 
-// Helper functions to convert string slices to protocol types
+// Helper functions to convert string slices to protocol types.
 func convertToSemanticTokenTypes(types []string) []protocol.SemanticTokenTypes {
 	result := make([]protocol.SemanticTokenTypes, len(types))
 	for i, t := range types {
@@ -138,7 +138,7 @@ func convertToSemanticTokenTypes(types []string) []protocol.SemanticTokenTypes {
 	return result
 }
 
-// Initialize handles the initialize request
+// Initialize handles the initialize request.
 func (s *Server) Initialize(_ context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {
 	s.cfg.L.Debug("initializing arc lsp", zap.String("client", params.ClientInfo.Name))
 	return &protocol.InitializeResult{
@@ -147,19 +147,19 @@ func (s *Server) Initialize(_ context.Context, params *protocol.InitializeParams
 	}, nil
 }
 
-// Initialized handles the initialized notification
+// Initialized handles the initialized notification.
 func (s *Server) Initialized(context.Context, *protocol.InitializedParams) error {
 	s.cfg.L.Debug("arc lsp initialized")
 	return nil
 }
 
-// Shutdown handles the shutdown request
+// Shutdown handles the shutdown request.
 func (s *Server) Shutdown(_ context.Context) error {
 	s.cfg.L.Info("Shutting down server")
 	return nil
 }
 
-// DidOpen handles opening a document
+// DidOpen handles opening a document.
 func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
 	uri := params.TextDocument.URI
 	s.cfg.L.Debug("document opened", zap.String("uri", string(uri)))
@@ -182,7 +182,7 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 	return nil
 }
 
-// DidChange handles document changes
+// DidChange handles document changes.
 func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDocumentParams) error {
 	uri := params.TextDocument.URI
 	s.cfg.L.Debug("Document changed", zap.String("uri", string(uri)))
@@ -204,7 +204,7 @@ func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDo
 	return nil
 }
 
-// DidClose handles closing a document
+// DidClose handles closing a document.
 func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocumentParams) error {
 	uri := params.TextDocument.URI
 	s.cfg.L.Debug("Document closed", zap.String("uri", string(uri)))
@@ -219,7 +219,7 @@ func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocu
 	})
 }
 
-// publishDiagnostics parses the document and publishes syntax and semantic errors
+// publishDiagnostics parses the document and publishes syntax and semantic errors.
 func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentURI, content string) {
 	s.mu.Lock()
 	doc, ok := s.documents[uri]
@@ -286,7 +286,7 @@ func severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
 	return out
 }
 
-// translateDiagnostics converts Arc analyzer diagnostics to LSP diagnostics
+// translateDiagnostics converts Arc analyzer diagnostics to LSP diagnostics.
 func translateDiagnostics(analysisDiag diagnostics.Diagnostics) []protocol.Diagnostic {
 	oDiagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
 	for _, diag := range analysisDiag {

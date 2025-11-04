@@ -221,8 +221,8 @@ var _ = Describe("String", func() {
 			})
 
 			Specify("complex type", func() {
-				type Complex struct{ x int }
-				_, err := zyn.String().Dump(Complex{42})
+				type Complex struct{}
+				_, err := zyn.String().Dump(Complex{})
 				Expect(err).To(MatchError(ContainSubstring("expected string or convertible to string")))
 			})
 		})

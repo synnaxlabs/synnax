@@ -24,7 +24,6 @@ import (
 type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
-	otg       *ontology.Ontology
 }
 
 // Create creates the given symbol as a child of the ontology.Resource with the given

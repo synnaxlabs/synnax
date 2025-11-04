@@ -39,14 +39,14 @@ func (r Retrieve) WhereKeys(keys ...string) Retrieve {
 
 // WhereRacks filters for devices whose rack matches the provided racks.
 func (r Retrieve) WhereRacks(racks ...rack.Key) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, d *Device) (bool, error) {
 		return lo.Contains(racks, d.Rack), nil
 	}, gorp.Required())
 	return r
 }
 
 func (r Retrieve) WhereMakes(make ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, d *Device) (bool, error) {
 		return lo.Contains(make, d.Make), nil
 	}, gorp.Required())
 	return r
@@ -54,7 +54,7 @@ func (r Retrieve) WhereMakes(make ...string) Retrieve {
 
 // WhereLocations filters for devices whose location matches the provided locations.
 func (r Retrieve) WhereLocations(locations ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, d *Device) (bool, error) {
 		return lo.Contains(locations, d.Location), nil
 	}, gorp.Required())
 	return r
@@ -62,7 +62,7 @@ func (r Retrieve) WhereLocations(locations ...string) Retrieve {
 
 // WhereModels filters for devices whose model matches the provided models.
 func (r Retrieve) WhereModels(models ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, d *Device) (bool, error) {
 		return lo.Contains(models, d.Model), nil
 	}, gorp.Required())
 	return r
@@ -70,7 +70,7 @@ func (r Retrieve) WhereModels(models ...string) Retrieve {
 
 // WhereNames filters for devices whose name matches the provided names.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, d *Device) (bool, error) {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, d *Device) (bool, error) {
 		return lo.Contains(names, d.Name), nil
 	})
 	return r

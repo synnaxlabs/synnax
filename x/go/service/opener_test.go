@@ -44,7 +44,7 @@ var _ = Describe("Opener", Ordered, func() {
 		cleanup, ok = service.NewOpener(cancelCtx, &closer)
 	})
 	It("Should correctly open a set of services that return without an error", func() {
-		open := func(ctx context.Context) error {
+		open := func(context.Context) error {
 			defer func() {
 				err = cleanup(err)
 			}()
@@ -59,7 +59,7 @@ var _ = Describe("Opener", Ordered, func() {
 		Expect(multiCloserCalls).To(Equal(0))
 	})
 	It("Should call the closer if an error occurs", func() {
-		open := func(ctx context.Context) error {
+		open := func(context.Context) error {
 			defer func() {
 				err = cleanup(err)
 			}()
@@ -74,7 +74,7 @@ var _ = Describe("Opener", Ordered, func() {
 		Expect(multiCloserCalls).To(Equal(1))
 	})
 	It("Should call the closer if the context is cancelled", func() {
-		open := func(ctx context.Context) error {
+		open := func(context.Context) error {
 			defer func() {
 				err = cleanup(err)
 			}()
@@ -87,7 +87,7 @@ var _ = Describe("Opener", Ordered, func() {
 
 	It("Should add a new closer to the list of closers", func() {
 		secondaryCloserCalls := 0
-		open := func(ctx context.Context) error {
+		open := func() error {
 			defer func() {
 				err = cleanup(err)
 			}()
@@ -101,7 +101,7 @@ var _ = Describe("Opener", Ordered, func() {
 			}
 			return nil
 		}
-		Expect(open(ctx)).To(Succeed())
+		Expect(open()).To(Succeed())
 		Expect(closer).To(HaveLen(2))
 		Expect(multiCloserCalls).To(Equal(0))
 		Expect(secondaryCloserCalls).To(Equal(0))
@@ -110,7 +110,7 @@ var _ = Describe("Opener", Ordered, func() {
 	It("Should call added closers if an error occurs", func() {
 		secondaryCloserCalls := 0
 		tertiaryCloserCalls := 0
-		open := func(ctx context.Context) error {
+		open := func(context.Context) error {
 			defer func() {
 				err = cleanup(err)
 			}()
@@ -139,7 +139,7 @@ var _ = Describe("Opener", Ordered, func() {
 	})
 
 	It("Should work with errors defined with scopes", func() {
-		open := func(ctx context.Context) error {
+		open := func(context.Context) error {
 			defer func() {
 				err = cleanup(err)
 			}()

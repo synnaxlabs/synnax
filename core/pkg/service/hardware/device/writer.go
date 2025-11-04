@@ -12,7 +12,6 @@ package device
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -24,9 +23,8 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly on
 // the database.
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	group group.Group
+	tx  gorp.Tx
+	otg ontology.Writer
 }
 
 // Create creates or updates the given device. Create will redefine ontology

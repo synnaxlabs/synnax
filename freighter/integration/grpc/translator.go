@@ -29,7 +29,7 @@ func (e echoMessageTranslator) Forward(ctx context.Context, msg http.Message) (*
 
 func (e echoMessageTranslator) Backward(ctx context.Context, msg *echov1.Message) (http.Message, error) {
 	return http.Message{
-		ID:      int(msg.Id),
-		Message: msg.Message,
+		ID:      int(msg.GetId()),
+		Message: msg.GetMessage(),
 	}, nil
 }

@@ -139,7 +139,7 @@ func (s *Service) ValidateMaybeRefresh(token string) (uuid.UUID, string, error) 
 
 func (s *Service) validate(token string) (uuid.UUID, *jwt.RegisteredClaims, error) {
 	claims := &jwt.RegisteredClaims{}
-	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (any, error) {
+	_, err := jwt.ParseWithClaims(token, claims, func(*jwt.Token) (any, error) {
 		return s.publicKey(), nil
 	})
 	if err != nil {

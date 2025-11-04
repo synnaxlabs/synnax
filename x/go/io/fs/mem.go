@@ -141,7 +141,7 @@ func (y *MemFS) Exists(name string) (bool, error) {
 	return false, err
 }
 
-// Remove implements FS.Remove
+// Remove implements FS.Remove.
 func (y *MemFS) Remove(fullName string) error {
 	if err := y.walk(fullName, func(dir *memNode, frag string, final bool) error {
 		if !final {

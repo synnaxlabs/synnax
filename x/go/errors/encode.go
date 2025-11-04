@@ -25,7 +25,7 @@ type Payload struct {
 
 // Error implements the error interface.
 func (p Payload) Error() string {
-	return string(p.Type) + "---" + p.Data
+	return p.Type + "---" + p.Data
 }
 
 func (p *Payload) Unmarshal(d string) {
@@ -50,7 +50,8 @@ func Register(encode EncodeFunc, decode DecodeFunc) {
 // determined, returns a payload with type TypeUnknown and the error message. If
 // the error is nil, returns a payload with type TypeNil.
 func Encode(ctx context.Context, e error, internal bool) Payload {
-	pld, ok := e.(Payload)
+	var pld Payload
+	ok := As(e, &pld)
 	if ok {
 		return pld
 	}

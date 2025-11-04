@@ -60,7 +60,7 @@ var _ = Describe("Stat", func() {
 			}
 			s := state.New(cfg)
 			inputNode := s.Node("input")
-			factory := stat.NewFactory(stat.Config{})
+			factory := stat.NewFactory()
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:  cfg.Nodes[1],
 				State: s.Node("avg"),
@@ -130,7 +130,7 @@ var _ = Describe("Stat", func() {
 			}
 			s := state.New(cfg)
 			inputNode := s.Node("input")
-			factory := stat.NewFactory(stat.Config{})
+			factory := stat.NewFactory()
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:  cfg.Nodes[1],
 				State: s.Node("min"),
@@ -213,7 +213,7 @@ var _ = Describe("Stat", func() {
 			s := state.New(cfg)
 			inputNode := s.Node("input")
 			resetNode := s.Node("reset_signal")
-			factory := stat.NewFactory(stat.Config{})
+			factory := stat.NewFactory()
 			inter := ir.IR{Edges: cfg.Edges}
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],
@@ -285,7 +285,7 @@ var _ = Describe("Stat", func() {
 			}
 			s := state.New(cfg)
 			inputNode := s.Node("input")
-			factory := stat.NewFactory(stat.Config{})
+			factory := stat.NewFactory()
 			inter := ir.IR{Edges: cfg.Edges}
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[1],
@@ -357,7 +357,7 @@ var _ = Describe("Stat", func() {
 			s := state.New(cfg)
 			inputNode := s.Node("input")
 			resetNode := s.Node("reset_signal")
-			factory := stat.NewFactory(stat.Config{})
+			factory := stat.NewFactory()
 			inter := ir.IR{Edges: cfg.Edges}
 			n := MustSucceed(factory.Create(ctx, node.Config{
 				Node:   cfg.Nodes[2],

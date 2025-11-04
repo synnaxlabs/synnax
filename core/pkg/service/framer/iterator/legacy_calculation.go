@@ -85,7 +85,7 @@ func (s *Service) newLegacyCalculationTransform(ctx context.Context, cfg *Config
 	if !hasCalculated {
 		return nil, nil
 	}
-	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
+	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, _ int) bool {
 		return !calculated.Contains(item)
 	})
 	cfg.Keys = append(cfg.Keys, required.Keys()...)

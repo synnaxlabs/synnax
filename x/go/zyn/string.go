@@ -42,7 +42,7 @@ func (s StringZ) Optional() StringZ { s.optional = true; return s }
 func (s StringZ) Shape() Shape { return s.baseZ }
 
 // validateDestinationValue validates that the destination is compatible with string
-// data
+// data.
 func (s StringZ) validateDestinationValue(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(s.dataType), dest)

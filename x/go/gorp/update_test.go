@@ -61,7 +61,7 @@ var _ = Describe("update", Ordered, func() {
 			Exec(ctx, tx)).To(testutil.HaveOccurredAs(query.InvalidParameters))
 	})
 
-	It("Should return an error if the the key cannot be found", func() {
+	It("Should return an error if the key cannot be found", func() {
 		Expect(gorp.NewUpdate[int, entry]().
 			WhereKeys(999).
 			Change(func(_ gorp.Context, e entry) entry {

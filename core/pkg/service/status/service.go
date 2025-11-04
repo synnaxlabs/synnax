@@ -57,7 +57,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// Validate implements config.Config
+// Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("status.service")
 	validate.NotNil(v, "db", c.DB)
@@ -128,7 +128,6 @@ func (s *Service) Close() error {
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
-		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		group:     s.group,
 	}

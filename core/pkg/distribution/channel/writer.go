@@ -18,8 +18,8 @@ import (
 )
 
 type Writer interface {
-	Create(ctx context.Context, c *Channel, opts ...CreateOption) error
-	CreateMany(ctx context.Context, channels *[]Channel, opts ...CreateOption) error
+	Create(context.Context, *Channel, ...CreateOption) error
+	CreateMany(context.Context, *[]Channel, ...CreateOption) error
 	Delete(ctx context.Context, key Key, allowInternal bool) error
 	DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error
 	DeleteByName(ctx context.Context, name string, allowInternal bool) error

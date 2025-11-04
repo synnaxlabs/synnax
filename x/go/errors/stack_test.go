@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+var errStd = stderrors.New("test")
+
 var _ = Describe("Stack", func() {
 	Describe("GetStackTrace", func() {
 		It("Should return empty stack trace for nil error", func() {
@@ -25,8 +27,7 @@ var _ = Describe("Stack", func() {
 		})
 
 		It("Should return empty stack trace for error without stack", func() {
-			err := stderrors.New("test")
-			stack := errors.GetStackTrace(err)
+			stack := errors.GetStackTrace(errStd)
 			Expect(stack.String()).To(BeEmpty())
 		})
 

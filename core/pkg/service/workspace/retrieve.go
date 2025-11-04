@@ -11,6 +11,7 @@ package workspace
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
@@ -45,7 +46,7 @@ func (r Retrieve) Entries(wss *[]Workspace) Retrieve {
 }
 
 func (r Retrieve) WhereAuthor(author uuid.UUID) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, ws *Workspace) (bool, error) {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, ws *Workspace) (bool, error) {
 		return ws.Author == author, nil
 	})
 	return r

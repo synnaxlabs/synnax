@@ -28,7 +28,7 @@ func marshalSeriesTest[T telem.Sample](data []T, dt telem.DataType) func() {
 
 func marshalUnmarshalSliceTest[T telem.Sample](data []T, dt telem.DataType) func() {
 	return func() {
-		s := telem.MarshalSlice[T](data)
+		s := telem.MarshalSlice(data)
 		Expect(telem.UnmarshalSlice[T](s, dt)).To(Equal(data))
 	}
 }
@@ -239,7 +239,7 @@ var _ = Describe("Series", func() {
 			})
 		})
 
-		Describe("Arange", func() {
+		Describe("Arrange", func() {
 			It("Should create a series with the correct values for int64", func() {
 				s := telem.Arrange[int64](0, 5, 2)
 				Expect(s.Len()).To(Equal(int64(5)))
@@ -285,7 +285,7 @@ var _ = Describe("Series", func() {
 
 	Describe("At", func() {
 		Context("Fixed Density", func() {
-			It("Should return the the value at the given index", func() {
+			It("Should return the value at the given index", func() {
 				s := telem.NewSeriesV[uint8](1, 2, 3)
 				Expect(s.At(0)).To(Equal([]byte{1}))
 				Expect(s.At(1)).To(Equal([]byte{2}))

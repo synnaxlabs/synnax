@@ -19,8 +19,8 @@ import (
 
 func newStorageResponseTranslator(
 	host cluster.NodeKey,
-) func(ctx context.Context, in ts.IteratorResponse) (Response, bool, error) {
-	return func(ctx context.Context, res ts.IteratorResponse) (Response, bool, error) {
+) func(context.Context, ts.IteratorResponse) (Response, bool, error) {
+	return func(_ context.Context, res ts.IteratorResponse) (Response, bool, error) {
 		return Response{
 			Ack:     res.Ack,
 			Variant: ResponseVariant(res.Variant),

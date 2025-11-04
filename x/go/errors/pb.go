@@ -17,5 +17,5 @@ func TranslatePayloadForward(pld Payload) *PBPayload {
 // TranslatePayloadBackward translates the error payload to its standard go representation
 // from its protobuf representation.
 func TranslatePayloadBackward(pld *PBPayload) Payload {
-	return Payload{Type: pld.Type, Data: pld.Data}
+	return Payload{Type: pld.GetType(), Data: pld.GetData()}
 }

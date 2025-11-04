@@ -11,6 +11,7 @@ package alamos
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -75,9 +76,9 @@ func (c TracingConfig) Override(other TracingConfig) TracingConfig {
 }
 
 // Tracer provides tracing functionality, and is one of the core components of
-// Instrumentation. Tracer's should not be used on their own, and instead should
-// be used as part of Instrumentation. To creat a Tracer, use NewTracer and pass
-// it in a call to alamos.New using the WithTracer option.
+// Instrumentation. Tracer's should not be used on their own, and instead should be used
+// as part of Instrumentation. To create a Tracer, use NewTracer and pass it in a call
+// to alamos.New using the WithTracer option.
 type Tracer struct {
 	meta        InstrumentationMeta
 	_otelTracer oteltrace.Tracer
@@ -168,7 +169,7 @@ func (s span) Key() string { return s.key }
 // Error implements Span.
 func (s span) Error(err error, exclude ...error) error {
 	if err == nil {
-		return err
+		return nil
 	}
 	s.otel.RecordError(err)
 	if !errors.IsAny(err, exclude...) {

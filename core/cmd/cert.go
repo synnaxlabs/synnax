@@ -28,7 +28,7 @@ var certCA = &cobra.Command{
 	Use:   "ca",
 	Short: "Generate a self-signed CA certificate.",
 	Args:  cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, _ []string) error {
+	RunE: func(*cobra.Command, []string) error {
 		ins := configureInstrumentation()
 
 		factory, err := cert.NewFactory(buildCertFactoryConfig(ins))
@@ -43,7 +43,7 @@ var certNode = &cobra.Command{
 	Use:   "node",
 	Short: "Generate a self-signed node certificate.",
 	Args:  cobra.MinimumNArgs(1),
-	RunE: func(cmd *cobra.Command, hosts []string) error {
+	RunE: func(_ *cobra.Command, hosts []string) error {
 		ins := configureInstrumentation()
 		addresses := make([]address.Address, len(hosts))
 		for i, host := range hosts {

@@ -14,34 +14,34 @@ import (
 	"encoding/binary"
 )
 
-// FunctionType represents a function signature
+// FunctionType represents a function signature.
 type FunctionType struct {
 	Params  []ValueType
 	Results []ValueType
 }
 
-// Function represents a WASM function
+// Function represents a WASM function.
 type Function struct {
 	TypeIdx uint32
 	Locals  []ValueType
 	Body    []byte
 }
 
-// Import represents an imported function
+// Import represents an imported function.
 type Import struct {
 	Module  string
 	Name    string
 	TypeIdx uint32
 }
 
-// Export represents an exported item
+// Export represents an exported item.
 type Export struct {
 	Name  string
 	Kind  ExportKind
 	Index uint32
 }
 
-// Module represents a complete WASM module
+// Module represents a complete WASM module.
 type Module struct {
 	types     []FunctionType
 	imports   []Import
@@ -51,7 +51,7 @@ type Module struct {
 	buf       bytes.Buffer
 }
 
-// NewModule creates a new WASM module
+// NewModule creates a new WASM module.
 func NewModule() *Module {
 	return &Module{
 		types:     make([]FunctionType, 0),
@@ -61,7 +61,7 @@ func NewModule() *Module {
 	}
 }
 
-// AddType adds a function type and returns its index
+// AddType adds a function type and returns its index.
 func (m *Module) AddType(ft FunctionType) uint32 {
 	for i, existing := range m.types {
 		if typesEqual(existing, ft) {
@@ -73,7 +73,7 @@ func (m *Module) AddType(ft FunctionType) uint32 {
 	return idx
 }
 
-// AddImport adds an imported function
+// AddImport adds an imported function.
 func (m *Module) AddImport(module, name string, ft FunctionType) uint32 {
 	typeIdx := m.AddType(ft)
 	m.imports = append(m.imports, Import{
@@ -84,7 +84,7 @@ func (m *Module) AddImport(module, name string, ft FunctionType) uint32 {
 	return uint32(len(m.imports) - 1)
 }
 
-// AddFunction adds a function to the module and returns its index
+// AddFunction adds a function to the module and returns its index.
 func (m *Module) AddFunction(typeIdx uint32, locals []ValueType, body []byte) uint32 {
 	// Function index is imports + local functions
 	idx := uint32(len(m.imports) + len(m.functions))
@@ -96,7 +96,7 @@ func (m *Module) AddFunction(typeIdx uint32, locals []ValueType, body []byte) ui
 	return idx
 }
 
-// AddExport adds an export to the module
+// AddExport adds an export to the module.
 func (m *Module) AddExport(name string, kind ExportKind, index uint32) {
 	m.exports = append(m.exports, Export{
 		Name:  name,
@@ -105,17 +105,17 @@ func (m *Module) AddExport(name string, kind ExportKind, index uint32) {
 	})
 }
 
-// Debug returns debug info about the module
+// Debug returns debug info about the module.
 func (m *Module) Debug() (types, functions, exports int) {
 	return len(m.types), len(m.functions), len(m.exports)
 }
 
-// EnableMemory enables memory for the module
+// EnableMemory enables memory for the module.
 func (m *Module) EnableMemory() {
 	m.memory = true
 }
 
-// Generate generates the WASM binary
+// Generate generates the WASM binary.
 func (m *Module) Generate() []byte {
 	m.buf.Reset()
 	m.buf.Write(MagicNumber)
@@ -238,7 +238,7 @@ func (m *Module) writeSection(sectionType byte, data []byte) {
 	m.buf.Write(data)
 }
 
-// WriteLEB128 writes an unsigned LEB128 integer
+// WriteLEB128 writes an unsigned LEB128 integer.
 func WriteLEB128(w *bytes.Buffer, v uint64) {
 	buf := make([]byte, binary.MaxVarintLen64)
 	n := binary.PutUvarint(buf, v)
@@ -267,7 +267,7 @@ type localGroup struct {
 	typ   ValueType
 }
 
-// groupLocalsByType groups consecutive locals of the same type
+// groupLocalsByType groups consecutive locals of the same type.
 func groupLocalsByType(locals []ValueType) []localGroup {
 	if len(locals) == 0 {
 		return nil

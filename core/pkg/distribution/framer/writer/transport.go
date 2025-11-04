@@ -28,7 +28,7 @@ const (
 	Write
 	// Commit represents a call to Writer.Commit.
 	Commit
-	// SetAuthority represents a call to Writer.SetAuthority
+	// SetAuthority represents a call to Writer.SetAuthority.
 	SetAuthority
 )
 

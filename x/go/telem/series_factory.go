@@ -13,6 +13,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"strconv"
 
 	"github.com/samber/lo"
 	xbinary "github.com/synnaxlabs/x/binary"
@@ -477,25 +478,25 @@ func castToString(value any) string {
 	case string:
 		return v
 	case int:
-		return fmt.Sprintf("%d", v)
+		return strconv.Itoa(v)
 	case int64:
-		return fmt.Sprintf("%d", v)
+		return strconv.FormatInt(v, 10)
 	case int32:
-		return fmt.Sprintf("%d", v)
+		return strconv.Itoa(int(v))
 	case int16:
-		return fmt.Sprintf("%d", v)
+		return strconv.Itoa(int(v))
 	case int8:
-		return fmt.Sprintf("%d", v)
+		return strconv.Itoa(int(v))
 	case uint:
-		return fmt.Sprintf("%d", v)
+		return strconv.FormatUint(uint64(v), 10)
 	case uint64:
-		return fmt.Sprintf("%d", v)
+		return strconv.FormatUint(v, 10)
 	case uint32:
-		return fmt.Sprintf("%d", v)
+		return strconv.FormatUint(uint64(v), 10)
 	case uint16:
-		return fmt.Sprintf("%d", v)
+		return strconv.FormatUint(uint64(v), 10)
 	case uint8:
-		return fmt.Sprintf("%d", v)
+		return strconv.FormatUint(uint64(v), 10)
 	case float64:
 		return fmt.Sprintf("%g", v)
 	case float32:

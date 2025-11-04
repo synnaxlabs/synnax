@@ -37,7 +37,7 @@ var _ = Describe("DataType", func() {
 		Specify("uint8", DataTypeInferTest[uint8](telem.Uint8T))
 		Specify("string", DataTypeInferTest[string](telem.StringT))
 
-		It("Should panic if a a struct if provided", func() {
+		It("Should panic if a struct is provided", func() {
 			Expect(func() {
 				telem.InferDataType[struct{}]()
 			}).To(Panic())

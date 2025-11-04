@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// lookupImport is a generic helper for looking up import indices by type
+// lookupImport is a generic helper for looking up import indices by type.
 func (idx *ImportIndex) lookupImport(
 	m map[string]uint32,
 	t types.Type,
@@ -33,32 +33,32 @@ func (idx *ImportIndex) lookupImport(
 	return 0, errors.Newf("no %s function for type %v", funcName, t)
 }
 
-// GetChannelRead returns the import index for a channel read function
+// GetChannelRead returns the import index for a channel read function.
 func (idx *ImportIndex) GetChannelRead(t types.Type) (uint32, error) {
 	return idx.lookupImport(idx.ChannelRead, t, "channel read")
 }
 
-// GetChannelWrite returns the import index for a channel write function
+// GetChannelWrite returns the import index for a channel write function.
 func (idx *ImportIndex) GetChannelWrite(t types.Type) (uint32, error) {
 	return idx.lookupImport(idx.ChannelWrite, t, "channel write")
 }
 
-// GetChannelBlockingRead returns the import index for a blocking channel read function
+// GetChannelBlockingRead returns the import index for a blocking channel read function.
 func (idx *ImportIndex) GetChannelBlockingRead(t types.Type) (uint32, error) {
 	return idx.lookupImport(idx.ChannelBlockingRead, t, "channel blocking read")
 }
 
-// GetSeriesCreateEmpty returns the import index for creating an empty series
+// GetSeriesCreateEmpty returns the import index for creating an empty series.
 func (idx *ImportIndex) GetSeriesCreateEmpty(t types.Type) (uint32, error) {
 	return idx.lookupImport(idx.SeriesCreateEmpty, t, "series create")
 }
 
-// GetSeriesIndex returns the import index for series indexing
+// GetSeriesIndex returns the import index for series indexing.
 func (idx *ImportIndex) GetSeriesIndex(t types.Type) (uint32, error) {
 	return idx.lookupImport(idx.SeriesIndex, t, "series index")
 }
 
-// GetSeriesArithmetic returns the import index for series arithmetic operations
+// GetSeriesArithmetic returns the import index for series arithmetic operations.
 func (idx *ImportIndex) GetSeriesArithmetic(op string, t types.Type, isScalar bool) (uint32, error) {
 	suffix := t.Unwrap().String()
 
@@ -97,7 +97,7 @@ func (idx *ImportIndex) GetSeriesArithmetic(op string, t types.Type, isScalar bo
 	return 0, errors.Newf("no series %s function for type %v", op, t)
 }
 
-// GetSeriesComparison returns the import index for series comparison operations
+// GetSeriesComparison returns the import index for series comparison operations.
 func (idx *ImportIndex) GetSeriesComparison(op string, t types.Type) (uint32, error) {
 	suffix := t.Unwrap().String()
 
@@ -125,12 +125,12 @@ func (idx *ImportIndex) GetSeriesComparison(op string, t types.Type) (uint32, er
 	return 0, errors.Newf("no series comparison %s function for type %v", op, t)
 }
 
-// GetStateLoad returns the import index for a state load function
+// GetStateLoad returns the import index for a state load function.
 func (idx *ImportIndex) GetStateLoad(t types.Type) (uint32, error) {
 	return idx.lookupImport(idx.StateLoad, t, "state load")
 }
 
-// GetStateStore returns the import index for a state store function
+// GetStateStore returns the import index for a state store function.
 func (idx *ImportIndex) GetStateStore(t types.Type) (uint32, error) {
 	return idx.lookupImport(idx.StateStore, t, "state store")
 }

@@ -34,7 +34,7 @@ func NewContext(ctx context.Context) ccontext.Context[antlr.ParserRuleContext] {
 	return ccontext.CreateRoot(ctx, FunctionScope(ctx), make(map[antlr.ParserRuleContext]arctypes.Type), false)
 }
 
-// WASM builds WASM bytecode from a variadic slice of opcodes and operands
+// WASM builds WASM bytecode from a variadic slice of opcodes and operands.
 func WASM(instructions ...any) []byte {
 	encoder := wasm.NewWriter()
 
@@ -109,7 +109,7 @@ func WASM(instructions ...any) []byte {
 	return encoder.Bytes()
 }
 
-// opcodeMatcher is a custom Gomega matcher for comparing opcode sequences
+// opcodeMatcher is a custom Gomega matcher for comparing opcode sequences.
 type opcodeMatcher struct {
 	expected wasm.OPCodes
 }
@@ -239,5 +239,5 @@ func (m *opcodeMatcher) NegatedFailureMessage(actual any) string {
 		return fmt.Sprintf("Expected not to match, but got invalid type %T", actual)
 	}
 
-	return fmt.Sprintf("Expected opcodes not to match, but they did:\n  %s", actualOpcodes.String())
+	return "Expected opcodes not to match, but they did:\n  " + actualOpcodes.String()
 }

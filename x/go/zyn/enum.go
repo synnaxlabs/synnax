@@ -34,7 +34,7 @@ func (e EnumZ) Optional() EnumZ { e.optional = true; return e }
 // Shape returns the base shape of the enum schema.
 func (e EnumZ) Shape() Shape { return e.baseZ }
 
-// validateDestination validates that the destination is compatible with enum data
+// validateDestination validates that the destination is compatible with enum data.
 func (e EnumZ) validateDestination(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError("enum", dest)

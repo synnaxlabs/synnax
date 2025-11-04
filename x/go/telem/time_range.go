@@ -49,7 +49,7 @@ func (tr TimeRange) IsZero() bool { return tr.Start.IsZero() && tr.End.IsZero() 
 //
 // Example Two:
 //
-// [5s, 10s).BoundBy([11s, 17s)) == [11s, 11s)
+// [5s, 10s).BoundBy([11s, 17s)) == [11s, 11s).
 func (tr TimeRange) BoundBy(bound TimeRange) TimeRange {
 	if bound.Start.After(tr.Start) {
 		tr.Start = bound.Start
@@ -66,7 +66,7 @@ func (tr TimeRange) BoundBy(bound TimeRange) TimeRange {
 	return tr
 }
 
-// ContainsStamp returns true if the TimeRange contains the provided TimeStamp
+// ContainsStamp returns true if the TimeRange contains the provided TimeStamp.
 func (tr TimeRange) ContainsStamp(stamp TimeStamp) bool {
 	return stamp.AfterEq(tr.Start) && stamp.Before(tr.End)
 }
@@ -114,7 +114,7 @@ func (tr TimeRange) MakeValid() TimeRange {
 // Swap swaps TimeRange.Start with TimeRange.End.
 func (tr TimeRange) Swap() TimeRange { return TimeRange{Start: tr.End, End: tr.Start} }
 
-// Valid returns true if TimeRange.Start is before or equal to TimeRange.End
+// Valid returns true if TimeRange.Start is before or equal to TimeRange.End.
 func (tr TimeRange) Valid() bool { return tr.Span() >= 0 }
 
 // Midpoint returns the TimeStamp half-way in between TimeRange.Start and TimeRange.End.
@@ -145,14 +145,14 @@ func (tr TimeRange) String() string {
 	} else if startSec != endSec {
 		endStr = end.Format(":05") + formatNanos(endNano)
 	} else if startNano != endNano {
-		endStr = "." + formatSubsecond(endNano)
+		endStr = "." + formatSubSecond(endNano)
 	} else {
 		endStr = end.Format("15:04:05")
 	}
 
 	startStr := start.Format("2006-01-02T15:04:05")
 	if startNano > 0 {
-		startStr += "." + formatSubsecond(startNano)
+		startStr += "." + formatSubSecond(startNano)
 	}
 	startStr += "Z"
 
@@ -163,10 +163,10 @@ func formatNanos(nanos int) string {
 	if nanos == 0 {
 		return ""
 	}
-	return "." + formatSubsecond(nanos)
+	return "." + formatSubSecond(nanos)
 }
 
-func formatSubsecond(nanos int) string {
+func formatSubSecond(nanos int) string {
 	if nanos < 1_000 {
 		return fmt.Sprintf("%09d", nanos)
 	} else if nanos < 1_000_000 {

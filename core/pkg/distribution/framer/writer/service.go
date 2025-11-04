@@ -141,7 +141,7 @@ func DefaultConfig() Config {
 }
 
 // keyAuthorities returns a slice of keyAuthority structs that can be used to shard
-// channel keys across multiple nodes in the cluster. This method should only be valled
+// channel keys across multiple nodes in the cluster. This method should only be called
 // after the config has been validated.
 func (c Config) keyAuthorities() []keyAuthority {
 	authorities := make([]keyAuthority, len(c.Keys))
@@ -250,7 +250,6 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Writers and StreamWriters for writing data to the cluster.
 type Service struct {
 	ServiceConfig
-	server              *server
 	freeWriteAlignments *freeWriteAlignments
 }
 
@@ -258,9 +257,9 @@ type Service struct {
 // to the given transport for receiving writes from other nodes in the cluster.
 func OpenService(configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
+	startServer(cfg)
 	return &Service{
 		ServiceConfig: cfg,
-		server:        startServer(cfg),
 		freeWriteAlignments: &freeWriteAlignments{
 			alignments: make(map[channel.Key]*atomic.Uint32),
 		},

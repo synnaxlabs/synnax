@@ -24,7 +24,6 @@ import (
 type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
-	otg       *ontology.Ontology
 	group     group.Group
 }
 

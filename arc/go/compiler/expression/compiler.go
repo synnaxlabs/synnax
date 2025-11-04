@@ -30,7 +30,7 @@ func validateNonZero(expr parser.IUnaryExpressionContext, opName string) {
 	}
 }
 
-// Compile compiles an expression and returns its type
+// Compile compiles an expression and returns its type.
 func Compile(
 	ctx context.Context[parser.IExpressionContext],
 ) (types.Type, error) {
@@ -114,7 +114,7 @@ func compileMultiplicative(
 	return compileBinaryMultiplicative(ctx)
 }
 
-// compilePower handles ^ operations (right-associative)
+// compilePower handles ^ operations (right-associative).
 func compilePower(
 	ctx context.Context[parser.IPowerExpressionContext],
 ) (types.Type, error) {
@@ -161,7 +161,7 @@ func compilePower(
 	return baseType, nil
 }
 
-// getIntPowImport returns the appropriate IntPow import index for the given type
+// getIntPowImport returns the appropriate IntPow import index for the given type.
 func getIntPowImport(imports *bindings.ImportIndex, t types.Type) (uint32, error) {
 	switch t.Kind {
 	case types.KindI8:

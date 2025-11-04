@@ -13,7 +13,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"slices"
 	"sort"
@@ -24,7 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	xbinary "github.com/synnaxlabs/x/binary"
-	xbits "github.com/synnaxlabs/x/bit"
+	"github.com/synnaxlabs/x/bit"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -229,12 +228,12 @@ type flags struct {
 }
 
 const (
-	zeroAlignmentsFlagPos     xbits.FlagPos = 5
-	equalAlignmentsFlagPos    xbits.FlagPos = 4
-	equalLengthsFlagPos       xbits.FlagPos = 3
-	equalTimeRangesFlagPos    xbits.FlagPos = 2
-	timeRangesZeroFlagPos     xbits.FlagPos = 1
-	allChannelsPresentFlagPos xbits.FlagPos = 0
+	zeroAlignmentsFlagPos     bit.FlagPos = 5
+	equalAlignmentsFlagPos    bit.FlagPos = 4
+	equalLengthsFlagPos       bit.FlagPos = 3
+	equalTimeRangesFlagPos    bit.FlagPos = 2
+	timeRangesZeroFlagPos     bit.FlagPos = 1
+	allChannelsPresentFlagPos bit.FlagPos = 0
 )
 
 func (f flags) encode() byte {
@@ -283,7 +282,7 @@ func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
 
 func (c *Codec) panicIfNotUpdated(opName string) {
 	if c.mu.seqNum < 1 {
-		panic(fmt.Sprintf("[framer.codec] - dynamic codec was not updated for first call to %s", opName))
+		panic("[framer.codec] - dynamic codec was not updated for first call to " + opName)
 	}
 }
 

@@ -90,7 +90,7 @@ func (r Range) GetManyKV(ctx context.Context, keys []string) ([]KVPair, error) {
 // ListKV lists all key-value pairs on the range.
 func (r Range) ListKV(ctx context.Context) (res []KVPair, err error) {
 	err = gorp.NewRetrieve[string, KVPair]().
-		Where(func(ctx gorp.Context, kv *KVPair) (bool, error) {
+		Where(func(_ gorp.Context, kv *KVPair) (bool, error) {
 			return kv.Range == r.Key, nil
 		}).
 		Entries(&res).
@@ -159,12 +159,12 @@ func (r Range) RetrieveAlias(ctx context.Context, ch channel.Key) (string, error
 // ResolveAlias attempts to resolve the provided Alias to a channel key on the range.
 func (r Range) ResolveAlias(ctx context.Context, alias string) (channel.Key, error) {
 	var res Alias
-	matcher := func(ctx gorp.Context, a *Alias) (bool, error) {
+	matcher := func(_ gorp.Context, a *Alias) (bool, error) {
 		return a.Range == r.Key && a.Alias == alias, nil
 	}
 	rxp, err := regexp.Compile(alias)
 	if err == nil {
-		matcher = func(ctx gorp.Context, a *Alias) (bool, error) {
+		matcher = func(_ gorp.Context, a *Alias) (bool, error) {
 			return a.Range == r.Key && rxp.MatchString(a.Alias), nil
 		}
 	}

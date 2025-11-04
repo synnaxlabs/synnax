@@ -19,7 +19,7 @@ import (
 	xtypes "github.com/synnaxlabs/x/types"
 )
 
-// SeriesMatcherOption configures the behavior of the series matcher
+// SeriesMatcherOption configures the behavior of the series matcher.
 type SeriesMatcherOption func(*seriesMatcher)
 
 // ExcludeSeriesFields returns an option that configures the series matcher to exclude
@@ -44,7 +44,7 @@ type seriesMatcher struct {
 // - DataType (unless excluded)
 // - TimeRange (unless excluded)
 // - Data contents (unless excluded)
-// - Alignment (unless excluded)
+// - Alignment (unless excluded).
 func MatchSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatcher {
 	m := &seriesMatcher{
 		expected:       expected,
@@ -141,8 +141,7 @@ func (m *seriesMatcher) FailureMessage(actual any) string {
 			actualSeries.DataString(),
 		))
 	}
-	return fmt.Sprintf("Series did not match:\n%s",
-		formatDifferences(differences))
+	return "Series did not match:\n" + formatDifferences(differences)
 }
 
 func (m *seriesMatcher) NegatedFailureMessage(actual any) string {

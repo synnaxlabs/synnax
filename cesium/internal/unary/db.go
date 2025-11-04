@@ -73,7 +73,7 @@ func (db *DB) LeadingControlState() *control.State {
 
 // HasDataFor check whether there is a time range in the unary DB's underlying domain
 // that overlaps with the given time range. Note that this function will return false if
-// there is an open writer that could write into the requested time range
+// there is an open writer that could write into the requested time range.
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
 	if db.closed.Load() {
 		return false, ErrDBClosed

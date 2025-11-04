@@ -11,17 +11,16 @@ package io_test
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 )
 
-// testCloser is a test helper that tracks Close() calls
+// testCloser is a test helper that tracks Close() calls.
 type testCloser struct {
 	closed bool
 	err    error
@@ -160,7 +159,7 @@ var _ = Describe("CombinedReadWriteCloser", func() {
 				buf := make([]byte, 100)
 				for {
 					n, err := combined.Read(buf)
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						break
 					}
 					Expect(err).ToNot(HaveOccurred())

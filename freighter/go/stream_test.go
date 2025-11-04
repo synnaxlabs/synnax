@@ -11,7 +11,6 @@ package freighter_test
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -61,7 +60,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		AfterAll(func() {
 			Expect(impl.stop()).ToNot(HaveOccurred())
 		})
-		Context(fmt.Sprintf("Implementation %s", impl.name()), func() {
+		Context("Implementation "+impl.name(), func() {
 
 			Describe("Normal Operation", func() {
 
@@ -368,8 +367,10 @@ func (impl *httpStreamImplementation) start(
 		Expect(impl.app.Listen(host.PortString())).To(Succeed())
 	}()
 	Eventually(func(g Gomega) {
-		_, err := http.Get("http://" + host.String() + "/health")
+		res, err := http.Get("http://" + host.String() + "/health")
 		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(res.StatusCode).To(Equal(fiber.StatusOK))
+		g.Expect(res.Body.Close()).To(Succeed())
 	}).WithPolling(1 * time.Millisecond).Should(Succeed())
 	return server, fhttp.StreamClient[request, response](client)
 }

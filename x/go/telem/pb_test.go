@@ -21,8 +21,8 @@ var _ = Describe("Pb", func() {
 			tr := telem.TimeRange{Start: 123, End: 456}
 			pb := telem.TranslateTimeRangeForward(tr)
 			Expect(pb).NotTo(BeNil())
-			Expect(pb.Start).To(Equal(int64(123)))
-			Expect(pb.End).To(Equal(int64(456)))
+			Expect(pb.GetStart()).To(Equal(int64(123)))
+			Expect(pb.GetEnd()).To(Equal(int64(456)))
 
 			back := telem.TranslateTimeRangeBackward(pb)
 			Expect(back).To(Equal(tr))
@@ -46,12 +46,12 @@ var _ = Describe("Pb", func() {
 			}
 			pb := telem.TranslateSeriesForward(series)
 			Expect(pb).NotTo(BeNil())
-			Expect(pb.DataType).To(Equal(string(telem.Int64T)))
-			Expect(pb.TimeRange).NotTo(BeNil())
-			Expect(pb.TimeRange.Start).To(Equal(int64(1)))
-			Expect(pb.TimeRange.End).To(Equal(int64(2)))
-			Expect(pb.Data).To(Equal([]byte{1, 2, 3, 4}))
-			Expect(pb.Alignment).To(Equal(uint64(42)))
+			Expect(pb.GetDataType()).To(Equal(string(telem.Int64T)))
+			Expect(pb.GetTimeRange()).NotTo(BeNil())
+			Expect(pb.GetTimeRange().GetStart()).To(Equal(int64(1)))
+			Expect(pb.GetTimeRange().GetEnd()).To(Equal(int64(2)))
+			Expect(pb.GetData()).To(Equal([]byte{1, 2, 3, 4}))
+			Expect(pb.GetAlignment()).To(Equal(uint64(42)))
 
 			back := telem.TranslateSeriesBackward(pb)
 			Expect(back.DataType).To(Equal(telem.Int64T))
@@ -91,8 +91,8 @@ var _ = Describe("Pb", func() {
 			}
 			pbSeries := telem.TranslateManySeriesForward(series)
 			Expect(pbSeries).To(HaveLen(2))
-			Expect(pbSeries[0].DataType).To(Equal(string(telem.Int32T)))
-			Expect(pbSeries[1].DataType).To(Equal(string(telem.Float64T)))
+			Expect(pbSeries[0].GetDataType()).To(Equal(string(telem.Int32T)))
+			Expect(pbSeries[1].GetDataType()).To(Equal(string(telem.Float64T)))
 
 			back := telem.TranslateManySeriesBackward(pbSeries)
 			Expect(back).To(HaveLen(2))

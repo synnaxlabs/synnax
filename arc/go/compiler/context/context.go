@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// Context maintains compilation state across all code generation
+// Context maintains compilation state across all code generation.
 type Context[ASTNode antlr.ParserRuleContext] struct {
 	context.Context
 	Imports *bindings.ImportIndex

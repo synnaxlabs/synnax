@@ -198,19 +198,19 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, l.Workspace) {
 		return nil, err
 	}
-	if l.LinePlot, err = lineplot.NewService(ctx, lineplot.Config{
+	if l.LinePlot, err = lineplot.NewService(lineplot.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Log, err = log.NewService(ctx, log.Config{
+	if l.Log, err = log.NewService(log.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Table, err = table.NewService(ctx, table.Config{
+	if l.Table, err = table.NewService(table.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {

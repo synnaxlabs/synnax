@@ -576,7 +576,7 @@ func (w *idxWriter) updateHighWater(s telem.Series) error {
 
 // resolveCommitEnd returns the end timestamp for a commit. For an index channel, this
 // returns the high watermark. For a non-index channel, this returns a stamp to the
-// approximation of the end
+// approximation of the end.
 func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApproximation, error) {
 	if w.writingToIdx {
 		return index.Exactly(w.idx.highWaterMark), nil

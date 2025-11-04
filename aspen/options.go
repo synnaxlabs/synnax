@@ -45,9 +45,6 @@ type options struct {
 	cluster cluster.Config
 	// kv gives the configuration for KV options.
 	kv kv.Config
-	// externalKV is a boolean flag indicating whether the caller provided an external
-	// key-value engine. If so, aspen will not close the engine when it shuts down.
-	externalKV bool
 	// fs sets the filesystem to be used for storing data. This option is ignored
 	// if a custom kv.ServiceConfig.Engine is set.
 	fs vfs.FS
@@ -82,10 +79,7 @@ func Bootstrap() Option { return func(o *options) { o.bootstrap = true } }
 // using this option, the caller should transfer all responsibility for executing queries
 // on the engine to aspen.
 func WithEngine(engine xkv.DB) Option {
-	return func(o *options) {
-		o.externalKV = true
-		o.kv.Engine = engine
-	}
+	return func(o *options) { o.kv.Engine = engine }
 }
 
 // WithTransport sets a custom network transport.

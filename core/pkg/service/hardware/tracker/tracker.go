@@ -332,7 +332,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 	stateWriter.InFrom(taskStateWriterStream)
 	t.stateWriter = taskStateWriterStream
 	obs := confluence.NewObservableSubscriber[framer.WriterResponse]()
-	obs.OnChange(func(ctx context.Context, r framer.WriterResponse) {
+	obs.OnChange(func(_ context.Context, r framer.WriterResponse) {
 		cfg.L.Error("unexpected writer error", zap.Int("seq_num", r.SeqNum), zap.Error(r.Err))
 	})
 	outlets := confluence.NewStream[framer.WriterResponse](1)

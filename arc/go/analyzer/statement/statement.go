@@ -561,7 +561,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 
 // AnalyzeFunctionBody analyzes a block and infers its return type by examining
 // all return statements across control flow paths.
-// Returns (ok bool, inferredReturnType types.Type)
+// Returns (ok bool, inferredReturnType types.Type).
 func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) (types.Type, bool) {
 	ctx.InTypeInferenceMode = true
 	funcScope, err := ctx.Scope.Add(ctx, symbol.Symbol{
@@ -638,7 +638,7 @@ func collectStatementReturnTypes(
 }
 
 // getIfStatementReturnTypes recursively extracts return types from if/else branches.
-// Returns (allPathsReturn bool, returnTypes []types.Type)
+// Returns (allPathsReturn bool, returnTypes []types.Type).
 func getIfStatementReturnTypes(
 	ctx context.Context[parser.IIfStatementContext],
 ) (bool, []types.Type) {
@@ -692,7 +692,7 @@ func getIfStatementReturnTypes(
 }
 
 // getBlockReturnTypes extracts all return types from a block's statements.
-// Returns (hasReturn bool, returnTypes []types.Type)
+// Returns (hasReturn bool, returnTypes []types.Type).
 func getBlockReturnTypes(
 	ctx context.Context[parser.IBlockContext],
 ) (bool, []types.Type) {

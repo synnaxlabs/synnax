@@ -10,8 +10,6 @@
 package log
 
 import (
-	"context"
-
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
@@ -57,7 +55,7 @@ type Service struct{ Config }
 // NewService instantiates a new log service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
 // See the Config struct for information on which fields should be set.
-func NewService(ctx context.Context, configs ...Config) (*Service, error) {
+func NewService(configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
@@ -72,11 +70,7 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 // will execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
-	return Writer{
-		tx:        tx,
-		otgWriter: s.Ontology.NewWriter(tx),
-		otg:       s.Ontology,
-	}
+	return Writer{tx: tx, otgWriter: s.Ontology.NewWriter(tx)}
 }
 
 // NewRetrieve opens a new query build for retrieving logs from Synnax.

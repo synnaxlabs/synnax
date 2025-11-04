@@ -202,7 +202,6 @@ var _ = Describe("Writer", func() {
 })
 
 type scenario struct {
-	name   string
 	keys   channel.Keys
 	dist   mock.Node
 	closer io.Closer
@@ -234,7 +233,7 @@ func gatewayOnlyScenario() scenario {
 	dist := builder.Nodes[1]
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Gateway Only", keys: keys, dist: dist, closer: builder}
+	return scenario{keys: keys, dist: dist, closer: builder}
 }
 
 func peerOnlyScenario() scenario {
@@ -253,7 +252,7 @@ func peerOnlyScenario() scenario {
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Peer Only", keys: keys, dist: dist, closer: builder}
+	return scenario{keys: keys, dist: dist, closer: builder}
 }
 
 func mixedScenario() scenario {
@@ -272,7 +271,7 @@ func mixedScenario() scenario {
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Mixed Gateway and Peer", keys: keys, dist: svc, closer: builder}
+	return scenario{keys: keys, dist: svc, closer: builder}
 }
 
 func freeWriterScenario() scenario {
@@ -292,5 +291,5 @@ func freeWriterScenario() scenario {
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Free Writes", keys: keys, dist: svc, closer: builder}
+	return scenario{keys: keys, dist: svc, closer: builder}
 }

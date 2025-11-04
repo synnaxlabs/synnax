@@ -10,7 +10,6 @@
 package telem
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/synnaxlabs/x/types"
@@ -69,7 +68,7 @@ func InferDataType[T any]() DataType {
 	if dt, ok := dataTypes[name]; ok {
 		return dt
 	}
-	panic(fmt.Sprintf("unknown data type %s", name))
+	panic("unknown data type " + name)
 }
 
 const (
@@ -100,7 +99,7 @@ const (
 	Uint16T DataType = "uint16"
 	// Uint8T is a data type for an 8-bit unsigned integer, i.e., a single byte.
 	Uint8T DataType = "uint8"
-	// BytesT is a variable density data type for an arbitrary byte array
+	// BytesT is a variable density data type for an arbitrary byte array.
 	BytesT DataType = "bytes"
 	// StringT is a variable density data type for a UTF-8 encoded string.
 	StringT DataType = "string"

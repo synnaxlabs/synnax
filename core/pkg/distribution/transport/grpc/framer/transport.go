@@ -198,7 +198,7 @@ func (t Transport) Iterator() iterator.Transport { return t.iterator }
 // Relay implements the framer.Transport interface.
 func (t Transport) Relay() relay.Transport { return t.relay }
 
-// Deleter implements the framer.Transport interface
+// Deleter implements the framer.Transport interface.
 func (t Transport) Deleter() deleter.Transport { return t.deleter }
 
 // BindTo implements the fgrpc.BindableTransport interface.

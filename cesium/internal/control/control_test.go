@@ -136,9 +136,7 @@ var _ = Describe("Control", func() {
 
 			It("Should return an error if the controlled resource cannot be created", func() {
 				cfg, _ := baseConfig(1)
-				count := 0
 				cfg.OpenResource = func() (testResource, error) {
-					count++
 					return testResource{value: 11}, errors.Wrapf(validate.Error, "could not great gate")
 				}
 				g, t, err := c.OpenGate(cfg)

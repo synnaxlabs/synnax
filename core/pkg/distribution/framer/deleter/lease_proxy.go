@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
@@ -30,12 +29,12 @@ type leaseProxy struct {
 
 func newLeaseProxy(
 	cfg ServiceConfig,
-) (*leaseProxy, error) {
+) *leaseProxy {
 	p := &leaseProxy{
 		ServiceConfig: cfg,
 		keyRouter:     proxy.BatchFactory[channel.Key]{Host: cfg.HostResolver.HostKey()},
 	}
-	return p, nil
+	return p
 }
 
 func (lp *leaseProxy) deleteTimeRange(

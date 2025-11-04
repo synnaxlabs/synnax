@@ -13,4 +13,4 @@ import "context"
 
 type AllowAll struct{}
 
-func (a *AllowAll) Enforce(ctx context.Context, req Request) error { return nil }
+func (a *AllowAll) Enforce(context.Context, Request) error { return nil }

@@ -10,7 +10,6 @@
 package testutil
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/google/uuid"
@@ -101,7 +100,7 @@ func PanicLogger() alamos.Instrumentation {
 	cfg.Level.SetLevel(zap.PanicLevel)
 	l := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg}))
 	return alamos.New(
-		fmt.Sprintf("synnax-testing-%s", uuid.New().String()),
+		"synnax-testing-"+uuid.New().String(),
 		alamos.WithLogger(l),
 	)
 }

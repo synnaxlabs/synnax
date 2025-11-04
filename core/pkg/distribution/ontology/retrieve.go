@@ -19,7 +19,7 @@ import (
 )
 
 // Retrieve implements a set of methods for retrieving resources and traversing their
-// relationships in teh ontology.
+// relationships in the ontology.
 type Retrieve struct {
 	query     *gorp.CompoundRetrieve[ID, Resource]
 	registrar serviceRegistrar
@@ -98,7 +98,7 @@ func (d Direction) GetID(rel *Relationship) ID {
 type Traverser struct {
 	// Filter if a function that returns true if the given Resource and Relationship
 	// should be included in the traversal results.
-	Filter func(res *Resource, rel *Relationship) bool
+	Filter func(*Resource, *Relationship) bool
 	// Direction is the direction of the traversal. See (Direction) for more.
 	Direction Direction
 }
@@ -233,7 +233,7 @@ func (r Retrieve) traverse(
 ) ([]ID, error) {
 	var nextIDs []ID
 	return nextIDs, gorp.NewRetrieve[[]byte, Relationship]().
-		Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
+		Where(func(_ gorp.Context, rel *Relationship) (bool, error) {
 			for _, resource := range resources {
 				if traverse.Filter(&resource, rel) {
 					nextIDs = append(nextIDs, traverse.Direction.GetID(rel))

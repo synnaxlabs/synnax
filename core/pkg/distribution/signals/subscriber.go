@@ -117,7 +117,7 @@ func (s *Provider) Subscribe(
 	}
 	openAckChannel := make(chan struct{})
 	opened := false
-	obs := confluence.NewObservableTransformSubscriber(func(ctx context.Context, r framer.StreamerResponse) ([]change.Change[[]byte, struct{}], bool, error) {
+	obs := confluence.NewObservableTransformSubscriber(func(_ context.Context, r framer.StreamerResponse) ([]change.Change[[]byte, struct{}], bool, error) {
 		if !opened {
 			opened = true
 			close(openAckChannel)

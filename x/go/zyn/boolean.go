@@ -28,7 +28,7 @@ func (b BoolZ) Optional() BoolZ { b.optional = true; return b }
 // Shape returns the base shape of the boolean schema.
 func (b BoolZ) Shape() Shape { return b.baseZ }
 
-// validateDestination validates that the destination is compatible with boolean data
+// validateDestination validates that the destination is compatible with boolean data.
 func (b BoolZ) validateDestination(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(BoolT), dest)

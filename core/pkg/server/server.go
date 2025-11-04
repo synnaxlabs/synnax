@@ -126,7 +126,7 @@ func (s *Server) start() (err error) {
 	if err != nil {
 		return err
 	}
-	sCtx.Go(func(ctx context.Context) error {
+	sCtx.Go(func(context.Context) error {
 		mux := cmux.New(lis)
 		if *s.Security.Insecure {
 			return s.serveInsecure(sCtx, mux)
@@ -155,11 +155,11 @@ func (s *Server) serveSecure(sCtx signal.Context, root cmux.CMux) error {
 	s.startBranches(sCtx, secure /*insecureMux*/, false)
 	s.startBranches(sCtx, insecure /*insecureMux*/, true)
 
-	sCtx.Go(func(ctx context.Context) error {
+	sCtx.Go(func(context.Context) error {
 		return filterCloserError(secure.Serve())
 	}, signal.WithKey("secure_mux"), signal.RecoverWithErrOnPanic())
 
-	sCtx.Go(func(ctx context.Context) error {
+	sCtx.Go(func(context.Context) error {
 		return filterCloserError(insecure.Serve())
 	}, signal.WithKey("insecure_mux"), signal.RecoverWithErrOnPanic())
 

@@ -11,7 +11,6 @@ package arc
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -60,7 +59,7 @@ func (w Writer) Create(
 	}
 
 	return w.status.SetWithParent(ctx, &status.Status{
-		Name:    fmt.Sprintf("%s Status", c.Name),
+		Name:    c.Name + " Status",
 		Key:     c.Key.String(),
 		Variant: xstatus.LoadingVariant,
 		Message: "Deploying",

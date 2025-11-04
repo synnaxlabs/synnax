@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/exp/slices"
+	"slices"
 )
 
 // LoggerConfig is the config for a Logger.
@@ -70,7 +70,7 @@ func NewLogger(configs ...LoggerConfig) (*Logger, error) {
 	return l, nil
 }
 
-// Zap returns the underlying zap Logger
+// Zap returns the underlying zap Logger.
 func (l *Logger) Zap() *zap.Logger {
 	return l.zap
 }

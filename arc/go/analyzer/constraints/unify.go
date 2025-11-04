@@ -112,7 +112,7 @@ func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, vis
 	return errors.Newf("types %v and %v are not unifiable", t1, t2)
 }
 
-// unifyTypeVariableWithVisited is the internal recursive function with cycle detection
+// unifyTypeVariableWithVisited is the internal recursive function with cycle detection.
 func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, source Constraint, visiting map[string]bool) error {
 	if existing, exists := s.Substitutions[tv.Name]; exists {
 		// Type variable already has a substitution
@@ -240,7 +240,7 @@ func defaultTypeForConstraint(constraint types.Type) types.Type {
 // Implements the promotion rules from promotion_test.go:
 // Rule 1: Float promotion (if either is float)
 // Rule 2: 64-bit integer promotion (if either is 64-bit)
-// Rule 3: 32-bit promotion (for smaller types)
+// Rule 3: 32-bit promotion (for smaller types).
 func promoteNumericTypes(t1, t2 types.Type) types.Type {
 	// Rule 1: Float Promotion
 	if t1.IsFloat() || t2.IsFloat() {
@@ -282,7 +282,7 @@ func (s *System) String() string {
 
 	b.WriteString(fmt.Sprintf("\nType Variables (%d):\n", len(s.TypeVars)))
 	for name, tv := range s.TypeVars {
-		b.WriteString(fmt.Sprintf("  %s", name))
+		b.WriteString("  " + name)
 		if tv.Constraint != nil {
 			b.WriteString(fmt.Sprintf(" : %v", tv.Constraint))
 		}
@@ -302,7 +302,7 @@ func (s *System) String() string {
 		}
 		b.WriteString(fmt.Sprintf("  [%d] %v %s %v", i, c.Left, kindStr, c.Right))
 		if c.Reason != "" {
-			b.WriteString(fmt.Sprintf(" // %s", c.Reason))
+			b.WriteString(" // " + c.Reason)
 		}
 		b.WriteString("\n")
 	}

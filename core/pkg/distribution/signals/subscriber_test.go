@@ -53,7 +53,7 @@ var _ = Describe("Subscriber", func() {
 		time.Sleep(10 * time.Millisecond)
 		uid := uuid.New()
 		var oChange []change.Change[[]byte, struct{}]
-		subscriber.OnChange(func(ctx context.Context, changes []change.Change[[]byte, struct{}]) {
+		subscriber.OnChange(func(_ context.Context, changes []change.Change[[]byte, struct{}]) {
 			oChange = changes
 		})
 		publishObs.Notify(ctx, []change.Change[[]byte, struct{}]{{

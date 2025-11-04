@@ -10,16 +10,15 @@
 package io_test
 
 import (
-	"errors"
 	"io"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 )
 
-// mockReaderAtCloser is a test helper for SectionReaderAtCloser tests
+// mockReaderAtCloser is a test helper for SectionReaderAtCloser tests.
 type mockReaderAtCloser struct {
 	data   []byte
 	closed bool

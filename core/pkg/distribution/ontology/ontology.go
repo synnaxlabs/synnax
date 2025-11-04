@@ -142,20 +142,20 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 type Writer interface {
 	// DefineResource defines a new resource with the given ID. If the resource already
 	// exists, DefineResource does nothing.
-	DefineResource(ctx context.Context, id ID) error
+	DefineResource(context.Context, ID) error
 	// HasResource returns true if the resource with the given ID exists.
-	HasResource(ctx context.Context, id ID) (bool, error)
+	HasResource(context.Context, ID) (bool, error)
 	// DefineManyResources defines multiple resources with the given IDs. If any of the
 	// resources already exist, DefineManyResources does nothing.
-	DefineManyResources(ctx context.Context, ids []ID) error
+	DefineManyResources(context.Context, []ID) error
 	// DeleteResource deletes the resource with the given ID along with all of its
 	// incoming and outgoing relationships.  If the resource does not exist,
 	// DeleteResource does nothing.
-	DeleteResource(ctx context.Context, id ID) error
+	DeleteResource(context.Context, ID) error
 	// DeleteManyResources deletes multiple resources with the given IDs along with all of
 	// their incoming and outgoing relationships. If any of the resources do not exist,
 	// DeleteManyResources does nothing.
-	DeleteManyResources(ctx context.Context, ids []ID) error
+	DeleteManyResources(context.Context, []ID) error
 	HasRelationship(ctx context.Context, from ID, t RelationshipType, to ID) (bool, error)
 	// DefineRelationship defines a directional relationship of type t between the
 	// resources with the given keys. If the relationship already exists, DefineRelationship
@@ -172,12 +172,12 @@ type Writer interface {
 	// types from the resource with the given ID. If the resource does not exist, or if
 	// it has no outgoing relationships of the given types, DeleteOutgoingRelationshipsOfTypes
 	// does nothing.
-	DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, type_ RelationshipType) error
+	DeleteOutgoingRelationshipsOfType(context.Context, ID, RelationshipType) error
 	// DeleteIncomingRelationshipsOfType deletes all incoming relationships of the given
 	// types to the resource with the given ID. If the resource does not exist, or if
 	// it has no incoming relationships of the given types, DeleteIncomingRelationshipsOfTypes
 	// does nothing.
-	DeleteIncomingRelationshipsOfType(ctx context.Context, to ID, type_ RelationshipType) error
+	DeleteIncomingRelationshipsOfType(context.Context, ID, RelationshipType) error
 	// NewRetrieve opens a new Retrieve query that provides a view of pending
 	// operations merged with the underlying database. If the Writer is executing directly
 	// against the underlying database, the Retrieve query behaves exactly as if calling

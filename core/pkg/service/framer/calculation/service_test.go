@@ -77,7 +77,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Keys:  writerKeys,
 			},
 		))
-		streamKeys := lo.FilterMap(*calculations, func(item channel.Channel, index int) (channel.Key, bool) {
+		streamKeys := lo.FilterMap(*calculations, func(item channel.Channel, _ int) (channel.Key, bool) {
 			return item.Key(), !item.IsIndex
 		})
 		streamer := MustSucceed(

@@ -39,7 +39,7 @@ func (c *ClientConn) Release() {
 // Close implements pool.Adapter.
 func (c *ClientConn) Close() error { return c.ClientConn.Close() }
 
-// Healthy implements pool.Adapter
+// Healthy implements pool.Adapter.
 func (c *ClientConn) Healthy() bool {
 	state := c.GetState()
 	return state != connectivity.TransientFailure && state != connectivity.Shutdown

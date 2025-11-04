@@ -11,10 +11,10 @@ package iterator
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -30,8 +30,6 @@ type dependencyGraph struct {
 
 // dependencyNode represents a single calculated channel in the dependency graph.
 type dependencyNode struct {
-	key        channel.Key
-	channel    channel.Channel
 	calculator *calculation.Calculator
 	// dependencies are the channel keys this node depends on
 	dependencies []channel.Key
@@ -45,7 +43,7 @@ type dependencyNode struct {
 // calculated channels and returns:
 // - A topologically sorted list of calculators (dependencies first)
 // - The set of all calculated channel keys (for exclusion from base iterator)
-// - The set of concrete base channel keys (for base iterator to fetch)
+// - The set of concrete base channel keys (for base iterator to fetch).
 func (s *Service) buildDependencyGraph(
 	ctx context.Context,
 	requestedChannels []channel.Channel,
@@ -96,12 +94,7 @@ func (s *Service) addChannelToGraph(
 	dependencies := calculator.ReadFrom()
 
 	// Create a node for this channel
-	node := &dependencyNode{
-		key:          ch.Key(),
-		channel:      ch,
-		calculator:   calculator,
-		dependencies: dependencies,
-	}
+	node := &dependencyNode{calculator: calculator, dependencies: dependencies}
 	graph.nodes[ch.Key()] = node
 	graph.calculatedKeys.Add(ch.Key())
 
@@ -172,7 +165,7 @@ func (g *dependencyGraph) dfsVisit(
 		}
 		cyclePath := append([]channel.Key{}, (*stack)[cycleStart:]...)
 		cyclePath = append(cyclePath, key)
-		return fmt.Errorf("circular dependency detected: %v", cyclePath)
+		return errors.Newf("circular dependency detected: %v", cyclePath)
 	}
 
 	// If already visited, no need to process again

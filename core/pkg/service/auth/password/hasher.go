@@ -26,10 +26,10 @@ func DefaultHashers() []Hasher { return []Hasher{BcryptHasher{}} }
 // Hasher hashes and compares passwords against a hash.
 type Hasher interface {
 	// Hash hashes a Raw password. Returns an error if the password cannot be hashed.
-	Hash(pwd Raw) (Hashed, error)
+	Hash(Raw) (Hashed, error)
 	// Compare compares a Raw password against a Hashed password. Returns an error
 	// if pwd does not match the hash.
-	Compare(pwd Raw, hash Hashed) error
+	Compare(Raw, Hashed) error
 }
 
 // BcryptHasher is a Hasher that uses the bcrypt library to hash and compare passwords.

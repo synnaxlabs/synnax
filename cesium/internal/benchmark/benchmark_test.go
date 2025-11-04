@@ -46,7 +46,6 @@ type WriteBenchmarkConfig struct {
 
 type StreamBenchmarkConfig struct {
 	WriteBenchmarkConfig
-	streamOnly bool
 }
 
 var (
@@ -57,7 +56,6 @@ var (
 	usingMemFS        = flag.Bool("mem", false, "memFS")
 	numWriters        = flag.Int("w", 1, "writer count")
 	numGoRoutines     = flag.Int64("g", 1, "goroutine count")
-	streamOnly        = flag.Bool("only_stream", false, "writer streamOnly mode")
 	commitInterval    = flag.Int("commit", -1, "writer commit interval")
 	ctx               = context.TODO()
 )
@@ -81,10 +79,7 @@ func BenchmarkCesium(b *testing.B) {
 		numWriters:      *numWriters,
 		commitInterval:  *commitInterval,
 	}
-	streamCfg := StreamBenchmarkConfig{
-		WriteBenchmarkConfig: writeCfg,
-		streamOnly:           *streamOnly,
-	}
+	streamCfg := StreamBenchmarkConfig{WriteBenchmarkConfig: writeCfg}
 
 	makeFS := testutil.FileSystemsWithoutAssertion[lo.Ternary(benchCfg.usingMemFS, "memFS", "osFS")]
 	fs, cleanUp := makeFS()
@@ -207,11 +202,11 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 					if k == 0 {
 						for _, ch := range writerChannels {
 							if ch <= cesium.ChannelKey(cfg.numIndexChannels) {
-								frame = frame.Append(ch, telem.NewSeries[telem.TimeStamp](indexData))
+								frame = frame.Append(ch, telem.NewSeries(indexData))
 							}
 						}
 					} else {
-						indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
+						indexDataSeries := telem.NewSeries(indexData)
 						for l := len(frame.KeysSlice()) - 1; l >= 0; l-- {
 							if l > cfg.numIndexChannels {
 								break
@@ -325,11 +320,11 @@ func BenchRead(
 		if k == 0 {
 			for _, ch := range keys {
 				if ch <= cesium.ChannelKey(cfg.numIndexChannels) {
-					frame = frame.Append(ch, telem.NewSeries[telem.TimeStamp](indexData))
+					frame = frame.Append(ch, telem.NewSeries(indexData))
 				}
 			}
 		} else {
-			indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
+			indexDataSeries := telem.NewSeries(indexData)
 			for l := len(frame.KeysSlice()) - 1; l >= 0; l-- {
 				if l > cfg.numIndexChannels {
 					break
@@ -463,7 +458,7 @@ func BenchStream(
 
 				s, err = db.NewStreamer(ctx, cesium.StreamerConfig{Channels: writerChannels})
 				if err != nil {
-					b.Errorf("Steramer open error")
+					b.Errorf("Streamer open error")
 				}
 
 				iStream, oStream := confluence.Attach(s, 1)
@@ -492,11 +487,11 @@ func BenchStream(
 					if k == 0 {
 						for _, ch := range writerChannels {
 							if ch <= cesium.ChannelKey(cfg.numIndexChannels) {
-								frame = frame.Append(ch, telem.NewSeries[telem.TimeStamp](indexData))
+								frame = frame.Append(ch, telem.NewSeries(indexData))
 							}
 						}
 					} else {
-						indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
+						indexDataSeries := telem.NewSeries(indexData)
 						for l := len(frame.KeysSlice()) - 1; l >= 0; l-- {
 							if l > cfg.numIndexChannels {
 								break

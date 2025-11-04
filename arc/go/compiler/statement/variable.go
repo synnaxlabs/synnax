@@ -49,7 +49,7 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 	return nil
 }
 
-// compileStatefulVariable handles stateful variable declarations (x $= expr)
+// compileStatefulVariable handles stateful variable declarations (x $= expr).
 func compileStatefulVariable(
 	ctx context.Context[parser.IStatefulVariableContext],
 ) error {
@@ -82,7 +82,7 @@ func compileStatefulVariable(
 	return nil
 }
 
-// compileAssignment handles variable assignments (x = expr)
+// compileAssignment handles variable assignments (x = expr).
 func compileAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 ) error {

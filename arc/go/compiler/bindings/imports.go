@@ -81,7 +81,7 @@ type ImportIndex struct {
 	Panic uint32
 }
 
-// NewImportIndex creates a new import index with initialized maps
+// NewImportIndex creates a new import index with initialized maps.
 func NewImportIndex() *ImportIndex {
 	return &ImportIndex{
 		ChannelRead:         make(map[string]uint32),
@@ -129,7 +129,7 @@ func SetupImports(m *wasm.Module) *ImportIndex {
 	return idx
 }
 
-// setupChannelOps registers channel operations for a specific type
+// setupChannelOps registers channel operations for a specific type.
 func setupChannelOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 	wasmType := wasm.ConvertType(t)
 	// Non-blocking read
@@ -152,7 +152,7 @@ func setupChannelOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 	})
 }
 
-// setupSeriesOps registers series operations for a specific type
+// setupSeriesOps registers series operations for a specific type.
 func setupSeriesOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 	wasmType := wasm.ConvertType(t)
 
@@ -184,7 +184,7 @@ func setupSeriesOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 	setupSeriesComparison(m, idx, t)
 }
 
-// setupSeriesArithmetic registers arithmetic operations for series
+// setupSeriesArithmetic registers arithmetic operations for series.
 func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, wasmType wasm.ValueType) {
 	// Scalar operations
 	ops := []struct {
@@ -225,7 +225,7 @@ func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, was
 	}
 }
 
-// setupSeriesComparison registers comparison operations for series
+// setupSeriesComparison registers comparison operations for series.
 func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ types.Type) {
 	ops := []struct {
 		name string
@@ -248,7 +248,7 @@ func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ types.Type) {
 	}
 }
 
-// setupStateOps registers state persistence operations
+// setupStateOps registers state persistence operations.
 func setupStateOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 	wasmType := wasm.ConvertType(t)
 
@@ -267,7 +267,7 @@ func setupStateOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 	})
 }
 
-// setupGenericOps registers type-agnostic operations
+// setupGenericOps registers type-agnostic operations.
 func setupGenericOps(m *wasm.Module, idx *ImportIndex) {
 	// Series operations
 	idx.SeriesLen = m.AddImport("env", "series_len", wasm.FunctionType{

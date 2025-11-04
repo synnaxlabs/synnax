@@ -264,7 +264,7 @@ func (s *Server) Completion(
 	}, nil
 }
 
-// getCompletionItems generates completion items based on context
+// getCompletionItems generates completion items based on context.
 func (s *Server) getCompletionItems(
 	ctx context.Context,
 	doc *Document,

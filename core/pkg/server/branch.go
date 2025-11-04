@@ -10,10 +10,10 @@
 package server
 
 import (
-	"github.com/synnaxlabs/alamos"
 	"net"
 
 	"github.com/cockroachdb/cmux"
+	"github.com/synnaxlabs/alamos"
 )
 
 // BranchContext is the context for operating a Branch.
@@ -83,7 +83,7 @@ type Branch interface {
 	Routing() BranchRouting
 	// Serve starts the branch using the provided ctx and should block until the branch
 	// exits abnormally or is stopped by calling Stop.
-	Serve(ctx BranchContext) error
+	Serve(BranchContext) error
 	// Stop stops the branch gracefully.
 	// (TODO: Evaluate whether we should pass a context here to allow for a timeout.)
 	Stop()

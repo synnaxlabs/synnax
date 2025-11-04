@@ -41,7 +41,7 @@ type GorpPublisherConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	// DeleteDataType is the data type of the key used by the DB.
 	DeleteDataType telem.DataType
 	// MarshalSet is a function that marshals the key used by the DB into a byte slice.
-	MarshalSet func(entry E) ([]byte, error)
+	MarshalSet func(E) ([]byte, error)
 	// MarshalDelete is a function that marshals the key used by the DB into a byte slice.
 	MarshalDelete func(K) ([]byte, error)
 	// SetName is the name of the set channel.
@@ -172,7 +172,7 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 			},
 		}
 		obsCfg = ObservablePublisherConfig{
-			Name:          fmt.Sprintf("gorp_%s", strings.ToLower(types.Name[E]())),
+			Name:          "gorp_" + strings.ToLower(types.Name[E]()),
 			Observable:    obs,
 			SetChannel:    channel.Channel{Name: cfg.SetName, DataType: cfg.SetDataType, Internal: true},
 			DeleteChannel: channel.Channel{Name: cfg.DeleteName, DataType: cfg.DeleteDataType, Internal: true},

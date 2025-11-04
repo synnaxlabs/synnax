@@ -82,10 +82,7 @@ func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
 ) (res ChannelCreateResponse, _ error) {
-	translated, err := translateChannelsBackward(req.Channels)
-	if err != nil {
-		return res, err
-	}
+	translated := translateChannelsBackward(req.Channels)
 	for i := range translated {
 		translated[i].Internal = false
 	}
@@ -218,7 +215,7 @@ func (s *ChannelService) Retrieve(
 	}
 	if len(aliasChannels) > 0 {
 		aliasKeys := channel.KeysFromChannels(aliasChannels)
-		resChannels = append(aliasChannels, lo.Filter(resChannels, func(ch channel.Channel, i int) bool {
+		resChannels = append(aliasChannels, lo.Filter(resChannels, func(ch channel.Channel, _ int) bool {
 			return !aliasKeys.Contains(ch.Key())
 		})...)
 	}
@@ -264,7 +261,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 
 // translateChannelsBackward translates a slice of api channel structs to a slice of
 // internal channel structs.
-func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
+func translateChannelsBackward(channels []Channel) []channel.Channel {
 	translated := make([]channel.Channel, len(channels))
 	for i, ch := range channels {
 		tCH := channel.Channel{
@@ -286,7 +283,7 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 
 		translated[i] = tCH
 	}
-	return translated, nil
+	return translated
 }
 
 type ChannelDeleteRequest struct {

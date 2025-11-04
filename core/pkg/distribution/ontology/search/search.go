@@ -32,15 +32,13 @@ type Index struct {
 	idx     bleve.Index
 }
 
-type Config struct {
-	alamos.Instrumentation
-}
+type Config struct{ alamos.Instrumentation }
 
 var _ config.Config[Config] = Config{}
 
 func (c Config) Validate() error { return nil }
 
-func (c Config) Override(other Config) Config { return c }
+func (c Config) Override(Config) Config { return c }
 
 func New(configs ...Config) (*Index, error) {
 	cfg, err := config.New(Config{}, configs...)

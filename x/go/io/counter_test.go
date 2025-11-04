@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package io
+package io_test
 
 import (
 	"os"
@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/io"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -45,8 +46,7 @@ var _ = Describe("Counter", func() {
 				f, err := fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR)
 				Expect(err).ToNot(HaveOccurred())
 
-				c, err := NewInt32Counter(f)
-				Expect(err).ToNot(HaveOccurred())
+				c := MustSucceed(io.NewInt32Counter(f))
 				Expect(c.Value()).To(Equal(int32(0)))
 				Expect(f.Close()).To(Succeed())
 			})
@@ -55,7 +55,7 @@ var _ = Describe("Counter", func() {
 					fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR),
 				)
 				Expect(f.Write([]byte{0x15, 0x1, 0x0, 0x0})).To(Equal(4))
-				c := MustSucceed(NewInt32Counter(f))
+				c := MustSucceed(io.NewInt32Counter(f))
 				Expect(c.Value()).To(Equal(int32(277)))
 				Expect(f.Close()).To(Succeed())
 			})
@@ -64,14 +64,13 @@ var _ = Describe("Counter", func() {
 					keys = make([]int32, 1000)
 					wg   = sync.WaitGroup{}
 					f    xfs.File
-					c    *Int32Counter
+					c    *io.Int32Counter
 				)
 
 				f, err := fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR)
 				Expect(err).ToNot(HaveOccurred())
 
-				c, err = NewInt32Counter(f)
-				Expect(err).ToNot(HaveOccurred())
+				c = MustSucceed(io.NewInt32Counter(f))
 
 				wg.Add(1000)
 				for i := range 1000 {

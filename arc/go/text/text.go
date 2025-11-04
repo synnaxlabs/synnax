@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Text represents Arc source code with its parsed AST.
@@ -257,7 +258,7 @@ func analyzeFunctionNode(
 	}
 	fnType := sym.Type
 	if fnType.Kind != types.KindFunction {
-		ctx.Diagnostics.AddError(fmt.Errorf("expected function type, got %s", fnType), nil)
+		ctx.Diagnostics.AddError(errors.Newf("expected function type, got %s", fnType), nil)
 		return ir.Node{}, ir.Handle{}, false
 	}
 	n := ir.Node{
@@ -304,7 +305,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node
 }
 
 // getExpressionText extracts the text representation of an expression
-// In a full implementation, this would properly serialize the expression AST
+// In a full implementation, this would properly serialize the expression AST.
 func getExpressionText(expr parser.IExpressionContext) string {
 	if expr == nil {
 		return ""

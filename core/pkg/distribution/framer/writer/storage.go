@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 )
 
-func newRequestTranslator() func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
+func newRequestTranslator() func(context.Context, Request) (ts.WriterRequest, bool, error) {
 	return func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
 		return ts.WriterRequest{
 			Command: ts.WriterCommand(in.Command),

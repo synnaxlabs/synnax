@@ -80,7 +80,7 @@ func newLeaseProxy(
 		leasedCounter: c,
 		group:         group,
 	}
-	p.mu.externalNonVirtualSet = set.NewInteger[Key](KeysFromChannels(externalNonVirtualChannels))
+	p.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
 	if cfg.HostResolver.HostKey() == cluster.Bootstrapper {
 		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
 		c, err := openCounter(ctx, cfg.ClusterDB, freeCounterKey)
@@ -213,7 +213,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	if lp.freeCounter == nil {
 		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
 	}
-	if err := lp.validateFreeVirtual(ctx, channels, tx); err != nil {
+	if err := lp.validateFreeVirtual(channels); err != nil {
 		return err
 	}
 
@@ -352,9 +352,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 }
 
 func (lp *leaseProxy) validateFreeVirtual(
-	ctx context.Context,
 	channels *[]Channel,
-	tx gorp.Tx,
 ) error {
 	for _, ch := range *channels {
 		if len(ch.Name) == 0 {
@@ -452,7 +450,7 @@ func (lp *leaseProxy) createGateway(
 		}
 	}
 
-	if err := lp.validateFreeVirtual(ctx, channels, tx); err != nil {
+	if err := lp.validateFreeVirtual(channels); err != nil {
 		return err
 	}
 

@@ -13,7 +13,7 @@ import (
 	"math"
 )
 
-// Compressor a type called Compressor which is an interface
+// Compressor a type called Compressor which is an interface.
 type Compressor interface {
 	// Compress compresses the given source bytes and outputs them
 	// to the destination bytes, returning any error encountered.
@@ -32,9 +32,9 @@ type CompressorDecompressor interface {
 }
 
 /*
-preCompile is run everytime Compress is run. It will do a pass through
-the array, looking for the longest sequential count of either 1 or 0.
-This will be used to decide on the size for the run-length encoding
+preCompile is run every time Compress is run. It will do a pass through the array,
+looking for the longest sequential count of either 1 or 0. This will be used to decide
+on the size for the run-length encoding.
 */
 func preCompile(src []byte) (size int) {
 

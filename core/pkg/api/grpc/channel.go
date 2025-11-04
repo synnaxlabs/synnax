@@ -20,7 +20,6 @@ import (
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/grpc"
@@ -102,8 +101,8 @@ func (t channelCreateRequestTranslator) Backward(
 	msg *gapi.ChannelCreateRequest,
 ) (api.ChannelCreateRequest, error) {
 	return api.ChannelCreateRequest{
-		Channels:             lo.Map(msg.Channels, translateChannelBackward),
-		RetrieveIfNameExists: msg.RetrieveIfNameExists,
+		Channels:             lo.Map(msg.GetChannels(), translateChannelBackward),
+		RetrieveIfNameExists: msg.GetRetrieveIfNameExists(),
 	}, nil
 }
 
@@ -120,7 +119,7 @@ func (t channelCreateResponseTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ChannelCreateResponse,
 ) (api.ChannelCreateResponse, error) {
-	return api.ChannelCreateResponse{Channels: lo.Map(msg.Channels, translateChannelBackward)}, nil
+	return api.ChannelCreateResponse{Channels: lo.Map(msg.GetChannels(), translateChannelBackward)}, nil
 }
 
 func (t channelRetrieveRequestTranslator) Forward(
@@ -140,10 +139,10 @@ func (t channelRetrieveRequestTranslator) Backward(
 	msg *gapi.ChannelRetrieveRequest,
 ) (api.ChannelRetrieveRequest, error) {
 	return api.ChannelRetrieveRequest{
-		NodeKey:    cluster.NodeKey(msg.NodeKey),
-		Names:      msg.Names,
-		SearchTerm: msg.Search,
-		Keys:       unsafe.ReinterpretSlice[uint32, channel.Key](msg.Keys),
+		NodeKey:    cluster.NodeKey(msg.GetNodeKey()),
+		Names:      msg.GetNames(),
+		SearchTerm: msg.GetSearch(),
+		Keys:       unsafe.ReinterpretSlice[uint32, channel.Key](msg.GetKeys()),
 	}, nil
 }
 
@@ -158,7 +157,7 @@ func (t channelRetrieveResponseTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ChannelRetrieveResponse,
 ) (api.ChannelRetrieveResponse, error) {
-	return api.ChannelRetrieveResponse{Channels: lo.Map(msg.Channels, translateChannelBackward)}, nil
+	return api.ChannelRetrieveResponse{Channels: lo.Map(msg.GetChannels(), translateChannelBackward)}, nil
 }
 
 func (t channelDeleteRequestTranslator) Forward(
@@ -176,8 +175,8 @@ func (t channelDeleteRequestTranslator) Backward(
 	msg *gapi.ChannelDeleteRequest,
 ) (api.ChannelDeleteRequest, error) {
 	return api.ChannelDeleteRequest{
-		Keys:  translateChannelKeysBackward(msg.Keys),
-		Names: msg.Names,
+		Keys:  translateChannelKeysBackward(msg.GetKeys()),
+		Names: msg.GetNames(),
 	}, nil
 }
 
@@ -202,14 +201,14 @@ func translateChannelBackward(
 	_ int,
 ) api.Channel {
 	return api.Channel{
-		Key:         channel.Key(msg.Key),
-		Name:        msg.Name,
-		Leaseholder: cluster.NodeKey(msg.Leaseholder),
-		DataType:    telem.DataType(msg.DataType),
-		Density:     telem.Density(msg.Density),
-		IsIndex:     msg.IsIndex,
-		Index:       channel.Key(msg.Index),
-		Virtual:     msg.IsVirtual,
+		Key:         channel.Key(msg.GetKey()),
+		Name:        msg.GetName(),
+		Leaseholder: cluster.NodeKey(msg.GetLeaseholder()),
+		DataType:    telem.DataType(msg.GetDataType()),
+		Density:     telem.Density(msg.GetDensity()),
+		IsIndex:     msg.GetIsIndex(),
+		Index:       channel.Key(msg.GetIndex()),
+		Virtual:     msg.GetIsVirtual(),
 	}
 }
 

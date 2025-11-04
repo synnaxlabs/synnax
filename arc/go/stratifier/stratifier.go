@@ -92,7 +92,7 @@ func Stratify(
 	return strata, nil
 }
 
-// findCycle attempts to find a cycle in the graph for better error reporting
+// findCycle attempts to find a cycle in the graph for better error reporting.
 func findCycle(nodes []ir.Node, edges []ir.Edge) []string {
 	var (
 		graph    = make(map[string][]string)

@@ -49,8 +49,8 @@ func (c connectivityResponseTranslator) Backward(
 	r *gapi.ConnectivityCheckResponse,
 ) (api.ConnectivityCheckResponse, error) {
 	return api.ConnectivityCheckResponse{
-		ClusterKey:  r.ClusterKey,
-		NodeVersion: r.NodeVersion,
+		ClusterKey:  r.GetClusterKey(),
+		NodeVersion: r.GetNodeVersion(),
 	}, nil
 }
 

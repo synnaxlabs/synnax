@@ -73,7 +73,7 @@ func MultiFrame[K types.Numeric](keys []K, series []Series) Frame[K] {
 // AllocFrame allocates a new frame with the given capacity. The capacity is the maximum
 // number of entries that can be added to the frame before it needs to be resized. The
 // frame is not initialized, so the keys and series slices will be empty. This function
-// is useful for creating a frame with a known number of entries
+// is useful for creating a frame with a known number of entries.
 func AllocFrame[K types.Numeric](cap int) Frame[K] {
 	return Frame[K]{keys: make([]K, 0, cap), series: make([]Series, 0, cap)}
 }
@@ -142,7 +142,7 @@ func (f Frame[K]) SeriesSlice() []Series {
 // It is not safe to modify the contents of the returned slice.
 func (f Frame[K]) RawSeries() []Series { return f.series }
 
-// RawKeys returns the raw slice of keys in teh frame. This includes any keys that have
+// RawKeys returns the raw slice of keys in the frame. This includes any keys that have
 // been filtered out by KeepKeys or ExcludeKeys. To check whether an index in this
 // slice has been filtered out, use ShouldExcludeRaw.
 //
@@ -362,7 +362,7 @@ func (f Frame[K]) EncodeMsgpack(enc *msgpack.Encoder) error {
 	return nil
 }
 
-// DecodeMsgpack can continue using serializableFrame
+// DecodeMsgpack can continue using serializableFrame.
 func (f *Frame[K]) DecodeMsgpack(dec *msgpack.Decoder) error {
 	var frame serializableFrame[K]
 	err := dec.Decode(&frame)
@@ -382,7 +382,7 @@ func (f Frame[K]) Get(key K) MultiSeries {
 	return MultiSeries{Series: series}
 }
 
-// Append adds a new key-series pair to the end of teh frame, returning the updated
+// Append adds a new key-series pair to the end of the frame, returning the updated
 // frame.
 func (f Frame[K]) Append(key K, series Series) Frame[K] {
 	f.keys = append(f.keys, key)
@@ -453,10 +453,8 @@ func (f Frame[K]) KeepKeys(keys []K) Frame[K] {
 }
 
 // notContain is defined statically so that it doesn't accidentally escape to the heap,
-// applying more pressure on GC
-func notContains[T comparable](s []T, e T) bool {
-	return !lo.Contains[T](s, e)
-}
+// applying more pressure on GC.
+func notContains[T comparable](s []T, e T) bool { return !lo.Contains(s, e) }
 
 // ExcludeKeys filters the frame to include any keys that are NOT in the given slice,
 // returning a shallow copy of the filtered frame.

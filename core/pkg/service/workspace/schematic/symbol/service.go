@@ -107,11 +107,7 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 // will execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
-	return Writer{
-		tx:        tx,
-		otgWriter: s.Ontology.NewWriter(tx),
-		otg:       s.Ontology,
-	}
+	return Writer{tx: tx, otgWriter: s.Ontology.NewWriter(tx)}
 }
 
 // NewRetrieve opens a new query build for retrieving symbols from Synnax.

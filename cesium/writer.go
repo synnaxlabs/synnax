@@ -64,7 +64,7 @@ func (w *Writer) Commit() (telem.TimeStamp, error) {
 	return res.End, err
 }
 
-// SetAuthority is synchronous
+// SetAuthority is synchronous.
 func (w *Writer) SetAuthority(cfg WriterConfig) error {
 	_, err := w.exec(WriterRequest{Config: cfg, Command: WriterSetAuthority}, true)
 	return err

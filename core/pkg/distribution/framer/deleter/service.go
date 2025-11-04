@@ -12,7 +12,6 @@ package deleter
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -58,10 +57,7 @@ func New(configs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	proxy, err := newLeaseProxy(cfg)
-	if err != nil {
-		return nil, err
-	}
+	proxy := newLeaseProxy(cfg)
 	s := &Service{
 		proxy:         proxy,
 		channelReader: cfg.Channel,

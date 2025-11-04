@@ -33,9 +33,10 @@ type GCConfig struct {
 	// TryInterval is the interval of time between two tries of garbage collection are
 	// started.
 	TryInterval time.Duration
-	// Threshold is the minimum tombstone proportion of the Filesize to trigger a GC.
+	// Threshold is the minimum tombstone proportion of the file size to trigger a GC.
 	// Must be in (0, 1]. Note: Setting this value to 0 will have NO EFFECT as it is the
 	// default value. instead, set it to a very small number greater than 0.
+	//
 	// [OPTIONAL] Default: 0.2
 	Threshold float32
 }
@@ -293,7 +294,6 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 			db.mu.RUnlock()
 			return err
 		}
-		uDB := uDB
 		sCtx.Go(func(_ctx context.Context) error {
 			defer sem.Release(1)
 			return uDB.GarbageCollect(_ctx)

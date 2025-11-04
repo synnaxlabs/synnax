@@ -137,7 +137,6 @@ var _ = Describe("Iterator", func() {
 })
 
 type scenario struct {
-	name  string
 	keys  channel.Keys
 	dist  mock.Node
 	close io.Closer
@@ -159,7 +158,7 @@ func gatewayOnlyScenario() scenario {
 	dist := builder.Nodes[1]
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Gateway Only", keys: keys, dist: dist, close: builder}
+	return scenario{keys: keys, dist: dist, close: builder}
 }
 
 func peerOnlyScenario() scenario {
@@ -178,5 +177,5 @@ func peerOnlyScenario() scenario {
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Peer Only", keys: keys, dist: dist, close: builder}
+	return scenario{keys: keys, dist: dist, close: builder}
 }

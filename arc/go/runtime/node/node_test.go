@@ -22,14 +22,13 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type mockNode struct {
-	initCalled bool
-	nextCalled int
-}
+type mockNode struct{}
 
-func (m *mockNode) Init(node.Context) { m.initCalled = true }
+var _ node.Node = (*mockNode)(nil)
 
-func (m *mockNode) Next(node.Context) { m.nextCalled++ }
+func (m *mockNode) Init(node.Context) {}
+
+func (m *mockNode) Next(node.Context) {}
 
 type mockFactory struct {
 	nodeType     string

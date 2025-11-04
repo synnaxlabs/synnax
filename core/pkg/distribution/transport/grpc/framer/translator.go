@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
@@ -48,23 +47,23 @@ func (writerRequestTranslator) Backward(
 	req *framerv1.WriterRequest,
 ) (writer.Request, error) {
 	return writer.Request{
-		Command: writer.Command(req.Command),
+		Command: writer.Command(req.GetCommand()),
 		Config: writer.Config{
 			ControlSubject: control.Subject{
-				Key:  req.Config.ControlSubject.Key,
-				Name: req.Config.ControlSubject.Name,
+				Key:  req.GetConfig().GetControlSubject().GetKey(),
+				Name: req.GetConfig().GetControlSubject().GetName(),
 			},
-			Keys:  channel.KeysFromUint32(req.Config.Keys),
-			Start: telem.TimeStamp(req.Config.Start),
-			Authorities: lo.Map(req.Config.Authorities, func(auth uint32, _ int) control.Authority {
+			Keys:  channel.KeysFromUint32(req.GetConfig().GetKeys()),
+			Start: telem.TimeStamp(req.GetConfig().GetStart()),
+			Authorities: lo.Map(req.GetConfig().GetAuthorities(), func(auth uint32, _ int) control.Authority {
 				return control.Authority(auth)
 			}),
-			ErrOnUnauthorized:        config.Bool(req.Config.ErrOnUnauthorized),
-			Mode:                     ts.WriterMode(req.Config.Mode),
-			EnableAutoCommit:         config.Bool(req.Config.EnableAutoCommit),
-			AutoIndexPersistInterval: telem.TimeSpan(req.Config.AutoIndexPersistInterval),
+			ErrOnUnauthorized:        config.Bool(req.GetConfig().GetErrOnUnauthorized()),
+			Mode:                     ts.WriterMode(req.GetConfig().GetMode()),
+			EnableAutoCommit:         config.Bool(req.GetConfig().GetEnableAutoCommit()),
+			AutoIndexPersistInterval: telem.TimeSpan(req.GetConfig().GetAutoIndexPersistInterval()),
 		},
-		Frame: translateFrameForward(req.Frame),
+		Frame: translateFrameForward(req.GetFrame()),
 	}, nil
 }
 
@@ -103,21 +102,21 @@ type writerResponseTranslator struct{}
 
 // Backward implements the fgrpc.Translator interface.
 func (writerResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	res *framerv1.WriterResponse,
 ) (writer.Response, error) {
 	return writer.Response{
-		Command:    writer.Command(res.Command),
-		SeqNum:     int(res.SeqNum),
-		NodeKey:    cluster.NodeKey(res.NodeKey),
-		Authorized: res.Authorized,
-		End:        telem.TimeStamp(res.End),
+		Command:    writer.Command(res.GetCommand()),
+		SeqNum:     int(res.GetSeqNum()),
+		NodeKey:    cluster.NodeKey(res.GetNodeKey()),
+		Authorized: res.GetAuthorized(),
+		End:        telem.TimeStamp(res.GetEnd()),
 	}, nil
 }
 
 // Forward implements the fgrpc.Translator interface.
 func (writerResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	res writer.Response,
 ) (*framerv1.WriterResponse, error) {
 	return &framerv1.WriterResponse{
@@ -137,13 +136,13 @@ func (iteratorRequestTranslator) Backward(
 	req *framerv1.IteratorRequest,
 ) (iterator.Request, error) {
 	return iterator.Request{
-		Command:   iterator.Command(req.Command),
-		Span:      telem.TimeSpan(req.Span),
-		Bounds:    telem.TranslateTimeRangeBackward(req.Bounds),
-		Stamp:     telem.TimeStamp(req.Stamp),
-		Keys:      channel.KeysFromUint32(req.Keys),
-		ChunkSize: req.ChunkSize,
-		SeqNum:    int(req.SeqNum),
+		Command:   iterator.Command(req.GetCommand()),
+		Span:      telem.TimeSpan(req.GetSpan()),
+		Bounds:    telem.TranslateTimeRangeBackward(req.GetBounds()),
+		Stamp:     telem.TimeStamp(req.GetStamp()),
+		Keys:      channel.KeysFromUint32(req.GetKeys()),
+		ChunkSize: req.GetChunkSize(),
+		SeqNum:    int(req.GetSeqNum()),
 	}, nil
 }
 
@@ -171,13 +170,13 @@ func (iteratorResponseTranslator) Backward(
 	res *framerv1.IteratorResponse,
 ) (iterator.Response, error) {
 	return iterator.Response{
-		Variant: iterator.ResponseVariant(res.Variant),
-		NodeKey: cluster.NodeKey(res.NodeKey),
-		Ack:     res.Ack,
-		SeqNum:  int(res.SeqNum),
-		Command: iterator.Command(res.Command),
-		Error:   fgrpc.DecodeError(ctx, res.Error),
-		Frame:   translateFrameForward(res.Frame),
+		Variant: iterator.ResponseVariant(res.GetVariant()),
+		NodeKey: cluster.NodeKey(res.GetNodeKey()),
+		Ack:     res.GetAck(),
+		SeqNum:  int(res.GetSeqNum()),
+		Command: iterator.Command(res.GetCommand()),
+		Error:   fgrpc.DecodeError(ctx, res.GetError()),
+		Frame:   translateFrameForward(res.GetFrame()),
 	}, nil
 }
 
@@ -203,7 +202,7 @@ func (w relayRequestTranslator) Backward(
 	_ context.Context,
 	req *framerv1.RelayRequest,
 ) (relay.Request, error) {
-	return relay.Request{Keys: channel.KeysFromUint32(req.Keys)}, nil
+	return relay.Request{Keys: channel.KeysFromUint32(req.GetKeys())}, nil
 }
 
 func (w relayRequestTranslator) Forward(
@@ -216,22 +215,22 @@ func (w relayRequestTranslator) Forward(
 type relayResponseTranslator struct{}
 
 func (w relayResponseTranslator) Backward(
-	ctx context.Context,
+	_ context.Context,
 	res *framerv1.RelayResponse,
 ) (relay.Response, error) {
-	return relay.Response{Frame: translateFrameForward(res.Frame)}, nil
+	return relay.Response{Frame: translateFrameForward(res.GetFrame())}, nil
 }
 
 func (w relayResponseTranslator) Forward(
-	ctx context.Context,
+	_ context.Context,
 	res relay.Response,
 ) (*framerv1.RelayResponse, error) {
 	return &framerv1.RelayResponse{Frame: translateFrameBackward(res.Frame)}, nil
 }
 
 func translateFrameForward(frame *framerv1.Frame) framer.Frame {
-	keys := channel.KeysFromUint32(frame.Keys)
-	series := telem.TranslateManySeriesBackward(frame.Series)
+	keys := channel.KeysFromUint32(frame.GetKeys())
+	series := telem.TranslateManySeriesBackward(frame.GetSeries())
 	return core.MultiFrame(keys, series)
 }
 
@@ -260,8 +259,8 @@ func (r deleteRequestTranslator) Backward(
 	msg *framerv1.DeleteRequest,
 ) (deleter.Request, error) {
 	return deleter.Request{
-		Keys:   channel.KeysFromUint32(msg.Keys),
-		Names:  msg.Names,
-		Bounds: telem.TranslateTimeRangeBackward(msg.Bounds),
+		Keys:   channel.KeysFromUint32(msg.GetKeys()),
+		Names:  msg.GetNames(),
+		Bounds: telem.TranslateTimeRangeBackward(msg.GetBounds()),
 	}, nil
 }

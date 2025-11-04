@@ -15,7 +15,7 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// MockClient for testing (satisfies protocol.Client interface)
+// MockClient for testing (satisfies protocol.Client interface).
 type MockClient struct{}
 
 func (m *MockClient) ShowMessage(context.Context, *protocol.ShowMessageParams) error {

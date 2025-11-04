@@ -118,8 +118,10 @@ func (h *httpUnaryImplementation) start(host address.Address) (unaryServer, unar
 		}
 	}()
 	Eventually(func(g Gomega) {
-		_, err := http.Get("http://" + host.String() + "/health")
+		resp, err := http.Get("http://" + host.String() + "/health")
 		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(resp.StatusCode).To(Equal(fiber.StatusOK))
+		g.Expect(resp.Body.Close()).To(Succeed())
 	}).WithPolling(1 * time.Millisecond).Should(Succeed())
 	return server, client
 }

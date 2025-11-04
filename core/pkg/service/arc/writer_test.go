@@ -10,8 +10,6 @@
 package arc_test
 
 import (
-	"fmt"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,7 +41,7 @@ var _ = Describe("Writer", func() {
 					Exec(ctx, tx)).To(Succeed())
 
 				Expect(s.Key).To(Equal(statusKey))
-				Expect(s.Name).To(Equal(fmt.Sprintf("%s Status", a.Name)))
+				Expect(s.Name).To(Equal(a.Name + " Status"))
 				Expect(s.Variant).To(Equal(xstatus.LoadingVariant))
 				Expect(s.Message).To(Equal("Deploying"))
 			})
@@ -68,7 +66,7 @@ var _ = Describe("Writer", func() {
 					Exec(ctx, tx)).To(Succeed())
 
 				Expect(s.Key).To(Equal(statusKey))
-				Expect(s.Name).To(Equal(fmt.Sprintf("%s Status", a.Name)))
+				Expect(s.Name).To(Equal(a.Name + " Status"))
 			})
 
 			It("Should set status with correct parent relationship", func() {

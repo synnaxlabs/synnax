@@ -31,12 +31,12 @@ type Service interface {
 	Writeable
 	ontology.Service
 	Group() group.Group
-	SetCalculationAnalyzer(calc CalculationAnalyzer)
+	SetCalculationAnalyzer(CalculationAnalyzer)
 }
 
 type Writeable interface {
 	Writer
-	NewWriter(tx gorp.Tx) Writer
+	NewWriter(gorp.Tx) Writer
 }
 
 type Readable interface {

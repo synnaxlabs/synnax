@@ -54,7 +54,7 @@ type token struct {
 	tokenType uint32
 }
 
-// extractSemanticTokens parses the document and extracts semantic tokens
+// extractSemanticTokens parses the document and extracts semantic tokens.
 func extractSemanticTokens(content string) []uint32 {
 	var (
 		input  = antlr.NewInputStream(content)

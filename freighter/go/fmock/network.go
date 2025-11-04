@@ -11,9 +11,10 @@ package fmock
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"sync"
 )
 
 // Network is a mock network implementation that is ideal for in-memory testing
@@ -29,7 +30,7 @@ type Network[RQ, RS freighter.Payload] struct {
 	}
 }
 
-// NetworkEntry is a single entry in the network's history. NetworkEntry
+// NetworkEntry is a single entry in the network's history.
 type NetworkEntry[RQ, RS freighter.Payload] struct {
 	Host     address.Address
 	Target   address.Address

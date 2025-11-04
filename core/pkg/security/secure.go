@@ -22,7 +22,6 @@ import (
 // secureProvider implements the Provider interface for use in a secure cluster.
 type secureProvider struct {
 	ProviderConfig
-	loader   *cert.Loader
 	tls      *tls.Certificate
 	certPool *x509.CertPool
 }
@@ -32,7 +31,7 @@ func newSecureProvider(cfg ProviderConfig) (Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := &secureProvider{ProviderConfig: cfg, loader: l, certPool: x509.NewCertPool()}
+	p := &secureProvider{ProviderConfig: cfg, certPool: x509.NewCertPool()}
 	cas, err := l.LoadCAs()
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
@@ -51,7 +50,7 @@ func newSecureProvider(cfg ProviderConfig) (Provider, error) {
 // the list is irrelevant, as prioritization is hard-coded in the go standard library.
 // This is a subset of the cipher suites supported by the go standard library[1], which
 // are also marked as recommended by IETF[2]. Mozilla recommends the same suites because
-// athey provide forward secrecy and authentication[3].
+// they provide forward secrecy and authentication[3].
 //
 // Thanks to the CockroachDB team for this list of cipher suites[4].
 //
@@ -85,10 +84,10 @@ func (p *secureProvider) TLS() *tls.Config {
 // NodePrivate implements KeyProvider.
 func (p *secureProvider) NodePrivate() crypto.PrivateKey { return p.tls.PrivateKey }
 
-func (p *secureProvider) getClientCert(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+func (p *secureProvider) getClientCert(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	return p.tls, nil
 }
 
-func (p *secureProvider) getCert(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+func (p *secureProvider) getCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return p.tls, nil
 }

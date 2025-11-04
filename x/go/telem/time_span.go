@@ -61,7 +61,7 @@ func (ts TimeSpan) ByteSize(rate Rate, density Density) Size {
 	return Size(ts / rate.Period() * TimeSpan(density))
 }
 
-// String returns a string representation of the TimeSpan
+// String returns a string representation of the TimeSpan.
 func (ts TimeSpan) String() string {
 	adjusted := ts
 	if adjusted == 0 {

@@ -16,11 +16,9 @@ import (
 	"io"
 	"time"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
-	"github.com/synnaxlabs/alamos"
-
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -123,7 +121,7 @@ func (c Config) Validate() error {
 }
 
 // Relay is the central mechanism for streaming real-time telemetry within the
-// distribution layer. It moves
+// distribution layer.
 type Relay struct {
 	cfg      Config
 	ins      alamos.Instrumentation
@@ -198,7 +196,7 @@ func (r *Relay) connectToDelta(buf int) (confluence.Outlet[Response], observe.Di
 		// inside the relay.
 		c := make(chan struct{})
 		go func() {
-			confluence.Drain[Response](data)
+			confluence.Drain(data)
 			close(c)
 		}()
 		r.delta.Disconnect(data)

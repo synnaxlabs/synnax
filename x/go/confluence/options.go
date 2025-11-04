@@ -17,7 +17,7 @@ import (
 )
 
 type Options struct {
-	// Signal is a slice of signal.RoutineOptions defining the behaviour of the goroutine
+	// Signal is a slice of signal.RoutineOptions defining the behavior of the goroutine
 	// running the segment.
 	Signal []signal.RoutineOption
 	// CloseOutputInletsOnExit indicates that the segment should close the inlets to the
@@ -86,7 +86,7 @@ func WithRetryOnPanic(maxRetries ...int) Option {
 
 // WithBaseRetryInterval sets the base interval for the breaker used to restart the
 // segment. The base retry interval is how much time the breaker waits before trying
-// to restart for the first time. (Default: 1 second)
+// to restart for the first time. (Default: 1 second).
 func WithBaseRetryInterval(retryInterval time.Duration) Option {
 	return func(fo *Options) {
 		fo.Signal = append(fo.Signal, signal.WithBaseRetryInterval(retryInterval))
@@ -94,7 +94,7 @@ func WithBaseRetryInterval(retryInterval time.Duration) Option {
 }
 
 // WithRetryScale sets the scale on the breaker used to restart the scale. The scale
-// defines the rate by which the interval between two retries grow. (Default: 1)
+// defines the rate by which the interval between two retries grow. (Default: 1).
 func WithRetryScale(scale float32) Option {
 	return func(fo *Options) {
 		fo.Signal = append(fo.Signal, signal.WithRetryScale(scale))

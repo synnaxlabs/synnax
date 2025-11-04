@@ -18,9 +18,9 @@ import (
 )
 
 const (
-	// TimeStampMin represents the minimum value for a TimeStamp
+	// TimeStampMin represents the minimum value for a TimeStamp.
 	TimeStampMin = TimeStamp(0)
-	// TimeStampMax represents the maximum value for a TimeStamp
+	// TimeStampMax represents the maximum value for a TimeStamp.
 	TimeStampMax = TimeStamp(^uint64(0) >> 1)
 )
 
@@ -56,7 +56,7 @@ func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
 
 // String returns the timestamp in the string format. All digits after are truncated.
 // "2006-01-02T15:04:05.999Z"
-// String implements fmt.Stringer
+// String implements fmt.Stringer.
 func (ts TimeStamp) String() string {
 	if ts == TimeStampMax {
 		return "end of time"

@@ -26,15 +26,13 @@ import (
 )
 
 type unaryServer[RQ, RS freighter.Payload] struct {
-	serverOptions
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	handle   func(ctx context.Context, rq RQ) (RS, error)
+	handle   func(context.Context, RQ) (RS, error)
 	internal bool
-	path     string
 }
 
-func (s *unaryServer[RQ, RS]) BindHandler(handle func(ctx context.Context, rq RQ) (RS, error)) {
+func (s *unaryServer[RQ, RS]) BindHandler(handle func(context.Context, RQ) (RS, error)) {
 	s.handle = handle
 }
 
@@ -115,7 +113,13 @@ func (u *unaryClient[RQ, RS]) Send(
 				}
 				return outCtx, errors.Decode(ctx, pld)
 			}
-			return outCtx, u.codec.DecodeStream(outCtx, httpRes.Body, &res)
+			if err := u.codec.DecodeStream(outCtx, httpRes.Body, &res); err != nil {
+				return outCtx, err
+			}
+			if err := httpRes.Body.Close(); err != nil {
+				return outCtx, err
+			}
+			return outCtx, nil
 		}),
 	)
 	return res, err

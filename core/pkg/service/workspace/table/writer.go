@@ -25,7 +25,6 @@ import (
 type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
-	otg       *ontology.Ontology
 }
 
 // Create creates the given table within the workspace provided. If the table does not

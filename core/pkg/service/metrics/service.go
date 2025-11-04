@@ -153,15 +153,15 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	p := plumber.New()
-	plumber.SetSegment[framer.WriterRequest, framer.WriterResponse](p, writerAddr, w)
-	plumber.SetSource[framer.WriterRequest](p, collectorAddr, c)
+	plumber.SetSegment(p, writerAddr, w)
+	plumber.SetSource(p, collectorAddr, c)
 	o := confluence.NewObservableSubscriber[framer.WriterResponse]()
-	o.OnChange(func(ctx context.Context, response framer.WriterResponse) {
+	o.OnChange(func(_ context.Context, response framer.WriterResponse) {
 		if response.Err != nil {
 			cfg.L.Error("failed to write metrics to node", zap.Error(response.Err))
 		}
 	})
-	plumber.SetSink[framer.WriterResponse](p, loggerAddr, o)
+	plumber.SetSink(p, loggerAddr, o)
 	plumber.MustConnect[framer.WriterRequest](p, collectorAddr, writerAddr, channelBufferSize)
 	plumber.MustConnect[framer.WriterResponse](p, writerAddr, loggerAddr, channelBufferSize)
 	s.shutdown = signal.NewGracefulShutdown(sCtx, cancel)

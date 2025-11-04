@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/errors"
@@ -25,14 +24,14 @@ import (
 )
 
 // Retrieve is used to retrieve information about Channel(s) in the synnax distribution
-// layer
+// layer.
 type Retrieve struct {
 	tx                        gorp.Tx
 	gorp                      gorp.Retrieve[Key, Channel]
 	otg                       *ontology.Ontology
 	keys                      Keys
 	searchTerm                string
-	validateRetrievedChannels func(channels []Channel) ([]Channel, error)
+	validateRetrievedChannels func([]Channel) ([]Channel, error)
 }
 
 // Search sets the search term for the query. Note that the fuzzy search will be executed
@@ -139,7 +138,8 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp.Limit(limit); return r }
 // gorp.Retrieve.
 func (r Retrieve) Offset(offset int) Retrieve { r.gorp.Offset(offset); return r }
 
-// Exec executes the query, binding
+// Exec executes the query, binding the results to the Channel or slice of Channels
+// provided to the Entry or Entries method.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if r.searchTerm != "" {
 		ids, err := r.otg.SearchIDs(ctx, search.Request{
