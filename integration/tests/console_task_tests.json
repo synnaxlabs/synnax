@@ -33,7 +33,7 @@
     },
     {
       "sequence_name": "NI Analog Forms 2",
-    "sequence_order": "asynchronous",
+      "sequence_order": "asynchronous",
       "tests": [
         {
           "case": "console/task/ni_analog_read_forms",

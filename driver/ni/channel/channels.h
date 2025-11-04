@@ -1427,7 +1427,7 @@ struct CITwoEdgeSep final : CICustomScale {
 /// @brief Counter input linear velocity measurement channel.
 /// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateci
 /// linvelocitychan.html
-struct CILinearVelocity final : CounterCustomScale {
+struct CILinearVelocity final : CICustomScale {
     const int32_t decoding_type;
     const double dist_per_pulse;
     const std::string terminal_a;
@@ -1435,11 +1435,14 @@ struct CILinearVelocity final : CounterCustomScale {
 
     explicit CILinearVelocity(xjson::Parser &cfg):
         Base(cfg),
-        CounterCustomScale(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
         decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
         dist_per_pulse(cfg.required<double>("dist_per_pulse")),
         terminal_a(cfg.optional<std::string>("terminalA", "")),
         terminal_b(cfg.optional<std::string>("terminalB", "")) {}
+
+    using Base::apply;
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1463,7 +1466,7 @@ struct CILinearVelocity final : CounterCustomScale {
 /// @brief Counter input angular velocity measurement channel.
 /// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecia
 /// ngvelocitychan.html
-struct CIAngularVelocity final : CounterCustomScale {
+struct CIAngularVelocity final : CICustomScale {
     const int32_t decoding_type;
     const uint32_t pulses_per_rev;
     const std::string terminal_a;
@@ -1471,11 +1474,14 @@ struct CIAngularVelocity final : CounterCustomScale {
 
     explicit CIAngularVelocity(xjson::Parser &cfg):
         Base(cfg),
-        CounterCustomScale(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
         decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
         pulses_per_rev(cfg.required<uint32_t>("pulses_per_rev")),
         terminal_a(cfg.optional<std::string>("terminalA", "")),
         terminal_b(cfg.optional<std::string>("terminalB", "")) {}
+
+    using Base::apply;
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1499,7 +1505,7 @@ struct CIAngularVelocity final : CounterCustomScale {
 /// @brief Counter input linear position measurement channel.
 /// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecil
 /// inencoderchan.html
-struct CILinearPosition final : CounterCustomScale {
+struct CILinearPosition final : CICustomScale {
     const int32_t decoding_type;
     const double dist_per_pulse;
     const double initial_pos;
@@ -1512,7 +1518,8 @@ struct CILinearPosition final : CounterCustomScale {
 
     explicit CILinearPosition(xjson::Parser &cfg):
         Base(cfg),
-        CounterCustomScale(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
         decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
         dist_per_pulse(cfg.required<double>("dist_per_pulse")),
         initial_pos(cfg.optional<double>("initial_pos", 0.0)),
@@ -1524,6 +1531,8 @@ struct CILinearPosition final : CounterCustomScale {
         terminal_a(cfg.optional<std::string>("terminalA", "")),
         terminal_b(cfg.optional<std::string>("terminalB", "")),
         terminal_z(cfg.optional<std::string>("terminalZ", "")) {}
+
+    using Base::apply;
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1549,7 +1558,7 @@ struct CILinearPosition final : CounterCustomScale {
 /// @brief Counter input angular position measurement channel.
 /// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecia
 /// ngencoderchan.html
-struct CIAngularPosition final : CounterCustomScale {
+struct CIAngularPosition final : CICustomScale {
     const int32_t decoding_type;
     const uint32_t pulses_per_rev;
     const double initial_angle;
@@ -1562,7 +1571,8 @@ struct CIAngularPosition final : CounterCustomScale {
 
     explicit CIAngularPosition(xjson::Parser &cfg):
         Base(cfg),
-        CounterCustomScale(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
         decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
         pulses_per_rev(cfg.required<uint32_t>("pulses_per_rev")),
         initial_angle(cfg.optional<double>("initial_angle", 0.0)),
@@ -1574,6 +1584,8 @@ struct CIAngularPosition final : CounterCustomScale {
         terminal_a(cfg.optional<std::string>("terminalA", "")),
         terminal_b(cfg.optional<std::string>("terminalB", "")),
         terminal_z(cfg.optional<std::string>("terminalZ", "")) {}
+
+    using Base::apply;
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1604,9 +1616,12 @@ struct CIDutyCycle final : CICustomScale {
 
     explicit CIDutyCycle(xjson::Parser &cfg):
         Base(cfg),
+        Counter(cfg),
         CICustomScale(cfg),
-        edge(get_edge(cfg.required<std::string>("activeEdge"))),
+        edge(get_ci_edge(cfg.required<std::string>("activeEdge"))),
         terminal(cfg.optional<std::string>("terminal", "")) {}
+
+    using Base::apply;
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
