@@ -448,32 +448,14 @@ func Uint32() NumberZ { return Number().Uint32() }
 // Uint64 is a schema that validates uint64 numbers.
 func Uint64() NumberZ { return Number().Uint64() }
 
-// Float32 is a schema that validates float32 numbers.
-func Float32() NumberZ { return Number().Float32() }
-
 // Float64 is a schema that validates float64 numbers.
 func Float64() NumberZ { return Number().Float64() }
 
 // Int is a schema that validates integer numbers.
 func Int() NumberZ { return Number().Int() }
 
-// Int8 is a schema that validates int8 numbers.
-func Int8() NumberZ { return Number().Int8() }
-
-// Int16 is a schema that validates int16 numbers.
-func Int16() NumberZ { return Number().Int16() }
-
-// Int32 is a schema that validates int32 numbers.
-func Int32() NumberZ { return Number().Int32() }
-
 // Int64 is a schema that validates int64 numbers.
 func Int64() NumberZ { return Number().Int64() }
-
-// Uint is a schema that validates uint numbers.
-func Uint() NumberZ { return Number().Uint() }
-
-// Uint8 is a schema that validates uint8 numbers.
-func Uint8() NumberZ { return Number().Uint8() }
 
 // Uint16 is a schema that validates uint16 numbers.
 func Uint16() NumberZ { return Number().Uint16() }

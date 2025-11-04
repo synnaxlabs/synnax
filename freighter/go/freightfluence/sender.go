@@ -165,35 +165,6 @@ func (s MapTargetedSender[M]) Close() error {
 	return c.Error()
 }
 
-type ClientTargetedSender[RQ, RS freighter.Payload] struct {
-	Transport freighter.StreamClient[RQ, RS]
-	MapTargetedSender[RQ]
-}
-
-func (c ClientTargetedSender[RQ, RS]) Send(ctx context.Context, target address.Address, req RQ) error {
-	sender, ok := c.MapTargetedSender[target]
-	if !ok {
-		if err := c.open(ctx, target); err != nil {
-			return err
-		}
-		sender = c.MapTargetedSender[target]
-	}
-	return sender.Send(req)
-}
-
-func (c ClientTargetedSender[RQ, RS]) Close() error {
-	return c.MapTargetedSender.Close()
-}
-
-func (c ClientTargetedSender[RQ, RS]) open(ctx context.Context, target address.Address) error {
-	stream, err := c.Transport.Stream(ctx, target)
-	if err != nil {
-		return err
-	}
-	c.MapTargetedSender[target] = stream
-	return nil
-}
-
 // SwitchSender wraps a map of freighter.StreamSenderCloser to provide a confluence
 // compatible interface for sending messages over a network freighter. SwitchSender
 // receives a value, resolves its target address through a SwitchFunc, and sends it

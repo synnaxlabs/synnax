@@ -107,14 +107,6 @@ func WithKeyf(format string, args ...any) RoutineOption {
 	}
 }
 
-// AddCallerSkip sets the callerSkip on the routine. The callerSkip is the number of
-// stacks to skip when logging.
-func AddCallerSkip(skip int) RoutineOption {
-	return func(r *routineOptions) {
-		r.callerSkip = skip
-	}
-}
-
 type deferral struct {
 	key string
 	f   func() error

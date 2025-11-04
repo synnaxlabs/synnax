@@ -44,18 +44,6 @@ func OntologyIDsFromLinePlots(lps []LinePlot) []ontology.ID {
 	})
 }
 
-// KeysFromOntologyIDs extracts the keys of the schematics from the ontology IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
-	keys = make([]uuid.UUID, len(ids))
-	for i, id := range ids {
-		keys[i], err = uuid.Parse(id.Key)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
-}
-
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":  zyn.UUID(),
 	"name": zyn.String(),

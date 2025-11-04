@@ -16,25 +16,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-// ObservablePublisher is a Source that subscribes to an ObservableSubscriber and
-// publishes the values to its outlets.
-type ObservablePublisher[V Value] struct {
-	AbstractUnarySource[V]
-	observe.Observable[V]
-}
-
-// Flow implements the Flow interface.
-func (s *ObservablePublisher[V]) Flow(ctx signal.Context, opts ...Option) {
-	ctx.Go(func(ctx context.Context) error {
-		remove := s.OnChange(func(ctx context.Context, v V) {
-			_ = signal.SendUnderContext(ctx, s.Out.Inlet(), v)
-		})
-		<-ctx.Done()
-		remove()
-		return ctx.Err()
-	})
-}
-
 // ObservableTransformPublisher is a Source that subscribes to an ObservableSubscriber,
 // transforms the value through a provided transform function, and publishes the
 // transformed value to its outlets.

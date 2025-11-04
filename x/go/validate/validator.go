@@ -47,10 +47,6 @@ func (v *Validator) New(msg string) error {
 	return errors.Wrapf(Error, "[%s] - "+msg, v.scope)
 }
 
-func (v *Validator) Newf(format string, args ...any) error {
-	return errors.Wrapf(Error, "[%s] - "+format, append([]any{v.scope}, args...)...)
-}
-
 func (v *Validator) Func(f func() bool, msg string) bool {
 	v.Exec(func() error { return lo.Ternary(f(), v.New(msg), nil) })
 	return v.Error() != nil

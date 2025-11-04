@@ -45,14 +45,6 @@ func NewMockAST(id int) *MockAST {
 	}
 }
 
-// NewMockASTWithLocation creates a new mock AST node with the given ID and source location.
-func NewMockASTWithLocation(id, line, column int) *MockAST {
-	return &MockAST{
-		id:    id,
-		token: &MockToken{line: line, column: column},
-	}
-}
-
 // GetStart returns the start token for this AST node.
 func (m *MockAST) GetStart() antlr.Token {
 	return m.token

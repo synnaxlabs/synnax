@@ -37,18 +37,6 @@ func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	})
 }
 
-// KeysFromOntologyIDs extracts the keys of the schematics from the ontology IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
-	keys = make([]uuid.UUID, len(ids))
-	for i, id := range ids {
-		keys[i], err = uuid.Parse(id.Key)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
-}
-
 // OntologyIDsFromSchematics returns the ontology IDs of the schematics.
 func OntologyIDsFromSchematics(schematics []Schematic) []ontology.ID {
 	return lo.Map(schematics, func(s Schematic, _ int) ontology.ID {

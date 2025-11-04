@@ -89,12 +89,6 @@ func KeysFromChannels(channels []Channel) (keys Keys) {
 	return lo.Map(channels, func(channel Channel, _ int) Key { return channel.Key() })
 }
 
-func NameMap(channels []Channel) map[string]Key {
-	return lo.SliceToMap(channels, func(item Channel) (string, Key) {
-		return item.Name, item.Key()
-	})
-}
-
 // Names returns the names of the channels.
 func Names(channels []Channel) []string {
 	return lo.Map(channels, func(channel Channel, _ int) string { return channel.Name })

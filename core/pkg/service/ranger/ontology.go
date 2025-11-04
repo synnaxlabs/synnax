@@ -52,11 +52,6 @@ func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
 	return keys, nil
 }
 
-// OntologyIDsFromRanges converts a slice of ranges to a slice of ontology IDs.
-func OntologyIDsFromRanges(ranges []Range) []ontology.ID {
-	return lo.Map(ranges, func(r Range, _ int) ontology.ID { return OntologyID(r.Key) })
-}
-
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":        zyn.UUID(),
 	"name":       zyn.String(),
