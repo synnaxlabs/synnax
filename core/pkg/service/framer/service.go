@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/x/config"
@@ -128,6 +129,11 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	alloc := graph.New(graph.Config{
+		Channel:        cfg.Channel,
+		SymbolResolver: cfg.Arc.SymbolResolver(),
+	})
 	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation:          cfg.Child("calculated"),
 		DB:                       cfg.DB,
@@ -136,6 +142,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		Arc:                      cfg.Arc,
 		ChannelObservable:        cfg.Channel.NewObservable(),
 		EnableLegacyCalculations: cfg.EnableLegacyCalculations,
+		Allocator:                alloc,
 	})
 	if err != nil {
 		return nil, err

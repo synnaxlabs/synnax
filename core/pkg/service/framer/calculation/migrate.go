@@ -31,6 +31,7 @@ func (s *Service) migrateChannels(ctx context.Context) error {
 		writer := s.cfg.Channel.NewWriter(tx)
 		for _, calc := range legacyCalculations {
 			if _, err := compiler.Compile(ctx, compiler.Config{
+				Channels:       s.cfg.Channel,
 				Channel:        calc,
 				SymbolResolver: resolver,
 			}); err == nil {

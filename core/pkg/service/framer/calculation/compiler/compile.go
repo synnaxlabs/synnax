@@ -19,12 +19,14 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type Config struct {
+	Channels       channel.Readable
 	Channel        channel.Channel
 	SymbolResolver arc.SymbolResolver
 }
@@ -38,6 +40,7 @@ var (
 func (c Config) Override(other Config) Config {
 	c.Channel = other.Channel
 	c.SymbolResolver = override.Nil(c.SymbolResolver, other.SymbolResolver)
+	c.Channels = override.Nil(c.Channels, other.Channels)
 	return c
 }
 
@@ -46,6 +49,7 @@ func (c Config) Validate() error {
 	v := validate.New("arc.runtime")
 	validate.NotNil(v, "resolver", c.SymbolResolver)
 	validate.NonZero(v, "channel.key", c.Channel.Key())
+	validate.NotNil(v, "channels", c.Channels)
 	return v.Error()
 }
 
@@ -65,14 +69,20 @@ func preProcess(ctx context.Context, cfg Config) (arc.Module, error) {
 	return arc.CompileGraph(ctx, g, arc.WithResolver(cfg.SymbolResolver))
 }
 
-func Compile(ctx context.Context, cfgs ...Config) (arc.Module, error) {
+type Module struct {
+	Channel     channel.Channel
+	StateConfig runtime.ExtendedStateConfig
+	arc.Module
+}
+
+func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 	cfg, err := config.New(DefaultCalculatorConfig, cfgs...)
 	if err != nil {
-		return arc.Module{}, err
+		return Module{}, err
 	}
 	preProcessed, err := preProcess(ctx, cfg)
 	if err != nil {
-		return arc.Module{}, err
+		return Module{}, err
 	}
 	calcFn := preProcessed.Functions[0]
 	g := arc.Graph{
@@ -150,10 +160,11 @@ func Compile(ctx context.Context, cfgs ...Config) (arc.Module, error) {
 	for k, v := range calcFn.Channels.Read {
 		sym, err := cfg.SymbolResolver.Resolve(ctx, v)
 		if err != nil {
-			return arc.Module{}, err
+			return Module{}, err
 		}
 		g.Functions[0].Inputs = append(
-			g.Functions[0].Inputs, types.Param{Name: sym.Name, Type: *sym.Type.ValueType},
+			g.Functions[0].Inputs,
+			types.Param{Name: sym.Name, Type: *sym.Type.ValueType},
 		)
 		g.Nodes = append(g.Nodes, graph.Node{
 			Key:    sym.Name,
@@ -166,5 +177,10 @@ func Compile(ctx context.Context, cfgs ...Config) (arc.Module, error) {
 		})
 	}
 
-	return arc.CompileGraph(ctx, g, arc.WithResolver(cfg.SymbolResolver))
+	mod, err := arc.CompileGraph(ctx, g, arc.WithResolver(cfg.SymbolResolver))
+	stateCfg, err := runtime.NewStateConfig(ctx, cfg.Channels, mod)
+	if err != nil {
+		return Module{}, err
+	}
+	return Module{Channel: cfg.Channel, StateConfig: stateCfg, Module: mod}, nil
 }

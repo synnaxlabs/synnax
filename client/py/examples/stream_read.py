@@ -23,7 +23,7 @@ client = sy.Synnax()
 
 # We can just specify the names of the channels we'd like to stream from. These channels
 # were created by running the `stream_write.py`` script.
-channels = ["stream_write_time", "stream_write_data_1", "stream_write_data_2"]
+channels = ["stream_write_weird"]
 
 # We will open the streamer with a context manager. The context manager will
 # automatically close the streamer after we're done reading.

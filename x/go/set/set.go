@@ -99,3 +99,26 @@ func (s Mapped[T, V]) Values() []V {
 	}
 	return values
 }
+
+// Equals checks if two sets contain exactly the same elements.
+func (s Mapped[T, V]) Equals(other Mapped[T, V]) bool {
+	if len(s) != len(other) {
+		return false
+	}
+	for k := range s {
+		if !other.Contains(k) {
+			return false
+		}
+	}
+	return true
+}
+
+// Subset checks if s is a subset of other (all elements of s are in other).
+func (s Mapped[T, V]) Subset(other Mapped[T, V]) bool {
+	for k := range s {
+		if !other.Contains(k) {
+			return false
+		}
+	}
+	return true
+}

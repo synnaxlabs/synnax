@@ -12,7 +12,6 @@ package calculator
 import (
 	"context"
 
-	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
@@ -27,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -45,8 +45,7 @@ type Calculator struct {
 }
 
 type Config struct {
-	Channels            channel.Service
-	Module              arc.Module
+	Module              compiler.Module
 	CalculateAlignments *bool
 }
 
@@ -59,8 +58,8 @@ var (
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
-	c.Channels = override.Nil(c.Channels, other.Channels)
 	c.CalculateAlignments = override.Nil(c.CalculateAlignments, other.CalculateAlignments)
+	c.Module = override.Zero(c.Module, other.Module)
 	return c
 }
 
@@ -68,7 +67,6 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("arc.runtime")
 	validate.NotNil(v, "calculate_alignments", c.CalculateAlignments)
-	validate.NotNil(v, "channels", c.Channels)
 	validate.NonZeroable(v, "module", c.Module)
 	return v.Error()
 }
@@ -86,12 +84,8 @@ func Open(
 	if err != nil {
 		return nil, err
 	}
-	stateCfg, err := arcruntime.NewStateConfig(ctx, cfg.Channels, cfg.Module)
-	if err != nil {
-		return nil, err
-	}
-	progState := state.New(stateCfg.State)
 
+	progState := state.New(cfg.Module.StateConfig.State)
 	telemFactory := ntelem.NewTelemFactory()
 	selectFactory := selector.NewFactory()
 	constantFactory := constant.NewFactory()
@@ -99,7 +93,7 @@ func Open(
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
 	wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
-		Module: cfg.Module,
+		Module: cfg.Module.Module,
 	})
 	if err != nil {
 		return nil, err
@@ -121,7 +115,7 @@ func Open(
 	for _, irNode := range cfg.Module.Nodes {
 		n, err := f.Create(ctx, node.Config{
 			Node:   irNode,
-			Module: cfg.Module,
+			Module: cfg.Module.Module,
 			State:  progState.Node(irNode.Key),
 		})
 		if err != nil {
@@ -133,7 +127,10 @@ func Open(
 	sched := scheduler.New(ctx, cfg.Module.IR, nodes)
 	sched.Init(ctx)
 	alignments := make(map[channel.Key]telem.Alignment)
-	for _, ch := range stateCfg.State.ChannelDigests {
+	for _, ch := range cfg.Module.StateConfig.State.ChannelDigests {
+		if ch.Key == uint32(cfg.Module.Channel.Key()) {
+			continue
+		}
 		if ch.Index == 0 {
 			alignments[channel.Key(ch.Key)] = telem.Alignment(0)
 		} else {
@@ -144,7 +141,7 @@ func Open(
 		cfg:        cfg,
 		scheduler:  sched,
 		state:      progState,
-		stateCfg:   stateCfg,
+		stateCfg:   cfg.Module.StateConfig,
 		alignments: alignments,
 	}, nil
 }
@@ -156,6 +153,8 @@ func (c *Calculator) WriteTo() channel.Keys {
 func (c *Calculator) ReadFrom() channel.Keys {
 	return c.stateCfg.Reads.Keys()
 }
+
+func (c *Calculator) Channel() channel.Channel { return c.cfg.Module.Channel }
 
 // Next executes the next calculation step. It takes in the given frame and determines
 // if enough data is available to perform the next set of calculations. The returned
@@ -202,7 +201,7 @@ func (c *Calculator) Next(
 		changed = true
 	}
 	if !changed {
-		return output, changed, nil
+		return output, false, nil
 	}
 	c.state.ClearReads()
 	if *c.cfg.CalculateAlignments {

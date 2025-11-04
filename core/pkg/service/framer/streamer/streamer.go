@@ -11,6 +11,7 @@ package streamer
 
 import (
 	"context"
+	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -151,6 +152,7 @@ func (s *Service) newCalculationUpdaterTransform(
 		Instrumentation: s.cfg.Instrumentation,
 		c:               s.cfg.Calculation,
 		readable:        s.cfg.Channel,
+		calculator:      make(map[channel.Key]io.Closer),
 	}
 	ut.Transform = ut.transform
 	return ut, ut.update(ctx, cfg.Keys)

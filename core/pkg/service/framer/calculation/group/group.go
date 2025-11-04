@@ -14,7 +14,6 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/address"
@@ -28,17 +27,9 @@ import (
 )
 
 type Group struct {
-	shutdown                    io.Closer
-	addRequests, removeRequests chan *calculator.Calculator
-	streamerRequests            confluence.Inlet[framer.StreamerRequest]
-}
-
-func (g *Group) Add(ctx context.Context, c *calculator.Calculator) error {
-	return signal.SendUnderContext(ctx, g.addRequests, c)
-}
-
-func (g *Group) Remove(c *calculator.Calculator) error {
-	g.removeRequests <- c
+	Calculators      []*calculator.Calculator
+	shutdown         io.Closer
+	streamerRequests confluence.Inlet[framer.StreamerRequest]
 }
 
 func (g *Group) Close() error {
@@ -52,6 +43,7 @@ type Config struct {
 	alamos.Instrumentation
 	Framer         *framer.Service
 	OnStatusChange OnStatusChange
+	Calculators    calculator.Group
 }
 
 var (
@@ -61,12 +53,16 @@ var (
 
 func (c Config) Override(other Config) Config {
 	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.Calculators = override.Slice(c.Calculators, other.Calculators)
+	c.OnStatusChange = override.Nil(c.OnStatusChange, other.OnStatusChange)
 	return c
 }
 
 func (c Config) Validate() error {
 	v := validate.New("calculation.group.config")
 	validate.NotNil(v, "framer", c.Framer)
+	validate.NotEmptySlice(v, "calculators", c.Calculators)
+	validate.NotNil(v, "on_status_change", c.OnStatusChange)
 	return v.Error()
 }
 
@@ -83,12 +79,15 @@ func Open(ctx context.Context, cfgs ...Config) (*Group, error) {
 	if err != nil {
 		return nil, err
 	}
-	strm, err := cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{})
+	strm, err := cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		Keys: cfg.Calculators.ReadFrom(),
+	})
 	if err != nil {
 		return nil, err
 	}
+
 	wrt, err := cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
-		Keys:  channel.Keys{},
+		Keys:  cfg.Calculators.WriteTo(),
 		Start: telem.Now(),
 	})
 	if err != nil {
@@ -100,14 +99,10 @@ func Open(ctx context.Context, cfgs ...Config) (*Group, error) {
 	plumber.SetSegment[framer.WriterRequest, framer.WriterResponse](p, writerAddr, wrt)
 
 	streamerRequests := confluence.NewStream[framer.StreamerRequest](10)
-	addRequests := make(chan *calculator.Calculator, 1)
-	removeRequests := make(chan *calculator.Calculator, 1)
 	strm.InFrom(streamerRequests)
 	c := &transform{
-		base:             &calculator.Group{},
-		addRequests:      addRequests,
-		removeRequests:   removeRequests,
 		streamerRequests: streamerRequests,
+		calculators:      cfg.Calculators,
 		onStatusChange:   cfg.OnStatusChange,
 	}
 
@@ -129,7 +124,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Group, error) {
 	return &Group{
 		shutdown:         signal.NewGracefulShutdown(sCtx, cancel),
 		streamerRequests: streamerRequests,
-		addRequests:      addRequests,
-		removeRequests:   removeRequests,
+		Calculators:      cfg.Calculators,
 	}, nil
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -170,15 +171,6 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
-func (s *Service) openCalculator(ctx context.Context, ch channel.Channel) (*calculator.Calculator, error) {
-	c, err := calculator.Open(ctx, calculator.Config{
-		Channel:        ch,
-		Channels:       s.cfg.Channel,
-		SymbolResolver: s.cfg.Arc.SymbolResolver(),
-	})
-	return c, err
-}
-
 func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*calculationTransform, error) {
 	originalKeys := slices.Clone(cfg.Keys)
 
@@ -191,16 +183,41 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 		return nil, err
 	}
 
-	// Build dependency graph to recursively resolve all nested calculated channels
-	calculators, calculatedKeys, concreteBaseKeys, err := s.buildDependencyGraph(ctx, channels)
-	if err != nil {
-		return nil, err
+	// Use allocator to resolve dependencies and get topological order
+	alloc := graph.New(graph.Config{
+		Channel:        s.cfg.Channel,
+		SymbolResolver: s.cfg.Arc.SymbolResolver(),
+	})
+
+	// Add all calculated channels to the allocator
+	for _, ch := range channels {
+		if ch.IsCalculated() && !ch.IsLegacyCalculated() {
+			if err := alloc.Add(ctx, ch); err != nil {
+				return nil, err
+			}
+		}
 	}
 
+	// Get topologically sorted modules
+	modules := alloc.CalculateFlat()
+
 	// If no calculated channels, no transform needed
-	if len(calculators) == 0 {
+	if len(modules) == 0 {
 		return nil, nil
 	}
+
+	// Open calculators from modules
+	calculators := make([]*calculator.Calculator, 0, len(modules))
+	for _, mod := range modules {
+		calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
+		if err != nil {
+			return nil, err
+		}
+		calculators = append(calculators, calc)
+	}
+
+	calculatedKeys := alloc.CalculatedKeys()
+	concreteBaseKeys := alloc.ConcreteBaseKeys()
 
 	// Fetch concrete base channel metadata to get their indices
 	var concreteBaseChannels []channel.Channel

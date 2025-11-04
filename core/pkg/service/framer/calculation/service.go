@@ -67,7 +67,7 @@ type ServiceConfig struct {
 	// channel engine.
 	// [OPTIONAL] - Default false
 	EnableLegacyCalculations *bool
-	Allocator                Allocator
+	Allocator                Graph
 }
 
 var (
@@ -89,6 +89,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "enable_legacy_calculations", c.EnableLegacyCalculations)
 	validate.NotNil(v, "arc", c.Arc)
 	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "allocator", c.Allocator)
 	return v.Error()
 }
 
@@ -102,26 +103,16 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.EnableLegacyCalculations = override.Nil(c.EnableLegacyCalculations, other.EnableLegacyCalculations)
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Allocator = override.Nil(c.Allocator, other.Allocator)
 	return c
 }
 
-// entry is used to manage the lifecycle of a calculation.
-type entry struct {
-	// channel is the calculated channel.
-	ch channel.Channel
-	// count is the number of active requests for the calculation.
-	count int
-	c     *calculator.Calculator
-	group string
-}
-
-// Service creates and operates calculations on channels.
 type Service struct {
 	cfg ServiceConfig
 	mu  struct {
 		sync.Mutex
-		entries map[channel.Key]*entry
-		groups  map[string]*group.Group
+		calculators map[channel.Key]*calculator.Calculator
+		groups      map[int]*group.Group
 	}
 	disconnectFromChannelChanges observe.Disconnect
 	stateKey                     channel.Key
@@ -131,8 +122,10 @@ type Service struct {
 
 const StatusChannelName = "sy_calculation_status"
 
-type Allocator interface {
-	Allocate() string
+type Graph interface {
+	Add(ctx context.Context, ch channel.Channel) error
+	Remove(key channel.Key) error
+	CalculateGrouped() map[int][]compiler.Module
 }
 
 // OpenService opens the service with the provided configuration. The service must be closed
@@ -176,7 +169,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	s := &Service{cfg: cfg, writer: w, stateKey: calculationStateCh.Key()}
 	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
-	s.mu.entries = make(map[channel.Key]*entry)
+	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
+	s.mu.groups = make(map[int]*group.Group)
 
 	if err = s.migrateChannels(ctx); err != nil {
 		s.cfg.L.Error("failed to migrate legacy calculated channels", zap.Error(err))
@@ -221,67 +215,127 @@ func (s *Service) handleChange(
 	if c.Variant != change.Set || !c.Value.IsCalculated() || c.Value.IsLegacyCalculated() {
 		return
 	}
-	existing, found := s.mu.entries[c.Key]
-	if !found {
-		s.update(ctx, c.Value)
-		return
-	}
-	if existing.ch.Equals(c.Value, "Name") {
-		return
-	}
-	s.update(ctx, c.Value)
-}
-
-func (s *Service) update(ctx context.Context, ch channel.Channel) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	e, found := s.mu.entries[ch.Key()]
+	_, found := s.mu.calculators[c.Key]
 	if !found {
 		return
 	}
-	//e.calculation.Close()
-	//if err := e.shutdown.Close(); err != nil {
-	//	s.cfg.L.Error("failed to close calculated channel", zap.Error(err), zap.Stringer("key", ch))
-	//}
-	delete(s.mu.entries, ch.Key())
-	if _, err := s.startCalculation(ctx, ch.Key(), e.count); err != nil {
-		s.cfg.L.Error("failed to restart calculated channel", zap.Error(err), zap.Stringer("key", ch))
-		// Even if the operation is not successful, we still want to store the
-		// latest requirements and expression in the entry.
-		e.ch.Operations = ch.Operations
-		e.ch.Expression = ch.Expression
-		s.mu.entries[ch.Key()] = e
+	if err := s.cfg.Allocator.Remove(c.Value.Key()); err != nil {
+		s.cfg.L.Error("failed to remove calculator", zap.Error(err))
+	}
+	if err := s.cfg.Allocator.Add(ctx, c.Value); err != nil {
+		s.cfg.L.Error("failed to add calculator", zap.Error(err))
+	}
+	if err := s.rebuildGroups(ctx); err != nil {
+		s.cfg.L.Error("failed to rebuildGroups", zap.Error(err))
 	}
 }
 
 func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {
-	return xio.CloserFunc(func() (err error) {
+	return xio.CloserFunc(func() error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		e, found := s.mu.entries[key]
-		if !found {
-			return
+		return s.releaseEntry(key)
+	})
+}
+
+// releaseEntry recursively releases an entry and its dependencies.
+// Must be called with s.mu locked.
+func (s *Service) releaseEntry(key channel.Key) error {
+	delete(s.mu.calculators, key)
+	if err := s.cfg.Allocator.Remove(key); err != nil {
+		return err
+	}
+	return s.rebuildGroups(context.TODO())
+}
+
+func (s *Service) updateGroup(ctx context.Context, k int, mods []compiler.Module) error {
+	g, ok := s.mu.groups[k]
+	shouldUpdateGroup := true
+	if ok {
+		shouldUpdateGroup = len(g.Calculators) != len(mods)
+		for i, m := range mods {
+			if i >= len(g.Calculators) || !g.Calculators[i].Channel().Equals(m.Channel) {
+				calc, err := calculator.Open(
+					ctx,
+					calculator.Config{Module: m},
+				)
+				if err != nil {
+					return err
+				}
+				s.mu.calculators[calc.Channel().Key()] = calc
+				shouldUpdateGroup = true
+			}
 		}
-		e.count--
-		if e.count != 0 {
-			return
-		}
-		g := s.mu.groups[e.group]
-		if err := g.Remove(e.c); err != nil {
+	}
+	if !shouldUpdateGroup {
+		return nil
+	}
+	if ok {
+		if err := g.Close(); err != nil {
 			return err
 		}
-		s.cfg.L.Debug("closing calculated channel", zap.Stringer("key", key))
-		delete(s.mu.entries, key)
-		return nil
-	})
+	}
+	calculators := make([]*calculator.Calculator, len(mods))
+	for i, m := range mods {
+		calc, ok := s.mu.calculators[m.Channel.Key()]
+		if !ok || !calc.Channel().Equals(m.Channel) {
+			var err error
+			calc, err = calculator.Open(
+				ctx,
+				calculator.Config{Module: m},
+			)
+			if err != nil {
+				return err
+			}
+			s.mu.calculators[calc.Channel().Key()] = calc
+		}
+		calculators[i] = calc
+	}
+	g, err := group.Open(
+		ctx,
+		group.Config{
+			Calculators:    calculators,
+			OnStatusChange: s.setStatus,
+			Framer:         s.cfg.Framer,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	s.mu.groups[k] = g
+	return nil
+}
+
+func (s *Service) rebuildGroups(ctx context.Context) error {
+	groups := s.cfg.Allocator.CalculateGrouped()
+	// Step 1: Close Any Existing Groups that Should not Be Open
+	for k, g := range s.mu.groups {
+		if _, ok := groups[k]; !ok {
+			if err := g.Close(); err != nil {
+				return err
+			}
+		}
+	}
+	// Step 2: Update/Add Any New groups
+	for k, mods := range groups {
+		if err := s.updateGroup(ctx, k, mods); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Close stops all calculations and closes the service. No other methods should be
 // called after Close.
 func (s *Service) Close() error {
+	// Disconnect from channel changes FIRST to prevent new change events
+	// This must be done outside the lock to avoid deadlock with handleChange
+	s.disconnectFromChannelChanges()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.disconnectFromChannelChanges()
 	c := errors.NewCatcher(errors.WithAggregation())
 	for _, g := range s.mu.groups {
 		c.Exec(g.Close)
@@ -298,22 +352,6 @@ func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, erro
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.startCalculation(ctx, key, 1)
-}
-
-func (s *Service) openGroup(ctx context.Context, key string) (*group.Group, error) {
-	if g, ok := s.mu.groups[key]; ok {
-		return g, nil
-	}
-	g, err := group.Open(ctx, group.Config{
-		Instrumentation: s.cfg.Instrumentation,
-		Framer:          s.cfg.Framer,
-		OnStatusChange:  s.setStatus,
-	})
-	if err != nil {
-		return nil, err
-	}
-	s.mu.groups[key] = g
-	return g, nil
 }
 
 func (s *Service) startCalculation(
@@ -335,33 +373,10 @@ func (s *Service) startCalculation(
 		if ch.IsLegacyCalculated() {
 			return s.legacy.Request(ctx, ch.Key())
 		}
-		if _, exists := s.mu.entries[key]; exists {
-			s.mu.entries[key].count++
-			return s.releaseEntryCloser(key), nil
-		}
-
-		mod, err := compiler.Compile(ctx, compiler.Config{
-			Channel:        ch,
-			SymbolResolver: s.cfg.Arc.SymbolResolver(),
-		})
-		if err != nil {
+		if err := s.cfg.Allocator.Add(ctx, ch); err != nil {
 			return nil, err
 		}
-
-		c, err := calculator.Open(ctx, calculator.Config{
-			Channels:            s.cfg.Channel,
-			Module:              mod,
-			CalculateAlignments: config.False(),
-		})
-		if err != nil {
-			return nil, err
-		}
-		gKey := s.cfg.Allocator.Allocate()
-		g, err := s.openGroup(ctx, gKey)
-		if err != nil {
-			return nil, err
-		}
-		if err := g.Add(ctx, c); err != nil {
+		if err := s.rebuildGroups(ctx); err != nil {
 			return nil, err
 		}
 		s.cfg.L.Debug("started calculated channel", zap.Stringer("key", key))

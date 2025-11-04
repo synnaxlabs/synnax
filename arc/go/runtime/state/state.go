@@ -122,10 +122,11 @@ func (s *State) writeChannel(key uint32, data, time telem.Series) {
 // This is typically called after processing channel reads to prepare for the next batch of data.
 // Unlike FlushWrites, ClearReads does not extract data; it simply discards buffered channel reads.
 func (s *State) ClearReads() {
-	for key, ser := range s.channel.reads {
-		ser.Series = ser.Series[:0]
-		s.channel.reads[key] = ser
-	}
+	s.channel.reads = make(map[uint32]telem.MultiSeries)
+	//for key, ser := range s.channel.reads {
+	//	ser.Series = ser.Series[:0]
+	//	s.channel.reads[key] = ser
+	//}
 }
 
 // Node creates a node-specific state accessor for the given node key.

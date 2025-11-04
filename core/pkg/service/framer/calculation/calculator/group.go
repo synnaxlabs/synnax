@@ -11,8 +11,8 @@ package calculator
 
 import (
 	"context"
+	"fmt"
 	"go/types"
-	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -23,50 +23,54 @@ import (
 
 type Status = status.Status[types.Nil]
 
-type Group struct {
-	calculators []*Calculator
-}
+type Group []*Calculator
 
-func (g *Group) Add(c *Calculator) {
-	g.calculators = append(g.calculators, c)
-}
-
-func (g *Group) ReadFrom() channel.Keys {
+func (g Group) ReadFrom() channel.Keys {
 	keys := make(set.Set[channel.Key])
-	for _, c := range g.calculators {
+	for _, c := range g {
 		keys.Add(c.ReadFrom()...)
 	}
 	return keys.Keys()
 }
 
-func (g *Group) Remove(c *Calculator) {
-	slices.Delete(g.calculators, slices.Index(g.calculators, c), 1)
+func (g Group) WriteTo() channel.Keys {
+	keys := make(set.Set[channel.Key])
+	for _, c := range g {
+		keys.Add(c.WriteTo()...)
+	}
+	return keys.Keys()
 }
 
-func (g *Group) Next(
+func (g Group) Next(
 	ctx context.Context,
 	input framer.Frame,
-) (output framer.Frame, changed bool, err error) {
+) (output framer.Frame, changed bool, statuses []Status) {
 	var (
 		changedLocal bool
-		localErr     error
+		err          error
 	)
-	for _, c := range g.calculators {
-		output, changedLocal, localErr = c.Next(ctx, input, output)
-		if localErr != nil {
-			err = localErr
+	output = input.ShallowCopy()
+	for _, c := range g {
+		output, changedLocal, err = c.Next(ctx, output, output)
+		if err != nil {
+			statuses = append(statuses, Status{
+				Key:         c.Channel().Key().String(),
+				Variant:     status.ErrorVariant,
+				Message:     fmt.Sprintf("calcualtion for %s failed", c.Channel()),
+				Description: err.Error(),
+			})
 			continue
 		}
 		if changedLocal {
 			changed = changedLocal
 		}
 	}
-	return output, changed, err
+	return output, changed, statuses
 }
 
-func (g *Group) Close() error {
+func (g Group) Close() error {
 	c := errors.NewCatcher(errors.WithAggregation())
-	for _, calc := range g.calculators {
+	for _, calc := range g {
 		c.Exec(calc.Close)
 	}
 	return c.Error()

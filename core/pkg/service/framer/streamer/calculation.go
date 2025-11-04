@@ -11,30 +11,37 @@ package streamer
 
 import (
 	"context"
+	"io"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/confluence"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 )
 
 type calculationUpdaterTransform struct {
 	alamos.Instrumentation
-	c        *calculation.Service
-	readable channel.Readable
-	closer   xio.MultiCloser
+	c          *calculation.Service
+	readable   channel.Readable
+	calculator map[channel.Key]io.Closer
 	confluence.LinearTransform[Request, framer.StreamerRequest]
 }
 
 var _ confluence.Segment[Request, framer.StreamerRequest] = &calculationUpdaterTransform{}
 
 func (t *calculationUpdaterTransform) update(ctx context.Context, keys []channel.Key) error {
-	if err := t.closer.Close(); err != nil {
-		return err
+	for k, closer := range t.calculator {
+		if !lo.Contains(keys, k) {
+			if err := closer.Close(); err != nil {
+				return err
+			}
+		}
+
 	}
 	var channels []channel.Channel
 	if err := t.readable.NewRetrieve().WhereKeys(keys...).Entries(&channels).Exec(ctx, nil); err != nil {
@@ -46,7 +53,7 @@ func (t *calculationUpdaterTransform) update(ctx context.Context, keys []channel
 			if err != nil {
 				return err
 			}
-			t.closer = append(t.closer, closer)
+			t.calculator[ch.Key()] = closer
 		}
 	}
 	return nil
@@ -61,7 +68,11 @@ func (t *calculationUpdaterTransform) transform(ctx context.Context, req Request
 
 func (t *calculationUpdaterTransform) Flow(ctx signal.Context, opts ...confluence.Option) {
 	t.LinearTransform.Flow(ctx, append(opts, confluence.Defer(func() {
-		if err := t.closer.Close(); err != nil {
+		c := errors.NewCatcher(errors.WithAggregation())
+		for _, calc := range t.calculator {
+			c.Exec(calc.Close)
+		}
+		if err := c.Error(); err != nil {
 			t.L.Error("failed to close calculated channels", zap.Error(err))
 		}
 	}))...)
