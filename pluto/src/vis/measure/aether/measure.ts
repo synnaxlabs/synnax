@@ -7,7 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, color, scale, TimeSpan, xy } from "@synnaxlabs/x";
+import {
+  bounds,
+  box,
+  color,
+  math,
+  scale,
+  TimeSpan,
+  TimeStamp,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -17,7 +26,7 @@ import { Draw2D } from "@/vis/draw2d";
 import { type FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
-export const modeZ = z.enum(["one", "two", "clear", "empty"]);
+export const modeZ = z.enum(["one", "two"]);
 export type Mode = z.infer<typeof modeZ>;
 
 export const measureStateZ = z.object({
@@ -46,6 +55,8 @@ interface InternalState {
   draw: Draw2D;
   dataOne: xy.XY | null;
   dataTwo: xy.XY | null;
+  dotColor: color.Color;
+  dotColorContrast: color.Color;
 }
 
 const measureModeText = (mode: Mode): string => {
@@ -65,6 +76,8 @@ const LABEL_VALUE_SPACING = 3;
 
 const HOVER_CIRCLE_OUTER_RADIUS = 9;
 const HOVER_CIRCLE_INNER_RADIUS = 8;
+const HOVER_CIRCLE_STROKE_WIDTH = 2;
+const HOVER_CIRCLE_LINE_DASH = 2;
 
 const POINT_CIRCLE_RADIUS_OUTER = 8;
 const POINT_CIRCLE_RADIUS_MID = 5;
@@ -83,6 +96,11 @@ const LABEL_OFFSET_VERY_CLOSE_X_DOWN = 40;
 const LABEL_OVERLAP_X_THRESHOLD = 100;
 const LABEL_OVERLAP_Y_THRESHOLD = 30;
 
+const POINT_LABEL_OFFSET = 15;
+const POINT_LABEL_SPACING = 8;
+
+const TIME_FORMAT_THRESHOLD_MS = 10;
+
 export interface MeasureProps {
   findByXDecimal: (target: number) => FindResult[];
   findByXValue: (target: number) => FindResult[];
@@ -99,6 +117,8 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     this.internal.renderCtx = renderCtx;
     this.internal.draw = new Draw2D(renderCtx.upper2d, this.internal.theme);
     render.request(ctx, "tool");
+    this.internal.dotColor = this.internal.theme.colors.text;
+    this.internal.dotColorContrast = this.internal.theme.colors.textInverted;
   }
 
   afterDelete(ctx: aether.Context): void {
@@ -225,6 +245,106 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     });
   }
 
+  private drawPointLabel(
+    pointNumber: number,
+    position: xy.XY,
+    value: xy.XY,
+    units: string | null,
+    bounds: bounds.Bounds,
+    toTop: boolean,
+    viewRegion: box.Box,
+    xDist: TimeSpan,
+  ): void {
+    const { draw, theme } = this.internal;
+    const ts = new TimeStamp(value.x);
+    const xValue = ts.toString(ts.formatBySpan(xDist), "local");
+    const yValue = `${math.roundBySpan(value.y, bounds)} ${units ?? ""}`;
+
+    const pointText = `${pointNumber}`;
+    const pointTextWidth = pointText.length * LABEL_CHAR_WIDTH;
+
+    const padding = xy.construct(LABEL_CONTAINER_PADDING);
+    const labelWidth = LABEL_CHAR_WIDTH;
+    const maxValueLength = Math.max(xValue.length, yValue.length);
+    const width =
+      pointTextWidth +
+      POINT_LABEL_SPACING +
+      labelWidth +
+      maxValueLength * VALUE_CHAR_WIDTH +
+      padding.x * LABEL_VALUE_SPACING;
+    const lineHeight = LABEL_CONTAINER_HEIGHT;
+    const height = lineHeight * 2 + padding.y * 2;
+
+    let yOffset = toTop ? -(height + POINT_LABEL_OFFSET) : POINT_LABEL_OFFSET;
+    let labelPosition = xy.translate(position, [-width / 2, yOffset]);
+    let region = box.construct(labelPosition, width, height);
+
+    // Check if label goes outside the view region, if so flip it
+    if (toTop && box.top(region) < box.top(viewRegion)) {
+      yOffset = POINT_LABEL_OFFSET;
+      labelPosition = xy.translate(position, [-width / 2, yOffset]);
+      region = box.construct(labelPosition, width, height);
+    } else if (!toTop && box.bottom(region) > box.bottom(viewRegion)) {
+      yOffset = -(height + POINT_LABEL_OFFSET);
+      labelPosition = xy.translate(position, [-width / 2, yOffset]);
+      region = box.construct(labelPosition, width, height);
+    }
+
+    draw.container({
+      region,
+      backgroundColor: (t) => t.colors.gray.l1,
+    });
+
+    draw.text({
+      text: pointText,
+      position: xy.translate(box.topLeft(region), [padding.x, padding.y]),
+      level: "small",
+      weight: 500,
+      color: theme.colors.gray.l9,
+    });
+
+    draw.text({
+      text: "X",
+      position: xy.translate(box.topLeft(region), [
+        padding.x + pointTextWidth + POINT_LABEL_SPACING,
+        padding.y,
+      ]),
+      level: "small",
+      weight: 500,
+      color: theme.colors.error.z,
+    });
+    draw.text({
+      text: xValue,
+      position: xy.translate(box.topRight(region), [-padding.x - 1, padding.y - 1]),
+      level: "small",
+      justify: "right",
+      code: true,
+      shade: 10,
+    });
+
+    draw.text({
+      text: "Y",
+      position: xy.translate(box.topLeft(region), [
+        padding.x + pointTextWidth + POINT_LABEL_SPACING,
+        padding.y + lineHeight,
+      ]),
+      level: "small",
+      weight: 500,
+      color: theme.colors.secondary.z,
+    });
+    draw.text({
+      text: yValue,
+      position: xy.translate(box.topRight(region), [
+        -padding.x - 1,
+        padding.y + lineHeight - 1,
+      ]),
+      level: "small",
+      justify: "right",
+      code: true,
+      shade: 10,
+    });
+  }
+
   private drawPointMarker(position: xy.XY, pointColor: color.Color): void {
     const { draw } = this.internal;
     draw.circle({
@@ -238,7 +358,11 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       position,
     });
     draw.circle({
-      fill: color.WHITE,
+      fill: color.pickByContrast(
+        pointColor,
+        this.internal.dotColor,
+        this.internal.dotColorContrast,
+      ),
       radius: POINT_CIRCLE_RADIUS_INNER,
       position,
     });
@@ -301,7 +425,9 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
 
     const position = s.reverse().pos(v.position);
     draw.circle({
-      fill: color.setAlpha(v.color, 1),
+      stroke: color.setAlpha(v.color, 1),
+      strokeWidth: HOVER_CIRCLE_STROKE_WIDTH,
+      lineDash: HOVER_CIRCLE_LINE_DASH,
       radius: HOVER_CIRCLE_OUTER_RADIUS,
       position,
     });
@@ -349,7 +475,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       lineDash: strokeDash,
       lineWidth: strokeWidth,
     });
-    const yValue = `${yDist.toFixed(2)} ${oneValue.units ?? ""}`;
+    const yValue = `${math.roundBySpan(yDist, bounds.construct(yDist))} ${oneValue.units ?? ""}`;
     const yLabelPos = this.calculateYLabelPosition(
       xy.construct(onePos.x, (onePos.y + twoPos.y) / 2),
       isVeryClose,
@@ -364,7 +490,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       lineDash: strokeDash,
       lineWidth: strokeWidth,
     });
-    const trunc = xDist.lessThan(TimeSpan.milliseconds(10))
+    const trunc = xDist.lessThan(TimeSpan.milliseconds(TIME_FORMAT_THRESHOLD_MS))
       ? TimeSpan.MICROSECOND
       : TimeSpan.MILLISECOND;
     const xValue = xDist.truncate(trunc).toString();
@@ -382,7 +508,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       lineDash: strokeDash,
       lineWidth: strokeWidth,
     });
-    let slopeValue = slope.toFixed(2);
+    let slopeValue = math.roundBySpan(slope, bounds.construct(slope)).toString();
     if (oneValue.units != null && oneValue.units.length > 0)
       slopeValue += ` ${oneValue.units} / S`;
     const slopeLabelPos = this.calculateSlopeLabelPosition(
@@ -397,6 +523,28 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
 
     this.drawPointMarker(onePos, oneValue.color);
     this.drawPointMarker(twoPos, twoValue.color);
+
+    const oneIsTop = onePos.y < twoPos.y;
+    this.drawPointLabel(
+      1,
+      onePos,
+      oneValue.value,
+      oneValue.units ?? null,
+      oneValue.bounds,
+      oneIsTop,
+      props.region,
+      xDist,
+    );
+    this.drawPointLabel(
+      2,
+      twoPos,
+      twoValue.value,
+      twoValue.units ?? null,
+      twoValue.bounds,
+      !oneIsTop,
+      props.region,
+      xDist,
+    );
   }
 }
 

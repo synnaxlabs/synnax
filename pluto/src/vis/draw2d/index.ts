@@ -45,6 +45,7 @@ export interface Draw2DCircleProps {
   fill?: color.Color;
   stroke?: color.Color;
   strokeWidth?: number;
+  lineDash?: number;
   radius: number | { inner: number; outer: number };
   position: xy.XY;
   angle?: { lower: number; upper: number };
@@ -154,6 +155,7 @@ export class Draw2D {
     fill,
     stroke,
     strokeWidth,
+    lineDash,
     radius,
     position,
     angle,
@@ -174,7 +176,18 @@ export class Draw2D {
       ctx.strokeStyle = color.hex(stroke);
       ctx.lineWidth = strokeWidth ?? arcWidth;
       if (lineCap) ctx.lineCap = lineCap;
+      if (lineDash != null) ctx.setLineDash([lineDash]);
       ctx.stroke();
+      if (lineDash != null) ctx.setLineDash([]);
+    } else if (stroke != null && typeof radius === "number") {
+      // Stroke mode for simple circles
+      ctx.arc(...xy.couple(position), radius, startAngle, endAngle, false);
+      ctx.strokeStyle = color.hex(stroke);
+      ctx.lineWidth = strokeWidth ?? 1;
+      if (lineCap) ctx.lineCap = lineCap;
+      if (lineDash != null) ctx.setLineDash([lineDash]);
+      ctx.stroke();
+      if (lineDash != null) ctx.setLineDash([]);
     } else if (fill != null) {
       // Fill mode (original behavior)
       ctx.fillStyle = color.hex(fill);

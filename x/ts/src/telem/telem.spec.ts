@@ -734,6 +734,44 @@ describe("TimeStamp", () => {
       });
     });
   });
+
+  describe("formatBySpan", () => {
+    test("should return 'shortDate' for spans >= 30 days", () => {
+      const ts = new TimeStamp([2022, 12, 15], "UTC");
+      const span = TimeSpan.days(30);
+      expect(ts.formatBySpan(span)).toBe("shortDate");
+    });
+
+    test("should return 'dateTime' for spans >= 1 day", () => {
+      const ts = new TimeStamp([2022, 12, 15], "UTC");
+      const span = TimeSpan.days(1);
+      expect(ts.formatBySpan(span)).toBe("dateTime");
+    });
+
+    test("should return 'time' for spans >= 1 hour", () => {
+      const ts = new TimeStamp([2022, 12, 15], "UTC");
+      const span = TimeSpan.hours(1);
+      expect(ts.formatBySpan(span)).toBe("time");
+    });
+
+    test("should return 'preciseTime' for spans >= 1 second", () => {
+      const ts = new TimeStamp([2022, 12, 15], "UTC");
+      const span = TimeSpan.seconds(1);
+      expect(ts.formatBySpan(span)).toBe("preciseTime");
+    });
+
+    test("should return 'ISOTime' for spans < 1 second", () => {
+      const ts = new TimeStamp([2022, 12, 15], "UTC");
+      const span = TimeSpan.milliseconds(500);
+      expect(ts.formatBySpan(span)).toBe("ISOTime");
+    });
+
+    test("should work with very small spans", () => {
+      const ts = new TimeStamp([2022, 12, 15], "UTC");
+      const span = TimeSpan.microseconds(100);
+      expect(ts.formatBySpan(span)).toBe("ISOTime");
+    });
+  });
 });
 
 describe("TimeSpan", () => {

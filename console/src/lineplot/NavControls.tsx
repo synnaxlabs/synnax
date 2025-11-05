@@ -103,7 +103,7 @@ export const NavControls = ({ layoutKey }: NavControlsProps): ReactElement => {
         </Button.Toggle>
         <Button.Toggle
           value={control.clickMode != null}
-          tooltip={<Text.Text level="small">Slope</Text.Text>}
+          tooltip="Measure Tool"
           tooltipLocation={TOOLTIP_LOCATION}
           onChange={() =>
             handleClickModeChange(control.clickMode != null ? null : "measure")
@@ -136,13 +136,17 @@ export const NavControls = ({ layoutKey }: NavControlsProps): ReactElement => {
           <Button.Toggle
             size="small"
             value={measureMode === "one"}
+            tooltip="Select first point"
+            tooltipLocation={TOOLTIP_LOCATION}
             onChange={() => dispatch(setMeasureMode({ key: layoutKey, mode: "one" }))}
           >
             1
           </Button.Toggle>
           <Button.Toggle
             size="small"
+            tooltipLocation={TOOLTIP_LOCATION}
             value={measureMode === "two"}
+            tooltip="Select second point"
             onChange={() => dispatch(setMeasureMode({ key: layoutKey, mode: "two" }))}
           >
             2

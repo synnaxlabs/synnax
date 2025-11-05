@@ -561,6 +561,28 @@ export class TimeStamp
   }
 
   /**
+   * Determines the appropriate string format based on the span magnitude.
+   *
+   * @param span - The span that provides context for format selection
+   * @returns The appropriate TimeStampStringFormat
+   *
+   * Rules:
+   * - For spans >= 30 days: "shortDate" (e.g., "Nov 5")
+   * - For spans >= 1 day: "dateTime" (e.g., "Nov 5 14:23:45")
+   * - For spans >= 1 hour: "time" (e.g., "14:23:45")
+   * - For spans >= 1 second: "preciseTime" (e.g., "14:23:45.123")
+   * - For spans < 1 second: "ISOTime" (full precision time)
+   */
+  formatBySpan(span: TimeSpan): TimeStampStringFormat {
+    if (span.greaterThanOrEqual(TimeSpan.days(30))) return "shortDate";
+    if (span.greaterThanOrEqual(TimeSpan.DAY)) return "dateTime";
+    if (span.greaterThanOrEqual(TimeSpan.HOUR)) return "time";
+    if (span.greaterThanOrEqual(TimeSpan.SECOND)) return "preciseTime";
+
+    return "ISOTime";
+  }
+
+  /**
    * @returns A new TimeStamp representing the current time in UTC. It's important to
    * note that this TimeStamp is only accurate to the millisecond level (that's the best
    * JavaScript can do).

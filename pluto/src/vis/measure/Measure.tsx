@@ -19,11 +19,9 @@ import { type Viewport } from "@/viewport";
 import { measure } from "@/vis/measure/aether";
 
 const MEASURE_TRIGGERS: Triggers.ModeConfig<measure.Mode> = {
-  defaultMode: "empty",
   one: [["1"]],
   two: [["2"]],
-  clear: [["Shift"]],
-  empty: [[]],
+  defaultMode: "one",
 };
 
 const REDUCED_MEASURE_TRIGGERS = Triggers.flattenConfig(MEASURE_TRIGGERS);
@@ -75,17 +73,13 @@ export const Measure = ({
       if (mode === "click") {
         const isOne = measureMode === "one";
         const isTwo = measureMode === "two";
-        if (isOne || isTwo) {
-          setState((p) => ({ ...p, [measureMode]: cursor }));
-          const moveToTwo = isOne && !hasSecondRef.current;
-          const moveToOne = isTwo && !hasFirstRef.current;
-          if (moveToTwo || moveToOne)
-            // Add a small delay to allow the aether state to propagate. This ensures
-            // that we don't accidentally clear the new point state we just set.
-            setTimeout(() => onModeChange?.(moveToTwo ? "two" : "one"), 10);
-          return;
-        }
-        if (measureMode === "clear") setState((p) => ({ ...p, one: null, two: null }));
+        setState((p) => ({ ...p, [measureMode]: cursor }));
+        const moveToTwo = isOne && !hasSecondRef.current;
+        const moveToOne = isTwo && !hasFirstRef.current;
+        if (moveToTwo || moveToOne)
+          // Add a small delay to allow the aether state to propagate. This ensures
+          // that we don't accidentally clear the new point state we just set.
+          setTimeout(() => onModeChange?.(moveToTwo ? "two" : "one"), 10);
       }
     },
     [setState, onModeChange],
