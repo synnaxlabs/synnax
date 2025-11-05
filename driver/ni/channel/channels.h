@@ -1237,7 +1237,7 @@ struct CIFrequency final : CICustomScale {
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
-        return dmx->CreateCIFreqChan(
+        auto err = dmx->CreateCIFreqChan(
             task_handle,
             this->loc().c_str(),
             this->cfg_path.c_str(),
@@ -1250,6 +1250,19 @@ struct CIFrequency final : CICustomScale {
             this->divisor,
             scale_key
         );
+        if (err) return err;
+
+        // Set the PFI terminal if specified (empty string uses DAQmx default)
+        if (!this->terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Freq_Term,
+                this->terminal.c_str()
+            );
+        }
+
+        return err;
     }
 };
 
@@ -1277,7 +1290,7 @@ struct CIEdgeCount final : CI {
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
-        return dmx->CreateCICountEdgesChan(
+        auto err = dmx->CreateCICountEdgesChan(
             task_handle,
             this->loc().c_str(),
             this->cfg_path.c_str(),
@@ -1285,6 +1298,19 @@ struct CIEdgeCount final : CI {
             this->initial_count,
             this->count_direction
         );
+        if (err) return err;
+
+        // Set the PFI terminal if specified (empty string uses DAQmx default)
+        if (!this->terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_CountEdges_Term,
+                this->terminal.c_str()
+            );
+        }
+
+        return err;
     }
 };
 
@@ -1315,7 +1341,7 @@ struct CIPeriod final : CICustomScale {
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
-        return dmx->CreateCIPeriodChan(
+        auto err = dmx->CreateCIPeriodChan(
             task_handle,
             this->loc().c_str(),
             this->cfg_path.c_str(),
@@ -1328,6 +1354,19 @@ struct CIPeriod final : CICustomScale {
             this->divisor,
             scale_key
         );
+        if (err) return err;
+
+        // Set the PFI terminal if specified (empty string uses DAQmx default)
+        if (!this->terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Period_Term,
+                this->terminal.c_str()
+            );
+        }
+
+        return err;
     }
 };
 
@@ -1351,7 +1390,7 @@ struct CIPulseWidth final : CICustomScale {
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
-        return dmx->CreateCIPulseWidthChan(
+        auto err = dmx->CreateCIPulseWidthChan(
             task_handle,
             this->loc().c_str(),
             this->cfg_path.c_str(),
@@ -1361,14 +1400,32 @@ struct CIPulseWidth final : CICustomScale {
             this->edge,
             scale_key
         );
+        if (err) return err;
+
+        // Set the PFI terminal if specified (empty string uses DAQmx default)
+        if (!this->terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_PulseWidth_Term,
+                this->terminal.c_str()
+            );
+        }
+
+        return err;
     }
 };
 
 /// @brief Counter input semi period measurement channel.
 /// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecisemiperiodchan.html
 struct CISemiPeriod final : CICustomScale {
+    const std::string terminal;
+
     explicit CISemiPeriod(xjson::Parser &cfg):
-        Base(cfg), Counter(cfg), CICustomScale(cfg) {}
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        terminal(cfg.optional<std::string>("terminal", "")) {}
 
     using Base::apply;
 
@@ -1377,7 +1434,7 @@ struct CISemiPeriod final : CICustomScale {
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
-        return dmx->CreateCISemiPeriodChan(
+        auto err = dmx->CreateCISemiPeriodChan(
             task_handle,
             this->loc().c_str(),
             this->cfg_path.c_str(),
@@ -1386,6 +1443,19 @@ struct CISemiPeriod final : CICustomScale {
             this->units,
             scale_key
         );
+        if (err) return err;
+
+        // Set the PFI terminal if specified (empty string uses DAQmx default)
+        if (!this->terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_SemiPeriod_Term,
+                this->terminal.c_str()
+            );
+        }
+
+        return err;
     }
 };
 
@@ -1395,13 +1465,17 @@ struct CISemiPeriod final : CICustomScale {
 struct CITwoEdgeSep final : CICustomScale {
     const int32_t first_edge;
     const int32_t second_edge;
+    const std::string first_terminal;
+    const std::string second_terminal;
 
     explicit CITwoEdgeSep(xjson::Parser &cfg):
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
         first_edge(get_ci_edge(cfg.required<std::string>("first_edge"))),
-        second_edge(get_ci_edge(cfg.required<std::string>("second_edge"))) {}
+        second_edge(get_ci_edge(cfg.required<std::string>("second_edge"))),
+        first_terminal(cfg.optional<std::string>("first_terminal", "")),
+        second_terminal(cfg.optional<std::string>("second_terminal", "")) {}
 
     using Base::apply;
 
@@ -1410,7 +1484,7 @@ struct CITwoEdgeSep final : CICustomScale {
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
-        return dmx->CreateCITwoEdgeSepChan(
+        auto err = dmx->CreateCITwoEdgeSepChan(
             task_handle,
             this->loc().c_str(),
             this->cfg_path.c_str(),
@@ -1421,6 +1495,30 @@ struct CITwoEdgeSep final : CICustomScale {
             this->second_edge,
             scale_key
         );
+        if (err) return err;
+
+        // Set the first terminal if specified (empty string uses DAQmx default)
+        if (!this->first_terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_TwoEdgeSep_FirstTerm,
+                this->first_terminal.c_str()
+            );
+            if (err) return err;
+        }
+
+        // Set the second terminal if specified (empty string uses DAQmx default)
+        if (!this->second_terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_TwoEdgeSep_SecondTerm,
+                this->second_terminal.c_str()
+            );
+        }
+
+        return err;
     }
 };
 
@@ -1449,7 +1547,7 @@ struct CILinearVelocity final : CICustomScale {
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
-        return dmx->CreateCILinVelocityChan(
+        auto err = dmx->CreateCILinVelocityChan(
             task_handle,
             this->loc().c_str(),
             this->cfg_path.c_str(),
@@ -1460,6 +1558,30 @@ struct CILinearVelocity final : CICustomScale {
             this->dist_per_pulse,
             scale_key
         );
+        if (err) return err;
+
+        // Set terminal A if specified (empty string uses DAQmx default)
+        if (!this->terminal_a.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Velocity_Encoder_AInputTerm,
+                this->terminal_a.c_str()
+            );
+            if (err) return err;
+        }
+
+        // Set terminal B if specified (empty string uses DAQmx default)
+        if (!this->terminal_b.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Velocity_Encoder_BInputTerm,
+                this->terminal_b.c_str()
+            );
+        }
+
+        return err;
     }
 };
 
@@ -1488,7 +1610,7 @@ struct CIAngularVelocity final : CICustomScale {
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
-        return dmx->CreateCIAngVelocityChan(
+        auto err = dmx->CreateCIAngVelocityChan(
             task_handle,
             this->loc().c_str(),
             this->cfg_path.c_str(),
@@ -1499,6 +1621,30 @@ struct CIAngularVelocity final : CICustomScale {
             this->pulses_per_rev,
             scale_key
         );
+        if (err) return err;
+
+        // Set terminal A if specified (empty string uses DAQmx default)
+        if (!this->terminal_a.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Velocity_Encoder_AInputTerm,
+                this->terminal_a.c_str()
+            );
+            if (err) return err;
+        }
+
+        // Set terminal B if specified (empty string uses DAQmx default)
+        if (!this->terminal_b.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Velocity_Encoder_BInputTerm,
+                this->terminal_b.c_str()
+            );
+        }
+
+        return err;
     }
 };
 
@@ -1539,7 +1685,7 @@ struct CILinearPosition final : CICustomScale {
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
-        return dmx->CreateCILinEncoderChan(
+        auto err = dmx->CreateCILinEncoderChan(
             task_handle,
             this->loc().c_str(),
             this->cfg_path.c_str(),
@@ -1552,6 +1698,41 @@ struct CILinearPosition final : CICustomScale {
             this->initial_pos,
             scale_key
         );
+        if (err) return err;
+
+        // Set terminal A if specified (empty string uses DAQmx default)
+        if (!this->terminal_a.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Encoder_AInputTerm,
+                this->terminal_a.c_str()
+            );
+            if (err) return err;
+        }
+
+        // Set terminal B if specified (empty string uses DAQmx default)
+        if (!this->terminal_b.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Encoder_BInputTerm,
+                this->terminal_b.c_str()
+            );
+            if (err) return err;
+        }
+
+        // Set terminal Z if specified (empty string uses DAQmx default)
+        if (!this->terminal_z.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Encoder_ZInputTerm,
+                this->terminal_z.c_str()
+            );
+        }
+
+        return err;
     }
 };
 
@@ -1592,7 +1773,7 @@ struct CIAngularPosition final : CICustomScale {
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
-        return dmx->CreateCIAngEncoderChan(
+        auto err = dmx->CreateCIAngEncoderChan(
             task_handle,
             this->loc().c_str(),
             this->cfg_path.c_str(),
@@ -1605,6 +1786,41 @@ struct CIAngularPosition final : CICustomScale {
             this->initial_angle,
             scale_key
         );
+        if (err) return err;
+
+        // Set terminal A if specified (empty string uses DAQmx default)
+        if (!this->terminal_a.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Encoder_AInputTerm,
+                this->terminal_a.c_str()
+            );
+            if (err) return err;
+        }
+
+        // Set terminal B if specified (empty string uses DAQmx default)
+        if (!this->terminal_b.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Encoder_BInputTerm,
+                this->terminal_b.c_str()
+            );
+            if (err) return err;
+        }
+
+        // Set terminal Z if specified (empty string uses DAQmx default)
+        if (!this->terminal_z.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Encoder_ZInputTerm,
+                this->terminal_z.c_str()
+            );
+        }
+
+        return err;
     }
 };
 
@@ -1628,7 +1844,7 @@ struct CIDutyCycle final : CICustomScale {
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
-        return dmx->CreateCIDutyCycleChan(
+        auto err = dmx->CreateCIDutyCycleChan(
             task_handle,
             this->loc().c_str(),
             this->cfg_path.c_str(),
@@ -1637,6 +1853,19 @@ struct CIDutyCycle final : CICustomScale {
             this->edge,
             scale_key
         );
+        if (err) return err;
+
+        // Set the input terminal if specified (empty string uses DAQmx default)
+        if (!this->terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_DutyCycle_Term,
+                this->terminal.c_str()
+            );
+        }
+
+        return err;
     }
 };
 
