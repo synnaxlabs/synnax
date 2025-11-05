@@ -180,7 +180,7 @@ class NICounterReadForms(ConsoleCase):
             name="Period_3",
             chan_type=channel_type,
             device=device_name,
-            units="Custom",
+            units="Seconds",
             meas_method="2 Counters (Large Range)",
         )
         console.ni_ci.add_channel(
@@ -200,7 +200,7 @@ class NICounterReadForms(ConsoleCase):
             name="PulseWidth_1",
             chan_type=channel_type,
             device=device_name,
-            units="Custom",
+            units="Seconds",
         )
         console.ni_ci.add_channel(
             name="PulseWidth_2",
@@ -230,7 +230,7 @@ class NICounterReadForms(ConsoleCase):
             name="SemiPeriod_1",
             chan_type=channel_type,
             device=device_name,
-            units="Custom",
+            units="Seconds",
         )
         console.ni_ci.add_channel(
             name="SemiPeriod_2",
@@ -300,7 +300,7 @@ class NICounterReadForms(ConsoleCase):
             name="LinearVelocity_3",
             chan_type=channel_type,
             device=device_name,
-            units="Custom",
+            units="m/s",
             decoding_type="X2",
             dist_per_pulse=0.005,
         )
