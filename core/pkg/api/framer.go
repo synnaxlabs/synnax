@@ -360,8 +360,8 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	pipe := plumber.New()
 
 	plumber.SetSegment(pipe, "writer", w)
-	plumber.SetSource[framer.WriterRequest](pipe, frameReceiverAddr, receiver)
-	plumber.SetSink[framer.WriterResponse](pipe, frameSenderAddr, sender)
+	plumber.SetSource(pipe, frameReceiverAddr, receiver)
+	plumber.SetSink(pipe, frameSenderAddr, sender)
 	plumber.MustConnect[framer.WriterRequest](pipe, frameReceiverAddr, frameWriterAddr, writerRequestBufferSize)
 	plumber.MustConnect[framer.WriterResponse](pipe, frameWriterAddr, frameSenderAddr, writerResponseBufferSize)
 
