@@ -115,6 +115,39 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev autoconf automake libtool
 
+      - name: Install NI-DAQmx (Ubuntu)
+        if: inputs.driver && (matrix.os == 'ubuntu-latest' || matrix.os == 'ubuntu-22.04')
+        run: |
+          # Download and install NI repository registration package for Ubuntu 22.04
+          wget http://download.ni.com/ni-linux-desktop/2024/Q4/ni-ubuntu2204-drivers-2024Q4.deb
+          sudo apt-get install -y ./ni-ubuntu2204-drivers-2024Q4.deb
+          # Update package list
+          sudo apt-get update
+          # Install NI-DAQmx
+          sudo apt-get install -y ni-daqmx
+          # Run DKMS to build kernel modules
+          sudo dkms autoinstall
+
+      - name: Install NI-DAQmx (Windows)
+        if: inputs.driver && matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          # Download NI Package Manager 24.3.0
+          $nipmUrl = "https://download.ni.com/support/nipkg/products/ni-package-manager/installers/NIPackageManager24.3.0.exe"
+          Invoke-WebRequest -Uri $nipmUrl -OutFile "NIPackageManager.exe"
+
+          # Install NI Package Manager silently
+          Start-Process -FilePath ".\NIPackageManager.exe" -ArgumentList "/S /v`"/qn --passive --accept-eulas --prevent-reboot --quiet`"" -Wait
+
+          # Add NI-DAQmx feed (using 2024 Q4 release)
+          & "C:\Program Files\National Instruments\NI Package Manager\nipkg.exe" feed-add "https://download.ni.com/support/nipkg/products/ni-d/ni-daqmx/24.5/released"
+
+          # Update feeds
+          & "C:\Program Files\National Instruments\NI Package Manager\nipkg.exe" feed-update
+
+          # Install NI-DAQmx
+          & "C:\Program Files\National Instruments\NI Package Manager\nipkg.exe" install ni-daqmx --accept-eulas --yes
+
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
@@ -126,8 +159,13 @@ jobs:
         if: inputs.driver && matrix.os != 'windows-latest'
         run: |
           if [ "${{ matrix.os }}" = "ubuntu-22.04" ]; then
+            # NI Linux RT build (without DAQmx capability querying)
             TMPDIR=/tmp bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc --verbose_failures //driver
+          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            # Linux build with NI-DAQmx capability querying
+            bazel build --enable_platform_specific_config -c opt --config=hide_symbols --config=ni-daqmx --announce_rc --verbose_failures //driver
           else
+            # macOS build (without DAQmx - not available on macOS)
             bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc --verbose_failures //driver
           fi
 
@@ -135,7 +173,7 @@ jobs:
         if: inputs.driver && matrix.os == 'windows-latest'
         run:
           bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
-          --announce_rc //driver
+          --config=ni-daqmx --announce_rc //driver
 
       - name: Rename Driver Binary
         if: inputs.driver

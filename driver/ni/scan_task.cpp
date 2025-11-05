@@ -13,8 +13,10 @@
 #include "driver/ni/capability_mapper.h"
 #include "driver/ni/scan_task.h"
 
-// DAQmx capability queries are not available on macOS
-#ifndef __APPLE__
+// DAQmx capability queries require NI-DAQmx development libraries
+// These are not available on macOS, and not installed in CI environments
+// For production builds, define NI_DAQMX_AVAILABLE to enable capability querying
+#ifdef NI_DAQMX_AVAILABLE
 #include "driver/ni/daqmx/nidaqmx.h"
 #endif
 
@@ -103,8 +105,8 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
     if (is_simulated) dev.key = dev.resource_name;
 
     // Query device capabilities using DAQmx (only if DAQmx is available)
-    // Note: DAQmx is not available on macOS, so we skip capability querying there
-#ifndef __APPLE__
+    // Note: DAQmx requires development libraries and is not available in CI
+#ifdef NI_DAQMX_AVAILABLE
     if (this->dmx != nullptr) {
         // AI capabilities
         int32 ai_types[50]; // Max AI measurement types

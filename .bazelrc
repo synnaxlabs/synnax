@@ -130,3 +130,10 @@ build:sanitize --config=ubsan
 build:sanitize-ci --config=sanitize
 build:sanitize-ci --test_output=errors
 build:sanitize-ci --test_summary=detailed
+
+# ===== NI-DAQmx Hardware Support =====
+# Enable device capability querying for NI hardware
+# Requires NI-DAQmx development libraries to be installed
+# Usage: bazel build //driver --config=ni-daqmx
+build:ni-daqmx --copt=-DNI_DAQMX_AVAILABLE
+build:ni-daqmx --host_copt=-DNI_DAQMX_AVAILABLE
