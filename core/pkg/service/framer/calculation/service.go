@@ -12,10 +12,9 @@ package calculation
 import (
 	"context"
 	"fmt"
-	"go/types"
-	"io"
 	"sync"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -32,10 +31,8 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -126,6 +123,7 @@ type Graph interface {
 	Add(ctx context.Context, ch channel.Channel) error
 	Remove(key channel.Key) error
 	CalculateGrouped() map[int][]compiler.Module
+	Update(ctx context.Context, ch channel.Channel) error
 }
 
 // OpenService opens the service with the provided configuration. The service must be closed
@@ -206,90 +204,78 @@ func (s *Service) handleChange(
 	ctx context.Context,
 	reader gorp.TxReader[channel.Key, channel.Channel],
 ) {
-	c, ok := reader.Next(ctx)
+	cg, ok := reader.Next(ctx)
 	if !ok {
 		return
 	}
+	ch := cg.Value
 	// Don't stop calculating if the channel is deleted. The calculation will be
 	// automatically shut down when it is no longer needed.
-	if c.Variant != change.Set || !c.Value.IsCalculated() || c.Value.IsLegacyCalculated() {
+	if cg.Variant != change.Set || !ch.IsCalculated() || ch.IsLegacyCalculated() {
 		return
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	_, found := s.mu.calculators[c.Key]
-	if !found {
+	if _, found := s.mu.calculators[cg.Key]; !found {
 		return
 	}
-	if err := s.cfg.Allocator.Remove(c.Value.Key()); err != nil {
-		s.cfg.L.Error("failed to remove calculator", zap.Error(err))
-	}
-	if err := s.cfg.Allocator.Add(ctx, c.Value); err != nil {
-		s.cfg.L.Error("failed to add calculator", zap.Error(err))
-	}
-	if err := s.rebuildGroups(ctx); err != nil {
-		s.cfg.L.Error("failed to rebuildGroups", zap.Error(err))
+	if err := s.updateCalculation(ctx, ch); err != nil {
+		s.cfg.L.Error("failed to update calculation for", zap.Stringer("channel", ch), zap.Error(err))
 	}
 }
 
-func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {
-	return xio.CloserFunc(func() error {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		return s.releaseEntry(key)
-	})
-}
-
-// releaseEntry recursively releases an entry and its dependencies.
-// Must be called with s.mu locked.
-func (s *Service) releaseEntry(key channel.Key) error {
-	delete(s.mu.calculators, key)
-	if err := s.cfg.Allocator.Remove(key); err != nil {
+func (s *Service) updateCalculation(ctx context.Context, ch channel.Channel) error {
+	if err := s.cfg.Allocator.Update(ctx, ch); err != nil {
 		return err
 	}
-	return s.rebuildGroups(context.TODO())
+	return s.rebuildGroups(ctx)
 }
 
-func (s *Service) updateGroup(ctx context.Context, k int, mods []compiler.Module) error {
-	g, ok := s.mu.groups[k]
-	shouldUpdateGroup := true
-	if ok {
-		shouldUpdateGroup = len(g.Calculators) != len(mods)
-		for i, m := range mods {
-			if i >= len(g.Calculators) || !g.Calculators[i].Channel().Equals(m.Channel) {
-				calc, err := calculator.Open(
-					ctx,
-					calculator.Config{Module: m},
-				)
-				if err != nil {
-					return err
-				}
-				s.mu.calculators[calc.Channel().Key()] = calc
-				shouldUpdateGroup = true
-			}
+func (s *Service) openOrGetCalculator(
+	ctx context.Context,
+	mod compiler.Module,
+) (*calculator.Calculator, error) {
+	calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
+	if err != nil {
+		return nil, err
+	}
+	s.mu.calculators[calc.Channel().Key()] = calc
+	return calc, err
+}
+
+func groupEquals(
+	mods []compiler.Module,
+	g *group.Group,
+) bool {
+	if g == nil {
+		return false
+	}
+	if len(mods) != len(g.Calculators) {
+		return false
+	}
+	for i, m := range mods {
+		if !m.Channel.Equals(g.Calculators[i].Channel(), "Name") {
+			return false
 		}
 	}
-	if !shouldUpdateGroup {
+	return true
+}
+
+func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Module) error {
+	g := s.mu.groups[key]
+	if groupEquals(mods, g) {
 		return nil
 	}
-	if ok {
+	if g != nil {
 		if err := g.Close(); err != nil {
 			return err
 		}
 	}
 	calculators := make([]*calculator.Calculator, len(mods))
 	for i, m := range mods {
-		calc, ok := s.mu.calculators[m.Channel.Key()]
-		if !ok || !calc.Channel().Equals(m.Channel) {
-			var err error
-			calc, err = calculator.Open(
-				ctx,
-				calculator.Config{Module: m},
-			)
-			if err != nil {
-				return err
-			}
-			s.mu.calculators[calc.Channel().Key()] = calc
+		calc, err := s.openOrGetCalculator(ctx, m)
+		if err != nil {
+			return err
 		}
 		calculators[i] = calc
 	}
@@ -304,13 +290,12 @@ func (s *Service) updateGroup(ctx context.Context, k int, mods []compiler.Module
 	if err != nil {
 		return err
 	}
-	s.mu.groups[k] = g
+	s.mu.groups[key] = g
 	return nil
 }
 
 func (s *Service) rebuildGroups(ctx context.Context) error {
 	groups := s.cfg.Allocator.CalculateGrouped()
-	// Step 1: Close Any Existing Groups that Should not Be Open
 	for k, g := range s.mu.groups {
 		if _, ok := groups[k]; !ok {
 			if err := g.Close(); err != nil {
@@ -318,7 +303,6 @@ func (s *Service) rebuildGroups(ctx context.Context) error {
 			}
 		}
 	}
-	// Step 2: Update/Add Any New groups
 	for k, mods := range groups {
 		if err := s.updateGroup(ctx, k, mods); err != nil {
 			return err
@@ -348,47 +332,73 @@ func (s *Service) Close() error {
 // being calculated. If the channel is already being calculated, the number of active
 // requests will be increased. The caller must close the returned io.Closer when the
 // calculation is no longer needed, which will decrement the number of active requests.
-func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, error) {
+func (s *Service) updateRequests(
+	ctx context.Context,
+	added []channel.Key,
+	removed []channel.Key,
+) error {
+	var (
+		channels []channel.Channel
+		statuses []calculator.Status
+	)
+	if err := s.cfg.Channel.NewRetrieve().
+		WhereKeys(added...).
+		Entries(&channels).
+		Exec(ctx, nil); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.startCalculation(ctx, key, 1)
-}
 
-func (s *Service) startCalculation(
-	ctx context.Context,
-	key channel.Key,
-	initialCount int,
-) (io.Closer, error) {
-	var ch channel.Channel
-	// Wrap everything in a closure so we can properly propagate status changes.
-	closer, err := func() (io.Closer, error) {
-		ch.LocalKey = key.LocalKey()
-		ch.Leaseholder = key.Leaseholder()
-		if err := s.cfg.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
-			return nil, err
+	for _, k := range removed {
+		if err := s.cfg.Allocator.Remove(k); err != nil {
+			statuses = append(statuses, calculator.Status{
+				Key:         k.String(),
+				Message:     fmt.Sprintf("Failed to release calculation for %s", k),
+				Description: err.Error(),
+			})
+			return err
 		}
+	}
+	for _, ch := range channels {
 		if !ch.IsCalculated() {
-			return nil, errors.Wrapf(validate.Error, "channel %v is not calculated", ch)
+			continue
 		}
 		if ch.IsLegacyCalculated() {
-			return s.legacy.Request(ctx, ch.Key())
+			// TODO: Fix Here
+			s.legacy.Request(ctx, ch.Key())
 		}
 		if err := s.cfg.Allocator.Add(ctx, ch); err != nil {
-			return nil, err
+			statuses = append(statuses, calculator.Status{
+				Key:         ch.String(),
+				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
+				Description: err.Error(),
+			})
+			return err
 		}
-		if err := s.rebuildGroups(ctx); err != nil {
-			return nil, err
-		}
-		s.cfg.L.Debug("started calculated channel", zap.Stringer("key", key))
-		return s.releaseEntryCloser(key), nil
-	}()
-	if err != nil {
-		s.setStatus(ctx, status.Status[types.Nil]{
-			Key:         ch.Key().String(),
-			Variant:     status.ErrorVariant,
-			Message:     fmt.Sprintf("Failed to start calculation for %s", ch),
-			Description: err.Error(),
-		})
 	}
-	return closer, err
+	if err := s.rebuildGroups(ctx); err != nil {
+		return err
+	}
+	s.cfg.L.Debug("started calculated channels", zap.Stringers("keys", added))
+	return nil
+}
+
+func (s *Service) OpenRequestManager() *RequestManager {
+	return &RequestManager{svc: s}
+}
+
+type RequestManager struct {
+	svc      *Service
+	currKeys channel.Keys
+}
+
+func (r *RequestManager) Set(ctx context.Context, keys channel.Keys) error {
+	added, removed := lo.Difference(keys, r.currKeys)
+	r.currKeys = keys
+	return r.svc.updateRequests(ctx, added, removed)
+}
+
+func (r *RequestManager) Close(ctx context.Context) error {
+	return r.svc.updateRequests(ctx, nil, r.currKeys)
 }

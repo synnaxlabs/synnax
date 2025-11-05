@@ -31,6 +31,7 @@ func FromSlice[T comparable](values []T) Set[T] {
 	return s
 }
 
+// TODO: Test
 func Union[T comparable, V any](sets ...Mapped[T, V]) Mapped[T, V] {
 	count := 0
 	for _, set := range sets {
@@ -39,6 +40,18 @@ func Union[T comparable, V any](sets ...Mapped[T, V]) Mapped[T, V] {
 	s := make(Mapped[T, V], count)
 	for _, set := range sets {
 		for k, v := range set {
+			s[k] = v
+		}
+	}
+	return s
+}
+
+// TODO: Test
+// Difference returns a new set containing elements that are in a but not in b (a - b).
+func Difference[T comparable, V any](a, b Mapped[T, V]) Mapped[T, V] {
+	s := make(Mapped[T, V], len(a))
+	for k, v := range a {
+		if !b.Contains(k) {
 			s[k] = v
 		}
 	}

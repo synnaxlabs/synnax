@@ -61,11 +61,8 @@ var _ = Describe("Calculation", Ordered, func() {
 		}
 		Expect(dist.Channel.CreateMany(ctx, baseChannels)).To(Succeed())
 		Expect(dist.Channel.CreateMany(ctx, calculations)).To(Succeed())
-		for _, calc := range *calculations {
-			if !calc.IsIndex {
-				MustSucceed(c.Request(ctx, calc.Key()))
-			}
-		}
+		rm := c.OpenRequestManager()
+		Expect(rm.Set(ctx, channel.KeysFromChannels(*calculations))).To(Succeed())
 		writerKeys := channel.KeysFromChannels(*baseChannels)
 		if indexChannels != nil {
 			writerKeys = append(writerKeys, channel.KeysFromChannels(*indexChannels)...)
@@ -91,6 +88,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet()).Should(Receive())
 		return w, sOutlet, func() {
+			Expect(rm.Close(ctx)).To(Succeed())
 			Expect(w.Close()).To(Succeed())
 			cancel()
 		}

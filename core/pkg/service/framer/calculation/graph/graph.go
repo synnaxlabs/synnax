@@ -66,6 +66,203 @@ func (a *Graph) Add(ctx context.Context, ch channel.Channel) error {
 	return a.addInternal(ctx, ch, true)
 }
 
+// Update recompiles a channel with a new expression and updates its dependencies and group assignment.
+// Preserves reference counts - use this when a channel's calculation changes but the same users are still requesting it.
+func (a *Graph) Update(ctx context.Context, ch channel.Channel) error {
+	info, err := a.getChannelInfo(ch.Key())
+	if err != nil {
+		return err
+	}
+
+	// Store current state
+	oldExplicitCount := info.explicitCount
+	oldDepCount := info.depCount
+	oldCalcDeps := info.calcDeps
+	oldGroupID := info.groupID
+
+	// Mark as processing to detect circular dependencies during recompilation
+	info.processing = true
+	defer func() { info.processing = false }()
+
+	// Recompile with new expression
+	mod, err := compiler.Compile(ctx, compiler.Config{
+		Channels:       a.cfg.Channel,
+		Channel:        ch,
+		SymbolResolver: a.cfg.SymbolResolver,
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to compile channel")
+	}
+	dependencies := mod.StateConfig.Reads.Keys()
+
+	// Process new dependencies
+	var newCalcDeps []channel.Key
+	var depChannels []channel.Channel
+
+	if len(dependencies) > 0 {
+		depChannels, err = a.fetchChannels(ctx, dependencies)
+		if err != nil {
+			return errors.Wrap(err, "failed to retrieve dependency channels")
+		}
+
+		for _, depCh := range depChannels {
+			if depCh.IsCalculated() && !depCh.IsLegacyCalculated() {
+				// Check for circular dependencies before adding
+				if err := a.checkCircularDependency(ch.Key(), depCh.Key()); err != nil {
+					return err
+				}
+				// Add dependency if not already in graph
+				if err := a.addInternal(ctx, depCh, false); err != nil {
+					return errors.Wrapf(err, "failed to add calculated dependency %v", depCh.Key())
+				}
+				newCalcDeps = append(newCalcDeps, depCh.Key())
+			}
+		}
+	}
+
+	// Update depCounts: increment for new dependencies, decrement for removed ones
+	oldDepsSet := make(set.Set[channel.Key])
+	for _, key := range oldCalcDeps {
+		oldDepsSet.Add(key)
+	}
+	newDepsSet := make(set.Set[channel.Key])
+	for _, key := range newCalcDeps {
+		newDepsSet.Add(key)
+	}
+
+	// Increment depCount for new dependencies
+	for key := range newDepsSet {
+		if !oldDepsSet.Contains(key) {
+			if depInfo := a.channels[key]; depInfo != nil {
+				depInfo.depCount++
+			}
+		}
+	}
+
+	// Decrement depCount for removed dependencies
+	for key := range oldDepsSet {
+		if !newDepsSet.Contains(key) {
+			if depInfo := a.channels[key]; depInfo != nil {
+				depInfo.depCount--
+				if depInfo.explicitCount == 0 && depInfo.depCount == 0 {
+					if err := a.removeChannel(key); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	// Resolve new base dependencies
+	baseDeps, err := a.resolveBaseDependencies(ctx, depChannels)
+	if err != nil {
+		return err
+	}
+
+	// Assign to new group (may be same or different)
+	newGroupID := a.assignToGroup(baseDeps)
+
+	// Update channel info with new data while preserving reference counts
+	// Do this BEFORE recalculating group base deps so the new module is used
+	info.module = mod
+	info.groupID = newGroupID
+	info.calcDeps = newCalcDeps
+	info.explicitCount = oldExplicitCount
+	info.depCount = oldDepCount
+
+	// Remove from old group if it changed
+	if oldGroupID != newGroupID {
+		if oldGroup := a.groups[oldGroupID]; oldGroup != nil {
+			oldGroup.members.Remove(ch.Key())
+			if len(oldGroup.members) == 0 {
+				delete(a.groups, oldGroupID)
+			} else {
+				// Recalculate base dependencies for the old group
+				a.recalculateGroupBaseDeps(ctx, oldGroupID)
+			}
+		}
+		a.groups[newGroupID].members.Add(ch.Key())
+	} else {
+		// Even if group didn't change, recalculate base deps since dependencies changed
+		a.recalculateGroupBaseDeps(ctx, newGroupID)
+	}
+
+	return nil
+}
+
+// checkCircularDependency checks if adding a dependency would create a circular dependency.
+func (a *Graph) checkCircularDependency(source, target channel.Key) error {
+	if source == target {
+		return errors.Newf("circular dependency detected: channel %v depends on itself", source)
+	}
+
+	// Check if target (or any of its dependencies) depends on source
+	visited := make(set.Set[channel.Key])
+	var checkDeps func(channel.Key) error
+	checkDeps = func(key channel.Key) error {
+		if key == source {
+			return errors.Newf("circular dependency detected involving channel %v", source)
+		}
+		if visited.Contains(key) {
+			return nil
+		}
+		visited.Add(key)
+
+		info := a.channels[key]
+		if info == nil {
+			return nil
+		}
+
+		for _, depKey := range info.calcDeps {
+			if err := checkDeps(depKey); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	return checkDeps(target)
+}
+
+// recalculateGroupBaseDeps recalculates the base dependencies for a group based on its current members.
+func (a *Graph) recalculateGroupBaseDeps(ctx context.Context, groupID int) error {
+	group := a.groups[groupID]
+	if group == nil {
+		return nil
+	}
+
+	newBaseDeps := make(set.Set[channel.Key])
+	for memberKey := range group.members {
+		info := a.channels[memberKey]
+		if info == nil {
+			continue
+		}
+
+		// Get all dependencies for this member
+		deps := info.module.StateConfig.Reads.Keys()
+		if len(deps) == 0 {
+			continue
+		}
+
+		depChannels, err := a.fetchChannels(ctx, deps)
+		if err != nil {
+			return errors.Wrap(err, "failed to retrieve dependency channels for base deps recalculation")
+		}
+
+		baseDeps, err := a.resolveBaseDependencies(ctx, depChannels)
+		if err != nil {
+			return err
+		}
+
+		for dep := range baseDeps {
+			newBaseDeps.Add(dep)
+		}
+	}
+
+	group.baseDeps = newBaseDeps
+	return nil
+}
+
 // addInternal compiles a channel and its dependencies, then assigns it to a group.
 func (a *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bool) error {
 	if info := a.channels[ch.Key()]; info != nil {
@@ -91,8 +288,11 @@ func (a *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 	dependencies := mod.StateConfig.Reads.Keys()
 
 	var calcDeps []channel.Key
+	var depChannels []channel.Channel
+
 	if len(dependencies) > 0 {
-		depChannels, err := a.fetchChannels(ctx, dependencies)
+		var err error
+		depChannels, err = a.fetchChannels(ctx, dependencies)
 		if err != nil {
 			delete(a.channels, ch.Key())
 			return errors.Wrap(err, "failed to retrieve dependency channels")
@@ -110,7 +310,7 @@ func (a *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 		}
 	}
 
-	baseDeps, err := a.resolveBaseDependencies(ctx, ch.Key(), mod)
+	baseDeps, err := a.resolveBaseDependencies(ctx, depChannels)
 	if err != nil {
 		delete(a.channels, ch.Key())
 		return err
@@ -144,21 +344,15 @@ func (a *Graph) fetchChannels(ctx context.Context, keys []channel.Key) ([]channe
 
 // resolveBaseDependencies recursively resolves all dependencies to find the concrete
 // (non-calculated) base channels that this channel ultimately depends on.
+// depChannels should be the already-fetched channels for mod.StateConfig.Reads.
 func (a *Graph) resolveBaseDependencies(
 	ctx context.Context,
-	_ channel.Key,
-	mod compiler.Module,
+	depChannels []channel.Channel,
 ) (set.Set[channel.Key], error) {
 	baseDeps := make(set.Set[channel.Key])
-	dependencies := mod.StateConfig.Reads.Keys()
 
-	if len(dependencies) == 0 {
+	if len(depChannels) == 0 {
 		return baseDeps, nil
-	}
-
-	depChannels, err := a.fetchChannels(ctx, dependencies)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to retrieve dependency channels")
 	}
 
 	for _, depCh := range depChannels {
@@ -167,7 +361,16 @@ func (a *Graph) resolveBaseDependencies(
 			if err != nil {
 				return nil, err
 			}
-			recursiveDeps, err := a.resolveBaseDependencies(ctx, depCh.Key(), info.module)
+			// Recursively resolve - fetch the dependency's dependencies
+			depDeps := info.module.StateConfig.Reads.Keys()
+			var depDepChannels []channel.Channel
+			if len(depDeps) > 0 {
+				depDepChannels, err = a.fetchChannels(ctx, depDeps)
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to retrieve recursive dependency channels")
+				}
+			}
+			recursiveDeps, err := a.resolveBaseDependencies(ctx, depDepChannels)
 			if err != nil {
 				return nil, err
 			}
@@ -175,7 +378,18 @@ func (a *Graph) resolveBaseDependencies(
 				baseDeps.Add(dep)
 			}
 		} else {
-			baseDeps.Add(depCh.Key())
+			// Check if this channel is an index of a calculated channel
+			isIndexOfCalculated := false
+			for _, info := range a.channels {
+				if info.module.Channel.Index() == depCh.Key() {
+					isIndexOfCalculated = true
+					break
+				}
+			}
+			// Only add if it's not an index of a calculated channel
+			if !isIndexOfCalculated {
+				baseDeps.Add(depCh.Key())
+			}
 		}
 	}
 
@@ -401,9 +615,9 @@ func (a *Graph) getChannelInfo(key channel.Key) (*channelInfo, error) {
 // Remove decrements the explicit reference count for a channel.
 // When both explicit and dependency counts reach 0, removes the channel and cascades to dependencies.
 func (a *Graph) Remove(key channel.Key) error {
-	info, err := a.getChannelInfo(key)
-	if err != nil {
-		return err
+	info, ok := a.channels[key]
+	if !ok {
+		return nil
 	}
 	info.explicitCount--
 	if info.explicitCount > 0 || info.depCount > 0 {

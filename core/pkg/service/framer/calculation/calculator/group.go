@@ -27,10 +27,12 @@ type Group []*Calculator
 
 func (g Group) ReadFrom() channel.Keys {
 	keys := make(set.Set[channel.Key])
+	calcKeys := make(set.Set[channel.Key])
 	for _, c := range g {
 		keys.Add(c.ReadFrom()...)
+		calcKeys.Add(c.Channel().Key(), c.Channel().Index())
 	}
-	return keys.Keys()
+	return set.Difference(keys, calcKeys).Keys()
 }
 
 func (g Group) WriteTo() channel.Keys {

@@ -273,4 +273,299 @@ var _ = Describe("Graph", func() {
 			Expect(grouped).To(BeEmpty())
 		})
 	})
+
+	Describe("CalculatedKeys", func() {
+		It("Should return all calculated channel keys", func() {
+			bases := []channel.Channel{{Name: "base16", DataType: telem.Int64T, Virtual: true}}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calcs := []channel.Channel{
+				{Name: "calc24", DataType: telem.Int64T, Virtual: true, Expression: "return base16"},
+				{Name: "calc25", DataType: telem.Int64T, Virtual: true, Expression: "return calc24 * 2"},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+
+			keys := g.CalculatedKeys()
+			Expect(keys).To(HaveLen(2))
+			Expect(keys.Contains(calcs[0].Key())).To(BeTrue())
+			Expect(keys.Contains(calcs[1].Key())).To(BeTrue())
+			Expect(keys.Contains(bases[0].Key())).To(BeFalse())
+		})
+
+		It("Should return empty set when no channels", func() {
+			keys := g.CalculatedKeys()
+			Expect(keys).To(BeEmpty())
+		})
+
+		It("Should update after channel removal", func() {
+			bases := []channel.Channel{{Name: "base17", DataType: telem.Int64T, Virtual: true}}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calc := channel.Channel{Name: "calc26", DataType: telem.Int64T, Virtual: true, Expression: "return base17"}
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Add(ctx, calc)).To(Succeed())
+
+			keys := g.CalculatedKeys()
+			Expect(keys).To(HaveLen(1))
+			Expect(keys.Contains(calc.Key())).To(BeTrue())
+
+			Expect(g.Remove(calc.Key())).To(Succeed())
+			keys = g.CalculatedKeys()
+			Expect(keys).To(BeEmpty())
+		})
+	})
+
+	Describe("ConcreteBaseKeys", func() {
+		It("Should return all concrete base channel keys", func() {
+			bases := []channel.Channel{
+				{Name: "base18", DataType: telem.Int64T, Virtual: true},
+				{Name: "base19", DataType: telem.Int64T, Virtual: true},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calcs := []channel.Channel{
+				{Name: "calc27", DataType: telem.Int64T, Virtual: true, Expression: "return base18"},
+				{Name: "calc28", DataType: telem.Int64T, Virtual: true, Expression: "return base18 + base19"},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(g.Add(ctx, calcs[0])).To(Succeed())
+			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+
+			baseKeys := g.ConcreteBaseKeys()
+			Expect(baseKeys).To(HaveLen(2))
+			Expect(baseKeys.Contains(bases[0].Key())).To(BeTrue())
+			Expect(baseKeys.Contains(bases[1].Key())).To(BeTrue())
+			Expect(baseKeys.Contains(calcs[0].Key())).To(BeFalse())
+			Expect(baseKeys.Contains(calcs[1].Key())).To(BeFalse())
+		})
+
+		It("Should handle nested calculated channels", func() {
+			bases := []channel.Channel{{Name: "base20", DataType: telem.Int64T, Virtual: true}}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calcs := []channel.Channel{
+				{Name: "calc29", DataType: telem.Int64T, Virtual: true, Expression: "return base20"},
+				{Name: "calc30", DataType: telem.Int64T, Virtual: true, Expression: "return calc29 * 2"},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+
+			baseKeys := g.ConcreteBaseKeys()
+			Expect(baseKeys.Contains(bases[0].Key())).To(BeTrue())
+			Expect(baseKeys.Contains(calcs[0].Key())).To(BeFalse())
+			Expect(baseKeys.Contains(calcs[1].Key())).To(BeFalse())
+		})
+
+		It("Should return empty set when no channels", func() {
+			baseKeys := g.ConcreteBaseKeys()
+			Expect(baseKeys).To(BeEmpty())
+		})
+
+		It("Should update after channel removal", func() {
+			bases := []channel.Channel{
+				{Name: "base21", DataType: telem.Int64T, Virtual: true},
+				{Name: "base22", DataType: telem.Int64T, Virtual: true},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calcs := []channel.Channel{
+				{Name: "calc31", DataType: telem.Int64T, Virtual: true, Expression: "return base21"},
+				{Name: "calc32", DataType: telem.Int64T, Virtual: true, Expression: "return base22"},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(g.Add(ctx, calcs[0])).To(Succeed())
+			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+
+			baseKeys := g.ConcreteBaseKeys()
+			Expect(baseKeys).To(HaveLen(2))
+
+			Expect(g.Remove(calcs[0].Key())).To(Succeed())
+			baseKeys = g.ConcreteBaseKeys()
+			Expect(baseKeys).To(HaveLen(1))
+			Expect(baseKeys.Contains(bases[1].Key())).To(BeTrue())
+			Expect(baseKeys.Contains(bases[0].Key())).To(BeFalse())
+		})
+	})
+
+	Describe("Update", func() {
+		It("Should update channel expression without changing dependencies", func() {
+			bases := []channel.Channel{{Name: "upbase1", DataType: telem.Int64T, Virtual: true}}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calc := channel.Channel{Name: "upcalc1", DataType: telem.Int64T, Virtual: true, Expression: "return upbase1 * 2"}
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Add(ctx, calc)).To(Succeed())
+
+			calc.Expression = "return upbase1 * 4"
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Update(ctx, calc)).To(Succeed())
+			grouped := g.CalculateGrouped()
+			Expect(grouped).To(HaveLen(1))
+			baseKeys := g.ConcreteBaseKeys()
+			Expect(baseKeys).To(HaveLen(1))
+			Expect(baseKeys.Contains(bases[0].Key())).To(BeTrue())
+		})
+
+		It("Should add new dependencies when updating", func() {
+			bases := []channel.Channel{
+				{Name: "upbase2", DataType: telem.Int64T, Virtual: true},
+				{Name: "upbase3", DataType: telem.Int64T, Virtual: true},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calc := channel.Channel{Name: "upcalc2", DataType: telem.Int64T, Virtual: true, Expression: "return upbase2"}
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Add(ctx, calc)).To(Succeed())
+
+			calc.Expression = "return upbase2 + upbase3"
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Update(ctx, calc)).To(Succeed())
+			baseKeys := g.ConcreteBaseKeys()
+			Expect(baseKeys).To(HaveLen(2))
+			Expect(baseKeys.Contains(bases[0].Key())).To(BeTrue())
+			Expect(baseKeys.Contains(bases[1].Key())).To(BeTrue())
+		})
+
+		It("Should remove old dependencies when updating", func() {
+			bases := []channel.Channel{
+				{Name: "upbase4", DataType: telem.Int64T, Virtual: true},
+				{Name: "upbase5", DataType: telem.Int64T, Virtual: true},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calc := channel.Channel{Name: "upcalc3", DataType: telem.Int64T, Virtual: true, Expression: "return upbase4 + upbase5"}
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Add(ctx, calc)).To(Succeed())
+
+			calc.Expression = "return upbase4"
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Update(ctx, calc)).To(Succeed())
+			baseKeys := g.ConcreteBaseKeys()
+			Expect(baseKeys).To(HaveLen(1))
+			Expect(baseKeys.Contains(bases[0].Key())).To(BeTrue())
+			Expect(baseKeys.Contains(bases[1].Key())).To(BeFalse())
+		})
+
+		It("Should change group when base dependencies change", func() {
+			bases := []channel.Channel{
+				{Name: "upbase6", DataType: telem.Int64T, Virtual: true},
+				{Name: "upbase7", DataType: telem.Int64T, Virtual: true},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calcs := []channel.Channel{
+				{Name: "upcalc4", DataType: telem.Int64T, Virtual: true, Expression: "return upbase6"},
+				{Name: "upcalc5", DataType: telem.Int64T, Virtual: true, Expression: "return upbase7"},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(g.Add(ctx, calcs[0])).To(Succeed())
+			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+
+			grouped := g.CalculateGrouped()
+			Expect(grouped).To(HaveLen(2))
+
+			calcs[0].Expression = "return upbase7"
+			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
+			Expect(g.Update(ctx, calcs[0])).To(Succeed())
+			grouped = g.CalculateGrouped()
+			Expect(grouped).To(HaveLen(1))
+		})
+
+		It("Should preserve reference counts after update", func() {
+			bases := []channel.Channel{{Name: "upbase8", DataType: telem.Int64T, Virtual: true}}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calc := channel.Channel{Name: "upcalc6", DataType: telem.Int64T, Virtual: true, Expression: "return upbase8"}
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Add(ctx, calc)).To(Succeed())
+			Expect(g.Add(ctx, calc)).To(Succeed())
+
+			calc.Expression = "return upbase8 * 3"
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Update(ctx, calc)).To(Succeed())
+			Expect(g.Remove(calc.Key())).To(Succeed())
+			grouped := g.CalculateGrouped()
+			Expect(grouped).To(HaveLen(1))
+			Expect(g.Remove(calc.Key())).To(Succeed())
+			grouped = g.CalculateGrouped()
+			Expect(grouped).To(BeEmpty())
+		})
+
+		It("Should handle updating with calculated dependencies", func() {
+			bases := []channel.Channel{{Name: "upbase9", DataType: telem.Int64T, Virtual: true}}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calcs := []channel.Channel{
+				{Name: "upcalc7", DataType: telem.Int64T, Virtual: true, Expression: "return upbase9 * 2"},
+				{Name: "upcalc8", DataType: telem.Int64T, Virtual: true, Expression: "return upbase9"},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+
+			calcs[1].Expression = "return upcalc7 + 1"
+			Expect(dist.Channel.Create(ctx, &calcs[1])).To(Succeed())
+			Expect(g.Update(ctx, calcs[1])).To(Succeed())
+			flat := g.CalculateFlat()
+			Expect(flat).To(HaveLen(2))
+			Expect(flat[0].Channel.Name).To(Equal("upcalc7"))
+			Expect(flat[1].Channel.Name).To(Equal("upcalc8"))
+		})
+
+		It("Should clean up orphaned calculated dependencies", func() {
+			bases := []channel.Channel{{Name: "upbase10", DataType: telem.Int64T, Virtual: true}}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calcs := []channel.Channel{
+				{Name: "upcalc9", DataType: telem.Int64T, Virtual: true, Expression: "return upbase10 * 2"},
+				{Name: "upcalc10", DataType: telem.Int64T, Virtual: true, Expression: "return upcalc9 + 1"},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+
+			calcKeys := g.CalculatedKeys()
+			Expect(calcKeys).To(HaveLen(2))
+
+			calcs[1].Expression = "return upbase10"
+			Expect(dist.Channel.Create(ctx, &calcs[1])).To(Succeed())
+			Expect(g.Update(ctx, calcs[1])).To(Succeed())
+			calcKeys = g.CalculatedKeys()
+			Expect(calcKeys).To(HaveLen(1))
+			Expect(calcKeys.Contains(calcs[1].Key())).To(BeTrue())
+			Expect(calcKeys.Contains(calcs[0].Key())).To(BeFalse())
+		})
+
+		It("Should fail to update non-existent channel", func() {
+			calc := channel.Channel{Name: "nonexistent", DataType: telem.Int64T, Virtual: true, Expression: "return 1 + 1"}
+			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Update(ctx, calc)).To(HaveOccurred())
+		})
+
+		It("Should detect circular dependency during update", func() {
+			bases := []channel.Channel{{Name: "upbase12", DataType: telem.Int64T, Virtual: true}}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calcs := []channel.Channel{
+				{Name: "upcirc1", DataType: telem.Int64T, Virtual: true, Expression: "return upbase12"},
+				{Name: "upcirc2", DataType: telem.Int64T, Virtual: true, Expression: "return upcirc1"},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(g.Add(ctx, calcs[0])).To(Succeed())
+			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+
+			calcs[0].Expression = "return upcirc2"
+			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
+			Expect(g.Update(ctx, calcs[0])).To(MatchError(ContainSubstring("circular dependency")))
+		})
+
+		It("Should not remove shared calculated dependencies", func() {
+			bases := []channel.Channel{{Name: "upbase13", DataType: telem.Int64T, Virtual: true}}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			calcs := []channel.Channel{
+				{Name: "upcalc11", DataType: telem.Int64T, Virtual: true, Expression: "return upbase13 * 2"},
+				{Name: "upcalc12", DataType: telem.Int64T, Virtual: true, Expression: "return upcalc11 + 1"},
+				{Name: "upcalc13", DataType: telem.Int64T, Virtual: true, Expression: "return upcalc11 * 3"},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(g.Add(ctx, calcs[2])).To(Succeed())
+
+			calcKeys := g.CalculatedKeys()
+			Expect(calcKeys).To(HaveLen(3))
+
+			calcs[1].Expression = "return upbase13"
+			Expect(dist.Channel.Create(ctx, &calcs[1])).To(Succeed())
+			Expect(g.Update(ctx, calcs[1])).To(Succeed())
+			calcKeys = g.CalculatedKeys()
+			Expect(calcKeys).To(HaveLen(3))
+			Expect(calcKeys.Contains(calcs[0].Key())).To(BeTrue())
+		})
+	})
 })
