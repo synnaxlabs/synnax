@@ -1166,10 +1166,7 @@ export type CIDecodingType = z.infer<typeof ciDecodingTypeZ>;
 // Counter Input linear velocity units
 const CI_METERS_PER_SECOND = "m/s";
 const CI_INCHES_PER_SECOND = "in/s";
-const ciLinearVelocityUnitsZ = z.enum([
-  CI_METERS_PER_SECOND,
-  CI_INCHES_PER_SECOND,
-]);
+const ciLinearVelocityUnitsZ = z.enum([CI_METERS_PER_SECOND, CI_INCHES_PER_SECOND]);
 export type CILinearVelocityUnits = z.infer<typeof ciLinearVelocityUnitsZ>;
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinvelocitychan.html
@@ -1203,11 +1200,7 @@ export const ZERO_CI_LINEAR_VELOCITY_CHAN: CILinearVelocityChan = {
 const RPM = "RPM";
 const RADIANS_PER_SECOND = "Radians/s";
 const DEGREES_PER_SECOND = "Degrees/s";
-const ciAngularVelocityUnitsZ = z.enum([
-  RPM,
-  RADIANS_PER_SECOND,
-  DEGREES_PER_SECOND,
-]);
+const ciAngularVelocityUnitsZ = z.enum([RPM, RADIANS_PER_SECOND, DEGREES_PER_SECOND]);
 export type CIAngularVelocityUnits = z.infer<typeof ciAngularVelocityUnitsZ>;
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangvelocitychan.html
@@ -1388,10 +1381,12 @@ export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
 };
 
 // Counter Output Channels
-const baseCOChanZ = Common.Task.writeChannelZ.extend(counterChannelExtensionShape);
+// Note: CO Pulse Output channels do not support runtime command/state channels
+// They are configuration-only - parameters are set once when task is created
+const baseCOChanZ = Common.Task.channelZ.extend(counterChannelExtensionShape);
 interface BaseCOChan extends z.infer<typeof baseCOChanZ> {}
 const ZERO_BASE_CO_CHAN: BaseCOChan = {
-  ...Common.Task.ZERO_WRITE_CHANNEL,
+  ...Common.Task.ZERO_CHANNEL,
   ...ZERO_COUNTER_CHANNEL_EXTENSION,
 };
 
@@ -1880,7 +1875,7 @@ const validateCounterWritePorts = ({
 export const counterWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
     .array(coChannelZ)
-    .check(Common.Task.validateWriteChannels)
+    .check(Common.Task.validateChannels)
     .check(validateCounterWritePorts),
 });
 export interface CounterWriteConfig extends z.infer<typeof counterWriteConfigZ> {}

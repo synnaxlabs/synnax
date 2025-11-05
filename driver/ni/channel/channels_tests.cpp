@@ -1576,8 +1576,8 @@ TEST(ChannelsTest, ParseCOPulseOutputChan) {
         {"key", "XBQejNmAyaZ"},
         {"port", 0},
         {"enabled", true},
-        {"cmd_channel", 0},
-        {"state_channel", 0},
+        // Note: CO Pulse Output channels don't have cmd_channel/state_channel
+        // as they are configuration-only (no runtime control)
         {"units", "Seconds"},
         {"idle_state", "Low"},
         {"initial_delay", 0.0},
@@ -1591,6 +1591,9 @@ TEST(ChannelsTest, ParseCOPulseOutputChan) {
     ASSERT_NE(chan, nullptr);
     const auto co_pulse_chan = dynamic_cast<channel::COPulseOutput *>(chan.get());
     ASSERT_NE(co_pulse_chan, nullptr);
+    EXPECT_FALSE(co_pulse_chan->supports_runtime_control());
+    EXPECT_EQ(co_pulse_chan->cmd_ch_key, 0);
+    EXPECT_EQ(co_pulse_chan->state_ch_key, 0);
     EXPECT_EQ(co_pulse_chan->idle_state, DAQmx_Val_Low);
     EXPECT_EQ(co_pulse_chan->initial_delay, 0.0);
     EXPECT_EQ(co_pulse_chan->high_time, 0.01);
@@ -1606,8 +1609,8 @@ TEST(ChannelsTest, ParseCOPulseOutputChanHighIdleState) {
         {"key", "XBQejNmAyaY"},
         {"port", 1},
         {"enabled", true},
-        {"cmd_channel", 0},
-        {"state_channel", 0},
+        // Note: CO Pulse Output channels don't have cmd_channel/state_channel
+        // as they are configuration-only (no runtime control)
         {"units", "Seconds"},
         {"idle_state", "High"},
         {"initial_delay", 0.1},
@@ -1621,6 +1624,9 @@ TEST(ChannelsTest, ParseCOPulseOutputChanHighIdleState) {
     ASSERT_NE(chan, nullptr);
     const auto co_pulse_chan = dynamic_cast<channel::COPulseOutput *>(chan.get());
     ASSERT_NE(co_pulse_chan, nullptr);
+    EXPECT_FALSE(co_pulse_chan->supports_runtime_control());
+    EXPECT_EQ(co_pulse_chan->cmd_ch_key, 0);
+    EXPECT_EQ(co_pulse_chan->state_ch_key, 0);
     EXPECT_EQ(co_pulse_chan->idle_state, DAQmx_Val_High);
     EXPECT_EQ(co_pulse_chan->initial_delay, 0.1);
     EXPECT_EQ(co_pulse_chan->high_time, 0.005);

@@ -111,6 +111,6 @@ export const createCOChannel = (channels: COChannel[], key?: string): COChannel 
   createCounterChannel(
     channels,
     ZERO_CO_CHANNEL,
-    Common.Task.WRITE_CHANNEL_OVERRIDE,
+    {}, // CO channels don't have cmd/state fields
     key,
   );

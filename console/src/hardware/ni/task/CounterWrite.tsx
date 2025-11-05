@@ -61,7 +61,11 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   const path = `config.channels.${itemKey}`;
   const item = PForm.useFieldValue<COChannel>(path);
   if (item == null) return null;
-  const { port, cmdChannel, stateChannel, type } = item;
+  const { port, type } = item;
+  // CO Pulse Output channels don't have cmd/state channels - they're configuration-only
+  // Use 0 to indicate no channel
+  const cmdChannel = 0;
+  const stateChannel = undefined;
   const Icon = CO_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
@@ -102,7 +106,8 @@ const Form: FC<
     listItem={channelListItem}
     details={channelDetails}
     createChannel={createCOChannel}
-    contextMenuItems={Common.Task.writeChannelContextMenuItems}
+    // CO Pulse Output channels don't have cmd/state, so no write-specific menu items
+    contextMenuItems={undefined}
   />
 );
 
