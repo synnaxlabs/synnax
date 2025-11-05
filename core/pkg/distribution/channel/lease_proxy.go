@@ -80,7 +80,7 @@ func newLeaseProxy(
 		leasedCounter: c,
 		group:         group,
 	}
-	p.mu.externalNonVirtualSet = set.NewInteger[Key](KeysFromChannels(externalNonVirtualChannels))
+	p.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
 	if cfg.HostResolver.HostKey() == cluster.Bootstrapper {
 		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
 		c, err := openCounter(ctx, cfg.ClusterDB, freeCounterKey)
