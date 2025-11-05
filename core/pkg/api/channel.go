@@ -210,7 +210,7 @@ func (s *ChannelService) Retrieve(
 	if req.Internal != nil {
 		q = q.WhereInternal(*req.Internal)
 	}
-	if req.LegacyCalculated != nil && *req.LegacyCalculated {
+	if req.LegacyCalculated != nil {
 		q = q.WhereLegacyCalculated()
 	}
 	if err := q.Exec(ctx, nil); err != nil {
@@ -218,7 +218,7 @@ func (s *ChannelService) Retrieve(
 	}
 	if len(aliasChannels) > 0 {
 		aliasKeys := channel.KeysFromChannels(aliasChannels)
-		resChannels = append(aliasChannels, lo.Filter(resChannels, func(ch channel.Channel, i int) bool {
+		resChannels = append(aliasChannels, lo.Filter(resChannels, func(ch channel.Channel, _ int) bool {
 			return !aliasKeys.Contains(ch.Key())
 		})...)
 	}

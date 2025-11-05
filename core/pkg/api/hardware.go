@@ -119,10 +119,10 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 	if hasOffset {
 		q = q.Offset(req.Offset)
 	}
-	if req.Embedded != nil && *req.Embedded {
+	if req.Embedded != nil {
 		q = q.WhereEmbedded(*req.Embedded)
 	}
-	if req.HostIsNode != nil && *req.HostIsNode {
+	if req.HostIsNode != nil {
 		q = q.WhereNodeIsHost()
 	}
 	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
