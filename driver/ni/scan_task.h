@@ -27,6 +27,7 @@
 
 #include "client/cpp/synnax.h"
 
+#include "driver/ni/daqmx/sugared.h"
 #include "driver/ni/ni.h"
 #include "driver/ni/syscfg/nisyscfg.h"
 #include "driver/ni/syscfg/sugared.h"
@@ -49,6 +50,14 @@ struct Device : synnax::Device {
     std::string resource_name;
     /// @brief whether the device is simulated.
     bool is_simulated = false;
+    /// @brief supported AI measurement types (DAQmx constants).
+    std::vector<int32> supported_ai_types;
+    /// @brief supported AO output types (DAQmx constants).
+    std::vector<int32> supported_ao_types;
+    /// @brief supported CI measurement types (DAQmx constants).
+    std::vector<int32> supported_ci_types;
+    /// @brief supported CO output types (DAQmx constants).
+    std::vector<int32> supported_co_types;
 
     Device() = default;
 
@@ -63,24 +72,7 @@ struct Device : synnax::Device {
 
     /// @brief returns the synnax device representation along with json serialized
     /// properties.
-    synnax::Device to_synnax() {
-        auto dev = synnax::Device(
-            this->key,
-            this->name,
-            this->rack,
-            this->location,
-            this->make,
-            this->model,
-            nlohmann::to_string(
-                json{
-                    {"is_simulated", this->is_simulated},
-                    {"resource_name", this->resource_name}
-                }
-            )
-        );
-        dev.status = this->status;
-        return dev;
-    }
+    synnax::Device to_synnax();
 };
 
 /// @brief the default rate for scanning for devices.
@@ -122,6 +114,8 @@ class Scanner final : public common::Scanner {
     const synnax::Task task;
     /// @brief the NI system configuration library.
     std::shared_ptr<syscfg::SugaredAPI> syscfg;
+    /// @brief the NI-DAQmx library (optional, for capability queries).
+    std::shared_ptr<daqmx::SugaredAPI> dmx;
     /// @brief ni system configuration session handle.
     NISysCfgSessionHandle session = nullptr;
     /// @brief ni filter we use to only find certain ni devices;
@@ -138,6 +132,7 @@ class Scanner final : public common::Scanner {
 public:
     explicit Scanner(
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         ScanTaskConfig cfg,
         synnax::Task task
     );

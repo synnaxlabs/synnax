@@ -143,7 +143,7 @@ common::ConfigureResult ni::Factory::configure_scan(
         return res;
     }
     res.task = std::make_unique<common::ScanTask>(
-        std::make_unique<ni::Scanner>(this->syscfg, cfg, task),
+        std::make_unique<ni::Scanner>(this->syscfg, this->dmx, cfg, task),
         ctx,
         task,
         breaker::default_config(task.name),

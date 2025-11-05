@@ -10,6 +10,12 @@
 import { type channel, type device } from "@synnaxlabs/client";
 
 import { type Common } from "@/hardware/common";
+import {
+  type AIChannelType,
+  type AOChannelType,
+  type CIChannelType,
+  type COChannelType,
+} from "@/hardware/ni/task/types";
 
 export const MAKE = "NI";
 export type Make = typeof MAKE;
@@ -49,6 +55,11 @@ export type Properties = {
     stateIndex: channel.Key;
     channels: Record<string, Common.Device.CommandStatePair>;
   };
+  // Device capabilities - queried from NI-DAQmx at scan time
+  supportedAITypes?: AIChannelType[];
+  supportedAOTypes?: AOChannelType[];
+  supportedCITypes?: CIChannelType[];
+  supportedCOTypes?: COChannelType[];
 };
 
 export const ZERO_PROPERTIES: Properties = {
