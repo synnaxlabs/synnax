@@ -41,8 +41,8 @@ const retrieveRequestZ = z.object({
   locations: z.string().array().optional(),
   racks: rackKeyZ.array().optional(),
   searchTerm: z.string().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional(),
+  limit: z.int().optional(),
+  offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
 const retrieveResZ = z.object({ devices: array.nullableZ(deviceZ) });

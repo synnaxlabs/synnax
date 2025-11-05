@@ -30,8 +30,6 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   searchTerm: z.string().optional(),
-  offset: z.number().optional(),
-  limit: z.number().optional(),
 });
 
 const singleRetrieveArgsZ = z

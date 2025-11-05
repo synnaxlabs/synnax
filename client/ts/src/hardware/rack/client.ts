@@ -34,8 +34,8 @@ const retrieveReqZ = z.object({
   searchTerm: z.string().optional(),
   embedded: z.boolean().optional(),
   hostIsNode: z.boolean().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional(),
+  limit: z.int().optional(),
+  offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
 const retrieveResZ = z.object({ racks: array.nullableZ(rackZ) });

@@ -32,8 +32,8 @@ const emptyResZ = z.object({});
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   searchTerm: z.string().optional(),
-  offset: z.number().optional(),
-  limit: z.number().optional(),
+  offset: z.int().optional(),
+  limit: z.int().optional(),
   includeLabels: z.boolean().optional(),
   hasLabels: label.keyZ.array().optional(),
 });

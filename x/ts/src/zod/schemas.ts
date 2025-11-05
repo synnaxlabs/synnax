@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/zod/nullToUndefined";
-export * from "@/zod/schemas";
-export * from "@/zod/toArray";
-export * from "@/zod/util";
+import { z } from "zod";
+
+import { MAX_UINT12 } from "@/math/constants";
+
+export const uint12 = z.int().min(0).max(MAX_UINT12);

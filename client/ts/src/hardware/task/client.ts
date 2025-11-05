@@ -189,8 +189,8 @@ const retrieveReqZ = z.object({
   internal: z.boolean().optional(),
   snapshot: z.boolean().optional(),
   searchTerm: z.string().optional(),
-  offset: z.number().optional(),
-  limit: z.number().optional(),
+  offset: z.int().optional(),
+  limit: z.int().optional(),
 });
 
 const singleRetrieveArgsZ = z.union([
@@ -454,11 +454,11 @@ export class Client {
   }
 
   async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
-    parms: ExecuteCommandsSyncParams<StatusData>,
+    params: ExecuteCommandsSyncParams<StatusData>,
   ): Promise<Status<StatusData>[]>;
 
   async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
-    parms: ExecuteCommandSyncParams<StatusData>,
+    params: ExecuteCommandSyncParams<StatusData>,
   ): Promise<Status<StatusData>>;
 
   async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(

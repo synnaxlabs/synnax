@@ -38,10 +38,11 @@ const emptyResZ = z.object({});
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
+  names: z.string().array().optional(),
   for: ontology.idZ.optional(),
   searchTerm: z.string().optional(),
-  offset: z.number().optional(),
-  limit: z.number().optional(),
+  offset: z.int().optional(),
+  limit: z.int().optional(),
 });
 
 const singleRetrieveArgsZ = z

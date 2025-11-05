@@ -30,10 +30,10 @@ const retrieveReqZ = z.object({
   children: z.boolean().optional(),
   parents: z.boolean().optional(),
   excludeFieldData: z.boolean().optional(),
-  searchTerm: z.string().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional(),
   types: resourceTypeZ.array().optional(),
+  searchTerm: z.string().optional(),
+  limit: z.int().optional(),
+  offset: z.int().optional(),
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 

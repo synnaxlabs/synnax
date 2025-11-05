@@ -137,8 +137,8 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	}
 	pipe := plumber.New()
 	plumber.SetSegment(pipe, frameIteratorAddr, iter)
-	plumber.SetSink[iterator.Response](pipe, frameSenderAddr, sender)
-	plumber.SetSource[iterator.Request](pipe, frameReceiverAddr, receiver)
+	plumber.SetSink(pipe, frameSenderAddr, sender)
+	plumber.SetSource(pipe, frameReceiverAddr, receiver)
 	plumber.MustConnect[iterator.Response](pipe, frameIteratorAddr, frameSenderAddr, iteratorResponseBufferSize)
 	plumber.MustConnect[iterator.Request](pipe, frameReceiverAddr, frameIteratorAddr, iteratorRequestBufferSize)
 
@@ -196,9 +196,9 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 		pipe = plumber.New()
 	)
 
-	plumber.SetSegment[FrameStreamerRequest, FrameStreamerResponse](pipe, framerStreamerAddr, streamer)
-	plumber.SetSink[FrameStreamerResponse](pipe, frameSenderAddr, sender)
-	plumber.SetSource[FrameStreamerRequest](pipe, frameReceiverAddr, receiver)
+	plumber.SetSegment(pipe, framerStreamerAddr, streamer)
+	plumber.SetSink(pipe, frameSenderAddr, sender)
+	plumber.SetSource(pipe, frameReceiverAddr, receiver)
 	plumber.MustConnect[FrameStreamerRequest](pipe, frameReceiverAddr, framerStreamerAddr, streamingRequestBufferSize)
 	plumber.MustConnect[FrameStreamerResponse](pipe, framerStreamerAddr, frameSenderAddr, streamingResponseBufferSize)
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())

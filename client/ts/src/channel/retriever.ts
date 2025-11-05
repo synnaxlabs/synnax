@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, DataType, debounce } from "@synnaxlabs/x";
+import { array, DataType, debounce, zod } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 
@@ -25,25 +25,25 @@ import {
   payloadZ,
 } from "@/channel/payload";
 import { QueryError } from "@/errors";
+import { keyZ as rangeKeyZ } from "@/ranger/payload";
 import {
   analyzeParams as analyzeParameters,
   type ParamAnalysisResult,
 } from "@/util/retrieve";
 
 const reqZ = z.object({
-  leaseholder: z.number().optional(),
+  nodeKey: zod.uint12.optional(),
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   searchTerm: z.string().optional(),
-  rangeKey: z.string().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional(),
+  rangeKey: rangeKeyZ.optional(),
+  limit: z.int().optional(),
+  offset: z.int().optional(),
   dataTypes: DataType.z.array().optional(),
   notDataTypes: DataType.z.array().optional(),
   virtual: z.boolean().optional(),
   isIndex: z.boolean().optional(),
   internal: z.boolean().optional(),
-  calculated: z.boolean().optional(),
   legacyCalculated: z.boolean().optional(),
 });
 export interface RetrieveRequest extends z.input<typeof reqZ> {}

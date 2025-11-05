@@ -211,7 +211,7 @@ func (s *ChannelService) Retrieve(
 		q = q.WhereInternal(*req.Internal)
 	}
 	if req.LegacyCalculated != nil {
-		q = q.WhereLegacyCalculated()
+		q = q.WhereLegacyCalculated(*req.LegacyCalculated)
 	}
 	if err := q.Exec(ctx, nil); err != nil {
 		return ChannelRetrieveResponse{}, err

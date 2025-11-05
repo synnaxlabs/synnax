@@ -32,8 +32,8 @@ const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   searchTerm: z.string().optional(),
   author: userKeyZ.optional(),
-  offset: z.number().optional(),
-  limit: z.number().optional(),
+  offset: z.int().optional(),
+  limit: z.int().optional(),
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const createReqZ = z.object({ workspaces: newZ.array() });

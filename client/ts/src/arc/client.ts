@@ -36,8 +36,8 @@ const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   searchTerm: z.string().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional(),
+  limit: z.int().optional(),
+  offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
 const createReqZ = z.object({ arcs: newZ.array() });

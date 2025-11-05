@@ -163,12 +163,12 @@ export class Range {
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
-  names: z.array(z.string()).optional(),
+  names: z.string().array().optional(),
   searchTerm: z.string().optional(),
   overlapsWith: TimeRange.z.optional(),
-  limit: z.number().int().optional(),
-  offset: z.number().int().optional(),
   hasLabels: label.keyZ.array().optional(),
+  limit: z.int().optional(),
+  offset: z.int().optional(),
   includeLabels: z.boolean().optional(),
   includeParent: z.boolean().optional(),
 });
