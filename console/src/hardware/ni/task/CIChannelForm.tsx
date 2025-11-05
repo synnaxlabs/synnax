@@ -52,7 +52,6 @@ const UnitsField = Form.buildSelectField<CIFreqUnits, record.KeyedNamed<CIFreqUn
     data: [
       { key: "Hz", name: "Hz" },
       { key: "Ticks", name: "Ticks" },
-      { key: "FromCustomScale", name: "Custom" },
     ],
   },
 });
@@ -68,7 +67,6 @@ const PeriodUnitsField = Form.buildSelectField<
     data: [
       { key: "Seconds", name: "Seconds" },
       { key: "Ticks", name: "Ticks" },
-      { key: "FromCustomScale", name: "Custom" },
     ],
   },
 });
@@ -84,7 +82,6 @@ const PulseWidthUnitsField = Form.buildSelectField<
     data: [
       { key: "Seconds", name: "Seconds" },
       { key: "Ticks", name: "Ticks" },
-      { key: "FromCustomScale", name: "Custom" },
     ],
   },
 });
@@ -100,7 +97,6 @@ const SemiPeriodUnitsField = Form.buildSelectField<
     data: [
       { key: "Seconds", name: "Seconds" },
       { key: "Ticks", name: "Ticks" },
-      { key: "FromCustomScale", name: "Custom" },
     ],
   },
 });
@@ -328,7 +324,6 @@ const LinearVelocityUnitsField = Form.buildSelectField<
     data: [
       { key: "m/s", name: "m/s" },
       { key: "in/s", name: "in/s" },
-      { key: "FromCustomScale", name: "Custom" },
     ],
   },
 });
@@ -345,7 +340,6 @@ const AngularVelocityUnitsField = Form.buildSelectField<
       { key: "RPM", name: "RPM" },
       { key: "Radians/s", name: "Radians/s" },
       { key: "Degrees/s", name: "Degrees/s" },
-      { key: "FromCustomScale", name: "Custom" },
     ],
   },
 });
@@ -441,7 +435,6 @@ const LinearPositionUnitsField = Form.buildSelectField<
       { key: "Meters", name: "Meters" },
       { key: "Inches", name: "Inches" },
       { key: "Ticks", name: "Ticks" },
-      { key: "FromCustomScale", name: "Custom" },
     ],
   },
 });
@@ -458,7 +451,6 @@ const AngularPositionUnitsField = Form.buildSelectField<
       { key: "Degrees", name: "Degrees" },
       { key: "Radians", name: "Radians" },
       { key: "Ticks", name: "Ticks" },
-      { key: "FromCustomScale", name: "Custom" },
     ],
   },
 });

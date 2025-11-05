@@ -88,7 +88,6 @@ const STRAIN = "Strain";
 const OHMS = "Ohms";
 const HZ = "Hz";
 const SECONDS = "Seconds";
-const FROM_CUSTOM_SCALE = "FromCustomScale";
 const METERS = "Meters";
 const INCHES = "Inches";
 const DEGREES = "Degrees";
@@ -988,7 +987,7 @@ export type CIMeasMethod = z.infer<typeof ciMeasMethodZ>;
 
 // Counter Input frequency units
 const TICKS = "Ticks";
-const ciFreqUnitsZ = z.enum([HZ, TICKS, FROM_CUSTOM_SCALE]);
+const ciFreqUnitsZ = z.enum([HZ, TICKS]);
 export type CIFreqUnits = z.infer<typeof ciFreqUnitsZ>;
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecifreqchan.html
@@ -1047,7 +1046,7 @@ export const ZERO_CI_EDGE_COUNT_CHAN: CIEdgeCountChan = {
 };
 
 // Counter Input period units
-const ciPeriodUnitsZ = z.enum([SECONDS, TICKS, FROM_CUSTOM_SCALE]);
+const ciPeriodUnitsZ = z.enum([SECONDS, TICKS]);
 export type CIPeriodUnits = z.infer<typeof ciPeriodUnitsZ>;
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodchan.html
@@ -1080,7 +1079,7 @@ export const ZERO_CI_PERIOD_CHAN: CIPeriodChan = {
 };
 
 // Counter Input pulse width units (same as period)
-const ciPulseWidthUnitsZ = z.enum([SECONDS, TICKS, FROM_CUSTOM_SCALE]);
+const ciPulseWidthUnitsZ = z.enum([SECONDS, TICKS]);
 export type CIPulseWidthUnits = z.infer<typeof ciPulseWidthUnitsZ>;
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecipulsewidthchan.html
@@ -1107,7 +1106,7 @@ export const ZERO_CI_PULSE_WIDTH_CHAN: CIPulseWidthChan = {
 };
 
 // Counter Input semi period units (same as period)
-const ciSemiPeriodUnitsZ = z.enum([SECONDS, TICKS, FROM_CUSTOM_SCALE]);
+const ciSemiPeriodUnitsZ = z.enum([SECONDS, TICKS]);
 export type CISemiPeriodUnits = z.infer<typeof ciSemiPeriodUnitsZ>;
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecisemiperiodchan.html
@@ -1167,11 +1166,7 @@ export type CIDecodingType = z.infer<typeof ciDecodingTypeZ>;
 // Counter Input linear velocity units
 const CI_METERS_PER_SECOND = "m/s";
 const CI_INCHES_PER_SECOND = "in/s";
-const ciLinearVelocityUnitsZ = z.enum([
-  CI_METERS_PER_SECOND,
-  CI_INCHES_PER_SECOND,
-  FROM_CUSTOM_SCALE,
-]);
+const ciLinearVelocityUnitsZ = z.enum([CI_METERS_PER_SECOND, CI_INCHES_PER_SECOND]);
 export type CILinearVelocityUnits = z.infer<typeof ciLinearVelocityUnitsZ>;
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinvelocitychan.html
@@ -1205,12 +1200,7 @@ export const ZERO_CI_LINEAR_VELOCITY_CHAN: CILinearVelocityChan = {
 const RPM = "RPM";
 const RADIANS_PER_SECOND = "Radians/s";
 const DEGREES_PER_SECOND = "Degrees/s";
-const ciAngularVelocityUnitsZ = z.enum([
-  RPM,
-  RADIANS_PER_SECOND,
-  DEGREES_PER_SECOND,
-  FROM_CUSTOM_SCALE,
-]);
+const ciAngularVelocityUnitsZ = z.enum([RPM, RADIANS_PER_SECOND, DEGREES_PER_SECOND]);
 export type CIAngularVelocityUnits = z.infer<typeof ciAngularVelocityUnitsZ>;
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangvelocitychan.html
@@ -1263,7 +1253,7 @@ const ZERO_Z_INDEX: ZIndex = {
 };
 
 // Counter Input linear position units
-const ciLinearPositionUnitsZ = z.enum([METERS, INCHES, TICKS, FROM_CUSTOM_SCALE]);
+const ciLinearPositionUnitsZ = z.enum([METERS, INCHES, TICKS]);
 export type CILinearPositionUnits = z.infer<typeof ciLinearPositionUnitsZ>;
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinencoder.html
@@ -1294,7 +1284,7 @@ export const ZERO_CI_LINEAR_POSITION_CHAN: CILinearPositionChan = {
 };
 
 // Counter Input angular position units
-const ciAngularPositionUnitsZ = z.enum([DEGREES, RADIANS, TICKS, FROM_CUSTOM_SCALE]);
+const ciAngularPositionUnitsZ = z.enum([DEGREES, RADIANS, TICKS]);
 export type CIAngularPositionUnits = z.infer<typeof ciAngularPositionUnitsZ>;
 
 // https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangencoder.html
@@ -1391,10 +1381,12 @@ export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
 };
 
 // Counter Output Channels
-const baseCOChanZ = Common.Task.writeChannelZ.extend(counterChannelExtensionShape);
+// Note: CO Pulse Output channels do not support runtime command/state channels
+// They are configuration-only - parameters are set once when task is created
+const baseCOChanZ = Common.Task.channelZ.extend(counterChannelExtensionShape);
 interface BaseCOChan extends z.infer<typeof baseCOChanZ> {}
 const ZERO_BASE_CO_CHAN: BaseCOChan = {
-  ...Common.Task.ZERO_WRITE_CHANNEL,
+  ...Common.Task.ZERO_CHANNEL,
   ...ZERO_COUNTER_CHANNEL_EXTENSION,
 };
 
@@ -1423,8 +1415,8 @@ export const ZERO_CO_PULSE_OUTPUT_CHAN: COPulseOutputChan = {
   units: SECONDS,
   idleState: IDLE_LOW,
   initialDelay: 0,
-  highTime: 0.1,
-  lowTime: 0.1,
+  highTime: 1e-6,
+  lowTime: 1e-6,
 };
 
 const coChannelZ = z.union([coPulseOutputChanZ]);
@@ -1883,7 +1875,7 @@ const validateCounterWritePorts = ({
 export const counterWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
     .array(coChannelZ)
-    .check(Common.Task.validateWriteChannels)
+    .check(Common.Task.validateChannels)
     .check(validateCounterWritePorts),
 });
 export interface CounterWriteConfig extends z.infer<typeof counterWriteConfigZ> {}
