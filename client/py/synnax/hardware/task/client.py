@@ -56,7 +56,6 @@ class _RetrieveResponse(Payload):
 _CREATE_ENDPOINT = "/hardware/task/create"
 _DELETE_ENDPOINT = "/hardware/task/delete"
 _RETRIEVE_ENDPOINT = "/hardware/task/retrieve"
-
 _TASK_STATE_CHANNEL = "sy_task_status"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
 
@@ -333,7 +332,7 @@ class Client:
 
     def delete(self, keys: int | list[int]):
         req = _DeleteRequest(keys=normalize(keys))
-        send_required(self._client, _DELETE_ENDPOINT, req, Empty)
+        send_required(self._client, "/hardware/task/delete", req, Empty)
 
     @overload
     def retrieve(
@@ -364,7 +363,7 @@ class Client:
         is_single = check_for_none(names, keys, types)
         res = send_required(
             self._client,
-            _RETRIEVE_ENDPOINT,
+            "/hardware/task/retrieve",
             _RetrieveRequest(
                 keys=override(key, keys),
                 names=override(name, names),

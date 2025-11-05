@@ -46,9 +46,6 @@ class MoveChildrenReq(Payload):
 
 
 _RETRIEVE_ENDPOINT = "/ontology/retrieve"
-_ADD_CHILDREN_ENDPOINT = "/ontology/add-children"
-_REMOVE_CHILDREN_ENDPOINT = "/ontology/remove-children"
-_MOVE_CHILDREN_ENDPOINT = "/ontology/move-children"
 
 
 class RetrieveRes(Payload):
@@ -135,7 +132,7 @@ class Client:
     def move_children(self, from_: CrudeID, to: CrudeID, *children: CrudeID) -> None:
         send_required(
             self._client,
-            _MOVE_CHILDREN_ENDPOINT,
+            "/ontology/move-children",
             MoveChildrenReq.model_validate(
                 {"from": ID(from_), "to": ID(to), "children": [ID(i) for i in children]}
             ),
@@ -145,7 +142,7 @@ class Client:
     def remove_children(self, id: CrudeID, *children: CrudeID) -> None:
         send_required(
             self._client,
-            _REMOVE_CHILDREN_ENDPOINT,
+            "/ontology/remove-children",
             RemoveChildrenReq(id=ID(id), children=[ID(i) for i in children]),
             Empty,
         )
@@ -153,7 +150,7 @@ class Client:
     def add_children(self, id: CrudeID, *children: CrudeID) -> None:
         send_required(
             self._client,
-            _ADD_CHILDREN_ENDPOINT,
+            "/ontology/add-children",
             AddChildrenReq(parent=ID(id), children=[ID(i) for i in children]),
             Empty,
         )

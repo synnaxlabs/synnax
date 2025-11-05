@@ -34,11 +34,6 @@ class DeleteReq(Payload):
     key: list[UUID]
 
 
-_CREATE_ENDPOINT = "/ontology/create-group"
-_RENAME_ENDPOINT = "/ontology/rename-group"
-_DELETE_ENDPOINT = "/ontology/delete-group"
-
-
 class Client:
     _client: UnaryClient
 
@@ -48,20 +43,20 @@ class Client:
     def create(self, parent: CrudeID, name: str, key: str | None = None) -> Group:
         return send_required(
             self._client,
-            _CREATE_ENDPOINT,
+            "/group/create",
             CreateReq(parent=ID(parent), key=UUID(key) if key else None, name=name),
             CreateRes,
         ).group
 
     def rename(self, key: CrudeID, name: str) -> Empty:
         return send_required(
-            self._client, _RENAME_ENDPOINT, RenameReq(key=ID(key), name=name), Empty
+            self._client, "/group/rename", RenameReq(key=ID(key), name=name), Empty
         )
 
     def delete(self, keys: list[CrudeID]) -> Empty:
         return send_required(
             self._client,
-            _DELETE_ENDPOINT,
+            "/group/delete",
             DeleteReq(key=[ID(key) for key in keys]),
             Empty,
         )

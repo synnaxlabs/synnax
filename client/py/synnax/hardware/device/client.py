@@ -41,11 +41,6 @@ class _RetrieveResponse(Payload):
     devices: list[Device] | None = None
 
 
-_CREATE_ENDPOINT = "/hardware/device/create"
-_DELETE_ENDPOINT = "/hardware/device/delete"
-_RETRIEVE_ENDPOINT = "/hardware/device/retrieve"
-
-
 class Client:
     _client: UnaryClient
     instrumentation: Instrumentation = NOOP
@@ -105,7 +100,7 @@ class Client:
         req = _CreateRequest(devices=normalize(devices))
         res = send_required(
             self._client,
-            _CREATE_ENDPOINT,
+            "/hardware/device/create",
             req,
             _CreateResponse,
         )
@@ -113,7 +108,7 @@ class Client:
 
     def delete(self, keys: list[str]) -> None:
         req = _DeleteRequest(keys=keys)
-        send_required(self._client, _DELETE_ENDPOINT, req, Empty)
+        send_required(self._client, "/hardware/device/delete", req, Empty)
 
     @overload
     def retrieve(
@@ -157,7 +152,7 @@ class Client:
         is_single = check_for_none(keys, makes, models, locations, names)
         res = send_required(
             self._client,
-            _RETRIEVE_ENDPOINT,
+            "/hardware/device/retrieve",
             _RetrieveRequest(
                 keys=override(key, keys),
                 makes=override(make, makes),
