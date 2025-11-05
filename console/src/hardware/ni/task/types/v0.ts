@@ -88,7 +88,6 @@ const STRAIN = "Strain";
 const OHMS = "Ohms";
 const HZ = "Hz";
 const SECONDS = "Seconds";
-const FROM_CUSTOM_SCALE = "FromCustomScale";
 const METERS = "Meters";
 const INCHES = "Inches";
 const DEGREES = "Degrees";
@@ -1421,8 +1420,8 @@ export const ZERO_CO_PULSE_OUTPUT_CHAN: COPulseOutputChan = {
   units: SECONDS,
   idleState: IDLE_LOW,
   initialDelay: 0,
-  highTime: 0.1,
-  lowTime: 0.1,
+  highTime: 1e-6,
+  lowTime: 1e-6,
 };
 
 const coChannelZ = z.union([coPulseOutputChanZ]);

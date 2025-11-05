@@ -37,16 +37,6 @@ const IdleStateField = Form.buildSelectField<
   },
 });
 
-const UnitsField = Form.buildSelectField<string, record.KeyedNamed<string>>({
-  fieldKey: "units",
-  fieldProps: { label: "Scaled Units" },
-  inputProps: {
-    resourceName: "Scaled Units",
-    data: [{ key: "Seconds", name: "Seconds" }],
-    allowNone: false,
-  },
-});
-
 const CHANNEL_FORMS: Record<COChannelType, FC<FormProps>> = {
   [CO_PULSE_OUTPUT_CHAN_TYPE]: ({ path }) => (
     <>
@@ -70,10 +60,7 @@ const CHANNEL_FORMS: Record<COChannelType, FC<FormProps>> = {
           grow
         />
       </Flex.Box>
-      <Flex.Box x>
-        <IdleStateField path={path} grow />
-        <UnitsField path={path} grow />
-      </Flex.Box>
+      <IdleStateField path={path} />
     </>
   ),
 };
