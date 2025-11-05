@@ -370,9 +370,26 @@ jobs:
         if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
         working-directory: core
         run: |
+          # Create entitlements allowing wazero JIT on macOS Hardened Runtime
+          cat > server-entitlements.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>com.apple.security.cs.allow-jit</key><true/>
+            <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+          </dict>
+          </plist>
+          EOF
+
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
-          codesign --force --options runtime --timestamp --sign "$CERT_ID" ./synnax-v${{ needs.setup.outputs.VERSION }}-macos
+
+          # Use Hardened Runtime + JIT entitlements for wazero compiler mode
+          codesign --force --options runtime --timestamp \
+            --entitlements server-entitlements.plist \
+            --sign "$CERT_ID" ./synnax-v${{ needs.setup.outputs.VERSION }}-macos
+
           codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}-macos
 
       - name: Sign Windows Server Binary

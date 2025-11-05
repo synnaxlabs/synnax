@@ -10,8 +10,8 @@
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
-import { defineConfig } from "astro/config";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { defineConfig } from "astro/config";
 
 const shikiResourcePaths = Object.keys(
   import.meta.glob([
@@ -33,8 +33,6 @@ export default defineConfig({
   },
   redirects: {
     "/reference/device-drivers/standalone": "/reference/driver/installation",
-    "/reference/cluster/[...slug]": "/reference/core/[...slug]",
-    "/reference/device-drivers/[...slug]": "/reference/driver/[...slug]",
     "/reference/console/clusters": "/reference/console/cores",
   },
   site: "https://docs.synnaxlabs.com",
