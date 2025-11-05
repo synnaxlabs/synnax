@@ -7,28 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import { type status } from "@synnaxlabs/client";
 import { type Button } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { FavoriteButton as BaseFavoriteButton } from "@/components";
-import { useSelect } from "@/range/selectors";
-import { add, remove } from "@/range/slice";
-import { fromClientRange } from "@/range/translate";
+import { useSelectIsFavorite } from "@/status/selectors";
+import { toggleFavorite } from "@/status/slice";
 
 export interface FavoriteButtonProps extends Button.ButtonProps {
-  range: ranger.Range;
+  statusKey: status.Key;
 }
 
-export const FavoriteButton = ({ range, ...rest }: FavoriteButtonProps) => {
-  const sliceRange = useSelect(range.key);
+export const FavoriteButton = ({ statusKey, ...rest }: FavoriteButtonProps) => {
   const dispatch = useDispatch();
-  const isFavorite = sliceRange != null;
+  const isFavorite = useSelectIsFavorite(statusKey);
 
   const handleFavorite = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    if (!isFavorite) dispatch(add({ ranges: fromClientRange(range) }));
-    else dispatch(remove({ keys: [range.key] }));
+    dispatch(toggleFavorite({ key: statusKey }));
   };
 
   return (

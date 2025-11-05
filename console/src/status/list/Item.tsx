@@ -27,6 +27,7 @@ import {
 import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
+import { FavoriteButton } from "@/status/FavoriteButton";
 import { ContextMenu } from "@/status/list/ContextMenu";
 
 export interface ItemProps extends List.ItemProps<status.Key> {}
@@ -34,6 +35,7 @@ export interface ItemProps extends List.ItemProps<status.Key> {}
 export const Item = (props: ItemProps): ReactElement | null => {
   const { itemKey } = props;
   const item = List.useItem<status.Key, status.Status>(itemKey);
+
   const initialValues = useMemo(() => {
     if (item == null) return undefined;
     return {
@@ -87,7 +89,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
             </Text.Text>
           </Text.Text>
         </Flex.Box>
-        <Flex.Box x>
+        <Flex.Box x align="center">
           {labels != null && labels.length > 0 && (
             <Tag.Tags variant="text">
               {labels.map(({ key, name, color }) => (
@@ -109,6 +111,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
             </Telem.Text.TimeSpanSince>
             <Icon.Time color={8} />
           </Text.Text>
+          <FavoriteButton statusKey={itemKey} />
         </Flex.Box>
       </Form.Form>
     </List.Item>

@@ -1,5 +1,4 @@
-/*
- * Copyright 2025 Synnax Labs, Inc.
+/* Copyright 2025 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -9,11 +8,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-range__favorite-button {
-    transition: opacity 0.2s ease-in-out;
-    will-change: opacity;
-
-    &.console--favorite {
-        color: goldenrod;
-    }
+.status-list-item {
+  padding: 1rem;
 }
