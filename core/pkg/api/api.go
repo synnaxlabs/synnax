@@ -98,9 +98,9 @@ type Transport struct {
 	OntologyRemoveChildren freighter.UnaryServer[OntologyRemoveChildrenRequest, types.Nil]
 	OntologyMoveChildren   freighter.UnaryServer[OntologyMoveChildrenRequest, types.Nil]
 	// GROUP
-	OntologyGroupCreate freighter.UnaryServer[OntologyCreateGroupRequest, OntologyCreateGroupResponse]
-	OntologyGroupDelete freighter.UnaryServer[OntologyDeleteGroupRequest, types.Nil]
-	OntologyGroupRename freighter.UnaryServer[OntologyRenameGroupRequest, types.Nil]
+	GroupCreate freighter.UnaryServer[GroupCreateRequest, GroupCreateResponse]
+	GroupDelete freighter.UnaryServer[GroupDeleteRequest, types.Nil]
+	GroupRename freighter.UnaryServer[GroupRenameRequest, types.Nil]
 	// WORKSPACE
 	WorkspaceCreate    freighter.UnaryServer[WorkspaceCreateRequest, WorkspaceCreateResponse]
 	WorkspaceRetrieve  freighter.UnaryServer[WorkspaceRetrieveRequest, WorkspaceRetrieveResponse]
@@ -182,6 +182,7 @@ type Layer struct {
 	Connectivity *ConnectivityService
 	Ontology     *OntologyService
 	Range        *RangeService
+	Group        *GroupService
 	Workspace    *WorkspaceService
 	Schematic    *SchematicService
 	LinePlot     *LinePlotService
@@ -244,9 +245,9 @@ func (a *Layer) BindTo(t Transport) {
 		t.OntologyMoveChildren,
 
 		// GROUP
-		t.OntologyGroupCreate,
-		t.OntologyGroupDelete,
-		t.OntologyGroupRename,
+		t.GroupCreate,
+		t.GroupDelete,
+		t.GroupRename,
 
 		// RANGE
 		t.RangeCreate,
@@ -373,9 +374,9 @@ func (a *Layer) BindTo(t Transport) {
 	t.OntologyMoveChildren.BindHandler(a.Ontology.MoveChildren)
 
 	// GROUP
-	t.OntologyGroupCreate.BindHandler(a.Ontology.CreateGroup)
-	t.OntologyGroupDelete.BindHandler(a.Ontology.DeleteGroup)
-	t.OntologyGroupRename.BindHandler(a.Ontology.RenameGroup)
+	t.GroupCreate.BindHandler(a.Group.Create)
+	t.GroupDelete.BindHandler(a.Group.Delete)
+	t.GroupRename.BindHandler(a.Group.Rename)
 
 	// RANGE
 	t.RangeRetrieve.BindHandler(a.Range.Retrieve)
@@ -489,6 +490,7 @@ func New(cfgs ...Config) (*Layer, error) {
 		Connectivity: NewConnectivityService(provider),
 		Ontology:     NewOntologyService(provider),
 		Range:        NewRangeService(provider),
+		Group:        NewGroupService(provider),
 		Workspace:    NewWorkspaceService(provider),
 		Schematic:    NewSchematicService(provider),
 		LinePlot:     NewLinePlotService(provider),

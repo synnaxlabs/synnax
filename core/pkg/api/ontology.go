@@ -13,8 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -25,7 +23,6 @@ type OntologyService struct {
 	dbProvider
 	ontologyProvider
 	accessProvider
-	group *group.Service
 }
 
 func NewOntologyService(p Provider) *OntologyService {
@@ -33,7 +30,6 @@ func NewOntologyService(p Provider) *OntologyService {
 		ontologyProvider: p.ontology,
 		accessProvider:   p.access,
 		dbProvider:       p.db,
-		group:            p.Distribution.Group,
 	}
 }
 
@@ -96,82 +92,6 @@ func (o *OntologyService) Retrieve(
 		return OntologyRetrieveResponse{}, err
 	}
 	return OntologyRetrieveResponse{Resources: resources}, nil
-}
-
-type (
-	OntologyCreateGroupRequest struct {
-		Name   string      `json:"name" msgpack:"name" validate:"required"`
-		Key    uuid.UUID   `json:"key" msgpack:"key"`
-		Parent ontology.ID `json:"parent" msgpack:"parent"`
-	}
-	OntologyCreateGroupResponse struct {
-		Group group.Group `json:"group" msgpack:"group"`
-	}
-)
-
-func (o *OntologyService) CreateGroup(
-	ctx context.Context,
-	req OntologyCreateGroupRequest,
-) (res OntologyCreateGroupResponse, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Create,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
-	}); err != nil {
-		return res, err
-	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.group.NewWriter(tx)
-		g, err_ := w.CreateWithKey(ctx, req.Key, req.Name, req.Parent)
-		if err_ != nil {
-			return err_
-		}
-		res.Group = g
-		return nil
-	})
-}
-
-type OntologyDeleteGroupRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys" validate:"required"`
-}
-
-func (o *OntologyService) DeleteGroup(
-	ctx context.Context,
-	req OntologyDeleteGroupRequest,
-) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Delete,
-		Objects: group.OntologyIDs(req.Keys),
-	}); err != nil {
-		return res, err
-	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.group.NewWriter(tx)
-		return w.Delete(ctx, req.Keys...)
-	})
-}
-
-type OntologyRenameGroupRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key" validate:"required"`
-	Name string    `json:"name" msgpack:"name" validate:"required"`
-}
-
-func (o *OntologyService) RenameGroup(
-	ctx context.Context,
-	req OntologyRenameGroupRequest,
-) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Update,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
-	}); err != nil {
-		return res, err
-	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.group.NewWriter(tx)
-		return w.Rename(ctx, req.Key, req.Name)
-	})
 }
 
 type OntologyAddChildrenRequest struct {

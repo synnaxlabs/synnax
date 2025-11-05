@@ -53,9 +53,9 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transpo
 		OntologyMoveChildren:   fhttp.UnaryServer[api.OntologyMoveChildrenRequest, types.Nil](router, "/api/v1/ontology/move-children"),
 
 		// GROUP
-		OntologyGroupCreate: fhttp.UnaryServer[api.OntologyCreateGroupRequest, api.OntologyCreateGroupResponse](router, "/api/v1/ontology/create-group"),
-		OntologyGroupDelete: fhttp.UnaryServer[api.OntologyDeleteGroupRequest, types.Nil](router, "/api/v1/ontology/delete-group"),
-		OntologyGroupRename: fhttp.UnaryServer[api.OntologyRenameGroupRequest, types.Nil](router, "/api/v1/ontology/rename-group"),
+		GroupCreate: fhttp.UnaryServer[api.GroupCreateRequest, api.GroupCreateResponse](router, "/api/v1/ontology/create-group"),
+		GroupDelete: fhttp.UnaryServer[api.GroupDeleteRequest, types.Nil](router, "/api/v1/ontology/delete-group"),
+		GroupRename: fhttp.UnaryServer[api.GroupRenameRequest, types.Nil](router, "/api/v1/ontology/rename-group"),
 
 		// RANGE
 		RangeRetrieve:      fhttp.UnaryServer[api.RangeRetrieveRequest, api.RangeRetrieveResponse](router, "/api/v1/range/retrieve"),
