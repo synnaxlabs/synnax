@@ -23,7 +23,7 @@
     "@synnaxlabs/client": "workspace:^",
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/x": "workspace:^",
-    "@tanstack/react-virtual": "3.13.12",
+    "@tanstack/react-virtual": "3.13.6",
     "@xyflow/react": "^12.9.2",
     "async-mutex": "catalog:",
     "clsx": "catalog:",
