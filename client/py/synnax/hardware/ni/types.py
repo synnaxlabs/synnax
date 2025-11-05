@@ -855,6 +855,10 @@ class COChan(BaseChan):
     """
     Counter Output Pulse Generation Channel
 
+    NOTE: Counter output channels are configuration-only. Pulse parameters
+    (idle_state, initial_delay, high_time, low_time) are immutable after
+    the task starts and cannot be changed at runtime.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecpulsechantime.html>
     """
@@ -862,8 +866,6 @@ class COChan(BaseChan):
     type: Literal["co_pulse_output"] = "co_pulse_output"
     device: str = ""
     port: int
-    cmd_channel: int
-    state_channel: int
     idle_state: Literal["High", "Low"] = "Low"
     initial_delay: float = 0.0
     high_time: float = 0.01
@@ -1171,6 +1173,13 @@ class CounterReadConfig(BaseModel):
 
 
 class CounterWriteConfig(BaseModel):
+    """Configuration for NI Counter Write Task.
+
+    Counter write tasks are configuration-only. Pulse parameters on COChan channels
+    are fixed when the task is created and cannot be changed at runtime.
+    To modify pulse parameters, stop the task, reconfigure, and restart.
+    """
+
     device: str
     channels: list[COChan]
     state_rate: conint(ge=0, le=50000)
@@ -1375,18 +1384,25 @@ class CounterReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
 
 
 class CounterWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
-    """A task for writing counter pulse data to NI devices. This task is a programmatic
-    representation of the counter write task configurable within the Synnax console.
-    For detailed information on configuring/operating a counter write task, see
-    https://docs.synnaxlabs.com/reference/driver/ni/counter-write-task
+    """A task for configuring counter pulse outputs on NI devices.
+
+    IMPORTANT: Counter output channels are configuration-only. Pulse parameters
+    (idle_state, initial_delay, high_time, low_time) on COChan channels are fixed
+    when the task is created and cannot be changed at runtime. To modify pulse
+    parameters, you must stop the task, reconfigure it with new parameters, and
+    restart it.
+
+    This task is a programmatic representation of the counter write task configurable
+    within the Synnax console. For detailed information on configuring/operating a
+    counter write task, see https://docs.synnaxlabs.com/reference/driver/ni/counter-write-task
 
     :param device: The key of the Synnax NI device to write to.
     :param name: A human-readable name for the task.
-    :param state_rate: The rate at which to write task channel states to the Synnax
-        cluster.
+    :param state_rate: The rate at which to write task internal states to the Synnax
+        cluster (not typically used for counter write tasks).
     :param channels: A list of counter output channel configurations (COChan).
-    :param data_saving: Whether to save data permanently within Synnax, or just stream
-        it for real-time consumption.
+    :param data_saving: Whether to save task state permanently within Synnax (not
+        typically needed for counter write tasks).
     :param auto_start: Whether to start the task automatically when it is created.
     """
 

@@ -12,7 +12,12 @@ from synnax.hardware import ni
 
 """
 This example demonstrates how to configure and start a Counter Write Task on a National
-Instruments USB-6289 device to generate pulse outputs.
+Instruments device to generate pulse outputs.
+
+IMPORTANT: Counter output channels are configuration-only. The pulse parameters
+(idle_state, initial_delay, high_time, low_time) are fixed when the task is created
+and cannot be changed at runtime. To change these parameters, you must stop the task,
+reconfigure it, and start it again.
 
 To run this example, you'll need to have your Synnax cluster properly configured to
 detect National Instruments devices: https://docs.synnaxlabs.com/reference/driver/ni/get-started
@@ -25,70 +30,36 @@ via the NI-MAX software.
 # See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
 client = sy.Synnax()
 
-# Retrieve the USB-6289 device from Synnax.
+# Retrieve the NI device from Synnax.
 dev = client.hardware.devices.retrieve(model="NI 9474")
 
-# Create a channel that will be used to send pulse commands to the device. We're using
-# a virtual channel here that won't store any data to disk. Don't worry, we're
-# still going to get data on the state of the counter output.
-co_0_cmd = client.channels.create(
-    name="co_0_cmd",
-    data_type=sy.DataType.UINT8,
-    retrieve_if_name_exists=True,
-    virtual=True,
-)
-
-# Create a channel that will store timestamps for the state of the counter output.
-co_state_time = client.channels.create(
-    name="co_state_time",
-    is_index=True,
-    data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True,
-)
-
-# Create a channel that will store the state of the counter output.
-co_0_state = client.channels.create(
-    name="co_0_state",
-    # Pass in the index key here to associate the channel with the index channel.
-    index=co_state_time.key,
-    data_type=sy.DataType.UINT8,
-    retrieve_if_name_exists=True,
-)
-
 # Instantiate the task. A task is a background process that can be used to acquire data
-# from, or, in this case, write pulse commands to a device. Tasks are the primary method
-# for interacting with Synnax hardware devices.
+# from, or, in this case, generate pulse outputs on a device. Tasks are the primary
+# method for interacting with Synnax hardware devices.
 tsk = ni.CounterWriteTask(
     # A name to find and monitor the task via the Synnax Console.
     name="Basic Counter Write",
     # The key of the device to execute the task on.
     device=dev.key,
-    # The rate at which the task will sample the current state of the counter
-    # outputs on the device.
-    state_rate=sy.Rate.HZ * 1000,
-    # Whether to save the states of the counter outputs to disk. If set to False,
-    # the data will be streamed into Synnax for real-time consumption but not saved
-    # to disk.
-    data_saving=True,
-    # The mapping of the counter output channels on the device to the Synnax channels.
+    # The rate at which the task will update internal state (not used for counter write)
+    state_rate=sy.Rate.HZ * 1,
+    # Whether to save task state to disk. Counter write tasks typically don't need this.
+    data_saving=False,
+    # The counter output channel configuration
     channels=[
         ni.COChan(
-            # The cmd channel will be used to send pulse commands to the device.
-            cmd_channel=co_0_cmd.key,
-            # The state channel will be used to store the state of the counter output
-            # after it has been commanded.
-            state_channel=co_0_state.key,
             # The counter port on the device (ctr0, ctr1, etc.)
             port=0,
-            # Idle state of the counter output (High or Low)
+            # Idle state of the counter output when not generating pulses
             idle_state="Low",
             # Initial delay before pulse generation starts (in seconds)
             initial_delay=0.0,
             # Duration of the high portion of the pulse (in seconds)
+            # This creates a 1kHz pulse (1ms high + 1ms low = 2ms period)
             high_time=0.001,
             # Duration of the low portion of the pulse (in seconds)
             low_time=0.001,
-            # Units for timing (Seconds)
+            # Units for timing parameters
             units="Seconds",
         ),
     ],
@@ -98,22 +69,23 @@ tsk = ni.CounterWriteTask(
 # is correct.
 client.hardware.tasks.configure(tsk)
 
-# Start the task and use a control sequence to command pulse generation.
-with tsk.start():
-    with client.control.acquire(
-        name="Counter Control Sequence",
-        read=["co_0_state"],
-        write=["co_0_cmd"],
-        write_authorities=50,
-    ) as ctrl:
-        # Start pulse generation
-        ctrl["co_0_cmd"] = 1
-        ctrl.wait_until(lambda c: c["co_0_state"] == 1, timeout=1)
-        # Let it run for a bit
-        ctrl.sleep(2)
-        # Stop pulse generation
-        ctrl["co_0_cmd"] = 0
-        ctrl.wait_until(lambda c: c["co_0_state"] == 0, timeout=1)
+# Start the task to begin generating pulses. The pulses will continue with the
+# configured parameters until the task is stopped.
+print("Starting pulse generation...")
+tsk.start()
+
+# Let the pulses run for 5 seconds
+sy.sleep(5)
+
+# Stop pulse generation
+print("Stopping pulse generation...")
+tsk.stop()
+
+# To change pulse parameters, you would need to:
+# 1. Stop the task (done above)
+# 2. Delete and recreate with new parameters, or reconfigure if supported
+# 3. Start the task again
 
 # Clean up by deleting the task
 client.hardware.tasks.delete(tsk.key)
+print("Task deleted.")
