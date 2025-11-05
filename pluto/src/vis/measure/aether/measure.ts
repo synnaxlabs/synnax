@@ -55,8 +55,39 @@ interface InternalState {
   draw: Draw2D;
   dataOne: xy.XY | null;
   dataTwo: xy.XY | null;
+  clickOne: xy.XY | null;
+  clickTwo: xy.XY | null;
   dotColor: color.Color;
   dotColorContrast: color.Color;
+}
+
+interface PointLabelParams {
+  pointNumber: number;
+  position: xy.XY;
+  value: xy.XY;
+  units: string | null;
+  bounds: bounds.Bounds;
+  toTop: boolean;
+  viewRegion: box.Box;
+  xDist: TimeSpan;
+}
+
+interface PointLabelRowParams {
+  region: box.Box;
+  label: string;
+  value: string;
+  labelColor: color.Color;
+  yOffset: number;
+  leftOffset: number;
+}
+
+interface SlopeLabelPositionParams {
+  basePos: xy.XY;
+  yLabelPos: xy.XY;
+  isVeryClose: boolean;
+  isHorizontal: boolean;
+  xPixelDist: number;
+  yPixelDist: number;
 }
 
 const measureModeText = (mode: Mode): string => {
@@ -156,52 +187,61 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     return this.state.color.obliqueLine;
   }
 
+  private findPoint(
+    props: MeasureProps,
+    clickPos: xy.XY,
+    cachedData: xy.XY | null,
+    cachedClick: xy.XY | null,
+    s: scale.XY,
+  ): FindResult | null {
+    const clickChanged = cachedClick != null && !xy.equals(clickPos, cachedClick);
+
+    if (cachedData != null && !clickChanged) {
+      // We have cached data AND click hasn't changed - use cached data only
+      const results = props
+        .findByXValue(cachedData.x)
+        .filter((r) => Number.isFinite(r.value.x) && Number.isFinite(r.value.y));
+      if (results.length > 0)
+        return results.sort(
+          (a, b) => xy.distance(cachedData, a.value) - xy.distance(cachedData, b.value),
+        )[0];
+      return null;
+    }
+
+    // Either no cached data OR click changed - search by decimal position
+    const scaled = s.pos(clickPos);
+    const values = props
+      .findByXDecimal(scaled.x)
+      .filter((r) => Number.isFinite(r.value.x) && Number.isFinite(r.value.y));
+    if (values.length === 0) return null;
+    return values.sort(
+      (a, b) => xy.distance(scaled, a.position) - xy.distance(scaled, b.position),
+    )[0];
+  }
+
   private find(props: MeasureProps): [FindResult, FindResult] | null {
     const { one, two } = this.state;
     if (one == null || two == null) return null;
-    const { one: prevOne, two: prevTwo } = this.prevState;
-    const { dataOne, dataTwo } = this.internal;
-
-    let oneResult: FindResult | null = null;
-    if (prevOne != null && xy.equals(one, prevOne) && dataOne != null) {
-      const results = props.findByXValue(dataOne.x);
-      if (results.length > 0)
-        oneResult = results.sort(
-          (a, b) => xy.distance(dataOne, a.value) - xy.distance(dataOne, b.value),
-        )[0];
-    }
-
-    let twoResult: FindResult | null = null;
-    if (prevTwo != null && xy.equals(two, prevTwo) && dataTwo != null) {
-      const results = props.findByXValue(dataTwo.x);
-      if (results.length > 0)
-        twoResult = results.sort(
-          (a, b) => xy.distance(dataTwo, a.value) - xy.distance(dataTwo, b.value),
-        )[0];
-    }
+    const { dataOne, dataTwo, clickOne, clickTwo } = this.internal;
 
     const s = scale.XY.scale(props.region).scale(box.DECIMAL);
 
-    if (oneResult == null) {
-      const scaledOne = s.pos(one);
-      const oneValues = props.findByXDecimal(scaledOne.x);
-      if (oneValues.length === 0) return null;
-      oneResult = oneValues.sort(
-        (a, b) =>
-          xy.distance(scaledOne, a.position) - xy.distance(scaledOne, b.position),
-      )[0];
-      this.internal.dataOne = oneResult.value;
+    const oneResult = this.findPoint(props, one, dataOne, clickOne, s);
+    if (oneResult == null) return null;
+
+    // Update cache if we found a new point
+    if (clickOne == null || !xy.equals(one, clickOne)) {
+      this.internal.dataOne = { ...oneResult.value };
+      this.internal.clickOne = { ...one };
     }
 
-    if (twoResult == null) {
-      const scaledTwo = s.pos(two);
-      const twoValues = props.findByXDecimal(scaledTwo.x);
-      if (twoValues.length === 0) return null;
-      twoResult = twoValues.sort(
-        (a, b) =>
-          xy.distance(scaledTwo, a.position) - xy.distance(scaledTwo, b.position),
-      )[0];
-      this.internal.dataTwo = twoResult.value;
+    const twoResult = this.findPoint(props, two, dataTwo, clickTwo, s);
+    if (twoResult == null) return null;
+
+    // Update cache if we found a new point
+    if (clickTwo == null || !xy.equals(two, clickTwo)) {
+      this.internal.dataTwo = { ...twoResult.value };
+      this.internal.clickTwo = { ...two };
     }
 
     return [oneResult, twoResult];
@@ -245,16 +285,110 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     });
   }
 
-  private drawPointLabel(
-    pointNumber: number,
+  private drawCombinedDeltaLabel(
     position: xy.XY,
-    value: xy.XY,
-    units: string | null,
-    bounds: bounds.Bounds,
-    toTop: boolean,
+    xValue: string,
+    yValue: string,
+    slopeValue: string,
     viewRegion: box.Box,
-    xDist: TimeSpan,
+    centered: boolean,
   ): void {
+    const { draw, theme } = this.internal;
+    const padding = xy.construct(LABEL_CONTAINER_PADDING);
+
+    const labelWidth = LABEL_CHAR_WIDTH * 5; // "Slope" is longest at 5 chars
+    const maxValueLength = Math.max(xValue.length, yValue.length, slopeValue.length);
+    const width =
+      labelWidth + maxValueLength * VALUE_CHAR_WIDTH + padding.x * LABEL_VALUE_SPACING;
+    const lineHeight = LABEL_CONTAINER_HEIGHT;
+    const height = lineHeight * 3 + padding.y * 2;
+
+    let region: box.Box;
+    if (centered) {
+      // Center the label around the position
+      const centeredPos = xy.translate(position, [-width / 2, -height / 2]);
+      region = box.construct(centeredPos, width, height);
+    } else {
+      // Use position as top-left corner for right-side positioning
+      region = box.construct(position, width, height);
+
+      // Check if label goes outside the view region on the right, if so flip it to the left
+      if (box.right(region) > box.right(viewRegion)) {
+        const flippedPos = xy.translateX(
+          position,
+          -width - LABEL_OFFSET_VERY_CLOSE_X * 2,
+        );
+        region = box.construct(flippedPos, width, height);
+      }
+    }
+
+    draw.container({
+      region,
+      backgroundColor: (t) => t.colors.gray.l1,
+    });
+
+    // X row
+    this.drawPointLabelRow({
+      region,
+      label: "ΔX",
+      value: xValue,
+      labelColor: theme.colors.error.z,
+      yOffset: 0,
+      leftOffset: 0,
+    });
+
+    // Y row
+    this.drawPointLabelRow({
+      region,
+      label: "ΔY",
+      value: yValue,
+      labelColor: theme.colors.secondary.z,
+      yOffset: lineHeight,
+      leftOffset: 0,
+    });
+
+    // Slope row
+    this.drawPointLabelRow({
+      region,
+      label: "Slope",
+      value: slopeValue,
+      labelColor: theme.colors.gray.l9,
+      yOffset: lineHeight * 2,
+      leftOffset: 0,
+    });
+  }
+
+  private drawPointLabelRow(params: PointLabelRowParams): void {
+    const { region, label, value, labelColor, yOffset, leftOffset } = params;
+    const { draw } = this.internal;
+    const padding = xy.construct(LABEL_CONTAINER_PADDING);
+
+    draw.text({
+      text: label,
+      position: xy.translate(box.topLeft(region), [
+        padding.x + leftOffset,
+        padding.y + yOffset,
+      ]),
+      level: "small",
+      weight: 500,
+      color: labelColor,
+    });
+    draw.text({
+      text: value,
+      position: xy.translate(box.topRight(region), [
+        -padding.x - 1,
+        padding.y + yOffset - 1,
+      ]),
+      level: "small",
+      justify: "right",
+      code: true,
+      shade: 10,
+    });
+  }
+
+  private drawPointLabel(params: PointLabelParams): void {
+    const { pointNumber, position, value, units, bounds, toTop, viewRegion, xDist } =
+      params;
     const { draw, theme } = this.internal;
     const ts = new TimeStamp(value.x);
     const xValue = ts.toString(ts.formatBySpan(xDist), "local");
@@ -275,19 +409,25 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const lineHeight = LABEL_CONTAINER_HEIGHT;
     const height = lineHeight * 2 + padding.y * 2;
 
+    // Calculate and adjust label position
     let yOffset = toTop ? -(height + POINT_LABEL_OFFSET) : POINT_LABEL_OFFSET;
-    let labelPosition = xy.translate(position, [-width / 2, yOffset]);
-    let region = box.construct(labelPosition, width, height);
+    let region = box.construct(
+      xy.translate(position, [-width / 2, yOffset]),
+      width,
+      height,
+    );
 
-    // Check if label goes outside the view region, if so flip it
-    if (toTop && box.top(region) < box.top(viewRegion)) {
-      yOffset = POINT_LABEL_OFFSET;
-      labelPosition = xy.translate(position, [-width / 2, yOffset]);
-      region = box.construct(labelPosition, width, height);
-    } else if (!toTop && box.bottom(region) > box.bottom(viewRegion)) {
-      yOffset = -(height + POINT_LABEL_OFFSET);
-      labelPosition = xy.translate(position, [-width / 2, yOffset]);
-      region = box.construct(labelPosition, width, height);
+    // Flip if outside view region
+    if (
+      (toTop && box.top(region) < box.top(viewRegion)) ||
+      (!toTop && box.bottom(region) > box.bottom(viewRegion))
+    ) {
+      yOffset = toTop ? POINT_LABEL_OFFSET : -(height + POINT_LABEL_OFFSET);
+      region = box.construct(
+        xy.translate(position, [-width / 2, yOffset]),
+        width,
+        height,
+      );
     }
 
     draw.container({
@@ -303,45 +443,22 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       color: theme.colors.gray.l9,
     });
 
-    draw.text({
-      text: "X",
-      position: xy.translate(box.topLeft(region), [
-        padding.x + pointTextWidth + POINT_LABEL_SPACING,
-        padding.y,
-      ]),
-      level: "small",
-      weight: 500,
-      color: theme.colors.error.z,
+    const labelOffset = pointTextWidth + POINT_LABEL_SPACING;
+    this.drawPointLabelRow({
+      region,
+      label: "X",
+      value: xValue,
+      labelColor: theme.colors.error.z,
+      yOffset: 0,
+      leftOffset: labelOffset,
     });
-    draw.text({
-      text: xValue,
-      position: xy.translate(box.topRight(region), [-padding.x - 1, padding.y - 1]),
-      level: "small",
-      justify: "right",
-      code: true,
-      shade: 10,
-    });
-
-    draw.text({
-      text: "Y",
-      position: xy.translate(box.topLeft(region), [
-        padding.x + pointTextWidth + POINT_LABEL_SPACING,
-        padding.y + lineHeight,
-      ]),
-      level: "small",
-      weight: 500,
-      color: theme.colors.secondary.z,
-    });
-    draw.text({
-      text: yValue,
-      position: xy.translate(box.topRight(region), [
-        -padding.x - 1,
-        padding.y + lineHeight - 1,
-      ]),
-      level: "small",
-      justify: "right",
-      code: true,
-      shade: 10,
+    this.drawPointLabelRow({
+      region,
+      label: "Y",
+      value: yValue,
+      labelColor: theme.colors.secondary.z,
+      yOffset: lineHeight,
+      leftOffset: labelOffset,
     });
   }
 
@@ -388,14 +505,9 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     return basePos;
   }
 
-  private calculateSlopeLabelPosition(
-    basePos: xy.XY,
-    yLabelPos: xy.XY,
-    isVeryClose: boolean,
-    isHorizontal: boolean,
-    xPixelDist: number,
-    yPixelDist: number,
-  ): xy.XY {
+  private calculateSlopeLabelPosition(params: SlopeLabelPositionParams): xy.XY {
+    const { basePos, yLabelPos, isVeryClose, isHorizontal, xPixelDist, yPixelDist } =
+      params;
     if (isVeryClose) return xy.translateX(basePos, LABEL_OFFSET_VERY_CLOSE_X);
     if (isHorizontal) return xy.translateY(basePos, -LABEL_OFFSET_HORIZONTAL_SLOPE);
 
@@ -457,8 +569,11 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const onePos = s.pos(oneValue.position);
     const twoPos = s.pos(twoValue.position);
 
-    const xDist = new TimeSpan(Math.abs(oneValue.value.x - twoValue.value.x));
+    const xDistRaw = Math.abs(oneValue.value.x - twoValue.value.x);
     const yDist = Math.abs(oneValue.value.y - twoValue.value.y);
+    if (!Number.isFinite(xDistRaw) || !Number.isFinite(yDist)) return;
+
+    const xDist = new TimeSpan(xDistRaw);
     const slope = yDist / xDist.seconds;
 
     const xPixelDist = Math.abs(onePos.x - twoPos.x);
@@ -466,8 +581,9 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const isHorizontal = yPixelDist < PROXIMITY_THRESHOLD;
     const isVertical = xPixelDist < PROXIMITY_THRESHOLD;
     const isVeryClose =
-      xPixelDist < PROXIMITY_THRESHOLD && yPixelDist < PROXIMITY_THRESHOLD;
+      xPixelDist < PROXIMITY_THRESHOLD || yPixelDist < PROXIMITY_THRESHOLD;
 
+    // Draw all lines first
     draw.line({
       start: xy.construct(onePos.x, onePos.y),
       end: xy.construct(onePos.x, twoPos.y),
@@ -475,13 +591,6 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       lineDash: strokeDash,
       lineWidth: strokeWidth,
     });
-    const yValue = `${math.roundBySpan(yDist, bounds.construct(yDist))} ${oneValue.units ?? ""}`;
-    const yLabelPos = this.calculateYLabelPosition(
-      xy.construct(onePos.x, (onePos.y + twoPos.y) / 2),
-      isVeryClose,
-      isVertical,
-    );
-    this.drawLabelValue("Y", yValue, yLabelPos, yLabelColor);
 
     draw.line({
       start: xy.construct(onePos.x, twoPos.y),
@@ -490,16 +599,6 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       lineDash: strokeDash,
       lineWidth: strokeWidth,
     });
-    const trunc = xDist.lessThan(TimeSpan.milliseconds(TIME_FORMAT_THRESHOLD_MS))
-      ? TimeSpan.MICROSECOND
-      : TimeSpan.MILLISECOND;
-    const xValue = xDist.truncate(trunc).toString();
-    const xLabelPos = this.calculateXLabelPosition(
-      xy.construct((onePos.x + twoPos.x) / 2, twoPos.y),
-      isVeryClose,
-      isHorizontal,
-    );
-    this.drawLabelValue("X", xValue, xLabelPos, xLabelColor);
 
     draw.line({
       start: xy.construct(onePos.x, onePos.y),
@@ -508,43 +607,135 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       lineDash: strokeDash,
       lineWidth: strokeWidth,
     });
-    let slopeValue = math.roundBySpan(slope, bounds.construct(slope)).toString();
-    if (oneValue.units != null && oneValue.units.length > 0)
-      slopeValue += ` ${oneValue.units} / S`;
-    const slopeLabelPos = this.calculateSlopeLabelPosition(
-      xy.construct((onePos.x + twoPos.x) / 2, (onePos.y + twoPos.y) / 2),
-      yLabelPos,
-      isVeryClose,
-      isHorizontal,
-      xPixelDist,
-      yPixelDist,
-    );
-    this.drawLabelValue("Slope", slopeValue, slopeLabelPos, slopeLabelColor);
 
     this.drawPointMarker(onePos, oneValue.color);
     this.drawPointMarker(twoPos, twoValue.color);
 
+    // Now draw all labels on top
+    const yValue = `${math.roundBySpan(yDist, bounds.construct(yDist))} ${oneValue.units ?? ""}`;
+    const trunc = xDist.lessThan(TimeSpan.milliseconds(TIME_FORMAT_THRESHOLD_MS))
+      ? TimeSpan.MICROSECOND
+      : TimeSpan.MILLISECOND;
+    const xValue = xDist.truncate(trunc).toString();
+    let slopeValue = math.roundBySpan(slope, bounds.construct(slope)).toString();
+    if (oneValue.units != null && oneValue.units.length > 0)
+      slopeValue += ` ${oneValue.units} / S`;
+
+    if (isVeryClose) {
+      // Draw combined label when points are very close
+      const centerPos = xy.construct(
+        (onePos.x + twoPos.x) / 2,
+        (onePos.y + twoPos.y) / 2,
+      );
+
+      // Calculate combined label dimensions
+      const labelWidth = LABEL_CHAR_WIDTH * 5; // "Slope" is longest at 5 chars, "ΔX" and "ΔY" are 2 chars each
+      const maxValueLength = Math.max(xValue.length, yValue.length, slopeValue.length);
+      const padding = LABEL_CONTAINER_PADDING;
+      const combinedWidth =
+        labelWidth + maxValueLength * VALUE_CHAR_WIDTH + padding * LABEL_VALUE_SPACING;
+      const combinedHeight = LABEL_CONTAINER_HEIGHT * 3 + padding * 2;
+
+      // Calculate centered combined label region
+      const centeredCombinedRegion = box.construct(
+        xy.translate(centerPos, [-combinedWidth / 2, -combinedHeight / 2]),
+        combinedWidth,
+        combinedHeight,
+      );
+
+      // Calculate point label regions (same logic as drawPointLabel)
+      const oneIsTop = onePos.y < twoPos.y;
+      const pointLabelWidth = 150; // Approximate conservative estimate
+      const pointLabelHeight = LABEL_CONTAINER_HEIGHT * 2 + padding * 2;
+
+      const oneYOffset = oneIsTop
+        ? -(pointLabelHeight + POINT_LABEL_OFFSET)
+        : POINT_LABEL_OFFSET;
+      const oneLabelRegion = box.construct(
+        xy.translate(onePos, [-pointLabelWidth / 2, oneYOffset]),
+        pointLabelWidth,
+        pointLabelHeight,
+      );
+
+      const twoYOffset = !oneIsTop
+        ? -(pointLabelHeight + POINT_LABEL_OFFSET)
+        : POINT_LABEL_OFFSET;
+      const twoLabelRegion = box.construct(
+        xy.translate(twoPos, [-pointLabelWidth / 2, twoYOffset]),
+        pointLabelWidth,
+        pointLabelHeight,
+      );
+
+      // Check if centered combined label would overlap with point labels
+      const overlapsOne =
+        box.area(box.intersection(centeredCombinedRegion, oneLabelRegion)) > 0;
+      const overlapsTwo =
+        box.area(box.intersection(centeredCombinedRegion, twoLabelRegion)) > 0;
+      const centerFits = !overlapsOne && !overlapsTwo;
+
+      const combinedPos = centerFits
+        ? centerPos
+        : xy.construct(
+            Math.max(onePos.x, twoPos.x) + LABEL_OFFSET_VERY_CLOSE_X,
+            (onePos.y + twoPos.y) / 2,
+          );
+
+      this.drawCombinedDeltaLabel(
+        combinedPos,
+        xValue,
+        yValue,
+        slopeValue,
+        props.region,
+        centerFits,
+      );
+    } else {
+      // Draw separate labels when points are spread out
+      const yLabelPos = this.calculateYLabelPosition(
+        xy.construct(onePos.x, (onePos.y + twoPos.y) / 2),
+        isVeryClose,
+        isVertical,
+      );
+      this.drawLabelValue("ΔY", yValue, yLabelPos, yLabelColor);
+
+      const xLabelPos = this.calculateXLabelPosition(
+        xy.construct((onePos.x + twoPos.x) / 2, twoPos.y),
+        isVeryClose,
+        isHorizontal,
+      );
+      this.drawLabelValue("ΔX", xValue, xy.translateX(xLabelPos, -15), xLabelColor);
+
+      const slopeLabelPos = this.calculateSlopeLabelPosition({
+        basePos: xy.construct((onePos.x + twoPos.x) / 2, (onePos.y + twoPos.y) / 2),
+        yLabelPos,
+        isVeryClose,
+        isHorizontal,
+        xPixelDist,
+        yPixelDist,
+      });
+      this.drawLabelValue("Slope", slopeValue, slopeLabelPos, slopeLabelColor);
+    }
+
     const oneIsTop = onePos.y < twoPos.y;
-    this.drawPointLabel(
-      1,
-      onePos,
-      oneValue.value,
-      oneValue.units ?? null,
-      oneValue.bounds,
-      oneIsTop,
-      props.region,
+    this.drawPointLabel({
+      pointNumber: 1,
+      position: onePos,
+      value: oneValue.value,
+      units: oneValue.units ?? null,
+      bounds: oneValue.bounds,
+      toTop: oneIsTop,
+      viewRegion: props.region,
       xDist,
-    );
-    this.drawPointLabel(
-      2,
-      twoPos,
-      twoValue.value,
-      twoValue.units ?? null,
-      twoValue.bounds,
-      !oneIsTop,
-      props.region,
+    });
+    this.drawPointLabel({
+      pointNumber: 2,
+      position: twoPos,
+      value: twoValue.value,
+      units: twoValue.units ?? null,
+      bounds: twoValue.bounds,
+      toTop: !oneIsTop,
+      viewRegion: props.region,
       xDist,
-    );
+    });
   }
 }
 
