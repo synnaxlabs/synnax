@@ -206,7 +206,7 @@ func createStreamPipeline(
 	}
 	plumber.SetSegment(p, streamerAddr, streamer)
 	r.streamer.Sink = r.processFrame
-	plumber.SetSink[framer.StreamerResponse](p, runtimeAddr, r.streamer)
+	plumber.SetSink(p, runtimeAddr, r.streamer)
 	streamer.InFrom(confluence.NewStream[framer.StreamerRequest]())
 	plumber.MustConnect[framer.StreamerResponse](p, streamerAddr, runtimeAddr, 10)
 	requests := confluence.NewStream[framer.StreamerRequest]()
@@ -235,7 +235,7 @@ func createWritePipeline(
 	}
 	r.writer.Sink = r.writer.sink
 	plumber.SetSegment(p, writerAddr, w)
-	plumber.SetSegment[framer.WriterResponse, framer.WriterRequest](p, runtimeAddr, r.writer)
+	plumber.SetSegment(p, runtimeAddr, r.writer)
 	plumber.MustConnect[framer.WriterResponse](p, writerAddr, runtimeAddr, 10)
 	plumber.MustConnect[framer.WriterRequest](p, runtimeAddr, writerAddr, 10)
 	return p, nil

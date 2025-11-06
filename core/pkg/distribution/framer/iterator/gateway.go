@@ -30,9 +30,9 @@ func (s *Service) newGateway(cfg Config, generateSeqNums bool) (confluence.Segme
 	reqT.Transform = newStorageRequestTranslator(generateSeqNums)
 	resT := &confluence.LinearTransform[ts.IteratorResponse, Response]{}
 	resT.Transform = newStorageResponseTranslator(s.cfg.HostResolver.HostKey())
-	plumber.SetSegment[ts.IteratorRequest, ts.IteratorResponse](pipe, "storage", iter)
-	plumber.SetSegment[Request, ts.IteratorRequest](pipe, "requests", reqT)
-	plumber.SetSegment[ts.IteratorResponse, Response](pipe, "responses", resT)
+	plumber.SetSegment(pipe, "storage", iter)
+	plumber.SetSegment(pipe, "requests", reqT)
+	plumber.SetSegment(pipe, "responses", resT)
 	plumber.MustConnect[ts.IteratorRequest](pipe, "requests", "storage", 1)
 	plumber.MustConnect[ts.IteratorResponse](pipe, "storage", "responses", 1)
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}

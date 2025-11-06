@@ -97,7 +97,7 @@ func (cfg ServiceConfig) Validate() error {
 
 // Service is the distribution layer entry point for using iterators within Synnax.
 // Iterators allow for reading chunks of historical data from channels distributed
-// across a muti-node cluster.
+// across a multi-node cluster.
 type Service struct {
 	cfg    ServiceConfig
 	server *server
@@ -170,12 +170,12 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		if err != nil {
 			return nil, err
 		}
-		plumber.SetSink[Request](pipe, peerSenderAddr, sender)
+		plumber.SetSink(pipe, peerSenderAddr, sender)
 		receiverAddresses = make([]address.Address, len(receivers))
 		for i, c := range receivers {
 			addr := address.Newf("client_%v", i+1)
 			receiverAddresses[i] = addr
-			plumber.SetSource[Response](pipe, addr, c)
+			plumber.SetSource(pipe, addr, c)
 		}
 	}
 
@@ -188,17 +188,13 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		if err != nil {
 			return nil, err
 		}
-		plumber.SetSegment[Request, Response](pipe, gatewayIterAddr, gatewayIter)
+		plumber.SetSegment(pipe, gatewayIterAddr, gatewayIter)
 		receiverAddresses = append(receiverAddresses, gatewayIterAddr)
 	}
 
 	if needPeerRouting && needGatewayRouting {
 		routeInletTo = broadcasterAddr
-		plumber.SetSegment[Request, Request](
-			pipe,
-			broadcasterAddr,
-			newBroadcaster(),
-		)
+		plumber.SetSegment(pipe, broadcasterAddr, newBroadcaster())
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{broadcasterAddr},
 			SinkTargets:   []address.Address{peerSenderAddr, gatewayIterAddr},
@@ -207,7 +203,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		}.MustRoute(pipe)
 	}
 
-	plumber.SetSegment[Response, Response](
+	plumber.SetSegment(
 		pipe,
 		synchronizerAddr,
 		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), s.cfg.Instrumentation),
