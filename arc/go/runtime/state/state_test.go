@@ -187,7 +187,7 @@ var _ = Describe("State", func() {
 		})
 		Describe("ClearReads", func() {
 			It("Should clear all channel read buffers", func() {
-				s := state.New(state.Config{Nodes: []ir.Node{{Key: "test"}}})
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
 				fr := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2, 3))
 				s.Ingest(fr)
 				n := s.Node("test")
@@ -205,7 +205,7 @@ var _ = Describe("State", func() {
 						{Key: 1, Index: 2},
 						{Key: 3, Index: 4},
 					},
-					Nodes: []ir.Node{{Key: "test"}},
+					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
 				}
 				s := state.New(cfg)
 				fr := telem.Frame[uint32]{}
@@ -230,7 +230,7 @@ var _ = Describe("State", func() {
 				Expect(ok2).To(BeFalse())
 			})
 			It("Should allow new data to be ingested after clearing", func() {
-				s := state.New(state.Config{Nodes: []ir.Node{{Key: "test"}}})
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
 				fr1 := telem.UnaryFrame[uint32](5, telem.NewSeriesV[uint8](10, 20))
 				s.Ingest(fr1)
 				n := s.Node("test")
@@ -251,7 +251,7 @@ var _ = Describe("State", func() {
 					ChannelDigests: []state.ChannelDigest{
 						{Key: 10, Index: 11},
 					},
-					Nodes: []ir.Node{{Key: "test"}},
+					IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}},
 				}
 				s := state.New(cfg)
 				fr := telem.UnaryFrame[uint32](10, telem.NewSeriesV[int32](1))
@@ -262,7 +262,7 @@ var _ = Describe("State", func() {
 				Expect(ok).To(BeFalse())
 			})
 			It("Should handle empty state", func() {
-				s := state.New(state.Config{Nodes: []ir.Node{{Key: "test"}}})
+				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
 				s.ClearReads()
 				n := s.Node("test")
 				_, _, ok := n.ReadChan(1)
