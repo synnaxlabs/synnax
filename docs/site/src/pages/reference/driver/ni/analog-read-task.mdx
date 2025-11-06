@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "NI Analog Read Task"
-description: "Learn how to create an analog read task for NI hardware."
+description: "Learn how to use Analog Read Tasks for NI hardware."
 next: "Analog Write Task"
 nextURL: "/reference/driver/ni/analog-write-task"
 prev: "Task Basics"
@@ -12,6 +12,7 @@ import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/Media";
 import { Fragment } from "react";
 import ChannelTypeDetails from "@/components/details/ChannelTypeDetails.astro";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -434,6 +435,9 @@ Acquires data from analog inputs on NI devices at a specified sample rate.
   </Fragment>
   <Fragment slot="python">
 
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
+
 ```python
 import synnax as sy
 from synnax.hardware import ni
@@ -487,8 +491,77 @@ with task.run():
             print(frame)
 ```
 
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# List all tasks
+all_tasks = client.hardware.tasks.list()
+for task in all_tasks:
+    print(f"Task: {task.name}, Type: {task.type}")
+
+# Retrieve task by name
+task = client.hardware.tasks.retrieve(name="Analog Read")
+
+# List all analog read tasks
+analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+
+```python
+# TODO: Add example for editing task configuration
+# - Update task parameters (sample_rate, stream_rate, data_saving, etc.)
+# - Modify channel parameters (min_val, max_val, terminal_config, etc.)
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
+
+```python
+# TODO: Add example for copying a task
+# - Copy task with new name
+# - Preserve channel configuration
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# Retrieve task
+task = client.hardware.tasks.retrieve(name="Analog Read")
+
+# Stop task if running
+task.stop()
+
+# Delete task
+client.hardware.tasks.delete(task.key)
+```
+
+</ExampleDetails>
+
   </Fragment>
   <Fragment slot="typescript">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";
@@ -550,6 +623,202 @@ for (let i = 0; i < 10; i++) {
 await task.executeCommandSync("stop");
 await streamer.close();
 ```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// List all tasks
+const allTasks = await client.hardware.tasks.list();
+allTasks.forEach(task => {
+  console.log(`Task: ${task.name}, Type: ${task.type}`);
+});
+
+// Retrieve task by name
+const task = await client.hardware.tasks.retrieve({ name: "Analog Read" });
+
+// List all analog read tasks
+const analogReadTasks = allTasks.filter(t => t.type === "ni_analog_read");
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+
+```typescript
+// TODO: Add example for editing task configuration
+// - Update task parameters (sample_rate, stream_rate, data_saving, etc.)
+// - Modify channel parameters (min_val, max_val, terminal_config, etc.)
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
+
+```typescript
+// TODO: Add example for copying a task
+// - Copy task with new name
+// - Preserve channel configuration
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve task
+const task = await client.hardware.tasks.retrieve({ name: "Analog Read" });
+
+// Stop task if running
+await task.executeCommandSync("stop");
+
+// Delete task
+await client.hardware.tasks.delete(task.key);
+```
+
+</ExampleDetails>
+
+  </Fragment>
+  <Fragment slot="cpp">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
+
+```cpp
+#include "client/cpp/synnax.h"
+
+auto client = synnax::Synnax();
+
+// Retrieve device
+auto [dev, dev_err] = client.hardware.retrieve_device("my_daq");
+if (dev_err) return dev_err;
+
+// Create index channel
+auto ai_time = synnax::Channel("ai_time", telem::TIMESTAMP_T, true);
+auto time_err = client.channels.create(ai_time);
+if (time_err) return time_err;
+
+// Create data channel
+auto ai_0 = synnax::Channel("ai_0", telem::FLOAT32_T, ai_time.key, false);
+auto data_err = client.channels.create(ai_0);
+if (data_err) return data_err;
+
+// Create and configure task
+// (Note: Task configuration in C++ typically done via driver directly)
+
+// Start task and read data
+// Open streamer to read incoming data
+auto [streamer, stream_err] = client.telem.open_streamer(synnax::StreamerConfig{
+    std::vector{ai_0.key}
+});
+if (stream_err) return stream_err;
+
+for (int i = 0; i < 10; i++) {
+    auto [frame, read_err] = streamer.read();
+    if (read_err) return read_err;
+    // Process frame data
+}
+
+auto close_err = streamer.close();
+if (close_err) return close_err;
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
+
+```cpp
+#include "client/cpp/synnax.h"
+
+auto client = synnax::Synnax();
+
+// Create or retrieve rack
+auto [rack, rack_err] = client.hardware.retrieve_rack("my_rack");
+if (rack_err) return rack_err;
+
+// List all tasks
+auto [tasks, list_err] = rack.tasks.list();
+if (list_err) return list_err;
+
+for (const auto& task : tasks) {
+    std::cout << "Task: " << task.name << ", Type: " << task.type << std::endl;
+}
+
+// Retrieve task by name
+auto [task, retrieve_err] = rack.tasks.retrieve("Analog Read");
+if (retrieve_err) return retrieve_err;
+
+// List all analog read tasks
+std::vector<synnax::Task> analog_read_tasks;
+for (const auto& t : tasks) {
+    if (t.type == "ni_analog_read") {
+        analog_read_tasks.push_back(t);
+    }
+}
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+
+```cpp
+// TODO: Add example for editing task configuration
+// - Update task parameters (sample_rate, stream_rate, data_saving, etc.)
+// - Modify channel parameters (min_val, max_val, terminal_config, etc.)
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
+
+```cpp
+// TODO: Add example for copying a task
+// - Copy task with new name
+// - Preserve channel configuration
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
+
+```cpp
+#include "client/cpp/synnax.h"
+
+auto client = synnax::Synnax();
+
+// Retrieve rack
+auto [rack, rack_err] = client.hardware.retrieve_rack("my_rack");
+if (rack_err) return rack_err;
+
+// Retrieve task
+auto [task, task_err] = rack.tasks.retrieve("Analog Read");
+if (task_err) return task_err;
+
+// Stop task if running
+// (Note: Stopping tasks typically handled via driver commands)
+
+// Delete task
+// (Note: Task deletion handled through rack.tasks operations)
+```
+
+</ExampleDetails>
 
   </Fragment>
 </Client.Tabs>

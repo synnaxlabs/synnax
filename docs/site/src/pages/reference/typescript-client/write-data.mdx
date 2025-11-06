@@ -111,7 +111,8 @@ const temperatureChannel = await client.channels.create({
 To open the writer, we'll use the `openWriter` method on the client:
 
 ```typescript
-import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
+import { TimeStamp, TimeSpan, Series, Frame } from "@synnaxlabs/client";
+import { sleep } from "@synnaxlabs/x";
 
 const writer = await client.openWriter({
   start: TimeStamp.now(),
@@ -132,7 +133,7 @@ try {
         [temperatureChannel.key]: new Series(dataSeries),
       }),
     );
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await sleep.sleep(TimeSpan.milliseconds(100));
   }
   await writer.commit();
 } finally {

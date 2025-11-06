@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "NI Analog Write Task"
-description: "Learn how to create an analog write task for NI hardware."
+description: "Learn how to use Analog Write Tasks for NI hardware."
 prev: "Analog Read Task"
 prevURL: "/reference/driver/ni/analog-read-task"
 next: "Counter Read Task"
@@ -12,6 +12,7 @@ import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/Media";
 import { Fragment } from "react";
 import ChannelTypeDetails from "@/components/details/ChannelTypeDetails.astro";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -24,9 +25,9 @@ Sends control commands to analog outputs on NI devices.
 
 Write tasks use **command** and **state** channels:
 
-- **Command channels** (`*_cmd`): Write values here to set analog outputs
-- **State channels** (`*_state`): Reflect the current output state
-- **Command time channels** (`*_cmd_time`): Index channels storing command timestamps
+- **Command channels** (`_cmd`): Write values here to set analog outputs
+- **State channels** (`_state`): Reflect the current output state
+- **Command time channels** (`_cmd_time`): Index channels storing command timestamps
 
 When you write to a command channel, the task processes it and updates the state channel, providing acknowledgment that the command was executed.
 
@@ -96,6 +97,9 @@ When you write to a command channel, the task processes it and updates the state
     />
   </Fragment>
   <Fragment slot="python">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
 
 ```python
 import synnax as sy
@@ -174,8 +178,77 @@ with task.run():
             print(f"State: {frame['ao_0_state']}")
 ```
 
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# List all tasks
+all_tasks = client.hardware.tasks.list()
+for task in all_tasks:
+    print(f"Task: {task.name}, Type: {task.type}")
+
+# Retrieve task by name
+task = client.hardware.tasks.retrieve(name="Analog Write")
+
+# List all analog write tasks
+analog_write_tasks = [t for t in all_tasks if t.type == "ni_analog_write"]
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+
+```python
+# TODO: Add example for editing task configuration
+# - Update task parameters (state_rate, data_saving, etc.)
+# - Modify channel parameters (min_val, max_val, etc.)
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
+
+```python
+# TODO: Add example for copying a task
+# - Copy task with new name
+# - Preserve channel configuration
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# Retrieve task
+task = client.hardware.tasks.retrieve(name="Analog Write")
+
+# Stop task if running
+task.stop()
+
+# Delete task
+client.hardware.tasks.delete(task.key)
+```
+
+</ExampleDetails>
+
   </Fragment>
   <Fragment slot="typescript">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
 
 ```typescript
 import { Synnax, TimeStamp, Rate } from "@synnaxlabs/client";
@@ -261,6 +334,225 @@ await task.executeCommandSync("stop");
 await writer.close();
 await streamer.close();
 ```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// List all tasks
+const allTasks = await client.hardware.tasks.list();
+allTasks.forEach(task => {
+  console.log(`Task: ${task.name}, Type: ${task.type}`);
+});
+
+// Retrieve task by name
+const task = await client.hardware.tasks.retrieve({ name: "Analog Write" });
+
+// List all analog write tasks
+const analogWriteTasks = allTasks.filter(t => t.type === "ni_analog_write");
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+
+```typescript
+// TODO: Add example for editing task configuration
+// - Update task parameters (state_rate, data_saving, etc.)
+// - Modify channel parameters (min_val, max_val, etc.)
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
+
+```typescript
+// TODO: Add example for copying a task
+// - Copy task with new name
+// - Preserve channel configuration
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve task
+const task = await client.hardware.tasks.retrieve({ name: "Analog Write" });
+
+// Stop task if running
+await task.executeCommandSync("stop");
+
+// Delete task
+await client.hardware.tasks.delete(task.key);
+```
+
+</ExampleDetails>
+
+  </Fragment>
+  <Fragment slot="cpp">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
+
+```cpp
+#include "client/cpp/synnax.h"
+
+auto client = synnax::Synnax();
+
+// Retrieve device
+auto [dev, dev_err] = client.hardware.retrieve_device("my_daq");
+if (dev_err) return dev_err;
+
+// Create command time index
+auto ao_cmd_time = synnax::Channel("ao_cmd_time", telem::TIMESTAMP_T, true);
+auto cmd_time_err = client.channels.create(ao_cmd_time);
+if (cmd_time_err) return cmd_time_err;
+
+// Create command channel
+auto ao_0_cmd = synnax::Channel("ao_0_cmd", telem::FLOAT32_T, ao_cmd_time.key, false);
+auto cmd_err = client.channels.create(ao_0_cmd);
+if (cmd_err) return cmd_err;
+
+// Create state time index
+auto ao_state_time = synnax::Channel("ao_state_time", telem::TIMESTAMP_T, true);
+auto state_time_err = client.channels.create(ao_state_time);
+if (state_time_err) return state_time_err;
+
+// Create state channel
+auto ao_0_state = synnax::Channel("ao_0_state", telem::FLOAT32_T, ao_state_time.key, false);
+auto state_err = client.channels.create(ao_0_state);
+if (state_err) return state_err;
+
+// Create and configure task
+// (Note: Task configuration in C++ typically done via driver directly)
+
+// Start task and write commands
+// Open writer to send commands
+auto [writer, writer_err] = client.telem.open_writer(synnax::WriterConfig{
+    std::vector{ao_0_cmd.key},
+    synnax::TimeStamp::now()
+});
+if (writer_err) return writer_err;
+
+// Set output to 5V
+auto write_err = writer.write(synnax::Frame{
+    {ao_0_cmd.key, telem::Series(std::vector<float>{5.0})}
+});
+if (write_err) return write_err;
+
+// Read back state
+auto [streamer, stream_err] = client.telem.open_streamer(synnax::StreamerConfig{
+    std::vector{ao_0_state.key}
+});
+if (stream_err) return stream_err;
+
+auto [frame, read_err] = streamer.read();
+if (read_err) return read_err;
+
+auto close_writer_err = writer.close();
+if (close_writer_err) return close_writer_err;
+
+auto close_streamer_err = streamer.close();
+if (close_streamer_err) return close_streamer_err;
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
+
+```cpp
+#include "client/cpp/synnax.h"
+
+auto client = synnax::Synnax();
+
+// Create or retrieve rack
+auto [rack, rack_err] = client.hardware.retrieve_rack("my_rack");
+if (rack_err) return rack_err;
+
+// List all tasks
+auto [tasks, list_err] = rack.tasks.list();
+if (list_err) return list_err;
+
+for (const auto& task : tasks) {
+    std::cout << "Task: " << task.name << ", Type: " << task.type << std::endl;
+}
+
+// Retrieve task by name
+auto [task, retrieve_err] = rack.tasks.retrieve("Analog Write");
+if (retrieve_err) return retrieve_err;
+
+// List all analog write tasks
+std::vector<synnax::Task> analog_write_tasks;
+for (const auto& t : tasks) {
+    if (t.type == "ni_analog_write") {
+        analog_write_tasks.push_back(t);
+    }
+}
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+
+```cpp
+// TODO: Add example for editing task configuration
+// - Update task parameters (state_rate, data_saving, etc.)
+// - Modify channel parameters (min_val, max_val, etc.)
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
+
+```cpp
+// TODO: Add example for copying a task
+// - Copy task with new name
+// - Preserve channel configuration
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
+
+```cpp
+#include "client/cpp/synnax.h"
+
+auto client = synnax::Synnax();
+
+// Retrieve rack
+auto [rack, rack_err] = client.hardware.retrieve_rack("my_rack");
+if (rack_err) return rack_err;
+
+// Retrieve task
+auto [task, task_err] = rack.tasks.retrieve("Analog Write");
+if (task_err) return task_err;
+
+// Stop task if running
+// (Note: Stopping tasks typically handled via driver commands)
+
+// Delete task
+// (Note: Task deletion handled through rack.tasks operations)
+```
+
+</ExampleDetails>
 
   </Fragment>
 </Client.Tabs>

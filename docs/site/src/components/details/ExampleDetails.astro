@@ -1,0 +1,124 @@
+---
+import { Icon } from "@synnaxlabs/pluto";
+---
+
+<details>
+    <summary>
+        <Icon.Caret.Left className="indicator" />
+        <slot name="summary" />
+    </summary>
+    <div class="content">
+        <slot />
+    </div>
+</details>
+
+<style>
+    details {
+        margin: 0;
+        border: var(--pluto-border);
+        border-top: none;
+        border-radius: 0;
+        overflow: hidden;
+        background: var(--pluto-gray-l1);
+        max-height: 10rem;
+        transition: max-height 0.3s ease;
+    }
+
+    details:first-of-type {
+        border-top: var(--pluto-border);
+        border-top-left-radius: 1rem;
+        border-top-right-radius: 1rem;
+    }
+
+    details:last-of-type {
+        border-bottom-left-radius: 1rem;
+        border-bottom-right-radius: 1rem;
+    }
+
+    .content {
+        padding: 0 2rem;
+    }
+
+    details[open] {
+        max-height: 1200px;
+    }
+
+    details[open] summary {
+        border-bottom: var(--pluto-border);
+    }
+
+    details[open] summary :global(.indicator) {
+        transform: rotate(270deg);
+    }
+
+    details:not([open]):active {
+        border-color: var(--pluto-gray-l5);
+    }
+
+    summary {
+        list-style: none;
+        position: relative;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        width: 100%;
+        background: var(--pluto-gray-l2);
+        padding: 1.5rem 2rem 1.5rem 6rem;
+    }
+
+    summary::-webkit-details-marker {
+        display: none;
+    }
+
+    summary::marker {
+        content: none;
+    }
+
+    summary:hover {
+        transition: background-color 0.2s;
+        background-color: var(--pluto-gray-l3);
+    }
+
+    summary :global(.indicator) {
+        position: absolute;
+        left: 2rem;
+        fill: var(--pluto-gray-l10);
+        transition: transform 0.2s;
+        height: 2.5rem;
+        width: 2.5rem;
+        transform: rotate(180deg);
+    }
+
+    summary :global(p),
+    summary :global(small),
+    summary :global(h1),
+    summary :global(h2),
+    summary :global(h3),
+    summary :global(h4),
+    summary :global(h5),
+    summary :global(h6) {
+        margin: 0 !important;
+        font-weight: 400;
+    }
+
+    summary :global(svg:not(.indicator)) {
+        margin-right: 0.5rem;
+        position: relative;
+        top: -2px;
+    }
+</style>
+
+<style is:global>
+    details .astro-code-wrapper {
+        margin: 0 !important;
+    }
+
+    details .astro-code-wrapper .astro-code {
+        border: none !important;
+    }
+
+    details .table-wrapper {
+        margin: 0.5rem 0 !important;
+        border: none !important;
+    }
+</style>

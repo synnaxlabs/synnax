@@ -10,6 +10,8 @@ nextURL: "/reference/driver/ni/analog-read-task"
 
 import { Divider, Note, Icon } from "@synnaxlabs/pluto";
 import { Video } from "@/components/Media";
+import { Tabs } from "@/components/Tabs";
+import { Fragment } from "react";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -44,7 +46,15 @@ There are three ways to create and open a task configuration dialog in Synnax. T
 examples below demonstrate creating an analog read task, but the same methods apply to
 all task types (analog write, digital read, digital write, etc.).
 
-### From the Devices Toolbar
+<Tabs
+  client:load
+  tabs={[
+    { name: "Devices Toolbar", tabKey: "tab1" },
+    { name: "Command Palette", tabKey: "tab2" },
+    { name: "Layout Selector", tabKey: "tab3" }
+  ]}
+>
+<Fragment slot="tab1">
 
 To create a task from the Devices Toolbar, open the Console and click on the device
 icon (<Icon.Device />) on the left-hand side of the screen. Find the device you'd like
@@ -56,7 +66,8 @@ to create the task for, right-click on it, and select the appropriate task type 
   id="device-drivers/ni/analog-read-task/device-create-analog-read-task"
 />
 
-### From the Command Palette
+</Fragment>
+<Fragment slot="tab2">
 
 To create a task from the command palette, open the Console and click on the Search and
 Command Palette at the top. You can also open this palette with `Ctrl+Shift+P` on
@@ -71,7 +82,8 @@ the task configuration dialog.
   id="device-drivers/ni/analog-read-task/palette-create-analog-read-task"
 />
 
-### From The Layout Selector
+</Fragment>
+<Fragment slot="tab3">
 
 To create a task from the layout selector, click on the add icon (<Icon.Add />) in the
 top-right corner of the central mosaic and select the appropriate NI task type from the
@@ -81,6 +93,9 @@ menu.
   client:only="react"
   id="device-drivers/ni/analog-read-task/layout-create-analog-read-task"
 />
+
+</Fragment>
+</Tabs>
 
 <Divider.Divider x />
 
@@ -121,6 +136,10 @@ task types:
 - [Analog Read Task](/reference/driver/ni/analog-read-task) - Acquire data from analog
   inputs
 - [Analog Write Task](/reference/driver/ni/analog-write-task) - Send commands to analog
+  outputs
+- [Counter Read Task](/reference/driver/ni/counter-read-task) - Acquire data from
+  counter inputs
+- [Counter Write Task](/reference/driver/ni/counter-write-task) - Generate pulse train
   outputs
 - [Digital Read Task](/reference/driver/ni/digital-read-task) - Acquire data from
   digital inputs

@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-export type Client = "console" | "python" | "typescript";
+export type Client = "console" | "python" | "typescript" | "cpp";
 
 export interface Info {
   key: Client;
@@ -21,6 +21,7 @@ export const CLIENTS: Info[] = [
   { key: "console", name: "Console", icon: <Icon.Visualize /> },
   { key: "python", name: "Python", icon: <Icon.Python /> },
   { key: "typescript", name: "TypeScript", icon: <Icon.TypeScript /> },
+  { key: "cpp", name: "C++", icon: <Icon.CPlusPlus /> },
 ];
 
 export const getFromURL = (): Client | null => {
