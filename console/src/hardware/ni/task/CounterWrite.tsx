@@ -49,8 +49,6 @@ const Properties = () => (
   <>
     <Device.Select />
     <Flex.Box x>
-      <Common.Task.Fields.StateUpdateRate />
-      <Common.Task.Fields.DataSaving />
       <Common.Task.Fields.AutoStart />
     </Flex.Box>
   </>
