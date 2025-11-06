@@ -21,16 +21,19 @@ import (
 
 type calculationTransform struct {
 	confluence.LinearTransform[framer.IteratorResponse, framer.IteratorResponse]
-	excludeKeys      channel.Keys
+	keepKeys         channel.Keys
 	calculators      []*calculator.Calculator
 	accumulatedError error
 }
 
 func newCalculationTransform(
-	excludeKeys channel.Keys,
+	keepKeys channel.Keys,
 	calculators []*calculator.Calculator,
 ) *calculationTransform {
-	t := &calculationTransform{calculators: calculators, excludeKeys: excludeKeys}
+	t := &calculationTransform{
+		calculators: calculators,
+		keepKeys:    keepKeys,
+	}
 	t.Transform = t.transform
 	return t
 }
@@ -66,7 +69,7 @@ func (t *calculationTransform) transform(
 			continue
 		}
 	}
-	res.Frame = res.Frame.ExcludeKeys(t.excludeKeys)
+	res.Frame = res.Frame.KeepKeys(t.keepKeys)
 	if res.Frame.Count() == 0 {
 		return framer.IteratorResponse{}, false, nil
 	}

@@ -305,7 +305,11 @@ export class Frame {
 
   push(keyOrFrame: channel.KeyOrName | Frame, ...v: Series[]): void {
     if (keyOrFrame instanceof Frame) {
-      if (this.colType !== null && keyOrFrame.colType !== this.colType)
+      if (
+        keyOrFrame.colType != null &&
+        this.colType !== null &&
+        keyOrFrame.colType !== this.colType
+      )
         throw new ValidationError("keyVariant must match");
       this.series.push(...keyOrFrame.series);
       (this.columns as channel.Keys).push(...(keyOrFrame.columns as channel.Keys));

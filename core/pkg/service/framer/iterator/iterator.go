@@ -244,27 +244,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 		return !calculatedKeys.Contains(item) && !item.Free()
 	})
 
-	// PurgeKeys are channels that are required but were not requested
-	// This includes both:
-	// 1. Concrete channels added for dependencies
-	// 2. Intermediate calculated channels not originally requested
-	purgeKeys := make([]channel.Key, 0, len(cfg.Keys)+len(calculatedKeys))
-
-	// Add concrete channels not originally requested
-	for _, key := range cfg.Keys {
-		if !lo.Contains(originalKeys, key) {
-			purgeKeys = append(purgeKeys, key)
-		}
-	}
-
-	// Add calculated channels not originally requested
-	for _, calcKey := range calculatedKeys.Keys() {
-		if !lo.Contains(originalKeys, calcKey) {
-			purgeKeys = append(purgeKeys, calcKey)
-		}
-	}
-
-	return newCalculationTransform(purgeKeys, calculators), nil
+	return newCalculationTransform(originalKeys, calculators), nil
 }
 
 type Iterator struct {
