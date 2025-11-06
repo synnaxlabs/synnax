@@ -666,4 +666,92 @@ var _ = Describe("Types", func() {
 			Entry("Invalid", types.Type{Kind: types.KindInvalid}),
 		)
 	})
+
+	Describe("Params", func() {
+		var params types.Params
+		BeforeEach(func() {
+			params = types.Params{
+				{Name: "x", Type: types.I32(), Value: 42},
+				{Name: "y", Type: types.F64(), Value: 3.14},
+				{Name: "flag", Type: types.U8(), Value: uint8(1)},
+			}
+		})
+		Describe("Get", func() {
+			It("Should return parameter when found", func() {
+				param, ok := params.Get("x")
+				Expect(ok).To(BeTrue())
+				Expect(param.Name).To(Equal("x"))
+				Expect(param.Type).To(Equal(types.I32()))
+				Expect(param.Value).To(Equal(42))
+			})
+			It("Should return false when parameter not found", func() {
+				param, ok := params.Get("nonexistent")
+				Expect(ok).To(BeFalse())
+				Expect(param).To(Equal(types.Param{}))
+			})
+			It("Should find last parameter", func() {
+				param, ok := params.Get("flag")
+				Expect(ok).To(BeTrue())
+				Expect(param.Name).To(Equal("flag"))
+			})
+			It("Should work with empty params", func() {
+				empty := types.Params{}
+				param, ok := empty.Get("x")
+				Expect(ok).To(BeFalse())
+				Expect(param).To(Equal(types.Param{}))
+			})
+		})
+		Describe("GetIndex", func() {
+			It("Should return correct index when found", func() {
+				Expect(params.GetIndex("x")).To(Equal(0))
+				Expect(params.GetIndex("y")).To(Equal(1))
+				Expect(params.GetIndex("flag")).To(Equal(2))
+			})
+			It("Should return -1 when not found", func() {
+				Expect(params.GetIndex("nonexistent")).To(Equal(-1))
+			})
+			It("Should return -1 for empty params", func() {
+				empty := types.Params{}
+				Expect(empty.GetIndex("x")).To(Equal(-1))
+			})
+		})
+		Describe("Has", func() {
+			It("Should return true for existing parameters", func() {
+				Expect(params.Has("x")).To(BeTrue())
+				Expect(params.Has("y")).To(BeTrue())
+				Expect(params.Has("flag")).To(BeTrue())
+			})
+			It("Should return false for non-existing parameters", func() {
+				Expect(params.Has("nonexistent")).To(BeFalse())
+			})
+			It("Should return false for empty params", func() {
+				empty := types.Params{}
+				Expect(empty.Has("x")).To(BeFalse())
+			})
+		})
+		Describe("ValueMap", func() {
+			It("Should return map of parameter names to values", func() {
+				valueMap := params.ValueMap()
+				Expect(valueMap).To(HaveLen(3))
+				Expect(valueMap["x"]).To(Equal(42))
+				Expect(valueMap["y"]).To(Equal(3.14))
+				Expect(valueMap["flag"]).To(Equal(uint8(1)))
+			})
+			It("Should return empty map for empty params", func() {
+				empty := types.Params{}
+				valueMap := empty.ValueMap()
+				Expect(valueMap).To(HaveLen(0))
+			})
+			It("Should handle nil values", func() {
+				paramsWithNil := types.Params{
+					{Name: "a", Type: types.I32(), Value: nil},
+					{Name: "b", Type: types.F64(), Value: 1.5},
+				}
+				valueMap := paramsWithNil.ValueMap()
+				Expect(valueMap).To(HaveLen(2))
+				Expect(valueMap["a"]).To(BeNil())
+				Expect(valueMap["b"]).To(Equal(1.5))
+			})
+		})
+	})
 })
