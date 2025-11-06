@@ -1,171 +1,362 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "LabJack Write Task"
-description: "Learn how to control LabJack devices using Synnax."
+description: "Learn how to use Write Tasks for LabJack hardware."
 prev: "Read Task"
 prevURL: "/reference/driver/labjack/read-task"
 ---
 
-import { Divider, Note, Icon } from "@synnaxlabs/pluto";
-
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/Media";
-import StepText from "@/components/StepText.astro";
+import { Fragment } from "react";
+import ChannelTypeDetails from "@/components/details/ChannelTypeDetails.astro";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The LabJack Write Task is used to control LabJack devices from Synnax. In this guide,
-we'll walk you through the steps to create a LabJack Write Task in Synnax.
+Sends control commands to analog and digital outputs on LabJack devices.
 
 <Divider.Divider x />
 
-## Prerequisites
+## How Commands Work
 
-Before configuring the task, you'll need to have
-[connected and configured a LabJack device](/reference/driver/labjack/configure-device)
-in Synnax.
+Write tasks use **command** and **state** channels:
 
-<Divider.Divider x />
+- **Command channels** (`_cmd`): Write values here to set outputs
+- **State channels** (`_state`): Reflect the current output state
+- **Command time channels** (`_cmd_time`): Index channels storing command timestamps
 
-## A Short Primer on Tasks
-
-Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
-can be used for both control and data acquisition purposes. In the context of the
-LabJack driver, a write task defines a background process that writes data to the analog
-or digital outputs on a particular LabJack device.
-
-A write task can be started, stopped, and re-configured at any time. Synnax permanently
-stores the configuration of each task, so it's easy to set up multiple tasks for
-different purposes.
+When you write to a command channel, the task processes it and updates the state channel, providing acknowledgment that the command was executed.
 
 <Divider.Divider x />
 
-## How Commands Work in Synnax
+## Task Configuration Reference
 
-Commands in Synnax require two types of channels: a command channel and state channel.
-Command channels signal a task to set the value of a digital output. To set a digital
-output to high, you would write a `1` to the command channel. To set it to low, you
-would write a `0`.
-
-A command channel for a digital output might be `my_temp_card_do_0_1_cmd`, where
-`my_temp_card` is the device identifier, `do_0_1` is the port and line of the digital
-output, and `_cmd` indicates that it's a command channel.
-
-<Note.Note variant="info">
-  Command channels also have an associated index channel that stores the timestamps at
-  which commands were sent. This channel is suffixed with `_cmd_time`. For the command
-  channel `my_temp_card_do_0_1_cmd`, the index channel would be
-  `my_temp_card_do_0_1_cmd_time`.
-</Note.Note>
-
-State channels represent the current state of the digital output. When you send a
-command, the corresponding digital write task will process the command and update the
-value in the state channel.
-
-State channels are typically suffixed with `_state`. A state channel maintains the same
-format as its corresponding command channel, but suffixed with `_state` instead of
-`_cmd`.
-
-As an example, to configure a valve in a [schematic](/reference/console/schematics) to
-write to a digital output, you would set the `command` field to the command channel of
-the digital output and the `state` field to the state channel of the digital output.
-Clicking the valve would send a command to the digital output, and the valve would turn
-solid or transparent based on the state channel.
-
-Using two channels provides a guarantee that a particular command was acknowledged by a
-running task.
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | Yes | - | Human-readable task name |
+| `state_rate` | number | No | `20` | Rate (Hz) at which state channels are updated |
+| `data_saving` | boolean | No | `false` | Enable permanent storage in Synnax |
+| `auto_start` | boolean | No | `false` | Automatically start task after configuration |
+| `channels` | array | Yes | - | List of output channel configurations |
 
 <Divider.Divider x />
 
-## Open the Task Configuration Dialog
+## Channel Types Reference
 
-### From the Devices Toolbar
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog Output ([`AO`](https://support.labjack.com/docs/15-0-dac-t-series-datasheet))</Text.Text>
 
-To create a write task from the Devices Toolbar, open the Synnax Console and click on
-the device icon (<Icon.Device />) on the left-hand side of the screen. Find the device
-you'd like to create the task for, right-click on it, and select "Create write task".
+Writes analog voltage to a specified output terminal (DAC).
 
-<Video
-  client:only="react"
-  id="device-drivers/labjack/write-task/device-create-write-task"
-/>
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `cmd_channel` | number | Yes | - | Synnax command channel key |
+| `state_channel` | number | Yes | - | Synnax state channel key |
+| `port` | string | Yes | - | Port location (e.g., `DAC0`, `DAC1`) |
 
-### From the Command Palette
+</ChannelTypeDetails>
 
-To create a write task from the command palette, open the Synnax Console and click on
-the Command Palette at the top. You can also open this palette with `Ctrl+Shift+P` on
-Windows and `Cmd+Shift+P` on macOS.
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Digital Output ([`DO`](https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet))</Text.Text>
 
-In command mode (enabled when the first character in the input is ">"), type "LabJack".
-You'll see an option called "Create a LabJack Write Task". Select this option to open
-the write task configuration dialog.
+Writes digital state (0 or 1) to a specified digital I/O line.
 
-<Video
-  client:only="react"
-  id="device-drivers/labjack/write-task/palette-create-write-task"
-/>
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `cmd_channel` | number | Yes | - | Synnax command channel key |
+| `state_channel` | number | Yes | - | Synnax state channel key |
+| `port` | string | Yes | - | Port location (e.g., `DIO4`, `FIO5`) |
 
-### From The Layout Selector
-
-To create a write task from the layout selector, click on the add icon (<Icon.Add />) in
-the top-right corner and select "LabJack Write Task".
-
-<Video
-  client:only="react"
-  id="device-drivers/labjack/write-task/layout-create-write-task"
-/>
+</ChannelTypeDetails>
 
 <Divider.Divider x />
 
-## Configure the Task
+## Important Rules
 
-### <StepText level="h3" step={1}>Select your LabJack Device</StepText>
-
-The first step is to select the LabJack device you'd like to write to the outputs of.
-Use the dropdown menu in the top-left corner to do so.
-
-<Video client:only="react" id="device-drivers/labjack/write-task/select-device" />
-
-### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
-
-Next, you'll need to add the channels you'd like to write to. Click the Add (<Icon.Add
-/>) button in the channels section. Then, click on the new channel in the list to
-configure it.
-
-You'll need to select an output port to write to. You'll also need to select the command
-channel the task will listen to, and the state channel that will be updated when the
-command is processed.
-
-<Video
-  client:only="react"
-  id="device-drivers/labjack/write-task/write-task-create-channel"
-/>
-
-### <StepText level="h3" step={3}>Configure the State Update Rate</StepText>
-
-The state update rate determines how often the state channels in the task are updated.
-Set the rate higher in scenarios that require quick response times.
-
-<div style={{ display: "flex", justifyContent: "center" }}>
-  <Image
-    client:only="react"
-    id="device-drivers/ni/digital-write-task/digital-write-task-state-rate"
-    style={{ width: "50%", minWidth: 200 }}
-  />
-</div>
+- **Command/State pairs**: Each output requires both a command and state channel
+- **State rate**: Higher state rates provide faster feedback but consume more resources
+- **One running task per channel**: A channel can only send commands to one task at a time
 
 <Divider.Divider x />
 
-## Start the Task
+## How To
 
-Once you've added all of the channels you need and have configured sampling rates, hit
-the "Configure" button. If there are no errors, Synnax will acknowledge the configured
-task and enable the Play (<Icon.Play />) button in the dialog. Click this button to
-start the task.
+<Client.Tabs client:only="react" exclude={["cpp"]}>
+  <Fragment slot="console">
+    <Video
+      client:only="react"
+      id="device-drivers/labjack/write-task/select-device"
+    />
+  </Fragment>
+  <Fragment slot="python">
 
-<Video client:only="react" id="device-drivers/labjack/write-task/start-task" />
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
 
-<Note.Note variant="info">
-  Starting and stopping a task does not re-apply the task configuration. If you've made
-  changes to the configuration, you'll need to re-configure the task by hitting the
-  "Configure" button.
-</Note.Note>
+```python
+import synnax as sy
+from synnax.hardware import labjack
+
+client = sy.Synnax()
+
+# Retrieve device
+dev = client.hardware.devices.retrieve(name="my_labjack")
+
+# Create command time index
+do_cmd_time = client.channels.create(
+    name="do_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create command channel
+do_4_cmd = client.channels.create(
+    name="do_4_cmd",
+    index=do_cmd_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+
+# Create state time index
+do_state_time = client.channels.create(
+    name="do_state_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create state channel
+do_4_state = client.channels.create(
+    name="do_4_state",
+    index=do_state_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+
+# Create and configure task
+task = labjack.WriteTask(
+    name="LabJack Write",
+    device=dev.key,
+    state_rate=sy.Rate.HZ * 20,
+    data_saving=True,
+    channels=[
+        labjack.OutputChan(
+            type="DO",
+            cmd_channel=do_4_cmd.key,
+            state_channel=do_4_state.key,
+            port="DIO4",
+        ),
+    ],
+)
+
+client.hardware.tasks.configure(task)
+
+# Start task and write commands
+with task.run():
+    with client.open_writer(
+        start=sy.TimeStamp.now(),
+        channels=["do_4_cmd"],
+    ) as writer:
+        # Set output high
+        writer.write({
+            "do_4_cmd": 1,
+        })
+
+        # Read back state
+        with client.open_streamer(["do_4_state"]) as streamer:
+            frame = streamer.read()
+            print(f"State: {frame['do_4_state'][-1]}")
+
+        # Set output low
+        writer.write({
+            "do_4_cmd": 0,
+        })
+```
+
+</ExampleDetails>
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+
+```python
+# Retrieve existing task
+task = client.hardware.tasks.retrieve(name="LabJack Write")
+
+# Modify configuration
+task.config.state_rate = 50
+
+# Add a new channel
+new_cmd_channel = client.channels.create(
+    name="do_5_cmd",
+    index=do_cmd_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+
+new_state_channel = client.channels.create(
+    name="do_5_state",
+    index=do_state_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+
+task.config.channels.append(
+    labjack.OutputChan(
+        type="DO",
+        cmd_channel=new_cmd_channel.key,
+        state_channel=new_state_channel.key,
+        port="DIO5",
+    )
+)
+
+# Reconfigure task
+client.hardware.tasks.configure(task)
+```
+
+</ExampleDetails>
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
+
+```typescript
+import { Synnax, TimeStamp, Rate } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve device
+const dev = await client.hardware.devices.retrieve({ name: "my_labjack" });
+
+// Create command time index
+const doCmdTime = await client.channels.create({
+  name: "do_cmd_time",
+  isIndex: true,
+  dataType: "timestamp",
+  retrieveIfNameExists: true,
+});
+
+// Create command channel
+const do4Cmd = await client.channels.create({
+  name: "do_4_cmd",
+  index: doCmdTime.key,
+  dataType: "uint8",
+  retrieveIfNameExists: true,
+});
+
+// Create state time index
+const doStateTime = await client.channels.create({
+  name: "do_state_time",
+  isIndex: true,
+  dataType: "timestamp",
+  retrieveIfNameExists: true,
+});
+
+// Create state channel
+const do4State = await client.channels.create({
+  name: "do_4_state",
+  index: doStateTime.key,
+  dataType: "uint8",
+  retrieveIfNameExists: true,
+});
+
+// Create and configure task
+const task = await client.hardware.tasks.create({
+  name: "LabJack Write",
+  type: "labjack_write",
+  config: JSON.stringify({
+    device: dev.key,
+    state_rate: 20,
+    data_saving: true,
+    channels: [
+      {
+        type: "DO",
+        cmd_channel: do4Cmd.key,
+        state_channel: do4State.key,
+        port: "DIO4",
+      },
+    ],
+  }),
+});
+
+// Start task
+await task.executeCommandSync("start");
+
+// Write command
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["do_4_cmd"],
+});
+
+// Set output high
+await writer.write({
+  "do_4_cmd": 1,
+});
+
+// Read state
+const streamer = await client.openStreamer(["do_4_state"]);
+const frame = await streamer.read();
+console.log(`State: ${frame["do_4_state"]}`);
+
+// Set output low
+await writer.write({
+  "do_4_cmd": 0,
+});
+
+// Stop task
+await task.executeCommandSync("stop");
+await writer.close();
+await streamer.close();
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+
+```typescript
+// Retrieve existing task
+const task = await client.hardware.tasks.retrieve({ name: "LabJack Write" });
+
+// Parse current configuration
+const config = JSON.parse(task.config);
+
+// Modify configuration
+config.state_rate = 50;
+
+// Add a new channel
+const newCmdChannel = await client.channels.create({
+  name: "do_5_cmd",
+  index: doCmdTime.key,
+  dataType: "uint8",
+  retrieveIfNameExists: true,
+});
+
+const newStateChannel = await client.channels.create({
+  name: "do_5_state",
+  index: doStateTime.key,
+  dataType: "uint8",
+  retrieveIfNameExists: true,
+});
+
+config.channels.push({
+  type: "DO",
+  cmd_channel: newCmdChannel.key,
+  state_channel: newStateChannel.key,
+  port: "DIO5",
+});
+
+// Update task configuration
+task.config = JSON.stringify(config);
+await client.hardware.tasks.create(task);
+```
+
+</ExampleDetails>
+
+  </Fragment>
+</Client.Tabs>
+
+For task lifecycle management, see the [Task Basics](/reference/driver/task-basics#how-to) page.
