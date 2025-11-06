@@ -397,6 +397,17 @@ class Client:
             _RetrieveResponse,
         )
         sug = self.sugar(res.tasks)
+
+        # Warn if multiple tasks found when retrieving by name
+        if is_single and name is not None and len(sug) > 1:
+            task_keys = ", ".join(str(t.key) for t in sug)
+            warnings.warn(
+                f"Multiple tasks ({len(sug)}) found with name '{name}'. "
+                f"Keys: [{task_keys}]. Returning the first task ({sug[0].key}).",
+                UserWarning,
+                stacklevel=2
+            )
+
         return sug[0] if is_single else sug
 
     def list(self, rack: int | None = None) -> list[Task]:

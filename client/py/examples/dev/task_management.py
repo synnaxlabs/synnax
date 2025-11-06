@@ -8,20 +8,30 @@
 #  included in the file licenses/APL.txt.
 
 """
-This example demonstrates task management features for Modbus tasks:
+This example demonstrates task management features in Synnax.
+
+The principles shown here apply to ALL hardware task types (NI, LabJack, OPC UA, Modbus, etc.),
+but this example uses Modbus for demonstration purposes.
+
+Key features demonstrated:
+- Creating tasks
+- Retrieving tasks by name
 - Listing all tasks on a rack
-- Copying tasks and modifying their configurations
+- Copying tasks
+- Modifying task configurations
+- Starting/stopping tasks
 
 Before running this example:
-1. Start the test server:
+1. Start the Modbus simulator server:
    poetry run python driver/modbus/dev/server.py
 
-2. Connect the Modbus device in Synnax:
+2. Connect the Modbus device in Synnax Console:
    - Host: localhost (127.0.0.1)
    - Port: 5020
-   - Name the device "Modbus Server" (or update line 40 below)
+   - Name: "Modbus Server"
 
-3. This example creates, lists, copies, and manages Modbus read tasks.
+Note: The task management API is identical for all hardware types - only the task
+configuration specifics differ between hardware integrations.
 """
 
 import time
@@ -39,7 +49,6 @@ dev = client.hardware.devices.retrieve(name="Modbus Server")
 
 print("=" * 70)
 print("Modbus Task Management Example")
-print("=" * 70)
 print()
 
 # ============================================================================
@@ -102,30 +111,19 @@ print(f"  Channels: 2 input registers")
 print()
 
 # ============================================================================
-# Step 2: List all tasks on the rack
+# Step 2: Copy the task and modify its configuration
 # ============================================================================
-print("\nStep 2: Listing all tasks on the default rack")
+print("\nStep 2: Copying task and modifying configuration")
 print("-" * 70)
 
-# List all tasks on the default rack
-# Note: This excludes internal system tasks (scanner tasks, rack state, etc.)
-all_tasks = client.hardware.tasks.list()
-print(f"\n✓ Found {len(all_tasks)} user-created task(s) on the rack:\n")
-for i, task in enumerate(all_tasks, 1):
-    print(f"  {i}. {task.name}")
-    print(f"     Key: {task.key}, Type: {task.type}")
-print()
-
-# ============================================================================
-# Step 3: Copy the task and modify its configuration
-# ============================================================================
-print("\nStep 3: Copying task and modifying configuration")
-print("-" * 70)
+# Retrieve the original task by name
+retrieved_task = client.hardware.tasks.retrieve(name="Modbus Read Task")
+print(f"\nRetrieved task by name: '{retrieved_task.name}' (key: {retrieved_task.key})")
 
 # Copy the original task with a new name
 # This creates a new, independent task with the same configuration
 copied_task_raw = client.hardware.tasks.copy(
-    key=original_task.key,
+    key=retrieved_task.key,
     name="Modbus Read Task Copy",
 )
 
@@ -151,18 +149,18 @@ print(f"    Key:          {copied_task.key}")
 print(f"    Stream rate:  5 Hz (modified)")
 print(f"    Auto-start:   Enabled (task is now running)")
 
-# Keep the copied task running for now - we'll test it in Step 5
+# Keep the copied task running for now - we'll verify it below
 print()
 
 # ============================================================================
-# Step 4: List tasks again to see all created tasks
+# Step 3: List all tasks to see the original and copy
 # ============================================================================
-print("\nStep 4: Listing all tasks after copy")
+print("\nStep 3: Listing all tasks on the rack")
 print("-" * 70)
 
 # List all tasks again to see the original and copy
 all_tasks_updated = client.hardware.tasks.list()
-print(f"\n✓ Found {len(all_tasks_updated)} task(s) on the rack:\n")
+print(f"✓ Found {len(all_tasks_updated)} task(s) on the rack:\n")
 
 # Group tasks by type for better visualization
 modbus_tasks = [t for t in all_tasks_updated if t.type == "modbus_read"]
@@ -193,17 +191,31 @@ with client.open_streamer([input_reg_0.key, input_reg_1.key]) as streamer:
             sample_count += len(frame[input_reg_0.key])
 
 if sample_count > 0:
-    print(f"  ✓ Copied task is running (received {sample_count} samples)\n")
+    print(f"  ✓ Copied task is running (received {sample_count} samples)")
 else:
-    print(f"  ✗ No samples received from copied task\n")
+    print(f"  ✗ No samples received from copied task")
 
 # Stop the copied task to clean up
 print("  Stopping copied task...")
 copied_task.stop()
-print(f"  ✓ Copied task stopped\n")
+print(f"  ✓ Copied task stopped")
 
 # ============================================================================
-# Summary
+# Step 4: Delete the copied task
 # ============================================================================
+print("\nStep 4: Deleting the copied task")
+print("-" * 70)
+
+# Delete the copied task by key
+client.hardware.tasks.delete(copied_task.key)
+print(f"✓ Deleted copied task (key: {copied_task.key})")
+
+# Verify deletion by listing tasks again
+remaining_tasks = client.hardware.tasks.list()
+remaining_modbus = [t for t in remaining_tasks if t.type == "modbus_read"]
+print(f"✓ Remaining Modbus tasks: {len(remaining_modbus)}")
+for task in remaining_modbus:
+    print(f"  • {task.name} (key: {task.key})")
+
 print("\n✓ Example completed successfully!")
 print("=" * 70)
