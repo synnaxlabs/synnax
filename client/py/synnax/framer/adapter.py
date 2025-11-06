@@ -62,10 +62,22 @@ class ReadFrameAdapter:
     def adapt(self, fr: Frame):
         if self.__adapter is None:
             return fr
-        keys = [
-            self.__adapter[k] if isinstance(k, ChannelKey) else k for k in fr.channels
-        ]
-        return Frame(channels=keys, series=fr.series)
+
+        to_purge: list[int] | None = None
+        for i, k in enumerate(fr.channels):
+            try:
+                if isinstance(k, ChannelKey):
+                    fr.channels[i] = self.__adapter[k]
+            except KeyError:
+                if to_purge is None:
+                    to_purge = [i]
+                else:
+                    to_purge.append(i)
+        if to_purge is not None:
+            fr.channels = [k for i, k in enumerate(fr.channels) if i not in to_purge]
+            fr.series = [s for i, s in enumerate(fr.series) if i not in to_purge]
+
+        return fr
 
 
 class WriteFrameAdapter:

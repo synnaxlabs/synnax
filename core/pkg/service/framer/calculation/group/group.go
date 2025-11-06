@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 type Group struct {
@@ -79,15 +80,25 @@ func Open(ctx context.Context, cfgs ...Config) (*Group, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	readKeys := cfg.Calculators.ReadFrom()
+	writeKeys := cfg.Calculators.WriteTo()
+
+	cfg.L.Debug("opening group pipeline",
+		zap.Int("calculator_count", len(cfg.Calculators)),
+		zap.Int("read_channel_count", len(readKeys)),
+		zap.Int("write_channel_count", len(writeKeys)),
+	)
+
 	strm, err := cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{
-		Keys: cfg.Calculators.ReadFrom(),
+		Keys: readKeys,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	wrt, err := cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
-		Keys:  cfg.Calculators.WriteTo(),
+		Keys:  writeKeys,
 		Start: telem.Now(),
 	})
 	if err != nil {
@@ -112,8 +123,8 @@ func Open(ctx context.Context, cfgs ...Config) (*Group, error) {
 		c,
 	)
 	o := confluence.NewObservableSubscriber[framer.WriterResponse]()
-	o.OnChange(func(ctx context.Context, i framer.WriterResponse) {
-		cfg.L.DPanic("write of calculated channel value failed")
+	o.OnChange(func(ctx context.Context, res framer.WriterResponse) {
+		cfg.L.DPanic("write of calculated channel value failed", zap.Error(res.Err))
 	})
 	plumber.SetSink[framer.WriterResponse](p, writerObserverAddr, o)
 	plumber.MustConnect[framer.StreamerResponse](p, streamerAddr, calculatorAddr, defaultPipelineBufferSize)
@@ -121,6 +132,11 @@ func Open(ctx context.Context, cfgs ...Config) (*Group, error) {
 	plumber.MustConnect[framer.WriterResponse](p, writerAddr, writerObserverAddr, defaultPipelineBufferSize)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.WithRetryOnPanic())
+
+	cfg.L.Debug("group pipeline opened successfully",
+		zap.Int("calculator_count", len(cfg.Calculators)),
+	)
+
 	return &Group{
 		shutdown:         signal.NewGracefulShutdown(sCtx, cancel),
 		streamerRequests: streamerRequests,

@@ -11,16 +11,22 @@ package graph
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type Config struct {
+	alamos.Instrumentation
 	Channel        channel.Readable
 	SymbolResolver arc.SymbolResolver
 }
@@ -40,6 +46,7 @@ type groupInfo struct {
 }
 
 type Graph struct {
+	alamos.Instrumentation
 	cfg         Config
 	channels    map[channel.Key]*channelInfo
 	groups      map[int]*groupInfo
@@ -49,10 +56,11 @@ type Graph struct {
 // New creates a new Graph with the provided configuration.
 func New(cfg Config) *Graph {
 	return &Graph{
-		cfg:         cfg,
-		channels:    make(map[channel.Key]*channelInfo),
-		groups:      make(map[int]*groupInfo),
-		nextGroupID: 0,
+		Instrumentation: cfg.Instrumentation,
+		cfg:             cfg,
+		channels:        make(map[channel.Key]*channelInfo),
+		groups:          make(map[int]*groupInfo),
+		nextGroupID:     0,
 	}
 }
 
@@ -60,7 +68,14 @@ func New(cfg Config) *Graph {
 // Increments the explicit reference count for the channel.
 func (a *Graph) Add(ctx context.Context, ch channel.Channel) error {
 	if info := a.channels[ch.Key()]; info != nil {
+		oldCount := info.explicitCount
 		info.explicitCount++
+		a.L.Debug("channel request added",
+			zap.String("channel", ch.Key().String()),
+			zap.Uint32("explicit_count", uint32(oldCount)),
+			zap.Uint32("new_explicit_count", uint32(info.explicitCount)),
+			zap.Uint32("dependency_count", uint32(info.depCount)),
+		)
 		return nil
 	}
 	return a.addInternal(ctx, ch, true)
@@ -134,7 +149,14 @@ func (a *Graph) Update(ctx context.Context, ch channel.Channel) error {
 	for key := range newDepsSet {
 		if !oldDepsSet.Contains(key) {
 			if depInfo := a.channels[key]; depInfo != nil {
+				oldDepCount := depInfo.depCount
 				depInfo.depCount++
+				a.L.Debug("dependency count incremented",
+					zap.String("channel", key.String()),
+					zap.Uint32("dependency_count", uint32(oldDepCount)),
+					zap.Uint32("new_dependency_count", uint32(depInfo.depCount)),
+					zap.String("depender", ch.Key().String()),
+				)
 			}
 		}
 	}
@@ -143,8 +165,19 @@ func (a *Graph) Update(ctx context.Context, ch channel.Channel) error {
 	for key := range oldDepsSet {
 		if !newDepsSet.Contains(key) {
 			if depInfo := a.channels[key]; depInfo != nil {
+				oldDepCount := depInfo.depCount
 				depInfo.depCount--
+				a.L.Debug("dependency count decremented",
+					zap.String("channel", key.String()),
+					zap.Uint32("dependency_count", uint32(oldDepCount)),
+					zap.Uint32("new_dependency_count", uint32(depInfo.depCount)),
+					zap.String("former_depender", ch.Key().String()),
+				)
 				if depInfo.explicitCount == 0 && depInfo.depCount == 0 {
+					a.L.Debug("channel eligible for removal",
+						zap.String("channel", key.String()),
+						zap.String("reason", "explicit and dependency counts reached zero"),
+					)
 					if err := a.removeChannel(key); err != nil {
 						return err
 					}
@@ -172,19 +205,34 @@ func (a *Graph) Update(ctx context.Context, ch channel.Channel) error {
 
 	// Remove from old group if it changed
 	if oldGroupID != newGroupID {
+		a.L.Debug("channel moved to different group",
+			zap.String("channel", ch.Key().String()),
+			zap.Int("old_group_id", oldGroupID),
+			zap.Int("new_group_id", newGroupID),
+			zap.String("dependency_tree", a.formatDependencyTree(ctx, ch.Key())),
+		)
 		if oldGroup := a.groups[oldGroupID]; oldGroup != nil {
 			oldGroup.members.Remove(ch.Key())
 			if len(oldGroup.members) == 0 {
 				delete(a.groups, oldGroupID)
 			} else {
 				// Recalculate base dependencies for the old group
-				a.recalculateGroupBaseDeps(ctx, oldGroupID)
+				if err := a.recalculateGroupBaseDeps(ctx, oldGroupID); err != nil {
+					return err
+				}
 			}
 		}
 		a.groups[newGroupID].members.Add(ch.Key())
 	} else {
+		a.L.Debug("channel updated in same group",
+			zap.String("channel", ch.Key().String()),
+			zap.Int("group_id", newGroupID),
+			zap.String("dependency_tree", a.formatDependencyTree(ctx, ch.Key())),
+		)
 		// Even if group didn't change, recalculate base deps since dependencies changed
-		a.recalculateGroupBaseDeps(ctx, newGroupID)
+		if err := a.recalculateGroupBaseDeps(ctx, newGroupID); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -193,23 +241,44 @@ func (a *Graph) Update(ctx context.Context, ch channel.Channel) error {
 // checkCircularDependency checks if adding a dependency would create a circular dependency.
 func (a *Graph) checkCircularDependency(source, target channel.Key) error {
 	if source == target {
-		return errors.Newf("circular dependency detected: channel %v depends on itself", source)
+		err := errors.Newf("circular dependency detected: channel %v depends on itself", source)
+		a.L.Info("circular dependency detected",
+			zap.String("channel", source.String()),
+			zap.String("dependency_chain", fmt.Sprintf("%s → %s", source, source)),
+			zap.Error(err),
+		)
+		return err
 	}
 
 	// Check if target (or any of its dependencies) depends on source
 	visited := make(set.Set[channel.Key])
+	var chain []channel.Key
 	var checkDeps func(channel.Key) error
 	checkDeps = func(key channel.Key) error {
 		if key == source {
-			return errors.Newf("circular dependency detected involving channel %v", source)
+			// Build the full chain for logging
+			chainStrs := make([]string, len(chain))
+			for i, k := range chain {
+				chainStrs[i] = k.String()
+			}
+			chainStrs = append(chainStrs, source.String())
+			err := errors.Newf("circular dependency detected involving channel %v", source)
+			a.L.Info("circular dependency detected",
+				zap.String("channel", source.String()),
+				zap.String("dependency_chain", strings.Join(chainStrs, " → ")),
+				zap.Error(err),
+			)
+			return err
 		}
 		if visited.Contains(key) {
 			return nil
 		}
 		visited.Add(key)
+		chain = append(chain, key)
 
 		info := a.channels[key]
 		if info == nil {
+			chain = chain[:len(chain)-1]
 			return nil
 		}
 
@@ -218,6 +287,7 @@ func (a *Graph) checkCircularDependency(source, target channel.Key) error {
 				return err
 			}
 		}
+		chain = chain[:len(chain)-1]
 		return nil
 	}
 
@@ -304,7 +374,15 @@ func (a *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 					delete(a.channels, ch.Key())
 					return errors.Wrapf(err, "failed to add calculated dependency %v", depCh.Key())
 				}
-				a.channels[depCh.Key()].depCount++
+				depInfo := a.channels[depCh.Key()]
+				oldDepCount := depInfo.depCount
+				depInfo.depCount++
+				a.L.Debug("dependency count incremented",
+					zap.String("channel", depCh.Key().String()),
+					zap.Uint32("dependency_count", uint32(oldDepCount)),
+					zap.Uint32("new_dependency_count", uint32(depInfo.depCount)),
+					zap.String("depender", ch.Key().String()),
+				)
 				calcDeps = append(calcDeps, depCh.Key())
 			}
 		}
@@ -326,6 +404,15 @@ func (a *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 	}
 
 	a.groups[groupID].members.Add(ch.Key())
+
+	// Log the addition with full dependency tree
+	a.L.Debug("channel added to graph",
+		zap.String("channel", ch.Key().String()),
+		zap.String("dependency_tree", a.formatDependencyTree(ctx, ch.Key())),
+		zap.Uint32("explicit_count", uint32(info.explicitCount)),
+		zap.Uint32("dependency_count", uint32(info.depCount)),
+		zap.Int("group_id", groupID),
+	)
 
 	return nil
 }
@@ -406,8 +493,18 @@ func (a *Graph) assignToGroup(baseDeps set.Set[channel.Key]) int {
 		shouldExtendBest bool
 	)
 
+	// Format base deps for logging
+	baseDepStrs := make([]string, 0, len(baseDeps))
+	for key := range baseDeps {
+		baseDepStrs = append(baseDepStrs, key.String())
+	}
+
 	for groupID, group := range a.groups {
 		if group.baseDeps.Equals(baseDeps) {
+			a.L.Debug("channel assigned to existing group with exact base dependency match",
+				zap.Int("group_id", groupID),
+				zap.String("base_dependencies", strings.Join(baseDepStrs, ", ")),
+			)
 			return groupID
 		}
 
@@ -432,7 +529,16 @@ func (a *Graph) assignToGroup(baseDeps set.Set[channel.Key]) int {
 
 	if bestGroupFound {
 		if shouldExtendBest {
+			a.L.Debug("extending existing group with new base dependencies",
+				zap.Int("group_id", bestGroup),
+				zap.String("new_base_dependencies", strings.Join(baseDepStrs, ", ")),
+			)
 			a.groups[bestGroup].baseDeps = baseDeps.Copy()
+		} else {
+			a.L.Debug("channel assigned to existing group as subset",
+				zap.Int("group_id", bestGroup),
+				zap.String("base_dependencies", strings.Join(baseDepStrs, ", ")),
+			)
 		}
 		return bestGroup
 	}
@@ -443,6 +549,11 @@ func (a *Graph) assignToGroup(baseDeps set.Set[channel.Key]) int {
 		baseDeps: baseDeps.Copy(),
 		members:  make(set.Set[channel.Key]),
 	}
+	a.L.Debug("new group created",
+		zap.Int("group_id", newGroupID),
+		zap.String("base_dependencies", strings.Join(baseDepStrs, ", ")),
+		zap.String("reason", "no suitable existing group found"),
+	)
 	return newGroupID
 }
 
@@ -612,17 +723,110 @@ func (a *Graph) getChannelInfo(key channel.Key) (*channelInfo, error) {
 	return info, nil
 }
 
+// formatDependencyTree builds a string representation of the full dependency tree for a channel.
+// Returns a string like: "ch1 → [calculated: ch2, ch3] → [base: ch4, ch5, ch6]"
+func (a *Graph) formatDependencyTree(ctx context.Context, key channel.Key) string {
+	info := a.channels[key]
+	if info == nil {
+		return key.String()
+	}
+
+	// Start with the channel itself
+	parts := []string{key.String()}
+
+	// Add calculated dependencies if any
+	if len(info.calcDeps) > 0 {
+		calcDepStrs := make([]string, len(info.calcDeps))
+		for i, dep := range info.calcDeps {
+			calcDepStrs[i] = dep.String()
+		}
+		parts = append(parts, fmt.Sprintf("[calculated: %s]", strings.Join(calcDepStrs, ", ")))
+	}
+
+	// Resolve and add base dependencies
+	deps := info.module.StateConfig.Reads.Keys()
+	if len(deps) > 0 {
+		depChannels, err := a.fetchChannels(ctx, deps)
+		if err == nil {
+			baseDeps, err := a.resolveBaseDependencies(ctx, depChannels)
+			if err == nil && len(baseDeps) > 0 {
+				baseDepStrs := make([]string, 0, len(baseDeps))
+				for dep := range baseDeps {
+					baseDepStrs = append(baseDepStrs, dep.String())
+				}
+				parts = append(parts, fmt.Sprintf("[base: %s]", strings.Join(baseDepStrs, ", ")))
+			}
+		}
+	}
+
+	return strings.Join(parts, " → ")
+}
+
+// getDependers returns a list of channel keys that depend on the given channel.
+func (a *Graph) getDependers(key channel.Key) []channel.Key {
+	var dependers []channel.Key
+	for chKey, info := range a.channels {
+		for _, dep := range info.calcDeps {
+			if dep == key {
+				dependers = append(dependers, chKey)
+				break
+			}
+		}
+	}
+	return dependers
+}
+
+// MarshalLogObject implements zapcore.ObjectMarshaler for groupInfo.
+func (g *groupInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddInt("member_count", len(g.members))
+	enc.AddInt("base_dep_count", len(g.baseDeps))
+
+	// Add member keys
+	memberKeys := make([]string, 0, len(g.members))
+	for key := range g.members {
+		memberKeys = append(memberKeys, key.String())
+	}
+	enc.AddString("members", strings.Join(memberKeys, ", "))
+
+	// Add base dependency keys
+	baseDepKeys := make([]string, 0, len(g.baseDeps))
+	for key := range g.baseDeps {
+		baseDepKeys = append(baseDepKeys, key.String())
+	}
+	enc.AddString("base_dependencies", strings.Join(baseDepKeys, ", "))
+
+	return nil
+}
+
 // Remove decrements the explicit reference count for a channel.
 // When both explicit and dependency counts reach 0, removes the channel and cascades to dependencies.
 func (a *Graph) Remove(key channel.Key) error {
 	info, ok := a.channels[key]
 	if !ok {
+		a.L.Debug("channel removal requested but not found in graph",
+			zap.String("channel", key.String()),
+		)
 		return nil
 	}
+	oldExplicitCount := info.explicitCount
 	info.explicitCount--
+	a.L.Debug("channel request removed",
+		zap.String("channel", key.String()),
+		zap.Uint32("explicit_count", uint32(oldExplicitCount)),
+		zap.Uint32("new_explicit_count", uint32(info.explicitCount)),
+		zap.Uint32("dependency_count", uint32(info.depCount)),
+	)
 	if info.explicitCount > 0 || info.depCount > 0 {
+		a.L.Debug("channel retained in graph",
+			zap.String("channel", key.String()),
+			zap.String("reason", fmt.Sprintf("explicit_count=%d or dependency_count=%d is non-zero", info.explicitCount, info.depCount)),
+		)
 		return nil
 	}
+	a.L.Debug("channel eligible for removal",
+		zap.String("channel", key.String()),
+		zap.String("reason", "explicit and dependency counts reached zero"),
+	)
 	return a.removeChannel(key)
 }
 
@@ -633,18 +837,47 @@ func (a *Graph) removeChannel(key channel.Key) error {
 		return err
 	}
 
-	if group := a.groups[chInfo.groupID]; group != nil {
+	groupID := chInfo.groupID
+	if group := a.groups[groupID]; group != nil {
 		group.members.Remove(key)
-		if len(group.members) == 0 {
-			delete(a.groups, chInfo.groupID)
+		remainingMembers := len(group.members)
+		a.L.Debug("calculator removed from group",
+			zap.String("calculator", key.String()),
+			zap.Int("group_id", groupID),
+			zap.Int("remaining_members", remainingMembers),
+		)
+		if remainingMembers == 0 {
+			a.L.Debug("group destroyed",
+				zap.Int("group_id", groupID),
+				zap.String("reason", "no remaining calculations"),
+			)
+			delete(a.groups, groupID)
 		}
 	}
 
+	a.L.Debug("channel removed from graph",
+		zap.String("channel", key.String()),
+		zap.Int("num_dependencies", len(chInfo.calcDeps)),
+	)
+
 	delete(a.channels, key)
+
+	// Cascade to dependencies
 	for _, depKey := range chInfo.calcDeps {
 		if depInfo := a.channels[depKey]; depInfo != nil {
+			oldDepCount := depInfo.depCount
 			depInfo.depCount--
+			a.L.Debug("dependency count decremented",
+				zap.String("channel", depKey.String()),
+				zap.Uint32("dependency_count", uint32(oldDepCount)),
+				zap.Uint32("new_dependency_count", uint32(depInfo.depCount)),
+				zap.String("reason", fmt.Sprintf("depender %s removed", key)),
+			)
 			if depInfo.explicitCount == 0 && depInfo.depCount == 0 {
+				a.L.Debug("cascading removal to dependency",
+					zap.String("dependency", depKey.String()),
+					zap.String("reason", "explicit and dependency counts reached zero"),
+				)
 				if err := a.removeChannel(depKey); err != nil {
 					return err
 				}

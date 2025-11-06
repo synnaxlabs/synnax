@@ -185,6 +185,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			return nil, err
 		}
 	}
+
+	s.cfg.L.Info("calculation service initialized",
+		zap.String("status_channel", StatusChannelName),
+		zap.Uint32("status_channel_key", uint32(calculationStateCh.Key())),
+		zap.Bool("legacy_calculations_enabled", *cfg.EnableLegacyCalculations),
+	)
+
 	return s, nil
 }
 
@@ -225,6 +232,10 @@ func (s *Service) handleChange(
 }
 
 func (s *Service) updateCalculation(ctx context.Context, ch channel.Channel) error {
+	s.cfg.L.Debug("updating calculation",
+		zap.String("channel", ch.Key().String()),
+		zap.String("reason", "channel definition changed"),
+	)
 	if err := s.cfg.Allocator.Update(ctx, ch); err != nil {
 		return err
 	}
@@ -267,37 +278,58 @@ func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Modu
 		return nil
 	}
 	if g != nil {
+		s.cfg.L.Info("group stopping",
+			zap.Int("group_id", key),
+			zap.String("reason", "group composition changed"),
+		)
 		if err := g.Close(); err != nil {
 			return err
 		}
 	}
 	calculators := make([]*calculator.Calculator, len(mods))
+	calculatorStrs := make([]string, len(mods))
 	for i, m := range mods {
 		calc, err := s.openOrGetCalculator(ctx, m)
 		if err != nil {
 			return err
 		}
 		calculators[i] = calc
+		calculatorStrs[i] = calc.String()
 	}
 	g, err := group.Open(
 		ctx,
 		group.Config{
-			Calculators:    calculators,
-			OnStatusChange: s.setStatus,
-			Framer:         s.cfg.Framer,
+			Instrumentation: s.cfg.Child("group"),
+			Calculators:     calculators,
+			OnStatusChange:  s.setStatus,
+			Framer:          s.cfg.Framer,
 		},
 	)
 	if err != nil {
 		return err
 	}
 	s.mu.groups[key] = g
+	s.cfg.L.Info("group started",
+		zap.Int("group_id", key),
+		zap.Int("calculator_count", len(calculators)),
+		zap.Strings("calculators", calculatorStrs),
+	)
 	return nil
 }
 
 func (s *Service) rebuildGroups(ctx context.Context) error {
 	groups := s.cfg.Allocator.CalculateGrouped()
+	s.cfg.L.Debug("rebuilding groups",
+		zap.Int("new_group_count", len(groups)),
+		zap.Int("current_group_count", len(s.mu.groups)),
+	)
 	for k, g := range s.mu.groups {
 		if _, ok := groups[k]; !ok {
+			s.cfg.L.Info("group stopping",
+				zap.Int("group_id", k),
+				zap.String("reason", "no longer in group allocation"),
+			)
+			delete(s.mu.groups, k)
 			if err := g.Close(); err != nil {
 				return err
 			}
@@ -380,7 +412,12 @@ func (s *Service) updateRequests(
 	if err := s.rebuildGroups(ctx); err != nil {
 		return err
 	}
-	s.cfg.L.Debug("started calculated channels", zap.Stringers("keys", added))
+	if len(added) > 0 {
+		s.cfg.L.Debug("calculation requests added", zap.Stringers("channels", added))
+	}
+	if len(removed) > 0 {
+		s.cfg.L.Debug("calculation requests removed", zap.Stringers("channels", removed))
+	}
 	return nil
 }
 

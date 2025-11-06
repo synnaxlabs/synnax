@@ -199,9 +199,8 @@ var _ = Describe("Graph", func() {
 			Expect(grouped).To(BeEmpty())
 		})
 
-		It("Should fail to remove non-existent channel", func() {
-			err := g.Remove(channel.Key(99999))
-			Expect(err).To(HaveOccurred())
+		It("Should not fail to remove non-existent channel", func() {
+			Expect(g.Remove(channel.Key(99999))).To(Succeed())
 		})
 	})
 

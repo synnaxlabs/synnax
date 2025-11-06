@@ -11,6 +11,7 @@ package calculator
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -155,6 +156,23 @@ func (c *Calculator) ReadFrom() channel.Keys {
 }
 
 func (c *Calculator) Channel() channel.Channel { return c.cfg.Module.Channel }
+
+// String returns a human-readable representation of the calculator including channel
+// properties like name, key, index, data type, and dependency count.
+func (c *Calculator) String() string {
+	ch := c.cfg.Module.Channel
+	indexStr := ""
+	if idx := ch.Index(); idx != 0 {
+		indexStr = fmt.Sprintf(" index=%d", idx)
+	}
+	return fmt.Sprintf("%s (key=%d%s type=%s deps=%d)",
+		ch.Name,
+		ch.Key(),
+		indexStr,
+		ch.DataType,
+		len(c.ReadFrom()),
+	)
+}
 
 // Next executes the next calculation step. It takes in the given frame and determines
 // if enough data is available to perform the next set of calculations. The returned

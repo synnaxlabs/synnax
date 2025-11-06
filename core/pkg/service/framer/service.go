@@ -131,11 +131,12 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 
 	alloc := graph.New(graph.Config{
-		Channel:        cfg.Channel,
-		SymbolResolver: cfg.Arc.SymbolResolver(),
+		Instrumentation: cfg.Child("calculation.graph"),
+		Channel:         cfg.Channel,
+		SymbolResolver:  cfg.Arc.SymbolResolver(),
 	})
 	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
-		Instrumentation:          cfg.Child("calculated"),
+		Instrumentation:          cfg.Child("calculation"),
 		DB:                       cfg.DB,
 		Channel:                  cfg.Channel,
 		Framer:                   cfg.Framer,

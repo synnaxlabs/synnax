@@ -67,7 +67,7 @@ client.channels.create(
 client.channels.create(
     name="stream_write_weird",
     expression="return stream_write_data_1 + stream_write_avg + stream_write_avg_squared",
-    # retrieve_if_name_exists=True
+    retrieve_if_name_exists=True
 )
 
 # Open the writer as a context manager. Using a context manager is recommended as the
