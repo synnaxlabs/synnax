@@ -39,10 +39,12 @@ func Parse(
 	}
 	if temp := literal.TemporalLiteral(); temp != nil {
 		// TODO: Parse temporal literals when needed
+		// https://linear.app/synnax/issue/SY-3241/implement-temporal-literal-parsing-in-arc
 		return ParsedValue{}, errors.New("temporal literals not yet supported")
 	}
 	if str := literal.STR_LITERAL(); str != nil {
 		// TODO: Parse string literals when needed
+		// https://linear.app/synnax/issue/SY-3242/implement-string-literal-parsing-in-arc
 		return ParsedValue{}, errors.New("string literals not yet supported")
 	}
 	if series := literal.SeriesLiteral(); series != nil {

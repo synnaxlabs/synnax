@@ -310,8 +310,9 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	}
 	var expectedReturnType types.Type
 	if enclosingScope.Kind == symbol.KindFunction {
-		param, _ := enclosingScope.Type.Outputs.Get(ir.DefaultOutputParam)
-		expectedReturnType = param.Type
+		if param, ok := enclosingScope.Type.Outputs.Get(ir.DefaultOutputParam); ok {
+			expectedReturnType = param.Type
+		}
 	}
 	returnExpr := ctx.AST.Expression()
 	if returnExpr != nil {

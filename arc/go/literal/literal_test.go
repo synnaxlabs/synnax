@@ -18,8 +18,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// Helper to parse a numeric literal from text
-func parseNumeric(text string, targetType types.Type) (literal.ParsedValue, error) {
+// Helper to extract literal from expression text
+func getLiteral(text string) parser.ILiteralContext {
 	expr := MustSucceed(parser.ParseExpression(text))
 	logicalOr := expr.LogicalOrExpression()
 	logicalAnd := logicalOr.AllLogicalAndExpression()[0]
@@ -29,44 +29,14 @@ func parseNumeric(text string, targetType types.Type) (literal.ParsedValue, erro
 	multiplicative := additive.AllMultiplicativeExpression()[0]
 	power := multiplicative.AllPowerExpression()[0]
 	unary := power.UnaryExpression()
-
-	// Check if this is a unary minus expression (e.g., -128)
-	if unary.UnaryExpression() != nil && unary.MINUS() != nil {
-		// Get the inner literal
-		innerUnary := unary.UnaryExpression()
-		postfix := innerUnary.PostfixExpression()
-		primary := postfix.PrimaryExpression()
-		lit := primary.Literal()
-		numLit := lit.NumericLiteral()
-
-		// Parse as positive first
-		parsed, err := literal.ParseNumeric(numLit, targetType)
-		if err != nil {
-			return literal.ParsedValue{}, err
-		}
-
-		// Negate the value
-		switch v := parsed.Value.(type) {
-		case int8:
-			parsed.Value = -v
-		case int16:
-			parsed.Value = -v
-		case int32:
-			parsed.Value = -v
-		case int64:
-			parsed.Value = -v
-		case float32:
-			parsed.Value = -v
-		case float64:
-			parsed.Value = -v
-		}
-		return parsed, nil
-	}
-
-	// Regular literal without unary operator
 	postfix := unary.PostfixExpression()
 	primary := postfix.PrimaryExpression()
-	lit := primary.Literal()
+	return primary.Literal()
+}
+
+// Helper to parse a numeric literal from text
+func parseNumeric(text string, targetType types.Type) (literal.ParsedValue, error) {
+	lit := getLiteral(text)
 	numLit := lit.NumericLiteral()
 	return literal.ParseNumeric(numLit, targetType)
 }
@@ -95,12 +65,12 @@ var _ = Describe("Literal Parser", func() {
 		},
 		// i8 tests
 		Entry("i8 max value", "127", types.I8(), true, int8(127), types.I8(), ""),
-		Entry("i8 out of range (positive)", "128", types.I8(), false, nil, types.Type{}, "out of range for i8"),
+		Entry("i8 out of range", "128", types.I8(), false, nil, types.Type{}, "out of range for i8"),
 		Entry("i8 zero", "0", types.I8(), true, int8(0), types.I8(), ""),
 
 		// i16 tests
 		Entry("i16 max value", "32767", types.I16(), true, int16(32767), types.I16(), ""),
-		Entry("i16 out of range (positive)", "32768", types.I16(), false, nil, types.Type{}, "out of range for i16"),
+		Entry("i16 out of range", "32768", types.I16(), false, nil, types.Type{}, "out of range for i16"),
 
 		// i32 tests
 		Entry("i32 max value", "2147483647", types.I32(), true, int32(2147483647), types.I32(), ""),
@@ -141,4 +111,31 @@ var _ = Describe("Literal Parser", func() {
 		Entry("int to f32", "42", types.F32(), true, float32(42), types.F32(), ""),
 		Entry("int to f64", "42", types.F64(), true, float64(42), types.F64(), ""),
 	)
+
+	Describe("Temporal literals", func() {
+		It("Should return error for temporal literals (not yet supported)", func() {
+			lit := getLiteral("10s")
+			_, err := literal.Parse(lit, types.TimeSpan())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("temporal literals not yet supported"))
+		})
+	})
+
+	Describe("String literals", func() {
+		It("Should return error for string literals (not yet supported)", func() {
+			lit := getLiteral(`"hello"`)
+			_, err := literal.Parse(lit, types.String())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("string literals not yet supported"))
+		})
+	})
+
+	Describe("Series literals", func() {
+		It("Should return error for series literals (not supported for default values)", func() {
+			lit := getLiteral("[1, 2, 3]")
+			_, err := literal.Parse(lit, types.Series(types.I64()))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("series literals not supported for default values"))
+		})
+	})
 })
