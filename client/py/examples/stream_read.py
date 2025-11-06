@@ -38,11 +38,9 @@ with client.open_streamer(channels) as streamer:
             n_i = (i % 2000) / 500
             if n_i == 0:
                 continue
-            new_channels = channels[:int(n_i)]
+            new_channels = channels[: int(n_i)]
             streamer.update_channels(new_channels)
         try:
             print(streamer.read())
         except KeyboardInterrupt:
             break
-
-

@@ -55,8 +55,9 @@ class TestStreamer:
     ):
         idx, data = indexed_pair
         start = sy.TimeStamp.now()
-        with (client.open_streamer(
-            channels=[idx.name, data.name, virtual_channel.name]) as s):
+        with client.open_streamer(
+            channels=[idx.name, data.name, virtual_channel.name]
+        ) as s:
             with client.open_writer(start, channels=indexed_pair) as idx_writer:
                 with client.open_writer(
                     start,
@@ -68,7 +69,8 @@ class TestStreamer:
                         v_value = np.random.rand(1)
                         idx_writer.write(pd.DataFrame({idx.name: ts, data.name: value}))
                         virtual_writer.write(
-                            pd.DataFrame({virtual_channel.name: v_value}))
+                            pd.DataFrame({virtual_channel.name: v_value})
+                        )
                         for _ in range(2):
                             frame = s.read(timeout=1)
                             if len(frame.channels) == 1:
@@ -115,7 +117,7 @@ class TestStreamer:
         start = sy.TimeStamp.now()
         channel_names = [idx.name, data_ch.name, virtual_channel.name]
         curr_channels = [*channel_names]
-        with (client.open_streamer(channels=channel_names) as s):
+        with client.open_streamer(channels=channel_names) as s:
             with client.open_writer(start, channels=channel_names) as writer:
                 for i in range(300):
                     ts = sy.TimeStamp.now()

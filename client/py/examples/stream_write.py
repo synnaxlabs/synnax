@@ -55,19 +55,19 @@ loop = sy.Loop(sy.Rate.HZ * 5000)
 client.channels.create(
     name="stream_write_avg",
     expression="return (stream_write_data_1 + f32(stream_write_data_2)) / 2",
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 client.channels.create(
     name="stream_write_avg_squared",
     expression="return stream_write_avg ^ 2",
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 client.channels.create(
     name="stream_write_weird",
     expression="return stream_write_data_1 + stream_write_avg + stream_write_avg_squared",
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 # Open the writer as a context manager. Using a context manager is recommended as the
