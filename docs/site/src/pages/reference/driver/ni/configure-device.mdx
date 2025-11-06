@@ -10,8 +10,9 @@ nextURL: "/reference/driver/ni/analog-read-task"
 ---
 
 import StepText from "@/components/StepText.astro";
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Text, Icon } from "@synnaxlabs/pluto";
 import { Video } from "@/components/Media";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -44,45 +45,62 @@ Synnax will automatically detect new NI modules, and display a notification in t
 Console when a new device is connected. To start configuring the device, find the device
 in the Devices Toolbar, right click on the device and select "Configure".
 
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
+
 <Video
   client:only="react"
   id="device-drivers/ni/configure-device/device-configure-from-resources"
 />
 
+</ExampleDetails>
+
 <Divider.Divider x />
 
 ## <StepText level="h2" step={2}>Name Your Device</StepText>
 
-The first step in the configuration dialog will prompt you to name your device. This
-name will be used to identify the device in Synnax.
+This name will be used to identify the device in Synnax.
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
 
 <Video
   client:only="react"
   id="device-drivers/ni/configure-device/device-configure-name"
 />
 
+</ExampleDetails>
+
 <Divider.Divider x />
 
 ## <StepText level="h2" step={3}>Set the Device Identifier</StepText>
 
-Next, you'll need to set a short device identifier. This identifier will be used to
-prefix the names of all of the channels on your device. We've automatically generated a
-few suggestions, although you're welcome to choose your own. We recommend keeping this
-as short as possible, while still uniquely identifying the device.
+The identifier will be used to
+prefix the names of all of the channels on your device. Suggestions are automatically generated, although you're welcome to choose your own.
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
 
 <Video
   client:only="react"
   id="device-drivers/ni/configure-device/device-configure-id"
 />
 
+</ExampleDetails>
+
 <Divider.Divider x />
 
 ## <StepText level="h2" step={4}>Save the Configuration</StepText>
 
-Once you're happy with the name and identifier, the last step is to save the
-configuration by hitting the blue "Save" button in the bottom-right corner.
+Once you're happy with the name and identifier, save the
+configuration by hitting the blue "Save" button.
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
 
 <Video
   client:only="react"
   id="device-drivers/ni/configure-device/device-configure-save"
 />
+
+</ExampleDetails>

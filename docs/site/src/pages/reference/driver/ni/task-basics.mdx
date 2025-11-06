@@ -8,10 +8,12 @@ next: "Analog Read Task"
 nextURL: "/reference/driver/ni/analog-read-task"
 ---
 
-import { Divider, Note, Icon } from "@synnaxlabs/pluto";
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video } from "@/components/Media";
 import { Tabs } from "@/components/Tabs";
 import { Fragment } from "react";
+import { Client } from "@/components/client";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -40,11 +42,10 @@ purposes and switch between them as needed.
 
 <Divider.Divider x />
 
-## Opening Task Configuration Dialogs
+## Creating a Task
 
-There are three ways to create and open a task configuration dialog in Synnax. The
-examples below demonstrate creating an analog read task, but the same methods apply to
-all task types (analog write, digital read, digital write, etc.).
+The examples below demonstrate creating an Analog Read task, but the methods apply to all 
+tasks types (analog write, digital read, digital write, etc.).
 
 <Tabs
   client:load
@@ -56,10 +57,9 @@ all task types (analog write, digital read, digital write, etc.).
 >
 <Fragment slot="tab1">
 
-To create a task from the Devices Toolbar, open the Console and click on the device
-icon (<Icon.Device />) on the left-hand side of the screen. Find the device you'd like
-to create the task for, right-click on it, and select the appropriate task type (e.g.,
-"Create analog read task").
+Click on the device icon (<Icon.Device />) on the left-hand side 
+of the screen. Find the device you'd like to create the task for, right-click on it, 
+and select the appropriate task type (e.g., "Create analog read task").
 
 <Video
   client:only="react"
@@ -69,11 +69,10 @@ to create the task for, right-click on it, and select the appropriate task type 
 </Fragment>
 <Fragment slot="tab2">
 
-To create a task from the command palette, open the Console and click on the Search and
-Command Palette at the top. You can also open this palette with `Ctrl+Shift+P` on
-Windows and `Cmd+Shift+P` on macOS.
+Click on the Search and Command Palette at the top. Alternatively, you can also 
+open this palette with `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
-In command mode (enabled when the first character in the input is ">"), type "NI".
+In command mode (first character in the input is ">"), type "NI".
 You'll see options for creating different NI task types. Select the one you need to open
 the task configuration dialog.
 
@@ -85,9 +84,8 @@ the task configuration dialog.
 </Fragment>
 <Fragment slot="tab3">
 
-To create a task from the layout selector, click on the add icon (<Icon.Add />) in the
-top-right corner of the central mosaic and select the appropriate NI task type from the
-menu.
+Click on the add icon (<Icon.Add />) in the top-right corner of the central mosaic and 
+select the appropriate NI task type from the menu.
 
 <Video
   client:only="react"
@@ -99,16 +97,13 @@ menu.
 
 <Divider.Divider x />
 
-## Starting and Stopping Tasks
+## Task Lifecycle
 
-Once you've configured your task (adding channels, setting timing parameters, etc.),
-you'll need to apply the configuration before starting the task.
 
 ### Configuring the Task
 
-After making any changes to your task configuration, click the "Configure" button. If
-there are no errors, Synnax will acknowledge the configured task and enable the Play
-(<Icon.Play />) button in the dialog.
+After making any changes to your task configuration, click the `Configure` button. If
+there are no errors, Synnax will enable the Play button in the Task form.
 
 ### Starting the Task
 
@@ -117,7 +112,7 @@ in the background, either reading data from or writing data to your hardware.
 
 ### Stopping the Task
 
-To stop a running task, click the Stop button. The task will stop executing, but the
+To stop a running task, click the Pause button (<Icon.Pause />). The task will stop executing, but the
 configuration will remain saved.
 
 <Note.Note variant="info">
@@ -125,6 +120,251 @@ configuration will remain saved.
   changes to the configuration, you'll need to re-configure the task by clicking the
   "Configure" button before those changes take effect.
 </Note.Note>
+
+<Divider.Divider x />
+
+## How To
+
+<Client.Tabs client:only="react">
+  <Fragment slot="console">
+    <Video
+      client:only="react"
+      id="device-drivers/ni/analog-read-task/analog-read-task-select-device"
+    />
+  </Fragment>
+  <Fragment slot="python">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# List all tasks
+all_tasks = client.hardware.tasks.list()
+for task in all_tasks:
+    print(f"Task: {task.name}, Type: {task.type}")
+
+# Retrieve task by name
+task = client.hardware.tasks.retrieve(name="My Example Task")
+
+# List tasks by type
+analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
+
+# Available task types:
+#   ni_analog_read
+#   ni_analog_write
+#   ni_counter_read,
+#   ni_counter_write
+#   ni_digital_read
+#   ni_digital_write
+#   labjack_read
+#   labjack_write
+#   modbus_read
+#   modbus_write
+#   opc_read
+#   opc_write
+
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
+
+```python
+# TODO: Add example for copying a task
+# - Copy task with new name
+# - Preserve channel configuration
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# Retrieve task
+task = client.hardware.tasks.retrieve(name="My Exmple Task")
+
+# Stop task if running
+task.stop()
+
+# Delete task
+client.hardware.tasks.delete(task.key)
+```
+
+</ExampleDetails>
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// List all tasks
+const allTasks = await client.hardware.tasks.list();
+allTasks.forEach(task => {
+  console.log(`Task: ${task.name}, Type: ${task.type}`);
+});
+
+// Retrieve task by name
+const task = await client.hardware.tasks.retrieve({ name: "My Example Task" });
+
+// List tasks by type
+const analogReadTasks = allTasks.filter(t => t.type === "ni_analog_read");
+
+// Available task types:
+//   ni_analog_read
+//   ni_analog_write 
+//   ni_counter_read
+//   ni_counter_write
+//   ni_digital_read
+//   ni_digital_write
+//   labjack_read
+//   labjack_write
+//   modbus_read
+//   modbus_write
+//   opc_read
+//   opc_write
+
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
+
+```typescript
+// TODO: Add example for copying a task
+// - Copy task with new name
+// - Preserve channel configuration
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve task
+const task = await client.hardware.tasks.retrieve({ name: "My Example Task" });
+
+// Stop task if running
+await task.executeCommandSync("stop");
+
+// Delete task
+await client.hardware.tasks.delete(task.key);
+```
+
+</ExampleDetails>
+
+  </Fragment>
+  <Fragment slot="cpp">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
+
+```cpp
+#include "client/cpp/synnax.h"
+
+auto client = synnax::Synnax();
+
+// Create or retrieve rack
+auto [rack, rack_err] = client.hardware.retrieve_rack("my_rack");
+if (rack_err) return rack_err;
+
+// List all tasks
+auto [tasks, list_err] = rack.tasks.list();
+if (list_err) return list_err;
+
+for (const auto& task : tasks) {
+    std::cout << "Task: " << task.name << ", Type: " << task.type << std::endl;
+}
+
+// Retrieve task by name
+auto [task, retrieve_err] = rack.tasks.retrieve("My Example Task");
+if (retrieve_err) return retrieve_err;
+
+// List tasks by type
+std::vector<synnax::Task> analog_read_tasks;
+for (const auto& t : tasks) {
+    if (t.type == "ni_analog_read") {
+        analog_read_tasks.push_back(t);
+    }
+}
+
+// Available task types:
+//   ni_analog_read
+//   ni_analog_write 
+//   ni_counter_read
+//   ni_counter_write
+//   ni_digital_read
+//   ni_digital_write
+//   labjack_read
+//   labjack_write
+//   modbus_read
+//   modbus_write
+//   opc_read
+//   opc_write
+
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
+
+```cpp
+// TODO: Add example for copying a task
+// - Copy task with new name
+// - Preserve channel configuration
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
+
+```cpp
+#include "client/cpp/synnax.h"
+
+auto client = synnax::Synnax();
+
+// Retrieve rack
+auto [rack, rack_err] = client.hardware.retrieve_rack("my_rack");
+if (rack_err) return rack_err;
+
+// Retrieve task
+auto [task, task_err] = rack.tasks.retrieve("My Example Task");
+if (task_err) return task_err;
+
+// Stop task if running
+// (Note: Stopping tasks typically handled via driver commands)
+
+// Delete task
+// (Note: Task deletion handled through rack.tasks operations)
+```
+
+</ExampleDetails>
+
+  </Fragment>
+</Client.Tabs>
 
 <Divider.Divider x />
 

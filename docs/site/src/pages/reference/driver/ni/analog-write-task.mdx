@@ -33,7 +33,7 @@ When you write to a command channel, the task processes it and updates the state
 
 <Divider.Divider x />
 
-## Task Configuration
+## Task Configuration Reference
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
@@ -45,10 +45,10 @@ When you write to a command channel, the task processes it and updates the state
 
 <Divider.Divider x />
 
-## Channel Types
+## Channel Types Reference
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage (`ao_voltage`)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage ([`ao_voltage`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaovoltagechan.html))</Text.Text>
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
@@ -63,7 +63,7 @@ When you write to a command channel, the task processes it and updates the state
 </ChannelTypeDetails>
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Units.Current /> Current (`ao_current`)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Units.Current /> Current ([`ao_current`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaocurrentchan.html))</Text.Text>
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
@@ -87,7 +87,7 @@ When you write to a command channel, the task processes it and updates the state
 
 <Divider.Divider x />
 
-## Examples
+## How To
 
 <Client.Tabs client:only="react">
   <Fragment slot="console">
@@ -181,65 +181,12 @@ with task.run():
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
-
-```python
-import synnax as sy
-
-client = sy.Synnax()
-
-# List all tasks
-all_tasks = client.hardware.tasks.list()
-for task in all_tasks:
-    print(f"Task: {task.name}, Type: {task.type}")
-
-# Retrieve task by name
-task = client.hardware.tasks.retrieve(name="Analog Write")
-
-# List all analog write tasks
-analog_write_tasks = [t for t in all_tasks if t.type == "ni_analog_write"]
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
 
 ```python
 # TODO: Add example for editing task configuration
 # - Update task parameters (state_rate, data_saving, etc.)
 # - Modify channel parameters (min_val, max_val, etc.)
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
-
-```python
-# TODO: Add example for copying a task
-# - Copy task with new name
-# - Preserve channel configuration
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
-
-```python
-import synnax as sy
-
-client = sy.Synnax()
-
-# Retrieve task
-task = client.hardware.tasks.retrieve(name="Analog Write")
-
-# Stop task if running
-task.stop()
-
-# Delete task
-client.hardware.tasks.delete(task.key)
 ```
 
 </ExampleDetails>
@@ -338,66 +285,12 @@ await streamer.close();
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
-
-```typescript
-import { Synnax } from "@synnaxlabs/client";
-
-const client = new Synnax();
-
-// List all tasks
-const allTasks = await client.hardware.tasks.list();
-allTasks.forEach(task => {
-  console.log(`Task: ${task.name}, Type: ${task.type}`);
-});
-
-// Retrieve task by name
-const task = await client.hardware.tasks.retrieve({ name: "Analog Write" });
-
-// List all analog write tasks
-const analogWriteTasks = allTasks.filter(t => t.type === "ni_analog_write");
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
 
 ```typescript
 // TODO: Add example for editing task configuration
 // - Update task parameters (state_rate, data_saving, etc.)
 // - Modify channel parameters (min_val, max_val, etc.)
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
-
-```typescript
-// TODO: Add example for copying a task
-// - Copy task with new name
-// - Preserve channel configuration
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
-
-```typescript
-import { Synnax } from "@synnaxlabs/client";
-
-const client = new Synnax();
-
-// Retrieve task
-const task = await client.hardware.tasks.retrieve({ name: "Analog Write" });
-
-// Stop task if running
-await task.executeCommandSync("stop");
-
-// Delete task
-await client.hardware.tasks.delete(task.key);
 ```
 
 </ExampleDetails>
@@ -473,83 +366,12 @@ if (close_streamer_err) return close_streamer_err;
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
-
-```cpp
-#include "client/cpp/synnax.h"
-
-auto client = synnax::Synnax();
-
-// Create or retrieve rack
-auto [rack, rack_err] = client.hardware.retrieve_rack("my_rack");
-if (rack_err) return rack_err;
-
-// List all tasks
-auto [tasks, list_err] = rack.tasks.list();
-if (list_err) return list_err;
-
-for (const auto& task : tasks) {
-    std::cout << "Task: " << task.name << ", Type: " << task.type << std::endl;
-}
-
-// Retrieve task by name
-auto [task, retrieve_err] = rack.tasks.retrieve("Analog Write");
-if (retrieve_err) return retrieve_err;
-
-// List all analog write tasks
-std::vector<synnax::Task> analog_write_tasks;
-for (const auto& t : tasks) {
-    if (t.type == "ni_analog_write") {
-        analog_write_tasks.push_back(t);
-    }
-}
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
 
 ```cpp
 // TODO: Add example for editing task configuration
 // - Update task parameters (state_rate, data_saving, etc.)
 // - Modify channel parameters (min_val, max_val, etc.)
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
-
-```cpp
-// TODO: Add example for copying a task
-// - Copy task with new name
-// - Preserve channel configuration
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
-
-```cpp
-#include "client/cpp/synnax.h"
-
-auto client = synnax::Synnax();
-
-// Retrieve rack
-auto [rack, rack_err] = client.hardware.retrieve_rack("my_rack");
-if (rack_err) return rack_err;
-
-// Retrieve task
-auto [task, task_err] = rack.tasks.retrieve("Analog Write");
-if (task_err) return task_err;
-
-// Stop task if running
-// (Note: Stopping tasks typically handled via driver commands)
-
-// Delete task
-// (Note: Task deletion handled through rack.tasks operations)
 ```
 
 </ExampleDetails>

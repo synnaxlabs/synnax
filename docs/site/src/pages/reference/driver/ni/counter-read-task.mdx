@@ -21,7 +21,7 @@ Acquires data from counter inputs on NI devices at a specified sample rate. Coun
 
 <Divider.Divider x />
 
-## Task Configuration
+## Task Configuration Reference
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
@@ -34,10 +34,10 @@ Acquires data from counter inputs on NI devices at a specified sample rate. Coun
 
 <Divider.Divider x />
 
-## Channel Types
+## Channel Types Reference
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Frequency (`ci_frequency`)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Frequency ([`ci_frequency`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecifreqchan.html))</Text.Text>
 
 Measures the frequency of digital pulses.
 
@@ -59,7 +59,7 @@ Measures the frequency of digital pulses.
 </ChannelTypeDetails>
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Value /> Edge Count (`ci_edge_count`)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Value /> Edge Count ([`ci_edge_count`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedgeschan.html))</Text.Text>
 
 Counts rising or falling edges on a digital signal.
 
@@ -76,7 +76,7 @@ Counts rising or falling edges on a digital signal.
 </ChannelTypeDetails>
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Time /> Period (`ci_period`)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Time /> Period ([`ci_period`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodchan.html))</Text.Text>
 
 Measures the time between edges of a periodic signal.
 
@@ -98,7 +98,7 @@ Measures the time between edges of a periodic signal.
 </ChannelTypeDetails>
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.AutoFitWidth /> Pulse Width (`ci_pulse_width`)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.AutoFitWidth /> Pulse Width ([`ci_pulse_width`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecipulsewidthchan.html))</Text.Text>
 
 Measures the width of pulses in a digital signal.
 
@@ -117,7 +117,7 @@ Measures the width of pulses in a digital signal.
 </ChannelTypeDetails>
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Range /> Semi Period (`ci_semi_period`)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Range /> Semi Period ([`ci_semi_period`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecisemiperiodchan.html))</Text.Text>
 
 Measures the half-period of a periodic signal.
 
@@ -134,7 +134,7 @@ Measures the half-period of a periodic signal.
 </ChannelTypeDetails>
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.AutoFitWidth /> Two Edge Separation (`ci_two_edge_sep`)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.AutoFitWidth /> Two Edge Separation ([`ci_two_edge_sep`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoedgesepchan.html))</Text.Text>
 
 Measures the time between two different edges of a signal.
 
@@ -153,31 +153,49 @@ Measures the time between two different edges of a signal.
 </ChannelTypeDetails>
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Rotate /> Position Angular (`ci_position_angular`)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Linear /> Velocity Linear ([`ci_velocity_linear`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinvelocitychan.html))</Text.Text>
 
-Tracks angular position (rotation angle) using a quadrature encoder.
+Measures linear velocity using a quadrature encoder.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `channel` | number | Yes | - | Synnax channel key |
 | `device` | string | Yes | - | Device identifier |
 | `port` | number | Yes | - | Counter port (0-indexed) |
-| `units` | enum | No | `Degrees` | `Degrees`, `Radians`, `Ticks` |
+| `min_val` | number | No | `0` | Minimum velocity |
+| `max_val` | number | No | `1` | Maximum velocity |
+| `units` | enum | No | `m/s` | `m/s`, `in/s` |
 | `decoding_type` | enum | No | `X4` | `X1`, `X2`, `X4`, `TwoPulse` |
-| `pulses_per_rev` | number | No | `24` | Number of encoder pulses per revolution |
-| `initial_angle` | number | No | `0.0` | Starting angle |
+| `dist_per_pulse` | number | No | `0.001` | Distance traveled per encoder pulse |
 | `terminal_a` | string | No | - | PFI terminal for encoder A signal |
 | `terminal_b` | string | No | - | PFI terminal for encoder B signal |
-| `z_index_enable` | boolean | No | `false` | Enable Z-index signal |
-| `z_index_val` | number | No | `0` | Angle value when Z-index pulse occurs |
-| `z_index_phase` | enum | No | `AHighBHigh` | `AHighBHigh`, `AHighBLow`, `ALowBHigh`, `ALowBLow` |
-| `terminal_z` | string | No | - | PFI terminal for Z-index signal |
 | `custom_scale` | object | No | - | Custom scaling |
 
 </ChannelTypeDetails>
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Linear /> Position Linear (`ci_position_linear`)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Rotate /> Velocity Angular ([`ci_velocity_angular`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangvelocitychan.html))</Text.Text>
+
+Measures angular velocity (rotational speed) using a quadrature encoder.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Counter port (0-indexed) |
+| `min_val` | number | No | `0` | Minimum angular velocity |
+| `max_val` | number | No | `1` | Maximum angular velocity |
+| `units` | enum | No | `RPM` | `RPM`, `Radians/s`, `Degrees/s` |
+| `decoding_type` | enum | No | `X4` | `X1`, `X2`, `X4`, `TwoPulse` |
+| `pulses_per_rev` | number | No | `24` | Number of encoder pulses per revolution |
+| `terminal_a` | string | No | - | PFI terminal for encoder A signal |
+| `terminal_b` | string | No | - | PFI terminal for encoder B signal |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Linear /> Position Linear ([`ci_position_linear`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinencoderchan.html))</Text.Text>
 
 Tracks linear position using a quadrature encoder.
 
@@ -201,49 +219,31 @@ Tracks linear position using a quadrature encoder.
 </ChannelTypeDetails>
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Rotate /> Velocity Angular (`ci_velocity_angular`)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Rotate /> Position Angular ([`ci_position_angular`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangencoderchan.html))</Text.Text>
 
-Measures angular velocity (rotational speed) using a quadrature encoder.
+Tracks angular position (rotation angle) using a quadrature encoder.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `channel` | number | Yes | - | Synnax channel key |
 | `device` | string | Yes | - | Device identifier |
 | `port` | number | Yes | - | Counter port (0-indexed) |
-| `min_val` | number | No | `0` | Minimum angular velocity |
-| `max_val` | number | No | `1` | Maximum angular velocity |
-| `units` | enum | No | `RPM` | `RPM`, `Radians/s`, `Degrees/s` |
+| `units` | enum | No | `Degrees` | `Degrees`, `Radians`, `Ticks` |
 | `decoding_type` | enum | No | `X4` | `X1`, `X2`, `X4`, `TwoPulse` |
 | `pulses_per_rev` | number | No | `24` | Number of encoder pulses per revolution |
+| `initial_angle` | number | No | `0.0` | Starting angle |
 | `terminal_a` | string | No | - | PFI terminal for encoder A signal |
 | `terminal_b` | string | No | - | PFI terminal for encoder B signal |
+| `z_index_enable` | boolean | No | `false` | Enable Z-index signal |
+| `z_index_val` | number | No | `0` | Angle value when Z-index pulse occurs |
+| `z_index_phase` | enum | No | `AHighBHigh` | `AHighBHigh`, `AHighBLow`, `ALowBHigh`, `ALowBLow` |
+| `terminal_z` | string | No | - | PFI terminal for Z-index signal |
 | `custom_scale` | object | No | - | Custom scaling |
 
 </ChannelTypeDetails>
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Linear /> Velocity Linear (`ci_velocity_linear`)</Text.Text>
-
-Measures linear velocity using a quadrature encoder.
-
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `device` | string | Yes | - | Device identifier |
-| `port` | number | Yes | - | Counter port (0-indexed) |
-| `min_val` | number | No | `0` | Minimum velocity |
-| `max_val` | number | No | `1` | Maximum velocity |
-| `units` | enum | No | `m/s` | `m/s`, `in/s` |
-| `decoding_type` | enum | No | `X4` | `X1`, `X2`, `X4`, `TwoPulse` |
-| `dist_per_pulse` | number | No | `0.001` | Distance traveled per encoder pulse |
-| `terminal_a` | string | No | - | PFI terminal for encoder A signal |
-| `terminal_b` | string | No | - | PFI terminal for encoder B signal |
-| `custom_scale` | object | No | - | Custom scaling |
-
-</ChannelTypeDetails>
-
-<ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Duty Cycle (`ci_duty_cycle`)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Duty Cycle ([`ci_duty_cycle`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecidutycyclechan.html))</Text.Text>
 
 Measures the duty cycle of a periodic signal.
 
@@ -271,7 +271,7 @@ Measures the duty cycle of a periodic signal.
 
 <Divider.Divider x />
 
-## Examples
+## How To
 
 <Client.Tabs client:only="react">
   <Fragment slot="console">
