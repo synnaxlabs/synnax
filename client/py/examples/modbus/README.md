@@ -24,6 +24,7 @@ poetry run python driver/modbus/dev/server.py
 ```
 
 This server simulates:
+
 - **Input registers** (addresses 0-1): Sine wave data (0-255)
 - **Holding registers** (addresses 2-3): Writable values
 - **Coils** (addresses 0-1): Digital outputs (writable)
@@ -40,11 +41,14 @@ poetry run python examples/modbus/connect_modbus_server.py
 ```
 
 This script will:
+
 - Check if the server is already registered
 - Register the server with the embedded Synnax rack
 - Set up the server configuration
 
-**Configuration**: Edit the constants at the top of `connect_modbus_server.py` to match your server:
+**Configuration**: Edit the constants at the top of `connect_modbus_server.py` to match
+your server:
+
 - `DEVICE_NAME`: A friendly name for your Modbus server
 - `HOST`: IP address or hostname of the Modbus server
 - `PORT`: Modbus TCP port (typically 502 for production, 5020 for test server)
@@ -58,12 +62,14 @@ poetry run python examples/modbus/read_task.py
 ```
 
 This example:
+
 - Creates channels for timestamps and two input registers (addresses 0, 1)
 - Configures a read task sampling at 10 Hz, streaming at 10 Hz
 - Displays live values from the registers
 - Press Ctrl+C to stop
 
-**What you'll see**: Real-time values from input registers 0 and 1 (sine wave data from test server).
+**What you'll see**: Real-time values from input registers 0 and 1 (sine wave data from
+test server).
 
 ### 4. Write Commands to Modbus
 
@@ -74,12 +80,14 @@ poetry run python examples/modbus/write_task.py
 ```
 
 This example:
+
 - Controls two coils (addresses 0-1) with alternating ON/OFF patterns
 - Writes to two holding registers (addresses 2-3) with cycling values
 - Runs for 10 seconds with 1 second intervals
 - Tracks command channels
 
-**What you'll see**: Commands sent to both digital (coils) and analog (holding registers) outputs.
+**What you'll see**: Commands sent to both digital (coils) and analog (holding
+registers) outputs.
 
 ### 5. Test Connection (Diagnostic)
 
@@ -90,6 +98,7 @@ poetry run python examples/modbus/test_connection.py
 ```
 
 This diagnostic script checks:
+
 - Device registration
 - Task status
 - Channel creation
@@ -177,6 +186,7 @@ modbus.device_props(
 ```
 
 Common configurations:
+
 - **Big-endian**: `swap_bytes=False, swap_words=False`
 - **Little-endian**: `swap_bytes=True, swap_words=True`
 - **Mid-big-endian**: `swap_bytes=False, swap_words=True`
@@ -188,35 +198,41 @@ Common configurations:
 - **Fast devices**: Up to 1 kHz for high-speed Modbus
 - **Slow devices**: 0.1-1 Hz for slow-updating sensors
 
-**Stream Rate**: Can match sample rate or be lower to buffer samples. For example, 10 Hz sampling with 10 Hz streaming sends every sample immediately.
+**Stream Rate**: Can match sample rate or be lower to buffer samples. For example, 10 Hz
+sampling with 10 Hz streaming sends every sample immediately.
 
 ## Troubleshooting
 
 ### "Server not found"
+
 - Ensure the Modbus server/device is powered on and connected to the network
 - Check network connectivity: `ping <HOST>`
 - Verify the correct IP address and port
 - Check firewall settings
 
 ### "Failed to connect server"
+
 - Verify the Synnax driver is running
 - Check that the host and port are correct
 - Ensure no other software is using the same Modbus connection
 - Verify network routing and firewall rules
 
 ### "Task configuration failed"
+
 - Ensure the server was connected successfully first
 - Verify register addresses match your device's Modbus map
 - Check that data types are appropriate for the register size
 - Ensure sample rates are within device limits
 
 ### Register values seem wrong
+
 - Verify byte/word swapping configuration matches your device
 - Check the Modbus address mapping (some devices use 0-based, others 1-based)
 - Confirm data type matches the register format (uint16 vs int16 vs float32)
 - Review device documentation for register scaling/units
 
 ### Connection timeouts
+
 - Reduce sample rate (try 1 Hz first)
 - Check network latency: `ping <HOST>`
 - Verify the device supports the requested Modbus function codes
@@ -231,6 +247,7 @@ Common configurations:
 ## Next Steps
 
 After running these examples, you can:
+
 - Create custom tasks in the Synnax Console
 - Build real-time dashboards with your Modbus data
 - Integrate Modbus control into automated sequences

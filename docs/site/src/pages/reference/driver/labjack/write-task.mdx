@@ -15,6 +15,10 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
+<Note.Note variant="error">
+  **TO DO**: Update video for this page
+</Note.Note>
+
 Sends control commands to analog and digital outputs on LabJack devices.
 
 <Divider.Divider x />
@@ -27,19 +31,20 @@ Write tasks use **command** and **state** channels:
 - **State channels** (`_state`): Reflect the current output state
 - **Command time channels** (`_cmd_time`): Index channels storing command timestamps
 
-When you write to a command channel, the task processes it and updates the state channel, providing acknowledgment that the command was executed.
+When you write to a command channel, the task processes it and updates the state
+channel, providing acknowledgment that the command was executed.
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `name` | string | Yes | - | Human-readable task name |
-| `state_rate` | number | No | `20` | Rate (Hz) at which state channels are updated |
-| `data_saving` | boolean | No | `false` | Enable permanent storage in Synnax |
-| `auto_start` | boolean | No | `false` | Automatically start task after configuration |
-| `channels` | array | Yes | - | List of output channel configurations |
+| Parameter     | Type    | Required | Default | Description                                   |
+| ------------- | ------- | -------- | ------- | --------------------------------------------- |
+| `name`        | string  | Yes      | -       | Human-readable task name                      |
+| `state_rate`  | number  | No       | `20`    | Rate (Hz) at which state channels are updated |
+| `data_saving` | boolean | No       | `false` | Enable permanent storage in Synnax            |
+| `auto_start`  | boolean | No       | `false` | Automatically start task after configuration  |
+| `channels`    | array   | Yes      | -       | List of output channel configurations         |
 
 <Divider.Divider x />
 
@@ -50,11 +55,11 @@ When you write to a command channel, the task processes it and updates the state
 
 Writes analog voltage to a specified output terminal (DAC).
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `cmd_channel` | number | Yes | - | Synnax command channel key |
-| `state_channel` | number | Yes | - | Synnax state channel key |
-| `port` | string | Yes | - | Port location (e.g., `DAC0`, `DAC1`) |
+| Parameter       | Type   | Required | Default | Description                          |
+| --------------- | ------ | -------- | ------- | ------------------------------------ |
+| `cmd_channel`   | number | Yes      | -       | Synnax command channel key           |
+| `state_channel` | number | Yes      | -       | Synnax state channel key             |
+| `port`          | string | Yes      | -       | Port location (e.g., `DAC0`, `DAC1`) |
 
 </ChannelTypeDetails>
 
@@ -63,11 +68,11 @@ Writes analog voltage to a specified output terminal (DAC).
 
 Writes digital state (0 or 1) to a specified digital I/O line.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `cmd_channel` | number | Yes | - | Synnax command channel key |
-| `state_channel` | number | Yes | - | Synnax state channel key |
-| `port` | string | Yes | - | Port location (e.g., `DIO4`, `FIO5`) |
+| Parameter       | Type   | Required | Default | Description                          |
+| --------------- | ------ | -------- | ------- | ------------------------------------ |
+| `cmd_channel`   | number | Yes      | -       | Synnax command channel key           |
+| `state_channel` | number | Yes      | -       | Synnax state channel key             |
+| `port`          | string | Yes      | -       | Port location (e.g., `DIO4`, `FIO5`) |
 
 </ChannelTypeDetails>
 
@@ -77,7 +82,8 @@ Writes digital state (0 or 1) to a specified digital I/O line.
 
 - **Command/State pairs**: Each output requires both a command and state channel
 - **State rate**: Higher state rates provide faster feedback but consume more resources
-- **One running task per channel**: A channel can only send commands to one task at a time
+- **One running task per channel**: A channel can only send commands to one task at a
+  time
 
 <Divider.Divider x />
 
@@ -105,44 +111,62 @@ client = sy.Synnax()
 dev = client.hardware.devices.retrieve(name="my_labjack")
 
 # Create command time index
-do_cmd_time = client.channels.create(
-    name="do_cmd_time",
+cmd_time = client.channels.create(
+    name="lj_cmd_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 
-# Create command channel
+# Create command channels
+ao_0_cmd = client.channels.create(
+    name="ao_0_cmd",
+    index=cmd_time.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
 do_4_cmd = client.channels.create(
     name="do_4_cmd",
-    index=do_cmd_time.key,
+    index=cmd_time.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
 
 # Create state time index
-do_state_time = client.channels.create(
-    name="do_state_time",
+state_time = client.channels.create(
+    name="lj_state_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 
-# Create state channel
+# Create state channels
+ao_0_state = client.channels.create(
+    name="ao_0_state",
+    index=state_time.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
 do_4_state = client.channels.create(
     name="do_4_state",
-    index=do_state_time.key,
+    index=state_time.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
 
 # Create and configure task
 task = labjack.WriteTask(
-    name="LabJack Write",
+    name="LabJack Write Task",
     device=dev.key,
     state_rate=sy.Rate.HZ * 20,
     data_saving=True,
     channels=[
+        labjack.OutputChan(
+            type="AO",
+            cmd_channel=ao_0_cmd.key,
+            state_channel=ao_0_state.key,
+            port="DAC0",
+        ),
         labjack.OutputChan(
             type="DO",
             cmd_channel=do_4_cmd.key,
@@ -158,22 +182,19 @@ client.hardware.tasks.configure(task)
 with task.run():
     with client.open_writer(
         start=sy.TimeStamp.now(),
-        channels=["do_4_cmd"],
+        channels=["ao_0_cmd", "do_4_cmd"],
     ) as writer:
-        # Set output high
+        # Set analog output to 2.5V and digital output high
         writer.write({
+            "ao_0_cmd": 2.5,
             "do_4_cmd": 1,
         })
 
-        # Read back state
-        with client.open_streamer(["do_4_state"]) as streamer:
+        # Read back states
+        with client.open_streamer(["ao_0_state", "do_4_state"]) as streamer:
             frame = streamer.read()
-            print(f"State: {frame['do_4_state'][-1]}")
-
-        # Set output low
-        writer.write({
-            "do_4_cmd": 0,
-        })
+            print(f"Analog State: {frame['ao_0_state'][-1]} V")
+            print(f"Digital State: {frame['do_4_state'][-1]}")
 ```
 
 </ExampleDetails>
@@ -182,36 +203,20 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.hardware.tasks.retrieve(name="LabJack Write")
+task = client.hardware.tasks.retrieve(name="LabJack Write Task")
+task = labjack.WriteTask(internal=task)
 
-# Modify configuration
-task.config.state_rate = 50
+# Update task-level configuration
+task.config.auto_start = True
+task.config.state_rate = int(sy.Rate.HZ * 50)
 
-# Add a new channel
-new_cmd_channel = client.channels.create(
-    name="do_5_cmd",
-    index=do_cmd_time.key,
-    data_type=sy.DataType.UINT8,
-    retrieve_if_name_exists=True,
-)
+# Update analog output configuration
+task.config.channels[0].port = "DAC1"
 
-new_state_channel = client.channels.create(
-    name="do_5_state",
-    index=do_state_time.key,
-    data_type=sy.DataType.UINT8,
-    retrieve_if_name_exists=True,
-)
+# Update digital output configuration
+task.config.channels[1].port = "DIO5"
 
-task.config.channels.append(
-    labjack.OutputChan(
-        type="DO",
-        cmd_channel=new_cmd_channel.key,
-        state_channel=new_state_channel.key,
-        port="DIO5",
-    )
-)
-
-# Reconfigure task
+# Apply changes
 client.hardware.tasks.configure(task)
 ```
 
@@ -232,46 +237,66 @@ const client = new Synnax();
 const dev = await client.hardware.devices.retrieve({ name: "my_labjack" });
 
 // Create command time index
-const doCmdTime = await client.channels.create({
-  name: "do_cmd_time",
+const cmdTime = await client.channels.create({
+  name: "lj_cmd_time",
   isIndex: true,
   dataType: "timestamp",
   retrieveIfNameExists: true,
 });
 
-// Create command channel
+// Create command channels
+const ao0Cmd = await client.channels.create({
+  name: "ao_0_cmd",
+  index: cmdTime.key,
+  dataType: "float32",
+  retrieveIfNameExists: true,
+});
+
 const do4Cmd = await client.channels.create({
   name: "do_4_cmd",
-  index: doCmdTime.key,
+  index: cmdTime.key,
   dataType: "uint8",
   retrieveIfNameExists: true,
 });
 
 // Create state time index
-const doStateTime = await client.channels.create({
-  name: "do_state_time",
+const stateTime = await client.channels.create({
+  name: "lj_state_time",
   isIndex: true,
   dataType: "timestamp",
   retrieveIfNameExists: true,
 });
 
-// Create state channel
+// Create state channels
+const ao0State = await client.channels.create({
+  name: "ao_0_state",
+  index: stateTime.key,
+  dataType: "float32",
+  retrieveIfNameExists: true,
+});
+
 const do4State = await client.channels.create({
   name: "do_4_state",
-  index: doStateTime.key,
+  index: stateTime.key,
   dataType: "uint8",
   retrieveIfNameExists: true,
 });
 
 // Create and configure task
 const task = await client.hardware.tasks.create({
-  name: "LabJack Write",
+  name: "LabJack Write Task",
   type: "labjack_write",
   config: JSON.stringify({
     device: dev.key,
     state_rate: 20,
     data_saving: true,
     channels: [
+      {
+        type: "AO",
+        cmd_channel: ao0Cmd.key,
+        state_channel: ao0State.key,
+        port: "DAC0",
+      },
       {
         type: "DO",
         cmd_channel: do4Cmd.key,
@@ -285,26 +310,25 @@ const task = await client.hardware.tasks.create({
 // Start task
 await task.executeCommandSync("start");
 
-// Write command
+// Write commands
 const writer = await client.openWriter({
   start: TimeStamp.now(),
-  channels: ["do_4_cmd"],
+  channels: ["ao_0_cmd", "do_4_cmd"],
 });
 
-// Set output high
+// Set analog output to 2.5V and digital output high
 await writer.write({
-  "do_4_cmd": 1,
+  ao_0_cmd: 2.5,
+  do_4_cmd: 1,
 });
 
-// Read state
-const streamer = await client.openStreamer(["do_4_state"]);
+// Read states
+const streamer = await client.openStreamer(["ao_0_state", "do_4_state"]);
 const frame = await streamer.read();
-console.log(`State: ${frame["do_4_state"]}`);
-
-// Set output low
-await writer.write({
-  "do_4_cmd": 0,
-});
+const aoState = frame.get("ao_0_state").at(-1);
+const doState = frame.get("do_4_state").at(-1);
+console.log(`Analog State: ${aoState} V`);
+console.log(`Digital State: ${doState}`);
 
 // Stop task
 await task.executeCommandSync("stop");
@@ -319,39 +343,28 @@ await streamer.close();
 
 ```typescript
 // Retrieve existing task
-const task = await client.hardware.tasks.retrieve({ name: "LabJack Write" });
+const task = await client.hardware.tasks.retrieve({ name: "LabJack Write Task" });
 
-// Parse current configuration
+// Parse and update configuration
 const config = JSON.parse(task.config);
 
-// Modify configuration
+// Update task-level configuration
+config.auto_start = true;
 config.state_rate = 50;
 
-// Add a new channel
-const newCmdChannel = await client.channels.create({
-  name: "do_5_cmd",
-  index: doCmdTime.key,
-  dataType: "uint8",
-  retrieveIfNameExists: true,
-});
+// Update analog output configuration
+config.channels[0].port = "DAC1";
 
-const newStateChannel = await client.channels.create({
-  name: "do_5_state",
-  index: doStateTime.key,
-  dataType: "uint8",
-  retrieveIfNameExists: true,
-});
+// Update digital output configuration
+config.channels[1].port = "DIO5";
 
-config.channels.push({
-  type: "DO",
-  cmd_channel: newCmdChannel.key,
-  state_channel: newStateChannel.key,
-  port: "DIO5",
+// Apply changes
+await client.hardware.tasks.create({
+  key: task.key,
+  name: task.name,
+  type: task.type,
+  config: JSON.stringify(config),
 });
-
-// Update task configuration
-task.config = JSON.stringify(config);
-await client.hardware.tasks.create(task);
 ```
 
 </ExampleDetails>
@@ -359,4 +372,5 @@ await client.hardware.tasks.create(task);
   </Fragment>
 </Client.Tabs>
 
-For task lifecycle management, see the [Task Basics](/reference/driver/task-basics#how-to) page.
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.

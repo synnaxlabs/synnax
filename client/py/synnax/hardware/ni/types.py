@@ -908,6 +908,7 @@ class CIFrequencyChan(BaseCIChan, MinMaxVal):
     meas_method: Literal["LowFreq1Ctr", "HighFreq2Ctr", "DynAvg"] = "LowFreq1Ctr"
     meas_time: float = 0.001
     divisor: int = 4
+    terminal: str = ""
     custom_scale: Scale = NoScale()
 
 
@@ -923,6 +924,7 @@ class CIEdgeCountChan(BaseCIChan):
     active_edge: Literal["Rising", "Falling"] = "Rising"
     count_direction: Literal["CountUp", "CountDown", "ExtControlled"] = "CountUp"
     initial_count: int = 0
+    terminal: str = ""
 
 
 class CIPeriodChan(BaseCIChan, MinMaxVal):
@@ -939,6 +941,7 @@ class CIPeriodChan(BaseCIChan, MinMaxVal):
     meas_method: Literal["LowFreq1Ctr", "HighFreq2Ctr", "DynAvg"] = "LowFreq1Ctr"
     meas_time: float = 0.001
     divisor: int = 4
+    terminal: str = ""
     custom_scale: Scale = NoScale()
 
 
@@ -953,6 +956,7 @@ class CIPulseWidthChan(BaseCIChan, MinMaxVal):
     type: Literal["ci_pulse_width"] = "ci_pulse_width"
     units: Literal["Seconds", "Ticks"] = "Seconds"
     starting_edge: Literal["Rising", "Falling"] = "Rising"
+    terminal: str = ""
     custom_scale: Scale = NoScale()
 
 
@@ -966,6 +970,7 @@ class CISemiPeriodChan(BaseCIChan, MinMaxVal):
 
     type: Literal["ci_semi_period"] = "ci_semi_period"
     units: Literal["Seconds", "Ticks"] = "Seconds"
+    terminal: str = ""
     custom_scale: Scale = NoScale()
 
 
@@ -982,6 +987,8 @@ class CITwoEdgeSepChan(BaseCIChan, MinMaxVal):
     units: Literal["Seconds", "Ticks"] = "Seconds"
     first_edge: Literal["Rising", "Falling"] = "Rising"
     second_edge: Literal["Rising", "Falling"] = "Falling"
+    first_terminal: str = ""
+    second_terminal: str = ""
     custom_scale: Scale = NoScale()
 
 
@@ -1081,6 +1088,7 @@ class CIDutyCycleChan(BaseCIChan, MinMaxVal):
 
     type: Literal["ci_duty_cycle"] = "ci_duty_cycle"
     activeEdge: Literal["Rising", "Falling"] = "Rising"
+    terminal: str = ""
     custom_scale: Scale = NoScale()
 
 

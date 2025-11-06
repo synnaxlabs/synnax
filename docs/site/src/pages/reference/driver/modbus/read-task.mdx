@@ -17,21 +17,26 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Acquires data from Modbus TCP/IP servers by reading from registers, coils, and discrete inputs at a specified sample rate.
+<Note.Note variant="error">
+  **TO DO**: Update video for this page
+</Note.Note>
+
+Acquires data from Modbus TCP/IP servers by reading from registers, coils, and discrete
+inputs at a specified sample rate.
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `name` | string | Yes | - | Human-readable task name |
-| `device` | string | Yes | - | Key of the Modbus server device |
-| `sample_rate` | number | Yes | - | Samples per second (Hz) |
-| `stream_rate` | number | No | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
-| `data_saving` | boolean | No | `false` | Enable permanent storage in Synnax |
-| `auto_start` | boolean | No | `false` | Automatically start task after configuration |
-| `channels` | array | Yes | - | List of input channel configurations |
+| Parameter     | Type    | Required | Default       | Description                                                   |
+| ------------- | ------- | -------- | ------------- | ------------------------------------------------------------- |
+| `name`        | string  | Yes      | -             | Human-readable task name                                      |
+| `device`      | string  | Yes      | -             | Key of the Modbus server device                               |
+| `sample_rate` | number  | Yes      | -             | Samples per second (Hz)                                       |
+| `stream_rate` | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
+| `data_saving` | boolean | No       | `false`       | Enable permanent storage in Synnax                            |
+| `auto_start`  | boolean | No       | `false`       | Automatically start task after configuration                  |
+| `channels`    | array   | Yes      | -             | List of input channel configurations                          |
 
 <Divider.Divider x />
 
@@ -40,17 +45,19 @@ Acquires data from Modbus TCP/IP servers by reading from registers, coils, and d
 <ChannelTypeDetails>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding Register Input ([`holding_register_input`](https://www.modbustools.com/modbus.html#function03))</Text.Text>
 
-Reads from 16-bit read/write registers (Function Code 03). Typically used for configuration parameters and analog outputs that can also be read back.
+Reads from 16-bit read/write registers (Function Code 03). Typically used for
+configuration parameters and analog outputs that can also be read back.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `address` | number | Yes | - | Modbus register address (0-65535) |
-| `data_type` | enum | No | `float32` | Data type: `int16`, `uint16`, `int32`, `uint32`, `float32` |
-| `swap_bytes` | boolean | No | `false` | Swap byte order within 16-bit words |
-| `swap_words` | boolean | No | `false` | Swap word order for 32-bit+ values |
+| Parameter    | Type    | Required | Default   | Description                                                |
+| ------------ | ------- | -------- | --------- | ---------------------------------------------------------- |
+| `channel`    | number  | Yes      | -         | Synnax channel key                                         |
+| `address`    | number  | Yes      | -         | Modbus register address (0-65535)                          |
+| `data_type`  | enum    | No       | `float32` | Data type: `int16`, `uint16`, `int32`, `uint32`, `float32` |
+| `swap_bytes` | boolean | No       | `false`   | Swap byte order within 16-bit words                        |
+| `swap_words` | boolean | No       | `false`   | Swap word order for 32-bit+ values                         |
 
 **Data Type Sizes:**
+
 - `int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
 
@@ -59,17 +66,19 @@ Reads from 16-bit read/write registers (Function Code 03). Typically used for co
 <ChannelTypeDetails>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Input Register ([`register_input`](https://www.modbustools.com/modbus.html#function04))</Text.Text>
 
-Reads from 16-bit read-only registers (Function Code 04). Typically used for analog sensor values like temperature, pressure, or flow.
+Reads from 16-bit read-only registers (Function Code 04). Typically used for analog
+sensor values like temperature, pressure, or flow.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `address` | number | Yes | - | Modbus register address (0-65535) |
-| `data_type` | enum | No | `float32` | Data type: `int16`, `uint16`, `int32`, `uint32`, `float32` |
-| `swap_bytes` | boolean | No | `false` | Swap byte order within 16-bit words |
-| `swap_words` | boolean | No | `false` | Swap word order for 32-bit+ values |
+| Parameter    | Type    | Required | Default   | Description                                                |
+| ------------ | ------- | -------- | --------- | ---------------------------------------------------------- |
+| `channel`    | number  | Yes      | -         | Synnax channel key                                         |
+| `address`    | number  | Yes      | -         | Modbus register address (0-65535)                          |
+| `data_type`  | enum    | No       | `float32` | Data type: `int16`, `uint16`, `int32`, `uint32`, `float32` |
+| `swap_bytes` | boolean | No       | `false`   | Swap byte order within 16-bit words                        |
+| `swap_words` | boolean | No       | `false`   | Swap word order for 32-bit+ values                         |
 
 **Data Type Sizes:**
+
 - `int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
 
@@ -78,12 +87,13 @@ Reads from 16-bit read-only registers (Function Code 04). Typically used for ana
 <ChannelTypeDetails>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil Input ([`coil_input`](https://www.modbustools.com/modbus.html#function01))</Text.Text>
 
-Reads from 1-bit read/write coils (Function Code 01). Typically used for discrete output states that can be read back (e.g., relay states, valve positions).
+Reads from 1-bit read/write coils (Function Code 01). Typically used for discrete output
+states that can be read back (e.g., relay states, valve positions).
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `address` | number | Yes | - | Modbus coil address (0-65535) |
+| Parameter | Type   | Required | Default | Description                   |
+| --------- | ------ | -------- | ------- | ----------------------------- |
+| `channel` | number | Yes      | -       | Synnax channel key            |
+| `address` | number | Yes      | -       | Modbus coil address (0-65535) |
 
 **Data Type:** Always boolean (0/1)
 
@@ -92,12 +102,13 @@ Reads from 1-bit read/write coils (Function Code 01). Typically used for discret
 <ChannelTypeDetails>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Discrete Input ([`discrete_input`](https://www.modbustools.com/modbus.html#function02))</Text.Text>
 
-Reads from 1-bit read-only discrete inputs (Function Code 02). Typically used for binary sensor inputs (e.g., limit switches, proximity sensors).
+Reads from 1-bit read-only discrete inputs (Function Code 02). Typically used for binary
+sensor inputs (e.g., limit switches, proximity sensors).
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `address` | number | Yes | - | Modbus discrete input address (0-65535) |
+| Parameter | Type   | Required | Default | Description                             |
+| --------- | ------ | -------- | ------- | --------------------------------------- |
+| `channel` | number | Yes      | -       | Synnax channel key                      |
+| `address` | number | Yes      | -       | Modbus discrete input address (0-65535) |
 
 **Data Type:** Always boolean (0/1)
 
@@ -107,11 +118,16 @@ Reads from 1-bit read-only discrete inputs (Function Code 02). Typically used fo
 
 ## Important Rules
 
-- **Sample rates**: All channels in a task sample at the same rate. Create separate tasks for different rates.
-- **Software timing**: Modbus tasks use software timing with ~100μs precision (may degrade under heavy load).
-- **One running task per channel**: A channel can only receive live data from one task at a time.
-- **Stream rate optimization**: For low-rate tasks (&lt;50Hz), set stream rate = sample rate. For high-rate tasks, keep stream rate &lt;50Hz for better performance.
-- **Byte/word order**: Ensure swap settings match your server configuration for multi-register data types.
+- **Sample rates**: All channels in a task sample at the same rate. Create separate
+  tasks for different rates.
+- **Software timing**: Modbus tasks use software timing with ~100μs precision (may
+  degrade under heavy load).
+- **One running task per channel**: A channel can only receive live data from one task
+  at a time.
+- **Stream rate optimization**: For low-rate tasks (&lt;50Hz), set stream rate = sample
+  rate. For high-rate tasks, keep stream rate &lt;50Hz for better performance.
+- **Byte/word order**: Ensure swap settings match your server configuration for
+  multi-register data types.
 
 <Divider.Divider x />
 
@@ -136,59 +152,48 @@ from synnax.hardware import modbus
 client = sy.Synnax()
 
 # Retrieve device
-dev = client.hardware.devices.retrieve(name="my_modbus_server")
+dev = client.hardware.devices.retrieve(name="Modbus Server")
 
 # Create index channel
-read_time = client.channels.create(
-    name="modbus_read_time",
+modbus_time = client.channels.create(
+    name="modbus_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 
 # Create data channels
-temp_sensor = client.channels.create(
-    name="temperature_sensor",
-    index=read_time.key,
-    data_type=sy.DataType.FLOAT32,
+input_reg_0 = client.channels.create(
+    name="input_register_0",
+    index=modbus_time.key,
+    data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
 
-pressure_sensor = client.channels.create(
-    name="pressure_sensor",
-    index=read_time.key,
-    data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True,
-)
-
-valve_state = client.channels.create(
-    name="valve_state",
-    index=read_time.key,
+input_reg_1 = client.channels.create(
+    name="input_register_1",
+    index=modbus_time.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
 
 # Create and configure task
 task = modbus.ReadTask(
-    name="Modbus Read",
+    name="Modbus Read Task",
     device=dev.key,
-    sample_rate=10,
-    stream_rate=10,
+    sample_rate=sy.Rate.HZ * 10,
+    stream_rate=sy.Rate.HZ * 10,
     data_saving=True,
     channels=[
         modbus.InputRegisterChan(
-            channel=temp_sensor.key,
-            address=100,
-            data_type="float32",
-        ),
-        modbus.HoldingRegisterInputChan(
-            channel=pressure_sensor.key,
-            address=200,
-            data_type="float32",
-        ),
-        modbus.CoilInputChan(
-            channel=valve_state.key,
+            channel=input_reg_0.key,
             address=0,
+            data_type="uint8",
+        ),
+        modbus.InputRegisterChan(
+            channel=input_reg_1.key,
+            address=1,
+            data_type="uint8",
         ),
     ],
 )
@@ -197,12 +202,10 @@ client.hardware.tasks.configure(task)
 
 # Start task and read data
 with task.run():
-    with client.open_streamer(["temperature_sensor", "pressure_sensor", "valve_state"]) as streamer:
+    with client.open_streamer(["input_register_0", "input_register_1"]) as streamer:
         for _ in range(10):
             frame = streamer.read()
-            print(f"Temp: {frame['temperature_sensor'][-1]}, "
-                  f"Pressure: {frame['pressure_sensor'][-1]}, "
-                  f"Valve: {frame['valve_state'][-1]}")
+            print(frame)
 ```
 
 </ExampleDetails>
@@ -212,29 +215,22 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.hardware.tasks.retrieve(name="Modbus Read")
+task = client.hardware.tasks.retrieve(name="Modbus Read Task")
+task = modbus.ReadTask(internal=task)
 
-# Modify configuration
-task.config.sample_rate = 20
-task.config.stream_rate = 10
+# Update task-level configuration
+task.config.auto_start = True
+task.config.stream_rate = int(sy.Rate.HZ * 5)
 
-# Add a new channel
-new_channel = client.channels.create(
-    name="flow_sensor",
-    index=read_time.key,
-    data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True,
-)
+# Update first channel configuration
+task.config.channels[0].address = 10
+task.config.channels[0].data_type = "uint16"
 
-task.config.channels.append(
-    modbus.InputRegisterChan(
-        channel=new_channel.key,
-        address=300,
-        data_type="float32",
-    )
-)
+# Update second channel configuration
+task.config.channels[1].address = 11
+task.config.channels[1].data_type = "uint16"
 
-# Reconfigure task
+# Apply changes
 client.hardware.tasks.configure(task)
 ```
 
@@ -252,41 +248,34 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const dev = await client.hardware.devices.retrieve({ name: "my_modbus_server" });
+const dev = await client.hardware.devices.retrieve({ name: "Modbus Server" });
 
 // Create index channel
-const readTime = await client.channels.create({
-  name: "modbus_read_time",
+const modbusTime = await client.channels.create({
+  name: "modbus_time",
   isIndex: true,
   dataType: "timestamp",
   retrieveIfNameExists: true,
 });
 
 // Create data channels
-const tempSensor = await client.channels.create({
-  name: "temperature_sensor",
-  index: readTime.key,
-  dataType: "float32",
+const inputReg0 = await client.channels.create({
+  name: "input_register_0",
+  index: modbusTime.key,
+  dataType: "uint8",
   retrieveIfNameExists: true,
 });
 
-const pressureSensor = await client.channels.create({
-  name: "pressure_sensor",
-  index: readTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
-});
-
-const valveState = await client.channels.create({
-  name: "valve_state",
-  index: readTime.key,
+const inputReg1 = await client.channels.create({
+  name: "input_register_1",
+  index: modbusTime.key,
   dataType: "uint8",
   retrieveIfNameExists: true,
 });
 
 // Create and configure task
 const task = await client.hardware.tasks.create({
-  name: "Modbus Read",
+  name: "Modbus Read Task",
   type: "modbus_read",
   config: JSON.stringify({
     device: dev.key,
@@ -296,20 +285,15 @@ const task = await client.hardware.tasks.create({
     channels: [
       {
         type: "register_input",
-        channel: tempSensor.key,
-        address: 100,
-        data_type: "float32",
-      },
-      {
-        type: "holding_register_input",
-        channel: pressureSensor.key,
-        address: 200,
-        data_type: "float32",
-      },
-      {
-        type: "coil_input",
-        channel: valveState.key,
+        channel: inputReg0.key,
         address: 0,
+        data_type: "uint8",
+      },
+      {
+        type: "register_input",
+        channel: inputReg1.key,
+        address: 1,
+        data_type: "uint8",
       },
     ],
   }),
@@ -319,7 +303,7 @@ const task = await client.hardware.tasks.create({
 await task.executeCommandSync("start");
 
 // Read data
-const streamer = await client.openStreamer(["temperature_sensor", "pressure_sensor", "valve_state"]);
+const streamer = await client.openStreamer(["input_register_0", "input_register_1"]);
 for (let i = 0; i < 10; i++) {
   const frame = await streamer.read();
   console.log(frame);
@@ -337,33 +321,30 @@ await streamer.close();
 
 ```typescript
 // Retrieve existing task
-const task = await client.hardware.tasks.retrieve({ name: "Modbus Read" });
+const task = await client.hardware.tasks.retrieve({ name: "Modbus Read Task" });
 
-// Parse current configuration
+// Parse and update configuration
 const config = JSON.parse(task.config);
 
-// Modify configuration
-config.sample_rate = 20;
-config.stream_rate = 10;
+// Update task-level configuration
+config.auto_start = true;
+config.stream_rate = 5;
 
-// Add a new channel
-const newChannel = await client.channels.create({
-  name: "flow_sensor",
-  index: readTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
+// Update first channel configuration
+config.channels[0].address = 10;
+config.channels[0].data_type = "uint16";
+
+// Update second channel configuration
+config.channels[1].address = 11;
+config.channels[1].data_type = "uint16";
+
+// Apply changes
+await client.hardware.tasks.create({
+  key: task.key,
+  name: task.name,
+  type: task.type,
+  config: JSON.stringify(config),
 });
-
-config.channels.push({
-  type: "register_input",
-  channel: newChannel.key,
-  address: 300,
-  data_type: "float32",
-});
-
-// Update task configuration
-task.config = JSON.stringify(config);
-await client.hardware.tasks.create(task);
 ```
 
 </ExampleDetails>
@@ -371,4 +352,5 @@ await client.hardware.tasks.create(task);
   </Fragment>
 </Client.Tabs>
 
-For task lifecycle management, see the [Task Basics](/reference/driver/task-basics#how-to) page.
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.

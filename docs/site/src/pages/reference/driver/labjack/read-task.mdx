@@ -17,20 +17,25 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Acquires data from analog and digital inputs on LabJack devices at a specified sample rate.
+<Note.Note variant="error">
+  **TO DO**: Update video for this page
+</Note.Note>
+
+Acquires data from analog and digital inputs on LabJack devices at a specified sample
+rate.
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `name` | string | Yes | - | Human-readable task name |
-| `sample_rate` | number | Yes | - | Samples per second (Hz) |
-| `stream_rate` | number | No | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
-| `data_saving` | boolean | No | `false` | Enable permanent storage in Synnax |
-| `auto_start` | boolean | No | `false` | Automatically start task after configuration |
-| `channels` | array | Yes | - | List of input channel configurations |
+| Parameter     | Type    | Required | Default       | Description                                                   |
+| ------------- | ------- | -------- | ------------- | ------------------------------------------------------------- |
+| `name`        | string  | Yes      | -             | Human-readable task name                                      |
+| `sample_rate` | number  | Yes      | -             | Samples per second (Hz)                                       |
+| `stream_rate` | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
+| `data_saving` | boolean | No       | `false`       | Enable permanent storage in Synnax                            |
+| `auto_start`  | boolean | No       | `false`       | Automatically start task after configuration                  |
+| `channels`    | array   | Yes      | -             | List of input channel configurations                          |
 
 <Divider.Divider x />
 
@@ -39,15 +44,16 @@ Acquires data from analog and digital inputs on LabJack devices at a specified s
 <ChannelTypeDetails>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog Input ([`AI`](https://support.labjack.com/docs/14-0-analog-inputs-t-series-datasheet))</Text.Text>
 
-Reads analog voltage from a specified input terminal. Supports single-ended and differential configurations.
+Reads analog voltage from a specified input terminal. Supports single-ended and
+differential configurations.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `port` | string | Yes | - | Port location (e.g., `AIN0`, `AIN1`) |
-| `range` | number | No | `10.0` | Voltage range (±range volts) |
-| `neg_chan` | number | No | `199` | Negative channel for differential measurements (199 = single-ended/GND) |
-| `pos_chan` | number | No | `0` | Positive channel number (e.g., 0 for AIN0) |
+| Parameter  | Type   | Required | Default | Description                                                             |
+| ---------- | ------ | -------- | ------- | ----------------------------------------------------------------------- |
+| `channel`  | number | Yes      | -       | Synnax channel key                                                      |
+| `port`     | string | Yes      | -       | Port location (e.g., `AIN0`, `AIN1`)                                    |
+| `range`    | number | No       | `10.0`  | Voltage range (±range volts)                                            |
+| `neg_chan` | number | No       | `199`   | Negative channel for differential measurements (199 = single-ended/GND) |
+| `pos_chan` | number | No       | `0`     | Positive channel number (e.g., 0 for AIN0)                              |
 
 </ChannelTypeDetails>
 
@@ -57,23 +63,27 @@ Reads analog voltage from a specified input terminal. Supports single-ended and 
 Reads temperature from a thermocouple with cold junction compensation (CJC).
 
 <Note.Note variant="warning">
-**Performance Note**: Thermocouple channels use LabJack's built-in thermocouple features, which reduce the maximum reliable sample rate compared to tasks with only analog or digital inputs.
+  **Performance Note**: Thermocouple channels use LabJack's built-in thermocouple
+  features, which reduce the maximum reliable sample rate compared to tasks with only
+  analog or digital inputs.
 </Note.Note>
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `port` | string | Yes | - | Port location (e.g., `AIN0`, `AIN1`) |
-| `thermocouple_type` | enum | Yes | - | `B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`, `C` |
-| `units` | enum | No | `C` | Temperature units (`K`, `C`, `F`) |
-| `cjc_source` | string | No | `TEMPERATURE_DEVICE_K` | CJC source: `TEMPERATURE_DEVICE_K`, `TEMPERATURE_AIR_K`, or `AIN#` |
-| `cjc_slope` | number | No | `1.0` | CJC voltage to temperature slope (K/V) |
-| `cjc_offset` | number | No | `0.0` | CJC temperature offset (K) |
-| `neg_chan` | number | No | `199` | Negative channel for differential measurements (199 = single-ended/GND) |
-| `pos_chan` | number | No | `0` | Positive channel number (e.g., 0 for AIN0) |
+| Parameter           | Type   | Required | Default                | Description                                                             |
+| ------------------- | ------ | -------- | ---------------------- | ----------------------------------------------------------------------- |
+| `channel`           | number | Yes      | -                      | Synnax channel key                                                      |
+| `port`              | string | Yes      | -                      | Port location (e.g., `AIN0`, `AIN1`)                                    |
+| `thermocouple_type` | enum   | Yes      | -                      | `B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`, `C`                             |
+| `units`             | enum   | No       | `C`                    | Temperature units (`K`, `C`, `F`)                                       |
+| `cjc_source`        | string | No       | `TEMPERATURE_DEVICE_K` | CJC source: `TEMPERATURE_DEVICE_K`, `TEMPERATURE_AIR_K`, or `AIN#`      |
+| `cjc_slope`         | number | No       | `1.0`                  | CJC voltage to temperature slope (K/V)                                  |
+| `cjc_offset`        | number | No       | `0.0`                  | CJC temperature offset (K)                                              |
+| `neg_chan`          | number | No       | `199`                  | Negative channel for differential measurements (199 = single-ended/GND) |
+| `pos_chan`          | number | No       | `0`                    | Positive channel number (e.g., 0 for AIN0)                              |
 
 **CJC Configuration Examples:**
-- **Device temp sensor**: `cjc_source="TEMPERATURE_DEVICE_K"`, `cjc_slope=1.0`, `cjc_offset=0.0`
+
+- **Device temp sensor**: `cjc_source="TEMPERATURE_DEVICE_K"`, `cjc_slope=1.0`,
+  `cjc_offset=0.0`
 - **LM34 sensor**: `cjc_source="AIN1"`, `cjc_slope=55.56`, `cjc_offset=255.37`
 
 </ChannelTypeDetails>
@@ -83,10 +93,10 @@ Reads temperature from a thermocouple with cold junction compensation (CJC).
 
 Reads digital state (0 or 1) from a specified digital I/O line.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `port` | string | Yes | - | Port location (e.g., `DIO4`, `FIO5`) |
+| Parameter | Type   | Required | Default | Description                          |
+| --------- | ------ | -------- | ------- | ------------------------------------ |
+| `channel` | number | Yes      | -       | Synnax channel key                   |
+| `port`    | string | Yes      | -       | Port location (e.g., `DIO4`, `FIO5`) |
 
 </ChannelTypeDetails>
 
@@ -94,10 +104,14 @@ Reads digital state (0 or 1) from a specified digital I/O line.
 
 ## Important Rules
 
-- **Sample rates**: All channels in a task sample at the same rate. Create separate tasks for different rates.
-- **Thermocouple performance**: Tasks with thermocouple channels have reduced maximum sample rates due to LJM thermocouple processing.
-- **One running task per channel**: A channel can only receive live data from one task at a time.
-- **Stream rate optimization**: For low-rate tasks (&lt;50Hz), set stream rate = sample rate. For high-rate tasks, keep stream rate &lt;50Hz for better performance.
+- **Sample rates**: All channels in a task sample at the same rate. Create separate
+  tasks for different rates.
+- **Thermocouple performance**: Tasks with thermocouple channels have reduced maximum
+  sample rates due to LJM thermocouple processing.
+- **One running task per channel**: A channel can only receive live data from one task
+  at a time.
+- **Stream rate optimization**: For low-rate tasks (&lt;50Hz), set stream rate = sample
+  rate. For high-rate tasks, keep stream rate &lt;50Hz for better performance.
 
 <Divider.Divider x />
 
@@ -139,7 +153,12 @@ ai_0 = client.channels.create(
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
 )
-
+ai_1 = client.channels.create(
+    name="ai_1",
+    index=ai_time.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
 di_4 = client.channels.create(
     name="di_4",
     index=ai_time.key,
@@ -149,7 +168,7 @@ di_4 = client.channels.create(
 
 # Create and configure task
 task = labjack.ReadTask(
-    name="LabJack Read",
+    name="LabJack Read Task",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 100,
     stream_rate=sy.Rate.HZ * 25,
@@ -162,6 +181,13 @@ task = labjack.ReadTask(
             neg_chan=199,  # Single-ended
             pos_chan=0,
         ),
+        labjack.AIChan(
+            channel=ai_1.key,
+            port="AIN1",
+            range=10.0,
+            neg_chan=199,  # Single-ended
+            pos_chan=1,
+        ),
         labjack.DIChan(
             channel=di_4.key,
             port="DIO4",
@@ -173,7 +199,7 @@ client.hardware.tasks.configure(task)
 
 # Start task and read data
 with task.run():
-    with client.open_streamer(["ai_0", "di_4"]) as streamer:
+    with client.open_streamer(["ai_0", "ai_1", "di_4"]) as streamer:
         for _ in range(10):
             frame = streamer.read()
             print(frame)
@@ -185,29 +211,25 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.hardware.tasks.retrieve(name="LabJack Read")
+task = client.hardware.tasks.retrieve(name="LabJack Read Task")
+task = labjack.ReadTask(internal=task)
 
-# Modify configuration
-task.config.sample_rate = 200
-task.config.stream_rate = 50
+# Update task-level configuration
+task.config.auto_start = True
+task.config.stream_rate = int(sy.Rate.HZ * 50)
 
-# Add a new channel
-new_channel = client.channels.create(
-    name="ai_1",
-    index=ai_time.key,
-    data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True,
-)
+# Update first analog input configuration
+task.config.channels[0].port = "AIN2"
+task.config.channels[0].range = 5.0
 
-task.config.channels.append(
-    labjack.AIChan(
-        channel=new_channel.key,
-        port="AIN1",
-        range=10.0,
-    )
-)
+# Update second analog input configuration
+task.config.channels[1].port = "AIN3"
+task.config.channels[1].range = 1.0
 
-# Reconfigure task
+# Update digital input configuration
+task.config.channels[2].port = "DIO5"
+
+# Apply changes
 client.hardware.tasks.configure(task)
 ```
 
@@ -243,6 +265,13 @@ const ai0 = await client.channels.create({
   retrieveIfNameExists: true,
 });
 
+const ai1 = await client.channels.create({
+  name: "ai_1",
+  index: aiTime.key,
+  dataType: "float32",
+  retrieveIfNameExists: true,
+});
+
 const di4 = await client.channels.create({
   name: "di_4",
   index: aiTime.key,
@@ -252,7 +281,7 @@ const di4 = await client.channels.create({
 
 // Create and configure task
 const task = await client.hardware.tasks.create({
-  name: "LabJack Read",
+  name: "LabJack Read Task",
   type: "labjack_read",
   config: JSON.stringify({
     device: dev.key,
@@ -269,6 +298,14 @@ const task = await client.hardware.tasks.create({
         pos_chan: 0,
       },
       {
+        type: "AI",
+        channel: ai1.key,
+        port: "AIN1",
+        range: 10.0,
+        neg_chan: 199,
+        pos_chan: 1,
+      },
+      {
         type: "DI",
         channel: di4.key,
         port: "DIO4",
@@ -281,7 +318,7 @@ const task = await client.hardware.tasks.create({
 await task.executeCommandSync("start");
 
 // Read data
-const streamer = await client.openStreamer(["ai_0", "di_4"]);
+const streamer = await client.openStreamer(["ai_0", "ai_1", "di_4"]);
 for (let i = 0; i < 10; i++) {
   const frame = await streamer.read();
   console.log(frame);
@@ -299,35 +336,33 @@ await streamer.close();
 
 ```typescript
 // Retrieve existing task
-const task = await client.hardware.tasks.retrieve({ name: "LabJack Read" });
+const task = await client.hardware.tasks.retrieve({ name: "LabJack Read Task" });
 
-// Parse current configuration
+// Parse and update configuration
 const config = JSON.parse(task.config);
 
-// Modify configuration
-config.sample_rate = 200;
+// Update task-level configuration
+config.auto_start = true;
 config.stream_rate = 50;
 
-// Add a new channel
-const newChannel = await client.channels.create({
-  name: "ai_1",
-  index: aiTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
-});
+// Update first analog input configuration
+config.channels[0].port = "AIN2";
+config.channels[0].range = 5.0;
 
-config.channels.push({
-  type: "AI",
-  channel: newChannel.key,
-  port: "AIN1",
-  range: 10.0,
-  neg_chan: 199,
-  pos_chan: 0,
-});
+// Update second analog input configuration
+config.channels[1].port = "AIN3";
+config.channels[1].range = 1.0;
 
-// Update task configuration
-task.config = JSON.stringify(config);
-await client.hardware.tasks.create(task);
+// Update digital input configuration
+config.channels[2].port = "DIO5";
+
+// Apply changes
+await client.hardware.tasks.create({
+  key: task.key,
+  name: task.name,
+  type: task.type,
+  config: JSON.stringify(config),
+});
 ```
 
 </ExampleDetails>
@@ -335,4 +370,5 @@ await client.hardware.tasks.create(task);
   </Fragment>
 </Client.Tabs>
 
-For task lifecycle management, see the [Task Basics](/reference/driver/task-basics#how-to) page.
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.

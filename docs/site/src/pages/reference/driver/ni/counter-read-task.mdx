@@ -17,20 +17,26 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Acquires data from counter inputs on NI devices at a specified sample rate. Counter tasks can measure frequency, count edges, track encoder positions, measure pulse widths, and more.
+<Note.Note variant="error">
+  **TO DO**: Update video for this page
+</Note.Note>
+
+Acquires data from counter inputs on NI devices at a specified sample rate. Counter
+tasks can measure frequency, count edges, track encoder positions, measure pulse widths,
+and more.
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `name` | string | Yes | - | Human-readable task name |
-| `sample_rate` | number | Yes | - | Samples per second (Hz), determined by module |
-| `stream_rate` | number | No | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
-| `data_saving` | boolean | No | `false` | Enable permanent storage in Synnax |
-| `auto_start` | boolean | No | `false` | Automatically start task after configuration |
-| `channels` | array | Yes | - | List of counter input channel configurations |
+| Parameter     | Type    | Required | Default       | Description                                                   |
+| ------------- | ------- | -------- | ------------- | ------------------------------------------------------------- |
+| `name`        | string  | Yes      | -             | Human-readable task name                                      |
+| `sample_rate` | number  | Yes      | -             | Samples per second (Hz), determined by module                 |
+| `stream_rate` | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
+| `data_saving` | boolean | No       | `false`       | Enable permanent storage in Synnax                            |
+| `auto_start`  | boolean | No       | `false`       | Automatically start task after configuration                  |
+| `channels`    | array   | Yes      | -             | List of counter input channel configurations                  |
 
 <Divider.Divider x />
 
@@ -41,20 +47,20 @@ Acquires data from counter inputs on NI devices at a specified sample rate. Coun
 
 Measures the frequency of digital pulses.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `device` | string | Yes | - | Device identifier |
-| `port` | number | Yes | - | Counter port (0-indexed) |
-| `min_val` | number | No | `2` | Minimum frequency |
-| `max_val` | number | No | `100` | Maximum frequency |
-| `units` | enum | No | `Hz` | `Hz`, `Ticks` |
-| `edge` | enum | No | `Rising` | `Rising`, `Falling` |
-| `meas_method` | enum | No | `DynamicAvg` | `LowFreq1Ctr`, `HighFreq2Ctr`, `LargeRng2Ctr`, `DynamicAvg` |
-| `meas_time` | number | No | `0.000006` | Measurement time (seconds), used with `HighFreq2Ctr` |
-| `divisor` | number | No | `4` | Integer divisor, used with `LargeRng2Ctr` |
-| `terminal` | string | No | - | PFI terminal for signal routing |
-| `custom_scale` | object | No | - | Custom scaling |
+| Parameter      | Type   | Required | Default      | Description                                                 |
+| -------------- | ------ | -------- | ------------ | ----------------------------------------------------------- |
+| `channel`      | number | Yes      | -            | Synnax channel key                                          |
+| `device`       | string | Yes      | -            | Device identifier                                           |
+| `port`         | number | Yes      | -            | Counter port (0-indexed)                                    |
+| `min_val`      | number | No       | `2`          | Minimum frequency                                           |
+| `max_val`      | number | No       | `100`        | Maximum frequency                                           |
+| `units`        | enum   | No       | `Hz`         | `Hz`, `Ticks`                                               |
+| `edge`         | enum   | No       | `Rising`     | `Rising`, `Falling`                                         |
+| `meas_method`  | enum   | No       | `DynamicAvg` | `LowFreq1Ctr`, `HighFreq2Ctr`, `LargeRng2Ctr`, `DynamicAvg` |
+| `meas_time`    | number | No       | `0.000006`   | Measurement time (seconds), used with `HighFreq2Ctr`        |
+| `divisor`      | number | No       | `4`          | Integer divisor, used with `LargeRng2Ctr`                   |
+| `terminal`     | string | No       | -            | PFI terminal for signal routing                             |
+| `custom_scale` | object | No       | -            | Custom scaling                                              |
 
 </ChannelTypeDetails>
 
@@ -63,15 +69,15 @@ Measures the frequency of digital pulses.
 
 Counts rising or falling edges on a digital signal.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `device` | string | Yes | - | Device identifier |
-| `port` | number | Yes | - | Counter port (0-indexed) |
-| `active_edge` | enum | No | `Rising` | `Rising`, `Falling` |
-| `count_direction` | enum | No | `CountUp` | `CountUp`, `CountDown`, `ExternallyControlled` |
-| `initial_count` | number | No | `0` | Starting count value |
-| `terminal` | string | No | - | PFI terminal for signal routing |
+| Parameter         | Type   | Required | Default   | Description                                    |
+| ----------------- | ------ | -------- | --------- | ---------------------------------------------- |
+| `channel`         | number | Yes      | -         | Synnax channel key                             |
+| `device`          | string | Yes      | -         | Device identifier                              |
+| `port`            | number | Yes      | -         | Counter port (0-indexed)                       |
+| `active_edge`     | enum   | No       | `Rising`  | `Rising`, `Falling`                            |
+| `count_direction` | enum   | No       | `CountUp` | `CountUp`, `CountDown`, `ExternallyControlled` |
+| `initial_count`   | number | No       | `0`       | Starting count value                           |
+| `terminal`        | string | No       | -         | PFI terminal for signal routing                |
 
 </ChannelTypeDetails>
 
@@ -80,20 +86,20 @@ Counts rising or falling edges on a digital signal.
 
 Measures the time between edges of a periodic signal.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `device` | string | Yes | - | Device identifier |
-| `port` | number | Yes | - | Counter port (0-indexed) |
-| `min_val` | number | No | `0.000001` | Minimum period |
-| `max_val` | number | No | `0.1` | Maximum period |
-| `units` | enum | No | `Seconds` | `Seconds`, `Ticks` |
-| `starting_edge` | enum | No | `Rising` | `Rising`, `Falling` |
-| `meas_method` | enum | No | `DynamicAvg` | `LowFreq1Ctr`, `HighFreq2Ctr`, `LargeRng2Ctr`, `DynamicAvg` |
-| `meas_time` | number | No | `0.001` | Measurement time (seconds), used with `HighFreq2Ctr` |
-| `divisor` | number | No | `4` | Integer divisor, used with `LargeRng2Ctr` |
-| `terminal` | string | No | - | PFI terminal for signal routing |
-| `custom_scale` | object | No | - | Custom scaling |
+| Parameter       | Type   | Required | Default      | Description                                                 |
+| --------------- | ------ | -------- | ------------ | ----------------------------------------------------------- |
+| `channel`       | number | Yes      | -            | Synnax channel key                                          |
+| `device`        | string | Yes      | -            | Device identifier                                           |
+| `port`          | number | Yes      | -            | Counter port (0-indexed)                                    |
+| `min_val`       | number | No       | `0.000001`   | Minimum period                                              |
+| `max_val`       | number | No       | `0.1`        | Maximum period                                              |
+| `units`         | enum   | No       | `Seconds`    | `Seconds`, `Ticks`                                          |
+| `starting_edge` | enum   | No       | `Rising`     | `Rising`, `Falling`                                         |
+| `meas_method`   | enum   | No       | `DynamicAvg` | `LowFreq1Ctr`, `HighFreq2Ctr`, `LargeRng2Ctr`, `DynamicAvg` |
+| `meas_time`     | number | No       | `0.001`      | Measurement time (seconds), used with `HighFreq2Ctr`        |
+| `divisor`       | number | No       | `4`          | Integer divisor, used with `LargeRng2Ctr`                   |
+| `terminal`      | string | No       | -            | PFI terminal for signal routing                             |
+| `custom_scale`  | object | No       | -            | Custom scaling                                              |
 
 </ChannelTypeDetails>
 
@@ -102,17 +108,17 @@ Measures the time between edges of a periodic signal.
 
 Measures the width of pulses in a digital signal.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `device` | string | Yes | - | Device identifier |
-| `port` | number | Yes | - | Counter port (0-indexed) |
-| `min_val` | number | No | `0.000001` | Minimum pulse width |
-| `max_val` | number | No | `0.1` | Maximum pulse width |
-| `units` | enum | No | `Seconds` | `Seconds`, `Ticks` |
-| `starting_edge` | enum | No | `Rising` | `Rising`, `Falling` |
-| `terminal` | string | No | - | PFI terminal for signal routing |
-| `custom_scale` | object | No | - | Custom scaling |
+| Parameter       | Type   | Required | Default    | Description                     |
+| --------------- | ------ | -------- | ---------- | ------------------------------- |
+| `channel`       | number | Yes      | -          | Synnax channel key              |
+| `device`        | string | Yes      | -          | Device identifier               |
+| `port`          | number | Yes      | -          | Counter port (0-indexed)        |
+| `min_val`       | number | No       | `0.000001` | Minimum pulse width             |
+| `max_val`       | number | No       | `0.1`      | Maximum pulse width             |
+| `units`         | enum   | No       | `Seconds`  | `Seconds`, `Ticks`              |
+| `starting_edge` | enum   | No       | `Rising`   | `Rising`, `Falling`             |
+| `terminal`      | string | No       | -          | PFI terminal for signal routing |
+| `custom_scale`  | object | No       | -          | Custom scaling                  |
 
 </ChannelTypeDetails>
 
@@ -121,15 +127,15 @@ Measures the width of pulses in a digital signal.
 
 Measures the half-period of a periodic signal.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `device` | string | Yes | - | Device identifier |
-| `port` | number | Yes | - | Counter port (0-indexed) |
-| `min_val` | number | No | `0.000001` | Minimum semi-period |
-| `max_val` | number | No | `0.1` | Maximum semi-period |
-| `units` | enum | No | `Seconds` | `Seconds`, `Ticks` |
-| `custom_scale` | object | No | - | Custom scaling |
+| Parameter      | Type   | Required | Default    | Description              |
+| -------------- | ------ | -------- | ---------- | ------------------------ |
+| `channel`      | number | Yes      | -          | Synnax channel key       |
+| `device`       | string | Yes      | -          | Device identifier        |
+| `port`         | number | Yes      | -          | Counter port (0-indexed) |
+| `min_val`      | number | No       | `0.000001` | Minimum semi-period      |
+| `max_val`      | number | No       | `0.1`      | Maximum semi-period      |
+| `units`        | enum   | No       | `Seconds`  | `Seconds`, `Ticks`       |
+| `custom_scale` | object | No       | -          | Custom scaling           |
 
 </ChannelTypeDetails>
 
@@ -138,17 +144,17 @@ Measures the half-period of a periodic signal.
 
 Measures the time between two different edges of a signal.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `device` | string | Yes | - | Device identifier |
-| `port` | number | Yes | - | Counter port (0-indexed) |
-| `min_val` | number | No | `0.000001` | Minimum separation time |
-| `max_val` | number | No | `1` | Maximum separation time |
-| `units` | enum | No | `Seconds` | `Seconds`, `Ticks` |
-| `first_edge` | enum | No | `Rising` | `Rising`, `Falling` |
-| `second_edge` | enum | No | `Falling` | `Rising`, `Falling` |
-| `custom_scale` | object | No | - | Custom scaling |
+| Parameter      | Type   | Required | Default    | Description              |
+| -------------- | ------ | -------- | ---------- | ------------------------ |
+| `channel`      | number | Yes      | -          | Synnax channel key       |
+| `device`       | string | Yes      | -          | Device identifier        |
+| `port`         | number | Yes      | -          | Counter port (0-indexed) |
+| `min_val`      | number | No       | `0.000001` | Minimum separation time  |
+| `max_val`      | number | No       | `1`        | Maximum separation time  |
+| `units`        | enum   | No       | `Seconds`  | `Seconds`, `Ticks`       |
+| `first_edge`   | enum   | No       | `Rising`   | `Rising`, `Falling`      |
+| `second_edge`  | enum   | No       | `Falling`  | `Rising`, `Falling`      |
+| `custom_scale` | object | No       | -          | Custom scaling           |
 
 </ChannelTypeDetails>
 
@@ -157,19 +163,19 @@ Measures the time between two different edges of a signal.
 
 Measures linear velocity using a quadrature encoder.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `device` | string | Yes | - | Device identifier |
-| `port` | number | Yes | - | Counter port (0-indexed) |
-| `min_val` | number | No | `0` | Minimum velocity |
-| `max_val` | number | No | `1` | Maximum velocity |
-| `units` | enum | No | `m/s` | `m/s`, `in/s` |
-| `decoding_type` | enum | No | `X4` | `X1`, `X2`, `X4`, `TwoPulse` |
-| `dist_per_pulse` | number | No | `0.001` | Distance traveled per encoder pulse |
-| `terminal_a` | string | No | - | PFI terminal for encoder A signal |
-| `terminal_b` | string | No | - | PFI terminal for encoder B signal |
-| `custom_scale` | object | No | - | Custom scaling |
+| Parameter        | Type   | Required | Default | Description                         |
+| ---------------- | ------ | -------- | ------- | ----------------------------------- |
+| `channel`        | number | Yes      | -       | Synnax channel key                  |
+| `device`         | string | Yes      | -       | Device identifier                   |
+| `port`           | number | Yes      | -       | Counter port (0-indexed)            |
+| `min_val`        | number | No       | `0`     | Minimum velocity                    |
+| `max_val`        | number | No       | `1`     | Maximum velocity                    |
+| `units`          | enum   | No       | `m/s`   | `m/s`, `in/s`                       |
+| `decoding_type`  | enum   | No       | `X4`    | `X1`, `X2`, `X4`, `TwoPulse`        |
+| `dist_per_pulse` | number | No       | `0.001` | Distance traveled per encoder pulse |
+| `terminal_a`     | string | No       | -       | PFI terminal for encoder A signal   |
+| `terminal_b`     | string | No       | -       | PFI terminal for encoder B signal   |
+| `custom_scale`   | object | No       | -       | Custom scaling                      |
 
 </ChannelTypeDetails>
 
@@ -178,19 +184,19 @@ Measures linear velocity using a quadrature encoder.
 
 Measures angular velocity (rotational speed) using a quadrature encoder.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `device` | string | Yes | - | Device identifier |
-| `port` | number | Yes | - | Counter port (0-indexed) |
-| `min_val` | number | No | `0` | Minimum angular velocity |
-| `max_val` | number | No | `1` | Maximum angular velocity |
-| `units` | enum | No | `RPM` | `RPM`, `Radians/s`, `Degrees/s` |
-| `decoding_type` | enum | No | `X4` | `X1`, `X2`, `X4`, `TwoPulse` |
-| `pulses_per_rev` | number | No | `24` | Number of encoder pulses per revolution |
-| `terminal_a` | string | No | - | PFI terminal for encoder A signal |
-| `terminal_b` | string | No | - | PFI terminal for encoder B signal |
-| `custom_scale` | object | No | - | Custom scaling |
+| Parameter        | Type   | Required | Default | Description                             |
+| ---------------- | ------ | -------- | ------- | --------------------------------------- |
+| `channel`        | number | Yes      | -       | Synnax channel key                      |
+| `device`         | string | Yes      | -       | Device identifier                       |
+| `port`           | number | Yes      | -       | Counter port (0-indexed)                |
+| `min_val`        | number | No       | `0`     | Minimum angular velocity                |
+| `max_val`        | number | No       | `1`     | Maximum angular velocity                |
+| `units`          | enum   | No       | `RPM`   | `RPM`, `Radians/s`, `Degrees/s`         |
+| `decoding_type`  | enum   | No       | `X4`    | `X1`, `X2`, `X4`, `TwoPulse`            |
+| `pulses_per_rev` | number | No       | `24`    | Number of encoder pulses per revolution |
+| `terminal_a`     | string | No       | -       | PFI terminal for encoder A signal       |
+| `terminal_b`     | string | No       | -       | PFI terminal for encoder B signal       |
+| `custom_scale`   | object | No       | -       | Custom scaling                          |
 
 </ChannelTypeDetails>
 
@@ -199,22 +205,22 @@ Measures angular velocity (rotational speed) using a quadrature encoder.
 
 Tracks linear position using a quadrature encoder.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `device` | string | Yes | - | Device identifier |
-| `port` | number | Yes | - | Counter port (0-indexed) |
-| `units` | enum | No | `Meters` | `Meters`, `Inches`, `Ticks` |
-| `decoding_type` | enum | No | `X4` | `X1`, `X2`, `X4`, `TwoPulse` |
-| `dist_per_pulse` | number | No | `0.000001` | Distance traveled per encoder pulse |
-| `initial_pos` | number | No | `0.0` | Starting position |
-| `terminal_a` | string | No | - | PFI terminal for encoder A signal |
-| `terminal_b` | string | No | - | PFI terminal for encoder B signal |
-| `z_index_enable` | boolean | No | `false` | Enable Z-index signal |
-| `z_index_val` | number | No | `0` | Position value when Z-index pulse occurs |
-| `z_index_phase` | enum | No | `AHighBHigh` | `AHighBHigh`, `AHighBLow`, `ALowBHigh`, `ALowBLow` |
-| `terminal_z` | string | No | - | PFI terminal for Z-index signal |
-| `custom_scale` | object | No | - | Custom scaling |
+| Parameter        | Type    | Required | Default      | Description                                        |
+| ---------------- | ------- | -------- | ------------ | -------------------------------------------------- |
+| `channel`        | number  | Yes      | -            | Synnax channel key                                 |
+| `device`         | string  | Yes      | -            | Device identifier                                  |
+| `port`           | number  | Yes      | -            | Counter port (0-indexed)                           |
+| `units`          | enum    | No       | `Meters`     | `Meters`, `Inches`, `Ticks`                        |
+| `decoding_type`  | enum    | No       | `X4`         | `X1`, `X2`, `X4`, `TwoPulse`                       |
+| `dist_per_pulse` | number  | No       | `0.000001`   | Distance traveled per encoder pulse                |
+| `initial_pos`    | number  | No       | `0.0`        | Starting position                                  |
+| `terminal_a`     | string  | No       | -            | PFI terminal for encoder A signal                  |
+| `terminal_b`     | string  | No       | -            | PFI terminal for encoder B signal                  |
+| `z_index_enable` | boolean | No       | `false`      | Enable Z-index signal                              |
+| `z_index_val`    | number  | No       | `0`          | Position value when Z-index pulse occurs           |
+| `z_index_phase`  | enum    | No       | `AHighBHigh` | `AHighBHigh`, `AHighBLow`, `ALowBHigh`, `ALowBLow` |
+| `terminal_z`     | string  | No       | -            | PFI terminal for Z-index signal                    |
+| `custom_scale`   | object  | No       | -            | Custom scaling                                     |
 
 </ChannelTypeDetails>
 
@@ -223,22 +229,22 @@ Tracks linear position using a quadrature encoder.
 
 Tracks angular position (rotation angle) using a quadrature encoder.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `device` | string | Yes | - | Device identifier |
-| `port` | number | Yes | - | Counter port (0-indexed) |
-| `units` | enum | No | `Degrees` | `Degrees`, `Radians`, `Ticks` |
-| `decoding_type` | enum | No | `X4` | `X1`, `X2`, `X4`, `TwoPulse` |
-| `pulses_per_rev` | number | No | `24` | Number of encoder pulses per revolution |
-| `initial_angle` | number | No | `0.0` | Starting angle |
-| `terminal_a` | string | No | - | PFI terminal for encoder A signal |
-| `terminal_b` | string | No | - | PFI terminal for encoder B signal |
-| `z_index_enable` | boolean | No | `false` | Enable Z-index signal |
-| `z_index_val` | number | No | `0` | Angle value when Z-index pulse occurs |
-| `z_index_phase` | enum | No | `AHighBHigh` | `AHighBHigh`, `AHighBLow`, `ALowBHigh`, `ALowBLow` |
-| `terminal_z` | string | No | - | PFI terminal for Z-index signal |
-| `custom_scale` | object | No | - | Custom scaling |
+| Parameter        | Type    | Required | Default      | Description                                        |
+| ---------------- | ------- | -------- | ------------ | -------------------------------------------------- |
+| `channel`        | number  | Yes      | -            | Synnax channel key                                 |
+| `device`         | string  | Yes      | -            | Device identifier                                  |
+| `port`           | number  | Yes      | -            | Counter port (0-indexed)                           |
+| `units`          | enum    | No       | `Degrees`    | `Degrees`, `Radians`, `Ticks`                      |
+| `decoding_type`  | enum    | No       | `X4`         | `X1`, `X2`, `X4`, `TwoPulse`                       |
+| `pulses_per_rev` | number  | No       | `24`         | Number of encoder pulses per revolution            |
+| `initial_angle`  | number  | No       | `0.0`        | Starting angle                                     |
+| `terminal_a`     | string  | No       | -            | PFI terminal for encoder A signal                  |
+| `terminal_b`     | string  | No       | -            | PFI terminal for encoder B signal                  |
+| `z_index_enable` | boolean | No       | `false`      | Enable Z-index signal                              |
+| `z_index_val`    | number  | No       | `0`          | Angle value when Z-index pulse occurs              |
+| `z_index_phase`  | enum    | No       | `AHighBHigh` | `AHighBHigh`, `AHighBLow`, `ALowBHigh`, `ALowBLow` |
+| `terminal_z`     | string  | No       | -            | PFI terminal for Z-index signal                    |
+| `custom_scale`   | object  | No       | -            | Custom scaling                                     |
 
 </ChannelTypeDetails>
 
@@ -247,16 +253,16 @@ Tracks angular position (rotation angle) using a quadrature encoder.
 
 Measures the duty cycle of a periodic signal.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax channel key |
-| `device` | string | Yes | - | Device identifier |
-| `port` | number | Yes | - | Counter port (0-indexed) |
-| `min_val` | number | No | `2` | Minimum duty cycle frequency |
-| `max_val` | number | No | `10000` | Maximum duty cycle frequency |
-| `active_edge` | enum | No | `Rising` | `Rising`, `Falling` |
-| `terminal` | string | No | - | PFI terminal for signal routing |
-| `custom_scale` | object | No | - | Custom scaling |
+| Parameter      | Type   | Required | Default  | Description                     |
+| -------------- | ------ | -------- | -------- | ------------------------------- |
+| `channel`      | number | Yes      | -        | Synnax channel key              |
+| `device`       | string | Yes      | -        | Device identifier               |
+| `port`         | number | Yes      | -        | Counter port (0-indexed)        |
+| `min_val`      | number | No       | `2`      | Minimum duty cycle frequency    |
+| `max_val`      | number | No       | `10000`  | Maximum duty cycle frequency    |
+| `active_edge`  | enum   | No       | `Rising` | `Rising`, `Falling`             |
+| `terminal`     | string | No       | -        | PFI terminal for signal routing |
+| `custom_scale` | object | No       | -        | Custom scaling                  |
 
 </ChannelTypeDetails>
 
@@ -264,9 +270,11 @@ Measures the duty cycle of a periodic signal.
 
 ## Important Rules
 
-- **Sample rates**: All channels in a task sample at the same rate. Create separate tasks for different rates.
+- **Sample rates**: All channels in a task sample at the same rate. Create separate
+  tasks for different rates.
 - **One task per module**: Only one running task can claim a module at a time.
-- **Stream rate optimization**: For low-rate tasks (&lt;50Hz), set stream rate = sample rate. For high-rate tasks, keep stream rate &lt;50Hz for better performance.
+- **Stream rate optimization**: For low-rate tasks (&lt;50Hz), set stream rate = sample
+  rate. For high-rate tasks, keep stream rate &lt;50Hz for better performance.
 - **Port validation**: Counter ports cannot be duplicated within the same task.
 
 <Divider.Divider x />
@@ -292,7 +300,7 @@ from synnax.hardware import ni
 client = sy.Synnax()
 
 # Retrieve device
-dev = client.hardware.devices.retrieve(name="my_daq")
+counter_dev = client.hardware.devices.retrieve(name="Mod1_Counter")
 
 # Create index channel
 ctr_time = client.channels.create(
@@ -309,24 +317,29 @@ frequency_ch = client.channels.create(
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
 )
-
 edge_count_ch = client.channels.create(
     name="edge_count",
     index=ctr_time.key,
     data_type=sy.DataType.UINT32,
     retrieve_if_name_exists=True,
 )
+angular_pos_ch = client.channels.create(
+    name="angular_position",
+    index=ctr_time.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
 
 # Create and configure task
 task = ni.CounterReadTask(
-    name="Counter Read",
+    name="Counter Read Task",
     sample_rate=sy.Rate.HZ * 100,
     stream_rate=sy.Rate.HZ * 25,
     data_saving=True,
     channels=[
         ni.CIFrequencyChan(
             channel=frequency_ch.key,
-            device=dev.key,
+            device=counter_dev.key,
             port=0,
             min_val=1,
             max_val=10000,
@@ -336,11 +349,21 @@ task = ni.CounterReadTask(
         ),
         ni.CIEdgeCountChan(
             channel=edge_count_ch.key,
-            device=dev.key,
+            device=counter_dev.key,
             port=1,
             active_edge="Rising",
             count_direction="CountUp",
             initial_count=0,
+        ),
+        ni.CIPositionAngularChan(
+            channel=angular_pos_ch.key,
+            device=counter_dev.key,
+            port=2,
+            units="Degrees",
+            decoding_type="X4",
+            pulses_per_rev=1024,
+            initial_angle=0.0,
+            z_index_enable=False,
         ),
     ],
 )
@@ -349,7 +372,7 @@ client.hardware.tasks.configure(task)
 
 # Start task and read data
 with task.run():
-    with client.open_streamer(["frequency", "edge_count"]) as streamer:
+    with client.open_streamer(["frequency", "edge_count", "angular_position"]) as streamer:
         for _ in range(10):
             frame = streamer.read()
             print(frame)
@@ -361,9 +384,35 @@ with task.run():
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
 
 ```python
-# TODO: Add example for editing task configuration
-# - Update task parameters (sample_rate, stream_rate, data_saving, etc.)
-# - Modify channel parameters (min_val, max_val, meas_method, etc.)
+# Retrieve existing task
+task = client.hardware.tasks.retrieve(name="Counter Read Task")
+task = ni.CounterReadTask(internal=task)
+
+# Update task-level configuration
+task.config.auto_start = True
+task.config.stream_rate = int(sy.Rate.HZ * 50)
+
+# Update frequency channel configuration
+task.config.channels[0].min_val = 10
+task.config.channels[0].max_val = 5000
+task.config.channels[0].meas_method = "LowFreq1Ctr"
+task.config.channels[0].terminal = "PFI0"
+
+# Update edge count channel configuration
+task.config.channels[1].active_edge = "Falling"
+task.config.channels[1].initial_count = 100
+task.config.channels[1].terminal = "PFI1"
+
+# Update angular position channel configuration
+task.config.channels[2].pulses_per_rev = 2048
+task.config.channels[2].initial_angle = 90.0
+task.config.channels[2].z_index_enable = True
+task.config.channels[2].terminalA = "PFI7"
+task.config.channels[2].terminalB = "PFI8"
+task.config.channels[2].terminalZ = "PFI9"
+
+# Apply changes
+client.hardware.tasks.configure(task)
 ```
 
 </ExampleDetails>
@@ -380,7 +429,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const dev = await client.hardware.devices.retrieve({ name: "my_daq" });
+const counterDev = await client.hardware.devices.retrieve({ name: "Mod1_Counter" });
 
 // Create index channel
 const ctrTime = await client.channels.create({
@@ -405,9 +454,16 @@ const edgeCountCh = await client.channels.create({
   retrieveIfNameExists: true,
 });
 
+const angularPosCh = await client.channels.create({
+  name: "angular_position",
+  index: ctrTime.key,
+  dataType: "float32",
+  retrieveIfNameExists: true,
+});
+
 // Create and configure task
 const task = await client.hardware.tasks.create({
-  name: "Counter Read",
+  name: "Counter Read Task",
   type: "ni_counter_read",
   config: JSON.stringify({
     sample_rate: 100,
@@ -417,7 +473,7 @@ const task = await client.hardware.tasks.create({
       {
         type: "ci_frequency",
         channel: frequencyCh.key,
-        device: dev.key,
+        device: counterDev.key,
         port: 0,
         min_val: 1,
         max_val: 10000,
@@ -428,11 +484,22 @@ const task = await client.hardware.tasks.create({
       {
         type: "ci_edge_count",
         channel: edgeCountCh.key,
-        device: dev.key,
+        device: counterDev.key,
         port: 1,
         active_edge: "Rising",
         count_direction: "CountUp",
         initial_count: 0,
+      },
+      {
+        type: "ci_position_angular",
+        channel: angularPosCh.key,
+        device: counterDev.key,
+        port: 2,
+        units: "Degrees",
+        decoding_type: "X4",
+        pulses_per_rev: 1024,
+        initial_angle: 0.0,
+        z_index_enable: false,
       },
     ],
   }),
@@ -442,7 +509,11 @@ const task = await client.hardware.tasks.create({
 await task.executeCommandSync("start");
 
 // Read data
-const streamer = await client.openStreamer(["frequency", "edge_count"]);
+const streamer = await client.openStreamer([
+  "frequency",
+  "edge_count",
+  "angular_position",
+]);
 for (let i = 0; i < 10; i++) {
   const frame = await streamer.read();
   console.log(frame);
@@ -459,9 +530,42 @@ await streamer.close();
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
 
 ```typescript
-// TODO: Add example for editing task configuration
-// - Update task parameters (sample_rate, stream_rate, data_saving, etc.)
-// - Modify channel parameters (min_val, max_val, meas_method, etc.)
+// Retrieve existing task
+const task = await client.hardware.tasks.retrieve({ name: "Counter Read Task" });
+
+// Parse and update configuration
+const config = JSON.parse(task.config);
+
+// Update task-level configuration
+config.auto_start = true;
+config.stream_rate = 50;
+
+// Update frequency channel configuration
+config.channels[0].min_val = 10;
+config.channels[0].max_val = 5000;
+config.channels[0].meas_method = "LowFreq1Ctr";
+config.channels[0].terminal = "PFI0";
+
+// Update edge count channel configuration
+config.channels[1].active_edge = "Falling";
+config.channels[1].initial_count = 100;
+config.channels[1].terminal = "PFI1";
+
+// Update angular position channel configuration
+config.channels[2].pulses_per_rev = 2048;
+config.channels[2].initial_angle = 90.0;
+config.channels[2].z_index_enable = true;
+config.channels[2].terminalA = "PFI7";
+config.channels[2].terminalB = "PFI8";
+config.channels[2].terminalZ = "PFI9";
+
+// Apply changes
+await client.hardware.tasks.create({
+  key: task.key,
+  name: task.name,
+  type: task.type,
+  config: JSON.stringify(config),
+});
 ```
 
 </ExampleDetails>
@@ -469,4 +573,5 @@ await streamer.close();
   </Fragment>
 </Client.Tabs>
 
-For task lifecycle management, see the [Task Basics](/reference/driver/task-basics#how-to) page.
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.

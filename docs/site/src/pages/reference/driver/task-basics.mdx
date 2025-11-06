@@ -17,14 +17,21 @@ import ExampleDetails from "@/components/details/ExampleDetails.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Now that you've configured your hardware device, you're ready to create tasks to communicate
-with it. This guide covers the fundamentals of working with tasks in the Synnax driver.
+<Note.Note variant="error">
+  **TO DO**: Update video for this page
+</Note.Note>
+
+Now that you've configured your hardware device, you're ready to create tasks to
+communicate with it. This guide covers the fundamentals of working with tasks in the
+Synnax driver.
 
 <Divider.Divider x />
 
 ## Prerequisites
 
-Before creating any tasks, you'll need to have connected and configured a hardware device. See the specific device documentation for details:
+Before creating any tasks, you'll need to have connected and configured a hardware
+device. See the specific device documentation for details:
+
 - [National Instruments](/reference/driver/ni/configure-device)
 - [LabJack](/reference/driver/labjack/configure-device)
 
@@ -44,8 +51,8 @@ purposes and switch between them as needed.
 
 ## Creating a Task
 
-The examples below demonstrate creating an Analog Read task, but the methods apply to all 
-tasks types (analog write, digital read, digital write, etc.).
+The examples below demonstrate creating an Analog Read task, but the methods apply to
+all tasks types (analog write, digital read, digital write, etc.).
 
 <Tabs
   client:load
@@ -57,9 +64,9 @@ tasks types (analog write, digital read, digital write, etc.).
 >
 <Fragment slot="tab1">
 
-Click on the device icon (<Icon.Device />) on the left-hand side
-of the screen. Find the device you'd like to create the task for, right-click on it,
-and select the appropriate task type.
+Click on the device icon (<Icon.Device />) on the left-hand side of the screen. Find the
+device you'd like to create the task for, right-click on it, and select the appropriate
+task type.
 
 <ExampleDetails>
 <Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
@@ -74,11 +81,12 @@ and select the appropriate task type.
 </Fragment>
 <Fragment slot="tab2">
 
-Click on the Search and Command Palette at the top. Alternatively, you can also
-open this palette with `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
+Click on the Search and Command Palette at the top. Alternatively, you can also open
+this palette with `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
 
-In command mode (first character in the input is `>`), type "Create".
-You'll see options for creating different task types. Select the one you need to open the task configuration dialog.
+In command mode (first character in the input is `>`), type "Create". You'll see options
+for creating different task types. Select the one you need to open the task
+configuration dialog.
 
 <ExampleDetails>
 <Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
@@ -113,7 +121,6 @@ select the appropriate NI task type from the menu.
 
 ## Task Lifecycle
 
-
 ### Configuring the Task
 
 After making any changes to your task configuration, click the `Configure` button. If
@@ -126,8 +133,8 @@ in the background, either reading data from or writing data to your hardware.
 
 ### Stopping the Task
 
-To stop a running task, click the Pause button (<Icon.Pause />). The task will stop executing, but the
-configuration will remain saved.
+To stop a running task, click the Pause button (<Icon.Pause />). The task will stop
+executing, but the configuration will remain saved.
 
 <Note.Note variant="info">
   Starting and stopping a task does not re-apply the task configuration. If you've made
@@ -184,7 +191,7 @@ analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
 
 ```python
 import synnax as sy
-from synnax.hardware import modbus, ni, labjack, opc
+from synnax.hardware import modbus, ni, labjack, opcua
 
 client = sy.Synnax()
 
@@ -220,7 +227,7 @@ import synnax as sy
 client = sy.Synnax()
 
 # Retrieve task
-task = client.hardware.tasks.retrieve(name="My Exmple Task")
+task = client.hardware.tasks.retrieve(name="My Example Task")
 
 # Stop task if running
 task.stop()
@@ -244,7 +251,7 @@ const client = new Synnax();
 
 // List all tasks
 const allTasks = await client.hardware.tasks.list();
-allTasks.forEach(task => {
+allTasks.forEach((task) => {
   console.log(`Task: ${task.name}, Type: ${task.type}`);
 });
 
@@ -252,7 +259,7 @@ allTasks.forEach(task => {
 const task = await client.hardware.tasks.retrieve({ name: "My Example Task" });
 
 // List tasks by type
-const analogReadTasks = allTasks.filter(t => t.type === "ni_analog_read");
+const analogReadTasks = allTasks.filter((t) => t.type === "ni_analog_read");
 
 // Available task types:
 //   ni_analog_read, ni_analog_write,
@@ -261,7 +268,6 @@ const analogReadTasks = allTasks.filter(t => t.type === "ni_analog_read");
 //   labjack_read, labjack_write,
 //   modbus_read, modbus_write,
 //   opc_read, opc_write,
-
 ```
 
 </ExampleDetails>
@@ -281,18 +287,20 @@ const originalTask = await client.hardware.tasks.retrieve({ name: "My Example Ta
 const copiedTask = await client.hardware.tasks.copy(
   originalTask.key,
   "My Example Task Copy",
-  false  // snapshot = false
+  false, // snapshot = false
 );
 
 // Modify the configuration
-// Note: You'll need to parse and modify the config JSON string
 const config = JSON.parse(copiedTask.config);
 config.auto_start = true;
-copiedTask.config = JSON.stringify(config);
 
-// Apply the changes by creating/updating the task
-await client.hardware.tasks.create(copiedTask);
-
+// Update the task (create with key updates existing task)
+await client.hardware.tasks.create({
+  key: copiedTask.key,
+  name: copiedTask.name,
+  type: copiedTask.type,
+  config: config,
+});
 ```
 
 </ExampleDetails>
@@ -309,7 +317,7 @@ const client = new Synnax();
 const task = await client.hardware.tasks.retrieve({ name: "My Example Task" });
 
 // Stop task if running
-await task.executeCommandSync("stop");
+await task.executeCommandSync({ type: "stop" });
 
 // Delete task
 await client.hardware.tasks.delete(task.key);
@@ -324,24 +332,35 @@ await client.hardware.tasks.delete(task.key);
 
 ## Next Steps
 
-Now that you understand the basics of working with tasks, you can learn how to configure a specific task type:
+Now that you understand the basics of working with tasks, you can learn how to configure
+a specific task type:
 
 ### National Instruments
-- [Analog Read Task](/reference/driver/ni/analog-read-task) - Acquire data from analog inputs
-- [Analog Write Task](/reference/driver/ni/analog-write-task) - Send commands to analog outputs
-- [Counter Read Task](/reference/driver/ni/counter-read-task) - Acquire data from counter inputs
-- [Counter Write Task](/reference/driver/ni/counter-write-task) - Generate pulse train outputs
-- [Digital Read Task](/reference/driver/ni/digital-read-task) - Acquire data from digital inputs
-- [Digital Write Task](/reference/driver/ni/digital-write-task) - Send commands to digital outputs
+
+- [Analog Read Task](/reference/driver/ni/analog-read-task) - Acquire data from analog
+  inputs
+- [Analog Write Task](/reference/driver/ni/analog-write-task) - Send commands to analog
+  outputs
+- [Counter Read Task](/reference/driver/ni/counter-read-task) - Acquire data from
+  counter inputs
+- [Counter Write Task](/reference/driver/ni/counter-write-task) - Generate pulse train
+  outputs
+- [Digital Read Task](/reference/driver/ni/digital-read-task) - Acquire data from
+  digital inputs
+- [Digital Write Task](/reference/driver/ni/digital-write-task) - Send commands to
+  digital outputs
 
 ### LabJack
+
 - [Read Task](/reference/driver/labjack/read-task) - Acquire data from LabJack devices
 - [Write Task](/reference/driver/labjack/write-task) - Send commands to LabJack devices
 
 ### Modbus
+
 - [Read Task](/reference/driver/modbus/read-task) - Read data from Modbus devices
 - [Write Task](/reference/driver/modbus/write-task) - Write data to Modbus devices
 
 ### OPC UA
+
 - [Read Task](/reference/driver/opc-ua/read-task) - Read data from OPC UA servers
 - [Write Task](/reference/driver/opc-ua/write-task) - Write data to OPC UA servers

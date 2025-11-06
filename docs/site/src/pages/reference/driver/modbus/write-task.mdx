@@ -15,7 +15,12 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Sends control commands to Modbus TCP/IP servers by writing to holding registers and coils.
+<Note.Note variant="error">
+  **TO DO**: Update video for this page
+</Note.Note>
+
+Sends control commands to Modbus TCP/IP servers by writing to holding registers and
+coils.
 
 <Divider.Divider x />
 
@@ -26,19 +31,20 @@ Modbus write tasks use **command channels** to send values to the server:
 - **Command channels**: Write values here to send commands to the Modbus server
 - **Command time channels** (`_cmd_time`): Index channels storing command timestamps
 
-Unlike some hardware drivers, Modbus write tasks do not create separate state channels. Commands are written directly to the Modbus server when you write to a command channel.
+Unlike some hardware drivers, Modbus write tasks do not create separate state channels.
+Commands are written directly to the Modbus server when you write to a command channel.
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `name` | string | Yes | - | Human-readable task name |
-| `device` | string | Yes | - | Key of the Modbus server device |
-| `data_saving` | boolean | No | `false` | Enable permanent storage in Synnax |
-| `auto_start` | boolean | No | `false` | Automatically start task after configuration |
-| `channels` | array | Yes | - | List of output channel configurations |
+| Parameter     | Type    | Required | Default | Description                                  |
+| ------------- | ------- | -------- | ------- | -------------------------------------------- |
+| `name`        | string  | Yes      | -       | Human-readable task name                     |
+| `device`      | string  | Yes      | -       | Key of the Modbus server device              |
+| `data_saving` | boolean | No       | `false` | Enable permanent storage in Synnax           |
+| `auto_start`  | boolean | No       | `false` | Automatically start task after configuration |
+| `channels`    | array   | Yes      | -       | List of output channel configurations        |
 
 <Divider.Divider x />
 
@@ -47,17 +53,19 @@ Unlike some hardware drivers, Modbus write tasks do not create separate state ch
 <ChannelTypeDetails>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding Register Output ([`holding_register_output`](https://www.modbustools.com/modbus.html#function06))</Text.Text>
 
-Writes to 16-bit read/write registers (Function Code 06/16). Typically used for setpoints, control values, and configuration parameters.
+Writes to 16-bit read/write registers (Function Code 06/16). Typically used for
+setpoints, control values, and configuration parameters.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax command channel key |
-| `address` | number | Yes | - | Modbus register address (0-65535) |
-| `data_type` | enum | No | `float32` | Data type: `int16`, `uint16`, `int32`, `uint32`, `float32` |
-| `swap_bytes` | boolean | No | `false` | Swap byte order within 16-bit words |
-| `swap_words` | boolean | No | `false` | Swap word order for 32-bit+ values |
+| Parameter    | Type    | Required | Default   | Description                                                |
+| ------------ | ------- | -------- | --------- | ---------------------------------------------------------- |
+| `channel`    | number  | Yes      | -         | Synnax command channel key                                 |
+| `address`    | number  | Yes      | -         | Modbus register address (0-65535)                          |
+| `data_type`  | enum    | No       | `float32` | Data type: `int16`, `uint16`, `int32`, `uint32`, `float32` |
+| `swap_bytes` | boolean | No       | `false`   | Swap byte order within 16-bit words                        |
+| `swap_words` | boolean | No       | `false`   | Swap word order for 32-bit+ values                         |
 
 **Data Type Sizes:**
+
 - `int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
 
@@ -66,12 +74,13 @@ Writes to 16-bit read/write registers (Function Code 06/16). Typically used for 
 <ChannelTypeDetails>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil Output ([`coil_output`](https://www.modbustools.com/modbus.html#function05))</Text.Text>
 
-Writes to 1-bit read/write coils (Function Code 05/15). Typically used for binary control signals like relay states and valve positions.
+Writes to 1-bit read/write coils (Function Code 05/15). Typically used for binary
+control signals like relay states and valve positions.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax command channel key |
-| `address` | number | Yes | - | Modbus coil address (0-65535) |
+| Parameter | Type   | Required | Default | Description                   |
+| --------- | ------ | -------- | ------- | ----------------------------- |
+| `channel` | number | Yes      | -       | Synnax command channel key    |
+| `address` | number | Yes      | -       | Modbus coil address (0-65535) |
 
 **Data Type:** Always boolean (0/1)
 
@@ -81,9 +90,12 @@ Writes to 1-bit read/write coils (Function Code 05/15). Typically used for binar
 
 ## Important Rules
 
-- **Direct write**: Commands are written directly to the Modbus server without state feedback channels
-- **One running task per register**: A register/coil can only be controlled by one task at a time
-- **Byte/word order**: Ensure swap settings match your server configuration for multi-register data types
+- **Direct write**: Commands are written directly to the Modbus server without state
+  feedback channels
+- **One running task per register**: A register/coil can only be controlled by one task
+  at a time
+- **Byte/word order**: Ensure swap settings match your server configuration for
+  multi-register data types
 - **Read-only registers**: Input Registers and Discrete Inputs cannot be written to
 
 <Divider.Divider x />
@@ -109,45 +121,46 @@ from synnax.hardware import modbus
 client = sy.Synnax()
 
 # Retrieve device
-dev = client.hardware.devices.retrieve(name="my_modbus_server")
+dev = client.hardware.devices.retrieve(name="Modbus Server")
 
 # Create command time index
-cmd_time = client.channels.create(
+modbus_cmd_time = client.channels.create(
     name="modbus_cmd_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 
-# Create command channels
-setpoint_cmd = client.channels.create(
-    name="temperature_setpoint_cmd",
-    index=cmd_time.key,
-    data_type=sy.DataType.FLOAT32,
+# Create command channel for coil
+coil_cmd = client.channels.create(
+    name="coil_cmd",
+    index=modbus_cmd_time.key,
+    data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
 
-valve_cmd = client.channels.create(
-    name="valve_control_cmd",
-    index=cmd_time.key,
+# Create command channel for holding register
+holding_reg_cmd = client.channels.create(
+    name="holding_reg_cmd",
+    index=modbus_cmd_time.key,
     data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
 
 # Create and configure task
 task = modbus.WriteTask(
-    name="Modbus Write",
+    name="Modbus Write Task",
     device=dev.key,
     data_saving=True,
     channels=[
-        modbus.HoldingRegisterOutputChan(
-            channel=setpoint_cmd.key,
-            address=1000,
-            data_type="float32",
-        ),
         modbus.CoilOutputChan(
-            channel=valve_cmd.key,
+            channel=coil_cmd.key,
             address=0,
+        ),
+        modbus.HoldingRegisterOutputChan(
+            channel=holding_reg_cmd.key,
+            address=2,
+            data_type="uint8",
         ),
     ],
 )
@@ -158,23 +171,12 @@ client.hardware.tasks.configure(task)
 with task.run():
     with client.open_writer(
         start=sy.TimeStamp.now(),
-        channels=["temperature_setpoint_cmd", "valve_control_cmd"],
+        channels=["coil_cmd", "holding_reg_cmd"],
     ) as writer:
-        # Set temperature setpoint
+        # Write commands
         writer.write({
-            "temperature_setpoint_cmd": 25.5,
-        })
-
-        # Open valve
-        writer.write({
-            "valve_control_cmd": 1,
-        })
-
-        # Close valve after delay
-        import time
-        time.sleep(2)
-        writer.write({
-            "valve_control_cmd": 0,
+            "coil_cmd": 1,
+            "holding_reg_cmd": 100,
         })
 ```
 
@@ -185,25 +187,20 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.hardware.tasks.retrieve(name="Modbus Write")
+task = client.hardware.tasks.retrieve(name="Modbus Write Task")
+task = modbus.WriteTask(internal=task)
 
-# Add a new channel
-new_cmd_channel = client.channels.create(
-    name="pressure_setpoint_cmd",
-    index=cmd_time.key,
-    data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True,
-)
+# Update task-level configuration
+task.config.auto_start = True
 
-task.config.channels.append(
-    modbus.HoldingRegisterOutputChan(
-        channel=new_cmd_channel.key,
-        address=1001,
-        data_type="float32",
-    )
-)
+# Update coil configuration
+task.config.channels[0].address = 10
 
-# Reconfigure task
+# Update holding register configuration
+task.config.channels[1].address = 20
+task.config.channels[1].data_type = "uint16"
+
+# Apply changes
 client.hardware.tasks.configure(task)
 ```
 
@@ -221,49 +218,50 @@ import { Synnax, TimeStamp } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const dev = await client.hardware.devices.retrieve({ name: "my_modbus_server" });
+const dev = await client.hardware.devices.retrieve({ name: "Modbus Server" });
 
 // Create command time index
-const cmdTime = await client.channels.create({
+const modbusCmdTime = await client.channels.create({
   name: "modbus_cmd_time",
   isIndex: true,
   dataType: "timestamp",
   retrieveIfNameExists: true,
 });
 
-// Create command channels
-const setpointCmd = await client.channels.create({
-  name: "temperature_setpoint_cmd",
-  index: cmdTime.key,
-  dataType: "float32",
+// Create command channel for coil
+const coilCmd = await client.channels.create({
+  name: "coil_cmd",
+  index: modbusCmdTime.key,
+  dataType: "uint8",
   retrieveIfNameExists: true,
 });
 
-const valveCmd = await client.channels.create({
-  name: "valve_control_cmd",
-  index: cmdTime.key,
+// Create command channel for holding register
+const holdingRegCmd = await client.channels.create({
+  name: "holding_reg_cmd",
+  index: modbusCmdTime.key,
   dataType: "uint8",
   retrieveIfNameExists: true,
 });
 
 // Create and configure task
 const task = await client.hardware.tasks.create({
-  name: "Modbus Write",
+  name: "Modbus Write Task",
   type: "modbus_write",
   config: JSON.stringify({
     device: dev.key,
     data_saving: true,
     channels: [
       {
-        type: "holding_register_output",
-        channel: setpointCmd.key,
-        address: 1000,
-        data_type: "float32",
+        type: "coil_output",
+        channel: coilCmd.key,
+        address: 0,
       },
       {
-        type: "coil_output",
-        channel: valveCmd.key,
-        address: 0,
+        type: "holding_register_output",
+        channel: holdingRegCmd.key,
+        address: 2,
+        data_type: "uint8",
       },
     ],
   }),
@@ -275,23 +273,12 @@ await task.executeCommandSync("start");
 // Send commands
 const writer = await client.openWriter({
   start: TimeStamp.now(),
-  channels: ["temperature_setpoint_cmd", "valve_control_cmd"],
+  channels: ["coil_cmd", "holding_reg_cmd"],
 });
 
-// Set temperature setpoint
 await writer.write({
-  "temperature_setpoint_cmd": 25.5,
-});
-
-// Open valve
-await writer.write({
-  "valve_control_cmd": 1,
-});
-
-// Close valve after delay
-await new Promise(resolve => setTimeout(resolve, 2000));
-await writer.write({
-  "valve_control_cmd": 0,
+  coil_cmd: 1,
+  holding_reg_cmd: 100,
 });
 
 // Stop task
@@ -306,29 +293,28 @@ await writer.close();
 
 ```typescript
 // Retrieve existing task
-const task = await client.hardware.tasks.retrieve({ name: "Modbus Write" });
+const task = await client.hardware.tasks.retrieve({ name: "Modbus Write Task" });
 
-// Parse current configuration
+// Parse and update configuration
 const config = JSON.parse(task.config);
 
-// Add a new channel
-const newCmdChannel = await client.channels.create({
-  name: "pressure_setpoint_cmd",
-  index: cmdTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
-});
+// Update task-level configuration
+config.auto_start = true;
 
-config.channels.push({
-  type: "holding_register_output",
-  channel: newCmdChannel.key,
-  address: 1001,
-  data_type: "float32",
-});
+// Update coil configuration
+config.channels[0].address = 10;
 
-// Update task configuration
-task.config = JSON.stringify(config);
-await client.hardware.tasks.create(task);
+// Update holding register configuration
+config.channels[1].address = 20;
+config.channels[1].data_type = "uint16";
+
+// Apply changes
+await client.hardware.tasks.create({
+  key: task.key,
+  name: task.name,
+  type: task.type,
+  config: JSON.stringify(config),
+});
 ```
 
 </ExampleDetails>
@@ -336,4 +322,5 @@ await client.hardware.tasks.create(task);
   </Fragment>
 </Client.Tabs>
 
-For task lifecycle management, see the [Task Basics](/reference/driver/task-basics#how-to) page.
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.

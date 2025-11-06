@@ -15,6 +15,10 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
+<Note.Note variant="error">
+  **TO DO**: Update video for this page
+</Note.Note>
+
 Sends control commands to OPC UA server nodes by writing to specified NodeIds.
 
 <Divider.Divider x />
@@ -26,56 +30,64 @@ OPC UA write tasks use **command channels** to send values to the server:
 - **Command channels**: Write values here to send commands to the OPC UA server
 - **Command time channels** (`_cmd_time`): Index channels storing command timestamps
 
-Unlike some hardware drivers, OPC UA write tasks do not create separate state channels. Commands are written directly to the OPC UA server when you write to a command channel.
+Unlike some hardware drivers, OPC UA write tasks do not create separate state channels.
+Commands are written directly to the OPC UA server when you write to a command channel.
 
-If you need state feedback, configure a separate [read task](/reference/driver/opc-ua/read-task) to monitor the same nodes.
+If you need state feedback, configure a separate
+[read task](/reference/driver/opc-ua/read-task) to monitor the same nodes.
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `name` | string | Yes | - | Human-readable task name |
-| `device` | string | Yes | - | Key of the OPC UA server device |
-| `data_saving` | boolean | No | `false` | Enable permanent storage in Synnax |
-| `auto_start` | boolean | No | `false` | Automatically start task after configuration |
-| `channels` | array | Yes | - | List of output channel configurations |
+| Parameter     | Type    | Required | Default | Description                                  |
+| ------------- | ------- | -------- | ------- | -------------------------------------------- |
+| `name`        | string  | Yes      | -       | Human-readable task name                     |
+| `device`      | string  | Yes      | -       | Key of the OPC UA server device              |
+| `data_saving` | boolean | No       | `false` | Enable permanent storage in Synnax           |
+| `auto_start`  | boolean | No       | `false` | Automatically start task after configuration |
+| `channels`    | array   | Yes      | -       | List of output channel configurations        |
 
 <Divider.Divider x />
 
 ## Channel Types Reference
+
 [OPC UA Write Service Specification](https://reference.opcfoundation.org/Core/Part4/v104/docs/5.10.4)
 
 <ChannelTypeDetails>
 <Text.Text slot="summary" level="p"><Icon.Value /> Scalar Node Write</Text.Text>
 
-Writes scalar values to an OPC UA node. Suitable for control setpoints, configuration parameters, and single-value commands.
+Writes scalar values to an OPC UA node. Suitable for control setpoints, configuration
+parameters, and single-value commands.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax command channel key |
-| `node_id` | string | Yes | - | OPC UA NodeId (e.g., `ns=2;s=Setpoint`) |
+| Parameter | Type   | Required | Default | Description                             |
+| --------- | ------ | -------- | ------- | --------------------------------------- |
+| `channel` | number | Yes      | -       | Synnax command channel key              |
+| `node_id` | string | Yes      | -       | OPC UA NodeId (e.g., `ns=2;s=Setpoint`) |
 
 **NodeId Format Examples:**
+
 - Numeric: `ns=2;i=1000`
 - String: `ns=2;s=ControlSetpoint`
 - GUID: `ns=2;g=12345678-1234-1234-1234-123456789012`
 - Opaque: `ns=2;b=aGVsbG8=`
 
-**Note**: Configuring a write task creates only command channels (`_cmd` and `_cmd_time`). If you need state feedback, configure a corresponding [read task](/reference/driver/opc-ua/read-task) to monitor the same nodes.
+**Note**: Configuring a write task creates only command channels (`_cmd` and
+`_cmd_time`). If you need state feedback, configure a corresponding
+[read task](/reference/driver/opc-ua/read-task) to monitor the same nodes.
 
 </ChannelTypeDetails>
 
 <ChannelTypeDetails>
 <Text.Text slot="summary" level="p"><Icon.Array /> Array Node Write</Text.Text>
 
-Writes array data to an OPC UA node in bulk. Used for batch control commands or multi-value setpoints.
+Writes array data to an OPC UA node in bulk. Used for batch control commands or
+multi-value setpoints.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `channel` | number | Yes | - | Synnax command channel key |
-| `node_id` | string | Yes | - | OPC UA NodeId pointing to an array variable |
+| Parameter | Type   | Required | Default | Description                                 |
+| --------- | ------ | -------- | ------- | ------------------------------------------- |
+| `channel` | number | Yes      | -       | Synnax command channel key                  |
+| `node_id` | string | Yes      | -       | OPC UA NodeId pointing to an array variable |
 
 **Note**: The channel data type must match the array element type on the server.
 
@@ -85,10 +97,13 @@ Writes array data to an OPC UA node in bulk. Used for batch control commands or 
 
 ## Important Rules
 
-- **Direct write**: Commands are written directly to the OPC UA server without state feedback channels
-- **One running task per node**: A node can only be controlled by one write task at a time
+- **Direct write**: Commands are written directly to the OPC UA server without state
+  feedback channels
+- **One running task per node**: A node can only be controlled by one write task at a
+  time
 - **Node permissions**: The OPC UA server must allow write access to the specified nodes
-- **Data type matching**: Ensure Synnax channel data types match the OPC UA node data types
+- **Data type matching**: Ensure Synnax channel data types match the OPC UA node data
+  types
 
 <Divider.Divider x />
 
@@ -108,7 +123,7 @@ Writes array data to an OPC UA node in bulk. Used for batch control commands or 
 
 ```python
 import synnax as sy
-from synnax.hardware import opc
+from synnax.hardware import opcua
 
 client = sy.Synnax()
 
@@ -139,17 +154,17 @@ valve_cmd = client.channels.create(
 )
 
 # Create and configure task
-task = opc.WriteTask(
-    name="OPC UA Write",
+task = opcua.WriteTask(
+    name="OPC UA Write Task",
     device=dev.key,
     data_saving=True,
     channels=[
-        opc.ScalarNodeWriteChan(
-            channel=setpoint_cmd.key,
+        opcua.WriteChannel(
+            cmd_channel=setpoint_cmd.key,
             node_id="ns=2;s=TemperatureSetpoint",
         ),
-        opc.ScalarNodeWriteChan(
-            channel=valve_cmd.key,
+        opcua.WriteChannel(
+            cmd_channel=valve_cmd.key,
             node_id="ns=2;s=ValveControl",
         ),
     ],
@@ -188,24 +203,19 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.hardware.tasks.retrieve(name="OPC UA Write")
+task = client.hardware.tasks.retrieve(name="OPC UA Write Task")
+task = opcua.WriteTask(internal=task)
 
-# Add a new channel
-new_cmd_channel = client.channels.create(
-    name="pressure_setpoint_cmd",
-    index=cmd_time.key,
-    data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True,
-)
+# Update task-level configuration
+task.config.auto_start = True
 
-task.config.channels.append(
-    opc.ScalarNodeWriteChan(
-        channel=new_cmd_channel.key,
-        node_id="ns=2;s=PressureSetpoint",
-    )
-)
+# Update first channel configuration
+task.config.channels[0].node_id = "ns=2;s=TemperatureSetpoint2"
 
-# Reconfigure task
+# Update second channel configuration
+task.config.channels[1].node_id = "ns=2;s=ValveControl2"
+
+# Apply changes
 client.hardware.tasks.configure(task)
 ```
 
@@ -250,7 +260,7 @@ const valveCmd = await client.channels.create({
 
 // Create and configure task
 const task = await client.hardware.tasks.create({
-  name: "OPC UA Write",
+  name: "OPC UA Write Task",
   type: "opc_write",
   config: JSON.stringify({
     device: dev.key,
@@ -279,18 +289,18 @@ const writer = await client.openWriter({
 
 // Set temperature setpoint
 await writer.write({
-  "temperature_setpoint_cmd": 25.5,
+  temperature_setpoint_cmd: 25.5,
 });
 
 // Open valve
 await writer.write({
-  "valve_control_cmd": 1,
+  valve_control_cmd: 1,
 });
 
 // Close valve after delay
-await new Promise(resolve => setTimeout(resolve, 2000));
+await new Promise((resolve) => setTimeout(resolve, 2000));
 await writer.write({
-  "valve_control_cmd": 0,
+  valve_control_cmd: 0,
 });
 
 // Stop task
@@ -305,27 +315,27 @@ await writer.close();
 
 ```typescript
 // Retrieve existing task
-const task = await client.hardware.tasks.retrieve({ name: "OPC UA Write" });
+const task = await client.hardware.tasks.retrieve({ name: "OPC UA Write Task" });
 
-// Parse current configuration
+// Parse and update configuration
 const config = JSON.parse(task.config);
 
-// Add a new channel
-const newCmdChannel = await client.channels.create({
-  name: "pressure_setpoint_cmd",
-  index: cmdTime.key,
-  dataType: "float32",
-  retrieveIfNameExists: true,
-});
+// Update task-level configuration
+config.auto_start = true;
 
-config.channels.push({
-  channel: newCmdChannel.key,
-  node_id: "ns=2;s=PressureSetpoint",
-});
+// Update first channel configuration
+config.channels[0].node_id = "ns=2;s=TemperatureSetpoint2";
 
-// Update task configuration
-task.config = JSON.stringify(config);
-await client.hardware.tasks.create(task);
+// Update second channel configuration
+config.channels[1].node_id = "ns=2;s=ValveControl2";
+
+// Apply changes
+await client.hardware.tasks.create({
+  key: task.key,
+  name: task.name,
+  type: task.type,
+  config: JSON.stringify(config),
+});
 ```
 
 </ExampleDetails>
@@ -333,4 +343,5 @@ await client.hardware.tasks.create(task);
   </Fragment>
 </Client.Tabs>
 
-For task lifecycle management, see the [Task Basics](/reference/driver/task-basics#how-to) page.
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
