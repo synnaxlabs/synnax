@@ -126,12 +126,15 @@ func NewFunctionProperties() FunctionProperties {
 // Params are named, ordered parameters for a function.
 type Params []Param
 
+// Get retrieves a parameter by name. Returns the parameter and true if found,
+// otherwise returns a zero Param and false.
 func (p Params) Get(name string) (Param, bool) {
 	return lo.Find(p, func(item Param) bool {
 		return item.Name == name
 	})
 }
 
+// GetIndex returns the index of a parameter by name. Returns -1 if not found.
 func (p Params) GetIndex(name string) int {
 	_, i, ok := lo.FindIndexOf(p, func(item Param) bool {
 		return item.Name == name
@@ -142,11 +145,13 @@ func (p Params) GetIndex(name string) int {
 	return i
 }
 
+// Has returns true if a parameter with the given name exists.
 func (p Params) Has(name string) bool {
 	_, ok := p.Get(name)
 	return ok
 }
 
+// ValueMap returns a map of parameter names to their values.
 func (p Params) ValueMap() map[string]any {
 	return lo.SliceToMap(p, func(item Param) (string, any) {
 		return item.Name, item.Value
