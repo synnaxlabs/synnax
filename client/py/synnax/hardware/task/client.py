@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import warnings
 from contextlib import contextmanager
-from typing import Protocol, overload
+from typing import Any, Protocol, overload
 from uuid import uuid4
 
 from alamos import NOOP, Instrumentation
@@ -42,12 +42,24 @@ class _DeleteRequest(Payload):
     keys: list[int]
 
 
+class _CopyRequest(Payload):
+    key: int
+    name: str
+    snapshot: bool
+
+
+class _CopyResponse(Payload):
+    task: TaskPayload
+
+
 class _RetrieveRequest(Payload):
     rack: int | None = None
     keys: list[int] | None = None
     names: list[str] | None = None
     types: list[str] | None = None
     include_status: bool = False
+    internal: bool | None = None
+    snapshot: bool | None = None
 
 
 class _RetrieveResponse(Payload):
@@ -57,6 +69,7 @@ class _RetrieveResponse(Payload):
 _CREATE_ENDPOINT = "/hardware/task/create"
 _DELETE_ENDPOINT = "/hardware/task/delete"
 _RETRIEVE_ENDPOINT = "/hardware/task/retrieve"
+_COPY_ENDPOINT = "/hardware/task/copy"
 
 _TASK_STATE_CHANNEL = "sy_task_status"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
@@ -237,6 +250,7 @@ class Client:
     _default_rack: Rack | None
     _racks: RackClient
     _device_client: "device.Client | None"
+    _ontology_client: "Any | None"
     instrumentation: Instrumentation = NOOP
 
     def __init__(
@@ -245,12 +259,14 @@ class Client:
         frame_client: FrameClient,
         rack_client: RackClient,
         device_client: "device.Client | None" = None,
+        ontology_client: "Any | None" = None,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
         self._frame_client = frame_client
         self._racks = rack_client
         self._device_client = device_client
+        self._ontology_client = ontology_client
         self._default_rack = None
         self.instrumentation = instrumentation
 
@@ -382,6 +398,41 @@ class Client:
         )
         sug = self.sugar(res.tasks)
         return sug[0] if is_single else sug
+
+    def list(self, rack: int | None = None) -> list[Task]:
+        """Lists all tasks on a rack. If no rack is specified, lists all tasks on the
+        default rack. Excludes internal system tasks (scanner tasks and rack state).
+
+        :param rack: The rack key to list tasks from. If None, uses the default rack.
+        :return: A list of all user-created tasks on the specified rack.
+        """
+        if rack is None and self._default_rack is None:
+            self._default_rack = self._racks.retrieve_embedded_rack()
+        if rack is None:
+            rack = self._default_rack.key
+
+        res = send_required(
+            self._client,
+            _RETRIEVE_ENDPOINT,
+            _RetrieveRequest(rack=rack, internal=False),
+            _RetrieveResponse,
+        )
+        return self.sugar(res.tasks)
+
+    def copy(
+        self,
+        key: int,
+        name: str,
+    ) -> Task:
+        """Copies an existing task with a new name.
+
+        :param key: The key of the task to copy.
+        :param name: The name for the new task.
+        :return: The newly created task.
+        """
+        req = _CopyRequest(key=key, name=name, snapshot=False)
+        res = send_required(self._client, _COPY_ENDPOINT, req, _CopyResponse)
+        return self.sugar([res.task])[0]
 
     def sugar(self, tasks: list[Payload]):
         return [Task(**t.model_dump(), _frame_client=self._frame_client) for t in tasks]

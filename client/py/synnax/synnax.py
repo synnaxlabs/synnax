@@ -144,6 +144,7 @@ class Synnax(Client):
             frame_client=self,
             rack_client=racks,
             device_client=devices,
+            ontology_client=self.ontology,
         )
         self.ranges = RangeClient(
             unary_client=self._transport.unary,
