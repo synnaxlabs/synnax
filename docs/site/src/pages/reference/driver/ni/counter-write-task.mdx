@@ -1,0 +1,155 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "NI Counter Write Task"
+description: "Learn how to create a counter write task for NI hardware."
+next: "Digital Read Task"
+nextURL: "/reference/driver/ni/digital-read-task"
+prev: "Counter Read Task"
+prevURL: "/reference/driver/ni/counter-read-task"
+---
+
+import { Divider, Note, Icon } from "@synnaxlabs/pluto";
+import { Video, Image } from "@/components/Media";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Generates pulse train outputs on counter channels for NI devices.
+
+<Divider.Divider x />
+
+<Note.Note variant="warning">
+**Configuration Only**: Counter write tasks are configuration-only. Once configured and started, the task will continuously generate the specified pulse train based on the parameters set during configuration. No command or state channels are created, and the pulse output cannot be modified at runtime without reconfiguring the task.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Task Configuration
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | Yes | - | Human-readable task name |
+| `auto_start` | boolean | No | `false` | Automatically start task after configuration |
+| `channels` | array | Yes | - | List of counter output channel configurations |
+
+<Divider.Divider x />
+
+## Channel Configuration
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Counter port (0-indexed) |
+| `idle_state` | enum | No | `Low` | `Low`, `High` - output level when idle |
+| `initial_delay` | number | No | `0` | Delay before first pulse (seconds) |
+| `high_time` | number | No | `1e-6` | Duration of high portion of pulse (seconds) |
+| `low_time` | number | No | `1e-6` | Duration of low portion of pulse (seconds) |
+
+<Divider.Divider x />
+
+## Important Rules
+
+- **Configuration only**: Pulse parameters are set once when the task is configured and cannot be changed at runtime
+- **No command/state channels**: Unlike other write tasks, counter write tasks do not create or use command and state channels
+- **One task per module**: Only one running task can claim a module at a time
+- **Continuous output**: Once started, the task generates pulses continuously until stopped
+- **Port validation**: Counter ports cannot be duplicated within the same task
+
+<Divider.Divider x />
+
+## Examples
+
+<Client.Tabs client:only="react">
+  <Fragment slot="console">
+    <Video
+      client:only="react"
+      id="device-drivers/ni/counter-write-task/counter-write-task-select-device"
+    />
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+from synnax.hardware import ni
+
+client = sy.Synnax()
+
+# Retrieve device
+dev = client.hardware.devices.retrieve(name="my_daq")
+
+# Create and configure task
+# Note: No channels need to be created - task is configuration-only
+task = ni.CounterWriteTask(
+    name="Counter Write",
+    channels=[
+        ni.COPulseOutputChan(
+            device=dev.key,
+            port=0,
+            idle_state="Low",
+            initial_delay=0.0,
+            high_time=0.001,  # 1ms high
+            low_time=0.001,   # 1ms low (500Hz pulse train)
+        ),
+    ],
+)
+
+client.hardware.tasks.configure(task)
+
+# Start task - pulse train begins immediately
+with task.run():
+    # Task is now generating continuous 500Hz pulses on counter 0
+    # No commands to send - output is fixed at configuration time
+    import time
+    time.sleep(5)  # Let it run for 5 seconds
+
+# Task stops when exiting context
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve device
+const dev = await client.hardware.devices.retrieve({ name: "my_daq" });
+
+// Create and configure task
+// Note: No channels need to be created - task is configuration-only
+const task = await client.hardware.tasks.create({
+  name: "Counter Write",
+  type: "ni_counter_write",
+  config: JSON.stringify({
+    channels: [
+      {
+        type: "co_pulse_output",
+        device: dev.key,
+        port: 0,
+        idle_state: "Low",
+        initial_delay: 0.0,
+        high_time: 0.001, // 1ms high
+        low_time: 0.001, // 1ms low (500Hz pulse train)
+        units: "Seconds",
+      },
+    ],
+  }),
+});
+
+// Start task - pulse train begins immediately
+await task.executeCommandSync("start");
+
+// Task is now generating continuous 500Hz pulses on counter 0
+// No commands to send - output is fixed at configuration time
+
+// Wait 5 seconds
+await new Promise((resolve) => setTimeout(resolve, 5000));
+
+// Stop task
+await task.executeCommandSync("stop");
+```
+
+  </Fragment>
+</Client.Tabs>

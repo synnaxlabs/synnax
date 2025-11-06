@@ -1,0 +1,128 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "NI Task Basics"
+description: "Learn the fundamentals of working with tasks in the NI driver."
+prev: "Configure Device"
+prevURL: "/reference/driver/ni/configure-device"
+next: "Analog Read Task"
+nextURL: "/reference/driver/ni/analog-read-task"
+---
+
+import { Divider, Note, Icon } from "@synnaxlabs/pluto";
+import { Video } from "@/components/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Now that you've configured your NI device, you're ready to create tasks to communicate
+with it. This guide covers the fundamentals of working with tasks in the NI driver.
+
+<Divider.Divider x />
+
+## Prerequisites
+
+Before creating any tasks, you'll need to have
+[connected and configured an NI device](/reference/driver/ni/configure-device).
+
+<Divider.Divider x />
+
+## What Are Tasks?
+
+Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
+can be used for both control and data acquisition purposes. In the context of the NI
+Driver, a task defines a background process that either reads data from or writes data
+to your NI hardware.
+
+Tasks can be started, stopped, and re-configured at any time. Synnax permanently stores
+the configuration of each task, so it's easy to set up multiple tasks for different
+purposes and switch between them as needed.
+
+<Divider.Divider x />
+
+## Opening Task Configuration Dialogs
+
+There are three ways to create and open a task configuration dialog in Synnax. The
+examples below demonstrate creating an analog read task, but the same methods apply to
+all task types (analog write, digital read, digital write, etc.).
+
+### From the Devices Toolbar
+
+To create a task from the Devices Toolbar, open the Console and click on the device
+icon (<Icon.Device />) on the left-hand side of the screen. Find the device you'd like
+to create the task for, right-click on it, and select the appropriate task type (e.g.,
+"Create analog read task").
+
+<Video
+  client:only="react"
+  id="device-drivers/ni/analog-read-task/device-create-analog-read-task"
+/>
+
+### From the Command Palette
+
+To create a task from the command palette, open the Console and click on the Search and
+Command Palette at the top. You can also open this palette with `Ctrl+Shift+P` on
+Windows and `Cmd+Shift+P` on macOS.
+
+In command mode (enabled when the first character in the input is ">"), type "NI".
+You'll see options for creating different NI task types. Select the one you need to open
+the task configuration dialog.
+
+<Video
+  client:only="react"
+  id="device-drivers/ni/analog-read-task/palette-create-analog-read-task"
+/>
+
+### From The Layout Selector
+
+To create a task from the layout selector, click on the add icon (<Icon.Add />) in the
+top-right corner of the central mosaic and select the appropriate NI task type from the
+menu.
+
+<Video
+  client:only="react"
+  id="device-drivers/ni/analog-read-task/layout-create-analog-read-task"
+/>
+
+<Divider.Divider x />
+
+## Starting and Stopping Tasks
+
+Once you've configured your task (adding channels, setting timing parameters, etc.),
+you'll need to apply the configuration before starting the task.
+
+### Configuring the Task
+
+After making any changes to your task configuration, click the "Configure" button. If
+there are no errors, Synnax will acknowledge the configured task and enable the Play
+(<Icon.Play />) button in the dialog.
+
+### Starting the Task
+
+Click the Play (<Icon.Play />) button to start the task. The task will begin executing
+in the background, either reading data from or writing data to your hardware.
+
+### Stopping the Task
+
+To stop a running task, click the Stop button. The task will stop executing, but the
+configuration will remain saved.
+
+<Note.Note variant="info">
+  Starting and stopping a task does not re-apply the task configuration. If you've made
+  changes to the configuration, you'll need to re-configure the task by clicking the
+  "Configure" button before those changes take effect.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Next Steps
+
+Now that you understand the basics of working with tasks, you can learn about specific
+task types:
+
+- [Analog Read Task](/reference/driver/ni/analog-read-task) - Acquire data from analog
+  inputs
+- [Analog Write Task](/reference/driver/ni/analog-write-task) - Send commands to analog
+  outputs
+- [Digital Read Task](/reference/driver/ni/digital-read-task) - Acquire data from
+  digital inputs
+- [Digital Write Task](/reference/driver/ni/digital-write-task) - Send commands to
+  digital outputs

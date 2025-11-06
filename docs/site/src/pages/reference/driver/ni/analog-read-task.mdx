@@ -4,173 +4,552 @@ title: "NI Analog Read Task"
 description: "Learn how to create an analog read task for NI hardware."
 next: "Analog Write Task"
 nextURL: "/reference/driver/ni/analog-write-task"
-prev: "Configure Device"
-prevURL: "/reference/driver/ni/configure-device"
+prev: "Task Basics"
+prevURL: "/reference/driver/ni/task-basics"
 ---
 
-import { Divider, Text, Note, Icon } from "@synnaxlabs/pluto";
-import StepText from "@/components/StepText.astro";
-import { Tabs } from "@/components/Tabs";
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/Media";
+import { Fragment } from "react";
+import ChannelTypeDetails from "@/components/details/ChannelTypeDetails.astro";
+import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The NI Analog Read Task is used for acquiring data from analog inputs on your NI
-devices. In this guide, we'll walk you through the steps for creating an analog read
-task using the Synnax Console.
+Acquires data from analog inputs on NI devices at a specified sample rate.
 
 <Divider.Divider x />
 
-## Prerequisites
+## Task Configuration
 
-Before configuring the task, you'll need to have
-[connected and configured an NI device](/reference/driver/ni/configure-device).
-
-<Divider.Divider x />
-
-## A Short Primer on Tasks
-
-Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
-can be used for both control and data acquisition purposes. In the context of the NI
-Driver, an analog read task defines a background process that reads data from the analog
-inputs on a particular DAQ card.
-
-An analog read task can be started, stopped, and re-configured at any time. Synnax
-permanently stores the configuration of the task, so it's easy to set up multiple tasks
-for different purposes.
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | Yes | - | Human-readable task name |
+| `sample_rate` | number | Yes | - | Samples per second (Hz), determined by module |
+| `stream_rate` | number | No | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
+| `data_saving` | boolean | No | `false` | Enable permanent storage in Synnax |
+| `auto_start` | boolean | No | `false` | Automatically start task after configuration |
+| `channels` | array | Yes | - | List of analog input channel configurations |
 
 <Divider.Divider x />
 
-## Important Rules for Analog Read Tasks
+## Channel Types
 
-There are a few important rules to keep in mind when creating an analog read task.
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Acceleration /> Accelerometer (`ai_accel`)</Text.Text>
 
-### Sample Rates
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum acceleration |
+| `max_val` | number | No | `1` | Maximum acceleration |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `sensitivity` | number | Yes | - | Sensor sensitivity |
+| `sensitivity_units` | enum | Yes | - | `mVoltsPerG`, `VoltsPerG` |
+| `units` | enum | Yes | - | `g`, `MetersPerSecondSquared`, `InchesPerSecondSquared` |
+| `current_excit_source` | enum | Yes | - | `Internal`, `External`, `None` |
+| `current_excit_val` | number | Yes | - | Excitation current (Amps) |
+| `custom_scale` | object | No | - | Custom scaling |
 
-All channels in the task are sampled at the same rate. If you'd like to sample different
-channels at different rates, create a separate task to do so.
+</ChannelTypeDetails>
 
-### One Running Task Per Port
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Bridge /> Bridge (`ai_bridge`)</Text.Text>
 
-Synnax can only read live data into a channel from one source at a time. If you have two
-tasks that read from "ai0" on the same device, you cannot have both tasks running at the
-same time.
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum value |
+| `max_val` | number | No | `1` | Maximum value |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `units` | enum | Yes | - | `mVoltsPerVolt`, `VoltsPerVolt` |
+| `bridge_config` | enum | Yes | - | `FullBridge`, `HalfBridge`, `QuarterBridge` |
+| `voltage_excit_source` | enum | Yes | - | `Internal`, `External`, `None` |
+| `voltage_excit_val` | number | Yes | - | Excitation voltage (Volts) |
+| `nominal_bridge_resistance` | number | Yes | - | Nominal resistance (Ohms), must be &gt; 0 |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Current /> Current (`ai_current`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum current (Amps) |
+| `max_val` | number | No | `0.02` | Maximum current (Amps) |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `units` | enum | No | `Amps` | `Amps` |
+| `shunt_resistor_loc` | enum | Yes | - | `Default`, `Internal`, `External` |
+| `ext_shunt_resistor_val` | number | No | - | External shunt resistor value (Ohms) |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Force /> Force Bridge Table (`ai_force_bridge_table`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum force |
+| `max_val` | number | No | `100` | Maximum force |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `units` | enum | Yes | - | Force units (`Newtons`, `Pounds`, `KilogramForce`) |
+| `bridge_config` | enum | Yes | - | `FullBridge`, `HalfBridge`, `QuarterBridge` |
+| `voltage_excit_source` | enum | Yes | - | `Internal`, `External`, `None` |
+| `voltage_excit_val` | number | Yes | - | Excitation voltage (Volts) |
+| `nominal_bridge_resistance` | number | Yes | - | Nominal resistance (Ohms) |
+| `electrical_vals` | array | Yes | - | Electrical values for table |
+| `physical_vals` | array | Yes | - | Physical values for table |
+| `electrical_units` | enum | Yes | - | Electrical units |
+| `physical_units` | enum | Yes | - | Physical units |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Force /> Force Bridge Two-Point Linear (`ai_force_bridge_two_point_lin`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum force |
+| `max_val` | number | No | `100` | Maximum force |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `units` | enum | Yes | - | Force units (`Newtons`, `Pounds`, `KilogramForce`) |
+| `bridge_config` | enum | Yes | - | `FullBridge`, `HalfBridge`, `QuarterBridge` |
+| `voltage_excit_source` | enum | Yes | - | `Internal`, `External`, `None` |
+| `voltage_excit_val` | number | Yes | - | Excitation voltage (Volts) |
+| `nominal_bridge_resistance` | number | Yes | - | Nominal resistance (Ohms) |
+| `first_electrical_val` | number | Yes | - | First electrical value |
+| `second_electrical_val` | number | Yes | - | Second electrical value |
+| `electrical_units` | enum | Yes | - | Electrical units |
+| `first_physical_val` | number | Yes | - | First physical value |
+| `second_physical_val` | number | Yes | - | Second physical value |
+| `physical_units` | enum | Yes | - | Physical units |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Force /> Force IEPE (`ai_force_iepe`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum force |
+| `max_val` | number | No | `100` | Maximum force |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `units` | enum | Yes | - | Force units (`Newtons`, `Pounds`, `KilogramForce`) |
+| `sensitivity` | number | Yes | - | Sensor sensitivity |
+| `sensitivity_units` | enum | Yes | - | `mVoltsPerNewton`, `mVoltsPerPound` |
+| `current_excit_source` | enum | Yes | - | `Internal`, `External`, `None` |
+| `current_excit_val` | number | Yes | - | Excitation current (Amps) |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Sound /> Microphone (`ai_microphone`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `mic_sensitivity` | number | Yes | - | Microphone sensitivity |
+| `max_snd_press_level` | number | Yes | - | Maximum sound pressure level |
+| `current_excit_source` | enum | Yes | - | `Internal`, `External`, `None` |
+| `current_excit_val` | number | Yes | - | Excitation current (Amps) |
+| `units` | enum | No | `Pascals` | `Pascals` |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Pressure /> Pressure Bridge Table (`ai_pressure_bridge_table`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum pressure |
+| `max_val` | number | No | `100` | Maximum pressure |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `units` | enum | Yes | - | Pressure units (`Pascals`, `PSI`, `Bar`) |
+| `bridge_config` | enum | Yes | - | `FullBridge`, `HalfBridge`, `QuarterBridge` |
+| `voltage_excit_source` | enum | Yes | - | `Internal`, `External`, `None` |
+| `voltage_excit_val` | number | Yes | - | Excitation voltage (Volts) |
+| `nominal_bridge_resistance` | number | Yes | - | Nominal resistance (Ohms) |
+| `electrical_vals` | array | Yes | - | Electrical values for table |
+| `physical_vals` | array | Yes | - | Physical values for table |
+| `electrical_units` | enum | Yes | - | Electrical units |
+| `physical_units` | enum | Yes | - | Physical units |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Pressure /> Pressure Bridge Two-Point Linear (`ai_pressure_bridge_two_point_lin`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum pressure |
+| `max_val` | number | No | `100` | Maximum pressure |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `units` | enum | Yes | - | Pressure units (`Pascals`, `PSI`, `Bar`) |
+| `bridge_config` | enum | Yes | - | `FullBridge`, `HalfBridge`, `QuarterBridge` |
+| `voltage_excit_source` | enum | Yes | - | `Internal`, `External`, `None` |
+| `voltage_excit_val` | number | Yes | - | Excitation voltage (Volts) |
+| `nominal_bridge_resistance` | number | Yes | - | Nominal resistance (Ohms) |
+| `first_electrical_val` | number | Yes | - | First electrical value |
+| `second_electrical_val` | number | Yes | - | Second electrical value |
+| `electrical_units` | enum | Yes | - | Electrical units |
+| `first_physical_val` | number | Yes | - | First physical value |
+| `second_physical_val` | number | Yes | - | Second physical value |
+| `physical_units` | enum | Yes | - | Physical units |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Resistance /> Resistance (`ai_resistance`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum resistance (Ohms) |
+| `max_val` | number | No | `1000` | Maximum resistance (Ohms) |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `units` | enum | No | `Ohms` | `Ohms` |
+| `resistance_config` | enum | Yes | - | `2Wire`, `3Wire`, `4Wire` |
+| `current_excit_source` | enum | Yes | - | `Internal`, `External`, `None` |
+| `current_excit_val` | number | Yes | - | Excitation current (Amps) |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> RTD (`ai_rtd`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum temperature |
+| `max_val` | number | No | `100` | Maximum temperature |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `units` | enum | No | `DegC` | `DegC`, `DegF`, `Kelvins`, `DegR` |
+| `rtd_type` | enum | Yes | - | `Pt3750`, `Pt3851`, `Pt3911`, `Pt3916`, `Pt3920`, `Pt3928`, `Custom` |
+| `resistance_config` | enum | Yes | - | `2Wire`, `3Wire`, `4Wire` |
+| `current_excit_source` | enum | Yes | - | `Internal`, `External`, `None` |
+| `current_excit_val` | number | Yes | - | Excitation current (Amps) |
+| `r_0` | number | No | - | Resistance at 0°C (for custom RTD) |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Strain /> Strain Gauge (`ai_strain_gauge`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum strain |
+| `max_val` | number | No | `1` | Maximum strain |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `units` | enum | No | `strain` | `strain` |
+| `strain_config` | enum | Yes | - | `full-bridge-I`, `full-bridge-II`, `full-bridge-III`, `half-bridge-I`, `half-bridge-II`, `quarter-bridge-I`, `quarter-bridge-II` |
+| `voltage_excit_source` | enum | Yes | - | `Internal`, `External`, `None` |
+| `voltage_excit_val` | number | Yes | - | Excitation voltage (Volts) |
+| `gage_factor` | number | Yes | - | Gage factor |
+| `initial_bridge_voltage` | number | Yes | - | Initial bridge voltage |
+| `nominal_gage_resistance` | number | Yes | - | Nominal gage resistance (Ohms) |
+| `poisson_ratio` | number | Yes | - | Poisson's ratio |
+| `lead_wire_resistance` | number | Yes | - | Lead wire resistance (Ohms) |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Temperature Built-In Sensor (`ai_temp_builtin`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `units` | enum | No | `DegC` | `DegC`, `DegF`, `Kelvins`, `DegR` |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermocouple (`ai_thermocouple`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum temperature |
+| `max_val` | number | No | `100` | Maximum temperature |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `units` | enum | No | `DegC` | `DegC`, `DegF`, `Kelvins`, `DegR` |
+| `thermocouple_type` | enum | Yes | - | `J`, `K`, `N`, `R`, `S`, `T`, `B`, `E` |
+| `cjc_source` | enum | Yes | - | Cold junction compensation source (`BuiltIn`, `ConstVal`, `Chan`) |
+| `cjc_val` | number | No | `25` | Cold junction temperature (if `cjc_source` is `ConstVal`) |
+| `cjc_channel` | number | No | - | Cold junction channel (if `cjc_source` is `Chan`) |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Torque /> Torque Bridge Table (`ai_torque_bridge_table`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum torque |
+| `max_val` | number | No | `100` | Maximum torque |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `units` | enum | Yes | - | Torque units (`NewtonMeters`, `InchPounds`, `FootPounds`) |
+| `bridge_config` | enum | Yes | - | `FullBridge`, `HalfBridge`, `QuarterBridge` |
+| `voltage_excit_source` | enum | Yes | - | `Internal`, `External`, `None` |
+| `voltage_excit_val` | number | Yes | - | Excitation voltage (Volts) |
+| `nominal_bridge_resistance` | number | Yes | - | Nominal resistance (Ohms) |
+| `electrical_vals` | array | Yes | - | Electrical values for table |
+| `physical_vals` | array | Yes | - | Physical values for table |
+| `electrical_units` | enum | Yes | - | Electrical units |
+| `physical_units` | enum | Yes | - | Physical units |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Torque /> Torque Bridge Two-Point Linear (`ai_torque_bridge_two_point_lin`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum torque |
+| `max_val` | number | No | `100` | Maximum torque |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `units` | enum | Yes | - | Torque units (`NewtonMeters`, `InchPounds`, `FootPounds`) |
+| `bridge_config` | enum | Yes | - | `FullBridge`, `HalfBridge`, `QuarterBridge` |
+| `voltage_excit_source` | enum | Yes | - | `Internal`, `External`, `None` |
+| `voltage_excit_val` | number | Yes | - | Excitation voltage (Volts) |
+| `nominal_bridge_resistance` | number | Yes | - | Nominal resistance (Ohms) |
+| `first_electrical_val` | number | Yes | - | First electrical value |
+| `second_electrical_val` | number | Yes | - | Second electrical value |
+| `electrical_units` | enum | Yes | - | Electrical units |
+| `first_physical_val` | number | Yes | - | First physical value |
+| `second_physical_val` | number | Yes | - | Second physical value |
+| `physical_units` | enum | Yes | - | Physical units |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Velocity /> Velocity IEPE (`ai_velocity_iepe`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `0` | Minimum velocity |
+| `max_val` | number | No | `1` | Maximum velocity |
+| `units` | enum | Yes | - | `MetersPerSecond`, `InchesPerSecond` |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration |
+| `sensitivity` | number | Yes | - | Sensor sensitivity |
+| `sensitivity_units` | enum | Yes | - | `MillivoltsPerMillimeterPerSecond`, `MilliVoltsPerInchPerSecond` |
+| `current_excit_source` | enum | Yes | - | `Internal`, `External`, `None` |
+| `current_excit_val` | number | Yes | - | Excitation current (Amps) |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Voltage /> Voltage (`ai_voltage`)</Text.Text>
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `channel` | number | Yes | - | Synnax channel key |
+| `device` | string | Yes | - | Device identifier |
+| `port` | number | Yes | - | Physical port |
+| `min_val` | number | No | `-10.0` | Minimum voltage (Volts) |
+| `max_val` | number | No | `10.0` | Maximum voltage (Volts) |
+| `terminal_config` | enum | No | `Cfg_Default` | Terminal configuration (`Cfg_Default`, `RSE`, `NRSE`, `Diff`, `PseudoDiff`) |
+| `units` | enum | No | `Volts` | `Volts` |
+| `custom_scale` | object | No | - | Custom scaling |
+
+</ChannelTypeDetails>
 
 <Divider.Divider x />
 
-## Open the Task Configuration Dialog
+## Important Rules
 
-### From the Devices Toolbar
-
-To create an analog read task from the Devices Toolbar, open the Console and click on
-the device icon (<Icon.Device />) on the left-hand side of the screen. Find the device
-you'd like to create the task for, right-click on it, and select "Create analog read
-task".
-
-<Video
-  client:only="react"
-  id="device-drivers/ni/analog-read-task/device-create-analog-read-task"
-/>
-
-### From the Command Palette
-
-To create an analog read task from the command palette, open the Console and click on
-the Search and Command Palette at the top. You can also open this palette with
-`Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
-
-In command mode (enabled when the first character in the input is ">"), type "NI".
-You'll see an option called "Create an NI Analog Read Task". Select this option to open
-the analog read task configuration dialog.
-
-<Video
-  client:only="react"
-  id="device-drivers/ni/analog-read-task/palette-create-analog-read-task"
-/>
-
-### From The Layout Selector
-
-To create an analog read task from the layout selector, click on the add icon (<Icon.Add
-/>) in the top-right corner of the central mosaic and select "NI Analog Read Task".
-
-<Video
-  client:only="react"
-  id="device-drivers/ni/analog-read-task/layout-create-analog-read-task"
-/>
+- **Sample rates**: All channels in a task sample at the same rate. Create separate tasks for different rates.
+- **One task per module**: Only one running task can claim a module at a time.
+- **Stream rate optimization**: For low-rate tasks (&lt;50Hz), set stream rate = sample rate. For high-rate tasks, keep stream rate &lt;50Hz for better performance.
 
 <Divider.Divider x />
 
-## Configuring the Task
+## Examples
 
-### <StepText level="h3" step={1}>Select your NI Device</StepText>
+<Client.Tabs client:only="react">
+  <Fragment slot="console">
+    <Video
+      client:only="react"
+      id="device-drivers/ni/analog-read-task/analog-read-task-select-device"
+    />
+  </Fragment>
+  <Fragment slot="python">
 
-The first step is to select the NI device you'd like to read data from. Use the dropdown
-menu in the top-left corner to do so.
+```python
+import synnax as sy
+from synnax.hardware import ni
 
-<Video
-  client:only="react"
-  id="device-drivers/ni/analog-read-task/analog-read-task-select-device"
-/>
+client = sy.Synnax()
 
-### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
+# Retrieve device
+dev = client.hardware.devices.retrieve(name="my_daq")
 
-Next, you'll need to add channels to read data from. Click on the add icon (<Icon.Add
-/>) in the channels section. Then, click on the new channel in the list to configure it.
+# Create index channel
+ai_time = client.channels.create(
+    name="ai_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
 
-<Video
-  client:only="react"
-  id="device-drivers/ni/analog-read-task/analog-read-task-create-channel"
-/>
+# Create data channels
+ai_0 = client.channels.create(
+    name="ai_0",
+    index=ai_time.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
 
-### <StepText level="h3" step={3}>Configure Timing</StepText>
+# Create and configure task
+task = ni.AnalogReadTask(
+    name="Analog Read",
+    sample_rate=sy.Rate.HZ * 100,
+    stream_rate=sy.Rate.HZ * 25,
+    data_saving=True,
+    channels=[
+        ni.AIVoltageChan(
+            channel=ai_0.key,
+            device=dev.key,
+            port=0,
+            min_val=-10.0,
+            max_val=10.0,
+            terminal_config="Diff",
+        ),
+    ],
+)
 
-There are two parameters to control the timing of the task: the **sample rate** and the
-**stream rate**. The sample rate defines how many samples per second the task will read
-from the device. The stream rate defines how often the task will stream data into
-Synnax.
+client.hardware.tasks.configure(task)
 
-For example, if you set the sample rate to 10 Hz and the stream rate to 1 Hz, Synnax
-will read a batch of 10 samples every second, and then forward the entire batch to the
-Synnax database.
+# Start task and read data
+with task.run():
+    with client.open_streamer(["ai_0"]) as streamer:
+        for _ in range(10):
+            frame = streamer.read()
+            print(frame)
+```
 
-For very low rate tasks (&lt; 50 Hz), we recommend setting the stream rate to the same
-value as the sample rate. For higher rate tasks, lowering the stream rate can
-significantly improve performance. It's typically best to keep the stream rate below 50
-Hz unless you need to quickly process incoming data in real-time.
+  </Fragment>
+  <Fragment slot="typescript">
 
-<div style={{ display: "flex", justifyContent: "center" }}>
-  <Image
-    client:only="react"
-    id="device-drivers/ni/analog-read-task/analog-read-task-timing"
-    style={{ width: "50%", minWidth: 200 }}
-  />
-</div>
+```typescript
+import { Synnax } from "@synnaxlabs/client";
 
-### <StepText level="h3" step={4}>Enable/Disable Data Saving</StepText>
+const client = new Synnax();
 
-Data saving defines whether acquired data will be permanently stored in Synnax. When
-enabled, Synnax will both stream and store data. When disabled, Synnax will only stream
-data for real-time visualization, control, and processing. Historical data will not be
-available for review.
+// Retrieve device
+const dev = await client.hardware.devices.retrieve({ name: "my_daq" });
 
-We recommend turning data saving off when you're testing a new task or running
-operations where historical data saving is not important.
+// Create index channel
+const aiTime = await client.channels.create({
+  name: "ai_time",
+  isIndex: true,
+  dataType: "timestamp",
+  retrieveIfNameExists: true,
+});
 
-<Divider.Divider x />
+// Create data channel
+const ai0 = await client.channels.create({
+  name: "ai_0",
+  index: aiTime.key,
+  dataType: "float32",
+  retrieveIfNameExists: true,
+});
 
-## Start the Task
+// Create and configure task
+const task = await client.hardware.tasks.create({
+  name: "Analog Read",
+  type: "ni_analog_read",
+  config: JSON.stringify({
+    sample_rate: 100,
+    stream_rate: 25,
+    data_saving: true,
+    channels: [
+      {
+        type: "ai_voltage",
+        channel: ai0.key,
+        device: dev.key,
+        port: 0,
+        min_val: -10.0,
+        max_val: 10.0,
+        terminal_config: "Diff",
+      },
+    ],
+  }),
+});
 
-Once you'd added all of the channels you need and have configured task timing, hit the
-"Configure" button. If there are no errors, Synnax will acknowledge the configured task
-and enable the Play (<Icon.Play />) button in the dialog. Click this button to start the
-task.
+// Start task
+await task.executeCommandSync("start");
 
-<Video
-  client:only="react"
-  id="device-drivers/ni/analog-read-task/analog-read-task-start"
-/>
+// Read data
+const streamer = await client.openStreamer(["ai_0"]);
+for (let i = 0; i < 10; i++) {
+  const frame = await streamer.read();
+  console.log(frame);
+}
 
-<Note.Note variant="info">
-  Starting and stopping a task does not re-apply the task configuration. If you've made
-  changes to the configuration, you'll need to re-configure the task by hitting the
-  "Configure" button.
-</Note.Note>
+// Stop task
+await task.executeCommandSync("stop");
+await streamer.close();
+```
+
+  </Fragment>
+</Client.Tabs>

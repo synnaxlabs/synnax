@@ -24,6 +24,11 @@ export const NI_NAV: PageNavNode = {
       name: "Configure a Device",
     },
     {
+      key: "/reference/driver/ni/task-basics",
+      href: "/reference/driver/ni/task-basics",
+      name: "Task Basics",
+    },
+    {
       key: "/reference/driver/ni/analog-read-task",
       href: "/reference/driver/ni/analog-read-task",
       name: "Analog Read Task",
@@ -32,6 +37,16 @@ export const NI_NAV: PageNavNode = {
       key: "/reference/driver/ni/analog-write-task",
       href: "/reference/driver/ni/analog-write-task",
       name: "Analog Write Task",
+    },
+    {
+      key: "/reference/driver/ni/counter-read-task",
+      href: "/reference/driver/ni/counter-read-task",
+      name: "Counter Read Task",
+    },
+    {
+      key: "/reference/driver/ni/counter-write-task",
+      href: "/reference/driver/ni/counter-write-task",
+      name: "Counter Write Task",
     },
     {
       key: "/reference/driver/ni/digital-read-task",
