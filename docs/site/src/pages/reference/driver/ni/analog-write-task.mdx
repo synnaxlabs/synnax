@@ -89,7 +89,7 @@ When you write to a command channel, the task processes it and updates the state
 
 ## How To
 
-<Client.Tabs client:only="react">
+<Client.Tabs client:only="react" exclude={["cpp"]}>
   <Fragment slot="console">
     <Video
       client:only="react"
@@ -296,86 +296,7 @@ await streamer.close();
 </ExampleDetails>
 
   </Fragment>
-  <Fragment slot="cpp">
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
-
-```cpp
-#include "client/cpp/synnax.h"
-
-auto client = synnax::Synnax();
-
-// Retrieve device
-auto [dev, dev_err] = client.hardware.retrieve_device("my_daq");
-if (dev_err) return dev_err;
-
-// Create command time index
-auto ao_cmd_time = synnax::Channel("ao_cmd_time", telem::TIMESTAMP_T, true);
-auto cmd_time_err = client.channels.create(ao_cmd_time);
-if (cmd_time_err) return cmd_time_err;
-
-// Create command channel
-auto ao_0_cmd = synnax::Channel("ao_0_cmd", telem::FLOAT32_T, ao_cmd_time.key, false);
-auto cmd_err = client.channels.create(ao_0_cmd);
-if (cmd_err) return cmd_err;
-
-// Create state time index
-auto ao_state_time = synnax::Channel("ao_state_time", telem::TIMESTAMP_T, true);
-auto state_time_err = client.channels.create(ao_state_time);
-if (state_time_err) return state_time_err;
-
-// Create state channel
-auto ao_0_state = synnax::Channel("ao_0_state", telem::FLOAT32_T, ao_state_time.key, false);
-auto state_err = client.channels.create(ao_0_state);
-if (state_err) return state_err;
-
-// Create and configure task
-// (Note: Task configuration in C++ typically done via driver directly)
-
-// Start task and write commands
-// Open writer to send commands
-auto [writer, writer_err] = client.telem.open_writer(synnax::WriterConfig{
-    std::vector{ao_0_cmd.key},
-    synnax::TimeStamp::now()
-});
-if (writer_err) return writer_err;
-
-// Set output to 5V
-auto write_err = writer.write(synnax::Frame{
-    {ao_0_cmd.key, telem::Series(std::vector<float>{5.0})}
-});
-if (write_err) return write_err;
-
-// Read back state
-auto [streamer, stream_err] = client.telem.open_streamer(synnax::StreamerConfig{
-    std::vector{ao_0_state.key}
-});
-if (stream_err) return stream_err;
-
-auto [frame, read_err] = streamer.read();
-if (read_err) return read_err;
-
-auto close_writer_err = writer.close();
-if (close_writer_err) return close_writer_err;
-
-auto close_streamer_err = streamer.close();
-if (close_streamer_err) return close_streamer_err;
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
-
-```cpp
-// TODO: Add example for editing task configuration
-// - Update task parameters (state_rate, data_saving, etc.)
-// - Modify channel parameters (min_val, max_val, etc.)
-```
-
-</ExampleDetails>
-
-  </Fragment>
 </Client.Tabs>
+
+For task lifecycle management, see the [Task Basics](/reference/driver/task-basics#how-to) page.
 

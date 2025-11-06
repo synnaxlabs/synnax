@@ -1,8 +1,14 @@
 ---
 import { Icon } from "@synnaxlabs/pluto";
+
+interface Props {
+  open?: boolean;
+}
+
+const { open = false } = Astro.props;
 ---
 
-<details>
+<details open={open}>
     <summary>
         <Icon.Caret.Left className="indicator" />
         <slot name="summary" />

@@ -4,8 +4,8 @@ title: "NI Analog Read Task"
 description: "Learn how to use Analog Read Tasks for NI hardware."
 next: "Analog Write Task"
 nextURL: "/reference/driver/ni/analog-write-task"
-prev: "Task Basics"
-prevURL: "/reference/driver/ni/task-basics"
+prev: "Configure a Device"
+prevURL: "/reference/driver/ni/configure-device"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
@@ -426,7 +426,7 @@ Acquires data from analog inputs on NI devices at a specified sample rate.
 
 ## How To
 
-<Client.Tabs client:only="react">
+<Client.Tabs client:only="react" exclude={["cpp"]}>
   <Fragment slot="console">
     <Video
       client:only="react"
@@ -585,62 +585,6 @@ await streamer.close();
 </ExampleDetails>
 
   </Fragment>
-  <Fragment slot="cpp">
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
-
-```cpp
-#include "client/cpp/synnax.h"
-
-auto client = synnax::Synnax();
-
-// Retrieve device
-auto [dev, dev_err] = client.hardware.retrieve_device("my_daq");
-if (dev_err) return dev_err;
-
-// Create index channel
-auto ai_time = synnax::Channel("ai_time", telem::TIMESTAMP_T, true);
-auto time_err = client.channels.create(ai_time);
-if (time_err) return time_err;
-
-// Create data channel
-auto ai_0 = synnax::Channel("ai_0", telem::FLOAT32_T, ai_time.key, false);
-auto data_err = client.channels.create(ai_0);
-if (data_err) return data_err;
-
-// Create and configure task
-// (Note: Task configuration in C++ typically done via driver directly)
-
-// Start task and read data
-// Open streamer to read incoming data
-auto [streamer, stream_err] = client.telem.open_streamer(synnax::StreamerConfig{
-    std::vector{ai_0.key}
-});
-if (stream_err) return stream_err;
-
-for (int i = 0; i < 10; i++) {
-    auto [frame, read_err] = streamer.read();
-    if (read_err) return read_err;
-    // Process frame data
-}
-
-auto close_err = streamer.close();
-if (close_err) return close_err;
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
-
-```cpp
-// TODO: Add example for editing task configuration
-// - Update task parameters (sample_rate, stream_rate, data_saving, etc.)
-// - Modify channel parameters (min_val, max_val, terminal_config, etc.)
-```
-
-</ExampleDetails>
-
-  </Fragment>
 </Client.Tabs>
+
+For task lifecycle management, see the [Task Basics](/reference/driver/task-basics#how-to) page.

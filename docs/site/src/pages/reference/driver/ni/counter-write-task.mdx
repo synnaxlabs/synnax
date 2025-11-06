@@ -62,7 +62,7 @@ Generates pulse train outputs on counter channels for NI devices.
 
 ## How To
 
-<Client.Tabs client:only="react">
+<Client.Tabs client:only="react" exclude={["cpp"]}>
   <Fragment slot="console">
     <Video
       client:only="react"
@@ -113,66 +113,12 @@ with task.run():
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
-
-```python
-import synnax as sy
-from synnax.hardware import ni
-
-client = sy.Synnax()
-
-# List all tasks
-all_tasks = client.hardware.tasks.list()
-for task in all_tasks:
-    print(f"Task: {task.name}, Type: {task.type}")
-
-# Retrieve task by name
-task = client.hardware.tasks.retrieve(name="Counter Write")
-
-# List all counter write tasks
-counter_write_tasks = [t for t in all_tasks if t.type == "ni_counter_write"]
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
 
 ```python
 # TODO: Add example for editing task configuration
 # - Update task parameters (name, auto_start, etc.)
 # - Modify channel parameters (high_time, low_time, etc.)
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
-
-```python
-# TODO: Add example for copying a task
-# - Copy task with new name
-# - Preserve channel configuration
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
-
-```python
-import synnax as sy
-
-client = sy.Synnax()
-
-# Retrieve task
-task = client.hardware.tasks.retrieve(name="Counter Write")
-
-# Stop task if running
-task.stop()
-
-# Delete task
-client.hardware.tasks.delete(task.key)
 ```
 
 </ExampleDetails>
@@ -229,184 +175,17 @@ await task.executeCommandSync("stop");
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
-
-```typescript
-import { Synnax } from "@synnaxlabs/client";
-
-const client = new Synnax();
-
-// List all tasks
-const allTasks = await client.hardware.tasks.list();
-allTasks.forEach(task => {
-  console.log(`Task: ${task.name}, Type: ${task.type}`);
-});
-
-// Retrieve task by name
-const task = await client.hardware.tasks.retrieve({ name: "Counter Write" });
-
-// List all counter write tasks
-const counterWriteTasks = allTasks.filter(t => t.type === "ni_counter_write");
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
 
 ```typescript
 // TODO: Add example for editing task configuration
 // - Update task parameters (name, auto_start, etc.)
 // - Modify channel parameters (high_time, low_time, etc.)
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
-
-```typescript
-// TODO: Add example for copying a task
-// - Copy task with new name
-// - Preserve channel configuration
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
-
-```typescript
-import { Synnax } from "@synnaxlabs/client";
-
-const client = new Synnax();
-
-// Retrieve task
-const task = await client.hardware.tasks.retrieve({ name: "Counter Write" });
-
-// Stop task if running
-await task.executeCommandSync("stop");
-
-// Delete task
-await client.hardware.tasks.delete(task.key);
-```
-
-</ExampleDetails>
-
-  </Fragment>
-  <Fragment slot="cpp">
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
-
-```cpp
-#include "client/cpp/synnax.h"
-#include <thread>
-#include <chrono>
-
-auto client = synnax::Synnax();
-
-// Retrieve device
-auto [dev, dev_err] = client.hardware.retrieve_device("my_daq");
-if (dev_err) return dev_err;
-
-// Create and configure task
-// Note: No channels need to be created - task is configuration-only
-// (Task configuration in C++ typically done via driver directly)
-
-// Start task - pulse train begins immediately
-// Task is now generating continuous 500Hz pulses on counter 0
-// No commands to send - output is fixed at configuration time
-
-// Wait 5 seconds
-std::this_thread::sleep_for(std::chrono::seconds(5));
-
-// Task stops when program exits or driver shuts down
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
-
-```cpp
-#include "client/cpp/synnax.h"
-
-auto client = synnax::Synnax();
-
-// Create or retrieve rack
-auto [rack, rack_err] = client.hardware.retrieve_rack("my_rack");
-if (rack_err) return rack_err;
-
-// List all tasks
-auto [tasks, list_err] = rack.tasks.list();
-if (list_err) return list_err;
-
-for (const auto& task : tasks) {
-    std::cout << "Task: " << task.name << ", Type: " << task.type << std::endl;
-}
-
-// Retrieve task by name
-auto [task, retrieve_err] = rack.tasks.retrieve("Counter Write");
-if (retrieve_err) return retrieve_err;
-
-// List all counter write tasks
-std::vector<synnax::Task> counter_write_tasks;
-for (const auto& t : tasks) {
-    if (t.type == "ni_counter_write") {
-        counter_write_tasks.push_back(t);
-    }
-}
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
-
-```cpp
-// TODO: Add example for editing task configuration
-// - Update task parameters (name, auto_start, etc.)
-// - Modify channel parameters (high_time, low_time, etc.)
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Copy /> Copy Task</Text.Text>
-
-```cpp
-// TODO: Add example for copying a task
-// - Copy task with new name
-// - Preserve channel configuration
-```
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
-
-```cpp
-#include "client/cpp/synnax.h"
-
-auto client = synnax::Synnax();
-
-// Retrieve rack
-auto [rack, rack_err] = client.hardware.retrieve_rack("my_rack");
-if (rack_err) return rack_err;
-
-// Retrieve task
-auto [task, task_err] = rack.tasks.retrieve("Counter Write");
-if (task_err) return task_err;
-
-// Stop task if running
-// (Note: Stopping tasks typically handled via driver commands)
-
-// Delete task
-// (Note: Task deletion handled through rack.tasks operations)
 ```
 
 </ExampleDetails>
 
   </Fragment>
 </Client.Tabs>
+
+For task lifecycle management, see the [Task Basics](/reference/driver/task-basics#how-to) page.

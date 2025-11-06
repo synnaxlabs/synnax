@@ -9,10 +9,13 @@ next: "Read Task"
 nextURL: "/reference/driver/modbus/read-task"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
-import { Image, Video } from "@/components/Media";
 import StepText from "@/components/StepText.astro";
+import { Divider, Text, Icon } from "@synnaxlabs/pluto";
+import { Video } from "@/components/Media";
+import { Fragment } from "react";
 import Table from "@/components/Table.astro";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -23,32 +26,47 @@ the server.
 
 ## Prerequisites
 
-Before you can connect to a Modbus server, you'll need to have the following configured:
+Before you can connect to a Modbus server, you will need to ensure that you have the following:
 
 1. A [Synnax Core](/reference/core/quick-start) running on your network.
-2. The [Synnax Console](/reference/console/get-started) installed on your machine.
-3. A Modbus server running on your network. This server must be reachable by the Core.
+2. A [Synnax Driver](/reference/driver/get-started) running on your network. This Driver
+   must be connected to the Core and running on the same machine or network as your Modbus
+   server.
+3. The [Synnax Console](/reference/console/get-started) installed on your local machine (for Console method).
+4. A Modbus TCP server running on your network. This server must be reachable by the
+   Driver.
 
 <Divider.Divider x />
 
-## <StepText level="h2" step={1}> Open the Connection Dialog </StepText>
+## How To
 
-We'll use the Console's configuration workflow to connect to your server. To kick things
-off, open the Console and click on the Search and Command Palette at the top. You can
-also open this palette with `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (macOS).
+<Client.Tabs client:only="react" exclude={["typescript", "cpp"]}>
+  <Fragment slot="console">
+
+## <StepText level="h2" step={1}>Open the Connection Dialog</StepText>
+
+To connect to your Modbus server, open the Console and click on the Search and Command
+Palette at the top. You can also open this palette with `Ctrl+Shift+P` on Windows or
+`Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is `>`), type "Modbus".
-You'll see an option called "Connect a Modbus Server". Select this option to open the
-server configuration dialog.
+Select the "Connect a Modbus Server" option to open the server configuration dialog.
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
 
 <Video client:only="react" id="device-drivers/modbus/connect-server/open-modal" />
 
+</ExampleDetails>
+
 <Divider.Divider x />
 
-## <StepText level="h2" step={2}> Configure the Connection </StepText>
+## <StepText level="h2" step={2}>Configure the Connection</StepText>
 
-The dialog will prompt you to enter the connection parameters to your server. Here's a
-reference for each of the fields you'll need to fill:
+Enter the connection parameters for your server.
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
 
 <Table>
   <thead>
@@ -111,12 +129,85 @@ reference for each of the fields you'll need to fill:
   </tbody>
 </Table>
 
+</ExampleDetails>
+
 <Divider.Divider x />
 
-## <StepText level="h2" step={3}> Save the Connection </StepText>
+## <StepText level="h2" step={3}>Save the Connection</StepText>
 
-You can use the "Connect" button to verify that the server is reachable from the Core.
-When you are ready to connect the server, click "Connect". The connection will be saved
-and you can now create read and write tasks for this server.
+You can use the "Connect" button to verify that the server is reachable. Once the
+connection is successful, click "Connect" to save the connection. You can now create read
+and write tasks for this server.
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
 
 <Video client:only="react" id="device-drivers/modbus/connect-server/save" />
+
+</ExampleDetails>
+
+  </Fragment>
+  <Fragment slot="python">
+
+<ExampleDetails open>
+<Text.Text slot="summary" level="p"><Icon.Connect /> Connect to Modbus Server</Text.Text>
+
+```python
+import synnax as sy
+from synnax.hardware import modbus
+import json
+
+# Initialize Synnax client
+client = sy.Synnax()
+
+# Retrieve the embedded rack
+rack = client.hardware.racks.retrieve_embedded_rack()
+
+# Create the Modbus device
+device = modbus.create_device(
+    client=client,
+    name="My Modbus Server",
+    location="192.168.1.100:502",
+    rack=rack.key,
+    properties=json.dumps(
+        modbus.device_props(
+            host="192.168.1.100",
+            port=502,
+            swap_bytes=False,
+            swap_words=False,
+        )
+    ),
+)
+
+print(f"Connected to Modbus server: {device.name}")
+```
+
+</ExampleDetails>
+
+<ExampleDetails open>
+<Text.Text slot="summary" level="p"><Icon.Close /> Disconnect Server</Text.Text>
+
+```python
+import synnax as sy
+
+# Initialize Synnax client
+client = sy.Synnax()
+
+# Retrieve the device by name
+device = client.hardware.devices.retrieve(
+    name="My Modbus Server",
+    ignore_not_found=True
+)
+
+if device is not None:
+    # Delete the server
+    client.hardware.devices.delete([device.key])
+    print(f"Disconnected Modbus server: {device.name}")
+else:
+    print("Server not found")
+```
+
+</ExampleDetails>
+
+  </Fragment>
+</Client.Tabs>

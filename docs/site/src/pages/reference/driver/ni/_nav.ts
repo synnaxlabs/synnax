@@ -24,11 +24,6 @@ export const NI_NAV: PageNavNode = {
       name: "Configure a Device",
     },
     {
-      key: "/reference/driver/ni/task-basics",
-      href: "/reference/driver/ni/task-basics",
-      name: "Task Basics",
-    },
-    {
       key: "/reference/driver/ni/analog-read-task",
       href: "/reference/driver/ni/analog-read-task",
       name: "Analog Read Task",

@@ -7,10 +7,13 @@ next: "Read Task"
 nextURL: "/reference/driver/opc-ua/read-task"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
-import { Video } from "@/components/Media";
 import StepText from "@/components/StepText.astro";
+import { Divider, Text, Icon } from "@synnaxlabs/pluto";
+import { Video } from "@/components/Media";
+import { Fragment } from "react";
 import Table from "@/components/Table.astro";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -20,36 +23,46 @@ The first step to acquiring data from your PLC is to connect to an OPC UA server
 
 ## Prerequisites
 
-Before you can connect to an OPC UA server, you'll need to have the following
-configured:
+Before you can connect to an OPC UA server, you will need to ensure that you have the following:
 
-1. The [Synnax Core](/reference/core/quick-start) running on your network.
-2. The [Synnax Driver](/reference/driver/get-started) running on your network. Note that
-   the Core comes with an embedded Driver that could be used for this purpose.
-3. The [Synnax Console](/reference/console/get-started) installed on your machine.
-4. An OPC UA server running on your network. This OPC UA server must be reachable by the
-   Synnax Driver.
+1. A [Synnax Core](/reference/core/quick-start) running on your network.
+2. A [Synnax Driver](/reference/driver/get-started) running on your network. This Driver
+   must be connected to the Core and running on the same machine or network as your OPC UA
+   server.
+3. The [Synnax Console](/reference/console/get-started) installed on your local machine (for Console method).
+4. An OPC UA server running on your network. This server must be reachable by the Driver.
 
 <Divider.Divider x />
 
-## <StepText level="h2" step={1}> Open the Connection Dialog </StepText>
+## How To
 
-We'll use the Console's configuration workflow to connect to your server. To kick things
-off, open the Console and click on the Search and Command Palette at the top. You can
-also open this palette with `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (macOS).
+<Client.Tabs client:only="react" exclude={["typescript", "cpp"]}>
+  <Fragment slot="console">
+
+## <StepText level="h2" step={1}>Open the Connection Dialog</StepText>
+
+To connect to your OPC UA server, open the Console and click on the Search and Command
+Palette at the top. You can also open this palette with `Ctrl+Shift+P` on Windows or
+`Cmd+Shift+P` on macOS.
 
 In command mode (enabled when the first character in the input is ">"), type "OPC UA".
-You'll see an option called "Connect an OPC UA Server". Select this option to open the
-server configuration dialog.
+Select the "Connect an OPC UA Server" option to open the server configuration dialog.
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
 
 <Video client:only="react" id="device-drivers/opc-ua/connect-server/open-modal" />
 
+</ExampleDetails>
+
 <Divider.Divider x />
 
-## <StepText level="h2" step={2}> Configure the Connection </StepText>
+## <StepText level="h2" step={2}>Configure the Connection</StepText>
 
-The dialog will prompt you to enter the connection parameters to your server. Here's a
-reference for each of the fields you'll need to fill:
+Enter the connection parameters for your server.
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
 
 <Table>
   <thead>
@@ -124,11 +137,82 @@ reference for each of the fields you'll need to fill:
   </tbody>
 </Table>
 
+</ExampleDetails>
+
 <Divider.Divider x />
 
-## <StepText level="h2" step={3}> Save the Connection </StepText>
+## <StepText level="h2" step={3}>Save the Connection</StepText>
 
-You can use the "Test Connection" button to verify that the server is connected to the
-Synnax Core. When you are ready to connect the server, click "Save".
+You can use the "Test Connection" button to verify that the server is reachable. Once the
+connection is successful, click "Save" to save the connection. You can now create read
+and write tasks for this server.
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
 
 <Video client:only="react" id="device-drivers/opc-ua/connect-server/save" />
+
+</ExampleDetails>
+
+  </Fragment>
+  <Fragment slot="python">
+
+<ExampleDetails open>
+<Text.Text slot="summary" level="p"><Icon.Connect /> Connect to OPC UA Server</Text.Text>
+
+```python
+import synnax as sy
+from synnax.hardware import opcua
+import json
+
+# Initialize Synnax client
+client = sy.Synnax()
+
+# Retrieve the embedded rack
+rack = client.hardware.racks.retrieve_embedded_rack()
+
+# Create the OPC UA device
+device = opcua.create_device(
+    client=client,
+    name="My OPC UA Server",
+    location="opc.tcp://localhost:4841/",
+    rack=rack.key,
+    properties=json.dumps(
+        opcua.device_props(
+            endpoint="opc.tcp://localhost:4841/"
+        )
+    ),
+)
+
+print(f"Connected to OPC UA server: {device.name}")
+```
+
+</ExampleDetails>
+
+<ExampleDetails open>
+<Text.Text slot="summary" level="p"><Icon.Close /> Disconnect Server</Text.Text>
+
+```python
+import synnax as sy
+
+# Initialize Synnax client
+client = sy.Synnax()
+
+# Retrieve the device by name
+device = client.hardware.devices.retrieve(
+    name="My OPC UA Server",
+    ignore_not_found=True
+)
+
+if device is not None:
+    # Delete the server
+    client.hardware.devices.delete([device.key])
+    print(f"Disconnected OPC UA server: {device.name}")
+else:
+    print("Server not found")
+```
+
+</ExampleDetails>
+
+  </Fragment>
+</Client.Tabs>
