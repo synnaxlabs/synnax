@@ -17,8 +17,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-// StreamerRequest can be used to update the channel set a Streamer subscribes
-// to.
+// StreamerRequest can be used to update the channel set a Streamer subscribes to.
 type StreamerRequest struct {
 	// Channels sets the channels the Streamer subscribes to.
 	Channels []core.ChannelKey
@@ -69,7 +68,6 @@ func passThroughStreamerResponseTranslator(res StreamerResponse) StreamerRespons
 // streamer, and cancelling it has no implications after NewStreamer returns.
 func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer[StreamerRequest, StreamerResponse], error) {
 	return NewTranslatedStreamer(
-		ctx,
 		db,
 		cfg,
 		passThroughStreamerRequestTranslator,
@@ -78,11 +76,10 @@ func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer[Str
 }
 
 func NewTranslatedStreamer[I, O any](
-	_ context.Context,
 	db *DB,
 	cfg StreamerConfig,
 	translateRequest func(I) StreamerRequest,
-	translateResponse func(response StreamerResponse) O,
+	translateResponse func(StreamerResponse) O,
 ) (Streamer[I, O], error) {
 	if db.closed.Load() {
 		return nil, errDBClosed
