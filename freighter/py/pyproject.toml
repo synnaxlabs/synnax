@@ -2,7 +2,7 @@
 name = "synnax-freighter"
 version = "0.47.0"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11,<4"
 dynamic = ["dependencies"]
 
 [tool.poetry]
@@ -11,13 +11,13 @@ packages = [{ include = "freighter" }]
 [tool.poetry.dependencies]
 alamos = { path = "../../alamos/py", develop = true }
 msgpack = "^1.1.2"
-pydantic = "^2.12.3"
+pydantic = "^2.12.4"
 urllib3 = "^2.5.0"
 websockets = "^15.0.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.9.0"
-isort = "^6.1.0"
+isort = "^7.0.0"
 mypy = "^1.18.2"
 poetry = "^2.2.1"
 pytest = "^8.4.2"

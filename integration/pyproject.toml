@@ -3,7 +3,7 @@ name = "synnax-test-framework"
 version = "0.47.0"
 description = "Integration test framework for Synnax Labs"
 authors = [{ name = "Nico Alba", email = "nico@synnaxlabs.com" }]
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.11,<4"
 dynamic = ["dependencies"]
 
 [tool.poetry]
@@ -21,8 +21,10 @@ playwright = "^1.55.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.9.0"
-isort = "^6.1.0"
+isort = "^7.0.0"
 mypy = "^1.18.2"
+poetry = "^2.2.1"
+vermin = "^1.7.0"
 
 [tool.poetry.scripts]
 tc = "framework.test_conductor:main"
@@ -44,7 +46,3 @@ ignore_missing_imports = true
 init_forbid_extra = true
 init_types = true
 warn_required_dynamic_aliases = true
-
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
