@@ -359,7 +359,7 @@ await client.hardware.tasks.create({
   key: copiedTask.key,
   name: copiedTask.name,
   type: copiedTask.type,
-  config: config,
+  config: JSON.stringify(config),
 });
 ```
 
@@ -377,7 +377,7 @@ const client = new Synnax();
 const task = await client.hardware.tasks.retrieve({ name: "My Example Task" });
 
 // Stop task if running
-await task.executeCommandSync({ type: "stop" });
+await task.stop();
 
 // Delete task
 await client.hardware.tasks.delete(task.key);

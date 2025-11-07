@@ -311,6 +311,35 @@ describe("Task", async () => {
     });
   });
 
+  describe("list", () => {
+    it("should list all tasks excluding internal tasks", async () => {
+      const tasks = await client.hardware.tasks.list();
+      expect(Array.isArray(tasks)).toBe(true);
+      expect(tasks.every((t) => t.internal === false)).toBe(true);
+    });
+
+    it("should list tasks on a specific rack", async () => {
+      const task1 = await testRack.createTask({
+        name: `list-test-${Date.now()}`,
+        config: { test: true },
+        type: "ni",
+      });
+      const tasks = await client.hardware.tasks.list(testRack.key);
+      expect(tasks.some((t) => t.key === task1.key)).toBe(true);
+      expect(tasks.every((t) => task.rackKey(t.key) === testRack.key)).toBe(true);
+    });
+
+    it("should exclude internal tasks by default", async () => {
+      const allTasks = await client.hardware.tasks.list();
+      const internalTasks = await client.hardware.tasks.retrieve({
+        internal: true,
+      });
+      const allTaskKeys = allTasks.map((t) => t.key);
+      const internalTaskKeys = internalTasks.map((t) => t.key);
+      expect(internalTaskKeys.every((key) => !allTaskKeys.includes(key))).toBe(true);
+    });
+  });
+
   describe("copy", () => {
     it("should correctly copy the task", async () => {
       const m = await testRack.createTask({
@@ -321,6 +350,115 @@ describe("Task", async () => {
       const copy = await client.hardware.tasks.copy(m.key, "New Name", false);
       expect(copy.name).toBe("New Name");
       expect(copy.config).toStrictEqual({ a: "dog" });
+    });
+  });
+
+  describe("lifecycle methods", () => {
+    it("should start a task", async () => {
+      const t = await testRack.createTask({
+        name: "lifecycle-start-test",
+        config: {},
+        type: "ni",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      await t.start();
+      await expect
+        .poll<Promise<task.Command>>(async () => {
+          const fr = await streamer.read();
+          const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
+          return task.commandZ.parse(sample);
+        })
+        .toMatchObject({ task: t.key, type: "start" });
+      streamer.close();
+    });
+
+    it("should stop a task", async () => {
+      const t = await testRack.createTask({
+        name: "lifecycle-stop-test",
+        config: {},
+        type: "ni",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      await t.stop();
+      await expect
+        .poll<Promise<task.Command>>(async () => {
+          const fr = await streamer.read();
+          const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
+          return task.commandZ.parse(sample);
+        })
+        .toMatchObject({ task: t.key, type: "stop" });
+      streamer.close();
+    });
+
+    it("should run a task with automatic start and stop", async () => {
+      const t = await testRack.createTask({
+        name: "lifecycle-run-test",
+        config: {},
+        type: "ni",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      let executedCallback = false;
+
+      await t.run(async () => {
+        executedCallback = true;
+      });
+
+      expect(executedCallback).toBe(true);
+
+      // Should have received both start and stop commands
+      const commands: task.Command[] = [];
+      await expect
+        .poll(async () => {
+          try {
+            const fr = await streamer.read();
+            const samples = fr.get(task.COMMAND_CHANNEL_NAME);
+            for (const sample of samples) {
+              commands.push(task.commandZ.parse(sample));
+            }
+            return (
+              commands.some((c) => c.task === t.key && c.type === "start") &&
+              commands.some((c) => c.task === t.key && c.type === "stop")
+            );
+          } catch {
+            return false;
+          }
+        })
+        .toBe(true);
+
+      streamer.close();
+    });
+
+    it("should stop task even if callback throws error", async () => {
+      const t = await testRack.createTask({
+        name: "lifecycle-run-error-test",
+        config: {},
+        type: "ni",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+
+      await expect(
+        t.run(async () => {
+          throw new Error("Test error");
+        }),
+      ).rejects.toThrow("Test error");
+
+      // Should still have received stop command
+      await expect
+        .poll(async () => {
+          try {
+            const fr = await streamer.read();
+            const samples = fr.get(task.COMMAND_CHANNEL_NAME);
+            return samples.some((sample) => {
+              const cmd = task.commandZ.parse(sample);
+              return cmd.task === t.key && cmd.type === "stop";
+            });
+          } catch {
+            return false;
+          }
+        })
+        .toBe(true);
+
+      streamer.close();
     });
   });
 
