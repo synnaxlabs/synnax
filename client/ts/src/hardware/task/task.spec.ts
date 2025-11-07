@@ -412,9 +412,8 @@ describe("Task", async () => {
           try {
             const fr = await streamer.read();
             const samples = fr.get(task.COMMAND_CHANNEL_NAME);
-            for (const sample of samples) {
-              commands.push(task.commandZ.parse(sample));
-            }
+            for (const sample of samples) commands.push(task.commandZ.parse(sample));
+
             return (
               commands.some((c) => c.task === t.key && c.type === "start") &&
               commands.some((c) => c.task === t.key && c.type === "stop")
@@ -451,9 +450,7 @@ describe("Task", async () => {
             const samples = fr.get(task.COMMAND_CHANNEL_NAME);
             for (const sample of samples) {
               const cmd = task.commandZ.parse(sample);
-              if (cmd.task === t.key && cmd.type === "stop") {
-                stopCommands.push(cmd);
-              }
+              if (cmd.task === t.key && cmd.type === "stop") stopCommands.push(cmd);
             }
             return stopCommands.length > 0;
           } catch {
