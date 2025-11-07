@@ -542,6 +542,41 @@ class AIRosetteStrainGageChan(BaseAIChan, MinMaxVal):
 
 
 class AIRTDChan(BaseAIChan, MinMaxVal):
+    """
+    Analog Input RTD (Resistance Temperature Detector) Channel
+
+    Measures temperature using RTD sensors with configurable platinum curves
+    and wire configurations. Supports 2-wire, 3-wire, and 4-wire RTD connections
+    for varying accuracy requirements.
+
+    For detailed information, see the NI-DAQmx documentation:
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateairtdchan.html>
+
+    Example:
+        >>> # PT100 sensor in 3-wire configuration
+        >>> rtd_chan = AIRTDChan(
+        ...     port=0,
+        ...     channel=1,
+        ...     units="DegC",
+        ...     rtd_type="Pt3851",
+        ...     resistance_config="3Wire",
+        ...     current_excit_source="Internal",
+        ...     current_excit_val=0.001,  # 1mA excitation
+        ...     r0=100.0,  # 100 ohm at 0°C
+        ...     min_val=0.0,
+        ...     max_val=100.0
+        ... )
+
+    :param units: Temperature units for measurement output
+    :param rtd_type: RTD curve type (commonly Pt3851 for industrial RTDs)
+    :param resistance_config: Wire configuration - 4Wire most accurate, 2Wire simplest
+    :param current_excit_source: Excitation current source (Internal or External)
+    :param current_excit_val: Excitation current in amps (typically 0.001A)
+    :param r0: RTD resistance at 0°C in ohms (100.0 for PT100, 1000.0 for PT1000)
+    :param min_val: Minimum expected temperature value
+    :param max_val: Maximum expected temperature value
+    """
+
     type: Literal["ai_rtd"] = "ai_rtd"
     units: Literal["DegC", "DegF", "Kelvins", "DegR"]
     rtd_type: Literal[
@@ -879,8 +914,23 @@ class DIChan(BaseModel):
     """
     Digital Input Channel
 
+    Reads digital state (high/low, 1/0) from a single digital line on a port.
+    Commonly used for reading switch states, TTL signals, or other discrete inputs.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatedichan.html>
+
+    Example:
+        >>> # Read from port 0, line 3
+        >>> di_chan = DIChan(
+        ...     channel=100,  # Synnax channel key
+        ...     port=0,
+        ...     line=3
+        ... )
+
+    :param channel: Synnax channel key to write digital input data to
+    :param port: Digital port number on the device
+    :param line: Line number within the port (0-7 for most devices)
     """
 
     channel: int
@@ -898,8 +948,35 @@ class CIFrequencyChan(BaseCIChan, MinMaxVal):
     """
     Counter Input Frequency Measurement Channel
 
+    Measures the frequency of a digital signal using counter hardware. Supports
+    multiple measurement methods optimized for different frequency ranges.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecifreqchan.html>
+
+    Example:
+        >>> # Measure 0-1000 Hz signal on counter 0
+        >>> freq_chan = CIFrequencyChan(
+        ...     port=0,
+        ...     units="Hz",
+        ...     edge="Rising",
+        ...     meas_method="LowFreq1Ctr",  # Best for < 1kHz
+        ...     meas_time=0.001,  # 1ms measurement window
+        ...     divisor=4,
+        ...     terminal="/Dev1/PFI0",  # Input terminal
+        ...     min_val=0.0,
+        ...     max_val=1000.0
+        ... )
+
+    :param units: Output units (Hz for frequency, Seconds for period, Ticks for raw)
+    :param edge: Which signal edge to count (Rising or Falling)
+    :param meas_method: Measurement algorithm - LowFreq1Ctr for <100kHz, HighFreq2Ctr for >100kHz
+    :param meas_time: Measurement averaging time in seconds
+    :param divisor: Frequency divisor for HighFreq2Ctr method
+    :param terminal: Physical terminal to measure (e.g., "/Dev1/PFI0")
+    :param custom_scale: Optional custom scaling for output values
+    :param min_val: Minimum expected frequency value
+    :param max_val: Maximum expected frequency value
     """
 
     type: Literal["ci_frequency"] = "ci_frequency"
@@ -916,8 +993,27 @@ class CIEdgeCountChan(BaseCIChan):
     """
     Counter Input Edge Count Channel
 
+    Counts digital edges on an input signal. Useful for totalizing events,
+    measuring encoder positions, or counting pulses. Can count up, down, or
+    be externally controlled.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedgeschan.html>
+
+    Example:
+        >>> # Count rising edges on PFI0
+        >>> edge_count_chan = CIEdgeCountChan(
+        ...     port=0,
+        ...     active_edge="Rising",
+        ...     count_direction="CountUp",
+        ...     initial_count=0,
+        ...     terminal="/Dev1/PFI0"
+        ... )
+
+    :param active_edge: Which edge to count (Rising or Falling)
+    :param count_direction: Direction of counting (CountUp, CountDown, or ExtControlled)
+    :param initial_count: Starting count value (default 0)
+    :param terminal: Input terminal to count edges on (e.g., "/Dev1/PFI0")
     """
 
     type: Literal["ci_edge_count"] = "ci_edge_count"
@@ -931,8 +1027,36 @@ class CIPeriodChan(BaseCIChan, MinMaxVal):
     """
     Counter Input Period Measurement Channel
 
+    Measures the time duration between consecutive edges of a digital signal.
+    This is the inverse of frequency measurement, useful for low-frequency signals
+    or when period (not frequency) is the desired measurement.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodchan.html>
+
+    Example:
+        >>> # Measure period of 1-100 Hz signal
+        >>> period_chan = CIPeriodChan(
+        ...     port=0,
+        ...     units="Seconds",
+        ...     starting_edge="Rising",
+        ...     meas_method="LowFreq1Ctr",
+        ...     meas_time=0.001,
+        ...     divisor=4,
+        ...     terminal="/Dev1/PFI0",
+        ...     min_val=0.01,   # 100 Hz = 0.01s period
+        ...     max_val=1.0     # 1 Hz = 1s period
+        ... )
+
+    :param units: Output units (Seconds or Ticks)
+    :param starting_edge: Edge that starts the period measurement
+    :param meas_method: Measurement algorithm based on expected frequency range
+    :param meas_time: Measurement averaging time in seconds
+    :param divisor: Frequency divisor for HighFreq2Ctr method
+    :param terminal: Physical input terminal (e.g., "/Dev1/PFI0")
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected period (1/max_frequency)
+    :param max_val: Maximum expected period (1/min_frequency)
     """
 
     type: Literal["ci_period"] = "ci_period"
@@ -949,8 +1073,30 @@ class CIPulseWidthChan(BaseCIChan, MinMaxVal):
     """
     Counter Input Pulse Width Measurement Channel
 
+    Measures the time duration of a pulse (high or low state) on a digital signal.
+    Starting edge determines whether to measure high-time (Rising start) or
+    low-time (Falling start).
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciplsewidthchan.html>
+
+    Example:
+        >>> # Measure pulse width (high-time) of PWM signal
+        >>> pulse_width_chan = CIPulseWidthChan(
+        ...     port=0,
+        ...     units="Seconds",
+        ...     starting_edge="Rising",  # Measure from rising to falling
+        ...     terminal="/Dev1/PFI0",
+        ...     min_val=0.000001,  # 1 µs minimum
+        ...     max_val=0.001      # 1 ms maximum
+        ... )
+
+    :param units: Output units (Seconds or Ticks)
+    :param starting_edge: Rising = measure high-time, Falling = measure low-time
+    :param terminal: Physical input terminal (e.g., "/Dev1/PFI0")
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected pulse width
+    :param max_val: Maximum expected pulse width
     """
 
     type: Literal["ci_pulse_width"] = "ci_pulse_width"
@@ -964,8 +1110,28 @@ class CISemiPeriodChan(BaseCIChan, MinMaxVal):
     """
     Counter Input Semi Period Measurement Channel
 
+    Measures the time between alternating edges (rising-to-falling and falling-to-rising).
+    This provides both high-time and low-time measurements in a single channel, useful
+    for PWM duty cycle analysis or asymmetric waveform characterization.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecisemiperiodchan.html>
+
+    Example:
+        >>> # Measure both high and low semi-periods
+        >>> semi_period_chan = CISemiPeriodChan(
+        ...     port=0,
+        ...     units="Seconds",
+        ...     terminal="/Dev1/PFI0",
+        ...     min_val=0.00001,  # 10 µs
+        ...     max_val=0.01      # 10 ms
+        ... )
+
+    :param units: Output units (Seconds or Ticks)
+    :param terminal: Physical input terminal (e.g., "/Dev1/PFI0")
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected semi-period duration
+    :param max_val: Maximum expected semi-period duration
     """
 
     type: Literal["ci_semi_period"] = "ci_semi_period"
@@ -978,9 +1144,35 @@ class CITwoEdgeSepChan(BaseCIChan, MinMaxVal):
     """
     Counter Input Two Edge Separation Measurement Channel
 
+    Measures the time between two edges that can be on different terminals.
+    Useful for time-of-flight measurements, propagation delay measurements,
+    or any application requiring precise timing between two events.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoe
     dgeseparationchan.html>
+
+    Example:
+        >>> # Measure time between trigger and response signals
+        >>> two_edge_sep_chan = CITwoEdgeSepChan(
+        ...     port=0,
+        ...     units="Seconds",
+        ...     first_edge="Rising",
+        ...     second_edge="Rising",
+        ...     first_terminal="/Dev1/PFI0",   # Trigger signal
+        ...     second_terminal="/Dev1/PFI1",  # Response signal
+        ...     min_val=0.0,
+        ...     max_val=0.01  # 10ms max separation
+        ... )
+
+    :param units: Output units (Seconds or Ticks)
+    :param first_edge: Edge type on first terminal to start measurement
+    :param second_edge: Edge type on second terminal to stop measurement
+    :param first_terminal: First input terminal (e.g., "/Dev1/PFI0")
+    :param second_terminal: Second input terminal (e.g., "/Dev1/PFI1")
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected time separation
+    :param max_val: Maximum expected time separation
     """
 
     type: Literal["ci_two_edge_sep"] = "ci_two_edge_sep"
@@ -996,9 +1188,35 @@ class CILinearVelocityChan(BaseCIChan, MinMaxVal):
     """
     Counter Input Linear Velocity Measurement Channel
 
+    Measures linear velocity from a quadrature encoder. Commonly used with
+    linear encoders on actuators, conveyor belts, or CNC machines. Supports
+    multiple decoding methods for different resolution requirements.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateci
     linvelocitychan.html>
+
+    Example:
+        >>> # Linear encoder with 1mm resolution, X4 decoding
+        >>> lin_velocity_chan = CILinearVelocityChan(
+        ...     port=0,
+        ...     units="MetersPerSecond",
+        ...     decoding_type="X4",  # 4x resolution
+        ...     dist_per_pulse=0.001,  # 1mm per encoder pulse
+        ...     terminalA="/Dev1/PFI0",  # A phase
+        ...     terminalB="/Dev1/PFI1",  # B phase
+        ...     min_val=0.0,
+        ...     max_val=1.0  # 0-1 m/s range
+        ... )
+
+    :param units: Velocity units (MetersPerSecond or InchesPerSecond)
+    :param decoding_type: X1=1x, X2=2x, X4=4x resolution, TwoPulse=two pulse encoder
+    :param dist_per_pulse: Linear distance traveled per encoder pulse (in selected units)
+    :param terminalA: Encoder A phase input terminal
+    :param terminalB: Encoder B phase input terminal
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected velocity
+    :param max_val: Maximum expected velocity
     """
 
     type: Literal["ci_velocity_linear"] = "ci_velocity_linear"
@@ -1014,9 +1232,35 @@ class CIAngularVelocityChan(BaseCIChan, MinMaxVal):
     """
     Counter Input Angular Velocity Measurement Channel
 
+    Measures rotational velocity from a quadrature encoder. Commonly used with
+    motors, turntables, or rotating machinery. Provides real-time RPM or angular
+    velocity measurements.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecia
     ngvelocitychan.html>
+
+    Example:
+        >>> # Motor encoder with 1024 PPR (pulses per revolution)
+        >>> ang_velocity_chan = CIAngularVelocityChan(
+        ...     port=0,
+        ...     units="RPM",
+        ...     decoding_type="X4",  # 4x resolution = 4096 counts/rev
+        ...     pulses_per_rev=1024,
+        ...     terminalA="/Dev1/PFI0",  # A phase
+        ...     terminalB="/Dev1/PFI1",  # B phase
+        ...     min_val=0.0,
+        ...     max_val=5000.0  # 0-5000 RPM
+        ... )
+
+    :param units: Velocity units (RPM, Radians/s, or Degrees)
+    :param decoding_type: X1=1x, X2=2x, X4=4x resolution, TwoPulse=two pulse encoder
+    :param pulses_per_rev: Encoder pulses per revolution (PPR)
+    :param terminalA: Encoder A phase input terminal
+    :param terminalB: Encoder B phase input terminal
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected angular velocity
+    :param max_val: Maximum expected angular velocity
     """
 
     type: Literal["ci_velocity_angular"] = "ci_velocity_angular"
@@ -1032,9 +1276,41 @@ class CILinearPositionChan(BaseCIChan):
     """
     Counter Input Linear Position Measurement Channel
 
+    Tracks absolute or incremental linear position from a quadrature encoder.
+    Supports Z-index for position reset/homing. Commonly used in CNC machines,
+    linear stages, and precision positioning systems.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecil
     inencoderchan.html>
+
+    Example:
+        >>> # Linear stage with 10µm resolution and Z-index homing
+        >>> lin_position_chan = CILinearPositionChan(
+        ...     port=0,
+        ...     units="Meters",
+        ...     decoding_type="X4",
+        ...     dist_per_pulse=0.00001,  # 10 µm per pulse
+        ...     initial_pos=0.0,
+        ...     z_index_enable=True,  # Enable homing with Z pulse
+        ...     z_index_val=0.0,  # Reset to 0 at Z pulse
+        ...     z_index_phase="AHighBLow",
+        ...     terminalA="/Dev1/PFI0",
+        ...     terminalB="/Dev1/PFI1",
+        ...     terminalZ="/Dev1/PFI2"  # Z-index for homing
+        ... )
+
+    :param units: Position units (Meters or Inches)
+    :param decoding_type: X1=1x, X2=2x, X4=4x resolution
+    :param dist_per_pulse: Linear distance per encoder pulse
+    :param initial_pos: Starting position value
+    :param z_index_enable: Enable Z-index pulse for position reset
+    :param z_index_val: Position value to set when Z-index occurs
+    :param z_index_phase: AB phase state when Z-index is valid
+    :param terminalA: Encoder A phase input
+    :param terminalB: Encoder B phase input
+    :param terminalZ: Z-index input (optional, for homing)
+    :param custom_scale: Optional custom scaling
     """
 
     type: Literal["ci_position_linear"] = "ci_position_linear"
@@ -1057,9 +1333,41 @@ class CIAngularPositionChan(BaseCIChan):
     """
     Counter Input Angular Position Measurement Channel
 
+    Tracks angular position from a rotary encoder with optional Z-index homing.
+    Useful for motor control, turntables, and rotational positioning systems.
+    Position can be tracked in degrees or radians.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecia
     ngencoderchan.html>
+
+    Example:
+        >>> # Rotary encoder with 2048 PPR and homing
+        >>> ang_position_chan = CIAngularPositionChan(
+        ...     port=0,
+        ...     units="Degrees",
+        ...     decoding_type="X4",  # 8192 counts/rev
+        ...     pulses_per_rev=2048,
+        ...     initial_angle=0.0,
+        ...     z_index_enable=True,
+        ...     z_index_val=0.0,  # Reset to 0° at Z pulse
+        ...     z_index_phase="AHighBHigh",
+        ...     terminalA="/Dev1/PFI0",
+        ...     terminalB="/Dev1/PFI1",
+        ...     terminalZ="/Dev1/PFI2"
+        ... )
+
+    :param units: Angular units (Degrees or Radians)
+    :param decoding_type: X1=1x, X2=2x, X4=4x resolution
+    :param pulses_per_rev: Encoder pulses per revolution (PPR)
+    :param initial_angle: Starting angle value
+    :param z_index_enable: Enable Z-index pulse for angle reset
+    :param z_index_val: Angle value to set when Z-index occurs
+    :param z_index_phase: AB phase state when Z-index is valid
+    :param terminalA: Encoder A phase input
+    :param terminalB: Encoder B phase input
+    :param terminalZ: Z-index input (optional, for homing)
+    :param custom_scale: Optional custom scaling
     """
 
     type: Literal["ci_position_angular"] = "ci_position_angular"
@@ -1082,8 +1390,28 @@ class CIDutyCycleChan(BaseCIChan, MinMaxVal):
     """
     Counter Input Duty Cycle Measurement Channel
 
+    Measures the duty cycle (percentage of time signal is high) of a PWM or
+    pulse signal. Useful for analyzing PWM control signals or validating
+    signal generation.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecidutycyclechan.html>
+
+    Example:
+        >>> # Measure PWM duty cycle (0-100%)
+        >>> duty_cycle_chan = CIDutyCycleChan(
+        ...     port=0,
+        ...     activeEdge="Rising",
+        ...     terminal="/Dev1/PFI0",
+        ...     min_val=0.0,   # 0% duty cycle
+        ...     max_val=1.0    # 100% duty cycle (expressed as 0.0-1.0)
+        ... )
+
+    :param activeEdge: Edge that starts the measurement cycle
+    :param terminal: Physical input terminal (e.g., "/Dev1/PFI0")
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected duty cycle (0.0 = 0%)
+    :param max_val: Maximum expected duty cycle (1.0 = 100%)
     """
 
     type: Literal["ci_duty_cycle"] = "ci_duty_cycle"
@@ -1536,3 +1864,57 @@ class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             auto_start=auto_start,
             channels=channels,
         )
+
+
+# Device identifiers - must match Console expectations
+MAKE = "NI"
+
+
+def device_props(identifier: str) -> dict:
+    """
+    Create properties dict for NI device configuration.
+
+    Args:
+        identifier: Channel name prefix for all channels on this device
+
+    Returns:
+        Properties dict to be JSON-encoded for device creation
+    """
+    return {"identifier": identifier}
+
+
+def create_device(client, **kwargs):
+    """
+    Create an NI device with make automatically set.
+
+    This is a thin wrapper around client.hardware.devices.create() that
+    automatically fills in:
+    - make: "NI"
+    - key: auto-generated UUID if not provided
+
+    All other parameters are passed through unchanged.
+
+    Example:
+        >>> import json
+        >>> from synnax.hardware import ni
+        >>> device = ni.create_device(
+        ...     client=client,
+        ...     name="My NI Module",
+        ...     model="NI 9205",
+        ...     location="cDAQ1/dev_mod1",
+        ...     rack=rack.key,
+        ...     properties=json.dumps(ni.device_props(identifier="dev_mod1"))
+        ... )
+
+    Args:
+        client: Synnax client instance
+        **kwargs: Additional arguments passed to client.hardware.devices.create()
+    """
+    from uuid import uuid4
+
+    # Auto-generate key if not provided
+    if "key" not in kwargs:
+        kwargs["key"] = str(uuid4())
+
+    kwargs["make"] = MAKE
+    return client.hardware.devices.create(**kwargs)

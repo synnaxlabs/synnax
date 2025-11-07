@@ -128,7 +128,7 @@ frame = sy.Frame()
 # tsk.stop()
 # We recommend wrapping your code in a try/finally block to ensure the task is
 # stopped in case of an exception.
-with tsk.start():
+with tsk.run():
     # Open a streamer on the counter input channels.
     with client.open_streamer(["ci_0_freq", "ci_1_count"]) as streamer:
         for i in range(total_reads):

@@ -75,8 +75,78 @@ class ThermocoupleChan(BaseChan):
     cold junction compensation (CJC). Supports multiple thermocouple types
     and CJC sources.
 
+    Cold Junction Compensation (CJC) Explained:
+    Thermocouples measure temperature difference between the measurement junction
+    (hot end) and the reference junction (cold end, typically at the device terminals).
+    To get absolute temperature, we need to know the temperature at the cold junction.
+
+    CJC Source Options:
+    1. Internal device sensor (default): Most common, easiest to use
+    2. External temperature sensor: More accurate for high-precision measurements
+    3. Another analog input: Use when you have a dedicated temperature sensor
+
     For detailed information, see the LabJack documentation:
     <https://labjack.com/pages/support?doc=/datasheets/t-series-datasheet/33-appendix-a-1-thermocouples-t-series-datasheet/>
+
+    Example 1: Basic K-type thermocouple with internal CJC
+        >>> # Most common configuration - simple and reliable
+        >>> tc_chan = ThermocoupleChan(
+        ...     port="AIN0",
+        ...     channel=100,
+        ...     thermocouple_type="K",  # K-type thermocouple
+        ...     cjc_source="TEMPERATURE_DEVICE_K",  # Use device sensor
+        ...     cjc_slope=1.0,    # Default for internal sensor
+        ...     cjc_offset=0.0,   # Default for internal sensor
+        ...     units="C",
+        ...     neg_chan=199,  # Single-ended (referenced to GND)
+        ...     pos_chan=0     # AIN0
+        ... )
+
+    Example 2: J-type thermocouple with external LM34 CJC sensor
+        >>> # Higher accuracy using dedicated external temperature sensor
+        >>> # LM34 outputs 10mV/°F, sensor connected to AIN1
+        >>> tc_chan = ThermocoupleChan(
+        ...     port="AIN0",
+        ...     channel=100,
+        ...     thermocouple_type="J",
+        ...     cjc_source="AIN1",  # External sensor on AIN1
+        ...     cjc_slope=55.56,    # LM34 conversion: 1°F = 0.01V, converted to K/V
+        ...     cjc_offset=255.37,  # LM34 offset conversion to Kelvin
+        ...     units="F",
+        ...     neg_chan=199,
+        ...     pos_chan=0
+        ... )
+
+    Example 3: T-type thermocouple in differential mode
+        >>> # Differential measurement for better noise rejection
+        >>> tc_chan = ThermocoupleChan(
+        ...     port="AIN0",
+        ...     channel=100,
+        ...     thermocouple_type="T",
+        ...     cjc_source="TEMPERATURE_DEVICE_K",
+        ...     cjc_slope=1.0,
+        ...     cjc_offset=0.0,
+        ...     units="C",
+        ...     neg_chan=1,  # AIN1 as negative (differential)
+        ...     pos_chan=0   # AIN0 as positive
+        ... )
+
+    :param port: The port location of the channel (e.g., 'AIN0')
+    :param channel: Synnax channel key that will receive temperature data
+    :param thermocouple_type: Type of thermocouple (K is most common, J for lower temps)
+    :param cjc_source: CJC temperature source - 'TEMPERATURE_DEVICE_K' (internal),
+                       'TEMPERATURE_AIR_K' (air), or 'AIN#' (external sensor)
+    :param cjc_slope: Slope for CJC voltage-to-temperature conversion in Kelvin/Volts
+                      - Internal device sensor: 1.0 (default)
+                      - LM34 sensor: 55.56 (converts 10mV/°F to K/V)
+                      - Custom sensor: calculate based on sensor datasheet
+    :param cjc_offset: Offset for CJC temperature in Kelvin
+                       - Internal device sensor: 0.0 (default)
+                       - LM34 sensor: 255.37 (converts Fahrenheit offset to Kelvin)
+                       - Custom sensor: calculate based on sensor datasheet
+    :param units: Temperature units for output (K, C, or F)
+    :param neg_chan: Negative channel for differential mode (199 = single-ended GND reference)
+    :param pos_chan: Positive channel number (0 for AIN0, 1 for AIN1, etc.)
     """
 
     type: Literal["TC"] = "TC"
@@ -271,7 +341,11 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         import json
 
         dev = device_client.retrieve(key=self.config.device)
-        props = json.loads(dev.properties) if isinstance(dev.properties, str) else dev.properties
+        props = (
+            json.loads(dev.properties)
+            if isinstance(dev.properties, str)
+            else dev.properties
+        )
 
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
@@ -336,7 +410,11 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         import json
 
         dev = device_client.retrieve(key=self.config.device)
-        props = json.loads(dev.properties) if isinstance(dev.properties, str) else dev.properties
+        props = (
+            json.loads(dev.properties)
+            if isinstance(dev.properties, str)
+            else dev.properties
+        )
 
         if "write" not in props:
             props["write"] = {"channels": {}}
@@ -371,13 +449,8 @@ def device_props(
             "identifier": identifier,
             "connection_type": connection_type,
         },
-        "read": {
-            "index": 0,
-            "channels": {}
-        },
-        "write": {
-            "channels": {}
-        }
+        "read": {"index": 0, "channels": {}},
+        "write": {"channels": {}},
     }
 
 

@@ -17,9 +17,7 @@ import ExampleDetails from "@/components/details/ExampleDetails.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Note.Note variant="error">
-  **TO DO**: Update video for this page
-</Note.Note>
+<Note.Note variant="error">**TO DO**: Update video for this page</Note.Note>
 
 Now that you've configured your hardware device, you're ready to create tasks to
 communicate with it. This guide covers the fundamentals of working with tasks in the
@@ -156,6 +154,37 @@ executing, but the configuration will remain saved.
   <Fragment slot="python">
 
 <ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Running a Task</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# Retrieve your task
+task = client.hardware.tasks.retrieve(name="My Analog Read Task")
+
+# Option 1: Use run() context manager (Recommended)
+# Automatically starts and stops the task, even if
+# an exception occurs
+with task.run():
+    # task.start() called under the hood
+    with client.open_streamer(["ai_0", "ai_1"]) as streamer:
+        for i in range(100):
+            frame = streamer.read()
+# task.stop() called under the hood
+
+# Option 2: Start task and leave it running
+# Task continues running even after the script exits
+task.start()
+
+# Later, you can stop it with:
+# task.stop()
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
 <Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
 
 ```python
@@ -187,7 +216,7 @@ analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Copy /> Copy and Edit a Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Copy and Edit a Task</Text.Text>
 
 ```python
 import synnax as sy
@@ -242,6 +271,43 @@ client.hardware.tasks.delete(task.key)
   <Fragment slot="typescript">
 
 <ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Running a Task</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve your task
+const task = await client.hardware.tasks.retrieve({ name: "My Analog Read Task" });
+
+// Option 1: Use run() context manager (Recommended)
+// Automatically starts and stops the task, even if
+// an exception occurs
+await task.run(async () => {
+  // task.start() called under the hood
+  const streamer = await client.openStreamer(["ai_0", "ai_1"]);
+  try {
+    for (let i = 0; i < 100; i++) {
+      const frame = await streamer.read();
+    }
+  } finally {
+    await streamer.close();
+  }
+});
+// task.stop() called under the hood
+
+// Option 2: Start task and leave it running
+// Task continues running even after the script exits
+await task.start();
+
+// Later, you can stop it with:
+// await task.stop();
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
 <Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
 
 ```typescript
@@ -273,7 +339,7 @@ const analogReadTasks = allTasks.filter((t) => t.type === "ni_analog_read");
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Copy /> Copy and Edit a Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Copy and Edit a Task</Text.Text>
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";

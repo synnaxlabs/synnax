@@ -9,15 +9,15 @@ next: "Read Task"
 nextURL: "/reference/driver/modbus/read-task"
 ---
 
-import StepText from "@/components/StepText.astro";
-import { Divider, Text, Icon } from "@synnaxlabs/pluto";
+import { Divider, Text, Icon, Note } from "@synnaxlabs/pluto";
 import { Video } from "@/components/Media";
 import { Fragment } from "react";
-import Table from "@/components/Table.astro";
 import ExampleDetails from "@/components/details/ExampleDetails.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
+
+<Note.Note variant="error">**TO DO**: Update video for this page</Note.Note>
 
 The first step to acquiring data from your Modbus server is to establish a connection to
 the server.
@@ -40,19 +40,36 @@ following:
 
 <Divider.Divider x />
 
+## Configuration Parameters Reference
+
+| Parameter    | Type    | Required | Default | Description                                                                                  |
+| ------------ | ------- | -------- | ------- | -------------------------------------------------------------------------------------------- |
+| `name`       | string  | Yes      | -       | Human-readable server name for identification in Console                                     |
+| `rack`       | string  | Yes      | -       | Synnax Driver (rack) key that will connect to the Modbus server                              |
+| `host`       | string  | Yes      | -       | IP address or hostname of the Modbus server (e.g., `192.168.1.100` or `localhost`)           |
+| `port`       | integer | Yes      | `502`   | TCP port number for the Modbus server (standard Modbus port is 502)                          |
+| `swap_bytes` | boolean | No       | `false` | Swap byte order within 16-bit words for endianness handling (applies to register types only) |
+| `swap_words` | boolean | No       | `false` | Swap word order for 32-bit and 64-bit values (applies to multi-register data types only)     |
+
+<Divider.Divider x />
+
 ## How To
 
 <Client.Tabs client:only="react" exclude={["typescript", "cpp"]}>
   <Fragment slot="console">
 
-## <StepText level="h2" step={1}>Open the Connection Dialog</StepText>
+### Step 1 → Open the Connection Dialog
 
-To connect to your Modbus server, open the Console and click on the Search and Command
-Palette at the top. You can also open this palette with `Ctrl+Shift+P` on Windows or
-`Cmd+Shift+P` on macOS.
+Open the Search and Command Palette:
 
-In command mode (enabled when the first character in the input is `>`), type "Modbus".
-Select the "Connect a Modbus Server" option to open the server configuration dialog.
+**1a.** Click on the palette at the top of the Console, OR
+
+**1b.** Use the keyboard shortcut `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (macOS).
+
+**2.** Ensure you're in command mode (the input should start with `>`).
+
+**3.** Type "Modbus" and select `Connect a Modbus Server` to open the configuration
+dialog.
 
 <ExampleDetails>
 <Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
@@ -63,83 +80,9 @@ Select the "Connect a Modbus Server" option to open the server configuration dia
 
 <Divider.Divider x />
 
-## <StepText level="h2" step={2}>Configure the Connection</StepText>
+### Step 2 → Configure the Connection
 
 Enter the connection parameters for your server.
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
-
-<Table>
-  <thead>
-    <tr>
-      <th>Field</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Name</td>
-      <td>
-        <p>
-          A name for your Modbus server. We'll use this to identify and manage the
-          server in the Console.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td>Connect From</td>
-      <td>
-        <p>The Synnax driver that will connect to the Modbus server.</p>
-      </td>
-    </tr>
-    <tr>
-      <td>Host</td>
-      <td>
-        <p>
-          The IP address or hostname of your Modbus server. This should be its reachable
-          address on the network (e.g., `192.168.1.100` or `localhost`).
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td>Port</td>
-      <td>
-        <p>The TCP port for the Modbus server. The default Modbus port is `502`.</p>
-      </td>
-    </tr>
-    <tr>
-      <td>Swap Bytes</td>
-      <td>
-        <p>
-          Enable byte swapping for 16-bit values. This is used to handle different
-          endianness between the server and Synnax. Only applicable for register types
-          (Holding Registers and Input Registers).
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td>Swap Words</td>
-      <td>
-        <p>
-          Enable word swapping for 32-bit and 64-bit values. This reorders 16-bit words
-          within multi-register values to handle different word ordering conventions.
-          Only applicable for 32-bit and 64-bit data types in registers.
-        </p>
-      </td>
-    </tr>
-  </tbody>
-</Table>
-
-</ExampleDetails>
-
-<Divider.Divider x />
-
-## <StepText level="h2" step={3}>Save the Connection</StepText>
-
-You can use the "Connect" button to verify that the server is reachable. Once the
-connection is successful, click "Connect" to save the connection. You can now create
-read and write tasks for this server.
 
 <ExampleDetails>
 <Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
@@ -180,6 +123,12 @@ device = modbus.create_device(
         )
     ),
 )
+
+# Or retrieve by location
+device = client.hardware.devices.retrieve(location="192.168.1.100:502")
+
+# Or retrieve by name
+device = client.hardware.devices.retrieve(name="My Modbus Server")
 
 print(f"Connected to Modbus server: {device.name}")
 ```

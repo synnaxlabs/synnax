@@ -123,10 +123,7 @@ class DiscreteInputChan(BaseChan):
 
 # Union type for all input channels
 InputChan = (
-    HoldingRegisterInputChan
-    | InputRegisterChan
-    | CoilInputChan
-    | DiscreteInputChan
+    HoldingRegisterInputChan | InputRegisterChan | CoilInputChan | DiscreteInputChan
 )
 
 
@@ -288,11 +285,27 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         )
 
     def _update_device_properties(self, device_client):
-        """Internal: Update device properties before task configuration."""
+        """Internal: Update device properties before task configuration.
+
+        This method synchronizes channel configurations with device properties
+        so that the Console can properly map Modbus register addresses to Synnax channels.
+
+        The key format follows Console's readMapKey convention:
+        - For fixed-density channels (coils, discrete inputs): "{type}-{address}"
+          Example: "coil-input-100" for a coil at address 100
+        - For variable-density channels (registers): "{type}-{address}-{dataType}"
+          Example: "holding-register-input-40001-float32" for a float32 at address 40001
+
+        Keys use hyphens instead of underscores to match Console's naming convention.
+        """
         import json
 
         dev = device_client.retrieve(key=self.config.device)
-        props = json.loads(dev.properties) if isinstance(dev.properties, str) else dev.properties
+        props = (
+            json.loads(dev.properties)
+            if isinstance(dev.properties, str)
+            else dev.properties
+        )
 
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
@@ -301,6 +314,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             # Generate key matching Console's readMapKey format
             key = f"{ch.type}-{ch.address}"
             # Variable density channels (holding_register_input, register_input) include dataType
+            # because the same address can represent different data types depending on interpretation
             if hasattr(ch, "data_type"):
                 key += f"-{ch.data_type}"
             # Replace underscores with hyphens
@@ -357,19 +371,39 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         )
 
     def _update_device_properties(self, device_client):
-        """Internal: Update device properties before task configuration."""
+        """Internal: Update device properties before task configuration.
+
+        This method synchronizes channel configurations with device properties
+        so that the Console can properly map Modbus register addresses to Synnax channels.
+
+        The key format follows Console's writeMapKey convention:
+        - Format: "{type}-{address}" (NO dataType suffix for write channels)
+          Example: "coil-output-100" for a coil at address 100
+          Example: "holding-register-output-40001" for a register at address 40001
+
+        Write channels omit the dataType because writes are unambiguous - the driver
+        converts the incoming value to the appropriate Modbus format based on register type.
+
+        Keys use hyphens instead of underscores to match Console's naming convention.
+        """
         import json
 
         dev = device_client.retrieve(key=self.config.device)
-        props = json.loads(dev.properties) if isinstance(dev.properties, str) else dev.properties
+        props = (
+            json.loads(dev.properties)
+            if isinstance(dev.properties, str)
+            else dev.properties
+        )
 
         if "write" not in props:
             props["write"] = {"channels": {}}
 
         for ch in self.config.channels:
             # Generate key matching Console's writeMapKey format
-            # Write channels don't include dataType in the key
+            # Write channels don't include dataType in the key because writes are unambiguous
             key = f"{ch.type}-{ch.address}".replace("_", "-")
+
+            # Map the generated key to the Synnax channel that will send command values
             props["write"]["channels"][key] = ch.channel
 
         dev.properties = json.dumps(props)
@@ -404,13 +438,8 @@ def device_props(
             "swap_bytes": swap_bytes,
             "swap_words": swap_words,
         },
-        "read": {
-            "index": 0,
-            "channels": {}
-        },
-        "write": {
-            "channels": {}
-        }
+        "read": {"index": 0, "channels": {}},
+        "write": {"channels": {}},
     }
 
 

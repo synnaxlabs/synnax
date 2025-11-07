@@ -72,14 +72,11 @@ client.hardware.tasks.configure(tsk)
 # Start the task to begin generating pulses. The pulses will continue with the
 # configured parameters until the task is stopped.
 print("Starting pulse generation...")
-tsk.start()
+with tsk.run():
+    # Let the pulses run for 5 seconds
+    sy.sleep(5)
 
-# Let the pulses run for 5 seconds
-sy.sleep(5)
-
-# Stop pulse generation
-print("Stopping pulse generation...")
-tsk.stop()
+print("Stopped pulse generation.")
 
 # To change pulse parameters, you would need to:
 # 1. Stop the task (done above)

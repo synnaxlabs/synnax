@@ -78,12 +78,12 @@ frame = sy.Frame()
 
 # Start the task under a context manager, which ensures the task gets stopped
 # when the block exits. If you want to stop the task manually, you can call
-# tsk.start();
+# tsk.start()
 # ...your code
 # tsk.stop()
-# We recommend wrapped your code in a try/finally block to ensure the task is
+# We recommend wrapping your code in a try/finally block to ensure the task is
 # stopped in case of an exception.
-with tsk.start():
+with tsk.run():
     # Open a streamer on the analog input channels.
     with client.open_streamer(["di_0", "di_1"]) as streamer:
         while total_reads > 0:
