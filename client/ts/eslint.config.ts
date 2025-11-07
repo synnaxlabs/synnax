@@ -10,4 +10,5 @@
 import type { Linter } from "eslint";
 import synnaxConfig from "eslint-config-synnaxlabs";
 
-export default [...synnaxConfig, { ignores: ["examples"] }] as Linter.Config[];
+const cfg: Linter.Config[] = [...synnaxConfig, { ignores: ["examples"] }];
+export default cfg;
