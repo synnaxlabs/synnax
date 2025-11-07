@@ -52,6 +52,7 @@ linters:
     - unconvert
     - unparam
     - unqueryvet
+    - usestdlibvars
   settings:
     staticcheck:
       checks:
@@ -61,3 +62,11 @@ linters:
       field-writes-are-uses: false
       local-variables-are-used: false
       generated-is-used: false
+    usestdlibvars:
+      time-date-month: true
+      time-month: true
+      time-layout: true
+      crypto-hash: true
+      default-rpc-path: true
+      sql-isolation-level: true
+      tls-signature-scheme: true
