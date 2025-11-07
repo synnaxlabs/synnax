@@ -98,7 +98,7 @@ type (
 
 var _ ontology.Service = (*aliasOntologyService)(nil)
 
-func (a *aliasOntologyService) Type() ontology.Type { return aliasOntologyType }
+func (s *aliasOntologyService) Type() ontology.Type { return aliasOntologyType }
 
 // Schema implements ontology.Service.
 func (s *aliasOntologyService) Schema() zyn.Schema { return aliasSchema }

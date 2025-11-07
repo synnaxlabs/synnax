@@ -53,6 +53,10 @@ linters:
     - unparam
     - unqueryvet
   settings:
+    staticcheck:
+      checks:
+        - all
+        - -ST1000
     unused:
       field-writes-are-uses: false
       local-variables-are-used: false

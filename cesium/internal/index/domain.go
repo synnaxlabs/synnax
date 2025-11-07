@@ -345,8 +345,8 @@ func (i *Domain) approximateStamp(
 		return TimeStampApproximation{}, err
 	}
 	if lowerTSByteOffset >= 0 {
-		lowerTs, err := readStamp(r, lowerTSByteOffset)
-		return Between(lowerTs, upperTS), err
+		lowerTS, err := readStamp(r, lowerTSByteOffset)
+		return Between(lowerTS, upperTS), err
 	}
 	// Edge case: end timestamps are split between two different files, so we must go
 	// back to read the lower bound.
@@ -517,18 +517,18 @@ func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (Approximation[int
 		start int64 = 0
 		end         = sampleCount(r.Size()) - 1
 		read        = newStampReader()
-		midTs telem.TimeStamp
+		midTS telem.TimeStamp
 		err   error
 	)
 	for start <= end {
 		mid := (start + end) / 2
-		if midTs, err = read(r, byteSize(mid)); err != nil {
+		if midTS, err = read(r, byteSize(mid)); err != nil {
 			return Exactly[int64](0), err
 		}
 		switch {
-		case ts == midTs:
+		case ts == midTS:
 			return Exactly(mid), nil
-		case midTs < ts:
+		case midTS < ts:
 			start = mid + 1
 		default:
 			end = mid - 1
@@ -546,8 +546,6 @@ func newStampReader() func(r io.ReaderAt, offset telem.Size) (telem.TimeStamp, e
 }
 
 // Info returns the key and name of the channel of the index. If the database is
-// domain-indexed, the information of the domain channel is returned. If the database
-// is rate-based (i.e. self-indexing), the channel itself is returned.
-func (i *Domain) Info() string {
-	return fmt.Sprintf("domain index: %v", i.Channel)
-}
+// domain-indexed, the information of the domain channel is returned. If the database is
+// rate-based (i.e. self-indexing), the channel itself is returned.
+func (i *Domain) Info() string { return fmt.Sprintf("domain index: %v", i.Channel) }

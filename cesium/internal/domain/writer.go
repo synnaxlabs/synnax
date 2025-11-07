@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -84,9 +84,9 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	return w
 }
 
-// Write writes the given data to the DB new telemetry domain occupying the provided time
-// range. If the time domain overlaps with any other domains in the DB, Write will return
-// an error.
+// Write writes the given data to the DB new telemetry domain occupying the provided
+// time range. If the time domain overlaps with any other domains in the DB, Write will
+// return an error.
 func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) (err error) {
 	w, err := db.OpenWriter(ctx, WriterConfig{Start: tr.Start, End: tr.End})
 	if err != nil {
@@ -133,7 +133,7 @@ type Writer struct {
 	// len is the number of bytes written by all internal writers of the domain writer.
 	len int64
 	// internal is a TrackedWriteCloser used to write telemetry to FS.
-	internal xio.TrackedWriteCloser
+	internal io.TrackedWriteCloser
 	// presetEnd denotes whether the writer has a preset end as part of its
 	// WriterConfig. If it does, then commits to the writer will use that end as the end
 	// of the domain.
@@ -201,7 +201,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 // Len returns the number of bytes written to the domain.
 func (w *Writer) Len() int64 { return w.len }
 
-// Writer writes binary telemetry to the domain. Write is not safe to call concurrently
+// Write writes binary telemetry to the domain. Write is not safe to call concurrently
 // with any other Writer methods. The contents of p are safe to modify after Write
 // returns.
 func (w *Writer) Write(p []byte) (int, error) {

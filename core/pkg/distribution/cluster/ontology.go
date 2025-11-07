@@ -94,7 +94,7 @@ func (s *NodeOntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource]
 	), nil
 }
 
-// schema implements ontology.Service.
+// Schema implements ontology.Service.
 func (s *NodeOntologyService) Schema() zyn.Schema { return nodeSchema }
 
 // RetrieveResource implements ontology.Service.
@@ -132,7 +132,7 @@ var _ ontology.Service = (*OntologyService)(nil)
 
 func (s *OntologyService) Type() ontology.Type { return clusterOntologyType }
 
-// schema implements ontology.Service.
+// Schema implements ontology.Service.
 func (s *OntologyService) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
