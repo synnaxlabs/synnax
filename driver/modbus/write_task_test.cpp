@@ -480,6 +480,6 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     // All three registers should be written correctly, including the last one
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(0), 50);
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(1), 100);
-    ASSERT_EVENTUALLY_EQ(slave.get_holding_register(2), 150); // This would have failed before the fix
+    ASSERT_EVENTUALLY_EQ(slave.get_holding_register(2), 150);
     wt->stop("stop_cmd", true);
 }

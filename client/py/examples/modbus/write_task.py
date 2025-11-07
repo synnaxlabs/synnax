@@ -139,16 +139,20 @@ with tsk.run():
             hold_reg_0_val = (i * 25) % 256
             hold_reg_1_val = 255 - (i * 20) % 256
 
-            print(f"{i+1:<8} {coil_0_val:>10} {coil_1_val:>10} {hold_reg_0_val:>12} {hold_reg_1_val:>12}")
+            print(
+                f"{i+1:<8} {coil_0_val:>10} {coil_1_val:>10} {hold_reg_0_val:>12} {hold_reg_1_val:>12}"
+            )
 
             # Write all commands with timestamp
-            writer.write({
-                modbus_cmd_time.key: sy.TimeStamp.now(),
-                coil_cmd_0.key: coil_0_val,
-                coil_cmd_1.key: coil_1_val,
-                holding_reg_cmd_0.key: hold_reg_0_val,
-                holding_reg_cmd_1.key: hold_reg_1_val,
-            })
+            writer.write(
+                {
+                    modbus_cmd_time.key: sy.TimeStamp.now(),
+                    coil_cmd_0.key: coil_0_val,
+                    coil_cmd_1.key: coil_1_val,
+                    holding_reg_cmd_0.key: hold_reg_0_val,
+                    holding_reg_cmd_1.key: hold_reg_1_val,
+                }
+            )
             writer.commit()
             time.sleep(1)
 

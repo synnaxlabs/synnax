@@ -57,7 +57,7 @@ def Channel(*args, **kwargs):
         "opcua.Channel is deprecated and will be removed in a future version. "
         "Use opcua.ReadChannel instead.",
         DeprecationWarning,
-        stacklevel=2
+        stacklevel=2,
     )
     return ReadChannel(*args, **kwargs)
 
@@ -197,7 +197,11 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         import json
 
         dev = device_client.retrieve(key=self.config.device)
-        props = json.loads(dev.properties) if isinstance(dev.properties, str) else dev.properties
+        props = (
+            json.loads(dev.properties)
+            if isinstance(dev.properties, str)
+            else dev.properties
+        )
 
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
@@ -280,7 +284,11 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         import json
 
         dev = device_client.retrieve(key=self.config.device)
-        props = json.loads(dev.properties) if isinstance(dev.properties, str) else dev.properties
+        props = (
+            json.loads(dev.properties)
+            if isinstance(dev.properties, str)
+            else dev.properties
+        )
 
         if "write" not in props:
             props["write"] = {"channels": {}}
@@ -345,13 +353,8 @@ def device_props(
 
     return {
         "connection": connection,
-        "read": {
-            "index": 0,
-            "channels": {}
-        },
-        "write": {
-            "channels": {}
-        }
+        "read": {"index": 0, "channels": {}},
+        "write": {"channels": {}},
     }
 
 

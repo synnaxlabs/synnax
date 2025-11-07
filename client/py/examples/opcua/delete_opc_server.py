@@ -45,8 +45,7 @@ print()
 
 # Check if device exists
 existing_device = client.hardware.devices.retrieve(
-    name=DEVICE_NAME,
-    ignore_not_found=True
+    name=DEVICE_NAME, ignore_not_found=True
 )
 
 if existing_device is None:

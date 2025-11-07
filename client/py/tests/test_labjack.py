@@ -12,12 +12,12 @@ from pydantic import ValidationError
 
 import synnax as sy
 from synnax.hardware.labjack import (
+    T7,
     AIChan,
     DIChan,
     OutputChan,
     ReadTask,
     ReadTaskConfig,
-    T7,
     ThermocoupleChan,
     WriteTask,
     WriteTaskConfig,
@@ -522,6 +522,7 @@ class TestLabJackDevicePropertyUpdates:
     def test_read_task_updates_device_properties(self, client: sy.Synnax):
         """Test that configuring a ReadTask updates device properties with channel mappings."""
         import json
+
         from synnax.hardware import labjack
 
         # Create a rack
@@ -602,6 +603,7 @@ class TestLabJackDevicePropertyUpdates:
     def test_write_task_updates_device_properties(self, client: sy.Synnax):
         """Test that configuring a WriteTask updates device properties with channel mappings."""
         import json
+
         from synnax.hardware import labjack
 
         # Create a rack

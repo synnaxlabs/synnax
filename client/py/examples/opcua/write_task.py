@@ -101,7 +101,12 @@ with tsk.run():
     # IMPORTANT: Must include the index channel (opcua_cmd_time) along with data channels
     with client.open_writer(
         start=sy.TimeStamp.now(),
-        channels=[opcua_cmd_time.key, cmd_channel_0.key, cmd_channel_1.key, cmd_channel_2.key],
+        channels=[
+            opcua_cmd_time.key,
+            cmd_channel_0.key,
+            cmd_channel_1.key,
+            cmd_channel_2.key,
+        ],
         enable_auto_commit=True,
     ) as writer:
         # Write some test values to the OPC UA nodes

@@ -283,7 +283,9 @@ class TestOPCUAWriteTask:
         assert retrieved_task.config.auto_start == original_task.config.auto_start
         assert len(retrieved_task.config.channels) == len(original_task.config.channels)
 
-        for orig_ch, retr_ch in zip(original_task.config.channels, retrieved_task.config.channels):
+        for orig_ch, retr_ch in zip(
+            original_task.config.channels, retrieved_task.config.channels
+        ):
             assert retr_ch.key == orig_ch.key
             assert retr_ch.node_id == orig_ch.node_id
             assert retr_ch.cmd_channel == orig_ch.cmd_channel

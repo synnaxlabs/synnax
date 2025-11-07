@@ -68,17 +68,9 @@ tsk = modbus.ReadTask(
     data_saving=True,
     channels=[
         # Input register (16-bit R-only) at address 0
-        modbus.InputRegisterChan(
-            channel=input_reg_0.key,
-            address=0,
-            data_type="uint8"
-        ),
+        modbus.InputRegisterChan(channel=input_reg_0.key, address=0, data_type="uint8"),
         # Input register (16-bit R-only) at address 1
-        modbus.InputRegisterChan(
-            channel=input_reg_1.key,
-            address=1,
-            data_type="uint8"
-        ),
+        modbus.InputRegisterChan(channel=input_reg_1.key, address=1, data_type="uint8"),
     ],
 )
 
@@ -102,7 +94,7 @@ print("-" * 70)
 # Start the task and read data continuously
 try:
     # Hide cursor for clean output
-    print('\033[?25l', end='', flush=True)
+    print("\033[?25l", end="", flush=True)
 
     with tsk.run():
         with client.open_streamer(["input_register_0", "input_register_1"]) as streamer:
@@ -113,21 +105,30 @@ try:
                 frame = streamer.read()
                 if frame:
                     # Print the latest values from both channels
-                    if "input_register_0" in frame and len(frame["input_register_0"]) > 0:
+                    if (
+                        "input_register_0" in frame
+                        and len(frame["input_register_0"]) > 0
+                    ):
                         val0 = frame["input_register_0"][-1]
                         val1 = frame["input_register_1"][-1]
                         elapsed = sy.TimeStamp.now().span(start_time).seconds
 
                         sample_count += 1
-                        print(f"{sample_count:<10} {elapsed:<10.1f} {val0:>10} {val1:>10}", end='\r', flush=True)
+                        print(
+                            f"{sample_count:<10} {elapsed:<10.1f} {val0:>10} {val1:>10}",
+                            end="\r",
+                            flush=True,
+                        )
 
 # Output summary
 except KeyboardInterrupt:
     print("\n" + "-" * 70)
     print("✓ Read task stopped by user")
     print(f"\nCollected {sample_count} samples")
-    print("The server provides sine wave data (0-255) at input register addresses 0 and 1.")
+    print(
+        "The server provides sine wave data (0-255) at input register addresses 0 and 1."
+    )
     print("=" * 70)
 finally:
     # Ensure cursor is always shown even if something goes wrong
-    print('\033[?25h', end='', flush=True)
+    print("\033[?25h", end="", flush=True)

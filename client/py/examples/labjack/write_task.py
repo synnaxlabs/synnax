@@ -142,6 +142,7 @@ try:
             for i in range(10):
                 # Analog output - sine wave from 0V to 5V
                 import math
+
                 dac0_val = 2.5 + 2.5 * math.sin(2 * math.pi * i / 10)
 
                 # Digital output - alternating ON/OFF
@@ -150,11 +151,13 @@ try:
                 print(f"{i+1:<8} {dac0_val:>12.2f} {'HIGH' if fio4_val else 'LOW':>12}")
 
                 # Write all commands with timestamp
-                writer.write({
-                    labjack_cmd_time.key: sy.TimeStamp.now(),
-                    dac0_cmd.key: dac0_val,
-                    fio4_cmd.key: fio4_val,
-                })
+                writer.write(
+                    {
+                        labjack_cmd_time.key: sy.TimeStamp.now(),
+                        dac0_cmd.key: dac0_val,
+                        fio4_cmd.key: fio4_val,
+                    }
+                )
                 writer.commit()
                 time.sleep(1)
 

@@ -73,12 +73,12 @@ tsk = opcua.ReadTask(
         opcua.ReadChannel(
             channel=my_array_0.key,
             node_id="NS=2;I=2",  # my_array_0
-            data_type="float32"
+            data_type="float32",
         ),
         opcua.ReadChannel(
             channel=my_array_1.key,
             node_id="NS=2;I=3",  # my_array_1
-            data_type="float32"
+            data_type="float32",
         ),
     ],
 )
@@ -92,13 +92,15 @@ print("=" * 80)
 print("Reading array sine wave data from server_extended.py...")
 print("Running continuously - Press Ctrl+C to stop\n")
 
-print(f"{'Sample':<8} {'Timestamp':<12} {'my_array_0 (5 values)':^35} {'my_array_1 (5 values)':^20}")
+print(
+    f"{'Sample':<8} {'Timestamp':<12} {'my_array_0 (5 values)':^35} {'my_array_1 (5 values)':^20}"
+)
 print("-" * 80)
 
 # Start the task and read data continuously
 try:
     # Hide cursor for clean output
-    print('\033[?25l', end='', flush=True)
+    print("\033[?25l", end="", flush=True)
 
     with tsk.run():
         with client.open_streamer(["my_array_0", "my_array_1"]) as streamer:
@@ -115,10 +117,22 @@ try:
                         sample_count += 1
 
                         # Format arrays for display by iterating directly over MultiSeries
-                        arr0_str = "[" + ",".join(f"{v:5.2f}" for v in frame["my_array_0"]) + "]"
-                        arr1_str = "[" + ",".join(f"{v:5.2f}" for v in frame["my_array_1"]) + "]"
+                        arr0_str = (
+                            "["
+                            + ",".join(f"{v:5.2f}" for v in frame["my_array_0"])
+                            + "]"
+                        )
+                        arr1_str = (
+                            "["
+                            + ",".join(f"{v:5.2f}" for v in frame["my_array_1"])
+                            + "]"
+                        )
 
-                        print(f"{sample_count:<8} {elapsed:<12.1f} {arr0_str:^35} {arr1_str:^20}", end='\r', flush=True)
+                        print(
+                            f"{sample_count:<8} {elapsed:<12.1f} {arr0_str:^35} {arr1_str:^20}",
+                            end="\r",
+                            flush=True,
+                        )
 
 # Output summary
 except KeyboardInterrupt:
@@ -131,4 +145,4 @@ except KeyboardInterrupt:
     print("=" * 80)
 finally:
     # Ensure cursor is always shown even if something goes wrong
-    print('\033[?25h', end='', flush=True)
+    print("\033[?25h", end="", flush=True)

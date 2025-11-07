@@ -65,8 +65,8 @@ tc1 = client.channels.create(
 tsk = labjack.ReadTask(
     name="LabJack Py - Thermocouple Task",
     device=dev.key,
-    sample_rate=sy.Rate.HZ * 10,   # Sample at 10 Hz (max for thermocouples)
-    stream_rate=sy.Rate.HZ * 10,   # Stream at 10 Hz
+    sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz (max for thermocouples)
+    stream_rate=sy.Rate.HZ * 10,  # Stream at 10 Hz
     data_saving=True,
     channels=[
         # K-type thermocouple on AIN0 with device CJC in Celsius
@@ -75,11 +75,11 @@ tsk = labjack.ReadTask(
             channel=tc0.key,
             thermocouple_type="K",
             cjc_source="TEMPERATURE_DEVICE_K",  # Use device internal temp sensor
-            cjc_slope=1.0,   # Device temp sensor
+            cjc_slope=1.0,  # Device temp sensor
             cjc_offset=0.0,  # Device temp sensor
-            units="C",       # Celsius
+            units="C",  # Celsius
             pos_chan=0,
-            neg_chan=199,    # 199 = single-ended (GND)
+            neg_chan=199,  # 199 = single-ended (GND)
         ),
         # K-type thermocouple on AIN2 with device CJC in Fahrenheit
         labjack.ThermocoupleChan(
@@ -87,11 +87,11 @@ tsk = labjack.ReadTask(
             channel=tc1.key,
             thermocouple_type="K",
             cjc_source="TEMPERATURE_DEVICE_K",  # Use device internal temp sensor
-            cjc_slope=1.0,   # Device temp sensor
+            cjc_slope=1.0,  # Device temp sensor
             cjc_offset=0.0,  # Device temp sensor
-            units="F",       # Fahrenheit
+            units="F",  # Fahrenheit
             pos_chan=2,
-            neg_chan=199,    # 199 = single-ended (GND)
+            neg_chan=199,  # 199 = single-ended (GND)
         ),
     ],
 )
@@ -116,7 +116,7 @@ print("-" * 70)
 # Start the task and read data continuously
 try:
     # Hide cursor for clean output
-    print('\033[?25l', end='', flush=True)
+    print("\033[?25l", end="", flush=True)
 
     with tsk.run():
         with client.open_streamer(["thermocouple_0", "thermocouple_1"]) as streamer:
@@ -133,7 +133,11 @@ try:
                         elapsed = sy.TimeStamp.now().span(start_time).seconds
 
                         sample_count += 1
-                        print(f"{sample_count:<10} {elapsed:<10.1f} {temp_c:>12.1f} {temp_f:>12.1f}", end='\r', flush=True)
+                        print(
+                            f"{sample_count:<10} {elapsed:<10.1f} {temp_c:>12.1f} {temp_f:>12.1f}",
+                            end="\r",
+                            flush=True,
+                        )
 
 # Output summary
 except KeyboardInterrupt:
@@ -145,4 +149,4 @@ except KeyboardInterrupt:
     print("=" * 70)
 finally:
     # Ensure cursor is always shown even if something goes wrong
-    print('\033[?25h', end='', flush=True)
+    print("\033[?25h", end="", flush=True)

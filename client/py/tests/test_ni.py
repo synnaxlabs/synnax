@@ -15,6 +15,7 @@ import synnax as sy
 from synnax import ValidationError
 from synnax.hardware import ni
 from synnax.hardware.ni import (
+    MAKE,
     AIVoltageChan,
     AnalogReadTask,
     AnalogReadTaskConfig,
@@ -23,7 +24,6 @@ from synnax.hardware.ni import (
     CounterWriteConfig,
     DigitalReadConfig,
     DigitalWriteConfig,
-    MAKE,
     create_device,
     device_props,
 )

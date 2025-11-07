@@ -88,16 +88,8 @@ original_task = modbus.ReadTask(
     stream_rate=sy.Rate.HZ * 10,
     data_saving=True,
     channels=[
-        modbus.InputRegisterChan(
-            channel=input_reg_0.key,
-            address=0,
-            data_type="uint8"
-        ),
-        modbus.InputRegisterChan(
-            channel=input_reg_1.key,
-            address=1,
-            data_type="uint8"
-        ),
+        modbus.InputRegisterChan(channel=input_reg_0.key, address=0, data_type="uint8"),
+        modbus.InputRegisterChan(channel=input_reg_1.key, address=1, data_type="uint8"),
     ],
 )
 

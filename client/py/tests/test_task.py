@@ -155,9 +155,7 @@ class TestTaskClient:
         # Create an original task
         original_name = str(uuid4())
         original = client.hardware.tasks.create(
-            name=original_name,
-            type="test",
-            config='{"foo": "bar"}'
+            name=original_name, type="test", config='{"foo": "bar"}'
         )
 
         # Copy the task

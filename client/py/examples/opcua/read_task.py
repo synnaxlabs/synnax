@@ -71,12 +71,12 @@ tsk = opcua.ReadTask(
         opcua.ReadChannel(
             channel=my_float_0.key,
             node_id="NS=2;I=8",  # my_float_0
-            data_type="float32"
+            data_type="float32",
         ),
         opcua.ReadChannel(
             channel=my_float_1.key,
             node_id="NS=2;I=9",  # my_float_1
-            data_type="float32"
+            data_type="float32",
         ),
     ],
 )
@@ -96,7 +96,7 @@ print("-" * 70)
 # Start the task and read data continuously
 try:
     # Hide cursor for clean output
-    print('\033[?25l', end='', flush=True)
+    print("\033[?25l", end="", flush=True)
 
     with tsk.run():
         with client.open_streamer(["my_float_0", "my_float_1"]) as streamer:
@@ -114,7 +114,11 @@ try:
                         elapsed = sy.TimeStamp.now().span(start_time).seconds
 
                         sample_count += 1
-                        print(f"{sample_count:<8} {elapsed:<12.1f} {val0:>12.4f} {val1:>12.4f}", end='\r', flush=True)
+                        print(
+                            f"{sample_count:<8} {elapsed:<12.1f} {val0:>12.4f} {val1:>12.4f}",
+                            end="\r",
+                            flush=True,
+                        )
 
 # Output summary
 except KeyboardInterrupt:
@@ -127,4 +131,4 @@ except KeyboardInterrupt:
     print("=" * 70)
 finally:
     # Ensure cursor is always shown even if something goes wrong
-    print('\033[?25h', end='', flush=True)
+    print("\033[?25h", end="", flush=True)

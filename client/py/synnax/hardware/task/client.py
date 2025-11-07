@@ -325,7 +325,10 @@ class Client:
 
     def configure(self, task: MetaTask, timeout: float = 5) -> MetaTask:
         # Call task-specific device property update if it exists (e.g., for Modbus)
-        if hasattr(task, "_update_device_properties") and self._device_client is not None:
+        if (
+            hasattr(task, "_update_device_properties")
+            and self._device_client is not None
+        ):
             task._update_device_properties(self._device_client)
 
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
@@ -405,7 +408,7 @@ class Client:
                 f"Multiple tasks ({len(sug)}) found with name '{name}'. "
                 f"Keys: [{task_keys}]. Returning the first task ({sug[0].key}).",
                 UserWarning,
-                stacklevel=2
+                stacklevel=2,
             )
 
         return sug[0] if is_single else sug

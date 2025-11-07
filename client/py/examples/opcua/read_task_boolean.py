@@ -69,14 +69,10 @@ tsk = opcua.ReadTask(
         # Bind the Synnax channels to the OPC UA node IDs
         # These IDs correspond to my_bool_0 and my_bool_1 in server_extended.py
         opcua.ReadChannel(
-            channel=my_bool_0.key,
-            node_id="NS=2;I=13",  # my_bool_0
-            data_type="bool"
+            channel=my_bool_0.key, node_id="NS=2;I=13", data_type="bool"  # my_bool_0
         ),
         opcua.ReadChannel(
-            channel=my_bool_1.key,
-            node_id="NS=2;I=14",  # my_bool_1
-            data_type="bool"
+            channel=my_bool_1.key, node_id="NS=2;I=14", data_type="bool"  # my_bool_1
         ),
     ],
 )
@@ -96,7 +92,7 @@ print("-" * 70)
 # Start the task and read data continuously
 try:
     # Hide cursor for clean output
-    print('\033[?25l', end='', flush=True)
+    print("\033[?25l", end="", flush=True)
 
     with tsk.run():
         with client.open_streamer(["my_bool_0", "my_bool_1"]) as streamer:
@@ -117,7 +113,11 @@ try:
                         # Convert uint8 to True/False for display
                         bool0 = "True " if val0 else "False"
                         bool1 = "True " if val1 else "False"
-                        print(f"{sample_count:<8} {elapsed:<12.1f} {bool0:>12} {bool1:>12}", end='\r', flush=True)
+                        print(
+                            f"{sample_count:<8} {elapsed:<12.1f} {bool0:>12} {bool1:>12}",
+                            end="\r",
+                            flush=True,
+                        )
 
 # Output summary
 except KeyboardInterrupt:
@@ -130,4 +130,4 @@ except KeyboardInterrupt:
     print("=" * 70)
 finally:
     # Ensure cursor is always shown even if something goes wrong
-    print('\033[?25h', end='', flush=True)
+    print("\033[?25h", end="", flush=True)

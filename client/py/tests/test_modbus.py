@@ -490,6 +490,7 @@ class TestModbusDevicePropertyUpdates:
     def test_read_task_updates_device_properties(self, client: sy.Synnax):
         """Test that configuring a ReadTask updates device properties with channel mappings."""
         import json
+
         from synnax.hardware import modbus
 
         # Create a rack
@@ -578,6 +579,7 @@ class TestModbusDevicePropertyUpdates:
     def test_write_task_updates_device_properties(self, client: sy.Synnax):
         """Test that configuring a WriteTask updates device properties with channel mappings."""
         import json
+
         from synnax.hardware import modbus
 
         # Create a rack
@@ -661,9 +663,9 @@ class TestModbusDevicePropertyUpdates:
     def test_device_property_key_format(self):
         """Test that the key format matches Console expectations."""
         from synnax.hardware.modbus import (
-            InputRegisterChan,
-            HoldingRegisterInputChan,
             CoilOutputChan,
+            HoldingRegisterInputChan,
+            InputRegisterChan,
         )
 
         # Test InputRegisterChan key format

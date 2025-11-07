@@ -504,7 +504,7 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
     // All three channels should have correct values, including the last one
     ASSERT_EQ(fr.at<uint8_t>(input0.key, 0), 100);
     ASSERT_EQ(fr.at<uint8_t>(input1.key, 0), 150);
-    ASSERT_EQ(fr.at<uint8_t>(input2.key, 0), 200); // This would have been 0 before the fix
+    ASSERT_EQ(fr.at<uint8_t>(input2.key, 0), 200);
 }
 
 /// Regression test for buffer size calculation bug with UINT8 holding registers.
@@ -572,7 +572,10 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
     // All three channels should have correct values, including the last one
     ASSERT_EQ(fr.at<uint8_t>(holding0.key, 0), 50);
     ASSERT_EQ(fr.at<uint8_t>(holding1.key, 0), 75);
-    ASSERT_EQ(fr.at<uint8_t>(holding2.key, 0), 125); // This would have been 0 before the fix
+    ASSERT_EQ(
+        fr.at<uint8_t>(holding2.key, 0),
+        125
+    ); // This would have been 0 before the fix
 }
 
 /// Test that auto_start=true causes the task to start automatically
@@ -621,7 +624,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
     // Task should have auto-started - check that a start status was sent
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     bool found_start = false;
-    for (const auto &s : ctx->states) {
+    for (const auto &s: ctx->states) {
         if (s.details.running && s.variant == "success") {
             found_start = true;
             break;
@@ -668,7 +671,13 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
          )}
     };
 
-    task = synnax::Task(rack.key, "test_task_no_auto", "modbus_read", config.dump(), false);
+    task = synnax::Task(
+        rack.key,
+        "test_task_no_auto",
+        "modbus_read",
+        config.dump(),
+        false
+    );
 
     // Configure task through factory
     auto factory = modbus::Factory();
@@ -677,7 +686,8 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     ASSERT_TRUE(ok);
     ASSERT_NE(configured_task, nullptr);
 
-    // Task should NOT have auto-started - check that the status is "configured" not "running"
+    // Task should NOT have auto-started - check that the status is "configured" not
+    // "running"
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto &initial_state = ctx->states[0];
     ASSERT_FALSE(initial_state.details.running);
@@ -691,7 +701,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     // Now task should be running
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
     bool found_start = false;
-    for (const auto &s : ctx->states) {
+    for (const auto &s: ctx->states) {
         if (s.details.running && s.variant == "success") {
             found_start = true;
             break;

@@ -64,7 +64,7 @@ tsk = labjack.ReadTask(
     name="LabJack Py - Read Task",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 100,  # Sample at 100 Hz
-    stream_rate=sy.Rate.HZ * 25,   # Stream at 25 Hz (4 samples per stream)
+    stream_rate=sy.Rate.HZ * 25,  # Stream at 25 Hz (4 samples per stream)
     data_saving=True,
     channels=[
         # Analog input channel AIN0 with ±10V range
@@ -106,7 +106,7 @@ print("-" * 70)
 # Start the task and read data continuously
 try:
     # Hide cursor for clean output
-    print('\033[?25l', end='', flush=True)
+    print("\033[?25l", end="", flush=True)
 
     with tsk.run():
         with client.open_streamer(["labjack_ain0", "labjack_ain1"]) as streamer:
@@ -123,7 +123,11 @@ try:
                         elapsed = sy.TimeStamp.now().span(start_time).seconds
 
                         sample_count += 1
-                        print(f"{sample_count:<10} {elapsed:<10.1f} {val0:>12.3f} {val1:>12.3f}", end='\r', flush=True)
+                        print(
+                            f"{sample_count:<10} {elapsed:<10.1f} {val0:>12.3f} {val1:>12.3f}",
+                            end="\r",
+                            flush=True,
+                        )
 
 # Output summary
 except KeyboardInterrupt:
@@ -133,4 +137,4 @@ except KeyboardInterrupt:
     print("=" * 70)
 finally:
     # Ensure cursor is always shown even if something goes wrong
-    print('\033[?25h', end='', flush=True)
+    print("\033[?25h", end="", flush=True)
