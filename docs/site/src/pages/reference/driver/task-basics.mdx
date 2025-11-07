@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Task Basics"
-description: "Learn the fundamentals of working with tasks in the Synnax driver."
+description: "Learn the fundamentals of working with tasks in Synnax."
 prev: "Timing"
 prevURL: "/reference/driver/timing"
 next: "LabJack"
@@ -17,12 +17,6 @@ import ExampleDetails from "@/components/details/ExampleDetails.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Now that you've configured your hardware device, you're ready to create tasks to
-communicate with it. This guide covers the fundamentals of working with tasks in the
-Synnax driver.
-
-<Divider.Divider x />
-
 ## Prerequisites
 
 Before creating any tasks, you'll need to have connected and configured a hardware
@@ -30,6 +24,8 @@ device. See the specific device documentation for details:
 
 - [National Instruments](/reference/driver/ni/configure-device)
 - [LabJack](/reference/driver/labjack/configure-device)
+- [Modbus TCP](/reference/driver/modbus/connect-server)
+- [OPC UA](/reference/driver/opc-ua/connect-server)
 
 <Divider.Divider x />
 
@@ -132,7 +128,7 @@ in the background, either reading data from or writing data to your hardware.
 To stop a running task, click the Pause button (<Icon.Pause />). The task will stop
 executing, but the configuration will remain saved.
 
-<Note.Note variant="info">
+<Note.Note variant="info" className="compact">
   Starting and stopping a task does not re-apply the task configuration. If you've made
   changes to the configuration, you'll need to re-configure the task by clicking the
   "Configure" button before those changes take effect.
