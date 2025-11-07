@@ -38,7 +38,7 @@
     "@synnaxlabs/vite-plugin": "workspace:^",
     "@types/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "electron": "^38.1.0",
+    "electron": "^38.6.0",
     "eslint": "catalog:",
     "eslint-config-synnaxlabs": "workspace:^",
     "madge": "catalog:",
