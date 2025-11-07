@@ -4,7 +4,7 @@ version = "0.47.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11,<4"
 dynamic = ["dependencies"]
 
 [project.scripts]
@@ -22,14 +22,14 @@ matplotlib = "^3.10.7"
 nptdms = "^1.10.0"
 numpy = "^2.3.4"
 pandas = "^2.3.3"
-pydantic = "^2.12.3"
+pydantic = "^2.12.4"
 rich = "^14.2.0"
 synnax-freighter = { path = "../../freighter/py", develop = true }
 urllib3 = "^2.5.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.9.0"
-isort = "^6.1.0"
+isort = "^7.0.0"
 mypy = "^1.18.2"
 poetry = "^2.2.1"
 pytest = "^8.4.2"
