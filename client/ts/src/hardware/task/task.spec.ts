@@ -443,15 +443,19 @@ describe("Task", async () => {
       ).rejects.toThrow("Test error");
 
       // Should still have received stop command
+      const stopCommands: task.Command[] = [];
       await expect
         .poll(async () => {
           try {
             const fr = await streamer.read();
             const samples = fr.get(task.COMMAND_CHANNEL_NAME);
-            return samples.some((sample) => {
+            for (const sample of samples) {
               const cmd = task.commandZ.parse(sample);
-              return cmd.task === t.key && cmd.type === "stop";
-            });
+              if (cmd.task === t.key && cmd.type === "stop") {
+                stopCommands.push(cmd);
+              }
+            }
+            return stopCommands.length > 0;
           } catch {
             return false;
           }

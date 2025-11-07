@@ -172,20 +172,20 @@ export class Task<
     });
   }
 
-  async start(timeout?: CrudeTimeSpan): Promise<void> {
-    await this.executeCommandSync({ type: "start", timeout });
+  async start(): Promise<void> {
+    await this.executeCommand({ type: "start" });
   }
 
-  async stop(timeout?: CrudeTimeSpan): Promise<void> {
-    await this.executeCommandSync({ type: "stop", timeout });
+  async stop(): Promise<void> {
+    await this.executeCommand({ type: "stop" });
   }
 
-  async run<T>(fn: () => Promise<T>, timeout?: CrudeTimeSpan): Promise<T> {
-    await this.start(timeout);
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    await this.start();
     try {
       return await fn();
     } finally {
-      await this.stop(timeout);
+      await this.stop();
     }
   }
 
