@@ -17,8 +17,6 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Note.Note variant="error">**TO DO**: Update video for this page</Note.Note>
-
 Acquires data from Modbus TCP/IP servers by reading from registers, coils, and discrete
 inputs at a specified sample rate.
 
@@ -135,7 +133,7 @@ sensor inputs (e.g., limit switches, proximity sensors).
   <Fragment slot="console">
     <Video
       client:only="react"
-      id="device-drivers/modbus/read-task/open"
+      id="device-drivers/modbus/read-task/modbus-read"
     />
   </Fragment>
   <Fragment slot="python">

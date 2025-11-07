@@ -17,8 +17,6 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Note.Note variant="error">**TO DO**: Update video for this page</Note.Note>
-
 Acquires data from counter inputs on NI devices at a specified sample rate. Counter
 tasks can measure frequency, count edges, track encoder positions, measure pulse widths,
 and more.
@@ -283,7 +281,7 @@ Measures the duty cycle of a periodic signal.
   <Fragment slot="console">
     <Video
       client:only="react"
-      id="device-drivers/ni/counter-read-task/counter-read-task-select-device"
+      id="device-drivers/ni/counter-read-task/ni-counter-read"
     />
   </Fragment>
   <Fragment slot="python">

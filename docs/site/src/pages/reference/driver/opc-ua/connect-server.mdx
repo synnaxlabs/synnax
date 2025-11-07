@@ -19,8 +19,6 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Note.Note variant="error">**TO DO**: Update video for this page</Note.Note>
-
 The first step to acquiring data from your PLC is to connect to an OPC UA server.
 
 <Divider.Divider x />
@@ -85,38 +83,8 @@ following:
 <Client.Tabs client:only="react" exclude={["typescript", "cpp"]}>
   <Fragment slot="console">
 
-### Step 1 → Open the Connection Dialog
+<Video client:only="react" id="device-drivers/opc-ua/connect-server/connect-server" />
 
-Open the Search and Command Palette:
-
-**1a.** Click on the palette at the top of the Console, OR
-
-**1b.** Use the keyboard shortcut `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (macOS).
-
-**2.** Ensure you're in command mode (the input should start with `>`).
-
-**3.** Type "OPC UA" and select `Connect an OPC UA Server` to open the configuration
-dialog.
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
-
-<Video client:only="react" id="device-drivers/opc-ua/connect-server/open-modal" />
-
-</ExampleDetails>
-
-<Divider.Divider x />
-
-### Step 2 → Configure the Connection
-
-Enter the connection parameters for your server.
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
-
-<Video client:only="react" id="device-drivers/opc-ua/connect-server/save" />
-
-</ExampleDetails>
 
   </Fragment>
   <Fragment slot="python">

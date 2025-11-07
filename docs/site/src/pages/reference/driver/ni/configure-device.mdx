@@ -63,51 +63,22 @@ you have the following:
 <Client.Tabs client:only="react" exclude={["cpp"]}>
   <Fragment slot="console">
 
-<ExampleDetails>
-<Text.Text slot="summary" level="p">Step 1 -> Select a Device to Configure</Text.Text>
 
 Synnax will automatically detect new NI modules, and display a notification in the
 Console when a new device is connected. To start configuring the device, find the device
 in the Devices Toolbar, right click on the device and select "Configure".
 
+<ExampleDetails>
+<Text.Text slot="summary" level="p"> <Icon.Play /> Example </Text.Text>
+
+
 <Video
   client:only="react"
-  id="device-drivers/ni/configure-device/device-configure-from-resources"
+  id="device-drivers/ni/configure-device/ni-configure-device"
 />
 
 </ExampleDetails>
 
-<ExampleDetails>
-<Text.Text slot="summary" level="p">Step 2 -> Name Your Device</Text.Text>
-
-This name will be used to identify the device in Synnax.
-
-<Video
-  client:only="react"
-  id="device-drivers/ni/configure-device/device-configure-name"
-/>
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p">Step 3 -> Set the Device Identifier</Text.Text>
-
-The identifier will be used to prefix the names of all of the channels on your device.
-Suggestions are automatically generated, although you're welcome to choose your own.
-
-<Video
-  client:only="react"
-  id="device-drivers/ni/configure-device/device-configure-id"
-/>
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p">Step 4 -> Save the Configuration</Text.Text>
-
-`Save`
-
-</ExampleDetails>
 
 </Fragment>
   <Fragment slot="python">

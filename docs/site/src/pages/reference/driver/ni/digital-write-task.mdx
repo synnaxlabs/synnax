@@ -14,8 +14,6 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Note.Note variant="error">**TO DO**: Update video for this page</Note.Note>
-
 Sends control commands to digital outputs on NI devices.
 
 <Divider.Divider x />
@@ -72,7 +70,7 @@ channel, providing acknowledgment that the command was executed.
   <Fragment slot="console">
     <Video
       client:only="react"
-      id="device-drivers/ni/digital-write-task/digital-write-task-select-device"
+      id="device-drivers/ni/digital-write-task/ni-digital-write"
     />
   </Fragment>
   <Fragment slot="python">

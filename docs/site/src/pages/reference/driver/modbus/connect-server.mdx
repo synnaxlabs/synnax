@@ -17,8 +17,6 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Note.Note variant="error">**TO DO**: Update video for this page</Note.Note>
-
 The first step to acquiring data from your Modbus server is to establish a connection to
 the server.
 
@@ -58,40 +56,9 @@ following:
 <Client.Tabs client:only="react" exclude={["typescript", "cpp"]}>
   <Fragment slot="console">
 
-### Step 1 → Open the Connection Dialog
+<Video client:only="react" id="device-drivers/modbus/connect-server/modbus-connect" />
 
-Open the Search and Command Palette:
-
-**1a.** Click on the palette at the top of the Console, OR
-
-**1b.** Use the keyboard shortcut `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (macOS).
-
-**2.** Ensure you're in command mode (the input should start with `>`).
-
-**3.** Type "Modbus" and select `Connect a Modbus Server` to open the configuration
-dialog.
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
-
-<Video client:only="react" id="device-drivers/modbus/connect-server/open-modal" />
-
-</ExampleDetails>
-
-<Divider.Divider x />
-
-### Step 2 → Configure the Connection
-
-Enter the connection parameters for your server.
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Example</Text.Text>
-
-<Video client:only="react" id="device-drivers/modbus/connect-server/save" />
-
-</ExampleDetails>
-
-  </Fragment>
+</Fragment>
   <Fragment slot="python">
 
 <ExampleDetails open>

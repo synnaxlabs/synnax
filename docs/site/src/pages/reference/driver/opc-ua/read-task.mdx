@@ -17,8 +17,6 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Note.Note variant="error">**TO DO**: Update video for this page</Note.Note>
-
 Acquires data from OPC UA server nodes at a specified sample rate using software timing.
 
 <Divider.Divider x />
@@ -129,7 +127,7 @@ generates timestamps with ~100μs precision using software timing.
   <Fragment slot="console">
     <Video
       client:only="react"
-      id="device-drivers/opc-ua/read-task/open"
+      id="device-drivers/opc-ua/read-task/read"
     />
   </Fragment>
   <Fragment slot="python">

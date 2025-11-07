@@ -16,8 +16,6 @@ import ExampleDetails from "@/components/details/ExampleDetails.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Note.Note variant="error">**TO DO**: Update video for this page</Note.Note>
-
 Generates pulse train outputs on counter channels for NI devices.
 
 <Divider.Divider x />
@@ -75,7 +73,7 @@ Generates pulse train outputs on counter channels for NI devices.
   <Fragment slot="console">
     <Video
       client:only="react"
-      id="device-drivers/ni/counter-write-task/counter-write-task-select-device"
+    id="device-drivers/ni/counter-write-task/ni-counter-write"
     />
   </Fragment>
   <Fragment slot="python">

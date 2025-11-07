@@ -17,8 +17,6 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Note.Note variant="error">**TO DO**: Update video for this page</Note.Note>
-
 Acquires data from analog inputs on NI devices at a specified sample rate.
 
 <Divider.Divider x />
@@ -434,7 +432,7 @@ Acquires data from analog inputs on NI devices at a specified sample rate.
   <Fragment slot="console">
     <Video
       client:only="react"
-      id="device-drivers/ni/analog-read-task/analog-read-task-select-device"
+      id="device-drivers/ni/analog-read-task/ni-analog-read"
     />
   </Fragment>
   <Fragment slot="python">
