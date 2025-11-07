@@ -134,7 +134,7 @@ var _ = Describe("Channel", Ordered, func() {
 				})
 				It("Should fail if one retrieval fails", func() {
 					chs, err := db.RetrieveChannels(ctx, k1, k2, math.MaxUint32)
-					Expect(chs).To(HaveLen(0))
+					Expect(chs).To(BeEmpty())
 					Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 				})
 			})

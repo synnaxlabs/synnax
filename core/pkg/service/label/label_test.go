@@ -143,7 +143,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(labels[0].Key).To(Equal(l.Key))
 			Expect(w.RemoveLabel(ctx, label.OntologyID(labeled.Key), []uuid.UUID{l.Key})).To(Succeed())
 			labels = MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
-			Expect(labels).To(HaveLen(0))
+			Expect(labels).To(BeEmpty())
 		})
 	})
 	Describe("Clear", func() {
@@ -164,7 +164,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(labels[0].Key).To(Equal(l.Key))
 			Expect(w.Clear(ctx, label.OntologyID(labeled.Key))).To(Succeed())
 			labels = MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
-			Expect(labels).To(HaveLen(0))
+			Expect(labels).To(BeEmpty())
 		})
 	})
 })

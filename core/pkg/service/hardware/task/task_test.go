@@ -159,7 +159,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(snapshots[0].Snapshot).To(BeTrue())
 			var regulars []task.Task
 			Expect(svc.NewRetrieve().WhereSnapshot(false).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
-			Expect(len(regulars)).To(BeNumerically(">", 0))
+			Expect(regulars).ToNot(BeEmpty())
 			for _, t := range regulars {
 				Expect(t.Snapshot).To(BeFalse())
 			}
@@ -203,7 +203,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(internals[0].Internal).To(BeTrue())
 			var regulars []task.Task
 			Expect(svc.NewRetrieve().WhereInternal(false).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
-			Expect(len(regulars)).To(BeNumerically(">", 0))
+			Expect(regulars).ToNot(BeEmpty())
 			for _, t := range regulars {
 				Expect(t.Internal).To(BeFalse())
 			}

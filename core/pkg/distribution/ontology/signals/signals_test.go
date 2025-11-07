@@ -155,9 +155,9 @@ var _ = Describe("Signals", Ordered, func() {
 			ids := MustSucceed(ontologycdc.DecodeIDs(res.Frame.SeriesAt(0).Data))
 			// There's a condition here where we might receive the channel creation
 			// signal, so we just do a length assertion.
-			Expect(len(ids)).To(BeNumerically(">", 0))
-			Expect(len(ids[0].Type)).To(BeNumerically(">", 0))
-			Expect(len(ids[0].Key)).To(BeNumerically(">", 0))
+			Expect(ids).ToNot(BeEmpty())
+			Expect(ids[0].Type).ToNot(BeEmpty())
+			Expect(ids[0].Key).ToNot(BeEmpty())
 			requests.Close()
 			Eventually(responses.Outlet()).Should(BeClosed())
 			Expect(closeStreamer.Close()).To(Succeed())
@@ -190,10 +190,10 @@ var _ = Describe("Signals", Ordered, func() {
 		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.SeriesAt(0).Data))
 		// There's a condition here where we might receive the channel creation
 		// signal, so we just do a length assertion.
-		Expect(len(relationships)).To(BeNumerically(">", 0))
-		Expect(len(relationships[0].Type)).To(BeNumerically(">", 0))
-		Expect(len(relationships[0].From.Key)).To(BeNumerically(">", 0))
-		Expect(len(relationships[0].To.Key)).To(BeNumerically(">", 0))
+		Expect(relationships).ToNot(BeEmpty())
+		Expect(relationships[0].Type).ToNot(BeEmpty())
+		Expect(relationships[0].From.Key).ToNot(BeEmpty())
+		Expect(relationships[0].To.Key).ToNot(BeEmpty())
 		requests.Close()
 		Eventually(responses.Outlet()).Should(BeClosed())
 	})
@@ -230,10 +230,10 @@ var _ = Describe("Signals", Ordered, func() {
 		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.SeriesAt(0).Data))
 		// There's a condition here where we might receive the channel creation
 		// signal, so we just do a length assertion.
-		Expect(len(relationships)).To(BeNumerically(">", 0))
-		Expect(len(relationships[0].Type)).To(BeNumerically(">", 0))
-		Expect(len(relationships[0].From.Key)).To(BeNumerically(">", 0))
-		Expect(len(relationships[0].To.Key)).To(BeNumerically(">", 0))
+		Expect(relationships).ToNot(BeEmpty())
+		Expect(relationships[0].Type).ToNot(BeEmpty())
+		Expect(relationships[0].From.Key).ToNot(BeEmpty())
+		Expect(relationships[0].To.Key).ToNot(BeEmpty())
 		requests.Close()
 		Eventually(responses.Outlet()).Should(BeClosed())
 	})

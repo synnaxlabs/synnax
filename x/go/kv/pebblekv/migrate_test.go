@@ -213,7 +213,7 @@ var _ = Describe("Migrate", func() {
 			// Verify initial format is old
 			dbDesc := MustSucceed(pebble.Peek(dbPath, vfs.Default))
 			initialFormat := dbDesc.FormatMajorVersion
-			Expect(uint64(initialFormat) < uint64(pebble.FormatMinSupported)).To(BeTrue())
+			Expect(uint64(initialFormat)).To(BeNumerically("<", uint64(pebble.FormatMinSupported)))
 
 			// Migrate
 			Expect(pebblekv.Migrate(dbPath)).To(Succeed())

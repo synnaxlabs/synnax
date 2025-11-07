@@ -75,7 +75,7 @@ var _ = Describe("Create", Ordered, func() {
 			It("Should not create the channel on another nodes time-series DB", func() {
 				channels, err := mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 				Expect(err).To(MatchError(query.NotFound))
-				Expect(channels).To(HaveLen(0))
+				Expect(channels).To(BeEmpty())
 			})
 			It("Should assign a sequential key to the channels on each node",
 				func() {
@@ -86,7 +86,7 @@ var _ = Describe("Create", Ordered, func() {
 						Leaseholder: 1,
 					}
 					err := mockCluster.Nodes[1].Channel.NewWriter(nil).Create(ctx, ch2)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					Expect(ch2.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 					Expect(ch2.Key().LocalKey()).To(Equal(channel.LocalKey(5)))
 				})
@@ -98,7 +98,7 @@ var _ = Describe("Create", Ordered, func() {
 					Virtual:     true,
 				}
 				err := mockCluster.Nodes[1].Channel.Create(ctx, ch3)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(ch3.Key().Leaseholder()).To(Equal(aspen.NodeKey(2)))
 				Eventually(func(g Gomega) {
 					channels, err := mockCluster.Nodes[2].Storage.TS.RetrieveChannels(ctx, ch3.Key().StorageKey())
@@ -116,7 +116,7 @@ var _ = Describe("Create", Ordered, func() {
 					IsIndex:     true,
 				}
 				err := mockCluster.Nodes[1].Channel.Create(ctx, ch4)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(ch4.Key().Leaseholder()).To(Equal(aspen.NodeKey(2)))
 				Expect(ch4.Key().LocalKey()).To(Equal(channel.LocalKey(9)))
 				Expect(ch4.LocalIndex).To(Equal(channel.LocalKey(9)))
@@ -136,7 +136,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(5)))
 				channels, err := mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 				Expect(err).To(MatchError(query.NotFound))
-				Expect(channels).To(HaveLen(0))
+				Expect(channels).To(BeEmpty())
 			})
 		})
 	})
@@ -440,7 +440,7 @@ var _ = Describe("Create", Ordered, func() {
 			if err != nil {
 				Expect(err).To(MatchError(query.NotFound))
 			}
-			Expect(indexChannels).To(HaveLen(0))
+			Expect(indexChannels).To(BeEmpty())
 		})
 
 		It("Should create index when updating existing calculated channel with empty Requires", func() {

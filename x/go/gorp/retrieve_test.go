@@ -194,7 +194,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID == 444444, nil }).
 				Exec(ctx, tx),
 			).To(Succeed())
-			Expect(res).To(HaveLen(0))
+			Expect(res).To(BeEmpty())
 		})
 		Describe("exists", func() {
 			It("Should return true if ANY entries exist", func() {

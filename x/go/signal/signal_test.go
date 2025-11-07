@@ -255,7 +255,7 @@ var _ = Describe("Signal", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(immediatelyPanic, signal.RecoverWithoutErrOnPanic())
 
-			Expect(ctx.Wait()).To(BeNil())
+			Expect(ctx.Wait()).To(Succeed())
 		})
 
 		It("Should wrap an error panic with routine key", func() {
@@ -323,6 +323,7 @@ var _ = Describe("Signal", func() {
 			ctx.Go(f, signal.WithBreaker(breaker.Config{MaxRetries: breaker.InfiniteRetries, BaseInterval: 1 * time.Millisecond, Scale: 1.01}))
 
 			wg.Go(func() {
+				defer GinkgoRecover()
 				Expect(ctx.Wait()).To(Succeed())
 				close(done)
 			})
@@ -411,7 +412,7 @@ var _ = Describe("Signal", func() {
 			})
 			closer := signal.NewHardShutdown(ctx, cancel)
 			err := closer.Close()
-			Expect(err).To(BeNil()) // context.Canceled should be skipped
+			Expect(err).ToNot(HaveOccurred()) // context.Canceled should be skipped
 			Eventually(done).Should(BeClosed())
 			Eventually(ctx.Stopped()).Should(BeClosed())
 		})
@@ -433,7 +434,7 @@ var _ = Describe("Signal", func() {
 			close(release)
 			err := closer.Close()
 			Eventually(exit).Should(BeClosed())
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(ctx.Stopped()).Should(BeClosed())
 		})
 	})

@@ -344,7 +344,7 @@ var _ = Describe("Expressions", func() {
 				`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).ToNot(HaveLen(0))
+			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
 		})
 	})
 

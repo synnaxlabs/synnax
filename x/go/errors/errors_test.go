@@ -72,10 +72,10 @@ var _ = Describe("Is", func() {
 	Describe("Skip", func() {
 		It("Should return nil if the error matches the reference error", func() {
 			err := errors.Newf("test")
-			Expect(errors.Skip(err, err)).To(BeNil())
+			Expect(errors.Skip(err, err)).To(Succeed())
 		})
 		It("Should return nil if the error is nil", func() {
-			Expect(errors.Skip(nil, nil)).To(BeNil())
+			Expect(errors.Skip(nil, nil)).To(Succeed())
 		})
 		It("Should return the error if the error does not match the reference error", func() {
 			e1 := errors.Newf("test1")
@@ -91,7 +91,7 @@ var _ = Describe("Is", func() {
 		})
 
 		It("Should return nil if both errors are nil", func() {
-			Expect(errors.Combine(nil, nil)).To(BeNil())
+			Expect(errors.Combine(nil, nil)).To(Succeed())
 		})
 
 		It("Should return otherErr if err is nil", func() {
@@ -111,11 +111,11 @@ var _ = Describe("Is", func() {
 
 	Describe("Join", func() {
 		It("Should return nil if no errors are provided", func() {
-			Expect(errors.Join()).To(BeNil())
+			Expect(errors.Join()).To(Succeed())
 		})
 
 		It("Should return nil if all errors are nil", func() {
-			Expect(errors.Join(nil, nil, nil)).To(BeNil())
+			Expect(errors.Join(nil, nil, nil)).To(Succeed())
 		})
 
 		It("Should join multiple errors", func() {

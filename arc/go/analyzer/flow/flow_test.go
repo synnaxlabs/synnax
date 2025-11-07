@@ -411,7 +411,7 @@ sensor_chan > threshold -> alarm{}
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 
 			demuxSymbol, err := ctx.Scope.Resolve(ctx, "demux")
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			hasNamedOutputs := demuxSymbol.Type.Outputs.Count() > 1 || (demuxSymbol.Type.Outputs.Count() == 1 && func() bool {
 				_, exists := demuxSymbol.Type.Outputs.Get(ir.DefaultOutputParam)
 				return !exists

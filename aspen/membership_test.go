@@ -149,7 +149,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			wg.Wait()
 
 			By("Assigning a unique Name to each node")
-			Expect(len(lo.Uniq(ids))).To(Equal(len(ids)))
+			Expect(lo.Uniq(ids)).To(HaveLen(len(ids)))
 
 			By("Safely closing the database")
 			for _, db := range dbs {

@@ -30,7 +30,7 @@ var _ = Describe("Integer Set", Ordered, func() {
 	})
 	Describe("Test Integer.Insert", func() {
 		It("Inserting integers should work", func() {
-			Expect(len(s)).To(Equal(0))
+			Expect(s).To(BeEmpty())
 			s.Insert(0)
 			Expect(s.Contains(0)).To(BeTrue())
 			Expect(s.NumGreaterThan(0)).To(Equal(0))
@@ -48,7 +48,7 @@ var _ = Describe("Integer Set", Ordered, func() {
 			s.Insert(nums[15:20]...)
 			s.Insert(nums[25:30]...)
 			s.Insert(nums[10:40]...)
-			Expect(len(s)).To(Equal(1))
+			Expect(s).To(HaveLen(1))
 			Expect(s.Size()).To(Equal(40))
 
 			s.Remove(nums[10:100]...)
@@ -57,30 +57,30 @@ var _ = Describe("Integer Set", Ordered, func() {
 			copy(newSlice[10:30], nums[20:40])
 			copy(newSlice[30:40], nums[50:60])
 			s.Insert(newSlice...)
-			Expect(len(s)).To(Equal(3))
+			Expect(s).To(HaveLen(3))
 			Expect(s.NumLessThan(45)).To(Equal(30))
 			Expect(s.Size()).To(Equal(40))
 		})
 		It("Should insert a single integer", func() {
 			s.Insert(88)
 			Expect(s.NumLessThan(10)).To(Equal(0))
-			Expect(len(s)).To(Equal(1))
+			Expect(s).To(HaveLen(1))
 		})
 	})
 	Describe("Check compression", func() {
 		It("Should create a compressed set", func() {
-			Expect(len(s)).To(Equal(0))
+			Expect(s).To(BeEmpty())
 			s.Insert(nums[:10]...)
-			Expect(len(s)).To(Equal(1))
+			Expect(s).To(HaveLen(1))
 			s.Insert(11)
-			Expect(len(s)).To(Equal(2))
+			Expect(s).To(HaveLen(2))
 			s.Insert(nums[14:20]...)
-			Expect(len(s)).To(Equal(3))
+			Expect(s).To(HaveLen(3))
 			s.Insert(10)
-			Expect(len(s)).To(Equal(2))
+			Expect(s).To(HaveLen(2))
 			s.Insert(nums[12:14]...)
 			Expect(s.NumLessThan(nums[20])).To(Equal(20))
-			Expect(len(s)).To(Equal(1))
+			Expect(s).To(HaveLen(1))
 		})
 		It("should check edge cases", func() {
 			s.Insert(nums[2:12]...)
@@ -88,7 +88,7 @@ var _ = Describe("Integer Set", Ordered, func() {
 			s.Insert(nums[15:20]...)
 			s.Insert(nums[20:24]...)
 			s.Insert(nums[12:15]...)
-			Expect(len(s)).To(Equal(1))
+			Expect(s).To(HaveLen(1))
 			Expect(s.NumLessThan(nums[24])).To(Equal(24))
 		})
 	})
@@ -102,30 +102,30 @@ var _ = Describe("Integer Set", Ordered, func() {
 		It("Should accurately delete and reinsert slices of nums", func() {
 			s.Insert(nums[:25]...)
 			s.Remove(nums[10:20]...)
-			Expect(len(s)).To(Equal(2))
+			Expect(s).To(HaveLen(2))
 			Expect(s.NumLessThan(nums[25])).To(Equal(15))
 			Expect(s.NumLessThan(nums[10])).To(Equal(10))
 			Expect(s.NumLessThan(nums[20])).To(Equal(10))
 			s.Remove(nums[:10]...)
 			s.Remove(nums[20:25]...)
-			Expect(len(s)).To(Equal(0))
+			Expect(s).To(BeEmpty())
 			Expect(s.NumLessThan(nums[10])).To(Equal(0))
 		})
 		It("Should be idempotent when removing nums", func() {
 			s.Remove(nums[:100]...)
-			Expect(len(s)).To(Equal(0))
+			Expect(s).To(BeEmpty())
 			Expect(s.NumLessThan(nums[50])).To(Equal(0))
 			s.Insert(nums[:10]...)
 			s.Insert(nums[25:50]...)
 			s.Remove(nums[5:30]...)
-			Expect(len(s)).To(Equal(2))
+			Expect(s).To(HaveLen(2))
 			Expect(s.NumLessThan(nums[99])).To(Equal(25))
 		})
 	})
 	Describe("Testing with an empty set", func() {
 		It("Should be able to get sizes from an empty set", func() {
 			Expect(s.NumLessThan(nums[10])).To(Equal(0))
-			Expect(len(s)).To(Equal(0))
+			Expect(s).To(BeEmpty())
 			s.Insert(nums[:10]...)
 			s.Remove(nums[:10]...)
 			s.Remove(nums[:10]...)
@@ -161,7 +161,7 @@ var _ = Describe("Integer Set", Ordered, func() {
 				Expect(s.Contains(i)).To(BeTrue())
 			}
 			// Verify that the set has compressed the range into a single interval.
-			Expect(len(s)).To(Equal(1))
+			Expect(s).To(HaveLen(1))
 		})
 		It("should handle unsorted input with duplicates", func() {
 			// Insert unsorted input with duplicates.
@@ -180,7 +180,7 @@ var _ = Describe("Integer Set", Ordered, func() {
 			// Note: 15 is isolated (not adjacent to 18), so we expect three intervals:
 			// [5,8) covering 5,6,7; [15,16) covering 15; and [18,21) covering 18,19,20.
 			Expect(s.Size()).To(Equal(7))
-			Expect(len(s)).To(Equal(3))
+			Expect(s).To(HaveLen(3))
 			// Verify membership.
 			for i := 5; i < 8; i++ {
 				Expect(s.Contains(i)).To(BeTrue())
@@ -198,7 +198,7 @@ var _ = Describe("Integer Set", Ordered, func() {
 			s.Insert(input...)
 			// Expected: a single interval [1,8) with size 7.
 			Expect(s.Size()).To(Equal(7))
-			Expect(len(s)).To(Equal(1))
+			Expect(s).To(HaveLen(1))
 			for i := 1; i <= 7; i++ {
 				Expect(s.Contains(i)).To(BeTrue())
 			}
@@ -209,7 +209,7 @@ var _ = Describe("Integer Set", Ordered, func() {
 			s.Insert(input...)
 			// Since these numbers are not consecutive, each should form its own interval.
 			Expect(s.Size()).To(Equal(9))
-			Expect(len(s)).To(Equal(9))
+			Expect(s).To(HaveLen(9))
 			for _, num := range input {
 				Expect(s.Contains(num)).To(BeTrue())
 			}
@@ -223,7 +223,7 @@ var _ = Describe("Integer Set", Ordered, func() {
 			// Group 2: [149,150,151,152] -> 4 numbers.
 			// Group 3: [200,201,202] -> 3 numbers.
 			Expect(s.Size()).To(Equal(3 + 4 + 3))
-			Expect(len(s)).To(Equal(3))
+			Expect(s).To(HaveLen(3))
 			for i := 100; i <= 102; i++ {
 				Expect(s.Contains(i)).To(BeTrue())
 			}
@@ -241,7 +241,7 @@ var _ = Describe("Integer Set", Ordered, func() {
 			s.Insert(15, 9)
 			// Expected final interval is [9,16) with size 7.
 			Expect(s.Size()).To(Equal(7))
-			Expect(len(s)).To(Equal(1))
+			Expect(s).To(HaveLen(1))
 			for i := 9; i <= 15; i++ {
 				Expect(s.Contains(i)).To(BeTrue())
 			}
@@ -254,7 +254,7 @@ var _ = Describe("Integer Set", Ordered, func() {
 			s.Insert(1, 2, 3)
 			// The size should remain the same and only one interval should exist.
 			Expect(s.Size()).To(Equal(sizeAfterFirst))
-			Expect(len(s)).To(Equal(1))
+			Expect(s).To(HaveLen(1))
 		})
 	})
 })

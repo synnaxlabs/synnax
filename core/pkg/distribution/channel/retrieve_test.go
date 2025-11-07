@@ -175,7 +175,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Search("catalina").
 					Entries(&resChannels).
 					Exec(ctx, nil)).To(Succeed())
-				g.Expect(len(resChannels)).To(BeNumerically(">", 0))
+				g.Expect(resChannels).ToNot(BeEmpty())
 				g.Expect(resChannels[0].Name).To(Equal("catalina"))
 			}).Should(Succeed())
 		})

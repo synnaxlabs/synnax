@@ -49,7 +49,7 @@ var _ = Describe("Middleware", func() {
 		}
 		req := &request{}
 		_, err := chain.Exec(req, &myFinalizer{})
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(req.value).To(Equal("request"))
 	})
 
@@ -59,7 +59,7 @@ var _ = Describe("Middleware", func() {
 		collector.Use(&myFirstMiddleware{})
 		req := &request{}
 		_, err := collector.Exec(req, &myFinalizer{})
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(req.value).To(Equal("request"))
 	})
 })

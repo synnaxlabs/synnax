@@ -54,7 +54,7 @@ func decodeMyCustomError(ctx context.Context, encoded errors.Payload) (error, bo
 	panic("unknown error")
 }
 
-var _ = Describe("Ferrors", Ordered, func() {
+var _ = Describe("Errors", Ordered, func() {
 	BeforeAll(func() {
 		errors.Register(encodeMyCustomError, decodeMyCustomError)
 	})
@@ -93,7 +93,7 @@ var _ = Describe("Ferrors", Ordered, func() {
 			It("Should decode a nil error from a TypeNil typed payload", func() {
 				pld := errors.Encode(ctx, nil, true)
 				err := errors.Decode(ctx, pld)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 			})
 			It("Should decode an unknown error using cockroachdb's errors package", func() {
 				pld := errors.Encode(ctx, errors.New("unknown"), true)
@@ -112,7 +112,7 @@ var _ = Describe("Ferrors", Ordered, func() {
 			It("Should decode a nil error from a TypeNil typed payload", func() {
 				pld := errors.Encode(ctx, nil, false)
 				err := errors.Decode(ctx, pld)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 			})
 			It("Should decode an unknown error into a human readable string", func() {
 				pld := errors.Encode(ctx, errors.New("unknown"), false)
@@ -128,7 +128,7 @@ var _ = Describe("Ferrors", Ordered, func() {
 			})
 			It("Should decode a completely empty payload into a nil error", func() {
 				err := errors.Decode(ctx, errors.Payload{})
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})

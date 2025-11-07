@@ -104,7 +104,7 @@ var _ = Describe("DB Metadata Operations", func() {
 					Expect(db.LeadingControlState().Subject.Key).To(Equal("foo"))
 					t, err := w.Close()
 					Expect(t.Occurred()).To(BeTrue())
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 				})
 			})
 		})

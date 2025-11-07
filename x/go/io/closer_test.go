@@ -93,7 +93,7 @@ var _ = Describe("NopCloserFunc", func() {
 		})
 
 		err := closer.Close()
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("should allow multiple calls to Close", func() {

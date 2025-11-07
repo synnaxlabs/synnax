@@ -58,7 +58,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(HaveOccurredAs(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual.Approximation).To(Equal(expected))
 						},
@@ -359,7 +359,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(HaveOccurredAs(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -454,7 +454,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(HaveOccurredAs(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -614,7 +614,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(HaveOccurredAs(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -672,7 +672,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(HaveOccurredAs(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -749,7 +749,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(HaveOccurredAs(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -877,7 +877,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(HaveOccurredAs(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},

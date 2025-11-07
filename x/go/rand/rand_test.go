@@ -29,8 +29,8 @@ var _ = Describe("Rand", func() {
 		Describe("Keys", func() {
 			It("Should return a random key", func() {
 				key := rand.MapKey(m)
-				Expect(key > 0).To(BeTrue())
-				Expect(key < 6).To(BeTrue())
+				Expect(key).To(BeNumerically(">", 0))
+				Expect(key).To(BeNumerically("<", 6))
 			})
 			It("Should return the zero type when the map is empty", func() {
 				m = map[int]int{}
@@ -41,23 +41,23 @@ var _ = Describe("Rand", func() {
 		Describe("Value", func() {
 			It("Should return a random value", func() {
 				value := rand.MapValue(m)
-				Expect(value > 0).To(BeTrue())
-				Expect(value <= 6).To(BeTrue())
+				Expect(value).To(BeNumerically(">", 0))
+				Expect(value).To(BeNumerically("<=", 6))
 			})
 		})
 		Describe("Element", func() {
 			It("Should return a random element", func() {
 				key, value := rand.MapElem(m)
-				Expect(key > 0).To(BeTrue())
-				Expect(value <= 6).To(BeTrue())
-				Expect(key < 6).To(BeTrue())
-				Expect(value > 0).To(BeTrue())
+				Expect(key).To(BeNumerically(">", 0))
+				Expect(value).To(BeNumerically("<=", 6))
+				Expect(key).To(BeNumerically("<", 6))
+				Expect(value).To(BeNumerically(">", 0))
 			})
 		})
 		Describe("SubMap", func() {
 			It("Should return a random sub map of the provided size", func() {
 				m := rand.SubMap(m, 2)
-				Expect(len(m)).To(Equal(2))
+				Expect(m).To(HaveLen(2))
 			})
 		})
 	})
@@ -65,18 +65,18 @@ var _ = Describe("Rand", func() {
 	Describe("Slice", func() {
 		It("Should return a random element in the slice", func() {
 			value := rand.Slice([]int{1, 2, 3, 4, 5, 6})
-			Expect(value > 0).To(BeTrue())
+			Expect(value).To(BeNumerically(">", 0))
 		})
 		Describe("sub Slice", func() {
 			It("Should return random sub-slice", func() {
 				value := rand.SubSlice([]int{1, 2, 3, 4, 5, 6}, 2)
-				Expect(len(value)).To(Equal(2))
-				Expect(value[0] != value[1]).To(BeTrue())
+				Expect(value).To(HaveLen(2))
+				Expect(value[0]).ToNot(Equal(value[1]))
 			})
 			It("Should return the slice itself", func() {
 				slc := []int{1, 2, 3, 4, 5, 6}
 				value := rand.SubSlice(slc, 20)
-				Expect(len(value)).To(Equal(6))
+				Expect(value).To(HaveLen(6))
 				Expect(value).To(Equal(slc))
 			})
 		})
@@ -85,7 +85,7 @@ var _ = Describe("Rand", func() {
 	Describe("Element", func() {
 		It("Should return a random element", func() {
 			value := rand.Elem(1, 2, 3)
-			Expect(value > 0).To(BeTrue())
+			Expect(value).To(BeNumerically(">", 0))
 		})
 		It("Should not introduce any duplicate indexes", func() {
 			slc := make([]int, 1000)

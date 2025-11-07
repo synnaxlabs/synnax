@@ -168,7 +168,7 @@ var _ = Describe("TimeRange", func() {
 		})
 		It("Should return true if checked against itself", func() {
 			tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
-			Expect(tr.ContainsRange(tr))
+			Expect(tr.ContainsRange(tr)).To(BeTrue())
 		})
 	})
 
@@ -193,7 +193,7 @@ var _ = Describe("TimeRange", func() {
 
 		It("Should return true if checked against itself", func() {
 			tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
-			Expect(tr.OverlapsWith(tr))
+			Expect(tr.OverlapsWith(tr)).To(BeTrue())
 		})
 
 		It("Should return false if the ranges do not overlap", func() {

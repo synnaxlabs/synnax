@@ -43,7 +43,7 @@ var _ = Describe("Errors", func() {
 		It("Should return nil if the error is nil", func() {
 			ch := core.Channel{Key: 1, Name: "foo"}
 			err := core.NewChannelErrWrapper(ch)(nil)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })

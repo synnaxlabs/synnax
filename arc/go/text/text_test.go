@@ -87,7 +87,7 @@ var _ = Describe("Text", func() {
 			n1 := inter.Nodes[0]
 			Expect(n1.Key).To(Equal("adder_0"))
 			Expect(n1.Type).To(Equal("adder"))
-			Expect(n1.ConfigValues).To(HaveLen(0))
+			Expect(n1.ConfigValues).To(BeEmpty())
 			Expect(n1.Channels.Read).ToNot(BeNil())
 			Expect(n1.Channels.Read).To(BeEmpty())
 			Expect(n1.Channels.Write).ToNot(BeNil())

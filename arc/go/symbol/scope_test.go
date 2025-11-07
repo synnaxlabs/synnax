@@ -496,8 +496,8 @@ var _ = Describe("Scope", func() {
 				ch := symbol.NewChannels()
 				Expect(ch.Read).ToNot(BeNil())
 				Expect(ch.Write).ToNot(BeNil())
-				Expect(ch.Read).To(HaveLen(0))
-				Expect(ch.Write).To(HaveLen(0))
+				Expect(ch.Read).To(BeEmpty())
+				Expect(ch.Write).To(BeEmpty())
 			})
 		})
 		Describe("Copy", func() {

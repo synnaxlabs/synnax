@@ -606,7 +606,7 @@ var _ = Describe("Stratification", func() {
 				diag   = &diagnostics.Diagnostics{}
 				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
 			)
-			Expect(len(strata)).To(BeNumerically(">", 0))
+			Expect(strata).ToNot(BeEmpty())
 		})
 	})
 

@@ -3465,7 +3465,7 @@ var _ = Describe("Frame", func() {
 			for s := range fr.Series() {
 				series = append(series, s)
 			}
-			Expect(len(series)).To(Equal(5))
+			Expect(series).To(HaveLen(5))
 		})
 	})
 

@@ -167,7 +167,7 @@ var _ = Describe("Bool", func() {
 			type MyBool bool
 			var dest *MyBool
 			Expect(zyn.Bool().Optional().Parse(true, &dest)).To(Succeed())
-			Expect(*dest).To(Equal(MyBool(true)))
+			Expect(*dest).To(BeTrue())
 		})
 	})
 
@@ -175,55 +175,55 @@ var _ = Describe("Bool", func() {
 		Specify("boolean value", func() {
 			result, err := zyn.Bool().Dump(true)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 
 		Specify("string 'true'", func() {
 			result, err := zyn.Bool().Dump("true")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 
 		Specify("string '1'", func() {
 			result, err := zyn.Bool().Dump("1")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 
 		Specify("string 'false'", func() {
 			result, err := zyn.Bool().Dump("false")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(false))
+			Expect(result).To(BeFalse())
 		})
 
 		Specify("string '0'", func() {
 			result, err := zyn.Bool().Dump("0")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(false))
+			Expect(result).To(BeFalse())
 		})
 
 		Specify("integer 1", func() {
 			result, err := zyn.Bool().Dump(1)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 
 		Specify("integer 0", func() {
 			result, err := zyn.Bool().Dump(0)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(false))
+			Expect(result).To(BeFalse())
 		})
 
 		Specify("float 1.0", func() {
 			result, err := zyn.Bool().Dump(1.0)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 
 		Specify("float 0.0", func() {
 			result, err := zyn.Bool().Dump(0.0)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(false))
+			Expect(result).To(BeFalse())
 		})
 
 		Specify("invalid string", func() {
@@ -264,7 +264,7 @@ var _ = Describe("Bool", func() {
 			type MyBool bool
 			result, err := zyn.Bool().Dump(MyBool(true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 	})
 })

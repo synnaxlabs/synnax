@@ -36,7 +36,7 @@ var _ = Describe("Catcher", func() {
 				Expect(counter).To(Equal(5))
 			})
 			It("Should contain a nil error", func() {
-				Expect(catcher.Error()).To(BeNil())
+				Expect(catcher.Error()).To(Succeed())
 			})
 		})
 		Context("Errors encountered", func() {
@@ -61,12 +61,12 @@ var _ = Describe("Catcher", func() {
 				Expect(counter).To(Equal(3))
 			})
 			It("Should contain a non-nil error", func() {
-				Expect(catcher.Error()).ToNot(BeNil())
+				Expect(catcher.Error()).ToNot(Succeed())
 			})
 			Describe("Reset", func() {
 				It("Should reset the catcher", func() {
 					catcher.Reset()
-					Expect(catcher.Error()).To(BeNil())
+					Expect(catcher.Error()).To(Succeed())
 				})
 			})
 		})

@@ -295,7 +295,7 @@ var _ = Describe("Analyzer", func() {
 				Expect(t).To(Equal(types.U8()))
 
 				By("Having the correct symbols")
-				Expect(len(fScope.Children)).To(Equal(5))
+				Expect(fScope.Children).To(HaveLen(5))
 				configScopeParamScopes := fScope.FilterChildrenByKind(symbol.KindConfig)
 				Expect(configScopeParamScopes).To(HaveLen(3))
 				Expect(configScopeParamScopes[0].Name).To(Equal("setpoint"))

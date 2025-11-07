@@ -135,7 +135,7 @@ var _ = Describe("retrieveResource", func() {
 					Entries(&r).
 					Exec(ctx, tx),
 				).To(Succeed())
-				Expect(len(r)).To(Equal(2))
+				Expect(r).To(HaveLen(2))
 			})
 		})
 	})
@@ -152,14 +152,14 @@ var _ = Describe("retrieveResource", func() {
 				Limit(5).
 				Entries(&r).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(len(r)).To(Equal(5))
+			Expect(r).To(HaveLen(5))
 			var r2 []ontology.Resource
 			Expect(w.NewRetrieve().
 				Offset(5).
 				Limit(5).
 				Entries(&r2).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(len(r2)).To(Equal(5))
+			Expect(r2).To(HaveLen(5))
 			mapKeys := func(o ontology.Resource, _ int) string {
 				return o.ID.String()
 			}

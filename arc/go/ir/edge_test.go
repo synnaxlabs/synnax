@@ -108,7 +108,7 @@ var _ = Describe("Edges", func() {
 
 		It("Should return empty slice for node with no inputs", func() {
 			inputs := edges.GetInputs("node1")
-			Expect(inputs).To(HaveLen(0))
+			Expect(inputs).To(BeEmpty())
 		})
 
 		It("Should return multiple edges for multi-input node", func() {
@@ -132,7 +132,7 @@ var _ = Describe("Edges", func() {
 
 		It("Should return empty slice for node with no outputs", func() {
 			outputs := edges.GetOutputs("node4")
-			Expect(outputs).To(HaveLen(0))
+			Expect(outputs).To(BeEmpty())
 		})
 
 		It("Should return single edge for single-output node", func() {
@@ -176,13 +176,13 @@ var _ = Describe("Edges", func() {
 		It("Should return empty slice for GetInputs on empty collection", func() {
 			empty := ir.Edges{}
 			inputs := empty.GetInputs("node1")
-			Expect(inputs).To(HaveLen(0))
+			Expect(inputs).To(BeEmpty())
 		})
 
 		It("Should return empty slice for GetOutputs on empty collection", func() {
 			empty := ir.Edges{}
 			outputs := empty.GetOutputs("node1")
-			Expect(outputs).To(HaveLen(0))
+			Expect(outputs).To(BeEmpty())
 		})
 	})
 })

@@ -138,14 +138,14 @@ var _ = Describe("TimeStamp", func() {
 		It("Should unmarshal a time stamp from a number", func() {
 			var ts telem.TimeStamp
 			err := json.Unmarshal([]byte("1000000000"), &ts)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(ts).To(Equal(telem.TimeStamp(telem.Second)))
 		})
 
 		It("Should unmarshal a time stamp from a string", func() {
 			var ts telem.TimeStamp
 			err := json.Unmarshal([]byte("1000000000"), &ts)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(ts).To(Equal(telem.TimeStamp(telem.Second)))
 		})
 	})

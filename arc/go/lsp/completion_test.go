@@ -50,7 +50,7 @@ var _ = Describe("Completion", func() {
 				},
 			}))
 			Expect(completions).ToNot(BeNil())
-			Expect(len(completions.Items)).To(BeNumerically(">", 0))
+			Expect(completions.Items).ToNot(BeEmpty())
 		})
 	})
 

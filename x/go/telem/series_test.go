@@ -546,7 +546,7 @@ var _ = Describe("Series", func() {
 				downsampled := s.Downsample(2)
 				Expect(downsampled.Len()).To(Equal(int64(2)))
 				split := bytes.Split(downsampled.Data, []byte("\n"))
-				Expect(len(split)).To(Equal(3)) // 2 items + empty string after last newline
+				Expect(split).To(HaveLen(3)) // 2 items + empty string after last newline
 			})
 		})
 
@@ -642,7 +642,7 @@ var _ = Describe("Series", func() {
 				s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
 				s.Resize(0)
 				Expect(s.Len()).To(Equal(int64(0)))
-				Expect(len(s.Data)).To(Equal(0))
+				Expect(s.Data).To(BeEmpty())
 			})
 
 			It("Should handle resizing an empty series", func() {
@@ -871,7 +871,7 @@ var _ = Describe("Series", func() {
 
 			It("Should return an empty byte array if there are no series in the frame", func() {
 				ts := telem.NewMultiSeriesV()
-				Expect(ts.Data()).To(HaveLen(0))
+				Expect(ts.Data()).To(BeEmpty())
 			})
 		})
 
@@ -1379,7 +1379,7 @@ var _ = Describe("Series", func() {
 
 			Expect(copied.Len()).To(Equal(int64(0)))
 			Expect(copied.DataType).To(Equal(telem.Int64T))
-			Expect(copied.Data).To(HaveLen(0))
+			Expect(copied.Data).To(BeEmpty())
 		})
 
 		It("Should preserve all fields correctly", func() {

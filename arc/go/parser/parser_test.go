@@ -779,7 +779,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				expr3 := mustParseExpression("data[:]")
 				slice3 := getPostfixExpression(expr3).IndexOrSlice(0)
 				Expect(slice3.COLON()).NotTo(BeNil())
-				Expect(slice3.AllExpression()).To(HaveLen(0)) // No expressions
+				Expect(slice3.AllExpression()).To(BeEmpty()) // No expressions
 			})
 		})
 
@@ -812,20 +812,20 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 		Context("Error cases", func() {
 			It("Should report error for unclosed parenthesis", func() {
 				_, err := parser.ParseExpression("(2 + 3")
-				Expect(err).NotTo(BeNil())
+				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(ContainSubstring("missing ')'")))
 			})
 
 			It("Should report error for invalid operators", func() {
 				_, err := parser.ParseExpression("2 ** 3")
-				Expect(err).NotTo(BeNil())
+				Expect(err).To(HaveOccurred())
 			})
 
 			It("Should report error for double assignment", func() {
 				_, err := parser.Parse(`func test() {
 					x := := 5
 				}`)
-				Expect(err).NotTo(BeNil())
+				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(ContainSubstring("2:10 error: no viable alternative")))
 			})
 
@@ -861,13 +861,13 @@ func broken() {
 				_, err := parser.Parse(`func test() {
 					x := 5
 				`)
-				Expect(err).NotTo(BeNil())
+				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(ContainSubstring("3:4 error: extraneous input")))
 			})
 
 			It("Should report error for missing function body", func() {
 				_, err := parser.Parse(`func test()`)
-				Expect(err).NotTo(BeNil())
+				Expect(err).To(HaveOccurred())
 			})
 		})
 	})
@@ -876,13 +876,13 @@ func broken() {
 		Context("ParseExpression", func() {
 			It("Should parse valid expression and return nil error", func() {
 				expr, err := parser.ParseExpression("2 + 3")
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(expr).NotTo(BeNil())
 			})
 
 			It("Should return error for invalid expression", func() {
 				_, err := parser.ParseExpression("2 + + 3")
-				Expect(err).NotTo(BeNil())
+				Expect(err).To(HaveOccurred())
 			})
 
 			It("Should handle empty expression", func() {
@@ -894,13 +894,13 @@ func broken() {
 		Context("ParseStatement", func() {
 			It("Should parse valid statement and return nil error", func() {
 				stmt, err := parser.ParseStatement("x := 42")
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(stmt).NotTo(BeNil())
 			})
 
 			It("Should return error for invalid statement", func() {
 				_, err := parser.ParseStatement("x := := 5")
-				Expect(err).NotTo(BeNil())
+				Expect(err).To(HaveOccurred())
 			})
 
 			It("Should handle empty statement", func() {
@@ -944,7 +944,7 @@ func broken() {
 
 			It("Should return error for invalid program", func() {
 				_, err := parser.Parse(`func test() { x := := 5 }`)
-				Expect(err).NotTo(BeNil())
+				Expect(err).To(HaveOccurred())
 			})
 
 			It("Should handle program with multiple top-level items", func() {
@@ -952,7 +952,7 @@ func broken() {
 func test1() { x := 1 }
 func test2() { y := 2 }
 sensor -> controller{}`)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(prog).NotTo(BeNil())
 				Expect(prog.AllTopLevelItem()).To(HaveLen(3))
 			})
@@ -1096,7 +1096,7 @@ sensor -> demux{threshold=100} -> {
 
 				// First entry: high -> alarm{}
 				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("high"))
-				Expect(entries[0].AllARROW()).To(HaveLen(0))
+				Expect(entries[0].AllARROW()).To(BeEmpty())
 				highTargets := entries[0].AllFlowNode()
 				Expect(highTargets).To(HaveLen(1))
 				Expect(highTargets[0].Function()).NotTo(BeNil())
@@ -1161,7 +1161,7 @@ processor -> splitter{} -> {
 				Expect(flow).NotTo(BeNil())
 
 				// Routing table should be optional (no routing tables)
-				Expect(flow.AllRoutingTable()).To(HaveLen(0))
+				Expect(flow.AllRoutingTable()).To(BeEmpty())
 			})
 
 			It("Should parse routing table with chained nodes", func() {
