@@ -31,5 +31,5 @@ const (
 	// Ok represents a successful operation.
 	Ok Status = iota
 	// Error represents a failed operation.
-	Error = 1
+	Error
 )

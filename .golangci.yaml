@@ -37,6 +37,7 @@ linters:
     - gocheckcompilerdirectives
     - godot
     - goprintffuncname
+    - iotamixing
     - misspell
     - modernize
     - nilnesserr
