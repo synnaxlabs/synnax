@@ -246,18 +246,14 @@ var _ = Describe("Signal", func() {
 
 		It("Should error a panic when instructed", func() {
 			ctx, _ := signal.Isolated()
-			ctx.Go(func(ctx context.Context) error {
-				return immediatelyPanic(ctx)
-			}, signal.RecoverWithErrOnPanic())
+			ctx.Go(immediatelyPanic, signal.RecoverWithErrOnPanic())
 
 			Expect(ctx.Wait()).To(MatchError(ContainSubstring("routine panicked")))
 		})
 
 		It("Should not error when instructed to not error", func() {
 			ctx, _ := signal.Isolated()
-			ctx.Go(func(ctx context.Context) error {
-				return immediatelyPanic(ctx)
-			}, signal.RecoverWithoutErrOnPanic())
+			ctx.Go(immediatelyPanic, signal.RecoverWithoutErrOnPanic())
 
 			Expect(ctx.Wait()).To(BeNil())
 		})

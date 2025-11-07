@@ -32,7 +32,7 @@ func NewTrackedWriteCloser(f fs.File) (TrackedWriteCloser, error) {
 // Reset resets the tracked writer to the end of the file, setting Len() to zero and
 // offset to the current end of the file.
 func (o *trackedWriteCloser) Reset() {
-	o.offset = o.offset + o.len
+	o.offset += o.len
 	o.len = 0
 }
 

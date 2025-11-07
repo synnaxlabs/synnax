@@ -45,9 +45,9 @@ func (m Mask128) Set(pos int, val bool) Mask128 {
 		panic("mask: position out of bounds")
 	}
 	if val {
-		m[pos/8] = m[pos/8] | (1 << (pos % 8))
+		m[pos/8] |= (1 << (pos % 8))
 	} else {
-		m[pos/8] = m[pos/8] & ^(1 << (pos % 8))
+		m[pos/8] &= ^(1 << (pos % 8))
 	}
 	return m
 }

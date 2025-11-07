@@ -574,38 +574,38 @@ var _ = Describe("Graph", func() {
 				Expect(diagnostics.String()).To(ContainSubstring("type mismatch"))
 			})
 
-			//It("Should allow edges to stages with no parameters (ignored like JS)", func() {
-			//	g := graph.Graph{
-			//		Functions: []ir.Function{
-			//			{
-			//				Key: "source",
-			//				Outputs: types.Params{
-			//					Keys:   []string{ir.DefaultOutputParam},
-			//					Values: []types.Type{types.F32()},
-			//				},
-			//			},
-			//			{
-			//				Key: "sink_with_no_params",
-			//				// No parameters defined - should ignore incoming edges
-			//			},
-			//		},
-			//		Nodes: []graph.Node{
-			//			{Key: "src", Type: "source"},
-			//			{Key: "sink", Type: "sink_with_no_params"},
-			//		},
-			//		Edges: []ir.Edge{
-			//			{
-			//				Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
-			//				Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
-			//			},
-			//		},
-			//	}
-			//	g = MustSucceed(graph.Parse(g))
-			//	inter, diagnostics := graph.Analyze(ctx, g, nil)
-			//	// Should succeed - the sink just ignores the input
-			//	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			//	Expect(inter.Edges).To(HaveLen(1))
-			//})
+			// It("Should allow edges to stages with no parameters (ignored like JS)", func() {
+			// 	g := graph.Graph{
+			// 		Functions: []ir.Function{
+			// 			{
+			// 				Key: "source",
+			// 				Outputs: types.Params{
+			// 					Keys:   []string{ir.DefaultOutputParam},
+			// 					Values: []types.Type{types.F32()},
+			// 				},
+			// 			},
+			// 			{
+			// 				Key: "sink_with_no_params",
+			// 				// No parameters defined - should ignore incoming edges
+			// 			},
+			// 		},
+			// 		Nodes: []graph.Node{
+			// 			{Key: "src", Type: "source"},
+			// 			{Key: "sink", Type: "sink_with_no_params"},
+			// 		},
+			// 		Edges: []ir.Edge{
+			// 			{
+			// 				Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+			// 				Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
+			// 			},
+			// 		},
+			// 	}
+			// 	g = MustSucceed(graph.Parse(g))
+			// 	inter, diagnostics := graph.Analyze(ctx, g, nil)
+			// 	// Should succeed - the sink just ignores the input
+			// 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			// 	Expect(inter.Edges).To(HaveLen(1))
+			// })
 		})
 
 		Describe("Integration", func() {

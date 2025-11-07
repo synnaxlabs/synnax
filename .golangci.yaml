@@ -35,6 +35,7 @@ linters:
     - errorlint
     - exptostd
     - gocheckcompilerdirectives
+    - gocritic
     - godot
     - goprintffuncname
     - iotamixing

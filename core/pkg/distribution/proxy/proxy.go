@@ -33,11 +33,12 @@ func (f BatchFactory[E]) Batch(entries []E) Batch[E] {
 	b := Batch[E]{Peers: make(map[cluster.NodeKey][]E)}
 	for _, entry := range entries {
 		lease := entry.Lease()
-		if lease.IsFree() {
+		switch {
+		case lease.IsFree():
 			b.Free = append(b.Free, entry)
-		} else if lease == f.Host {
+		case lease == f.Host:
 			b.Gateway = append(b.Gateway, entry)
-		} else {
+		default:
 			b.Peers[lease] = append(b.Peers[lease], entry)
 		}
 	}

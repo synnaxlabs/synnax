@@ -76,7 +76,7 @@ func IterRange(start, end []byte) IteratorOptions {
 func prefixUpperBound(lower []byte) []byte {
 	upper := binary.MakeCopy(lower)
 	for i := len(upper) - 1; i >= 0; i-- {
-		upper[i] = upper[i] + 1
+		upper[i]++
 		if upper[i] != 0 {
 			return upper[:i+1]
 		}

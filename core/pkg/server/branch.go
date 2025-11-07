@@ -53,14 +53,16 @@ const (
 // ShouldServe returns true if the Branch should be served under the given listening
 // conditions.
 func (r RoutingPolicy) ShouldServe(insecure, insecureMux bool) bool {
-	if !insecure && !insecureMux {
+	switch {
+	case !insecure && !insecureMux:
 		return r == ServeAlwaysPreferSecure || r == ServeOnlyIfSecure
-	} else if !insecure && insecureMux {
+	case !insecure && insecureMux:
 		return r == ServeOnInsecureIfSecure || r == ServeAlwaysPreferInsecure
-	} else if insecure && insecureMux {
+	case insecure && insecureMux:
 		return r == ServeAlwaysPreferInsecure || r == ServeOnlyIfInsecure || r == ServeAlwaysPreferSecure
+	default:
+		panic("[server]  - invalid routing policy")
 	}
-	panic("[server]  - invalid routing policy")
 }
 
 // BranchRouting is the information provided by a Branch to the Server so that it can

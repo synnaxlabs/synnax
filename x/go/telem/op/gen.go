@@ -100,12 +100,11 @@ var derivativeOperations = []DerivativeOperation{
 	{Name: "Derivative", FuncName: "Derivative"},
 }
 
-const headerTemplate = `
-package op
+const headerTemplate = `package op
 
 import (
 	"github.com/synnaxlabs/x/telem"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/unsafe"
 )
 `
 
@@ -114,8 +113,8 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
 	output.Resize(inputLen)
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	for i := range inputLen {
 		outData[i] = {{.Op}}inData[i]
@@ -130,7 +129,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 		return prevCount
 	}
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
 
 	{{if eq .Name "Avg"}}
 	// Compute sum of new input samples
@@ -143,7 +142,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	if freshStart {
 		// Fresh start: compute average of input samples
@@ -152,16 +151,16 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 		// Weighted average: combine previous average with new samples
 		prevAvg := outData[0]
 		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg * {{$.Type.GoType}}(prevCount) + newSum) / {{$.Type.GoType}}(totalCount)
+		outData[0] = (prevAvg*{{$.Type.GoType}}(prevCount) + newSum) / {{$.Type.GoType}}(totalCount)
 	}
 
 	return prevCount + inputLen
-	{{else if eq .Name "Min"}}
+{{else if eq .Name "Min"}}
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	// Find minimum in new input samples
 	newMin := inData[0]
@@ -182,12 +181,12 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	}
 
 	return prevCount + inputLen
-	{{else if eq .Name "Max"}}
+{{else if eq .Name "Max"}}
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	// Find maximum in new input samples
 	newMax := inData[0]
@@ -200,11 +199,10 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	if freshStart {
 		// Fresh start
 		outData[0] = newMax
-	} else {
-		// Compare with previous maximum
-		if newMax > outData[0] {
-			outData[0] = newMax
-		}
+	} else
+	// Compare with previous maximum
+	if newMax > outData[0] {
+		outData[0] = newMax
 	}
 
 	return prevCount + inputLen
@@ -225,7 +223,7 @@ func {{.Name}}{{$.Type.Name}}(data, time telem.Series, output *telem.Series) {
 	minLen := min(dataLen, timeLen)
 
 	// Set DataType BEFORE Resize so it can calculate the correct buffer size
-	{{if $.Type.IsFloat}}
+{{if $.Type.IsFloat}}
 	{{if eq $.Type.Name "F64"}}
 	output.DataType = telem.Float64T
 	{{else}}
@@ -237,40 +235,37 @@ func {{.Name}}{{$.Type.Name}}(data, time telem.Series, output *telem.Series) {
 
 	output.Resize(minLen)
 
-	dataVals := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](data.Data)
-	timeVals := xunsafe.CastSlice[uint8, int64](time.Data)
+	dataVals := unsafe.CastSlice[uint8, {{$.Type.GoType}}](data.Data)
+	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
 	{{if $.Type.IsFloat}}
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
-	{{else}}
-	outData := xunsafe.CastSlice[uint8, float64](output.Data)
-	{{end}}
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+{{else}}
+	outData := unsafe.CastSlice[uint8, float64](output.Data)
+{{end}}
 
 	// First element derivative is 0 (no previous point for backward difference)
 	outData[0] = 0.0
 
 	// Calculate backward differences: dy/dt = (y[i] - y[i-1]) / (t[i] - t[i-1])
 	for i := int64(1); i < minLen; i++ {
-		{{if $.Type.IsUnsigned}}
-		// Handle unsigned types carefully to avoid underflow
+{{if $.Type.IsUnsigned}}		// Handle unsigned types carefully to avoid underflow
 		var dy {{if $.Type.IsFloat}}{{$.Type.GoType}}{{else}}float64{{end}}
 		if dataVals[i] >= dataVals[i-1] {
 			dy = {{if not $.Type.IsFloat}}float64({{end}}dataVals[i] - dataVals[i-1]{{if not $.Type.IsFloat}}){{end}}
 		} else {
 			dy = -{{if not $.Type.IsFloat}}float64({{end}}dataVals[i-1] - dataVals[i]{{if not $.Type.IsFloat}}){{end}}
 		}
-		{{else}}
+{{else}}
 		dy := {{if not $.Type.IsFloat}}float64({{end}}dataVals[i] - dataVals[i-1]{{if not $.Type.IsFloat}}){{end}}
-		{{end}}
+{{end}}
 		dt := float64(timeVals[i]-timeVals[i-1]) / 1e9 // Convert nanoseconds to seconds
 
 		if dt == 0 {
 			outData[i] = 0.0
 		} else {
-			{{if $.Type.IsFloat}}
+{{if $.Type.IsFloat}}
 			outData[i] = dy / {{$.Type.GoType}}(dt)
-			{{else}}
-			outData[i] = dy / dt
-			{{end}}
+{{else}}			outData[i] = dy / dt{{end}}
 		}
 	}
 }
@@ -283,8 +278,8 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
-	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
-	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
+	lhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
+	rhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
 	outData := output.Data
 
 	var lhsLast, rhsLast {{$.Type.GoType}}
@@ -320,9 +315,9 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	maxLen := max(lhsLen, rhsLen)
 	output.Resize(maxLen)
 
-	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
-	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	lhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
+	rhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	var lhsLast, rhsLast {{$.Type.GoType}}
 	if lhsLen > 0 {

@@ -46,11 +46,12 @@ func (s *StackTrace) String() string {
 		}
 		_, _ = fmt.Fprint(&b, "\n\t")
 
-		if f.Filename != "" {
+		switch {
+		case f.Filename != "":
 			_, _ = fmt.Fprintf(&b, "%s", f.Filename)
-		} else if f.AbsPath != "" {
+		case f.AbsPath != "":
 			_, _ = fmt.Fprintf(&b, "%s", f.AbsPath)
-		} else {
+		default:
 			_, _ = fmt.Fprintf(&b, "<unknown file>")
 		}
 

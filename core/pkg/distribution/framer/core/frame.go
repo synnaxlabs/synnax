@@ -65,11 +65,12 @@ func (f Frame) SplitByLeaseholder() map[cluster.NodeKey]Frame {
 // - free: contains series for channels that are not leased by any host.
 func (f Frame) SplitByHost(host cluster.NodeKey) (local, remote, free Frame) {
 	for key, series := range f.Entries() {
-		if key.Leaseholder() == host {
+		switch {
+		case key.Leaseholder() == host:
 			local = local.Append(key, series)
-		} else if key.Leaseholder().IsFree() {
+		case key.Leaseholder().IsFree():
 			free = free.Append(key, series)
-		} else {
+		default:
 			remote = remote.Append(key, series)
 		}
 	}

@@ -134,19 +134,20 @@ func (tr TimeRange) String() string {
 	endNano := end.Nanosecond()
 
 	var endStr string
-	if startYear != endYear {
+	switch {
+	case startYear != endYear:
 		endStr = end.Format("2006-01-02T15:04:05") + formatNanos(endNano)
-	} else if startMonth != endMonth || startDay != endDay {
+	case startMonth != endMonth || startDay != endDay:
 		endStr = end.Format("01-02T15:04:05") + formatNanos(endNano)
-	} else if startHour != endHour {
+	case startHour != endHour:
 		endStr = end.Format("15:04:05") + formatNanos(endNano)
-	} else if startMin != endMin {
+	case startMin != endMin:
 		endStr = end.Format("04:05") + formatNanos(endNano)
-	} else if startSec != endSec {
+	case startSec != endSec:
 		endStr = end.Format(":05") + formatNanos(endNano)
-	} else if startNano != endNano {
+	case startNano != endNano:
 		endStr = "." + formatSubSecond(endNano)
-	} else {
+	default:
 		endStr = end.Format("15:04:05")
 	}
 

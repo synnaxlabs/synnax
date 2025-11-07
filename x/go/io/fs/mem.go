@@ -418,15 +418,16 @@ func (f *memFile) Write(p []byte) (int, error) {
 	f.n.mu.Lock()
 	defer f.n.mu.Unlock()
 	f.n.mu.modTime = time.Now()
-	if f.wpos+len(p) <= len(f.n.mu.data) {
+	switch {
+	case f.wpos+len(p) <= len(f.n.mu.data):
 		n := copy(f.n.mu.data[f.wpos:f.wpos+len(p)], p)
 		if n != len(p) {
 			panic("stuff")
 		}
-	} else if f.wpos > len(f.n.mu.data) {
+	case f.wpos > len(f.n.mu.data):
 		zeros := make([]byte, f.wpos-len(f.n.mu.data))
 		f.n.mu.data = append(append(f.n.mu.data, zeros...), p...)
-	} else {
+	default:
 		f.n.mu.data = append(f.n.mu.data[:f.wpos], p...)
 	}
 	f.wpos += len(p)

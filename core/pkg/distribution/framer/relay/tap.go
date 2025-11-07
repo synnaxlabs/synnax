@@ -165,13 +165,14 @@ func (t *tapper) tapInto(
 		err    error
 		tapKey string
 	)
-	if nodeKey.IsFree() {
+	switch {
+	case nodeKey.IsFree():
 		tp = t.tapIntoFreeWrites()
 		tapKey = "free_write_tap"
-	} else if nodeKey == t.HostResolver.HostKey() {
+	case nodeKey == t.HostResolver.HostKey():
 		tp, err = t.tapIntoGateway(ctx, keys)
 		tapKey = "gateway_tap"
-	} else {
+	default:
 		tp, err = t.tapIntoPeer(ctx, nodeKey)
 		tapKey = fmt.Sprintf("peer_tap_%v", nodeKey)
 	}
