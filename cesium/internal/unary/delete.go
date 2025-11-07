@@ -129,7 +129,8 @@ func (db *DB) calculateStartOffset(
 	}
 	sampleOffset = approxDist.Upper
 	if !approxDist.Exact() {
-		if !approxDist.StartExact && !approxDist.EndExact {
+		switch {
+		case !approxDist.StartExact && !approxDist.EndExact:
 			// If both start and end are inexact, sampleOffset is in between the two.
 			// (Note that the start is only inexact because of domain cutoff).
 			sampleOffset = (approxDist.Lower + approxDist.Upper) / 2
@@ -148,7 +149,7 @@ func (db *DB) calculateStartOffset(
 				return 0, 0, err
 			}
 			ts = approxStamp.Upper + 1
-		} else if !approxDist.StartExact {
+		case !approxDist.StartExact:
 			// If start is inexact, we must use the lower approximation. (Note that the
 			// start is only inexact because of domain cutoff).
 			sampleOffset = approxDist.Lower
@@ -162,7 +163,7 @@ func (db *DB) calculateStartOffset(
 				return 0, 0, err
 			}
 			ts = approxStamp.Lower + 1
-		} else {
+		default:
 			approxStamp, err = db.index().Stamp(
 				ctx,
 				domainStart,
@@ -206,7 +207,8 @@ func (db *DB) calculateEndOffset(
 	}
 	sampleOffset = approxDist.Upper
 	if !approxDist.Exact() {
-		if !approxDist.StartExact && !approxDist.EndExact {
+		switch {
+		case !approxDist.StartExact && !approxDist.EndExact:
 			// If both start and end are inexact, sampleOffset is in between the two. (Note
 			// that the start is only inexact because of domain cutoff).
 			sampleOffset = (approxDist.Lower + approxDist.Upper) / 2
@@ -221,7 +223,7 @@ func (db *DB) calculateEndOffset(
 				return 0, 0, err
 			}
 			ts = approxStamp.Lower
-		} else if !approxDist.StartExact {
+		case !approxDist.StartExact:
 			// If start is inexact, we must use the lower approximation. (Note that the
 			// start is only inexact because of domain cutoff).
 			sampleOffset = approxDist.Lower
@@ -235,7 +237,7 @@ func (db *DB) calculateEndOffset(
 				return 0, 0, err
 			}
 			ts = approxStamp.Upper
-		} else {
+		default:
 			approxStamp, err = db.index().Stamp(
 				ctx,
 				domainStart,

@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
-	xkv "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv"
 )
 
 var ErrLeaseNotTransferable = errors.New("[cesium] - cannot transfer leaseAlloc")
@@ -31,27 +31,28 @@ type leaseAllocator struct{ Config }
 
 func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation, error) {
 	lh, err := la.getLease(ctx, op.Key)
+	switch {
 	// If we get a nil error, that means this key has been set before.
-	if err == nil {
+	case err == nil:
 		if op.Leaseholder == DefaultLeaseholder {
 			op.Leaseholder = lh
 			if lh == DefaultLeaseholder {
 				la.L.DPanic("Lease allocator returned unexpected node key 0 for leaseholder")
 			}
 		} else if lh != op.Leaseholder {
-			// If the Leaseholder doesn't match the previous Leaseholder,
-			// we return an error.
+			// If the Leaseholder doesn't match the previous Leaseholder, we return an
+			// error.
 			return op, ErrLeaseNotTransferable
 		}
-	} else if errors.Is(err, xkv.NotFound) && op.Variant == change.Set {
+	// If we get a NotFound error, and the op is a Set operation, we assign the
+	// leaseAlloc to the cluster host.
+	case errors.Is(err, kv.NotFound) && op.Variant == change.Set:
 		if op.Leaseholder == DefaultLeaseholder {
-			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder assigned,
-			// we assign the leaseAlloc to the cluster host.
+			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder
+			// assigned, we assign the leaseAlloc to the cluster host.
 			op.Leaseholder = la.Cluster.HostKey()
 		}
-		// If we can't find the Leaseholder, and the op has a Leaseholder assigned,
-		// that means it's a new key, so we let it choose its own leaseAlloc.
-	} else {
+	default:
 		return op, err
 	}
 	return op, nil

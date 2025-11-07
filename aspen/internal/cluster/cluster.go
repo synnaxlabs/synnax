@@ -86,7 +86,8 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 	c.L.Info("beginning cluster startup")
 	c.L.Debug("configuration", cfg.Report().ZapFields()...)
 
-	if !state.IsZero() {
+	switch {
+	case !state.IsZero():
 		// If our store is valid, restart using the existing state.
 		c.L.Info("existing cluster found in storage. restarting activities")
 		host := c.GetHost()
@@ -96,7 +97,7 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 		if err := pledge_.Arbitrate(c.Pledge); err != nil {
 			return nil, err
 		}
-	} else if len(c.Pledge.Peers) > 0 {
+	case len(c.Pledge.Peers) > 0:
 		// If our store is empty or invalid and peers were provided, attempt to join
 		// the Cluster.
 		c.L.Info("no cluster found in storage. pledging to Cluster instead")
@@ -112,7 +113,7 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 		if err = c.gossipInitialState(ctx); err != nil {
 			return c, err
 		}
-	} else {
+	default:
 		// If our store isn't valid, and we haven't received peers, assume we're
 		// bootstrapping a new Cluster.
 		c.SetHost(ctx, node.Node{Key: 1, Address: c.HostAddress})

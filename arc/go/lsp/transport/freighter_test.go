@@ -129,7 +129,7 @@ var _ = Describe("Freighter Transport", func() {
 				n, err := adapter.Write([]byte(combined))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(len(combined)))
-				Eventually(func() int32 { return receivedCount.Load() }).Should(Equal(int32(2)))
+				Eventually(receivedCount.Load).Should(Equal(int32(2)))
 			})
 			It("Should handle partial writes with buffering", func() {
 				adapter := &streamAdapter{stream: serverStream}

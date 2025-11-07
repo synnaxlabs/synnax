@@ -106,19 +106,18 @@ type ClientStream[RQ, RS Payload] interface {
 // is provided to the caller within a Stream handle. As a result, ServerStream
 // provides no `Close` method to the caller.
 type ServerStream[RQ, RS Payload] interface {
-	// StreamReceiver - Receive blocks until a message is received from the
-	// client or the stream closes.
+	// StreamReceiver - Receive blocks until a message is received from the client or
+	// the stream closes.
 	//
 	// Failure Behavior:
 	//
 	// 1. If the client called CloseSend -> Returns a freighter.EOF error.
 	//
-	// 2. If the server handler has returned -> This is most likely a programming
-	// error where a separate goroutine is writing to the stream after the handler
-	// returns. In this case, the server will return a context.Canceled error.
+	// 2. If the server handler has returned -> This is most likely a programming error
+	// where a separate goroutine is writing to the stream after the handler returns. In
+	// this case, the server will return a context.Canceled error.
 	//
-	// 2. If the transport fails -> Returns the error that caused the transport
-	//to fail.
+	// 2. If the transport fails -> Returns the error that caused the transport to fail.
 	//
 	// Repeated calls to Receive will immediately return the same error.
 	StreamReceiver[RQ]

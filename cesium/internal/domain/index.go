@@ -57,11 +57,12 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		}
 	}
 
-	if insertAt == 0 {
+	switch {
+	case insertAt == 0:
 		idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
-	} else if insertAt == len(idx.mu.pointers) {
+	case insertAt == len(idx.mu.pointers):
 		idx.mu.pointers = append(idx.mu.pointers, p)
-	} else {
+	default:
 		idx.mu.pointers = slices.Insert(idx.mu.pointers, insertAt, p)
 	}
 
@@ -124,13 +125,14 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	}
 	overlapsWithNext := updateAt != len(ptrs)-1 && ptrs[updateAt+1].OverlapsWith(p.TimeRange)
 	overlapsWithPrev := updateAt != 0 && ptrs[updateAt-1].OverlapsWith(p.TimeRange)
-	if overlapsWithPrev {
+	switch {
+	case overlapsWithPrev:
 		idx.mu.Unlock()
 		return span.Error(NewErrRangeWriteConflict(p.TimeRange, ptrs[updateAt-1].TimeRange))
-	} else if overlapsWithNext {
+	case overlapsWithNext:
 		idx.mu.Unlock()
 		return span.Error(NewErrRangeWriteConflict(p.TimeRange, ptrs[updateAt+1].TimeRange))
-	} else {
+	default:
 		idx.mu.pointers[updateAt] = p
 	}
 

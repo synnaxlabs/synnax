@@ -134,11 +134,12 @@ func (c *streamCore[I, O]) Receive() (pld I, err error) {
 	}
 	msg, err := c.receiveRaw()
 	if err != nil {
-		if ws.IsCloseError(err, normalCloseCode) {
+		switch {
+		case ws.IsCloseError(err, normalCloseCode):
 			c.peerCloseErr = freighter.EOF
-		} else if ws.IsCloseError(err, contextCancelledCloseCode) {
+		case ws.IsCloseError(err, contextCancelledCloseCode):
 			c.peerCloseErr = context.Canceled
-		} else {
+		default:
 			c.peerCloseErr = freighter.StreamClosed
 		}
 		c.peerCloseErr = errors.WithStack(c.peerCloseErr)
