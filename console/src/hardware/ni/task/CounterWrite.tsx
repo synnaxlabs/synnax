@@ -63,7 +63,7 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   // CO Pulse Output channels don't have cmd/state channels - they're configuration-only
   // Use 0 to indicate no channel
   const cmdChannel = 0;
-  const stateChannel = undefined;
+  const stateChannel = 0;
   const Icon = CO_CHANNEL_TYPE_ICONS[type];
   return (
     <Common.Task.Layouts.ListAndDetailsChannelItem
