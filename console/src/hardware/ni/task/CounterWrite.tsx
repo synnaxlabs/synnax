@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -128,103 +126,15 @@ const onConfigure: Common.Task.OnConfigure<typeof counterWriteConfigZ> = async (
   client,
   config,
 ) => {
+  // CO Pulse Output channels are configuration-only - no cmd/state channels needed
+  // Just validate the device exists and is configured
   const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
     key: config.device,
   });
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
-  let modified = false;
-  let shouldCreateStateIndex = primitive.isZero(
-    dev.properties.counterOutput.stateIndex,
-  );
-  if (!shouldCreateStateIndex)
-    try {
-      await client.channels.retrieve(dev.properties.counterOutput.stateIndex);
-    } catch (e) {
-      if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
-      else throw e;
-    }
-  if (shouldCreateStateIndex) {
-    modified = true;
-    const stateIndex = await client.channels.create({
-      name: `${dev.properties.identifier}_co_state_time`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    dev.properties.counterOutput.stateIndex = stateIndex.key;
-    dev.properties.counterOutput.channels = {};
-  }
-  const commandsToCreate: COChannel[] = [];
-  const statesToCreate: COChannel[] = [];
-  for (const channel of config.channels) {
-    const exPair = dev.properties.counterOutput.channels[channel.port.toString()];
-    if (exPair == null) {
-      commandsToCreate.push(channel);
-      statesToCreate.push(channel);
-    } else {
-      const { state, command } = exPair;
-      try {
-        await client.channels.retrieve(state);
-      } catch (e) {
-        if (NotFoundError.matches(e)) statesToCreate.push(channel);
-        else throw e;
-      }
-      try {
-        await client.channels.retrieve(command);
-      } catch (e) {
-        if (NotFoundError.matches(e)) commandsToCreate.push(channel);
-        else throw e;
-      }
-    }
-  }
-  if (statesToCreate.length > 0) {
-    modified = true;
-    const states = await client.channels.create(
-      statesToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_co_${c.port}_state`,
-        index: dev.properties.counterOutput.stateIndex,
-        dataType: "float32",
-      })),
-    );
-    states.forEach((s, i) => {
-      const key = statesToCreate[i].port.toString();
-      if (!(key in dev.properties.counterOutput.channels))
-        dev.properties.counterOutput.channels[key] = { state: s.key, command: 0 };
-      else dev.properties.counterOutput.channels[key].state = s.key;
-    });
-  }
-  if (commandsToCreate.length > 0) {
-    modified = true;
-    const commandIndexes = await client.channels.create(
-      commandsToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_co_${c.port}_cmd_time`,
-        dataType: "timestamp",
-        isIndex: true,
-      })),
-    );
-    const commands = await client.channels.create(
-      commandsToCreate.map((c, i) => ({
-        name: `${dev.properties.identifier}_co_${c.port}_cmd`,
-        index: commandIndexes[i].key,
-        dataType: "float32",
-      })),
-    );
-    commands.forEach((s, i) => {
-      const key = commandsToCreate[i].port.toString();
-      if (!(key in dev.properties.counterOutput.channels))
-        dev.properties.counterOutput.channels[key] = { state: 0, command: s.key };
-      else dev.properties.counterOutput.channels[key].command = s.key;
-    });
-  }
-  if (modified) await client.hardware.devices.create(dev);
-  config.channels = config.channels.map((c) => {
-    const pair = dev.properties.counterOutput.channels[c.port.toString()];
-    return {
-      ...c,
-      cmdChannel: pair.command,
-      stateChannel: pair.state,
-    };
-  });
+
+  // Return configuration as-is without creating any Synnax channels
   return [config, dev.rack];
 };
 
