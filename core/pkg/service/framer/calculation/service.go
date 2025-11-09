@@ -176,9 +176,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	if *cfg.EnableLegacyCalculations {
 		s.legacy, err = legacy.OpenService(ctx, legacy.ServiceConfig{
-			Channel:    cfg.Channel,
-			Framer:     cfg.Framer,
-			StateCodec: cfg.StateCodec,
+			Instrumentation: cfg.Instrumentation.Child("legacy"),
+			Channel:         cfg.Channel,
+			Framer:          cfg.Framer,
+			StateCodec:      cfg.StateCodec,
 		})
 		if err != nil {
 			return nil, err
