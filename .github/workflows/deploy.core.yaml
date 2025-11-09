@@ -436,10 +436,6 @@ jobs:
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
-      - name: Set up QEMU
-        if: matrix.os == 'ubuntu-latest'
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         if: matrix.os == 'ubuntu-latest'
         uses: docker/setup-buildx-action@v3
@@ -465,9 +461,7 @@ jobs:
         with:
           context: .
           file: ./core/Dockerfile
-          platforms:
-            ${{ github.event_name == 'pull_request' && 'linux/amd64' ||
-            'linux/amd64,linux/arm64' }}
+          platforms: linux/amd64
           push: true
           tags: |
             ${{ github.event_name == 'pull_request' && format('ghcr.io/synnaxlabs/synnax:{0}', github.sha) || '' }}
