@@ -30,12 +30,6 @@ import { Text as TelemText } from "@/telem/text";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
-const applyTimezoneOffset = (ts: TimeStamp): TimeStamp =>
-  ts.add(
-    BigInt(TimeStamp.now().date().getTimezoneOffset() - ts.date().getTimezoneOffset()) *
-      TimeSpan.MINUTE.valueOf(),
-  );
-
 export interface DateTimeProps
   extends Omit<TextProps, "type" | "value" | "onChange">,
     Control<number> {}
@@ -51,23 +45,20 @@ export const DateTime = ({
   const [tempValue, setTempValue] = useState<string | null>(null);
 
   const handleChange = (next: string | number, override: boolean = false): void => {
-    let nextStr = next.toString();
+    const nextStr = next.toString();
     setTempValue(nextStr);
 
-    let nextTS = new TimeStamp(next, "UTC");
-    if (nextStr.length < 23) nextStr += ".000";
-
-    nextTS = applyTimezoneOffset(nextTS);
-    let ok = false;
-    const str = nextTS.toString("ISO", "local");
-    ok = str.slice(0, -1) === nextStr;
-
-    if (ok && !onlyChangeOnBlur) {
-      onChange(Number(nextTS.valueOf()));
+    const isString = typeof next === "string";
+    if (!isString) {
+      onChange(Number(next));
       setTempValue(null);
+      return;
     }
-    if (override) {
-      if (ok) onChange(Number(nextTS.valueOf()));
+
+    const nextTS = new TimeStamp(nextStr, "local");
+
+    if (!onlyChangeOnBlur || override) {
+      onChange(Number(nextTS.valueOf()));
       setTempValue(null);
     }
   };
@@ -195,7 +186,7 @@ const AISelector = ({
     const entries: AISuggestion[] = [];
     entries.push(
       ...dates.map((d) => {
-        const nextTS = applyTimezoneOffset(new TimeStamp(d.start, "UTC"));
+        const nextTS = new TimeStamp(d.start);
         return {
           key: d.start,
           name: nextTS.toString("preciseDate", "local"),
@@ -216,7 +207,7 @@ const AISelector = ({
         if (d.second != null) span = span.add(TimeSpan.seconds(d.second));
         if (d.millisecond != null)
           span = span.add(TimeSpan.milliseconds(d.millisecond));
-        const next = applyTimezoneOffset(pValue.add(span));
+        const next = pValue.add(span);
         return {
           key: next.valueOf().toString(),
           name: next.toString("preciseDate", "local"),
