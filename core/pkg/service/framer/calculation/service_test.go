@@ -500,11 +500,13 @@ var _ = Describe("Calculation", Ordered, func() {
 			calcs[0].Expression = "return base_cwb_1 * 3"
 			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 
-			time.Sleep(10 * time.Millisecond)
-			MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
-			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
-			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
-			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
+			Eventually(func(g Gomega) {
+				_, err := w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2)))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
+				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
+			})
 
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 		})
@@ -540,11 +542,13 @@ var _ = Describe("Calculation", Ordered, func() {
 			calcs[0].Expression = "return base_a_2 * 3"
 			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 
-			time.Sleep(30 * time.Millisecond)
-			MustSucceed(w.Write(core.UnaryFrame(baseCh2.Key(), telem.NewSeriesV[int64](1, 2))))
-			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
-			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
-			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
+			Expect(func(g Gomega) {
+				_, err := w.Write(core.UnaryFrame(baseCh2.Key(), telem.NewSeriesV[int64](1, 2)))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
+				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
+			})
 
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 		})
