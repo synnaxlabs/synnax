@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
@@ -61,17 +60,12 @@ var _ = Describe("Streamer", Ordered, func() {
 			Status:   statusSvc,
 			Signals:  dist.Signals,
 		}))
-		g := graph.New(graph.Config{
-			Channel:        dist.Channel,
-			SymbolResolver: arcSvc.SymbolResolver(),
-		})
 		calc := MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Arc:               arcSvc,
 			Framer:            dist.Framer,
-			Channel:           dist.Channel,
+			Channels:          dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
-			Graph:             g,
 		}))
 		streamerSvc = MustSucceed(streamer.NewService(streamer.ServiceConfig{
 			DistFramer:  dist.Framer,

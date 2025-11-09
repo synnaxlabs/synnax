@@ -64,10 +64,10 @@ var _ = AfterSuite(func() {
 var _ = Describe("Graph", func() {
 	var g *graph.Graph
 	BeforeEach(func() {
-		g = graph.New(graph.Config{
-			Channel:        dist.Channel,
+		g = MustSucceed(graph.New(graph.Config{
+			Channels:       dist.Channel,
 			SymbolResolver: arcSvc.SymbolResolver(),
-		})
+		}))
 	})
 	Describe("Add", func() {
 		It("Should compile and add a simple channel", func() {

@@ -20,7 +20,7 @@ import (
 
 func (s *Service) migrateChannels(ctx context.Context) error {
 	var legacyCalculations []channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().
+	if err := s.cfg.Channels.NewRetrieve().
 		WhereLegacyCalculated().
 		Entries(&legacyCalculations).
 		Exec(ctx, nil); err != nil {
@@ -28,10 +28,10 @@ func (s *Service) migrateChannels(ctx context.Context) error {
 	}
 	resolver := s.cfg.Arc.SymbolResolver()
 	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		writer := s.cfg.Channel.NewWriter(tx)
+		writer := s.cfg.Channels.NewWriter(tx)
 		for _, calc := range legacyCalculations {
 			if _, err := compiler.Compile(ctx, compiler.Config{
-				Channels:       s.cfg.Channel,
+				Channels:       s.cfg.Channels,
 				Channel:        calc,
 				SymbolResolver: resolver,
 			}); err == nil {

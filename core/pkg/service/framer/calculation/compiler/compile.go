@@ -178,6 +178,9 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 	}
 
 	mod, err := arc.CompileGraph(ctx, g, arc.WithResolver(cfg.SymbolResolver))
+	if err != nil {
+		return Module{}, err
+	}
 	stateCfg, err := runtime.NewStateConfig(ctx, cfg.Channels, mod)
 	if err != nil {
 		return Module{}, err

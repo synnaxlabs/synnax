@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -49,7 +50,7 @@ type ServiceConfig struct {
 	Framer *framer.Service
 	// Channel is used to retrieve information about the channels being calculated.
 	// [REQUIRED]
-	Channel channel.Service
+	Channels channel.Service
 	// ChannelObservable is used to listen to real-time changes in calculated channels
 	// so the calculation routines can be updated accordingly.
 	// [REQUIRED]
@@ -57,10 +58,6 @@ type ServiceConfig struct {
 	// Arc is used for compiling arc programs used for executing calculations.
 	// [REQUIRED]
 	Arc *arc.Service
-	// Graph analyzes the structure of calculation dependencies, allowing the service
-	// to understand which calculations to run in which groups and when.
-	/// [REQUIRED]
-	Graph *graph.Graph
 	// StateCodec is the encoder/decoder used to communicate calculation state
 	// changes.
 	// [OPTIONAL]
@@ -84,13 +81,12 @@ var (
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
 	validate.NotNil(v, "framer", c.Framer)
-	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "channel", c.Channels)
 	validate.NotNil(v, "channel_observable", c.ChannelObservable)
 	validate.NotNil(v, "state_codec", c.StateCodec)
 	validate.NotNil(v, "enable_legacy_calculations", c.EnableLegacyCalculations)
 	validate.NotNil(v, "arc", c.Arc)
 	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "graph", c.Graph)
 	return v.Error()
 }
 
@@ -98,13 +94,12 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
-	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Channels = override.Nil(c.Channels, other.Channels)
 	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
 	c.StateCodec = override.Nil(c.StateCodec, other.StateCodec)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.EnableLegacyCalculations = override.Nil(c.EnableLegacyCalculations, other.EnableLegacyCalculations)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Graph = override.Nil(c.Graph, other.Graph)
 	return c
 }
 
@@ -112,6 +107,7 @@ type Service struct {
 	cfg ServiceConfig
 	mu  struct {
 		sync.Mutex
+		graph       *graph.Graph
 		calculators map[channel.Key]*calculator.Calculator
 		groups      map[int]*group.Group
 	}
@@ -130,6 +126,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	g, err := graph.New(graph.Config{
+		Instrumentation: cfg.Child("calculation.graph"),
+		Channels:        cfg.Channels,
+		SymbolResolver:  cfg.Arc.SymbolResolver(),
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	calculationStateCh := channel.Channel{
 		Name:        StatusChannelName,
@@ -139,13 +143,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		Internal:    true,
 	}
 
-	if err = cfg.Channel.MapRename(ctx, map[string]string{
+	if err = cfg.Channels.MapRename(ctx, map[string]string{
 		"sy_calculation_state": StatusChannelName,
 	}, true); err != nil {
 		return nil, err
 	}
 
-	if err = cfg.Channel.Create(
+	if err = cfg.Channels.Create(
 		ctx,
 		&calculationStateCh,
 		channel.RetrieveIfNameExists(true),
@@ -164,6 +168,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	s := &Service{cfg: cfg, writer: w, stateKey: calculationStateCh.Key()}
 	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
+	s.mu.graph = g
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group.Group)
 
@@ -174,7 +179,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if *cfg.EnableLegacyCalculations {
 		s.legacy, err = legacy.OpenService(ctx, legacy.ServiceConfig{
 			Instrumentation: cfg.Instrumentation.Child("legacy"),
-			Channel:         cfg.Channel,
+			Channel:         cfg.Channels,
 			Framer:          cfg.Framer,
 			StateCodec:      cfg.StateCodec,
 		})
@@ -228,7 +233,12 @@ func (s *Service) handleChange(
 		return
 	}
 	if err := s.updateCalculation(ctx, ch); err != nil {
-		s.cfg.L.Error("failed to update calculation for", zap.Stringer("channel", ch), zap.Error(err))
+		s.setStatus(ctx, calculator.Status{
+			Key:         ch.Key().String(),
+			Variant:     status.ErrorVariant,
+			Message:     fmt.Sprintf("failed to update calculation for %s", ch),
+			Description: err.Error(),
+		})
 	}
 }
 
@@ -237,7 +247,7 @@ func (s *Service) updateCalculation(ctx context.Context, ch channel.Channel) err
 		zap.String("channel", ch.Key().String()),
 		zap.String("reason", "channel definition changed"),
 	)
-	if err := s.cfg.Graph.Update(ctx, ch); err != nil {
+	if err := s.mu.graph.Update(ctx, ch); err != nil {
 		return err
 	}
 	return s.rebuildGroups(ctx)
@@ -288,14 +298,12 @@ func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Modu
 		}
 	}
 	calculators := make([]*calculator.Calculator, len(mods))
-	calculatorStrs := make([]string, len(mods))
 	for i, m := range mods {
 		calc, err := s.openOrGetCalculator(ctx, m)
 		if err != nil {
 			return err
 		}
 		calculators[i] = calc
-		calculatorStrs[i] = calc.String()
 	}
 	g, err := group.Open(
 		ctx,
@@ -313,13 +321,13 @@ func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Modu
 	s.cfg.L.Info("group started",
 		zap.Int("group_id", key),
 		zap.Int("calculator_count", len(calculators)),
-		zap.Strings("calculators", calculatorStrs),
+		zap.Stringers("calculators", calculators),
 	)
 	return nil
 }
 
 func (s *Service) rebuildGroups(ctx context.Context) error {
-	groups := s.cfg.Graph.CalculateGrouped()
+	groups := s.mu.graph.CalculateGrouped()
 	s.cfg.L.Debug("rebuilding groups",
 		zap.Int("new_group_count", len(groups)),
 		zap.Int("current_group_count", len(s.mu.groups)),
@@ -365,16 +373,12 @@ func (s *Service) Close() error {
 // being calculated. If the channel is already being calculated, the number of active
 // requests will be increased. The caller must close the returned io.Closer when the
 // calculation is no longer needed, which will decrement the number of active requests.
-func (s *Service) updateRequests(
-	ctx context.Context,
-	added []channel.Key,
-	removed []channel.Key,
-) error {
+func (s *Service) updateRequests(ctx context.Context, added, removed []channel.Key) error {
 	var (
 		channels []channel.Channel
 		statuses []calculator.Status
 	)
-	if err := s.cfg.Channel.NewRetrieve().
+	if err := s.cfg.Channels.NewRetrieve().
 		WhereKeys(added...).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
@@ -386,20 +390,10 @@ func (s *Service) updateRequests(
 	for _, k := range removed {
 		if s.legacy != nil {
 			if err := s.legacy.Remove(ctx, k); err != nil {
-				statuses = append(statuses, calculator.Status{
-					Key:         k.String(),
-					Message:     fmt.Sprintf("Failed to release legacy calculation for %s", k),
-					Description: err.Error(),
-				})
 				return err
 			}
 		}
-		if err := s.cfg.Graph.Remove(k); err != nil {
-			statuses = append(statuses, calculator.Status{
-				Key:         k.String(),
-				Message:     fmt.Sprintf("Failed to release calculation for %s", k),
-				Description: err.Error(),
-			})
+		if err := s.mu.graph.Remove(k); err != nil {
 			return err
 		}
 	}
@@ -414,18 +408,19 @@ func (s *Service) updateRequests(
 					Message:     fmt.Sprintf("Failed to request legacy calculation for %s", ch),
 					Description: err.Error(),
 				})
-				return err
 			}
 			continue
 		}
-		if err := s.cfg.Graph.Add(ctx, ch); err != nil {
+		if err := s.mu.graph.Add(ctx, ch); err != nil {
 			statuses = append(statuses, calculator.Status{
 				Key:         ch.String(),
 				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
 				Description: err.Error(),
 			})
-			return err
 		}
+	}
+	if len(statuses) > 0 {
+		s.setStatus(ctx, statuses...)
 	}
 	if err := s.rebuildGroups(ctx); err != nil {
 		return err

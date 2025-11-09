@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/x/config"
@@ -130,20 +129,14 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 
-	calcGraph := graph.New(graph.Config{
-		Instrumentation: cfg.Child("calculation.graph"),
-		Channel:         cfg.Channel,
-		SymbolResolver:  cfg.Arc.SymbolResolver(),
-	})
 	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation:          cfg.Child("calculation"),
 		DB:                       cfg.DB,
-		Channel:                  cfg.Channel,
+		Channels:                 cfg.Channel,
 		Framer:                   cfg.Framer,
 		Arc:                      cfg.Arc,
 		ChannelObservable:        cfg.Channel.NewObservable(),
 		EnableLegacyCalculations: cfg.EnableLegacyCalculations,
-		Graph:                    calcGraph,
 	})
 	if err != nil {
 		return nil, err
@@ -159,7 +152,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
 		DistFramer: cfg.Framer,
-		Channel:    cfg.Channel,
+		Channels:   cfg.Channel,
 		Arc:        cfg.Arc,
 	})
 	if err != nil {

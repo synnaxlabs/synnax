@@ -18,17 +18,39 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 type Config struct {
 	alamos.Instrumentation
-	Channel        channel.Readable
+	Channels       channel.Readable
 	SymbolResolver arc.SymbolResolver
+}
+
+var (
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
+)
+
+func (c Config) Override(other Config) Config {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.Channels = override.Nil(c.Channels, other.Channels)
+	c.SymbolResolver = override.Nil(c.SymbolResolver, other.SymbolResolver)
+	return c
+}
+
+func (c Config) Validate() error {
+	v := validate.New("calculation.graph")
+	validate.NotNil(v, "channels", c.Channels)
+	validate.NotNil(v, "symbol_resolver", c.SymbolResolver)
+	return v.Error()
 }
 
 type channelInfo struct {
@@ -54,14 +76,18 @@ type Graph struct {
 }
 
 // New creates a new Graph with the provided configuration.
-func New(cfg Config) *Graph {
+func New(cfgs ...Config) (*Graph, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Graph{
 		Instrumentation: cfg.Instrumentation,
 		cfg:             cfg,
 		channels:        make(map[channel.Key]*channelInfo),
 		groups:          make(map[int]*groupInfo),
 		nextGroupID:     0,
-	}
+	}, nil
 }
 
 // Add compiles a channel and its dependencies, then assigns it to a group.
@@ -101,7 +127,7 @@ func (a *Graph) Update(ctx context.Context, ch channel.Channel) error {
 
 	// Recompile with new expression
 	mod, err := compiler.Compile(ctx, compiler.Config{
-		Channels:       a.cfg.Channel,
+		Channels:       a.cfg.Channels,
 		Channel:        ch,
 		SymbolResolver: a.cfg.SymbolResolver,
 	})
@@ -347,7 +373,7 @@ func (a *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 	defer func() { info.processing = false }()
 
 	mod, err := compiler.Compile(ctx, compiler.Config{
-		Channels:       a.cfg.Channel,
+		Channels:       a.cfg.Channels,
 		Channel:        ch,
 		SymbolResolver: a.cfg.SymbolResolver,
 	})
@@ -420,7 +446,7 @@ func (a *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 // fetchChannels retrieves channels by their keys.
 func (a *Graph) fetchChannels(ctx context.Context, keys []channel.Key) ([]channel.Channel, error) {
 	var channels []channel.Channel
-	if err := a.cfg.Channel.NewRetrieve().
+	if err := a.cfg.Channels.NewRetrieve().
 		Entries(&channels).
 		WhereKeys(keys...).
 		Exec(ctx, nil); err != nil {
@@ -688,7 +714,7 @@ func (a *Graph) topologicalSortGroup(groupKey int, modules []compiler.Module) ([
 			return nil
 		}
 		if inStack.Contains(key) {
-			return errors.Newf("circular dependency detected in group %s", groupKey)
+			return errors.Newf("circular dependency detected in group %v", groupKey)
 		}
 		inStack.Add(key)
 		for _, dep := range graph[key] {
@@ -750,30 +776,16 @@ func (a *Graph) formatDependencyTree(ctx context.Context, key channel.Key) strin
 		if err == nil {
 			baseDeps, err := a.resolveBaseDependencies(ctx, depChannels)
 			if err == nil && len(baseDeps) > 0 {
-				baseDepStrs := make([]string, 0, len(baseDeps))
+				baseDepStrings := make([]string, 0, len(baseDeps))
 				for dep := range baseDeps {
-					baseDepStrs = append(baseDepStrs, dep.String())
+					baseDepStrings = append(baseDepStrings, dep.String())
 				}
-				parts = append(parts, fmt.Sprintf("[base: %s]", strings.Join(baseDepStrs, ", ")))
+				parts = append(parts, fmt.Sprintf("[base: %s]", strings.Join(baseDepStrings, ", ")))
 			}
 		}
 	}
 
 	return strings.Join(parts, " → ")
-}
-
-// getDependers returns a list of channel keys that depend on the given channel.
-func (a *Graph) getDependers(key channel.Key) []channel.Key {
-	var dependers []channel.Key
-	for chKey, info := range a.channels {
-		for _, dep := range info.calcDeps {
-			if dep == key {
-				dependers = append(dependers, chKey)
-				break
-			}
-		}
-	}
-	return dependers
 }
 
 // MarshalLogObject implements zapcore.ObjectMarshaler for groupInfo.

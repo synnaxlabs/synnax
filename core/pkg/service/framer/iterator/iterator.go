@@ -42,8 +42,8 @@ type ServiceConfig struct {
 	DistFramer *framer.Service
 	// Channel is used to retrieve information about channels.
 	// [REQUIRED]
-	Channel channel.Readable
-	Arc     *svcarc.Service
+	Channels channel.Readable
+	Arc      *svcarc.Service
 }
 
 var (
@@ -58,7 +58,7 @@ var (
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.DistFramer = override.Nil(cfg.DistFramer, other.DistFramer)
-	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
+	cfg.Channels = override.Nil(cfg.Channels, other.Channels)
 	cfg.Arc = override.Nil(cfg.Arc, other.Arc)
 	return cfg
 }
@@ -67,7 +67,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("iterator")
 	validate.NotNil(v, "framer", cfg.DistFramer)
-	validate.NotNil(v, "channel", cfg.Channel)
+	validate.NotNil(v, "channel", cfg.Channels)
 	validate.NotNil(v, "arc", cfg.Arc)
 	return v.Error()
 }
@@ -176,7 +176,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 
 	// Fetch the requested channels
 	var channels []channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().
+	if err := s.cfg.Channels.NewRetrieve().
 		WhereKeys(cfg.Keys...).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
@@ -184,10 +184,13 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 	}
 
 	// Use allocator to resolve dependencies and get topological order
-	calcGraph := graph.New(graph.Config{
-		Channel:        s.cfg.Channel,
+	calcGraph, err := graph.New(graph.Config{
+		Channels:       s.cfg.Channels,
 		SymbolResolver: s.cfg.Arc.SymbolResolver(),
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	// Add all calculated channels to the allocator
 	for _, ch := range channels {
@@ -222,7 +225,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 	// Fetch concrete base channel metadata to get their indices
 	var concreteBaseChannels []channel.Channel
 	if len(concreteBaseKeys) > 0 {
-		if err := s.cfg.Channel.NewRetrieve().
+		if err := s.cfg.Channels.NewRetrieve().
 			Entries(&concreteBaseChannels).
 			WhereKeys(concreteBaseKeys.Keys()...).
 			Exec(ctx, nil); err != nil {

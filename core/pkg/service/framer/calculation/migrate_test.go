@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
@@ -29,7 +28,6 @@ var _ = Describe("Migrate", Ordered, func() {
 		c      *calculation.Service
 		arcSvc *arc.Service
 		dist   mock.Node
-		alloc  *graph.Graph
 	)
 	BeforeAll(func() {
 		distB := mock.NewCluster()
@@ -61,10 +59,6 @@ var _ = Describe("Migrate", Ordered, func() {
 			Status:   statusSvc,
 			Signals:  dist.Signals,
 		}))
-		alloc = graph.New(graph.Config{
-			Channel:        dist.Channel,
-			SymbolResolver: arcSvc.SymbolResolver(),
-		})
 		DeferCleanup(func() {
 			Expect(arcSvc.Close()).To(Succeed())
 		})
@@ -75,10 +69,9 @@ var _ = Describe("Migrate", Ordered, func() {
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Framer:            dist.Framer,
-			Channel:           dist.Channel,
+			Channels:          dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
 			Arc:               arcSvc,
-			Graph:             alloc,
 		}))
 	}
 
