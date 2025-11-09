@@ -91,6 +91,10 @@ func New(
 		strata:  prog.Strata,
 		changed: make(set.Set[string], len(prog.Nodes)),
 	}
+	s.nodeCtx = node.Context{
+		MarkChanged: s.markChanged,
+		ReportError: s.reportError,
+	}
 
 	for _, n := range prog.Nodes {
 		s.nodes[n.Key] = &nodeState{
@@ -101,14 +105,6 @@ func New(
 			node: nodes[n.Key],
 		}
 	}
-
-	// Initialize the reusable node context with method references.
-	// This context is reused across all node executions, eliminating allocations.
-	s.nodeCtx = node.Context{
-		MarkChanged: s.markChanged,
-		ReportError: s.reportError,
-	}
-
 	return s
 }
 

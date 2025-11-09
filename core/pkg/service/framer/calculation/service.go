@@ -176,10 +176,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	if *cfg.EnableLegacyCalculations {
 		s.legacy, err = legacy.OpenService(ctx, legacy.ServiceConfig{
-			Channel:           cfg.Channel,
-			Framer:            cfg.Framer,
-			ChannelObservable: cfg.ChannelObservable,
-			StateCodec:        cfg.StateCodec,
+			Channel:    cfg.Channel,
+			Framer:     cfg.Framer,
+			StateCodec: cfg.StateCodec,
 		})
 		if err != nil {
 			return nil, err
@@ -218,7 +217,11 @@ func (s *Service) handleChange(
 	ch := cg.Value
 	// Don't stop calculating if the channel is deleted. The calculation will be
 	// automatically shut down when it is no longer needed.
-	if cg.Variant != change.Set || !ch.IsCalculated() || ch.IsLegacyCalculated() {
+	if cg.Variant != change.Set || !ch.IsCalculated() {
+		return
+	}
+	if ch.IsLegacyCalculated() {
+		s.legacy.Update(ctx, ch)
 		return
 	}
 	s.mu.Lock()
@@ -383,6 +386,16 @@ func (s *Service) updateRequests(
 	defer s.mu.Unlock()
 
 	for _, k := range removed {
+		if s.legacy != nil {
+			if err := s.legacy.Remove(ctx, k); err != nil {
+				statuses = append(statuses, calculator.Status{
+					Key:         k.String(),
+					Message:     fmt.Sprintf("Failed to release legacy calculation for %s", k),
+					Description: err.Error(),
+				})
+				return err
+			}
+		}
 		if err := s.cfg.Allocator.Remove(k); err != nil {
 			statuses = append(statuses, calculator.Status{
 				Key:         k.String(),
@@ -397,8 +410,15 @@ func (s *Service) updateRequests(
 			continue
 		}
 		if ch.IsLegacyCalculated() {
-			// TODO: Fix Here
-			s.legacy.Request(ctx, ch.Key())
+			if err := s.legacy.Add(ctx, ch.Key()); err != nil {
+				statuses = append(statuses, calculator.Status{
+					Key:         ch.Key().String(),
+					Message:     fmt.Sprintf("Failed to request legacy calculation for %s", ch),
+					Description: err.Error(),
+				})
+				return err
+			}
+			continue
 		}
 		if err := s.cfg.Allocator.Add(ctx, ch); err != nil {
 			statuses = append(statuses, calculator.Status{
