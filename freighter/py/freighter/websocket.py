@@ -58,6 +58,7 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
             obj: Any,
             *,
             strict: bool | None = None,
+            extra: Literal["allow", "ignore", "forbid"] | None = None,
             from_attributes: bool | None = None,
             context: Any | None = None,
             by_alias: bool | None = None,
@@ -67,6 +68,7 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
             obj["payload"] = res_t.model_validate(
                 obj["payload"],
                 strict=strict,
+                extra=extra,
                 from_attributes=from_attributes,
                 context=context,
                 by_alias=by_alias,
@@ -75,6 +77,7 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
             return super().model_validate(
                 obj,
                 strict=strict,
+                extra=extra,
                 from_attributes=from_attributes,
                 context=context,
                 by_alias=by_alias,
