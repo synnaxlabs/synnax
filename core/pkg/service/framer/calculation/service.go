@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/group"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/legacy"
 	"github.com/synnaxlabs/x/binary"
@@ -56,6 +57,10 @@ type ServiceConfig struct {
 	// Arc is used for compiling arc programs used for executing calculations.
 	// [REQUIRED]
 	Arc *arc.Service
+	// Graph analyzes the structure of calculation dependencies, allowing the service
+	// to understand which calculations to run in which groups and when.
+	/// [REQUIRED]
+	Graph *graph.Graph
 	// StateCodec is the encoder/decoder used to communicate calculation state
 	// changes.
 	// [OPTIONAL]
@@ -64,7 +69,6 @@ type ServiceConfig struct {
 	// channel engine.
 	// [OPTIONAL] - Default false
 	EnableLegacyCalculations *bool
-	Allocator                Graph
 }
 
 var (
@@ -86,7 +90,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "enable_legacy_calculations", c.EnableLegacyCalculations)
 	validate.NotNil(v, "arc", c.Arc)
 	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "allocator", c.Allocator)
+	validate.NotNil(v, "graph", c.Graph)
 	return v.Error()
 }
 
@@ -100,7 +104,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.EnableLegacyCalculations = override.Nil(c.EnableLegacyCalculations, other.EnableLegacyCalculations)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Allocator = override.Nil(c.Allocator, other.Allocator)
+	c.Graph = override.Nil(c.Graph, other.Graph)
 	return c
 }
 
@@ -118,13 +122,6 @@ type Service struct {
 }
 
 const StatusChannelName = "sy_calculation_status"
-
-type Graph interface {
-	Add(ctx context.Context, ch channel.Channel) error
-	Remove(key channel.Key) error
-	CalculateGrouped() map[int][]compiler.Module
-	Update(ctx context.Context, ch channel.Channel) error
-}
 
 // OpenService opens the service with the provided configuration. The service must be closed
 // when it is no longer needed.
@@ -240,7 +237,7 @@ func (s *Service) updateCalculation(ctx context.Context, ch channel.Channel) err
 		zap.String("channel", ch.Key().String()),
 		zap.String("reason", "channel definition changed"),
 	)
-	if err := s.cfg.Allocator.Update(ctx, ch); err != nil {
+	if err := s.cfg.Graph.Update(ctx, ch); err != nil {
 		return err
 	}
 	return s.rebuildGroups(ctx)
@@ -322,7 +319,7 @@ func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Modu
 }
 
 func (s *Service) rebuildGroups(ctx context.Context) error {
-	groups := s.cfg.Allocator.CalculateGrouped()
+	groups := s.cfg.Graph.CalculateGrouped()
 	s.cfg.L.Debug("rebuilding groups",
 		zap.Int("new_group_count", len(groups)),
 		zap.Int("current_group_count", len(s.mu.groups)),
@@ -397,7 +394,7 @@ func (s *Service) updateRequests(
 				return err
 			}
 		}
-		if err := s.cfg.Allocator.Remove(k); err != nil {
+		if err := s.cfg.Graph.Remove(k); err != nil {
 			statuses = append(statuses, calculator.Status{
 				Key:         k.String(),
 				Message:     fmt.Sprintf("Failed to release calculation for %s", k),
@@ -421,7 +418,7 @@ func (s *Service) updateRequests(
 			}
 			continue
 		}
-		if err := s.cfg.Allocator.Add(ctx, ch); err != nil {
+		if err := s.cfg.Graph.Add(ctx, ch); err != nil {
 			statuses = append(statuses, calculator.Status{
 				Key:         ch.String(),
 				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),

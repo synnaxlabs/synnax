@@ -78,7 +78,7 @@ var _ = Describe("Migrate", Ordered, func() {
 			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
 			Arc:               arcSvc,
-			Allocator:         alloc,
+			Graph:             alloc,
 		}))
 	}
 

@@ -302,7 +302,7 @@ func (n *Node) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSer
 	}
 	indexKey := n.state.indexes[key]
 	if indexKey == 0 {
-		return data, telem.MultiSeries{}, true
+		return data, telem.MultiSeries{}, len(data.Series) > 0
 	}
 	time, ok = n.state.readChannel(indexKey)
 	if !ok {

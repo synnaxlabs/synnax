@@ -130,7 +130,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 
-	alloc := graph.New(graph.Config{
+	calcGraph := graph.New(graph.Config{
 		Instrumentation: cfg.Child("calculation.graph"),
 		Channel:         cfg.Channel,
 		SymbolResolver:  cfg.Arc.SymbolResolver(),
@@ -143,7 +143,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		Arc:                      cfg.Arc,
 		ChannelObservable:        cfg.Channel.NewObservable(),
 		EnableLegacyCalculations: cfg.EnableLegacyCalculations,
-		Allocator:                alloc,
+		Graph:                    calcGraph,
 	})
 	if err != nil {
 		return nil, err

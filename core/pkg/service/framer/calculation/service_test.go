@@ -128,7 +128,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
 			Arc:               arcSvc,
-			Allocator:         alloc,
+			Graph:             alloc,
 		}))
 	})
 

@@ -184,7 +184,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 	}
 
 	// Use allocator to resolve dependencies and get topological order
-	alloc := graph.New(graph.Config{
+	calcGraph := graph.New(graph.Config{
 		Channel:        s.cfg.Channel,
 		SymbolResolver: s.cfg.Arc.SymbolResolver(),
 	})
@@ -192,14 +192,14 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 	// Add all calculated channels to the allocator
 	for _, ch := range channels {
 		if ch.IsCalculated() && !ch.IsLegacyCalculated() {
-			if err := alloc.Add(ctx, ch); err != nil {
+			if err := calcGraph.Add(ctx, ch); err != nil {
 				return nil, err
 			}
 		}
 	}
 
 	// Get topologically sorted modules
-	modules := alloc.CalculateFlat()
+	modules := calcGraph.CalculateFlat()
 
 	// If no calculated channels, no transform needed
 	if len(modules) == 0 {
@@ -216,8 +216,8 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 		calculators = append(calculators, calc)
 	}
 
-	calculatedKeys := alloc.CalculatedKeys()
-	concreteBaseKeys := alloc.ConcreteBaseKeys()
+	calculatedKeys := calcGraph.CalculatedKeys()
+	concreteBaseKeys := calcGraph.ConcreteBaseKeys()
 
 	// Fetch concrete base channel metadata to get their indices
 	var concreteBaseChannels []channel.Channel
