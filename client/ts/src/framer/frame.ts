@@ -359,6 +359,21 @@ export class Frame {
     return frame;
   }
 
+  mapFilter(
+    fn: (
+      k: channel.KeyOrName,
+      arr: Series,
+      i: number,
+    ) => [channel.KeyOrName, Series, boolean],
+  ): Frame {
+    const frame = new Frame();
+    this.forEach((k, arr, i) => {
+      const [newK, newArr, keep] = fn(k, arr, i);
+      if (keep) frame.push(newK, newArr);
+    });
+    return frame;
+  }
+
   /**
    * Iterates over all series in the current frame.
    *

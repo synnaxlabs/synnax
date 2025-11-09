@@ -63,6 +63,9 @@ class ReadFrameAdapter:
         if self.__adapter is None:
             return fr
 
+        # In certain cases there can be a slight desync between the channels being sent
+        # by the server and the channels being received by the client. To handle this,
+        # we purge any channels that are not in the adapter.
         to_purge: list[int] | None = None
         for i, k in enumerate(fr.channels):
             try:
