@@ -4824,13 +4824,11 @@ func DerivativeF64(data, time telem.Series, output *telem.Series) {
 	
 	output.DataType = telem.Float64T
 	
-	
 
 	output.Resize(minLen)
 
 	dataVals := unsafe.CastSlice[uint8, float64](data.Data)
 	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 
 
@@ -4876,7 +4874,6 @@ func DerivativeF32(data, time telem.Series, output *telem.Series) {
 
 	dataVals := unsafe.CastSlice[uint8, float32](data.Data)
 	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	
 	outData := unsafe.CastSlice[uint8, float32](output.Data)
 
 
@@ -4920,7 +4917,6 @@ func DerivativeI64(data, time telem.Series, output *telem.Series) {
 
 	dataVals := unsafe.CastSlice[uint8, int64](data.Data)
 	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 
 
@@ -4962,7 +4958,6 @@ func DerivativeI32(data, time telem.Series, output *telem.Series) {
 
 	dataVals := unsafe.CastSlice[uint8, int32](data.Data)
 	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 
 
@@ -5004,7 +4999,6 @@ func DerivativeI16(data, time telem.Series, output *telem.Series) {
 
 	dataVals := unsafe.CastSlice[uint8, int16](data.Data)
 	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 
 
@@ -5046,7 +5040,6 @@ func DerivativeI8(data, time telem.Series, output *telem.Series) {
 
 	dataVals := unsafe.CastSlice[uint8, int8](data.Data)
 	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 
 
@@ -5088,7 +5081,6 @@ func DerivativeU64(data, time telem.Series, output *telem.Series) {
 
 	dataVals := unsafe.CastSlice[uint8, uint64](data.Data)
 	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 
 
@@ -5135,7 +5127,6 @@ func DerivativeU32(data, time telem.Series, output *telem.Series) {
 
 	dataVals := unsafe.CastSlice[uint8, uint32](data.Data)
 	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 
 
@@ -5182,7 +5173,6 @@ func DerivativeU16(data, time telem.Series, output *telem.Series) {
 
 	dataVals := unsafe.CastSlice[uint8, uint16](data.Data)
 	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 
 
@@ -5229,7 +5219,6 @@ func DerivativeU8(data, time telem.Series, output *telem.Series) {
 
 	dataVals := unsafe.CastSlice[uint8, uint8](data.Data)
 	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 
 

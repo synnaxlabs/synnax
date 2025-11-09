@@ -80,11 +80,6 @@ var logicalOperations = []Operation{
 	{Name: "Xor", FuncName: "Xor", Op: "^", IsComp: false},
 }
 
-var unaryOperations = []UnaryOperation{
-	{Name: "Not", FuncName: "Not", Op: "^"},
-	{Name: "Negate", FuncName: "Neg", Op: "-"},
-}
-
 var reductionOperations = []ReductionOperation{
 	{Name: "Avg", FuncName: "Avg"},
 	{Name: "Min", FuncName: "Min"},
@@ -225,8 +220,7 @@ func {{.Name}}{{$.Type.Name}}(data, time telem.Series, output *telem.Series) {
 	// Set DataType BEFORE Resize so it can calculate the correct buffer size
 {{if $.Type.IsFloat}}
 	{{if eq $.Type.Name "F64"}}
-	output.DataType = telem.Float64T
-	{{else}}
+	output.DataType = telem.Float64T{{else}}
 	output.DataType = telem.Float32T
 	{{end}}
 	{{else}}
@@ -236,8 +230,7 @@ func {{.Name}}{{$.Type.Name}}(data, time telem.Series, output *telem.Series) {
 	output.Resize(minLen)
 
 	dataVals := unsafe.CastSlice[uint8, {{$.Type.GoType}}](data.Data)
-	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	{{if $.Type.IsFloat}}
+	timeVals := unsafe.CastSlice[uint8, int64](time.Data){{if $.Type.IsFloat}}
 	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 {{else}}
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
