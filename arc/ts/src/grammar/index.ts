@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // TextMate grammar definition for Arc language syntax highlighting
-import arcGrammar from "syntaxes/arc.tmLanguage.json" with { type: "json" };
+import arcGrammar from "../../../go/lsp/extensions/vscode/syntaxes/arc.tmLanguage.json" with { type: "json" };
 
 /**
  * TextMate grammar for the Arc language.
