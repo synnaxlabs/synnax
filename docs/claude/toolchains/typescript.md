@@ -9,8 +9,7 @@ version management:
   OpenTelemetry integration
 - **Client** (`/client/ts/`) - TypeScript client library for Synnax server API
 - **Console** (`/console/`) - Main Tauri desktop application
-- **Drift** (`/drift/`) - Redux state synchronization for multi-window Tauri/Electron
-  apps
+- **Drift** (`/drift/`) - Redux state synchronization for multi-window Tauri apps
 - **Freighter** (`/freighter/ts/`) - Protocol-agnostic transport layer (HTTP, WebSocket,
   gRPC)
 - **Media** (`/x/media/`) - Media utilities and helpers
