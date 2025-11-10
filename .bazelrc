@@ -19,10 +19,16 @@ build:macos --cxxopt=-std=c++20
 build:macos --host_cxxopt=-std=c++20
 build:macos --copt=-Werror
 
+# Allow protobuf deprecation warnings without treating them as errors
+build:macos --copt=-Wno-error=deprecated-declarations
+
 # Linux
 build:linux --cxxopt=-std=c++17
 build:linux --host_cxxopt=-std=c++17
 build:linux --copt=-Werror
+
+# Allow protobuf deprecation warnings without treating them as errors
+build:linux --copt=-Wno-error=deprecated-declarations
 
 # Windows (MSVC)
 build:windows --enable_runfiles
@@ -48,6 +54,9 @@ build:windows --copt=/wd4355  # 'this': used in base member initializer list (gR
 build:windows --copt=/wd4365  # conversion from one type to another, signed/unsigned mismatch (STL/gRPC interaction)
 build:windows --per_file_copt=external/.*@/WX-,/w
 build:windows --per_file_copt=vendor/.*@/WX-,/w
+
+# Allow protobuf deprecation warnings without treating them as errors
+build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations) for MSVC
 
 # ===== Warning Suppression for External Dependencies =====
 
