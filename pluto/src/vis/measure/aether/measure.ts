@@ -570,11 +570,12 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const twoPos = s.pos(twoValue.position);
 
     const xDistRaw = Math.abs(oneValue.value.x - twoValue.value.x);
-    const yDist = Math.abs(oneValue.value.y - twoValue.value.y);
+    const yDistRaw = twoValue.value.y - oneValue.value.y;
+    const yDist = Math.abs(yDistRaw);
     if (!Number.isFinite(xDistRaw) || !Number.isFinite(yDist)) return;
 
     const xDist = new TimeSpan(xDistRaw);
-    const slope = yDist / xDist.seconds;
+    const slope = yDistRaw / xDist.seconds;
 
     const xPixelDist = Math.abs(onePos.x - twoPos.x);
     const yPixelDist = Math.abs(onePos.y - twoPos.y);
@@ -617,9 +618,11 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       ? TimeSpan.MICROSECOND
       : TimeSpan.MILLISECOND;
     const xValue = xDist.truncate(trunc).toString();
-    let slopeValue = math.roundBySpan(slope, bounds.construct(slope)).toString();
+    let slopeValue = math
+      .roundBySpan(slope, bounds.construct(Math.abs(slope)))
+      .toString();
     if (oneValue.units != null && oneValue.units.length > 0)
-      slopeValue += ` ${oneValue.units} / S`;
+      slopeValue += ` ${oneValue.units} / s`;
 
     if (isVeryClose) {
       // Draw combined label when points are very close
@@ -629,7 +632,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       );
 
       // Calculate combined label dimensions
-      const labelWidth = LABEL_CHAR_WIDTH * 5; // "Slope" is longest at 5 chars, "ΔX" and "ΔY" are 2 chars each
+      const labelWidth = LABEL_CHAR_WIDTH * 6; // "Slope" is longest at 6 chars, "ΔX" and "ΔY" are 2 chars each
       const maxValueLength = Math.max(xValue.length, yValue.length, slopeValue.length);
       const padding = LABEL_CONTAINER_PADDING;
       const combinedWidth =
