@@ -23,8 +23,7 @@ export const FavoriteButton = ({ statusKey, ...rest }: FavoriteButtonProps) => {
   const dispatch = useDispatch();
   const isFavorite = useSelectIsFavorite(statusKey);
 
-  const handleFavorite = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
+  const handleFavorite = () => {
     dispatch(toggleFavorite({ key: statusKey }));
   };
 
