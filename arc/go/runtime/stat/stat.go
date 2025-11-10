@@ -153,8 +153,9 @@ var configSchema = zyn.Object(map[string]zyn.Schema{
 	countConfigParam:    zyn.Int64().Optional().Coerce(),
 })
 
-type statFactory struct {
-}
+type statFactory struct{}
+
+var Factory node.Factory = &statFactory{}
 
 func (f *statFactory) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
 	reductionMap, ok := ops[nodeCfg.Node.Type]
@@ -183,10 +184,6 @@ func (f *statFactory) Create(_ context.Context, nodeCfg node.Config) (node.Node,
 		sampleCount: 0,
 		cfg:         cfg,
 	}, nil
-}
-
-func NewFactory() node.Factory {
-	return &statFactory{}
 }
 
 var ops = map[string]map[telem.DataType]func(telem.Series, int64, *telem.Series) int64{
