@@ -338,7 +338,7 @@ func NewMultiSeries(series []Series) MultiSeries {
 }
 
 // MultiSeriesAtAlignment returns the value at the given alignment in the MultiSeries.
-func MultiSeriesAtAlignment[T types.SizedNumeric](
+func MultiSeriesAtAlignment[T Sample](
 	ms MultiSeries,
 	alignment Alignment,
 ) T {
