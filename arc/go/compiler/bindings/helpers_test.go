@@ -66,8 +66,8 @@ var _ = Describe("ImportIndex Helpers", func() {
 		It("Should return error for unsupported type", func() {
 			_, err := idx.GetChannelRead(types.U8())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("no channel read function"))
-			Expect(err.Error()).To(ContainSubstring("u8"))
+			Expect(err).To(MatchError(ContainSubstring("no channel read function")))
+			Expect(err).To(MatchError(ContainSubstring("u8")))
 		})
 	})
 
@@ -80,7 +80,7 @@ var _ = Describe("ImportIndex Helpers", func() {
 		It("Should return error for unsupported type", func() {
 			_, err := idx.GetChannelWrite(types.U8())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("no channel write function"))
+			Expect(err).To(MatchError(ContainSubstring("no channel write function")))
 		})
 	})
 
@@ -93,7 +93,7 @@ var _ = Describe("ImportIndex Helpers", func() {
 		It("Should return error for unsupported type", func() {
 			_, err := idx.GetChannelBlockingRead(types.U8())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("no channel blocking read function"))
+			Expect(err).To(MatchError(ContainSubstring("no channel blocking read function")))
 		})
 	})
 
@@ -106,7 +106,7 @@ var _ = Describe("ImportIndex Helpers", func() {
 		It("Should return error for unsupported type", func() {
 			_, err := idx.GetSeriesCreateEmpty(types.U8())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("no series create function"))
+			Expect(err).To(MatchError(ContainSubstring("no series create function")))
 		})
 	})
 
@@ -119,7 +119,7 @@ var _ = Describe("ImportIndex Helpers", func() {
 		It("Should return error for unsupported type", func() {
 			_, err := idx.GetSeriesIndex(types.U8())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("no series index function"))
+			Expect(err).To(MatchError(ContainSubstring("no series index function")))
 		})
 	})
 
@@ -132,7 +132,7 @@ var _ = Describe("ImportIndex Helpers", func() {
 		It("Should return error for unsupported type", func() {
 			_, err := idx.GetStateLoad(types.U8())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("no state load function"))
+			Expect(err).To(MatchError(ContainSubstring("no state load function")))
 		})
 	})
 
@@ -145,7 +145,7 @@ var _ = Describe("ImportIndex Helpers", func() {
 		It("Should return error for unsupported type", func() {
 			_, err := idx.GetStateStore(types.U8())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("no state store function"))
+			Expect(err).To(MatchError(ContainSubstring("no state store function")))
 		})
 	})
 
@@ -174,13 +174,13 @@ var _ = Describe("ImportIndex Helpers", func() {
 			It("Should return error for unknown operator", func() {
 				_, err := idx.GetSeriesArithmetic("%", types.I64(), true)
 				Expect(err).NotTo(BeNil())
-				Expect(err.Error()).To(ContainSubstring("unknown arithmetic operator"))
+				Expect(err).To(MatchError(ContainSubstring("unknown arithmetic operator")))
 			})
 
 			It("Should return error for unsupported type", func() {
 				_, err := idx.GetSeriesArithmetic("+", types.U8(), true)
 				Expect(err).NotTo(BeNil())
-				Expect(err.Error()).To(ContainSubstring("no series + function"))
+				Expect(err).To(MatchError(ContainSubstring("no series + function")))
 			})
 		})
 
@@ -208,7 +208,7 @@ var _ = Describe("ImportIndex Helpers", func() {
 			It("Should return error for unknown operator", func() {
 				_, err := idx.GetSeriesArithmetic("%", types.I64(), false)
 				Expect(err).NotTo(BeNil())
-				Expect(err.Error()).To(ContainSubstring("unknown arithmetic operator"))
+				Expect(err).To(MatchError(ContainSubstring("unknown arithmetic operator")))
 			})
 		})
 	})
@@ -247,13 +247,13 @@ var _ = Describe("ImportIndex Helpers", func() {
 		It("Should return error for unknown operator", func() {
 			_, err := idx.GetSeriesComparison("===", types.I64())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("unknown comparison operator"))
+			Expect(err).To(MatchError(ContainSubstring("unknown comparison operator")))
 		})
 
 		It("Should return error for unsupported type", func() {
 			_, err := idx.GetSeriesComparison(">", types.U8())
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("no series comparison > function"))
+			Expect(err).To(MatchError(ContainSubstring("no series comparison > function")))
 		})
 	})
 })

@@ -87,9 +87,9 @@ type IR struct {
 	Edges Edges `json:"edges"`
 	// Strata contains the execution stratification for deterministic reactive execution.
 	Strata Strata `json:"strata"`
-	// Symbols is the symbol table from semantic analysis (not serialized to JSON).
+	// Symbols is the symbol table from semantic analysis.
 	Symbols *symbol.Scope `json:"-"`
-	// TypeMap contains inferred types from the analyzer (not serialized to JSON).
+	// TypeMap contains inferred types from the analyzer.
 	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
 }
 

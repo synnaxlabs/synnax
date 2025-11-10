@@ -274,7 +274,7 @@ func main() {
 			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
 		})
 
-		It("should provide hover for user-defined stages", func() {
+		It("should provide hover for user-defined functions", func() {
 			content := `func max{} (value f32) f32 {
     max_val $= value
     if (value > max_val) {
@@ -296,7 +296,6 @@ func main() {
 			Expect(hover.Contents.Value).To(ContainSubstring("## max"))
 			Expect(hover.Contents.Value).To(ContainSubstring("func max"))
 			Expect(hover.Contents.Value).To(ContainSubstring("value f32"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Reactive"))
 		})
 
 		It("should provide hover for stages with config", func() {
