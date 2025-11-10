@@ -539,7 +539,14 @@ func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (Approximation[int
 func newStampReader() func(r io.ReaderAt, offset telem.Size) (telem.TimeStamp, error) {
 	buf := make([]byte, sampleDensity)
 	return func(r io.ReaderAt, offset telem.Size) (telem.TimeStamp, error) {
-		_, err := r.ReadAt(buf, int64(offset))
+		n, err := r.ReadAt(buf, int64(offset))
+		if n != int(sampleDensity) {
+			return 0, errors.Newf(
+				"failed to read sufficient number of bytes for timestamp. expected %d, got %d",
+				sampleDensity,
+				n,
+			)
+		}
 		return telem.UnmarshalTimeStamp[telem.TimeStamp](buf), err
 	}
 }
