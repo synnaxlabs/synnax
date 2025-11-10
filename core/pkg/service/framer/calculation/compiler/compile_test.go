@@ -72,12 +72,11 @@ var _ = Describe("Compile", func() {
 			Expression: "return base * 2",
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-		mod, err := compiler.Compile(ctx, compiler.Config{
+		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			Channels:       dist.Channel,
 			Channel:        calc,
 			SymbolResolver: arcSvc.SymbolResolver(),
-		})
-		Expect(err).ToNot(HaveOccurred())
+		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.StateConfig.Reads.Keys()).To(ContainElement(base.Key()))
 		Expect(mod.StateConfig.Writes.Keys()).To(ContainElement(calc.Key()))

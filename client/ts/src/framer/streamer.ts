@@ -108,7 +108,7 @@ export const createStreamOpener =
     const streamer = new CoreStreamer(stream, adapter);
     stream.send({
       keys: Array.from(adapter.keys),
-      downsampleFactor: cfg.downsampleFactor ?? 1,
+      downsampleFactor: cfg.downsampleFactor,
     });
     const [, err] = await stream.receive();
     if (err != null) throw err;
