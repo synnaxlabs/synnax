@@ -176,13 +176,7 @@ export const MultipleTrigger = <K extends record.Key>({
         />
       )}
       {showAddButton && (
-        <Button.Button
-          variant={variant}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggle();
-          }}
-        >
+        <Button.Button variant={variant} onClick={toggle}>
           <Icon.Add color={8} />
         </Button.Button>
       )}
