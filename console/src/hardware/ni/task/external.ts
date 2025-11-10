@@ -9,15 +9,33 @@
 
 import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
-import { ANALOG_READ_SELECTABLE, AnalogRead } from "@/hardware/ni/task/AnalogRead";
-import { ANALOG_WRITE_SELECTABLE, AnalogWrite } from "@/hardware/ni/task/AnalogWrite";
-import { COUNTER_READ_SELECTABLE, CounterRead } from "@/hardware/ni/task/CounterRead";
 import {
+  ANALOG_READ_LAYOUT,
+  ANALOG_READ_SELECTABLE,
+  AnalogRead,
+} from "@/hardware/ni/task/AnalogRead";
+import {
+  ANALOG_WRITE_LAYOUT,
+  ANALOG_WRITE_SELECTABLE,
+  AnalogWrite,
+} from "@/hardware/ni/task/AnalogWrite";
+import {
+  COUNTER_READ_LAYOUT,
+  COUNTER_READ_SELECTABLE,
+  CounterRead,
+} from "@/hardware/ni/task/CounterRead";
+import {
+  COUNTER_WRITE_LAYOUT,
   COUNTER_WRITE_SELECTABLE,
   CounterWrite,
 } from "@/hardware/ni/task/CounterWrite";
-import { DIGITAL_READ_SELECTABLE, DigitalRead } from "@/hardware/ni/task/DigitalRead";
 import {
+  DIGITAL_READ_LAYOUT,
+  DIGITAL_READ_SELECTABLE,
+  DigitalRead,
+} from "@/hardware/ni/task/DigitalRead";
+import {
+  DIGITAL_WRITE_LAYOUT,
   DIGITAL_WRITE_SELECTABLE,
   DigitalWrite,
 } from "@/hardware/ni/task/DigitalWrite";
@@ -85,3 +103,12 @@ export const SELECTABLES: Selector.Selectable[] = [
   DIGITAL_READ_SELECTABLE,
   DIGITAL_WRITE_SELECTABLE,
 ];
+
+export const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
+  [ANALOG_READ_TYPE]: ANALOG_READ_LAYOUT,
+  [ANALOG_WRITE_TYPE]: ANALOG_WRITE_LAYOUT,
+  [COUNTER_READ_TYPE]: COUNTER_READ_LAYOUT,
+  [COUNTER_WRITE_TYPE]: COUNTER_WRITE_LAYOUT,
+  [DIGITAL_READ_TYPE]: DIGITAL_READ_LAYOUT,
+  [DIGITAL_WRITE_TYPE]: DIGITAL_WRITE_LAYOUT,
+};
