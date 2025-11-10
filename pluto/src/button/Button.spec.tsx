@@ -67,6 +67,20 @@ describe("Button", () => {
       expect(onClick).toHaveBeenCalled();
       expect(onParentClick).not.toHaveBeenCalled();
     });
+    it("should propagate the click event to the parent when the propagateClick prop is true", () => {
+      const onClick = vi.fn();
+      const onParentClick = vi.fn();
+      const c = render(
+        <div onClick={onParentClick}>
+          <Button.Button onClick={onClick} propagateClick>
+            Hello
+          </Button.Button>
+        </div>,
+      );
+      fireEvent.click(c.getByText("Hello"));
+      expect(onClick).toHaveBeenCalled();
+      expect(onParentClick).toHaveBeenCalled();
+    });
   });
 
   describe("preventClick", () => {
