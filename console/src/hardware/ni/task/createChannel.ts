@@ -111,6 +111,6 @@ export const createCOChannel = (channels: COChannel[], key?: string): COChannel 
   createCounterChannel(
     channels,
     ZERO_CO_CHANNEL,
-    {}, // CO channels don't have cmd/state fields
+    { configured: false }, // CO channels don't have cmd/state fields; new channels start unconfigured
     key,
   );

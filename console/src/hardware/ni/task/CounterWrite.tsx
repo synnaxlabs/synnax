@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, Icon, Select, Text } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -52,29 +52,51 @@ const Properties = () => (
   </>
 );
 
+// Custom channel name component for Counter Write tasks
+// Counter Write channels are configuration-only (no actual Synnax channels created)
+// Shows configuration status instead of channel names
+const CounterWriteChannelName = ({
+  configured,
+  className,
+}: {
+  configured: boolean;
+  className?: string;
+}) => {
+  if (configured) {
+    return (
+      <Text.Text level="small" className={className} color={7}>
+        Configured
+      </Text.Text>
+    );
+  }
+  return (
+    <Text.Text level="small" className={className} status="warning">
+      No Channel
+    </Text.Text>
+  );
+};
+
 const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
   const item = PForm.useFieldValue<COChannel>(path);
   if (item == null) return null;
-  const { port, type } = item;
-  // CO Pulse Output channels don't have cmd/state channels - they're configuration-only
-  // Use 0 to indicate no channel
-  const cmdChannel = 0;
-  const stateChannel = 0;
+  const { port, type, configured = false } = item;
   const Icon = CO_CHANNEL_TYPE_ICONS[type];
+
+  // CO Pulse Output channels don't have cmd/state channels - config only
   return (
-    <Common.Task.Layouts.ListAndDetailsChannelItem
-      {...props}
-      port={port}
-      hasTareButton={false}
-      channel={cmdChannel}
-      stateChannel={stateChannel}
-      portMaxChars={2}
-      canTare={false}
-      path={itemKey}
-      icon={{ icon: <Icon />, name: CO_CHANNEL_TYPE_NAMES[type] }}
-    />
+    <Select.ListItem {...props}>
+      <Flex.Box direction="x" gap="small" align="center">
+        <Text.Text>{port}</Text.Text>
+        <Icon />
+        {/* Show single configuration status instead of cmd/state */}
+        <CounterWriteChannelName configured={configured} />
+      </Flex.Box>
+      <Flex.Box pack direction="x" align="center" size="small">
+        <Common.Task.EnableDisableButton path={`${itemKey}.enabled`} />
+      </Flex.Box>
+    </Select.ListItem>
   );
 };
 
@@ -133,6 +155,8 @@ const onConfigure: Common.Task.OnConfigure<typeof counterWriteConfigZ> = async (
   });
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
+
+  config.channels = config.channels.map((c) => ({ ...c, configured: true }));
 
   // Return configuration as-is without creating any Synnax channels
   return [config, dev.rack];

@@ -1383,11 +1383,14 @@ export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
 // Counter Output Channels
 // Note: CO Pulse Output channels do not support runtime command/state channels
 // They are configuration-only - parameters are set once when task is created
-const baseCOChanZ = Common.Task.channelZ.extend(counterChannelExtensionShape);
+const baseCOChanZ = Common.Task.channelZ.extend(counterChannelExtensionShape).extend({
+  configured: z.boolean().optional().default(false),
+});
 interface BaseCOChan extends z.infer<typeof baseCOChanZ> {}
 const ZERO_BASE_CO_CHAN: BaseCOChan = {
   ...Common.Task.ZERO_CHANNEL,
   ...ZERO_COUNTER_CHANNEL_EXTENSION,
+  configured: false,
 };
 
 // Counter Output idle state
@@ -1417,6 +1420,7 @@ export const ZERO_CO_PULSE_OUTPUT_CHAN: COPulseOutputChan = {
   initialDelay: 0,
   highTime: 1e-6,
   lowTime: 1e-6,
+  configured: false,
 };
 
 const coChannelZ = z.union([coPulseOutputChanZ]);
