@@ -25,10 +25,14 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useMemo } from "react";
+import { useDispatch } from "react-redux";
 
+import { FavoriteButton as CoreFavoriteButton } from "@/components";
 import { CSS } from "@/css";
-import { FavoriteButton } from "@/status/FavoriteButton";
 import { ContextMenu } from "@/status/list/ContextMenu";
+
+import { useSelectIsFavorite } from "../selectors";
+import { toggleFavorite } from "../slice";
 
 export interface ItemProps extends List.ItemProps<status.Key> {}
 
@@ -116,4 +120,17 @@ export const Item = (props: ItemProps): ReactElement | null => {
       </Form.Form>
     </List.Item>
   );
+};
+
+interface FavoriteButtonProps {
+  statusKey: status.Key;
+}
+
+const FavoriteButton = ({ statusKey }: FavoriteButtonProps) => {
+  const dispatch = useDispatch();
+  const isFavorite = useSelectIsFavorite(statusKey);
+  const handleFavorite = () => {
+    dispatch(toggleFavorite({ key: statusKey }));
+  };
+  return <CoreFavoriteButton isFavorite={isFavorite} onFavorite={handleFavorite} />;
 };

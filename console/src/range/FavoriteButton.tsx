@@ -8,30 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { type Button } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { FavoriteButton as BaseFavoriteButton } from "@/components";
+import { FavoriteButton as Core } from "@/components";
 import { useSelect } from "@/range/selectors";
 import { add, remove } from "@/range/slice";
 import { fromClientRange } from "@/range/translate";
 
-export interface FavoriteButtonProps extends Button.ButtonProps {
+export interface FavoriteButtonProps {
   range: ranger.Range;
 }
 
-export const FavoriteButton = ({ range, ...rest }: FavoriteButtonProps) => {
+export const FavoriteButton = ({ range }: FavoriteButtonProps) => {
   const sliceRange = useSelect(range.key);
   const dispatch = useDispatch();
   const isFavorite = sliceRange != null;
-
-  const handleFavorite = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
+  const handleFavorite = () => {
     if (!isFavorite) dispatch(add({ ranges: fromClientRange(range) }));
     else dispatch(remove({ keys: [range.key] }));
   };
-
-  return (
-    <BaseFavoriteButton isFavorite={isFavorite} onFavorite={handleFavorite} {...rest} />
-  );
+  return <Core isFavorite={isFavorite} onFavorite={handleFavorite} />;
 };

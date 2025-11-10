@@ -13,9 +13,9 @@ import { Button, Icon, Text } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 
-export interface FavoriteButtonProps extends Button.ButtonProps {
+export interface FavoriteButtonProps extends Omit<Button.ButtonProps, "onClick"> {
   isFavorite: boolean;
-  onFavorite: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  onFavorite: Button.ButtonProps["onClick"];
 }
 
 export const FavoriteButton = ({
@@ -29,7 +29,7 @@ export const FavoriteButton = ({
     onClick={onFavorite}
     tooltip={
       <Text.Text level="small" color={10}>
-        {isFavorite ? "Remove from" : "Add to"} Favorites
+        {isFavorite ? "Remove from" : "Add to"} favorites
       </Text.Text>
     }
     variant="text"
