@@ -65,10 +65,11 @@ var _ = Describe("Migrate", Ordered, func() {
 	})
 
 	createCalcSvc := func() {
+
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Framer:            dist.Framer,
-			Channel:           dist.Channel,
+			Channels:          dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
 			Arc:               arcSvc,
 		}))

@@ -44,9 +44,8 @@ var _ = Describe("Calculation", Ordered, func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
-			Framer:            dist.Framer,
-			Channel:           dist.Channel,
-			ChannelObservable: dist.Channel.NewObservable(),
+			Framer:  dist.Framer,
+			Channel: dist.Channel,
 		}))
 	})
 
@@ -365,6 +364,7 @@ var _ = Describe("Calculation", Ordered, func() {
 
 		calculatedCH.Expression = "return base * 3"
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
+		c.Update(ctx, calculatedCH)
 		time.Sleep(sleepInterval)
 		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))

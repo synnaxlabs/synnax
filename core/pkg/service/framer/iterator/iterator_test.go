@@ -56,7 +56,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		}))
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			DistFramer: dist.Framer,
-			Channel:    dist.Channel,
+			Channels:   dist.Channel,
 			Arc:        arcSvc,
 		}))
 	})

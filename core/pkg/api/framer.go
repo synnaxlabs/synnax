@@ -591,6 +591,9 @@ func (c *WSFramerCodec) decodeStreamRequest(
 	if err := c.lowPerfDecode(ctx, r, v); err != nil {
 		return err
 	}
+	if v.Type != fhttp.WSMessageTypeData {
+		return nil
+	}
 	return c.Update(ctx, v.Payload.Keys)
 }
 

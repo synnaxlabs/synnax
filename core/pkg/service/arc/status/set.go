@@ -33,18 +33,14 @@ var (
 		Name: "set_status",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Config: &types.Params{
-				Keys: []string{"status_key", "variant", "message", "name"},
-				Values: []types.Type{
-					types.String(),
-					types.String(),
-					types.String(),
-					types.String(),
-				},
+			Config: types.Params{
+				{Name: "status_key", Type: types.String()},
+				{Name: "variant", Type: types.String()},
+				{Name: "message", Type: types.String()},
+				{Name: "name", Type: types.String(), Value: ""},
 			},
-			Inputs: &types.Params{
-				Keys:   []string{ir.DefaultOutputParam},
-				Values: []types.Type{types.U8()},
+			Inputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.U8()},
 			},
 		}),
 	}
@@ -87,7 +83,7 @@ func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node,
 		return nil, query.NotFound
 	}
 	var nodeCfg nodeConfig
-	if err := schema.Parse(cfg.Node.ConfigValues, &nodeCfg); err != nil {
+	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
 		return nil, err
 	}
 	var stat status.Status

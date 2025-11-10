@@ -31,6 +31,33 @@ func FromSlice[T comparable](values []T) Set[T] {
 	return s
 }
 
+// TODO: Test
+func Union[T comparable, V any](sets ...Mapped[T, V]) Mapped[T, V] {
+	count := 0
+	for _, set := range sets {
+		count += len(set)
+	}
+	s := make(Mapped[T, V], count)
+	for _, set := range sets {
+		for k, v := range set {
+			s[k] = v
+		}
+	}
+	return s
+}
+
+// TODO: Test
+// Difference returns a new set containing elements that are in a but not in b (a - b).
+func Difference[T comparable, V any](a, b Mapped[T, V]) Mapped[T, V] {
+	s := make(Mapped[T, V], len(a))
+	for k, v := range a {
+		if !b.Contains(k) {
+			s[k] = v
+		}
+	}
+	return s
+}
+
 // Reset removes all elements from the set, leaving it empty.
 // The underlying map is cleared but not deallocated.
 func (s Mapped[T, V]) Reset() { clear(s) }
@@ -84,4 +111,27 @@ func (s Mapped[T, V]) Values() []V {
 		values = append(values, v)
 	}
 	return values
+}
+
+// Equals checks if two sets contain exactly the same elements.
+func (s Mapped[T, V]) Equals(other Mapped[T, V]) bool {
+	if len(s) != len(other) {
+		return false
+	}
+	for k := range s {
+		if !other.Contains(k) {
+			return false
+		}
+	}
+	return true
+}
+
+// Subset checks if s is a subset of other (all elements of s are in other).
+func (s Mapped[T, V]) Subset(other Mapped[T, V]) bool {
+	for k := range s {
+		if !other.Contains(k) {
+			return false
+		}
+	}
+	return true
 }

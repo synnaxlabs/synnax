@@ -20,15 +20,16 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/telem/op"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 const (
-	resetParam    = "reset"
-	durationParam = "duration"
-	countParam    = "count"
-	avgSymbolName = "avg"
-	minSymbolName = "min"
-	maxSymbolName = "max"
+	resetInputParam     = "reset"
+	durationConfigParam = "duration"
+	countConfigParam    = "count"
+	avgSymbolName       = "avg"
+	minSymbolName       = "min"
+	maxSymbolName       = "max"
 )
 
 func createBaseSymbol(name string) symbol.Symbol {
@@ -37,17 +38,16 @@ func createBaseSymbol(name string) symbol.Symbol {
 		Name: name,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Config: &types.Params{
-				Keys:   []string{durationParam, countParam},
-				Values: []types.Type{types.TimeSpan(), types.I64()},
+			Config: types.Params{
+				{Name: durationConfigParam, Type: types.TimeSpan(), Value: telem.TimeSpanZero},
+				{Name: countConfigParam, Type: types.I64(), Value: 0},
 			},
-			Inputs: &types.Params{
-				Keys:   []string{ir.DefaultInputParam, resetParam},
-				Values: []types.Type{types.Variable("T", &constraint), types.U8()},
+			Inputs: types.Params{
+				{Name: ir.DefaultInputParam, Type: types.Variable("T", &constraint)},
+				{Name: resetInputParam, Type: types.U8(), Value: 0},
 			},
-			Outputs: &types.Params{
-				Keys:   []string{ir.DefaultOutputParam},
-				Values: []types.Type{types.Variable("T", &constraint)},
+			Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)},
 			},
 		}),
 	}
@@ -64,21 +64,20 @@ var (
 	}
 )
 
-type reduction struct {
+type stat struct {
+	cfg           ConfigValues
 	state         *state.Node
 	resetIdx      int
 	reductionFn   func(telem.Series, int64, *telem.Series) int64
 	sampleCount   int64
-	duration      telem.TimeSpan
-	resetCount    int64
 	startTime     telem.TimeStamp
 	lastResetTime telem.TimeStamp // Track last processed reset timestamp to avoid re-processing
 }
 
-func (r *reduction) Init(_ node.Context) {
+func (r *stat) Init(_ node.Context) {
 }
 
-func (r *reduction) Next(ctx node.Context) {
+func (r *stat) Next(ctx node.Context) {
 	if !r.state.RefreshInputs() {
 		return
 	}
@@ -111,24 +110,22 @@ func (r *reduction) Next(ctx node.Context) {
 	}
 
 	// Duration-based reset (using input data timestamp)
-	if r.duration > 0 && inputTime.Len() > 0 {
+	if r.cfg.Duration > 0 && inputTime.Len() > 0 {
 		currentTime := telem.ValueAt[telem.TimeStamp](inputTime, -1)
-		if telem.TimeSpan(currentTime-r.startTime) >= r.duration {
+		if telem.TimeSpan(currentTime-r.startTime) >= r.cfg.Duration {
 			shouldReset = true
 			r.startTime = currentTime
 		}
 	}
 
 	// Count-based reset
-	if r.resetCount > 0 && r.sampleCount >= r.resetCount {
+	if r.cfg.Count > 0 && r.sampleCount >= r.cfg.Count {
 		shouldReset = true
 	}
 
 	if shouldReset {
 		r.sampleCount = 0
 		r.state.Output(0).Resize(0)
-		// Refresh inputs again after reset to pick up fresh data (needed for time alignment/high water marking)
-		r.state.RefreshInputs()
 		// Re-read input time after reset
 		inputTime = r.state.InputTime(0)
 	}
@@ -146,55 +143,53 @@ func (r *reduction) Next(ctx node.Context) {
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
-type Config struct {
+type ConfigValues struct {
+	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
+	Count    int64          `json:"count" msgpack:"count"`
 }
 
-type reductionFactory struct {
-	cfg Config
+var configSchema = zyn.Object(map[string]zyn.Schema{
+	durationConfigParam: zyn.Int64().Optional().Coerce(),
+	countConfigParam:    zyn.Int64().Optional().Coerce(),
+})
+
+type statFactory struct {
 }
 
-type NodeConfig = node.Config
-
-func (f *reductionFactory) Create(_ context.Context, cfg NodeConfig) (node.Node, error) {
-	reductionMap, ok := reductions[cfg.Node.Type]
+func (f *statFactory) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
+	reductionMap, ok := ops[nodeCfg.Node.Type]
 	if !ok {
 		return nil, query.NotFound
 	}
-	inputData := cfg.State.Input(0)
-	reductionFn := reductionMap[inputData.DataType]
-	resetIdx := -1
-	if _, found := cfg.Module.Edges.FindByTarget(ir.Handle{
-		Node:  cfg.Node.Key,
-		Param: resetParam,
+	var (
+		inputData   = nodeCfg.State.Input(0)
+		reductionFn = reductionMap[inputData.DataType]
+		resetIdx    = -1
+	)
+	if _, found := nodeCfg.Module.Edges.FindByTarget(ir.Handle{
+		Node:  nodeCfg.Node.Type,
+		Param: resetInputParam,
 	}); found {
 		resetIdx = 1
-		// Initialize optional reset input with dummy value to prevent alignment blocking
-		// Use timestamp=1 so it's > initial watermark of 0
-		cfg.State.InitInput(resetIdx, telem.NewSeriesV[uint8](0), telem.NewSeriesV[telem.TimeStamp](1))
 	}
-	var duration telem.TimeSpan
-	if durationVal, ok := cfg.Node.ConfigValues[durationParam]; ok {
-		duration = durationVal.(telem.TimeSpan)
+	var cfg ConfigValues
+	if err := configSchema.Parse(nodeCfg.Node.Config.ValueMap(), &cfg); err != nil {
+		return nil, err
 	}
-	var resetCount int64
-	if countVal, ok := cfg.Node.ConfigValues[countParam]; ok {
-		resetCount = countVal.(int64)
-	}
-	return &reduction{
-		state:       cfg.State,
+	return &stat{
+		state:       nodeCfg.State,
 		resetIdx:    resetIdx,
 		reductionFn: reductionFn,
 		sampleCount: 0,
-		duration:    duration,
-		resetCount:  resetCount,
+		cfg:         cfg,
 	}, nil
 }
 
-func NewFactory(cfg Config) node.Factory {
-	return &reductionFactory{cfg: cfg}
+func NewFactory() node.Factory {
+	return &statFactory{}
 }
 
-var reductions = map[string]map[telem.DataType]func(telem.Series, int64, *telem.Series) int64{
+var ops = map[string]map[telem.DataType]func(telem.Series, int64, *telem.Series) int64{
 	avgSymbolName: {
 		telem.Float64T: op.AvgF64,
 		telem.Float32T: op.AvgF32,

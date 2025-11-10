@@ -40,7 +40,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 
 	maxLength := int64(0)
 	longestInputIdx := 0
-	for i := range n.ir.Inputs.Count() {
+	for i := range n.ir.Inputs {
 		dataLen := n.state.Input(i).Len()
 		if dataLen > maxLength {
 			maxLength = dataLen
@@ -48,7 +48,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 	}
 	// If no inputs, execute once
-	if n.ir.Inputs.Count() == 0 {
+	if len(n.ir.Inputs) == 0 {
 		maxLength = 1
 	}
 	if maxLength <= 0 {
@@ -57,38 +57,32 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	for j := range n.offsets {
 		n.offsets[j] = 0
 	}
-	for i := range n.ir.Outputs.Count() {
+	for i := range n.ir.Outputs {
 		n.state.Output(i).Resize(maxLength)
 		n.state.OutputTime(i).Resize(maxLength)
 	}
 	var longestInputTime telem.Series
-	if n.ir.Inputs.Count() > 0 {
+	if len(n.ir.Inputs) > 0 {
 		longestInputTime = n.state.InputTime(longestInputIdx)
 	}
 	for i := int64(0); i < maxLength; i++ {
-		// Check cancellation periodically (every 100 samples)
-		if i%100 == 0 {
-			select {
-			case <-ctx.Done():
-				ctx.ReportError(ctx.Err())
-				return
-			default:
-			}
-		}
-
-		for j := range n.ir.Inputs.Count() {
+		for j := range n.ir.Inputs {
 			inputLen := n.state.Input(j).Len()
 			n.inputs[j] = valueAt(n.state.Input(j), int(i%inputLen))
 		}
 		res, err := n.wasm.Call(ctx, n.inputs...)
 		if err != nil {
-			ctx.ReportError(errors.Wrapf(err,
+			ctx.ReportError(errors.Wrapf(
+				err,
 				"WASM execution failed in node %s at sample %d/%d",
-				n.ir.Key, i, maxLength))
-			continue // Skip this sample, use safe defaults
+				n.ir.Key,
+				i,
+				maxLength,
+			))
+			continue
 		}
 		var ts uint64
-		if n.ir.Inputs.Count() > 0 {
+		if len(n.ir.Inputs) > 0 {
 			ts = valueAt(longestInputTime, int(i))
 		} else {
 			ts = uint64(telem.Now())
@@ -98,13 +92,15 @@ func (n *nodeImpl) Next(ctx node.Context) {
 				setValueAt(*n.state.Output(j), n.offsets[j], value.value)
 				setValueAt(*n.state.OutputTime(j), n.offsets[j], ts)
 				n.offsets[j]++
-				ctx.MarkChanged(n.ir.Outputs.Keys[j])
 			}
 		}
 	}
-	for j := range n.ir.Outputs.Count() {
+	for j := range n.ir.Outputs {
 		n.state.Output(j).Resize(int64(n.offsets[j]))
 		n.state.OutputTime(j).Resize(int64(n.offsets[j]))
+		if n.offsets[j] > 0 {
+			ctx.MarkChanged(n.ir.Outputs[j].Name)
+		}
 	}
 }
 

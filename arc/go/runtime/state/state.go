@@ -54,8 +54,7 @@ type ChannelDigest struct {
 // Config provides dependencies for creating a State instance.
 type Config struct {
 	ChannelDigests []ChannelDigest
-	Edges          ir.Edges
-	Nodes          ir.Nodes
+	IR             ir.IR
 }
 
 // New creates a state manager from the given configuration.
@@ -71,10 +70,10 @@ func New(cfg Config) *State {
 	for _, d := range cfg.ChannelDigests {
 		s.indexes[d.Key] = d.Index
 	}
-	for _, node := range cfg.Nodes {
-		for p, ot := range node.Outputs.Iter() {
-			s.outputs[ir.Handle{Node: node.Key, Param: p}] = &value{
-				data: telem.Series{DataType: types.ToTelem(ot)},
+	for _, node := range cfg.IR.Nodes {
+		for _, p := range node.Outputs {
+			s.outputs[ir.Handle{Node: node.Key, Param: p.Name}] = &value{
+				data: telem.Series{DataType: types.ToTelem(p.Type)},
 				time: telem.Series{DataType: telem.TimeStampT},
 			}
 		}
@@ -119,157 +118,154 @@ func (s *State) writeChannel(key uint32, data, time telem.Series) {
 	}
 }
 
+// ClearReads empties all channel read buffers while preserving their underlying capacity.
+// This is typically called after processing channel reads to prepare for the next batch of data.
+// Unlike FlushWrites, ClearReads does not extract data; it simply discards buffered channel reads.
+func (s *State) ClearReads() {
+	for key, ser := range s.channel.reads {
+		ser.Series = ser.Series[:0]
+		s.channel.reads[key] = ser
+	}
+}
+
 // Node creates a node-specific state accessor for the given node key.
 // It initializes alignment buffers and watermark tracking for the node's inputs.
 func (s *State) Node(key string) *Node {
-	n := s.cfg.Nodes.Get(key)
-	inputs := lo.FilterMap(n.Inputs.Keys, func(item string, _ int) (ir.Edge, bool) {
-		return s.cfg.Edges.FindByTarget(ir.Handle{Node: key, Param: item})
-	})
-	alignedData := make([]telem.Series, len(inputs))
-	for i, input := range inputs {
-		alignedData[i] = telem.Series{DataType: s.outputs[input.Source].data.DataType}
-	}
-	alignedTime := make([]telem.Series, len(alignedData))
+	var (
+		n            = s.cfg.IR.Nodes.Get(key)
+		inputs       = make([]ir.Edge, len(n.Inputs))
+		alignedData  = make([]telem.Series, len(n.Inputs))
+		alignedTime  = make([]telem.Series, len(alignedData))
+		accumulated  = make([]inputEntry, len(n.Inputs))
+		inputSources = make([]*value, len(n.Inputs))
+	)
 	for i := range alignedData {
 		alignedTime[i] = telem.Series{DataType: telem.TimeStampT}
 	}
+	for i, p := range n.Inputs {
+		edge, found := s.cfg.IR.Edges.FindByTarget(ir.Handle{Node: key, Param: p.Name})
+		if found {
+			inputs[i] = edge
+			alignedData[i] = telem.Series{DataType: s.outputs[edge.Source].data.DataType}
+			inputSources[i] = s.outputs[edge.Source] // Cache the pointer
+		} else {
+			// Unconnected input - create synthetic edge pointing to a synthetic source
+			syntheticSource := ir.Handle{Node: "__default_" + key + "_" + p.Name, Param: ir.DefaultOutputParam}
+			inputs[i] = ir.Edge{Source: syntheticSource, Target: ir.Handle{Node: key, Param: p.Name}}
+			data := telem.NewSeriesFromAny(p.Value, types.ToTelem(p.Type))
+			time := telem.NewSeriesV[telem.TimeStamp](0)
+			alignedData[i] = data
+			alignedTime[i] = time
+			// Initialize with timestamp 0 and NOT consumed so defaults can trigger
+			accumulated[i] = inputEntry{
+				data:          data,
+				time:          time,
+				lastTimestamp: 0,
+				consumed:      false,
+			}
+			if _, exists := s.outputs[syntheticSource]; !exists {
+				s.outputs[syntheticSource] = &value{data: data, time: time}
+			}
+			inputSources[i] = s.outputs[syntheticSource] // Cache the synthetic source pointer
+		}
+	}
+
+	// Pre-cache output value pointers to avoid map lookups in hot paths
+	outputCache := make([]*value, len(n.Outputs))
+	for i, p := range n.Outputs {
+		handle := ir.Handle{Node: key, Param: p.Name}
+		outputCache[i] = s.outputs[handle] // These were created in State.New()
+	}
+
 	return &Node{
 		inputs: inputs,
-		outputs: lo.Map(n.Outputs.Keys, func(item string, _ int) ir.Handle {
-			return ir.Handle{Node: key, Param: item}
+		outputs: lo.Map(n.Outputs, func(item types.Param, _ int) ir.Handle {
+			return ir.Handle{Node: key, Param: item.Name}
 		}),
-		state:       s,
-		accumulated: make([]inputEntry, len(inputs)),
-		alignedData: alignedData,
-		alignedTime: make([]telem.Series, len(inputs)),
+		state:        s,
+		accumulated:  accumulated,
+		alignedData:  alignedData,
+		alignedTime:  alignedTime,
+		inputSources: inputSources,
+		outputCache:  outputCache,
 	}
 }
 
 type inputEntry struct {
-	data      telem.MultiSeries
-	time      telem.MultiSeries
-	watermark telem.TimeStamp
+	data          telem.Series    // Latest data snapshot
+	time          telem.Series    // Latest time snapshot
+	lastTimestamp telem.TimeStamp // Last timestamp we've seen (for detecting new data)
+	consumed      bool            // Whether this data has triggered execution
 }
 
 // Node provides node-specific access to state, handling input alignment and output storage.
 type Node struct {
-	inputs      []ir.Edge
-	outputs     []ir.Handle
-	state       *State
-	accumulated []inputEntry
-	alignedData []telem.Series
-	alignedTime []telem.Series
+	inputs       []ir.Edge
+	outputs      []ir.Handle
+	state        *State
+	accumulated  []inputEntry
+	alignedData  []telem.Series
+	alignedTime  []telem.Series
+	inputSources []*value // Cached pointers to input sources (avoids map lookups)
+	outputCache  []*value // Cached pointers to output values (avoids map lookups)
 }
 
 // RefreshInputs performs temporal alignment of node inputs and returns whether the node should execute.
 //
-// The algorithm:
-//  1. Accumulates new data from source outputs that exceed the current watermark
-//  2. Selects the input with the earliest new timestamp as the "trigger"
-//  3. Aligns all inputs to the trigger's temporal point
-//  4. Updates watermarks: trigger input is consumed, other inputs are reused
-//  5. Prunes consumed data from accumulated buffers
+// Algorithm:
+//  1. Snapshot latest series from each input source (series may contain multiple samples)
+//  2. Check if any input has new data (timestamp changed)
+//  3. If new data exists, align all inputs and provide their series for execution
+//  4. Mark all inputs as consumed (series are processed entirely by the node)
 //
-// Returns true if the node has aligned inputs ready for execution, false otherwise.
+// Returns true if there's new data ready for execution.
 func (n *Node) RefreshInputs() (recalculate bool) {
-	// If node has no inputs, always allow execution
 	if len(n.inputs) == 0 {
 		return true
 	}
 
-	for i, edge := range n.inputs {
-		sourceOutput, exists := n.state.outputs[edge.Source]
-		if !exists || sourceOutput.data.Len() == 0 || sourceOutput.time.Len() == 0 {
-			continue
-		}
-		lastTimestamp := telem.ValueAt[telem.TimeStamp](sourceOutput.time, -1)
-		if lastTimestamp <= n.accumulated[i].watermark {
-			continue
-		}
-		n.accumulated[i].data.Series = append(n.accumulated[i].data.Series, sourceOutput.data)
-		n.accumulated[i].time.Series = append(n.accumulated[i].time.Series, sourceOutput.time)
-	}
+	// Single-pass: snapshot new data, validate all inputs have data, detect unconsumed data
+	hasUnconsumed := false
 	for i := range n.inputs {
-		if len(n.accumulated[i].data.Series) == 0 {
-			return false
-		}
-	}
-	var (
-		triggerInputIdx  = -1
-		triggerTimestamp telem.TimeStamp
-		triggerSeriesIdx int
-	)
-	for i := range n.inputs {
-		for j, timeSeries := range n.accumulated[i].time.Series {
-			if timeSeries.Len() == 0 {
-				continue
-			}
-			ts := telem.ValueAt[telem.TimeStamp](timeSeries, -1)
-			if ts > n.accumulated[i].watermark {
-				if triggerInputIdx == -1 || ts < triggerTimestamp {
-					triggerInputIdx = i
-					triggerTimestamp = ts
-					triggerSeriesIdx = j
+		src := n.inputSources[i]
+
+		// Update snapshot if source has new data (timestamp advanced)
+		if src != nil && src.time.Len() > 0 {
+			ts := telem.ValueAt[telem.TimeStamp](src.time, -1)
+			if ts > n.accumulated[i].lastTimestamp {
+				n.accumulated[i] = inputEntry{
+					data:          src.data,
+					time:          src.time,
+					lastTimestamp: ts,
+					consumed:      false,
 				}
 			}
 		}
+
+		// Early exit if any input has no data
+		if n.accumulated[i].data.Len() == 0 {
+			return false
+		}
+
+		// Track if any input has unconsumed data
+		if !n.accumulated[i].consumed {
+			hasUnconsumed = true
+		}
 	}
-	if triggerInputIdx == -1 {
+
+	// No unconsumed data - all inputs already processed
+	if !hasUnconsumed {
 		return false
 	}
-	for i := range n.inputs {
-		if i == triggerInputIdx {
-			n.alignedData[i] = n.accumulated[i].data.Series[triggerSeriesIdx]
-			n.alignedTime[i] = n.accumulated[i].time.Series[triggerSeriesIdx]
-			// For trigger input, set watermark to its aligned data's last timestamp
-			if n.alignedTime[i].Len() > 0 {
-				n.accumulated[i].watermark = telem.ValueAt[telem.TimeStamp](n.alignedTime[i], -1)
-			} else {
-				n.accumulated[i].watermark = triggerTimestamp
-			}
-		} else {
-			latestIdx := len(n.accumulated[i].data.Series) - 1
-			n.alignedData[i] = n.accumulated[i].data.Series[latestIdx]
-			n.alignedTime[i] = n.accumulated[i].time.Series[latestIdx]
-			// For catch-up inputs, set watermark to trigger timestamp (they're reused, not consumed)
-			n.accumulated[i].watermark = triggerTimestamp
-		}
-	}
-	for i := range n.inputs {
-		var (
-			newData []telem.Series
-			newTime []telem.Series
-		)
-		for j, timeSeries := range n.accumulated[i].time.Series {
-			if timeSeries.Len() == 0 {
-				continue
-			}
-			ts := telem.ValueAt[telem.TimeStamp](timeSeries, -1)
-			if ts > n.accumulated[i].watermark {
-				newData = append(newData, n.accumulated[i].data.Series[j])
-				newTime = append(newTime, timeSeries)
-			}
-		}
-		if len(newData) == 0 && len(n.accumulated[i].data.Series) > 0 {
-			lastIdx := len(n.accumulated[i].data.Series) - 1
-			newData = []telem.Series{n.accumulated[i].data.Series[lastIdx]}
-			newTime = []telem.Series{n.accumulated[i].time.Series[lastIdx]}
-		}
-		n.accumulated[i].data.Series = newData
-		n.accumulated[i].time.Series = newTime
-	}
-	return true
-}
 
-func (n *Node) output(paramIndex int) *value {
-	handle := n.outputs[paramIndex]
-	v, ok := n.state.outputs[handle]
-	if !ok {
-		v = &value{}
-		n.state.outputs[handle] = v
+	// Align all inputs and mark as consumed
+	for i := range n.inputs {
+		n.alignedData[i] = n.accumulated[i].data
+		n.alignedTime[i] = n.accumulated[i].time
+		n.accumulated[i].consumed = true
 	}
-	return v
+
+	return true
 }
 
 // InputTime returns the timestamp series for the input at the given parameter index.
@@ -284,31 +280,16 @@ func (n *Node) Input(paramIndex int) telem.Series {
 	return n.alignedData[paramIndex]
 }
 
-// InitInput initializes an input's source output with dummy values.
-// This is used for optional inputs to prevent alignment blocking when no real data has arrived yet.
-// The timestamp should be > 0 to ensure it's above the initial watermark.
-func (n *Node) InitInput(paramIndex int, data, time telem.Series) {
-	if paramIndex >= 0 && paramIndex < len(n.inputs) {
-		sourceHandle := n.inputs[paramIndex].Source
-		if v, ok := n.state.outputs[sourceHandle]; ok {
-			v.data = data
-			v.time = time
-		}
-	}
-}
-
 // Output returns a mutable pointer to the data series for the output at the given parameter index.
 // Nodes write their computed results to this series.
 func (n *Node) Output(paramIndex int) *telem.Series {
-	d := n.output(paramIndex)
-	return &d.data
+	return &n.outputCache[paramIndex].data
 }
 
 // OutputTime returns a mutable pointer to the timestamp series for the output at the given parameter index.
 // Nodes write temporal metadata for their outputs to this series.
 func (n *Node) OutputTime(paramIndex int) *telem.Series {
-	d := n.output(paramIndex)
-	return &d.time
+	return &n.outputCache[paramIndex].time
 }
 
 // ReadChan reads buffered data and time series from a channel.
@@ -321,13 +302,13 @@ func (n *Node) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSer
 	}
 	indexKey := n.state.indexes[key]
 	if indexKey == 0 {
-		return data, telem.MultiSeries{}, true
+		return data, telem.MultiSeries{}, len(data.Series) > 0
 	}
 	time, ok = n.state.readChannel(indexKey)
 	if !ok {
 		return telem.MultiSeries{}, telem.MultiSeries{}, false
 	}
-	return data, time, true
+	return data, time, len(time.Series) > 0 && len(data.Series) > 0
 }
 
 // WriteChan buffers data and time series for writing to a channel.

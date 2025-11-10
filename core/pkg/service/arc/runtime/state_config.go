@@ -61,14 +61,16 @@ func NewStateConfig(
 		if reads.Contains(ch.Key()) && ch.Index() != 0 {
 			reads.Add(ch.Index())
 		}
+		if writes.Contains(ch.Key()) && ch.Index() != 0 {
+			writes.Add(ch.Index())
+		}
 	}
 	return ExtendedStateConfig{
 		Reads:  reads,
 		Writes: writes,
 		State: state.Config{
 			ChannelDigests: channelDigests,
-			Edges:          module.Edges,
-			Nodes:          module.Nodes,
+			IR:             module.IR,
 		},
 	}, nil
 }

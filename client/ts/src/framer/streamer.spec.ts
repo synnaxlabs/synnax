@@ -175,6 +175,7 @@ describe("Streamer", () => {
           streamer.close();
         }
       });
+
       test("calculated channel with constant", async () => {
         // Create an index channel for timestamps
         const timeChannel = await client.channels.create({
@@ -273,6 +274,70 @@ describe("Streamer", () => {
           await writer.close();
           streamer.close();
         }
+      });
+
+      describe("legacy calculatiosn", async () => {
+        it("should correctly execute a calculation with a requires field", async () => {
+          // Create a timestamp index channel
+          const timeChannel = await client.channels.create({
+            name: "calc_test_time",
+            isIndex: true,
+            dataType: DataType.TIMESTAMP,
+          });
+
+          // Create source channels with the timestamp index
+          const [channelA, channelB] = await client.channels.create([
+            {
+              name: id.create(),
+              dataType: DataType.FLOAT64,
+              index: timeChannel.key,
+            },
+            {
+              name: id.create(),
+              dataType: DataType.FLOAT64,
+              index: timeChannel.key,
+            },
+          ]);
+
+          // Create calculated channel that adds the two source channels
+          const calcChannel = await client.channels.create({
+            name: "test_calc",
+            dataType: DataType.FLOAT64,
+            virtual: true,
+            expression: `return ${channelA.name} + ${channelB.name}`,
+            requires: [channelA.key, channelB.key],
+          });
+
+          // Set up streamer to listen for calculated results
+          const streamer = await client.openStreamer(calcChannel.key);
+          await sleep.sleep(TimeSpan.milliseconds(10));
+
+          // Write test data
+          const startTime = TimeStamp.now();
+          const writer = await client.openWriter({
+            start: startTime,
+            channels: [timeChannel.key, channelA.key, channelB.key],
+          });
+
+          try {
+            // Write test values - each source gets 2.5 so sum should be 5.0
+            await writer.write({
+              [timeChannel.key]: [startTime],
+              [channelA.key]: new Float64Array([2.5]),
+              [channelB.key]: new Float64Array([2.5]),
+            });
+
+            // Read from streamer
+            const frame = await streamer.read();
+
+            // Verify calculated results
+            const calcData = Array.from(frame.get(calcChannel.key));
+            expect(calcData).toEqual([5.0]);
+          } finally {
+            await writer.close();
+            streamer.close();
+          }
+        });
       });
     });
   });

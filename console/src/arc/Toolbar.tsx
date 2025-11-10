@@ -29,6 +29,7 @@ import { useDispatch } from "react-redux";
 
 import { Editor } from "@/arc/editor";
 import { remove } from "@/arc/slice";
+import { translateGraphToConsole } from "@/arc/types/translate";
 import { EmptyAction, Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -89,13 +90,15 @@ const Content = () => {
   const handleEdit = useCallback(
     (key: arc.Key) => {
       const arc = getItem(key);
+
       if (arc == null)
         return addStatus({
           variant: "error",
           message: "Failed to open Arc editor",
           description: `Arc with key ${key} not found`,
         });
-      placeLayout(Editor.create({ key, name: arc.name }));
+      const graph = translateGraphToConsole(arc.graph);
+      placeLayout(Editor.create({ key, name: arc.name, graph }));
     },
     [getItem, addStatus, placeLayout],
   );
