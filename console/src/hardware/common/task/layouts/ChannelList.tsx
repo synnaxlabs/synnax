@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Button, Form, Header as PHeader, Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 
 import { EmptyAction } from "@/components";
 import {
@@ -76,6 +76,26 @@ export const ChannelList = <C extends Channel>({
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = Form.useContext();
+
+  // Hotfix for an issue we have been having with the "path config.channels" issue.
+  // Would like to remove this but it's just something that comes up consistently in
+  // prod and it's more important to make sure that we don't break anything in prod then
+  // have pretty code.
+  useEffect(() => {
+    if (path === "config.channels") {
+      const cfg = ctx.get(path).value;
+      if (
+        !(
+          typeof cfg !== "object" ||
+          cfg == null ||
+          !("channels" in cfg) ||
+          !Array.isArray(cfg.channels)
+        )
+      )
+        ctx.set(path, { channels: [] });
+    }
+  }, [path, ctx]);
+
   const { data, push, remove } = Form.useFieldList<C["key"], C>(path);
   const { onSelect } = rest;
   const handleAdd = useCallback(() => {
