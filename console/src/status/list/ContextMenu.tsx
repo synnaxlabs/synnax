@@ -8,13 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import {
-  type Flux,
-  Icon,
-  type List,
-  Menu as PMenu,
-  Status,
-} from "@synnaxlabs/pluto";
+import { type Flux, Icon, type List, Menu as PMenu, Status } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 

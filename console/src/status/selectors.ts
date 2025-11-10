@@ -22,8 +22,7 @@ export const selectFavorites = (state: RootState): status.Key[] =>
 export const selectIsFavorite = (state: RootState, key: status.Key): boolean =>
   selectSliceState(state).favorites.includes(key);
 
-export const useSelectFavorites = (): status.Key[] =>
-  useSelector(selectFavorites);
+export const useSelectFavorites = (): status.Key[] => useSelector(selectFavorites);
 
 export const useSelectIsFavorite = (key: status.Key): boolean =>
   useSelector(useMemo(() => (state: RootState) => selectIsFavorite(state, key), [key]));
