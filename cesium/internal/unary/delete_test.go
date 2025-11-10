@@ -301,7 +301,7 @@ var _ = Describe("Delete", func() {
 							series0Data := telem.UnmarshalSlice[int](frame.SeriesAt(0).Data, telem.Int64T)
 							Expect(series0Data).To(ConsistOf(200, 235, 236, 238, 251, 278))
 						})
-						It("Should delete entire dataDB", func() {
+						It("Should delete entire DB", func() {
 							Expect(dataDB.Delete(ctx, telem.TimeRangeMax)).To(Succeed())
 							frame, err := dataDB.Read(ctx, telem.TimeRangeMax)
 							Expect(err).ToNot(HaveOccurred())
@@ -525,7 +525,7 @@ var _ = Describe("Delete", func() {
 					Expect(series1).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(32, 33, 34, 35, 36, 37)))
 				})
 
-				It("Should delete even when the start timestamp is not in bounds of the dataDB", func() {
+				It("Should delete even when the start timestamp is not in bounds of the DB", func() {
 					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(8, 32))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
