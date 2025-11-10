@@ -20,46 +20,42 @@ use tauri::Emitter;
 use tauri::Window;
 
 use tauri_plugin_prevent_default::KeyboardShortcut;
-use tauri_plugin_prevent_default::ModifierKey::{MetaKey};
-
+use tauri_plugin_prevent_default::ModifierKey::MetaKey;
 
 #[cfg(target_os = "macos")]
 fn set_transparent_titlebar(win: &Window, transparent: bool) {
     use objc2::rc::Retained;
     use objc2::runtime::AnyObject;
-    use objc2_app_kit::{
-        NSWindow, NSWindowButton, NSWindowStyleMask, NSWindowTitleVisibility,
-    };
+    use objc2_app_kit::{NSWindow, NSWindowButton, NSWindowStyleMask, NSWindowTitleVisibility};
 
     let ns_window = win.ns_window().expect("Failed to create window handle") as *mut AnyObject;
-    let window: Retained<NSWindow> = unsafe { Retained::retain(ns_window as *mut NSWindow).unwrap() };
+    let window: Retained<NSWindow> =
+        unsafe { Retained::retain(ns_window as *mut NSWindow).unwrap() };
 
-    unsafe {
-        let mut style_mask = window.styleMask();
-        if transparent {
-            style_mask.insert(NSWindowStyleMask::FullSizeContentView);
-        } else {
-            style_mask.remove(NSWindowStyleMask::FullSizeContentView);
-        }
-        window.setStyleMask(style_mask);
+    let mut style_mask = window.styleMask();
+    if transparent {
+        style_mask.insert(NSWindowStyleMask::FullSizeContentView);
+    } else {
+        style_mask.remove(NSWindowStyleMask::FullSizeContentView);
+    }
+    window.setStyleMask(style_mask);
 
-        window.setTitleVisibility(if transparent {
-            NSWindowTitleVisibility::Hidden
-        } else {
-            NSWindowTitleVisibility::Visible
-        });
+    window.setTitleVisibility(if transparent {
+        NSWindowTitleVisibility::Hidden
+    } else {
+        NSWindowTitleVisibility::Visible
+    });
 
-        window.setTitlebarAppearsTransparent(true);
+    window.setTitlebarAppearsTransparent(true);
 
-        if let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) {
-            close.removeFromSuperview();
-        }
-        if let Some(miniaturize) = window.standardWindowButton(NSWindowButton::MiniaturizeButton) {
-            miniaturize.removeFromSuperview();
-        }
-        if let Some(zoom) = window.standardWindowButton(NSWindowButton::ZoomButton) {
-            zoom.removeFromSuperview();
-        }
+    if let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) {
+        close.removeFromSuperview();
+    }
+    if let Some(miniaturize) = window.standardWindowButton(NSWindowButton::MiniaturizeButton) {
+        miniaturize.removeFromSuperview();
+    }
+    if let Some(zoom) = window.standardWindowButton(NSWindowButton::ZoomButton) {
+        zoom.removeFromSuperview();
     }
 }
 
