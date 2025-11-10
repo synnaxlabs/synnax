@@ -43,20 +43,20 @@ and more.
 
 Measures the frequency of digital pulses.
 
-| Parameter      | Type   | Required | Default      | Description                                                 |
-| -------------- | ------ | -------- | ------------ | ----------------------------------------------------------- |
-| `channel`      | number | Yes      | -            | Synnax channel key                                          |
-| `device`       | string | Yes      | -            | Device identifier                                           |
-| `port`         | number | Yes      | -            | Counter port (0-indexed)                                    |
-| `min_val`      | number | No       | `2`          | Minimum frequency                                           |
-| `max_val`      | number | No       | `100`        | Maximum frequency                                           |
-| `units`        | enum   | No       | `Hz`         | `Hz`, `Ticks`                                               |
-| `edge`         | enum   | No       | `Rising`     | `Rising`, `Falling`                                         |
-| `meas_method`  | enum   | No       | `DynamicAvg` | `LowFreq1Ctr`, `HighFreq2Ctr`, `LargeRng2Ctr`, `DynamicAvg` |
-| `meas_time`    | number | No       | `0.000006`   | Measurement time (seconds), used with `HighFreq2Ctr`        |
-| `divisor`      | number | No       | `4`          | Integer divisor, used with `LargeRng2Ctr`                   |
-| `terminal`     | string | No       | -            | PFI terminal for signal routing                             |
-| `custom_scale` | object | No       | -            | Custom scaling                                              |
+| Parameter      | Type   | Required | Default    | Description                                          |
+| -------------- | ------ | -------- | ---------- | ---------------------------------------------------- |
+| `channel`      | number | Yes      | -          | Synnax channel key                                   |
+| `device`       | string | Yes      | -          | Device identifier                                    |
+| `port`         | number | Yes      | -          | Counter port (0-indexed)                             |
+| `min_val`      | number | No       | `2`        | Minimum frequency                                    |
+| `max_val`      | number | No       | `100`      | Maximum frequency                                    |
+| `units`        | enum   | No       | `Hz`       | `Hz`, `Ticks`                                        |
+| `edge`         | enum   | No       | `Rising`   | `Rising`, `Falling`                                  |
+| `meas_method`  | enum   | No       | `DynAvg`   | `LowFreq1Ctr`, `HighFreq2Ctr`, `DynAvg`              |
+| `meas_time`    | number | No       | `0.000006` | Measurement time (seconds), used with `HighFreq2Ctr` |
+| `divisor`      | number | No       | `4`        | Integer divisor, used with `LargeRng2Ctr`            |
+| `terminal`     | string | No       | -          | PFI terminal for signal routing                      |
+| `custom_scale` | object | No       | -          | Custom scaling                                       |
 
 </ChannelTypeDetails>
 
@@ -82,20 +82,20 @@ Counts rising or falling edges on a digital signal.
 
 Measures the time between edges of a periodic signal.
 
-| Parameter       | Type   | Required | Default      | Description                                                 |
-| --------------- | ------ | -------- | ------------ | ----------------------------------------------------------- |
-| `channel`       | number | Yes      | -            | Synnax channel key                                          |
-| `device`        | string | Yes      | -            | Device identifier                                           |
-| `port`          | number | Yes      | -            | Counter port (0-indexed)                                    |
-| `min_val`       | number | No       | `0.000001`   | Minimum period                                              |
-| `max_val`       | number | No       | `0.1`        | Maximum period                                              |
-| `units`         | enum   | No       | `Seconds`    | `Seconds`, `Ticks`                                          |
-| `starting_edge` | enum   | No       | `Rising`     | `Rising`, `Falling`                                         |
-| `meas_method`   | enum   | No       | `DynamicAvg` | `LowFreq1Ctr`, `HighFreq2Ctr`, `LargeRng2Ctr`, `DynamicAvg` |
-| `meas_time`     | number | No       | `0.001`      | Measurement time (seconds), used with `HighFreq2Ctr`        |
-| `divisor`       | number | No       | `4`          | Integer divisor, used with `LargeRng2Ctr`                   |
-| `terminal`      | string | No       | -            | PFI terminal for signal routing                             |
-| `custom_scale`  | object | No       | -            | Custom scaling                                              |
+| Parameter       | Type   | Required | Default    | Description                                          |
+| --------------- | ------ | -------- | ---------- | ---------------------------------------------------- |
+| `channel`       | number | Yes      | -          | Synnax channel key                                   |
+| `device`        | string | Yes      | -          | Device identifier                                    |
+| `port`          | number | Yes      | -          | Counter port (0-indexed)                             |
+| `min_val`       | number | No       | `0.000001` | Minimum period                                       |
+| `max_val`       | number | No       | `0.1`      | Maximum period                                       |
+| `units`         | enum   | No       | `Seconds`  | `Seconds`, `Ticks`                                   |
+| `starting_edge` | enum   | No       | `Rising`   | `Rising`, `Falling`                                  |
+| `meas_method`   | enum   | No       | `DynAvg`   | `LowFreq1Ctr`, `HighFreq2Ctr`, `DynAvg`              |
+| `meas_time`     | number | No       | `0.001`    | Measurement time (seconds), used with `HighFreq2Ctr` |
+| `divisor`       | number | No       | `4`        | Integer divisor, used with `LargeRng2Ctr`            |
+| `terminal`      | string | No       | -          | PFI terminal for signal routing                      |
+| `custom_scale`  | object | No       | -          | Custom scaling                                       |
 
 </ChannelTypeDetails>
 

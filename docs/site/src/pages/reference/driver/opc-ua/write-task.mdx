@@ -46,20 +46,21 @@ If you need state feedback, configure a separate
 
 <Divider.Divider x />
 
-## Channel Types Reference
+## Channel Configuration Reference
 
 [OPC UA Write Service Specification](https://reference.opcfoundation.org/Core/Part4/v104/docs/5.10.4)
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Value /> Scalar Node Write</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Value /> Scalar Values</Text.Text>
 
 Writes scalar values to an OPC UA node. Suitable for control setpoints, configuration
 parameters, and single-value commands.
 
-| Parameter | Type   | Required | Default | Description                             |
-| --------- | ------ | -------- | ------- | --------------------------------------- |
-| `channel` | number | Yes      | -       | Synnax command channel key              |
-| `node_id` | string | Yes      | -       | OPC UA NodeId (e.g., `ns=2;s=Setpoint`) |
+| Parameter | Type    | Required | Default | Description                             |
+| --------- | ------- | -------- | ------- | --------------------------------------- |
+| `channel` | number  | Yes      | -       | Synnax command channel key              |
+| `node_id` | string  | Yes      | -       | OPC UA NodeId (e.g., `ns=2;s=Setpoint`) |
+| `enabled` | boolean | No       | `true`  | Enable or disable writing to this node  |
 
 **NodeId Format Examples:**
 
@@ -75,15 +76,16 @@ parameters, and single-value commands.
 </ChannelTypeDetails>
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Array /> Array Node Write</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Array /> Array Values</Text.Text>
 
 Writes array data to an OPC UA node in bulk. Used for batch control commands or
 multi-value setpoints.
 
-| Parameter | Type   | Required | Default | Description                                 |
-| --------- | ------ | -------- | ------- | ------------------------------------------- |
-| `channel` | number | Yes      | -       | Synnax command channel key                  |
-| `node_id` | string | Yes      | -       | OPC UA NodeId pointing to an array variable |
+| Parameter | Type    | Required | Default | Description                                 |
+| --------- | ------- | -------- | ------- | ------------------------------------------- |
+| `channel` | number  | Yes      | -       | Synnax command channel key                  |
+| `node_id` | string  | Yes      | -       | OPC UA NodeId pointing to an array variable |
+| `enabled` | boolean | No       | `true`  | Enable or disable writing to this node      |
 
 **Note**: The channel data type must match the array element type on the server.
 

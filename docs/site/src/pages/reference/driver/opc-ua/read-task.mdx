@@ -23,26 +23,30 @@ Acquires data from OPC UA server nodes at a specified sample rate using software
 
 ## Task Configuration Reference
 
-| Parameter     | Type    | Required | Default       | Description                                                   |
-| ------------- | ------- | -------- | ------------- | ------------------------------------------------------------- |
-| `name`        | string  | Yes      | -             | Human-readable task name                                      |
-| `device`      | string  | Yes      | -             | Key of the OPC UA server device                               |
-| `sample_rate` | number  | Yes      | -             | Samples per second (Hz)                                       |
-| `stream_rate` | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
-| `array_mode`  | boolean | No       | `false`       | Enable array sampling mode for high-rate tasks                |
-| `array_size`  | number  | No       | `1`           | Number of samples to read in bulk (array mode only)           |
-| `data_saving` | boolean | No       | `false`       | Enable permanent storage in Synnax                            |
-| `auto_start`  | boolean | No       | `false`       | Automatically start task after configuration                  |
-| `channels`    | array   | Yes      | -             | List of input channel configurations                          |
+| Parameter     | Type    | Required | Default       | Description                                                                                 |
+| ------------- | ------- | -------- | ------------- | ------------------------------------------------------------------------------------------- |
+| `name`        | string  | Yes      | -             | Human-readable task name                                                                    |
+| `device`      | string  | Yes      | -             | Key of the OPC UA server device                                                             |
+| `sample_rate` | number  | Yes      | -             | Samples per second (Hz)                                                                     |
+| `stream_rate` | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate`. Used when `array_mode=false` |
+| `array_mode`  | boolean | No       | `false`       | Enable array sampling mode for high-rate tasks                                              |
+| `array_size`  | number  | No       | `1`           | Number of samples to read in bulk. Required when `array_mode=true`                          |
+| `data_saving` | boolean | No       | `false`       | Enable permanent storage in Synnax                                                          |
+| `auto_start`  | boolean | No       | `false`       | Automatically start task after configuration                                                |
+| `channels`    | array   | Yes      | -             | List of input channel configurations                                                        |
 
 <Divider.Divider x />
 
-## Channel Types Reference
+## Channel Configuration Reference
 
 [OPC UA Read Service Specification](https://reference.opcfoundation.org/Core/Part4/v104/docs/5.10.2)
 
+The task's `array_mode` setting determines how all channels are read. When
+`array_mode=false`, channels are read individually at `stream_rate`. When
+`array_mode=true`, all channels read `array_size` samples in bulk.
+
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Value /> Scalar Node Read</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Value /> Standard Mode (`array_mode=false`)</Text.Text>
 
 Reads scalar values from an OPC UA node at the specified sample rate. Suitable for most
 applications with standard data rates.
@@ -62,15 +66,15 @@ applications with standard data rates.
 </ChannelTypeDetails>
 
 <ChannelTypeDetails>
-<Text.Text slot="summary" level="p"><Icon.Array /> Array Node Read</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Array /> Array Mode (`array_mode=true`)</Text.Text>
 
 Reads array data from an OPC UA node in bulk. Designed for high-frequency data (&gt;500
 Hz) where the server writes samples into arrays.
 
 <Note.Note variant="info">
-  **Array Mode**: When `array_mode=true`, the task reads multiple samples in bulk from
-  the OPC UA server. This is more efficient for high-rate tasks but requires careful
-  configuration to avoid undersampling or oversampling.
+  When `array_mode=true`, the task reads multiple samples in bulk from the OPC UA
+  server. This is more efficient for high-rate tasks but requires careful configuration
+  to avoid undersampling or oversampling.
 </Note.Note>
 
 | Parameter | Type   | Required | Default | Description                                 |
