@@ -111,9 +111,10 @@ func compileReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	}
 	var returnType types.Type
 	if enclosingScope.Kind == symbol.KindFunction {
-		returnType, _ = enclosingScope.Type.Outputs.Get(ir.DefaultOutputParam)
+		returnParam, _ := enclosingScope.Type.Outputs.Get(ir.DefaultOutputParam)
+		returnType = returnParam.Type
 	}
-	if returnType != exprType {
+	if !types.Equal(returnType, exprType) {
 		return expression.EmitCast(ctx, exprType, returnType)
 	}
 	return nil
