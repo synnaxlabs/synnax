@@ -53,13 +53,12 @@ var _ = Describe("Stat", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			inputNode := s.Node("input")
-			factory := stat.NewFactory()
-			n := MustSucceed(factory.Create(ctx, node.Config{
+			n := MustSucceed(stat.Factory.Create(ctx, node.Config{
 				Node:  ir.Node{Type: "avg", Config: types.Params{{Name: "count", Type: types.I64(), Value: int64(3)}}},
 				State: s.Node("avg"),
 			}))
 			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
-			*inputNode.Output(0) = telem.NewSeriesV[float64](10.0, 20.0, 30.0)
+			*inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
@@ -72,7 +71,7 @@ var _ = Describe("Stat", func() {
 			Expect(vals[0]).To(BeNumerically("~", 20.0, 0.01))
 			timeVals := telem.UnmarshalSeries[telem.TimeStamp](resultTime)
 			Expect(timeVals[0]).To(Equal(telem.SecondTS * 3)) // Last input timestamp
-			*inputNode.Output(0) = telem.NewSeriesV[float64](40.0, 50.0, 60.0)
+			*inputNode.Output(0) = telem.NewSeriesV(40.0, 50.0, 60.0)
 			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
 			changed = make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
@@ -114,8 +113,7 @@ var _ = Describe("Stat", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			inputNode := s.Node("input")
-			factory := stat.NewFactory()
-			n := MustSucceed(factory.Create(ctx, node.Config{
+			n := MustSucceed(stat.Factory.Create(ctx, node.Config{
 				Node:  ir.Node{Type: "min", Config: types.Params{{Name: "duration", Type: types.TimeSpan(), Value: telem.Second * 5}}},
 				State: s.Node("min"),
 			}))
@@ -193,8 +191,7 @@ var _ = Describe("Stat", func() {
 			s := state.New(state.Config{IR: analyzed})
 			inputNode := s.Node("input")
 			resetNode := s.Node("reset_signal")
-			factory := stat.NewFactory()
-			n := MustSucceed(factory.Create(ctx, node.Config{
+			n := MustSucceed(stat.Factory.Create(ctx, node.Config{
 				Node:   ir.Node{Type: "max"},
 				State:  s.Node("max"),
 				Module: module.Module{IR: analyzed},
@@ -258,8 +255,7 @@ var _ = Describe("Stat", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			s := state.New(state.Config{IR: analyzed})
 			inputNode := s.Node("input")
-			factory := stat.NewFactory()
-			n := MustSucceed(factory.Create(ctx, node.Config{
+			n := MustSucceed(stat.Factory.Create(ctx, node.Config{
 				Node:   ir.Node{Type: "max"},
 				State:  s.Node("max"),
 				Module: module.Module{IR: analyzed},
@@ -323,8 +319,7 @@ var _ = Describe("Stat", func() {
 			s := state.New(state.Config{IR: analyzed})
 			inputNode := s.Node("input")
 			resetNode := s.Node("reset_signal")
-			factory := stat.NewFactory()
-			n := MustSucceed(factory.Create(ctx, node.Config{
+			n := MustSucceed(stat.Factory.Create(ctx, node.Config{
 				Node:   ir.Node{Type: "avg"},
 				State:  s.Node("avg"),
 				Module: module.Module{IR: analyzed},
