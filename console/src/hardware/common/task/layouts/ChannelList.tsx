@@ -85,12 +85,10 @@ export const ChannelList = <C extends Channel>({
     if (path === "config.channels") {
       const cfg = ctx.get(path).value;
       if (
-        !(
-          typeof cfg !== "object" ||
-          cfg == null ||
-          !("channels" in cfg) ||
-          !Array.isArray(cfg.channels)
-        )
+        typeof cfg !== "object" ||
+        cfg == null ||
+        !("channels" in cfg) ||
+        !Array.isArray(cfg.channels)
       )
         ctx.set(path, { channels: [] });
     }
