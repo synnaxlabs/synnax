@@ -155,6 +155,10 @@ struct CounterReader final : Base, Reader<double> {
 /// work for counter output tasks. After stopping, the task must be reconfigured
 /// before it can be started again.
 struct CounterWriter final : Base, Writer<double> {
+private:
+    bool validation_complete = false;
+
+public:
     /// @brief Constructs a new counter writer
     /// @param dmx The DAQmx API interface
     /// @param task_handle Handle to the DAQmx task
@@ -167,6 +171,8 @@ struct CounterWriter final : Base, Writer<double> {
     /// @brief Override stop() to clear task and release counter resources
     /// After calling stop(), the task cannot be restarted - must reconfigure
     xerrors::Error stop() override;
+
+    void complete_validation();
 };
 }
 

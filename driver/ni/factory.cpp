@@ -101,11 +101,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
             ni::WriteTaskSink<double>,
             common::WriteTask>(ctx, task);
     else if (task.type == COUNTER_WRITE_TASK_TYPE)
-        res = configure<
-            hardware::daqmx::CounterWriter,
-            ni::WriteTaskConfig,
-            ni::WriteTaskSink<double>,
-            common::WriteTask>(ctx, task);
+        res = configure_counter_write(ctx, task);
     else if (task.type == DIGITAL_WRITE_TASK_TYPE)
         res = configure<
             hardware::daqmx::DigitalWriter,
@@ -151,4 +147,42 @@ common::ConfigureResult ni::Factory::configure_scan(
     );
     res.auto_start = cfg.enabled;
     return res;
+}
+
+common::ConfigureResult ni::Factory::configure_counter_write(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
+) {
+    common::ConfigureResult result;
+    auto [cfg, cfg_err] = WriteTaskConfig::parse(ctx->client, task, this->timing_cfg);
+    if (cfg_err) {
+        result.error = cfg_err;
+        return result;
+    }
+
+    const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) + ")";
+    TaskHandle handle;
+    if (const auto err = this->dmx->CreateTask(dmx_task_name.c_str(), &handle)) {
+        result.error = err;
+        return result;
+    }
+
+    auto hw = std::make_unique<hardware::daqmx::CounterWriter>(this->dmx, handle);
+    if (result.error = cfg.apply(this->dmx, handle); result.error) return result;
+
+    // Validation cycle - stop() won't clear task yet
+    if (result.error = hw->start(); result.error) return result;
+    if (result.error = hw->stop(); result.error) return result;
+
+    // Mark validation complete - future stop() calls will clear the task
+    hw->complete_validation();
+
+    result.task = std::make_unique<common::WriteTask>(
+        task,
+        ctx,
+        breaker::default_config(task.name),
+        std::make_unique<WriteTaskSink<double>>(std::move(cfg), std::move(hw))
+    );
+    result.auto_start = cfg.auto_start;
+    return result;
 }
