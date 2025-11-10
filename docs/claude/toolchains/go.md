@@ -17,7 +17,7 @@ Individual Go modules in the monorepo:
 The repo uses a `go.work` file to manage local module replacements:
 
 ```go
-go 1.25.1
+go 1.25.4
 
 use (
     ./alamos/go

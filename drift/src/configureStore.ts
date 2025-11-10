@@ -159,27 +159,26 @@ const receivePreloadedStateAndListen = async <
 };
 
 /**
- * configureStore replaces the standard Redux Toolkit configureStore function
- * with one that enables drift to synchronize state between windows. The API
- * is identical to the standard configureStore function, except for two
- * important differences.
+ * configureStore replaces the standard Redux Toolkit configureStore function with one
+ * that enables drift to synchronize state between windows. The API is identical to the
+ * standard configureStore function, except for two important differences.
  *
- * @param options.runtime - The core runtime of the application. This should
- * be chosen based on the platform you are running on (Tauri, Electron, etc.).
- * @param options.debug - If true, drift will log debug information to the
- * console. @default false
+ * @param options.runtime - The core runtime of the application. This should be chosen
+ * based on the platform you are running on (Tauri, etc.).
+ * @param options.debug - If true, drift will log debug information to the console.
+ * @default false
  * @param props.enablePrerender - If true, drift will create an invisible, pre-rendered
  * window before it is needed. While it adds an additional process to your application,
  * it also dramatically reduces the time it takes to open a new window. @default true
- * @param props.defaultWindowProps - A partial set of window props to merge with
- * the props passed to drift.createWindow. This is useful for setting default window
+ * @param props.defaultWindowProps - A partial set of window props to merge with the
+ * props passed to drift.createWindow. This is useful for setting default window
  * properties, especially with prerendering. @default {}
  * @param options - The standard Redux Toolkit configureStore options.
  *
- * @returns A !PROMISE! that resolves to a Redux store. This is necessary because
- * the store must receive it's initial state from the main window, which is
- * an asynchronous operation. The promise will resolve when the store is configured
- * and the window is ready for use.
+ * @returns A !PROMISE! that resolves to a Redux store. This is necessary because the
+ * store must receive it's initial state from the main window, which is an asynchronous
+ * operation. The promise will resolve when the store is configured and the window is
+ * ready for use.
  */
 export const configureStore: <
   S extends StoreState,

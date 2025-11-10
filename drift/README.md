@@ -2,9 +2,9 @@
 
 # Summary
 
-Building multi-window applications with Tauri and Electron raises the challenge of
-synchronizing state between windows. Communicating over IPC is unintuitive when used in
-combination with stateful UI frameworks like React.
+Building multi-window applications with Tauri raises the challenge of synchronizing
+state between windows. Communicating over IPC is unintuitive when used in combination
+with stateful UI frameworks like React.
 
 Drift is a simple Redux extension that tightly synchronizes state between windows. It
 also allows you to create, delete, and alter windows by dispatching actions.

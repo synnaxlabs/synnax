@@ -154,6 +154,32 @@ export class TimeStamp
   private static parseDateTimeString(str: string, tzInfo: TZInfo = "UTC"): bigint {
     if (!str.includes("/") && !str.includes("-"))
       return TimeStamp.parseTimeString(str, tzInfo);
+
+    const isDateTimeLocal =
+      str.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?$/) != null;
+
+    if (isDateTimeLocal) {
+      let datePart = str;
+      let ms = 0;
+
+      if (str.includes(".")) {
+        const parts = str.split(".");
+        datePart = parts[0];
+        const msPart = parts[1] || "0";
+        ms = parseInt(msPart.padEnd(3, "0").slice(0, 3));
+      }
+
+      const d =
+        tzInfo === "local"
+          ? new Date(datePart.replace("T", " "))
+          : new Date(`${datePart}Z`);
+
+      const baseBigInt = BigInt(d.getTime()) * TimeStamp.MILLISECOND.valueOf();
+      const msBigInt = BigInt(ms) * TimeStamp.MILLISECOND.valueOf();
+
+      return baseBigInt + msBigInt;
+    }
+
     const d = new Date(str);
     // Essential to note that this makes the date midnight in UTC! Not local!
     // As a result, we need to add the tzInfo offset back in.
