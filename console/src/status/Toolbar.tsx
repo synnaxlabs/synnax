@@ -22,7 +22,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
@@ -34,29 +34,30 @@ import { useSelectFavorites } from "@/status/selectors";
 
 const NoStatuses = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const handleLinkClick = () => placeLayout(EXPLORER_LAYOUT);
   return (
     <EmptyAction
       message="No favorite statuses."
       action="Open Status Explorer"
-      onClick={handleLinkClick}
+      onClick={() => placeLayout(EXPLORER_LAYOUT)}
     />
   );
 };
 
 const List = (): ReactElement => {
   const favorites = useSelectFavorites();
-  console.log("favorites", favorites);
   const menuProps = PMenu.useContextMenu();
 
-  const { getItem, subscribe } = Status.useList({});
+  const { getItem, subscribe, data } = Status.useList();
+  const filteredData = useMemo(() => {
+    const favoritesSet = new Set(favorites);
+    return data.filter((key) => favoritesSet.has(key));
+  }, [data, favorites]);
 
   return (
-    <Select.Frame<status.Key, status.Status>
-      data={favorites}
+    <CoreList.Frame<status.Key, status.Status>
+      data={filteredData}
       getItem={getItem}
       subscribe={subscribe}
-      onChange={() => {}}
     >
       <PMenu.ContextMenu
         menu={(p) => <ContextMenu {...p} getItem={getItem} />}
@@ -69,7 +70,7 @@ const List = (): ReactElement => {
       >
         {listItem}
       </CoreList.Items>
-    </Select.Frame>
+    </CoreList.Frame>
   );
 };
 

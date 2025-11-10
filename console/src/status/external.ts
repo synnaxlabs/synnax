@@ -13,17 +13,9 @@ import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/status/Explorer";
 
 export * from "@/status/Create";
 export * from "@/status/Explorer";
-export * from "@/status/FavoriteButton";
 export * from "@/status/palette";
 export * from "@/status/Select";
-export {
-  type Action,
-  migrateSlice,
-  reducer,
-  SLICE_NAME,
-  type SliceState,
-  ZERO_SLICE_STATE,
-} from "@/status/slice";
+export * from "@/status/slice";
 export * from "@/status/Toolbar";
 export * from "@/status/useListenForChanges";
 
