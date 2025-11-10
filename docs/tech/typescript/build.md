@@ -14,8 +14,7 @@ libraries:
   Synnax cluster.
 - `@synnaxlabs/pluto` - path `pluto` - The Synnax component library.
 - `@synnaxlabs/drift` - path `drift` - A cross window state synchronization library for
-  [tauri](https://tauri.studio/) and (eventually)
-  [electron](https://www.electronjs.org/).
+  [Tauri](https://tauri.studio/).
 
 We have two main applications:
 
