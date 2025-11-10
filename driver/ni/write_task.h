@@ -30,12 +30,8 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// back to the Synnax cluster.
     const telem::Rate state_rate;
     /// @brief a map of command channel keys to the configurations for each output
-    /// channel in the task that supports runtime control (AO, DO).
+    /// channel in the task.
     std::map<synnax::ChannelKey, std::unique_ptr<channel::Output>> channels;
-    /// @brief configuration-only channels that don't support runtime control
-    /// (e.g., CO Pulse Output). These are applied to the DAQmx task but don't
-    /// participate in the command/state pipeline.
-    std::vector<std::unique_ptr<channel::Output>> config_only_channels;
     /// @brief the index channel keys for all the state channels. This is used
     /// to make sure we write correct timestamps for each state channel.
     std::set<synnax::ChannelKey> state_index_keys;
@@ -49,7 +45,6 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         common::BaseWriteTaskConfig(std::move(other)),
         state_rate(other.state_rate),
         channels(std::move(other.channels)),
-        config_only_channels(std::move(other.config_only_channels)),
         state_index_keys(std::move(other.state_index_keys)),
         buf_indexes(std::move(other.buf_indexes)) {}
 
@@ -74,19 +69,10 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         state_rate(telem::Rate(cfg.required<float>("state_rate"))) {
         cfg.iter("channels", [&](xjson::Parser &ch_cfg) {
             auto ch = channel::parse_output(ch_cfg);
-            if (ch != nullptr && ch->enabled) {
-                // Separate channels that support runtime control from config-only
-                // channels
-                if (ch->supports_runtime_control() && ch->cmd_ch_key != 0) {
-                    this->channels[ch->cmd_ch_key] = std::move(ch);
-                } else {
-                    // Config-only channels (e.g., CO Pulse Output) don't participate
-                    // in command/state pipeline but still need to be applied to task
-                    this->config_only_channels.push_back(std::move(ch));
-                }
-            }
+            if (ch != nullptr && ch->enabled && ch->cmd_ch_key != 0)
+                this->channels[ch->cmd_ch_key] = std::move(ch);
         });
-        if (channels.empty() && config_only_channels.empty()) {
+        if (channels.empty()) {
             cfg.field_err("channels", "task must have at least one enabled channel");
             return;
         }
@@ -96,35 +82,27 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             return;
         }
 
-        // Only fetch state channels if we have runtime-controlled channels
-        if (!channels.empty()) {
-            std::vector<synnax::ChannelKey> state_keys;
-            state_keys.reserve(this->channels.size());
-            std::unordered_map<synnax::ChannelKey, synnax::ChannelKey> state_to_cmd;
-            size_t index = 0;
-            for (const auto &[_, ch]: this->channels) {
-                state_keys.push_back(ch->state_ch_key);
-                state_to_cmd[ch->state_ch_key] = ch->cmd_ch_key;
-                buf_indexes[ch->cmd_ch_key] = index++;
-            }
-            auto [state_channels, ch_err] = client->channels.retrieve(state_keys);
-            if (ch_err) {
-                cfg.field_err(
-                    "channels",
-                    "failed to retrieve state channels: " + ch_err.message()
-                );
-                return;
-            }
-            for (const auto &state_ch: state_channels) {
-                auto &ch = this->channels[state_to_cmd[state_ch.key]];
-                ch->bind_remote_info(state_ch, dev.location);
-                if (state_ch.index != 0) this->state_index_keys.insert(state_ch.index);
-            }
+        std::vector<synnax::ChannelKey> state_keys;
+        state_keys.reserve(this->channels.size());
+        std::unordered_map<synnax::ChannelKey, synnax::ChannelKey> state_to_cmd;
+        size_t index = 0;
+        for (const auto &[_, ch]: this->channels) {
+            state_keys.push_back(ch->state_ch_key);
+            state_to_cmd[ch->state_ch_key] = ch->cmd_ch_key;
+            buf_indexes[ch->cmd_ch_key] = index++;
         }
-
-        // Bind device location to config-only channels (they don't have state channels)
-        for (auto &ch: config_only_channels) {
-            ch->dev_loc = dev.location;
+        auto [state_channels, ch_err] = client->channels.retrieve(state_keys);
+        if (ch_err) {
+            cfg.field_err(
+                "channels",
+                "failed to retrieve state channels: " + ch_err.message()
+            );
+            return;
+        }
+        for (const auto &state_ch: state_channels) {
+            auto &ch = this->channels[state_to_cmd[state_ch.key]];
+            ch->bind_remote_info(state_ch, dev.location);
+            if (state_ch.index != 0) this->state_index_keys.insert(state_ch.index);
         }
     }
 
@@ -169,11 +147,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief applies the configuration to the given DAQmx task.
     xerrors::Error
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle task_handle) {
-        // Apply runtime-controlled channels
         for (const auto &[_, ch]: channels)
-            if (const auto err = ch->apply(dmx, task_handle)) return err;
-        // Apply config-only channels (e.g., CO Pulse Output)
-        for (const auto &ch: config_only_channels)
             if (const auto err = ch->apply(dmx, task_handle)) return err;
         return xerrors::NIL;
     }

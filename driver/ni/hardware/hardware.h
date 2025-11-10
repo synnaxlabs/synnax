@@ -148,18 +148,6 @@ struct CounterReader final : Base, Reader<double> {
 
     int64 update_skew(const size_t &n_requested);
 };
-
-/// @brief Implementation of counter output writing using DAQmx
-struct CounterWriter final : Base, Writer<double> {
-    /// @brief Constructs a new counter writer
-    /// @param dmx The DAQmx API interface
-    /// @param task_handle Handle to the DAQmx task
-    CounterWriter(
-        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
-        TaskHandle task_handle
-    );
-    xerrors::Error write(const std::vector<double> &data) override;
-};
 }
 
 namespace mock {

@@ -200,20 +200,4 @@ int64 CounterReader::update_skew(const size_t &n_requested) {
     return static_cast<int64>(this->total_samples_acquired) -
            static_cast<int64>(this->total_samples_requested);
 }
-
-CounterWriter::CounterWriter(
-    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
-    TaskHandle task_handle
-):
-    Base(task_handle, dmx) {}
-
-xerrors::Error CounterWriter::write(const std::vector<double> &data) {
-    // For pulse output channels, the write operation doesn't send new data
-    // like analog/digital writes. Instead, the pulse parameters are configured
-    // during channel setup, and the task simply runs continuously.
-    // This write function is a no-op to maintain compatibility with the
-    // write task infrastructure, but the actual pulse generation is controlled
-    // via start/stop calls.
-    return xerrors::NIL;
-}
 }

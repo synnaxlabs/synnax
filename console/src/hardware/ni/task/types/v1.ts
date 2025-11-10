@@ -374,7 +374,7 @@ export const ZERO_CI_CHANNEL: CIChannel = ZERO_CI_CHANNELS[v0.CI_FREQUENCY_CHAN_
 
 export type AnalogChannel = AIChannel | v0.AOChannel;
 
-export type Channel = AnalogChannel | v0.DigitalChannel | CIChannel | v0.COChannel;
+export type Channel = AnalogChannel | v0.DigitalChannel | CIChannel;
 
 const baseAnalogReadConfigZ = v0.baseAnalogReadConfigZ
   .omit({ channels: true, device: true })

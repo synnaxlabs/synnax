@@ -11,14 +11,12 @@ import { Common } from "@/hardware/common";
 import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";
 import { ANALOG_WRITE_LAYOUT } from "@/hardware/ni/task/AnalogWrite";
 import { COUNTER_READ_LAYOUT } from "@/hardware/ni/task/CounterRead";
-import { COUNTER_WRITE_LAYOUT } from "@/hardware/ni/task/CounterWrite";
 import { DIGITAL_READ_LAYOUT } from "@/hardware/ni/task/DigitalRead";
 import { DIGITAL_WRITE_LAYOUT } from "@/hardware/ni/task/DigitalWrite";
 import {
   analogReadConfigZ,
   analogWriteConfigZ,
   counterReadConfigZ,
-  counterWriteConfigZ,
   digitalReadConfigZ,
   digitalWriteConfigZ,
 } from "@/hardware/ni/task/types";
@@ -52,16 +50,6 @@ export const ingestCounterRead = Common.Task.createIngestor(
 export const importCounterRead = Import.createImporter(
   ingestCounterRead,
   "NI Counter Read Task",
-);
-
-export const ingestCounterWrite = Common.Task.createIngestor(
-  counterWriteConfigZ,
-  COUNTER_WRITE_LAYOUT,
-);
-
-export const importCounterWrite = Import.createImporter(
-  ingestCounterWrite,
-  "NI Counter Write Task",
 );
 
 export const ingestDigitalRead = Common.Task.createIngestor(

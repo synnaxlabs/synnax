@@ -96,12 +96,6 @@ static int32_t get_ci_meas_method(const std::string &s) {
     return DAQmx_Val_LowFreq1Ctr;
 }
 
-static int32_t get_idle_state(const std::string &s) {
-    if (s == "High") return DAQmx_Val_High;
-    if (s == "Low") return DAQmx_Val_Low;
-    return DAQmx_Val_Low;
-}
-
 static int32_t get_ci_count_direction(const std::string &s) {
     if (s == "CountUp") return DAQmx_Val_CountUp;
     if (s == "CountDown") return DAQmx_Val_CountDown;
@@ -318,15 +312,12 @@ struct Input : virtual Base {
     }
 };
 
-/// @brief base class for an output channel (AO, DO, CO)
+/// @brief base class for an output channel (AO, DO)
 struct Output : virtual Base {
     /// @brief the key of the command channel that we'll receive commands from.
-    /// For channels that don't support runtime control (e.g., CO Pulse Output),
-    /// this will be 0.
     const synnax::ChannelKey cmd_ch_key;
     /// @brief the key of the state channel that we'll write the state of the
-    /// command channel to. For channels that don't support runtime control
-    /// (e.g., CO Pulse Output), this will be 0.
+    /// command channel to.
     const synnax::ChannelKey state_ch_key;
     /// @brief the properties of the command channel that we'll receive commands
     /// from. This field is bound by the caller after fetching all the synnax
@@ -335,17 +326,14 @@ struct Output : virtual Base {
 
     explicit Output(xjson::Parser &cfg):
         Base(cfg),
-        cmd_ch_key(cfg.optional<synnax::ChannelKey>("cmd_channel", 0)),
-        state_ch_key(cfg.optional<synnax::ChannelKey>("state_channel", 0)) {}
+        cmd_ch_key(cfg.required<synnax::ChannelKey>("cmd_channel")),
+        state_ch_key(cfg.required<synnax::ChannelKey>("state_channel")) {}
 
     /// @brief binds remotely fetched information to the channel.
     void bind_remote_info(const synnax::Channel &state_ch, const std::string &dev_loc) {
         this->state_ch = state_ch;
         this->dev_loc = dev_loc;
     }
-
-    /// @brief returns true if this channel supports runtime command/state control.
-    [[nodiscard]] virtual bool supports_runtime_control() const { return true; }
 };
 
 /// @brief base class for a digital channel (DI, DO)
@@ -517,11 +505,6 @@ struct CI : virtual Counter, Input {
 struct CICustomScale : CI, CounterCustomScale {
     explicit CICustomScale(xjson::Parser &cfg):
         Counter(cfg), CI(cfg), CounterCustomScale(cfg) {}
-};
-
-/// @brief base class for counter output channels.
-struct CO : virtual Counter, Output {
-    explicit CO(xjson::Parser &cfg): Counter(cfg), Output(cfg) {}
 };
 
 struct AIVoltage : AICustomScale {
@@ -1874,49 +1857,6 @@ struct CIDutyCycle final : CICustomScale {
         return err;
     }
 };
-
-/// @brief Counter output pulse generation channel.
-/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateco
-/// pulsechantime.html
-/// Note: This channel type does not support runtime command/state control. Pulse
-/// parameters are configured once when the task is created and cannot be changed
-/// without stopping and reconfiguring the task.
-struct COPulseOutput final : CO {
-    const int32_t idle_state;
-    const double initial_delay;
-    const double high_time;
-    const double low_time;
-
-    explicit COPulseOutput(xjson::Parser &cfg):
-        Base(cfg),
-        Counter(cfg),
-        CO(cfg),
-        idle_state(get_idle_state(cfg.required<std::string>("idle_state"))),
-        initial_delay(cfg.optional<double>("initial_delay", 0.0)),
-        high_time(cfg.optional<double>("high_time", 0.01)),
-        low_time(cfg.optional<double>("low_time", 0.01)) {}
-
-    /// @brief COPulseOutput does not support runtime control - pulse parameters
-    /// are fixed at task creation time.
-    [[nodiscard]] bool supports_runtime_control() const override { return false; }
-
-    xerrors::Error apply(
-        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-        TaskHandle task_handle
-    ) const override {
-        return dmx->CreateCOPulseChanTime(
-            task_handle,
-            this->loc().c_str(),
-            this->cfg_path.c_str(),
-            this->units,
-            this->idle_state,
-            this->initial_delay,
-            this->low_time,
-            this->high_time
-        );
-    }
-};
-
 struct AIPressureBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
@@ -2481,7 +2421,6 @@ static const std::map<std::string, Factory<Output>> OUTPUTS = {
     INPUT_CHAN_FACTORY("ao_current", AOCurrent),
     INPUT_CHAN_FACTORY("ao_voltage", AOVoltage),
     INPUT_CHAN_FACTORY("ao_func_gen", AOFunctionGenerator),
-    INPUT_CHAN_FACTORY("co_pulse_output", COPulseOutput),
     INPUT_CHAN_FACTORY("digital_output", DO)
 };
 
