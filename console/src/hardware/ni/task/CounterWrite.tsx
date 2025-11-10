@@ -61,13 +61,13 @@ const CounterWriteChannelName = ({
   configured: boolean;
   className?: string;
 }) => {
-  if (configured) 
+  if (configured)
     return (
       <Text.Text level="small" className={className} color={7}>
         Configured
       </Text.Text>
     );
-  
+
   return (
     <Text.Text level="small" className={className} status="warning">
       No Channel
