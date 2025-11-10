@@ -370,9 +370,26 @@ jobs:
         if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
         working-directory: core
         run: |
+          # Create entitlements allowing wazero JIT on macOS Hardened Runtime
+          cat > server-entitlements.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>com.apple.security.cs.allow-jit</key><true/>
+            <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+          </dict>
+          </plist>
+          EOF
+
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
-          codesign --force --options runtime --timestamp --sign "$CERT_ID" ./synnax-v${{ needs.setup.outputs.VERSION }}-macos
+
+          # Use Hardened Runtime + JIT entitlements for wazero compiler mode
+          codesign --force --options runtime --timestamp \
+            --entitlements server-entitlements.plist \
+            --sign "$CERT_ID" ./synnax-v${{ needs.setup.outputs.VERSION }}-macos
+
           codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}-macos
 
       - name: Sign Windows Server Binary
@@ -419,10 +436,6 @@ jobs:
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
-      - name: Set up QEMU
-        if: matrix.os == 'ubuntu-latest'
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         if: matrix.os == 'ubuntu-latest'
         uses: docker/setup-buildx-action@v3
@@ -448,9 +461,7 @@ jobs:
         with:
           context: .
           file: ./core/Dockerfile
-          platforms:
-            ${{ github.event_name == 'pull_request' && 'linux/amd64' ||
-            'linux/amd64,linux/arm64' }}
+          platforms: linux/amd64
           push: true
           tags: |
             ${{ github.event_name == 'pull_request' && format('ghcr.io/synnaxlabs/synnax:{0}', github.sha) || '' }}
