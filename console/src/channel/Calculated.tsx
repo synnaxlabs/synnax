@@ -113,7 +113,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
                 <Input.Numeric
                   value={new TimeSpan(value).seconds}
                   onChange={(v) => onChange(TimeSpan.seconds(v))}
-                  endContent="S"
+                  endContent="s"
                 />
               )}
             </Form.Field>
