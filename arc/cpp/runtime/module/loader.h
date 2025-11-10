@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
@@ -27,14 +28,16 @@
 namespace arc { namespace module {
 
 /// @brief Compiled Arc module (IR + WASM bytecode).
-struct Module {
-    ir::IR ir; ///< Intermediate representation
-    std::vector<uint8_t> wasm; ///< WASM bytecode
-    std::map<std::string, uint32_t> output_memory_bases; ///< Multi-output memory layout
+struct Module : IR {
+    std::vector<uint8_t> wasm;
+    std::map<std::string, uint32_t> output_memory_bases;
+
+    Module(xjson::Parser p): IR(p) {
+        this->wasm = p.required_vec<uint8_t>("wasm");
+        // TODO: implemenet
+    }
 
     Module() = default;
-    Module(ir::IR ir_, std::vector<uint8_t> wasm_):
-        ir(std::move(ir_)), wasm(std::move(wasm_)) {}
 };
 
 /// @brief Assembled Arc runtime ready for execution.
@@ -109,13 +112,13 @@ public:
     /// @brief Extract all channel keys referenced in IR nodes.
     /// @param ir IR structure.
     /// @return Set of unique channel keys.
-    std::vector<ChannelKey> extract_channel_keys(const ir::IR &ir);
+    std::vector<ChannelKey> extract_channel_keys(const IR &ir);
 
     /// @brief Get channel data type from IR node.
     /// @param node IR node.
     /// @param channel_key Channel key to find.
     /// @return Data type or Invalid if not found.
-    ir::TypeKind get_channel_type(const ir::Node &node, ChannelKey channel_key);
+    TypeKind get_channel_type(const Node &node, ChannelKey channel_key);
 };
 
 } // namespace module

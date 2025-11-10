@@ -7,10 +7,11 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "arc/cpp/runtime/factory/factory.h"
-
 #include "gtest/gtest.h"
+
 #include "x/cpp/xtest/xtest.h"
+
+#include "arc/cpp/runtime/factory/factory.h"
 
 namespace arc {
 
@@ -19,7 +20,7 @@ class MockNode : public Node {
     std::string id_;
 
 public:
-    explicit MockNode(std::string id) : id_(std::move(id)) {}
+    explicit MockNode(std::string id): id_(std::move(id)) {}
 
     xerrors::Error execute(NodeContext &ctx) override { return xerrors::NIL; }
 
@@ -29,8 +30,8 @@ public:
 /// @brief Mock factory that handles a specific node type.
 class MockFactoryA : public NodeFactory {
 public:
-    std::pair<std::unique_ptr<Node>, xerrors::Error>
-    create(const NodeFactoryConfig &cfg) override {
+    std::pair<std::unique_ptr<Node>, xerrors::Error> create(const NodeFactoryConfig &cfg
+    ) override {
         if (cfg.ir_node.type != "type_a") {
             return {nullptr, xerrors::Error("NOT_FOUND")};
         }
@@ -41,8 +42,8 @@ public:
 /// @brief Mock factory that handles a different node type.
 class MockFactoryB : public NodeFactory {
 public:
-    std::pair<std::unique_ptr<Node>, xerrors::Error>
-    create(const NodeFactoryConfig &cfg) override {
+    std::pair<std::unique_ptr<Node>, xerrors::Error> create(const NodeFactoryConfig &cfg
+    ) override {
         if (cfg.ir_node.type != "type_b") {
             return {nullptr, xerrors::Error("NOT_FOUND")};
         }
@@ -53,8 +54,8 @@ public:
 /// @brief Mock factory that always returns an error (not NOT_FOUND).
 class MockFactoryError : public NodeFactory {
 public:
-    std::pair<std::unique_ptr<Node>, xerrors::Error>
-    create(const NodeFactoryConfig &cfg) override {
+    std::pair<std::unique_ptr<Node>, xerrors::Error> create(const NodeFactoryConfig &cfg
+    ) override {
         if (cfg.ir_node.type != "type_error") {
             return {nullptr, xerrors::Error("NOT_FOUND")};
         }
@@ -67,7 +68,7 @@ protected:
     std::unique_ptr<queue::SPSC<ChannelUpdate>> input_queue_;
     std::unique_ptr<queue::SPSC<ChannelOutput>> output_queue_;
     std::unique_ptr<State> state_;
-    ir::IR ir_;
+    IR ir_;
 
     void SetUp() override {
         input_queue_ = std::make_unique<queue::SPSC<ChannelUpdate>>(16);
@@ -75,7 +76,7 @@ protected:
         state_ = std::make_unique<State>(input_queue_.get(), output_queue_.get());
 
         // Setup minimal IR
-        ir_.nodes.push_back(ir::Node{"node_a"});
+        ir_.nodes.push_back(Node{"node_a"});
         ir_.nodes[0].type = "type_a";
     }
 };
@@ -125,7 +126,7 @@ TEST_F(FactoryTest, MultiFactoryNoMatchReturnsNotFound) {
 TEST_F(FactoryTest, MultiFactoryStopsOnRealError) {
     MultiFactory factory;
     factory.add(std::make_unique<MockFactoryError>());
-    factory.add(std::make_unique<MockFactoryA>());  // Should not be reached
+    factory.add(std::make_unique<MockFactoryA>()); // Should not be reached
 
     // Create node with type_error
     ir_.nodes[0].type = "type_error";
@@ -162,4 +163,4 @@ TEST_F(FactoryTest, MultiFactoryOrderMatters) {
     // Verifies that the first factory created the node (no double-creation)
 }
 
-}  // namespace arc
+} // namespace arc

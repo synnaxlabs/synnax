@@ -24,7 +24,7 @@ protected:
     std::unique_ptr<queue::SPSC<ChannelOutput>> output_queue_;
     std::unique_ptr<State> state_;
     std::unique_ptr<Runtime> runtime_;
-    ir::IR ir_;
+    IR ir_;
 
     void SetUp() override {
         // Initialize queues and state
@@ -39,20 +39,20 @@ protected:
         runtime_ = std::make_unique<Runtime>();
 
         // Setup IR with a WASM function
-        ir::Function fn{"calculate"};
+        Function fn{"calculate"};
         fn.inputs.keys = {"x"};
-        fn.inputs.values["x"] = ir::Type{ir::TypeKind::F64};
+        fn.inputs.values["x"] = Type{TypeKind::F64};
         fn.outputs.keys = {"result"};
-        fn.outputs.values["result"] = ir::Type{ir::TypeKind::F64};
+        fn.outputs.values["result"] = Type{TypeKind::F64};
         ir_.functions.push_back(fn);
 
         // Add a node that uses the WASM function
-        ir::Node node{"node1"};
+        Node node{"node1"};
         node.type = "calculate";
         node.inputs.keys = {"x"};
-        node.inputs.values["x"] = ir::Type{ir::TypeKind::F64};
+        node.inputs.values["x"] = Type{TypeKind::F64};
         node.outputs.keys = {"result"};
-        node.outputs.values["result"] = ir::Type{ir::TypeKind::F64};
+        node.outputs.values["result"] = Type{TypeKind::F64};
         ir_.nodes.push_back(node);
 
         // Register node metadata in state
@@ -75,7 +75,7 @@ TEST_F(WASMNodeFactoryTest, ReturnsNotFoundForNonWASMFunction) {
     wasm::Factory factory(*runtime_);
 
     // Create node with type that doesn't exist in IR functions
-    ir::Node unknown_node{"node2"};
+    Node unknown_node{"node2"};
     unknown_node.type = "unknown_function";
 
     NodeFactoryConfig cfg{unknown_node, *state_, ir_};
@@ -119,20 +119,20 @@ TEST_F(WASMNodeFactoryTest, HandlesNodeWithEdges) {
     wasm::Factory factory(*runtime_);
 
     // Add another node as a source
-    ir::Node source_node{"source"};
+    Node source_node{"source"};
     source_node.type = "source_func";
     source_node.outputs.keys = {"out"};
-    source_node.outputs.values["out"] = ir::Type{ir::TypeKind::F64};
+    source_node.outputs.values["out"] = Type{TypeKind::F64};
     ir_.nodes.insert(ir_.nodes.begin(), source_node);
 
     // Add source function to IR
-    ir::Function source_func{"source_func"};
+    Function source_func{"source_func"};
     source_func.outputs.keys = {"out"};
-    source_func.outputs.values["out"] = ir::Type{ir::TypeKind::F64};
+    source_func.outputs.values["out"] = Type{TypeKind::F64};
     ir_.functions.push_back(source_func);
 
     // Add edge from source to node1
-    ir::Edge ir_edge{ir::Handle{"source", "out"}, ir::Handle{"node1", "x"}};
+    Edge ir_edge{Handle{"source", "out"}, Handle{"node1", "x"}};
     ir_.edges.push_back(ir_edge);
 
     // Convert to runtime Edge for state

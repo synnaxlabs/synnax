@@ -164,7 +164,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 		}
 		g.Functions[0].Inputs = append(
 			g.Functions[0].Inputs,
-			types.Param{Name: sym.Name, Type: *sym.Type.ValueType},
+			types.Param{Name: sym.Name, Type: *sym.Type.Elem},
 		)
 		g.Nodes = append(g.Nodes, graph.Node{
 			Key:    sym.Name,

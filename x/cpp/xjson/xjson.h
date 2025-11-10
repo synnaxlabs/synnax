@@ -12,6 +12,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <type_traits>
 
 #include "nlohmann/json.hpp"
 
@@ -41,7 +42,9 @@ class Parser {
     template<typename T>
     T get(const std::string &path, const nlohmann::basic_json<>::iterator &iter) {
         try {
-            if constexpr (std::is_arithmetic_v<T>) {
+            if constexpr (std::is_constructible_v<T, xjson::Parser &>()) {
+                return T(this->child("path"));
+            } else if constexpr (std::is_arithmetic_v<T>) {
                 if (iter->is_string()) {
                     T value;
                     std::istringstream iss(iter->get<std::string>());
@@ -119,6 +122,7 @@ public:
             field_err(path, "This field is required");
             return T();
         }
+
         return get<T>(path, iter);
     }
 

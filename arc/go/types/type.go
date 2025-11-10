@@ -99,9 +99,9 @@ const (
 	// KindTimeSpan represents a duration or time difference.
 	KindTimeSpan
 
-	// KindChan is a channel type (requires ValueType).
+	// KindChan is a channel type (requires Elem).
 	KindChan
-	// KindSeries is a series/array type (requires ValueType).
+	// KindSeries is a series/array type (requires Elem).
 	KindSeries
 
 	// KindVariable is a generic type variable (requires Name, optional Constraint).
@@ -188,12 +188,12 @@ func (f FunctionProperties) Copy() FunctionProperties {
 type Type struct {
 	// Kind is the discriminator that determines which type this represents.
 	Kind TypeKind `json:"kind" msgpack:"kind"`
-	// ValueType is the element type for compound types (chan, series).
-	ValueType *Type `json:"value_type,omitempty" msgpack:"value_type,omitempty"`
+	// Elem is the element type for compound types (chan, series).
+	Elem *Type `json:"elem" msgpack:"elem"`
 	// Name is the identifier for type variables.
-	Name string `json:"name,omitempty" msgpack:"name,omitempty"`
+	Name string `json:"name" msgpack:"name"`
 	// Constraint is the optional constraint for type variables.
-	Constraint *Type `json:"constraint,omitempty" msgpack:"constraint,omitempty"`
+	Constraint *Type `json:"constraint" msgpack:"constraint"`
 	// FunctionProperties contains inputs, outputs, and config for function types.
 	FunctionProperties
 }
@@ -228,13 +228,13 @@ func (t Type) String() string {
 	case KindTimeSpan:
 		return "timespan"
 	case KindChan:
-		if t.ValueType != nil {
-			return "chan " + t.ValueType.String()
+		if t.Elem != nil {
+			return "chan " + t.Elem.String()
 		}
 		return "chan <invalid>"
 	case KindSeries:
-		if t.ValueType != nil {
-			return "series " + t.ValueType.String()
+		if t.Elem != nil {
+			return "series " + t.Elem.String()
 		}
 		return "series <invalid>"
 	case KindVariable:
@@ -296,11 +296,11 @@ func TimeSpan() Type { return Type{Kind: KindTimeSpan} }
 
 // Chan returns a channel type wrapping the given value type.
 func Chan(valueType Type) Type {
-	return Type{Kind: KindChan, ValueType: &valueType}
+	return Type{Kind: KindChan, Elem: &valueType}
 }
 
 // Series returns a series/array type wrapping the given value type.
-func Series(valueType Type) Type { return Type{Kind: KindSeries, ValueType: &valueType} }
+func Series(valueType Type) Type { return Type{Kind: KindSeries, Elem: &valueType} }
 
 // Variable returns a generic type parameter with optional constraint.
 func Variable(name string, constraint *Type) Type {
@@ -325,8 +325,8 @@ func Function(props FunctionProperties) Type {
 // For channel types, it checks the value type. For type variables, it checks
 // if the constraint is a numeric constraint or if the constraint itself is numeric.
 func (t Type) IsNumeric() bool {
-	if t.Kind == KindChan && t.ValueType != nil {
-		return t.ValueType.IsNumeric()
+	if t.Kind == KindChan && t.Elem != nil {
+		return t.Elem.IsNumeric()
 	}
 	if t.Kind == KindVariable {
 		if t.Constraint == nil {
@@ -399,8 +399,8 @@ func (t Type) IsBool() bool {
 // Unwrap returns the value type of chan/series types, or the type itself otherwise.
 // This eliminates the need for repeated unwrapping logic throughout the codebase.
 func (t Type) Unwrap() Type {
-	if (t.Kind == KindChan || t.Kind == KindSeries) && t.ValueType != nil {
-		return *t.ValueType
+	if (t.Kind == KindChan || t.Kind == KindSeries) && t.Elem != nil {
+		return *t.Elem
 	}
 	return t
 }
@@ -419,13 +419,13 @@ func Equal(t Type, v Type) bool {
 
 	// For compound types, recursively check value types
 	if t.Kind == KindChan || t.Kind == KindSeries {
-		if t.ValueType == nil && v.ValueType == nil {
+		if t.Elem == nil && v.Elem == nil {
 			return true
 		}
-		if t.ValueType == nil || v.ValueType == nil {
+		if t.Elem == nil || v.Elem == nil {
 			return false
 		}
-		return Equal(*t.ValueType, *v.ValueType)
+		return Equal(*t.Elem, *v.Elem)
 	}
 
 	// For type variables, check name and constraint

@@ -23,8 +23,8 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/spatial"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -474,8 +474,8 @@ func translateParamsBackward(pb *gapi.Params) (arctypes.Params, error) {
 
 func translateTypeForward(t arctypes.Type) (*gapi.Type, error) {
 	typePb := &gapi.Type{Kind: translateTypeKindForward(t.Kind)}
-	if t.ValueType != nil {
-		elemPb, err := translateTypeForward(*t.ValueType)
+	if t.Elem != nil {
+		elemPb, err := translateTypeForward(*t.Elem)
 		if err != nil {
 			return nil, err
 		}
@@ -494,7 +494,7 @@ func translateTypeBackward(pb *gapi.Type) (arctypes.Type, error) {
 		if err != nil {
 			return arctypes.Type{}, err
 		}
-		typ.ValueType = &elem
+		typ.Elem = &elem
 	}
 	return typ, nil
 }

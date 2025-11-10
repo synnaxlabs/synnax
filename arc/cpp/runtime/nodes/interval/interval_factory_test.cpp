@@ -7,11 +7,12 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "arc/cpp/runtime/nodes/interval/factory.h"
-
 #include "gtest/gtest.h"
-#include "x/cpp/xtest/xtest.h"
 #include <nlohmann/json.hpp>
+
+#include "x/cpp/xtest/xtest.h"
+
+#include "arc/cpp/runtime/nodes/interval/factory.h"
 
 namespace arc {
 
@@ -20,7 +21,7 @@ protected:
     std::unique_ptr<queue::SPSC<ChannelUpdate>> input_queue_;
     std::unique_ptr<queue::SPSC<ChannelOutput>> output_queue_;
     std::unique_ptr<State> state_;
-    ir::IR ir_;
+    IR ir_;
 
     void SetUp() override {
         input_queue_ = std::make_unique<queue::SPSC<ChannelUpdate>>(16);
@@ -35,7 +36,7 @@ protected:
 TEST_F(IntervalNodeFactoryTest, ReturnsNotFoundForNonIntervalType) {
     interval::Factory factory;
 
-    ir::Node node{"node1"};
+    Node node{"node1"};
     node.type = "not_interval";
 
     NodeFactoryConfig cfg{node, *state_, ir_};
@@ -48,7 +49,7 @@ TEST_F(IntervalNodeFactoryTest, ReturnsNotFoundForNonIntervalType) {
 TEST_F(IntervalNodeFactoryTest, ReturnsErrorWhenPeriodMissing) {
     interval::Factory factory;
 
-    ir::Node node{"interval1"};
+    Node node{"interval1"};
     node.type = "interval";
     // Missing period in config_values
     node.channels.write["output"] = 1;
@@ -63,9 +64,9 @@ TEST_F(IntervalNodeFactoryTest, ReturnsErrorWhenPeriodMissing) {
 TEST_F(IntervalNodeFactoryTest, ReturnsErrorWhenOutputChannelMissing) {
     interval::Factory factory;
 
-    ir::Node node{"interval1"};
+    Node node{"interval1"};
     node.type = "interval";
-    node.config_values["period"] = 1000000000ULL;  // 1 second in nanoseconds
+    node.config_values["period"] = 1000000000ULL; // 1 second in nanoseconds
     // Missing output channel
 
     NodeFactoryConfig cfg{node, *state_, ir_};
@@ -78,9 +79,9 @@ TEST_F(IntervalNodeFactoryTest, ReturnsErrorWhenOutputChannelMissing) {
 TEST_F(IntervalNodeFactoryTest, ReturnsErrorWhenPeriodInvalidType) {
     interval::Factory factory;
 
-    ir::Node node{"interval1"};
+    Node node{"interval1"};
     node.type = "interval";
-    node.config_values["period"] = "not_a_number";  // Invalid type
+    node.config_values["period"] = "not_a_number"; // Invalid type
     node.channels.write["output"] = 1;
 
     NodeFactoryConfig cfg{node, *state_, ir_};
@@ -93,9 +94,9 @@ TEST_F(IntervalNodeFactoryTest, ReturnsErrorWhenPeriodInvalidType) {
 TEST_F(IntervalNodeFactoryTest, CreatesIntervalNodeSuccessfully) {
     interval::Factory factory;
 
-    ir::Node node{"interval1"};
+    Node node{"interval1"};
     node.type = "interval";
-    node.config_values["period"] = 100000000ULL;  // 100ms in nanoseconds
+    node.config_values["period"] = 100000000ULL; // 100ms in nanoseconds
     node.channels.write["output"] = 1;
 
     NodeFactoryConfig cfg{node, *state_, ir_};
@@ -106,7 +107,7 @@ TEST_F(IntervalNodeFactoryTest, CreatesIntervalNodeSuccessfully) {
     EXPECT_EQ(created_node->id(), "interval1");
 
     // Verify it's actually an IntervalNode
-    auto* interval_node = dynamic_cast<interval::Node*>(created_node.get());
+    auto *interval_node = dynamic_cast<interval::Node *>(created_node.get());
     ASSERT_NE(interval_node, nullptr);
 }
 
@@ -114,7 +115,7 @@ TEST_F(IntervalNodeFactoryTest, CreatesIntervalNodeWithDifferentPeriods) {
     interval::Factory factory;
 
     // Test with 1Hz (1 second)
-    ir::Node node1{"interval1"};
+    Node node1{"interval1"};
     node1.type = "interval";
     node1.config_values["period"] = 1000000000ULL;
     node1.channels.write["output"] = 1;
@@ -125,7 +126,7 @@ TEST_F(IntervalNodeFactoryTest, CreatesIntervalNodeWithDifferentPeriods) {
     ASSERT_NE(created_node1, nullptr);
 
     // Test with 10Hz (100ms)
-    ir::Node node2{"interval2"};
+    Node node2{"interval2"};
     node2.type = "interval";
     node2.config_values["period"] = 100000000ULL;
     node2.channels.write["output"] = 1;
@@ -136,7 +137,7 @@ TEST_F(IntervalNodeFactoryTest, CreatesIntervalNodeWithDifferentPeriods) {
     ASSERT_NE(created_node2, nullptr);
 
     // Test with 1kHz (1ms)
-    ir::Node node3{"interval3"};
+    Node node3{"interval3"};
     node3.type = "interval";
     node3.config_values["period"] = 1000000ULL;
     node3.channels.write["output"] = 1;
@@ -150,7 +151,7 @@ TEST_F(IntervalNodeFactoryTest, CreatesIntervalNodeWithDifferentPeriods) {
 TEST_F(IntervalNodeFactoryTest, DoesNotRequireWASMRuntime) {
     interval::Factory factory;
 
-    ir::Node node{"interval1"};
+    Node node{"interval1"};
     node.type = "interval";
     node.config_values["period"] = 100000000ULL;
     node.channels.write["output"] = 1;
@@ -163,4 +164,4 @@ TEST_F(IntervalNodeFactoryTest, DoesNotRequireWASMRuntime) {
     ASSERT_NE(created_node, nullptr);
 }
 
-}  // namespace arc
+} // namespace arc

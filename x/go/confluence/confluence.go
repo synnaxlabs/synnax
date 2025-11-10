@@ -46,11 +46,11 @@
 //
 //  2. Source - A Source is the part of the Segment that can send values to output
 //     streams (Inlet(sink)). Inlets(sink) are bound to the Sink (and therefore Segment)
-//     by calling the ApplySink.OutTo(inlets ...Inlet[ValueType]) method.
+//     by calling the ApplySink.OutTo(inlets ...Inlet[Elem]) method.
 //
 //  3. Sink - A Sink is the part of the Segment that can receive values.
 //     Input streams (Outlet(sink)). Outlet(sink) are bound to the Sink (and therefore Segment)
-//     by calling the Sink.InFrom(outlets ...Outlet[ValueType]) method.
+//     by calling the Sink.InFrom(outlets ...Outlet[Elem]) method.
 //
 // All of this flexibility comes at the cost of needing to follow a few important rules
 // and principles when writing programs based on confluence:

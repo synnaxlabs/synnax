@@ -7,12 +7,12 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "arc/cpp/runtime/module/loader.h"
-
+#include "gtest/gtest.h"
 #include <nlohmann/json.hpp>
 
-#include "gtest/gtest.h"
 #include "x/cpp/xtest/xtest.h"
+
+#include "arc/cpp/runtime/module/loader.h"
 
 using json = nlohmann::json;
 
@@ -28,14 +28,14 @@ protected:
 
 TEST_F(LoaderTest, ExtractChannelKeys) {
     arc::module::Loader loader;
-    arc::ir::IR ir;
+    arc::IR ir;
 
-    arc::ir::Node node1("node1");
+    arc::Node node1("node1");
     node1.channels.read[1] = "input_a";
     node1.channels.read[2] = "input_b";
     node1.channels.write["output"] = 3;
 
-    arc::ir::Node node2("node2");
+    arc::Node node2("node2");
     node2.channels.read[3] = "input_c";
 
     ir.nodes = {node1, node2};
@@ -53,21 +53,21 @@ TEST_F(LoaderTest, ExtractChannelKeys) {
 TEST_F(LoaderTest, GetChannelType) {
     arc::module::Loader loader;
 
-    arc::ir::Node node("test");
+    arc::Node node("test");
     node.channels.read[1] = "input_a";
     node.inputs.keys = {"input_a"};
-    node.inputs.values["input_a"] = arc::ir::Type(arc::ir::TypeKind::F64);
+    node.inputs.values["input_a"] = arc::Type(arc::TypeKind::F64);
 
     auto type_kind = loader.get_channel_type(node, 1);
-    EXPECT_EQ(type_kind, arc::ir::TypeKind::F64);
+    EXPECT_EQ(type_kind, arc::TypeKind::F64);
 }
 
 TEST_F(LoaderTest, LoadEmptyModule) {
     arc::module::Loader loader;
 
     // Create minimal IR
-    arc::ir::IR ir;
-    ir.strata = {};  // No nodes
+    arc::IR ir;
+    ir.strata = {}; // No nodes
 
     arc::module::Module mod(std::move(ir), {});
 
@@ -83,12 +83,12 @@ TEST_F(LoaderTest, LoadModuleWithChannels) {
     arc::module::Loader loader;
 
     // Create IR with channel references
-    arc::ir::IR ir;
+    arc::IR ir;
 
-    arc::ir::Node node1("input");
+    arc::Node node1("input");
     node1.channels.write["value"] = 1;
     node1.outputs.keys = {"value"};
-    node1.outputs.values["value"] = arc::ir::Type(arc::ir::TypeKind::I32);
+    node1.outputs.values["value"] = arc::Type(arc::TypeKind::I32);
 
     ir.nodes = {node1};
     ir.strata = {{"input"}};
@@ -113,8 +113,7 @@ TEST_F(LoaderTest, AssembledRuntimeNext) {
     auto output_queue = std::make_unique<queue::SPSC<arc::ChannelOutput>>(16);
 
     // Create state with queues
-    runtime.state =
-        std::make_unique<arc::State>(input_queue.get(), output_queue.get());
+    runtime.state = std::make_unique<arc::State>(input_queue.get(), output_queue.get());
     runtime.scheduler = std::make_unique<arc::Scheduler>(runtime.state.get());
 
     // Should be able to call next() on empty scheduler
@@ -127,40 +126,40 @@ TEST_F(LoaderTest, DataflowGraphIntegration) {
     arc::module::Loader loader;
 
     // Build IR: Node A (source) → Node B (processor) → Node C (sink)
-    arc::ir::IR ir;
+    arc::IR ir;
 
     // Node A: outputs "out"
-    arc::ir::Node node_a("A");
+    arc::Node node_a("A");
     node_a.type = "source";
     node_a.outputs.keys = {"out"};
-    node_a.outputs.values["out"] = arc::ir::Type(arc::ir::TypeKind::F32);
+    node_a.outputs.values["out"] = arc::Type(arc::TypeKind::F32);
 
     // Node B: inputs "in", outputs "out"
-    arc::ir::Node node_b("B");
+    arc::Node node_b("B");
     node_b.type = "processor";
     node_b.inputs.keys = {"in"};
-    node_b.inputs.values["in"] = arc::ir::Type(arc::ir::TypeKind::F32);
+    node_b.inputs.values["in"] = arc::Type(arc::TypeKind::F32);
     node_b.outputs.keys = {"out"};
-    node_b.outputs.values["out"] = arc::ir::Type(arc::ir::TypeKind::F32);
+    node_b.outputs.values["out"] = arc::Type(arc::TypeKind::F32);
 
     // Node C: inputs "in"
-    arc::ir::Node node_c("C");
+    arc::Node node_c("C");
     node_c.type = "sink";
     node_c.inputs.keys = {"in"};
-    node_c.inputs.values["in"] = arc::ir::Type(arc::ir::TypeKind::F32);
+    node_c.inputs.values["in"] = arc::Type(arc::TypeKind::F32);
 
     ir.nodes = {node_a, node_b, node_c};
 
     // Edges: A.out → B.in, B.out → C.in
     ir.edges = {
-        arc::ir::Edge{arc::ir::Handle{"A", "out"}, arc::ir::Handle{"B", "in"}},
-        arc::ir::Edge{arc::ir::Handle{"B", "out"}, arc::ir::Handle{"C", "in"}}
+        arc::Edge{arc::Handle{"A", "out"}, arc::Handle{"B", "in"}},
+        arc::Edge{arc::Handle{"B", "out"}, arc::Handle{"C", "in"}}
     };
 
     // Strata: A (0), B (1), C (2)
     ir.strata = {{"A"}, {"B"}, {"C"}};
 
-    arc::module::Module module(std::move(ir), {});  // No WASM
+    arc::module::Module module(std::move(ir), {}); // No WASM
 
     auto [runtime, err] = loader.load(module);
     ASSERT_NIL(err);
@@ -176,7 +175,7 @@ TEST_F(LoaderTest, DataflowGraphIntegration) {
     EXPECT_EQ(edges_to_c[0].source.node, "B");
 
     // Verify node metadata was registered
-    auto* meta_b = runtime.state->get_node_metadata("B");
+    auto *meta_b = runtime.state->get_node_metadata("B");
     ASSERT_NE(meta_b, nullptr);
     EXPECT_EQ(meta_b->input_params.size(), 1);
     EXPECT_EQ(meta_b->output_params.size(), 1);
@@ -187,29 +186,29 @@ TEST_F(LoaderTest, MultiInputTemporalAlignment) {
     arc::module::Loader loader;
 
     // Build IR: A → C, B → C (C has two inputs)
-    arc::ir::IR ir;
+    arc::IR ir;
 
-    arc::ir::Node node_a("A");
+    arc::Node node_a("A");
     node_a.type = "source_a";
     node_a.outputs.keys = {"out"};
-    node_a.outputs.values["out"] = arc::ir::Type(arc::ir::TypeKind::F64);
+    node_a.outputs.values["out"] = arc::Type(arc::TypeKind::F64);
 
-    arc::ir::Node node_b("B");
+    arc::Node node_b("B");
     node_b.type = "source_b";
     node_b.outputs.keys = {"out"};
-    node_b.outputs.values["out"] = arc::ir::Type(arc::ir::TypeKind::F64);
+    node_b.outputs.values["out"] = arc::Type(arc::TypeKind::F64);
 
-    arc::ir::Node node_c("C");
+    arc::Node node_c("C");
     node_c.type = "combiner";
     node_c.inputs.keys = {"in1", "in2"};
-    node_c.inputs.values["in1"] = arc::ir::Type(arc::ir::TypeKind::F64);
-    node_c.inputs.values["in2"] = arc::ir::Type(arc::ir::TypeKind::F64);
+    node_c.inputs.values["in1"] = arc::Type(arc::TypeKind::F64);
+    node_c.inputs.values["in2"] = arc::Type(arc::TypeKind::F64);
 
     ir.nodes = {node_a, node_b, node_c};
 
     ir.edges = {
-        arc::ir::Edge{arc::ir::Handle{"A", "out"}, arc::ir::Handle{"C", "in1"}},
-        arc::ir::Edge{arc::ir::Handle{"B", "out"}, arc::ir::Handle{"C", "in2"}}
+        arc::Edge{arc::Handle{"A", "out"}, arc::Handle{"C", "in1"}},
+        arc::Edge{arc::Handle{"B", "out"}, arc::Handle{"C", "in2"}}
     };
 
     ir.strata = {{"A", "B"}, {"C"}};
@@ -224,13 +223,13 @@ TEST_F(LoaderTest, MultiInputTemporalAlignment) {
     EXPECT_EQ(edges_to_c.size(), 2);
 
     // Simulate data production from A and B
-    auto& out_a = runtime.state->get_output(arc::Handle{"A", "out"});
+    auto &out_a = runtime.state->get_output(arc::Handle{"A", "out"});
     out_a.data = std::make_shared<telem::Series>(std::vector<double>{1.0});
     out_a.time = std::make_shared<telem::Series>(
         std::vector<telem::TimeStamp>{telem::TimeStamp{100}}
     );
 
-    auto& out_b = runtime.state->get_output(arc::Handle{"B", "out"});
+    auto &out_b = runtime.state->get_output(arc::Handle{"B", "out"});
     out_b.data = std::make_shared<telem::Series>(std::vector<double>{2.0});
     out_b.time = std::make_shared<telem::Series>(
         std::vector<telem::TimeStamp>{telem::TimeStamp{200}}

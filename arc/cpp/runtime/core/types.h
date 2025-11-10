@@ -17,6 +17,8 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
+#include "arc/cpp/ir/ir.h"
+
 namespace arc {
 
 /// @brief State variable key type.

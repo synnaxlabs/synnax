@@ -11,14 +11,15 @@
 
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
-#include "nlohmann/json.hpp"
+#include "x/cpp/xjson/xjson.h"
 
-#include "x/cpp/map/insertion.h"
+namespace arc {
+using ChannelKey = std::uint32_t;
 
-namespace arc::ir {
 enum class TypeKind : uint8_t {
     Invalid = 0,
     U8 = 1,
@@ -38,9 +39,18 @@ enum class TypeKind : uint8_t {
     Series = 15,
 };
 
+// @brief a discrimated union representing a type in the arc programming language.
 struct Type {
+    /// @brief the kind of the type.
     TypeKind kind = TypeKind::Invalid;
-    std::unique_ptr<Type> elem; ///< For series/chan element type
+    /// @brief the element type for channels or series.
+    std::unique_ptr<Type> elem;
+
+    Type(xjson::Parser parser) {
+        this->kind = parser.required<TypeKind>("kind");
+        const auto elem_parser = parser.optional_child("elem");
+        if (elem_parser.ok()) this->elem = std::make_unique<Type>(elem_parser);
+    }
 
     Type() = default;
     explicit Type(TypeKind k): kind(k) {}
@@ -65,18 +75,47 @@ struct Type {
     Type(Type &&) = default;
     Type &operator=(Type &&) = default;
 
-    size_t density() const;
+    size_t density() const {
+        switch (kind) {
+            case TypeKind::U8:
+            case TypeKind::I8:
+                return 1;
+            case TypeKind::U16:
+            case TypeKind::I16:
+                return 2;
+            case TypeKind::U32:
+            case TypeKind::I32:
+            case TypeKind::F32:
+                return 4;
+            case TypeKind::U64:
+            case TypeKind::I64:
+            case TypeKind::F64:
+            case TypeKind::TimeStamp:
+            case TypeKind::TimeSpan:
+                return 8;
+            case TypeKind::String:
+            case TypeKind::Series:
+            case TypeKind::Chan:
+                return 0; // Variable size
+            default:
+                return 0;
+        }
+    }
 
     bool is_valid() const { return kind != TypeKind::Invalid; }
 };
-
-using Params = map::Insertion<Type>;
 
 struct Handle {
     std::string node, param;
 
     Handle() = default;
-    Handle(std::string n, std::string p): node(std::move(n)), param(std::move(p)) {}
+    Handle(std::string node, std::string param):
+        node(std::move(node)), param(std::move(param)) {}
+
+    Handle(xjson::Parser parser) {
+        this->node = parser.required<std::string>("node");
+        this->param = parser.required<std::string>("param");
+    }
 
     bool operator==(const Handle &other) const {
         return node == other.node && param == other.param;
@@ -95,6 +134,11 @@ struct Handle {
 struct Edge {
     Handle source, target; ///< Output parameter
 
+    Edge(xjson::Parser parser) {
+        this->source = parser.required<Handle>("source");
+        this->target = parser.required<Handle>("target");
+    }
+
     Edge() = default;
     Edge(Handle src, Handle tgt): source(std::move(src)), target(std::move(tgt)) {}
 
@@ -103,25 +147,46 @@ struct Edge {
     }
 };
 
-/// @brief Channel references in a node.
+struct Param {
+    std::string name;
+    Type type;
+    nlohmann::json value;
+
+    Param(xjson::Parser parser) {
+        this->name = parser.required<std::string>("name");
+        this->type = parser.required<Type>("type");
+        this->value = parser.optional<nlohmann::json>("value", 12);
+    }
+};
+
+using Params = std::vector<Param>;
+
 struct Channels {
-    std::map<uint32_t, std::string> read; ///< ChannelKey → param name
-    std::map<std::string, uint32_t> write; ///< param name → ChannelKey
+    std::map<uint32_t, std::string> read;
+    std::map<uint32_t, std::string> write;
 
-    /// @brief Check if node reads any channels.
-    bool has_reads() const { return !read.empty(); }
+    Channels(xjson::Parser parser) {
+        // TODO: Implement
+    }
 
-    /// @brief Check if node writes any channels.
-    bool has_writes() const { return !write.empty(); }
+    Channels() = default;
 };
 
 /// @brief Node instance in the dataflow graph.
 struct Node {
-    std::string key; ///< Unique node identifier
-    std::string type; ///< Function type name
-    std::map<std::string, nlohmann::json> config_values; ///< Runtime configuration
-    Channels channels; ///< Channel references
-    Params config, inputs, outputs; ///< Config parameter types
+    std::string key;
+    std::string type;
+    Channels channels;
+    Params config, inputs, outputs;
+
+    Node(xjson::Parser parser) {
+        this->key = parser.required<std::string>("key");
+        this->type = parser.required<std::string>("type");
+        this->channels = parser.required<Channels>("channels");
+        this->config = parser.required_vec<Param>("config");
+        this->inputs = parser.required_vec<Param>("inputs");
+        this->outputs = parser.required_vec<Param>("outpus");
+    }
 
     Node() = default;
     explicit Node(std::string k): key(std::move(k)) {}
@@ -130,23 +195,47 @@ struct Node {
 /// @brief Function template (stage definition).
 struct Function {
     std::string key;
-    std::string raw_body;
-    Params config, inputs, outputs;
     Channels channels;
+    Params config, inputs, outputs;
+
+    Function(xjson::Parser parser) {
+        this->key = parser.required<std::string>("key");
+        this->channels = parser.required<Channels>("channels");
+        this->config = parser.required_vec<Param>("config");
+        this->inputs = parser.required_vec<Param>("inputs");
+        this->outputs = parser.required_vec<Param>("outpus");
+    }
 
     Function() = default;
     explicit Function(std::string k): key(std::move(k)) {}
 };
 
 /// @brief Execution strata (layers for reactive scheduling).
-using Strata = std::vector<std::vector<std::string>>;
+struct Strata {
+    std::vector<std::vector<std::string>> strata;
+
+    Strata(xjson::Parser parser) {
+        // TODO: Implement
+    }
+
+    Strata() = default;
+};
 
 /// @brief Complete Arc IR (dataflow graph).
 struct IR {
-    std::vector<Function> functions; ///< Function templates
-    std::vector<Node> nodes; ///< Node instances
-    std::vector<Edge> edges; ///< Dataflow connections
-    Strata strata; ///< Execution layers
+    std::vector<Function> functions;
+    std::vector<Node> nodes;
+    std::vector<Edge> edges;
+    Strata strata;
+
+    IR() = default;
+
+    IR(xjson::Parser parser) {
+        this->functions = parser.required_vec<Function>("functions");
+        this->nodes = parser.required_vec<Node>("nodes");
+        this->edges = parser.required_vec<Edge>("edges");
+        this->strata = parser.required<Strata>("strata");
+    }
 
     /// @brief Find function by key.
     const Function *find_function(const std::string &key) const {

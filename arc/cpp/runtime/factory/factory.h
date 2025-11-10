@@ -13,10 +13,11 @@
 #include <string>
 #include <vector>
 
+#include "x/cpp/xerrors/errors.h"
+
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/core/node.h"
 #include "arc/cpp/runtime/state/state.h"
-#include "x/cpp/xerrors/errors.h"
 
 namespace arc {
 
@@ -26,11 +27,12 @@ class Runtime;
 /// @brief Configuration for node factory creation.
 ///
 /// Provides dependencies needed by ALL factories for constructing nodes.
-/// Factory-specific dependencies (e.g., WASM runtime) are passed to factory constructors.
+/// Factory-specific dependencies (e.g., WASM runtime) are passed to factory
+/// constructors.
 struct NodeFactoryConfig {
-    const ir::Node& ir_node;  ///< IR definition for this node
-    State& state;             ///< Runtime state reference
-    const ir::IR& ir;         ///< Full IR for context lookups
+    const Node &ir_node; ///< IR definition for this node
+    State &state; ///< Runtime state reference
+    const IR &ir; ///< Full IR for context lookups
 };
 
 /// @brief Factory interface for creating nodes from IR definitions.
@@ -68,7 +70,7 @@ public:
     ///         - {nullptr, NOT_FOUND} if this factory cannot handle the type
     ///         - {nullptr, error} on construction failure
     virtual std::pair<std::unique_ptr<Node>, xerrors::Error>
-    create(const NodeFactoryConfig& cfg) = 0;
+    create(const NodeFactoryConfig &cfg) = 0;
 };
 
 /// @brief Composite factory that tries multiple factories in sequence.
@@ -111,8 +113,8 @@ public:
     ///
     /// @param cfg Configuration for node creation.
     /// @return Pair of {node, error} (see create() documentation).
-    std::pair<std::unique_ptr<Node>, xerrors::Error>
-    create(const NodeFactoryConfig& cfg) override;
+    std::pair<std::unique_ptr<Node>, xerrors::Error> create(const NodeFactoryConfig &cfg
+    ) override;
 };
 
-}  // namespace arc
+} // namespace arc
