@@ -21,7 +21,7 @@ import (
 
 // Sample represents any numeric value that can be stored in a Series.
 // It must satisfy the Sample interface.
-type Sample interface{ types.FixedNumeric }
+type Sample interface{ types.SizedNumeric }
 
 // NewSeries creates a new Series from a slice of numeric values. It automatically
 // determines the data type from the first element.
