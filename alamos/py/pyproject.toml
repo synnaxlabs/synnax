@@ -1,22 +1,22 @@
 [project]
 name = "alamos"
-version = "0.47.0"
+version = "0.47.1"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.11,<4"
+requires-python = ">=3.10,<4"
 dependencies = [
-    "opentelemetry-api>=1.35.0,<2",
-    "opentelemetry-sdk>=1.35.0,<2",
-    "pydantic (>=2.11.9,<3.0)",
-    "uptrace>=1.35.0,<2",
+    "opentelemetry-api>=1.37.0,<2",
+    "opentelemetry-sdk>=1.37.0,<2",
+    "pydantic>=2.12.4,<3.0",
+    "uptrace>=1.37.0,<2",
 ]
 
 [tool.poetry.group.dev.dependencies]
-black = "^25.1.0"
-isort = "^6.0.1"
-mypy = "^1.18.1"
-poetry = "^2.2.0"
+black = "^25.9.0"
+isort = "^7.0.0"
+mypy = "^1.18.2"
+poetry = "^2.2.1"
 pytest = "^8.4.2"
-vermin = "^1.6.0"
+vermin = "^1.7.0"
 
 [tool.isort]
 profile = "black"

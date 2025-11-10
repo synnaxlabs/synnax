@@ -196,7 +196,7 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
