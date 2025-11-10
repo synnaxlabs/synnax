@@ -175,8 +175,9 @@ export const checkConnection = async (params: CheckConnectionParams) =>
   await newConnectionChecker(params).check();
 
 export const newConnectionChecker = (params: CheckConnectionParams) => {
-  const { host, port, secure, name } = params;
+  const { host, port, secure, name, retry } = params;
+  const retryConfig = breaker.breakerConfigZ.optional().parse(retry);
   const url = new URL({ host, port: Number(port) });
-  const transport = new Transport(url, undefined, secure);
+  const transport = new Transport(url, retryConfig, secure);
   return new connection.Checker(transport.unary, undefined, __VERSION__, name);
 };

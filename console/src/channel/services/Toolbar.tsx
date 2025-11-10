@@ -21,7 +21,7 @@ const Content = (): ReactElement => {
   const { data: g } = Channel.useRetrieveGroup({});
   const placeLayout = Layout.usePlacer();
   return (
-    <Ontology.Toolbar>
+    <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
         <Toolbar.Actions>
@@ -40,7 +40,7 @@ const Content = (): ReactElement => {
         </Toolbar.Actions>
       </Toolbar.Header>
       <Ontology.Tree root={g == null ? undefined : group.ontologyID(g.key)} />
-    </Ontology.Toolbar>
+    </Toolbar.Content>
   );
 };
 
