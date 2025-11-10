@@ -291,7 +291,7 @@ jobs:
           cache: pnpm
 
       - name: Add Auto Update JSON File
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         if: github.ref == 'refs/heads/main'
         env:
           release_id: ${{ needs.create-release.outputs.release_id }}
