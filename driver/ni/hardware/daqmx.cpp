@@ -16,10 +16,8 @@ Base::Base(TaskHandle task_handle, std::shared_ptr<::daqmx::SugaredAPI> dmx):
     task_handle(task_handle), dmx(std::move(dmx)) {}
 
 Base::~Base() {
-    if (this->task_handle != 0) {
-        if (const auto err = this->dmx->ClearTask(this->task_handle))
-            LOG(ERROR) << "[ni] unexpected failure to clear daqmx task: " << err;
-    }
+    if (const auto err = this->dmx->ClearTask(this->task_handle))
+        LOG(ERROR) << "[ni] unexpected failure to clear daqmx task: " << err;
 }
 
 xerrors::Error Base::start() {
@@ -216,22 +214,6 @@ xerrors::Error CounterWriter::write(const std::vector<double> &data) {
     // This write function is a no-op to maintain compatibility with the
     // write task infrastructure, but the actual pulse generation is controlled
     // via start/stop calls.
-    return xerrors::NIL;
-}
-
-xerrors::Error CounterWriter::stop() {
-    if (!this->running.exchange(false)) return xerrors::NIL;
-
-    // For Counter Output tasks, DAQmxTaskControl(Unreserve) does NOT work
-    // (known NI-DAQmx limitation). The only way to release the counter resource
-    // is to clear the task completely.
-    // See:
-    // https://forums.ni.com/t5/Multifunction-DAQ/DAQmxTaskControl-does-not-work-to-unreserve-resources/td-p/4006188
-    if (const auto err = this->dmx->StopTask(this->task_handle)) return err;
-    if (const auto err = this->dmx->ClearTask(this->task_handle)) return err;
-
-    // Mark handle as invalid to prevent double-clear in destructor
-    this->task_handle = 0;
     return xerrors::NIL;
 }
 }

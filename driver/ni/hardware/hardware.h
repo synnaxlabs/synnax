@@ -150,10 +150,6 @@ struct CounterReader final : Base, Reader<double> {
 };
 
 /// @brief Implementation of counter output writing using DAQmx
-/// Counter output tasks must clear the task on stop to release resources.
-/// This is a known NI-DAQmx limitation - DAQmxTaskControl(Unreserve) does not
-/// work for counter output tasks. After stopping, the task must be reconfigured
-/// before it can be started again.
 struct CounterWriter final : Base, Writer<double> {
     /// @brief Constructs a new counter writer
     /// @param dmx The DAQmx API interface
@@ -163,10 +159,6 @@ struct CounterWriter final : Base, Writer<double> {
         TaskHandle task_handle
     );
     xerrors::Error write(const std::vector<double> &data) override;
-
-    /// @brief Override stop() to clear task and release counter resources
-    /// After calling stop(), the task cannot be restarted - must reconfigure
-    xerrors::Error stop() override;
 };
 }
 

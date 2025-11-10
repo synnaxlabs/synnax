@@ -240,7 +240,10 @@ public:
     /// stopped.
     bool stop(const std::string &cmd_key, const bool propagate_state) {
         const auto write_pipe_stopped = this->cmd_write_pipe.stop();
-        const auto state_pipe_stopped = this->state_write_pipe.stop();
+        // Only stop state pipe if it was started (has channels)
+        bool state_pipe_stopped = true;
+        if (!this->sink->internal->writer_config().channels.empty())
+            state_pipe_stopped = this->state_write_pipe.stop();
         const auto stopped = write_pipe_stopped && state_pipe_stopped;
         if (stopped) this->state.error(this->sink->internal->stop());
         if (propagate_state) this->state.send_stop(cmd_key);
