@@ -118,6 +118,7 @@ const Core = <E extends ElementType = "button">({
   if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
     if (isDisabled || variant === "preview" || preventClick === true) return;
     // @ts-expect-error - TODO: fix this
     if (parsedDelay.isZero) return onClick?.(e);
