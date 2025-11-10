@@ -219,14 +219,19 @@ xerrors::Error CounterWriter::write(const std::vector<double> &data) {
     return xerrors::NIL;
 }
 
+void CounterWriter::complete_validation() {
+    this->validation_complete = true;
+}
+
 xerrors::Error CounterWriter::stop() {
     if (!this->running.exchange(false)) return xerrors::NIL;
 
-    // For Counter Output tasks, DAQmxTaskControl(Unreserve) does NOT work
-    // (known NI-DAQmx limitation). The only way to release the counter resource
-    // is to clear the task completely.
-    // See:
-    // https://forums.ni.com/t5/Multifunction-DAQ/DAQmxTaskControl-does-not-work-to-unreserve-resources/td-p/4006188
+    // During validation cycle, use normal stop without clearing
+    if (!this->validation_complete) { return this->dmx->StopTask(this->task_handle); }
+
+    // After validation, clear task to release counter resources
+    // For Counter Output tasks, DAQmxTaskControl(Unreserve) does NOT work. The only way
+    // to release the counter resource is to clear the task completely.
     if (const auto err = this->dmx->StopTask(this->task_handle)) return err;
     if (const auto err = this->dmx->ClearTask(this->task_handle)) return err;
 
