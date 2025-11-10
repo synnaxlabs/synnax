@@ -83,14 +83,14 @@ export const ChannelList = <C extends Channel>({
   // have pretty code.
   useEffect(() => {
     if (path === "config.channels") {
-      const cfg = ctx.get(path).value;
+      const cfg = ctx.get("config").value;
       if (
         typeof cfg !== "object" ||
         cfg == null ||
         !("channels" in cfg) ||
         !Array.isArray(cfg.channels)
       )
-        ctx.set(path, { channels: [] });
+        ctx.set(path, []);
     }
   }, [path, ctx]);
 
