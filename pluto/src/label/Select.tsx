@@ -48,7 +48,7 @@ const listItemRenderProp = Component.renderProp(ListItem);
 export interface SelectMultipleProps
   extends Omit<
       Select.MultipleProps<label.Key, label.Label | undefined>,
-      "data" | "multiple" | "resourceName" | "subscribe" | "children"
+      "data" | "resourceName" | "subscribe" | "children"
     >,
     Flux.UseListParams<ListQuery, label.Key, label.Label> {}
 
@@ -71,9 +71,6 @@ const SELECT_MULTIPLE_TRIGGER_PROPS: Select.MultipleTriggerProps<label.Key> = {
 };
 
 export const SelectMultiple = ({
-  onChange,
-  value,
-  emptyContent,
   filter,
   initialQuery,
   ...rest
@@ -85,22 +82,19 @@ export const SelectMultiple = ({
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Multiple<label.Key, label.Label | undefined>
-      resourceName="label"
       haulType={HAUL_TYPE}
-      value={value}
-      onChange={onChange}
-      data={data}
       getItem={getItem}
-      subscribe={subscribe}
       onFetchMore={fetchMore}
       onSearch={search}
-      emptyContent={emptyContent}
       status={status}
       renderTag={labelRenderTag}
       icon={<Icon.Label />}
       triggerProps={SELECT_MULTIPLE_TRIGGER_PROPS}
       variant="floating"
       {...rest}
+      data={data}
+      subscribe={subscribe}
+      resourceName="label"
     >
       {listItemRenderProp}
     </Select.Multiple>
@@ -115,10 +109,6 @@ export interface SelectSingleProps
     Flux.UseListParams<ListQuery, label.Key, label.Label> {}
 
 export const SelectSingle = ({
-  onChange,
-  value,
-  allowNone,
-  emptyContent,
   filter,
   initialQuery,
   ...rest
@@ -130,19 +120,15 @@ export const SelectSingle = ({
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<label.Key, label.Label | undefined>
-      resourceName="Label"
-      value={value}
-      onChange={onChange}
-      data={data}
       getItem={getItem}
-      subscribe={subscribe}
-      allowNone={allowNone}
       onFetchMore={fetchMore}
       onSearch={search}
-      emptyContent={emptyContent}
       status={status}
       haulType={HAUL_TYPE}
       {...rest}
+      data={data}
+      resourceName="label"
+      subscribe={subscribe}
     >
       {listItemRenderProp}
     </Select.Single>
