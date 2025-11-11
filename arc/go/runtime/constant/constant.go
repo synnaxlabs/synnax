@@ -29,14 +29,8 @@ var (
 		Name: symName,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Outputs: &types.Params{
-				Keys:   []string{ir.DefaultOutputParam},
-				Values: []types.Type{typeVar},
-			},
-			Config: &types.Params{
-				Keys:   []string{"value"},
-				Values: []types.Type{typeVar},
-			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: typeVar}},
+			Config:  types.Params{{Name: "value", Type: typeVar}},
 		}),
 	}
 	SymbolResolver = symbol.MapResolver{symName: sym}
@@ -63,7 +57,7 @@ func (c *constantFactory) Create(_ context.Context, cfg node.Config) (node.Node,
 	if cfg.Node.Type != symName {
 		return nil, query.NotFound
 	}
-	return constant{state: cfg.State, value: cfg.Node.ConfigValues["value"]}, nil
+	return constant{state: cfg.State, value: cfg.Node.Config[0].Value}, nil
 }
 
 func NewFactory() node.Factory { return &constantFactory{} }

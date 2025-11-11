@@ -47,5 +47,5 @@ export const SelectDataType = ({
   ...rest
 }: SelectDataTypeProps): ReactElement => {
   const data = hideVariableDensity ? FIXED_DENSITY_DATA : DATA;
-  return <SelectStatic {...rest} data={data} resourceName="Data Type" />;
+  return <SelectStatic {...rest} data={data} resourceName="data type" />;
 };

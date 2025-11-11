@@ -28,17 +28,14 @@ var (
 		Name: symbolName,
 		Kind: symbol2.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Config: &types.Params{
-				Keys:   []string{"duration"},
-				Values: []types.Type{types.TimeSpan()},
+			Config: types.Params{
+				{Name: "duration", Type: types.TimeSpan()},
 			},
-			Inputs: &types.Params{
-				Keys:   []string{ir.DefaultInputParam},
-				Values: []types.Type{types.Variable("T", nil)},
+			Inputs: types.Params{
+				{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)},
 			},
-			Outputs: &types.Params{
-				Keys:   []string{ir.DefaultOutputParam},
-				Values: []types.Type{types.Variable("T", nil)},
+			Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)},
 			},
 		}),
 	}
@@ -111,7 +108,7 @@ func (f *stableFactory) Create(_ context.Context, cfg node.Config) (node.Node, e
 		return nil, query.NotFound
 	}
 	var configVals config
-	if err := configSchema.Parse(cfg.Node.ConfigValues, &configVals); err != nil {
+	if err := configSchema.Parse(cfg.Node.Config.ValueMap(), &configVals); err != nil {
 		return nil, err
 	}
 	now := f.cfg.Now

@@ -15,7 +15,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/tetratelabs/wazero/api"
-	"go.uber.org/zap"
 )
 
 type result struct {
@@ -45,7 +44,7 @@ func (f *Function) Call(ctx context.Context, params ...uint64) ([]result, error)
 		return f.outputValues, nil
 	}
 	dirtyFlags := lo.Must(f.mem.ReadUint64Le(f.base))
-	for i := range f.outputs.Keys {
+	for i := range f.outputs {
 		if (dirtyFlags & (1 << i)) != 0 {
 			f.outputValues[i] = result{
 				value:   lo.Must(f.mem.ReadUint64Le(f.offsets[i])),
@@ -62,11 +61,11 @@ func WrapFunction(
 	outputs types.Params,
 	base uint32,
 ) *Function {
-	offsets := make([]uint32, outputs.Count())
+	offsets := make([]uint32, len(outputs))
 	offset := base + 8
-	for i, t := range outputs.Values {
+	for i, t := range outputs {
 		offsets[i] = offset
-		offset += sizeOf(t)
+		offset += uint32(t.Type.Density())
 	}
 	return &Function{
 		fn:           fn,
@@ -74,22 +73,6 @@ func WrapFunction(
 		outputs:      outputs,
 		base:         base,
 		offsets:      offsets,
-		outputValues: make([]result, outputs.Count()),
-	}
-}
-
-func sizeOf(t types.Type) uint32 {
-	switch t.Kind {
-	case types.KindU8, types.KindI8:
-		return 1
-	case types.KindU16, types.KindI16:
-		return 2
-	case types.KindU32, types.KindI32, types.KindF32:
-		return 4
-	case types.KindU64, types.KindI64, types.KindF64, types.KindTimeStamp, types.KindTimeSpan:
-		return 8
-	default:
-		zap.S().DPanic("unknown type", zap.String("type", t.String()))
-		return 8
+		outputValues: make([]result, len(outputs)),
 	}
 }
