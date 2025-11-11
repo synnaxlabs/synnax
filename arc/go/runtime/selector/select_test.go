@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/selector"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var ctx = context.Background()
@@ -38,44 +40,46 @@ var _ = Describe("Select", func() {
 		var s *state.State
 		BeforeEach(func() {
 			factory = selector.NewFactory()
-			s = state.New(state.Config{
-				Nodes: ir.Nodes{
-					{
-						Key:  "source",
-						Type: "source",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					{
-						Key:  "select",
-						Type: "select",
-						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam},
-							Values: []types.Type{types.U8()},
-						},
-						Outputs: types.Params{
-							Keys:   []string{"true", "false"},
-							Values: []types.Type{types.U8(), types.U8()},
-						},
-					},
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "select", Type: "select"},
 				},
-				Edges: ir.Edges{
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
 					},
 				},
-			})
+				Functions: []graph.Function{
+					{
+						Key: "source",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+					{
+						Key: "select",
+						Inputs: types.Params{
+							{Name: ir.DefaultInputParam, Type: types.U8()},
+						},
+						Outputs: types.Params{
+							{Name: "true", Type: types.U8()},
+							{Name: "false", Type: types.U8()},
+						},
+					},
+				},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s = state.New(state.Config{IR: analyzed})
 		})
 		It("Should create node for select type", func() {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It("Should return NotFound for unknown type", func() {
@@ -89,32 +93,39 @@ var _ = Describe("Select", func() {
 	})
 	Describe("select.Init", func() {
 		It("Should not emit output on Init", func() {
-			s := state.New(state.Config{
-				Nodes: ir.Nodes{
-					{
-						Key:  "source",
-						Type: "source",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					{
-						Key:  "select",
-						Type: "select",
-						Outputs: types.Params{
-							Keys:   []string{"true", "false"},
-							Values: []types.Type{types.U8(), types.U8()},
-						},
-					},
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "select", Type: "select"},
 				},
-				Edges: ir.Edges{
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
 					},
 				},
-			})
+				Functions: []graph.Function{
+					{
+						Key: "source",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+					{
+						Key: "select",
+						Inputs: types.Params{
+							{Name: ir.DefaultInputParam, Type: types.U8()},
+						},
+						Outputs: types.Params{
+							{Name: "true", Type: types.U8()},
+							{Name: "false", Type: types.U8()},
+						},
+					},
+				},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			factory := selector.NewFactory()
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
@@ -133,36 +144,39 @@ var _ = Describe("Select", func() {
 		var factory node.Factory
 		BeforeEach(func() {
 			factory = selector.NewFactory()
-			s = state.New(state.Config{
-				Nodes: ir.Nodes{
-					{
-						Key:  "source",
-						Type: "source",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					{
-						Key:  "select",
-						Type: "select",
-						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam},
-							Values: []types.Type{types.U8()},
-						},
-						Outputs: types.Params{
-							Keys:   []string{"true", "false"},
-							Values: []types.Type{types.U8(), types.U8()},
-						},
-					},
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "select", Type: "select"},
 				},
-				Edges: ir.Edges{
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
 					},
 				},
-			})
+				Functions: []graph.Function{
+					{
+						Key: "source",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+					{
+						Key: "select",
+						Inputs: types.Params{
+							{Name: ir.DefaultInputParam, Type: types.U8()},
+						},
+						Outputs: types.Params{
+							{Name: "true", Type: types.U8()},
+							{Name: "false", Type: types.U8()},
+						},
+					},
+				},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s = state.New(state.Config{IR: analyzed})
 		})
 		It("Should handle empty input", func() {
 			cfg := node.Config{

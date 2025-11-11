@@ -18,7 +18,7 @@ export const Form = () => (
       <Input.Numeric
         value={new TimeSpan(value).seconds}
         onChange={(v) => onChange(TimeSpan.seconds(v).nanoseconds)}
-        endContent="S"
+        endContent="s"
       />
     )}
   </Core.Field>

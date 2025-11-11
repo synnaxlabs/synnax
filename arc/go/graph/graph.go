@@ -110,15 +110,16 @@ type Graph struct {
 // registration.
 func bindParams(
 	ctx context.Context,
-	s *symbol.Scope,
-	p types.Params,
+	scope *symbol.Scope,
+	params types.Params,
 	kind symbol.Kind,
 ) error {
-	for k, ty := range p.Iter() {
-		if _, err := s.Add(ctx, symbol.Symbol{
-			Name: k,
-			Kind: kind,
-			Type: ty,
+	for _, p := range params {
+		if _, err := scope.Add(ctx, symbol.Symbol{
+			Name:         p.Name,
+			Kind:         kind,
+			Type:         p.Type,
+			DefaultValue: p.Value,
 		}); err != nil {
 			return err
 		}
@@ -152,7 +153,7 @@ func validateEdge(
 	}
 
 	sourceFunc := freshFuncTypes[sourceNode.Key]
-	sourceType, ok := sourceFunc.Outputs.Get(edge.Source.Param)
+	sourceParam, ok := sourceFunc.Outputs.Get(edge.Source.Param)
 	if !ok {
 		ctx.Diagnostics.AddError(
 			errors.Wrapf(
@@ -166,7 +167,7 @@ func validateEdge(
 	}
 
 	targetFunc := freshFuncTypes[targetNode.Key]
-	targetType, ok := targetFunc.Inputs.Get(edge.Target.Param)
+	targetParam, ok := targetFunc.Inputs.Get(edge.Target.Param)
 	if !ok {
 		ctx.Diagnostics.AddError(
 			errors.Wrapf(
@@ -181,8 +182,8 @@ func validateEdge(
 
 	if err := atypes.Check(
 		ctx.Constraints,
-		sourceType,
-		targetType,
+		sourceParam.Type,
+		targetParam.Type,
 		nil,
 		"",
 	); err != nil {
@@ -282,23 +283,23 @@ func Analyze(
 			ctx.Diagnostics.AddError(err, nil)
 			return ir.IR{}, ctx.Diagnostics
 		}
-		freshFuncTypes[n.Key] = ir.FreshType(fnSym.Type, n.Key)
-		irNodes[i] = ir.Node{
-			Key:          n.Key,
-			Type:         n.Type,
-			ConfigValues: n.Config,
-			Channels:     fnSym.Channels.Copy(),
-		}
+		freshFuncTypes[n.Key] = types.Freshen(fnSym.Type, n.Key)
 		freshType := freshFuncTypes[n.Key]
-		if freshType.Config == nil {
-			continue
+		node := ir.Node{
+			Key:      n.Key,
+			Type:     n.Type,
+			Channels: fnSym.Channels.Copy(),
+			Config:   freshType.Config,
+			Inputs:   freshType.Inputs,
+			Outputs:  freshType.Outputs,
 		}
-		for key, configType := range freshType.Config.Iter() {
-			configValue, ok := n.Config[key]
+		// Process provided config values
+		for j, configParam := range freshType.Config {
+			configValue, ok := n.Config[configParam.Name]
 			if !ok {
 				continue
 			}
-			if configType.Kind == types.KindChan {
+			if configParam.Type.Kind == types.KindChan {
 				var k uint32
 				if err = zyn.Uint32().Coerce().Parse(configValue, &k); err != nil {
 					return ir.IR{}, ctx.Diagnostics
@@ -308,15 +309,31 @@ func Analyze(
 					if err = atypes.Check(
 						ctx.Constraints,
 						channelSym.Type,
-						configType,
+						configParam.Type,
 						nil,
 						"",
 					); err != nil {
 						ctx.Diagnostics.AddError(err, nil)
 						return ir.IR{}, ctx.Diagnostics
 					}
-					irNodes[i].Channels.Read.Add(k)
+					node.Channels.Read.Add(k)
 				}
+			}
+			node.Config[j].Value = configValue
+		}
+		irNodes[i] = node
+
+		// Validate all required config parameters are provided
+		for _, configParam := range freshType.Config {
+			if configParam.Value == nil {
+				ctx.Diagnostics.AddError(
+					errors.Wrapf(
+						query.NotFound,
+						"node '%s' (%s) missing required config parameter '%s'",
+						n.Key,
+						n.Type,
+						configParam.Name,
+					), nil)
 			}
 		}
 	}
@@ -354,19 +371,23 @@ func Analyze(
 		if freshType.Inputs == nil {
 			continue
 		}
-		//connected := connectedInputs[n.Key]
-		//for inputParam := range freshType.Inputs.Iter() {
-		//	if !connected[inputParam] {
-		//		ctx.Diagnostics.AddError(
-		//			errors.Wrapf(
-		//				query.NotFound,
-		//				"node '%s' (%s) missing required input '%s'",
-		//				n.Key,
-		//				n.Type,
-		//				inputParam,
-		//			), nil)
-		//	}
-		//}
+		connected := connectedInputs[n.Key]
+		for _, inputParam := range freshType.Inputs {
+			if !connected[inputParam.Name] {
+				// Check if this parameter has a default value (is optional)
+				if inputParam.Value == nil {
+					// Required parameter is missing
+					ctx.Diagnostics.AddError(
+						errors.Wrapf(
+							query.NotFound,
+							"node '%s' (%s) missing required input '%s'",
+							n.Key,
+							n.Type,
+							inputParam.Name,
+						), nil)
+				}
+			}
+		}
 	}
 	if !ctx.Diagnostics.Ok() {
 		return ir.IR{}, ctx.Diagnostics
@@ -382,9 +403,9 @@ func Analyze(
 	for i, n := range g.Nodes {
 		substituted := ctx.Constraints.ApplySubstitutions(freshFuncTypes[n.Key])
 		irN := irNodes[i]
-		irN.Outputs = *substituted.Outputs
-		irN.Inputs = *substituted.Inputs
-		irN.Config = *substituted.Config
+		irN.Outputs = substituted.Outputs
+		irN.Inputs = substituted.Inputs
+		irN.Config = substituted.Config
 		irNodes[i] = irN
 	}
 
