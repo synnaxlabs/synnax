@@ -61,7 +61,7 @@ const List = (): ReactElement => {
   );
 };
 
-const listItem = Component.renderProp((props: CoreList.ItemProps<status.Key>) => {
+const ListItem = (props: CoreList.ItemProps<status.Key>) => {
   const { itemKey } = props;
   const q = Status.useRetrieve({ key: itemKey });
   if (q.variant !== "success") return null;
@@ -100,7 +100,9 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<status.Key>) =>
       </Flex.Box>
     </Select.ListItem>
   );
-});
+};
+
+const listItem = Component.renderProp(ListItem);
 
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();

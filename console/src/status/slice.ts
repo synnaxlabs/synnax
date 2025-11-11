@@ -27,6 +27,8 @@ type AddFavoritesPayload = status.Key | status.Key[];
 
 type RemoveFavoritesPayload = status.Key | status.Key[];
 
+type FilterFavoritesToKeysPayload = status.Key | status.Key[];
+
 type ToggleFavoritePayload = status.Key;
 
 export const { actions, reducer } = createSlice({
@@ -40,6 +42,13 @@ export const { actions, reducer } = createSlice({
         state.favorites.push(key);
         existingFavorites.add(key);
       }
+    },
+    filterFavoritesToKeys: (
+      state,
+      { payload: keys }: PayloadAction<FilterFavoritesToKeysPayload>,
+    ) => {
+      const favoritesToKeep = new Set(array.toArray(keys));
+      state.favorites = state.favorites.filter((key) => favoritesToKeep.has(key));
     },
     removeFavorites: (
       state,
@@ -57,7 +66,8 @@ export const { actions, reducer } = createSlice({
   },
 });
 
-export const { addFavorites, removeFavorites, toggleFavorite } = actions;
+export const { addFavorites, filterFavoritesToKeys, removeFavorites, toggleFavorite } =
+  actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
