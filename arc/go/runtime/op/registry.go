@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	logicalOps    = map[string]op.Binary{"or": op.OrU8, "and": op.AndU8}
-	unaryOps      = map[string]op.Unary{"not": op.NotU8}
+	logicalOps    = map[string]op.Binary{orSymbolName: op.OrU8, andSymbolName: op.AndU8}
+	unaryOps      = map[string]op.Unary{notSymbolName: op.NotU8}
 	typedUnaryOps = map[string]map[telem.DataType]op.Unary{
-		"neg": {
+		negSymbolName: {
 			telem.Float64T: op.NegateF64,
 			telem.Float32T: op.NegateF32,
 			telem.Int64T:   op.NegateI64,
@@ -28,7 +28,7 @@ var (
 		},
 	}
 	typedOps = map[string]map[telem.DataType]op.Binary{
-		"ge": {
+		geSymbolName: {
 			telem.Float64T: op.GreaterThanOrEqualF64,
 			telem.Float32T: op.GreaterThanOrEqualF32,
 			telem.Int64T:   op.GreaterThanOrEqualI64,
@@ -40,7 +40,7 @@ var (
 			telem.Uint16T:  op.GreaterThanOrEqualU16,
 			telem.Uint8T:   op.GreaterThanOrEqualU8,
 		},
-		"gt": {
+		gtSymbolName: {
 			telem.Float64T: op.GreaterThanF64,
 			telem.Float32T: op.GreaterThanF32,
 			telem.Int64T:   op.GreaterThanI64,
@@ -52,7 +52,7 @@ var (
 			telem.Uint16T:  op.GreaterThanU16,
 			telem.Uint8T:   op.GreaterThanU8,
 		},
-		"le": {
+		leSymbolName: {
 			telem.Float64T: op.LessThanOrEqualF64,
 			telem.Float32T: op.LessThanOrEqualF32,
 			telem.Int64T:   op.LessThanOrEqualI64,
@@ -64,7 +64,7 @@ var (
 			telem.Uint16T:  op.LessThanOrEqualU16,
 			telem.Uint8T:   op.LessThanOrEqualU8,
 		},
-		"lt": {
+		ltSymbolName: {
 			telem.Float64T: op.LessThanF64,
 			telem.Float32T: op.LessThanF32,
 			telem.Int64T:   op.LessThanI64,
@@ -76,7 +76,7 @@ var (
 			telem.Uint16T:  op.LessThanU16,
 			telem.Uint8T:   op.LessThanU8,
 		},
-		"eq": {
+		eqSymbolName: {
 			telem.Float64T: op.EqualF64,
 			telem.Float32T: op.EqualF32,
 			telem.Int64T:   op.EqualI64,
@@ -88,7 +88,7 @@ var (
 			telem.Uint16T:  op.EqualU16,
 			telem.Uint8T:   op.EqualU8,
 		},
-		"ne": {
+		neSymbolName: {
 			telem.Float64T: op.NotEqualF64,
 			telem.Float32T: op.NotEqualF32,
 			telem.Int64T:   op.NotEqualI64,
@@ -100,7 +100,7 @@ var (
 			telem.Uint16T:  op.NotEqualU16,
 			telem.Uint8T:   op.NotEqualU8,
 		},
-		"add": {
+		addSymbolName: {
 			telem.Float64T: op.AddF64,
 			telem.Float32T: op.AddF32,
 			telem.Int64T:   op.AddI64,
@@ -112,7 +112,7 @@ var (
 			telem.Uint16T:  op.AddU16,
 			telem.Uint8T:   op.AddU8,
 		},
-		"subtract": {
+		subSymbolName: {
 			telem.Float64T: op.SubtractF64,
 			telem.Float32T: op.SubtractF32,
 			telem.Int64T:   op.SubtractI64,
@@ -124,7 +124,7 @@ var (
 			telem.Uint16T:  op.SubtractU16,
 			telem.Uint8T:   op.SubtractU8,
 		},
-		"multiply": {
+		mulSymbolName: {
 			telem.Float64T: op.MultiplyF64,
 			telem.Float32T: op.MultiplyF32,
 			telem.Int64T:   op.MultiplyI64,
@@ -136,7 +136,7 @@ var (
 			telem.Uint16T:  op.MultiplyU16,
 			telem.Uint8T:   op.MultiplyU8,
 		},
-		"divide": {
+		divSymbolName: {
 			telem.Float64T: op.DivideF64,
 			telem.Float32T: op.DivideF32,
 			telem.Int64T:   op.DivideI64,

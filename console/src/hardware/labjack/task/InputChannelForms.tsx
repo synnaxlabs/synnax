@@ -67,7 +67,7 @@ const SelectScaleTypeField = PForm.buildSelectField<
     },
   },
   inputProps: {
-    resourceName: "Scale Type",
+    resourceName: "scale type",
     data: [
       { key: NO_SCALE_TYPE, name: "None", icon: <Icon.None /> },
       { key: LINEAR_SCALE_TYPE, name: "Linear", icon: <Icon.Linear /> },
@@ -108,7 +108,7 @@ const ThermocoupleTypeField = PForm.buildSelectField<
   fieldKey: "thermocoupleType",
   fieldProps: { label: "Thermocouple Type" },
   inputProps: {
-    resourceName: "Thermocouple Type",
+    resourceName: "thermocouple type",
     data: [
       { key: B_TC_TYPE, name: "B" },
       { key: E_TC_TYPE, name: "E" },
@@ -130,7 +130,7 @@ const TemperatureUnitsField = PForm.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Temperature Units" },
   inputProps: {
-    resourceName: "Temperature Units",
+    resourceName: "temperature units",
     data: [
       { key: CELSIUS_UNIT, name: "Celsius" },
       { key: FAHRENHEIT_UNIT, name: "Fahrenheit" },
@@ -164,7 +164,7 @@ const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => 
       data={data}
       allowNone={false}
       {...rest}
-      resourceName="CJC Source"
+      resourceName="CJC source"
     />
   );
 };

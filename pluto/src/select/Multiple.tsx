@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type record } from "@synnaxlabs/x";
+import { plural } from "pluralize";
 import { type ReactElement } from "react";
 
 import { Dialog as CoreDialog } from "@/dialog";
@@ -77,7 +78,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
       <MultipleTrigger
         haulType={haulType}
         icon={icon}
-        placeholder={`Select ${resourceName}s`}
+        placeholder={`Select ${plural(resourceName)}`}
         disabled={disabled}
         variant={transformTriggerVariant(variant)}
         {...triggerProps}

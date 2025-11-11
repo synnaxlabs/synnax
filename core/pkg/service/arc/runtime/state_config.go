@@ -67,8 +67,7 @@ func NewStateConfig(
 		Writes: writes,
 		State: state.Config{
 			ChannelDigests: channelDigests,
-			Edges:          module.Edges,
-			Nodes:          module.Nodes,
+			IR:             module.IR,
 		},
 	}, nil
 }
