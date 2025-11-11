@@ -70,8 +70,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         common::TimingConfig timing_cfg = common::TimingConfig()
     ):
         BaseReadTaskConfig(cfg, timing_cfg),
-        device_key(cfg.optional<std::string>("device", "cross-device")),
-        timing_source(cfg.optional<std::string>("timing_source", "")),
+        device_key(cfg.field<std::string>("device", "cross-device")),
+        timing_source(cfg.field<std::string>("timing_source", "")),
         samples_per_chan(sample_rate / stream_rate),
         software_timed(this->timing_source.empty() && task_type == "ni_digital_read"),
         channels(cfg.map<std::unique_ptr<channel::Input>>(
@@ -83,7 +83,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return {std::move(ch), ch->enabled};
             }
         )),
-        skew_warn_on_count(cfg.optional<std::size_t>(
+        skew_warn_on_count(cfg.field<std::size_t>(
             "skew_warn_on_count",
             this->sample_rate.hz() // Default to 1 second behind
         )) {

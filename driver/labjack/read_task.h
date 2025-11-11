@@ -67,7 +67,7 @@ const std::map<std::string, LJM_TemperatureUnits> TEMPERATURE_UNITS = {
 
 inline LJM_TemperatureUnits
 parse_temperature_units(xjson::Parser &parser, const std::string &path) {
-    const auto units = parser.required<std::string>(path);
+    const auto units = parser.field<std::string>(path);
     const auto v = TEMPERATURE_UNITS.find(units);
     if (v == TEMPERATURE_UNITS.end())
         parser.field_err(path, "Invalid temperature units: " + units);
@@ -77,7 +77,7 @@ parse_temperature_units(xjson::Parser &parser, const std::string &path) {
 /// @brief parses the thermocouple type from the configuration and converts it to
 /// the appropriate LJM type.
 inline long parse_tc_type(xjson::Parser &parser, const std::string &path) {
-    const auto tc_type = parser.required<std::string>(path);
+    const auto tc_type = parser.field<std::string>(path);
     const auto v = TC_TYPE_LUT.find(tc_type);
     if (v == TC_TYPE_LUT.end())
         parser.field_err(path, "Invalid thermocouple type: " + tc_type);
@@ -86,7 +86,7 @@ inline long parse_tc_type(xjson::Parser &parser, const std::string &path) {
 
 /// @brief parses the CJC address for the device.
 inline int parse_cjc_addr(xjson::Parser &parser, const std::string &path) {
-    const auto cjc_source = parser.required<std::string>(path);
+    const auto cjc_source = parser.field<std::string>(path);
     if (cjc_source == DEVICE_CJC_SOURCE) return LJM_TEMPERATURE_DEVICE_K_ADDRESS;
     if (cjc_source == AIR_CJC_SOURCE) return LJM_TEMPERATURE_AIR_K_ADDRESS;
     if (cjc_source.find(AIN_PREFIX) != std::string::npos) {
@@ -113,11 +113,11 @@ struct InputChan {
     synnax::Channel ch;
 
     explicit InputChan(xjson::Parser &parser):
-        enabled(parser.optional<bool>("enabled", true)),
-        port(parser.required<std::string>("port")),
-        synnax_key(parser.required<uint32_t>("channel")),
-        neg_chan(parser.optional<int>("neg_chan", SINGLE_ENDED)),
-        pos_chan(parser.optional<int>("pos_chan", 0)) {}
+        enabled(parser.field<bool>("enabled", true)),
+        port(parser.field<std::string>("port")),
+        synnax_key(parser.field<uint32_t>("channel")),
+        neg_chan(parser.field<int>("neg_chan", SINGLE_ENDED)),
+        pos_chan(parser.field<int>("pos_chan", 0)) {}
 
     /// @brief applies the configuration to the device.
     virtual xerrors::Error
@@ -168,8 +168,8 @@ struct ThermocoupleChan final : InputChan {
         InputChan(parser),
         type(parse_tc_type(parser, "thermocouple_type")),
         cjc_addr(parse_cjc_addr(parser, "cjc_source")),
-        cjc_slope(parser.required<float>("cjc_slope")),
-        cjc_offset(parser.required<float>("cjc_offset")),
+        cjc_slope(parser.field<float>("cjc_slope")),
+        cjc_offset(parser.field<float>("cjc_offset")),
         units(parse_temperature_units(parser, "units")) {
         this->port = AIN_PREFIX + std::to_string(this->pos_chan) + TC_SUFFIX;
     }
@@ -233,7 +233,7 @@ struct AIChan final : InputChan {
     const double range;
 
     explicit AIChan(xjson::Parser &parser):
-        InputChan(parser), range(parser.optional<double>("range", 10.0)) {}
+        InputChan(parser), range(parser.field<double>("range", 10.0)) {}
 
     xerrors::Error apply(
         const std::shared_ptr<device::Device> &dev,
@@ -278,7 +278,7 @@ inline std::map<std::string, InputChanFactory<InputChan>> INPUTS = {
 /// @returns nullptr if the configuration is in valid, and binds any relevant
 /// field errors to the config.
 inline std::unique_ptr<InputChan> parse_input_chan(xjson::Parser &cfg) {
-    const auto type = cfg.required<std::string>("type");
+    const auto type = cfg.field<std::string>("type");
     const auto input = INPUTS.find(type);
     if (input != INPUTS.end()) return input->second(cfg);
     cfg.field_err("type", "unknown channel type: " + type);
@@ -327,8 +327,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         const common::TimingConfig timing_cfg = common::TimingConfig()
     ):
         common::BaseReadTaskConfig(parser, timing_cfg),
-        device_key(parser.optional<std::string>("device", "cross-device")),
-        conn_method(parser.optional<std::string>("conn_method", "")),
+        device_key(parser.field<std::string>("device", "cross-device")),
+        conn_method(parser.field<std::string>("conn_method", "")),
         samples_per_chan(sample_rate / stream_rate),
         channels(parser.map<std::unique_ptr<InputChan>>(
             "channels",
@@ -338,11 +338,11 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return {std::move(ch), ch->enabled};
             }
         )),
-        device_scan_backlog_warn_on_count(parser.optional<size_t>(
+        device_scan_backlog_warn_on_count(parser.field<size_t>(
             "device_scan_backlog_warn_on_count",
             this->sample_rate.hz() * 2 // Default to 2 seconds of scans.
         )),
-        ljm_scan_backlog_warn_on_count(parser.optional<size_t>(
+        ljm_scan_backlog_warn_on_count(parser.field<size_t>(
             "ljm_scan_backlog_warn_on_count",
             this->sample_rate.hz() // Default to 1 second of scans.
         )) {

@@ -65,24 +65,24 @@ struct Config {
 
     template<typename ParserT>
     void override(ParserT &parser) {
-        this->host = parser.optional("host", this->host);
-        this->port = parser.optional("port", this->port);
-        this->username = parser.optional("username", this->username);
-        this->password = parser.optional("password", this->password);
-        this->client_cert_file = parser.optional(
+        this->host = parser.field("host", this->host);
+        this->port = parser.field("port", this->port);
+        this->username = parser.field("username", this->username);
+        this->password = parser.field("password", this->password);
+        this->client_cert_file = parser.field(
             "client_cert_file",
             this->client_cert_file
         );
-        this->client_key_file = parser.optional(
+        this->client_key_file = parser.field(
             "client_key_file",
             this->client_key_file
         );
-        this->ca_cert_file = parser.optional("ca_cert_file", this->ca_cert_file);
-        this->clock_skew_threshold = telem::TimeSpan(parser.optional(
+        this->ca_cert_file = parser.field("ca_cert_file", this->ca_cert_file);
+        this->clock_skew_threshold = telem::TimeSpan(parser.field(
             "clock_skew_threshold",
             this->clock_skew_threshold.nanoseconds()
         ));
-        this->max_retries = parser.optional("max_retries", this->max_retries);
+        this->max_retries = parser.field("max_retries", this->max_retries);
     }
 
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {

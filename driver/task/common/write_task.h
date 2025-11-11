@@ -31,7 +31,7 @@ struct BaseWriteTaskConfig : BaseTaskConfig {
     const BaseWriteTaskConfig &operator=(const BaseWriteTaskConfig &) = delete;
 
     explicit BaseWriteTaskConfig(xjson::Parser &cfg):
-        BaseTaskConfig(cfg), device_key(cfg.required<std::string>("device")) {}
+        BaseTaskConfig(cfg), device_key(cfg.field<std::string>("device")) {}
 };
 class Sink : public pipeline::Sink, public pipeline::Source {
     /// @brief the vector of channels to stream for commands.
