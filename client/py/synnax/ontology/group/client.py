@@ -43,20 +43,23 @@ class Client:
     def create(self, parent: CrudeID, name: str, key: str | None = None) -> Group:
         return send_required(
             self._client,
-            "/group/create",
+            "/ontology/create-group",
             CreateReq(parent=ID(parent), key=UUID(key) if key else None, name=name),
             CreateRes,
         ).group
 
     def rename(self, key: CrudeID, name: str) -> Empty:
         return send_required(
-            self._client, "/group/rename", RenameReq(key=ID(key), name=name), Empty
+            self._client,
+            "/ontology/rename-group",
+            RenameReq(key=ID(key), name=name),
+            Empty,
         )
 
     def delete(self, keys: list[CrudeID]) -> Empty:
         return send_required(
             self._client,
-            "/group/delete",
+            "/ontology/delete-group",
             DeleteReq(key=[ID(key) for key in keys]),
             Empty,
         )
