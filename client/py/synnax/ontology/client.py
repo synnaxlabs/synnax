@@ -13,7 +13,7 @@ from freighter import Empty, Payload, UnaryClient, send_required
 from pydantic import Field
 
 from synnax.ontology.group import Client as GroupClient
-from synnax.ontology.payload import ID, CrudeID, Relationship, Resource
+from synnax.ontology.payload import ID, CrudeID, Resource
 from synnax.util.normalize import normalize
 
 
@@ -43,9 +43,6 @@ class MoveChildrenReq(Payload):
     from_: ID = Field(alias="from")
     to: ID
     children: list[ID]
-
-
-_RETRIEVE_ENDPOINT = "/ontology/retrieve"
 
 
 class RetrieveRes(Payload):
@@ -102,32 +99,31 @@ class Client:
             include_schema=include_schema,
             exclude_field_data=exclude_field_data,
         )
-        res = send_required(self._client, _RETRIEVE_ENDPOINT, req, RetrieveRes)
+        resources = self.__exec_retrieve(req)
         if is_single:
-            return res.resources[0]
-        return res.resources
+            return resources[0]
+        return resources
 
     def retrieve_children(
         self,
         id: CrudeID | list[CrudeID],
     ) -> list[Resource]:
+        return self.__exec_retrieve(
+            RetrieveReq(ids=[ID(i) for i in normalize(id)], children=True)
+        )
+
+    def __exec_retrieve(self, req: RetrieveReq) -> list[Resource]:
         return send_required(
-            self._client,
-            _RETRIEVE_ENDPOINT,
-            RetrieveReq(ids=[ID(i) for i in normalize(id)], children=True),
-            RetrieveRes,
+            self._client, "/ontology/retrieve", req, RetrieveRes
         ).resources
 
     def retrieve_parents(
         self,
         id: CrudeID | list[CrudeID],
     ):
-        return send_required(
-            self._client,
-            _RETRIEVE_ENDPOINT,
-            RetrieveReq(ids=[ID(i) for i in normalize(id)], parents=True),
-            RetrieveRes,
-        ).resources
+        return self.__exec_retrieve(
+            RetrieveReq(ids=[ID(i) for i in normalize(id)], parents=True)
+        )
 
     def move_children(self, from_: CrudeID, to: CrudeID, *children: CrudeID) -> None:
         send_required(
