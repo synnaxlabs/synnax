@@ -69,7 +69,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         state_rate(telem::Rate(cfg.required<float>("state_rate"))) {
         cfg.iter("channels", [&](xjson::Parser &ch_cfg) {
             auto ch = channel::parse_output(ch_cfg);
-            if (ch != nullptr && ch->enabled && ch->cmd_ch_key != 0)
+            if (ch != nullptr && ch->enabled)
                 this->channels[ch->cmd_ch_key] = std::move(ch);
         });
         if (channels.empty()) {

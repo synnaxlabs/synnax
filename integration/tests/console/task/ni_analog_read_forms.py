@@ -28,16 +28,16 @@ class NIAnalogReadForms(ConsoleCase):
         """
         console = self.console
 
-        # Mode is used so that we can break this test into smaller
+        # Set is used so that we can break this test into smaller
         # chunks to run concurrently. The split is arbitrary. However,
         # there is a balance between small (and fast) chunks and
         # initializing multiple, resource-intensive playwright instances
 
-        mode = self.params.get("mode", "a")
+        set_id = self.params.get("set", 1)
 
         # Talks to NI MAX sim devices
         rack_name = f"TestRack_{random.randint(100, 999)}"
-        device_name = f"{mode}_E103"
+        device_name = f"{set_id}_E103"
 
         self.log("Creating NI Analog Read Task")
         console.ni_ai.new()
@@ -51,29 +51,29 @@ class NIAnalogReadForms(ConsoleCase):
             auto_start=False,
         )
 
-        self.create_test_rack(rack_name, device_name, mode)
+        self.create_test_rack(rack_name, device_name, set_id)
 
-        if mode == "a":
+        if set_id == 1:
             self.verify_voltage_inputs(device_name)
             self.verify_accel_inputs(device_name)
             self.verify_bridge_inputs(device_name)
-        if mode == "b":
+        if set_id == 2:
             self.verify_current_inputs(device_name)
             self.verify_force_bridge_table_inputs(device_name)
             self.verify_force_bridge_two_point_linear_inputs(device_name)
-        if mode == "c":
+        if set_id == 3:
             self.verify_force_iepe_inputs(device_name)
             self.verify_microphone_inputs(device_name)
             self.verify_pressure_bridge_table_inputs(device_name)
-        if mode == "d":
+        if set_id == 4:
             self.verify_pressure_bridge_two_point_linear_inputs(device_name)
             self.verify_resistance_inputs(device_name)
             self.verify_rtd_inputs(device_name)
-        if mode == "e":
+        if set_id == 5:
             self.verify_strain_gauge_inputs(device_name)
             self.verify_temperature_built_in_sensor_inputs(device_name)
             self.verify_thermocouple_inputs(device_name)
-        if mode == "f":
+        if set_id == 6:
             self.verify_torque_bridge_table_inputs(device_name)
             self.verify_torque_bridge_two_point_linear_inputs(device_name)
             self.verify_velocity_iepe_inputs(device_name)

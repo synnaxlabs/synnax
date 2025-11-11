@@ -11,31 +11,27 @@ from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Page
 
-from console.task.channels.accelerometer import Accelerometer
 from console.task.channels.analog import Analog
-from console.task.channels.bridge import Bridge
-from console.task.channels.current import Current
-from console.task.channels.force_bridge_table import ForceBridgeTable
-from console.task.channels.force_bridge_two_point_linear import (
+from console.task.channels.analog_input import (
+    RTD,
+    Accelerometer,
+    Bridge,
+    Current,
+    ForceBridgeTable,
     ForceBridgeTwoPointLinear,
-)
-from console.task.channels.force_iepe import ForceIEPE
-from console.task.channels.microphone import Microphone
-from console.task.channels.pressure_bridge_table import PressureBridgeTable
-from console.task.channels.pressure_bridge_two_point_linear import (
+    ForceIEPE,
+    Microphone,
+    PressureBridgeTable,
     PressureBridgeTwoPointLinear,
-)
-from console.task.channels.resistance import Resistance
-from console.task.channels.rtd import RTD
-from console.task.channels.strain_gauge import StrainGauge
-from console.task.channels.temperature_built_in_sensor import TemperatureBuiltInSensor
-from console.task.channels.thermocouple import Thermocouple
-from console.task.channels.torque_bridge_table import TorqueBridgeTable
-from console.task.channels.torque_bridge_two_point_linear import (
+    Resistance,
+    StrainGauge,
+    TemperatureBuiltInSensor,
+    Thermocouple,
+    TorqueBridgeTable,
     TorqueBridgeTwoPointLinear,
+    VelocityIEPE,
+    Voltage,
 )
-from console.task.channels.velocity_iepe import VelocityIEPE
-from console.task.channels.voltage import Voltage
 
 from .ni import NIChannel, NITask
 

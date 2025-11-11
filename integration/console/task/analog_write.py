@@ -12,8 +12,7 @@ from typing import TYPE_CHECKING, Any
 from playwright.sync_api import Page
 
 from console.task.channels.analog import Analog
-from console.task.channels.current import Current
-from console.task.channels.voltage import Voltage
+from console.task.channels.analog_input import Current, Voltage
 
 from .ni import NIChannel, NITask
 

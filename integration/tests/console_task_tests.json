@@ -8,7 +8,7 @@
         {
           "case": "console/task/ni_counter_read_forms",
           "parameters": {
-            "mode": ["a", "b", "c"]
+            "set": [1, 2, 3]
           }
         }
       ]
@@ -23,7 +23,7 @@
         {
           "case": "console/task/ni_analog_read_forms",
           "parameters": {
-            "mode": ["a", "b", "c"]
+            "set": [1, 2, 3]
           }
         }
       ]
@@ -35,7 +35,7 @@
         {
           "case": "console/task/ni_analog_read_forms",
           "parameters": {
-            "mode": ["d", "e", "f"]
+            "set": [4, 5, 6]
           }
         }
       ]

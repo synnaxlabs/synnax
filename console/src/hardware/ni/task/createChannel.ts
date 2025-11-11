@@ -76,25 +76,25 @@ export const createAOChannel = (channels: AOChannel[], key?: string): AOChannel 
     key,
   );
 
-const createCounterChannel = (
-  channels: CIChannel[],
-  zeroChannel: CIChannel,
-  override: Partial<CIChannel>,
+const createCounterChannel = <C extends CIChannel>(
+  channels: C[],
+  zeroChannel: C,
+  override: Partial<C>,
   keyToCopy?: string,
-): CIChannel => {
+): C => {
   const key = id.create();
-  let template: CIChannel;
+  let template: C;
   if (channels.length === 0) template = deep.copy(zeroChannel);
   else if (keyToCopy == null) template = deep.copy(channels[0]);
   else {
     const channel = channels.find(({ key }) => key === keyToCopy);
-    if (channel == null) return { ...deep.copy(zeroChannel), key } as CIChannel;
+    if (channel == null) return { ...deep.copy(zeroChannel), key };
     template = deep.copy(channel);
   }
   const existingPorts = new Set(channels.map(({ port }) => port));
   let port = 0;
   while (existingPorts.has(port)) port++;
-  return { ...template, key, port, ...override } as CIChannel;
+  return { ...template, key, port, ...override };
 };
 
 export const createCIChannel = (channels: CIChannel[], key?: string): CIChannel =>
