@@ -16,7 +16,7 @@ export interface SelectStageProps
   extends Omit<Select.StaticProps<Stage>, "data" | "resourceName"> {}
 
 export const SelectStage = (props: SelectStageProps): ReactElement => (
-  <Select.Static {...props} data={DATA} resourceName="Stage" />
+  <Select.Static {...props} data={DATA} resourceName="stage" />
 );
 
 const DATA: Select.StaticEntry<Stage>[] = STAGES.map((s) => {

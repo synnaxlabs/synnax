@@ -821,6 +821,14 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				Expect(err).NotTo(BeNil())
 			})
 
+			It("Should capture lexer errors for invalid tokens (regression)", func() {
+				// Regression test: lexer errors were not being captured properly
+				// Using && instead of 'and' should produce lexer token recognition errors
+				_, err := parser.ParseExpression("a > 5 && b < 10")
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("token recognition error at: '&'")))
+			})
+
 			It("Should report error for double assignment", func() {
 				_, err := parser.Parse(`func test() {
 					x := := 5

@@ -31,6 +31,7 @@ import { telem } from "@/telem/aether";
 import { type Text } from "@/text";
 import { type Viewport } from "@/viewport";
 import { Measure } from "@/vis/measure";
+import { type measure } from "@/vis/measure/aether";
 import { Rule } from "@/vis/rule";
 
 /** Props for an axis in {@link LinePlot} */
@@ -96,6 +97,8 @@ export interface LinePlotProps extends Core.LinePlotProps {
   onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
   rangeProviderProps?: Range.ProviderProps;
+  measureMode?: measure.Mode;
+  onMeasureModeChange?: (mode: measure.Mode) => void;
 }
 
 const canDrop = Haul.canDropOfType(HAUL_TYPE);
@@ -127,6 +130,8 @@ export const LinePlot = ({
   viewportTriggers,
   rangeProviderProps,
   onSelectRule,
+  measureMode,
+  onMeasureModeChange,
   children,
   ...rest
 }: LinePlotProps): ReactElement => {
@@ -182,7 +187,9 @@ export const LinePlot = ({
         ref={ref}
       >
         {enableTooltip && <Tooltip.Tooltip />}
-        {enableMeasure && <Measure.Measure />}
+        {enableMeasure && (
+          <Measure.Measure mode={measureMode} onModeChange={onMeasureModeChange} />
+        )}
         {children}
       </Core.Viewport>
     </Core.LinePlot>

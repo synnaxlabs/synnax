@@ -72,11 +72,11 @@ var _ = Describe("Functions", func() {
 
 	Describe("Function.Type", func() {
 		It("Should return function type with all properties", func() {
-			inputs := types.Params{}
-			inputs.Put("x", types.I64())
-			inputs.Put("y", types.I64())
-			outputs := types.Params{}
-			outputs.Put(ir.DefaultOutputParam, types.I64())
+			inputs := types.Params{
+				{Name: "x", Type: types.I64()},
+				{Name: "y", Type: types.I64()},
+			}
+			outputs := types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}
 
 			fn := ir.Function{
 				Key:     "test",
@@ -86,8 +86,8 @@ var _ = Describe("Functions", func() {
 
 			t := fn.Type()
 			Expect(t.Kind).To(Equal(types.KindFunction))
-			Expect(t.Inputs.Count()).To(Equal(2))
-			Expect(t.Outputs.Count()).To(Equal(1))
+			Expect(t.Inputs).To(HaveLen(2))
+			Expect(t.Outputs).To(HaveLen(1))
 		})
 	})
 })

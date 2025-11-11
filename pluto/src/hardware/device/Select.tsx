@@ -62,14 +62,8 @@ export interface SelectSingleProps
     Flux.UseListParams<ListParams, device.Key, device.Device> {}
 
 export const SelectSingle = ({
-  onChange,
-  value,
   filter,
-  allowNone,
-  emptyContent,
   initialQuery,
-  disabled,
-  icon = <Icon.Device />,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
@@ -79,18 +73,14 @@ export const SelectSingle = ({
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<device.Key, device.Device | undefined>
-      resourceName="Device"
-      value={value}
-      onChange={onChange}
+      resourceName="device"
       data={data}
       getItem={getItem}
       subscribe={subscribe}
       onFetchMore={fetchMore}
       onSearch={search}
-      emptyContent={emptyContent}
       status={status}
-      disabled={disabled}
-      icon={icon}
+      icon={<Icon.Device />}
       {...rest}
     >
       {listItemRenderProp}

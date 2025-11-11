@@ -78,7 +78,7 @@ const STROKE_WIDTH_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 const DOWNSAMPLE_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 
 interface SelectDownsampleModeProps
-  extends Omit<Select.StaticProps<telem.DownsampleMode>, "data"> {}
+  extends Omit<Select.ButtonsProps<telem.DownsampleMode>, "keys"> {}
 
 const KEYS: telem.DownsampleMode[] = ["average", "decimate"];
 
@@ -161,7 +161,6 @@ const Line = ({
       <SelectDownsampleMode
         value={line.downsampleMode}
         onChange={handleDownsampleModeChange}
-        resourceName="Downsample Mode"
       />
       <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
     </List.Item>

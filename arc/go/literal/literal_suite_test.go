@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package maps_test
+package literal_test
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestMaps(t *testing.T) {
+func TestLiteral(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Maps Suite")
+	RunSpecs(t, "Literal Suite")
 }

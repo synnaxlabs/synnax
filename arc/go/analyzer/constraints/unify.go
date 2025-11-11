@@ -113,7 +113,7 @@ func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, vis
 }
 
 // unifyTypeVariableWithVisited is the internal recursive function with cycle detection
-func (s *System) unifyTypeVariableWithVisited(tv types.Type, other types.Type, source Constraint, visiting map[string]bool) error {
+func (s *System) unifyTypeVariableWithVisited(tv, other types.Type, source Constraint, visiting map[string]bool) error {
 	if existing, exists := s.Substitutions[tv.Name]; exists {
 		// Type variable already has a substitution
 		// If we're in a compatible context with numeric types, we may need to promote

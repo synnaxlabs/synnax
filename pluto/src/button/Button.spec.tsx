@@ -24,7 +24,7 @@ describe("Button", () => {
     });
   });
 
-  describe("element overrride", () => {
+  describe("element override", () => {
     it("should render a button with the provided element", () => {
       const c = render(<Button.Button el="div">Hello</Button.Button>);
       expect(c.getByText("Hello").tagName).toBe("DIV");
@@ -51,6 +51,35 @@ describe("Button", () => {
     it("should render a tiny button if the size is tiny", () => {
       const c = render(<Button.Button size="tiny">Hello</Button.Button>);
       expect(c.getByText("Hello").className).toContain("pluto--height-tiny");
+    });
+  });
+
+  describe("onClick", () => {
+    it("should not propagate the click event to the parent", () => {
+      const onClick = vi.fn();
+      const onParentClick = vi.fn();
+      const c = render(
+        <div onClick={onParentClick}>
+          <Button.Button onClick={onClick}>Hello</Button.Button>
+        </div>,
+      );
+      fireEvent.click(c.getByText("Hello"));
+      expect(onClick).toHaveBeenCalled();
+      expect(onParentClick).not.toHaveBeenCalled();
+    });
+    it("should propagate the click event to the parent when the propagateClick prop is true", () => {
+      const onClick = vi.fn();
+      const onParentClick = vi.fn();
+      const c = render(
+        <div onClick={onParentClick}>
+          <Button.Button onClick={onClick} propagateClick>
+            Hello
+          </Button.Button>
+        </div>,
+      );
+      fireEvent.click(c.getByText("Hello"));
+      expect(onClick).toHaveBeenCalled();
+      expect(onParentClick).toHaveBeenCalled();
     });
   });
 
@@ -230,7 +259,7 @@ describe("Button", () => {
   });
 
   describe("contrast", () => {
-    it("should not set the contrast class to the button when the contrast is not setfalse", () => {
+    it("should not set the contrast class to the button when the contrast is not set or false", () => {
       const c = render(<Button.Button>Hello</Button.Button>);
       expect(c.getByText("Hello").className).not.toContain("contrast");
     });
@@ -320,7 +349,7 @@ describe("Button", () => {
   });
 
   describe("Variants", () => {
-    it("shoulud add a filled class to the button when the variant is filled", () => {
+    it("should add a filled class to the button when the variant is filled", () => {
       const c = render(
         <Button.Button size="small" variant="filled">
           Hello

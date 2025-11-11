@@ -42,7 +42,7 @@ export const SelectOutputChannelTypeField = Form.buildSelectField<
   },
   inputProps: {
     allowNone: false,
-    resourceName: "Channel Type",
+    resourceName: "channel type",
     data: OUTPUT_CHANNEL_TYPES,
     style: { width: "25rem" },
   },

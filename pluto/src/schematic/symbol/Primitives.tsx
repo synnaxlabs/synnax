@@ -45,6 +45,7 @@ import { useCustom } from "@/schematic/symbol/Custom";
 import { useRetrieve } from "@/schematic/symbol/queries";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
+import { stopPropagation } from "@/util/event";
 
 interface PathProps extends ComponentPropsWithoutRef<"path"> {}
 
@@ -202,7 +203,7 @@ const Handle = ({
       position={swapRF(smartPosition(location, orientation), !swap)}
       {...rest}
       type="source"
-      onClick={(e) => e.stopPropagation()}
+      onClick={stopPropagation}
       className={(CSS.B("handle"), CSS.BE("handle", rest.id))}
       style={{
         left: `${adjusted.left}%`,
