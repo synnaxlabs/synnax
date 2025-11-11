@@ -38,7 +38,7 @@ export const SelectInputChannelTypeField = Form.buildSelectField<
   fieldProps: { label: "Channel Type" },
   inputProps: {
     allowNone: false,
-    resourceName: "Channel Type",
+    resourceName: "channel type",
     data: INPUT_CHANNEL_TYPES,
   },
 });

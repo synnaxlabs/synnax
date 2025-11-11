@@ -56,7 +56,7 @@ export const Select = ({
       itemHeight={45}
       dialogProps={DIALOG_PROPS}
       {...rest}
-      resourceName="Range"
+      resourceName="range"
       data={data}
       subscribe={subscribe}
       getItem={getItem}

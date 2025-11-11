@@ -46,7 +46,7 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
     },
   },
   inputProps: {
-    resourceName: "Scale Type",
+    resourceName: "scale type",
     data: [
       { key: LINEAR_SCALE_TYPE, name: "Linear", icon: <Icon.Linear /> },
       { key: MAP_SCALE_TYPE, name: "Map", icon: <Icon.Map /> },
@@ -95,7 +95,7 @@ const UnitsField = Form.buildSelectField<Units, record.KeyedNamed<Units>>({
   fieldKey: "units",
   fieldProps: { label: "Units", style: { width: "19rem" } },
   inputProps: {
-    resourceName: "Unit",
+    resourceName: "units",
     allowNone: false,
     data: unitsData,
   },
@@ -224,7 +224,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
         <Flex.Box x>
           <Input.Item label="Raw Column" padHelpText grow>
             <Select.Static
-              resourceName="Raw Column"
+              resourceName="raw column"
               value={rawCol}
               onChange={handleRawColChange}
               data={colOptions}
@@ -232,7 +232,7 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
           </Input.Item>
           <Input.Item label="Scaled Column" padHelpText grow>
             <Select.Static
-              resourceName="Scaled Column"
+              resourceName="scaled column"
               value={scaledCol}
               onChange={handleScaledColChange}
               data={colOptions}
