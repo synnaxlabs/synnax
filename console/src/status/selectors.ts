@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { useMemo } from "react";
-import { useSelector } from "react-redux";
 
+import { useMemoSelect } from "@/hooks";
 import { SLICE_NAME, type SliceState } from "@/status/slice";
 import { type RootState } from "@/store";
 
@@ -19,10 +18,17 @@ export const selectSliceState = (state: RootState): SliceState => state[SLICE_NA
 export const selectFavorites = (state: RootState): status.Key[] =>
   selectSliceState(state).favorites;
 
+export const useSelectFavorites = (): status.Key[] =>
+  useMemoSelect((state: RootState) => selectFavorites(state), []);
+
+export const selectFavoriteSet = (state: RootState): Set<status.Key> =>
+  new Set(selectFavorites(state));
+
+export const useSelectFavoriteSet = (): Set<status.Key> =>
+  useMemoSelect((state: RootState) => selectFavoriteSet(state), []);
+
 export const selectIsFavorite = (state: RootState, key: status.Key): boolean =>
   selectSliceState(state).favorites.includes(key);
 
-export const useSelectFavorites = (): status.Key[] => useSelector(selectFavorites);
-
 export const useSelectIsFavorite = (key: status.Key): boolean =>
-  useSelector(useMemo(() => (state: RootState) => selectIsFavorite(state, key), [key]));
+  useMemoSelect((state: RootState) => selectIsFavorite(state, key), [key]);

@@ -10,34 +10,30 @@
 import { type status } from "@synnaxlabs/client";
 import { type Flux, Icon, type List, Menu as PMenu, Status } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { selectIsFavorite } from "@/status/selectors";
-import { toggleFavorite } from "@/status/slice";
-import { type RootState } from "@/store";
+import { useSelectFavoriteSet } from "@/status/selectors";
+import { addFavorites, removeFavorites } from "@/status/slice";
 
 export interface ContextMenuProps extends PMenu.ContextMenuMenuProps {
-  getItem: List.GetItem<string, status.Status>;
+  getItem: List.GetItem<status.Key, status.Status>;
 }
 
 export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const statuses = getItem(keys);
   const isEmpty = statuses.length === 0;
   const dispatch = useDispatch();
-
-  // Check favorite status for all selected items
-  const favoriteStates = useSelector((state: RootState) =>
-    statuses.map((s) => selectIsFavorite(state, s.key)),
+  const favoriteSet = useSelectFavoriteSet();
+  const anyFavorited = useMemo(
+    () => keys.some((k) => favoriteSet.has(k)),
+    [favoriteSet, keys],
   );
-
-  // If any are not favorited, show "Favorite". If any are favorited, show "Unfavorite"
-  const anyFavorited = useMemo(() => favoriteStates.some((f) => f), [favoriteStates]);
   const anyNotFavorited = useMemo(
-    () => favoriteStates.some((f) => !f),
-    [favoriteStates],
+    () => keys.some((k) => !favoriteSet.has(k)),
+    [favoriteSet, keys],
   );
 
   const confirm = useConfirmDelete({
@@ -64,33 +60,37 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
     delete: () => {
       handleError(async () => {
         const confirmed = await confirm(statuses);
-        if (confirmed) del(statuses.map((s) => s.key));
+        if (confirmed) del(keys);
       }, "Failed to delete status");
     },
     rename: useCallback(() => {
       rename.update(statuses[0]);
     }, [rename, statuses]),
-    toggleFavorite: useCallback(() => {
-      statuses.forEach((s) => dispatch(toggleFavorite({ key: s.key })));
-    }, [dispatch, statuses]),
+    favorite: useCallback(() => {
+      dispatch(addFavorites(keys));
+    }, [dispatch, keys]),
+    unfavorite: useCallback(() => {
+      dispatch(removeFavorites(keys));
+    }, [dispatch, keys]),
   };
 
-  // Determine which action to show based on favorite states
-  const showFavorite = anyNotFavorited;
-  const showUnfavorite = anyFavorited;
   const isSingle = statuses.length === 1;
 
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
-      {!isEmpty && (showFavorite || showUnfavorite) && (
-        <>
-          <PMenu.Item itemKey="toggleFavorite">
-            {showUnfavorite ? <Icon.StarFilled /> : <Icon.StarOutlined />}
-            {showUnfavorite ? "Unfavorite" : "Favorite"}
-          </PMenu.Item>
-          <PMenu.Divider />
-        </>
+      {anyNotFavorited && (
+        <PMenu.Item itemKey="favorite">
+          <Icon.StarFilled />
+          Favorite
+        </PMenu.Item>
       )}
+      {anyFavorited && (
+        <PMenu.Item itemKey="unfavorite">
+          <Icon.StarOutlined />
+          Unfavorite
+        </PMenu.Item>
+      )}
+      {(anyFavorited || anyNotFavorited) && <PMenu.Divider />}
       {!isEmpty && <Menu.DeleteItem />}
       {isSingle && <Menu.RenameItem />}
     </PMenu.Menu>

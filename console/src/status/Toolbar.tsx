@@ -79,9 +79,8 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<status.Key>) =>
   const item = CoreList.useItem<status.Key, status.Status>(itemKey);
   if (item == null) return null;
   const { name, time, variant, message, labels } = item;
-
   return (
-    <Select.ListItem className={CSS.B("status-list-item")} {...props} gap="small" y>
+    <Select.ListItem className={CSS.B("status-list-item")} gap="small" y {...props}>
       <Flex.Box x justify="between">
         <Flex.Box x align="center" gap="small">
           <Status.Indicator variant={variant} />

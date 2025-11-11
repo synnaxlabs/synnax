@@ -30,16 +30,14 @@ import { useDispatch } from "react-redux";
 import { FavoriteButton as CoreFavoriteButton } from "@/components";
 import { CSS } from "@/css";
 import { ContextMenu } from "@/status/list/ContextMenu";
-
-import { useSelectIsFavorite } from "../selectors";
-import { toggleFavorite } from "../slice";
+import { useSelectIsFavorite } from "@/status/selectors";
+import { toggleFavorite } from "@/status/slice";
 
 export interface ItemProps extends List.ItemProps<status.Key> {}
 
 export const Item = (props: ItemProps): ReactElement | null => {
   const { itemKey } = props;
   const item = List.useItem<status.Key, status.Status>(itemKey);
-
   const initialValues = useMemo(() => {
     if (item == null) return undefined;
     return {
@@ -130,7 +128,7 @@ const FavoriteButton = ({ statusKey }: FavoriteButtonProps) => {
   const dispatch = useDispatch();
   const isFavorite = useSelectIsFavorite(statusKey);
   const handleFavorite = () => {
-    dispatch(toggleFavorite({ key: statusKey }));
+    dispatch(toggleFavorite(statusKey));
   };
   return <CoreFavoriteButton isFavorite={isFavorite} onFavorite={handleFavorite} />;
 };

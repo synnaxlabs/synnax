@@ -9,6 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type status } from "@synnaxlabs/client";
+import { array } from "@synnaxlabs/x";
 
 export const SLICE_NAME = "status";
 
@@ -16,37 +17,47 @@ export interface SliceState {
   favorites: status.Key[];
 }
 
-export const ZERO_SLICE_STATE: SliceState = {
-  favorites: [],
-};
+export const ZERO_SLICE_STATE: SliceState = { favorites: [] };
 
 export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-interface ToggleFavoritePayload {
-  key: status.Key;
-}
+type AddFavoritesPayload = status.Key | status.Key[];
 
-type PA<P> = PayloadAction<P>;
+type RemoveFavoritesPayload = status.Key | status.Key[];
+
+type ToggleFavoritePayload = status.Key;
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    toggleFavorite: (state, { payload: { key } }: PA<ToggleFavoritePayload>) => {
-      const index = state.favorites.indexOf(key);
-      if (index === -1) state.favorites.push(key);
-      else state.favorites.splice(index, 1);
+    addFavorites: (state, { payload: keys }: PayloadAction<AddFavoritesPayload>) => {
+      const existingFavorites = new Set(state.favorites);
+      for (const key of array.toArray(keys)) {
+        if (existingFavorites.has(key)) continue;
+        state.favorites.push(key);
+        existingFavorites.add(key);
+      }
     },
-    removeFavorite: (state, { payload: { key } }: PA<ToggleFavoritePayload>) => {
-      const index = state.favorites.indexOf(key);
-      if (index !== -1) state.favorites.splice(index, 1);
+    removeFavorites: (
+      state,
+      { payload: keys }: PayloadAction<RemoveFavoritesPayload>,
+    ) => {
+      const favoritesToDelete = new Set(array.toArray(keys));
+      if (favoritesToDelete.size === 0) return;
+      state.favorites = state.favorites.filter((key) => !favoritesToDelete.has(key));
+    },
+    toggleFavorite: (state, { payload: key }: PayloadAction<ToggleFavoritePayload>) => {
+      const existingIndex = state.favorites.indexOf(key);
+      if (existingIndex !== -1) state.favorites.splice(existingIndex, 1);
+      else state.favorites.push(key);
     },
   },
 });
 
-export const { toggleFavorite, removeFavorite } = actions;
+export const { addFavorites, removeFavorites, toggleFavorite } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
