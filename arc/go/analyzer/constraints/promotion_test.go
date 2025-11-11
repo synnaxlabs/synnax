@@ -69,7 +69,6 @@ var _ = Describe("Numeric Type Promotion", func() {
 				testPromotion(types.U64(), types.U64(), types.U64())
 			})
 
-			// Key insight: Mixing signedness at 64-bit → F64
 			It("i64 ~ u64 → f64 (mixed signedness at 64-bit)", func() {
 				testPromotion(types.I64(), types.U64(), types.F64())
 			})

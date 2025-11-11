@@ -12,6 +12,7 @@ package op_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
@@ -25,38 +26,13 @@ import (
 var _ = Describe("OP", func() {
 	DescribeTable("Outputs", func(
 		t string, lhs, lhsTime, rhs, rhsTime, output, outputTime telem.Series) {
-		opNode :=
-			ir.Node{
-				Key:  "op",
-				Type: t,
-				Inputs: types.Params{
-					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-					Values: []types.Type{types.FromTelem(lhs.DataType), types.FromTelem(rhs.DataType)},
-				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.FromTelem(output.DataType)},
-				},
-			}
-		cfg := state.Config{
-			Nodes: []ir.Node{
-				{
-					Key: "lhs",
-					Outputs: types.Params{
-						Keys:   []string{ir.DefaultOutputParam},
-						Values: []types.Type{types.FromTelem(lhs.DataType)},
-					},
-				},
-				{
-					Key: "rhs",
-					Outputs: types.Params{
-						Keys:   []string{ir.DefaultOutputParam},
-						Values: []types.Type{types.FromTelem(rhs.DataType)},
-					},
-				},
-				opNode,
+		g := graph.Graph{
+			Nodes: []graph.Node{
+				{Key: "lhs", Type: "lhs"},
+				{Key: "rhs", Type: "rhs"},
+				{Key: "op", Type: t},
 			},
-			Edges: []ir.Edge{
+			Edges: []graph.Edge{
 				{
 					Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
@@ -66,8 +42,24 @@ var _ = Describe("OP", func() {
 					Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 				},
 			},
+			Functions: []graph.Function{
+				{
+					Key: "lhs",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.FromTelem(lhs.DataType)},
+					},
+				},
+				{
+					Key: "rhs",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.FromTelem(rhs.DataType)},
+					},
+				},
+			},
 		}
-		s := state.New(cfg)
+		analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+		Expect(diagnostics.Ok()).To(BeTrue())
+		s := state.New(state.Config{IR: analyzed})
 		lhsNode := s.Node("lhs")
 		rhsNode := s.Node("rhs")
 		*lhsNode.Output(0) = lhs
@@ -75,7 +67,7 @@ var _ = Describe("OP", func() {
 		*rhsNode.Output(0) = rhs
 		*rhsNode.OutputTime(0) = rhsTime
 		c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
-			Node:  opNode,
+			Node:  ir.Node{Type: t},
 			State: s.Node("op"),
 		}))
 		changed := make(set.Set[string])
@@ -129,43 +121,34 @@ var _ = Describe("OP", func() {
 	)
 	DescribeTable("Unary Outputs", func(
 		t string, input, inputTime, output, outputTime telem.Series) {
-		opNode :=
-			ir.Node{
-				Key:  "op",
-				Type: t,
-				Inputs: types.Params{
-					Keys:   []string{ir.DefaultInputParam},
-					Values: []types.Type{types.FromTelem(input.DataType)},
-				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.FromTelem(output.DataType)},
-				},
-			}
-		cfg := state.Config{
-			Nodes: []ir.Node{
-				{
-					Key: "input",
-					Outputs: types.Params{
-						Keys:   []string{ir.DefaultOutputParam},
-						Values: []types.Type{types.FromTelem(input.DataType)},
-					},
-				},
-				opNode,
+		g := graph.Graph{
+			Nodes: []graph.Node{
+				{Key: "input", Type: "input"},
+				{Key: "op", Type: t},
 			},
-			Edges: []ir.Edge{
+			Edges: []graph.Edge{
 				{
 					Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "op", Param: ir.DefaultInputParam},
 				},
 			},
+			Functions: []graph.Function{
+				{
+					Key: "input",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.FromTelem(input.DataType)},
+					},
+				},
+			},
 		}
-		s := state.New(cfg)
+		analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+		Expect(diagnostics.Ok()).To(BeTrue())
+		s := state.New(state.Config{IR: analyzed})
 		inputNode := s.Node("input")
 		*inputNode.Output(0) = input
 		*inputNode.OutputTime(0) = inputTime
 		c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
-			Node:  opNode,
+			Node:  ir.Node{Type: t},
 			State: s.Node("op"),
 		}))
 		changed := make(set.Set[string])
@@ -189,37 +172,13 @@ var _ = Describe("OP", func() {
 	)
 	Describe("Edge Cases", func() {
 		It("Should handle mismatched series lengths by extending shorter series", func() {
-			opNode := ir.Node{
-				Key:  "op",
-				Type: "add",
-				Inputs: types.Params{
-					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-					Values: []types.Type{types.F32(), types.F32()},
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "lhs", Type: "lhs"},
+					{Key: "rhs", Type: "rhs"},
+					{Key: "op", Type: "add"},
 				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.F32()},
-				},
-			}
-			cfg := state.Config{
-				Nodes: []ir.Node{
-					{
-						Key: "lhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
-						},
-					},
-					{
-						Key: "rhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
-						},
-					},
-					opNode,
-				},
-				Edges: []ir.Edge{
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
@@ -229,8 +188,24 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					},
 				},
+				Functions: []graph.Function{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
+					},
+				},
 			}
-			s := state.New(cfg)
+			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[float32](1, 2, 3, 4, 5)
@@ -238,7 +213,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[float32](10, 20)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
-				Node:  opNode,
+				Node:  ir.Node{Type: "add"},
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
@@ -248,37 +223,13 @@ var _ = Describe("OP", func() {
 			Expect(result.Len()).To(Equal(int64(5)))
 		})
 		It("Should handle different time bases", func() {
-			opNode := ir.Node{
-				Key:  "op",
-				Type: "multiply",
-				Inputs: types.Params{
-					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-					Values: []types.Type{types.I32(), types.I32()},
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "lhs", Type: "lhs"},
+					{Key: "rhs", Type: "rhs"},
+					{Key: "op", Type: "multiply"},
 				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.I32()},
-				},
-			}
-			cfg := state.Config{
-				Nodes: []ir.Node{
-					{
-						Key: "lhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
-						},
-					},
-					{
-						Key: "rhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
-						},
-					},
-					opNode,
-				},
-				Edges: []ir.Edge{
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
@@ -288,8 +239,24 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					},
 				},
+				Functions: []graph.Function{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
+						},
+					},
+				},
 			}
-			s := state.New(cfg)
+			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[int32](2, 3, 4)
@@ -297,7 +264,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[int32](5, 6, 7)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 150, 250)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
-				Node:  opNode,
+				Node:  ir.Node{Type: "multiply"},
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
@@ -307,37 +274,13 @@ var _ = Describe("OP", func() {
 			Expect(resultTime).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100, 200, 300)))
 		})
 		It("Should handle repeated calls to Next with no input changes", func() {
-			opNode := ir.Node{
-				Key:  "op",
-				Type: "add",
-				Inputs: types.Params{
-					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-					Values: []types.Type{types.F64(), types.F64()},
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "lhs", Type: "lhs"},
+					{Key: "rhs", Type: "rhs"},
+					{Key: "op", Type: "add"},
 				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.F64()},
-				},
-			}
-			cfg := state.Config{
-				Nodes: []ir.Node{
-					{
-						Key: "lhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
-						},
-					},
-					{
-						Key: "rhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F64()},
-						},
-					},
-					opNode,
-				},
-				Edges: []ir.Edge{
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
@@ -347,8 +290,24 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					},
 				},
+				Functions: []graph.Function{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+					},
+				},
 			}
-			s := state.New(cfg)
+			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[float64](1.5, 2.5)
@@ -356,7 +315,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[float64](3.5, 4.5)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
-				Node:  opNode,
+				Node:  ir.Node{Type: "add"},
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
@@ -368,37 +327,13 @@ var _ = Describe("OP", func() {
 		})
 
 		It("Should handle repeated calls to Next with input changes", func() {
-			opNode := ir.Node{
-				Key:  "op",
-				Type: "subtract",
-				Inputs: types.Params{
-					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-					Values: []types.Type{types.I64(), types.I64()},
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "lhs", Type: "lhs"},
+					{Key: "rhs", Type: "rhs"},
+					{Key: "op", Type: "subtract"},
 				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.I64()},
-				},
-			}
-			cfg := state.Config{
-				Nodes: []ir.Node{
-					{
-						Key: "lhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
-					},
-					{
-						Key: "rhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
-					},
-					opNode,
-				},
-				Edges: []ir.Edge{
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
@@ -408,8 +343,24 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					},
 				},
+				Functions: []graph.Function{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+					},
+				},
 			}
-			s := state.New(cfg)
+			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[int64](100)
@@ -417,7 +368,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[int64](30)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
-				Node:  opNode,
+				Node:  ir.Node{Type: "subtract"},
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
@@ -435,37 +386,13 @@ var _ = Describe("OP", func() {
 		})
 
 		It("Should handle single value series", func() {
-			opNode := ir.Node{
-				Key:  "op",
-				Type: "multiply",
-				Inputs: types.Params{
-					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-					Values: []types.Type{types.U32(), types.U32()},
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "lhs", Type: "lhs"},
+					{Key: "rhs", Type: "rhs"},
+					{Key: "op", Type: "multiply"},
 				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.U32()},
-				},
-			}
-			cfg := state.Config{
-				Nodes: []ir.Node{
-					{
-						Key: "lhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U32()},
-						},
-					},
-					{
-						Key: "rhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U32()},
-						},
-					},
-					opNode,
-				},
-				Edges: []ir.Edge{
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
@@ -475,8 +402,24 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					},
 				},
+				Functions: []graph.Function{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U32()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U32()},
+						},
+					},
+				},
 			}
-			s := state.New(cfg)
+			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint32](7)
@@ -484,7 +427,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[uint32](8)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
-				Node:  opNode,
+				Node:  ir.Node{Type: "multiply"},
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
@@ -493,37 +436,13 @@ var _ = Describe("OP", func() {
 			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint32](56)))
 		})
 		It("Should handle lhs longer than rhs", func() {
-			opNode := ir.Node{
-				Key:  "op",
-				Type: "ge",
-				Inputs: types.Params{
-					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-					Values: []types.Type{types.F32(), types.F32()},
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "lhs", Type: "lhs"},
+					{Key: "rhs", Type: "rhs"},
+					{Key: "op", Type: "ge"},
 				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.U8()},
-				},
-			}
-			cfg := state.Config{
-				Nodes: []ir.Node{
-					{
-						Key: "lhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
-						},
-					},
-					{
-						Key: "rhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
-						},
-					},
-					opNode,
-				},
-				Edges: []ir.Edge{
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
@@ -533,8 +452,24 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					},
 				},
+				Functions: []graph.Function{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
+					},
+				},
 			}
-			s := state.New(cfg)
+			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7)
@@ -542,7 +477,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[float32](2, 3, 4)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
-				Node:  opNode,
+				Node:  ir.Node{Type: "ge"},
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
@@ -552,37 +487,13 @@ var _ = Describe("OP", func() {
 			Expect(result.Len()).To(Equal(int64(7)))
 		})
 		It("Should handle rhs longer than lhs", func() {
-			opNode := ir.Node{
-				Key:  "op",
-				Type: "eq",
-				Inputs: types.Params{
-					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-					Values: []types.Type{types.I16(), types.I16()},
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "lhs", Type: "lhs"},
+					{Key: "rhs", Type: "rhs"},
+					{Key: "op", Type: "eq"},
 				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.U8()},
-				},
-			}
-			cfg := state.Config{
-				Nodes: []ir.Node{
-					{
-						Key: "lhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I16()},
-						},
-					},
-					{
-						Key: "rhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I16()},
-						},
-					},
-					opNode,
-				},
-				Edges: []ir.Edge{
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
@@ -592,8 +503,24 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					},
 				},
+				Functions: []graph.Function{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I16()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I16()},
+						},
+					},
+				},
 			}
-			s := state.New(cfg)
+			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[int16](10, 20)
@@ -601,7 +528,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[int16](10, 20, 30, 40, 50)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5, 10, 15, 20, 25)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
-				Node:  opNode,
+				Node:  ir.Node{Type: "eq"},
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
@@ -612,37 +539,13 @@ var _ = Describe("OP", func() {
 		})
 
 		It("Should handle logical OR with mismatched lengths", func() {
-			opNode := ir.Node{
-				Key:  "op",
-				Type: "or",
-				Inputs: types.Params{
-					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-					Values: []types.Type{types.U8(), types.U8()},
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "lhs", Type: "lhs"},
+					{Key: "rhs", Type: "rhs"},
+					{Key: "op", Type: "or"},
 				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.U8()},
-				},
-			}
-			cfg := state.Config{
-				Nodes: []ir.Node{
-					{
-						Key: "lhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					{
-						Key: "rhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					opNode,
-				},
-				Edges: []ir.Edge{
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
@@ -652,8 +555,24 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					},
 				},
+				Functions: []graph.Function{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+				},
 			}
-			s := state.New(cfg)
+			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint8](0, 1, 0, 1, 1)
@@ -661,7 +580,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[uint8](1, 0)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
-				Node:  opNode,
+				Node:  ir.Node{Type: "or"},
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
@@ -672,37 +591,13 @@ var _ = Describe("OP", func() {
 		})
 
 		It("Should handle logical AND with mismatched lengths", func() {
-			opNode := ir.Node{
-				Key:  "op",
-				Type: "and",
-				Inputs: types.Params{
-					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-					Values: []types.Type{types.U8(), types.U8()},
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "lhs", Type: "lhs"},
+					{Key: "rhs", Type: "rhs"},
+					{Key: "op", Type: "and"},
 				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.U8()},
-				},
-			}
-			cfg := state.Config{
-				Nodes: []ir.Node{
-					{
-						Key: "lhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					{
-						Key: "rhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					opNode,
-				},
-				Edges: []ir.Edge{
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
@@ -712,8 +607,24 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					},
 				},
+				Functions: []graph.Function{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+				},
 			}
-			s := state.New(cfg)
+			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint8](1, 1)
@@ -721,7 +632,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[uint8](1, 0, 1, 1, 0)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
-				Node:  opNode,
+				Node:  ir.Node{Type: "and"},
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
@@ -732,37 +643,13 @@ var _ = Describe("OP", func() {
 		})
 
 		It("Should handle logical OR with single values", func() {
-			opNode := ir.Node{
-				Key:  "op",
-				Type: "or",
-				Inputs: types.Params{
-					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-					Values: []types.Type{types.U8(), types.U8()},
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "lhs", Type: "lhs"},
+					{Key: "rhs", Type: "rhs"},
+					{Key: "op", Type: "or"},
 				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.U8()},
-				},
-			}
-			cfg := state.Config{
-				Nodes: []ir.Node{
-					{
-						Key: "lhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					{
-						Key: "rhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					opNode,
-				},
-				Edges: []ir.Edge{
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
@@ -772,8 +659,24 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					},
 				},
+				Functions: []graph.Function{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+				},
 			}
-			s := state.New(cfg)
+			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint8](0)
@@ -781,7 +684,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[uint8](1)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
-				Node:  opNode,
+				Node:  ir.Node{Type: "or"},
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])
@@ -791,37 +694,13 @@ var _ = Describe("OP", func() {
 		})
 
 		It("Should handle logical AND with single values", func() {
-			opNode := ir.Node{
-				Key:  "op",
-				Type: "and",
-				Inputs: types.Params{
-					Keys:   []string{ir.LHSInputParam, ir.RHSInputParam},
-					Values: []types.Type{types.U8(), types.U8()},
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "lhs", Type: "lhs"},
+					{Key: "rhs", Type: "rhs"},
+					{Key: "op", Type: "and"},
 				},
-				Outputs: types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.U8()},
-				},
-			}
-			cfg := state.Config{
-				Nodes: []ir.Node{
-					{
-						Key: "lhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					{
-						Key: "rhs",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.U8()},
-						},
-					},
-					opNode,
-				},
-				Edges: []ir.Edge{
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
@@ -831,8 +710,24 @@ var _ = Describe("OP", func() {
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 					},
 				},
+				Functions: []graph.Function{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+				},
 			}
-			s := state.New(cfg)
+			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[uint8](1)
@@ -840,7 +735,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[uint8](1)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
-				Node:  opNode,
+				Node:  ir.Node{Type: "and"},
 				State: s.Node("op"),
 			}))
 			changed := make(set.Set[string])

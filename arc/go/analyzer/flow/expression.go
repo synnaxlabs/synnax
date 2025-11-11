@@ -24,7 +24,7 @@ import (
 func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 	exprType := atypes.InferFromExpression(ctx).Unwrap()
 	t := types.Function(types.FunctionProperties{})
-	t.Outputs.Put(ir.DefaultOutputParam, exprType)
+	t.Outputs = append(t.Outputs, types.Param{Name: ir.DefaultOutputParam, Type: exprType})
 	fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 		Name: "",
 		Kind: symbol.KindFunction,

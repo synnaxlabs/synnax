@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
@@ -24,6 +25,13 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var (
+	dummyBodyI32 = ir.Body{Raw: `{ return 1 }`}
+	dummyBodyI64 = ir.Body{Raw: `{ return 1 }`}
+	dummyBodyF32 = ir.Body{Raw: `{ return 1.0 }`}
+	dummyBodyF64 = ir.Body{Raw: `{ return 1.0 }`}
+)
+
 var _ = Describe("Wasm", func() {
 	Describe("Next with mismatched input lengths", func() {
 		It("Should repeat shorter input values to match longest input", func() {
@@ -32,50 +40,37 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "add",
 						Inputs: types.Params{
-							Keys:   []string{"lhs", "rhs"},
-							Values: []types.Type{types.I64(), types.I64()},
+							{Name: "lhs", Type: types.I64()},
+							{Name: "rhs", Type: types.I64()},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 						Body: ir.Body{Raw: `{
 							return lhs + rhs
 						}`},
 					},
-				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-			cfg := state.Config{
-				Nodes: []ir.Node{
 					{
 						Key: "lhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
+						Body: dummyBodyI64,
 					},
 					{
 						Key: "rhs",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
-					},
-					{
-						Key:  "add",
-						Type: "add",
-						Inputs: types.Params{
-							Keys:   []string{"lhs", "rhs"},
-							Values: []types.Type{types.I64(), types.I64()},
-						},
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
+						Body: dummyBodyI64,
 					},
 				},
-				Edges: []ir.Edge{
+				Nodes: []graph.Node{
+					{Key: "lhs", Type: "lhs"},
+					{Key: "rhs", Type: "rhs"},
+					{Key: "add", Type: "add"},
+				},
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "add", Param: "lhs"},
@@ -86,7 +81,10 @@ var _ = Describe("Wasm", func() {
 					},
 				},
 			}
-			s := state.New(cfg)
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			lhsNode := s.Node("lhs")
 			rhsNode := s.Node("rhs")
 			*lhsNode.Output(0) = telem.NewSeriesV[int64](1, 2, 3, 4, 5)
@@ -101,12 +99,11 @@ var _ = Describe("Wasm", func() {
 				Expect(wasmMod.Close()).To(Succeed())
 			}()
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
-			n, err := factory.Create(ctx, node.Config{
-				Node:   cfg.Nodes[2],
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("add"),
 				State:  s.Node("add"),
 				Module: mod,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
@@ -124,50 +121,37 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "multiply",
 						Inputs: types.Params{
-							Keys:   []string{"a", "b"},
-							Values: []types.Type{types.I32(), types.I32()},
+							{Name: "a", Type: types.I32()},
+							{Name: "b", Type: types.I32()},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 						Body: ir.Body{Raw: `{
-							return a * b
-						}`},
+						return a * b
+					}`},
 					},
-				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-			cfg := state.Config{
-				Nodes: []ir.Node{
 					{
 						Key: "a",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
+						Body: dummyBodyI32,
 					},
 					{
 						Key: "b",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
-					},
-					{
-						Key:  "multiply",
-						Type: "multiply",
-						Inputs: types.Params{
-							Keys:   []string{"a", "b"},
-							Values: []types.Type{types.I32(), types.I32()},
-						},
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
-						},
+						Body: dummyBodyI32,
 					},
 				},
-				Edges: []ir.Edge{
+				Nodes: []graph.Node{
+					{Key: "a", Type: "a"},
+					{Key: "b", Type: "b"},
+					{Key: "multiply", Type: "multiply"},
+				},
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "multiply", Param: "a"},
@@ -178,7 +162,10 @@ var _ = Describe("Wasm", func() {
 					},
 				},
 			}
-			s := state.New(cfg)
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			aNode := s.Node("a")
 			bNode := s.Node("b")
 			*aNode.Output(0) = telem.NewSeriesV[int32](2, 3, 4)
@@ -193,12 +180,11 @@ var _ = Describe("Wasm", func() {
 				Expect(wasmMod.Close()).To(Succeed())
 			}()
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
-			n, err := factory.Create(ctx, node.Config{
-				Node:   cfg.Nodes[2],
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("multiply"),
 				State:  s.Node("multiply"),
 				Module: mod,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
@@ -216,50 +202,37 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "subtract",
 						Inputs: types.Params{
-							Keys:   []string{"x", "y"},
-							Values: []types.Type{types.F32(), types.F32()},
+							{Name: "x", Type: types.F32()},
+							{Name: "y", Type: types.F32()},
 						},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
 						Body: ir.Body{Raw: `{
-							return x - y
-						}`},
+						return x - y
+					}`},
 					},
-				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-			cfg := state.Config{
-				Nodes: []ir.Node{
 					{
 						Key: "x",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
+						Body: dummyBodyF32,
 					},
 					{
 						Key: "y",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
 						},
-					},
-					{
-						Key:  "subtract",
-						Type: "subtract",
-						Inputs: types.Params{
-							Keys:   []string{"x", "y"},
-							Values: []types.Type{types.F32(), types.F32()},
-						},
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.F32()},
-						},
+						Body: dummyBodyF32,
 					},
 				},
-				Edges: []ir.Edge{
+				Nodes: []graph.Node{
+					{Key: "x", Type: "x"},
+					{Key: "y", Type: "y"},
+					{Key: "subtract", Type: "subtract"},
+				},
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "subtract", Param: "x"},
@@ -270,7 +243,10 @@ var _ = Describe("Wasm", func() {
 					},
 				},
 			}
-			s := state.New(cfg)
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			xNode := s.Node("x")
 			yNode := s.Node("y")
 			*xNode.Output(0) = telem.NewSeriesV[float32](100.0, 200.0, 300.0, 400.0)
@@ -285,12 +261,11 @@ var _ = Describe("Wasm", func() {
 				Expect(wasmMod.Close()).To(Succeed())
 			}()
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
-			n, err := factory.Create(ctx, node.Config{
-				Node:   cfg.Nodes[2],
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("subtract"),
 				State:  s.Node("subtract"),
 				Module: mod,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
@@ -310,51 +285,39 @@ var _ = Describe("Wasm", func() {
 					{
 						Key: "math_ops",
 						Inputs: types.Params{
-							Keys:   []string{"a", "b"},
-							Values: []types.Type{types.I64(), types.I64()},
+							{Name: "a", Type: types.I64()},
+							{Name: "b", Type: types.I64()},
 						},
 						Outputs: types.Params{
-							Keys:   []string{"sum", "product"},
-							Values: []types.Type{types.I64(), types.I64()},
+							{Name: "sum", Type: types.I64()},
+							{Name: "product", Type: types.I64()},
 						},
 						Body: ir.Body{Raw: `{
 							sum = a + b
 							product = a * b
 						}`},
 					},
-				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-			cfg := state.Config{
-				Nodes: []ir.Node{
 					{
 						Key: "a",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
+						Body: dummyBodyI64,
 					},
 					{
 						Key: "b",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
-					},
-					{
-						Key:  "math_ops",
-						Type: "math_ops",
-						Inputs: types.Params{
-							Keys:   []string{"a", "b"},
-							Values: []types.Type{types.I64(), types.I64()},
-						},
-						Outputs: types.Params{
-							Keys:   []string{"sum", "product"},
-							Values: []types.Type{types.I64(), types.I64()},
-						},
+						Body: dummyBodyI64,
 					},
 				},
-				Edges: []ir.Edge{
+				Nodes: []graph.Node{
+					{Key: "a", Type: "a"},
+					{Key: "b", Type: "b"},
+					{Key: "math_ops", Type: "math_ops"},
+				},
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "math_ops", Param: "a"},
@@ -365,7 +328,10 @@ var _ = Describe("Wasm", func() {
 					},
 				},
 			}
-			s := state.New(cfg)
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			aNode := s.Node("a")
 			bNode := s.Node("b")
 			*aNode.Output(0) = telem.NewSeriesV[int64](10, 20, 30)
@@ -381,7 +347,7 @@ var _ = Describe("Wasm", func() {
 			}()
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n := MustSucceed(factory.Create(ctx, node.Config{
-				Node:   cfg.Nodes[2],
+				Node:   analyzed.Nodes.Get("math_ops"),
 				State:  s.Node("math_ops"),
 				Module: mod,
 			}))
@@ -420,14 +386,10 @@ var _ = Describe("Wasm", func() {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
-						Key: "read_channel",
-						Inputs: types.Params{
-							Keys:   []string{},
-							Values: []types.Type{},
-						},
+						Key:    "read_channel",
+						Inputs: types.Params{},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
 						},
 						Body: ir.Body{Raw: `{
 							value i32 := sensor
@@ -435,25 +397,19 @@ var _ = Describe("Wasm", func() {
 						}`},
 					},
 				},
+				Nodes: []graph.Node{
+					{Key: "read_channel", Type: "read_channel"},
+				},
 			}
 			mod := MustSucceed(arc.CompileGraph(ctx, g, arc.WithResolver(resolver)))
-
-			cfg := state.Config{
+			analyzed, diagnostics := graph.Analyze(ctx, g, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{
+				IR: analyzed,
 				ChannelDigests: []state.ChannelDigest{
 					{Key: 0, DataType: telem.Int32T},
 				},
-				Nodes: []ir.Node{
-					{
-						Key:  "read_channel",
-						Type: "read_channel",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I32()},
-						},
-					},
-				},
-			}
-			s := state.New(cfg)
+			})
 
 			// Ingest test data to channel
 			fr := telem.Frame[uint32]{}
@@ -469,7 +425,7 @@ var _ = Describe("Wasm", func() {
 			}()
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n := MustSucceed(factory.Create(ctx, node.Config{
-				Node:   cfg.Nodes[0],
+				Node:   analyzed.Nodes.Get("read_channel"),
 				State:  s.Node("read_channel"),
 				Module: mod,
 			}))
@@ -491,14 +447,10 @@ var _ = Describe("Wasm", func() {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
-						Key: "counter",
-						Inputs: types.Params{
-							Keys:   []string{},
-							Values: []types.Type{},
-						},
+						Key:    "counter",
+						Inputs: types.Params{},
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 						Body: ir.Body{Raw: `{
 							count i64 $= 0
@@ -507,22 +459,14 @@ var _ = Describe("Wasm", func() {
 						}`},
 					},
 				},
-			}
-			mod := MustSucceed(arc.CompileGraph(ctx, g))
-
-			cfg := state.Config{
-				Nodes: []ir.Node{
-					{
-						Key:  "counter",
-						Type: "counter",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
-					},
+				Nodes: []graph.Node{
+					{Key: "counter", Type: "counter"},
 				},
 			}
-			s := state.New(cfg)
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
 				Module: mod,
 				State:  s,
@@ -532,7 +476,7 @@ var _ = Describe("Wasm", func() {
 			}()
 			factory := MustSucceed(wasm.NewFactory(wasmMod))
 			n := MustSucceed(factory.Create(ctx, node.Config{
-				Node:   cfg.Nodes[0],
+				Node:   analyzed.Nodes.Get("counter"),
 				State:  s.Node("counter"),
 				Module: mod,
 			}))
@@ -560,6 +504,280 @@ var _ = Describe("Wasm", func() {
 			Expect(result3.Len()).To(Equal(int64(1)))
 			vals3 := telem.UnmarshalSeries[int64](result3)
 			Expect(vals3[0]).To(Equal(int64(3)))
+		})
+	})
+
+	Describe("Optional Parameters", func() {
+		It("Should use default value for unconnected optional input", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "add",
+						Inputs: types.Params{
+							{Name: "x", Type: types.I64()},
+							{Name: "y", Type: types.I64(), Value: int64(10)},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							return x + y
+						}`},
+					},
+					{
+						Key: "x",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+						Body: dummyBodyI64,
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "x", Type: "x"},
+					{Key: "add", Type: "add"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "add", Param: "x"},
+					},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			xNode := s.Node("x")
+			*xNode.Output(0) = telem.NewSeriesV[int64](5, 15, 25)
+			*xNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("add"),
+				State:  s.Node("add"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("add").Output(0)
+			Expect(result.Len()).To(Equal(int64(3)))
+			vals := telem.UnmarshalSeries[int64](result)
+			Expect(vals).To(Equal([]int64{15, 25, 35}))
+		})
+
+		It("Should handle multiple optional parameters", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "compute",
+						Inputs: types.Params{
+							{Name: "a", Type: types.I32()},
+							{Name: "b", Type: types.I32(), Value: int32(2)},
+							{Name: "c", Type: types.I32(), Value: int32(3)},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
+						},
+						Body: ir.Body{Raw: `{
+							return a * b + c
+						}`},
+					},
+					{
+						Key: "a",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
+						},
+						Body: dummyBodyI32,
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "a", Type: "a"},
+					{Key: "compute", Type: "compute"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "compute", Param: "a"},
+					},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			aNode := s.Node("a")
+			*aNode.Output(0) = telem.NewSeriesV[int32](5, 10)
+			*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("compute"),
+				State:  s.Node("compute"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("compute").Output(0)
+			Expect(result.Len()).To(Equal(int64(2)))
+			vals := telem.UnmarshalSeries[int32](result)
+			Expect(vals).To(Equal([]int32{13, 23}))
+		})
+
+		It("Should handle float64 optional parameters", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "scale",
+						Inputs: types.Params{
+							{Name: "value", Type: types.F64()},
+							{Name: "factor", Type: types.F64(), Value: 2.5},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{
+							return value * factor
+						}`},
+					},
+					{
+						Key: "value",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: dummyBodyF64,
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "value", Type: "value"},
+					{Key: "scale", Type: "scale"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "value", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "scale", Param: "value"},
+					},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			valueNode := s.Node("value")
+			*valueNode.Output(0) = telem.NewSeriesV[float64](10.0, 20.0)
+			*valueNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("scale"),
+				State:  s.Node("scale"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("scale").Output(0)
+			Expect(result.Len()).To(Equal(int64(2)))
+			vals := telem.UnmarshalSeries[float64](result)
+			Expect(vals).To(Equal([]float64{25.0, 50.0}))
+		})
+
+		It("Should allow overriding optional parameter with connected edge", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "add",
+						Inputs: types.Params{
+							{Name: "x", Type: types.I64()},
+							{Name: "y", Type: types.I64(), Value: int64(10)},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							return x + y
+						}`},
+					},
+					{
+						Key: "x",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+						Body: dummyBodyI64,
+					},
+					{
+						Key: "y",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+						Body: dummyBodyI64,
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "x", Type: "x"},
+					{Key: "y", Type: "y"},
+					{Key: "add", Type: "add"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "add", Param: "x"},
+					},
+					{
+						Source: ir.Handle{Node: "y", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "add", Param: "y"},
+					},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			xNode := s.Node("x")
+			yNode := s.Node("y")
+			*xNode.Output(0) = telem.NewSeriesV[int64](5)
+			*xNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			*yNode.Output(0) = telem.NewSeriesV[int64](100)
+			*yNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("add"),
+				State:  s.Node("add"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("add").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[int64](result)
+			Expect(vals).To(Equal([]int64{105}))
 		})
 	})
 })
