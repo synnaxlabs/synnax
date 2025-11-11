@@ -113,7 +113,7 @@ export class Iterator {
       command: Command.Open,
       keys: adapter.keys,
       bounds: new TimeRange(tr),
-      chunkSize: opts.chunkSize != null ? BigInt(opts.chunkSize) : BigInt(1e5),
+      chunkSize: BigInt(opts.chunkSize ?? 1e5),
     });
     return iter;
   }
