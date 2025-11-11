@@ -77,9 +77,9 @@ describe("validation", () => {
       ]);
 
       expect(result.success).toBe(false);
-      if (!result.success) {
+      if (!result.success) 
         expect(result.error.issues[0].message).toContain("Analog port 5");
-      }
+      
     });
 
     it("should handle missing port type label", () => {
@@ -117,10 +117,10 @@ describe("validation", () => {
       ]);
 
       expect(result.success).toBe(false);
-      if (!result.success) {
+      if (!result.success) 
         // Should have 4 errors (2 for port 0, 2 for port 1)
         expect(result.error.issues).toHaveLength(4);
-      }
+      
     });
   });
 
@@ -159,9 +159,9 @@ describe("validation", () => {
       const result = schema.safeParse([{ port: 3 }, { port: 3 }]);
 
       expect(result.success).toBe(false);
-      if (!result.success) {
+      if (!result.success) 
         expect(result.error.issues[0].message).toContain("Test Port port 3");
-      }
+      
     });
 
     it("should handle multiple channels with mixed duplicates", () => {

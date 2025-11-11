@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { z } from "zod";
+import { type z } from "zod";
 
 type PortToIndexMap = Map<number, number>;
 
