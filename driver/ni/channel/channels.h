@@ -648,9 +648,7 @@ struct AIThermocouple final : AI {
         thermocouple_type(parse_type(cfg)),
         cjc_source(parse_cjc_source(cfg)),
         cjc_val(cfg.field<double>("cjc_val", 0)),
-        cjc_port(
-            format_cjc_port(this->cfg_path, cfg.field<int32_t>("cjc_port", 0))
-        ) {
+        cjc_port(format_cjc_port(this->cfg_path, cfg.field<int32_t>("cjc_port", 0))) {
         this->cjc_port = format_cjc_port(
             this->cfg_path,
             cfg.field<int32_t>("cjc_port", 0)

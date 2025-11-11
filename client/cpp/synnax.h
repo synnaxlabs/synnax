@@ -74,10 +74,7 @@ struct Config {
             "client_cert_file",
             this->client_cert_file
         );
-        this->client_key_file = parser.field(
-            "client_key_file",
-            this->client_key_file
-        );
+        this->client_key_file = parser.field("client_key_file", this->client_key_file);
         this->ca_cert_file = parser.field("ca_cert_file", this->ca_cert_file);
         this->clock_skew_threshold = telem::TimeSpan(parser.field(
             "clock_skew_threshold",

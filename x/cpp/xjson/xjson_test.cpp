@@ -394,31 +394,29 @@ struct BasicConstructibleConfig {
     std::string name;
     int value;
 
-    explicit BasicConstructibleConfig(xjson::Parser p)
-        : name(p.field<std::string>("name")),
-          value(p.field<int>("value")) {}
+    explicit BasicConstructibleConfig(xjson::Parser p):
+        name(p.field<std::string>("name")), value(p.field<int>("value")) {}
 
-    BasicConstructibleConfig() : value(0) {}
+    BasicConstructibleConfig(): value(0) {}
 };
 
 struct NestedInnerConfig {
     std::string type;
     float threshold;
 
-    explicit NestedInnerConfig(xjson::Parser p)
-        : type(p.field<std::string>("type")),
-          threshold(p.field<float>("threshold")) {}
+    explicit NestedInnerConfig(xjson::Parser p):
+        type(p.field<std::string>("type")), threshold(p.field<float>("threshold")) {}
 
-    NestedInnerConfig() : threshold(0.0f) {}
+    NestedInnerConfig(): threshold(0.0f) {}
 };
 
 struct NestedOuterConfig {
     std::string name;
     NestedInnerConfig inner;
 
-    explicit NestedOuterConfig(xjson::Parser p)
-        : name(p.field<std::string>("name")),
-          inner(p.field<NestedInnerConfig>("inner")) {}
+    explicit NestedOuterConfig(xjson::Parser p):
+        name(p.field<std::string>("name")),
+        inner(p.field<NestedInnerConfig>("inner")) {}
 
     NestedOuterConfig() {}
 };
@@ -427,40 +425,38 @@ struct MissingFieldConfig {
     std::string name;
     int value;
 
-    explicit MissingFieldConfig(xjson::Parser p)
-        : name(p.field<std::string>("name")),
-          value(p.field<int>("value")) {}
+    explicit MissingFieldConfig(xjson::Parser p):
+        name(p.field<std::string>("name")), value(p.field<int>("value")) {}
 
-    MissingFieldConfig() : value(0) {}
+    MissingFieldConfig(): value(0) {}
 };
 
 struct InvalidTypeConfig {
     std::string name;
     int value;
 
-    explicit InvalidTypeConfig(xjson::Parser p)
-        : name(p.field<std::string>("name")),
-          value(p.field<int>("value")) {}
+    explicit InvalidTypeConfig(xjson::Parser p):
+        name(p.field<std::string>("name")), value(p.field<int>("value")) {}
 
-    InvalidTypeConfig() : value(0) {}
+    InvalidTypeConfig(): value(0) {}
 };
 
 struct NestedErrorInnerConfig {
     int required_value;
 
-    explicit NestedErrorInnerConfig(xjson::Parser p)
-        : required_value(p.field<int>("required_value")) {}
+    explicit NestedErrorInnerConfig(xjson::Parser p):
+        required_value(p.field<int>("required_value")) {}
 
-    NestedErrorInnerConfig() : required_value(0) {}
+    NestedErrorInnerConfig(): required_value(0) {}
 };
 
 struct NestedErrorOuterConfig {
     std::string name;
     NestedErrorInnerConfig inner;
 
-    explicit NestedErrorOuterConfig(xjson::Parser p)
-        : name(p.field<std::string>("name")),
-          inner(p.field<NestedErrorInnerConfig>("inner")) {}
+    explicit NestedErrorOuterConfig(xjson::Parser p):
+        name(p.field<std::string>("name")),
+        inner(p.field<NestedErrorInnerConfig>("inner")) {}
 
     NestedErrorOuterConfig() {}
 };
@@ -469,20 +465,18 @@ struct ArrayItem {
     std::string name;
     int id;
 
-    explicit ArrayItem(xjson::Parser p)
-        : name(p.field<std::string>("name")),
-          id(p.field<int>("id")) {}
+    explicit ArrayItem(xjson::Parser p):
+        name(p.field<std::string>("name")), id(p.field<int>("id")) {}
 
-    ArrayItem() : id(0) {}
+    ArrayItem(): id(0) {}
 };
 
 struct MixedInnerConfig {
     float value;
 
-    explicit MixedInnerConfig(xjson::Parser p)
-        : value(p.field<float>("value")) {}
+    explicit MixedInnerConfig(xjson::Parser p): value(p.field<float>("value")) {}
 
-    MixedInnerConfig() : value(0.0f) {}
+    MixedInnerConfig(): value(0.0f) {}
 };
 
 struct MixedOuterConfig {
@@ -491,20 +485,19 @@ struct MixedOuterConfig {
     MixedInnerConfig nested;
     bool enabled;
 
-    explicit MixedOuterConfig(xjson::Parser p)
-        : name(p.field<std::string>("name")),
-          count(p.field<int>("count")),
-          nested(p.field<MixedInnerConfig>("nested")),
-          enabled(p.field<bool>("enabled", true)) {}
+    explicit MixedOuterConfig(xjson::Parser p):
+        name(p.field<std::string>("name")),
+        count(p.field<int>("count")),
+        nested(p.field<MixedInnerConfig>("nested")),
+        enabled(p.field<bool>("enabled", true)) {}
 
-    MixedOuterConfig() : count(0), enabled(false) {}
+    MixedOuterConfig(): count(0), enabled(false) {}
 };
 
 struct ParentMissingConfig {
     std::string name;
 
-    explicit ParentMissingConfig(xjson::Parser p)
-        : name(p.field<std::string>("name")) {}
+    explicit ParentMissingConfig(xjson::Parser p): name(p.field<std::string>("name")) {}
 
     ParentMissingConfig() {}
 };
@@ -512,8 +505,8 @@ struct ParentMissingConfig {
 struct ParentInvalidTypeConfig {
     std::string name;
 
-    explicit ParentInvalidTypeConfig(xjson::Parser p)
-        : name(p.field<std::string>("name")) {}
+    explicit ParentInvalidTypeConfig(xjson::Parser p):
+        name(p.field<std::string>("name")) {}
 
     ParentInvalidTypeConfig() {}
 };
@@ -522,18 +515,21 @@ struct OptionalConfig {
     std::string name;
     int value;
 
-    explicit OptionalConfig(xjson::Parser p)
-        : name(p.field<std::string>("name")),
-          value(p.field<int>("value")) {}
+    explicit OptionalConfig(xjson::Parser p):
+        name(p.field<std::string>("name")), value(p.field<int>("value")) {}
 
-    OptionalConfig() : value(99) {}
+    OptionalConfig(): value(99) {}
 };
 
 // Verify that the trait can see our test structs
-static_assert(xjson::is_parser_constructible_v<BasicConstructibleConfig>,
-              "BasicConstructibleConfig should be detected as parser-constructible");
-static_assert(xjson::is_parser_constructible_v<NestedInnerConfig>,
-              "NestedInnerConfig should be detected as parser-constructible");
+static_assert(
+    xjson::is_parser_constructible_v<BasicConstructibleConfig>,
+    "BasicConstructibleConfig should be detected as parser-constructible"
+);
+static_assert(
+    xjson::is_parser_constructible_v<NestedInnerConfig>,
+    "NestedInnerConfig should be detected as parser-constructible"
+);
 
 TEST(testConfig, testBasicConstructibleType) {
     const json j = {{"config", {{"name", "test"}, {"value", 42}}}};
@@ -548,8 +544,7 @@ TEST(testConfig, testBasicConstructibleType) {
 TEST(testConfig, testNestedConstructibleTypes) {
     const json j = {
         {"config",
-         {{"name", "outer"},
-          {"inner", {{"type", "sensor"}, {"threshold", 3.14f}}}}}
+         {{"name", "outer"}, {"inner", {{"type", "sensor"}, {"threshold", 3.14f}}}}}
     };
 
     xjson::Parser parser(j);
@@ -583,8 +578,7 @@ TEST(testConfig, testConstructibleTypeWithInvalidType) {
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "config.value");
     EXPECT_TRUE(
-        err["message"].get<std::string>().find("expected a number") !=
-        std::string::npos
+        err["message"].get<std::string>().find("expected a number") != std::string::npos
     );
 }
 
@@ -628,7 +622,7 @@ TEST(testConfig, testArrayOfConstructibleTypesWithError) {
     const json j = {
         {"items",
          {{{"name", "item1"}, {"id", 1}},
-          {{"name", "item2"}},  // Missing id
+          {{"name", "item2"}}, // Missing id
           {{"name", "item3"}, {"id", 3}}}}
     };
 
@@ -703,7 +697,7 @@ TEST(testConfig, testEmptyPathBehaviorParsesRoot) {
     // Test 1: Empty path now parses the root object as a parser-constructible type
     const json j1 = {{"name", "test"}, {"id", 42}};
     xjson::Parser parser1(j1);
-    auto item1 = parser1.field<ArrayItem>("");  // Empty string means parse root
+    auto item1 = parser1.field<ArrayItem>(""); // Empty string means parse root
     EXPECT_TRUE(parser1.ok());
     EXPECT_EQ(item1.name, "test");
     EXPECT_EQ(item1.id, 42);
@@ -764,11 +758,11 @@ TEST(testConfig, testFieldNoArgsWithRootArrayStrings) {
 }
 
 TEST(testConfig, testFieldNoArgsWithConstructibleTypes) {
-    const json j = json::array({
-        {{"name", "item1"}, {"id", 1}},
-        {{"name", "item2"}, {"id", 2}},
-        {{"name", "item3"}, {"id", 3}}
-    });
+    const json j = json::array(
+        {{{"name", "item1"}, {"id", 1}},
+         {{"name", "item2"}, {"id", 2}},
+         {{"name", "item3"}, {"id", 3}}}
+    );
     xjson::Parser parser(j);
     const auto items = parser.field<std::vector<ArrayItem>>();
     EXPECT_TRUE(parser.ok());
@@ -793,11 +787,11 @@ TEST(testConfig, testFieldNoArgsRootNotArray) {
 }
 
 TEST(testConfig, testFieldNoArgsWithError) {
-    const json j = json::array({
-        {{"name", "item1"}, {"id", 1}},
-        {{"name", "item2"}},  // Missing id
-        {{"name", "item3"}, {"id", 3}}
-    });
+    const json j = json::array(
+        {{{"name", "item1"}, {"id", 1}},
+         {{"name", "item2"}}, // Missing id
+         {{"name", "item3"}, {"id", 3}}}
+    );
     xjson::Parser parser(j);
     const auto items = parser.field<std::vector<ArrayItem>>();
     EXPECT_FALSE(parser.ok());

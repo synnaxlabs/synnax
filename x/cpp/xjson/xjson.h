@@ -113,7 +113,8 @@ public:
 
     /// @brief gets the field at the given path. Works for both scalars and vectors.
     /// If the field is not found, accumulates an error in the builder.
-    /// Special case: if path is empty string "", parses the root value (same as field<T>()).
+    /// Special case: if path is empty string "", parses the root value (same as
+    /// field<T>()).
     /// @param path The JSON path to the field.
     /// @returns The value at the given path, or a default-constructed T if not found.
     template<typename T>
@@ -186,7 +187,8 @@ public:
     /// @param path The primary JSON path to try.
     /// @param alt1 First alternative path to try.
     /// @param alts Additional alternative paths to try.
-    /// @returns The value at the first found path, or default-constructed T if none found.
+    /// @returns The value at the first found path, or default-constructed T if none
+    /// found.
     template<typename T, typename... Paths>
     T field(const std::string &path, const std::string &alt1, const Paths &...alts) {
         if (noop) return T();
@@ -240,14 +242,15 @@ public:
         // Try remaining alternatives
         bool found = false;
         T result{};
-        ((found = found || [&](const std::string &alt_path) {
-              auto [res, ok] = try_path(alt_path);
-              if (ok) {
-                  result = res;
-                  return true;
-              }
-              return false;
-          }(alts)),
+        ((found = found ||
+                  [&](const std::string &alt_path) {
+                      auto [res, ok] = try_path(alt_path);
+                      if (ok) {
+                          result = res;
+                          return true;
+                      }
+                      return false;
+                  }(alts)),
          ...);
         if (found) return result;
 
@@ -395,20 +398,23 @@ public:
 // Test struct to verify the mechanism works
 struct TestConstructibleType {
     std::string value;
-    explicit TestConstructibleType(Parser p) : value(p.field<std::string>("value")) {}
+    explicit TestConstructibleType(Parser p): value(p.field<std::string>("value")) {}
     TestConstructibleType() {}
 };
 
 /// @brief Type trait to detect if a type can be constructed from a Parser
 template<typename T>
-inline constexpr bool is_parser_constructible_v =
-    std::is_constructible_v<T, Parser> ||
-    std::is_constructible_v<T, Parser&> ||
-    std::is_constructible_v<T, const Parser&> ||
-    std::is_constructible_v<T, Parser&&>;
+inline constexpr bool
+    is_parser_constructible_v = std::is_constructible_v<T, Parser> ||
+                                std::is_constructible_v<T, Parser &> ||
+                                std::is_constructible_v<T, const Parser &> ||
+                                std::is_constructible_v<T, Parser &&>;
 
 // Verify the trait works for our test type
-static_assert(is_parser_constructible_v<TestConstructibleType>, "Trait should detect TestConstructibleType");
+static_assert(
+    is_parser_constructible_v<TestConstructibleType>,
+    "Trait should detect TestConstructibleType"
+);
 
 // Implementation of field() no-args method (defined after trait for proper SFINAE)
 template<typename T>
@@ -445,7 +451,10 @@ T Parser::field() {
                     T value;
                     std::istringstream iss(config.get<std::string>());
                     if (!(iss >> value)) {
-                        this->field_err("", "expected a number, got '" + config.get<std::string>() + "'");
+                        this->field_err(
+                            "",
+                            "expected a number, got '" + config.get<std::string>() + "'"
+                        );
                         return T();
                     }
                     return value;
