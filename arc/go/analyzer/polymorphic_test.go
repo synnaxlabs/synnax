@@ -24,18 +24,16 @@ import (
 )
 
 func NewMockPolymorphicResolver() symbol.Resolver {
-	simpleInputs := &types.Params{}
 	constraint := types.NumericConstraint()
-	simpleInputs.Put("a", types.Variable("T", &constraint))
+	simpleInputs := types.Params{{Name: "a", Type: types.Variable("T", &constraint)}}
 	return &symbol.MapResolver{
 		"simple": {
 			Name: "simple",
 			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
 				Inputs: simpleInputs,
-				Outputs: &types.Params{
-					Keys:   []string{ir.DefaultOutputParam},
-					Values: []types.Type{types.Variable("T", &constraint)},
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)},
 				},
 			}),
 		},
@@ -59,9 +57,9 @@ var _ = Describe("Polymorphic func Analysis", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			simpleSymbol := MustSucceed(ctx.Scope.Resolve(ctx, "simple"))
 			aType := MustBeOk(simpleSymbol.Type.Inputs.Get("a"))
-			resolvedParam := ctx.Constraints.ApplySubstitutions(aType)
+			resolvedParam := ctx.Constraints.ApplySubstitutions(aType.Type)
 			returnType := MustBeOk(simpleSymbol.Type.Outputs.Get(ir.DefaultOutputParam))
-			resolvedReturn := ctx.Constraints.ApplySubstitutions(returnType)
+			resolvedReturn := ctx.Constraints.ApplySubstitutions(returnType.Type)
 			Expect(resolvedParam).To(Equal(types.F32()))
 			Expect(resolvedReturn).To(Equal(types.F32()))
 		})
@@ -73,9 +71,9 @@ var _ = Describe("Polymorphic func Analysis", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 			simpleSymbol := MustSucceed(ctx.Scope.Resolve(ctx, "simple"))
 			aType := MustBeOk(simpleSymbol.Type.Inputs.Get("a"))
-			resolvedParam := ctx.Constraints.ApplySubstitutions(aType)
+			resolvedParam := ctx.Constraints.ApplySubstitutions(aType.Type)
 			returnType := MustBeOk(simpleSymbol.Type.Outputs.Get(ir.DefaultOutputParam))
-			resolvedReturn := ctx.Constraints.ApplySubstitutions(returnType)
+			resolvedReturn := ctx.Constraints.ApplySubstitutions(returnType.Type)
 			Expect(resolvedParam).To(Equal(types.F32()))
 			Expect(resolvedReturn).To(Equal(types.F32()))
 		})

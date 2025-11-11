@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Constraint System", func() {
@@ -95,37 +96,37 @@ var _ = Describe("Constraint System", func() {
 		It("should apply substitutions to function input types", func() {
 			tv := types.Variable("T", nil)
 			props := types.NewFunctionProperties()
-			props.Inputs.Put("x", tv)
+			props.Inputs = append(props.Inputs, types.Param{Name: "x", Type: tv})
 			fnType := types.Function(props)
 			system.Substitutions["T"] = types.F32()
 			result := system.ApplySubstitutions(fnType)
-			inputType, ok := result.Inputs.Get("x")
+			inputParam, ok := result.Inputs.Get("x")
 			Expect(ok).To(BeTrue())
-			Expect(inputType).To(Equal(types.F32()))
+			Expect(inputParam.Type).To(Equal(types.F32()))
 		})
 
 		It("should apply substitutions to function output types", func() {
 			tv := types.Variable("T", nil)
 			props := types.NewFunctionProperties()
-			props.Outputs.Put("result", tv)
+			props.Outputs = append(props.Outputs, types.Param{Name: "result", Type: tv})
 			fnType := types.Function(props)
 			system.Substitutions["T"] = types.I64()
 			result := system.ApplySubstitutions(fnType)
-			outputType, ok := result.Outputs.Get("result")
+			outputParam, ok := result.Outputs.Get("result")
 			Expect(ok).To(BeTrue())
-			Expect(outputType).To(Equal(types.I64()))
+			Expect(outputParam.Type).To(Equal(types.I64()))
 		})
 
 		It("should apply substitutions to function config types", func() {
 			tv := types.Variable("T", nil)
 			props := types.NewFunctionProperties()
-			props.Config.Put("threshold", tv)
+			props.Config = append(props.Config, types.Param{Name: "threshold", Type: tv})
 			fnType := types.Function(props)
 			system.Substitutions["T"] = types.F64()
 			result := system.ApplySubstitutions(fnType)
-			configType, ok := result.Config.Get("threshold")
+			configParam, ok := result.Config.Get("threshold")
 			Expect(ok).To(BeTrue())
-			Expect(configType).To(Equal(types.F64()))
+			Expect(configParam.Type).To(Equal(types.F64()))
 		})
 
 		It("should apply substitutions to multiple function parameters", func() {
@@ -133,20 +134,20 @@ var _ = Describe("Constraint System", func() {
 			tv2 := types.Variable("T2", nil)
 			tv3 := types.Variable("T3", nil)
 			props := types.NewFunctionProperties()
-			props.Inputs.Put("x", tv1)
-			props.Outputs.Put("y", tv2)
-			props.Config.Put("z", tv3)
+			props.Inputs = append(props.Inputs, types.Param{Name: "x", Type: tv1})
+			props.Outputs = append(props.Outputs, types.Param{Name: "y", Type: tv2})
+			props.Config = append(props.Config, types.Param{Name: "z", Type: tv3})
 			fnType := types.Function(props)
 			system.Substitutions["T1"] = types.F32()
 			system.Substitutions["T2"] = types.I32()
 			system.Substitutions["T3"] = types.String()
 			result := system.ApplySubstitutions(fnType)
-			inputType, _ := result.Inputs.Get("x")
-			outputType, _ := result.Outputs.Get("y")
-			configType, _ := result.Config.Get("z")
-			Expect(inputType).To(Equal(types.F32()))
-			Expect(outputType).To(Equal(types.I32()))
-			Expect(configType).To(Equal(types.String()))
+			inputParam := MustBeOk(result.Inputs.Get("x"))
+			outputParam := MustBeOk(result.Outputs.Get("y"))
+			configParam := MustBeOk(result.Config.Get("z"))
+			Expect(inputParam.Type).To(Equal(types.F32()))
+			Expect(outputParam.Type).To(Equal(types.I32()))
+			Expect(configParam.Type).To(Equal(types.String()))
 		})
 
 		It("should handle circular substitution chains correctly", func() {

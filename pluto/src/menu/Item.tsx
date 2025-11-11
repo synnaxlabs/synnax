@@ -42,6 +42,7 @@ export const Item = ({
       className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
       size={size}
       gap={gap}
+      propagateClick
       {...rest}
     />
   );

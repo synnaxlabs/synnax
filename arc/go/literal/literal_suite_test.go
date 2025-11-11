@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ElectronAPI } from '@electron-toolkit/preload'
+package literal_test
 
-declare global {
-  interface Window {
-    electron: ElectronAPI
-    api: unknown
-  }
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestLiteral(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Literal Suite")
 }

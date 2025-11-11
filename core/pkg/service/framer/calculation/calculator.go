@@ -101,7 +101,6 @@ func OpenCalculator(
 	telemFactory := ntelem.NewTelemFactory()
 	selectFactory := selector.NewFactory()
 	constantFactory := constant.NewFactory()
-	statFactory := stat.NewFactory()
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
 	wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
@@ -121,7 +120,7 @@ func OpenCalculator(
 		constantFactory,
 		stableFactory,
 		wasmFactory,
-		statFactory,
+		stat.Factory,
 	}
 	nodes := make(map[string]node.Node)
 	for _, irNode := range module.Nodes {

@@ -20,6 +20,7 @@ import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type Input } from "@/input";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
+import { stopPropagation } from "@/util/event";
 
 interface GradientProps extends Input.Control<color.Stop[]> {
   scale?: scale.Scale<number>;
@@ -162,7 +163,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
         width: `${(nextStop?.position ?? 1) * 100 - stop.position * 100}%`,
       }}
       empty
-      onClick={(e) => e.stopPropagation()}
+      onClick={stopPropagation}
     >
       <Flex.Box
         y

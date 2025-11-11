@@ -20,7 +20,7 @@ describe("Select.Dialog", () => {
     const c = render(
       <Dialog.Frame visible>
         <Select.Frame data={[]} onChange={onChange}>
-          <Select.Dialog>{() => <div>Hello</div>}</Select.Dialog>
+          <Select.Dialog resourceName="result">{() => <div>Hello</div>}</Select.Dialog>
         </Select.Frame>
       </Dialog.Frame>,
     );
@@ -32,7 +32,10 @@ describe("Select.Dialog", () => {
     const c = render(
       <Dialog.Frame visible>
         <Select.Frame data={[]} onChange={onChange}>
-          <Select.Dialog status={status.create({ variant: "error", message: "Error" })}>
+          <Select.Dialog
+            resourceName="result"
+            status={status.create({ variant: "error", message: "Error" })}
+          >
             {() => <div>Hello</div>}
           </Select.Dialog>
         </Select.Frame>
@@ -46,7 +49,7 @@ describe("Select.Dialog", () => {
     const c = render(
       <Dialog.Frame visible>
         <Select.Frame data={[]} onChange={onChange}>
-          <Select.Dialog emptyContent={<div>Hello</div>}>
+          <Select.Dialog resourceName="result" emptyContent={<div>Hello</div>}>
             {() => <div>Hello</div>}
           </Select.Dialog>
         </Select.Frame>
@@ -60,7 +63,9 @@ describe("Select.Dialog", () => {
     const c = render(
       <Dialog.Frame visible>
         <Select.Frame data={[]} onChange={onChange}>
-          <Select.Dialog emptyContent="Hello">{() => <div>Hello</div>}</Select.Dialog>
+          <Select.Dialog resourceName="result" emptyContent="Hello">
+            {() => <div>Hello</div>}
+          </Select.Dialog>
         </Select.Frame>
       </Dialog.Frame>,
     );

@@ -11,7 +11,12 @@ package expression_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	ccontext "github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/compiler/expression"
+	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -54,18 +59,18 @@ var _ = Describe("Type Cast Compilation", func() {
 			float64(42),
 		),
 
-		// Float to Integer
+		// Float to Integer (only exact conversions allowed for literals)
 		Entry(
-			"f64 to i32",
-			"i32(3.14)",
+			"f64 to i32 (exact)",
+			"i32(3.0)",
 			types.I32(),
 			OpI32Const,
 			int32(3),
 		),
 
 		Entry(
-			"f64 to i64",
-			"i64(3.14)",
+			"f64 to i64 (exact)",
+			"i64(3.0)",
 			types.I64(),
 			OpI64Const,
 			int64(3),
@@ -107,4 +112,22 @@ var _ = Describe("Type Cast Compilation", func() {
 			OpF32ConvertI32U,
 		),
 	)
+
+	It("Should propagate literal parsing errors", func() {
+		// Test that non-exact float-to-int conversions are rejected
+		expr, diag := parser.ParseExpression("i32(3.14)")
+		Expect(diag).To(BeNil())
+		ctx := NewContext(bCtx)
+		_, err := expression.Compile(ccontext.Child(ctx, expr))
+		Expect(err).To(MatchError(ContainSubstring("cannot convert non-integer float")))
+	})
+
+	It("Should propagate overflow errors from literals", func() {
+		// Test that overflow validation is enforced
+		expr, diag := parser.ParseExpression("i8(128)")
+		Expect(diag).To(BeNil())
+		ctx := NewContext(bCtx)
+		_, err := expression.Compile(ccontext.Child(ctx, expr))
+		Expect(err).To(MatchError(ContainSubstring("out of range for i8")))
+	})
 })

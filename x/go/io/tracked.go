@@ -25,6 +25,9 @@ type trackedWriteCloser struct {
 // number of bytes written to the file and the offset at which the write started.
 func NewTrackedWriteCloser(f fs.File) (TrackedWriteCloser, error) {
 	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
 	offset := info.Size()
 	return &trackedWriteCloser{File: f, offset: offset}, err
 }

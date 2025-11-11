@@ -14,6 +14,7 @@ import * as v0 from "@/lineplot/types/v0";
 import * as v1 from "@/lineplot/types/v1";
 import * as v2 from "@/lineplot/types/v2";
 import * as v3 from "@/lineplot/types/v3";
+import * as v4 from "@/lineplot/types/v4";
 
 export const titleStateZ = v0.titleStateZ;
 export type TitleState = v0.TitleState;
@@ -61,9 +62,9 @@ export const rangesStateZ = v0.rangesStateZ;
 export type RangesState = v0.RangesState;
 export const ZERO_RANGES_STATE = v0.ZERO_RANGES_STATE;
 
-export const stateZ = v3.stateZ;
-export type State = v3.State;
-export const ZERO_STATE = v3.ZERO_STATE;
+export const stateZ = v4.stateZ;
+export type State = v4.State;
+export const ZERO_STATE = v4.ZERO_STATE;
 
 export const toolbarTabZ = v0.toolbarTabZ;
 export type ToolbarTab = v0.ToolbarTab;
@@ -79,21 +80,23 @@ export const controlStateZ = v0.controlStateZ;
 export type ControlState = v0.ControlState;
 export const ZERO_CONTROL_STATE = v0.ZERO_CONTROL_SATE;
 
-export const sliceStateZ = v3.sliceStateZ;
-export type SliceState = v3.SliceState;
-export const ZERO_SLICE_STATE = v3.ZERO_SLICE_STATE;
+export const sliceStateZ = v4.sliceStateZ;
+export type SliceState = v4.SliceState;
+export const ZERO_SLICE_STATE = v4.ZERO_SLICE_STATE;
 
-export type AnyState = v0.State | v1.State | v2.State | v3.State;
+export type AnyState = v0.State | v1.State | v2.State | v3.State | v4.State;
 export type AnySliceState =
   | v0.SliceState
   | v1.SliceState
   | v2.SliceState
-  | v3.SliceState;
+  | v3.SliceState
+  | v4.SliceState;
 
 export const STATE_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.stateMigration,
   [v1.VERSION]: v2.stateMigration,
   [v2.VERSION]: v3.stateMigration,
+  [v3.VERSION]: v4.stateMigration,
 };
 
 export const migrateState = migrate.migrator<AnyState, State>({
@@ -106,6 +109,7 @@ export const SLICE_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.sliceMigration,
   [v1.VERSION]: v2.sliceMigration,
   [v2.VERSION]: v3.sliceMigration,
+  [v3.VERSION]: v4.sliceMigration,
 };
 
 export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({

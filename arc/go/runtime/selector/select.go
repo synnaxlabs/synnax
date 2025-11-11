@@ -29,13 +29,12 @@ var (
 		Name: symbolName,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Inputs: &types.Params{
-				Keys:   []string{ir.DefaultOutputParam},
-				Values: []types.Type{types.U8()},
+			Inputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.U8()},
 			},
-			Outputs: &types.Params{
-				Keys:   []string{"true", "false"},
-				Values: []types.Type{types.U8(), types.U8()},
+			Outputs: types.Params{
+				{Name: "true", Type: types.U8()},
+				{Name: "false", Type: types.U8()},
 			},
 		}),
 	}

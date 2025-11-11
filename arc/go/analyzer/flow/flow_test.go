@@ -27,9 +27,11 @@ var resolver = symbol.MapResolver{
 		Name: "on",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Config: &types.Params{
-				Keys:   []string{"channel"},
-				Values: []types.Type{types.String()},
+			Config: types.Params{
+				{
+					Name: "channel",
+					Type: types.String(),
+				},
 			},
 		}),
 	},
@@ -411,21 +413,21 @@ sensor_chan > threshold -> alarm{}
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 
 			demuxSymbol, err := ctx.Scope.Resolve(ctx, "demux")
-			Expect(err).ToNot(HaveOccurred())
-			hasNamedOutputs := demuxSymbol.Type.Outputs.Count() > 1 || (demuxSymbol.Type.Outputs.Count() == 1 && func() bool {
+			Expect(err).To(Not(HaveOccurred()))
+			hasNamedOutputs := len(demuxSymbol.Type.Outputs) > 1 || (len(demuxSymbol.Type.Outputs) == 1 && func() bool {
 				_, exists := demuxSymbol.Type.Outputs.Get(ir.DefaultOutputParam)
 				return !exists
 			}())
 			Expect(hasNamedOutputs).To(BeTrue())
-			Expect(demuxSymbol.Type.Outputs.Count()).To(Equal(2))
+			Expect(demuxSymbol.Type.Outputs).To(HaveLen(2))
 
-			highType, exists := demuxSymbol.Type.Outputs.Get("high")
+			highParam, exists := demuxSymbol.Type.Outputs.Get("high")
 			Expect(exists).To(BeTrue())
-			Expect(highType).To(Equal(types.F32()))
+			Expect(highParam.Type).To(Equal(types.F32()))
 
-			lowType, exists := demuxSymbol.Type.Outputs.Get("low")
+			lowParam, exists := demuxSymbol.Type.Outputs.Get("low")
 			Expect(exists).To(BeTrue())
-			Expect(lowType).To(Equal(types.F32()))
+			Expect(lowParam.Type).To(Equal(types.F32()))
 		})
 
 		It("Should analyze routing table with named outputs", func() {

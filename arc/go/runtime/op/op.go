@@ -36,18 +36,18 @@ func (n *binary) Next(ctx node.Context) {
 }
 
 type unary struct {
-	state *state.Node
-	op    op.Unary
+	*state.Node
+	op op.Unary
 }
 
 func (n *unary) Init(node.Context) {}
 
 func (n *unary) Next(ctx node.Context) {
-	if !n.state.RefreshInputs() {
+	if !n.RefreshInputs() {
 		return
 	}
-	n.op(n.state.Input(0), n.state.Output(0))
-	*n.state.OutputTime(0) = n.state.InputTime(0)
+	n.op(n.Input(0), n.Output(0))
+	*n.OutputTime(0) = n.InputTime(0)
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
@@ -64,11 +64,11 @@ func (o operatorFactory) Create(_ context.Context, cfg node.Config) (node.Node, 
 	}
 	unCat, ok := typedUnaryOps[cfg.Node.Type]
 	if ok {
-		return &unary{state: cfg.State, op: unCat[cfg.State.Input(0).DataType]}, nil
+		return &unary{Node: cfg.State, op: unCat[cfg.State.Input(0).DataType]}, nil
 	}
 	unOpFn, ok := unaryOps[cfg.Node.Type]
 	if ok {
-		return &unary{state: cfg.State, op: unOpFn}, nil
+		return &unary{Node: cfg.State, op: unOpFn}, nil
 	}
 	return nil, query.NotFound
 }

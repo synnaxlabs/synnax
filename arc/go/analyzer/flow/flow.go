@@ -90,8 +90,8 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			)
 			return false
 		}
-		if funcType.Type.Inputs.Count() > 0 {
-			_, paramType := funcType.Type.Inputs.At(0)
+		if len(funcType.Type.Inputs) > 0 {
+			param := funcType.Type.Inputs[0]
 			if channelSym.Type.Kind != types.KindChan {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"%s is not a valid channel",
@@ -103,7 +103,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			if err = atypes.Check(
 				ctx.Constraints,
 				chanValueType,
-				paramType,
+				param.Type,
 				ctx.AST,
 				"channel to func parameter connection",
 			); err != nil {
@@ -112,19 +112,19 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 					channelName,
 					chanValueType,
 					name,
-					paramType,
+					param,
 				), ctx.AST)
 				return false
 			}
 		}
 	} else if prevExpr := prevNode.Expression(); prevExpr != nil {
 		exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr)).Unwrap()
-		if funcType.Type.Inputs.Count() > 0 {
-			_, paramType := funcType.Type.Inputs.At(0)
+		if len(funcType.Type.Inputs) > 0 {
+			param := funcType.Type.Inputs[0]
 			if err := atypes.Check(
 				ctx.Constraints,
 				exprType,
-				paramType,
+				param.Type,
 				ctx.AST,
 				"expression to func parameter connection",
 			); err != nil {
@@ -132,7 +132,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 					"expression type %s does not match func %s parameter type %s",
 					exprType,
 					name,
-					paramType,
+					param.Type,
 				), ctx.AST)
 				return false
 			}
@@ -154,19 +154,19 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			}
 		}
 
-		if !hasRoutingTableBetween && funcType.Type.Inputs.Count() > 1 {
+		if !hasRoutingTableBetween && len(funcType.Type.Inputs) > 1 {
 			ctx.Diagnostics.AddError(
 				errors.Newf("%s has more than one parameter", name),
 				ctx.AST,
 			)
 			return false
 		}
-		if !hasRoutingTableBetween && funcType.Type.Inputs.Count() > 0 {
-			_, t := funcType.Type.Inputs.At(0)
+		if !hasRoutingTableBetween && len(funcType.Type.Inputs) > 0 {
+			t := funcType.Type.Inputs[0].Type
 			var prevOutputType types.Type
 			if outputType, ok := prevFuncType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
-				prevOutputType = outputType
-			} else if prevFuncType.Type.Outputs.Count() > 0 {
+				prevOutputType = outputType.Type
+			} else if len(prevFuncType.Type.Outputs) > 0 {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"func '%s' has named outputs and requires a routing table",
 					prevFuncName,
@@ -245,13 +245,13 @@ func validateFuncConfig[T antlr.ParserRuleContext](
 					return nil, false
 				}
 				exprType := atypes.InferFromExpression(childCtx)
-				if err := atypes.Check(ctx.Constraints, expectedType, exprType, configVal,
+				if err := atypes.Check(ctx.Constraints, expectedType.Type, exprType, configVal,
 					"config parameter '"+key+"' for func '"+fnName+"'"); err != nil {
 					ctx.Diagnostics.AddError(
 						errors.Newf(
 							"type mismatch: config parameter '%s' expects %s but got %s",
 							key,
-							expectedType,
+							expectedType.Type,
 							exprType,
 						),
 						configVal,
@@ -268,10 +268,10 @@ func validateFuncConfig[T antlr.ParserRuleContext](
 		return nil, false
 	}
 
-	for paramName := range fnType.Config.Iter() {
-		if !configParams[paramName] {
+	for _, param := range fnType.Config {
+		if !configParams[param.Name] {
 			ctx.Diagnostics.AddError(
-				errors.Newf("missing required config parameter '%s' for func '%s'", paramName, fnName),
+				errors.Newf("missing required config parameter '%s' for func '%s'", param.Name, fnName),
 				configNode,
 			)
 			return nil, false
@@ -348,7 +348,7 @@ func analyzeOutputRoutingTable(
 	}
 
 	_, hasDefaultOutput := fnType.Type.Outputs.Get(ir.DefaultOutputParam)
-	hasNamedOutputs := fnType.Type.Outputs.Count() > 1 || (fnType.Type.Outputs.Count() == 1 && !hasDefaultOutput)
+	hasNamedOutputs := len(fnType.Type.Outputs) > 1 || (len(fnType.Type.Outputs) == 1 && !hasDefaultOutput)
 	if !hasNamedOutputs {
 		ctx.Diagnostics.AddError(
 			errors.Newf("func '%s' does not have named outputs, cannot use routing table", fnName),
@@ -419,7 +419,7 @@ func analyzeOutputRoutingTable(
 			if isLastNode && targetParamName != "" {
 				targetParam = &targetParamName
 			}
-			if !analyzeRoutingTargetWithParam(context.Child(ctx, flowNode), outputType, nextFuncType, targetParam) {
+			if !analyzeRoutingTargetWithParam(context.Child(ctx, flowNode), outputType.Type, nextFuncType, targetParam) {
 				return false
 			}
 		}
@@ -520,8 +520,8 @@ func analyzeRoutingTargetWithParam(
 		if targetParam != nil {
 			var outputType types.Type
 			if outType, ok := fnType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
-				outputType = outType
-			} else if fnType.Type.Outputs.Count() > 0 {
+				outputType = outType.Type
+			} else if len(fnType.Type.Outputs) > 0 {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"func '%s' has named outputs and requires explicit output selection",
 					fnName,
@@ -529,29 +529,29 @@ func analyzeRoutingTargetWithParam(
 				return false
 			}
 
-			if paramType, exists := nextFuncType.Inputs.Get(*targetParam); exists {
-				if err := atypes.Check(ctx.Constraints, outputType, paramType, ctx.AST,
+			if param, exists := nextFuncType.Inputs.Get(*targetParam); exists {
+				if err := atypes.Check(ctx.Constraints, outputType, param.Type, ctx.AST,
 					"routing table parameter mapping"); err != nil {
 					ctx.Diagnostics.AddError(errors.Newf(
 						"type mismatch: func %s output type %s does not match target parameter %s type %s",
 						fnName,
 						outputType,
 						*targetParam,
-						paramType,
+						param,
 					), ctx.AST)
 					return false
 				}
 			}
 		} else {
-			if fnType.Type.Inputs.Count() > 0 {
-				_, paramType := fnType.Type.Inputs.At(0)
-				if err := atypes.Check(ctx.Constraints, sourceType, paramType, ctx.AST,
+			if len(fnType.Type.Inputs) > 0 {
+				param := fnType.Type.Inputs[0]
+				if err := atypes.Check(ctx.Constraints, sourceType, param.Type, ctx.AST,
 					"routing table output to func parameter"); err != nil {
 					ctx.Diagnostics.AddError(errors.Newf(
 						"type mismatch: output type %s does not match func %s parameter type %s",
 						sourceType,
 						fnName,
-						paramType,
+						param.Type,
 					), ctx.AST)
 					return false
 				}
