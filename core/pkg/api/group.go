@@ -59,7 +59,7 @@ func (s *GroupService) Create(
 	var res GroupCreateResponse
 	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
-		g, err := w.Create(ctx, req.Name, req.Parent)
+		g, err := w.CreateWithKey(ctx, req.Key, req.Name, req.Parent)
 		if err != nil {
 			return err
 		}
