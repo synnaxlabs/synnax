@@ -71,9 +71,9 @@ export const newZ = payloadZ.omit({ requires: true }).extend({
   leaseholder: zod.uint12.optional(),
   index: keyZ.optional(),
   isIndex: z.boolean().optional(),
-  internal: z.boolean().optional().default(false),
-  virtual: z.boolean().optional().default(false),
-  expression: z.string().optional().default(""),
+  internal: z.boolean().default(false),
+  virtual: z.boolean().default(false),
+  expression: z.string().default(""),
   operations: array.nullableZ(operationZ).optional(),
 });
 

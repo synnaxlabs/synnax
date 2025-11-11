@@ -38,10 +38,10 @@ const intermediateStreamerConfigZ = z.object({
   /** The channels to stream data from. Can be channel keys, names, or payloads. */
   channels: paramsZ,
   /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
-  downsampleFactor: z.int().optional().default(1),
-  /** useHighPerformanceCodec sets whether the writer will use the synnax frame
-  /* encoder as opposed to the standard JSON encoding mechanisms for frames. */
-  useHighPerformanceCodec: z.boolean().optional().default(true),
+  downsampleFactor: z.int().default(1),
+  /** useHighPerformanceCodec sets whether the writer will use the Synnax frame encoder
+   as opposed to the standard JSON encoding mechanisms for frames. */
+  useHighPerformanceCodec: z.boolean().default(true),
 });
 
 export const streamerConfigZ = intermediateStreamerConfigZ.or(
