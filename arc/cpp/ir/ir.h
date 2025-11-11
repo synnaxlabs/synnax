@@ -47,9 +47,16 @@ struct Type {
     std::unique_ptr<Type> elem;
 
     Type(xjson::Parser parser) {
-        this->kind = parser.required<TypeKind>("kind");
+        this->kind = parser.field<TypeKind>("kind");
         const auto elem_parser = parser.optional_child("elem");
         if (elem_parser.ok()) this->elem = std::make_unique<Type>(elem_parser);
+    }
+
+    nlohmann::json to_json() const {
+        nlohmann::json j;
+        j["kind"] = static_cast<uint8_t>(kind);
+        if (elem) j["elem"] = elem->to_json();
+        return j;
     }
 
     Type() = default;
@@ -113,8 +120,12 @@ struct Handle {
         node(std::move(node)), param(std::move(param)) {}
 
     Handle(xjson::Parser parser) {
-        this->node = parser.required<std::string>("node");
-        this->param = parser.required<std::string>("param");
+        this->node = parser.field<std::string>("node");
+        this->param = parser.field<std::string>("param");
+    }
+
+    nlohmann::json to_json() const {
+        return {{"node", node}, {"param", param}};
     }
 
     bool operator==(const Handle &other) const {
@@ -135,8 +146,12 @@ struct Edge {
     Handle source, target; ///< Output parameter
 
     Edge(xjson::Parser parser) {
-        this->source = parser.required<Handle>("source");
-        this->target = parser.required<Handle>("target");
+        this->source = parser.field<Handle>("source");
+        this->target = parser.field<Handle>("target");
+    }
+
+    nlohmann::json to_json() const {
+        return {{"source", source.to_json()}, {"target", target.to_json()}};
     }
 
     Edge() = default;
@@ -153,20 +168,90 @@ struct Param {
     nlohmann::json value;
 
     Param(xjson::Parser parser) {
-        this->name = parser.required<std::string>("name");
-        this->type = parser.required<Type>("type");
-        this->value = parser.optional<nlohmann::json>("value", 12);
+        this->name = parser.field<std::string>("name");
+        this->type = parser.field<Type>("type");
+        this->value = parser.field<nlohmann::json>("value", nlohmann::json(nullptr));
     }
+
+    nlohmann::json to_json() const {
+        nlohmann::json j;
+        j["name"] = name;
+        j["type"] = type.to_json();
+        if (!value.is_null()) j["value"] = value;
+        return j;
+    }
+
+    Param() = default;
 };
 
-using Params = std::vector<Param>;
+/// @brief Named, ordered parameters for a function or node.
+struct Params {
+    std::vector<Param> params;
+
+    Params() = default;
+    Params(std::vector<Param> p) : params(std::move(p)) {}
+
+    /// @brief Get parameter type by name, returns nullptr if not found
+    const Type* get(const std::string& name) const {
+        for (const auto& p : this->params) {
+            if (p.name == name) return &p.type;
+        }
+        return nullptr;
+    }
+
+    /// @brief Extract all parameter names
+    std::vector<std::string> keys() const {
+        std::vector<std::string> result;
+        result.reserve(this->params.size());
+        for (const auto& p : this->params) {
+            result.push_back(p.name);
+        }
+        return result;
+    }
+
+    /// @brief Convert params to JSON array
+    nlohmann::json to_json() const {
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& p : this->params) {
+            arr.push_back(p.to_json());
+        }
+        return arr;
+    }
+
+    /// @brief Vector interface for iteration
+    auto begin() { return this->params.begin(); }
+    auto end() { return this->params.end(); }
+    auto begin() const { return this->params.begin(); }
+    auto end() const { return this->params.end(); }
+    size_t size() const { return this->params.size(); }
+    bool empty() const { return this->params.empty(); }
+};
 
 struct Channels {
     std::map<uint32_t, std::string> read;
     std::map<uint32_t, std::string> write;
 
     Channels(xjson::Parser parser) {
-        // TODO: Implement
+        // JSON object keys are strings, so we need to manually parse and convert to uint32_t
+        auto read_parser = parser.optional_child("read");
+        if (read_parser.ok() && !read_parser.j.is_null()) {
+            for (auto& [key_str, value] : read_parser.j.items()) {
+                uint32_t key = std::stoul(key_str);
+                this->read[key] = value.get<std::string>();
+            }
+        }
+
+        auto write_parser = parser.optional_child("write");
+        if (write_parser.ok() && !write_parser.j.is_null()) {
+            for (auto& [key_str, value] : write_parser.j.items()) {
+                uint32_t key = std::stoul(key_str);
+                this->write[key] = value.get<std::string>();
+            }
+        }
+    }
+
+    nlohmann::json to_json() const {
+        return {{"read", read}, {"write", write}};
     }
 
     Channels() = default;
@@ -180,12 +265,23 @@ struct Node {
     Params config, inputs, outputs;
 
     Node(xjson::Parser parser) {
-        this->key = parser.required<std::string>("key");
-        this->type = parser.required<std::string>("type");
-        this->channels = parser.required<Channels>("channels");
-        this->config = parser.required_vec<Param>("config");
-        this->inputs = parser.required_vec<Param>("inputs");
-        this->outputs = parser.required_vec<Param>("outpus");
+        this->key = parser.field<std::string>("key");
+        this->type = parser.field<std::string>("type");
+        this->channels = parser.field<Channels>("channels");
+        this->config = Params(parser.field<std::vector<Param>>("config"));
+        this->inputs = Params(parser.field<std::vector<Param>>("inputs"));
+        this->outputs = Params(parser.field<std::vector<Param>>("outputs"));
+    }
+
+    nlohmann::json to_json() const {
+        return {
+            {"key", key},
+            {"type", type},
+            {"channels", channels.to_json()},
+            {"config", config.to_json()},
+            {"inputs", inputs.to_json()},
+            {"outputs", outputs.to_json()}
+        };
     }
 
     Node() = default;
@@ -199,11 +295,21 @@ struct Function {
     Params config, inputs, outputs;
 
     Function(xjson::Parser parser) {
-        this->key = parser.required<std::string>("key");
-        this->channels = parser.required<Channels>("channels");
-        this->config = parser.required_vec<Param>("config");
-        this->inputs = parser.required_vec<Param>("inputs");
-        this->outputs = parser.required_vec<Param>("outpus");
+        this->key = parser.field<std::string>("key");
+        this->channels = parser.field<Channels>("channels");
+        this->config = Params(parser.field<std::vector<Param>>("config"));
+        this->inputs = Params(parser.field<std::vector<Param>>("inputs"));
+        this->outputs = Params(parser.field<std::vector<Param>>("outputs"));
+    }
+
+    nlohmann::json to_json() const {
+        return {
+            {"key", key},
+            {"channels", channels.to_json()},
+            {"config", config.to_json()},
+            {"inputs", inputs.to_json()},
+            {"outputs", outputs.to_json()}
+        };
     }
 
     Function() = default;
@@ -215,7 +321,11 @@ struct Strata {
     std::vector<std::vector<std::string>> strata;
 
     Strata(xjson::Parser parser) {
-        // TODO: Implement
+        this->strata = parser.field<std::vector<std::vector<std::string>>>("", {});
+    }
+
+    nlohmann::json to_json() const {
+        return strata;
     }
 
     Strata() = default;
@@ -231,10 +341,34 @@ struct IR {
     IR() = default;
 
     IR(xjson::Parser parser) {
-        this->functions = parser.required_vec<Function>("functions");
-        this->nodes = parser.required_vec<Node>("nodes");
-        this->edges = parser.required_vec<Edge>("edges");
-        this->strata = parser.required<Strata>("strata");
+        this->functions = parser.field<std::vector<Function>>("functions");
+        this->nodes = parser.field<std::vector<Node>>("nodes");
+        this->edges = parser.field<std::vector<Edge>>("edges");
+        this->strata = parser.field<Strata>("strata");
+    }
+
+    nlohmann::json to_json() const {
+        nlohmann::json functions_arr = nlohmann::json::array();
+        for (const auto& fn : functions) {
+            functions_arr.push_back(fn.to_json());
+        }
+
+        nlohmann::json nodes_arr = nlohmann::json::array();
+        for (const auto& node : nodes) {
+            nodes_arr.push_back(node.to_json());
+        }
+
+        nlohmann::json edges_arr = nlohmann::json::array();
+        for (const auto& edge : edges) {
+            edges_arr.push_back(edge.to_json());
+        }
+
+        return {
+            {"functions", functions_arr},
+            {"nodes", nodes_arr},
+            {"edges", edges_arr},
+            {"strata", strata.to_json()}
+        };
     }
 
     /// @brief Find function by key.

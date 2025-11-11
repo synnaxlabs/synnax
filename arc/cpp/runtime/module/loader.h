@@ -33,8 +33,15 @@ struct Module : IR {
     std::map<std::string, uint32_t> output_memory_bases;
 
     Module(xjson::Parser p): IR(p) {
-        this->wasm = p.required_vec<uint8_t>("wasm");
-        // TODO: implemenet
+        this->wasm = p.field<std::vector<uint8_t>>("wasm");
+        this->output_memory_bases = p.field<std::map<std::string, uint32_t>>("output_memory_bases", {});
+    }
+
+    nlohmann::json to_json() const {
+        auto j = IR::to_json();
+        j["wasm"] = wasm;
+        j["output_memory_bases"] = output_memory_bases;
+        return j;
     }
 
     Module() = default;

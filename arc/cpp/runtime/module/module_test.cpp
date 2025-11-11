@@ -33,21 +33,22 @@ TEST_F(LoaderTest, ExtractChannelKeys) {
     arc::Node node1("node1");
     node1.channels.read[1] = "input_a";
     node1.channels.read[2] = "input_b";
-    node1.channels.write["output"] = 3;
+    node1.channels.write[3] = "output";
 
     arc::Node node2("node2");
-    node2.channels.read[3] = "input_c";
+    node2.channels.read[4] = "input_c";
 
     ir.nodes = {node1, node2};
 
     auto keys = loader.extract_channel_keys(ir);
 
-    EXPECT_EQ(keys.size(), 3);
-    // Keys should be 1, 2, 3 (in sorted order)
+    EXPECT_EQ(keys.size(), 4);
+    // Keys should be 1, 2, 3, 4 (in sorted order)
     std::sort(keys.begin(), keys.end());
     EXPECT_EQ(keys[0], 1);
     EXPECT_EQ(keys[1], 2);
     EXPECT_EQ(keys[2], 3);
+    EXPECT_EQ(keys[3], 4);
 }
 
 TEST_F(LoaderTest, GetChannelType) {
@@ -55,8 +56,11 @@ TEST_F(LoaderTest, GetChannelType) {
 
     arc::Node node("test");
     node.channels.read[1] = "input_a";
-    node.inputs.keys = {"input_a"};
-    node.inputs.values["input_a"] = arc::Type(arc::TypeKind::F64);
+
+    arc::Param input_param;
+    input_param.name = "input_a";
+    input_param.type = arc::Type(arc::TypeKind::F64);
+    node.inputs.params.push_back(input_param);
 
     auto type_kind = loader.get_channel_type(node, 1);
     EXPECT_EQ(type_kind, arc::TypeKind::F64);
@@ -65,11 +69,9 @@ TEST_F(LoaderTest, GetChannelType) {
 TEST_F(LoaderTest, LoadEmptyModule) {
     arc::module::Loader loader;
 
-    // Create minimal IR
-    arc::IR ir;
-    ir.strata = {}; // No nodes
-
-    arc::module::Module mod(std::move(ir), {});
+    // Create minimal module with no nodes
+    arc::module::Module mod;
+    mod.strata.strata = {}; // No nodes
 
     auto [runtime, err] = loader.load(mod);
     // Should succeed even with no nodes
@@ -86,15 +88,22 @@ TEST_F(LoaderTest, LoadModuleWithChannels) {
     arc::IR ir;
 
     arc::Node node1("input");
-    node1.channels.write["value"] = 1;
-    node1.outputs.keys = {"value"};
-    node1.outputs.values["value"] = arc::Type(arc::TypeKind::I32);
+    node1.channels.write[1] = "value";
+
+    arc::Param output_param;
+    output_param.name = "value";
+    output_param.type = arc::Type(arc::TypeKind::I32);
+    node1.outputs.params.push_back(output_param);
 
     ir.nodes = {node1};
-    ir.strata = {{"input"}};
+    ir.strata.strata = {{"input"}};
 
     // No WASM bytecode (empty vector) - will skip WASM loading
-    arc::module::Module mod(std::move(ir), {});
+    arc::module::Module mod;
+    mod.functions = ir.functions;
+    mod.nodes = ir.nodes;
+    mod.edges = ir.edges;
+    mod.strata = ir.strata;
 
     auto [runtime, err] = loader.load(mod);
     ASSERT_NIL(err);
@@ -131,22 +140,30 @@ TEST_F(LoaderTest, DataflowGraphIntegration) {
     // Node A: outputs "out"
     arc::Node node_a("A");
     node_a.type = "source";
-    node_a.outputs.keys = {"out"};
-    node_a.outputs.values["out"] = arc::Type(arc::TypeKind::F32);
+    arc::Param out_a;
+    out_a.name = "out";
+    out_a.type = arc::Type(arc::TypeKind::F32);
+    node_a.outputs.params.push_back(out_a);
 
     // Node B: inputs "in", outputs "out"
     arc::Node node_b("B");
     node_b.type = "processor";
-    node_b.inputs.keys = {"in"};
-    node_b.inputs.values["in"] = arc::Type(arc::TypeKind::F32);
-    node_b.outputs.keys = {"out"};
-    node_b.outputs.values["out"] = arc::Type(arc::TypeKind::F32);
+    arc::Param in_b;
+    in_b.name = "in";
+    in_b.type = arc::Type(arc::TypeKind::F32);
+    node_b.inputs.params.push_back(in_b);
+    arc::Param out_b;
+    out_b.name = "out";
+    out_b.type = arc::Type(arc::TypeKind::F32);
+    node_b.outputs.params.push_back(out_b);
 
     // Node C: inputs "in"
     arc::Node node_c("C");
     node_c.type = "sink";
-    node_c.inputs.keys = {"in"};
-    node_c.inputs.values["in"] = arc::Type(arc::TypeKind::F32);
+    arc::Param in_c;
+    in_c.name = "in";
+    in_c.type = arc::Type(arc::TypeKind::F32);
+    node_c.inputs.params.push_back(in_c);
 
     ir.nodes = {node_a, node_b, node_c};
 
@@ -157,9 +174,12 @@ TEST_F(LoaderTest, DataflowGraphIntegration) {
     };
 
     // Strata: A (0), B (1), C (2)
-    ir.strata = {{"A"}, {"B"}, {"C"}};
+    ir.strata.strata = {{"A"}, {"B"}, {"C"}};
 
-    arc::module::Module module(std::move(ir), {}); // No WASM
+    arc::module::Module module;
+    module.nodes = ir.nodes;
+    module.edges = ir.edges;
+    module.strata = ir.strata;
 
     auto [runtime, err] = loader.load(module);
     ASSERT_NIL(err);
@@ -190,19 +210,28 @@ TEST_F(LoaderTest, MultiInputTemporalAlignment) {
 
     arc::Node node_a("A");
     node_a.type = "source_a";
-    node_a.outputs.keys = {"out"};
-    node_a.outputs.values["out"] = arc::Type(arc::TypeKind::F64);
+    arc::Param out_a;
+    out_a.name = "out";
+    out_a.type = arc::Type(arc::TypeKind::F64);
+    node_a.outputs.params.push_back(out_a);
 
     arc::Node node_b("B");
     node_b.type = "source_b";
-    node_b.outputs.keys = {"out"};
-    node_b.outputs.values["out"] = arc::Type(arc::TypeKind::F64);
+    arc::Param out_b;
+    out_b.name = "out";
+    out_b.type = arc::Type(arc::TypeKind::F64);
+    node_b.outputs.params.push_back(out_b);
 
     arc::Node node_c("C");
     node_c.type = "combiner";
-    node_c.inputs.keys = {"in1", "in2"};
-    node_c.inputs.values["in1"] = arc::Type(arc::TypeKind::F64);
-    node_c.inputs.values["in2"] = arc::Type(arc::TypeKind::F64);
+    arc::Param in1_c;
+    in1_c.name = "in1";
+    in1_c.type = arc::Type(arc::TypeKind::F64);
+    node_c.inputs.params.push_back(in1_c);
+    arc::Param in2_c;
+    in2_c.name = "in2";
+    in2_c.type = arc::Type(arc::TypeKind::F64);
+    node_c.inputs.params.push_back(in2_c);
 
     ir.nodes = {node_a, node_b, node_c};
 
@@ -211,9 +240,12 @@ TEST_F(LoaderTest, MultiInputTemporalAlignment) {
         arc::Edge{arc::Handle{"B", "out"}, arc::Handle{"C", "in2"}}
     };
 
-    ir.strata = {{"A", "B"}, {"C"}};
+    ir.strata.strata = {{"A", "B"}, {"C"}};
 
-    arc::module::Module mod(std::move(ir), {});
+    arc::module::Module mod;
+    mod.nodes = ir.nodes;
+    mod.edges = ir.edges;
+    mod.strata = ir.strata;
 
     auto [runtime, err] = loader.load(mod);
     ASSERT_NIL(err);
@@ -223,15 +255,15 @@ TEST_F(LoaderTest, MultiInputTemporalAlignment) {
     EXPECT_EQ(edges_to_c.size(), 2);
 
     // Simulate data production from A and B
-    auto &out_a = runtime.state->get_output(arc::Handle{"A", "out"});
-    out_a.data = std::make_shared<telem::Series>(std::vector<double>{1.0});
-    out_a.time = std::make_shared<telem::Series>(
+    auto &out_a_state = runtime.state->get_output(arc::Handle{"A", "out"});
+    out_a_state.data = std::make_shared<telem::Series>(std::vector<double>{1.0});
+    out_a_state.time = std::make_shared<telem::Series>(
         std::vector<telem::TimeStamp>{telem::TimeStamp{100}}
     );
 
-    auto &out_b = runtime.state->get_output(arc::Handle{"B", "out"});
-    out_b.data = std::make_shared<telem::Series>(std::vector<double>{2.0});
-    out_b.time = std::make_shared<telem::Series>(
+    auto &out_b_state = runtime.state->get_output(arc::Handle{"B", "out"});
+    out_b_state.data = std::make_shared<telem::Series>(std::vector<double>{2.0});
+    out_b_state.time = std::make_shared<telem::Series>(
         std::vector<telem::TimeStamp>{telem::TimeStamp{200}}
     );
 

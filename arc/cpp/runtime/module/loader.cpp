@@ -41,12 +41,12 @@ std::pair<AssembledRuntime, xerrors::Error> Loader::load(const Module &module) {
     );
 
     // 3. Extract and register channels from IR
-    auto channel_keys = extract_channel_keys(module.ir);
+    auto channel_keys = extract_channel_keys(module);
     for (auto channel_key: channel_keys) {
         // Find the type for this channel by scanning nodes
         TypeKind type_kind = TypeKind::Invalid;
 
-        for (const auto &node: module.ir.nodes) {
+        for (const auto &node: module.nodes) {
             // Check read channels
             for (const auto &[key, param]: node.channels.read) {
                 if (key == channel_key) {
@@ -101,12 +101,12 @@ std::pair<AssembledRuntime, xerrors::Error> Loader::load(const Module &module) {
     }
 
     // 4. Register nodes in state (for metadata)
-    for (const auto &ir_node: module.ir.nodes) {
+    for (const auto &ir_node: module.nodes) {
         NodeMetadata meta;
         meta.key = ir_node.key;
         meta.type = ir_node.type;
-        meta.input_params = ir_node.inputs.keys;
-        meta.output_params = ir_node.outputs.keys;
+        meta.input_params = ir_node.inputs.keys();
+        meta.output_params = ir_node.outputs.keys();
 
         // Extract channel keys
         for (const auto &[chan_key, param]: ir_node.channels.read) {
@@ -123,7 +123,7 @@ std::pair<AssembledRuntime, xerrors::Error> Loader::load(const Module &module) {
     // 5. Register edges from IR (both in state and scheduler)
     // State needs edges for temporal alignment
     // Scheduler needs edges for per-output change propagation
-    for (const auto &ir_edge: module.ir.edges) {
+    for (const auto &ir_edge: module.edges) {
         Edge edge{
             Handle{ir_edge.source.node, ir_edge.source.param},
             Handle{ir_edge.target.node, ir_edge.target.param}
@@ -155,7 +155,7 @@ std::pair<AssembledRuntime, xerrors::Error> Loader::load(const Module &module) {
     assembled.scheduler = std::make_unique<Scheduler>(assembled.state.get());
 
     // 10a. Register edges in scheduler for per-output change propagation
-    for (const auto &ir_edge: module.ir.edges) {
+    for (const auto &ir_edge: module.edges) {
         assembled.scheduler->register_outgoing_edge(
             ir_edge.source.node,
             ir_edge.source.param,
@@ -165,19 +165,21 @@ std::pair<AssembledRuntime, xerrors::Error> Loader::load(const Module &module) {
 
     // 10b. Scan for interval nodes and create TimeWheel if any exist
     std::vector<uint64_t> interval_periods;
-    for (const auto &ir_node: module.ir.nodes) {
+    for (const auto &ir_node: module.nodes) {
         if (ir_node.type == "interval") {
-            // Extract period from config_values
-            if (ir_node.config_values.count("period") > 0) {
-                try {
-                    uint64_t period_ns = ir_node.config_values.at("period")
-                                             .get<uint64_t>();
-                    interval_periods.push_back(period_ns);
-                } catch (const std::exception &e) {
-                    return {
-                        AssembledRuntime{},
-                        xerrors::Error("arc.module.invalid_interval_period", e.what())
-                    };
+            // Extract period from config params
+            for (const auto &param : ir_node.config) {
+                if (param.name == "period" && !param.value.is_null()) {
+                    try {
+                        uint64_t period_ns = param.value.get<uint64_t>();
+                        interval_periods.push_back(period_ns);
+                    } catch (const std::exception &e) {
+                        return {
+                            AssembledRuntime{},
+                            xerrors::Error("arc.module.invalid_interval_period", e.what())
+                        };
+                    }
+                    break;
                 }
             }
         }
@@ -197,11 +199,11 @@ std::pair<AssembledRuntime, xerrors::Error> Loader::load(const Module &module) {
     }
 
     // 12. Create nodes using factory pattern
-    for (const auto &ir_node: module.ir.nodes) {
+    for (const auto &ir_node: module.nodes) {
         // Find stratum for this node
         size_t stratum = 0;
-        for (size_t i = 0; i < module.ir.strata.size(); i++) {
-            for (const auto &node_key: module.ir.strata[i]) {
+        for (size_t i = 0; i < module.strata.strata.size(); i++) {
+            for (const auto &node_key: module.strata.strata[i]) {
                 if (node_key == ir_node.key) {
                     stratum = i;
                     break;
@@ -210,7 +212,7 @@ std::pair<AssembledRuntime, xerrors::Error> Loader::load(const Module &module) {
         }
 
         // Create node using factory
-        NodeFactoryConfig cfg{ir_node, *assembled.state, module.ir};
+        NodeFactoryConfig cfg{ir_node, *assembled.state, module};
 
         auto [node, create_err] = factory.create(cfg);
         if (create_err) {
@@ -258,7 +260,7 @@ TypeKind Loader::get_channel_type(const Node &node, ChannelKey channel_key) {
     // Check read channels
     for (const auto &[key, param]: node.channels.read) {
         if (key == channel_key) {
-            auto *type = node.inputs.get(param);
+            const auto *type = node.inputs.get(param);
             if (type) return type->kind;
         }
     }
@@ -266,7 +268,7 @@ TypeKind Loader::get_channel_type(const Node &node, ChannelKey channel_key) {
     // Check write channels
     for (const auto &[param, key]: node.channels.write) {
         if (key == channel_key) {
-            auto *type = node.outputs.get(param);
+            const auto *type = node.outputs.get(param);
             if (type) return type->kind;
         }
     }
