@@ -677,7 +677,7 @@ describe("Status queries", () => {
       });
     });
   });
-  describe.only("useRetrieveMultiple", () => {
+  describe("useRetrieveMultiple", () => {
     it("should retrieve multiple statuses by keys", async () => {
       const status1 = await client.statuses.set({
         name: "Retrieve Multiple 1",
