@@ -50,7 +50,7 @@ const reqZ = z.object({
   bounds: TimeRange.z.optional(),
   stamp: TimeStamp.z.optional(),
   keys: channel.keyZ.array().optional(),
-  chunkSize: z.int64().optional(),
+  chunkSize: z.number().optional(),
 });
 interface Request extends z.infer<typeof reqZ> {}
 
@@ -113,7 +113,7 @@ export class Iterator {
       command: Command.Open,
       keys: adapter.keys,
       bounds: new TimeRange(tr),
-      chunkSize: BigInt(opts.chunkSize ?? 1e5),
+      chunkSize: opts.chunkSize ?? 1e5,
     });
     return iter;
   }

@@ -12,13 +12,13 @@ import { breaker, observe, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
-import { keyZ as channelKeyZ, paramsZ } from "@/channel/payload";
+import { paramsZ } from "@/channel/payload";
 import { ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
-const reqZ = z.object({ keys: channelKeyZ.array(), downsampleFactor: z.int() });
+const reqZ = z.object({ keys: z.number().array(), downsampleFactor: z.int() });
 
 /**
  * Request interface for streaming frames from a Synnax cluster.

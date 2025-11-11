@@ -22,7 +22,6 @@ import {
 import { z } from "zod";
 
 import { type channel } from "@/channel";
-import { keyZ as channelKeyZ } from "@/channel/payload";
 import { UnexpectedError, ValidationError } from "@/errors";
 
 type ColumnType = "key" | "name" | null;
@@ -439,7 +438,7 @@ export class Frame {
 export const frameZ = z.object({
   keys: z.union([
     z.null().transform<number[]>(() => []),
-    channelKeyZ.array().default([]),
+    z.number().array().default([]),
   ]),
   series: z.union([
     z.null().transform<z.infer<typeof Series.crudeZ>[]>(() => []),
