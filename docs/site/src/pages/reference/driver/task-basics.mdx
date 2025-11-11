@@ -18,7 +18,7 @@ export const components = mdxOverrides;
 ## Prerequisites
 
 Before creating any tasks, you'll need to have connected and configured a hardware
-device. See the specific device documentation for details:
+device:
 
 - [LabJack](/reference/driver/labjack/configure-device)
 - [National Instruments](/reference/driver/ni/configure-device)
@@ -48,7 +48,7 @@ all tasks types (analog write, digital read, digital write, etc.).
   client:load
   tabs={[
     { name: "Devices Toolbar", tabKey: "tab1" },
-    { name: "Command Palette", tabKey: "tab2" },
+    { name: "Search and Command Palette", tabKey: "tab2" },
     { name: "Layout Selector", tabKey: "tab3" }
   ]}
 >
@@ -114,7 +114,7 @@ select the appropriate NI task type from the menu.
 ### Configuring the Task
 
 After making any changes to your task configuration, click the `Configure` button. If
-there are no errors, Synnax will enable the Play button in the Task form.
+there are no errors, Synnax will enable the play button in the task form.
 
 ### Starting the Task
 
@@ -136,7 +136,7 @@ executing, but the configuration will remain saved.
 
 ## How To
 
-<Client.Tabs client:only="react" exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
     <Video
       client:only="react"
@@ -420,5 +420,5 @@ a specific task type:
 
 ### Modbus
 
-- [Read Task](/reference/driver/modbus/read-task) - Read data from Modbus devices
-- [Write Task](/reference/driver/modbus/write-task) - Write data to Modbus devices
+- [Read Task](/reference/driver/modbus/read-task) - Read data from Modbus servers
+- [Write Task](/reference/driver/modbus/write-task) - Write data to Modbus servers

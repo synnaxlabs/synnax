@@ -45,16 +45,20 @@ that you have the following:
 | ----------------- | ------ | -------- | ----------------------------------------------------------------------- |
 | `name`            | string | Yes      | Human-readable device name for identification in Console                |
 | `rack`            | string | Yes      | Synnax Driver (rack) key where the device is connected                  |
-| `model`           | string | Yes      | LabJack model (`T4`, `T7`, or `T8`)                                     |
+| `model`           | string | Yes      | LabJack model (`LJM_dtT4`, `LJM_dtT7`, or `LJM_dtT8`)                   |
 | `location`        | string | Yes      | Physical connection identifier (see below)                              |
 | `identifier`      | string | Yes      | Device identifier: serial number, IP address, device name, or `ANY`     |
 | `connection_type` | string | No       | Connection method: `ANY` (default), `USB`, `TCP`, `ETHERNET`, or `WIFI` |
+
+<Note.Note variant="info" className="compact">
+  `connection_type` is only supported trough the Python and TypeScript client libraries.
+</Note.Note>
 
 <Divider.Divider x />
 
 ## How To
 
-<Client.Tabs client:only="react" exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
 
 <ExampleDetails>
