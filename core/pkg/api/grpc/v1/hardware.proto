@@ -129,6 +129,7 @@ message HardwareRetrieveDeviceRequest {
   string search = 7;
   uint32 limit = 8;
   uint32 offset = 9;
+  bool ignore_not_found = 10;
 }
 
 message HardwareRetrieveDeviceResponse {

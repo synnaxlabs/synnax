@@ -430,4 +430,40 @@ TEST(DeviceTests, testDeleteDevices) {
 
     ASSERT_OCCURRED_AS_P(client.hardware.retrieve_devices(keys), xerrors::NOT_FOUND);
 }
+
+/// @brief it should correctly handle ignore_not_found flag.
+TEST(DeviceTests, testRetrieveDeviceIgnoreNotFound) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.hardware.create_rack(r));
+
+    // Test retrieving non-existent device with ignore_not_found=true
+    const auto [device1, err1] = client.hardware.retrieve_device(
+        "nonexistent_key",
+        true // ignore_not_found
+    );
+    ASSERT_FALSE(err1);
+    ASSERT_TRUE(device1.key.empty());
+
+    // Test retrieving multiple devices with some not found
+    auto d1 = Device(
+        "device1_key",
+        "test_device_1",
+        r.key,
+        "location_1",
+        "make_1",
+        "model_1",
+        "properties_1"
+    );
+    ASSERT_NIL(client.hardware.create_device(d1));
+
+    std::vector<std::string> keys = {d1.key, "nonexistent_key"};
+    const auto [devices, err2] = client.hardware.retrieve_devices(
+        keys,
+        true // ignore_not_found
+    );
+    ASSERT_FALSE(err2);
+    ASSERT_EQ(devices.size(), 1);
+    ASSERT_EQ(devices[0].key, d1.key);
+}
 }

@@ -270,12 +270,14 @@ const std::string CREATE_DEVICE_ENDPOINT = "/hardware/device/create";
 const std::string DELETE_DEVICE_ENDPOINT = "/hardware/device/delete";
 
 std::pair<Device, xerrors::Error>
-HardwareClient::retrieve_device(const std::string &key) const {
+HardwareClient::retrieve_device(const std::string &key, bool ignore_not_found) const {
     auto req = api::v1::HardwareRetrieveDeviceRequest();
     req.add_keys(key);
+    req.set_ignore_not_found(ignore_not_found);
     auto [res, err] = device_retrieve_client->send(RETRIEVE_DEVICE_ENDPOINT, req);
     if (err) return {Device(), err};
     if (res.devices_size() == 0) {
+        if (ignore_not_found) return {Device(), xerrors::Error()};
         return {
             Device(),
             xerrors::Error(xerrors::NOT_FOUND, "Device matching" + key + " not found")

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -400,16 +401,17 @@ func (svc *HardwareService) CreateDevice(ctx context.Context, req HardwareCreate
 }
 
 type HardwareRetrieveDeviceRequest struct {
-	Keys          []string   `json:"keys" msgpack:"keys"`
-	Names         []string   `json:"names" msgpack:"names"`
-	Makes         []string   `json:"makes" msgpack:"makes"`
-	Models        []string   `json:"models" msgpack:"models"`
-	Locations     []string   `json:"locations" msgpack:"locations"`
-	Racks         []rack.Key `json:"racks" msgpack:"racks"`
-	SearchTerm    string     `json:"search_term" msgpack:"search_term"`
-	Limit         int        `json:"limit" msgpack:"limit"`
-	Offset        int        `json:"offset" msgpack:"offset"`
-	IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
+	Keys           []string   `json:"keys" msgpack:"keys"`
+	Names          []string   `json:"names" msgpack:"names"`
+	Makes          []string   `json:"makes" msgpack:"makes"`
+	Models         []string   `json:"models" msgpack:"models"`
+	Locations      []string   `json:"locations" msgpack:"locations"`
+	Racks          []rack.Key `json:"racks" msgpack:"racks"`
+	SearchTerm     string     `json:"search_term" msgpack:"search_term"`
+	Limit          int        `json:"limit" msgpack:"limit"`
+	Offset         int        `json:"offset" msgpack:"offset"`
+	IgnoreNotFound bool       `json:"ignore_not_found" msgpack:"ignore_not_found"`
+	IncludeStatus  bool       `json:"include_status" msgpack:"include_status"`
 }
 
 type HardwareRetrieveDeviceResponse struct {
@@ -470,6 +472,9 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 		Objects: device.OntologyIDsFromDevices(res.Devices),
 	}); err != nil {
 		return HardwareRetrieveDeviceResponse{}, err
+	}
+	if retErr != nil && req.IgnoreNotFound {
+		retErr = errors.Skip(retErr, query.NotFound)
 	}
 	return res, retErr
 }
