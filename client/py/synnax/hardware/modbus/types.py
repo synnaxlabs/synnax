@@ -224,7 +224,6 @@ class WriteTaskConfig(BaseWriteTaskConfig):
         return v
 
 
-
 class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
     """
     A read task for sampling data from Modbus TCP devices and writing the data to a

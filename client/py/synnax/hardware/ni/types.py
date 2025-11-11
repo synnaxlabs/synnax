@@ -888,30 +888,6 @@ class AOFuncGenChan(BaseAOChan):
 AOChan = AOVoltageChan | AOCurrentChan | AOFuncGenChan
 
 
-class COChan(BaseChan):
-    """
-    Counter Output Pulse Generation Channel
-
-    NOTE: Counter output channels are configuration-only. Pulse parameters
-    (idle_state, initial_delay, high_time, low_time) are immutable after
-    the task starts and cannot be changed at runtime.
-
-    For detailed information, see the NI-DAQmx documentation:
-    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecpulsechantime.html>
-    """
-
-    type: Literal["co_pulse_output"] = "co_pulse_output"
-    device: str = ""
-    port: int
-    idle_state: Literal["High", "Low"] = "Low"
-    initial_delay: float = 0.0
-    high_time: float = 0.01
-    low_time: float = 0.01
-    min_val: float = 0
-    max_val: float = 1
-    units: Literal["Seconds"] = "Seconds"
-
-
 class DIChan(BaseModel):
     """
     Digital Input Channel
@@ -1507,23 +1483,6 @@ class CounterReadConfig(BaseReadTaskConfig):
         return v
 
 
-class CounterWriteConfig(BaseWriteTaskConfig):
-    """Configuration for NI Counter Write Task.
-
-    Counter write tasks are configuration-only. Pulse parameters on COChan channels
-    are fixed when the task is created and cannot be changed at runtime.
-    To modify pulse parameters, stop the task, reconfigure, and restart.
-
-    Inherits common write task fields (device, data_saving, auto_start) from
-    BaseWriteTaskConfig and adds NI-specific channel configuration with NI hardware
-    state rate limits (50kHz max).
-    """
-
-    state_rate: conint(ge=0, le=50000)
-    "The rate at which to write task channel states to the Synnax cluster (Hz)."
-    channels: list[COChan]
-
-
 class DigitalReadConfig(BaseReadTaskConfig):
     """Configuration for NI Digital Read Task.
 
@@ -1728,58 +1687,6 @@ class CounterReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
                     """
                     )
                 channel.device = device
-
-
-class CounterWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
-    """A task for configuring counter pulse outputs on NI devices.
-
-    IMPORTANT: Counter output channels are configuration-only. Pulse parameters
-    (idle_state, initial_delay, high_time, low_time) on COChan channels are fixed
-    when the task is created and cannot be changed at runtime. To modify pulse
-    parameters, you must stop the task, reconfigure it with new parameters, and
-    restart it.
-
-    This task is a programmatic representation of the counter write task configurable
-    within the Synnax console. For detailed information on configuring/operating a
-    counter write task, see https://docs.synnaxlabs.com/reference/driver/ni/counter-write-task
-
-    :param device: The key of the Synnax NI device to write to.
-    :param name: A human-readable name for the task.
-    :param state_rate: The rate at which to write task internal states to the Synnax
-        cluster (not typically used for counter write tasks).
-    :param channels: A list of counter output channel configurations (COChan).
-    :param data_saving: Whether to save task state permanently within Synnax (not
-        typically needed for counter write tasks).
-    :param auto_start: Whether to start the task automatically when it is created.
-    """
-
-    TYPE = "ni_counter_write"
-    config: CounterWriteConfig
-    _internal: Task
-
-    def __init__(
-        self,
-        internal: Task | None = None,
-        *,
-        device: str = "",
-        name: str = "",
-        state_rate: CrudeRate = 0,
-        data_saving: bool = False,
-        auto_start: bool = False,
-        channels: list[COChan] = None,
-    ):
-        if internal is not None:
-            self._internal = internal
-            self.config = CounterWriteConfig.model_validate_json(internal.config)
-            return
-        self._internal = Task(name=name, type=self.TYPE)
-        self.config = CounterWriteConfig(
-            device=device,
-            state_rate=state_rate,
-            data_saving=data_saving,
-            auto_start=auto_start,
-            channels=channels,
-        )
 
 
 class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):

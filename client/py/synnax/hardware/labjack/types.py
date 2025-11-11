@@ -47,7 +47,6 @@ class BaseChan(BaseModel):
         super().__init__(**data)
 
 
-
 class AIChan(BaseChan):
     """
     Analog Input Channel configuration for LabJack devices.
@@ -220,7 +219,6 @@ class OutputChan(BaseChan):
     "The Synnax channel key to read command values from."
     state_channel: ChannelKey
     "The Synnax channel key to write state values to."
-
 
 
 class ReadTaskConfig(BaseReadTaskConfig):
@@ -411,7 +409,6 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
 
         dev.properties = json.dumps(props)
         device_client.create(dev)
-
 
 
 def device_props(

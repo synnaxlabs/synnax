@@ -21,7 +21,6 @@ from synnax.hardware.ni import (
     AnalogReadTaskConfig,
     AnalogWriteConfig,
     CounterReadConfig,
-    CounterWriteConfig,
     DigitalReadConfig,
     DigitalWriteConfig,
     create_device,
@@ -601,33 +600,6 @@ class TestNITask:
             "auto_start": False,
         }
         CounterReadConfig.model_validate(data)
-
-    def test_parse_counter_write_task(self):
-        data = {
-            "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
-            "state_rate": 100,
-            "channels": [
-                {
-                    "key": "CounterOut1",
-                    "type": "co_pulse_output",
-                    "enabled": True,
-                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
-                    "cmd_channel": 1048620,
-                    "state_channel": 1048621,
-                    "port": 0,
-                    "idle_state": "Low",
-                    "initial_delay": 0.0,
-                    "high_time": 0.01,
-                    "low_time": 0.01,
-                    "min_val": 0.0,
-                    "max_val": 1.0,
-                    "units": "Seconds",
-                }
-            ],
-            "data_saving": False,
-            "auto_start": True,
-        }
-        CounterWriteConfig.model_validate(data)
 
     def test_parse_digital_read_task(self):
         data = {
