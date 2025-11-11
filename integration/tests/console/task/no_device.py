@@ -81,7 +81,6 @@ class NoDevice(ConsoleCase):
         console.ni_ai.configure()
 
         # Assert error notification
-        sy.sleep(1)
         notifications = self.console.check_for_notifications()
         msg = notifications[0]["message"]
         msg_expected = "Failed to update Task"

@@ -23,7 +23,6 @@ from .channels.microphone import Microphone
 from .channels.period import Period
 from .channels.pressure_bridge_table import PressureBridgeTable
 from .channels.pressure_bridge_two_point_linear import PressureBridgeTwoPointLinear
-from .channels.pulse_output import PulseOutput
 from .channels.pulse_width import PulseWidth
 from .channels.resistance import Resistance
 from .channels.rtd import RTD
@@ -37,7 +36,6 @@ from .channels.two_edge_separation import TwoEdgeSeparation
 from .channels.velocity_iepe import VelocityIEPE
 from .channels.voltage import Voltage
 from .counter_read import CounterRead
-from .counter_write import CounterWrite
 from .ni import NITask
 
 __all__ = [
@@ -45,7 +43,6 @@ __all__ = [
     "AnalogRead",
     "AnalogWrite",
     "CounterRead",
-    "CounterWrite",
     "Analog",
     "Counter",
     "Accelerometer",
@@ -60,7 +57,6 @@ __all__ = [
     "Period",
     "PressureBridgeTable",
     "PressureBridgeTwoPointLinear",
-    "PulseOutput",
     "PulseWidth",
     "Resistance",
     "RTD",

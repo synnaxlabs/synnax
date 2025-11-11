@@ -46,9 +46,9 @@ type Function struct {
 // Type returns the type signature of f.
 func (f Function) Type() types.Type {
 	return types.Function(types.FunctionProperties{
-		Config:  &f.Config,
-		Inputs:  &f.Inputs,
-		Outputs: &f.Outputs,
+		Config:  f.Config,
+		Inputs:  f.Inputs,
+		Outputs: f.Outputs,
 	})
 }
 

@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/pluto";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
+import { createSimplePortValidator } from "@/hardware/ni/task/types/validation";
 
 export const PREFIX = "ni";
 
@@ -952,8 +953,6 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   [AI_VOLTAGE_CHAN_TYPE]: Icon.Units.Voltage,
 };
 
-// ==================== Counter Input Channels ====================
-
 const counterChannelExtensionShape = { port: portZ };
 interface CounterChannelExtension
   extends z.infer<z.ZodObject<typeof counterChannelExtensionShape>> {}
@@ -1380,72 +1379,6 @@ export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
   [CI_DUTY_CYCLE_CHAN_TYPE]: Icon.Wave.Square,
 };
 
-// Counter Output Channels
-// Note: CO Pulse Output channels do not support runtime command/state channels
-// They are configuration-only - parameters are set once when task is created
-const baseCOChanZ = Common.Task.channelZ.extend(counterChannelExtensionShape).extend({
-  configured: z.boolean().optional().default(false),
-});
-interface BaseCOChan extends z.infer<typeof baseCOChanZ> {}
-const ZERO_BASE_CO_CHAN: BaseCOChan = {
-  ...Common.Task.ZERO_CHANNEL,
-  ...ZERO_COUNTER_CHANNEL_EXTENSION,
-  configured: false,
-};
-
-// Counter Output idle state
-const IDLE_HIGH = "High";
-const IDLE_LOW = "Low";
-const coIdleStateZ = z.enum([IDLE_HIGH, IDLE_LOW]);
-export type COIdleState = z.infer<typeof coIdleStateZ>;
-
-// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecopulsechantime.html
-export const CO_PULSE_OUTPUT_CHAN_TYPE = "co_pulse_output";
-export const coPulseOutputChanZ = baseCOChanZ.extend({
-  ...minMaxValShape,
-  type: z.literal(CO_PULSE_OUTPUT_CHAN_TYPE),
-  units: z.literal(SECONDS),
-  idleState: coIdleStateZ,
-  initialDelay: z.number(),
-  highTime: z.number(),
-  lowTime: z.number(),
-});
-export interface COPulseOutputChan extends z.infer<typeof coPulseOutputChanZ> {}
-export const ZERO_CO_PULSE_OUTPUT_CHAN: COPulseOutputChan = {
-  ...ZERO_BASE_CO_CHAN,
-  ...ZERO_MIN_MAX_VAL,
-  type: CO_PULSE_OUTPUT_CHAN_TYPE,
-  units: SECONDS,
-  idleState: IDLE_LOW,
-  initialDelay: 0,
-  highTime: 1e-6,
-  lowTime: 1e-6,
-  configured: false,
-};
-
-const coChannelZ = z.union([coPulseOutputChanZ]);
-export type COChannel = z.infer<typeof coChannelZ>;
-export type COChannelType = COChannel["type"];
-
-export const CO_CHANNEL_SCHEMAS: Record<COChannelType, z.ZodType<COChannel>> = {
-  [CO_PULSE_OUTPUT_CHAN_TYPE]: coPulseOutputChanZ,
-};
-
-export const CO_CHANNEL_TYPES = [CO_PULSE_OUTPUT_CHAN_TYPE] as const;
-
-export const CO_CHANNEL_TYPE_NAMES: Record<COChannelType, string> = {
-  [CO_PULSE_OUTPUT_CHAN_TYPE]: "Pulse Output",
-};
-
-export const CO_CHANNEL_TYPE_ICONS: Record<COChannelType, Icon.FC> = {
-  [CO_PULSE_OUTPUT_CHAN_TYPE]: Icon.Wave.Square,
-};
-
-export const ZERO_CO_CHANNELS: Record<COChannelType, COChannel> = {
-  [CO_PULSE_OUTPUT_CHAN_TYPE]: ZERO_CO_PULSE_OUTPUT_CHAN,
-};
-export const ZERO_CO_CHANNEL = ZERO_CO_CHANNELS[CO_PULSE_OUTPUT_CHAN_TYPE];
-
 const baseAOChanZ = Common.Task.writeChannelZ.extend(analogChannelExtensionShape);
 interface BaseAOChan extends z.infer<typeof baseAOChanZ> {}
 const ZERO_BASE_AO_CHAN: BaseAOChan = {
@@ -1680,25 +1613,7 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   type: ANALOG_READ_TYPE,
 };
 
-// ==================== Counter Read Task ====================
-
-const validateCounterPorts = ({
-  value: channels,
-  issues,
-}: z.core.ParsePayload<CIChannel[]>) => {
-  const portToIndexMap = new Map<number, number>();
-  channels.forEach(({ port }, i) => {
-    if (!portToIndexMap.has(port)) {
-      portToIndexMap.set(port, i);
-      return;
-    }
-    const index = portToIndexMap.get(port) as number;
-    const code = "custom";
-    const message = `Port ${port} has already been used on another channel`;
-    issues.push({ path: [index, "port"], code, message, input: channels });
-    issues.push({ path: [i, "port"], code, message, input: channels });
-  });
-};
+const validateCounterPorts = createSimplePortValidator("");
 
 export const counterReadConfigZ = baseReadConfigZ
   .extend({
@@ -1857,65 +1772,6 @@ export interface DigitalWriteTask
   > {}
 export interface NewDigitalWriteTask
   extends task.New<typeof digitalWriteTypeZ, typeof digitalWriteConfigZ> {}
-
-const validateCounterWritePorts = ({
-  value: channels,
-  issues,
-}: z.core.ParsePayload<COChannel[]>) => {
-  const portToIndexMap = new Map<number, number>();
-  channels.forEach(({ port }, i) => {
-    if (!portToIndexMap.has(port)) {
-      portToIndexMap.set(port, i);
-      return;
-    }
-    const index = portToIndexMap.get(port) as number;
-    const code = "custom";
-    const message = `Port ${port} has already been used on another channel`;
-    issues.push({ path: [index, "port"], code, message, input: channels });
-    issues.push({ path: [i, "port"], code, message, input: channels });
-  });
-};
-
-export const counterWriteConfigZ = baseWriteConfigZ.extend({
-  channels: z
-    .array(coChannelZ)
-    .check(Common.Task.validateChannels)
-    .check(validateCounterWritePorts),
-});
-export interface CounterWriteConfig extends z.infer<typeof counterWriteConfigZ> {}
-const ZERO_COUNTER_WRITE_CONFIG: CounterWriteConfig = {
-  ...ZERO_BASE_WRITE_CONFIG,
-  channels: [],
-};
-
-export const counterWriteStatusDataZ = z.unknown();
-export type CounterWriteStatusDetails = task.Status<typeof counterWriteStatusDataZ>;
-
-export const COUNTER_WRITE_TYPE = `${PREFIX}_counter_write`;
-export const counterWriteTypeZ = z.literal(COUNTER_WRITE_TYPE);
-export type CounterWriteType = z.infer<typeof counterWriteTypeZ>;
-
-export interface CounterWritePayload
-  extends task.Payload<
-    typeof counterWriteTypeZ,
-    typeof counterWriteConfigZ,
-    typeof counterWriteStatusDataZ
-  > {}
-export const ZERO_COUNTER_WRITE_PAYLOAD: CounterWritePayload = {
-  key: "",
-  name: "NI Counter Write Task",
-  config: ZERO_COUNTER_WRITE_CONFIG,
-  type: COUNTER_WRITE_TYPE,
-};
-
-export interface CounterWriteTask
-  extends task.Task<
-    typeof counterWriteTypeZ,
-    typeof counterWriteConfigZ,
-    typeof counterWriteStatusDataZ
-  > {}
-export interface NewCounterWriteTask
-  extends task.New<typeof counterWriteTypeZ, typeof counterWriteConfigZ> {}
 
 export const scanStatusDataZ = z.unknown();
 export type ScanStatusDetails = task.Status<typeof scanStatusDataZ>;

@@ -7,37 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type task } from "@synnaxlabs/client";
+import { type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
 import * as v0 from "@/hardware/ni/task/types/v0";
+import { createPortValidator } from "@/hardware/ni/task/types/validation";
 
-type PortToIndexMap = Map<number, number>;
-
-const createPortValidator =
-  (portTypeLabel: string) =>
-  ({
-    value: channels,
-    issues,
-  }: z.core.ParsePayload<{ port: number; device: device.Key }[]>) => {
-    const deviceToPortMap = new Map<device.Key, PortToIndexMap>();
-    channels.forEach(({ device, port }, i) => {
-      if (!deviceToPortMap.has(device)) deviceToPortMap.set(device, new Map());
-      const portToIndexMap = deviceToPortMap.get(device) as PortToIndexMap;
-      if (!portToIndexMap.has(port)) {
-        portToIndexMap.set(port, i);
-        return;
-      }
-      const index = portToIndexMap.get(port) as number;
-      const code = "custom";
-      const message = `${portTypeLabel} port ${port} has already been used on another channel on the same device`;
-      issues.push({ path: [index, "port"], code, message, input: channels });
-      issues.push({ path: [i, "port"], code, message, input: channels });
-    });
-  };
-
-const validateAnalogPorts = createPortValidator("");
+const validateAnalogPorts = createPortValidator();
 
 const aiChanExtensionShape = { device: Common.Device.keyZ };
 interface AIChanExtension extends z.infer<z.ZodObject<typeof aiChanExtensionShape>> {}
@@ -245,8 +222,6 @@ export const ZERO_AI_CHANNELS: Record<v0.AIChannelType, AIChannel> = {
 };
 export const ZERO_AI_CHANNEL: AIChannel = ZERO_AI_CHANNELS[v0.AI_VOLTAGE_CHAN_TYPE];
 
-// ==================== Counter Input Channels ====================
-
 const ciChanExtensionShape = { device: Common.Device.keyZ };
 interface CIChanExtension extends z.infer<z.ZodObject<typeof ciChanExtensionShape>> {}
 const ZERO_CI_CHAN_EXTENSION: CIChanExtension = { device: "" };
@@ -374,7 +349,7 @@ export const ZERO_CI_CHANNEL: CIChannel = ZERO_CI_CHANNELS[v0.CI_FREQUENCY_CHAN_
 
 export type AnalogChannel = AIChannel | v0.AOChannel;
 
-export type Channel = AnalogChannel | v0.DigitalChannel | CIChannel | v0.COChannel;
+export type Channel = AnalogChannel | v0.DigitalChannel | CIChannel;
 
 const baseAnalogReadConfigZ = v0.baseAnalogReadConfigZ
   .omit({ channels: true, device: true })
@@ -418,8 +393,6 @@ export interface AnalogReadTask
   > {}
 export interface NewAnalogReadTask
   extends task.New<typeof v0.analogReadTypeZ, typeof analogReadConfigZ> {}
-
-// ==================== Counter Read Task ====================
 
 const validateCounterPorts = createPortValidator("Counter");
 

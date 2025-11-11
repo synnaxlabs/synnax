@@ -10,6 +10,7 @@
 import os
 import random
 import re
+import time
 from typing import Any, Literal
 
 from playwright.sync_api import Locator, Page
@@ -19,7 +20,7 @@ from .log import Log
 from .page import ConsolePage
 from .plot import Plot
 from .schematic import Schematic
-from .task import AnalogRead, AnalogWrite, CounterRead, CounterWrite
+from .task import AnalogRead, AnalogWrite, CounterRead
 
 # Define literal types for page creation
 PageType = Literal[
@@ -31,7 +32,6 @@ PageType = Literal[
     "NI Analog Read Task",
     "NI Analog Write Task",
     "NI Counter Read Task",
-    "NI Counter Write Task",
     "NI Digital Read Task",
     "NI Digital Write Task",
     "LabJack Read Task",
@@ -62,7 +62,6 @@ class Console:
         self.ni_ai = AnalogRead(page, self)
         self.ni_ao = AnalogWrite(page, self)
         self.ni_ci = CounterRead(page, self)
-        self.ni_co = CounterWrite(page, self)
 
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""
@@ -223,59 +222,75 @@ class Console:
             self.page.get_by_text("Try again").click()
             self.page.wait_for_timeout(200)
 
-    def check_for_notifications(self) -> list[dict[str, Any]]:
+    def check_for_notifications(self, timeout: float = 1.0) -> list[dict[str, Any]]:
         """
         Check for notifications in the bottom right corner.
-        Returns a list of notification dictionaries with details.
+        Polls every 100ms until notifications are found or timeout is reached.
+
+        :param timeout: Maximum time to wait for notifications in seconds (default: 1.0)
+        :returns: List of notification dictionaries with details
         """
+        start_time = time.time()
+        poll_interval = 100  # ms
 
-        notifications = []
-        notification_elements = self.page.locator(".pluto-notification").all()
+        while time.time() - start_time < timeout:
+            notifications = []
+            notification_elements = self.page.locator(".pluto-notification").all()
 
-        for notification in notification_elements:
-            try:
-                # Extract notification details
-                notification_data = {}
+            # If we found notifications, parse and return them
+            if len(notification_elements) > 0:
+                for notification in notification_elements:
+                    try:
+                        # Extract notification details
+                        notification_data = {}
 
-                # Get the count (e.g., "x1")
-                count_element = notification.locator(".pluto-text--small").first
-                if count_element.count() > 0:
-                    count_text = count_element.inner_text().strip()
-                    notification_data["count"] = count_text
+                        # Get the count (e.g., "x1")
+                        count_element = notification.locator(".pluto-text--small").first
+                        if count_element.count() > 0:
+                            count_text = count_element.inner_text().strip()
+                            notification_data["count"] = count_text
 
-                # Get the timestamp
-                time_element = notification.locator(".pluto-notification__time")
-                if time_element.count() > 0:
-                    timestamp = time_element.inner_text().strip()
-                    notification_data["timestamp"] = timestamp
+                        # Get the timestamp
+                        time_element = notification.locator(".pluto-notification__time")
+                        if time_element.count() > 0:
+                            timestamp = time_element.inner_text().strip()
+                            notification_data["timestamp"] = timestamp
 
-                # Get the main message
-                message_element = notification.locator(".pluto-notification__message")
-                if message_element.count() > 0:
-                    message = message_element.inner_text().strip()
-                    notification_data["message"] = message
+                        # Get the main message
+                        message_element = notification.locator(
+                            ".pluto-notification__message"
+                        )
+                        if message_element.count() > 0:
+                            message = message_element.inner_text().strip()
+                            notification_data["message"] = message
 
-                # Get the description
-                description_element = notification.locator(
-                    ".pluto-notification__description"
-                )
-                if description_element.count() > 0:
-                    description = description_element.inner_text().strip()
-                    notification_data["description"] = description
+                        # Get the description
+                        description_element = notification.locator(
+                            ".pluto-notification__description"
+                        )
+                        if description_element.count() > 0:
+                            description = description_element.inner_text().strip()
+                            notification_data["description"] = description
 
-                # Determine notification type based on icon or styling
-                error_icon = notification.locator("svg[color*='error']")
-                if error_icon.count() > 0:
-                    notification_data["type"] = "error"
-                else:
-                    notification_data["type"] = "info"
+                        # Determine notification type based on icon or styling
+                        error_icon = notification.locator("svg[color*='error']")
+                        if error_icon.count() > 0:
+                            notification_data["type"] = "error"
+                        else:
+                            notification_data["type"] = "info"
 
-                notifications.append(notification_data)
+                        notifications.append(notification_data)
 
-            except Exception as e:
-                raise RuntimeError(f"Error parsing notification: {e}")
+                    except Exception as e:
+                        raise RuntimeError(f"Error parsing notification: {e}")
 
-        return notifications
+                return notifications
+
+            # Wait before polling again using Playwright's wait mechanism
+            self.page.wait_for_timeout(poll_interval)
+
+        # Timeout reached, return empty list
+        return []
 
     def close_notification(self, notification_index: int = 0) -> bool:
         """

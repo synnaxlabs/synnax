@@ -6,9 +6,6 @@
       "sequence_order": "asynchronous",
       "tests": [
         {
-          "case": "console/task/ni_counter_write_forms"
-        },
-        {
           "case": "console/task/ni_counter_read_forms",
           "parameters": {
             "mode": ["a", "b", "c"]

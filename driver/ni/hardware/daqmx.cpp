@@ -16,10 +16,8 @@ Base::Base(TaskHandle task_handle, std::shared_ptr<::daqmx::SugaredAPI> dmx):
     task_handle(task_handle), dmx(std::move(dmx)) {}
 
 Base::~Base() {
-    if (this->task_handle != 0) {
-        if (const auto err = this->dmx->ClearTask(this->task_handle))
-            LOG(ERROR) << "[ni] unexpected failure to clear daqmx task: " << err;
-    }
+    if (const auto err = this->dmx->ClearTask(this->task_handle))
+        LOG(ERROR) << "[ni] unexpected failure to clear daqmx task: " << err;
 }
 
 xerrors::Error Base::start() {
@@ -100,7 +98,7 @@ AnalogReader::AnalogReader(
     const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
-    Base(task_handle, dmx) {}
+    SkewTrackingReader<double>(dmx, task_handle) {}
 
 ReadResult
 AnalogReader::read(const size_t samples_per_channel, std::vector<double> &data) {
@@ -122,7 +120,8 @@ AnalogReader::read(const size_t samples_per_channel, std::vector<double> &data) 
     return res;
 }
 
-xerrors::Error AnalogReader::start() {
+template<typename T>
+xerrors::Error SkewTrackingReader<T>::start() {
     this->total_samples_acquired = 0;
     this->total_samples_requested = 0;
     if (const auto err = this->dmx->SetReadOverWrite(
@@ -133,7 +132,8 @@ xerrors::Error AnalogReader::start() {
     return Base::start();
 }
 
-int64 AnalogReader::update_skew(const size_t &n_requested) {
+template<typename T>
+int64 SkewTrackingReader<T>::update_skew(const size_t &n_requested) {
     uInt64 next_total_samples_acquired;
     if (const auto err = this->dmx->GetReadTotalSampPerChanAcquired(
             this->task_handle,
@@ -150,11 +150,14 @@ int64 AnalogReader::update_skew(const size_t &n_requested) {
            static_cast<int64>(this->total_samples_requested);
 }
 
+// Explicit template instantiation
+template struct SkewTrackingReader<double>;
+
 CounterReader::CounterReader(
     const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
-    Base(task_handle, dmx) {}
+    SkewTrackingReader<double>(dmx, task_handle) {}
 
 ReadResult
 CounterReader::read(const size_t samples_per_channel, std::vector<double> &data) {
@@ -175,68 +178,4 @@ CounterReader::read(const size_t samples_per_channel, std::vector<double> &data)
     return res;
 }
 
-xerrors::Error CounterReader::start() {
-    this->total_samples_acquired = 0;
-    this->total_samples_requested = 0;
-    if (const auto err = this->dmx->SetReadOverWrite(
-            this->task_handle,
-            DAQmx_Val_OverwriteUnreadSamps
-        ))
-        return err;
-    return Base::start();
-}
-
-int64 CounterReader::update_skew(const size_t &n_requested) {
-    uInt64 next_total_samples_acquired;
-    if (const auto err = this->dmx->GetReadTotalSampPerChanAcquired(
-            this->task_handle,
-            &next_total_samples_acquired
-        ))
-        LOG(WARNING) << "[ni] failed to get total samples acquired: " << err;
-    if (next_total_samples_acquired < this->total_samples_acquired) {
-        LOG(WARNING) << "[ni] hardware reader detected recovery from failure.";
-        this->total_samples_requested = 0;
-    }
-    this->total_samples_acquired = next_total_samples_acquired;
-    this->total_samples_requested += n_requested;
-    return static_cast<int64>(this->total_samples_acquired) -
-           static_cast<int64>(this->total_samples_requested);
-}
-
-CounterWriter::CounterWriter(
-    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
-    TaskHandle task_handle
-):
-    Base(task_handle, dmx) {}
-
-xerrors::Error CounterWriter::write(const std::vector<double> &data) {
-    // For pulse output channels, the write operation doesn't send new data
-    // like analog/digital writes. Instead, the pulse parameters are configured
-    // during channel setup, and the task simply runs continuously.
-    // This write function is a no-op to maintain compatibility with the
-    // write task infrastructure, but the actual pulse generation is controlled
-    // via start/stop calls.
-    return xerrors::NIL;
-}
-
-void CounterWriter::complete_validation() {
-    this->validation_complete = true;
-}
-
-xerrors::Error CounterWriter::stop() {
-    if (!this->running.exchange(false)) return xerrors::NIL;
-
-    // During validation cycle, use normal stop without clearing
-    if (!this->validation_complete) { return this->dmx->StopTask(this->task_handle); }
-
-    // After validation, clear task to release counter resources
-    // For Counter Output tasks, DAQmxTaskControl(Unreserve) does NOT work. The only way
-    // to release the counter resource is to clear the task completely.
-    if (const auto err = this->dmx->StopTask(this->task_handle)) return err;
-    if (const auto err = this->dmx->ClearTask(this->task_handle)) return err;
-
-    // Mark handle as invalid to prevent double-clear in destructor
-    this->task_handle = 0;
-    return xerrors::NIL;
-}
 }

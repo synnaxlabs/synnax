@@ -82,17 +82,6 @@ export const ZERO_CI_CHANNEL = v1.ZERO_CI_CHANNEL;
 export const CI_CHANNEL_TYPE_NAMES = v0.CI_CHANNEL_TYPE_NAMES;
 export const CI_CHANNEL_TYPE_ICONS = v0.CI_CHANNEL_TYPE_ICONS;
 
-export const CO_PULSE_OUTPUT_CHAN_TYPE = v0.CO_PULSE_OUTPUT_CHAN_TYPE;
-export type COChannel = v0.COChannel;
-export type COChannelType = v0.COChannelType;
-export type COIdleState = v0.COIdleState;
-export const CO_CHANNEL_SCHEMAS = v0.CO_CHANNEL_SCHEMAS;
-export const CO_CHANNEL_TYPES = v0.CO_CHANNEL_TYPES;
-export const ZERO_CO_CHANNELS = v0.ZERO_CO_CHANNELS;
-export const ZERO_CO_CHANNEL = v0.ZERO_CO_CHANNEL;
-export const CO_CHANNEL_TYPE_NAMES = v0.CO_CHANNEL_TYPE_NAMES;
-export const CO_CHANNEL_TYPE_ICONS = v0.CO_CHANNEL_TYPE_ICONS;
-
 export const AO_CURRENT_CHAN_TYPE = v0.AO_CURRENT_CHAN_TYPE;
 export const AO_FUNC_GEN_CHAN_TYPE = v0.AO_FUNC_GEN_CHAN_TYPE;
 export const AO_VOLTAGE_CHAN_TYPE = v0.AO_VOLTAGE_CHAN_TYPE;
@@ -215,26 +204,6 @@ export const DIGITAL_WRITE_SCHEMAS: task.Schemas<
   typeSchema: digitalWriteTypeZ,
   configSchema: digitalWriteConfigZ,
   statusDataSchema: digitalWriteStatusDataZ,
-};
-
-export const counterWriteTypeZ = v0.counterWriteTypeZ;
-export const counterWriteConfigZ = v0.counterWriteConfigZ;
-export const counterWriteStatusDataZ = v0.counterWriteStatusDataZ;
-export interface CounterWriteConfig extends v0.CounterWriteConfig {}
-export const COUNTER_WRITE_TYPE = v0.COUNTER_WRITE_TYPE;
-export type CounterWriteType = v0.CounterWriteType;
-export const ZERO_COUNTER_WRITE_PAYLOAD = v0.ZERO_COUNTER_WRITE_PAYLOAD;
-export interface CounterWritePayload extends v0.CounterWritePayload {}
-export interface CounterWriteTask extends v0.CounterWriteTask {}
-export interface NewCounterWriteTask extends v0.NewCounterWriteTask {}
-export const COUNTER_WRITE_SCHEMAS: task.Schemas<
-  typeof counterWriteTypeZ,
-  typeof counterWriteConfigZ,
-  typeof counterWriteStatusDataZ
-> = {
-  typeSchema: counterWriteTypeZ,
-  configSchema: counterWriteConfigZ,
-  statusDataSchema: counterWriteStatusDataZ,
 };
 
 export const scanTypeZ = v0.scanTypeZ;

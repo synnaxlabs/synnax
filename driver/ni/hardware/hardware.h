@@ -109,8 +109,10 @@ struct DigitalReader final : Base, Reader<uint8_t> {
     read(size_t samples_per_channel, std::vector<unsigned char> &data) override;
 };
 
-/// @brief a hardware interface for analog tasks.
-struct AnalogReader final : Base, Reader<double> {
+/// @brief Base class for readers that track sample acquisition skew
+template<typename T>
+struct SkewTrackingReader : Base, Reader<T> {
+protected:
     /// @brief the total number of samples requested by calls to read() from
     /// the user.
     size_t total_samples_requested = 0;
@@ -118,61 +120,37 @@ struct AnalogReader final : Base, Reader<double> {
     /// by DAQmx.
     uInt64 total_samples_acquired = 0;
 
+    SkewTrackingReader(
+        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle
+    ):
+        Base(task_handle, dmx) {}
+
+    /// @brief Updates the skew between requested and acquired samples
+    /// @param n_requested Number of samples requested in this read
+    /// @return The current skew (acquired - requested)
+    int64 update_skew(const size_t &n_requested);
+
+public:
+    xerrors::Error start() override;
+};
+
+/// @brief a hardware interface for analog tasks.
+struct AnalogReader final : SkewTrackingReader<double> {
     AnalogReader(
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
     ReadResult read(size_t samples_per_channel, std::vector<double> &data) override;
-
-    xerrors::Error start() override;
-
-    int64 update_skew(const size_t &n_requested);
 };
 
 /// @brief a hardware interface for counter input tasks.
-struct CounterReader final : Base, Reader<double> {
-    /// @brief the total number of samples requested by calls to read() from
-    /// the user.
-    size_t total_samples_requested = 0;
-    /// @brief the total number of samples actually acquired from the hardware
-    /// by DAQmx.
-    uInt64 total_samples_acquired = 0;
-
+struct CounterReader final : SkewTrackingReader<double> {
     CounterReader(
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
     ReadResult read(size_t samples_per_channel, std::vector<double> &data) override;
-
-    xerrors::Error start() override;
-
-    int64 update_skew(const size_t &n_requested);
-};
-
-/// @brief Implementation of counter output writing using DAQmx
-/// Counter output tasks must clear the task on stop to release resources.
-/// This is a known NI-DAQmx limitation - DAQmxTaskControl(Unreserve) does not
-/// work for counter output tasks. After stopping, the task must be reconfigured
-/// before it can be started again.
-struct CounterWriter final : Base, Writer<double> {
-private:
-    bool validation_complete = false;
-
-public:
-    /// @brief Constructs a new counter writer
-    /// @param dmx The DAQmx API interface
-    /// @param task_handle Handle to the DAQmx task
-    CounterWriter(
-        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
-        TaskHandle task_handle
-    );
-    xerrors::Error write(const std::vector<double> &data) override;
-
-    /// @brief Override stop() to clear task and release counter resources
-    /// After calling stop(), the task cannot be restarted - must reconfigure
-    xerrors::Error stop() override;
-
-    void complete_validation();
 };
 }
 
