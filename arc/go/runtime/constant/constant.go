@@ -45,7 +45,7 @@ func (c constant) Init(ctx node.Context) {
 	d := c.state.Output(0)
 	*d = telem.NewSeriesFromAny(c.value, d.DataType)
 	t := c.state.OutputTime(0)
-	*t = telem.NewSeriesV[telem.TimeStamp](telem.Now())
+	*t = telem.NewSeriesV(telem.Now())
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 

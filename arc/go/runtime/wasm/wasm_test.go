@@ -677,7 +677,7 @@ var _ = Describe("Wasm", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := state.New(state.Config{IR: analyzed})
 			valueNode := s.Node("value")
-			*valueNode.Output(0) = telem.NewSeriesV[float64](10.0, 20.0)
+			*valueNode.Output(0) = telem.NewSeriesV(10.0, 20.0)
 			*valueNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
 			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
 				Module: mod,

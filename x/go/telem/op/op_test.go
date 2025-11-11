@@ -31,8 +31,8 @@ var _ = Describe("Vectorized Operations", func() {
 			})
 
 			It("should perform LessThanF64", func() {
-				a := telem.NewSeriesV[float64](1.5, 2.5, 3.5)
-				b := telem.NewSeriesV[float64](2.0, 2.0, 4.0)
+				a := telem.NewSeriesV(1.5, 2.5, 3.5)
+				b := telem.NewSeriesV(2.0, 2.0, 4.0)
 				output := telem.Series{DataType: telem.Uint8T}
 
 				op.LessThanF64(a, b, &output)
@@ -55,8 +55,8 @@ var _ = Describe("Vectorized Operations", func() {
 
 		Context("Different Length Series - Last Value Repetition", func() {
 			It("should repeat last value of shorter 'a' series", func() {
-				a := telem.NewSeriesV[float64](1.0, 2.0, 3.0)
-				b := telem.NewSeriesV[float64](2.0, 1.0, 1.0, 1.0, 1.0)
+				a := telem.NewSeriesV(1.0, 2.0, 3.0)
+				b := telem.NewSeriesV(2.0, 1.0, 1.0, 1.0, 1.0)
 				output := telem.Series{DataType: telem.Uint8T}
 
 				op.GreaterThanF64(a, b, &output)
@@ -115,8 +115,8 @@ var _ = Describe("Vectorized Operations", func() {
 			})
 
 			It("should perform SubtractF64", func() {
-				a := telem.NewSeriesV[float64](10.0, 20.0, 30.0)
-				b := telem.NewSeriesV[float64](3.0, 5.0, 7.0)
+				a := telem.NewSeriesV(10.0, 20.0, 30.0)
+				b := telem.NewSeriesV(3.0, 5.0, 7.0)
 				output := telem.Series{DataType: telem.Float64T}
 
 				op.SubtractF64(a, b, &output)
@@ -150,8 +150,8 @@ var _ = Describe("Vectorized Operations", func() {
 
 		Context("Different Length Series - Last Value Repetition", func() {
 			It("should repeat last value of shorter 'a' series for addition", func() {
-				a := telem.NewSeriesV[float64](1.0, 2.0)
-				b := telem.NewSeriesV[float64](10.0, 20.0, 30.0, 40.0, 50.0)
+				a := telem.NewSeriesV(1.0, 2.0)
+				b := telem.NewSeriesV(10.0, 20.0, 30.0, 40.0, 50.0)
 				output := telem.Series{DataType: telem.Float64T}
 
 				op.AddF64(a, b, &output)

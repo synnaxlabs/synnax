@@ -75,8 +75,8 @@ func (s *stableFor) Next(ctx node.Context) {
 	currentValue := *s.value
 	if telem.TimeSpan(s.now()-s.lastChanged) >= s.duration {
 		if s.lastSent == nil || *s.lastSent != currentValue {
-			*s.state.Output(0) = telem.NewSeriesV[uint8](currentValue)
-			*s.state.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](s.now())
+			*s.state.Output(0) = telem.NewSeriesV(currentValue)
+			*s.state.OutputTime(0) = telem.NewSeriesV(s.now())
 			s.lastSent = &currentValue
 			ctx.MarkChanged(ir.DefaultOutputParam)
 		}

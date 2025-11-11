@@ -85,7 +85,7 @@ var _ = Describe("Garbage Collection", func() {
 							index = append(index, telem.TimeStamp(i*10+j))
 						}
 						Expect(unary.Write(ctx, indexDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesSecondsTSV(index...))).To(Succeed())
-						Expect(unary.Write(ctx, dataDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesV[int64](data...))).To(Succeed())
+						Expect(unary.Write(ctx, dataDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesV(data...))).To(Succeed())
 					}
 
 					By("Deleting data from the channel")

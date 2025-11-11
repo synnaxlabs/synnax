@@ -86,7 +86,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-			Expect(iter.Value().Frame).To(telem.MatchWrittenFrame[channel.Key](fr.Frame))
+			Expect(iter.Value().Frame).To(telem.MatchWrittenFrame(fr.Frame))
 			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 			Expect(iter.Close()).To(Succeed())
 		})

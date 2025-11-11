@@ -77,7 +77,7 @@ var _ = Describe("Open", func() {
 					Expect(ch.Key).To(Equal(key))
 					Expect(ch.IsIndex).To(BeTrue())
 
-					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{key},
 						[]telem.Series{telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)},
 					))).To(Succeed())
@@ -106,7 +106,7 @@ var _ = Describe("Open", func() {
 						Index:    indexKey,
 						DataType: telem.Int64T,
 					})).To(Succeed())
-					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{indexKey, key},
 						[]telem.Series{telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5), telem.NewSeriesV[int64](1, 2, 3, 4, 5)},
 					))).To(Succeed())
@@ -129,7 +129,7 @@ var _ = Describe("Open", func() {
 					Expect(ch.DataType).To(Equal(telem.TimeStampT))
 
 					By("Asserting that writes to the db still occurs normally")
-					Expect(db.Write(ctx, 11*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+					Expect(db.Write(ctx, 11*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{key, indexKey},
 						[]telem.Series{telem.NewSeriesV[int64](11, 12, 13, 14, 15), telem.NewSeriesSecondsTSV(11, 12, 13, 14, 15)},
 					))).To(Succeed())

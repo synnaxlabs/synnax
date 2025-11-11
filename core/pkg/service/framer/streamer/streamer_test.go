@@ -328,7 +328,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 
 			expectedValues := []float32{2, 6, 10, 14}
-			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](expectedValues...))
+			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV(expectedValues...))
 
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())

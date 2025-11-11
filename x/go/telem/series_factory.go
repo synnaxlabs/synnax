@@ -29,7 +29,7 @@ type Sample interface{ types.Numeric }
 func NewSeries[T Sample](data []T) Series {
 	return Series{
 		DataType: InferDataType[T](),
-		Data:     MarshalSlice[T](data),
+		Data:     MarshalSlice(data),
 	}
 }
 
