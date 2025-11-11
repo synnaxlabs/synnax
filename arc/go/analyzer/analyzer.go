@@ -18,11 +18,11 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/maps"
 )
 
 func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) bool {
@@ -119,16 +119,16 @@ func analyzeFunctionDeclaration(ctx acontext.Context[parser.IFunctionDeclaration
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-	if !analyzeConfig(ctx, ctx.AST.ConfigBlock(), fn, fn.Type.Config) {
+	if !analyzeConfig(ctx, ctx.AST.ConfigBlock(), fn, &fn.Type.Config) {
 		return false
 	}
 	if !analyzeInputs(
 		acontext.Child(ctx, ctx.AST.InputList()).WithScope(fn),
-		fn.Type.Inputs,
+		&fn.Type.Inputs,
 	) {
 		return false
 	}
-	if !analyzeOutputs(ctx, ctx.AST.OutputType(), fn, fn.Type.Outputs) {
+	if !analyzeOutputs(ctx, ctx.AST.OutputType(), fn, &fn.Type.Outputs) {
 		return false
 	}
 	if block := ctx.AST.Block(); block != nil {
@@ -142,14 +142,22 @@ func analyzeFunctionDeclaration(ctx acontext.Context[parser.IFunctionDeclaration
 		if !statement.AnalyzeBlock(acontext.Child(ctx, block).WithScope(fn)) {
 			return false
 		}
-		outputType, hasOutput := fn.Type.Outputs.Get(ir.DefaultOutputParam)
+		oParam, hasOutput := fn.Type.Outputs.Get(ir.DefaultOutputParam)
 		if hasOutput && !blockAlwaysReturns(block) {
-			ctx.Diagnostics.AddError(errors.Newf("function '%s' must return a value of type %s on all paths", name, outputType), ctx.AST)
+			ctx.Diagnostics.AddError(errors.Newf(
+				"function '%s' must return a value of type %s on all paths",
+				name,
+				oParam.Type,
+			), ctx.AST)
 			return false
 		}
-		for outputName := range fn.Type.Outputs.Iter() {
-			if outputName != ir.DefaultOutputParam && !checkOutputAssignedInBlock(block, outputName) {
-				ctx.Diagnostics.AddWarning(errors.Newf("output '%s' is never assigned in function '%s'", outputName, name), ctx.AST)
+		for _, output := range fn.Type.Outputs {
+			if output.Name != ir.DefaultOutputParam && !checkOutputAssignedInBlock(block, output.Name) {
+				ctx.Diagnostics.AddWarning(errors.Newf(
+					"output '%s' is never assigned in function '%s'",
+					output.Name,
+					name,
+				), ctx.AST)
 			}
 		}
 	}
@@ -160,17 +168,14 @@ func analyzeOutputs[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	outputType parser.IOutputTypeContext,
 	scope *symbol.Scope,
-	outputs *maps.Ordered[string, types.Type],
+	outputs *types.Params,
 ) bool {
 	if outputType == nil {
 		return true
 	}
 	if typeCtx := outputType.Type_(); typeCtx != nil {
 		outputTypeVal, _ := atypes.InferFromTypeContext(typeCtx)
-		if !outputs.Put(ir.DefaultOutputParam, outputTypeVal) {
-			ctx.Diagnostics.AddError(errors.New("failed to add output"), outputType)
-			return false
-		}
+		*outputs = append(*outputs, types.Param{Name: ir.DefaultOutputParam, Type: outputTypeVal})
 		return true
 	}
 	if multiOutputBlock := outputType.MultiOutputBlock(); multiOutputBlock != nil {
@@ -180,10 +185,11 @@ func analyzeOutputs[T antlr.ParserRuleContext](
 			if typeCtx := namedOutput.Type_(); typeCtx != nil {
 				outputTypeVal, _ = atypes.InferFromTypeContext(typeCtx)
 			}
-			if !outputs.Put(outputName, outputTypeVal) {
+			if outputs.Has(outputName) {
 				ctx.Diagnostics.AddError(errors.Newf("duplicate output %s", outputName), namedOutput)
 				return false
 			}
+			*outputs = append(*outputs, types.Param{Name: outputName, Type: outputTypeVal})
 			if _, err := scope.Add(ctx, symbol.Symbol{Name: outputName, Kind: symbol.KindOutput, Type: outputTypeVal, AST: namedOutput}); err != nil {
 				ctx.Diagnostics.AddError(err, namedOutput)
 				return false
@@ -225,26 +231,61 @@ func checkOutputAssignedInIfStmt(ifStmt parser.IIfStatementContext, outputName s
 
 func analyzeInputs(
 	ctx acontext.Context[parser.IInputListContext],
-	inputTypes *maps.Ordered[string, types.Type],
+	inputTypes *types.Params,
 ) bool {
 	if ctx.AST == nil {
 		return true
 	}
+
+	// Track whether we've seen an optional parameter for trailing-only validation
+	seenOptional := false
 	for _, input := range ctx.AST.AllInput() {
 		var inputType types.Type
 		if typeCtx := input.Type_(); typeCtx != nil {
 			inputType, _ = atypes.InferFromTypeContext(typeCtx)
 		}
 		inputName := input.IDENTIFIER().GetText()
-		if !inputTypes.Put(inputName, inputType) {
+
+		// Parse default value if present
+		var defaultValue any
+		if lit := input.Literal(); lit != nil {
+			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
+			if err != nil {
+				ctx.Diagnostics.AddError(errors.Wrapf(
+					err,
+					"invalid default value for parameter %s",
+					inputName,
+				), lit)
+				return false
+			}
+			defaultValue = value.Value
+			seenOptional = true
+		} else if seenOptional {
+			ctx.Diagnostics.AddError(
+				errors.Newf(
+					"required parameter %s cannot follow optional parameters",
+					inputName,
+				),
+				input,
+			)
+			return false
+		}
+
+		if inputTypes.Has(inputName) {
 			ctx.Diagnostics.AddError(errors.Newf("duplicate input %s", inputName), input)
 			return false
 		}
+		*inputTypes = append(*inputTypes, types.Param{
+			Name:  inputName,
+			Type:  inputType,
+			Value: defaultValue,
+		})
 		if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
-			Name: inputName,
-			Kind: symbol.KindInput,
-			Type: inputType,
-			AST:  input,
+			Name:         inputName,
+			Kind:         symbol.KindInput,
+			Type:         inputType,
+			AST:          input,
+			DefaultValue: defaultValue,
 		}); err != nil {
 			ctx.Diagnostics.AddError(err, input)
 			return false
@@ -300,7 +341,7 @@ func analyzeConfig[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	configBlock parser.IConfigBlockContext,
 	scope *symbol.Scope,
-	config *maps.Ordered[string, types.Type],
+	config *types.Params,
 ) bool {
 	if configBlock == nil {
 		return true
@@ -311,10 +352,11 @@ func analyzeConfig[T antlr.ParserRuleContext](
 		if typeCtx := cfg.Type_(); typeCtx != nil {
 			configType, _ = atypes.InferFromTypeContext(typeCtx)
 		}
-		if !config.Put(configName, configType) {
+		if config.Has(configName) {
 			ctx.Diagnostics.AddError(errors.Newf("duplicate config %s", configName), cfg)
 			return false
 		}
+		*config = append(*config, types.Param{Name: configName, Type: configType})
 		if _, err := scope.Add(ctx, symbol.Symbol{
 			Name: configName,
 			Kind: symbol.KindConfig,

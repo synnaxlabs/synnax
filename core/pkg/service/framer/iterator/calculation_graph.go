@@ -11,10 +11,10 @@ package iterator
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -172,7 +172,7 @@ func (g *dependencyGraph) dfsVisit(
 		}
 		cyclePath := append([]channel.Key{}, (*stack)[cycleStart:]...)
 		cyclePath = append(cyclePath, key)
-		return fmt.Errorf("circular dependency detected: %v", cyclePath)
+		return errors.Newf("circular dependency detected: %v", cyclePath)
 	}
 
 	// If already visited, no need to process again

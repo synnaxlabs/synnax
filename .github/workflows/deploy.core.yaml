@@ -471,8 +471,8 @@ jobs:
             ${{ github.ref == 'refs/heads/main' && 'synnaxlabs/synnax:latest' || '' }}
             ${{ github.ref == 'refs/heads/rc' && 'ghcr.io/synnaxlabs/synnax:rc' || '' }}
             ${{ github.ref == 'refs/heads/rc' && 'synnaxlabs/synnax:rc' || '' }}
-          cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
-          cache-to: type=gha,mode=max,scope=${{ env.CACHE_SCOPE }}
+          cache-from: type=gha,scope=synnax-docker-cache
+          cache-to: type=gha,mode=min,scope=synnax-docker-cache
           sbom: ${{ github.event_name != 'pull_request' }}
           provenance:
             ${{ github.event_name != 'pull_request' && 'mode=max' || 'false' }}

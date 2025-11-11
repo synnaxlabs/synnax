@@ -10,6 +10,7 @@
 import "@/select/Dialog.css";
 
 import { type record, type status } from "@synnaxlabs/x";
+import { plural } from "pluralize";
 import { memo, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -24,26 +25,26 @@ export interface DialogProps<K extends record.Key>
     Omit<SearchInputProps, "searchPlaceholder">,
     Pick<List.ItemsProps<K>, "emptyContent" | "children"> {
   status?: status.Status;
-  resourceName?: string;
+  resourceName: string;
 }
 
 export interface DefaultEmptyContentProps extends Status.SummaryProps {
-  resourceName?: string;
+  resourceName: string;
 }
 
-const DefaultEmptyContent = ({ resourceName = "result" }: DefaultEmptyContentProps) => (
+const DefaultEmptyContent = ({ resourceName }: DefaultEmptyContentProps) => (
   <Text.Text center status="disabled">
-    No {resourceName.toLowerCase()}s found
+    No {plural(resourceName)} found
   </Text.Text>
 );
 
-export const Core = memo(
+const Core = memo(
   <K extends record.Key>({
     onSearch,
     children,
     emptyContent,
     status,
-    resourceName = "result",
+    resourceName,
     actions,
     ...rest
   }: DialogProps<K>) => {
@@ -78,7 +79,7 @@ export const Core = memo(
           <SearchInput
             dialogVariant="floating"
             onSearch={onSearch}
-            searchPlaceholder={`Search ${resourceName}s...`}
+            searchPlaceholder={`Search ${plural(resourceName)}...`}
             actions={actions}
           />
         )}

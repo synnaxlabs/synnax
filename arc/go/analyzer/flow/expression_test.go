@@ -51,9 +51,11 @@ var _ = Describe("Expression func Conversion", func() {
 			Name: "alarm",
 			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
-				Inputs: &types.Params{
-					Keys:   []string{ir.DefaultInputParam},
-					Values: []types.Type{types.U8()},
+				Inputs: types.Params{
+					{
+						Name: ir.DefaultInputParam,
+						Type: types.U8(),
+					},
 				},
 			}),
 		},
@@ -61,9 +63,11 @@ var _ = Describe("Expression func Conversion", func() {
 			Name: "logger",
 			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
-				Inputs: &types.Params{
-					Keys:   []string{ir.DefaultInputParam},
-					Values: []types.Type{types.U8()},
+				Inputs: types.Params{
+					{
+						Name: ir.DefaultInputParam,
+						Type: types.U8(),
+					},
 				},
 			}),
 		},
@@ -71,9 +75,11 @@ var _ = Describe("Expression func Conversion", func() {
 			Name: "display",
 			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
-				Inputs: &types.Params{
-					Keys:   []string{ir.DefaultInputParam},
-					Values: []types.Type{types.F64()},
+				Inputs: types.Params{
+					{
+						Name: ir.DefaultInputParam,
+						Type: types.F64(),
+					},
 				},
 			}),
 		},
@@ -99,9 +105,9 @@ var _ = Describe("Expression func Conversion", func() {
 			Expect(fnSym.Name).To(Equal("__expr_0"))
 			Expect(fnSym.Kind).To(Equal(symbol.KindFunction))
 			Expect(fnSym.Type.Kind).To(Equal(types.KindFunction))
-			Expect(fnSym.Type.Config.Count()).To(Equal(0))
+			Expect(fnSym.Type.Config).To(BeEmpty())
 			output := MustBeOk(fnSym.Type.Outputs.Get(ir.DefaultOutputParam))
-			Expect(output).To(Equal(types.U8()))
+			Expect(output.Type).To(Equal(types.U8()))
 		})
 
 		It("should extract multiple channels from arithmetic expressions", func() {
@@ -113,7 +119,7 @@ var _ = Describe("Expression func Conversion", func() {
 			synthFunc := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
 			Expect(synthFunc).ToNot(BeNil())
 			output := MustBeOk(synthFunc.Type.Outputs.Get(ir.DefaultOutputParam))
-			Expect(output).To(Equal(types.F64()))
+			Expect(output.Type).To(Equal(types.F64()))
 		})
 	})
 

@@ -42,6 +42,7 @@ export interface ExtensionProps
   contrast?: Text.Shade | false;
   disabled?: boolean;
   preventClick?: boolean;
+  propagateClick?: boolean;
   onClickDelay?: number | TimeSpan;
   ghost?: boolean;
 }
@@ -107,6 +108,7 @@ const Core = <E extends ElementType = "button">({
   defaultEl = "button",
   el,
   ghost,
+  propagateClick = false,
   ...rest
 }: ButtonProps<E>): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
@@ -118,6 +120,7 @@ const Core = <E extends ElementType = "button">({
   if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!propagateClick) e.stopPropagation();
     if (isDisabled || variant === "preview" || preventClick === true) return;
     // @ts-expect-error - TODO: fix this
     if (parsedDelay.isZero) return onClick?.(e);

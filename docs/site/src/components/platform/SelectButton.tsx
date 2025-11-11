@@ -48,7 +48,7 @@ export const SelectButton = ({ platforms }: SelectButtonProps) => {
     <Select.Static
       className="styled-scrollbar"
       location="bottom"
-      resourceName="Platform"
+      resourceName="platform"
       data={data}
       value={platform}
       allowNone={false}

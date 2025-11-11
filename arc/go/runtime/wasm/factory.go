@@ -37,8 +37,8 @@ func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error
 			irFn.Outputs,
 			cfg.Module.OutputMemoryBases[cfg.Node.Type],
 		),
-		inputs:  make([]uint64, len(irFn.Inputs.Keys)),
-		offsets: make([]int, len(irFn.Outputs.Keys)),
+		inputs:  make([]uint64, len(irFn.Inputs)),
+		offsets: make([]int, len(irFn.Outputs)),
 	}
 	return n, nil
 }

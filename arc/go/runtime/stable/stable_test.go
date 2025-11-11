@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/stable"
@@ -41,37 +42,48 @@ var _ = Describe("StableFor", func() {
 		irNode = ir.Node{
 			Key:  "stable",
 			Type: "stable_for",
-			ConfigValues: map[string]interface{}{
-				"duration": telem.Second * 1,
+			Config: types.Params{
+				{Name: "duration", Type: types.TimeSpan(), Value: telem.Second * 1},
 			},
 			Inputs: types.Params{
-				Keys:   []string{ir.DefaultInputParam},
-				Values: []types.Type{types.U8()},
+				{Name: ir.DefaultInputParam, Type: types.U8()},
 			},
 			Outputs: types.Params{
-				Keys:   []string{ir.DefaultOutputParam},
-				Values: []types.Type{types.U8()},
+				{Name: ir.DefaultOutputParam, Type: types.U8()},
 			},
 		}
-		s = state.New(state.Config{
-			Nodes: ir.Nodes{
-				{
-					Key:  "source",
-					Type: "source",
-					Outputs: types.Params{
-						Keys:   []string{ir.DefaultOutputParam},
-						Values: []types.Type{types.U8()},
-					},
-				},
-				irNode,
+		g := graph.Graph{
+			Nodes: []graph.Node{
+				{Key: "source", Type: "source"},
+				{Key: "stable", Type: "stable_for"},
 			},
-			Edges: ir.Edges{
+			Edges: []graph.Edge{
 				{
 					Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
 				},
 			},
-		})
+			Functions: []graph.Function{
+				{
+					Key: "source",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
+					},
+				},
+				{
+					Key: "stable_for",
+					Inputs: types.Params{
+						{Name: ir.DefaultInputParam, Type: types.U8()},
+					},
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
+					},
+				},
+			},
+		}
+		analyzed, diagnostics := graph.Analyze(ctx, g, stable.SymbolResolver)
+		Expect(diagnostics.Ok()).To(BeTrue())
+		s = state.New(state.Config{IR: analyzed})
 	})
 
 	Describe("Factory.Create", func() {
@@ -124,8 +136,8 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
 				State: s.Node("stable"),
@@ -159,8 +171,8 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
 				State: s.Node("stable"),
@@ -201,8 +213,8 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
 				State: s.Node("stable"),
@@ -235,8 +247,8 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
 				State: s.Node("stable"),
@@ -275,8 +287,8 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
 				State: s.Node("stable"),
@@ -311,8 +323,8 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
 				State: s.Node("stable"),
@@ -341,8 +353,8 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					ConfigValues: map[string]interface{}{
-						"duration": int64(telem.SecondTS),
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
 				State: s.Node("stable"),
