@@ -10,9 +10,8 @@
 package expression
 
 import (
-	"strconv"
-
 	"github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -39,120 +38,61 @@ func compileLiteral(
 func compileNumericLiteral(
 	ctx context.Context[parser.INumericLiteralContext],
 ) (types.Type, error) {
-	if intLit := ctx.AST.INTEGER_LITERAL(); intLit != nil {
-		text := intLit.GetText()
-		value, err := strconv.ParseInt(text, 10, 64)
-		if err != nil {
-			return types.Type{}, errors.Newf("invalid integer literal: %s", text)
-		}
+	// Determine target type: prefer hint over TypeMap
+	// The hint is set when we have an explicit type declaration (e.g., x i32 := 42)
+	// The TypeMap contains inferred types from the analyzer
+	targetType := ctx.Hint
 
-		// Determine target type: prefer hint over TypeMap
-		// The hint is set when we have an explicit type declaration (e.g., x i32 := 42)
-		// The TypeMap contains inferred types from the analyzer
-		targetType := ctx.Hint
-
-		// Only use TypeMap if no hint was provided
-		if !targetType.IsValid() {
-			// TypeMap is keyed by the parent Literal context, so we look up parent
-			if parent := ctx.AST.GetParent(); parent != nil {
-				if litCtx, ok := parent.(parser.ILiteralContext); ok {
-					if inferredType, ok := ctx.TypeMap[litCtx]; ok {
-						targetType = inferredType
-					}
+	// Only use TypeMap if no hint was provided
+	if !targetType.IsValid() {
+		// TypeMap is keyed by the parent Literal context, so we look up parent
+		if parent := ctx.AST.GetParent(); parent != nil {
+			if litCtx, ok := parent.(parser.ILiteralContext); ok {
+				if inferredType, ok := ctx.TypeMap[litCtx]; ok {
+					targetType = inferredType
 				}
 			}
 		}
-
-		switch targetType.Kind {
-		case types.KindF32:
-			ctx.Writer.WriteF32Const(float32(value))
-			return types.F32(), nil
-		case types.KindF64:
-			ctx.Writer.WriteF64Const(float64(value))
-			return types.F64(), nil
-		case types.KindI8:
-			ctx.Writer.WriteI32Const(int32(int8(value)))
-			return types.I8(), nil
-		case types.KindI16:
-			ctx.Writer.WriteI32Const(int32(int16(value)))
-			return types.I16(), nil
-		case types.KindI32:
-			ctx.Writer.WriteI32Const(int32(value))
-			return types.I32(), nil
-		case types.KindU8:
-			ctx.Writer.WriteI32Const(int32(uint8(value)))
-			return types.U8(), nil
-		case types.KindU16:
-			ctx.Writer.WriteI32Const(int32(uint16(value)))
-			return types.U16(), nil
-		case types.KindU32:
-			ctx.Writer.WriteI32Const(int32(uint32(value)))
-			return types.U32(), nil
-		case types.KindU64:
-			ctx.Writer.WriteI64Const(int64(uint64(value)))
-			return types.U64(), nil
-		default:
-			ctx.Writer.WriteI64Const(value)
-			return types.I64(), nil
-		}
 	}
-	if floatLit := ctx.AST.FLOAT_LITERAL(); floatLit != nil {
-		text := floatLit.GetText()
-		value, err := strconv.ParseFloat(text, 64)
-		if err != nil {
-			return types.Type{}, errors.Newf("invalid float literal: %s", text)
-		}
 
-		// Determine target type: prefer hint over TypeMap
-		// The hint is set when we have an explicit type declaration (e.g., x f32 := 42.0)
-		// The TypeMap contains inferred types from the analyzer
-		targetType := ctx.Hint
-
-		// Only use TypeMap if no hint was provided
-		if !targetType.IsValid() {
-			// TypeMap is keyed by the parent Literal context, so we look up parent
-			if parent := ctx.AST.GetParent(); parent != nil {
-				if litCtx, ok := parent.(parser.ILiteralContext); ok {
-					if inferredType, ok := ctx.TypeMap[litCtx]; ok {
-						targetType = inferredType
-					}
-				}
-			}
-		}
-
-		switch targetType.Kind {
-		case types.KindF32:
-			ctx.Writer.WriteF32Const(float32(value))
-			return types.F32(), nil
-		case types.KindI8:
-			// Float literal can be coerced to integer if hint requests it
-			ctx.Writer.WriteI32Const(int32(int8(value)))
-			return types.I8(), nil
-		case types.KindI16:
-			ctx.Writer.WriteI32Const(int32(int16(value)))
-			return types.I16(), nil
-		case types.KindI32:
-			ctx.Writer.WriteI32Const(int32(value))
-			return types.I32(), nil
-		case types.KindI64:
-			ctx.Writer.WriteI64Const(int64(value))
-			return types.I64(), nil
-		case types.KindU8:
-			ctx.Writer.WriteI32Const(int32(uint8(value)))
-			return types.U8(), nil
-		case types.KindU16:
-			ctx.Writer.WriteI32Const(int32(uint16(value)))
-			return types.U16(), nil
-		case types.KindU32:
-			ctx.Writer.WriteI32Const(int32(uint32(value)))
-			return types.U32(), nil
-		case types.KindU64:
-			ctx.Writer.WriteI64Const(int64(uint64(value)))
-			return types.U64(), nil
-		default:
-			ctx.Writer.WriteF64Const(value)
-			return types.F64(), nil
-		}
+	// Use shared literal parser to parse and validate the value
+	// This enforces Go-like semantics: no truncation for literal constants
+	parsed, err := literal.ParseNumeric(ctx.AST, targetType)
+	if err != nil {
+		return types.Type{}, err
 	}
-	return types.Type{}, errors.New("unknown numeric literal")
+
+	// Emit WASM bytecode based on the parsed type and value
+	switch parsed.Type.Kind {
+	case types.KindF32:
+		ctx.Writer.WriteF32Const(parsed.Value.(float32))
+	case types.KindF64:
+		ctx.Writer.WriteF64Const(parsed.Value.(float64))
+	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32:
+		// WASM uses i32 for all 32-bit and smaller integers
+		var i32Val int32
+		switch v := parsed.Value.(type) {
+		case int8:
+			i32Val = int32(v)
+		case int16:
+			i32Val = int32(v)
+		case int32:
+			i32Val = v
+		case uint8:
+			i32Val = int32(v)
+		case uint16:
+			i32Val = int32(v)
+		case uint32:
+			i32Val = int32(v)
+		}
+		ctx.Writer.WriteI32Const(i32Val)
+	case types.KindI64:
+		ctx.Writer.WriteI64Const(parsed.Value.(int64))
+	case types.KindU64:
+		ctx.Writer.WriteI64Const(int64(parsed.Value.(uint64)))
+	default:
+		return types.Type{}, errors.Newf("unsupported numeric type: %s", parsed.Type)
+	}
+
+	return parsed.Type, nil
 }

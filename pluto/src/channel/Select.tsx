@@ -52,9 +52,6 @@ export interface SelectMultipleProps
     Flux.UseListParams<ListQuery, channel.Key, channel.Channel> {}
 
 export const SelectMultiple = ({
-  onChange,
-  value,
-  emptyContent,
   initialQuery,
   filter,
   ...rest
@@ -66,19 +63,16 @@ export const SelectMultiple = ({
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Multiple<channel.Key, channel.Channel | undefined>
-      resourceName="Channel"
-      value={value}
-      onChange={onChange}
-      data={data}
       haulType={HAUL_TYPE}
-      getItem={getItem}
-      subscribe={subscribe}
       onFetchMore={fetchMore}
       onSearch={search}
-      emptyContent={emptyContent}
       status={status}
       icon={<Icon.Channel />}
       {...rest}
+      resourceName="channel"
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
     >
       {listItemRenderProp}
     </Select.Multiple>
@@ -93,10 +87,6 @@ export interface SelectSingleProps
     Flux.UseListParams<ListQuery, channel.Key, channel.Channel> {}
 
 export const SelectSingle = ({
-  onChange,
-  value,
-  allowNone,
-  emptyContent,
   initialQuery,
   filter,
   ...rest
@@ -108,20 +98,16 @@ export const SelectSingle = ({
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<channel.Key, channel.Channel | undefined>
-      resourceName="Channel"
-      onChange={onChange}
-      value={value}
-      allowNone={allowNone}
-      emptyContent={emptyContent}
       onFetchMore={fetchMore}
       onSearch={search}
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
       status={status}
       haulType={HAUL_TYPE}
       icon={<Icon.Channel />}
       {...rest}
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      resourceName="channel"
     >
       {listItemRenderProp}
     </Select.Single>

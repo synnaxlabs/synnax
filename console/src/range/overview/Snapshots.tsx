@@ -88,8 +88,7 @@ const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const promptConfirm = useConfirmDelete({
     type: "Snapshot",
   });
-  const handleDelete = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
+  const handleDelete = () => {
     handleError(async () => {
       const confirmed = await promptConfirm({ name });
       if (!confirmed) return;

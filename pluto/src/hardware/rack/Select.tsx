@@ -40,11 +40,7 @@ const listItemRenderProp = Component.renderProp(
 );
 
 export const SelectSingle = ({
-  value,
-  onChange,
   filter,
-  allowNone,
-  emptyContent,
   initialQuery,
   ...rest
 }: SelectSingleProps): ReactElement => {
@@ -56,14 +52,11 @@ export const SelectSingle = ({
   return (
     <Select.Single<rack.Key, rack.Payload | undefined>
       resourceName="Driver"
-      value={value}
-      onChange={onChange}
       data={data}
       getItem={getItem}
       subscribe={subscribe}
       onFetchMore={fetchMore}
       onSearch={search}
-      emptyContent={emptyContent}
       status={status}
       icon={<Icon.Rack />}
       {...rest}
