@@ -84,19 +84,21 @@ class Slave {
         if (config_.holding_registers.empty())
             max_holding_register = 16;
         else
-            max_holding_register += telem::DataType::infer(
-                                        config_.holding_registers[max_holding_register]
-                                    )
-                                        .density() /
+            max_holding_register += (telem::DataType::infer(
+                                         config_.holding_registers[max_holding_register]
+                                     )
+                                         .density() +
+                                     1) /
                                     2;
         int max_input_register = std::max(16, get_max_address(config_.input_registers));
         if (config_.input_registers.empty())
             max_input_register = 16;
         else
-            max_input_register += telem::DataType::infer(
-                                      config_.input_registers[max_input_register]
-                                  )
-                                      .density() /
+            max_input_register += (telem::DataType::infer(
+                                       config_.input_registers[max_input_register]
+                                   )
+                                       .density() +
+                                   1) /
                                   2;
 
         const int nb_bits = max_coil + 1;
