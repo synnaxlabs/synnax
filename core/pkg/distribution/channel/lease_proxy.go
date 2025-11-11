@@ -64,7 +64,7 @@ func newLeaseProxy(
 	var externalNonVirtualChannels []Channel
 	if err := gorp.
 		NewRetrieve[Key, Channel]().
-		Where(func(ctx gorp.Context, c *Channel) (bool, error) {
+		Where(func(_ gorp.Context, c *Channel) (bool, error) {
 			return !c.Internal && !c.Virtual, nil
 		}).
 		Entries(&externalNonVirtualChannels).
@@ -188,15 +188,13 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 			}
 			oChannels = append(oChannels, remoteChannels...)
 		} else {
-			err := lp.createAndUpdateFreeVirtual(ctx, tx, &batch.Free, opts)
-			if err != nil {
+			if err := lp.createAndUpdateFreeVirtual(ctx, tx, &batch.Free, opts); err != nil {
 				return err
 			}
 			oChannels = append(oChannels, batch.Free...)
 		}
 	}
-	err := lp.createGateway(ctx, tx, &batch.Gateway, opts)
-	if err != nil {
+	if err := lp.createGateway(ctx, tx, &batch.Gateway, opts); err != nil {
 		return err
 	}
 	oChannels = append(oChannels, batch.Gateway...)
@@ -480,13 +478,7 @@ func (lp *leaseProxy) createGateway(
 	if err = lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
 		return err
 	}
-	if err = gorp.
-		NewCreate[Key, Channel]().
-		Entries(&toCreate).
-		Exec(ctx, tx); err != nil {
-		return err
-	}
-	return nil
+	return gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx)
 }
 
 func (lp *leaseProxy) maybeSetResources(
@@ -657,15 +649,13 @@ func (lp *leaseProxy) rename(
 	batch := lp.renameRouter.Batch(newRenameBatch(keys, names))
 	for nodeKey, entries := range batch.Peers {
 		keys, names := unzipRenameBatch(entries)
-		err := lp.renameRemote(ctx, nodeKey, keys, names)
-		if err != nil {
+		if err := lp.renameRemote(ctx, nodeKey, keys, names); err != nil {
 			return err
 		}
 	}
 	if len(batch.Free) > 0 {
 		keys, names := unzipRenameBatch(batch.Free)
-		err := lp.renameFreeVirtual(ctx, tx, keys, names, allowInternal)
-		if err != nil {
+		if err := lp.renameFreeVirtual(ctx, tx, keys, names, allowInternal); err != nil {
 			return err
 		}
 	}
