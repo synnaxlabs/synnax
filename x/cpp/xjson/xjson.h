@@ -22,6 +22,21 @@ using json = nlohmann::json;
 
 /// @brief general utilities for parsing configurations.
 namespace xjson {
+
+/// @brief Type trait to detect std::vector types
+template<typename T>
+struct is_vector : std::false_type {
+    using value_type = T;
+};
+
+template<typename T>
+struct is_vector<std::vector<T>> : std::true_type {
+    using value_type = T;
+};
+
+template<typename T>
+inline constexpr bool is_vector_v = is_vector<T>::value;
+
 /// @brief a utility class for improving the experience of parsing JSON-based
 /// configurations.
 class Parser {
@@ -40,30 +55,7 @@ class Parser {
         errors(std::move(errors)) {}
 
     template<typename T>
-    T get(const std::string &path, const nlohmann::basic_json<>::iterator &iter) {
-        try {
-            if constexpr (std::is_constructible_v<T, xjson::Parser &>()) {
-                return T(this->child("path"));
-            } else if constexpr (std::is_arithmetic_v<T>) {
-                if (iter->is_string()) {
-                    T value;
-                    std::istringstream iss(iter->get<std::string>());
-                    if (!(iss >> value)) {
-                        this->field_err(
-                            path,
-                            "expected a number, got '" + iter->get<std::string>() + "'"
-                        );
-                        return T();
-                    }
-                    return value;
-                }
-            }
-            return iter->get<T>();
-        } catch (const nlohmann::json::type_error &e) {
-            this->field_err(path, e.what() + 32);
-        }
-        return T();
-    }
+    T get(const std::string &path, const nlohmann::basic_json<>::iterator &iter);
 
     /// @brief Helper method to parse JSON and handle errors
     void parse_with_err_handling(const std::function<json()> &parser) {
@@ -112,98 +104,155 @@ public:
     explicit Parser(const bool noop):
         noop(noop), errors(std::make_shared<std::vector<json>>()) {}
 
-    /// @brief gets the field at the given path. If the field is not found,
-    /// accumulates an error in the builder.
+    /// @brief parses the parser's current value directly (when no path is specified).
+    /// This is used to parse root values or when you have a child parser and want
+    /// to parse its entire value.
+    /// @returns The parsed value of type T, or default-constructed T if parsing fails.
     template<typename T>
-    T required(const std::string &path) {
+    T field();
+
+    /// @brief gets the field at the given path. Works for both scalars and vectors.
+    /// If the field is not found, accumulates an error in the builder.
+    /// Special case: if path is empty string "", parses the root value (same as field<T>()).
+    /// @param path The JSON path to the field.
+    /// @returns The value at the given path, or a default-constructed T if not found.
+    template<typename T>
+    T field(const std::string &path) {
         if (noop) return T();
+
+        // Special case: empty path means parse root
+        if (path.empty()) return field<T>();
+
         const auto iter = config.find(path);
         if (iter == config.end()) {
             field_err(path, "This field is required");
             return T();
         }
 
-        return get<T>(path, iter);
+        // Handle vector types automatically
+        if constexpr (is_vector_v<T>) {
+            using U = typename is_vector<T>::value_type;
+            if (!iter->is_array()) {
+                field_err(path, "Expected an array");
+                return T();
+            }
+            std::vector<U> values;
+            for (size_t i = 0; i < iter->size(); ++i) {
+                const auto child_path = path + "." + std::to_string(i);
+                values.push_back(get<U>(child_path, iter->begin() + i));
+            }
+            return values;
+        } else {
+            // Handle scalar types
+            return get<T>(path, iter);
+        }
     }
 
-    template<typename T, typename... Paths>
-    T required(const std::string &path, const Paths &...alts) {
-        if (noop) return T();
+    /// @brief attempts to pull the value at the provided path. If that path is not
+    /// found, returns the default. Works for both scalars and vectors.
+    /// Note that this function will still accumulate an error if the path is found
+    /// but the value is not of the expected type.
+    /// @param path The JSON path to the value.
+    /// @param default_value The default value to return if the path is not found.
+    /// @returns The value at the path, or default_value if not found.
+    template<typename T>
+    T field(const std::string &path, T default_value) {
+        if (noop) return default_value;
+
         const auto iter = config.find(path);
-        if (iter != config.end()) return get<T>(path, iter);
+        if (iter == config.end()) return default_value;
+
+        // Handle vector types automatically
+        if constexpr (is_vector_v<T>) {
+            using U = typename is_vector<T>::value_type;
+            if (!iter->is_array()) {
+                field_err(path, "Expected an array");
+                return default_value;
+            }
+            std::vector<U> values;
+            for (size_t i = 0; i < iter->size(); ++i) {
+                const auto child_path = path + "." + std::to_string(i);
+                values.push_back(get<U>(child_path, iter->begin() + i));
+            }
+            return values;
+        } else {
+            // Handle scalar types
+            return get<T>(path, iter);
+        }
+    }
+
+    /// @brief gets the field at the given path with multiple alternative paths.
+    /// Tries each path in order until one is found.
+    /// @param path The primary JSON path to try.
+    /// @param alt1 First alternative path to try.
+    /// @param alts Additional alternative paths to try.
+    /// @returns The value at the first found path, or default-constructed T if none found.
+    template<typename T, typename... Paths>
+    T field(const std::string &path, const std::string &alt1, const Paths &...alts) {
+        if (noop) return T();
+
+        const auto iter = config.find(path);
+        if (iter != config.end()) {
+            if constexpr (is_vector_v<T>) {
+                using U = typename is_vector<T>::value_type;
+                if (!iter->is_array()) {
+                    field_err(path, "Expected an array");
+                    return T();
+                }
+                std::vector<U> values;
+                for (size_t i = 0; i < iter->size(); ++i) {
+                    const auto child_path = path + "." + std::to_string(i);
+                    values.push_back(get<U>(child_path, iter->begin() + i));
+                }
+                return values;
+            } else {
+                return get<T>(path, iter);
+            }
+        }
+
+        // Try alternative paths - first try alt1, then the rest
+        auto try_path = [&](const std::string &alt_path) -> std::pair<T, bool> {
+            const auto it = config.find(alt_path);
+            if (it != config.end()) {
+                if constexpr (is_vector_v<T>) {
+                    using U = typename is_vector<T>::value_type;
+                    if (!it->is_array()) {
+                        field_err(alt_path, "Expected an array");
+                        return {T(), false};
+                    }
+                    std::vector<U> values;
+                    for (size_t i = 0; i < it->size(); ++i) {
+                        const auto child_path = alt_path + "." + std::to_string(i);
+                        values.push_back(get<U>(child_path, it->begin() + i));
+                    }
+                    return {values, true};
+                } else {
+                    return {get<T>(alt_path, it), true};
+                }
+            }
+            return {T(), false};
+        };
+
+        // Try alt1 first
+        auto [result1, found1] = try_path(alt1);
+        if (found1) return result1;
+
+        // Try remaining alternatives
         bool found = false;
         T result{};
-        ((found = found ||
-                  [&](const std::string &alt_path) {
-                      const auto it = config.find(alt_path);
-                      if (it != config.end()) {
-                          result = get<T>(alt_path, it);
-                          return true;
-                      }
-                      return false;
-                  }(alts)),
+        ((found = found || [&](const std::string &alt_path) {
+              auto [res, ok] = try_path(alt_path);
+              if (ok) {
+                  result = res;
+                  return true;
+              }
+              return false;
+          }(alts)),
          ...);
         if (found) return result;
+
         field_err(path, "this field is required");
         return T();
-    }
-
-    /// @brief gets the array field at the given path and returns a vector. If the
-    /// field is not found, accumulates an error in the builder.
-    /// @param path The JSON path to the vector.
-    template<typename T>
-    std::vector<T> required_vec(const std::string &path) {
-        if (noop) return std::vector<T>();
-        const auto iter = config.find(path);
-        if (iter == config.end()) {
-            field_err(path, "This field is required");
-            return std::vector<T>();
-        }
-        if (!iter->is_array()) {
-            field_err(path, "Expected an array");
-            return std::vector<T>();
-        }
-        std::vector<T> values;
-        for (size_t i = 0; i < iter->size(); ++i) {
-            const auto child_path = path_prefix + path + "." + std::to_string(i) + ".";
-            values.push_back(get<T>(child_path, iter->begin() + i));
-        }
-        return values;
-    }
-
-    /// @brief attempts to pull the value at the provided path. If that path is not
-    /// found, returns the default. Note that this function will still accumulate an
-    /// error if the path is found but the value is not of the expected type.
-    /// @param path The JSON path to the value.
-    /// @param default_value The default value to return if the path is not found.
-    template<typename T>
-    std::vector<T> optional_vec(const std::string &path, std::vector<T> default_value) {
-        if (noop) return default_value;
-        const auto iter = config.find(path);
-        if (iter == config.end()) return default_value;
-        if (!iter->is_array()) {
-            field_err(path, "Expected an array");
-            return default_value;
-        }
-        std::vector<T> values;
-        for (size_t i = 0; i < iter->size(); ++i) {
-            const auto child_path = path_prefix + path + "." + std::to_string(i) + ".";
-            values.push_back(get<T>(child_path, iter->begin() + i));
-        }
-        return values;
-    }
-
-    /// @brief attempts to pull the value at the provided path. If that path is not
-    /// found, returns the default. Note that this function will still accumulate an
-    /// error if the path is found but the value is not of the expected type.
-    /// @param path The JSON path to the value.
-    /// @param default_value The default value to return if the path is not found.
-    template<typename T>
-    T optional(const std::string &path, T default_value) {
-        if (noop) return default_value;
-        const auto iter = config.find(path);
-        if (iter == config.end()) return default_value;
-        return get<T>(path, iter);
     }
 
     /// @brief gets the field at the given path and creates a new parser just for
@@ -342,4 +391,108 @@ public:
         return Parser(file);
     }
 };
+
+// Test struct to verify the mechanism works
+struct TestConstructibleType {
+    std::string value;
+    explicit TestConstructibleType(Parser p) : value(p.field<std::string>("value")) {}
+    TestConstructibleType() {}
+};
+
+/// @brief Type trait to detect if a type can be constructed from a Parser
+template<typename T>
+inline constexpr bool is_parser_constructible_v =
+    std::is_constructible_v<T, Parser> ||
+    std::is_constructible_v<T, Parser&> ||
+    std::is_constructible_v<T, const Parser&> ||
+    std::is_constructible_v<T, Parser&&>;
+
+// Verify the trait works for our test type
+static_assert(is_parser_constructible_v<TestConstructibleType>, "Trait should detect TestConstructibleType");
+
+// Implementation of field() no-args method (defined after trait for proper SFINAE)
+template<typename T>
+T Parser::field() {
+    if (noop) return T();
+
+    // Handle vector types automatically
+    if constexpr (is_vector_v<T>) {
+        using U = typename is_vector<T>::value_type;
+        if (!config.is_array()) {
+            field_err("", "Expected an array");
+            return T();
+        }
+        std::vector<U> values;
+        for (size_t i = 0; i < config.size(); ++i) {
+            const auto child_path = std::to_string(i);
+            auto iter = config.begin() + i;
+            values.push_back(get<U>(child_path, iter));
+        }
+        return values;
+    } else if constexpr (xjson::is_parser_constructible_v<T>) {
+        // Handle parser-constructible types
+        if (!config.is_object() && !config.is_array()) {
+            field_err("", "Expected an object or array");
+            return T();
+        }
+        Parser child_parser(config, errors, path_prefix);
+        return T(child_parser);
+    } else {
+        // Handle primitive scalar types - parse config directly
+        try {
+            if constexpr (std::is_arithmetic_v<T>) {
+                if (config.is_string()) {
+                    T value;
+                    std::istringstream iss(config.get<std::string>());
+                    if (!(iss >> value)) {
+                        this->field_err("", "expected a number, got '" + config.get<std::string>() + "'");
+                        return T();
+                    }
+                    return value;
+                }
+            }
+            return config.get<T>();
+        } catch (const nlohmann::json::type_error &e) {
+            this->field_err("", std::string(e.what()).substr(32));
+            return T();
+        }
+    }
+}
+
+// Implementation of get method (defined after trait for proper SFINAE)
+template<typename T>
+T Parser::get(const std::string &path, const nlohmann::basic_json<>::iterator &iter) {
+    if constexpr (xjson::is_parser_constructible_v<T>) {
+        // Type can be constructed from a Parser - validate and create child parser
+        if (!iter->is_object() && !iter->is_array()) {
+            field_err(path, "Expected an object or array");
+            return T();
+        }
+        Parser child_parser(*iter, errors, path_prefix + path + ".");
+        return T(child_parser);
+    } else {
+        // Use standard JSON parsing or arithmetic conversion
+        try {
+            if constexpr (std::is_arithmetic_v<T>) {
+                if (iter->is_string()) {
+                    T value;
+                    std::istringstream iss(iter->get<std::string>());
+                    if (!(iss >> value)) {
+                        this->field_err(
+                            path,
+                            "expected a number, got '" + iter->get<std::string>() + "'"
+                        );
+                        return T();
+                    }
+                    return value;
+                }
+            }
+            return iter->get<T>();
+        } catch (const nlohmann::json::type_error &e) {
+            this->field_err(path, e.what() + 32);
+            return T();
+        }
+    }
+}
+
 }

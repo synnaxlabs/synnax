@@ -34,10 +34,10 @@ struct OutputChan {
     synnax::Channel state_ch;
 
     explicit OutputChan(xjson::Parser &parser):
-        port(parser.optional<std::string>("port", "")),
-        enabled(parser.optional<bool>("enabled", true)),
-        cmd_ch_key(parser.required<uint32_t>("cmd_key", "cmd_channel")),
-        state_ch_key(parser.required<uint32_t>("state_key", "state_channel")) {}
+        port(parser.field<std::string>("port", "")),
+        enabled(parser.field<bool>("enabled", true)),
+        cmd_ch_key(parser.field<uint32_t>("cmd_key", "cmd_channel")),
+        state_ch_key(parser.field<uint32_t>("state_key", "state_channel")) {}
 
     /// @brief binds cluster information about the channel after it has been
     /// externally fetched.
@@ -76,8 +76,8 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         xjson::Parser &parser
     ):
         common::BaseWriteTaskConfig(parser),
-        state_rate(telem::Rate(parser.optional<int>("state_rate", 1))),
-        conn_method(parser.optional<std::string>("connection_type", "")) {
+        state_rate(telem::Rate(parser.field<int>("state_rate", 1))),
+        conn_method(parser.field<std::string>("connection_type", "")) {
         std::unordered_map<synnax::ChannelKey, synnax::ChannelKey> state_to_cmd;
         parser.iter("channels", [this, &state_to_cmd](xjson::Parser &p) {
             auto ch = std::make_unique<OutputChan>(p);
