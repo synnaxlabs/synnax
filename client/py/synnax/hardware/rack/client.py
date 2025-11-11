@@ -93,8 +93,8 @@ class Client:
         self,
         key: int | None = None,
         name: str | None = None,
-        embedded: bool = False,
-        host_is_node: bool = False,
+        embedded: bool | None = None,
+        host_is_node: bool | None = None,
     ) -> Rack: ...
 
     def retrieve(
@@ -104,8 +104,8 @@ class Client:
         keys: list[int] | None = None,
         names: list[str] | None = None,
         *,
-        host_is_node: bool = False,
-        embedded: bool = False,
+        host_is_node: bool | None = None,
+        embedded: bool | None = None,
     ) -> list[Rack]:
         is_single = check_for_none(keys, names)
         res = send_required(
