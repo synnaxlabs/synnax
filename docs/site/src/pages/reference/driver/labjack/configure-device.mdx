@@ -58,45 +58,19 @@ that you have the following:
 
 ## How To
 
+<Note.Note variant="warning" className="compact">
+  Before you begin, connect to your device and update it using
+  [Kipling](https://support.labjack.com/docs/kipling).
+</Note.Note>
+
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
 
-<ExampleDetails>
-<Text.Text slot="summary" level="p">Step 1 -> Select a Device to Configure</Text.Text>
-
-Synnax will automatically detect new LabJack devices, and display a notification in the
+Synnax will automatically detect new LabJack devices and display a notification in the
 Console when a new device is connected. To start configuring the device, find the device
 in the Devices Toolbar, right click on the device and select "Configure".
 
-<Video client:only="react" id="device-drivers/labjack/configure-device/open" />
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p">Step 2 -> Name Your Device</Text.Text>
-
-This name will be used to identify the device in Synnax.
-
-<Image client:only="react" id="device-drivers/labjack/configure-device/name" />
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p">Step 3 -> Set the Device Identifier</Text.Text>
-
-The identifier will be used to prefix the names of all of the channels on your device.
-Suggestions are automatically generated, although you're welcome to choose your own.
-
-<Image client:only="react" id="device-drivers/labjack/configure-device/identifier" />
-
-</ExampleDetails>
-
-<ExampleDetails>
-<Text.Text slot="summary" level="p">Step 4 -> Save the Configuration</Text.Text>
-
-`Save`
-
-</ExampleDetails>
+<Video client:only="react" id="device-drivers/labjack/configure-device/lj-configure" />
 
 </Fragment>
   <Fragment slot="python">
