@@ -26,8 +26,7 @@ export const FavoriteButton = ({ range, ghost, ...rest }: FavoriteButtonProps) =
   const sliceRange = useSelect(range.key);
   const dispatch = useDispatch();
   const starred = sliceRange != null;
-  const handleStar = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
+  const handleStar = () => {
     if (!starred) dispatch(add({ ranges: fromClientRange(range) }));
     else dispatch(remove({ keys: [range.key] }));
   };

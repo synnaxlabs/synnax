@@ -22,8 +22,6 @@ type Node struct {
 	Key string `json:"key"`
 	// Type is the name of the function or stage this node instantiates.
 	Type string `json:"type"`
-	// ConfigValues contains the runtime configuration values for this node.
-	ConfigValues map[string]any `json:"config_values"`
 	// Channels contains references to external channels used by this node.
 	Channels symbol.Channels `json:"channels"`
 	// Config contains the type definitions of configuration parameters.

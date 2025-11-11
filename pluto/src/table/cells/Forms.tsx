@@ -137,5 +137,5 @@ export interface SelectVariantProps
   extends Omit<Select.StaticProps<Variant>, "data" | "resourceName"> {}
 
 export const SelectVariant = (props: SelectVariantProps) => (
-  <Select.Static {...props} data={VARIANT_DATA} resourceName="Variant" />
+  <Select.Static {...props} data={VARIANT_DATA} resourceName="variant" />
 );

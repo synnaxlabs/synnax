@@ -239,12 +239,36 @@ in_range := temp >= 20 and temp <= 30
 ```
 FunctionDeclaration ::= 'func' Identifier '(' ParameterList? ')' ReturnType? Block
 
-Parameter ::= Identifier Type
+Parameter ::= Identifier Type ('=' Literal)?  // Optional default value
 
 ReturnType ::= Type                           // single return
              | '{' NamedOutput* '}'          // multi-output
 
 NamedOutput ::= Identifier Type
+```
+
+### Optional Parameters
+
+Parameters can be made optional by providing a default value using the `=` operator.
+Optional parameters must appear after all required parameters (trailing-only
+constraint).
+
+**Rules:**
+
+- Default values must be literals (numeric, float, or temporal constants)
+- Optional parameters must follow all required parameters
+- When a parameter with a default is omitted at the call site, the default value is used
+
+**Example:**
+
+```arc
+func add(x f64, y f64 = 0) f64 {
+    return x + y
+}
+
+func configure(threshold f64, min f64 = 0.0, max f64 = 100.0) {
+    // min and max are optional with defaults
+}
 ```
 
 ### Examples
@@ -271,10 +295,21 @@ func threshold{} (value f64) {
         below = value
     }
 }
+
+// Function with optional parameters
+func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
+    if (value < min) {
+        return min
+    }
+    if (value > max) {
+        return max
+    }
+    return value
+}
 ```
 
 **Restrictions**: No recursion, no closures, no nested functions, no function variables.
-Functions are strict on argument count (extra arguments = compile error).
+Functions are strict on argument count, but optional parameters may be omitted.
 
 ## Stages
 

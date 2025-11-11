@@ -30,7 +30,7 @@ inputList
     ;
 
 input
-    : IDENTIFIER type
+    : IDENTIFIER type (ASSIGN literal)?
     ;
 
 outputType

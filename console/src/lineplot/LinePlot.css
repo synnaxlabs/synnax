@@ -17,6 +17,11 @@
         z-index: 20;
         opacity: 0;
         transition: opacity 0.1s ease-in-out;
+
+        .console-control__measure {
+            justify-content: flex-end;
+            margin-right: 3rem;
+        }
     }
     &:hover {
         .console-line-plot__nav-controls {

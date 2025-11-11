@@ -107,7 +107,7 @@ export const SelectIconShowcase = () => {
   const [value, setValue] = useState<string>("");
   return (
     <Select.Static
-      resourceName="Alignments"
+      resourceName="alignment"
       data={[
         { key: "x-center", icon: <Icon.Align.XCenter />, name: "X Center" },
         { key: "y-center", icon: <Icon.Align.YCenter />, name: "Y Center" },

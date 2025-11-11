@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Viewport } from "@synnaxlabs/pluto";
+import { type measure } from "@synnaxlabs/pluto/ether";
 import { type bounds } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
@@ -81,6 +82,12 @@ export const selectViewportMode = (state: StoreState, key: string): Viewport.Mod
 
 export const useSelectViewportMode = (key: string): Viewport.Mode =>
   useMemoSelect((state: StoreState) => selectViewportMode(state, key), [key]);
+
+export const selectMeasureMode = (state: StoreState, key: string): measure.Mode =>
+  select(state, key).measure.mode;
+
+export const useSelectMeasureMode = (key: string): measure.Mode =>
+  useMemoSelect((state: StoreState) => selectMeasureMode(state, key), [key]);
 
 export const selectSelection = (state: StoreState, key: string): SelectionState =>
   select(state, key).selection;

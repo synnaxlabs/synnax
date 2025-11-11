@@ -173,7 +173,7 @@ var _ = Describe("Scope", func() {
 			))
 			_, err := rootScope.GetChildByParserRule(antlr.NewBaseParserRuleContext(nil, 0))
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("could not find symbol matching parser rule"))
+			Expect(err).To(MatchError(ContainSubstring("could not find symbol matching parser rule")))
 		})
 	})
 
@@ -290,7 +290,7 @@ var _ = Describe("Scope", func() {
 			rootScope := symbol.CreateRootScope(nil)
 			_, err := rootScope.Resolve(bCtx, "undefined")
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("undefined symbol: undefined"))
+			Expect(err).To(MatchError(ContainSubstring("undefined symbol: undefined")))
 		})
 		It("Should invoke OnResolve callback for child resolution", func() {
 			rootScope := symbol.CreateRootScope(nil)
@@ -339,7 +339,7 @@ var _ = Describe("Scope", func() {
 			}
 			_, err := rootScope.Resolve(bCtx, "x")
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("callback error"))
+			Expect(err).To(MatchError(ContainSubstring("callback error")))
 		})
 	})
 
@@ -423,7 +423,7 @@ var _ = Describe("Scope", func() {
 			rootScope := symbol.CreateRootScope(nil)
 			_, err := rootScope.ClosestAncestorOfKind(symbol.KindChannel)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("undefined symbol"))
+			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
 		})
 	})
 
@@ -442,7 +442,7 @@ var _ = Describe("Scope", func() {
 			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
 			_, err := rootScope.FirstChildOfKind(symbol.KindChannel)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("undefined symbol"))
+			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
 		})
 	})
 
