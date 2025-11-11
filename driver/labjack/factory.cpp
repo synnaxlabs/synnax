@@ -26,10 +26,7 @@ common::ConfigureResult configure_read(
 ) {
     common::ConfigureResult result;
     auto [cfg, err] = labjack::ReadTaskConfig::parse(ctx->client, task, timing_cfg);
-    if (err) {
-        result.error = err;
-        return result;
-    }
+    if (!common::handle_parse_result(result, cfg, err)) return result;
     auto [dev, d_err] = devs->acquire(cfg.device_key);
     if (d_err) {
         result.error = d_err;
@@ -40,7 +37,6 @@ common::ConfigureResult configure_read(
         source = std::make_unique<labjack::UnarySource>(dev, std::move(cfg));
     else
         source = std::make_unique<labjack::StreamSource>(dev, std::move(cfg));
-    result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
@@ -57,16 +53,12 @@ common::ConfigureResult configure_write(
 ) {
     common::ConfigureResult result;
     auto [cfg, err] = labjack::WriteTaskConfig::parse(ctx->client, task);
-    if (err) {
-        result.error = err;
-        return result;
-    }
+    if (!common::handle_parse_result(result, cfg, err)) return result;
     auto [dev, d_err] = devs->acquire(cfg.device_key);
     if (d_err) {
         result.error = d_err;
         return result;
     }
-    result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,

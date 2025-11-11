@@ -46,6 +46,27 @@ struct ConfigureResult {
     xerrors::Error error = xerrors::NIL;
 };
 
+/// @brief Helper to handle config parsing results. Sets auto_start from the config
+/// and populates error if parsing failed.
+/// @tparam ConfigType The configuration type (must have an auto_start field)
+/// @param result The ConfigureResult to populate
+/// @param cfg The parsed configuration
+/// @param err The parse error (if any)
+/// @return true if parsing succeeded (safe to use cfg), false if error occurred
+template<typename ConfigType>
+bool handle_parse_result(
+    ConfigureResult &result,
+    const ConfigType &cfg,
+    const xerrors::Error &err
+) {
+    if (err) {
+        result.error = err;
+        return false;
+    }
+    result.auto_start = cfg.auto_start;
+    return true;
+}
+
 /// @brief converts a data_saving boolean to the appropriate WriterMode.
 inline synnax::WriterMode data_saving_writer_mode(const bool data_saving) {
     if (data_saving) return synnax::WriterMode::PersistStream;

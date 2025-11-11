@@ -17,7 +17,7 @@ from uuid import uuid4
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError, conint, field_validator
 
 from synnax import UnexpectedError
 from synnax.exceptions import ConfigurationError
@@ -73,6 +73,60 @@ _COPY_ENDPOINT = "/hardware/task/copy"
 
 _TASK_STATE_CHANNEL = "sy_task_status"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
+
+
+class BaseTaskConfig(BaseModel):
+    """
+    Base configuration shared by all hardware task types.
+
+    This base class provides common fields that all hardware integration tasks need:
+    data persistence settings and auto-start behavior.
+    """
+
+    data_saving: bool = True
+    auto_start: bool = False
+
+
+class BaseReadTaskConfig(BaseTaskConfig):
+    """
+    Base configuration for hardware read/acquisition tasks.
+
+    Extends BaseTaskConfig with sample rate and stream rate fields common to
+    all data acquisition tasks (LabJack, NI, Modbus, OPC UA read tasks).
+
+    Default rate limits are set to 50kHz based on NI hardware constraints,
+    which are the most restrictive across supported hardware platforms.
+    Hardware-specific configs can override these limits for devices that
+    support higher rates.
+    """
+
+    sample_rate: conint(ge=0, le=50000)
+    "The rate at which to sample data from the hardware device (Hz)."
+    stream_rate: conint(ge=0, le=50000)
+    "The rate at which acquired data will be streamed to the Synnax cluster (Hz)."
+
+    @field_validator("stream_rate")
+    def validate_stream_rate(cls, v, info):
+        """Validate that stream_rate is less than or equal to sample_rate."""
+        if "sample_rate" in info.data and v > info.data["sample_rate"]:
+            raise ValueError(
+                "Stream rate must be less than or equal to the sample rate"
+            )
+        return v
+
+
+class BaseWriteTaskConfig(BaseTaskConfig):
+    """
+    Base configuration for hardware write/control tasks.
+
+    Provides common fields (device, data_saving, auto_start) for all hardware
+    write tasks. Note that state_rate is NOT included in this base class as it
+    is hardware-specific - not all hardware integrations use state feedback
+    (e.g., Modbus and OPC UA write tasks do not use state_rate).
+    """
+
+    device: str = Field(min_length=1)
+    "The key of the Synnax device this task will communicate with."
 
 
 class Task:
@@ -249,8 +303,8 @@ class Client:
     _frame_client: FrameClient
     _default_rack: Rack | None
     _racks: RackClient
-    _device_client: "device.Client | None"
-    _ontology_client: "Any | None"
+    _device_client: device.Client | None
+    _ontology_client: Any | None
     instrumentation: Instrumentation = NOOP
 
     def __init__(
@@ -258,8 +312,8 @@ class Client:
         client: UnaryClient,
         frame_client: FrameClient,
         rack_client: RackClient,
-        device_client: "device.Client | None" = None,
-        ontology_client: "Any | None" = None,
+        device_client: device.Client | None = None,
+        ontology_client: Any | None = None,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client

@@ -15,7 +15,14 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, field_validator
 
 from synnax.channel import ChannelKey
-from synnax.hardware.task import JSONConfigMixin, MetaTask, StarterStopperMixin, Task
+from synnax.hardware.task import (
+    BaseTaskConfig,
+    BaseWriteTaskConfig,
+    JSONConfigMixin,
+    MetaTask,
+    StarterStopperMixin,
+    Task,
+)
 from synnax.telem import CrudeRate, Rate
 
 
@@ -90,24 +97,27 @@ class WriteChannel(BaseModel):
         super().__init__(**data)
 
 
-class BaseReadTaskConfig(BaseModel):
+class OPCReadTaskConfigBase(BaseTaskConfig):
+    """Base configuration for OPC UA read tasks.
+
+    Inherits common task fields (data_saving, auto_start) from BaseTaskConfig
+    and adds OPC UA-specific configuration with OPC UA hardware sample rate limits (10kHz max).
+    Note: OPC UA has array and non-array modes with different requirements for stream_rate.
+    """
+
     device: str = Field(min_length=1)
     "The key of the Synnax OPC UA device to read from."
     sample_rate: float = Field(gt=0, le=10000)
     "The rate at which to sample data from the OPC UA device."
-    data_saving: bool
-    "Whether to save data permanently within Synnax, or just stream it for real-time consumption."
-    auto_start: bool = False
-    "Whether to start the task automatically when it is created."
     channels: list[ReadChannel]
 
 
-class NonArraySamplingReadTaskConfig(BaseReadTaskConfig):
+class NonArraySamplingReadTaskConfig(OPCReadTaskConfigBase):
     stream_rate: Rate = Field(gt=0, le=10000)
     array_mode: Literal[False]
 
 
-class ArraySamplingReadTaskConfig(BaseReadTaskConfig):
+class ArraySamplingReadTaskConfig(OPCReadTaskConfigBase):
     array_mode: Literal[True]
     array_size: int = Field(gt=0)
 
@@ -215,17 +225,14 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         device_client.create(dev)
 
 
-class WriteTaskConfig(BaseModel):
-    """
-    Configuration for an OPC UA write task.
+class WriteTaskConfig(BaseWriteTaskConfig):
+    """Configuration for an OPC UA write task.
+
+    Inherits common write task fields (device, data_saving, auto_start) from
+    BaseWriteTaskConfig and adds OPC UA-specific channel configuration.
+    OPC UA write tasks do not use state_rate.
     """
 
-    device: str = Field(min_length=1)
-    "The key of the Synnax OPC UA device to write to."
-    data_saving: bool
-    "Whether to save data permanently within Synnax, or just stream it for real-time consumption."
-    auto_start: bool = False
-    "Whether to start the task automatically when it is created."
     channels: list[WriteChannel]
     "A list of WriteChannel objects that specify which OPC UA nodes to write to."
 

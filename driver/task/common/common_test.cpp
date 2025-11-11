@@ -76,3 +76,63 @@ TEST(BaseTaskConfig, testMoveConstruction) {
     EXPECT_FALSE(config2.data_saving);
     EXPECT_TRUE(config2.auto_start);
 }
+
+// Mock config type for testing handle_parse_result
+struct MockConfig {
+    bool auto_start;
+    explicit MockConfig(bool auto_start_val): auto_start(auto_start_val) {}
+};
+
+/// @brief it should return true and set auto_start when parse succeeds.
+TEST(HandleParseResult, testSuccessfulParse) {
+    common::ConfigureResult result;
+    MockConfig cfg(true);
+    xerrors::Error err = xerrors::NIL;
+
+    bool success = common::handle_parse_result(result, cfg, err);
+
+    EXPECT_TRUE(success);
+    EXPECT_TRUE(result.auto_start);
+    EXPECT_EQ(result.error, xerrors::NIL);
+}
+
+/// @brief it should return false and set error when parse fails.
+TEST(HandleParseResult, testFailedParse) {
+    common::ConfigureResult result;
+    MockConfig cfg(true);
+    xerrors::Error err = xerrors::Error("parse failed");
+
+    bool success = common::handle_parse_result(result, cfg, err);
+
+    EXPECT_FALSE(success);
+    EXPECT_FALSE(result.auto_start); // Should remain default (false)
+    EXPECT_EQ(result.error.message(), "[parse failed] ");
+}
+
+/// @brief it should extract auto_start=false correctly.
+TEST(HandleParseResult, testAutoStartFalse) {
+    common::ConfigureResult result;
+    MockConfig cfg(false);
+    xerrors::Error err = xerrors::NIL;
+
+    bool success = common::handle_parse_result(result, cfg, err);
+
+    EXPECT_TRUE(success);
+    EXPECT_FALSE(result.auto_start);
+    EXPECT_EQ(result.error, xerrors::NIL);
+}
+
+/// @brief it should work with BaseTaskConfig type.
+TEST(HandleParseResult, testWithBaseTaskConfig) {
+    common::ConfigureResult result;
+    const auto json = nlohmann::json{{"data_saving", true}, {"auto_start", true}};
+    auto parser = xjson::Parser(json);
+    const auto cfg = common::BaseTaskConfig(parser);
+    xerrors::Error err = xerrors::NIL;
+
+    bool success = common::handle_parse_result(result, cfg, err);
+
+    EXPECT_TRUE(success);
+    EXPECT_TRUE(result.auto_start);
+    EXPECT_EQ(result.error, xerrors::NIL);
+}

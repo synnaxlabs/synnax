@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.hardware.labjack.types import (
-    DIGIT,
     T4,
     T7,
     T8,
@@ -17,7 +16,6 @@ from synnax.hardware.labjack.types import (
     OutputChan,
     ReadTask,
     ReadTaskConfig,
-    T7Pro,
     ThermocoupleChan,
     WriteTask,
     WriteTaskConfig,

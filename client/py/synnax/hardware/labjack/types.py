@@ -13,17 +13,22 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, confloat, conint, field_validator
 
 from synnax.channel import ChannelKey
-from synnax.hardware.task import JSONConfigMixin, MetaTask, StarterStopperMixin, Task
+from synnax.hardware.task import (
+    BaseReadTaskConfig,
+    BaseWriteTaskConfig,
+    JSONConfigMixin,
+    MetaTask,
+    StarterStopperMixin,
+    Task,
+)
 from synnax.telem import CrudeRate
 
 # Device identifiers - must match Console expectations
 MAKE = "LabJack"
 # Supported models
-T4 = "T4"
-T7 = "T7"
-T7Pro = "T7-Pro"
-T8 = "T8"
-DIGIT = "Digit"
+T4 = "LJM_dtT4"
+T7 = "LJM_dtT7"
+T8 = "LJM_dtT8"
 
 
 class BaseChan(BaseModel):
@@ -41,8 +46,6 @@ class BaseChan(BaseModel):
             data["key"] = str(uuid4())
         super().__init__(**data)
 
-
-# ================================ READ CHANNELS ================================
 
 
 class AIChan(BaseChan):
@@ -200,9 +203,6 @@ class DIChan(BaseChan):
 InputChan = AIChan | ThermocoupleChan | DIChan
 
 
-# ================================ WRITE CHANNELS ================================
-
-
 class OutputChan(BaseChan):
     """
     Output Channel configuration for LabJack devices.
@@ -222,33 +222,22 @@ class OutputChan(BaseChan):
     "The Synnax channel key to write state values to."
 
 
-# ================================ TASK CONFIGURATIONS ================================
 
+class ReadTaskConfig(BaseReadTaskConfig):
+    """
+    Configuration for a LabJack read task.
 
-class ReadTaskConfig(BaseModel):
-    """Configuration for a LabJack read task."""
+    Inherits common read task fields (sample_rate, stream_rate, data_saving,
+    auto_start) from BaseReadTaskConfig and adds LabJack-specific channel configuration
+    with LabJack hardware sample rate limits (100kHz max).
+    """
 
     device: str = Field(min_length=1)
     "The key of the Synnax LabJack device to read from."
     sample_rate: conint(ge=0, le=100000)
-    "The rate at which to sample data from the LabJack device."
     stream_rate: conint(ge=0, le=100000)
-    "The rate at which acquired data will be streamed to the Synnax cluster."
-    data_saving: bool
-    "Whether to save data permanently within Synnax, or just stream it for real-time consumption."
-    auto_start: bool = False
-    "Whether to start the task automatically when it is created."
     channels: list[InputChan]
     "A list of input channel configurations to acquire data from."
-
-    @field_validator("stream_rate")
-    def validate_stream_rate(cls, v, info):
-        """Validate that stream_rate is less than or equal to sample_rate."""
-        if "sample_rate" in info.data and v > info.data["sample_rate"]:
-            raise ValueError(
-                "Stream rate must be less than or equal to the sample rate"
-            )
-        return v
 
     @field_validator("channels")
     def validate_channels_not_empty(cls, v):
@@ -258,17 +247,17 @@ class ReadTaskConfig(BaseModel):
         return v
 
 
-class WriteTaskConfig(BaseModel):
-    """Configuration for a LabJack write task."""
+class WriteTaskConfig(BaseWriteTaskConfig):
+    """
+    Configuration for a LabJack write task.
 
-    device: str = Field(min_length=1)
-    "The key of the Synnax LabJack device to write to."
+    Inherits common write task fields (device, data_saving, auto_start) from
+    BaseWriteTaskConfig and adds LabJack-specific state rate and channel configuration
+    with LabJack hardware state rate limits (10kHz max).
+    """
+
     state_rate: conint(ge=0, le=10000)
-    "The rate at which to write task channel states to the Synnax cluster."
-    data_saving: bool
-    "Whether to save data permanently within Synnax, or just stream it for real-time consumption."
-    auto_start: bool = False
-    "Whether to start the task automatically when it is created."
+    "The rate at which to write task channel states to the Synnax cluster (Hz)."
     channels: list[OutputChan]
     "A list of output channel configurations to write to."
 
@@ -278,9 +267,6 @@ class WriteTaskConfig(BaseModel):
         if len(v) == 0:
             raise ValueError("Task must have at least one channel")
         return v
-
-
-# ================================ TASKS ================================
 
 
 class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
@@ -427,8 +413,6 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         device_client.create(dev)
 
 
-# ================================ DEVICE HELPERS ================================
-
 
 def device_props(
     identifier: str,
@@ -461,7 +445,7 @@ def create_device(client, model: str, **kwargs):
     This is a thin wrapper around client.hardware.devices.create() that
     automatically fills in:
     - make: "LabJack"
-    - model: Specified model (T4, T7, T7-Pro, T8, or Digit)
+    - model: Specified model (T4, T7, or T8)
     - key: auto-generated UUID if not provided
 
     All other parameters are passed through unchanged.
@@ -480,13 +464,13 @@ def create_device(client, model: str, **kwargs):
 
     Args:
         client: Synnax client instance
-        model: LabJack model (use module constants: T4, T7, T7Pro, T8, DIGIT)
+        model: LabJack model (use module constants: T4, T7, T8)
         **kwargs: Additional arguments passed to client.hardware.devices.create()
     """
     from uuid import uuid4
 
     # Validate model
-    valid_models = [T4, T7, T7Pro, T8, DIGIT]
+    valid_models = [T4, T7, T8]
     if model not in valid_models:
         raise ValueError(f"Invalid model '{model}'. Must be one of: {valid_models}")
 

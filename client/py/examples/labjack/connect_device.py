@@ -35,7 +35,7 @@ from synnax.hardware import labjack
 
 # Configuration
 DEVICE_NAME = "My LabJack T7"
-MODEL = labjack.T7  # Options: T4, T7, T7Pro, T8, DIGIT
+MODEL = labjack.T7  # Options: T4, T7, T8
 IDENTIFIER = "ANY"  # Options: serial number, IP address, device name, or "ANY"
 CONNECTION_TYPE = "ANY"  # Options: "ANY", "USB", "TCP", "ETHERNET", "WIFI"
 

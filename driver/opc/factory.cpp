@@ -22,16 +22,12 @@ common::ConfigureResult configure_read(
 ) {
     common::ConfigureResult result;
     auto [cfg, err] = opc::ReadTaskConfig::parse(ctx->client, task);
-    if (err) {
-        result.error = err;
-        return result;
-    }
+    if (!common::handle_parse_result(result, cfg, err)) return result;
     std::unique_ptr<common::Source> s;
     if (cfg.array_size > 1)
         s = std::make_unique<opc::ArrayReadTaskSource>(pool, std::move(cfg));
     else
         s = std::make_unique<opc::UnaryReadTaskSource>(pool, std::move(cfg));
-    result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
@@ -48,11 +44,7 @@ common::ConfigureResult configure_write(
 ) {
     common::ConfigureResult result;
     auto [cfg, err] = opc::WriteTaskConfig::parse(ctx->client, task);
-    if (err) {
-        result.error = err;
-        return result;
-    }
-    result.auto_start = cfg.auto_start;
+    if (!common::handle_parse_result(result, cfg, err)) return result;
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,

@@ -37,9 +37,9 @@ export const DRIVER_NAV: PageNavNode = {
       href: "/reference/driver/task-basics",
       name: "Task Basics",
     },
-    NI_NAV,
     LABJACK_NAV,
-    MODBUS_NAV,
+    NI_NAV,
     OPC_UA_NAV,
+    MODBUS_NAV,
   ],
 };

@@ -11,10 +11,12 @@ import json
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, confloat, conint, field_validator, validator
+from pydantic import BaseModel, Field, confloat, conint, field_validator, validator
 
 from synnax import ValidationError
 from synnax.hardware.task import (
+    BaseReadTaskConfig,
+    BaseWriteTaskConfig,
     JSONConfigMixin,
     MetaTask,
     StarterStopperMixin,
@@ -1450,20 +1452,16 @@ class DOChan(BaseChan):
     line: int
 
 
-class AnalogReadTaskConfig(BaseModel):
-    sample_rate: conint(ge=0, le=50000)
-    stream_rate: conint(ge=0, le=50000)
-    channels: list[AIChan]
-    data_saving: bool
-    auto_start: bool = False
+class AnalogReadTaskConfig(BaseReadTaskConfig):
+    """Configuration for NI Analog Read Task.
 
-    @field_validator("stream_rate")
-    def validate_stream_rate(cls, v, values):
-        if "sample_rate" in values.data and v > values.data["sample_rate"]:
-            raise ValueError(
-                "Stream rate must be less than or equal to the sample rate"
-            )
-        return v
+    Inherits common read task fields (sample_rate, stream_rate, data_saving,
+    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration.
+    """
+
+    device: str = ""
+    "The key of the Synnax NI device to read from (optional, can be set per channel)."
+    channels: list[AIChan]
 
     @field_validator("channels")
     def validate_channel_ports(cls, v, values):
@@ -1475,28 +1473,29 @@ class AnalogReadTaskConfig(BaseModel):
         return v
 
 
-class AnalogWriteConfig(BaseModel):
-    device: str
-    channels: list[AOChan]
+class AnalogWriteConfig(BaseWriteTaskConfig):
+    """Configuration for NI Analog Write Task.
+
+    Inherits common write task fields (device, data_saving, auto_start) from
+    BaseWriteTaskConfig and adds NI-specific channel configuration with NI hardware
+    state rate limits (50kHz max).
+    """
+
     state_rate: conint(ge=0, le=50000)
-    data_saving: bool
-    auto_start: bool = False
+    "The rate at which to write task channel states to the Synnax cluster (Hz)."
+    channels: list[AOChan]
 
 
-class CounterReadConfig(BaseModel):
-    sample_rate: conint(ge=0, le=50000)
-    stream_rate: conint(ge=0, le=50000)
+class CounterReadConfig(BaseReadTaskConfig):
+    """Configuration for NI Counter Read Task.
+
+    Inherits common read task fields (sample_rate, stream_rate, data_saving,
+    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration.
+    """
+
+    device: str = ""
+    "The key of the Synnax NI device to read from (optional, can be set per channel)."
     channels: list[CIChan]
-    data_saving: bool
-    auto_start: bool = False
-
-    @field_validator("stream_rate")
-    def validate_stream_rate(cls, v, values):
-        if "sample_rate" in values.data and v > values.data["sample_rate"]:
-            raise ValueError(
-                "Stream rate must be less than or equal to the sample rate"
-            )
-        return v
 
     @field_validator("channels")
     def validate_channel_ports(cls, v):
@@ -1508,36 +1507,46 @@ class CounterReadConfig(BaseModel):
         return v
 
 
-class CounterWriteConfig(BaseModel):
+class CounterWriteConfig(BaseWriteTaskConfig):
     """Configuration for NI Counter Write Task.
 
     Counter write tasks are configuration-only. Pulse parameters on COChan channels
     are fixed when the task is created and cannot be changed at runtime.
     To modify pulse parameters, stop the task, reconfigure, and restart.
+
+    Inherits common write task fields (device, data_saving, auto_start) from
+    BaseWriteTaskConfig and adds NI-specific channel configuration with NI hardware
+    state rate limits (50kHz max).
     """
 
-    device: str
-    channels: list[COChan]
     state_rate: conint(ge=0, le=50000)
-    data_saving: bool
-    auto_start: bool = False
+    "The rate at which to write task channel states to the Synnax cluster (Hz)."
+    channels: list[COChan]
 
 
-class DigitalReadConfig(BaseModel):
-    device: str
-    sample_rate: conint(ge=0, le=50000)
-    stream_rate: conint(ge=0, le=50000)
-    data_saving: bool
-    auto_start: bool = False
+class DigitalReadConfig(BaseReadTaskConfig):
+    """Configuration for NI Digital Read Task.
+
+    Inherits common read task fields (sample_rate, stream_rate, data_saving,
+    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration.
+    """
+
+    device: str = Field(min_length=1)
+    "The key of the Synnax NI device to read from."
     channels: list[DIChan]
 
 
-class DigitalWriteConfig(BaseModel):
-    device: str
-    channels: list[DOChan]
+class DigitalWriteConfig(BaseWriteTaskConfig):
+    """Configuration for NI Digital Write Task.
+
+    Inherits common write task fields (device, data_saving, auto_start) from
+    BaseWriteTaskConfig and adds NI-specific channel configuration with NI hardware
+    state rate limits (50kHz max).
+    """
+
     state_rate: conint(ge=0, le=50000)
-    data_saving: bool
-    auto_start: bool = False
+    "The rate at which to write task channel states to the Synnax cluster (Hz)."
+    channels: list[DOChan]
 
 
 class TaskStateDetails(BaseModel):
@@ -1590,6 +1599,7 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = AnalogReadTaskConfig(
+            device=device,
             sample_rate=sample_rate,
             stream_rate=stream_rate,
             data_saving=data_saving,
@@ -1698,6 +1708,7 @@ class CounterReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = CounterReadConfig(
+            device=device,
             sample_rate=sample_rate,
             stream_rate=stream_rate,
             data_saving=data_saving,

@@ -13,7 +13,14 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, confloat, conint, field_validator
 
 from synnax.channel import ChannelKey
-from synnax.hardware.task import JSONConfigMixin, MetaTask, StarterStopperMixin, Task
+from synnax.hardware.task import (
+    BaseReadTaskConfig,
+    BaseWriteTaskConfig,
+    JSONConfigMixin,
+    MetaTask,
+    StarterStopperMixin,
+    Task,
+)
 from synnax.telem import CrudeRate
 
 # Device identifiers - must match Console expectations
@@ -175,30 +182,20 @@ OutputChan = CoilOutputChan | HoldingRegisterOutputChan
 # ================================ TASK CONFIGURATIONS ================================
 
 
-class ReadTaskConfig(BaseModel):
-    """Configuration for a Modbus TCP read task."""
+class ReadTaskConfig(BaseReadTaskConfig):
+    """Configuration for a Modbus TCP read task.
+
+    Inherits common read task fields (sample_rate, stream_rate, data_saving,
+    auto_start) from BaseReadTaskConfig and adds Modbus-specific channel configuration
+    with Modbus hardware sample rate limits (10kHz max).
+    """
 
     device: str = Field(min_length=1)
     "The key of the Synnax Modbus device to read from."
     sample_rate: conint(ge=0, le=10000)
-    "The rate at which to sample data from the Modbus device."
     stream_rate: conint(ge=0, le=10000)
-    "The rate at which acquired data will be streamed to the Synnax cluster."
-    data_saving: bool
-    "Whether to save data permanently within Synnax, or just stream it for real-time consumption."
-    auto_start: bool = False
-    "Whether to start the task automatically when it is created."
     channels: list[InputChan]
     "A list of input channel configurations to acquire data from."
-
-    @field_validator("stream_rate")
-    def validate_stream_rate(cls, v, info):
-        """Validate that stream_rate is less than or equal to sample_rate."""
-        if "sample_rate" in info.data and v > info.data["sample_rate"]:
-            raise ValueError(
-                "Stream rate must be less than or equal to the sample rate"
-            )
-        return v
 
     @field_validator("channels")
     def validate_channels_not_empty(cls, v):
@@ -208,15 +205,14 @@ class ReadTaskConfig(BaseModel):
         return v
 
 
-class WriteTaskConfig(BaseModel):
-    """Configuration for a Modbus TCP write task."""
+class WriteTaskConfig(BaseWriteTaskConfig):
+    """Configuration for a Modbus TCP write task.
 
-    device: str = Field(min_length=1)
-    "The key of the Synnax Modbus device to write to."
-    data_saving: bool
-    "Whether to save data permanently within Synnax, or just stream it for real-time consumption."
-    auto_start: bool = False
-    "Whether to start the task automatically when it is created."
+    Inherits common write task fields (device, data_saving, auto_start) from
+    BaseWriteTaskConfig and adds Modbus-specific channel configuration.
+    Modbus write tasks do not use state_rate.
+    """
+
     channels: list[OutputChan]
     "A list of output channel configurations to write to."
 
@@ -227,8 +223,6 @@ class WriteTaskConfig(BaseModel):
             raise ValueError("Task must have at least one channel")
         return v
 
-
-# ================================ TASKS ================================
 
 
 class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):

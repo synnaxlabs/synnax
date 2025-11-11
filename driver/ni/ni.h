@@ -104,10 +104,7 @@ public:
     configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
         common::ConfigureResult result;
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
-        if (cfg_err) {
-            result.error = cfg_err;
-            return result;
-        }
+        if (!common::handle_parse_result(result, cfg, cfg_err)) return result;
         TaskHandle handle;
         const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) +
                                           ")";
@@ -132,7 +129,6 @@ public:
             breaker::default_config(task.name),
             std::make_unique<SourceSinkT>(std::move(cfg), std::move(hw))
         );
-        result.auto_start = cfg.auto_start;
         return result;
     }
 

@@ -4,8 +4,8 @@ This directory contains example scripts for working with LabJack devices in Synn
 
 ## Prerequisites
 
-1. **Hardware**: A LabJack device (T4, T7, T7-Pro, T8, or Digit) connected to your
-   computer via USB, Ethernet, or WiFi
+1. **Hardware**: A LabJack device (T4, T7, or T8) connected to your computer via USB,
+   Ethernet, or WiFi
 2. **Software**:
    - LabJack LJM driver installed (download from
      [LabJack downloads](https://labjack.com/pages/support?doc=/software-driver/installer-downloads/ljm-software-installers-t4-t7-digit/))
@@ -35,8 +35,7 @@ This script will:
 device:
 
 - `DEVICE_NAME`: A friendly name for your device
-- `MODEL`: Device model (`labjack.T4`, `labjack.T7`, `labjack.T7Pro`, `labjack.T8`, or
-  `labjack.DIGIT`)
+- `MODEL`: Device model (`labjack.T4`, `labjack.T7`, or `labjack.T8`)
 - `IDENTIFIER`: How to find your device (`"ANY"`, serial number, IP address, or device
   name)
 - `CONNECTION_TYPE`: Connection method (`"ANY"`, `"USB"`, `"TCP"`, `"ETHERNET"`, or

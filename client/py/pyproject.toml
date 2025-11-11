@@ -43,6 +43,7 @@ profile = "black"
 [tool.mypy]
 plugins = ["numpy.typing.mypy_plugin", "pydantic.mypy"]
 strict = true
+exclude = ["examples/"]
 
 [tool.pydantic-mypy]
 init_forbid_extra = true

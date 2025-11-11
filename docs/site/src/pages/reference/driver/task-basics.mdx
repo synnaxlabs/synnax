@@ -4,8 +4,6 @@ title: "Task Basics"
 description: "Learn the fundamentals of working with tasks in Synnax."
 prev: "Timing"
 prevURL: "/reference/driver/timing"
-next: "LabJack"
-nextURL: "/reference/driver/labjack/get-started"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
@@ -22,10 +20,10 @@ export const components = mdxOverrides;
 Before creating any tasks, you'll need to have connected and configured a hardware
 device. See the specific device documentation for details:
 
-- [National Instruments](/reference/driver/ni/configure-device)
 - [LabJack](/reference/driver/labjack/configure-device)
-- [Modbus TCP](/reference/driver/modbus/connect-server)
+- [National Instruments](/reference/driver/ni/configure-device)
 - [OPC UA](/reference/driver/opc-ua/connect-server)
+- [Modbus TCP](/reference/driver/modbus/connect-server)
 
 <Divider.Divider x />
 
@@ -395,6 +393,11 @@ await client.hardware.tasks.delete(task.key);
 Now that you understand the basics of working with tasks, you can learn how to configure
 a specific task type:
 
+### LabJack
+
+- [Read Task](/reference/driver/labjack/read-task) - Acquire data from LabJack devices
+- [Write Task](/reference/driver/labjack/write-task) - Send commands to LabJack devices
+
 ### National Instruments
 
 - [Analog Read Task](/reference/driver/ni/analog-read-task) - Acquire data from analog
@@ -410,17 +413,12 @@ a specific task type:
 - [Digital Write Task](/reference/driver/ni/digital-write-task) - Send commands to
   digital outputs
 
-### LabJack
+### OPC UA
 
-- [Read Task](/reference/driver/labjack/read-task) - Acquire data from LabJack devices
-- [Write Task](/reference/driver/labjack/write-task) - Send commands to LabJack devices
+- [Read Task](/reference/driver/opc-ua/read-task) - Read data from OPC UA servers
+- [Write Task](/reference/driver/opc-ua/write-task) - Write data to OPC UA servers
 
 ### Modbus
 
 - [Read Task](/reference/driver/modbus/read-task) - Read data from Modbus devices
 - [Write Task](/reference/driver/modbus/write-task) - Write data to Modbus devices
-
-### OPC UA
-
-- [Read Task](/reference/driver/opc-ua/read-task) - Read data from OPC UA servers
-- [Write Task](/reference/driver/opc-ua/write-task) - Write data to OPC UA servers

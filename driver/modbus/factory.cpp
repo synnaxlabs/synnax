@@ -26,7 +26,7 @@ common::ConfigureResult configure_read(
 ) {
     common::ConfigureResult result;
     auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task);
-    if (result.error = err; result.error) return result;
+    if (!common::handle_parse_result(result, cfg, err)) return result;
     auto [dev, d_err] = devs->acquire(cfg.conn);
     if (result.error = d_err; result.error) return result;
     result.task = std::make_unique<common::ReadTask>(
@@ -35,7 +35,6 @@ common::ConfigureResult configure_read(
         breaker::default_config(task.name),
         std::make_unique<ReadTaskSource>(dev, std::move(cfg))
     );
-    result.auto_start = cfg.auto_start;
     return result;
 }
 
@@ -57,7 +56,7 @@ common::ConfigureResult configure_write(
 ) {
     common::ConfigureResult result;
     auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
-    if (result.error = err; result.error) return result;
+    if (!common::handle_parse_result(result, cfg, err)) return result;
     auto [dev, d_err] = devs->acquire(cfg.conn);
     if (result.error = d_err; result.error) return result;
     result.task = std::make_unique<common::WriteTask>(
@@ -66,7 +65,6 @@ common::ConfigureResult configure_write(
         breaker::default_config(task.name),
         std::make_unique<WriteTaskSink>(dev, std::move(cfg))
     );
-    result.auto_start = cfg.auto_start;
     return result;
 }
 

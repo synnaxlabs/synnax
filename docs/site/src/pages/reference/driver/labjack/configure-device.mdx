@@ -45,7 +45,7 @@ that you have the following:
 | ----------------- | ------ | -------- | ----------------------------------------------------------------------- |
 | `name`            | string | Yes      | Human-readable device name for identification in Console                |
 | `rack`            | string | Yes      | Synnax Driver (rack) key where the device is connected                  |
-| `model`           | string | Yes      | LabJack model (`T4`, `T7`, `T7-Pro`, `T8`, or `Digit`)                  |
+| `model`           | string | Yes      | LabJack model (`T4`, `T7`, or `T8`)                                     |
 | `location`        | string | Yes      | Physical connection identifier (see below)                              |
 | `identifier`      | string | Yes      | Device identifier: serial number, IP address, device name, or `ANY`     |
 | `connection_type` | string | No       | Connection method: `ANY` (default), `USB`, `TCP`, `ETHERNET`, or `WIFI` |
@@ -111,7 +111,7 @@ rack = client.hardware.racks.retrieve_embedded_rack()
 # Configure device connection
 device = labjack.create_device(
     client=client,
-    model=labjack.T7,                 # Model: T4, T7, T7Pro, T8, DIGIT
+    model=labjack.T7,                 # Model: T4, T7, T8
     name="My LabJack T7",             # Device name
     location="ANY",                   # Connection identifier
     rack=rack.key,                    # Rack key
@@ -124,7 +124,7 @@ device = labjack.create_device(
 )
 
 # Or retrieve by model
-device = client.hardware.devices.retrieve(model="T7")
+device = client.hardware.devices.retrieve(model="LJM_dtT7")
 
 # Or retrieve by name
 device = client.hardware.devices.retrieve(name="My LabJack T7")
@@ -149,7 +149,7 @@ const device = await client.hardware.devices.create({
   rack: rack.key,
   name: "My LabJack T7",
   make: "LabJack",
-  model: "T7", // Model: T4, T7, T7-Pro, T8, Digit
+  model: "LJM_dtT7", // Model: LJM_dtT4, LJM_dtT7, LJM_dtT8
   location: "ANY", // Connection identifier
   properties: {
     connection: {
@@ -167,7 +167,7 @@ const device = await client.hardware.devices.create({
 });
 
 // Or retrieve by model
-const device = await client.hardware.devices.retrieve({ model: "T7" });
+const device = await client.hardware.devices.retrieve({ model: "LJM_dtT7" });
 
 // Or retrieve by name
 const device = await client.hardware.devices.retrieve({ name: "My LabJack T7" });
