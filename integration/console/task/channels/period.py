@@ -26,7 +26,7 @@ class Period(Counter):
         starting_edge (str): "Rising" or "Falling"
         units (str): "Seconds", "Ticks", or "Custom"
         terminal (str): Input terminal (e.g., "PFI0", "PFI1", etc.)
-        meas_method (str): "1 Counter (Low Frequency)", "2 Counters (High Frequency)", "2 Counters (Large Range)", "Dynamic Averaging"
+        meas_method (str): "One Counter (Low Frequency)", "Two Counters (High Frequency)", "Two Counters (Large Range)", "Dynamic Averaging"
     """
 
     def __init__(
@@ -39,9 +39,9 @@ class Period(Counter):
         terminal: Optional[str] = None,
         meas_method: Optional[
             Literal[
-                "1 Counter (Low Frequency)",
-                "2 Counters (High Frequency)",
-                "2 Counters (Large Range)",
+                "One Counter (Low Frequency)",
+                "Two Counters (High Frequency)",
+                "Two Counters (Large Range)",
                 "Dynamic Averaging",
             ]
         ] = None,

@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/pluto";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
+import { createSimplePortValidator } from "@/hardware/ni/task/types/validation";
 
 export const PREFIX = "ni";
 
@@ -952,8 +953,6 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   [AI_VOLTAGE_CHAN_TYPE]: Icon.Units.Voltage,
 };
 
-// ==================== Counter Input Channels ====================
-
 const counterChannelExtensionShape = { port: portZ };
 interface CounterChannelExtension
   extends z.infer<z.ZodObject<typeof counterChannelExtensionShape>> {}
@@ -1614,25 +1613,7 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   type: ANALOG_READ_TYPE,
 };
 
-// ==================== Counter Read Task ====================
-
-const validateCounterPorts = ({
-  value: channels,
-  issues,
-}: z.core.ParsePayload<CIChannel[]>) => {
-  const portToIndexMap = new Map<number, number>();
-  channels.forEach(({ port }, i) => {
-    if (!portToIndexMap.has(port)) {
-      portToIndexMap.set(port, i);
-      return;
-    }
-    const index = portToIndexMap.get(port) as number;
-    const code = "custom";
-    const message = `Port ${port} has already been used on another channel`;
-    issues.push({ path: [index, "port"], code, message, input: channels });
-    issues.push({ path: [i, "port"], code, message, input: channels });
-  });
-};
+const validateCounterPorts = createSimplePortValidator("");
 
 export const counterReadConfigZ = baseReadConfigZ
   .extend({

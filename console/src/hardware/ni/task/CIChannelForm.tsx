@@ -183,9 +183,9 @@ const MeasMethodField = Form.buildSelectField<
   inputProps: {
     resourceName: "Measurement Method",
     data: [
-      { key: "LowFreq1Ctr", name: "1 Counter (Low Frequency)" },
-      { key: "HighFreq2Ctr", name: "2 Counters (High Frequency)" },
-      { key: "LargeRng2Ctr", name: "2 Counters (Large Range)" },
+      { key: "LowFreq1Ctr", name: "One Counter (Low Frequency)" },
+      { key: "HighFreq2Ctr", name: "Two Counters (High Frequency)" },
+      { key: "LargeRng2Ctr", name: "Two Counters (Large Range)" },
       { key: "DynamicAvg", name: "Dynamic Averaging" },
     ],
   },

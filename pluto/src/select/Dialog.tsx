@@ -10,6 +10,7 @@
 import "@/select/Dialog.css";
 
 import { type record, type status } from "@synnaxlabs/x";
+import pluralize from "pluralize";
 import { memo, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -30,11 +31,6 @@ export interface DialogProps<K extends record.Key>
 export interface DefaultEmptyContentProps extends Status.SummaryProps {
   resourceName?: string;
 }
-
-const pluralize = (word: string): string => {
-  if (word.endsWith("s")) return word;
-  return `${word}s`;
-};
 
 const DefaultEmptyContent = ({ resourceName = "result" }: DefaultEmptyContentProps) => (
   <Text.Text center status="disabled">

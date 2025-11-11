@@ -98,7 +98,7 @@ AnalogReader::AnalogReader(
     const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
-    Base(task_handle, dmx) {}
+    SkewTrackingReader<double>(dmx, task_handle) {}
 
 ReadResult
 AnalogReader::read(const size_t samples_per_channel, std::vector<double> &data) {
@@ -120,7 +120,8 @@ AnalogReader::read(const size_t samples_per_channel, std::vector<double> &data) 
     return res;
 }
 
-xerrors::Error AnalogReader::start() {
+template<typename T>
+xerrors::Error SkewTrackingReader<T>::start() {
     this->total_samples_acquired = 0;
     this->total_samples_requested = 0;
     if (const auto err = this->dmx->SetReadOverWrite(
@@ -131,7 +132,8 @@ xerrors::Error AnalogReader::start() {
     return Base::start();
 }
 
-int64 AnalogReader::update_skew(const size_t &n_requested) {
+template<typename T>
+int64 SkewTrackingReader<T>::update_skew(const size_t &n_requested) {
     uInt64 next_total_samples_acquired;
     if (const auto err = this->dmx->GetReadTotalSampPerChanAcquired(
             this->task_handle,
@@ -148,11 +150,14 @@ int64 AnalogReader::update_skew(const size_t &n_requested) {
            static_cast<int64>(this->total_samples_requested);
 }
 
+// Explicit template instantiation
+template struct SkewTrackingReader<double>;
+
 CounterReader::CounterReader(
     const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
-    Base(task_handle, dmx) {}
+    SkewTrackingReader<double>(dmx, task_handle) {}
 
 ReadResult
 CounterReader::read(const size_t samples_per_channel, std::vector<double> &data) {
@@ -173,31 +178,4 @@ CounterReader::read(const size_t samples_per_channel, std::vector<double> &data)
     return res;
 }
 
-xerrors::Error CounterReader::start() {
-    this->total_samples_acquired = 0;
-    this->total_samples_requested = 0;
-    if (const auto err = this->dmx->SetReadOverWrite(
-            this->task_handle,
-            DAQmx_Val_OverwriteUnreadSamps
-        ))
-        return err;
-    return Base::start();
-}
-
-int64 CounterReader::update_skew(const size_t &n_requested) {
-    uInt64 next_total_samples_acquired;
-    if (const auto err = this->dmx->GetReadTotalSampPerChanAcquired(
-            this->task_handle,
-            &next_total_samples_acquired
-        ))
-        LOG(WARNING) << "[ni] failed to get total samples acquired: " << err;
-    if (next_total_samples_acquired < this->total_samples_acquired) {
-        LOG(WARNING) << "[ni] hardware reader detected recovery from failure.";
-        this->total_samples_requested = 0;
-    }
-    this->total_samples_acquired = next_total_samples_acquired;
-    this->total_samples_requested += n_requested;
-    return static_cast<int64>(this->total_samples_acquired) -
-           static_cast<int64>(this->total_samples_requested);
-}
 }

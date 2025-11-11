@@ -7,7 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Literal
+
+from console.task.channels.utils import is_numeric_string
 
 if TYPE_CHECKING:
     from console.console import Console
@@ -17,13 +21,13 @@ class Analog:
     """Base class for analog channel types in NI tasks."""
 
     name: str
-    console: "Console"
+    console: Console
     device: str
     form_values: dict[str, str | bool]
 
     def __init__(
         self,
-        console: "Console",
+        console: Console,
         name: str,
         device: str,
         chan_type: str,
@@ -114,7 +118,7 @@ class Analog:
             actual_value: str | bool
             if isinstance(expected_value, bool):
                 actual_value = self.console.get_toggle(key)
-            elif self._is_numeric_string(expected_value):
+            elif is_numeric_string(expected_value):
                 actual_value = self.console.get_input_field(key)
             else:
                 actual_value = self.console.get_dropdown_value(key)
@@ -123,33 +127,14 @@ class Analog:
                 actual_value == expected_value
             ), f"Channel {self.name} Form value '{key}' - Expected: {expected_value} - Actual: {actual_value}"
 
-    @staticmethod
-    def _is_numeric_string(value: str | bool) -> bool:
-        """Check if a string represents a numeric value."""
-        if not isinstance(value, str):
-            return False
-        # Remove leading/trailing whitespace and check if it's a valid number
-        value = value.strip()
-        if not value:
-            return False
-        # Handle negative numbers and decimals
-        if value.startswith("-"):
-            value = value[1:]
-        # Split on decimal point
-        parts = value.split(".")
-        if len(parts) > 2:
-            return False
-        # Check all parts are digits
-        return all(part.isdigit() for part in parts if part)
-
     def has_terminal_config(self) -> bool:
         try:
-            return (
+            count: int = (
                 self.console.page.locator("text=Terminal Configuration")
                 .locator("..")
                 .locator("button")
                 .first.count()
-                > 0
             )
+            return count > 0
         except Exception:
             return False

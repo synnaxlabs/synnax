@@ -134,7 +134,7 @@ class NICounterReadForms(ConsoleCase):
             max_val=1000,
             edge="Rising",
             units="Hz",
-            meas_method="1 Counter (Low Frequency)",
+            meas_method="One Counter (Low Frequency)",
         )
         console.ni_ci.add_channel(
             name="Frequency_2",
@@ -142,13 +142,13 @@ class NICounterReadForms(ConsoleCase):
             device=device_name,
             edge="Falling",
             units="Ticks",
-            meas_method="2 Counters (High Frequency)",
+            meas_method="Two Counters (High Frequency)",
         )
         console.ni_ci.add_channel(
             name="Frequency_3",
             chan_type=channel_type,
             device=device_name,
-            meas_method="2 Counters (Large Range)",
+            meas_method="Two Counters (Large Range)",
         )
 
     def verify_period_inputs(self, device_name: str) -> None:
@@ -166,7 +166,7 @@ class NICounterReadForms(ConsoleCase):
             starting_edge="Rising",
             units="Seconds",
             terminal="PFI1",
-            meas_method="1 Counter (Low Frequency)",
+            meas_method="One Counter (Low Frequency)",
         )
         console.ni_ci.add_channel(
             name="Period_2",
@@ -174,14 +174,14 @@ class NICounterReadForms(ConsoleCase):
             device=device_name,
             starting_edge="Falling",
             units="Ticks",
-            meas_method="2 Counters (High Frequency)",
+            meas_method="Two Counters (High Frequency)",
         )
         console.ni_ci.add_channel(
             name="Period_3",
             chan_type=channel_type,
             device=device_name,
             units="Seconds",
-            meas_method="2 Counters (Large Range)",
+            meas_method="Two Counters (Large Range)",
         )
         console.ni_ci.add_channel(
             name="Period_4",
