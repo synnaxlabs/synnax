@@ -108,7 +108,7 @@ export const isVariableDensityInputChannel = (
 ): channel is VariableDensityInputChannel =>
   isVariableDensityInputChannelType(channel.type);
 
-export const readConfigZ = Common.Task.baseConfigZ
+export const readConfigZ = Common.Task.baseReadConfigZ
   .extend({
     channels: z.array(inputChannelZ),
     sampleRate: z.number().positive().max(50000),
@@ -117,7 +117,7 @@ export const readConfigZ = Common.Task.baseConfigZ
   .check(Common.Task.validateStreamRate);
 interface ReadConfig extends z.infer<typeof readConfigZ> {}
 const ZERO_READ_CONFIG = {
-  ...Common.Task.ZERO_BASE_CONFIG,
+  ...Common.Task.ZERO_BASE_READ_CONFIG,
   channels: [],
   sampleRate: 10,
   streamRate: 5,

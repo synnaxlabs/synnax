@@ -44,8 +44,8 @@ LOG_FILE_PATH="${LOG_FILE_PATH:-./synnax-logs/synnax.log}"
 LOG_DIR=$(dirname "$LOG_FILE_PATH")
 
 # Ensure directories exist and fix ownership
-mkdir -p "$DATA_DIR" "$CERTS_DIR" "$LOG_DIR" /home/nonroot/.cache 2> /dev/null || true
-chown -R nonroot:nonroot "$DATA_DIR" "$CERTS_DIR" "$LOG_DIR" /home/nonroot/.cache 2> /dev/null || true
+mkdir -p "$DATA_DIR" "$CERTS_DIR" "$LOG_DIR" /home/nonroot/.cache /var/lib/synnax-driver 2> /dev/null || true
+chown -R nonroot:nonroot "$DATA_DIR" "$CERTS_DIR" "$LOG_DIR" /home/nonroot/.cache /var/lib/synnax-driver 2> /dev/null || true
 
 # Drop to nonroot user and execute command
 exec gosu nonroot:nonroot "$@"

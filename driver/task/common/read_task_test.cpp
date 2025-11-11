@@ -456,7 +456,7 @@ TEST(BaseReadTaskConfigTest, testDefaultDataSaving) {
     auto p = xjson::Parser(j);
     const auto cfg = common::BaseReadTaskConfig(p);
     ASSERT_FALSE(p.error()) << p.error();
-    EXPECT_FALSE(cfg.data_saving);
+    EXPECT_TRUE(cfg.data_saving);
     EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
     EXPECT_EQ(cfg.stream_rate, telem::Rate(50.0));
 }
