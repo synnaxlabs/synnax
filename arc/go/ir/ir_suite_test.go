@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestSymbol(t *testing.T) {
+func TestIR(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "IR Suite")
 }

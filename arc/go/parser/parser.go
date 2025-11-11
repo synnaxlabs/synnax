@@ -105,6 +105,8 @@ func parseWithContext[T any](source string, parseFn func(*ArcParser) T) (T, *dia
 		diag   = &diagnostics.Diagnostics{}
 		errLis = &errorListener{Diagnostics: diag}
 	)
+	lexer.RemoveErrorListeners()
+	lexer.AddErrorListener(errLis)
 	parser.RemoveErrorListeners()
 	parser.AddErrorListener(errLis)
 	result := parseFn(parser)

@@ -22,6 +22,7 @@ package text
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -39,8 +40,8 @@ type Text struct {
 	AST parser.IProgramContext `json:"-"`
 }
 
-// GenerateKey generates unique node keys for flow graph construction.
-type GenerateKey = func(name string) string
+// generateKey generates unique node keys for flow graph construction.
+type generateKey = func(name string) string
 
 // Parse parses Arc source code into an AST.
 //
@@ -93,10 +94,10 @@ func Analyze(
 			i.Functions = append(i.Functions, ir.Function{
 				Key:      c.Name,
 				Body:     ir.Body{Raw: "", AST: bodyAst},
-				Config:   *c.Type.Config,
-				Inputs:   *c.Type.Inputs,
-				Outputs:  *c.Type.Outputs,
-				Channels: c.Channels.Copy(),
+				Config:   c.Type.Config,
+				Inputs:   c.Type.Inputs,
+				Outputs:  c.Type.Outputs,
+				Channels: c.Channels,
 			})
 		}
 	}
@@ -125,7 +126,7 @@ func Analyze(
 
 func analyzeFlow(
 	ctx acontext.Context[parser.IFlowStatementContext],
-	generateKey GenerateKey,
+	generateKey generateKey,
 ) ([]ir.Node, []ir.Edge, bool) {
 	var (
 		prevHandle ir.Handle
@@ -148,7 +149,7 @@ func analyzeFlow(
 
 func analyzeExpressionNode(
 	ctx acontext.Context[parser.IFlowNodeContext],
-	generateKey GenerateKey,
+	generateKey generateKey,
 ) (ir.Node, ir.Handle, bool) {
 	if channel := ctx.AST.ChannelIdentifier(); channel != nil {
 		return analyzeChannelNode(acontext.Child(ctx, channel), generateKey)
@@ -164,7 +165,7 @@ func analyzeExpressionNode(
 
 func analyzeChannelNode(
 	ctx acontext.Context[parser.IChannelIdentifierContext],
-	generateKey GenerateKey,
+	generateKey generateKey,
 ) (ir.Node, ir.Handle, bool) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	nodeKey := generateKey("on")
@@ -175,10 +176,10 @@ func analyzeChannelNode(
 	}
 	chKey := uint32(sym.ID)
 	n := ir.Node{
-		Key:          nodeKey,
-		Type:         "on",
-		ConfigValues: map[string]any{"channel": chKey},
-		Channels:     symbol.NewChannels(),
+		Key:      nodeKey,
+		Type:     "on",
+		Channels: symbol.NewChannels(),
+		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
 	}
 	n.Channels.Read.Add(chKey)
 	h := ir.Handle{Node: nodeKey, Param: ir.DefaultOutputParam}
@@ -187,37 +188,32 @@ func analyzeChannelNode(
 
 func extractConfigValues(
 	ctx acontext.Context[parser.IConfigValuesContext],
-	fnType types.Type,
+	config types.Params,
 	node ir.Node,
-) (map[string]any, bool) {
-	config := make(map[string]any)
+) (types.Params, bool) {
 	if ctx.AST == nil {
 		return config, true
 	}
 	if named := ctx.AST.NamedConfigValues(); named != nil {
 		for _, cv := range named.AllNamedConfigValue() {
 			key := cv.IDENTIFIER().GetText()
-			config[key] = getExpressionText(cv.Expression())
+			idx := config.GetIndex(key)
+			config[idx].Value = getExpressionText(cv.Expression())
 		}
 	} else if anon := ctx.AST.AnonymousConfigValues(); anon != nil {
 		for i, expr := range anon.AllExpression() {
-			key, _ := fnType.Inputs.At(i)
-			config[key] = getExpressionText(expr)
+			config[i].Value = getExpressionText(expr)
 		}
 	}
-	for k, v := range config {
-		t, ok := fnType.Config.Get(k)
-		if !ok {
-			panic("config key not found in function")
-		}
-		if t.Kind == types.KindChan {
-			sym, err := ctx.Scope.Resolve(ctx, v.(string))
+	for i, p := range config {
+		if p.Type.Kind == types.KindChan {
+			sym, err := ctx.Scope.Resolve(ctx, p.Value.(string))
 			if err != nil {
 				ctx.Diagnostics.AddError(err, nil)
 				return nil, false
 			}
 			channelKey := uint32(sym.ID)
-			config[k] = channelKey
+			config[i].Value = channelKey
 			node.Channels.Read.Add(channelKey)
 		}
 	}
@@ -226,7 +222,7 @@ func extractConfigValues(
 
 func analyzeFunctionNode(
 	ctx acontext.Context[parser.IFunctionContext],
-	generateKey GenerateKey,
+	generateKey generateKey,
 ) (ir.Node, ir.Handle, bool) {
 	var (
 		name = ctx.AST.IDENTIFIER().GetText()
@@ -246,13 +242,14 @@ func analyzeFunctionNode(
 		Key:      key,
 		Type:     name,
 		Channels: sym.Channels.Copy(),
-		Config:   *sym.Type.Config,
-		Outputs:  *sym.Type.Outputs,
-		Inputs:   *sym.Type.Inputs,
+		Config:   slices.Clone(sym.Type.Config),
+		Outputs:  slices.Clone(sym.Type.Outputs),
+		Inputs:   slices.Clone(sym.Type.Inputs),
 	}
-	config, ok := extractConfigValues(
+	var ok bool
+	n.Config, ok = extractConfigValues(
 		acontext.Child(ctx, ctx.AST.ConfigValues()),
-		fnType,
+		n.Config,
 		n,
 	)
 	if !ok {
@@ -261,11 +258,10 @@ func analyzeFunctionNode(
 	if args := ctx.AST.Arguments(); args != nil {
 		if argList := args.ArgumentList(); argList != nil {
 			for i, expr := range argList.AllExpression() {
-				config[fmt.Sprintf("_runtime%d", i)] = getExpressionText(expr)
+				fnType.Inputs[i].Value = getExpressionText(expr)
 			}
 		}
 	}
-	n.ConfigValues = config
 	h := ir.Handle{Node: key, Param: "input"}
 	return n, h, true
 }
