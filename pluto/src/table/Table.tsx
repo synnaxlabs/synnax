@@ -27,6 +27,7 @@ import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { table } from "@/table/aether";
 import { Text } from "@/text";
+import { stopPropagation } from "@/util/event";
 import { Canvas } from "@/vis/canvas";
 
 export interface TableProps
@@ -178,7 +179,7 @@ const Indicator = ({
         {dir === "x" ? ALPHABET[index] : index + 1}
       </Text.Text>
       <button
-        onClick={(e) => e.stopPropagation()}
+        onClick={stopPropagation}
         style={{ [direction.location(dir)]: position + value }}
         onDragStart={onDragStart}
         draggable

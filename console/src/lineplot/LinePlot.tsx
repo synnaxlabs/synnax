@@ -26,6 +26,7 @@ import {
   usePrevious,
   Viewport,
 } from "@synnaxlabs/pluto";
+import { type measure } from "@synnaxlabs/pluto/ether";
 import {
   box,
   color,
@@ -78,6 +79,7 @@ import {
   setControlState,
   setLegend,
   setLine,
+  setMeasureMode,
   setRanges,
   setRemoteCreated,
   setRule,
@@ -326,6 +328,27 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
   }, [windowKey, dispatch, layoutKey]);
 
+  const handleSelectRule = useCallback(
+    (ruleKey: string) => {
+      dispatch(setSelectedRule({ key: layoutKey, ruleKey }));
+    },
+    [dispatch, layoutKey],
+  );
+
+  const handleMeasureModeChange = useCallback(
+    (mode: measure.Mode) => {
+      dispatch(setMeasureMode({ key: layoutKey, mode }));
+    },
+    [dispatch, layoutKey],
+  );
+
+  const handleHold = useCallback(
+    (hold: boolean) => {
+      dispatch(setControlState({ key: layoutKey, state: { hold } }));
+    },
+    [dispatch, layoutKey],
+  );
+
   const props = PContextMenu.use();
 
   interface ContextMenuContentProps extends PContextMenu.MenuProps {
@@ -453,13 +476,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
-          onSelectRule={(ruleKey) =>
-            dispatch(setSelectedRule({ key: layoutKey, ruleKey }))
-          }
-          onHold={(hold) =>
-            dispatch(setControlState({ key: layoutKey, state: { hold } }))
-          }
+          onSelectRule={handleSelectRule}
+          onHold={handleHold}
           rangeProviderProps={rangeProviderProps}
+          measureMode={vis.measure.mode}
+          onMeasureModeChange={handleMeasureModeChange}
         >
           {!focused && <NavControls layoutKey={layoutKey} />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />

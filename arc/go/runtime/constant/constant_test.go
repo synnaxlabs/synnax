@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -37,28 +38,22 @@ var _ = Describe("Constant", func() {
 		var s *state.State
 		BeforeEach(func() {
 			factory = constant.NewFactory()
-			s = state.New(state.Config{
-				Edges: ir.Edges{
-					{Source: ir.Handle{
-						Node:  "const",
-						Param: ir.DefaultOutputParam,
-					}, Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam}},
-				},
-				Nodes: ir.Nodes{
-					{
-						Key:  "const",
-						Type: "constant",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
+			g := graph.Graph{
+				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
+				Functions: []graph.Function{{
+					Key: "constant",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.I64()},
 					},
-				},
-			})
+				}},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s = state.New(state.Config{IR: analyzed})
 		})
 		It("Should create node for constant type", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 42}},
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 42}}},
 				State: s.Node("const"),
 			}
 			n, err := factory.Create(ctx, cfg)
@@ -75,7 +70,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle float64 value", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 3.14}},
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.F64(), Value: 3.14}}},
 				State: s.Node("const"),
 			}
 			n, err := factory.Create(ctx, cfg)
@@ -84,7 +79,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle int value", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 100}},
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 100}}},
 				State: s.Node("const"),
 			}
 			n, err := factory.Create(ctx, cfg)
@@ -93,7 +88,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle uint8 value", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": uint8(255)}},
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.U8(), Value: uint8(255)}}},
 				State: s.Node("const"),
 			}
 			n, err := factory.Create(ctx, cfg)
@@ -107,26 +102,23 @@ var _ = Describe("Constant", func() {
 		var outputs []string
 		BeforeEach(func() {
 			factory = constant.NewFactory()
-			s = state.New(state.Config{
-				Edges: ir.Edges{
-					{Source: ir.Handle{Node: "const", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam}},
-				},
-				Nodes: ir.Nodes{
-					{
-						Key:  "const",
-						Type: "constant",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
+			g := graph.Graph{
+				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
+				Functions: []graph.Function{{
+					Key: "constant",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.I64()},
 					},
-				},
-			})
+				}},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s = state.New(state.Config{IR: analyzed})
 			outputs = []string{}
 		})
 		It("Should emit output on Init with int value", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 42}},
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 42}}},
 				State: s.Node("const"),
 			}
 			n, _ := factory.Create(ctx, cfg)
@@ -138,7 +130,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should set output data on Init", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": int64(100)}},
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(100)}}},
 				State: s.Node("const"),
 			}
 			n, _ := factory.Create(ctx, cfg)
@@ -149,8 +141,8 @@ var _ = Describe("Constant", func() {
 		It("Should set output time on Init", func() {
 			cfg := node.Config{
 				Node: ir.Node{
-					Type:         "constant",
-					ConfigValues: map[string]interface{}{"value": 3.14},
+					Type:   "constant",
+					Config: types.Params{{Name: "value", Type: types.F64(), Value: 3.14}},
 				},
 				State: s.Node("const"),
 			}
@@ -163,7 +155,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle float64 constant", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 2.718}},
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.F64(), Value: 2.718}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -176,7 +168,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle int32 constant", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": int32(42)}},
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I32(), Value: int32(42)}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -189,7 +181,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle uint8 constant", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": uint8(255)}},
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.U8(), Value: uint8(255)}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -201,33 +193,37 @@ var _ = Describe("Constant", func() {
 			Expect(vals[0]).To(Equal(uint8(255)))
 		})
 		It("Should allow downstream nodes to read constant", func() {
-			s = state.New(state.Config{
-				Edges: ir.Edges{
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "const", Type: "constant"},
+					{Key: "sink", Type: "sink"},
+				},
+				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "const", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
 					},
 				},
-				Nodes: ir.Nodes{
+				Functions: []graph.Function{
 					{
-						Key:  "const",
-						Type: "constant",
+						Key: "constant",
 						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
 						},
 					},
 					{
 						Key: "sink",
 						Inputs: types.Params{
-							Keys:   []string{ir.DefaultInputParam},
-							Values: []types.Type{types.I64()},
+							{Name: ir.DefaultInputParam, Type: types.I64()},
 						},
 					},
 				},
-			})
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s = state.New(state.Config{IR: analyzed})
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": int64(999)}},
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(999)}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -243,7 +239,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle zero value constant", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 0}},
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 0}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -256,7 +252,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should handle negative value constant", func() {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": -42}},
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: -42}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -270,24 +266,21 @@ var _ = Describe("Constant", func() {
 	})
 	Describe("constant.Next", func() {
 		It("Should do nothing on Next", func() {
-			s := state.New(state.Config{
-				Edges: ir.Edges{
-					{Source: ir.Handle{Node: "const", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam}},
-				},
-				Nodes: ir.Nodes{
-					{
-						Key:  "const",
-						Type: "constant",
-						Outputs: types.Params{
-							Keys:   []string{ir.DefaultOutputParam},
-							Values: []types.Type{types.I64()},
-						},
+			g := graph.Graph{
+				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
+				Functions: []graph.Function{{
+					Key: "constant",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.I64()},
 					},
-				},
-			})
+				}},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
 			factory := constant.NewFactory()
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", ConfigValues: map[string]interface{}{"value": 42}},
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 42}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")

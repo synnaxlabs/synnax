@@ -100,4 +100,7 @@ type Symbol struct {
 	// to KindVariable, KindStatefulVariable, KindInput, KindOutput, KindChannel, and
 	// KindConfig.
 	ID int
+	// DefaultValue stores the default value literal for optional parameters.
+	// Only used for KindInput and KindConfig symbols. Nil means no default (required parameter).
+	DefaultValue any
 }

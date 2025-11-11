@@ -159,12 +159,8 @@ var _ = Describe("Runtime", Ordered, func() {
 			Expect(cfg.Module.Edges).To(HaveLen(6))
 			constantNode := cfg.Module.Nodes[1]
 			Expect(constantNode.Key).To(Equal("constant"))
-			v, _ := constantNode.Outputs.Get("output")
-			geNode := cfg.Module.Nodes[2]
-			Expect(geNode.Key).To(Equal("ge"))
-			geA, _ := geNode.Inputs.Get("a")
-			geB, _ := geNode.Inputs.Get("b")
-			Expect(v).To(Equal(types.F32()), "constant output should be f32, got: %v, ge.a: %v, ge.b: %v", v, geA, geB)
+			v := MustBeOk(constantNode.Outputs.Get("output"))
+			Expect(v.Type).To(Equal(types.F32()))
 
 			r := MustSucceed(runtime.Open(ctx, cfg))
 			defer func() {

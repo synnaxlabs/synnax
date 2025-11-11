@@ -75,12 +75,12 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 	outputMemoryBases := make(map[string]uint32)
 
 	for _, i := range program.Functions {
-		params := slices.Concat(i.Config.Values, i.Inputs.Values)
+		params := slices.Concat(i.Config, i.Inputs)
 		var returnType types.Type
-		_, hasDefaultOutput := i.Outputs.Get(ir.DefaultOutputParam)
-		hasNamedOutputs := i.Outputs.Count() > 1 || (i.Outputs.Count() == 1 && !hasDefaultOutput)
+		defaultOutput, hasDefaultOutput := i.Outputs.Get(ir.DefaultOutputParam)
+		hasNamedOutputs := len(i.Outputs) > 1 || (len(i.Outputs) == 1 && !hasDefaultOutput)
 		if !hasNamedOutputs {
-			returnType, _ = i.Outputs.Get(ir.DefaultOutputParam)
+			returnType = defaultOutput.Type
 		}
 
 		var outputMemoryBase uint32
@@ -89,8 +89,8 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 			outputMemoryBase = outputMemoryCounter
 			outputMemoryBases[i.Key] = outputMemoryBase
 			var size uint32 = 8 // dirty flags
-			for _, outputType := range i.Outputs.Values {
-				size += uint32(outputType.Density())
+			for _, oParam := range i.Outputs {
+				size += uint32(oParam.Type.Density())
 			}
 			outputMemoryCounter += size
 		}
@@ -111,7 +111,7 @@ func compileItem(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	key string,
 	body antlr.ParserRuleContext,
-	params []types.Type,
+	params types.Params,
 	results types.Type,
 	outputs types.Params,
 	outputMemoryBase uint32,
@@ -121,8 +121,8 @@ func compileItem(
 		return err
 	}
 	wasmParams := make([]wasm.ValueType, 0, len(params))
-	for _, paramType := range params {
-		wasmParams = append(wasmParams, wasm.ConvertType(paramType))
+	for _, param := range params {
+		wasmParams = append(wasmParams, wasm.ConvertType(param.Type))
 	}
 	var wasmResults []wasm.ValueType
 	if results.IsValid() {
