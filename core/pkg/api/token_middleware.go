@@ -31,21 +31,18 @@ func tokenMiddleware(svc *token.Service) freighter.Middleware {
 	) (freighter.Context, error) {
 		tk, err := tryParseToken(ctx.Params)
 		if err != nil {
-			return freighter.Context{}, err
+			return ctx, err
 		}
 		userKey, newTK, err := svc.ValidateMaybeRefresh(tk)
 		if err != nil {
-			return freighter.Context{}, err
+			return ctx, err
 		}
 		setSubject(ctx.Params, user.OntologyID(userKey))
 		oCtx, err := next(ctx)
-		if err != nil {
-			return freighter.Context{}, err
-		}
 		if newTK != "" {
 			oCtx.Set("Refresh-Token", newTK)
 		}
-		return oCtx, nil
+		return oCtx, err
 	})
 }
 
