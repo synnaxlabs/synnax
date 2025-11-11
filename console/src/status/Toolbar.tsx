@@ -22,12 +22,13 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
+import { CREATE_LAYOUT } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
 import { ContextMenu } from "@/status/list/ContextMenu";
 import { useSelectFavorites } from "@/status/selectors";
@@ -36,7 +37,7 @@ const NoStatuses = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
     <EmptyAction
-      message="No favorite statuses."
+      message="No favorited statuses."
       action="Open Status Explorer"
       onClick={() => placeLayout(EXPLORER_LAYOUT)}
     />
@@ -46,23 +47,9 @@ const NoStatuses = (): ReactElement => {
 const List = (): ReactElement => {
   const favorites = useSelectFavorites();
   const menuProps = PMenu.useContextMenu();
-
-  const { getItem, subscribe, data } = Status.useList();
-  const filteredData = useMemo(() => {
-    const favoritesSet = new Set(favorites);
-    return data.filter((key) => favoritesSet.has(key));
-  }, [data, favorites]);
-
   return (
-    <CoreList.Frame<status.Key, status.Status>
-      data={filteredData}
-      getItem={getItem}
-      subscribe={subscribe}
-    >
-      <PMenu.ContextMenu
-        menu={(p) => <ContextMenu {...p} getItem={getItem} />}
-        {...menuProps}
-      />
+    <CoreList.Frame<status.Key, status.Status> data={favorites}>
+      <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
       <CoreList.Items<status.Key>
         full="y"
         emptyContent={<NoStatuses />}
@@ -76,7 +63,9 @@ const List = (): ReactElement => {
 
 const listItem = Component.renderProp((props: CoreList.ItemProps<status.Key>) => {
   const { itemKey } = props;
-  const item = CoreList.useItem<status.Key, status.Status>(itemKey);
+  const q = Status.useRetrieve({ key: itemKey });
+  if (q.variant !== "success") return null;
+  const item = q.data;
   if (item == null) return null;
   const { name, time, variant, message, labels } = item;
   return (
@@ -120,6 +109,12 @@ const Content = (): ReactElement => {
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
         <Toolbar.Actions>
+          <Toolbar.Action
+            tooltip="Create status"
+            onClick={() => placeLayout(CREATE_LAYOUT)}
+          >
+            <Icon.Add />
+          </Toolbar.Action>
           <Toolbar.Action
             tooltip="Open Status Explorer"
             onClick={() => placeLayout(EXPLORER_LAYOUT)}

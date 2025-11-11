@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
-import { type Flux, Icon, type List, Menu as PMenu, Status } from "@synnaxlabs/pluto";
+import { type Flux, Icon, Menu as PMenu, Status } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -18,23 +17,12 @@ import { useConfirmDelete } from "@/ontology/hooks";
 import { useSelectFavoriteSet } from "@/status/selectors";
 import { addFavorites, removeFavorites } from "@/status/slice";
 
-export interface ContextMenuProps extends PMenu.ContextMenuMenuProps {
-  getItem: List.GetItem<status.Key, status.Status>;
-}
+export interface ContextMenuProps extends PMenu.ContextMenuMenuProps {}
 
-export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
-  const statuses = getItem(keys);
-  const isEmpty = statuses.length === 0;
+export const ContextMenu = ({ keys }: ContextMenuProps) => {
+  const q = Status.useRetrieveMultiple({ keys });
   const dispatch = useDispatch();
   const favoriteSet = useSelectFavoriteSet();
-  const anyFavorited = useMemo(
-    () => keys.some((k) => favoriteSet.has(k)),
-    [favoriteSet, keys],
-  );
-  const anyNotFavorited = useMemo(
-    () => keys.some((k) => !favoriteSet.has(k)),
-    [favoriteSet, keys],
-  );
 
   const confirm = useConfirmDelete({
     type: "Status",
@@ -53,9 +41,20 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
         if (renamed == null) return false;
         return { ...data, name: renamed };
       },
-      [getItem],
+      [renameModal],
     ),
   });
+
+  const anyFavorited = useMemo(
+    () => keys.some((k) => favoriteSet.has(k)),
+    [favoriteSet, keys],
+  );
+  const anyNotFavorited = useMemo(
+    () => keys.some((k) => !favoriteSet.has(k)),
+    [favoriteSet, keys],
+  );
+  if (q.variant !== "success") return null;
+  const statuses = q.data;
   const handleSelect: PMenu.MenuProps["onChange"] = {
     delete: () => {
       handleError(async () => {
@@ -63,17 +62,18 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
         if (confirmed) del(keys);
       }, "Failed to delete status");
     },
-    rename: useCallback(() => {
+    rename: () => {
       rename.update(statuses[0]);
-    }, [rename, statuses]),
-    favorite: useCallback(() => {
+    },
+    favorite: () => {
       dispatch(addFavorites(keys));
-    }, [dispatch, keys]),
-    unfavorite: useCallback(() => {
+    },
+    unfavorite: () => {
       dispatch(removeFavorites(keys));
-    }, [dispatch, keys]),
+    },
   };
 
+  const isEmpty = statuses.length === 0;
   const isSingle = statuses.length === 1;
 
   return (
