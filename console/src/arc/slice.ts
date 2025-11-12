@@ -16,7 +16,6 @@ import * as latest from "@/arc/types";
 export type SliceState = latest.SliceState;
 export type NodeProps = latest.NodeProps;
 export type State = latest.State;
-export type StateWithName = State & { name: string };
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
 export const ZERO_STATE = latest.ZERO_STATE;
