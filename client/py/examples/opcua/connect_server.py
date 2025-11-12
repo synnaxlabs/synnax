@@ -113,9 +113,8 @@ if response in ("n", "no") or response not in ("", "y", "yes"):
     # Manual connection instructions
     print()
     print("To connect manually:")
-    print("1. Open Synnax Console")
-    print("2. Go to Resources → Devices")
-    print("3. Add a new OPC UA device:")
+    print("1. Open the Synnax Console")
+    print("2. Add a new OPC UA device:")
     print(f"   - Name: {DEVICE_NAME}")
     print(f"   - Endpoint: {ENDPOINT}")
     print("   - Make: opc")

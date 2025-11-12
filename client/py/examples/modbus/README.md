@@ -8,10 +8,12 @@ This directory contains example scripts for working with Modbus TCP devices in S
 2. **Software**:
    - Synnax server running
    - Synnax driver running
-   - For testing: Modbus TCP test server (included in `/driver/modbus/dev/server.py`)
+   - For testing: Modbus TCP test server (included in `examples/modbus/server.py`)
 3. **Authentication**: Logged in to Synnax CLI (`poetry run sy login`)
 
 ## Quick Start Guide
+
+**Important**: All commands in this guide should be run from the `client/py` directory.
 
 Follow these scripts in order:
 
@@ -20,7 +22,7 @@ Follow these scripts in order:
 If you don't have a real Modbus device, start the included test server:
 
 ```bash
-poetry run python driver/modbus/dev/server.py
+poetry run python examples/modbus/server.py
 ```
 
 This server simulates:
@@ -37,7 +39,7 @@ The server runs on `localhost:5020` by default.
 Register your Modbus TCP server with Synnax:
 
 ```bash
-poetry run python examples/modbus/connect_modbus_server.py
+poetry run python examples/modbus/connect_server.py
 ```
 
 This script will:
@@ -46,7 +48,7 @@ This script will:
 - Register the server with the embedded Synnax rack
 - Set up the server configuration
 
-**Configuration**: Edit the constants at the top of `connect_modbus_server.py` to match
+**Configuration**: Edit the constants at the top of `connect_server.py` to match
 your server:
 
 - `DEVICE_NAME`: A friendly name for your Modbus server
@@ -94,7 +96,7 @@ registers) outputs.
 Verify your Modbus setup:
 
 ```bash
-poetry run python examples/modbus/test_connection.py
+poetry run python examples/modbus/check_connection.py
 ```
 
 This diagnostic script checks:
@@ -109,7 +111,7 @@ This diagnostic script checks:
 When finished, remove the server registration:
 
 ```bash
-poetry run python examples/modbus/delete_modbus_server.py
+poetry run python examples/modbus/delete_server.py
 ```
 
 This will remove the server and all associated tasks from Synnax.

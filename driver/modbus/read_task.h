@@ -284,12 +284,18 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @param client the Synnax client to use to retrieve the device and channel
     /// information.
     /// @param task the task to parse.
-    /// @returns a pair containing the parsed configuration and any error that occurred
-    /// during parsing.
-    static std::pair<ReadTaskConfig, xerrors::Error>
+    /// @returns a pair containing the configure result and parsed configuration.
+    static std::pair<common::ConfigureResult, ReadTaskConfig>
     parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
         auto parser = xjson::Parser(task.config);
-        return {ReadTaskConfig(client, parser), parser.error()};
+        ReadTaskConfig cfg(client, parser);
+        common::ConfigureResult result;
+        if (parser.error()) {
+            result.error = parser.error();
+            return {std::move(result), std::move(cfg)};
+        }
+        result.auto_start = cfg.auto_start;
+        return {std::move(result), std::move(cfg)};
     }
 
     /// @brief all synnax channels that the task will write to, excluding indexes.

@@ -28,10 +28,12 @@ synnax-freighter = { path = "../../freighter/py", develop = true }
 urllib3 = "^2.5.0"
 
 [tool.poetry.group.dev.dependencies]
+asyncua = "^1.1.5"
 black = "^25.9.0"
 isort = "^7.0.0"
 mypy = "^1.18.2"
 poetry = "^2.2.1"
+pymodbus = "^3.8.2"
 pytest = "^8.4.2"
 pytest-asyncio = "^1.2.0"
 scipy = "^1.16.3"
@@ -43,7 +45,6 @@ profile = "black"
 [tool.mypy]
 plugins = ["numpy.typing.mypy_plugin", "pydantic.mypy"]
 strict = true
-exclude = ["examples/"]
 
 [tool.pydantic-mypy]
 init_forbid_extra = true

@@ -24,18 +24,17 @@ common::ConfigureResult configure_read(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    common::ConfigureResult result;
-    auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task);
-    if (!common::handle_parse_result(result, cfg, err)) return result;
+    auto [result, cfg] = ReadTaskConfig::parse(ctx->client, task);
+    if (result.error) return std::move(result);
     auto [dev, d_err] = devs->acquire(cfg.conn);
-    if (result.error = d_err; result.error) return result;
+    if (result.error = d_err; result.error) return std::move(result);
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
         breaker::default_config(task.name),
         std::make_unique<ReadTaskSource>(dev, std::move(cfg))
     );
-    return result;
+    return std::move(result);
 }
 
 common::ConfigureResult configure_scan(
@@ -54,18 +53,17 @@ common::ConfigureResult configure_write(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    common::ConfigureResult result;
-    auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
-    if (!common::handle_parse_result(result, cfg, err)) return result;
+    auto [result, cfg] = WriteTaskConfig::parse(ctx->client, task);
+    if (result.error) return std::move(result);
     auto [dev, d_err] = devs->acquire(cfg.conn);
-    if (result.error = d_err; result.error) return result;
+    if (result.error = d_err; result.error) return std::move(result);
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
         breaker::default_config(task.name),
         std::make_unique<WriteTaskSink>(dev, std::move(cfg))
     );
-    return result;
+    return std::move(result);
 }
 
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(

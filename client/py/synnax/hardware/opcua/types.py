@@ -28,8 +28,67 @@ from synnax.telem import CrudeRate, Rate
 
 class ReadChannel(BaseModel):
     """
-    Configuration for a channel in an OPC UA read task. A list of these objects should
-    be passed to the `channels` field of the `ReadConfig` constructor.
+    Configuration for a channel in an OPC UA read task.
+
+    Each ReadChannel defines a mapping from an OPC UA node on the server to a Synnax
+    channel where the data will be written. OPC UA nodes are identified by NodeID,
+    which has various formats depending on the namespace and identifier type.
+
+    Common NodeID formats:
+    - "NS=2;I=1234" - Numeric identifier in namespace 2
+    - "NS=2;S=MyVariable" - String identifier in namespace 2
+    - "NS=2;G=550e8400-e29b-41d4-a716-446655440000" - GUID identifier
+    - "NS=2;B=YWJjZGVm" - Opaque (Base64) identifier
+
+    For detailed information on OPC UA node addressing, see:
+    <https://reference.opcfoundation.org/Core/Part3/v104/docs/8.2>
+
+    Example 1: Reading a temperature sensor value
+        >>> # Basic numeric node in namespace 2
+        >>> temp_channel = ReadChannel(
+        ...     node_id="NS=2;I=1001",
+        ...     node_name="Temperature",
+        ...     channel=100,
+        ...     data_type="float32",
+        ...     enabled=True
+        ... )
+
+    Example 2: Reading with string-based node ID
+        >>> # Node identified by string in namespace 3
+        >>> pressure_channel = ReadChannel(
+        ...     node_id="NS=3;S=ProcessData.Pressure",
+        ...     node_name="PressureSensor",
+        ...     channel=101,
+        ...     data_type="float64"
+        ... )
+
+    Example 3: Using server timestamp as index
+        >>> # Let OPC UA server timestamp be the index for this channel
+        >>> sensor_with_timestamp = ReadChannel(
+        ...     node_id="NS=2;I=2000",
+        ...     node_name="FlowRate",
+        ...     channel=102,
+        ...     data_type="float32",
+        ...     use_as_index=True  # Use server timestamp as index
+        ... )
+
+    Example 4: Reading integer process value
+        >>> # Integer data type from PLC
+        >>> conveyor_speed = ReadChannel(
+        ...     node_id="NS=4;I=5010",
+        ...     node_name="ConveyorSpeed",
+        ...     channel=103,
+        ...     data_type="int32",
+        ...     enabled=True
+        ... )
+
+    :param node_id: OPC UA node identifier (e.g., "NS=2;I=1001" or "NS=2;S=Variable")
+    :param node_name: Human-readable name for the node (for reference only)
+    :param channel: Synnax channel key to write data to
+    :param data_type: OPC UA data type (float32, float64, int16, int32, uint16, uint32, boolean, string, etc.)
+    :param use_as_index: Use server timestamp as index (default: driver generates timestamps)
+    :param enabled: Whether acquisition for this channel is enabled
+    :param key: Unique identifier (auto-generated if not provided)
     """
 
     enabled: bool = True
@@ -57,29 +116,66 @@ class ReadChannel(BaseModel):
         super().__init__(**data)
 
 
-# Backward compatibility alias - DEPRECATED
-# Use ReadChannel instead. Channel will be removed in a future version.
+@warnings.deprecated(
+    "opcua.Channel is deprecated and will be removed in a future version. "
+    "Use opcua.ReadChannel instead."
+)
 def Channel(*args, **kwargs):
-    warnings.warn(
-        "opcua.Channel is deprecated and will be removed in a future version. "
-        "Use opcua.ReadChannel instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
     return ReadChannel(*args, **kwargs)
 
 
 class WriteChannel(BaseModel):
     """
-    Configuration for a channel in an OPC UA write task. A list of these objects should
-    be passed to the `channels` field of the `WriteTaskConfig` constructor.
+    Configuration for a channel in an OPC UA write task.
 
-    :param enabled: Whether output for this channel is enabled. Defaults to True.
-    :param key: A unique key to identify this channel. Auto-generated if not provided.
-    :param cmd_channel: The Synnax channel key to read command values from. This is the
-        channel that will be monitored for commands to send to the OPC UA server.
-    :param node_id: The OPC UA node ID to write to. Format: "NS=<namespace>;I=<id>" or
-        similar OPC UA node ID format.
+    Each WriteChannel defines a mapping from a Synnax command channel to an OPC UA
+    node on the server. When values are written to the Synnax command channel, they
+    are automatically sent to the corresponding OPC UA node, enabling control of
+    remote equipment and processes.
+
+    Common NodeID formats:
+    - "NS=2;I=1234" - Numeric identifier in namespace 2
+    - "NS=2;S=MySetpoint" - String identifier in namespace 2
+    - "NS=2;G=550e8400-e29b-41d4-a716-446655440000" - GUID identifier
+    - "NS=2;B=YWJjZGVm" - Opaque (Base64) identifier
+
+    For detailed information on OPC UA node addressing, see:
+    <https://reference.opcfoundation.org/Core/Part3/v104/docs/8.2>
+
+    Example 1: Writing a temperature setpoint
+        >>> # Control temperature setpoint on the OPC UA server
+        >>> temp_setpoint = WriteChannel(
+        ...     node_id="NS=2;I=2001",
+        ...     cmd_channel=200,  # Synnax channel with setpoint commands
+        ...     enabled=True
+        ... )
+
+    Example 2: Writing a valve position
+        >>> # Control valve opening percentage (0-100)
+        >>> valve_control = WriteChannel(
+        ...     node_id="NS=3;S=Actuators.Valve1.Position",
+        ...     cmd_channel=201
+        ... )
+
+    Example 3: Writing a boolean command
+        >>> # Start/stop motor via boolean node
+        >>> motor_start = WriteChannel(
+        ...     node_id="NS=4;I=3000",
+        ...     cmd_channel=202,
+        ...     enabled=True
+        ... )
+
+    Example 4: Writing a process parameter
+        >>> # Update PID controller setpoint
+        >>> pid_setpoint = WriteChannel(
+        ...     node_id="NS=2;S=Controllers.PID1.Setpoint",
+        ...     cmd_channel=203
+        ... )
+
+    :param node_id: OPC UA node identifier to write to (e.g., "NS=2;I=1001" or "NS=2;S=Variable")
+    :param cmd_channel: Synnax channel key to read command values from
+    :param enabled: Whether output for this channel is enabled
+    :param key: Unique identifier (auto-generated if not provided)
     """
 
     enabled: bool = True
@@ -100,11 +196,14 @@ class WriteChannel(BaseModel):
 class OPCReadTaskConfigBase(BaseTaskConfig):
     """Base configuration for OPC UA read tasks.
 
-    Inherits common task fields (data_saving, auto_start) from BaseTaskConfig
-    and adds OPC UA-specific configuration with OPC UA hardware sample rate limits (10kHz max).
-    Note: OPC UA has array and non-array modes with different requirements for stream_rate.
+    Inherits auto_start from BaseTaskConfig and adds OPC UA-specific fields.
+    Does not inherit from BaseReadTaskConfig because OPC UA has conditional stream_rate
+    requirements (only present in non-array mode). Includes data_saving for all OPC UA
+    read tasks with OPC UA hardware sample rate limits (10 kHz max).
     """
 
+    data_saving: bool = True
+    "Whether to persist acquired data to disk (True) or only stream it (False)."
     device: str = Field(min_length=1)
     "The key of the Synnax OPC UA device to read from."
     sample_rate: float = Field(gt=0, le=10000)
@@ -172,7 +271,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         auto_start: bool = False,
         array_mode: bool = False,
         array_size: int = 1,
-        channels: list[Channel] = None,
+        channels: list[ReadChannel] = None,
     ):
         if internal is not None:
             self._internal = internal
@@ -228,9 +327,10 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
 class WriteTaskConfig(BaseWriteTaskConfig):
     """Configuration for an OPC UA write task.
 
-    Inherits common write task fields (device, data_saving, auto_start) from
+    Inherits common write task fields (device, auto_start) from
     BaseWriteTaskConfig and adds OPC UA-specific channel configuration.
-    OPC UA write tasks do not use state_rate.
+    OPC UA write tasks do not support state feedback, so they do not use
+    state_rate or data_saving.
     """
 
     channels: list[WriteChannel]
@@ -253,8 +353,6 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
 
     :param device: The key of the Synnax OPC UA device to write to.
     :param name: A human-readable name for the task.
-    :param data_saving: Whether to save data permanently within Synnax, or just stream
-        it for real-time consumption.
     :param auto_start: Whether to start the task automatically when it is created.
     :param channels: A list of WriteChannel objects that specify which OPC UA nodes to
         write to and which Synnax channels to read command values from.
@@ -270,7 +368,6 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         *,
         device: str = "",
         name: str = "",
-        data_saving: bool = False,
         auto_start: bool = False,
         channels: list[WriteChannel] = None,
     ):
@@ -281,7 +378,6 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         self._internal = Task(name=name, type=self.TYPE)
         self.config = WriteTaskConfig(
             device=device,
-            data_saving=data_saving,
             auto_start=auto_start,
             channels=channels if channels is not None else [],
         )

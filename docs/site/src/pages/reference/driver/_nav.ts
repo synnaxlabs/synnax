@@ -38,8 +38,8 @@ export const DRIVER_NAV: PageNavNode = {
       name: "Task Basics",
     },
     LABJACK_NAV,
+    MODBUS_NAV,
     NI_NAV,
     OPC_UA_NAV,
-    MODBUS_NAV,
   ],
 };

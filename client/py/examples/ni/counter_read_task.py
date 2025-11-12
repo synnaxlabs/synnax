@@ -25,7 +25,6 @@ via the NI-MAX software.
 # See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
 client = sy.Synnax()
 
-# Retrieve the USB-6289 device from Synnax.
 dev = client.hardware.devices.retrieve(model="NI 9326")
 
 # Create an index channel that will be used to store the timestamps
@@ -66,9 +65,9 @@ tsk = ni.CounterReadTask(
     # The rate at which the task will sample data from the device.
     sample_rate=sy.Rate.HZ * 100,
     # The rate at which data will be streamed from the device into Synnax.
-    # Since we're sampling at 100hz and streaming at 25hz, we'll get 4 samples at a
+    # Since we're sampling at 100 Hz and streaming at 25 Hz, we'll get 4 samples at a
     # time.
-    # It's generally best to keep the stream rate under 100Hz.
+    # It's generally best to keep the stream rate under 100 Hz.
     stream_rate=sy.Rate.HZ * 25,
     # Whether to save data acquired by the task to disk. If set to False, the data
     # will be streamed into Synnax for real-time consumption but not saved to disk.
@@ -122,12 +121,7 @@ total_reads = 100
 frame = sy.Frame()
 
 # Start the task under a context manager, which ensures the task gets stopped
-# when the block exits. If you want to stop the task manually, you can call
-# tsk.start()
-# ...your code
-# tsk.stop()
-# We recommend wrapping your code in a try/finally block to ensure the task is
-# stopped in case of an exception.
+# when the block exits.
 with tsk.run():
     # Open a streamer on the counter input channels.
     with client.open_streamer(["ci_0_freq", "ci_1_count"]) as streamer:

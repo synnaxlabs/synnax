@@ -8,10 +8,12 @@ This directory contains example scripts for working with OPC UA servers in Synna
 2. **Software**:
    - Synnax server running
    - Synnax driver running
-   - For testing: OPC UA test server (included in `/driver/opc/dev/server_extended.py`)
+   - For testing: OPC UA test server (included in `examples/opcua/server.py`)
 3. **Authentication**: Logged in to Synnax CLI (`poetry run sy login`)
 
 ## Quick Start Guide
+
+**Important**: All commands in this guide should be run from the `client/py` directory.
 
 Follow these scripts in order:
 
@@ -20,7 +22,7 @@ Follow these scripts in order:
 If you don't have a real OPC UA server, start the included test server:
 
 ```bash
-poetry run python driver/opc/dev/server_extended.py
+poetry run python examples/opcua/server.py
 ```
 
 This server simulates:
@@ -39,7 +41,7 @@ startup.
 Register your OPC UA server with Synnax:
 
 ```bash
-poetry run python examples/opcua/connect_opc_server.py
+poetry run python examples/opcua/connect_server.py
 ```
 
 This script will:
@@ -48,7 +50,7 @@ This script will:
 - Register the server with the embedded Synnax rack
 - Set up the server configuration
 
-**Configuration**: Edit the constants at the top of `connect_opc_server.py` to match
+**Configuration**: Edit the constants at the top of `connect_server.py` to match
 your server:
 
 - `DEVICE_NAME`: A friendly name for your OPC UA server
@@ -139,7 +141,7 @@ your server.
 When finished, remove the server registration:
 
 ```bash
-poetry run python examples/opcua/delete_opc_server.py
+poetry run python examples/opcua/delete_server.py
 ```
 
 This will remove the server and all associated tasks from Synnax.

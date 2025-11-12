@@ -136,10 +136,5 @@ public:
 
     common::ConfigureResult
     configure_scan(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
-
-    common::ConfigureResult configure_counter_write(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
-    );
 };
 }

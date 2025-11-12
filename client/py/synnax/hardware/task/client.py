@@ -12,8 +12,11 @@ from __future__ import annotations
 import json
 import warnings
 from contextlib import contextmanager
-from typing import Any, Protocol, overload
+from typing import TYPE_CHECKING, Protocol, overload
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from synnax.ontology.client import Client as OntologyClient
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
@@ -80,10 +83,9 @@ class BaseTaskConfig(BaseModel):
     Base configuration shared by all hardware task types.
 
     This base class provides common fields that all hardware integration tasks need:
-    data persistence settings and auto-start behavior.
+    auto-start behavior.
     """
 
-    data_saving: bool = True
     auto_start: bool = False
 
 
@@ -94,12 +96,14 @@ class BaseReadTaskConfig(BaseTaskConfig):
     Extends BaseTaskConfig with sample rate and stream rate fields common to
     all data acquisition tasks (LabJack, NI, Modbus, OPC UA read tasks).
 
-    Default rate limits are set to 50kHz based on NI hardware constraints,
+    Default rate limits are set to 50 kHz based on NI hardware constraints,
     which are the most restrictive across supported hardware platforms.
     Hardware-specific configs can override these limits for devices that
     support higher rates.
     """
 
+    data_saving: bool = True
+    "Whether to persist acquired data to disk (True) or only stream it (False)."
     sample_rate: conint(ge=0, le=50000)
     "The rate at which to sample data from the hardware device (Hz)."
     stream_rate: conint(ge=0, le=50000)
@@ -119,10 +123,10 @@ class BaseWriteTaskConfig(BaseTaskConfig):
     """
     Base configuration for hardware write/control tasks.
 
-    Provides common fields (device, data_saving, auto_start) for all hardware
-    write tasks. Note that state_rate is NOT included in this base class as it
-    is hardware-specific - not all hardware integrations use state feedback
-    (e.g., Modbus and OPC UA write tasks do not use state_rate).
+    Provides common fields (device, auto_start) for all hardware write tasks.
+    Note that state_rate and data_saving are NOT included in this base class as they
+    are hardware-specific - only write tasks with state feedback (NI, LabJack) use
+    these fields. Tasks without state feedback (Modbus, OPC UA) do not need them.
     """
 
     device: str = Field(min_length=1)
@@ -304,7 +308,7 @@ class Client:
     _default_rack: Rack | None
     _racks: RackClient
     _device_client: device.Client | None
-    _ontology_client: Any | None
+    _ontology_client: OntologyClient | None
     instrumentation: Instrumentation = NOOP
 
     def __init__(
@@ -313,7 +317,7 @@ class Client:
         frame_client: FrameClient,
         rack_client: RackClient,
         device_client: device.Client | None = None,
-        ontology_client: Any | None = None,
+        ontology_client: OntologyClient | None = None,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client

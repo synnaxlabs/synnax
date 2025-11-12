@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 from typing import Literal
 from uuid import uuid4
 
@@ -52,10 +53,50 @@ class AIChan(BaseChan):
     Analog Input Channel configuration for LabJack devices.
 
     Reads analog voltage from a specified input terminal. Supports single-ended
-    and differential configurations via neg_chan parameter.
+    and differential configurations via neg_chan parameter. The voltage range
+    determines the ADC resolution and should be set to the smallest range that
+    accommodates your signal for best accuracy.
 
     For detailed information, see the LabJack documentation:
-    <https://labjack.com/pages/support?doc=/datasheets/t-series-datasheet/>
+    <https://support.labjack.com/docs/14-0-analog-inputs-t-series-datasheet>
+
+    Example 1: Single-ended voltage measurement (referenced to GND)
+        >>> # Most common configuration for sensors with ground reference
+        >>> ai_chan = AIChan(
+        ...     port="AIN0",
+        ...     channel=100,  # Synnax channel key
+        ...     range=10.0,   # ±10V range
+        ...     neg_chan=199, # 199 = single-ended (GND reference)
+        ...     pos_chan=0    # AIN0 as positive input
+        ... )
+
+    Example 2: Differential voltage measurement
+        >>> # Better noise rejection for small signals
+        >>> ai_diff_chan = AIChan(
+        ...     port="AIN0",
+        ...     channel=101,
+        ...     range=1.0,    # ±1V range for better resolution
+        ...     neg_chan=1,   # AIN1 as negative input
+        ...     pos_chan=0    # AIN0 as positive input
+        ... )
+
+    Example 3: High-resolution measurement with small range
+        >>> # Maximize ADC resolution for low-voltage sensors
+        >>> ai_precise_chan = AIChan(
+        ...     port="AIN2",
+        ...     channel=102,
+        ...     range=0.1,    # ±0.1V range (best resolution)
+        ...     neg_chan=199, # Single-ended
+        ...     pos_chan=2    # AIN2
+        ... )
+
+    :param port: The port location (e.g., 'AIN0', 'AIN1', etc.)
+    :param channel: Synnax channel key that will receive voltage data
+    :param range: Voltage range in volts (±range). Common values: 10.0, 1.0, 0.1, 0.01
+    :param neg_chan: Negative channel for differential mode (199 = single-ended GND reference)
+    :param pos_chan: Positive channel number (0 for AIN0, 1 for AIN1, etc.)
+    :param key: Unique identifier (auto-generated if not provided)
+    :param enabled: Whether the channel is enabled for acquisition
     """
 
     type: Literal["AI"] = "AI"
@@ -88,7 +129,7 @@ class ThermocoupleChan(BaseChan):
     3. Another analog input: Use when you have a dedicated temperature sensor
 
     For detailed information, see the LabJack documentation:
-    <https://labjack.com/pages/support?doc=/datasheets/t-series-datasheet/33-appendix-a-1-thermocouples-t-series-datasheet/>
+    <https://support.labjack.com/docs/using-a-thermocouple-with-the-t7>
 
     Example 1: Basic K-type thermocouple with internal CJC
         >>> # Most common configuration - simple and reliable
@@ -187,10 +228,38 @@ class DIChan(BaseChan):
     """
     Digital Input Channel configuration for LabJack devices.
 
-    Reads digital state (0 or 1) from a specified digital I/O line.
+    Reads digital state (0 or 1) from a specified digital I/O line. Digital inputs
+    are 3.3V logic with TTL compatibility. Useful for reading switches, relays,
+    digital sensors, or other binary signals.
 
     For detailed information, see the LabJack documentation:
-    <https://labjack.com/pages/support?doc=/datasheets/t-series-datasheet/3220-digital-io-t-series-datasheet/>
+    <https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet>
+
+    Example 1: Reading a switch state
+        >>> # Monitor a toggle switch or push button
+        >>> di_switch = DIChan(
+        ...     port="FIO4",
+        ...     channel=200  # Synnax channel key for switch state
+        ... )
+
+    Example 2: Reading multiple digital inputs
+        >>> # Monitor several binary sensors
+        >>> di_sensor1 = DIChan(port="FIO0", channel=201)
+        >>> di_sensor2 = DIChan(port="FIO1", channel=202)
+        >>> di_sensor3 = DIChan(port="FIO2", channel=203)
+
+    Example 3: Reading a limit switch
+        >>> # Monitor a mechanical limit switch for position detection
+        >>> di_limit = DIChan(
+        ...     port="EIO0",
+        ...     channel=204,
+        ...     enabled=True
+        ... )
+
+    :param port: The digital I/O port (e.g., 'FIO0', 'FIO1', 'EIO0', 'CIO0')
+    :param channel: Synnax channel key that will receive digital state (0 or 1)
+    :param key: Unique identifier (auto-generated if not provided)
+    :param enabled: Whether the channel is enabled for acquisition
     """
 
     type: Literal["DI"] = "DI"
@@ -207,10 +276,51 @@ class OutputChan(BaseChan):
     Output Channel configuration for LabJack devices.
 
     Writes analog voltage or digital state to a specified output terminal.
-    Supports both analog outputs (DAC) and digital I/O lines.
+    Supports both analog outputs (DAC) and digital I/O lines. Analog outputs
+    are typically 0-5V on DAC0/DAC1, while digital outputs are 3.3V logic.
 
     For detailed information, see the LabJack documentation:
-    <https://labjack.com/pages/support?doc=/datasheets/t-series-datasheet/>
+    <https://support.labjack.com/docs/a-4-analog-output-t-series-datasheet>
+
+    Example 1: Analog output for control signal
+        >>> # Generate 0-5V analog control signal
+        >>> ao_control = OutputChan(
+        ...     port="DAC0",
+        ...     type="AO",
+        ...     cmd_channel=300,   # Synnax channel for setpoint commands
+        ...     state_channel=301  # Synnax channel for actual output state
+        ... )
+
+    Example 2: Digital output for relay control
+        >>> # Control a relay or solenoid valve
+        >>> do_relay = OutputChan(
+        ...     port="FIO5",
+        ...     type="DO",
+        ...     cmd_channel=302,   # Command channel (0/1)
+        ...     state_channel=303  # State feedback channel
+        ... )
+
+    Example 3: Multiple digital outputs
+        >>> # Control several digital devices
+        >>> do_valve1 = OutputChan(port="FIO6", type="DO", cmd_channel=304, state_channel=305)
+        >>> do_valve2 = OutputChan(port="FIO7", type="DO", cmd_channel=306, state_channel=307)
+
+    Example 4: PWM-like control using analog output
+        >>> # Variable speed control for fan or motor (using voltage)
+        >>> ao_motor = OutputChan(
+        ...     port="DAC1",
+        ...     type="AO",
+        ...     cmd_channel=308,
+        ...     state_channel=309,
+        ...     enabled=True
+        ... )
+
+    :param port: Output port location (e.g., 'DAC0', 'DAC1' for analog; 'FIO0'-'FIO7', 'EIO0'-'EIO7' for digital)
+    :param type: Output type - 'AO' for analog voltage output, 'DO' for digital output
+    :param cmd_channel: Synnax channel key to read command/setpoint values from
+    :param state_channel: Synnax channel key to write actual output state to
+    :param key: Unique identifier (auto-generated if not provided)
+    :param enabled: Whether the channel is enabled for output operations
     """
 
     type: Literal["AO", "DO"] = "DO"
@@ -227,7 +337,7 @@ class ReadTaskConfig(BaseReadTaskConfig):
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
     auto_start) from BaseReadTaskConfig and adds LabJack-specific channel configuration
-    with LabJack hardware sample rate limits (100kHz max).
+    with LabJack hardware sample rate limits (100 kHz max).
     """
 
     device: str = Field(min_length=1)
@@ -249,11 +359,13 @@ class WriteTaskConfig(BaseWriteTaskConfig):
     """
     Configuration for a LabJack write task.
 
-    Inherits common write task fields (device, data_saving, auto_start) from
-    BaseWriteTaskConfig and adds LabJack-specific state rate and channel configuration
-    with LabJack hardware state rate limits (10kHz max).
+    Inherits common write task fields (device, auto_start) from
+    BaseWriteTaskConfig and adds LabJack-specific data saving, state rate,
+    and channel configuration with LabJack hardware state rate limits (10 kHz max).
     """
 
+    data_saving: bool = True
+    "Whether to persist state feedback data to disk (True) or only stream it (False)."
     state_rate: conint(ge=0, le=10000)
     "The rate at which to write task channel states to the Synnax cluster (Hz)."
     channels: list[OutputChan]
@@ -322,8 +434,6 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
 
     def _update_device_properties(self, device_client):
         """Internal: Update device properties before task configuration."""
-        import json
-
         dev = device_client.retrieve(key=self.config.device)
         props = (
             json.loads(dev.properties)
@@ -391,8 +501,6 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
 
     def _update_device_properties(self, device_client):
         """Internal: Update device properties before task configuration."""
-        import json
-
         dev = device_client.retrieve(key=self.config.device)
         props = (
             json.loads(dev.properties)
@@ -464,8 +572,6 @@ def create_device(client, model: str, **kwargs):
         model: LabJack model (use module constants: T4, T7, T8)
         **kwargs: Additional arguments passed to client.hardware.devices.create()
     """
-    from uuid import uuid4
-
     # Validate model
     valid_models = [T4, T7, T8]
     if model not in valid_models:

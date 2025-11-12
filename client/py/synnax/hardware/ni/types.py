@@ -188,8 +188,37 @@ class AIAccelChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Accelerometer Channel
 
+    Measures acceleration using IEPE (Integrated Electronics Piezo-Electric)
+    accelerometers with built-in signal conditioning. Commonly used for vibration
+    analysis, shock testing, and modal analysis.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccelchan.html>
+
+    Example:
+        >>> # 100 mV/g accelerometer with internal current excitation
+        >>> accel_chan = AIAccelChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="PseudoDiff",
+        ...     sensitivity=100.0,  # 100 mV/g
+        ...     sensitivity_units="mVoltsPerG",
+        ...     units="g",
+        ...     current_excit_source="Internal",
+        ...     current_excit_val=0.004,  # 4 mA excitation
+        ...     min_val=-50.0,
+        ...     max_val=50.0
+        ... )
+
+    :param terminal_config: Input terminal configuration (Diff, PseudoDiff, RSE, NRSE)
+    :param sensitivity: Sensor sensitivity value
+    :param sensitivity_units: Sensitivity units (mVoltsPerG or VoltsPerG)
+    :param units: Output units (g, MetersPerSecondSquared, InchesPerSecondSquared)
+    :param current_excit_source: Excitation current source (Internal, External, or None)
+    :param current_excit_val: Excitation current in amps (typically 0.002-0.004A)
+    :param custom_scale: Optional custom scaling for the channel
+    :param min_val: Minimum expected acceleration value
+    :param max_val: Maximum expected acceleration value
     """
 
     type: Literal["ai_accel"] = "ai_accel"
@@ -206,8 +235,39 @@ class AIAccel4WireDCVoltageChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Accelerometer 4-Wire DC Voltage Channel
 
+    Measures acceleration using DC-coupled accelerometers with 4-wire voltage
+    excitation. The 4-wire configuration provides accurate excitation voltage
+    at the sensor by compensating for lead resistance.
+
     For detailed information, see the NI-DAQmx documentation:
-    https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccel4wiredcvoltagechan.html
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccel4wiredcvoltagechan.html>
+
+    Example:
+        >>> # DC accelerometer with 4-wire voltage excitation
+        >>> accel_4w_chan = AIAccel4WireDCVoltageChan(
+        ...     port=0,
+        ...     channel=1,
+        ...     terminal_config="Diff",
+        ...     sensitivity=50.0,  # 50 mV/g
+        ...     sensitivity_units="mVoltsPerG",
+        ...     units="g",
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=5.0,  # 5V excitation
+        ...     use_excit_for_scaling=True,
+        ...     min_val=-10.0,
+        ...     max_val=10.0
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param sensitivity: Sensor sensitivity value
+    :param sensitivity_units: Sensitivity units (mVoltsPerG or VoltsPerG)
+    :param units: Output units (g, MetersPerSecondSquared, InchesPerSecondSquared)
+    :param voltage_excit_source: Voltage excitation source (Internal, External, or None)
+    :param voltage_excit_val: Excitation voltage in volts
+    :param use_excit_for_scaling: Whether to use excitation voltage for scaling
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected acceleration
+    :param max_val: Maximum expected acceleration
     """
 
     type: Literal["ai_accel_4_wire_dc_voltage"] = "ai_accel_4_wire_dc_voltage"
@@ -225,8 +285,27 @@ class AIAccelChargeChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Accelerometer Charge Channel
 
+    Measures acceleration using charge-mode piezoelectric accelerometers.
+    Charge-mode sensors are ideal for high-temperature applications and
+    provide excellent low-frequency response. Requires charge amplifier hardware.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccelchargechan.html>
+
+    Example:
+        >>> # Charge-mode accelerometer for high temperature
+        >>> accel_charge_chan = AIAccelChargeChan(
+        ...     port=0,
+        ...     channel=2,
+        ...     units="g",
+        ...     min_val=-100.0,
+        ...     max_val=100.0
+        ... )
+
+    :param units: Output units (g, MetersPerSecondSquared, InchesPerSecondSquared)
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected acceleration
+    :param max_val: Maximum expected acceleration
     """
 
     type: Literal["ai_accel_charge"] = "ai_accel_charge"
@@ -238,8 +317,37 @@ class AIBridgeChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Bridge Channel
 
+    Measures voltage output from a Wheatstone bridge circuit without applying
+    physical unit scaling. Outputs in volts per volt (V/V). Use this for custom
+    bridge sensors or when you want raw bridge output before applying calibration.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaibridgechan.html>
+
+    Example:
+        >>> # Generic full-bridge sensor with 10V excitation
+        >>> bridge_chan = AIBridgeChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="Diff",
+        ...     units="VoltsPerVolt",
+        ...     bridge_config="FullBridge",
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=10.0,
+        ...     nominal_bridge_resistance=350.0,  # 350 ohm bridge
+        ...     min_val=-0.01,  # ±10 mV/V
+        ...     max_val=0.01
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param units: Output units (mVoltsPerVolt or VoltsPerVolt)
+    :param bridge_config: Bridge type (FullBridge, HalfBridge, QuarterBridge)
+    :param voltage_excit_source: Excitation voltage source
+    :param voltage_excit_val: Excitation voltage in volts
+    :param nominal_bridge_resistance: Bridge resistance in ohms at null condition
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected bridge output
+    :param max_val: Maximum expected bridge output
     """
 
     type: Literal["ai_bridge"] = "ai_bridge"
@@ -256,8 +364,29 @@ class AIChargeChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Charge Channel
 
+    Measures electrical charge from piezoelectric sensors. Commonly used with
+    piezoelectric force sensors, pressure sensors, and other charge-output
+    transducers. Requires charge amplifier hardware.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaichargechan.html>
+
+    Example:
+        >>> # Piezoelectric sensor measuring in Coulombs
+        >>> charge_chan = AIChargeChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="Diff",
+        ...     units="C",  # Coulombs
+        ...     min_val=-0.000001,  # -1 µC
+        ...     max_val=0.000001    # +1 µC
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param units: Charge units (C for Coulombs, uC for microCoulombs)
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected charge
+    :param max_val: Maximum expected charge
     """
 
     type: Literal["ai_charge"] = "ai_charge"
@@ -270,8 +399,33 @@ class AICurrentChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Current Channel
 
+    Measures current from 4-20mA current loop sensors or other current-output
+    transducers. Uses a shunt resistor to convert current to voltage.
+    Common in industrial process control applications.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaicurrentchan.html>
+
+    Example:
+        >>> # 4-20 mA current loop sensor
+        >>> current_chan = AICurrentChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="Diff",
+        ...     units="Amps",
+        ...     shunt_resistor_loc="Internal",  # Use internal shunt
+        ...     ext_shunt_resistor_val=249.0,  # External shunt value if used
+        ...     min_val=0.004,  # 4 mA
+        ...     max_val=0.020   # 20 mA
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param units: Output units (Amps)
+    :param shunt_resistor_loc: Shunt resistor location (Default, Internal, External)
+    :param ext_shunt_resistor_val: External shunt resistor value in ohms
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected current
+    :param max_val: Maximum expected current
     """
 
     type: Literal["ai_current"] = "ai_current"
@@ -284,10 +438,35 @@ class AICurrentChan(BaseAIChan, MinMaxVal):
 
 class AICurrentRMSChan(BaseAIChan, MinMaxVal):
     """
-    Analog Current RMS Channel
+    Analog Input Current RMS Channel
+
+    Measures root-mean-square (RMS) value of AC current signals. Useful for
+    measuring AC power consumption or monitoring AC motor current.
+    Automatically calculates RMS over the specified measurement period.
 
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaicurrentrmschan.html>
+
+    Example:
+        >>> # AC current measurement (RMS)
+        >>> current_rms_chan = AICurrentRMSChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="Diff",
+        ...     units="Amps",
+        ...     shunt_resistor_loc="Internal",
+        ...     ext_shunt_resistor_val=249.0,
+        ...     min_val=0.0,
+        ...     max_val=10.0  # 0-10A RMS
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param units: Output units (Amps)
+    :param shunt_resistor_loc: Shunt resistor location (Default, Internal, External)
+    :param ext_shunt_resistor_val: External shunt resistor value in ohms
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected RMS current
+    :param max_val: Maximum expected RMS current
     """
 
     type: Literal["ai_current_rms"] = "ai_current_rms"
@@ -302,8 +481,45 @@ class AIForceBridgePolynomialChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Force Bridge Polynomial Channel
 
+    Measures force using a Wheatstone bridge load cell with polynomial scaling.
+    Polynomial coefficients convert bridge output voltage to force units.
+    Use this when your load cell comes with polynomial calibration data.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgepolynomialchan.html>
+
+    Example:
+        >>> # Load cell with polynomial calibration
+        >>> force_poly_chan = AIForceBridgePolynomialChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="Diff",
+        ...     units="Newtons",
+        ...     bridge_config="FullBridge",
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=10.0,
+        ...     nominal_bridge_resistance=350.0,
+        ...     forward_coeffs=[0.0, 1000.0, 0.1, 0.001],  # Calibration coefficients
+        ...     reverse_coeffs=[0.0, 0.001, -0.0001],
+        ...     electrical_units="mVoltsPerVolt",
+        ...     physical_units="Newtons",
+        ...     min_val=-500.0,
+        ...     max_val=500.0
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param units: Output force units (Newtons, Pounds, KilogramForce)
+    :param bridge_config: Bridge type (FullBridge, HalfBridge, QuarterBridge)
+    :param voltage_excit_source: Excitation voltage source
+    :param voltage_excit_val: Excitation voltage in volts
+    :param nominal_bridge_resistance: Bridge resistance in ohms
+    :param forward_coeffs: Forward polynomial coefficients (electrical to physical)
+    :param reverse_coeffs: Reverse polynomial coefficients (physical to electrical)
+    :param electrical_units: Bridge output units (mVoltsPerVolt or VoltsPerVolt)
+    :param physical_units: Force units matching the units parameter
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected force
+    :param max_val: Maximum expected force
     """
 
     type: Literal["ai_force_bridge_polynomial"] = "ai_force_bridge_polynomial"
@@ -324,8 +540,43 @@ class AIForceBridgeTableChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Force Bridge Table Channel
 
+    Measures force using a Wheatstone bridge load cell with table-based scaling.
+    Maps electrical values to physical force values using lookup table interpolation.
+    Ideal when you have discrete calibration points from load cell testing.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgetablechan.html>
+
+    Example:
+        >>> # Load cell with calibration table
+        >>> force_table_chan = AIForceBridgeTableChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     units="Pounds",
+        ...     bridge_config="FullBridge",
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=10.0,
+        ...     nominal_bridge_resistance=350.0,
+        ...     electrical_units="mVoltsPerVolt",
+        ...     electrical_vals=[-2.0, -1.0, 0.0, 1.0, 2.0],  # mV/V readings
+        ...     physical_units="Pounds",
+        ...     physical_vals=[-100.0, -50.0, 0.0, 50.0, 100.0],  # Force values
+        ...     min_val=-100.0,
+        ...     max_val=100.0
+        ... )
+
+    :param units: Output force units (Newtons, Pounds, KilogramForce)
+    :param bridge_config: Bridge type (FullBridge, HalfBridge, QuarterBridge)
+    :param voltage_excit_source: Excitation voltage source
+    :param voltage_excit_val: Excitation voltage in volts
+    :param nominal_bridge_resistance: Bridge resistance in ohms
+    :param electrical_units: Bridge output units (mVoltsPerVolt or VoltsPerVolt)
+    :param electrical_vals: List of electrical calibration point values
+    :param physical_units: Force units matching the units parameter
+    :param physical_vals: List of corresponding force values
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected force
+    :param max_val: Maximum expected force
     """
 
     type: Literal["ai_force_bridge_table"] = "ai_force_bridge_table"
@@ -345,8 +596,49 @@ class AIForceBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Force Bridge Two Point Linear Channel
 
+    Measures force using a Wheatstone bridge load cell with two-point linear scaling.
+    Defines a linear calibration using two known force/voltage pairs.
+    Simple and effective for load cells with linear characteristics.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgetwopointlinchan.html>
+
+    Example:
+        >>> # Load cell with two-point calibration
+        >>> force_2pt_chan = AIForceBridgeTwoPointLinChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="Diff",
+        ...     units="Newtons",
+        ...     bridge_config="FullBridge",
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=10.0,
+        ...     nominal_bridge_resistance=350.0,
+        ...     electrical_units="mVoltsPerVolt",
+        ...     physical_units="Newtons",
+        ...     first_electrical_val=0.0,   # No load = 0 mV/V
+        ...     first_physical_val=0.0,     # 0 N
+        ...     second_electrical_val=2.0,  # Full scale = 2 mV/V
+        ...     second_physical_val=1000.0, # 1000 N
+        ...     min_val=-100.0,
+        ...     max_val=1100.0
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param units: Output force units (Newtons, Pounds, KilogramForce)
+    :param bridge_config: Bridge type (FullBridge, HalfBridge, QuarterBridge)
+    :param voltage_excit_source: Excitation voltage source
+    :param voltage_excit_val: Excitation voltage in volts
+    :param nominal_bridge_resistance: Bridge resistance in ohms
+    :param electrical_units: Bridge output units (mVoltsPerVolt or VoltsPerVolt)
+    :param physical_units: Force units matching the units parameter
+    :param first_electrical_val: First calibration point electrical value
+    :param first_physical_val: First calibration point force value
+    :param second_electrical_val: Second calibration point electrical value
+    :param second_physical_val: Second calibration point force value
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected force
+    :param max_val: Maximum expected force
     """
 
     type: Literal["ai_force_bridge_two_point_lin"] = "ai_force_bridge_two_point_lin"
@@ -369,8 +661,37 @@ class AIForceIEPEChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Force IEPE Channel
 
+    Measures force using IEPE (Integrated Electronics Piezo-Electric) force sensors
+    with built-in electronics. Provides current excitation and measures dynamic
+    force events. Ideal for impact testing and dynamic force measurements.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforceiepechan.html>
+
+    Example:
+        >>> # IEPE force sensor for impact testing
+        >>> force_iepe_chan = AIForceIEPEChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="PseudoDiff",
+        ...     units="Newtons",
+        ...     sensitivity=10.0,  # 10 mV/N
+        ...     sensitivity_units="mVoltsPerVolt",
+        ...     current_excit_source="Internal",
+        ...     current_excit_val=0.004,  # 4 mA
+        ...     min_val=-5000.0,
+        ...     max_val=5000.0
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param units: Output force units (Newtons, Pounds, KilogramForce)
+    :param sensitivity: Sensor sensitivity value
+    :param sensitivity_units: Sensitivity units (mVoltsPerVolt or VoltsPerVolt)
+    :param current_excit_source: Excitation current source (Internal, External, or None)
+    :param current_excit_val: Excitation current in amps (typically 2-4 mA)
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected force
+    :param max_val: Maximum expected force
     """
 
     type: Literal["ai_force_iepe"] = "ai_force_iepe"
@@ -387,8 +708,31 @@ class AIFreqVoltageChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Frequency Voltage Channel
 
+    Measures frequency of an analog voltage signal by detecting zero-crossings
+    or threshold crossings. Useful for measuring AC line frequency, VFD output
+    frequency, or other varying voltage signals.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaifreqvoltagechan.html>
+
+    Example:
+        >>> # Measure AC line frequency (50/60 Hz)
+        >>> freq_voltage_chan = AIFreqVoltageChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     units="Hz",
+        ...     threshold_level=0.0,  # Zero-crossing detection
+        ...     hysteresis=0.1,       # 100mV hysteresis
+        ...     min_val=45.0,
+        ...     max_val=65.0
+        ... )
+
+    :param units: Output units (Hz for frequency)
+    :param threshold_level: Voltage threshold for frequency detection
+    :param hysteresis: Hysteresis voltage to prevent false triggering
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected frequency
+    :param max_val: Maximum expected frequency
     """
 
     type: Literal["ai_freq_voltage"] = "ai_freq_voltage"
@@ -402,8 +746,33 @@ class AIMicrophoneChan(BaseAIChan):
     """
     Analog Input Microphone Channel
 
+    Measures sound pressure using IEPE microphones with built-in preamplifiers.
+    Provides current excitation and converts acoustic pressure to electrical signal.
+    Common in noise analysis, acoustic testing, and sound level measurements.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaimicrophonechan.html>
+
+    Example:
+        >>> # IEPE microphone for acoustic measurements
+        >>> microphone_chan = AIMicrophoneChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="PseudoDiff",
+        ...     mic_sensitivity=50.0,  # 50 mV/Pa
+        ...     max_snd_press_level=140.0,  # 140 dB SPL max
+        ...     current_excit_source="Internal",
+        ...     current_excit_val=0.004,  # 4 mA
+        ...     units="Pascals"
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param mic_sensitivity: Microphone sensitivity in mV/Pa
+    :param max_snd_press_level: Maximum sound pressure level in dB SPL
+    :param current_excit_source: Excitation current source (Internal, External, or None)
+    :param current_excit_val: Excitation current in amps (typically 2-4 mA)
+    :param units: Output units (Pascals)
+    :param custom_scale: Optional custom scaling
     """
 
     type: Literal["ai_microphone"] = "ai_microphone"
@@ -420,8 +789,43 @@ class AIPressureBridgePolynomialChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Pressure Bridge Polynomial Channel
 
+    Measures pressure using a Wheatstone bridge pressure sensor with polynomial
+    scaling. Polynomial coefficients convert bridge output to pressure units.
+    Use when your pressure transducer has polynomial calibration data.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgepolynomialchan.html>
+
+    Example:
+        >>> # Pressure sensor with polynomial calibration
+        >>> pressure_poly_chan = AIPressureBridgePolynomialChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     units="PoundsPerSquareInch",
+        ...     bridge_config="FullBridge",
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=10.0,
+        ...     nominal_bridge_resistance=350.0,
+        ...     forward_coeffs=[0.0, 100.0, 0.01],  # Calibration coefficients
+        ...     reverse_coeffs=[0.0, 0.01],
+        ...     electrical_units="mVoltsPerVolt",
+        ...     physical_units="PoundsPerSquareInch",
+        ...     min_val=0.0,
+        ...     max_val=1000.0
+        ... )
+
+    :param units: Output pressure units (PoundsPerSquareInch, Pascals, Bar)
+    :param bridge_config: Bridge type (FullBridge, HalfBridge, QuarterBridge)
+    :param voltage_excit_source: Excitation voltage source
+    :param voltage_excit_val: Excitation voltage in volts
+    :param nominal_bridge_resistance: Bridge resistance in ohms
+    :param forward_coeffs: Forward polynomial coefficients
+    :param reverse_coeffs: Reverse polynomial coefficients
+    :param electrical_units: Bridge output units (mVoltsPerVolt or VoltsPerVolt)
+    :param physical_units: Pressure units matching the units parameter
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected pressure
+    :param max_val: Maximum expected pressure
     """
 
     type: Literal["ai_pressure_bridge_polynomial"] = "ai_pressure_bridge_polynomial"
@@ -441,8 +845,43 @@ class AIPressureBridgeTableChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Pressure Bridge Table Channel
 
+    Measures pressure using a Wheatstone bridge sensor with table-based scaling.
+    Maps electrical values to pressure using lookup table interpolation.
+    Ideal when you have discrete calibration points from pressure sensor testing.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgetablechan.html>
+
+    Example:
+        >>> # Pressure sensor with calibration table
+        >>> pressure_table_chan = AIPressureBridgeTableChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     units="Bar",
+        ...     bridge_config="FullBridge",
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=10.0,
+        ...     nominal_bridge_resistance=350.0,
+        ...     electrical_units="mVoltsPerVolt",
+        ...     electrical_vals=[0.0, 0.5, 1.0, 1.5, 2.0],
+        ...     physical_units="Bar",
+        ...     physical_vals=[0.0, 25.0, 50.0, 75.0, 100.0],
+        ...     min_val=0.0,
+        ...     max_val=100.0
+        ... )
+
+    :param units: Output pressure units (PoundsPerSquareInch, Pascals, Bar)
+    :param bridge_config: Bridge type (FullBridge, HalfBridge, QuarterBridge)
+    :param voltage_excit_source: Excitation voltage source
+    :param voltage_excit_val: Excitation voltage in volts
+    :param nominal_bridge_resistance: Bridge resistance in ohms
+    :param electrical_units: Bridge output units (mVoltsPerVolt or VoltsPerVolt)
+    :param electrical_vals: List of electrical calibration point values
+    :param physical_units: Pressure units matching the units parameter
+    :param physical_vals: List of corresponding pressure values
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected pressure
+    :param max_val: Maximum expected pressure
     """
 
     type: Literal["ai_pressure_bridge_table"] = "ai_pressure_bridge_table"
@@ -462,8 +901,49 @@ class AIPressureBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Pressure Bridge Two Point Linear Channel
 
+    Measures pressure using a Wheatstone bridge sensor with two-point linear scaling.
+    Defines linear calibration using two known pressure/voltage pairs.
+    Simple and effective for pressure transducers with linear response.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgetwopointlinchan.html>
+
+    Example:
+        >>> # Pressure sensor with two-point calibration
+        >>> pressure_2pt_chan = AIPressureBridgeTwoPointLinChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="Diff",
+        ...     units="Pascals",
+        ...     bridge_config="FullBridge",
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=10.0,
+        ...     nominal_bridge_resistance=350.0,
+        ...     electrical_units="mVoltsPerVolt",
+        ...     physical_units="Pascals",
+        ...     first_electrical_val=0.0,
+        ...     first_physical_val=0.0,      # 0 Pa at 0 mV/V
+        ...     second_electrical_val=2.0,
+        ...     second_physical_val=100000.0, # 100 kPa at 2 mV/V
+        ...     min_val=-10000.0,
+        ...     max_val=110000.0
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param units: Output pressure units (PoundsPerSquareInch, Pascals, Bar)
+    :param bridge_config: Bridge type (FullBridge, HalfBridge, QuarterBridge)
+    :param voltage_excit_source: Excitation voltage source
+    :param voltage_excit_val: Excitation voltage in volts
+    :param nominal_bridge_resistance: Bridge resistance in ohms
+    :param electrical_units: Bridge output units (mVoltsPerVolt or VoltsPerVolt)
+    :param physical_units: Pressure units matching the units parameter
+    :param first_electrical_val: First calibration point electrical value
+    :param first_physical_val: First calibration point pressure value
+    :param second_electrical_val: Second calibration point electrical value
+    :param second_physical_val: Second calibration point pressure value
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected pressure
+    :param max_val: Maximum expected pressure
     """
 
     type: Literal["ai_pressure_bridge_two_point_lin"] = (
@@ -488,8 +968,35 @@ class AIResistanceChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Resistance Channel
 
+    Measures electrical resistance using 2-wire, 3-wire, or 4-wire configurations.
+    Applies excitation current and measures resulting voltage to calculate resistance.
+    Common for custom resistive sensors or resistance monitoring applications.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateairesistancechan.html>
+
+    Example:
+        >>> # 4-wire resistance measurement
+        >>> resistance_chan = AIResistanceChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="Diff",
+        ...     units="Ohms",
+        ...     resistance_config="4Wire",  # Most accurate
+        ...     current_excit_source="Internal",
+        ...     current_excit_val=0.001,  # 1 mA excitation
+        ...     min_val=0.0,
+        ...     max_val=1000.0
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param units: Output units (Ohms)
+    :param resistance_config: Wire configuration (2Wire, 3Wire, or 4Wire)
+    :param current_excit_source: Excitation current source (Internal, External, or None)
+    :param current_excit_val: Excitation current in amps
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected resistance
+    :param max_val: Maximum expected resistance
     """
 
     type: Literal["ai_resistance"] = "ai_resistance"
@@ -505,8 +1012,48 @@ class AIRosetteStrainGageChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Rosette Strain Gage Channel
 
+    Measures strain using a rosette strain gage configuration with multiple elements
+    arranged at specific angles. Calculates principal strains, shear strains, and
+    strain directions. Used for complex stress analysis where strain direction is unknown.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateairosettestraingagechan.html>
+
+    Example:
+        >>> # Rectangular rosette for principal strain analysis
+        >>> rosette_chan = AIRosetteStrainGageChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="Diff",
+        ...     rosette_type="RectangularRosette",
+        ...     gage_orientation=0.0,  # degrees
+        ...     rosette_meas_types=["PrincipleStrain1", "PrincipleStrain2", "MaxShearStrain"],
+        ...     strain_config="QuarterBridgeI",
+        ...     units="strain",
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=2.5,
+        ...     nominal_gage_resistance=350.0,
+        ...     poisson_ratio=0.3,
+        ...     lead_wire_resistance=0.0,
+        ...     gage_factor=2.1,
+        ...     min_val=-0.01,
+        ...     max_val=0.01
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param rosette_type: Rosette configuration (RectangularRosette, DeltaRosette, TeeRosette)
+    :param gage_orientation: Orientation of gage element 0 in degrees
+    :param rosette_meas_types: List of measurement types to calculate
+    :param strain_config: Bridge configuration for each gage element
+    :param units: Output units (strain)
+    :param voltage_excit_source: Excitation voltage source
+    :param voltage_excit_val: Excitation voltage in volts
+    :param nominal_gage_resistance: Gage resistance in ohms
+    :param poisson_ratio: Poisson's ratio of test material
+    :param lead_wire_resistance: Lead wire resistance in ohms
+    :param gage_factor: Gage factor (typically 2.0-2.1)
+    :param min_val: Minimum expected strain
+    :param max_val: Maximum expected strain
     """
 
     type: Literal["ai_rosette_strain_gage"] = "ai_rosette_strain_gage"
@@ -594,8 +1141,45 @@ class AIStrainGageChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Strain Gauge Channel
 
+    Measures mechanical strain using foil strain gages in various bridge configurations.
+    Applies voltage excitation and measures bridge imbalance caused by strain.
+    Fundamental measurement for stress analysis, structural testing, and load monitoring.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaistraingagechan.html>
+
+    Example:
+        >>> # Quarter-bridge strain gage configuration
+        >>> strain_chan = AIStrainGageChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="Diff",
+        ...     units="strain",
+        ...     strain_config="quarter-bridge-I",
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=2.5,
+        ...     gage_factor=2.1,  # Typical for foil gages
+        ...     initial_bridge_voltage=0.0,
+        ...     nominal_gage_resistance=350.0,
+        ...     poisson_ratio=0.3,  # For steel
+        ...     lead_wire_resistance=0.0,
+        ...     min_val=-0.005,  # -5000 microstrain
+        ...     max_val=0.005    # +5000 microstrain
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param units: Output units (strain - dimensionless)
+    :param strain_config: Bridge configuration type
+    :param voltage_excit_source: Excitation voltage source
+    :param voltage_excit_val: Excitation voltage in volts (typically 2.5-10V)
+    :param gage_factor: Gage factor provided by manufacturer (typically 2.0-2.1)
+    :param initial_bridge_voltage: Initial bridge output voltage for offset compensation
+    :param nominal_gage_resistance: Gage resistance in ohms (commonly 120, 350, or 1000)
+    :param poisson_ratio: Poisson's ratio of test material
+    :param lead_wire_resistance: Lead wire resistance in ohms
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected strain
+    :param max_val: Maximum expected strain
     """
 
     type: Literal["ai_strain_gauge"] = "ai_strain_gauge"
@@ -624,8 +1208,22 @@ class AITempBuiltInChan(BaseAIChan):
     """
     Analog Input Temperature Built-In Channel
 
+    Reads temperature from built-in temperature sensors on the DAQ device itself.
+    Useful for monitoring ambient temperature for cold-junction compensation or
+    environmental monitoring. No external sensor required.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitempbuiltinchan.html>
+
+    Example:
+        >>> # Read built-in temperature sensor
+        >>> temp_builtin_chan = AITempBuiltInChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     units="DegC"
+        ... )
+
+    :param units: Output temperature units (DegC, DegF, Kelvins, DegR)
     """
 
     type: Literal["ai_temp_builtin"] = "ai_temp_builtin"
@@ -636,8 +1234,34 @@ class AIThermocoupleChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Thermocouple Channel
 
+    Measures temperature using thermocouples with built-in cold-junction compensation.
+    Supports all standard thermocouple types (J, K, T, E, R, S, B, N).
+    Ideal for wide temperature range measurements in harsh environments.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaithermocouplechan.html>
+
+    Example:
+        >>> # K-type thermocouple with built-in CJC
+        >>> thermocouple_chan = AIThermocoupleChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     units="DegC",
+        ...     thermocouple_type="K",
+        ...     cjc_source="BuiltIn",  # Use built-in cold-junction sensor
+        ...     cjc_val=None,  # Not needed for BuiltIn
+        ...     cjc_port=None,  # Not needed for BuiltIn
+        ...     min_val=-200.0,
+        ...     max_val=1200.0
+        ... )
+
+    :param units: Output temperature units (DegC, DegF, Kelvins, DegR)
+    :param thermocouple_type: Thermocouple type (J, K, N, R, S, T, B, E)
+    :param cjc_source: Cold-junction compensation source (BuiltIn, ConstVal, or Chan)
+    :param cjc_val: Constant CJC temperature if cjc_source is ConstVal
+    :param cjc_port: Port number for CJC channel if cjc_source is Chan
+    :param min_val: Minimum expected temperature
+    :param max_val: Maximum expected temperature
     """
 
     type: Literal["ai_thermocouple"] = "ai_thermocouple"
@@ -652,8 +1276,38 @@ class AIThermistorChanIex(BaseAIChan, MinMaxVal):
     """
     Analog Input Thermistor IEX Channel
 
+    Measures temperature using thermistors with current excitation.
+    Uses Steinhart-Hart equation (coefficients a, b, c) to convert resistance to temperature.
+    Excellent for narrow temperature range measurements with high resolution.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaithermistoriexchan.html>
+
+    Example:
+        >>> # NTC thermistor with current excitation
+        >>> thermistor_iex_chan = AIThermistorChanIex(
+        ...     port=0,
+        ...     channel=0,
+        ...     units="DegC",
+        ...     resistance_config="4Wire",
+        ...     current_excit_source="Internal",
+        ...     current_excit_val=0.00015,  # 150 µA
+        ...     a=0.001129241,  # Steinhart-Hart coefficients
+        ...     b=0.000234126,
+        ...     c=0.000000876,
+        ...     min_val=-40.0,
+        ...     max_val=125.0
+        ... )
+
+    :param units: Output temperature units (DegC, DegF, Kelvins, DegR)
+    :param resistance_config: Wire configuration (2Wire, 3Wire, or 4Wire)
+    :param current_excit_source: Excitation current source
+    :param current_excit_val: Excitation current in amps (typically 10-250 µA)
+    :param a: Steinhart-Hart coefficient A
+    :param b: Steinhart-Hart coefficient B
+    :param c: Steinhart-Hart coefficient C
+    :param min_val: Minimum expected temperature
+    :param max_val: Maximum expected temperature
     """
 
     type: Literal["ai_thermistor_iex"] = "ai_thermistor_iex"
@@ -670,8 +1324,40 @@ class AIThermistorChanVex(BaseAIChan, MinMaxVal):
     """
     Analog Input Thermistor VEX Channel
 
+    Measures temperature using thermistors with voltage excitation in a voltage divider
+    configuration. Uses Steinhart-Hart equation with series resistor (r1) for scaling.
+    Common configuration for simple thermistor temperature measurements.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaithermistorvexchan.html>
+
+    Example:
+        >>> # NTC thermistor in voltage divider
+        >>> thermistor_vex_chan = AIThermistorChanVex(
+        ...     port=0,
+        ...     channel=0,
+        ...     units="DegC",
+        ...     resistance_config="3Wire",
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=2.5,
+        ...     a=0.001129241,  # Steinhart-Hart coefficients
+        ...     b=0.000234126,
+        ...     c=0.000000876,
+        ...     r1=10000.0,  # 10kΩ series resistor
+        ...     min_val=-40.0,
+        ...     max_val=125.0
+        ... )
+
+    :param units: Output temperature units (DegC, DegF, Kelvins, DegR)
+    :param resistance_config: Wire configuration (2Wire, 3Wire, or 4Wire)
+    :param voltage_excit_source: Excitation voltage source
+    :param voltage_excit_val: Excitation voltage in volts
+    :param a: Steinhart-Hart coefficient A
+    :param b: Steinhart-Hart coefficient B
+    :param c: Steinhart-Hart coefficient C
+    :param r1: Series resistor value in ohms
+    :param min_val: Minimum expected temperature
+    :param max_val: Maximum expected temperature
     """
 
     type: Literal["ai_thermistor_vex"] = "ai_thermistor_vex"
@@ -689,8 +1375,43 @@ class AITorqueBridgePolynomialChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Torque Bridge Polynomial Channel
 
+    Measures torque using a Wheatstone bridge torque sensor with polynomial scaling.
+    Polynomial coefficients convert bridge output to torque units. Common in
+    rotating shaft torque measurements and dynamometer applications.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgepolynomialchan.html>
+
+    Example:
+        >>> # Torque sensor with polynomial calibration
+        >>> torque_poly_chan = AITorqueBridgePolynomialChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     units="NewtonMeters",
+        ...     bridge_config="FullBridge",
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=10.0,
+        ...     nominal_bridge_resistance=350.0,
+        ...     forward_coeffs=[0.0, 500.0, 0.05],
+        ...     reverse_coeffs=[0.0, 0.002],
+        ...     electrical_units="mVoltsPerVolt",
+        ...     physical_units="NewtonMeters",
+        ...     min_val=-100.0,
+        ...     max_val=100.0
+        ... )
+
+    :param units: Output torque units (NewtonMeters, InchOunces, FootPounds)
+    :param bridge_config: Bridge type (FullBridge, HalfBridge, QuarterBridge)
+    :param voltage_excit_source: Excitation voltage source
+    :param voltage_excit_val: Excitation voltage in volts
+    :param nominal_bridge_resistance: Bridge resistance in ohms
+    :param forward_coeffs: Forward polynomial coefficients
+    :param reverse_coeffs: Reverse polynomial coefficients
+    :param electrical_units: Bridge output units (mVoltsPerVolt or VoltsPerVolt)
+    :param physical_units: Torque units matching the units parameter
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected torque
+    :param max_val: Maximum expected torque
     """
 
     type: Literal["ai_torque_bridge_polynomial"] = "ai_torque_bridge_polynomial"
@@ -710,8 +1431,43 @@ class AITorqueBridgeTableChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Torque Bridge Table Channel
 
+    Measures torque using a Wheatstone bridge sensor with table-based scaling.
+    Maps electrical values to torque using lookup table interpolation.
+    Ideal when you have discrete calibration points from torque sensor testing.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgetablechan.html>
+
+    Example:
+        >>> # Torque sensor with calibration table
+        >>> torque_table_chan = AITorqueBridgeTableChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     units="FootPounds",
+        ...     bridge_config="FullBridge",
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=10.0,
+        ...     nominal_bridge_resistance=350.0,
+        ...     electrical_units="mVoltsPerVolt",
+        ...     electrical_vals=[-2.0, -1.0, 0.0, 1.0, 2.0],
+        ...     physical_units="FootPounds",
+        ...     physical_vals=[-50.0, -25.0, 0.0, 25.0, 50.0],
+        ...     min_val=-50.0,
+        ...     max_val=50.0
+        ... )
+
+    :param units: Output torque units (NewtonMeters, InchOunces, FootPounds)
+    :param bridge_config: Bridge type (FullBridge, HalfBridge, QuarterBridge)
+    :param voltage_excit_source: Excitation voltage source
+    :param voltage_excit_val: Excitation voltage in volts
+    :param nominal_bridge_resistance: Bridge resistance in ohms
+    :param electrical_units: Bridge output units (mVoltsPerVolt or VoltsPerVolt)
+    :param electrical_vals: List of electrical calibration point values
+    :param physical_units: Torque units matching the units parameter
+    :param physical_vals: List of corresponding torque values
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected torque
+    :param max_val: Maximum expected torque
     """
 
     type: Literal["ai_torque_bridge_table"] = "ai_torque_bridge_table"
@@ -731,8 +1487,47 @@ class AITorqueBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Torque Bridge Two Point Linear Channel
 
+    Measures torque using a Wheatstone bridge sensor with two-point linear scaling.
+    Defines linear calibration using two known torque/voltage pairs.
+    Simple and effective for torque sensors with linear response characteristics.
+
     For detailed information, see the NI-DAQmx documentation:
-    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgetwopointlinchan
+    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgetwopointlinchan.html>
+
+    Example:
+        >>> # Torque sensor with two-point calibration
+        >>> torque_2pt_chan = AITorqueBridgeTwoPointLinChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     units="NewtonMeters",
+        ...     bridge_config="FullBridge",
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=10.0,
+        ...     nominal_bridge_resistance=350.0,
+        ...     electrical_units="mVoltsPerVolt",
+        ...     physical_units="NewtonMeters",
+        ...     first_electrical_val=0.0,
+        ...     first_physical_val=0.0,     # 0 Nm at 0 mV/V
+        ...     second_electrical_val=2.0,
+        ...     second_physical_val=200.0,  # 200 Nm at 2 mV/V
+        ...     min_val=-20.0,
+        ...     max_val=220.0
+        ... )
+
+    :param units: Output torque units (NewtonMeters, InchOunces, FootPounds)
+    :param bridge_config: Bridge type (FullBridge, HalfBridge, QuarterBridge)
+    :param voltage_excit_source: Excitation voltage source
+    :param voltage_excit_val: Excitation voltage in volts
+    :param nominal_bridge_resistance: Bridge resistance in ohms
+    :param electrical_units: Bridge output units (mVoltsPerVolt or VoltsPerVolt)
+    :param physical_units: Torque units matching the units parameter
+    :param first_electrical_val: First calibration point electrical value
+    :param first_physical_val: First calibration point torque value
+    :param second_electrical_val: Second calibration point electrical value
+    :param second_physical_val: Second calibration point torque value
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected torque
+    :param max_val: Maximum expected torque
     """
 
     type: Literal["ai_torque_bridge_two_point_lin"] = "ai_torque_bridge_two_point_lin"
@@ -754,8 +1549,37 @@ class AIVelocityIEPEChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Velocity IEPE Channel
 
+    Measures velocity using IEPE (Integrated Electronics Piezo-Electric) velocity
+    sensors with built-in electronics. Provides current excitation for seismic
+    velocity transducers. Common in vibration monitoring and machinery diagnostics.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivelocityiepechan.html>
+
+    Example:
+        >>> # IEPE velocity sensor for vibration monitoring
+        >>> velocity_iepe_chan = AIVelocityIEPEChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     units="MetersPerSecond",
+        ...     terminal_config="PseudoDiff",
+        ...     sensitivity=100.0,  # 100 mV/(mm/s)
+        ...     sensitivity_units="MillivoltsPerMillimeterPerSecond",
+        ...     current_excit_source="Internal",
+        ...     current_excit_val=0.004,  # 4 mA
+        ...     min_val=-0.5,
+        ...     max_val=0.5
+        ... )
+
+    :param units: Output velocity units (MetersPerSecond or InchesPerSecond)
+    :param terminal_config: Input terminal configuration
+    :param sensitivity: Sensor sensitivity value
+    :param sensitivity_units: Sensitivity units (MillivoltsPerMillimeterPerSecond or MilliVoltsPerInchPerSecond)
+    :param current_excit_source: Excitation current source (Internal, External, or None)
+    :param current_excit_val: Excitation current in amps (typically 2-4 mA)
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected velocity
+    :param max_val: Maximum expected velocity
     """
 
     type: Literal["ai_velocity_iepe"] = "ai_velocity_iepe"
@@ -771,10 +1595,32 @@ class AIVelocityIEPEChan(BaseAIChan, MinMaxVal):
 
 
 class AIVoltageChan(BaseAIChan, MinMaxVal):
-    """Analog Input Voltage Channel
+    """
+    Analog Input Voltage Channel
+
+    Measures DC or AC voltage directly. The most basic and commonly used analog
+    input channel type. Suitable for general-purpose voltage measurements from
+    sensors, test equipment, or any voltage source.
 
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivoltagechan.html>
+
+    Example:
+        >>> # Basic voltage measurement
+        >>> voltage_chan = AIVoltageChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="Diff",  # Differential for noise rejection
+        ...     units="Volts",
+        ...     min_val=-10.0,
+        ...     max_val=10.0
+        ... )
+
+    :param terminal_config: Input terminal configuration (Diff, RSE, NRSE, PseudoDiff)
+    :param units: Output units (Volts)
+    :param custom_scale: Optional custom scaling for engineering units
+    :param min_val: Minimum expected voltage
+    :param max_val: Maximum expected voltage
     """
 
     type: Literal["ai_voltage"] = "ai_voltage"
@@ -787,8 +1633,29 @@ class AIVoltageRMSChan(BaseAIChan, MinMaxVal):
     """
     Analog Input Voltage RMS Channel
 
+    Measures root-mean-square (RMS) value of AC voltage signals. Automatically
+    calculates RMS over the acquisition period. Useful for AC power measurements,
+    audio levels, or any application requiring true RMS voltage.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivoltagermschan.html>
+
+    Example:
+        >>> # AC voltage RMS measurement
+        >>> voltage_rms_chan = AIVoltageRMSChan(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="Diff",
+        ...     units="V",
+        ...     min_val=0.0,
+        ...     max_val=250.0  # 0-250V RMS
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param units: Output units (V or mV)
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected RMS voltage
+    :param max_val: Maximum expected RMS voltage
     """
 
     type: Literal["ai_voltage_rms"] = "ai_voltage_rms"
@@ -801,8 +1668,37 @@ class AIVoltageChanWithExcit(BaseAIChan, MinMaxVal):
     """
     Analog Input Voltage Channel with Excitation
 
+    Measures voltage from sensors that require external voltage excitation.
+    Provides excitation voltage and optionally uses it for ratiometric scaling.
+    Common for potentiometric sensors, LVDTs, and bridge-based transducers.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivoltagechanwithexcit.html>
+
+    Example:
+        >>> # Potentiometric position sensor with excitation
+        >>> voltage_excit_chan = AIVoltageChanWithExcit(
+        ...     port=0,
+        ...     channel=0,
+        ...     terminal_config="Diff",
+        ...     units="V",
+        ...     bridge_config="none",  # Not a bridge, just voltage output
+        ...     voltage_excit_source="Internal",
+        ...     voltage_excit_val=10.0,  # 10V excitation
+        ...     use_excit_for_scaling=True,  # Ratiometric measurement
+        ...     min_val=0.0,
+        ...     max_val=10.0
+        ... )
+
+    :param terminal_config: Input terminal configuration
+    :param units: Output units (V or mV)
+    :param bridge_config: Bridge configuration (full, half, quarter, or none)
+    :param voltage_excit_source: Excitation voltage source (Internal, External, or None)
+    :param voltage_excit_val: Excitation voltage in volts
+    :param use_excit_for_scaling: Use excitation voltage for ratiometric scaling
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum expected voltage
+    :param max_val: Maximum expected voltage
     """
 
     type: Literal["ai_voltage_with_excit"] = "ai_voltage_with_excit"
@@ -848,8 +1744,30 @@ class AOVoltageChan(BaseAOChan, MinMaxVal):
     """
     Analog Output Voltage Channel
 
+    Generates DC or AC voltage output signals. The most common analog output
+    channel type for controlling voltage-input devices, generating test signals,
+    or providing analog control signals to external equipment.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaovoltagechan.html>
+
+    Example:
+        >>> # Basic voltage output channel
+        >>> ao_voltage_chan = AOVoltageChan(
+        ...     port=0,
+        ...     cmd_channel=100,   # Synnax channel for command values
+        ...     state_channel=101, # Synnax channel for state feedback
+        ...     units="Volts",
+        ...     min_val=-10.0,
+        ...     max_val=10.0
+        ... )
+
+    :param cmd_channel: Synnax channel key for command/setpoint values
+    :param state_channel: Synnax channel key for actual output state feedback
+    :param units: Output units (Volts)
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum output voltage
+    :param max_val: Maximum output voltage
     """
 
     type: Literal["ao_voltage"] = "ao_voltage"
@@ -861,8 +1779,30 @@ class AOCurrentChan(BaseAOChan, MinMaxVal):
     """
     Analog Output Current Channel
 
+    Generates current output signals, typically 4-20mA for industrial control
+    applications. Ideal for long-distance signal transmission where voltage
+    drop is a concern, or for interfacing with current-loop devices.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaocurrentchan.html>
+
+    Example:
+        >>> # 4-20mA current loop output
+        >>> ao_current_chan = AOCurrentChan(
+        ...     port=0,
+        ...     cmd_channel=102,   # Synnax channel for command values
+        ...     state_channel=103, # Synnax channel for state feedback
+        ...     units="Amps",
+        ...     min_val=0.004,  # 4 mA
+        ...     max_val=0.020   # 20 mA
+        ... )
+
+    :param cmd_channel: Synnax channel key for command/setpoint values
+    :param state_channel: Synnax channel key for actual output state feedback
+    :param units: Output units (Amps)
+    :param custom_scale: Optional custom scaling
+    :param min_val: Minimum output current
+    :param max_val: Maximum output current
     """
 
     type: Literal["ao_current"] = "ao_current"
@@ -874,8 +1814,31 @@ class AOFuncGenChan(BaseAOChan):
     """
     Analog Output Function Generator Channel
 
+    Generates standard waveforms (sine, square, triangle, sawtooth) using
+    onboard function generator hardware. Provides clean, hardware-timed
+    waveforms without needing to stream data from the host computer.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaofuncgenchan.html>
+
+    Example:
+        >>> # 1 kHz sine wave generator
+        >>> ao_funcgen_chan = AOFuncGenChan(
+        ...     port=0,
+        ...     cmd_channel=104,   # Synnax channel for command values
+        ...     state_channel=105, # Synnax channel for state feedback
+        ...     wave_type="Sine",
+        ...     frequency=1000.0,  # 1 kHz
+        ...     amplitude=5.0,     # 5V peak
+        ...     offset=0.0         # No DC offset
+        ... )
+
+    :param cmd_channel: Synnax channel key for command/setpoint values
+    :param state_channel: Synnax channel key for actual output state feedback
+    :param wave_type: Waveform type (Sine, Triangle, Square, or Sawtooth)
+    :param frequency: Output frequency in Hz
+    :param amplitude: Peak amplitude in volts
+    :param offset: DC offset in volts (default 0.0)
     """
 
     type: Literal["ao_func_gen"] = "ao_func_gen"
@@ -938,7 +1901,7 @@ class CIFrequencyChan(BaseCIChan, MinMaxVal):
         ...     port=0,
         ...     units="Hz",
         ...     edge="Rising",
-        ...     meas_method="LowFreq1Ctr",  # Best for < 1kHz
+        ...     meas_method="LowFreq1Ctr",  # Best for < 1 kHz
         ...     meas_time=0.001,  # 1ms measurement window
         ...     divisor=4,
         ...     terminal="/Dev1/PFI0",  # Input terminal
@@ -948,7 +1911,7 @@ class CIFrequencyChan(BaseCIChan, MinMaxVal):
 
     :param units: Output units (Hz for frequency, Seconds for period, Ticks for raw)
     :param edge: Which signal edge to count (Rising or Falling)
-    :param meas_method: Measurement algorithm - LowFreq1Ctr for <100kHz, HighFreq2Ctr for >100kHz
+    :param meas_method: Measurement algorithm - LowFreq1Ctr for < 100 kHz, HighFreq2Ctr for > 100 kHz
     :param meas_time: Measurement averaging time in seconds
     :param divisor: Frequency divisor for HighFreq2Ctr method
     :param terminal: Physical terminal to measure (e.g., "/Dev1/PFI0")
@@ -1417,8 +2380,26 @@ class DOChan(BaseChan):
     """
     Digital Output Channel
 
+    Controls digital output lines for switching, relay control, TTL signals,
+    or any on/off control application. Each channel controls a single digital
+    line on a port.
+
     For detailed information, see the NI-DAQmx documentation:
     <https://www.ni.com/documentation/en/ni-daqmx/latest/daqmxcfunc/daqmxcreatedochan.html>
+
+    Example:
+        >>> # Digital output for relay control
+        >>> do_chan = DOChan(
+        ...     cmd_channel=106,   # Synnax channel for command values
+        ...     state_channel=107, # Synnax channel for state feedback
+        ...     port=0,
+        ...     line=5
+        ... )
+
+    :param cmd_channel: Synnax channel key to read digital output commands from
+    :param state_channel: Synnax channel key to write digital output state to
+    :param port: Digital port number on the device
+    :param line: Line number within the port (0-7 for most devices)
     """
 
     type: Literal["digital_output"] = "digital_output"
@@ -1452,11 +2433,13 @@ class AnalogReadTaskConfig(BaseReadTaskConfig):
 class AnalogWriteConfig(BaseWriteTaskConfig):
     """Configuration for NI Analog Write Task.
 
-    Inherits common write task fields (device, data_saving, auto_start) from
-    BaseWriteTaskConfig and adds NI-specific channel configuration with NI hardware
-    state rate limits (50kHz max).
+    Inherits common write task fields (device, auto_start) from
+    BaseWriteTaskConfig and adds NI-specific data saving, state rate,
+    and channel configuration with NI hardware state rate limits (50 kHz max).
     """
 
+    data_saving: bool = True
+    "Whether to persist state feedback data to disk (True) or only stream it (False)."
     state_rate: conint(ge=0, le=50000)
     "The rate at which to write task channel states to the Synnax cluster (Hz)."
     channels: list[AOChan]
@@ -1498,11 +2481,13 @@ class DigitalReadConfig(BaseReadTaskConfig):
 class DigitalWriteConfig(BaseWriteTaskConfig):
     """Configuration for NI Digital Write Task.
 
-    Inherits common write task fields (device, data_saving, auto_start) from
-    BaseWriteTaskConfig and adds NI-specific channel configuration with NI hardware
-    state rate limits (50kHz max).
+    Inherits common write task fields (device, auto_start) from
+    BaseWriteTaskConfig and adds NI-specific data saving, state rate,
+    and channel configuration with NI hardware state rate limits (50 kHz max).
     """
 
+    data_saving: bool = True
+    "Whether to persist state feedback data to disk (True) or only stream it (False)."
     state_rate: conint(ge=0, le=50000)
     "The rate at which to write task channel states to the Synnax cluster (Hz)."
     channels: list[DOChan]
