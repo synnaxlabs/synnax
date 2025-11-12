@@ -368,20 +368,15 @@ describe("migrator", () => {
     });
 
     it("should migrate through multiple pre-release versions", () => {
-      const entityV1Alpha = z.object({
-        version: z.literal("1.0.0-alpha"),
-        title: z.string(),
-      });
+      interface EntityV1Alpha {
+        version: "1.0.0-alpha";
+        title: string;
+      }
 
-      type EntityV1Alpha = z.infer<typeof entityV1Alpha>;
-
-      const entityV1Beta = z.object({
-        version: z.literal("1.0.0-beta"),
-        title: z.string(),
-        newField: z.string(),
-      });
-
-      type EntityV1Beta = z.infer<typeof entityV1Beta>;
+      interface EntityV1Beta extends Omit<EntityV1Alpha, "version"> {
+        version: "1.0.0-beta";
+        newField: string;
+      }
 
       const migrateAlphaToBeta = migrate.createMigration<EntityV1Alpha, EntityV1Beta>({
         name: "entity",

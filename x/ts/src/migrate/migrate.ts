@@ -64,8 +64,8 @@ const comparePreRelease = (a: string, b: string): number => {
 
     if (aIsNumeric && bIsNumeric) {
       // Compare numerically
-      const aNum = parseInt(aPart, 10);
-      const bNum = parseInt(bPart, 10);
+      const aNum = parseInt(aPart);
+      const bNum = parseInt(bPart);
       if (aNum < bNum) return compare.LESS_THAN;
       if (aNum > bNum) return compare.GREATER_THAN;
     } else {
