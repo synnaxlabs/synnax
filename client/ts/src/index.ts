@@ -12,7 +12,14 @@ export { policy } from "@/access/policy";
 export { arc } from "@/arc";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
-export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";
+export {
+  checkConnection,
+  type CheckConnectionParams,
+  newConnectionChecker,
+  default as Synnax,
+  type SynnaxParams,
+  synnaxParamsZ,
+} from "@/client";
 export * from "@/connection";
 export { control } from "@/control";
 export {
@@ -37,7 +44,7 @@ export { ontology } from "@/ontology";
 export { group } from "@/ontology/group";
 export { ranger } from "@/ranger";
 export { status } from "@/status";
-export { createTestClient, TEST_CLIENT_PROPS } from "@/testutil/client";
+export { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil/client";
 export { user } from "@/user";
 export { workspace } from "@/workspace";
 export { lineplot } from "@/workspace/lineplot";

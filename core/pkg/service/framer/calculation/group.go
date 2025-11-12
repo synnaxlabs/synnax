@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package group
+package calculation
 
 import (
 	"context"
@@ -27,20 +27,20 @@ import (
 	"go.uber.org/zap"
 )
 
-type Group struct {
+type group struct {
 	Calculators      []*calculator.Calculator
 	shutdown         io.Closer
 	streamerRequests confluence.Inlet[framer.StreamerRequest]
 }
 
-func (g *Group) Close() error {
+func (g *group) Close() error {
 	g.streamerRequests.Close()
 	return g.shutdown.Close()
 }
 
 type OnStatusChange = func(ctx context.Context, stats ...calculator.Status)
 
-type Config struct {
+type groupConfig struct {
 	alamos.Instrumentation
 	Framer         *framer.Service
 	OnStatusChange OnStatusChange
@@ -48,18 +48,18 @@ type Config struct {
 }
 
 var (
-	_             config.Config[Config] = (*Config)(nil)
-	DefaultConfig                       = Config{}
+	_                  config.Config[groupConfig] = (*groupConfig)(nil)
+	defaultGroupConfig                            = groupConfig{}
 )
 
-func (c Config) Override(other Config) Config {
+func (c groupConfig) Override(other groupConfig) groupConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Calculators = override.Slice(c.Calculators, other.Calculators)
 	c.OnStatusChange = override.Nil(c.OnStatusChange, other.OnStatusChange)
 	return c
 }
 
-func (c Config) Validate() error {
+func (c groupConfig) Validate() error {
 	v := validate.New("calculation.group.config")
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotEmptySlice(v, "calculators", c.Calculators)
@@ -75,8 +75,8 @@ const (
 	writerObserverAddr        address.Address = "writer_observer"
 )
 
-func Open(ctx context.Context, cfgs ...Config) (*Group, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
+	cfg, err := config.New(defaultGroupConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Group, error) {
 		zap.Int("calculator_count", len(cfg.Calculators)),
 	)
 
-	return &Group{
+	return &group{
 		shutdown:         signal.NewGracefulShutdown(sCtx, cancel),
 		streamerRequests: streamerRequests,
 		Calculators:      cfg.Calculators,

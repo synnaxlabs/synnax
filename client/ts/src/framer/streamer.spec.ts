@@ -276,7 +276,7 @@ describe("Streamer", () => {
         }
       });
 
-      describe("legacy calculatiosn", async () => {
+      describe("legacy calculations", async () => {
         it("should correctly execute a calculation with a requires field", async () => {
           const timeChannel = await client.channels.create({
             name: "calc_test_time",

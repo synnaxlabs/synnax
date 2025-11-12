@@ -168,10 +168,17 @@ func (f *statFactory) Create(_ context.Context, nodeCfg node.Config) (node.Node,
 		resetIdx    = -1
 	)
 	if _, found := nodeCfg.Module.Edges.FindByTarget(ir.Handle{
-		Node:  nodeCfg.Node.Type,
+		Node:  nodeCfg.Node.Key,
 		Param: resetInputParam,
 	}); found {
 		resetIdx = 1
+		// Initialize optional reset input with dummy value to prevent alignment blocking
+		// Use timestamp=1 so it's > initial watermark of 0
+		nodeCfg.State.InitInput(
+			resetIdx,
+			telem.NewSeriesV[uint8](0),
+			telem.NewSeriesV[telem.TimeStamp](1),
+		)
 	}
 	var cfg ConfigValues
 	if err := configSchema.Parse(nodeCfg.Node.Config.ValueMap(), &cfg); err != nil {
