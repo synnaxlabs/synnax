@@ -15,43 +15,59 @@
 #include "driver/opc/write_task.h"
 #include "driver/task/common/factory.h"
 
-common::ConfigureResult configure_read(
+std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task,
-    const std::shared_ptr<opc::connection::Pool> &pool
+    const std::shared_ptr<opc::connection::Pool> &pool,
+    bool &auto_start
 ) {
-    common::ConfigureResult result;
     auto [cfg, err] = opc::ReadTaskConfig::parse(ctx->client, task);
-    if (!common::handle_parse_result(result, cfg, err)) return result;
+    if (err) return {nullptr, err};
+    auto_start = cfg.auto_start;
     std::unique_ptr<common::Source> s;
     if (cfg.array_size > 1)
         s = std::make_unique<opc::ArrayReadTaskSource>(pool, std::move(cfg));
     else
         s = std::make_unique<opc::UnaryReadTaskSource>(pool, std::move(cfg));
-    result.task = std::make_unique<common::ReadTask>(
-        task,
-        ctx,
-        breaker::default_config(task.name),
-        std::move(s)
-    );
-    return result;
+    return {
+        std::make_unique<common::ReadTask>(
+            task,
+            ctx,
+            breaker::default_config(task.name),
+            std::move(s)
+        ),
+        xerrors::NIL
+    };
 }
 
-common::ConfigureResult configure_write(
+std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_write(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task,
-    const std::shared_ptr<opc::connection::Pool> &pool
+    const std::shared_ptr<opc::connection::Pool> &pool,
+    bool &auto_start
 ) {
-    common::ConfigureResult result;
     auto [cfg, err] = opc::WriteTaskConfig::parse(ctx->client, task);
-    if (!common::handle_parse_result(result, cfg, err)) return result;
-    result.task = std::make_unique<common::WriteTask>(
-        task,
-        ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::WriteTaskSink>(pool, std::move(cfg))
-    );
-    return result;
+    if (err) return {nullptr, err};
+    auto_start = cfg.auto_start;
+    return {
+        std::make_unique<common::WriteTask>(
+            task,
+            ctx,
+            breaker::default_config(task.name),
+            std::make_unique<opc::WriteTaskSink>(pool, std::move(cfg))
+        ),
+        xerrors::NIL
+    };
+}
+
+std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_scan(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task,
+    const std::shared_ptr<opc::connection::Pool> &pool,
+    bool &auto_start
+) {
+    auto_start = true;
+    return {std::make_unique<opc::ScanTask>(ctx, task, pool), xerrors::NIL};
 }
 
 std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
@@ -59,12 +75,18 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
     const synnax::Task &task
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
-    common::ConfigureResult res;
+    bool auto_start = false;
+    std::pair<std::unique_ptr<task::Task>, xerrors::Error> res = {
+        nullptr,
+        xerrors::NIL
+    };
     if (task.type == SCAN_TASK_TYPE)
-        return {std::make_unique<ScanTask>(ctx, task, conn_pool_), true};
-    if (task.type == READ_TASK_TYPE) res = configure_read(ctx, task, conn_pool_);
-    if (task.type == WRITE_TASK_TYPE) res = configure_write(ctx, task, conn_pool_);
-    return common::handle_config_err(ctx, task, res);
+        res = configure_scan(ctx, task, conn_pool_, auto_start);
+    else if (task.type == READ_TASK_TYPE)
+        res = configure_read(ctx, task, conn_pool_, auto_start);
+    else if (task.type == WRITE_TASK_TYPE)
+        res = configure_write(ctx, task, conn_pool_, auto_start);
+    return common::handle_config_err(ctx, task, std::move(res), auto_start);
 }
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>

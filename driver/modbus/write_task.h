@@ -145,14 +145,11 @@ struct WriteTaskConfig {
     device::ConnectionConfig conn;
     /// @brief the list of writers to use for writing data to the device.
     std::vector<std::unique_ptr<Writer>> writers;
-    /// @brief whether to save data permanently or just stream it.
-    bool data_saving;
     /// @brief whether to automatically start the task after configuration.
     bool auto_start;
 
     WriteTaskConfig(const std::shared_ptr<synnax::Synnax> &client, xjson::Parser &cfg):
         device_key(cfg.required<std::string>("device")),
-        data_saving(cfg.optional<bool>("data_saving", false)),
         auto_start(cfg.optional<bool>("auto_start", false)) {
         auto [dev_info, dev_err] = client->hardware.retrieve_device(this->device_key);
         if (dev_err) {
@@ -196,18 +193,12 @@ struct WriteTaskConfig {
     /// @param client the Synnax client to use to retrieve the device and channel
     /// information.
     /// @param task the task to parse.
-    /// @returns a pair containing the configure result and parsed configuration.
-    static std::pair<common::ConfigureResult, WriteTaskConfig>
+    /// @returns a pair containing the parsed configuration and any error that occurred.
+    static std::pair<WriteTaskConfig, xerrors::Error>
     parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
         auto parser = xjson::Parser(task.config);
         WriteTaskConfig cfg(client, parser);
-        common::ConfigureResult result;
-        if (parser.error()) {
-            result.error = parser.error();
-            return {std::move(result), std::move(cfg)};
-        }
-        result.auto_start = cfg.auto_start;
-        return {std::move(result), std::move(cfg)};
+        return {std::move(cfg), parser.error()};
     }
 };
 

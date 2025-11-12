@@ -18,77 +18,76 @@
 const std::string NO_LIBS_MSG = "Cannot create task because the LJM Libraries are not "
                                 "installed on this System.";
 
-common::ConfigureResult configure_read(
+std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task,
-    const common::TimingConfig timing_cfg
+    const common::TimingConfig timing_cfg,
+    bool &auto_start
 ) {
-    common::ConfigureResult result;
     auto [cfg, err] = labjack::ReadTaskConfig::parse(ctx->client, task, timing_cfg);
-    if (!common::handle_parse_result(result, cfg, err)) return result;
+    if (err) return {nullptr, err};
+    auto_start = cfg.auto_start;
     auto [dev, d_err] = devs->acquire(cfg.device_key);
-    if (d_err) {
-        result.error = d_err;
-        return result;
-    }
+    if (d_err) return {nullptr, d_err};
     std::unique_ptr<common::Source> source;
     if (cfg.has_thermocouples())
         source = std::make_unique<labjack::UnarySource>(dev, std::move(cfg));
     else
         source = std::make_unique<labjack::StreamSource>(dev, std::move(cfg));
-    result.task = std::make_unique<common::ReadTask>(
-        task,
-        ctx,
-        breaker::default_config(task.name),
-        std::move(source)
-    );
-    return result;
+    return {
+        std::make_unique<common::ReadTask>(
+            task,
+            ctx,
+            breaker::default_config(task.name),
+            std::move(source)
+        ),
+        xerrors::NIL
+    };
 }
 
-common::ConfigureResult configure_write(
+std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_write(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::Task &task,
+    bool &auto_start
 ) {
-    common::ConfigureResult result;
     auto [cfg, err] = labjack::WriteTaskConfig::parse(ctx->client, task);
-    if (!common::handle_parse_result(result, cfg, err)) return result;
+    if (err) return {nullptr, err};
+    auto_start = cfg.auto_start;
     auto [dev, d_err] = devs->acquire(cfg.device_key);
-    if (d_err) {
-        result.error = d_err;
-        return result;
-    }
-    result.task = std::make_unique<common::WriteTask>(
-        task,
-        ctx,
-        breaker::default_config(task.name),
-        std::make_unique<labjack::WriteSink>(dev, std::move(cfg))
-    );
-    return result;
+    if (d_err) return {nullptr, d_err};
+    return {
+        std::make_unique<common::WriteTask>(
+            task,
+            ctx,
+            breaker::default_config(task.name),
+            std::make_unique<labjack::WriteSink>(dev, std::move(cfg))
+        ),
+        xerrors::NIL
+    };
 }
 
-common::ConfigureResult configure_scan(
+std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_scan(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::Task &task,
+    bool &auto_start
 ) {
-    common::ConfigureResult result;
     auto parser = xjson::Parser(task.config);
     auto cfg = labjack::ScanTaskConfig(parser);
-    if (parser.error()) {
-        result.error = parser.error();
-        return result;
+    if (parser.error()) return {nullptr, parser.error()};
+    auto_start = cfg.enabled;
+    return {
+        std::make_unique<common::ScanTask>(
+            std::make_unique<labjack::Scanner>(task, cfg, devs),
+            ctx,
+            task,
+            breaker::default_config(task.name),
+            cfg.rate
+        ),
+        xerrors::NIL
     };
-    result.task = std::make_unique<common::ScanTask>(
-        std::make_unique<labjack::Scanner>(task, cfg, devs),
-        ctx,
-        task,
-        breaker::default_config(task.name),
-        cfg.rate
-    );
-    result.auto_start = cfg.enabled;
-    return result;
 }
 
 bool labjack::Factory::check_health(
@@ -112,13 +111,24 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     if (!this->check_health(ctx, task)) return {nullptr, true};
-    common::ConfigureResult res;
-    if (task.type == SCAN_TASK_TYPE) res = configure_scan(this->dev_manager, ctx, task);
+    bool auto_start = false;
+    std::pair<std::unique_ptr<task::Task>, xerrors::Error> res = {
+        nullptr,
+        xerrors::NIL
+    };
+    if (task.type == SCAN_TASK_TYPE)
+        res = configure_scan(this->dev_manager, ctx, task, auto_start);
     if (task.type == READ_TASK_TYPE)
-        res = configure_read(this->dev_manager, ctx, task, this->timing_cfg);
+        res = configure_read(
+            this->dev_manager,
+            ctx,
+            task,
+            this->timing_cfg,
+            auto_start
+        );
     if (task.type == WRITE_TASK_TYPE)
-        res = configure_write(this->dev_manager, ctx, task);
-    return common::handle_config_err(ctx, task, res);
+        res = configure_write(this->dev_manager, ctx, task, auto_start);
+    return common::handle_config_err(ctx, task, std::move(res), auto_start);
 }
 
 std::unique_ptr<labjack::Factory>
