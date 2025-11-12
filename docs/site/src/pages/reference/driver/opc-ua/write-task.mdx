@@ -36,13 +36,12 @@ If you need state feedback, configure a separate
 
 ## Task Configuration Reference
 
-| Parameter     | Type    | Required | Default | Description                                  |
-| ------------- | ------- | -------- | ------- | -------------------------------------------- |
-| `name`        | string  | Yes      | -       | Human-readable task name                     |
-| `device`      | string  | Yes      | -       | Key of the OPC UA server device              |
-| `data_saving` | boolean | No       | `false` | Enable permanent storage in Synnax           |
-| `auto_start`  | boolean | No       | `false` | Automatically start task after configuration |
-| `channels`    | array   | Yes      | -       | List of output channel configurations        |
+| Parameter    | Type    | Required | Default | Description                                  |
+| ------------ | ------- | -------- | ------- | -------------------------------------------- |
+| `name`       | string  | Yes      | -       | Human-readable task name                     |
+| `device`     | string  | Yes      | -       | Key of the OPC UA server device              |
+| `auto_start` | boolean | No       | `false` | Automatically start task after configuration |
+| `channels`   | array   | Yes      | -       | List of output channel configurations        |
 
 <Divider.Divider x />
 
@@ -155,7 +154,6 @@ valve_cmd = client.channels.create(
 task = opcua.WriteTask(
     name="OPC UA Write Task",
     device=dev.key,
-    data_saving=True,
     channels=[
         opcua.WriteChannel(
             cmd_channel=setpoint_cmd.key,
@@ -262,7 +260,6 @@ const task = await client.hardware.tasks.create({
   type: "opc_write",
   config: JSON.stringify({
     device: dev.key,
-    data_saving: true,
     channels: [
       {
         channel: setpointCmd.key,

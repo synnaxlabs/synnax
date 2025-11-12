@@ -77,7 +77,6 @@ holding_reg_cmd_1 = client.channels.create(
 tsk = modbus.WriteTask(
     name="Modbus Py - Write Task",
     device=dev.key,
-    data_saving=True,
     channels=[
         # Coil outputs (1-bit digital) - addresses 0-1
         modbus.CoilOutputChan(

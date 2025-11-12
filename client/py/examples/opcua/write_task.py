@@ -72,7 +72,6 @@ cmd_channel_2 = client.channels.create(
 tsk = opcua.WriteTask(
     name="OPC UA Write Task Example",
     device=dev.key,
-    data_saving=True,
     auto_start=False,  # We'll start it manually for this example
     channels=[
         # Map Synnax command channels to OPC UA node IDs

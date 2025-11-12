@@ -50,8 +50,8 @@ This script will:
 - Register the server with the embedded Synnax rack
 - Set up the server configuration
 
-**Configuration**: Edit the constants at the top of `connect_server.py` to match
-your server:
+**Configuration**: Edit the constants at the top of `connect_server.py` to match your
+server:
 
 - `DEVICE_NAME`: A friendly name for your OPC UA server
 - `ENDPOINT`: OPC UA endpoint URL (e.g., `opc.tcp://localhost:4841/`)

@@ -401,7 +401,6 @@ class TestModbusWriteTask:
         task = WriteTask(
             name="test-modbus-write-task",
             device="some-device-key",
-            data_saving=True,
             auto_start=False,
             channels=[
                 CoilOutputChan(
@@ -429,7 +428,6 @@ class TestModbusWriteTask:
         original_task = WriteTask(
             name="test-round-trip",
             device="some-device-key",
-            data_saving=True,
             auto_start=False,
             channels=[
                 CoilOutputChan(
@@ -465,7 +463,6 @@ class TestModbusWriteTask:
 
         # Verify all fields match
         assert retrieved_task.config.device == original_task.config.device
-        assert retrieved_task.config.data_saving == original_task.config.data_saving
         assert retrieved_task.config.auto_start == original_task.config.auto_start
         assert len(retrieved_task.config.channels) == len(original_task.config.channels)
 
@@ -624,7 +621,6 @@ class TestModbusDevicePropertyUpdates:
         task = modbus.WriteTask(
             name="Test Write Task",
             device=device.key,
-            data_saving=True,
             channels=[
                 modbus.CoilOutputChan(
                     channel=coil_cmd.key,

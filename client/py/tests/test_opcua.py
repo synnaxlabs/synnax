@@ -177,7 +177,6 @@ class TestOPCUAWriteTask:
         task = WriteTask(
             name="test-write-task",
             device="some-device-key",
-            data_saving=False,
             auto_start=True,
             channels=[
                 WriteChannel(
@@ -199,7 +198,6 @@ class TestOPCUAWriteTask:
         with pytest.raises(ValidationError) as exc_info:
             WriteTaskConfig(
                 device="some-device-key",
-                data_saving=False,
                 auto_start=True,
                 channels=[],
             )
@@ -210,7 +208,6 @@ class TestOPCUAWriteTask:
         task = WriteTask(
             name="test-disabled-channels",
             device="some-device-key",
-            data_saving=False,
             auto_start=False,
             channels=[
                 WriteChannel(
@@ -246,7 +243,6 @@ class TestOPCUAWriteTask:
         original_task = WriteTask(
             name="test-round-trip",
             device="some-device-key",
-            data_saving=True,
             auto_start=False,
             channels=[
                 WriteChannel(
@@ -279,7 +275,6 @@ class TestOPCUAWriteTask:
 
         # Verify all fields match
         assert retrieved_task.config.device == original_task.config.device
-        assert retrieved_task.config.data_saving == original_task.config.data_saving
         assert retrieved_task.config.auto_start == original_task.config.auto_start
         assert len(retrieved_task.config.channels) == len(original_task.config.channels)
 
