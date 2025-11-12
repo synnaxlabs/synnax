@@ -27,14 +27,14 @@ class NICounterReadForms(ConsoleCase):
         """
         console = self.console
 
-        # Get mode from matrix parameters
-        mode = self.params.get("mode")
-        if mode is None:
-            raise ValueError("Missing required parameter 'mode' from matrix")
+        # Get set from matrix parameters
+        set_id = self.params.get("set")
+        if set_id is None:
+            raise ValueError("Missing required parameter 'set' from matrix")
 
         # Talks to NI MAX sim devices
         rack_name = f"TestRack_{random.randint(100, 999)}"
-        device_name = f"{mode}_CI103"
+        device_name = f"{set_id}_CI103"
 
         self.log("Creating NI Counter Read Task")
         console.ni_ci.new()
@@ -48,19 +48,19 @@ class NICounterReadForms(ConsoleCase):
             auto_start=False,
         )
 
-        self.create_test_rack(rack_name, device_name, mode)
+        self.create_test_rack(rack_name, device_name, set_id)
 
-        # Verify each counter input channel type by mode
-        if mode == "a":
+        # Verify each counter input channel type by set
+        if set_id == 1:
             self.verify_edge_count_inputs(device_name)
             self.verify_frequency_inputs(device_name)
             self.verify_period_inputs(device_name)
-        if mode == "b":
+        if set_id == 2:
             self.verify_pulse_width_inputs(device_name)
             self.verify_semi_period_inputs(device_name)
             self.verify_two_edge_sep_inputs(device_name)
             self.verify_duty_cycle_inputs(device_name)
-        if mode == "c":
+        if set_id == 3:
             self.verify_linear_velocity_inputs(device_name)
             self.verify_angular_velocity_inputs(device_name)
             self.verify_linear_position_inputs(device_name)

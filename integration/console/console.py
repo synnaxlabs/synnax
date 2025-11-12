@@ -13,6 +13,7 @@ import re
 import time
 from typing import Any, Literal
 
+import synnax as sy
 from playwright.sync_api import Locator, Page
 
 from .channels import ChannelClient
@@ -66,7 +67,7 @@ class Console:
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""
         self.page.keyboard.press("ControlOrMeta+Shift+p")
-        self.page.wait_for_timeout(100)
+        sy.sleep(0.1)
         self.click(command)
 
     @property
@@ -96,7 +97,7 @@ class Console:
 
     def select_from_dropdown(self, text: str, placeholder: str | None = None) -> None:
         """Select an item from an open dropdown."""
-        self.page.wait_for_timeout(300)
+        sy.sleep(0.3)
         target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
 
         if placeholder is not None:
@@ -104,7 +105,7 @@ class Console:
             if search_input.count() > 0:
                 search_input.wait_for(state="attached", timeout=5000)
                 search_input.fill(text)
-                self.page.wait_for_timeout(100)
+                sy.sleep(0.1)
 
         for attempt in range(10):
             try:
@@ -216,13 +217,15 @@ class Console:
 
     def check_for_error_screen(self) -> None:
         """Checks for 'Something went wrong' text and clicks 'Try again' if found"""
-        self.page.wait_for_timeout(300)
+        sy.sleep(0.3)
         if self.page.get_by_text("Something went wrong").is_visible():
-            self.page.wait_for_timeout(200)
+            sy.sleep(0.2)
             self.page.get_by_text("Try again").click()
-            self.page.wait_for_timeout(200)
+            sy.sleep(0.2)
 
-    def check_for_notifications(self, timeout: float = 1.0) -> list[dict[str, Any]]:
+    def check_for_notifications(
+        self, timeout: sy.CrudeTimeSpan = 1.0
+    ) -> list[dict[str, Any]]:
         """
         Check for notifications in the bottom right corner.
         Polls every 100ms until notifications are found or timeout is reached.
@@ -286,8 +289,7 @@ class Console:
 
                 return notifications
 
-            # Wait before polling again using Playwright's wait mechanism
-            self.page.wait_for_timeout(poll_interval)
+            sy.sleep(poll_interval / 1000)
 
         # Timeout reached, return empty list
         return []

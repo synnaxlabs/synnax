@@ -7,22 +7,24 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import TYPE_CHECKING, Any, Type
 
 from playwright.sync_api import Page
 
-from console.task.channels.angular_position import AngularPosition
-from console.task.channels.angular_velocity import AngularVelocity
 from console.task.channels.counter import Counter
-from console.task.channels.duty_cycle import DutyCycle
-from console.task.channels.edge_count import EdgeCount
-from console.task.channels.frequency import Frequency
-from console.task.channels.linear_position import LinearPosition
-from console.task.channels.linear_velocity import LinearVelocity
-from console.task.channels.period import Period
-from console.task.channels.pulse_width import PulseWidth
-from console.task.channels.semi_period import SemiPeriod
-from console.task.channels.two_edge_separation import TwoEdgeSeparation
+from console.task.channels.counter_input import (
+    AngularPosition,
+    AngularVelocity,
+    DutyCycle,
+    EdgeCount,
+    Frequency,
+    LinearPosition,
+    LinearVelocity,
+    Period,
+    PulseWidth,
+    SemiPeriod,
+    TwoEdgeSeparation,
+)
 
 from .ni import NIChannel, NITask
 
@@ -61,7 +63,7 @@ class CounterRead(NITask):
         name: str,
         chan_type: str,
         device: str,
-        dev_name: Optional[str] = None,
+        dev_name: str | None = None,
         **kwargs: Any,
     ) -> NIChannel:
         """
@@ -96,9 +98,9 @@ class CounterRead(NITask):
 
     def set_parameters(
         self,
-        task_name: Optional[str] = None,
-        data_saving: Optional[bool] = None,
-        auto_start: Optional[bool] = None,
+        task_name: str | None = None,
+        data_saving: bool | None = None,
+        auto_start: bool | None = None,
         **kwargs: Any,
     ) -> None:
         """

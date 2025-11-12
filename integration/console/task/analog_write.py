@@ -12,8 +12,7 @@ from typing import TYPE_CHECKING, Any
 from playwright.sync_api import Page
 
 from console.task.channels.analog import Analog
-from console.task.channels.current import Current
-from console.task.channels.voltage import Voltage
+from console.task.channels.analog_output import Current, Voltage
 
 from .ni import NIChannel, NITask
 
@@ -48,7 +47,6 @@ class AnalogWrite(NITask):
     ) -> NIChannel:
         """
         Add a channel to the NI AO task. Only Voltage and Current types are allowed.
-        Terminal configuration and shunt resistor parameters are not supported for AO tasks.
 
         Args:
             name: Channel name
@@ -68,11 +66,6 @@ class AnalogWrite(NITask):
                 f"Invalid channel type for NI Analog Write: {chan_type}. "
                 f"Valid types: {list(AO_CHANNEL_TYPES.keys())}"
             )
-
-        # Remove parameters not supported for AO tasks
-        kwargs.pop("terminal_config", None)
-        kwargs.pop("shunt_resistor", None)
-        kwargs.pop("resistance", None)
 
         return self._add_channel_helper(
             name=name,

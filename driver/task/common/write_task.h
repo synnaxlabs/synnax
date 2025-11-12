@@ -255,7 +255,8 @@ public:
         const auto sink_started = !this->state.error(this->sink->internal->start());
         if (sink_started) {
             this->cmd_write_pipe.start();
-            this->state_write_pipe.start();
+            if (!this->sink->internal->writer_config().channels.empty())
+                this->state_write_pipe.start();
         }
         this->state.send_start(cmd_key);
         return sink_started;
