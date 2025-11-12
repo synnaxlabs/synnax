@@ -29,9 +29,11 @@ import { Menu } from "@/components";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 
-export interface ListProps extends Input.Control<string | undefined> {}
+export interface ListProps
+  extends Input.Control<string | undefined>,
+    Omit<Flex.BoxProps, "onChange"> {}
 
-export const List = ({ value, onChange }: ListProps): ReactElement => {
+export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const allClusters = useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
@@ -99,7 +101,7 @@ export const List = ({ value, onChange }: ListProps): ReactElement => {
 
   return (
     <Select.Frame data={keys} value={value} onChange={onChange} itemHeight={54}>
-      <Flex.Box y bordered grow empty>
+      <Flex.Box y bordered grow empty {...rest}>
         <PMenu.ContextMenu menu={contextMenu} {...menuProps} />
         <Header.Header gap="small" x style={{ padding: "0.666rem" }}>
           <Header.Title level="h4" color={11}>
@@ -107,7 +109,7 @@ export const List = ({ value, onChange }: ListProps): ReactElement => {
             Cores
           </Header.Title>
           <Button.Button onClick={() => placeLayout(CONNECT_LAYOUT)} variant="filled">
-            <Icon.Connect />
+            <Icon.Add />
           </Button.Button>
         </Header.Header>
         <Flex.Box empty onContextMenu={menuProps.open} grow>

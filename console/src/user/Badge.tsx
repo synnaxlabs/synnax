@@ -19,18 +19,21 @@ import { Workspace } from "@/workspace";
 
 export const Badge = (): ReactElement | null => {
   const dispatch = useDispatch();
-  const { data: u } = User.useRetrieve({});
+  const { data: u } = User.useRetrieve({}, { addStatusOnFailure: false });
+  const cluster = Cluster.useSelect();
   const handleLogout = useCallback(() => {
     dispatch(Cluster.setActive(null));
     dispatch(Workspace.setActive(null));
     dispatch(Layout.clearWorkspace());
   }, [dispatch]);
-  if (u == null) return null;
+  const username = u?.username ?? cluster?.username ?? "";
+  const displayName =
+    u?.firstName != null && u?.firstName != "" ? u.firstName : username;
   return (
     <Dialog.Frame>
       <Flex.Box x>
         <Flex.Box x pack>
-          <User.Avatar username={u?.username ?? ""} square size="large" />
+          <User.Avatar username={username} square size="large" />
           <Dialog.Trigger
             contrast={2}
             hideCaret
@@ -38,7 +41,7 @@ export const Badge = (): ReactElement | null => {
             gap="small"
             weight={400}
           >
-            {u.firstName != "" ? `${u.firstName}` : u.username}
+            {displayName}
           </Dialog.Trigger>
         </Flex.Box>
       </Flex.Box>

@@ -21,7 +21,7 @@ import {
   type Triggers,
 } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -96,6 +96,15 @@ export const Login = (): ReactElement => {
       dispatch(setActive(selectedCluster.key));
     }, "Failed to log in");
 
+  const handleSelectedClusterChange = useCallback(
+    (key?: string) => {
+      if (key == null) return;
+      methods.reset();
+      setSelectedKey(key);
+    },
+    [methods],
+  );
+
   return (
     <>
       <Layouts.Notifications />
@@ -129,7 +138,11 @@ export const Login = (): ReactElement => {
             background={0}
           >
             {servingCluster == null && (
-              <Cluster.List value={selectedKey} onChange={setSelectedKey} />
+              <Cluster.List
+                className={CSS.BE("login", "list")}
+                value={selectedKey}
+                onChange={handleSelectedClusterChange}
+              />
             )}
             <Flex.Box
               y
@@ -142,9 +155,7 @@ export const Login = (): ReactElement => {
               <Form.Form<typeof credentialsZ> {...methods}>
                 <Flex.Box y align="center" grow gap="huge" shrink={false}>
                   <Text.Text level="h2" color={11} weight={450}>
-                    {servingCluster != null
-                      ? "Log in"
-                      : `Log in to ${selectedCluster?.name}`}
+                    Log in
                   </Text.Text>
                   <Flex.Box y full="x" empty>
                     <Form.TextField path="username" inputProps={USERNAME_INPUT_PROPS} />
