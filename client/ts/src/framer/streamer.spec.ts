@@ -175,6 +175,7 @@ describe("Streamer", () => {
           streamer.close();
         }
       });
+
       test("calculated channel with constant", async () => {
         // Create an index channel for timestamps
         const timeChannel = await client.channels.create({
@@ -273,6 +274,62 @@ describe("Streamer", () => {
           await writer.close();
           streamer.close();
         }
+      });
+
+      describe("legacy calculations", async () => {
+        it("should correctly execute a calculation with a requires field", async () => {
+          const timeChannel = await client.channels.create({
+            name: "calc_test_time",
+            isIndex: true,
+            dataType: DataType.TIMESTAMP,
+          });
+
+          const [channelA, channelB] = await client.channels.create([
+            {
+              name: id.create(),
+              dataType: DataType.FLOAT64,
+              index: timeChannel.key,
+            },
+            {
+              name: id.create(),
+              dataType: DataType.FLOAT64,
+              index: timeChannel.key,
+            },
+          ]);
+
+          const calcChannel = await client.channels.create({
+            name: "test_calc",
+            dataType: DataType.FLOAT64,
+            virtual: true,
+            expression: `return ${channelA.name} + ${channelB.name}`,
+            requires: [channelA.key, channelB.key],
+          });
+
+          const streamer = await client.openStreamer(calcChannel.key);
+          await sleep.sleep(TimeSpan.milliseconds(10));
+
+          const startTime = TimeStamp.now();
+          const writer = await client.openWriter({
+            start: startTime,
+            channels: [timeChannel.key, channelA.key, channelB.key],
+          });
+
+          try {
+            await writer.write({
+              [timeChannel.key]: [startTime],
+              [channelA.key]: new Float64Array([2.5]),
+              [channelB.key]: new Float64Array([2.5]),
+            });
+
+            const frame = await streamer.read();
+
+            const calcData = Array.from(frame.get(calcChannel.key));
+            expect(calcData).toEqual([5.0]);
+          } finally {
+            await writer.close();
+            streamer.close();
+          }
+        });
       });
     });
   });

@@ -26,7 +26,6 @@ class TestWriter:
         with client.open_writer(
             start=1 * sy.TimeSpan.SECOND,
             channels=indexed_pair,
-            use_experimental_codec=True,
         ) as w:
             w.write(
                 {

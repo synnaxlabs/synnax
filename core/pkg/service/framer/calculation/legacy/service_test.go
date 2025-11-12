@@ -44,9 +44,8 @@ var _ = Describe("Calculation", Ordered, func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
-			Framer:            dist.Framer,
-			Channel:           dist.Channel,
-			ChannelObservable: dist.Channel.NewObservable(),
+			Framer:  dist.Framer,
+			Channel: dist.Channel,
 		}))
 	})
 
@@ -71,7 +70,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expression:  "return base * 2",
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
-		MustSucceed(c.Request(ctx, calculatedCH.Key()))
+		Expect(c.Add(ctx, calculatedCH.Key())).To(Succeed())
+		defer func() { Expect(c.Remove(ctx, calculatedCH.Key())).To(Succeed()) }()
 		sCtx, cancel := signal.WithCancel(ctx)
 		defer cancel()
 		w := MustSucceed(dist.Framer.OpenWriter(
@@ -115,7 +115,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expression:  "return base * fake",
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
-		MustSucceed(c.Request(ctx, calculatedCH.Key()))
+		Expect(c.Add(ctx, calculatedCH.Key())).To(Succeed())
+		defer func() { Expect(c.Remove(ctx, calculatedCH.Key())).To(Succeed()) }()
 		sCtx, cancel := signal.WithCancel(ctx)
 		defer cancel()
 		w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
@@ -150,7 +151,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expression:  "return base / 0",
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
-		MustSucceed(c.Request(ctx, calculatedCH.Key()))
+		Expect(c.Add(ctx, calculatedCH.Key())).To(Succeed())
+		defer func() { Expect(c.Remove(ctx, calculatedCH.Key())).To(Succeed()) }()
 		sCtx, cancel := signal.WithCancel(ctx)
 		defer cancel()
 		w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
@@ -203,8 +205,10 @@ var _ = Describe("Calculation", Ordered, func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc2CH)).To(Succeed())
 
-		MustSucceed(c.Request(ctx, calc1CH.Key()))
-		MustSucceed(c.Request(ctx, calc2CH.Key()))
+		Expect(c.Add(ctx, calc1CH.Key())).To(Succeed())
+		defer func() { Expect(c.Remove(ctx, calc1CH.Key())).To(Succeed()) }()
+		Expect(c.Add(ctx, calc2CH.Key())).To(Succeed())
+		defer func() { Expect(c.Remove(ctx, calc2CH.Key())).To(Succeed()) }()
 
 		sCtx, cancel := signal.WithCancel(ctx)
 		defer cancel()
@@ -295,7 +299,8 @@ var _ = Describe("Calculation", Ordered, func() {
 		)
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
-		MustSucceed(c.Request(ctx, calculatedCH.Key()))
+		Expect(c.Add(ctx, calculatedCH.Key())).To(Succeed())
+		defer func() { Expect(c.Remove(ctx, calculatedCH.Key())).To(Succeed()) }()
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
 
 		time.Sleep(5 * time.Millisecond)
@@ -334,7 +339,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expression:  "return base * 2",
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
-		MustSucceed(c.Request(ctx, calculatedCH.Key()))
+		Expect(c.Add(ctx, calculatedCH.Key())).To(Succeed())
+		defer func() { Expect(c.Remove(ctx, calculatedCH.Key())).To(Succeed()) }()
 		sCtx, cancel := signal.WithCancel(ctx)
 		defer cancel()
 		w := MustSucceed(dist.Framer.OpenWriter(
@@ -365,6 +371,7 @@ var _ = Describe("Calculation", Ordered, func() {
 
 		calculatedCH.Expression = "return base * 3"
 		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
+		c.Update(ctx, calculatedCH)
 		time.Sleep(sleepInterval)
 		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
 		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
