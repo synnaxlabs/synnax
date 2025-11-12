@@ -577,10 +577,7 @@ describe("framer.Frame", () => {
           ],
         ]),
       );
-      const filtered = f.mapFilter((k, arr, i) => {
-        // Keep only channel 12 and 14
-        return [k, arr, k !== 13];
-      });
+      const filtered = f.mapFilter((k, arr) => [k, arr, k !== 13]);
       expect(filtered.columns).toEqual([12, 14]);
       expect(filtered.series.length).toEqual(2);
     });
@@ -608,8 +605,7 @@ describe("framer.Frame", () => {
           ],
         ]),
       );
-      const mapped = f.mapFilter((k, arr, i) => {
-        // Map keys to new values
+      const mapped = f.mapFilter((k, arr) => {
         const newKey = typeof k === "number" ? k + 100 : k;
         return [newKey, arr, true];
       });
@@ -631,12 +627,9 @@ describe("framer.Frame", () => {
           ],
         ]),
       );
-      const mapped = f.mapFilter((k, arr, i) => {
-        // Double all values in the series
+      const mapped = f.mapFilter((k, arr) => {
         const newData = new Float32Array(arr.length);
-        for (let j = 0; j < arr.length; j++) {
-          newData[j] = (arr.at(j) as number) * 2;
-        }
+        for (let j = 0; j < arr.length; j++) newData[j] = (arr.at(j) as number) * 2;
         const newArr = new Series({
           data: newData,
           timeRange: arr.timeRange,
@@ -680,8 +673,7 @@ describe("framer.Frame", () => {
           ],
         ]),
       );
-      const result = f.mapFilter((k, arr, i) => {
-        // Keep only even-numbered keys and increment them by 1
+      const result = f.mapFilter((k, arr) => {
         const keep = typeof k === "number" && k % 2 === 0;
         const newKey = typeof k === "number" ? k + 1 : k;
         return [newKey, arr, keep];
@@ -692,7 +684,7 @@ describe("framer.Frame", () => {
 
     it("should handle empty frames", () => {
       const f = new framer.Frame();
-      const result = f.mapFilter((k, arr, i) => [k, arr, true]);
+      const result = f.mapFilter((k, arr) => [k, arr, true]);
       expect(result.columns).toEqual([]);
       expect(result.series.length).toEqual(0);
     });
@@ -720,7 +712,7 @@ describe("framer.Frame", () => {
           ],
         ]),
       );
-      const result = f.mapFilter((k, arr, i) => [k, arr, false]);
+      const result = f.mapFilter((k, arr) => [k, arr, false]);
       expect(result.columns).toEqual([]);
       expect(result.series.length).toEqual(0);
     });
@@ -748,7 +740,7 @@ describe("framer.Frame", () => {
           ],
         ]),
       );
-      const result = f.mapFilter((k, arr, i) => [k, arr, true]);
+      const result = f.mapFilter((k, arr) => [k, arr, true]);
       expect(result.columns).toEqual([12, 13]);
       expect(result.series.length).toEqual(2);
     });
@@ -806,8 +798,7 @@ describe("framer.Frame", () => {
           timeRange: new TimeRange(600, 60000),
         }),
       });
-      const result = f.mapFilter((k, arr, i) => {
-        // Keep channels 'a' and 'c', rename 'a' to 'x'
+      const result = f.mapFilter((k, arr) => {
         const newKey = k === "a" ? "x" : k;
         const keep = k === "a" || k === "c";
         return [newKey, arr, keep];
@@ -843,8 +834,7 @@ describe("framer.Frame", () => {
           ],
         ]),
       );
-      const result = f.mapFilter((k, arr, i) => [k, arr, k === 12]);
-      // Should keep both series for channel 12
+      const result = f.mapFilter((k, arr) => [k, arr, k === 12]);
       expect(result.columns).toEqual([12, 12]);
       expect(result.series.length).toEqual(2);
     });
