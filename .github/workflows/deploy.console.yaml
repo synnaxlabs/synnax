@@ -58,12 +58,13 @@ jobs:
         id: version
         working-directory: console
         run: |
+          PURE_VERSION=$(node -p "require('./package.json').version")
+          echo "PURE_VERSION=$PURE_VERSION" >> $GITHUB_OUTPUT
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
-            echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-            echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+            echo "VERSION=$PURE_VERSION" >> $GITHUB_OUTPUT
           else
-            echo "VERSION=$(node -p "require('./package.json').version")-rc" >> $GITHUB_OUTPUT
-            echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+            echo "VERSION=$PURE_VERSION-${BRANCH_NAME}" >> $GITHUB_OUTPUT
           fi
 
   create-release:
@@ -202,8 +203,7 @@ jobs:
 
       - name: Download relic for Windows signing
         if: matrix.os == 'windows-latest' && (github.event_name != 'pull_request')
-        run:
-          curl -L -o relic.exe
+        run: curl -L -o relic.exe
           https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
 
       - name: Add relic to PATH
@@ -253,8 +253,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if:
-      needs.create-release.outputs.release_id != '' && github.event_name !=
+    if: needs.create-release.outputs.release_id != '' && github.event_name !=
       'pull_request'
     needs: [setup, create-release, build]
     env:
