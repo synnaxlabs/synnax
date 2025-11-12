@@ -216,7 +216,7 @@ class DriverNIDigitalWrite(Latency):
         # Write latency data to Synnax
         self.log("Writing latency data to Synnax")
         with client.open_writer(
-            start=sy.TimeStamp.now(),
+            start=time_index[0],
             channels=[latency_time.key, latency_core_ch.key, latency_loop_ch.key],
         ) as writer:
             writer.write(
