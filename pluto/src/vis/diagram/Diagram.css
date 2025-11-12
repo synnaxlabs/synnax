@@ -16,6 +16,44 @@
         right: 2rem;
         z-index: 4;
     }
+    .pluto-diagram__control-group {
+        gap: 0;
+
+        /* Remove rounded corners on connecting edges vertically */
+        & > button:not(:last-child) {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+    }
+    /* Flatten right corners when adjacent to something on the right */
+    .pluto-diagram__controls
+        > .pluto-diagram__control-group:not(:last-child)
+        > button:first-child,
+    .pluto-diagram__controls > button:not(:last-child) {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+    /* Flatten left corners when adjacent to something on the left */
+    .pluto-diagram__controls
+        > .pluto-diagram__control-group:not(:first-child)
+        > button:first-child,
+    .pluto-diagram__controls > button:not(:first-child) {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+    .pluto-diagram__control-group-items {
+        gap: 0;
+
+        /* Remove rounded corners on all buttons in group */
+        & > button {
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+        & > button:not(:last-child) {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+    }
     .react-flow__selection,
     .react-flow__nodesselection-rect {
         background: var(--pluto-primary-z-10) !important;

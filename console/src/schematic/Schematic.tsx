@@ -14,7 +14,6 @@ import {
   Button,
   Control,
   Diagram,
-  Flex,
   Haul,
   Icon,
   type Legend,
@@ -237,6 +236,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [layoutKey, syncDispatch],
   );
 
+  const toggleLegendVisible = useCallback(
+    (visible: boolean) =>
+      syncDispatch(setLegend({ key: layoutKey, legend: { visible } })),
+    [layoutKey, syncDispatch],
+  );
+
   const elRenderer = useCallback(
     (props: Diagram.SymbolProps) => (
       <SymbolRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
@@ -392,41 +397,95 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
           <Diagram.Background />
           <Diagram.Controls>
-            <Diagram.SelectViewportModeControl />
-            <Diagram.FitViewControl />
-            <Flex.Box x pack>
-              {canEditSchematic && (
-                <Diagram.ToggleEditControl
-                  disabled={schematic.control === "acquired"}
-                />
-              )}
-              {!schematic.snapshot && (
+            {canEditSchematic && (
+              <Diagram.ControlGroup
+                trigger={
+                  <Diagram.ToggleEditControl
+                    disabled={schematic.control === "acquired"}
+                  />
+                }
+                expanded={schematic.editable}
+              >
                 <Button.Toggle
-                  value={schematic.control === "acquired"}
-                  onChange={acquireControl}
-                  tooltipLocation={location.BOTTOM_LEFT}
+                  value={mode === "pan"}
+                  onChange={(checked) => {
+                    if (checked) dispatch(setViewportMode({ key: layoutKey, mode: "pan" }));
+                  }}
+                  size="small"
                   uncheckedVariant="outlined"
                   checkedVariant="filled"
+                  tooltipLocation={location.BOTTOM_LEFT}
+                  tooltip={<Text.Text level="small">Pan</Text.Text>}
+                >
+                  <Icon.Pan />
+                </Button.Toggle>
+                <Button.Toggle
+                  value={mode === "select"}
+                  onChange={(checked) => {
+                    if (checked) dispatch(setViewportMode({ key: layoutKey, mode: "select" }));
+                  }}
                   size="small"
+                  uncheckedVariant="outlined"
+                  checkedVariant="filled"
+                  tooltipLocation={location.BOTTOM_LEFT}
+                  tooltip={<Text.Text level="small">Select</Text.Text>}
+                >
+                  <Icon.Selection />
+                </Button.Toggle>
+              </Diagram.ControlGroup>
+            )}
+            <Diagram.FitViewControl />
+            {!schematic.snapshot && (
+              <Diagram.ControlGroup
+                trigger={
+                  <Button.Toggle
+                    value={schematic.control === "acquired"}
+                    onChange={acquireControl}
+                    tooltipLocation={location.BOTTOM_LEFT}
+                    uncheckedVariant="outlined"
+                    checkedVariant="filled"
+                    size="small"
+                    tooltip={
+                      <Text.Text level="small">
+                        {schematic.control === "acquired"
+                          ? "Release control"
+                          : "Acquire control"}
+                      </Text.Text>
+                    }
+                  >
+                    <Icon.Circle />
+                  </Button.Toggle>
+                }
+                expanded={schematic.control === "acquired"}
+              >
+                <Button.Toggle
+                  value={schematic.legend.visible}
+                  onChange={toggleLegendVisible}
+                  size="small"
+                  uncheckedVariant="outlined"
+                  checkedVariant="outlined"
+                  tooltipLocation={location.BOTTOM_LEFT}
                   tooltip={
                     <Text.Text level="small">
-                      {schematic.control === "acquired"
-                        ? "Release control"
-                        : "Acquire control"}
+                      {schematic.legend.visible
+                        ? "Hide Control Legend"
+                        : "Show Control Legend"}
                     </Text.Text>
                   }
                 >
-                  <Icon.Circle />
+                  {schematic.legend.visible ? <Icon.Visible /> : <Icon.Hidden />}
                 </Button.Toggle>
-              )}
-            </Flex.Box>
+              </Diagram.ControlGroup>
+            )}
           </Diagram.Controls>
         </Core.Schematic>
-        <Control.Legend
-          position={legendPosition}
-          onPositionChange={handleLegendPositionChange}
-          allowVisibleChange={false}
-        />
+        {schematic.legend.visible && (
+          <Control.Legend
+            position={legendPosition}
+            onPositionChange={handleLegendPositionChange}
+            allowVisibleChange={false}
+          />
+        )}
       </Control.Controller>
     </div>
   );

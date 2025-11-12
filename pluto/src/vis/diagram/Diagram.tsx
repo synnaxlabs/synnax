@@ -656,13 +656,20 @@ export const VIEWPORT_MODES = ["zoom", "pan", "select"] as const;
 const PAN_TRIGGER: Triggers.Trigger[] = [["MouseMiddle"]];
 const SELECT_TRIGGER: Triggers.Trigger[] = [["MouseLeft"]];
 
-export const SelectViewportModeControl = (): ReactElement => {
+export interface SelectViewportModeControlProps {
+  direction?: "x" | "y";
+}
+
+export const SelectViewportModeControl = ({
+  direction = "x",
+}: SelectViewportModeControlProps = {}): ReactElement => {
   const { viewportMode, onViewportModeChange } = useContext();
   return (
     <Select.Buttons
       keys={VIEWPORT_MODES}
       value={viewportMode}
       onChange={onViewportModeChange}
+      direction={direction}
     >
       <Select.Button
         itemKey="pan"
