@@ -89,7 +89,8 @@ export const Login = (): ReactElement => {
         const message = state.message ?? "Unknown error";
         return setStatus(status.create({ variant: "error", message }));
       }
-      if (state.nodeVersion != null) dispatch(Version.set(state.nodeVersion));
+      if (state.nodeVersion != null && servingCluster != null)
+        dispatch(Version.set(state.nodeVersion));
       dispatch(Cluster.set({ ...selectedCluster, ...credentials }));
       dispatch(setActive(selectedCluster.key));
     }, "Failed to log in");
