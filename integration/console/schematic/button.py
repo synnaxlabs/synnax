@@ -61,8 +61,7 @@ class Button(Symbol):
 
         if mode is not None:
             # Convert to title case for UI interaction
-            mode_title = mode.title()
-            self.page.get_by_text(mode_title, exact=True).click()
+            self.page.get_by_text(mode.title()).click()
             applied_properties["mode"] = mode.lower()
 
         return applied_properties
