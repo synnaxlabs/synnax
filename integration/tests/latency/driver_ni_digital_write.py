@@ -125,7 +125,9 @@ class DriverNIDigitalWrite(Latency):
                     write_time = sy.TimeStamp.now()
 
                     # Wait for state to match command
-                    ctrl.wait_until(lambda c: c[do_1_state.key] == int(cmd_state), timeout=1)
+                    ctrl.wait_until(
+                        lambda c: c[do_1_state.key] == int(cmd_state), timeout=1
+                    )
                     state_timestamp_loop = sy.TimeStamp.now()
 
                     # Get the core timestamp from the last received value
