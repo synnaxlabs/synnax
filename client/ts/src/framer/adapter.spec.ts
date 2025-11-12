@@ -567,14 +567,8 @@ describe("ReadFrameAdapter", () => {
         const codecAdapter = await ReadAdapter.open(client.channels.retriever, [
           timeCh.key,
         ]);
-
-        // Check initial codec state (keys array)
         expect(codecAdapter.keys).toHaveLength(1);
-
-        // Update channels
         await codecAdapter.update([timeCh.key, dataCh.key]);
-
-        // Codec should be updated (reflected in keys array)
         expect(codecAdapter.keys).toHaveLength(2);
       });
     });

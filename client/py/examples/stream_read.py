@@ -23,24 +23,12 @@ client = sy.Synnax()
 
 # We can just specify the names of the channels we'd like to stream from. These channels
 # were created by running the `stream_write.py`` script.
-channels = ["stream_write_weird", "stream_write_avg", "stream_write_data_1"]
+channels = ["stream_write_time", "stream_write_data_1", "stream_write_data_2"]
 
 # We will open the streamer with a context manager. The context manager will
 # automatically close the streamer after we're done reading.
 with client.open_streamer(channels) as streamer:
     # Loop through the frames in the streamer. Each iteration will block until a new
     # frame is available, then we'll print out the frame of data.
-    i = 0
-    new_channels = []
     while True:
-        i += 1
-        if i % 500 == 0:
-            n_i = (i % 2000) / 500
-            if n_i == 0:
-                continue
-            new_channels = channels[: int(n_i)]
-            streamer.update_channels(new_channels)
-        try:
-            print(streamer.read())
-        except KeyboardInterrupt:
-            break
+        print(streamer.read())
