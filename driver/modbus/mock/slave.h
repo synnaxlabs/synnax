@@ -138,8 +138,10 @@ class Slave {
         for (const auto &[addr, value]: config_.holding_registers)
             if (addr < nb_registers) {
                 auto dt = telem::DataType::infer(value);
-                LOG(INFO) << "Holding register[" << addr << "]: inferred type=" << dt.name()
-                          << " density=" << dt.density() << " dest_size=" << ((dt.density() + 1) / 2);
+                LOG(INFO) << "Holding register[" << addr
+                          << "]: inferred type=" << dt.name()
+                          << " density=" << dt.density()
+                          << " dest_size=" << ((dt.density() + 1) / 2);
                 std::vector<uint16_t> dest((dt.density() + 1) / 2);
                 if (const auto err = util::format_register(
                         value,
@@ -156,8 +158,10 @@ class Slave {
         for (const auto &[addr, value]: config_.input_registers)
             if (addr < nb_input_registers) {
                 auto dt = telem::DataType::infer(value);
-                LOG(INFO) << "Input register[" << addr << "]: inferred type=" << dt.name()
-                          << " density=" << dt.density() << " dest_size=" << ((dt.density() + 1) / 2);
+                LOG(INFO) << "Input register[" << addr
+                          << "]: inferred type=" << dt.name()
+                          << " density=" << dt.density()
+                          << " dest_size=" << ((dt.density() + 1) / 2);
                 std::vector<uint16_t> dest((dt.density() + 1) / 2);
                 if (const auto err = util::format_register(
                         value,
