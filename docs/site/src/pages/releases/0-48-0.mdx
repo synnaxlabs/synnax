@@ -13,19 +13,19 @@ export const components = mdxOverrides;
 <Release
     version="0.48.0"
     date="Nov 12, 2025"
-    title="Login Page, Status Toolbar, NI Counter Tasks, and Improved Measure Tool"
+    title="Login Page, Status Toolbar, NI Counter Read Tasks, and Improved Measure Tool"
 >
 
 <Image client:only="react" id="releases/0-48-0/thumbnail" themed={false} />
 
 ### Login Page
 
-As part of our ongoing effort to improve user access control, we're moving away from our
-traditional core connection dropdown to a new login page. In the top right corner of the
-screen, you'll no longer see the currently connected cluster, and instead see the
-username of the currently logged in user.
+As part of our ongoing effort to improve user access control, we're moving away from the
+Core Selector to a new login page. In the top right corner of the screen, you'll no
+longer see the currently connected Core, and instead see the username of the currently
+logged in user.
 
-On the login page, you'll be able to select a cluster to connect to, and then enter your
+On the login page, you'll be able to select a Core to connect to, and then enter your
 username and password to log in.
 
 <Divider.Divider x />
@@ -49,17 +49,16 @@ username and password to log in.
 </Diagram>
 
 We've added a new toolbar that allows you to favorite important statuses for quick
-viewing. This also simplifies access to the status explorer and the status creation
-modal.
+viewing. This toolbar also has buttons to create a status and open the Status Explorer.
 
 <Divider.Divider x />
 
-### NI Counter Tasks
+### NI Counter Read Tasks
 
 <Image client:only="react" id="releases/0-48-0/ni-counter-task" themed={false} />
 
-We've added support for NI counter-based read tasks to Synnax. This allows you to read
-data from frequency, period, pulse width, and a number of other channel types.
+We've added support for NI Counter Read Tasks to Synnax. This allows you to read data
+from frequency, period, pulse width, and a number of other counter-based channel types.
 
 <Divider.Divider x />
 
@@ -76,12 +75,6 @@ line plot.
 
 ### Minor Improvements and Bug Fixes
 
-#### Arc-Based Calculated Channels
-
-We've continued to improve the stability and performance of our Arc-based calculated
-channels. Nested calculations are now intelligently grouped and circular dependencies
-are detected and reported.
-
 #### Console
 
 - Fixed an issue where the date and time inputs on range overviews would not correctly
@@ -91,6 +84,8 @@ are detected and reported.
 
 #### Core
 
+- Improved the stability and performance of Arc-based calculated channels by reporting
+  circular dependencies and intelligently grouping nested calculations.
 - Fixed an issue where the docker image would not correctly grant permissions to the
   embedded driver.
 
