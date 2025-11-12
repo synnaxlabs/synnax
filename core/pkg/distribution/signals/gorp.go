@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
+	xunsafe "github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -113,12 +114,14 @@ func GorpPublisherConfigPureNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.D
 		SetDataType:    dt,
 		MarshalDelete: func(k K) (b []byte, err error) {
 			b = make([]byte, dt.Density())
-			telem.MarshalF[K](dt)(b, k)
+			data := xunsafe.CastSlice[byte, K](b)
+			data[0] = k
 			return b, nil
 		},
 		MarshalSet: func(e E) (b []byte, err error) {
 			b = make([]byte, dt.Density())
-			telem.MarshalF[K](dt)(b, e.GorpKey())
+			data := xunsafe.CastSlice[byte, K](b)
+			data[0] = e.GorpKey()
 			return b, nil
 		},
 	}

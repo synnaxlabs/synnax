@@ -12,10 +12,9 @@ from typing import TYPE_CHECKING, Any
 from playwright.sync_api import Page
 
 from console.task.channels.analog import Analog
-from console.task.channels.current import Current
-from console.task.channels.voltage import Voltage
+from console.task.channels.analog_output import Current, Voltage
 
-from .ni import NITask
+from .ni import NIChannel, NITask
 
 if TYPE_CHECKING:
     from console.console import Console
@@ -45,10 +44,9 @@ class AnalogWrite(NITask):
         device: str,
         dev_name: str | None = None,
         **kwargs: Any,
-    ) -> Analog:
+    ) -> NIChannel:
         """
         Add a channel to the NI AO task. Only Voltage and Current types are allowed.
-        Terminal configuration and shunt resistor parameters are not supported for AO tasks.
 
         Args:
             name: Channel name
@@ -69,11 +67,6 @@ class AnalogWrite(NITask):
                 f"Valid types: {list(AO_CHANNEL_TYPES.keys())}"
             )
 
-        # Remove parameters not supported for AO tasks
-        kwargs.pop("terminal_config", None)
-        kwargs.pop("shunt_resistor", None)
-        kwargs.pop("resistance", None)
-
         return self._add_channel_helper(
             name=name,
             device=device,
@@ -87,6 +80,7 @@ class AnalogWrite(NITask):
         task_name: str | None = None,
         data_saving: bool | None = None,
         auto_start: bool | None = None,
+        state_update_rate: float | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -94,12 +88,11 @@ class AnalogWrite(NITask):
 
         Args:
             task_name: The name of the task.
-            state_update_rate: The state update rate for the AO task.
             data_saving: Whether to save data to the core.
             auto_start: Whether to start the task automatically.
+            state_update_rate: The state update rate for the AO task.
             **kwargs: Additional parameters.
         """
-        state_update_rate = kwargs.pop("state_update_rate", None)
 
         super().set_parameters(
             task_name=task_name,

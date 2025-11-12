@@ -26,7 +26,6 @@ import {
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/workspace/Create";
@@ -94,61 +93,59 @@ export const Selector = (): ReactElement => {
           {active?.name ?? "No Workspace"}
         </Dialog.Trigger>
         <Dialog.Dialog style={DIALOG_STYLE} bordered={client == null} borderColor={6}>
-          <Cluster.NoneConnectedBoundary>
-            <Flex.Box pack rounded>
-              <Input.Text
-                size="large"
-                rounded
-                placeholder={
-                  <>
-                    <Icon.Search key="search" />
-                    Search workspaces
-                  </>
-                }
-                contrast={0}
-                value={search}
-                onChange={(v) => {
-                  setSearch(v);
-                  retrieve((p) => ({ ...p, search: v }));
-                }}
-                full="x"
-                style={{ borderBottomLeftRadius: 0 }}
-                borderColor={6}
-              />
-              <Button.Button
-                size="large"
-                variant="outlined"
-                onClick={() => {
-                  handleChange(null);
-                  setDialogVisible(false);
-                }}
-                gap="small"
-                tooltip="Switch to no workspace"
-                borderColor={6}
-              >
-                <Icon.Close />
-                Clear
-              </Button.Button>
-              <Button.Button
-                size="large"
-                variant="outlined"
-                onClick={() => {
-                  setDialogVisible(false);
-                  placeLayout(CREATE_LAYOUT);
-                }}
-                gap="small"
-                tooltip="Create a new workspace"
-                tooltipLocation={{ y: "bottom" }}
-                borderColor={6}
-              >
-                <Icon.Add />
-                New
-              </Button.Button>
-            </Flex.Box>
-            <List.Items bordered borderColor={6} grow>
-              {listItem}
-            </List.Items>
-          </Cluster.NoneConnectedBoundary>
+          <Flex.Box pack rounded>
+            <Input.Text
+              size="large"
+              rounded
+              placeholder={
+                <>
+                  <Icon.Search key="search" />
+                  Search workspaces
+                </>
+              }
+              contrast={0}
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                retrieve((p) => ({ ...p, search: v }));
+              }}
+              full="x"
+              style={{ borderBottomLeftRadius: 0 }}
+              borderColor={6}
+            />
+            <Button.Button
+              size="large"
+              variant="outlined"
+              onClick={() => {
+                handleChange(null);
+                setDialogVisible(false);
+              }}
+              gap="small"
+              tooltip="Switch to no workspace"
+              borderColor={6}
+            >
+              <Icon.Close />
+              Clear
+            </Button.Button>
+            <Button.Button
+              size="large"
+              variant="outlined"
+              onClick={() => {
+                setDialogVisible(false);
+                placeLayout(CREATE_LAYOUT);
+              }}
+              gap="small"
+              tooltip="Create a new workspace"
+              tooltipLocation={{ y: "bottom" }}
+              borderColor={6}
+            >
+              <Icon.Add />
+              New
+            </Button.Button>
+          </Flex.Box>
+          <List.Items bordered borderColor={6} grow>
+            {listItem}
+          </List.Items>
         </Dialog.Dialog>
       </Select.Frame>
     </Dialog.Frame>
