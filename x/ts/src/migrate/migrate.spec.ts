@@ -56,6 +56,59 @@ const migrations: migrate.Migrations = {
   "1.0.0": migrateV2,
 };
 
+describe("semVerZ", () => {
+  describe("valid versions", () => {
+    it("should accept standard semver format", () => {
+      expect(() => migrate.semVerZ.parse("1.0.0")).not.toThrow();
+      expect(() => migrate.semVerZ.parse("0.0.0")).not.toThrow();
+      expect(() => migrate.semVerZ.parse("99.99.99")).not.toThrow();
+    });
+
+    it("should accept pre-release versions with single identifier", () => {
+      expect(() => migrate.semVerZ.parse("1.0.0-alpha")).not.toThrow();
+      expect(() => migrate.semVerZ.parse("1.0.0-beta")).not.toThrow();
+      expect(() => migrate.semVerZ.parse("1.0.0-rc")).not.toThrow();
+      expect(() => migrate.semVerZ.parse("0.48.0-rc")).not.toThrow();
+    });
+
+    it("should accept pre-release versions with numeric identifiers", () => {
+      expect(() => migrate.semVerZ.parse("1.0.0-1")).not.toThrow();
+      expect(() => migrate.semVerZ.parse("1.0.0-0")).not.toThrow();
+      expect(() => migrate.semVerZ.parse("1.0.0-99")).not.toThrow();
+    });
+
+    it("should accept pre-release versions with multiple identifiers", () => {
+      expect(() => migrate.semVerZ.parse("1.0.0-alpha.1")).not.toThrow();
+      expect(() => migrate.semVerZ.parse("1.0.0-rc.1")).not.toThrow();
+      expect(() => migrate.semVerZ.parse("1.0.0-beta.2.3")).not.toThrow();
+      expect(() => migrate.semVerZ.parse("1.0.0-0.3.7")).not.toThrow();
+    });
+
+    it("should accept pre-release versions with hyphens", () => {
+      expect(() => migrate.semVerZ.parse("1.0.0-x-beta")).not.toThrow();
+      expect(() => migrate.semVerZ.parse("1.0.0-alpha-beta")).not.toThrow();
+    });
+  });
+
+  describe("invalid versions", () => {
+    it("should reject versions without patch", () => {
+      expect(() => migrate.semVerZ.parse("1.0")).toThrow();
+    });
+
+    it("should reject versions without minor", () => {
+      expect(() => migrate.semVerZ.parse("1")).toThrow();
+    });
+
+    it("should reject versions with build metadata (not supported)", () => {
+      expect(() => migrate.semVerZ.parse("1.0.0+build")).toThrow();
+    });
+
+    it("should reject versions with empty pre-release", () => {
+      expect(() => migrate.semVerZ.parse("1.0.0-")).toThrow();
+    });
+  });
+});
+
 describe("compareSemVer", () => {
   it("should return true when the major version is higher", () => {
     expect(migrate.compareSemVer("1.0.0", "0.0.0")).toBeGreaterThan(0);
@@ -139,6 +192,98 @@ describe("compareSemVer", () => {
       ).toBeLessThan(0);
     });
   });
+
+  describe("pre-release versions", () => {
+    it("should consider release version newer than pre-release", () => {
+      expect(migrate.compareSemVer("1.0.0", "1.0.0-rc")).toBeGreaterThan(0);
+      expect(migrate.compareSemVer("1.0.0", "1.0.0-alpha")).toBeGreaterThan(0);
+      expect(migrate.compareSemVer("1.0.0", "1.0.0-beta")).toBeGreaterThan(0);
+      expect(migrate.compareSemVer("0.48.0", "0.48.0-rc")).toBeGreaterThan(0);
+      expect(migrate.semVerNewer("1.0.0", "1.0.0-rc")).toBe(true);
+    });
+
+    it("should consider pre-release version older than release", () => {
+      expect(migrate.compareSemVer("1.0.0-rc", "1.0.0")).toBeLessThan(0);
+      expect(migrate.compareSemVer("1.0.0-alpha", "1.0.0")).toBeLessThan(0);
+      expect(migrate.compareSemVer("0.48.0-rc", "0.48.0")).toBeLessThan(0);
+      expect(migrate.semVerOlder("1.0.0-rc", "1.0.0")).toBe(true);
+    });
+
+    it("should compare pre-release versions lexicographically", () => {
+      expect(migrate.compareSemVer("1.0.0-alpha", "1.0.0-beta")).toBeLessThan(0);
+      expect(migrate.compareSemVer("1.0.0-beta", "1.0.0-rc")).toBeLessThan(0);
+      expect(migrate.compareSemVer("1.0.0-rc", "1.0.0-alpha")).toBeGreaterThan(0);
+      expect(migrate.semVerNewer("1.0.0-rc", "1.0.0-alpha")).toBe(true);
+      expect(migrate.semVerOlder("1.0.0-alpha", "1.0.0-beta")).toBe(true);
+    });
+
+    it("should compare numeric pre-release identifiers numerically", () => {
+      expect(migrate.compareSemVer("1.0.0-1", "1.0.0-2")).toBeLessThan(0);
+      expect(migrate.compareSemVer("1.0.0-2", "1.0.0-10")).toBeLessThan(0);
+      expect(migrate.compareSemVer("1.0.0-10", "1.0.0-2")).toBeGreaterThan(0);
+    });
+
+    it("should compare pre-release versions with multiple identifiers", () => {
+      expect(migrate.compareSemVer("1.0.0-rc.1", "1.0.0-rc.2")).toBeLessThan(0);
+      expect(migrate.compareSemVer("1.0.0-rc.2", "1.0.0-rc.10")).toBeLessThan(0);
+      expect(migrate.compareSemVer("1.0.0-alpha.1", "1.0.0-alpha.2")).toBeLessThan(0);
+      expect(
+        migrate.compareSemVer("1.0.0-alpha.beta", "1.0.0-alpha.gamma"),
+      ).toBeLessThan(0);
+    });
+
+    it("should consider numeric identifiers lower than alphanumeric", () => {
+      expect(migrate.compareSemVer("1.0.0-1", "1.0.0-alpha")).toBeLessThan(0);
+      expect(migrate.compareSemVer("1.0.0-alpha", "1.0.0-1")).toBeGreaterThan(0);
+      expect(migrate.compareSemVer("1.0.0-rc.1", "1.0.0-rc.beta")).toBeLessThan(0);
+    });
+
+    it("should consider longer pre-release identifiers higher precedence", () => {
+      expect(migrate.compareSemVer("1.0.0-rc", "1.0.0-rc.1")).toBeLessThan(0);
+      expect(migrate.compareSemVer("1.0.0-rc.1", "1.0.0-rc")).toBeGreaterThan(0);
+      expect(migrate.compareSemVer("1.0.0-alpha.1", "1.0.0-alpha.1.2")).toBeLessThan(0);
+    });
+
+    it("should consider equal pre-release versions equal", () => {
+      expect(migrate.compareSemVer("1.0.0-rc", "1.0.0-rc")).toBe(0);
+      expect(migrate.compareSemVer("1.0.0-alpha.1", "1.0.0-alpha.1")).toBe(0);
+      expect(migrate.versionsEqual("1.0.0-rc", "1.0.0-rc")).toBe(true);
+    });
+
+    it("should handle complex pre-release comparison chains", () => {
+      const versions = [
+        "1.0.0-alpha",
+        "1.0.0-alpha.1",
+        "1.0.0-alpha.beta",
+        "1.0.0-beta",
+        "1.0.0-beta.2",
+        "1.0.0-beta.11",
+        "1.0.0-rc.1",
+        "1.0.0",
+      ];
+
+      for (let i = 0; i < versions.length - 1; i++) {
+        expect(migrate.compareSemVer(versions[i], versions[i + 1])).toBeLessThan(0);
+        expect(migrate.compareSemVer(versions[i + 1], versions[i])).toBeGreaterThan(0);
+      }
+    });
+
+    it("should respect checkMajor/checkMinor/checkPatch with pre-release", () => {
+      expect(
+        migrate.compareSemVer("2.0.0-rc", "1.0.0", {
+          checkMinor: false,
+          checkPatch: false,
+        }),
+      ).toBeGreaterThan(0);
+
+      expect(
+        migrate.compareSemVer("1.2.0-rc", "1.1.0", {
+          checkMajor: false,
+          checkPatch: false,
+        }),
+      ).toBeGreaterThan(0);
+    });
+  });
 });
 
 describe("migrator", () => {
@@ -171,5 +316,103 @@ describe("migrator", () => {
       def: DEFAULT,
     })(entity);
     expect(migrated).toEqual(entity);
+  });
+
+  describe("with pre-release versions", () => {
+    const entityV1RC = z.object({
+      version: z.literal("1.0.0-rc"),
+      title: z.string(),
+    });
+
+    type EntityV1RC = z.infer<typeof entityV1RC>;
+
+    const migrateV1RC = migrate.createMigration<EntityV1RC, EntityV2>({
+      name: "entity",
+      inputSchema: entityV1RC,
+      outputSchema: entityV2,
+      migrate: (entity) => ({ ...entity, version: "2.0.0", description: "" }),
+    });
+
+    const migrationsWithRC: migrate.Migrations = {
+      "0.0.0": migrateV1,
+      "1.0.0-rc": migrateV1RC,
+      "1.0.0": migrateV2,
+    };
+
+    it("should migrate from pre-release version to stable", () => {
+      const entity: EntityV1RC = { version: "1.0.0-rc", title: "foo" };
+      const DEFAULT: EntityV2 = { version: "2.0.0", title: "", description: "" };
+      const migrated = migrate.migrator({
+        name: "entity",
+        migrations: migrationsWithRC,
+        def: DEFAULT,
+      })(entity);
+      expect(migrated).toEqual({ version: "2.0.0", title: "foo", description: "" });
+    });
+
+    it("should handle version sorting with pre-release correctly", () => {
+      const versions = ["0.0.0", "1.0.0-rc", "1.0.0"];
+      const sorted = versions.sort(migrate.compareSemVer);
+      expect(sorted).toEqual(["0.0.0", "1.0.0-rc", "1.0.0"]);
+    });
+
+    it("should not migrate if current version is newer than pre-release target", () => {
+      const entity: EntityV1 = { version: "1.0.0", title: "foo" };
+      const DEFAULT: EntityV1RC = { version: "1.0.0-rc", title: "" };
+      const migrated = migrate.migrator({
+        name: "entity",
+        migrations: { "0.0.0": migrateV1 },
+        def: DEFAULT,
+      })(entity);
+      expect(migrated).toEqual({ version: "1.0.0", title: "foo" });
+    });
+
+    it("should migrate through multiple pre-release versions", () => {
+      const entityV1Alpha = z.object({
+        version: z.literal("1.0.0-alpha"),
+        title: z.string(),
+      });
+
+      type EntityV1Alpha = z.infer<typeof entityV1Alpha>;
+
+      const entityV1Beta = z.object({
+        version: z.literal("1.0.0-beta"),
+        title: z.string(),
+        newField: z.string(),
+      });
+
+      type EntityV1Beta = z.infer<typeof entityV1Beta>;
+
+      const migrateAlphaToBeta = migrate.createMigration<EntityV1Alpha, EntityV1Beta>({
+        name: "entity",
+        migrate: (entity) => ({
+          ...entity,
+          version: "1.0.0-beta",
+          newField: "added",
+        }),
+      });
+
+      const migrateBetaToRC = migrate.createMigration<EntityV1Beta, EntityV1RC>({
+        name: "entity",
+        migrate: (entity) => {
+          const { newField, ...rest } = entity;
+          return { ...rest, version: "1.0.0-rc" };
+        },
+      });
+
+      const preReleaseMigrations: migrate.Migrations = {
+        "1.0.0-alpha": migrateAlphaToBeta,
+        "1.0.0-beta": migrateBetaToRC,
+      };
+
+      const entity: EntityV1Alpha = { version: "1.0.0-alpha", title: "test" };
+      const DEFAULT: EntityV1RC = { version: "1.0.0-rc", title: "" };
+      const migrated = migrate.migrator({
+        name: "entity",
+        migrations: preReleaseMigrations,
+        def: DEFAULT,
+      })(entity);
+      expect(migrated).toEqual({ version: "1.0.0-rc", title: "test" });
+    });
   });
 });
