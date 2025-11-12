@@ -19,7 +19,7 @@ export const LoginNav = (): ReactElement => {
       <Nav.Bar.Start data-tauri-drag-region>
         <Layout.Controls visibleIfOS="macOS" forceOS={os} />
       </Nav.Bar.Start>
-      <Nav.Bar.End data-tauri-drag-region>
+      <Nav.Bar.End data-tauri-drag-region justify="end">
         <Layout.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>
     </Layout.Nav.Bar>
