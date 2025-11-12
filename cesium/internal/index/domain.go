@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/unsafe"
+	"go.uber.org/zap"
 )
 
 // Domain is an implementation of Index backed by a domain-based database that stores
@@ -540,14 +542,15 @@ func newStampReader() func(r io.ReaderAt, offset telem.Size) (telem.TimeStamp, e
 	buf := make([]byte, sampleDensity)
 	return func(r io.ReaderAt, offset telem.Size) (telem.TimeStamp, error) {
 		n, err := r.ReadAt(buf, int64(offset))
-		if n != int(sampleDensity) {
-			return 0, errors.Newf(
-				"failed to read sufficient number of bytes for timestamp. expected %d, got %d",
-				sampleDensity,
-				n,
-			)
+		if err != nil {
+			return 0, err
 		}
-		return telem.UnmarshalTimeStamp[telem.TimeStamp](buf), err
+		if len(buf) != n {
+			err := errors.Newf("[domain.index] unexpected failure to read %d bytes for timestamp lookup, only received %d", n, len(buf))
+			zap.S().DPanic(err)
+			return 0, err
+		}
+		return unsafe.CastBytes[telem.TimeStamp](buf), nil
 	}
 }
 

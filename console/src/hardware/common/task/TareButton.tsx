@@ -18,10 +18,7 @@ export const TareButton = ({ onTare, disabled }: TareButtonProps) => (
   <Button.Button
     variant="outlined"
     disabled={disabled}
-    onClick={(e) => {
-      e.stopPropagation();
-      onTare();
-    }}
+    onClick={onTare}
     size="small"
     tooltip="Tare"
   >

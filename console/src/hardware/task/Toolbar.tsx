@@ -246,12 +246,8 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
   const isLoading = variant === "loading";
   const isRunning = details?.running === true;
   if (!isRunning && variant === "success") variant = "info";
-  const handleStartStopClick = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
-    (e) => {
-      e.stopPropagation();
-      const command = isRunning ? "stop" : "start";
-      onStopStart(command);
-    },
+  const handleStartStopClick = useCallback(
+    () => onStopStart(isRunning ? "stop" : "start"),
     [isRunning, onStopStart],
   );
   return (

@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
+	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
 
 func marshalSeriesTest[T telem.Sample](data []T, dt telem.DataType) func() {
@@ -94,136 +95,66 @@ var _ = Describe("Series", func() {
 			})
 		})
 
-		Describe("Marshal Individual Samples", func() {
+		Describe("Series ValueAt/SetValueAt", func() {
 			Specify("Uint8", func() {
-				b := make([]byte, 1)
-				telem.MarshalUint8[uint8](b, 1)
-				Expect(telem.UnmarshalUint8[uint8](b)).To(Equal(uint8(1)))
+				s := telem.NewSeriesV[uint8](1)
+				Expect(telem.ValueAt[uint8](s, 0)).To(Equal(uint8(1)))
+				telem.SetValueAt(s, 0, uint8(10))
+				Expect(telem.ValueAt[uint8](s, 0)).To(Equal(uint8(10)))
 			})
 			Specify("Uint16", func() {
-				b := make([]byte, 2)
-				telem.MarshalUint16[uint16](b, 2)
-				Expect(telem.UnmarshalUint16[uint16](b)).To(Equal(uint16(2)))
+				s := telem.NewSeriesV[uint16](2)
+				Expect(telem.ValueAt[uint16](s, 0)).To(Equal(uint16(2)))
+				telem.SetValueAt(s, 0, uint16(20))
+				Expect(telem.ValueAt[uint16](s, 0)).To(Equal(uint16(20)))
 			})
 			Specify("Uint32", func() {
-				b := make([]byte, 4)
-				telem.MarshalUint32[uint32](b, 4)
-				Expect(telem.UnmarshalUint32[uint32](b)).To(Equal(uint32(4)))
+				s := telem.NewSeriesV[uint32](4)
+				Expect(telem.ValueAt[uint32](s, 0)).To(Equal(uint32(4)))
+				telem.SetValueAt(s, 0, uint32(40))
+				Expect(telem.ValueAt[uint32](s, 0)).To(Equal(uint32(40)))
 			})
 			Specify("Uint64", func() {
-				b := make([]byte, 8)
-				telem.MarshalUint64[uint64](b, 8)
-				Expect(telem.UnmarshalUint64[uint64](b)).To(Equal(uint64(8)))
+				s := telem.NewSeriesV[uint64](8)
+				Expect(telem.ValueAt[uint64](s, 0)).To(Equal(uint64(8)))
+				telem.SetValueAt(s, 0, uint64(80))
+				Expect(telem.ValueAt[uint64](s, 0)).To(Equal(uint64(80)))
 			})
 			Specify("Float32", func() {
-				b := make([]byte, 4)
-				telem.MarshalFloat32[float32](b, 4)
-				Expect(telem.UnmarshalFloat32[float32](b)).To(Equal(float32(4)))
+				s := telem.NewSeriesV[float32](4)
+				Expect(telem.ValueAt[float32](s, 0)).To(Equal(float32(4)))
+				telem.SetValueAt(s, 0, float32(40))
+				Expect(telem.ValueAt[float32](s, 0)).To(Equal(float32(40)))
 			})
 			Specify("Int64", func() {
-				b := make([]byte, 8)
-				telem.MarshalInt64[int64](b, 8)
-				Expect(telem.UnmarshalInt64[int64](b)).To(Equal(int64(8)))
+				s := telem.NewSeriesV[int64](8)
+				Expect(telem.ValueAt[int64](s, 0)).To(Equal(int64(8)))
+				telem.SetValueAt(s, 0, int64(80))
+				Expect(telem.ValueAt[int64](s, 0)).To(Equal(int64(80)))
 			})
 			Specify("Int32", func() {
-				b := make([]byte, 4)
-				telem.MarshalInt32[int32](b, 4)
-				Expect(telem.UnmarshalInt32[int32](b)).To(Equal(int32(4)))
+				s := telem.NewSeriesV[int32](4)
+				Expect(telem.ValueAt[int32](s, 0)).To(Equal(int32(4)))
+				telem.SetValueAt(s, 0, int32(40))
+				Expect(telem.ValueAt[int32](s, 0)).To(Equal(int32(40)))
 			})
 			Specify("Int16", func() {
-				b := make([]byte, 4)
-				telem.MarshalInt16[int16](b, 4)
-				Expect(telem.UnmarshalInt16[int16](b)).To(Equal(int16(4)))
+				s := telem.NewSeriesV[int16](4)
+				Expect(telem.ValueAt[int16](s, 0)).To(Equal(int16(4)))
+				telem.SetValueAt(s, 0, int16(40))
+				Expect(telem.ValueAt[int16](s, 0)).To(Equal(int16(40)))
 			})
 			Specify("Int8", func() {
-				b := make([]byte, 4)
-				telem.MarshalInt8[int8](b, 4)
-				Expect(telem.UnmarshalInt8[int8](b)).To(Equal(int8(4)))
+				s := telem.NewSeriesV[int8](4)
+				Expect(telem.ValueAt[int8](s, 0)).To(Equal(int8(4)))
+				telem.SetValueAt(s, 0, int8(40))
+				Expect(telem.ValueAt[int8](s, 0)).To(Equal(int8(40)))
 			})
 			Specify("TimeStamp", func() {
-				b := make([]byte, 8)
-				telem.MarshalTimeStamp[telem.TimeStamp](b, 12)
-				Expect(telem.UnmarshalTimeStamp[telem.TimeStamp](b)).To(Equal(telem.TimeStamp(12)))
-			})
-		})
-
-		Describe("MarshalF + UnmarshalF", func() {
-			Specify("Float64", func() {
-				dt := telem.Float64T
-				marshalF, unmarshalF := telem.MarshalF[float64](dt), telem.UnmarshalF[float64](dt)
-				b := make([]byte, dt.Density())
-				marshalF(b, 12)
-				Expect(unmarshalF(b)).To(Equal(float64(12)))
-			})
-			Specify("Float32", func() {
-				dt := telem.Float32T
-				marshalF, unmarshalF := telem.MarshalF[float32](dt), telem.UnmarshalF[float32](dt)
-				b := make([]byte, dt.Density())
-				marshalF(b, 12)
-				Expect(unmarshalF(b)).To(Equal(float32(12)))
-			})
-			Specify("Int64", func() {
-				dt := telem.Int64T
-				marshalF, unmarshalF := telem.MarshalF[int64](dt), telem.UnmarshalF[int64](dt)
-				b := make([]byte, dt.Density())
-				marshalF(b, 12)
-				Expect(unmarshalF(b)).To(Equal(int64(12)))
-			})
-			Specify("Int32", func() {
-				dt := telem.Int32T
-				marshalF, unmarshalF := telem.MarshalF[int32](dt), telem.UnmarshalF[int32](dt)
-				b := make([]byte, dt.Density())
-				marshalF(b, 12)
-				Expect(unmarshalF(b)).To(Equal(int32(12)))
-			})
-			Specify("Int16", func() {
-				dt := telem.Int16T
-				marshalF, unmarshalF := telem.MarshalF[int16](dt), telem.UnmarshalF[int16](dt)
-				b := make([]byte, dt.Density())
-				marshalF(b, 12)
-				Expect(unmarshalF(b)).To(Equal(int16(12)))
-			})
-			Specify("Int8", func() {
-				dt := telem.Int8T
-				marshalF, unmarshalF := telem.MarshalF[int8](dt), telem.UnmarshalF[int8](dt)
-				b := make([]byte, dt.Density())
-				marshalF(b, 12)
-				Expect(unmarshalF(b)).To(Equal(int8(12)))
-			})
-			Specify("Uint8", func() {
-				dt := telem.Uint8T
-				marshalF, unmarshalF := telem.MarshalF[uint8](dt), telem.UnmarshalF[uint8](dt)
-				b := make([]byte, dt.Density())
-				marshalF(b, 12)
-				Expect(unmarshalF(b)).To(Equal(uint8(12)))
-			})
-			Specify("Uint16", func() {
-				dt := telem.Uint16T
-				marshalF, unmarshalF := telem.MarshalF[uint16](dt), telem.UnmarshalF[uint16](dt)
-				b := make([]byte, dt.Density())
-				marshalF(b, 12)
-				Expect(unmarshalF(b)).To(Equal(uint16(12)))
-			})
-			Specify("Uint64", func() {
-				dt := telem.Uint64T
-				marshalF, unmarshalF := telem.MarshalF[uint64](dt), telem.UnmarshalF[uint64](dt)
-				b := make([]byte, dt.Density())
-				marshalF(b, 12)
-				Expect(unmarshalF(b)).To(Equal(uint64(12)))
-			})
-			Specify("Uint32", func() {
-				dt := telem.Uint32T
-				marshalF, unmarshalF := telem.MarshalF[uint32](dt), telem.UnmarshalF[uint32](dt)
-				b := make([]byte, dt.Density())
-				marshalF(b, 12)
-				Expect(unmarshalF(b)).To(Equal(uint32(12)))
-			})
-			Specify("TimeStamp", func() {
-				dt := telem.TimeStampT
-				marshalF, unmarshalF := telem.MarshalF[telem.TimeStamp](dt), telem.UnmarshalF[telem.TimeStamp](dt)
-				b := make([]byte, dt.Density())
-				marshalF(b, 12)
-				Expect(unmarshalF(b)).To(Equal(telem.TimeStamp(12)))
+				s := telem.NewSeriesV[telem.TimeStamp](8)
+				Expect(telem.ValueAt[telem.TimeStamp](s, 0)).To(Equal(telem.TimeStamp(8)))
+				telem.SetValueAt(s, 0, telem.TimeStamp(80))
+				Expect(telem.ValueAt[telem.TimeStamp](s, 0)).To(Equal(telem.TimeStamp(80)))
 			})
 		})
 
@@ -901,7 +832,7 @@ var _ = Describe("Series", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
 			values := make([]int64, 0, 5)
 			for sample := range s.Samples() {
-				values = append(values, telem.UnmarshalF[int64](s.DataType)(sample))
+				values = append(values, xunsafe.CastBytes[int64](sample))
 			}
 			Expect(values).To(Equal([]int64{1, 2, 3, 4, 5}))
 		})
@@ -920,7 +851,7 @@ var _ = Describe("Series", func() {
 			values := make([]int64, 0, 3)
 			count := 0
 			for sample := range s.Samples() {
-				values = append(values, telem.UnmarshalF[int64](s.DataType)(sample))
+				values = append(values, xunsafe.CastBytes[int64](sample))
 				count++
 				if count > 2 {
 					break

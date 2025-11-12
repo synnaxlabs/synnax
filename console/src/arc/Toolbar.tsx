@@ -218,14 +218,6 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
   const isRunning = arc?.status?.details.running === true;
   const isDeployed = arc?.deploy === true;
 
-  const handleDeployClick = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
-    (e) => {
-      e.stopPropagation();
-      onToggleDeploy();
-    },
-    [onToggleDeploy],
-  );
-
   return (
     <Select.ListItem {...rest} justify="between" align="center">
       <Flex.Box y gap="small" grow className={CSS.BE("arc", "metadata")}>
@@ -250,7 +242,7 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
       <Button.Button
         variant="outlined"
         status={isLoading ? "loading" : undefined}
-        onClick={handleDeployClick}
+        onClick={onToggleDeploy}
         onDoubleClick={stopPropagation}
         tooltip={`${isDeployed ? "Stop" : "Start"} ${arc?.name ?? ""}`}
       >
@@ -276,7 +268,7 @@ const ContextMenu = ({
   onToggleDeploy,
 }: ContextMenuProps) => {
   const canDeploy = arcs.some((arc) => arc.deploy === false);
-  const canstop = arcs.some((arc) => arc.deploy === true);
+  const canStop = arcs.some((arc) => arc.deploy === true);
   const someSelected = arcs.length > 0;
   const isSingle = arcs.length === 1;
 
@@ -305,13 +297,13 @@ const ContextMenu = ({
           Start
         </PMenu.Item>
       )}
-      {canstop && (
+      {canStop && (
         <PMenu.Item itemKey="stop">
           <Icon.Pause />
           Stop
         </PMenu.Item>
       )}
-      {(canDeploy || canstop) && <PMenu.Divider />}
+      {(canDeploy || canStop) && <PMenu.Divider />}
       {isSingle && (
         <>
           <PMenu.Item itemKey="edit">
