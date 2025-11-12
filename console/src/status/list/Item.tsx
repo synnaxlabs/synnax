@@ -11,6 +11,7 @@ import "@/status/list/Item.css";
 
 import { type status } from "@synnaxlabs/client";
 import {
+  Component,
   Flex,
   Form,
   Icon,
@@ -29,7 +30,7 @@ import { useDispatch } from "react-redux";
 
 import { FavoriteButton } from "@/components";
 import { CSS } from "@/css";
-import { ContextMenu } from "@/status/list/ContextMenu";
+import { ContextMenu, contextMenuRenderProp } from "@/status/list/ContextMenu";
 import { useSelectIsFavorite } from "@/status/selectors";
 import { toggleFavorite } from "@/status/slice";
 
@@ -73,7 +74,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
     >
       <Form.Form<typeof Status.formSchema> {...form}>
         <Menu.ContextMenu
-          menu={(p) => <ContextMenu {...p} />}
+          menu={contextMenuRenderProp}
           onClick={stopPropagation}
           {...menuProps}
         />

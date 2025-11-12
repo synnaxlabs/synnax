@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Flux, Icon, Menu as PMenu, Status } from "@synnaxlabs/pluto";
+import { Component, type Flux, Icon, Menu as PMenu, Status } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -96,3 +96,5 @@ export const ContextMenu = ({ keys }: ContextMenuProps) => {
     </PMenu.Menu>
   );
 };
+
+export const contextMenuRenderProp = Component.renderProp(ContextMenu);

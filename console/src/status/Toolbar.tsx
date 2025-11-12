@@ -30,7 +30,7 @@ import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { CREATE_LAYOUT } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
-import { ContextMenu } from "@/status/list/ContextMenu";
+import { contextMenuRenderProp } from "@/status/list/ContextMenu";
 import { useSelectFavorites } from "@/status/selectors";
 
 const NoStatuses = (): ReactElement => {
@@ -49,7 +49,7 @@ const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   return (
     <CoreList.Frame<status.Key, status.Status> data={favorites}>
-      <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps} />
+      <PMenu.ContextMenu menu={contextMenuRenderProp} {...menuProps} />
       <CoreList.Items<status.Key>
         full="y"
         emptyContent={<NoStatuses />}
