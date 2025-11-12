@@ -57,10 +57,12 @@ export const useSelectRanges = (key: string): XAxisRecord<Range.Range[]> =>
     [key],
   );
 
-export const selectToolbar = (state: StoreState, key: string): ToolbarState =>
-  select(state, key).toolbar;
+export const selectToolbar = (
+  state: StoreState,
+  key: string,
+): ToolbarState | undefined => selectOptional(state, key)?.toolbar;
 
-export const useSelectToolbar = (key: string): ToolbarState =>
+export const useSelectToolbar = (key: string): ToolbarState | undefined =>
   useMemoSelect((state: StoreState) => selectToolbar(state, key), [key]);
 
 export const selectControlState = (state: StoreState, key: string): ControlState =>
