@@ -14,37 +14,49 @@ import (
 	"strconv"
 )
 
-// Numeric represents any numeric value.
-type Numeric interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 |
-		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
-		~float32 | ~float64
+// SizedSignedInteger represents signed integers with fixed bit widths.
+type SizedSignedInteger interface {
+	~int8 | ~int16 | ~int32 | ~int64
 }
 
-// Integer represents any integer value.
-type Integer interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 |
-		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
-}
-
-// Signed represents any numeric value that can be negative.
-type Signed interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~float32 | ~float64
-}
-
-// SignedInteger represents any integer value that can be negative.
-type SignedInteger interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64
-}
-
-// UnsignedInteger represents any integer value that can only be positive.
-type UnsignedInteger interface {
-	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
+// SizedUnsignedInteger represents unsigned integers with fixed bit widths.
+type SizedUnsignedInteger interface {
+	~uint8 | ~uint16 | ~uint32 | ~uint64
 }
 
 // Floating represents any floating-point value.
 type Floating interface {
 	~float32 | ~float64
+}
+
+// SignedInteger represents any integer value that can be negative.
+type SignedInteger interface {
+	~int | SizedSignedInteger
+}
+
+// UnsignedInteger represents any integer value that can only be positive.
+type UnsignedInteger interface {
+	~uint | SizedUnsignedInteger
+}
+
+// Integer represents any integer value.
+type Integer interface {
+	SignedInteger | UnsignedInteger
+}
+
+// SizedNumeric represents any numeric value with a fixed bit width.
+type SizedNumeric interface {
+	SizedSignedInteger | SizedUnsignedInteger | Floating
+}
+
+// Signed represents any numeric value that can be negative.
+type Signed interface {
+	SignedInteger | Floating
+}
+
+// Numeric represents any numeric value.
+type Numeric interface {
+	Integer | Floating
 }
 
 type StringParseableUint64 uint64
