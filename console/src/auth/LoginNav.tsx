@@ -15,7 +15,7 @@ import { Layout } from "@/layout";
 export const LoginNav = (): ReactElement => {
   const os = OS.use();
   return (
-    <Layout.Nav.Bar location="top" size="6.5rem" bordered>
+    <Layout.Nav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
       <Nav.Bar.Start data-tauri-drag-region>
         <Layout.Controls visibleIfOS="macOS" forceOS={os} />
       </Nav.Bar.Start>

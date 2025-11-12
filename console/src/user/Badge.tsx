@@ -9,7 +9,7 @@
 
 import "@/user/Badge.css";
 
-import { Button, Dialog, Flex, Icon, User } from "@synnaxlabs/pluto";
+import { Button, Dialog, Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -31,20 +31,10 @@ export const Badge = (): ReactElement | null => {
     u?.firstName != null && u?.firstName != "" ? u.firstName : username;
   return (
     <Dialog.Frame>
-      <Flex.Box x>
-        <Flex.Box x pack>
-          <User.Avatar username={username} square size="large" />
-          <Dialog.Trigger
-            contrast={2}
-            hideCaret
-            textColor={10}
-            gap="small"
-            weight={400}
-          >
-            {displayName}
-          </Dialog.Trigger>
-        </Flex.Box>
-      </Flex.Box>
+      <Dialog.Trigger contrast={2} hideCaret textColor={10} gap="small" weight={400}>
+        <Icon.User />
+        {displayName}
+      </Dialog.Trigger>
       <Dialog.Dialog bordered borderColor={6} style={{ padding: "1rem", width: 200 }}>
         <Button.Button onClick={handleLogout} variant="text" full="x">
           <Icon.Logout />
