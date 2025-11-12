@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-range__favorite-button {
+.console-favorite-button {
     transition: opacity 0.2s ease-in-out;
     will-change: opacity;
 

@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/components/EmptyAction";
+export * from "@/components/FavoriteButton";
 export * from "@/components/menu";
 export * from "@/components/toolbar";

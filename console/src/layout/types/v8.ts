@@ -12,16 +12,25 @@ import { z } from "zod";
 
 import { type NavState } from "@/layout/types/v0";
 import * as v1 from "@/layout/types/v1";
-import * as v5 from "@/layout/types/v5";
+import * as v7 from "@/layout/types/v7";
 
-export const VERSION = "7.0.0";
+const VERSION = "8.0.0";
 
 const ZERO_NAV_STATE: NavState = {
   main: {
     drawers: {
       left: {
         activeItem: null,
-        menuItems: ["channel", "range", "workspace", "device", "task", "user", "arc"],
+        menuItems: [
+          "channel",
+          "range",
+          "workspace",
+          "device",
+          "task",
+          "user",
+          "arc",
+          "status",
+        ],
       },
       right: { activeItem: null, menuItems: [] },
       bottom: { activeItem: null, menuItems: ["visualization"] },
@@ -29,19 +38,19 @@ const ZERO_NAV_STATE: NavState = {
   },
 };
 
-export const sliceStateZ = v5.sliceStateZ
+export const sliceStateZ = v7.sliceStateZ
   .omit({ version: true })
   .extend({ version: z.literal(VERSION) });
 
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
 export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
-  ...v5.ZERO_SLICE_STATE,
+  ...v7.ZERO_SLICE_STATE,
   version: VERSION,
   nav: ZERO_NAV_STATE,
 });
 
-export const sliceMigration: migrate.Migration<v5.SliceState, SliceState> =
+export const sliceMigration: migrate.Migration<v7.SliceState, SliceState> =
   migrate.createMigration({
     name: v1.SLICE_MIGRATION_NAME,
     migrate: (s) => ({ ...s, version: VERSION, nav: ZERO_NAV_STATE }),
