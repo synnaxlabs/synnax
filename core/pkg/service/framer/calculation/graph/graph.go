@@ -534,7 +534,7 @@ func (a *Graph) assignToGroup(baseDeps set.Set[channel.Key]) int {
 			return groupID
 		}
 
-		if baseDeps.Subset(group.baseDeps) {
+		if baseDeps.IsSubsetOf(group.baseDeps) {
 			diff := len(group.baseDeps) - len(baseDeps)
 			if !bestGroupFound || diff < smallestDiff {
 				bestGroup = groupID
@@ -542,7 +542,7 @@ func (a *Graph) assignToGroup(baseDeps set.Set[channel.Key]) int {
 				smallestDiff = diff
 				shouldExtendBest = false
 			}
-		} else if group.baseDeps.Subset(baseDeps) {
+		} else if group.baseDeps.IsSubsetOf(baseDeps) {
 			diff := len(baseDeps) - len(group.baseDeps)
 			if !bestGroupFound || diff < smallestDiff {
 				bestGroup = groupID
