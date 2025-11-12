@@ -608,9 +608,16 @@ I can successfully:
   - [ ] Filter statuses by labels.
   - [ ] Delete a single status.
   - [ ] Delete multiple statuses.
+  - [ ] Favorite a status.
+  - [ ] Unfavorite a status.
 
 - **Status Notifications**
   - [ ] See status notifications in the bottom right corner when creating a new status.
+
+- **Status Toolbar**
+  - [ ] Unfavorite a status
+  - [ ] Delete a status
+  - [ ] Rename a status
 
 ### Version
 

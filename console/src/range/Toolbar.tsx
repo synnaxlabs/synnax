@@ -171,7 +171,7 @@ const Content = (): ReactElement => {
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
         <Toolbar.Actions>
           <Toolbar.Action
-            tooltip="Create Range"
+            tooltip="Create range"
             onClick={() => placeLayout(CREATE_LAYOUT)}
           >
             <Icon.Add />
