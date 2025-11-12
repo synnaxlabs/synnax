@@ -145,8 +145,28 @@ I can successfully:
     - [ ] Hard reload the console.
 - **Search and Command Palette**
   - [ ] Open the "Connect Cluster" modal.
+  - [ ] Open the "Add a Core" command (replaces "Connect a Core").
+  - [ ] Use the "Log Out" command to log out of the active cluster.
 - [ ] Open a cluster from a link.
 - [ ] Receive meaningful feedback when a cluster connection fails.
+
+### Login Page
+
+I can successfully:
+
+- **Login Screen**
+  - [ ] See the cluster list on the left when multiple clusters are configured.
+  - [ ] Select a cluster from the list and see it highlighted.
+  - [ ] Switch between clusters and see the login form reset (username/password cleared).
+  - [ ] Log in with valid credentials (username: synnax, password: seldon).
+  - [ ] Receive meaningful error feedback when logging in with invalid credentials.
+  - [ ] Add a new cluster using the "+" button in the cluster list header.
+  - [ ] See connection status indicators for each cluster in the list.
+- **User Badge**
+  - [ ] See the user avatar and username in the top-right corner after logging in.
+  - [ ] Click the user badge to open the logout menu.
+  - [ ] Log out using the logout button in the user badge dropdown.
+  - [ ] See the login screen again after logging out.
 
 ### Devices
 

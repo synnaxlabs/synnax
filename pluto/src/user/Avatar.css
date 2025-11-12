@@ -9,15 +9,20 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-login-screen {
-    min-height: 100vh;
-    .pluto-login-container {
-        .synnax-logo {
-            width: min(60rem, 80vw);
-        }
+.pluto-avatar {
+    position: relative;
+    overflow: hidden;
+    z-index: 20;
+    opacity: 0.8;
+    cursor: default;
+    &::after {
+        content: "";
         position: absolute;
-        top: 20%;
-        width: 400px;
-        padding: 4rem 8rem;
+        border: 1px solid var(--pluto-gray-l10-25);
+        top: 0px;
+        left: 0px;
+        bottom: 0px;
+        right: 0px;
+        border-radius: inherit;
     }
 }

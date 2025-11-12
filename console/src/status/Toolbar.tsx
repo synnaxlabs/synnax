@@ -27,7 +27,6 @@ import { type ReactElement } from "react";
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { Ontology } from "@/ontology";
 import { CREATE_LAYOUT } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
 import { contextMenuRenderProp } from "@/status/list/ContextMenu";
@@ -114,7 +113,7 @@ const listItem = Component.renderProp(ListItem);
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   return (
-    <Ontology.Toolbar>
+    <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
         <Toolbar.Actions>
@@ -134,7 +133,7 @@ const Content = (): ReactElement => {
         </Toolbar.Actions>
       </Toolbar.Header>
       <List />
-    </Ontology.Toolbar>
+    </Toolbar.Content>
   );
 };
 
