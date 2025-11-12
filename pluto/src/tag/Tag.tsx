@@ -49,10 +49,7 @@ export const Tag = ({
         variant="text"
         className={CSS.BE("tag", "close")}
         sharp
-        onClick={(e) => {
-          e.stopPropagation();
-          onClose();
-        }}
+        onClick={onClose}
       >
         <Icon.Close />
       </Button.Button>
