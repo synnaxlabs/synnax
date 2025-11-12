@@ -161,20 +161,22 @@ export const Login = (): ReactElement => {
                     <Form.TextField path="username" inputProps={USERNAME_INPUT_PROPS} />
                     <Form.TextField path="password" inputProps={PASSWORD_INPUT_PROPS} />
                   </Flex.Box>
-                  <Flex.Box className={CSS.BE("login", "status")}>
-                    {stat.message !== "" && (
-                      <Status.Summary variant={stat.variant} message={stat.message} />
-                    )}
+                  <Flex.Box gap="small" align="center">
+                    <Flex.Box className={CSS.BE("login", "status")}>
+                      {stat.message !== "" && (
+                        <Status.Summary variant={stat.variant} message={stat.message} />
+                      )}
+                    </Flex.Box>
+                    <Button.Button
+                      onClick={handleSubmit}
+                      status={stat.variant}
+                      trigger={SIGN_IN_TRIGGER}
+                      variant="filled"
+                      size="large"
+                    >
+                      Log In
+                    </Button.Button>
                   </Flex.Box>
-                  <Button.Button
-                    onClick={handleSubmit}
-                    status={stat.variant}
-                    trigger={SIGN_IN_TRIGGER}
-                    variant="filled"
-                    size="large"
-                  >
-                    Log In
-                  </Button.Button>
                 </Flex.Box>
               </Form.Form>
             </Flex.Box>
