@@ -150,7 +150,7 @@ export const Login = (): ReactElement => {
             <Form.Form<typeof credentialsZ> {...methods}>
               <Flex.Box y align="center" grow gap="huge" shrink={false}>
                 <Text.Text level="h2" color={11} weight={450}>
-                  Log in
+                  Log In
                 </Text.Text>
                 <Flex.Box y full="x" empty>
                   <Form.TextField path="username" inputProps={USERNAME_INPUT_PROPS} />
