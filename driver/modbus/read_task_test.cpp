@@ -450,9 +450,9 @@ TEST_F(ModbusReadTest, testModbusDriverSetsAutoCommitTrue) {
 TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
     // Set up mock slave with multiple UINT8 input register values
     modbus::mock::SlaveConfig slave_cfg;
-    slave_cfg.input_registers[0] = 100;
-    slave_cfg.input_registers[1] = 150;
-    slave_cfg.input_registers[2] = 200;
+    slave_cfg.input_registers[0] = static_cast<uint8_t>(100);
+    slave_cfg.input_registers[1] = static_cast<uint8_t>(150);
+    slave_cfg.input_registers[2] = static_cast<uint8_t>(200);
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
@@ -512,9 +512,9 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
 TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
     // Set up mock slave with multiple UINT8 holding register values
     modbus::mock::SlaveConfig slave_cfg;
-    slave_cfg.holding_registers[0] = 50;
-    slave_cfg.holding_registers[1] = 75;
-    slave_cfg.holding_registers[2] = 125;
+    slave_cfg.holding_registers[0] = static_cast<uint8_t>(50);
+    slave_cfg.holding_registers[1] = static_cast<uint8_t>(75);
+    slave_cfg.holding_registers[2] = static_cast<uint8_t>(125);
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
