@@ -60,7 +60,7 @@ export const CI_VELOCITY_ANGULAR_CHAN_TYPE = v0.CI_VELOCITY_ANGULAR_CHAN_TYPE;
 export const CI_POSITION_LINEAR_CHAN_TYPE = v0.CI_POSITION_LINEAR_CHAN_TYPE;
 export const CI_POSITION_ANGULAR_CHAN_TYPE = v0.CI_POSITION_ANGULAR_CHAN_TYPE;
 export const CI_DUTY_CYCLE_CHAN_TYPE = v0.CI_DUTY_CYCLE_CHAN_TYPE;
-export type CIChannel = v1.CIChannel;
+export type CIChannel = v0.CIChannel;
 export type CIChannelType = v0.CIChannelType;
 export type CIFreqUnits = v0.CIFreqUnits;
 export type CIPeriodUnits = v0.CIPeriodUnits;
@@ -76,9 +76,9 @@ export type CIEdge = v0.CIEdge;
 export type CIMeasMethod = v0.CIMeasMethod;
 export type CICountDirection = v0.CICountDirection;
 export type CIDecodingType = v0.CIDecodingType;
-export const CI_CHANNEL_SCHEMAS = v1.CI_CHANNEL_SCHEMAS;
-export const ZERO_CI_CHANNELS = v1.ZERO_CI_CHANNELS;
-export const ZERO_CI_CHANNEL = v1.ZERO_CI_CHANNEL;
+export const CI_CHANNEL_SCHEMAS = v0.CI_CHANNEL_SCHEMAS;
+export const ZERO_CI_CHANNELS = v0.ZERO_CI_CHANNELS;
+export const ZERO_CI_CHANNEL = v0.ZERO_CI_CHANNEL;
 export const CI_CHANNEL_TYPE_NAMES = v0.CI_CHANNEL_TYPE_NAMES;
 export const CI_CHANNEL_TYPE_ICONS = v0.CI_CHANNEL_TYPE_ICONS;
 
@@ -127,15 +127,15 @@ export const ANALOG_READ_SCHEMAS: task.Schemas<
 };
 
 export const counterReadTypeZ = v0.counterReadTypeZ;
-export const counterReadConfigZ = v1.counterReadConfigZ;
+export const counterReadConfigZ = v0.counterReadConfigZ;
 export const counterReadStatusDataZ = v0.counterReadStatusDataZ;
-export interface CounterReadConfig extends v1.CounterReadConfig {}
+export interface CounterReadConfig extends v0.CounterReadConfig {}
 export const COUNTER_READ_TYPE = v0.COUNTER_READ_TYPE;
 export type CounterReadType = v0.CounterReadType;
-export const ZERO_COUNTER_READ_PAYLOAD = v1.ZERO_COUNTER_READ_PAYLOAD;
-export interface CounterReadPayload extends v1.CounterReadPayload {}
-export interface CounterReadTask extends v1.CounterReadTask {}
-export interface NewCounterReadTask extends v1.NewCounterReadTask {}
+export const ZERO_COUNTER_READ_PAYLOAD = v0.ZERO_COUNTER_READ_PAYLOAD;
+export interface CounterReadPayload extends v0.CounterReadPayload {}
+export interface CounterReadTask extends v0.CounterReadTask {}
+export interface NewCounterReadTask extends v0.NewCounterReadTask {}
 export const COUNTER_READ_SCHEMAS: task.Schemas<
   typeof counterReadTypeZ,
   typeof counterReadConfigZ,

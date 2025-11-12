@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/pluto";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
-import { createSimplePortValidator } from "@/hardware/ni/task/types/validation";
+import { createPortValidator } from "@/hardware/ni/task/types/validation";
 
 export const PREFIX = "ni";
 
@@ -953,10 +953,10 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   [AI_VOLTAGE_CHAN_TYPE]: Icon.Units.Voltage,
 };
 
-const counterChannelExtensionShape = { port: portZ };
+const counterChannelExtensionShape = { port: portZ, device: Common.Device.keyZ };
 interface CounterChannelExtension
   extends z.infer<z.ZodObject<typeof counterChannelExtensionShape>> {}
-const ZERO_COUNTER_CHANNEL_EXTENSION: CounterChannelExtension = { port: 0 };
+const ZERO_COUNTER_CHANNEL_EXTENSION: CounterChannelExtension = { port: 0, device: "" };
 
 const baseCIChanZ = Common.Task.readChannelZ.extend(counterChannelExtensionShape);
 interface BaseCIChan extends z.infer<typeof baseCIChanZ> {}
@@ -1334,7 +1334,7 @@ export const ZERO_CI_DUTY_CYCLE_CHAN: CIDutyCycleChan = {
   terminal: "",
 };
 
-const ciChannelZ = z.union([
+export const ciChannelZ = z.union([
   ciFrequencyChanZ,
   ciEdgeCountChanZ,
   ciPeriodChanZ,
@@ -1348,7 +1348,7 @@ const ciChannelZ = z.union([
   ciDutyCycleChanZ,
 ]);
 
-type CIChannel = z.infer<typeof ciChannelZ>;
+export type CIChannel = z.infer<typeof ciChannelZ>;
 export type CIChannelType = CIChannel["type"];
 
 export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
@@ -1378,6 +1378,35 @@ export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
   [CI_VELOCITY_LINEAR_CHAN_TYPE]: Icon.Linear,
   [CI_DUTY_CYCLE_CHAN_TYPE]: Icon.Wave.Square,
 };
+
+export const CI_CHANNEL_SCHEMAS: Record<CIChannelType, z.ZodType<CIChannel>> = {
+  [CI_FREQUENCY_CHAN_TYPE]: ciFrequencyChanZ,
+  [CI_EDGE_COUNT_CHAN_TYPE]: ciEdgeCountChanZ,
+  [CI_PERIOD_CHAN_TYPE]: ciPeriodChanZ,
+  [CI_PULSE_WIDTH_CHAN_TYPE]: ciPulseWidthChanZ,
+  [CI_SEMI_PERIOD_CHAN_TYPE]: ciSemiPeriodChanZ,
+  [CI_TWO_EDGE_SEP_CHAN_TYPE]: ciTwoEdgeSepChanZ,
+  [CI_VELOCITY_LINEAR_CHAN_TYPE]: ciLinearVelocityChanZ,
+  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: ciAngularVelocityChanZ,
+  [CI_POSITION_LINEAR_CHAN_TYPE]: ciLinearPositionChanZ,
+  [CI_POSITION_ANGULAR_CHAN_TYPE]: ciAngularPositionChanZ,
+  [CI_DUTY_CYCLE_CHAN_TYPE]: ciDutyCycleChanZ,
+};
+
+export const ZERO_CI_CHANNELS: Record<CIChannelType, CIChannel> = {
+  [CI_FREQUENCY_CHAN_TYPE]: ZERO_CI_FREQUENCY_CHAN,
+  [CI_EDGE_COUNT_CHAN_TYPE]: ZERO_CI_EDGE_COUNT_CHAN,
+  [CI_PERIOD_CHAN_TYPE]: ZERO_CI_PERIOD_CHAN,
+  [CI_PULSE_WIDTH_CHAN_TYPE]: ZERO_CI_PULSE_WIDTH_CHAN,
+  [CI_SEMI_PERIOD_CHAN_TYPE]: ZERO_CI_SEMI_PERIOD_CHAN,
+  [CI_TWO_EDGE_SEP_CHAN_TYPE]: ZERO_CI_TWO_EDGE_SEP_CHAN,
+  [CI_VELOCITY_LINEAR_CHAN_TYPE]: ZERO_CI_LINEAR_VELOCITY_CHAN,
+  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: ZERO_CI_ANGULAR_VELOCITY_CHAN,
+  [CI_POSITION_LINEAR_CHAN_TYPE]: ZERO_CI_LINEAR_POSITION_CHAN,
+  [CI_POSITION_ANGULAR_CHAN_TYPE]: ZERO_CI_ANGULAR_POSITION_CHAN,
+  [CI_DUTY_CYCLE_CHAN_TYPE]: ZERO_CI_DUTY_CYCLE_CHAN,
+};
+export const ZERO_CI_CHANNEL: CIChannel = ZERO_CI_CHANNELS[CI_FREQUENCY_CHAN_TYPE];
 
 const baseAOChanZ = Common.Task.writeChannelZ.extend(analogChannelExtensionShape);
 interface BaseAOChan extends z.infer<typeof baseAOChanZ> {}
@@ -1613,9 +1642,10 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   type: ANALOG_READ_TYPE,
 };
 
-const validateCounterPorts = createSimplePortValidator("");
+const validateCounterPorts = createPortValidator("Counter");
 
-export const counterReadConfigZ = baseReadConfigZ
+const baseCounterReadConfigZ = baseReadConfigZ
+  .omit({ device: true })
   .extend({
     channels: z
       .array(ciChannelZ)
@@ -1623,9 +1653,21 @@ export const counterReadConfigZ = baseReadConfigZ
       .check(validateCounterPorts),
   })
   .check(Common.Task.validateStreamRate);
-export interface CounterReadConfig extends z.infer<typeof counterReadConfigZ> {}
+export interface CounterReadConfig extends z.infer<typeof baseCounterReadConfigZ> {}
+export const counterReadConfigZ = z.union([
+  baseReadConfigZ
+    .extend({
+      channels: z.array(z.any()),
+    })
+    .transform<CounterReadConfig>(({ channels, device, ...rest }) => ({
+      ...rest,
+      channels: channels.map((c) => ({ ...c, device })),
+    })),
+  baseCounterReadConfigZ,
+]);
+const { device: _counterDevice, ...counterRest } = ZERO_BASE_READ_CONFIG;
 export const ZERO_COUNTER_READ_CONFIG: CounterReadConfig = {
-  ...ZERO_BASE_READ_CONFIG,
+  ...counterRest,
   channels: [],
 };
 
@@ -1636,7 +1678,7 @@ export const COUNTER_READ_TYPE = `${PREFIX}_counter_read`;
 export const counterReadTypeZ = z.literal(COUNTER_READ_TYPE);
 export type CounterReadType = z.infer<typeof counterReadTypeZ>;
 
-interface CounterReadPayload
+export interface CounterReadPayload
   extends task.Payload<
     typeof counterReadTypeZ,
     typeof counterReadConfigZ,
@@ -1648,6 +1690,15 @@ export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
   config: ZERO_COUNTER_READ_CONFIG,
   type: COUNTER_READ_TYPE,
 };
+
+export interface CounterReadTask
+  extends task.Task<
+    typeof counterReadTypeZ,
+    typeof counterReadConfigZ,
+    typeof counterReadStatusDataZ
+  > {}
+export interface NewCounterReadTask
+  extends task.New<typeof counterReadTypeZ, typeof counterReadConfigZ> {}
 
 export const analogWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
