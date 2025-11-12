@@ -132,11 +132,10 @@ var _ = Describe("Compile", func() {
 			Expression: "return invalid_syntax {{",
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-		_, err := compiler.Compile(ctx, compiler.Config{
+		Expect(compiler.Compile(ctx, compiler.Config{
 			Channels:       dist.Channel,
 			Channel:        calc,
 			SymbolResolver: arcSvc.SymbolResolver(),
-		})
-		Expect(err).To(HaveOccurred())
+		})).Error().To(ContainSubstring("extraneous input '{'"))
 	})
 })
