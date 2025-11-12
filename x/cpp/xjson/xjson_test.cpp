@@ -836,3 +836,92 @@ TEST(testConfig, testFieldEmptyStringEquivalentToNoArgs) {
     ASSERT_EQ(values[1], 2);
     ASSERT_EQ(values[2], 3);
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Map Tests
+// ══════════════════════════════════════════════════════════════════════════════
+
+TEST(testConfig, testMapStringKeys) {
+    const json j = {
+        {"data", {{"key1", "value1"}, {"key2", "value2"}, {"key3", "value3"}}}
+    };
+    xjson::Parser parser(j);
+    const auto map = parser.field<std::map<std::string, std::string>>("data");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(map.size(), 3);
+    ASSERT_EQ(map.at("key1"), "value1");
+    ASSERT_EQ(map.at("key2"), "value2");
+    ASSERT_EQ(map.at("key3"), "value3");
+}
+
+TEST(testConfig, testMapIntegerKeys) {
+    const json j = {
+        {"channels", {{"1", "sensor_a"}, {"2", "sensor_b"}, {"10", "sensor_c"}}}
+    };
+    xjson::Parser parser(j);
+    const auto map = parser.field<std::map<uint32_t, std::string>>("channels");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(map.size(), 3);
+    ASSERT_EQ(map.at(1), "sensor_a");
+    ASSERT_EQ(map.at(2), "sensor_b");
+    ASSERT_EQ(map.at(10), "sensor_c");
+}
+
+TEST(testConfig, testMapWithDefaultValue) {
+    const json j = {};
+    xjson::Parser parser(j);
+    const std::map<std::string, int> default_map = {{"default", 42}};
+    const auto map = parser.field<std::map<std::string, int>>("missing", default_map);
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(map.size(), 1);
+    ASSERT_EQ(map.at("default"), 42);
+}
+
+TEST(testConfig, testMapEmpty) {
+    const json j = {{"data", json::object()}};
+    xjson::Parser parser(j);
+    const auto map = parser.field<std::map<std::string, std::string>>("data");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_TRUE(map.empty());
+}
+
+TEST(testConfig, testMapWrongTypeNotObject) {
+    const json j = {{"data", json::array({1, 2, 3})}};
+    xjson::Parser parser(j);
+    const auto map = parser.field<std::map<std::string, int>>("data");
+    EXPECT_FALSE(parser.ok());
+    ASSERT_EQ(parser.errors->size(), 1);
+    const auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "data");
+    EXPECT_EQ(err["message"], "Expected an object");
+}
+
+TEST(testConfig, testMapIntValues) {
+    const json j = {
+        {"scores", {{"alice", 100}, {"bob", 85}, {"charlie", 92}}}
+    };
+
+    xjson::Parser parser(j);
+    const auto map = parser.field<std::map<std::string, int>>("scores");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(map.size(), 3);
+    ASSERT_EQ(map.at("alice"), 100);
+    ASSERT_EQ(map.at("bob"), 85);
+    ASSERT_EQ(map.at("charlie"), 92);
+}
+
+TEST(testConfig, testMapNestedInObject) {
+    const json j = {
+        {"config", {
+            {"channels", {{"1", "temp"}, {"2", "pressure"}}}
+        }}
+    };
+
+    xjson::Parser parser(j);
+    auto config_parser = parser.child("config");
+    const auto channels = config_parser.field<std::map<uint32_t, std::string>>("channels");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(channels.size(), 2);
+    ASSERT_EQ(channels.at(1), "temp");
+    ASSERT_EQ(channels.at(2), "pressure");
+}

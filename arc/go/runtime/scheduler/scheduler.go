@@ -114,9 +114,9 @@ func (s *Scheduler) SetErrorHandler(handler ErrorHandler) {
 	s.errorHandler = handler
 }
 
-// MarkNodesChange marks a node as changed, scheduling it for execution in the next cycle.
+// MarkNodeChanged marks a node as changed, scheduling it for execution in the next cycle.
 // This is used externally to trigger execution based on external events or inputs.
-func (s *Scheduler) MarkNodesChange(nodeKey string) {
+func (s *Scheduler) MarkNodeChanged(nodeKey string) {
 	s.changed.Add(nodeKey)
 }
 

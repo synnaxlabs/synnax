@@ -9,16 +9,20 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/xjson.h"
 
 namespace arc {
 using ChannelKey = std::uint32_t;
+
+namespace ir {
 
 enum class TypeKind : uint8_t {
     Invalid = 0,
@@ -46,13 +50,13 @@ struct Type {
     /// @brief the element type for channels or series.
     std::unique_ptr<Type> elem;
 
-    Type(xjson::Parser parser) {
+    explicit Type(xjson::Parser parser) {
         this->kind = parser.field<TypeKind>("kind");
         const auto elem_parser = parser.optional_child("elem");
         if (elem_parser.ok()) this->elem = std::make_unique<Type>(elem_parser);
     }
 
-    nlohmann::json to_json() const {
+    [[nodiscard]] nlohmann::json to_json() const {
         nlohmann::json j;
         j["kind"] = static_cast<uint8_t>(kind);
         if (elem) j["elem"] = elem->to_json();
@@ -60,8 +64,8 @@ struct Type {
     }
 
     Type() = default;
-    explicit Type(TypeKind k): kind(k) {}
-    Type(TypeKind k, Type elem_type):
+    explicit Type(const TypeKind k): kind(k) {}
+    Type(const TypeKind k, Type elem_type):
         kind(k), elem(std::make_unique<Type>(std::move(elem_type))) {}
 
     Type(const Type &other): kind(other.kind) {
@@ -82,7 +86,7 @@ struct Type {
     Type(Type &&) = default;
     Type &operator=(Type &&) = default;
 
-    size_t density() const {
+    [[nodiscard]] size_t density() const {
         switch (kind) {
             case TypeKind::U8:
             case TypeKind::I8:
@@ -100,16 +104,16 @@ struct Type {
             case TypeKind::TimeStamp:
             case TypeKind::TimeSpan:
                 return 8;
-            case TypeKind::String:
-            case TypeKind::Series:
-            case TypeKind::Chan:
-                return 0; // Variable size
             default:
                 return 0;
         }
     }
 
-    bool is_valid() const { return kind != TypeKind::Invalid; }
+    [[nodiscard]] bool is_valid() const { return kind != TypeKind::Invalid; }
+
+    /// @brief Convert arc IR type to telem data type.
+    /// @return Corresponding telem data type.
+    [[nodiscard]] telem::DataType telem() const;
 };
 
 struct Handle {
@@ -119,12 +123,12 @@ struct Handle {
     Handle(std::string node, std::string param):
         node(std::move(node)), param(std::move(param)) {}
 
-    Handle(xjson::Parser parser) {
+    explicit Handle(xjson::Parser parser) {
         this->node = parser.field<std::string>("node");
         this->param = parser.field<std::string>("param");
     }
 
-    nlohmann::json to_json() const {
+    [[nodiscard]] nlohmann::json to_json() const {
         return {{"node", node}, {"param", param}};
     }
 
@@ -145,13 +149,16 @@ struct Handle {
 struct Edge {
     Handle source, target; ///< Output parameter
 
-    Edge(xjson::Parser parser) {
+    explicit Edge(xjson::Parser parser) {
         this->source = parser.field<Handle>("source");
         this->target = parser.field<Handle>("target");
     }
 
-    nlohmann::json to_json() const {
-        return {{"source", source.to_json()}, {"target", target.to_json()}};
+    [[nodiscard]] nlohmann::json to_json() const {
+        return {
+            {"source", source.to_json()},
+            {"target", target.to_json()},
+        };
     }
 
     Edge() = default;
@@ -167,13 +174,13 @@ struct Param {
     Type type;
     nlohmann::json value;
 
-    Param(xjson::Parser parser) {
+    explicit Param(xjson::Parser parser) {
         this->name = parser.field<std::string>("name");
         this->type = parser.field<Type>("type");
         this->value = parser.field<nlohmann::json>("value", nlohmann::json(nullptr));
     }
 
-    nlohmann::json to_json() const {
+    [[nodiscard]] nlohmann::json to_json() const {
         nlohmann::json j;
         j["name"] = name;
         j["type"] = type.to_json();
@@ -189,30 +196,30 @@ struct Params {
     std::vector<Param> params;
 
     Params() = default;
-    Params(std::vector<Param> p) : params(std::move(p)) {}
+    explicit Params(std::vector<Param> p): params(std::move(p)) {}
 
     /// @brief Get parameter type by name, returns nullptr if not found
-    const Type* get(const std::string& name) const {
-        for (const auto& p : this->params) {
+    [[nodiscard]] const Type *get(const std::string &name) const {
+        for (const auto &p: this->params) {
             if (p.name == name) return &p.type;
         }
         return nullptr;
     }
 
     /// @brief Extract all parameter names
-    std::vector<std::string> keys() const {
+    [[nodiscard]] std::vector<std::string> keys() const {
         std::vector<std::string> result;
         result.reserve(this->params.size());
-        for (const auto& p : this->params) {
+        for (const auto &p: this->params) {
             result.push_back(p.name);
         }
         return result;
     }
 
     /// @brief Convert params to JSON array
-    nlohmann::json to_json() const {
+    [[nodiscard]] nlohmann::json to_json() const {
         nlohmann::json arr = nlohmann::json::array();
-        for (const auto& p : this->params) {
+        for (const auto &p: this->params) {
             arr.push_back(p.to_json());
         }
         return arr;
@@ -221,37 +228,39 @@ struct Params {
     /// @brief Vector interface for iteration
     auto begin() { return this->params.begin(); }
     auto end() { return this->params.end(); }
-    auto begin() const { return this->params.begin(); }
-    auto end() const { return this->params.end(); }
-    size_t size() const { return this->params.size(); }
-    bool empty() const { return this->params.empty(); }
+    [[nodiscard]] auto begin() const { return this->params.begin(); }
+    [[nodiscard]] auto end() const { return this->params.end(); }
+    [[nodiscard]] size_t size() const { return this->params.size(); }
+    [[nodiscard]] bool empty() const { return this->params.empty(); }
+
+    Param &operator[](size_t index) { return params.at(index); }
+    [[nodiscard]] const Param &operator[](size_t index) const {
+        return params.at(index);
+    }
 };
 
 struct Channels {
     std::map<uint32_t, std::string> read;
     std::map<uint32_t, std::string> write;
 
-    Channels(xjson::Parser parser) {
-        // JSON object keys are strings, so we need to manually parse and convert to uint32_t
-        auto read_parser = parser.optional_child("read");
-        if (read_parser.ok() && !read_parser.j.is_null()) {
-            for (auto& [key_str, value] : read_parser.j.items()) {
-                uint32_t key = std::stoul(key_str);
-                this->read[key] = value.get<std::string>();
-            }
-        }
-
-        auto write_parser = parser.optional_child("write");
-        if (write_parser.ok() && !write_parser.j.is_null()) {
-            for (auto& [key_str, value] : write_parser.j.items()) {
-                uint32_t key = std::stoul(key_str);
-                this->write[key] = value.get<std::string>();
-            }
-        }
+    explicit Channels(xjson::Parser parser) {
+        this->read = parser.field<std::map<uint32_t, std::string>>("read", {});
+        this->write = parser.field<std::map<uint32_t, std::string>>("write", {});
     }
 
-    nlohmann::json to_json() const {
-        return {{"read", read}, {"write", write}};
+    [[nodiscard]] nlohmann::json to_json() const {
+        // nlohmann::json requires string keys in objects, so convert uint32_t to string
+        nlohmann::json read_obj = nlohmann::json::object();
+        for (const auto &[key, value]: read) {
+            read_obj[std::to_string(key)] = value;
+        }
+
+        nlohmann::json write_obj = nlohmann::json::object();
+        for (const auto &[key, value]: write) {
+            write_obj[std::to_string(key)] = value;
+        }
+
+        return {{"read", read_obj}, {"write", write_obj}};
     }
 
     Channels() = default;
@@ -264,7 +273,7 @@ struct Node {
     Channels channels;
     Params config, inputs, outputs;
 
-    Node(xjson::Parser parser) {
+    explicit Node(xjson::Parser parser) {
         this->key = parser.field<std::string>("key");
         this->type = parser.field<std::string>("type");
         this->channels = parser.field<Channels>("channels");
@@ -273,7 +282,7 @@ struct Node {
         this->outputs = Params(parser.field<std::vector<Param>>("outputs"));
     }
 
-    nlohmann::json to_json() const {
+    [[nodiscard]] nlohmann::json to_json() const {
         return {
             {"key", key},
             {"type", type},
@@ -294,7 +303,7 @@ struct Function {
     Channels channels;
     Params config, inputs, outputs;
 
-    Function(xjson::Parser parser) {
+    explicit Function(xjson::Parser parser) {
         this->key = parser.field<std::string>("key");
         this->channels = parser.field<Channels>("channels");
         this->config = Params(parser.field<std::vector<Param>>("config"));
@@ -302,7 +311,7 @@ struct Function {
         this->outputs = Params(parser.field<std::vector<Param>>("outputs"));
     }
 
-    nlohmann::json to_json() const {
+    [[nodiscard]] nlohmann::json to_json() const {
         return {
             {"key", key},
             {"channels", channels.to_json()},
@@ -320,13 +329,11 @@ struct Function {
 struct Strata {
     std::vector<std::vector<std::string>> strata;
 
-    Strata(xjson::Parser parser) {
-        this->strata = parser.field<std::vector<std::vector<std::string>>>("", {});
+    explicit Strata(xjson::Parser parser) {
+        this->strata = parser.field<std::vector<std::vector<std::string>>>("");
     }
 
-    nlohmann::json to_json() const {
-        return strata;
-    }
+    [[nodiscard]] nlohmann::json to_json() const { return strata; }
 
     Strata() = default;
 };
@@ -340,26 +347,26 @@ struct IR {
 
     IR() = default;
 
-    IR(xjson::Parser parser) {
+    explicit IR(xjson::Parser parser) {
         this->functions = parser.field<std::vector<Function>>("functions");
         this->nodes = parser.field<std::vector<Node>>("nodes");
         this->edges = parser.field<std::vector<Edge>>("edges");
         this->strata = parser.field<Strata>("strata");
     }
 
-    nlohmann::json to_json() const {
+    [[nodiscard]] nlohmann::json to_json() const {
         nlohmann::json functions_arr = nlohmann::json::array();
-        for (const auto& fn : functions) {
+        for (const auto &fn: functions) {
             functions_arr.push_back(fn.to_json());
         }
 
         nlohmann::json nodes_arr = nlohmann::json::array();
-        for (const auto& node : nodes) {
+        for (const auto &node: nodes) {
             nodes_arr.push_back(node.to_json());
         }
 
         nlohmann::json edges_arr = nlohmann::json::array();
-        for (const auto& edge : edges) {
+        for (const auto &edge: edges) {
             edges_arr.push_back(edge.to_json());
         }
 
@@ -371,34 +378,56 @@ struct IR {
         };
     }
 
-    /// @brief Find function by key.
-    const Function *find_function(const std::string &key) const {
-        for (const auto &fn: functions)
-            if (fn.key == key) return &fn;
-        return nullptr;
+    using function_iterator = std::vector<Function>::iterator;
+    using const_function_iterator = std::vector<Function>::const_iterator;
+    using node_iterator = std::vector<Node>::iterator;
+    using const_node_iterator = std::vector<Node>::const_iterator;
+    using edge_iterator = std::vector<Edge>::iterator;
+    using const_edge_iterator = std::vector<Edge>::const_iterator;
+
+    [[nodiscard]] function_iterator find_function(const std::string &key) {
+        return std::ranges::find_if(functions, [&](const auto &fn) {
+            return fn.key == key;
+        });
+    }
+    [[nodiscard]] const_function_iterator find_function(const std::string &key) const {
+        return std::ranges::find_if(functions, [&](const auto &fn) {
+            return fn.key == key;
+        });
     }
 
-    /// @brief Find node by key.
-    const Node *find_node(const std::string &key) const {
-        for (const auto &n: nodes)
-            if (n.key == key) return &n;
-        return nullptr;
+    [[nodiscard]] node_iterator find_node(const std::string &key) {
+        return std::ranges::find_if(nodes, [&](const auto &node) {
+            return node.key == key;
+        });
     }
 
-    /// @brief Get edges from a node.
-    std::vector<Edge> outgoing_edges(const std::string &node_key) const {
+    [[nodiscard]] const_node_iterator find_node(const std::string &key) const {
+        return std::ranges::find_if(nodes, [&](const auto &node) {
+            return node.key == key;
+        });
+    }
+
+    [[nodiscard]] const_edge_iterator find_edge_by_target(const Handle &handle) {
+        return std::ranges::find_if(edges, [&](const auto &edge) {
+            return edge.target == handle;
+        });
+    }
+
+    [[nodiscard]] std::vector<Edge> outgoing_edges(const std::string &node_key) const {
         std::vector<Edge> result;
         for (const auto &e: edges)
             if (e.source.node == node_key) { result.push_back(e); }
         return result;
     }
 
-    /// @brief Get edges to a node.
-    std::vector<Edge> incoming_edges(const std::string &node_key) const {
+    [[nodiscard]] std::vector<Edge> incoming_edges(const std::string &node_key) const {
         std::vector<Edge> result;
         for (const auto &e: edges)
             if (e.target.node == node_key) { result.push_back(e); }
         return result;
     }
 };
-}
+
+} // namespace ir
+} // namespace arc

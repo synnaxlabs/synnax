@@ -869,6 +869,23 @@ public:
 
     void clear() { this->size_ = 0; }
 
+    void resize(size_t new_size) {
+        if (this->data_type().is_variable()) {
+            throw std::runtime_error("resize not supported for variable-size data types");
+        }
+        if (new_size > this->cap_) {
+            const auto density = this->data_type().density();
+            auto new_data = std::make_unique<std::byte[]>(new_size * density);
+            if (this->size_ > 0) {
+                memcpy(new_data.get(), this->data_.get(), this->size_ * density);
+            }
+            this->data_ = std::move(new_data);
+            this->cap_ = new_size;
+            this->cached_byte_cap = new_size * density;
+        }
+        this->size_ = new_size;
+    }
+
     /// @brief writes data to the series while performing any necessary type casting
     /// @param data the data to write
     /// @param size the number of samples to write
@@ -1025,6 +1042,33 @@ public:
         } else
             this->size_ += n_read / this->data_type().density();
         return n_read;
+    }
+};
+
+/// @brief MultiSeries holds multiple series for accumulating data from a channel.
+/// This matches Go's telem.MultiSeries pattern for handling multiple data arrivals
+/// before consumption.
+struct MultiSeries {
+    std::vector<Series> series; ///< Accumulated series
+
+    /// @brief Append adds a series to the accumulation.
+    void append(Series s) {
+        series.push_back(std::move(s));
+    }
+
+    /// @brief Clear removes all accumulated series.
+    void clear() {
+        series.clear();
+    }
+
+    /// @brief Empty returns true if no series are accumulated.
+    [[nodiscard]] bool empty() const {
+        return series.empty();
+    }
+
+    /// @brief Size returns the number of accumulated series.
+    [[nodiscard]] size_t size() const {
+        return series.size();
     }
 };
 }

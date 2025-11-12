@@ -4,9 +4,6 @@ cc_library(
     deps = [
         "//arc/cpp/runtime/core",
         "//arc/cpp/runtime/factory",
-        "//arc/cpp/runtime/module",
-        "//arc/cpp/runtime/nodes/interval",
-        "//arc/cpp/runtime/nodes/wasm:wasm_node",
         "//arc/cpp/runtime/scheduler",
         "//arc/cpp/runtime/state",
         "//arc/cpp/runtime/wasm",

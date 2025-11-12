@@ -15,7 +15,7 @@
 
 #include "arc/cpp/ir/ir.h"
 
-using namespace arc;
+using namespace arc::ir;
 using json = nlohmann::json;
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -35,7 +35,8 @@ TEST(TypeTest, ParsePrimitiveType) {
 
 TEST(TypeTest, ParseCompoundType) {
     const std::string json_str = R"({"kind": 15, "elem": {"kind": 10}})"; // Series<F64>
-    json j = json::parse(json_str); xjson::Parser parser(j);
+    json j = json::parse(json_str);
+    xjson::Parser parser(j);
     EXPECT_TRUE(parser.ok());
 
     Type type(parser);
@@ -65,7 +66,8 @@ TEST(TypeTest, RoundTrip) {
 
 TEST(HandleTest, ParseHandle) {
     const std::string json_str = R"({"node": "n1", "param": "output"})";
-    json j = json::parse(json_str); xjson::Parser parser(j);
+    json j = json::parse(json_str);
+    xjson::Parser parser(j);
     EXPECT_TRUE(parser.ok());
 
     Handle handle(parser);
@@ -90,7 +92,8 @@ TEST(EdgeTest, ParseEdge) {
         "source": {"node": "n1", "param": "output"},
         "target": {"node": "n2", "param": "input"}
     })";
-    json j = json::parse(json_str); xjson::Parser parser(j);
+    json j = json::parse(json_str);
+    xjson::Parser parser(j);
     EXPECT_TRUE(parser.ok());
 
     Edge edge(parser);
@@ -118,7 +121,8 @@ TEST(ParamTest, ParseParamWithValue) {
         "type": {"kind": 10},
         "value": 42.5
     })";
-    json j = json::parse(json_str); xjson::Parser parser(j);
+    json j = json::parse(json_str);
+    xjson::Parser parser(j);
     EXPECT_TRUE(parser.ok());
 
     Param param(parser);
@@ -133,7 +137,8 @@ TEST(ParamTest, ParseParamWithoutValue) {
         "name": "input",
         "type": {"kind": 7}
     })";
-    json j = json::parse(json_str); xjson::Parser parser(j);
+    json j = json::parse(json_str);
+    xjson::Parser parser(j);
     EXPECT_TRUE(parser.ok());
 
     Param param(parser);
@@ -161,11 +166,7 @@ TEST(ParamTest, RoundTrip) {
 
 TEST(ParamsTest, GetMethod) {
     Params params;
-    params.params = {
-        Param(),
-        Param(),
-        Param()
-    };
+    params.params = {Param(), Param(), Param()};
     params.params[0].name = "a";
     params.params[0].type = Type(TypeKind::I32);
     params.params[1].name = "b";
@@ -187,11 +188,7 @@ TEST(ParamsTest, GetMethod) {
 
 TEST(ParamsTest, KeysMethod) {
     Params params;
-    params.params = {
-        Param(),
-        Param(),
-        Param()
-    };
+    params.params = {Param(), Param(), Param()};
     params.params[0].name = "first";
     params.params[1].name = "second";
     params.params[2].name = "third";
@@ -205,10 +202,7 @@ TEST(ParamsTest, KeysMethod) {
 
 TEST(ParamsTest, RoundTrip) {
     Params original;
-    original.params = {
-        Param(),
-        Param()
-    };
+    original.params = {Param(), Param()};
     original.params[0].name = "input";
     original.params[0].type = Type(TypeKind::I32);
     original.params[1].name = "output";
@@ -219,11 +213,11 @@ TEST(ParamsTest, RoundTrip) {
     EXPECT_TRUE(json.is_array());
     EXPECT_EQ(json.size(), 2);
 
-    // Parse back
-    auto parser = xjson::Parser(json);
+    // Parse back - need to parse as vector first, then wrap in Params
+    xjson::Parser parser(json);
     auto params_vec = parser.field<std::vector<Param>>("");
-    Params parsed(params_vec);
     EXPECT_TRUE(parser.ok());
+    Params parsed(params_vec);
 
     EXPECT_EQ(parsed.size(), original.size());
     auto keys = parsed.keys();
@@ -236,7 +230,8 @@ TEST(ChannelsTest, ParseChannels) {
         "read": {"1": "param_a", "2": "param_b"},
         "write": {"3": "param_out"}
     })";
-    json j = json::parse(json_str); xjson::Parser parser(j);
+    json j = json::parse(json_str);
+    xjson::Parser parser(j);
     EXPECT_TRUE(parser.ok());
 
     Channels channels(parser);
@@ -250,7 +245,8 @@ TEST(ChannelsTest, ParseChannels) {
 
 TEST(ChannelsTest, ParseEmptyChannels) {
     const std::string json_str = R"({"read": {}, "write": {}})";
-    json j = json::parse(json_str); xjson::Parser parser(j);
+    json j = json::parse(json_str);
+    xjson::Parser parser(j);
     EXPECT_TRUE(parser.ok());
 
     Channels channels(parser);
@@ -280,7 +276,8 @@ TEST(StrataTest, ParseStrata) {
         ["compute_1", "compute_2"],
         ["output"]
     ])";
-    json j = json::parse(json_str); xjson::Parser parser(j);
+    json j = json::parse(json_str);
+    xjson::Parser parser(j);
     EXPECT_TRUE(parser.ok());
 
     Strata strata(parser);
@@ -296,11 +293,7 @@ TEST(StrataTest, ParseStrata) {
 
 TEST(StrataTest, RoundTrip) {
     Strata original;
-    original.strata = {
-        {"n1", "n2"},
-        {"n3"},
-        {"n4", "n5", "n6"}
-    };
+    original.strata = {{"n1", "n2"}, {"n3"}, {"n4", "n5", "n6"}};
 
     auto json = original.to_json();
     auto parser = xjson::Parser(json);
@@ -324,7 +317,8 @@ TEST(NodeTest, ParseNode) {
             {"name": "output", "type": {"kind": 7}}
         ]
     })";
-    json j = json::parse(json_str); xjson::Parser parser(j);
+    json j = json::parse(json_str);
+    xjson::Parser parser(j);
     EXPECT_TRUE(parser.ok());
 
     Node node(parser);
@@ -375,7 +369,8 @@ TEST(FunctionTest, ParseFunction) {
             {"name": "output", "type": {"kind": 10}}
         ]
     })";
-    json j = json::parse(json_str); xjson::Parser parser(j);
+    json j = json::parse(json_str);
+    xjson::Parser parser(j);
     EXPECT_TRUE(parser.ok());
 
     Function func(parser);
@@ -455,7 +450,8 @@ TEST(IRTest, ParseCompleteIR) {
         ]
     })";
 
-    json j = json::parse(json_str); xjson::Parser parser(j);
+    json j = json::parse(json_str);
+    xjson::Parser parser(j);
     EXPECT_TRUE(parser.ok());
 
     IR ir(parser);
@@ -550,7 +546,7 @@ TEST(ErrorTest, WrongTypeForField) {
 
 TEST(ErrorTest, MissingNestedField) {
     const json j = {
-        {"source", {{"node", "n1"}}},  // Missing "param"
+        {"source", {{"node", "n1"}}}, // Missing "param"
         {"target", {{"node", "n2"}, {"param", "in"}}}
     };
 

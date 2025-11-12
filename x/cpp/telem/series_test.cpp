@@ -1016,3 +1016,71 @@ TEST(TestSeries, testFillFromMultipleReads) {
     expected.insert(expected.end(), source_data2.begin(), source_data2.end());
     ASSERT_EQ(values, expected);
 }
+
+TEST(TestSeries, testResizeGrow) {
+    telem::Series s(telem::FLOAT32_T, 10);
+    s.write(1.0f);
+    s.write(2.0f);
+    ASSERT_EQ(s.size(), 2);
+
+    s.resize(5);
+    ASSERT_EQ(s.size(), 5);
+    ASSERT_EQ(s.cap(), 10);
+    ASSERT_EQ(s.at<float>(0), 1.0f);
+    ASSERT_EQ(s.at<float>(1), 2.0f);
+}
+
+TEST(TestSeries, testResizeShrink) {
+    telem::Series s(telem::INT32_T, 10);
+    for (int i = 0; i < 5; i++) {
+        s.write(i);
+    }
+    ASSERT_EQ(s.size(), 5);
+
+    s.resize(2);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_EQ(s.cap(), 10);
+    ASSERT_EQ(s.at<int32_t>(0), 0);
+    ASSERT_EQ(s.at<int32_t>(1), 1);
+}
+
+TEST(TestSeries, testResizeNoOp) {
+    telem::Series s(telem::UINT64_T, 10);
+    for (int i = 0; i < 5; i++) {
+        s.write(static_cast<uint64_t>(i));
+    }
+
+    s.resize(5);
+    ASSERT_EQ(s.size(), 5);
+    ASSERT_EQ(s.cap(), 10);
+}
+
+TEST(TestSeries, testResizeExceedsCapacity) {
+    telem::Series s(telem::FLOAT64_T, 5);
+    s.write(1.0);
+    s.write(2.0);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_EQ(s.cap(), 5);
+
+    s.resize(10);
+    ASSERT_EQ(s.size(), 10);
+    ASSERT_EQ(s.cap(), 10);
+    ASSERT_EQ(s.at<double>(0), 1.0);
+    ASSERT_EQ(s.at<double>(1), 2.0);
+}
+
+TEST(TestSeries, testResizeVariableType) {
+    telem::Series s(std::vector<std::string>{"hello", "world"});
+
+    ASSERT_THROW(s.resize(1), std::runtime_error);
+}
+
+TEST(TestSeries, testResizeToZero) {
+    telem::Series s(telem::INT16_T, 10);
+    s.write(static_cast<int16_t>(1));
+    s.write(static_cast<int16_t>(2));
+
+    s.resize(0);
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_TRUE(s.empty());
+}

@@ -363,7 +363,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeC.nextCalled).To(Equal(0))
 		})
 	})
-	Describe("MarkNodesChange", func() {
+	Describe("MarkNodeChanged", func() {
 		It("Should mark node as changed", func() {
 			prog = ir.IR{
 				Nodes: []ir.Node{
@@ -375,7 +375,7 @@ var _ = Describe("Scheduler", func() {
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
 			s = scheduler.New(ctx, prog, nodes)
-			s.MarkNodesChange("b")
+			s.MarkNodeChanged("b")
 			s.Next(ctx)
 			Expect(nodeB.nextCalled).To(Equal(1))
 		})
@@ -386,7 +386,7 @@ var _ = Describe("Scheduler", func() {
 			}
 			nodes["a"] = nodeA
 			s = scheduler.New(ctx, prog, nodes)
-			s.MarkNodesChange("a")
+			s.MarkNodeChanged("a")
 			s.Next(ctx)
 			Expect(nodeA.nextCalled).To(Equal(1))
 		})

@@ -15,18 +15,13 @@
 #include <unordered_set>
 #include <vector>
 
-#include "arc/cpp/runtime/core/node.h"
-#include "arc/cpp/runtime/state/state.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/xerrors/errors.h"
 
+#include "arc/cpp/runtime/core/node.h"
+#include "arc/cpp/runtime/state/state.h"
+
 namespace arc {
-
-/// @brief Outgoing edge from a node output to downstream node.
-struct OutgoingEdge {
-    std::string source_param;  ///< Source node's output parameter name
-    std::string target_node;   ///< Target (downstream) node ID
-};
-
 /// @brief Stratified scheduler for reactive Arc execution.
 ///
 /// Implements Arc's stratified execution model:
@@ -36,104 +31,48 @@ struct OutgoingEdge {
 /// The scheduler maintains a pre-computed topological ordering (stratification)
 /// and tracks which nodes need re-execution via a "changed" set.
 class Scheduler {
-    /// Stratified execution order (pre-computed)
-    /// strata_[i] contains node IDs for stratum i
-    std::vector<std::vector<std::string>> strata_;
+    ir::Strata strata;
+    std::unordered_set<std::string> changed;
+    struct NodeState {
+        std::string key;
+        std::unique_ptr<Node> node;
+        std::vector<ir::Edge> edges;
+    };
+    std::unordered_map<std::string, NodeState> nodes;
+    NodeState *current_state;
+    NodeContext ctx;
 
-    /// Node registry (node_id -> node instance)
-    std::unordered_map<std::string, std::unique_ptr<Node>> nodes_;
-
-    /// Stratum lookup (node_id -> stratum index)
-    std::unordered_map<std::string, size_t> node_stratum_;
-
-    /// Changed node tracking for reactive execution
-    std::unordered_set<std::string> changed_;
-
-    /// State reference (non-owning)
-    State& state_;
-
-    /// Outgoing edges per node (source_node_id -> list of outgoing edges)
-    /// Used for per-output change propagation (matches Go runtime behavior)
-    std::unordered_map<std::string, std::vector<OutgoingEdge>> outgoing_edges_;
-
-    /// Currently executing node (used for NodeContext callbacks)
-    std::string current_executing_node_;
+    void mark_changed(const std::string &param) {
+        for (auto it = this->current_state->edges.begin();
+             it != this->current_state->edges.end();
+             ++it)
+            if (param == this->current_state->key)
+                this->changed.insert(it->target.node);
+    }
 
 public:
-    /// @brief Construct scheduler with state reference.
-    /// @param state Pointer to global state (not owned).
-    explicit Scheduler(State *state);
+    Scheduler(const ir::IR &prog, std::unordered_map<std::string, NodeState> &nodes):
+        strata(prog.strata), nodes(std::move(nodes)), current_state() {
+        this->ctx = NodeContext{
+            .mark_changed =
+                [&](const std::string &param) { this->mark_changed(param); },
+            .report_error = [&](const xerrors::Error &err) {}
+        };
+    }
 
-    /// @brief Register a node at a specific stratum.
-    /// @param node_id Node identifier (must be unique).
-    /// @param node Node instance (ownership transferred).
-    /// @param stratum Stratum index (0 = always execute, >0 = reactive).
-    /// @return Error status (NIL on success).
-    /// @note Must be called during initialization, not in RT loop.
-    xerrors::Error register_node(std::string node_id,
-                                 std::unique_ptr<Node> node,
-                                 size_t stratum);
-
-    /// @brief Execute one scheduler cycle (RT-safe).
-    ///
-    /// Execution order:
-    /// 1. Process input queue (update channel data from I/O thread)
-    /// 2. Execute stratum 0 (always)
-    /// 3. Execute higher strata (only if changed)
-    /// 4. Clear changed set for next cycle
-    ///
-    /// @return Error status (NIL on success).
-    /// @note RT-safe: no allocations, bounded execution time.
-    xerrors::Error next();
-
-    /// @brief Mark a node as changed (triggers downstream re-execution).
-    /// @param node_id Node identifier.
-    /// @note Called by nodes when they produce new outputs.
-    void mark_changed(const std::string &node_id);
-
-    /// @brief Mark downstream nodes as changed.
-    /// @param node_id Source node that produced output.
-    /// @note Marks all nodes in higher strata that depend on this node.
-    void mark_downstream_changed(const std::string &node_id);
-
-    /// @brief Get stratum for a node.
-    /// @param node_id Node identifier.
-    /// @return Stratum index, or 0 if not found.
-    size_t get_stratum(const std::string &node_id) const;
-
-    /// @brief Get number of strata.
-    /// @return Number of strata in the scheduler.
-    size_t num_strata() const { return strata_.size(); }
-
-    /// @brief Get number of registered nodes.
-    /// @return Total number of nodes.
-    size_t num_nodes() const { return nodes_.size(); }
-
-    /// @brief Check if a node is registered.
-    /// @param node_id Node identifier.
-    /// @return true if node exists.
-    bool has_node(const std::string &node_id) const;
-
-    /// @brief Register an outgoing edge from a node's output to downstream node.
-    /// @param source_node Source node identifier.
-    /// @param source_param Source node's output parameter name.
-    /// @param target_node Target (downstream) node identifier.
-    /// @note Must be called during initialization, not in RT loop.
-    void register_outgoing_edge(const std::string &source_node,
-                                const std::string &source_param,
-                                const std::string &target_node);
-
-    /// @brief Mark downstream nodes that depend on a specific output parameter.
-    ///
-    /// Called by nodes via NodeContext.mark_changed callback when they
-    /// produce new output. Only marks downstream nodes that have edges
-    /// from the specified output parameter.
-    ///
-    /// @param node_id Source node identifier.
-    /// @param output_param Output parameter name that changed.
-    /// @note RT-safe: bounded lookup in outgoing_edges_ map.
-    void mark_output_changed(const std::string &node_id,
-                             const std::string &output_param);
+    void next() {
+        for (auto it = this->strata.strata.begin(); it != this->strata.strata.end();
+             ++it) {
+            for (auto node_it = it->begin(); node_it != it->end(); ++node_it) {
+                if (it == this->strata.strata.begin() ||
+                    this->changed.contains(*node_it)) {
+                    const auto n = &this->nodes[*node_it];
+                    this->current_state = n;
+                    this->current_state->node->next(this->ctx);
+                }
+            }
+        }
+        this->changed.clear();
+    }
 };
-
-}  // namespace arc
+}

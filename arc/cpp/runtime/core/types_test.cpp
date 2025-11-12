@@ -7,18 +7,18 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "arc/cpp/runtime/core/types.h"
-
 #include <unordered_map>
 
 #include "gtest/gtest.h"
 
+#include "arc/cpp/runtime/core/types.h"
+
 // Test Handle equality
 TEST(TypesTest, HandleEquality) {
-    arc::Handle h1{"node1", "out"};
-    arc::Handle h2{"node1", "out"};
-    arc::Handle h3{"node2", "out"};
-    arc::Handle h4{"node1", "in"};
+    arc::ir::Handle h1{"node1", "out"};
+    arc::ir::Handle h2{"node1", "out"};
+    arc::ir::Handle h3{"node2", "out"};
+    arc::ir::Handle h4{"node1", "in"};
 
     EXPECT_EQ(h1, h2);
     EXPECT_NE(h1, h3);
@@ -27,10 +27,10 @@ TEST(TypesTest, HandleEquality) {
 
 // Test Handle hashing for use in unordered_map
 TEST(TypesTest, HandleHash) {
-    std::unordered_map<arc::Handle, int, arc::HandleHash> map;
+    std::unordered_map<arc::ir::Handle, int, arc::ir::Handle::Hasher> map;
 
-    arc::Handle h1{"node1", "out"};
-    arc::Handle h2{"node2", "in"};
+    arc::ir::Handle h1{"node1", "out"};
+    arc::ir::Handle h2{"node2", "in"};
 
     map[h1] = 42;
     map[h2] = 100;
@@ -42,9 +42,9 @@ TEST(TypesTest, HandleHash) {
 
 // Test Edge equality
 TEST(TypesTest, EdgeEquality) {
-    arc::Edge e1{arc::Handle{"A", "out"}, arc::Handle{"B", "in"}};
-    arc::Edge e2{arc::Handle{"A", "out"}, arc::Handle{"B", "in"}};
-    arc::Edge e3{arc::Handle{"A", "out"}, arc::Handle{"C", "in"}};
+    arc::ir::Edge e1{arc::ir::Handle{"A", "out"}, arc::ir::Handle{"B", "in"}};
+    arc::ir::Edge e2{arc::ir::Handle{"A", "out"}, arc::ir::Handle{"B", "in"}};
+    arc::ir::Edge e3{arc::ir::Handle{"A", "out"}, arc::ir::Handle{"C", "in"}};
 
     EXPECT_EQ(e1, e2);
     EXPECT_NE(e1, e3);

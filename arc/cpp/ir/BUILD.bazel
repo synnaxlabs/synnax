@@ -1,8 +1,10 @@
 cc_library(
     name = "ir",
+    srcs = ["ir.cpp"],
     hdrs = ["ir.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/telem",
         "//x/cpp/xjson",
         "@nlohmann_json//:json",
     ],
