@@ -77,27 +77,34 @@ const ListItem = (props: CoreList.ItemProps<status.Key>) => {
             {name}
           </Text.Text>
         </Flex.Box>
-        <Telem.Text.TimeSpanSince level="small" format="semantic" variant="code">
+        <Telem.Text.TimeSpanSince
+          level="small"
+          format="semantic"
+          variant="code"
+          color={9}
+        >
           {time}
         </Telem.Text.TimeSpanSince>
       </Flex.Box>
-      {message.length > 0 && <Text.Text level="small">{message}</Text.Text>}
-      <Flex.Box x align="center" gap="small">
-        {labels != null && labels.length > 0 && (
-          <Flex.Box
-            x
-            gap="small"
-            wrap
-            style={{ overflowX: "auto", height: "fit-content" }}
-          >
-            {labels.map((l) => (
-              <Tag.Tag key={l.key} size="tiny" color={l.color}>
-                {l.name}
-              </Tag.Tag>
-            ))}
-          </Flex.Box>
-        )}
-      </Flex.Box>
+      {message.length > 0 && (
+        <Text.Text level="small" color={9}>
+          {message}
+        </Text.Text>
+      )}
+      {labels != null && labels.length > 0 && (
+        <Flex.Box
+          x
+          gap="small"
+          wrap
+          style={{ overflowX: "auto", height: "fit-content" }}
+        >
+          {labels.map((l) => (
+            <Tag.Tag key={l.key} size="tiny" color={l.color}>
+              {l.name}
+            </Tag.Tag>
+          ))}
+        </Flex.Box>
+      )}
     </Select.ListItem>
   );
 };
