@@ -10,6 +10,7 @@
 from synnax.hardware.modbus.types import (
     CoilInputChan,
     CoilOutputChan,
+    Device,
     DiscreteInputChan,
     HoldingRegisterInputChan,
     HoldingRegisterOutputChan,
@@ -18,6 +19,4 @@ from synnax.hardware.modbus.types import (
     ReadTaskConfig,
     WriteTask,
     WriteTaskConfig,
-    create_device,
-    device_props,
 )

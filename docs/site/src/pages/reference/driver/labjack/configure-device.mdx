@@ -78,7 +78,6 @@ in the Devices Toolbar, right click on the device and select "Configure".
 ```python
 import synnax as sy
 from synnax.hardware import labjack
-import json
 
 # Connect to Synnax
 client = sy.Synnax()
@@ -87,19 +86,17 @@ client = sy.Synnax()
 rack = client.hardware.racks.retrieve_embedded_rack()
 
 # Configure device connection
-device = labjack.create_device(
-    client=client,
+device = labjack.Device(
     model=labjack.T7,                 # Model: T4, T7, T8
+    identifier="ANY",                 # Serial number, IP, name, or "ANY"
     name="My LabJack T7",             # Device name
     location="ANY",                   # Connection identifier
     rack=rack.key,                    # Rack key
-    properties=json.dumps(
-        labjack.device_props(
-            identifier="ANY",         # Serial number, IP, name, or "ANY"
-            connection_type="ANY",    # "ANY", "USB", "TCP", "ETHERNET", "WIFI"
-        )
-    ),
+    connection_type="ANY",            # "ANY", "USB", "TCP", "ETHERNET", "WIFI"
 )
+
+# Create the device in Synnax
+device = client.hardware.devices.create(device)
 
 # Or retrieve by model
 device = client.hardware.devices.retrieve(model="LJM_dtT7")

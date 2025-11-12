@@ -529,19 +529,16 @@ class TestLabJackDevicePropertyUpdates:
         rack = client.hardware.racks.retrieve_embedded_rack()
 
         # Create a device
-        device = labjack.create_device(
-            client=client,
+        device = labjack.Device(
             model=T7,
+            identifier="ANY",
             name="Test LabJack T7",
             location="USB",
             rack=rack.key,
-            properties=json.dumps(
-                labjack.device_props(
-                    identifier="ANY",
-                    connection_type="ANY",
-                )
-            ),
+            connection_type="ANY",
         )
+
+        device = client.hardware.devices.create(device)
 
         # Create channels
         time_ch = client.channels.create(
@@ -583,7 +580,7 @@ class TestLabJackDevicePropertyUpdates:
         )
 
         # Trigger device property update
-        task._update_device_properties(client.hardware.devices)
+        task.update_device_properties(client.hardware.devices)
 
         # Retrieve device and check properties
         updated_device = client.hardware.devices.retrieve(key=device.key)
@@ -610,19 +607,16 @@ class TestLabJackDevicePropertyUpdates:
         rack = client.hardware.racks.retrieve_embedded_rack()
 
         # Create a device
-        device = labjack.create_device(
-            client=client,
+        device = labjack.Device(
             model=T7,
+            identifier="ANY",
             name="Test LabJack Write T7",
             location="USB",
             rack=rack.key,
-            properties=json.dumps(
-                labjack.device_props(
-                    identifier="ANY",
-                    connection_type="ANY",
-                )
-            ),
+            connection_type="ANY",
         )
+
+        device = client.hardware.devices.create(device)
 
         # Create command and state channels
         cmd_time = client.channels.create(
@@ -684,7 +678,7 @@ class TestLabJackDevicePropertyUpdates:
         )
 
         # Trigger device property update
-        task._update_device_properties(client.hardware.devices)
+        task.update_device_properties(client.hardware.devices)
 
         # Retrieve device and check properties
         updated_device = client.hardware.devices.retrieve(key=device.key)

@@ -15,6 +15,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, field_validator
 
 from synnax.channel import ChannelKey
+from synnax.hardware import device
 from synnax.hardware.task import (
     BaseTaskConfig,
     BaseWriteTaskConfig,
@@ -301,8 +302,8 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
                 channels=channels if channels is not None else [],
             )
 
-    def _update_device_properties(self, device_client):
-        """Internal: Update device properties before task configuration."""
+    def update_device_properties(self, device_client):
+        """Update device properties before task configuration."""
         import json
 
         dev = device_client.retrieve(key=self.config.device)
@@ -382,8 +383,8 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             channels=channels if channels is not None else [],
         )
 
-    def _update_device_properties(self, device_client):
-        """Internal: Update device properties before task configuration."""
+    def update_device_properties(self, device_client):
+        """Update device properties before task configuration."""
         import json
 
         dev = device_client.retrieve(key=self.config.device)
@@ -409,88 +410,98 @@ MAKE = "opc"
 MODEL = "OPC UA"
 
 
-def device_props(
-    endpoint: str,
-    username: str = "",
-    password: str = "",
-    security_mode: str = "None",
-    security_policy: str = "None",
-    client_cert: str = "",
-    client_private_key: str = "",
-    server_cert: str = "",
-) -> dict:
+class Device(device.Device):
     """
-    Create device properties for an OPC UA connection.
+    OPC UA device configuration.
 
-    Args:
-        endpoint: The OPC UA server endpoint URL (e.g., "opc.tcp://localhost:4840/")
-        username: Username for authentication (optional)
-        password: Password for authentication (optional)
-        security_mode: Security mode - "None", "Sign", or "SignAndEncrypt" (default: "None")
-        security_policy: Security policy - "None", "Basic128Rsa15", "Basic256", etc. (default: "None")
-        client_cert: Client certificate for secure connections (optional)
-        client_private_key: Client private key for secure connections (optional)
-        server_cert: Trusted server certificate for secure connections (optional)
-
-    Returns:
-        Dictionary of device properties with the correct structure for Console
-    """
-    # Driver expects snake_case property names (see driver/opc/connection/connection.h)
-    connection = {
-        "endpoint": endpoint,
-        "security_mode": security_mode,  # Always include, even if "None"
-        "security_policy": security_policy,  # Always include, even if "None"
-    }
-
-    # Optional fields - only include if non-empty
-    if username:
-        connection["username"] = username
-    if password:
-        connection["password"] = password
-    if client_cert:
-        connection["client_certificate"] = client_cert
-    if client_private_key:
-        connection["client_private_key"] = client_private_key
-    if server_cert:
-        connection["server_certificate"] = server_cert
-
-    return {
-        "connection": connection,
-        "read": {"index": 0, "channels": {}},
-        "write": {"channels": {}},
-    }
-
-
-def create_device(client, **kwargs):
-    """
-    Create an OPC UA device with make, model, and key automatically set.
-
-    This is a thin wrapper around client.hardware.devices.create() that
-    automatically fills in:
-    - make: "opc"
-    - model: "OPC UA"
-    - key: auto-generated UUID if not provided
-
-    All other parameters are passed through unchanged.
+    This class extends the base Device class to provide OPC UA-specific configuration
+    including connection parameters, security settings, and channel mappings.
 
     Example:
-        >>> import json
         >>> from synnax.hardware import opcua
-        >>> device = opcua.create_device(
-        ...     client=client,
+        >>> device = opcua.Device(
         ...     name="OPC UA Server",
         ...     location="opc.tcp://localhost:4840/",
         ...     rack=rack.key,
-        ...     properties=json.dumps(opcua.device_props(endpoint="opc.tcp://localhost:4840/"))
+        ...     endpoint="opc.tcp://localhost:4840/",
+        ...     username="admin",
+        ...     password="secret",
+        ...     security_mode="SignAndEncrypt",
+        ...     security_policy="Basic256Sha256"
         ... )
+        >>> client.hardware.devices.create(device)
+
+    :param endpoint: The OPC UA server endpoint URL (e.g., "opc.tcp://localhost:4840/")
+    :param username: Username for authentication (optional)
+    :param password: Password for authentication (optional)
+    :param security_mode: Security mode - "None", "Sign", or "SignAndEncrypt" (default: "None")
+    :param security_policy: Security policy - "None", "Basic128Rsa15", "Basic256", etc. (default: "None")
+    :param client_cert: Client certificate for secure connections (optional)
+    :param client_private_key: Client private key for secure connections (optional)
+    :param server_cert: Trusted server certificate for secure connections (optional)
     """
-    from uuid import uuid4
 
-    # Auto-generate key if not provided
-    if "key" not in kwargs:
-        kwargs["key"] = str(uuid4())
+    def __init__(
+        self,
+        endpoint: str,
+        username: str = "",
+        password: str = "",
+        security_mode: str = "None",
+        security_policy: str = "None",
+        client_cert: str = "",
+        client_private_key: str = "",
+        server_cert: str = "",
+        **kwargs,
+    ):
+        """
+        Initialize an OPC UA device.
 
-    kwargs["make"] = MAKE
-    kwargs["model"] = MODEL
-    kwargs["configured"] = True
-    return client.hardware.devices.create(**kwargs)
+        Args:
+            endpoint: The OPC UA server endpoint URL
+            username: Username for authentication (optional)
+            password: Password for authentication (optional)
+            security_mode: Security mode - "None", "Sign", or "SignAndEncrypt"
+            security_policy: Security policy name
+            client_cert: Client certificate for secure connections
+            client_private_key: Client private key for secure connections
+            server_cert: Trusted server certificate for secure connections
+            **kwargs: Additional device properties (name, location, rack, etc.)
+        """
+        # Auto-generate key if not provided
+        if "key" not in kwargs:
+            kwargs["key"] = str(uuid4())
+
+        # Set make and model
+        kwargs["make"] = MAKE
+        kwargs["model"] = MODEL
+        kwargs["configured"] = True
+
+        # Build connection properties
+        # Driver expects snake_case property names (see driver/opc/connection/connection.h)
+        connection = {
+            "endpoint": endpoint,
+            "security_mode": security_mode,
+            "security_policy": security_policy,
+        }
+
+        # Optional fields - only include if non-empty
+        if username:
+            connection["username"] = username
+        if password:
+            connection["password"] = password
+        if client_cert:
+            connection["client_certificate"] = client_cert
+        if client_private_key:
+            connection["client_private_key"] = client_private_key
+        if server_cert:
+            connection["server_certificate"] = server_cert
+
+        # Set properties with connection info
+        props = {
+            "connection": connection,
+            "read": {"index": 0, "channels": {}},
+            "write": {"channels": {}},
+        }
+        kwargs["properties"] = json.dumps(props)
+
+        super().__init__(**kwargs)

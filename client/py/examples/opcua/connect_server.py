@@ -85,18 +85,19 @@ if response in ("", "y", "yes"):
         print(f"Using rack: {rack.name} (key={rack.key})")
 
         # Create the device with proper connection properties
-        device = opcua.create_device(
-            client=client,
+        device = opcua.Device(
+            endpoint=ENDPOINT,
             name=DEVICE_NAME,
             location=ENDPOINT,
             rack=rack.key,
-            properties=json.dumps(opcua.device_props(endpoint=ENDPOINT)),
         )
 
+        created_device = client.hardware.devices.create(device)
+
         print("✓ Device connected successfully!")
-        print(f"  - Name: {device.name}")
-        print(f"  - Key: {device.key}")
-        print(f"  - Location: {device.location}")
+        print(f"  - Name: {created_device.name}")
+        print(f"  - Key: {created_device.key}")
+        print(f"  - Location: {created_device.location}")
         print(f"  - Rack: {rack.name}")
         print()
         print("Device is ready to use.")

@@ -67,7 +67,6 @@ following:
 ```python
 import synnax as sy
 from synnax.hardware import modbus
-import json
 
 # Initialize Synnax client
 client = sy.Synnax()
@@ -76,20 +75,18 @@ client = sy.Synnax()
 rack = client.hardware.racks.retrieve_embedded_rack()
 
 # Create the Modbus device
-device = modbus.create_device(
-    client=client,
+device = modbus.Device(
+    host="192.168.1.100",
+    port=502,
     name="My Modbus Server",
     location="192.168.1.100:502",
     rack=rack.key,
-    properties=json.dumps(
-        modbus.device_props(
-            host="192.168.1.100",
-            port=502,
-            swap_bytes=False,
-            swap_words=False,
-        )
-    ),
+    swap_bytes=False,
+    swap_words=False,
 )
+
+# Create the device in Synnax
+device = client.hardware.devices.create(device)
 
 # Or retrieve by location
 device = client.hardware.devices.retrieve(location="192.168.1.100:502")

@@ -93,25 +93,22 @@ if response in ("", "y", "yes"):
         else:
             location = IDENTIFIER
 
-        device = labjack.create_device(
-            client=client,
+        device = labjack.Device(
             model=MODEL,
+            identifier=IDENTIFIER,
             name=DEVICE_NAME,
             location=location,
             rack=rack.key,
-            properties=json.dumps(
-                labjack.device_props(
-                    identifier=IDENTIFIER,
-                    connection_type=CONNECTION_TYPE,
-                )
-            ),
+            connection_type=CONNECTION_TYPE,
         )
 
+        created_device = client.hardware.devices.create(device)
+
         print("✓ Device connected successfully!")
-        print(f"  - Name: {device.name}")
-        print(f"  - Model: {device.model}")
-        print(f"  - Key: {device.key}")
-        print(f"  - Location: {device.location}")
+        print(f"  - Name: {created_device.name}")
+        print(f"  - Model: {created_device.model}")
+        print(f"  - Key: {created_device.key}")
+        print(f"  - Location: {created_device.location}")
         print(f"  - Rack: {rack.name}")
         print()
         print("Device is ready to use.")

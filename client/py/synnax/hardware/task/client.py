@@ -180,6 +180,14 @@ class Task:
         self.snapshot = task.snapshot
         self._frame_client = task._frame_client
 
+    def update_device_properties(self, device_client) -> None:
+        """Update device properties before task configuration.
+
+        Default implementation does nothing. Tasks that need to update device
+        properties should override this method.
+        """
+        pass
+
     def execute_command(self, type_: str, args: dict | None = None) -> str:
         """Executes a command on the task and returns the unique key assigned to the
         command.
@@ -240,6 +248,18 @@ class MetaTask(Protocol):
     def to_payload(self) -> TaskPayload: ...
 
     def set_internal(self, task: Task): ...
+
+    def update_device_properties(self, device_client) -> None:
+        """Update device properties before task configuration.
+
+        This method can be overridden by tasks that need to synchronize
+        their configuration with device properties (e.g., Modbus, OPC UA, LabJack).
+        The default implementation does nothing.
+
+        Args:
+            device_client: Client for accessing device operations
+        """
+        ...
 
 
 class StarterStopperMixin:
@@ -382,12 +402,9 @@ class Client:
         return pld
 
     def configure(self, task: MetaTask, timeout: float = 5) -> MetaTask:
-        # Call task-specific device property update if it exists (e.g., for Modbus)
-        if (
-            hasattr(task, "_update_device_properties")
-            and self._device_client is not None
-        ):
-            task._update_device_properties(self._device_client)
+        # Call task-specific device property update (e.g., for Modbus, OPC UA, LabJack)
+        if self._device_client is not None:
+            task.update_device_properties(self._device_client)
 
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
             pld = self.maybe_assign_def_rack(task.to_payload())

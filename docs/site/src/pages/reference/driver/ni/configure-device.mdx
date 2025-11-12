@@ -84,7 +84,6 @@ in the Devices Toolbar, right click on the device and select "Configure".
 ```python
 import synnax as sy
 from synnax.hardware import ni
-import json
 
 # Connect to Synnax
 client = sy.Synnax()
@@ -92,17 +91,17 @@ client = sy.Synnax()
 # Get the embedded rack (local driver rack)
 rack = client.hardware.racks.retrieve_embedded_rack()
 
-# Configure device using the ni.create_device() helper
-device = ni.create_device(
-    client=client,
+# Configure device using the ni.Device class
+device = ni.Device(
+    identifier="dev_mod1",
     name="My NI Module",
     model="NI 9205",
     location="cDAQ1/dev_mod1",
     rack=rack.key,
-    properties=json.dumps(
-        ni.device_props(identifier="dev_mod1")  # Channel name prefix
-    ),
 )
+
+# Create the device in Synnax
+device = client.hardware.devices.create(device)
 
 # Or retrieve by model
 device = client.hardware.devices.retrieve(model="NI 9205")

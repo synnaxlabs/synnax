@@ -494,20 +494,17 @@ class TestModbusDevicePropertyUpdates:
         rack = client.hardware.racks.retrieve_embedded_rack()
 
         # Create a device
-        device = modbus.create_device(
-            client=client,
+        device = modbus.Device(
+            host="127.0.0.1",
+            port=502,
             name="Test Modbus Device",
             location="127.0.0.1:502",
             rack=rack.key,
-            properties=json.dumps(
-                modbus.device_props(
-                    host="127.0.0.1",
-                    port=502,
-                    swap_bytes=False,
-                    swap_words=False,
-                )
-            ),
+            swap_bytes=False,
+            swap_words=False,
         )
+
+        device = client.hardware.devices.create(device)
 
         # Create channels
         time_ch = client.channels.create(
@@ -550,7 +547,7 @@ class TestModbusDevicePropertyUpdates:
         )
 
         # Trigger device property update
-        task._update_device_properties(client.hardware.devices)
+        task.update_device_properties(client.hardware.devices)
 
         # Retrieve device and check properties
         updated_device = client.hardware.devices.retrieve(key=device.key)
@@ -583,20 +580,17 @@ class TestModbusDevicePropertyUpdates:
         rack = client.hardware.racks.retrieve_embedded_rack()
 
         # Create a device
-        device = modbus.create_device(
-            client=client,
+        device = modbus.Device(
+            host="127.0.0.1",
+            port=502,
             name="Test Modbus Write Device",
             location="127.0.0.1:502",
             rack=rack.key,
-            properties=json.dumps(
-                modbus.device_props(
-                    host="127.0.0.1",
-                    port=502,
-                    swap_bytes=False,
-                    swap_words=False,
-                )
-            ),
+            swap_bytes=False,
+            swap_words=False,
         )
+
+        device = client.hardware.devices.create(device)
 
         # Create command channels
         cmd_time = client.channels.create(
@@ -635,7 +629,7 @@ class TestModbusDevicePropertyUpdates:
         )
 
         # Trigger device property update
-        task._update_device_properties(client.hardware.devices)
+        task.update_device_properties(client.hardware.devices)
 
         # Retrieve device and check properties
         updated_device = client.hardware.devices.retrieve(key=device.key)

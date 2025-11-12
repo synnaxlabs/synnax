@@ -14,6 +14,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, confloat, conint, field_validator
 
 from synnax.channel import ChannelKey
+from synnax.hardware import device
 from synnax.hardware.task import (
     BaseReadTaskConfig,
     BaseWriteTaskConfig,
@@ -432,8 +433,8 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             channels=channels if channels is not None else [],
         )
 
-    def _update_device_properties(self, device_client):
-        """Internal: Update device properties before task configuration."""
+    def update_device_properties(self, device_client):
+        """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
         props = (
             json.loads(dev.properties)
@@ -499,8 +500,8 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             channels=channels if channels is not None else [],
         )
 
-    def _update_device_properties(self, device_client):
-        """Internal: Update device properties before task configuration."""
+    def update_device_properties(self, device_client):
+        """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
         props = (
             json.loads(dev.properties)
@@ -519,68 +520,68 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         device_client.create(dev)
 
 
-def device_props(
-    identifier: str,
-    connection_type: str = "ANY",
-) -> dict:
+class Device(device.Device):
     """
-    Create device properties for a LabJack connection.
+    LabJack device configuration.
 
-    Args:
-        identifier: Device identifier (serial number, IP address, or device name)
-        connection_type: Connection method - "ANY", "USB", "TCP", "ETHERNET", or "WIFI"
-
-    Returns:
-        Dictionary of device properties with the correct structure for Console
-    """
-    return {
-        "connection": {
-            "identifier": identifier,
-            "connection_type": connection_type,
-        },
-        "read": {"index": 0, "channels": {}},
-        "write": {"channels": {}},
-    }
-
-
-def create_device(client, model: str, **kwargs):
-    """
-    Create a LabJack device with make, model, and key automatically set.
-
-    This is a thin wrapper around client.hardware.devices.create() that
-    automatically fills in:
-    - make: "LabJack"
-    - model: Specified model (T4, T7, or T8)
-    - key: auto-generated UUID if not provided
-
-    All other parameters are passed through unchanged.
+    This class extends the base Device class to provide LabJack-specific configuration
+    including connection parameters and model validation.
 
     Example:
-        >>> import json
         >>> from synnax.hardware import labjack
-        >>> device = labjack.create_device(
-        ...     client=client,
+        >>> device = labjack.Device(
         ...     model=labjack.T7,
+        ...     identifier="ANY",
         ...     name="My LabJack T7",
         ...     location="USB",
         ...     rack=rack.key,
-        ...     properties=json.dumps(labjack.device_props(identifier="ANY"))
+        ...     connection_type="USB"
         ... )
+        >>> client.hardware.devices.create(device)
 
-    Args:
-        client: Synnax client instance
-        model: LabJack model (use module constants: T4, T7, T8)
-        **kwargs: Additional arguments passed to client.hardware.devices.create()
+    :param model: LabJack model (use module constants: T4, T7, T8)
+    :param identifier: Device identifier (serial number, IP address, or device name)
+    :param connection_type: Connection method - "ANY", "USB", "TCP", "ETHERNET", or "WIFI"
     """
-    # Validate model
-    valid_models = [T4, T7, T8]
-    if model not in valid_models:
-        raise ValueError(f"Invalid model '{model}'. Must be one of: {valid_models}")
 
-    # Auto-generate key if not provided
-    if "key" not in kwargs:
-        kwargs["key"] = str(uuid4())
+    def __init__(
+        self,
+        model: str,
+        identifier: str,
+        connection_type: str = "ANY",
+        **kwargs,
+    ):
+        """
+        Initialize a LabJack device.
 
-    kwargs["make"] = MAKE
-    kwargs["model"] = model
-    return client.hardware.devices.create(**kwargs)
+        Args:
+            model: LabJack model (use module constants: T4, T7, T8)
+            identifier: Device identifier (serial number, IP address, or device name)
+            connection_type: Connection method - "ANY", "USB", "TCP", "ETHERNET", or "WIFI"
+            **kwargs: Additional device properties (name, location, rack, etc.)
+        """
+        # Validate model
+        valid_models = [T4, T7, T8]
+        if model not in valid_models:
+            raise ValueError(f"Invalid model '{model}'. Must be one of: {valid_models}")
+
+        # Auto-generate key if not provided
+        if "key" not in kwargs:
+            kwargs["key"] = str(uuid4())
+
+        # Set make and model
+        kwargs["make"] = MAKE
+        kwargs["model"] = model
+
+        # Build connection properties
+        props = {
+            "connection": {
+                "identifier": identifier,
+                "connection_type": connection_type,
+            },
+            "read": {"index": 0, "channels": {}},
+            "write": {"channels": {}},
+        }
+        kwargs["properties"] = json.dumps(props)
+
+        super().__init__(**kwargs)

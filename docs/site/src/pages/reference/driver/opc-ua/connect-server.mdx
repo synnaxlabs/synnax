@@ -94,7 +94,6 @@ following:
 ```python
 import synnax as sy
 from synnax.hardware import opcua
-import json
 
 # Initialize Synnax client
 client = sy.Synnax()
@@ -103,17 +102,15 @@ client = sy.Synnax()
 rack = client.hardware.racks.retrieve_embedded_rack()
 
 # Create the OPC UA device
-device = opcua.create_device(
-    client=client,
+device = opcua.Device(
+    endpoint="opc.tcp://localhost:4841/",
     name="My OPC UA Server",
     location="opc.tcp://localhost:4841/",
     rack=rack.key,
-    properties=json.dumps(
-        opcua.device_props(
-            endpoint="opc.tcp://localhost:4841/"
-        )
-    ),
 )
+
+# Create the device in Synnax
+device = client.hardware.devices.create(device)
 
 # Or retrieve by location
 device = client.hardware.devices.retrieve(location="opc.tcp://localhost:4841/")

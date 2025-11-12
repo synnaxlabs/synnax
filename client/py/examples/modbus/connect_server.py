@@ -85,25 +85,22 @@ if response in ("", "y", "yes"):
         rack = client.hardware.racks.retrieve_embedded_rack()
         print(f"Using rack: {rack.name} (key={rack.key})")
 
-        device = modbus.create_device(
-            client=client,
+        device = modbus.Device(
+            host=HOST,
+            port=PORT,
             name=DEVICE_NAME,
             location=f"{HOST}:{PORT}",
             rack=rack.key,
-            properties=json.dumps(
-                modbus.device_props(
-                    host=HOST,
-                    port=PORT,
-                    swap_bytes=False,
-                    swap_words=False,
-                )
-            ),
+            swap_bytes=False,
+            swap_words=False,
         )
 
+        created_device = client.hardware.devices.create(device)
+
         print("✓ Server connected successfully!")
-        print(f"  - Name: {device.name}")
-        print(f"  - Key: {device.key}")
-        print(f"  - Location: {device.location}")
+        print(f"  - Name: {created_device.name}")
+        print(f"  - Key: {created_device.key}")
+        print(f"  - Location: {created_device.location}")
         print(f"  - Rack: {rack.name}")
         print()
         print("Server is ready to use.")

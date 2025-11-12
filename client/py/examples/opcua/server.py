@@ -84,9 +84,7 @@ async def create_command_variables(myobj, idx):
     """Create writable command variables for testing write operations."""
     commands = []
     for i in range(3):  # Create 3 command channels
-        cmd = await myobj.add_variable(
-            idx, f"command_{i}", 0.0, ua.VariantType.Float
-        )
+        cmd = await myobj.add_variable(idx, f"command_{i}", 0.0, ua.VariantType.Float)
         await cmd.set_writable()
         commands.append(cmd)
     return commands
@@ -197,9 +195,9 @@ async def main():
     commands = await create_command_variables(myobj, idx)
 
     # Set up monitoring for command variable writes
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("OPC UA Server Started - Monitoring Command Variables")
-    print("="*60)
+    print("=" * 60)
     print("\nCommand variables (writable, monitored for external writes):")
     command_values = []
     for i, cmd in enumerate(commands):
@@ -215,7 +213,9 @@ async def main():
     print("\nWaiting for commands...\n")
 
     # Start monitoring task
-    monitor_task = asyncio.create_task(monitor_command_changes(commands, command_values))
+    monitor_task = asyncio.create_task(
+        monitor_command_changes(commands, command_values)
+    )
 
     # Start server loop
     start_ref = datetime.datetime.now(datetime.timezone.utc)

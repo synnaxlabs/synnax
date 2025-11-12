@@ -12,6 +12,7 @@ from synnax.hardware.labjack.types import (
     T7,
     T8,
     AIChan,
+    Device,
     DIChan,
     OutputChan,
     ReadTask,
@@ -19,6 +20,4 @@ from synnax.hardware.labjack.types import (
     ThermocoupleChan,
     WriteTask,
     WriteTaskConfig,
-    create_device,
-    device_props,
 )

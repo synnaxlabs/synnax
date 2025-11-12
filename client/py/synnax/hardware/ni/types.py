@@ -14,6 +14,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, confloat, conint, field_validator, validator
 
 from synnax import ValidationError
+from synnax.hardware import device
 from synnax.hardware.task import (
     BaseReadTaskConfig,
     BaseWriteTaskConfig,
@@ -2773,51 +2774,43 @@ class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
 MAKE = "NI"
 
 
-def device_props(identifier: str) -> dict:
+class Device(device.Device):
     """
-    Create properties dict for NI device configuration.
+    National Instruments device configuration.
 
-    Args:
-        identifier: Channel name prefix for all channels on this device
-
-    Returns:
-        Properties dict to be JSON-encoded for device creation
-    """
-    return {"identifier": identifier}
-
-
-def create_device(client, **kwargs):
-    """
-    Create an NI device with make automatically set.
-
-    This is a thin wrapper around client.hardware.devices.create() that
-    automatically fills in:
-    - make: "NI"
-    - key: auto-generated UUID if not provided
-
-    All other parameters are passed through unchanged.
+    This class extends the base Device class to provide NI-specific configuration.
+    The `properties` field is automatically populated with the identifier for the device.
 
     Example:
-        >>> import json
         >>> from synnax.hardware import ni
-        >>> device = ni.create_device(
-        ...     client=client,
+        >>> device = ni.Device(
         ...     name="My NI Module",
         ...     model="NI 9205",
         ...     location="cDAQ1/dev_mod1",
         ...     rack=rack.key,
-        ...     properties=json.dumps(ni.device_props(identifier="dev_mod1"))
+        ...     identifier="dev_mod1"
         ... )
+        >>> client.hardware.devices.create(device)
 
-    Args:
-        client: Synnax client instance
-        **kwargs: Additional arguments passed to client.hardware.devices.create()
+    :param identifier: Channel name prefix for all channels on this device
     """
-    from uuid import uuid4
 
-    # Auto-generate key if not provided
-    if "key" not in kwargs:
-        kwargs["key"] = str(uuid4())
+    def __init__(self, identifier: str, **kwargs):
+        """
+        Initialize an NI device.
 
-    kwargs["make"] = MAKE
-    return client.hardware.devices.create(**kwargs)
+        Args:
+            identifier: Channel name prefix for all channels on this device
+            **kwargs: Additional device properties (name, model, location, rack, etc.)
+        """
+        # Auto-generate key if not provided
+        if "key" not in kwargs:
+            kwargs["key"] = str(uuid4())
+
+        # Set make to NI
+        kwargs["make"] = MAKE
+
+        # Set properties with identifier
+        kwargs["properties"] = json.dumps({"identifier": identifier})
+
+        super().__init__(**kwargs)

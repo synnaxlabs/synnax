@@ -7,12 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, confloat, conint, field_validator
 
 from synnax.channel import ChannelKey
+from synnax.hardware import device
 from synnax.hardware.task import (
     BaseReadTaskConfig,
     BaseWriteTaskConfig,
@@ -484,8 +486,8 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             channels=channels if channels is not None else [],
         )
 
-    def _update_device_properties(self, device_client):
-        """Internal: Update device properties before task configuration.
+    def update_device_properties(self, device_client):
+        """Update device properties before task configuration.
 
         This method synchronizes channel configurations with device properties
         so that the Console can properly map Modbus register addresses to Synnax channels.
@@ -566,8 +568,8 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             channels=channels if channels is not None else [],
         )
 
-    def _update_device_properties(self, device_client):
-        """Internal: Update device properties before task configuration.
+    def update_device_properties(self, device_client):
+        """Update device properties before task configuration.
 
         This method synchronizes channel configurations with device properties
         so that the Console can properly map Modbus register addresses to Synnax channels.
@@ -606,63 +608,69 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         device_client.create(dev)
 
 
-def device_props(
-    host: str,
-    port: int,
-    swap_bytes: bool = False,
-    swap_words: bool = False,
-) -> dict:
+class Device(device.Device):
     """
-    Create device properties for a Modbus TCP connection.
+    Modbus TCP device configuration.
 
-    Args:
-        host: The IP address or hostname of the Modbus server
-        port: The TCP port number (typically 502)
-        swap_bytes: Whether to swap byte order within 16-bit words
-        swap_words: Whether to swap word order for 32-bit+ values
-
-    Returns:
-        Dictionary of device properties with the correct structure for Console
-    """
-    return {
-        "connection": {
-            "host": host,
-            "port": port,
-            "swap_bytes": swap_bytes,
-            "swap_words": swap_words,
-        },
-        "read": {"index": 0, "channels": {}},
-        "write": {"channels": {}},
-    }
-
-
-def create_device(client, **kwargs):
-    """
-    Create a Modbus device with make, model, and key automatically set.
-
-    This is a thin wrapper around client.hardware.devices.create() that
-    automatically fills in:
-    - make: "Modbus"
-    - model: "Modbus"
-    - key: auto-generated UUID if not provided
-
-    All other parameters are passed through unchanged.
+    This class extends the base Device class to provide Modbus-specific configuration
+    including TCP connection parameters and byte/word swap settings.
 
     Example:
-        >>> device = modbus.create_device(
-        ...     client=client,
+        >>> from synnax.hardware import modbus
+        >>> device = modbus.Device(
+        ...     host="192.168.1.100",
+        ...     port=502,
         ...     name="Modbus Server",
-        ...     location="127.0.0.1:502",
+        ...     location="192.168.1.100:502",
         ...     rack=rack.key,
-        ...     properties=json.dumps({...})
+        ...     swap_bytes=False,
+        ...     swap_words=False
         ... )
+        >>> client.hardware.devices.create(device)
+
+    :param host: The IP address or hostname of the Modbus server
+    :param port: The TCP port number (typically 502)
+    :param swap_bytes: Whether to swap byte order within 16-bit words
+    :param swap_words: Whether to swap word order for 32-bit+ values
     """
-    from uuid import uuid4
 
-    # Auto-generate key if not provided
-    if "key" not in kwargs:
-        kwargs["key"] = str(uuid4())
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        swap_bytes: bool = False,
+        swap_words: bool = False,
+        **kwargs,
+    ):
+        """
+        Initialize a Modbus TCP device.
 
-    kwargs["make"] = MAKE
-    kwargs["model"] = MODEL
-    return client.hardware.devices.create(**kwargs)
+        Args:
+            host: The IP address or hostname of the Modbus server
+            port: The TCP port number (typically 502)
+            swap_bytes: Whether to swap byte order within 16-bit words
+            swap_words: Whether to swap word order for 32-bit+ values
+            **kwargs: Additional device properties (name, location, rack, etc.)
+        """
+        # Auto-generate key if not provided
+        if "key" not in kwargs:
+            kwargs["key"] = str(uuid4())
+
+        # Set make and model
+        kwargs["make"] = MAKE
+        kwargs["model"] = MODEL
+
+        # Build connection properties
+        props = {
+            "connection": {
+                "host": host,
+                "port": port,
+                "swap_bytes": swap_bytes,
+                "swap_words": swap_words,
+            },
+            "read": {"index": 0, "channels": {}},
+            "write": {"channels": {}},
+        }
+        kwargs["properties"] = json.dumps(props)
+
+        super().__init__(**kwargs)

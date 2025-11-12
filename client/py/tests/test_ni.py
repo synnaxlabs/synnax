@@ -23,8 +23,6 @@ from synnax.hardware.ni import (
     CounterReadConfig,
     DigitalReadConfig,
     DigitalWriteConfig,
-    create_device,
-    device_props,
 )
 
 
@@ -644,18 +642,26 @@ class TestNITask:
 
 @pytest.mark.ni
 class TestNIDeviceHelpers:
-    """Tests for NI device helper functions (create_device, device_props)."""
+    """Tests for NI Device class."""
 
-    def test_device_props_creates_correct_structure(self):
-        """Test that device_props creates the expected properties dict."""
-        props = device_props(identifier="test_device_01")
+    def test_device_creates_correct_structure(self):
+        """Test that Device class creates the expected properties."""
+        device = ni.Device(
+            identifier="test_device_01",
+            name="Test Device",
+            model="NI 9205",
+            location="cDAQ1/dev_mod1",
+            rack=1,
+        )
 
+        assert isinstance(device.properties, str)
+        props = json.loads(device.properties)
         assert isinstance(props, dict)
         assert "identifier" in props
         assert props["identifier"] == "test_device_01"
 
-    def test_device_props_with_different_identifiers(self):
-        """Test device_props with various identifier formats."""
+    def test_device_with_different_identifiers(self):
+        """Test Device class with various identifier formats."""
         test_cases = [
             "ni_9205",
             "cDAQ1/dev_mod1",
@@ -664,107 +670,124 @@ class TestNIDeviceHelpers:
         ]
 
         for identifier in test_cases:
-            props = device_props(identifier=identifier)
+            device = ni.Device(
+                identifier=identifier,
+                name="Test",
+                model="NI 9205",
+                location="cDAQ1/dev_mod1",
+                rack=1,
+            )
+            props = json.loads(device.properties)
             assert props["identifier"] == identifier
 
-    def test_create_device_sets_make(self, client: sy.Synnax):
-        """Test that create_device automatically sets make to 'NI'."""
+    def test_device_sets_make(self, client: sy.Synnax):
+        """Test that Device class automatically sets make to 'NI'."""
         rack = client.hardware.racks.retrieve_embedded_rack()
 
-        device = create_device(
-            client=client,
+        device = ni.Device(
+            identifier="dev_mod1",
             name="Test NI Device",
             model="NI 9205",
             location="cDAQ1/dev_mod1",
             rack=rack.key,
-            properties=json.dumps(device_props(identifier="dev_mod1")),
         )
 
-        assert device.make == MAKE
-        assert device.make == "NI"
-        assert device.name == "Test NI Device"
-        assert device.model == "NI 9205"
-        assert device.location == "cDAQ1/dev_mod1"
+        created_device = client.hardware.devices.create(device)
 
-    def test_create_device_auto_generates_key(self, client: sy.Synnax):
-        """Test that create_device auto-generates a UUID key if not provided."""
+        assert created_device.make == MAKE
+        assert created_device.make == "NI"
+        assert created_device.name == "Test NI Device"
+        assert created_device.model == "NI 9205"
+        assert created_device.location == "cDAQ1/dev_mod1"
+
+    def test_device_auto_generates_key(self, client: sy.Synnax):
+        """Test that Device class auto-generates a UUID key if not provided."""
         rack = client.hardware.racks.retrieve_embedded_rack()
 
-        device = create_device(
-            client=client,
+        device = ni.Device(
+            identifier="dev_mod2",
             name="Test NI Device Auto Key",
             model="NI 9205",
             location="cDAQ1/dev_mod2",
             rack=rack.key,
-            properties=json.dumps(device_props(identifier="dev_mod2")),
         )
 
-        assert device.key is not None
-        assert len(device.key) > 0
-        # UUID format check (basic)
-        assert "-" in device.key or len(device.key) > 10
+        created_device = client.hardware.devices.create(device)
 
-    def test_create_device_with_explicit_key(self, client: sy.Synnax):
-        """Test that create_device accepts an explicit key."""
+        assert created_device.key is not None
+        assert len(created_device.key) > 0
+        # UUID format check (basic)
+        assert "-" in created_device.key or len(created_device.key) > 10
+
+    def test_device_with_explicit_key(self, client: sy.Synnax):
+        """Test that Device class accepts an explicit key."""
         rack = client.hardware.racks.retrieve_embedded_rack()
         explicit_key = "my-explicit-ni-key"
 
-        device = create_device(
-            client=client,
+        device = ni.Device(
+            identifier="dev_mod3",
             key=explicit_key,
             name="Test NI Device Explicit Key",
             model="NI 9205",
             location="cDAQ1/dev_mod3",
             rack=rack.key,
-            properties=json.dumps(device_props(identifier="dev_mod3")),
         )
 
-        assert device.key == explicit_key
+        created_device = client.hardware.devices.create(device)
 
-    def test_create_device_properties_parsing(self, client: sy.Synnax):
+        assert created_device.key == explicit_key
+
+    def test_device_properties_parsing(self, client: sy.Synnax):
         """Test that device properties are correctly stored and retrieved."""
         rack = client.hardware.racks.retrieve_embedded_rack()
         test_identifier = "test_ni_module_01"
 
-        device = create_device(
-            client=client,
+        device = ni.Device(
+            identifier=test_identifier,
             name="Test NI Props",
             model="NI 9205",
             location="cDAQ1/dev_mod4",
             rack=rack.key,
-            properties=json.dumps(device_props(identifier=test_identifier)),
         )
 
+        created_device = client.hardware.devices.create(device)
+
         # Retrieve and parse properties
-        props = json.loads(device.properties)
+        props = json.loads(created_device.properties)
         assert "identifier" in props
         assert props["identifier"] == test_identifier
 
     def test_create_device_using_ni_module_directly(self, client: sy.Synnax):
-        """Test that ni.create_device works when imported via module."""
+        """Test that ni.Device works when imported via module."""
         rack = client.hardware.racks.retrieve_embedded_rack()
 
-        device = ni.create_device(
-            client=client,
+        device = ni.Device(
+            identifier="dev_mod5",
             name="Test via ni module",
             model="NI 9205",
             location="cDAQ1/dev_mod5",
             rack=rack.key,
-            properties=json.dumps(ni.device_props(identifier="dev_mod5")),
         )
 
-        assert device.make == "NI"
-        assert device.name == "Test via ni module"
+        created_device = client.hardware.devices.create(device)
 
-    def test_device_props_returns_dict_not_json(self):
-        """Test that device_props returns a dict, not a JSON string."""
-        props = device_props(identifier="test_id")
+        assert created_device.make == "NI"
+        assert created_device.name == "Test via ni module"
 
-        # Should be a dict, not a string
+    def test_device_has_properties_set(self):
+        """Test that ni.Device sets properties correctly."""
+        device = ni.Device(
+            identifier="test_id",
+            name="Test Device",
+            model="NI 9205",
+            location="cDAQ1/dev_mod1",
+            rack=1,
+        )
+
+        # Properties should be JSON string
+        assert isinstance(device.properties, str)
+
+        # Parse and verify
+        props = json.loads(device.properties)
         assert isinstance(props, dict)
-        assert not isinstance(props, str)
-
-        # Should be JSON-serializable
-        json_str = json.dumps(props)
-        assert isinstance(json_str, str)
-        assert "identifier" in json_str
+        assert props["identifier"] == "test_id"
