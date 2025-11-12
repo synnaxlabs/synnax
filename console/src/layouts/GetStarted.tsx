@@ -35,24 +35,16 @@ const NoCluster = (): ReactElement => {
   // As a note, we need to stop propagation on these events so that we don't
   // trigger the 'onSelect' handler of the tab we're in. This means we appropriately
   // select the new layout when we create it.
-  const handleCluster = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
-    (e) => {
-      e.stopPropagation();
-      placeLayout(Cluster.CONNECT_LAYOUT);
-    },
-    [placeLayout],
-  );
+  const handleCluster = useCallback(() => {
+    placeLayout(Cluster.CONNECT_LAYOUT);
+  }, [placeLayout]);
 
-  const handleVisualize = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
-    (e) => {
-      e.stopPropagation();
-      placeLayout(Vis.createSelectorLayout());
-      dispatch(
-        Layout.setNavDrawerVisible({ windowKey, key: Vis.TOOLBAR.key, value: true }),
-      );
-    },
-    [placeLayout, dispatch, windowKey],
-  );
+  const handleVisualize = useCallback(() => {
+    placeLayout(Vis.createSelectorLayout());
+    dispatch(
+      Layout.setNavDrawerVisible({ windowKey, key: Vis.TOOLBAR.key, value: true }),
+    );
+  }, [placeLayout, dispatch, windowKey]);
 
   const handleDocs = useCallback<NonNullable<Text.TextProps["onClick"]>>(
     (e) => {
