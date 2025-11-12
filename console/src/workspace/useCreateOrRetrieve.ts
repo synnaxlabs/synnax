@@ -28,7 +28,7 @@ export const useCreateOrRetrieve = () => {
     if (prevClient != null)
       handleError(
         async () => await prevClient.workspaces.setLayout(activeWS.key, purgedLayout),
-        `Failed to save workspace ${activeWS.name} to ${prevClient.props.name ?? "previous Core"}`,
+        `Failed to save workspace ${activeWS.name} to ${prevClient.params.name ?? "previous Core"}`,
       );
     handleError(
       async () => {
@@ -42,7 +42,7 @@ export const useCreateOrRetrieve = () => {
           dispatch(setActive(activeWS));
         }
       },
-      `Failed to create workspace ${activeWS.name} on ${client.props.name ?? "current Core"}`,
+      `Failed to create workspace ${activeWS.name} on ${client.params.name ?? "current Core"}`,
     );
   };
 };
