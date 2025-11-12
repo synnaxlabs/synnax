@@ -6,21 +6,92 @@ import Release from "@/components/releases/Release.astro";
 import { Image } from "@/components/Media";
 import { Divider } from "@synnaxlabs/pluto";
 import Diagram from "@/components/Diagram.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
 
 <Release
     version="0.48.0"
-    breakingChanges
     date="Nov 12, 2025"
-    title="Login Page and Status Toolbar"
+    title="Login Page, Status Toolbar, NI Counter Tasks, and Improved Measure Tool"
 >
 
-<Diagram preview style="height: 425px; padding: 0rem 9rem">
-  <Image client:only="react" id="releases/0-48-0/thumbnail" themed={false} />
-</Diagram>
+<Image client:only="react" id="releases/0-48-0/thumbnail" themed={false} />
 
 ### Login Page
 
 As part of our ongoing effort to improve user access control, we're moving away from our
-traditional core connection dropdown to a new login page. This page
+traditional core connection dropdown to a new login page. In the top right corner of the
+screen, you'll no longer see the currently connected cluster, and instead see the
+username of the currently logged in user.
+
+On the login page, you'll be able to select a cluster to connect to, and then enter your
+username and password to log in.
+
+<Divider.Divider x />
+
+### Status Toolbar
+
+<Diagram preview style="height: 425px; padding: 0rem 9rem">
+  <Image
+    client:only="react"
+    id="releases/0-48-0/status-toolbar"
+    style={{
+      borderTopLeftRadius: "3rem",
+      position: "absolute",
+      width: 600,
+      bottom: "-35rem",
+      right: "-5rem",
+      border: "1px solid var(--pluto-gray-l5)",
+    }}
+    themed={false}
+  />
+</Diagram>
+
+We've added a new toolbar that allows you to favorite important statuses for quick
+viewing. This also simplifies access to the status explorer and the status creation
+modal.
+
+<Divider.Divider x />
+
+### NI Counter Tasks
+
+<Image client:only="react" id="releases/0-48-0/ni-counter-task" themed={false} />
+
+We've added support for NI counter-based read tasks to Synnax. This allows you to read
+data from frequency, period, pulse width, and a number of other channel types.
+
+<Divider.Divider x />
+
+### Improved Measure Tool
+
+<Image client:only="react" id="releases/0-48-0/measure-tool" themed={false} />
+
+The previous measure tool was clunky and difficult to use. We've updated the point
+selection mechanics to be more intuitive, added extra coloring and value displays to
+simplify analysis, and fixed issues that caused the tool to misbehave when resizing the
+line plot.
+
+<Divider.Divider x />
+
+### Minor Improvements and Bug Fixes
+
+#### Arc-Based Calculated Channels
+
+We've continued to improve the stability and performance of our Arc-based calculated
+channels. Nested calculations are now intelligently grouped and circular dependencies
+are detected and reported.
+
+#### Console
+
+- Fixed an issue where the date and time inputs on range overviews would not correctly
+  parse millisecond values.
+- Fixed an issue where the `config.channels` field would not be properly initialized on
+  certain tasks.
+
+### Core
+
+- Fixed an issue where the docker image would not correctly grant permissions to the
+  embedded driver.
 
 </Release>
