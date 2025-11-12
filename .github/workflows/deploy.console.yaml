@@ -23,6 +23,7 @@ on:
     branches:
       - main
       - rc
+      - sy-3265-fix-macos-console-deployment
     paths:
       - .github/workflows/deploy.console.yaml
       - alamos/ts/**
