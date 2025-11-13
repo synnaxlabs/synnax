@@ -12,31 +12,27 @@ package calculation
 import (
 	"context"
 	"fmt"
-	"go/types"
-	"io"
 	"sync"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/legacy"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -53,7 +49,7 @@ type ServiceConfig struct {
 	Framer *framer.Service
 	// Channel is used to retrieve information about the channels being calculated.
 	// [REQUIRED]
-	Channel channel.Service
+	Channels channel.Service
 	// ChannelObservable is used to listen to real-time changes in calculated channels
 	// so the calculation routines can be updated accordingly.
 	// [REQUIRED]
@@ -84,7 +80,7 @@ var (
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
 	validate.NotNil(v, "framer", c.Framer)
-	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "channel", c.Channels)
 	validate.NotNil(v, "channel_observable", c.ChannelObservable)
 	validate.NotNil(v, "state_codec", c.StateCodec)
 	validate.NotNil(v, "enable_legacy_calculations", c.EnableLegacyCalculations)
@@ -97,7 +93,7 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
-	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Channels = override.Nil(c.Channels, other.Channels)
 	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
 	c.StateCodec = override.Nil(c.StateCodec, other.StateCodec)
 	c.Arc = override.Nil(c.Arc, other.Arc)
@@ -106,26 +102,13 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// entry is used to manage the lifecycle of a calculation.
-type entry struct {
-	// channel is the calculated channel.
-	ch channel.Channel
-	// count is the number of active requests for the calculation.
-	count int
-	// calculation is used to gracefully stop the calculation.
-	calculation confluence.Closable
-	// shutdown is used to force stop the calculation by cancelling the context.
-	shutdown io.Closer
-}
-
-type Status = status.Status[types.Nil]
-
-// Service creates and operates calculations on channels.
 type Service struct {
 	cfg ServiceConfig
 	mu  struct {
 		sync.Mutex
-		entries map[channel.Key]*entry
+		graph       *graph.Graph
+		calculators map[channel.Key]*calculator.Calculator
+		groups      map[int]*group
 	}
 	disconnectFromChannelChanges observe.Disconnect
 	stateKey                     channel.Key
@@ -142,6 +125,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	g, err := graph.New(graph.Config{
+		Instrumentation: cfg.Child("calculation.graph"),
+		Channels:        cfg.Channels,
+		SymbolResolver:  cfg.Arc.SymbolResolver(),
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	calculationStateCh := channel.Channel{
 		Name:        StatusChannelName,
@@ -151,13 +142,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		Internal:    true,
 	}
 
-	if err = cfg.Channel.MapRename(ctx, map[string]string{
+	if err = cfg.Channels.MapRename(ctx, map[string]string{
 		"sy_calculation_state": StatusChannelName,
 	}, true); err != nil {
 		return nil, err
 	}
 
-	if err = cfg.Channel.Create(
+	if err = cfg.Channels.Create(
 		ctx,
 		&calculationStateCh,
 		channel.RetrieveIfNameExists(true),
@@ -176,7 +167,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	s := &Service{cfg: cfg, writer: w, stateKey: calculationStateCh.Key()}
 	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
-	s.mu.entries = make(map[channel.Key]*entry)
+	s.mu.graph = g
+	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
+	s.mu.groups = make(map[int]*group)
 
 	if err = s.migrateChannels(ctx); err != nil {
 		s.cfg.L.Error("failed to migrate legacy calculated channels", zap.Error(err))
@@ -184,25 +177,32 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	if *cfg.EnableLegacyCalculations {
 		s.legacy, err = legacy.OpenService(ctx, legacy.ServiceConfig{
-			Channel:           cfg.Channel,
-			Framer:            cfg.Framer,
-			ChannelObservable: cfg.ChannelObservable,
-			StateCodec:        cfg.StateCodec,
+			Instrumentation: cfg.Child("legacy"),
+			Channel:         cfg.Channels,
+			Framer:          cfg.Framer,
+			StateCodec:      cfg.StateCodec,
 		})
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	s.cfg.L.Info("calculation service initialized",
+		zap.String("status_channel", StatusChannelName),
+		zap.Uint32("status_channel_key", uint32(calculationStateCh.Key())),
+		zap.Bool("legacy_calculations_enabled", *cfg.EnableLegacyCalculations),
+	)
+
 	return s, nil
 }
 
 func (s *Service) setStatus(
 	_ context.Context,
-	status Status,
+	statuses ...calculator.Status,
 ) {
 	if _, err := s.writer.Write(core.UnaryFrame(
 		s.stateKey,
-		telem.NewSeriesStaticJSONV(status),
+		telem.NewSeriesStaticJSONV(statuses...),
 	)); err != nil {
 		s.cfg.L.Error("failed to encode state", zap.Error(err))
 	}
@@ -212,81 +212,158 @@ func (s *Service) handleChange(
 	ctx context.Context,
 	reader gorp.TxReader[channel.Key, channel.Channel],
 ) {
-	c, ok := reader.Next(ctx)
+	cg, ok := reader.Next(ctx)
 	if !ok {
 		return
 	}
+	ch := cg.Value
 	// Don't stop calculating if the channel is deleted. The calculation will be
 	// automatically shut down when it is no longer needed.
-	if c.Variant != change.Set || !c.Value.IsCalculated() || c.Value.IsLegacyCalculated() {
+	if cg.Variant != change.Set || !ch.IsCalculated() {
 		return
 	}
-	existing, found := s.mu.entries[c.Key]
-	if !found {
-		s.update(ctx, c.Value)
+	if ch.IsLegacyCalculated() {
+		s.legacy.Update(ctx, ch)
 		return
 	}
-	if existing.ch.Equals(c.Value, "Name") {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, found := s.mu.calculators[cg.Key]; !found {
 		return
 	}
-	s.update(ctx, c.Value)
-}
-
-func (s *Service) update(ctx context.Context, ch channel.Channel) {
-	//s.mu.Lock()
-	//defer s.mu.Unlock()
-	e, found := s.mu.entries[ch.Key()]
-	if !found {
-		return
-	}
-	e.calculation.Close()
-	if err := e.shutdown.Close(); err != nil {
-		s.cfg.L.Error("failed to close calculated channel", zap.Error(err), zap.Stringer("key", ch))
-	}
-	delete(s.mu.entries, ch.Key())
-	if _, err := s.startCalculation(ctx, ch.Key(), e.count); err != nil {
-		s.cfg.L.Error("failed to restart calculated channel", zap.Error(err), zap.Stringer("key", ch))
-		// Even if the operation is not successful, we still want to store the
-		// latest requirements and expression in the entry.
-		e.ch.Operations = ch.Operations
-		e.ch.Expression = ch.Expression
-		s.mu.entries[ch.Key()] = e
+	if err := s.updateCalculation(ctx, ch); err != nil {
+		s.setStatus(ctx, calculator.Status{
+			Key:         ch.Key().String(),
+			Variant:     status.ErrorVariant,
+			Message:     fmt.Sprintf("failed to update calculation for %s", ch),
+			Description: err.Error(),
+		})
 	}
 }
 
-func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {
-	return xio.CloserFunc(func() (err error) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		e, found := s.mu.entries[key]
-		if !found {
-			return
+func (s *Service) updateCalculation(ctx context.Context, ch channel.Channel) error {
+	s.cfg.L.Debug("updating calculation",
+		zap.String("channel", ch.Key().String()),
+		zap.String("reason", "channel definition changed"),
+	)
+	if err := s.mu.graph.Update(ctx, ch); err != nil {
+		return err
+	}
+	return s.rebuildGroups(ctx)
+}
+
+func (s *Service) openOrGetCalculator(
+	ctx context.Context,
+	mod compiler.Module,
+) (*calculator.Calculator, error) {
+	calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
+	if err != nil {
+		return nil, err
+	}
+	s.mu.calculators[calc.Channel().Key()] = calc
+	return calc, err
+}
+
+func groupEquals(
+	mods []compiler.Module,
+	g *group,
+) bool {
+	if g == nil {
+		return false
+	}
+	if len(mods) != len(g.Calculators) {
+		return false
+	}
+	for i, m := range mods {
+		if !m.Channel.Equals(g.Calculators[i].Channel(), "Name") {
+			return false
 		}
-		e.count--
-		if e.count != 0 {
-			return
+	}
+	return true
+}
+
+func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Module) error {
+	g := s.mu.groups[key]
+	if groupEquals(mods, g) {
+		return nil
+	}
+	if g != nil {
+		s.cfg.L.Info("group stopping",
+			zap.Int("group_id", key),
+			zap.String("reason", "group composition changed"),
+		)
+		if err := g.Close(); err != nil {
+			return err
 		}
-		s.cfg.L.Debug("closing calculated channel", zap.Stringer("key", key))
-		e.calculation.Close()
-		delete(s.mu.entries, key)
-		return
-	})
+	}
+	calculators := make([]*calculator.Calculator, len(mods))
+	for i, m := range mods {
+		calc, err := s.openOrGetCalculator(ctx, m)
+		if err != nil {
+			return err
+		}
+		calculators[i] = calc
+	}
+	g, err := openGroup(
+		ctx,
+		groupConfig{
+			Instrumentation: s.cfg.Child("group"),
+			Calculators:     calculators,
+			OnStatusChange:  s.setStatus,
+			Framer:          s.cfg.Framer,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	s.mu.groups[key] = g
+	s.cfg.L.Info("group started",
+		zap.Int("group_id", key),
+		zap.Int("calculator_count", len(calculators)),
+		zap.Stringers("calculators", calculators),
+	)
+	return nil
+}
+
+func (s *Service) rebuildGroups(ctx context.Context) error {
+	groups := s.mu.graph.CalculateGrouped()
+	s.cfg.L.Debug("rebuilding groups",
+		zap.Int("new_group_count", len(groups)),
+		zap.Int("current_group_count", len(s.mu.groups)),
+	)
+	for k, g := range s.mu.groups {
+		if _, ok := groups[k]; !ok {
+			s.cfg.L.Info("group stopping",
+				zap.Int("group_id", k),
+				zap.String("reason", "no longer in group allocation"),
+			)
+			delete(s.mu.groups, k)
+			if err := g.Close(); err != nil {
+				return err
+			}
+		}
+	}
+	for k, mods := range groups {
+		if err := s.updateGroup(ctx, k, mods); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Close stops all calculations and closes the service. No other methods should be
 // called after Close.
 func (s *Service) Close() error {
+	// Disconnect from channel changes FIRST to prevent new change events
+	// This must be done outside the lock to avoid deadlock with handleChange
+	s.disconnectFromChannelChanges()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.disconnectFromChannelChanges()
-	for _, e := range s.mu.entries {
-		e.calculation.Close()
-	}
 	c := errors.NewCatcher(errors.WithAggregation())
-	for _, e := range s.mu.entries {
-		c.Exec(e.shutdown.Close)
+	for _, g := range s.mu.groups {
+		c.Exec(g.Close)
 	}
-	c.Exec(s.writer.Close)
 	return c.Error()
 }
 
@@ -295,154 +372,82 @@ func (s *Service) Close() error {
 // being calculated. If the channel is already being calculated, the number of active
 // requests will be increased. The caller must close the returned io.Closer when the
 // calculation is no longer needed, which will decrement the number of active requests.
-func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, error) {
+func (s *Service) updateRequests(ctx context.Context, added, removed []channel.Key) error {
+	var (
+		channels []channel.Channel
+		statuses []calculator.Status
+	)
+	if err := s.cfg.Channels.NewRetrieve().
+		WhereKeys(added...).
+		Entries(&channels).
+		Exec(ctx, nil); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.startCalculation(ctx, key, 1)
-}
 
-const (
-	defaultPipelineBufferSize                 = 500
-	streamerAddr              address.Address = "streamer"
-	calculatorAddr            address.Address = "calculator"
-	writerAddr                address.Address = "writer"
-	writerObserverAddr        address.Address = "writer_observer"
-)
-
-func (s *Service) startCalculation(
-	ctx context.Context,
-	key channel.Key,
-	initialCount int,
-) (io.Closer, error) {
-	var ch channel.Channel
-	// Wrap everything in a closure so we can properly propagate status changes.
-	closer, err := func() (io.Closer, error) {
-		ch.LocalKey = key.LocalKey()
-		ch.Leaseholder = key.Leaseholder()
-		if err := s.cfg.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
-			return nil, err
+	for _, k := range removed {
+		if s.legacy != nil {
+			if err := s.legacy.Remove(ctx, k); err != nil {
+				return err
+			}
 		}
+		if err := s.mu.graph.Remove(k); err != nil {
+			return err
+		}
+	}
+	for _, ch := range channels {
 		if !ch.IsCalculated() {
-			return nil, errors.Wrapf(validate.Error, "channel %v is not calculated", ch)
+			continue
 		}
 		if ch.IsLegacyCalculated() {
-			return s.legacy.Request(ctx, ch.Key())
+			if err := s.legacy.Add(ctx, ch.Key()); err != nil {
+				statuses = append(statuses, calculator.Status{
+					Key:         ch.Key().String(),
+					Message:     fmt.Sprintf("Failed to request legacy calculation for %s", ch),
+					Description: err.Error(),
+				})
+			}
+			continue
 		}
-		if _, exists := s.mu.entries[key]; exists {
-			s.mu.entries[key].count++
-			return s.releaseEntryCloser(key), nil
-		}
-
-		c, err := OpenCalculator(ctx, CalculatorConfig{
-			ChannelSvc:          s.cfg.Channel,
-			Channel:             ch,
-			Resolver:            s.cfg.Arc.SymbolResolver(),
-			CalculateAlignments: config.False(),
-		})
-		if err != nil {
-			return nil, err
-		}
-		writer_, err := s.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
-			Keys:  channel.Keys{ch.Key(), ch.Index()},
-			Start: telem.Now(),
-		})
-		if err != nil {
-			return nil, err
-		}
-		streamer_, err := s.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: c.ReadFrom()})
-		if err != nil {
-			return nil, err
-		}
-		p := plumber.New()
-		plumber.SetSegment(p, streamerAddr, streamer_)
-		plumber.SetSegment(p, writerAddr, writer_)
-
-		sc := newCalculationTransform([]*Calculator{c}, s.setStatus)
-		plumber.SetSegment(
-			p,
-			calculatorAddr,
-			sc,
-			confluence.DeferErr(sc.close),
-		)
-		o := confluence.NewObservableSubscriber[framer.WriterResponse]()
-		o.OnChange(func(ctx context.Context, i framer.WriterResponse) {
-			s.cfg.L.DPanic(
-				"write of calculated channel value failed",
-				zap.Stringer("channel", ch),
-			)
-		})
-		plumber.SetSink(p, writerObserverAddr, o)
-		plumber.MustConnect[framer.StreamerResponse](p, streamerAddr, calculatorAddr, defaultPipelineBufferSize)
-		plumber.MustConnect[framer.WriterRequest](p, calculatorAddr, writerAddr, defaultPipelineBufferSize)
-		plumber.MustConnect[framer.WriterResponse](p, writerAddr, writerObserverAddr, defaultPipelineBufferSize)
-		streamerRequests := confluence.NewStream[framer.StreamerRequest](1)
-		streamer_.InFrom(streamerRequests)
-		sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
-		s.mu.entries[ch.Key()] = &entry{
-			ch:          ch,
-			count:       initialCount,
-			calculation: streamerRequests,
-			shutdown:    signal.NewHardShutdown(sCtx, cancel),
-		}
-		p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.WithRetryOnPanic())
-		s.cfg.L.Debug("started calculated channel", zap.Stringer("key", key))
-		return s.releaseEntryCloser(key), nil
-	}()
-	if err != nil {
-		s.setStatus(ctx, status.Status[types.Nil]{
-			Key:         ch.Key().String(),
-			Variant:     status.ErrorVariant,
-			Message:     fmt.Sprintf("Failed to start calculation for %s", ch),
-			Description: err.Error(),
-		})
-	}
-	return closer, err
-}
-
-type onStatusChange func(ctx context.Context, status Status)
-
-type streamCalculationTransform struct {
-	confluence.LinearTransform[framer.StreamerResponse, framer.WriterRequest]
-	calculators   []*Calculator
-	onStateChange onStatusChange
-}
-
-func newCalculationTransform(
-	calculators []*Calculator,
-	onChange onStatusChange,
-) *streamCalculationTransform {
-	t := &streamCalculationTransform{calculators: calculators}
-	t.Transform = t.transform
-	t.onStateChange = onChange
-	return t
-}
-
-func (t *streamCalculationTransform) transform(
-	ctx context.Context,
-	req framer.StreamerResponse,
-) (res framer.WriterRequest, send bool, err error) {
-	res.Command = writer.Write
-	var changed bool
-	for _, c := range t.calculators {
-		res.Frame, changed, err = c.Next(ctx, req.Frame, res.Frame)
-		if err != nil {
-			t.onStateChange(ctx, Status{
-				Key:         c.ch.Key().String(),
-				Variant:     status.ErrorVariant,
-				Message:     fmt.Sprintf("Failed to start calculation for %s", c.ch),
+		if err := s.mu.graph.Add(ctx, ch); err != nil {
+			statuses = append(statuses, calculator.Status{
+				Key:         ch.String(),
+				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
 				Description: err.Error(),
 			})
-		} else if changed {
-			send = true
 		}
 	}
-	return res, send, nil
+	if len(statuses) > 0 {
+		s.setStatus(ctx, statuses...)
+	}
+	if err := s.rebuildGroups(ctx); err != nil {
+		return err
+	}
+	if len(added) > 0 {
+		s.cfg.L.Debug("calculation requests added", zap.Stringers("channels", added))
+	}
+	if len(removed) > 0 {
+		s.cfg.L.Debug("calculation requests removed", zap.Stringers("channels", removed))
+	}
+	return nil
 }
 
-func (t *streamCalculationTransform) close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
-	for _, calc := range t.calculators {
-		c.Exec(calc.Close)
-	}
-	return c.Error()
+func (s *Service) OpenRequestManager() *RequestManager {
+	return &RequestManager{svc: s}
+}
+
+type RequestManager struct {
+	svc      *Service
+	currKeys channel.Keys
+}
+
+func (r *RequestManager) Set(ctx context.Context, keys channel.Keys) error {
+	added, removed := lo.Difference(keys, r.currKeys)
+	r.currKeys = keys
+	return r.svc.updateRequests(ctx, added, removed)
+}
+
+func (r *RequestManager) Close(ctx context.Context) error {
+	return r.svc.updateRequests(ctx, nil, r.currKeys)
 }

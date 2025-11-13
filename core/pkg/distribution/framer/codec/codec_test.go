@@ -238,17 +238,6 @@ var _ = Describe("Codec", func() {
 	})
 
 	Describe("Error Handling", func() {
-		It("Should return a validation error when a channel in a frame was not provided to the codec", func() {
-			c := codec.NewStatic(
-				[]channel.Key{1, 2, 3},
-				[]telem.DataType{telem.Uint8T, telem.Float32T, telem.Float64T},
-			)
-			fr := core.UnaryFrame(4, telem.NewSeriesSecondsTSV(1, 2, 3))
-			encoded, err := c.Encode(ctx, fr)
-			Expect(encoded).To(HaveLen(0))
-			Expect(err).To(HaveOccurredAs(validate.Error))
-		})
-
 		It("Should return a validation error when a series has the wrong data type", func() {
 			c := codec.NewStatic(
 				[]channel.Key{1},
@@ -348,12 +337,84 @@ var _ = Describe("Codec", func() {
 
 			By("Correctly using he most up to date state after the codec are in sync again")
 			Expect(encoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
-			_, err := encoder.Encode(ctx, frame1)
-			Expect(err).To(HaveOccurredAs(validate.Error))
+			encoded = MustSucceed(encoder.Encode(ctx, frame1))
+			decoded = MustSucceed(decoder.Decode(encoded))
+			Expect(decoded.Frame.SeriesSlice()).To(HaveLen(0))
+
 			frame2 := core.UnaryFrame(dataCh.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
 			encoded = MustSucceed(encoder.Encode(ctx, frame2))
 			decoded = MustSucceed(decoder.Decode(encoded))
 			Expect(decoded.Frame).To(telem.MatchFrame[channel.Key](frame2.Frame))
+		})
+
+		// This test is a regression that ensures the codec is designed to handle
+		// race conditions between the encoding side and an upstream go-routines
+		// producing frames. Even if an upstream routine passes a frame to the encoder
+		// that contains keys that are not in the current state, they should be properly
+		// ignored.
+		Describe("Delayed Frames", func() {
+			Context("Empty Result", func() {
+				It("Should work correctly when a 'delayed' frame is provided ot the codec", func() {
+					encoder := codec.NewDynamic(channelSvc)
+					decoder := codec.NewDynamic(channelSvc)
+					By("Correctly encoding and decoding when the two codecs are in sync")
+					Expect(decoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
+					Expect(encoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
+
+					frame1 := core.UnaryFrame(
+						idxCh.Key(),
+						telem.NewSeriesSecondsTSV(1, 2, 3),
+					)
+					encoded := MustSucceed(encoder.Encode(ctx, frame1))
+					decoded := MustSucceed(decoder.Decode(encoded))
+					Expect(decoded.Frame).To(telem.MatchFrame[channel.Key](frame1.Frame))
+
+					Expect(decoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
+					Expect(encoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
+					delayedFrame1 := core.UnaryFrame(
+						idxCh.Key(),
+						telem.NewSeriesV[float32](1, 2, 3, 4),
+					)
+					encoded = MustSucceed(encoder.Encode(ctx, delayedFrame1))
+					decoded = MustSucceed(decoder.Decode(encoded))
+					Expect(decoded.Frame.KeysSlice()).To(HaveLen(0))
+				})
+			})
+
+			Context("Non-Empty Result", func() {
+				It("Should work correctly when a 'delayed' frame is provided ot the codec", func() {
+					encoder := codec.NewDynamic(channelSvc)
+					decoder := codec.NewDynamic(channelSvc)
+					By("Correctly encoding and decoding when the two codecs are in sync")
+					keys := []channel.Key{idxCh.Key(), dataCh.Key()}
+					Expect(decoder.Update(ctx, keys)).To(Succeed())
+					Expect(encoder.Update(ctx, keys)).To(Succeed())
+
+					frame1 := core.MultiFrame(
+						keys,
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1, 2, 3),
+							telem.NewSeriesV[float32](1, 2, 3),
+						},
+					)
+					encoded := MustSucceed(encoder.Encode(ctx, frame1))
+					decoded := MustSucceed(decoder.Decode(encoded))
+					Expect(decoded.Frame).To(telem.MatchFrame[channel.Key](frame1.Frame))
+
+					Expect(decoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
+					Expect(encoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
+					delayedFrame1 := core.MultiFrame(
+						keys,
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1, 2, 3),
+							telem.NewSeriesV[float32](1, 2, 3),
+						},
+					)
+					encoded = MustSucceed(encoder.Encode(ctx, delayedFrame1))
+					decoded = MustSucceed(decoder.Decode(encoded))
+					Expect(decoded.Frame.KeysSlice()).To(HaveLen(1))
+				})
+			})
 		})
 	})
 

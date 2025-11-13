@@ -111,7 +111,7 @@ export class Iterator {
     const iter = new Iterator(stream, adapter);
     await iter.execute({
       command: Command.Open,
-      keys: adapter.keys,
+      keys: Array.from(adapter.keys),
       bounds: new TimeRange(tr),
       chunkSize: opts.chunkSize ?? 1e5,
     });

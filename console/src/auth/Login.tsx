@@ -7,20 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/cluster/LoginScreen.css";
+import "@/auth/Login.css";
 
 import { Synnax as Client } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
-import { Button, Flex, Form, Status, type Triggers } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Flex,
+  Form,
+  type Input,
+  Status,
+  Text,
+  type Triggers,
+} from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { type ConnectionParams } from "@/cluster/detectConnection";
-import { type Cluster } from "@/cluster/types";
-import { Layouts } from "@/layouts";
-import { set as setVersion } from "@/version/slice";
+import { LoginNav } from "@/auth/LoginNav";
+import { Cluster } from "@/cluster";
+import { setActive } from "@/cluster/slice";
+import { CSS } from "@/css";
+import { Version } from "@/version";
 
 const SIGN_IN_TRIGGER: Triggers.Trigger = ["Enter"];
 
@@ -31,15 +40,26 @@ const credentialsZ = z.object({
 
 export interface Credentials extends z.infer<typeof credentialsZ> {}
 
-export interface LoginProps {
-  connection: ConnectionParams;
-  onSuccess: (cluster: Cluster) => void;
-}
+const USERNAME_INPUT_PROPS: Partial<Input.TextProps> = {
+  placeholder: "synnax",
+  autoFocus: true,
+  size: "large",
+};
 
-export const Login = ({ connection, onSuccess }: LoginProps): ReactElement => {
+const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
+  placeholder: "seldon",
+  type: "password",
+  size: "large",
+};
+
+export const Login = (): ReactElement => {
+  const servingCluster = Cluster.detectConnection();
   const [stat, setStatus] = useState<status.Status>(() =>
     status.create({ variant: "disabled", message: "" }),
   );
+  const clusters = Cluster.useSelectMany();
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(clusters[0]?.key);
+  const selectedCluster = Cluster.useSelect(selectedKey);
   const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
 
@@ -60,67 +80,104 @@ export const Login = ({ connection, onSuccess }: LoginProps): ReactElement => {
 
   const handleSubmit = (): void =>
     handleError(async () => {
-      if (!methods.validate()) return;
+      if (!methods.validate() || selectedCluster == null) return;
       const credentials = methods.value();
       setStatus(status.create({ variant: "loading", message: "Connecting..." }));
-      const client = new Client({ ...connection, ...credentials });
+      const client = new Client({ ...selectedCluster, ...credentials });
       const state = await client.connectivity.check();
       if (state.status !== "connected") {
         const message = state.message ?? "Unknown error";
         return setStatus(status.create({ variant: "error", message }));
       }
-      // Use the cluster's version as the console version on web.
-      if (state.nodeVersion != null) dispatch(setVersion(state.nodeVersion));
-      onSuccess({
-        key: state.clusterKey,
-        name: "Core",
-        ...connection,
-        ...credentials,
-      });
-    }, "Failed to sign in");
+      if (state.nodeVersion != null && servingCluster != null)
+        dispatch(Version.set(state.nodeVersion));
+      dispatch(Cluster.set({ ...selectedCluster, ...credentials }));
+      dispatch(setActive(selectedCluster.key));
+    }, "Failed to log in");
+
+  const handleSelectedClusterChange = useCallback(
+    (key?: string) => {
+      if (key == null) return;
+      methods.reset();
+      setSelectedKey(key);
+    },
+    [methods],
+  );
 
   return (
-    <>
-      <Layouts.Notifications />
-      <Flex.Box className="pluto-login-screen" center y>
-        <Flex.Box className="pluto-login-container" y gap="huge">
-          <Flex.Box y gap="small" align="center">
-            <Logo variant="title" />
+    <Flex.Box y empty className={CSS.B("login")}>
+      <LoginNav />
+      <Flex.Box
+        y
+        align="center"
+        justify="center"
+        background={1}
+        gap="huge"
+        grow
+        data-tauri-drag-region
+        className={CSS.BE("login", "content")}
+      >
+        <Logo
+          variant="title"
+          className={CSS.BE("login", "logo")}
+          data-tauri-drag-region
+        />
+        <Flex.Box
+          pack
+          x
+          className={CSS(
+            CSS.BE("login", "container"),
+            servingCluster != null && CSS.M("narrow"),
+          )}
+          grow={false}
+          rounded={1.5}
+          background={0}
+        >
+          {servingCluster == null && (
+            <Cluster.List
+              className={CSS.BE("login", "list")}
+              value={selectedKey}
+              onChange={handleSelectedClusterChange}
+            />
+          )}
+          <Flex.Box
+            y
+            gap="huge"
+            className={CSS.BE("login", "form")}
+            bordered
+            grow
+            shrink={false}
+          >
+            <Form.Form<typeof credentialsZ> {...methods}>
+              <Flex.Box y align="center" grow gap="huge" shrink={false}>
+                <Text.Text level="h2" color={11} weight={450}>
+                  Log In
+                </Text.Text>
+                <Flex.Box y full="x" empty>
+                  <Form.TextField path="username" inputProps={USERNAME_INPUT_PROPS} />
+                  <Form.TextField path="password" inputProps={PASSWORD_INPUT_PROPS} />
+                </Flex.Box>
+                <Flex.Box gap="small" align="center">
+                  <Flex.Box className={CSS.BE("login", "status")}>
+                    {stat.message !== "" && (
+                      <Status.Summary variant={stat.variant} message={stat.message} />
+                    )}
+                  </Flex.Box>
+                  <Button.Button
+                    onClick={handleSubmit}
+                    status={stat.variant}
+                    trigger={SIGN_IN_TRIGGER}
+                    variant="filled"
+                    size="large"
+                  >
+                    Log In
+                  </Button.Button>
+                </Flex.Box>
+              </Flex.Box>
+            </Form.Form>
           </Flex.Box>
-          <Form.Form<typeof credentialsZ> {...methods}>
-            <Flex.Box y empty align="center" grow>
-              <Flex.Box y grow full="x" empty>
-                <Form.TextField
-                  path="username"
-                  inputProps={{ placeholder: "synnax", autoFocus: true, size: "large" }}
-                />
-                <Form.TextField
-                  path="password"
-                  inputProps={{
-                    placeholder: "seldon",
-                    type: "password",
-                    size: "large",
-                  }}
-                />
-              </Flex.Box>
-              <Flex.Box style={{ height: "5rem" }}>
-                {stat.message !== "" && (
-                  <Status.Summary variant={stat.variant} message={stat.message} />
-                )}
-              </Flex.Box>
-              <Button.Button
-                onClick={handleSubmit}
-                status={stat.variant}
-                trigger={SIGN_IN_TRIGGER}
-                variant="filled"
-                size="large"
-              >
-                Sign In
-              </Button.Button>
-            </Flex.Box>
-          </Form.Form>
         </Flex.Box>
       </Flex.Box>
-    </>
+    </Flex.Box>
   );
 };

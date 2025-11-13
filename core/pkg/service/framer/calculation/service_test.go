@@ -42,7 +42,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		indexChannels,
 		baseChannels,
 		calculations *[]channel.Channel,
-
+		streamKeys func(calcs []channel.Channel) channel.Keys,
 	) (*framer.Writer, confluence.Outlet[streamer.Response], context.CancelFunc) {
 		if indexChannels != nil {
 			Expect(dist.Channel.CreateMany(ctx, indexChannels)).To(Succeed())
@@ -60,11 +60,8 @@ var _ = Describe("Calculation", Ordered, func() {
 		}
 		Expect(dist.Channel.CreateMany(ctx, baseChannels)).To(Succeed())
 		Expect(dist.Channel.CreateMany(ctx, calculations)).To(Succeed())
-		for _, calc := range *calculations {
-			if !calc.IsIndex {
-				MustSucceed(c.Request(ctx, calc.Key()))
-			}
-		}
+		rm := c.OpenRequestManager()
+		Expect(rm.Set(ctx, channel.KeysFromChannels(*calculations))).To(Succeed())
 		writerKeys := channel.KeysFromChannels(*baseChannels)
 		if indexChannels != nil {
 			writerKeys = append(writerKeys, channel.KeysFromChannels(*indexChannels)...)
@@ -77,19 +74,20 @@ var _ = Describe("Calculation", Ordered, func() {
 				Keys:  writerKeys,
 			},
 		))
-		streamKeys := lo.FilterMap(*calculations, func(item channel.Channel, index int) (channel.Key, bool) {
-			return item.Key(), !item.IsIndex
+		filtered := lo.Filter(*calculations, func(item channel.Channel, index int) bool {
+			return !item.IsIndex
 		})
 		streamer := MustSucceed(
 			dist.Framer.NewStreamer(
 				ctx,
-				framer.StreamerConfig{Keys: streamKeys, SendOpenAck: config.True()},
+				framer.StreamerConfig{Keys: streamKeys(filtered), SendOpenAck: config.True()},
 			),
 		)
 		_, sOutlet := confluence.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet()).Should(Receive())
 		return w, sOutlet, func() {
+			Expect(rm.Close(ctx)).To(Succeed())
 			Expect(w.Close()).To(Succeed())
 			cancel()
 		}
@@ -122,7 +120,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Framer:            dist.Framer,
-			Channel:           dist.Channel,
+			Channels:          dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
 			Arc:               arcSvc,
 		}))
@@ -133,7 +131,8 @@ var _ = Describe("Calculation", Ordered, func() {
 		Expect(dist.Close()).To(Succeed())
 	})
 
-	Describe("Changing Input Profiles", func() {
+	Describe("Calculation Patterns", func() {
+
 		Specify("Single Virtual Channel as Base", func() {
 			bases := []channel.Channel{{
 				Name:     "base",
@@ -147,7 +146,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Leaseholder: cluster.Free,
 				Expression:  "return base * 2",
 			}}
-			w, sOutlet, cancel := open(nil, &bases, &calcs)
+			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
 			defer cancel()
 			baseCh := bases[0]
 			calcCh := calcs[0]
@@ -186,7 +185,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				}}
 			})
 			Specify("Single Write with Data for Both Channels", func() {
-				w, sOutlet, cancel := open(nil, &bases, &calcs)
+				w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
 				baseCH1 := bases[0]
 				baseCh2 := bases[1]
@@ -203,7 +202,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			})
 
 			Specify("Two Writes with Data for Individual Channels", func() {
-				w, sOutlet, cancel := open(nil, &bases, &calcs)
+				w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
 				baseCH1 := bases[0]
 				baseCh2 := bases[1]
@@ -237,7 +236,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Expression:  "return base * 2",
 				}}
 			)
-			w, sOutlet, cancel := open(&indexes, &bases, &calcs)
+			w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
 			defer cancel()
 			idxCh := indexes[0]
 			baseCh := bases[0]
@@ -282,7 +281,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Expression:  "return base_1 * base_2",
 					}}
 				)
-				w, sOutlet, cancel := open(&indexes, &bases, &calcs)
+				w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
 				idxCh := indexes[0]
 				baseCh1 := bases[0]
@@ -333,7 +332,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Expression:  "return base_1 * base_2",
 					}}
 				)
-				w, sOutlet, cancel := open(&indexes, &bases, &calcs)
+				w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
 				var (
 					idxCh1  = indexes[0]
@@ -388,7 +387,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Expression:  "return base_1 * base_2",
 					}}
 				)
-				w, sOutlet, cancel := open(&indexes, &bases, &calcs)
+				w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
 				var (
 					idxCh1  = indexes[0]
@@ -417,9 +416,67 @@ var _ = Describe("Calculation", Ordered, func() {
 			})
 		})
 
-		Specify("Calculations of Calculations", func() {
+		Describe("Nested Calculations", func() {
+			var (
+				bases []channel.Channel
+				calcs []channel.Channel
+			)
+			BeforeEach(func() {
+				bases = []channel.Channel{{
+					Name:     "base",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}}
+				calcs = []channel.Channel{{
+					Name:        "calculated",
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: cluster.Free,
+					Expression:  "return base * 2",
+				}, {
+					Name:        "calculated_2",
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: cluster.Free,
+					Expression:  "return calculated * 2",
+				}}
+			})
+			Specify("Base and Derived Requested", func() {
+				w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
+				defer cancel()
+				baseCh := bases[0]
+				calcCh := calcs[0]
+				calc2Ch := calcs[1]
+				MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
+
+				var res framer.StreamerResponse
+				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key(), calc2Ch.Key()}))
+				Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
+				Expect(res.Frame.Get(calc2Ch.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](4, 8))
+			})
+
+			Specify("Calculations of Calculations, Base Not Requested", func() {
+				w, sOutlet, cancel := open(nil, &bases, &calcs, func(calcs []channel.Channel) channel.Keys {
+					return []channel.Key{calcs[1].Key()}
+				})
+				defer cancel()
+				baseCh := bases[0]
+				calc2Ch := calcs[1]
+				MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
+
+				var res framer.StreamerResponse
+				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calc2Ch.Key()}))
+				Expect(res.Frame.Get(calc2Ch.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](4, 8))
+			})
+		})
+	})
+
+	Describe("Calculation Updates", func() {
+		Specify("Modified Expression, No New Dependencies", func() {
 			bases := []channel.Channel{{
-				Name:     "base",
+				Name:     "base_cwb_1",
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
@@ -428,29 +485,70 @@ var _ = Describe("Calculation", Ordered, func() {
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: cluster.Free,
-				Expression:  "return base * 2",
-			}, {
-				Name:        "calculated_2",
-				DataType:    telem.Int64T,
-				Virtual:     true,
-				Leaseholder: cluster.Free,
-				Expression:  "return calculated * 2",
+				Expression:  "return base_cwb_1 * 2",
 			}}
-			w, sOutlet, cancel := open(nil, &bases, &calcs)
+			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
 			defer cancel()
 			baseCh := bases[0]
 			calcCh := calcs[0]
-			calc2Ch := calcs[1]
 			MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
-
 			var res framer.StreamerResponse
 			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
 
+			calcs[0].Expression = "return base_cwb_1 * 3"
+			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				_, err := w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2)))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
+				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
+			})
+
+			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
+		})
+
+		Specify("Modified Expression, New Dependencies", func() {
+			bases := []channel.Channel{{
+				Name:     "base_a_1",
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}, {
+				Name:     "base_a_2",
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			calcs := []channel.Channel{{
+				Name:        "calculated",
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+				Expression:  "return base_a_1 * 2",
+			}}
+			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
+			defer cancel()
+			baseCh := bases[0]
+			baseCh2 := bases[1]
+			calcCh := calcs[0]
+			MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
+			var res framer.StreamerResponse
 			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
-			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calc2Ch.Key()}))
-			Expect(res.Frame.Get(calc2Ch.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](4, 8))
+			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
+			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
+
+			calcs[0].Expression = "return base_a_2 * 3"
+			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
+
+			Expect(func(g Gomega) {
+				_, err := w.Write(core.UnaryFrame(baseCh2.Key(), telem.NewSeriesV[int64](1, 2)))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
+				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
+			})
 
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 		})

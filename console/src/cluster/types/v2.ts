@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { synnaxPropsZ } from "@synnaxlabs/client";
+import { synnaxParamsZ } from "@synnaxlabs/client";
 import { deep, migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -16,7 +16,7 @@ import * as v1 from "@/cluster/types/v1";
 export const VERSION = "2.0.0";
 export type Version = typeof VERSION;
 
-export const clusterZ = synnaxPropsZ
+export const clusterZ = synnaxParamsZ
   .extend({ name: z.string().min(1, { message: "Name is required" }) })
   .omit({ connectivityPollFrequency: true, retry: true });
 export type Cluster = z.infer<typeof clusterZ> & { key: string };

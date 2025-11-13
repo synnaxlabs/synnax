@@ -27,8 +27,12 @@ import { state } from "@/state";
 import { useAdder } from "@/status/core/Aggregator";
 import { Synnax } from "@/synnax";
 
-export interface RetrieveParams<Query extends core.Shape, Store extends core.Store> {
-  client: Client;
+export interface RetrieveParams<
+  Query extends core.Shape,
+  Store extends core.Store,
+  AllowDisconnected extends boolean = false,
+> {
+  client: AllowDisconnected extends true ? Client | null : Client;
   query: Query;
   store: Store;
 }
@@ -37,7 +41,8 @@ export interface RetrieveMountListenersParams<
   Query extends core.Shape,
   Data extends core.Shape,
   Store extends core.Store,
-> extends RetrieveParams<Query, Store> {
+  AllowDisconnected extends boolean = false,
+> extends RetrieveParams<Query, Store, AllowDisconnected> {
   onChange: state.Setter<Data | undefined>;
 }
 
@@ -45,12 +50,14 @@ export interface CreateRetrieveParams<
   Query extends core.Shape,
   Data extends core.Shape,
   Store extends core.Store,
+  AllowDisconnected extends boolean = false,
 > {
   name: string;
-  retrieve: (Params: RetrieveParams<Query, Store>) => Promise<Data>;
+  retrieve: (Params: RetrieveParams<Query, Store, AllowDisconnected>) => Promise<Data>;
   mountListeners?: (
-    Params: RetrieveMountListenersParams<Query, Data, Store>,
+    Params: RetrieveMountListenersParams<Query, Data, Store, AllowDisconnected>,
   ) => Destructor | Destructor[];
+  allowDisconnected?: AllowDisconnected;
 }
 
 export interface BeforeRetrieveParams<Query extends core.Shape> {
@@ -158,8 +165,9 @@ const useStateful = <
   Query extends core.Shape,
   Data extends state.State,
   ScopedStore extends core.Store,
+  AllowDisconnected extends boolean = false,
 >(
-  createParams: CreateRetrieveParams<Query, Data, ScopedStore>,
+  createParams: CreateRetrieveParams<Query, Data, ScopedStore, AllowDisconnected>,
 ): UseRetrieveStatefulReturn<Query, Data> => {
   const [state, setState] = useState<Result<Data>>(
     initialResult<Data>(createParams.name),
@@ -174,6 +182,7 @@ const useObservableBase = <
   Query extends core.Shape,
   Data extends state.State,
   ScopedStore extends core.Store,
+  AllowDisconnected extends boolean = false,
 >({
   retrieve,
   mountListeners,
@@ -182,11 +191,13 @@ const useObservableBase = <
   scope,
   beforeRetrieve,
   addStatusOnFailure = true,
+  allowDisconnected = false as AllowDisconnected,
 }: UseObservableBaseRetrieveParams<Query, Data> &
   CreateRetrieveParams<
     Query,
     Data,
-    ScopedStore
+    ScopedStore,
+    AllowDisconnected
   >): UseRetrieveObservableReturn<Query> => {
   const client = Synnax.use();
   const queryRef = useRef<Query | null>(null);
@@ -224,11 +235,15 @@ const useObservableBase = <
             return;
           }
         }
-        if (client == null)
+        if (client == null && !allowDisconnected)
           return onChange(nullClientResult<Data>(`retrieve ${name}`), query);
         onChange((p) => loadingResult(`retrieving ${name}`, p.data), query);
         if (signal?.aborted) return;
-        const params = { client, query, store };
+        const params = {
+          client: client as AllowDisconnected extends true ? Client | null : Client,
+          query,
+          store,
+        };
         listeners.cleanup();
         listeners.set(mountListeners?.({ ...params, onChange: handleListenerChange }));
         const value = await retrieve(params);
@@ -258,11 +273,17 @@ const useDirect = <
   Query extends core.Shape,
   Data extends state.State,
   ScopedStore extends core.Store,
+  AllowDisconnected extends boolean = false,
 >({
   query,
   ...restParams
 }: UseDirectRetrieveParams<Query, Data> &
-  CreateRetrieveParams<Query, Data, ScopedStore>): UseDirectRetrieveReturn<Data> => {
+  CreateRetrieveParams<
+    Query,
+    Data,
+    ScopedStore,
+    AllowDisconnected
+  >): UseDirectRetrieveReturn<Data> => {
   const { retrieveAsync, retrieve: _, ...rest } = useStateful(restParams);
   const memoquery = useMemoDeepEqual(query);
   useAsyncEffect(
@@ -276,14 +297,20 @@ const useEffect = <
   Query extends core.Shape,
   Data extends state.State,
   ScopedStore extends core.Store,
+  AllowDisconnected extends boolean = false,
 >({
   query,
   onChange,
   ...restParams
 }: UseRetrieveEffectParams<Query, Data> &
-  CreateRetrieveParams<Query, Data, ScopedStore>): void => {
+  CreateRetrieveParams<Query, Data, ScopedStore, AllowDisconnected>): void => {
   const resultRef = useRef<Result<Data>>(initialResult<Data>(restParams.name));
-  const { retrieveAsync } = useObservableBase<Query, Data, ScopedStore>({
+  const { retrieveAsync } = useObservableBase<
+    Query,
+    Data,
+    ScopedStore,
+    AllowDisconnected
+  >({
     ...restParams,
     onChange: useCallback(
       (setter, query: Query) => {
@@ -306,6 +333,7 @@ export const useObservableRetrieve = <
   Query extends core.Shape,
   Data extends state.State,
   ScopedStore extends core.Store,
+  AllowDisconnected extends boolean = false,
 >({
   onChange,
   ...restParams
@@ -313,7 +341,8 @@ export const useObservableRetrieve = <
   CreateRetrieveParams<
     Query,
     Data,
-    ScopedStore
+    ScopedStore,
+    AllowDisconnected
   >): UseRetrieveObservableReturn<Query> => {
   const resultRef = useRef<Result<Data>>(initialResult<Data>(restParams.name));
   const handleChange = useCallback(
@@ -323,7 +352,7 @@ export const useObservableRetrieve = <
     },
     [onChange],
   );
-  return useObservableBase<Query, Data, ScopedStore>({
+  return useObservableBase<Query, Data, ScopedStore, AllowDisconnected>({
     ...restParams,
     onChange: handleChange,
   });
@@ -333,8 +362,9 @@ export const createRetrieve = <
   Query extends core.Shape,
   Data extends state.State,
   ScopedStore extends core.Store = {},
+  AllowDisconnected extends boolean = false,
 >(
-  createParams: CreateRetrieveParams<Query, Data, ScopedStore>,
+  createParams: CreateRetrieveParams<Query, Data, ScopedStore, AllowDisconnected>,
 ): CreateRetrieveReturn<Query, Data> => ({
   useRetrieve: (
     query: Query,

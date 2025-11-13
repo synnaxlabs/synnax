@@ -15,12 +15,16 @@ if TYPE_CHECKING:
     from console.console import Console
 
 
-class TemperatureBuiltInSensor(Analog):
+class Thermocouple(Analog):
     """
-    Temperature Built-In Sensor channel type for NI analog read tasks.
+    Thermocouple channel type for NI analog read tasks.
 
     Supported kwargs (in addition to Analog base kwargs):
         temperature_units (str): "Celsius", "Fahrenheit", "Kelvin", "Rankine"
+        thermocouple_type (str): "B", "E", "J", "K", "N", "R", "S", "T"
+        cjc_source (str): "Built In", "Constant Value", "Channel"
+        cjc_value (float): CJC value when using "Constant Value" source
+        cjc_port (int): CJC port when using "Channel" source
 
     Base kwargs from Analog:
         port (int): Physical port number
@@ -39,21 +43,27 @@ class TemperatureBuiltInSensor(Analog):
         temperature_units: (
             Literal["Celsius", "Fahrenheit", "Kelvin", "Rankine"] | None
         ) = None,
+        thermocouple_type: (
+            Literal["B", "E", "J", "K", "N", "R", "S", "T"] | None
+        ) = None,
+        cjc_source: Literal["Built In", "Constant Value", "Channel"] | None = None,
+        cjc_value: float | None = None,
+        cjc_port: int | None = None,
         **kwargs: Any,
     ) -> None:
 
         # Does not call super()
 
         self.console = console
-        self.name = name
         self.device = device
+        self.name = name
 
-        values = {}
+        values: dict[str, str | bool] = {}
 
         # Configure channel type
         console.click_btn("Channel Type")
-        console.select_from_dropdown("Temperature Built-In Sensor")
-        values["Channel Type"] = "Temperature Built-In Sensor"
+        console.select_from_dropdown("Thermocouple")
+        values["Channel Type"] = "Thermocouple"
 
         # Get device (set by task.add_channel)
         values["Device"] = console.get_dropdown_value("Device")
@@ -65,9 +75,23 @@ class TemperatureBuiltInSensor(Analog):
         else:
             values["Port"] = console.get_input_field("Port")
 
-        # Temperature Built-In Sensor-specific configurations:
+        # Thermocouple-specific configurations:
         if temperature_units is not None:
             console.click_btn("Temperature Units")
             console.select_from_dropdown(temperature_units)
+
+        if thermocouple_type is not None:
+            console.click_btn("Thermocouple Type")
+            console.select_from_dropdown(thermocouple_type)
+
+        if cjc_source is not None:
+            console.click_btn("CJC Source")
+            console.select_from_dropdown(cjc_source)
+
+        if cjc_value is not None and cjc_source == "Constant Value":
+            console.fill_input_field("CJC Value", str(cjc_value))
+
+        if cjc_port is not None and cjc_source == "Channel":
+            console.fill_input_field("CJC Port", str(cjc_port))
 
         self.form_values = values
