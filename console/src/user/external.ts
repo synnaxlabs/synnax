@@ -10,6 +10,7 @@
 import { type Layout } from "@/layout";
 import { Register, REGISTER_LAYOUT_TYPE } from "@/user/Register";
 
+export * from "@/user/Badge";
 export * from "@/user/Register";
 export * from "@/user/selectors";
 

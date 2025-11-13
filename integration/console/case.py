@@ -62,7 +62,7 @@ class ConsoleCase(TestCase):
         self.page.wait_for_selector("input", timeout=10000)
         self.page.locator("input").first.fill(f"{username}")
         self.page.locator('input[type="password"]').fill(f"{password}")
-        self.page.get_by_role("button", name="Sign In").click()
+        self.page.get_by_role("button", name="Log In").click()
         self.page.wait_for_load_state("networkidle")
 
         # Initialize Console interface

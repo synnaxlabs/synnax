@@ -20,7 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -41,8 +42,8 @@ type ServiceConfig struct {
 	DistFramer *framer.Service
 	// Channel is used to retrieve information about channels.
 	// [REQUIRED]
-	Channel channel.Readable
-	Arc     *svcarc.Service
+	Channels channel.Readable
+	Arc      *svcarc.Service
 }
 
 var (
@@ -57,7 +58,7 @@ var (
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.DistFramer = override.Nil(cfg.DistFramer, other.DistFramer)
-	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
+	cfg.Channels = override.Nil(cfg.Channels, other.Channels)
 	cfg.Arc = override.Nil(cfg.Arc, other.Arc)
 	return cfg
 }
@@ -66,7 +67,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("iterator")
 	validate.NotNil(v, "framer", cfg.DistFramer)
-	validate.NotNil(v, "channel", cfg.Channel)
+	validate.NotNil(v, "channel", cfg.Channels)
 	validate.NotNil(v, "arc", cfg.Arc)
 	return v.Error()
 }
@@ -170,42 +171,61 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
-func (s *Service) openCalculator(ctx context.Context, ch channel.Channel) (*calculation.Calculator, error) {
-	c, err := calculation.OpenCalculator(ctx, calculation.CalculatorConfig{
-		Channel:    ch,
-		ChannelSvc: s.cfg.Channel,
-		Resolver:   s.cfg.Arc.SymbolResolver(),
-	})
-	return c, err
-}
-
 func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*calculationTransform, error) {
 	originalKeys := slices.Clone(cfg.Keys)
 
 	// Fetch the requested channels
 	var channels []channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().
+	if err := s.cfg.Channels.NewRetrieve().
 		WhereKeys(cfg.Keys...).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
 
-	// Build dependency graph to recursively resolve all nested calculated channels
-	calculators, calculatedKeys, concreteBaseKeys, err := s.buildDependencyGraph(ctx, channels)
+	// Use allocator to resolve dependencies and get topological order
+	calcGraph, err := graph.New(graph.Config{
+		Channels:       s.cfg.Channels,
+		SymbolResolver: s.cfg.Arc.SymbolResolver(),
+	})
 	if err != nil {
 		return nil, err
 	}
 
+	// Add all calculated channels to the allocator
+	for _, ch := range channels {
+		if ch.IsCalculated() && !ch.IsLegacyCalculated() {
+			if err := calcGraph.Add(ctx, ch); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	// Get topologically sorted modules
+	modules := calcGraph.CalculateFlat()
+
 	// If no calculated channels, no transform needed
-	if len(calculators) == 0 {
+	if len(modules) == 0 {
 		return nil, nil
 	}
+
+	// Open calculators from modules
+	calculators := make([]*calculator.Calculator, 0, len(modules))
+	for _, mod := range modules {
+		calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
+		if err != nil {
+			return nil, err
+		}
+		calculators = append(calculators, calc)
+	}
+
+	calculatedKeys := calcGraph.CalculatedKeys()
+	concreteBaseKeys := calcGraph.ConcreteBaseKeys()
 
 	// Fetch concrete base channel metadata to get their indices
 	var concreteBaseChannels []channel.Channel
 	if len(concreteBaseKeys) > 0 {
-		if err := s.cfg.Channel.NewRetrieve().
+		if err := s.cfg.Channels.NewRetrieve().
 			Entries(&concreteBaseChannels).
 			WhereKeys(concreteBaseKeys.Keys()...).
 			Exec(ctx, nil); err != nil {
@@ -227,27 +247,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 		return !calculatedKeys.Contains(item) && !item.Free()
 	})
 
-	// PurgeKeys are channels that are required but were not requested
-	// This includes both:
-	// 1. Concrete channels added for dependencies
-	// 2. Intermediate calculated channels not originally requested
-	purgeKeys := make([]channel.Key, 0, len(cfg.Keys)+len(calculatedKeys))
-
-	// Add concrete channels not originally requested
-	for _, key := range cfg.Keys {
-		if !lo.Contains(originalKeys, key) {
-			purgeKeys = append(purgeKeys, key)
-		}
-	}
-
-	// Add calculated channels not originally requested
-	for _, calcKey := range calculatedKeys.Keys() {
-		if !lo.Contains(originalKeys, calcKey) {
-			purgeKeys = append(purgeKeys, calcKey)
-		}
-	}
-
-	return newCalculationTransform(purgeKeys, calculators), nil
+	return newCalculationTransform(originalKeys, calculators), nil
 }
 
 type Iterator struct {
