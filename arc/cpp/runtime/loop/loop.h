@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <cstdint>
 #include <memory>
 
 #include "x/cpp/breaker/breaker.h"

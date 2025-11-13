@@ -27,7 +27,7 @@ public:
     /// contained in the frame. The frame may also have keys for channels that are not
     /// in the writer, which should be ignored.
     virtual xerrors::Error
-    write(const std::shared_ptr<device::Device> &dev, const synnax::Frame &fr) = 0;
+    write(const std::shared_ptr<device::Device> &dev, const telem::Frame &fr) = 0;
 
     /// @returns the keys of all the command channels the writer is responsible for.
     [[nodiscard]] virtual std::vector<synnax::ChannelKey> cmd_keys() const = 0;
@@ -74,7 +74,7 @@ public:
 
     xerrors::Error write(
         const std::shared_ptr<device::Device> &dev,
-        const synnax::Frame &fr
+        const telem::Frame &fr
     ) override {
         if (channels.empty()) return xerrors::NIL;
         this->initialize_state(dev);
@@ -114,7 +114,7 @@ public:
 
     xerrors::Error write(
         const std::shared_ptr<device::Device> &dev,
-        const synnax::Frame &fr
+        const telem::Frame &fr
     ) override {
         if (channels.empty()) return xerrors::NIL;
         this->initialize_state(dev);
@@ -209,7 +209,7 @@ public:
     WriteTaskSink(const std::shared_ptr<device::Device> &dev, WriteTaskConfig cfg):
         Sink(cfg.cmd_keys()), config(std::move(cfg)), dev(dev) {}
 
-    xerrors::Error write(const synnax::Frame &frame) override {
+    xerrors::Error write(const telem::Frame &frame) override {
         for (const auto &writer: config.writers)
             if (auto err = writer->write(dev, frame)) return err;
         return xerrors::NIL;

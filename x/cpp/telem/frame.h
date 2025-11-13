@@ -9,6 +9,7 @@
 #include "x/cpp/telem/series.h"
 
 #include "x/go/telem/x/go/telem/telem.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
 
 namespace telem {
 /// @brief A frame is a collection of series mapped to their corresponding channel
@@ -39,6 +40,10 @@ public:
     /// @param f the protobuf representation of the frame.
     explicit Frame(const PBFrame &f);
 
+    /// @brief constructs the frame from an api::v1::Frame protobuf representation.
+    /// @param f the api v1 protobuf representation of the frame.
+    explicit Frame(const ::api::v1::Frame &f);
+
     /// @brief constructs a frame with a single channel and series.
     /// @param chan the channel key corresponding to the given series.
     /// @param ser the series to add to the frame.
@@ -52,6 +57,10 @@ public:
     /// @brief binds the frame to the given protobuf representation.
     /// @param f the protobuf representation to bind to. This pb must be non-null.
     void to_proto(PBFrame *f) const;
+
+    /// @brief binds the frame to an api::v1::Frame protobuf representation.
+    /// @param f the api v1 protobuf representation to bind to. This pb must be non-null.
+    void to_proto(::api::v1::Frame *f) const;
 
     /// @brief adds a channel and series to the frame.
     /// @param chan the channel key to add.

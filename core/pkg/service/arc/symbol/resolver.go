@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/stable"
 	"github.com/synnaxlabs/arc/runtime/stat"
 	"github.com/synnaxlabs/arc/runtime/telem"
+	"github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -85,6 +86,7 @@ func CreateResolver(cfgs ...runtime.Config) (arc.SymbolResolver, error) {
 		status.SymbolResolver,
 		telem.SymbolResolver,
 		stat.SymbolResolver,
+		time.SymbolResolver,
 		&channelResolver{Readable: cfg.Channel},
 	}, nil
 }

@@ -29,7 +29,7 @@ public:
     /// driver::CRITICAL_HARDWARE_ERROR for any error that is not recoverable, as
     /// this improved traceability.
     [[nodiscard]] virtual xerrors::Error
-    read(breaker::Breaker &breaker, synnax::Frame &data) = 0;
+    read(breaker::Breaker &breaker, telem::Frame &data) = 0;
 
     /// @brief communicates an error encountered by the acquisition pipeline that
     /// caused it to shut down or occurred during commanded shutdown. Note that this
@@ -52,7 +52,7 @@ public:
     /// @brief writes the given frame of telemetry to the writer. Returns a non-nil
     /// error if the write fails, at which point the acquisition pipeline will
     /// close the writer and conditionally trigger a retry (see the close method).
-    [[nodiscard]] virtual xerrors::Error write(const synnax::Frame &fr) = 0;
+    [[nodiscard]] virtual xerrors::Error write(const telem::Frame &fr) = 0;
 
     /// @brief closes the writer, returning any error that occurred during normal
     /// operation. If the returned error is of type freighter::UNREACHABLE, the
@@ -90,7 +90,7 @@ public:
     explicit SynnaxWriter(synnax::Writer internal);
 
     /// @brief implements pipeline::Writer to write the frame to Synnax.
-    [[nodiscard]] xerrors::Error write(const synnax::Frame &fr) override;
+    [[nodiscard]] xerrors::Error write(const telem::Frame &fr) override;
 
     /// @brief implements pipeline::Writer to close the writer.
     [[nodiscard]] xerrors::Error close() override;

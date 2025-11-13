@@ -12,6 +12,7 @@
 
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/frame.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
 
 namespace telem {
 Frame::Frame(const size_t size):
@@ -50,12 +51,29 @@ Frame::Frame(const PBFrame &f):
         this->series->emplace_back(ser);
 }
 
+Frame::Frame(const ::api::v1::Frame &f):
+    channels(
+        std::make_unique<std::vector<std::uint32_t>>(f.keys().begin(), f.keys().end())
+    ),
+    series(std::make_unique<std::vector<telem::Series>>()) {
+    this->series->reserve(f.series_size());
+    for (const auto &ser: f.series())
+        this->series->emplace_back(ser);
+}
+
 void Frame::add(const std::uint32_t &chan, telem::Series &ser) const {
     this->channels->push_back(chan);
     this->series->push_back(std::move(ser));
 }
 
 void Frame::to_proto(PBFrame *f) const {
+    f->mutable_keys()->Add(this->channels->begin(), this->channels->end());
+    f->mutable_series()->Reserve(static_cast<int>(this->series->size()));
+    for (auto &ser: *this->series)
+        ser.to_proto(f->add_series());
+}
+
+void Frame::to_proto(::api::v1::Frame *f) const {
     f->mutable_keys()->Add(this->channels->begin(), this->channels->end());
     f->mutable_series()->Reserve(static_cast<int>(this->series->size()));
     for (auto &ser: *this->series)

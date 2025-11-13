@@ -42,7 +42,7 @@ TEST(StreamerTests, testStreamBasic) {
         }
     ));
 
-    auto frame = synnax::Frame(1);
+    auto frame = telem::Frame(1);
     float v = 1.0;
     frame.emplace(data.key, telem::Series(v));
     ASSERT_NIL(writer.write(frame));
@@ -81,7 +81,7 @@ TEST(StreamerTests, testStreamSetChannels) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     ASSERT_NIL(set_err);
 
-    auto frame = synnax::Frame(1);
+    auto frame = telem::Frame(1);
     frame.emplace(
         data.key,
         telem::Series(
@@ -164,7 +164,7 @@ TEST(StreamerTests, TestStreamVariableChannel) {
     ));
 
     const std::string value = "cat";
-    auto frame = synnax::Frame(data.key, telem::Series(value));
+    auto frame = telem::Frame(data.key, telem::Series(value));
     ASSERT_NIL(writer.write(frame));
 
     auto res_frame = ASSERT_NIL_P(streamer.read());
@@ -199,7 +199,7 @@ void test_downsample(
     // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-    auto frame = synnax::Frame(1);
+    auto frame = telem::Frame(1);
     frame.emplace(data.key, telem::Series(raw_data));
     ASSERT_NIL(writer.write(frame));
     auto res_frame = ASSERT_NIL_P(streamer.read());
@@ -238,7 +238,7 @@ void test_downsample_string(
 
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-    auto frame = synnax::Frame(
+    auto frame = telem::Frame(
         virtual_channel.key,
         telem::Series(raw_data, telem::STRING_T)
     );

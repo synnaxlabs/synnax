@@ -40,7 +40,7 @@ FrameClient::open_streamer(const StreamerConfig &config) const {
 Streamer::Streamer(std::unique_ptr<StreamerStream> stream, StreamerConfig config):
     cfg(std::move(config)), stream(std::move(stream)) {}
 
-std::pair<synnax::Frame, xerrors::Error> Streamer::read() const {
+std::pair<telem::Frame, xerrors::Error> Streamer::read() const {
     this->assert_open();
     auto [fr, exc] = this->stream->receive();
     if (!fr.buffer().empty())
@@ -48,7 +48,7 @@ std::pair<synnax::Frame, xerrors::Error> Streamer::read() const {
             reinterpret_cast<const std::uint8_t *>(fr.buffer().data()),
             fr.buffer().size()
         );
-    return {synnax::Frame(fr.frame()), exc};
+    return {telem::Frame(fr.frame()), exc};
 }
 
 void Streamer::close_send() const {

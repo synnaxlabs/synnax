@@ -82,7 +82,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
             this->state_writer = std::make_unique<synnax::Writer>(std::move(w));
         }
         this->state_writer->write(
-            synnax::Frame(this->state_channel.key, std::move(states))
+            telem::Frame(this->state_channel.key, std::move(states))
         );
         return xerrors::NIL;
     }

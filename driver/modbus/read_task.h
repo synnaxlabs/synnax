@@ -31,7 +31,7 @@ struct Reader {
     /// @returns xerrors::NIL if successful, any other error otherwise.
     virtual xerrors::Error read(
         const std::shared_ptr<device::Device> &dev,
-        synnax::Frame &fr,
+        telem::Frame &fr,
         size_t &offset
     ) = 0;
 
@@ -76,7 +76,7 @@ public:
 
     xerrors::Error read(
         const std::shared_ptr<device::Device> &dev,
-        synnax::Frame &fr,
+        telem::Frame &fr,
         size_t &frame_offset
     ) override {
         if (channels.empty()) return xerrors::NIL;
@@ -124,7 +124,7 @@ public:
 
     xerrors::Error read(
         const std::shared_ptr<device::Device> &dev,
-        synnax::Frame &fr,
+        telem::Frame &fr,
         size_t &frame_offset
     ) override {
         if (channels.empty()) return xerrors::NIL;
@@ -333,7 +333,7 @@ public:
     ):
         config(std::move(cfg)), dev(dev), sample_clock(this->config.sample_rate) {}
 
-    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    common::ReadResult read(breaker::Breaker &breaker, telem::Frame &fr) override {
         common::ReadResult res;
         const auto n_channels = this->config.data_channel_count;
         const auto n_samples = this->config.samples_per_chan;

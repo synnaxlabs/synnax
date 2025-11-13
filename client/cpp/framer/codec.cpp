@@ -79,7 +79,7 @@ constexpr std::size_t FLAGS_SIZE = 1;
 constexpr std::size_t SEQ_NUM_SIZE = 4;
 constexpr std::size_t TIME_RANGE_SIZE = 16;
 
-xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
+xerrors::Error Codec::encode(const telem::Frame &frame, std::vector<uint8_t> &output) {
     this->throw_if_uninitialized();
     CodecFlags flags;
     size_t byte_array_size = FLAGS_SIZE + SEQ_NUM_SIZE;
@@ -241,15 +241,15 @@ xerrors::Error Codec::encode(const Frame &frame, std::vector<uint8_t> &output) {
     return xerrors::NIL;
 }
 
-std::pair<Frame, xerrors::Error> Codec::decode(const std::vector<uint8_t> &data) const {
+std::pair<telem::Frame, xerrors::Error> Codec::decode(const std::vector<uint8_t> &data) const {
     return this->decode(data.data(), data.size());
 }
 
-std::pair<Frame, xerrors::Error>
+std::pair<telem::Frame, xerrors::Error>
 Codec::decode(const uint8_t *data, const size_t size) const {
     this->throw_if_uninitialized();
     auto reader = binary::Reader(data, size);
-    Frame frame;
+    telem::Frame frame;
     uint32_t data_len = 0;
     telem::TimeRange ref_tr = {};
     telem::Alignment ref_alignment;

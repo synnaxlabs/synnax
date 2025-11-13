@@ -124,7 +124,6 @@ TEST(LoopTest, BusyWaitMode) {
         woke_up.store(true);
     });
 
-    // Very short delay before notification
     std::this_thread::sleep_for(std::chrono::microseconds(100));
 
     const auto start = std::chrono::steady_clock::now();
@@ -192,7 +191,6 @@ TEST(LoopTest, HybridMode) {
         woke_up.store(true);
     });
 
-    // Notify within spin window
     std::this_thread::sleep_for(std::chrono::microseconds(10));
     loop->notify_data();
 
@@ -216,13 +214,10 @@ TEST(LoopTest, BreakerStopsWait) {
 
     std::thread waiter([&]() { loop->wait(breaker); });
 
-    // Give the waiter time to start waiting
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    // Break the breaker
     breaker.stop();
 
-    // Waiter should exit promptly
     waiter.join();
 
     loop->stop();
@@ -252,11 +247,10 @@ TEST(LoopTest, DifferentModes) {
         ExecutionMode::RT_EVENT
     };
 
-    for (auto mode : modes) {
+    for (const auto mode : modes) {
         Config config;
         config.mode = mode;
         config.interval = telem::MILLISECOND;
-
         auto [loop, err] = create(config);
         ASSERT_NIL(err);
         ASSERT_NIL(loop->start());

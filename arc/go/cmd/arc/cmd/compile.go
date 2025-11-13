@@ -10,7 +10,6 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -19,7 +18,15 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/module"
+	"github.com/synnaxlabs/arc/runtime/constant"
+	"github.com/synnaxlabs/arc/runtime/op"
+	"github.com/synnaxlabs/arc/runtime/selector"
+	"github.com/synnaxlabs/arc/runtime/stable"
+	"github.com/synnaxlabs/arc/runtime/telem"
+	"github.com/synnaxlabs/arc/runtime/time"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
 )
 
 var (
@@ -40,6 +47,17 @@ The compiler performs these steps:
 Output is in JSON format containing the module with IR and WASM bytecode.`,
 	Args: cobra.ExactArgs(1),
 	RunE: runCompile,
+}
+
+var symbolResolver = symbol.CompoundResolver{
+	constant.SymbolResolver,
+	op.SymbolResolver,
+	selector.SymbolResolver,
+	stable.SymbolResolver,
+	status.SymbolResolver,
+	telem.SymbolResolver,
+	status.SymbolResolver,
+	time.SymbolResolver,
 }
 
 func init() {
@@ -86,8 +104,7 @@ func runCompile(cmd *cobra.Command, args []string) error {
 	if verbose {
 		fmt.Fprintln(os.Stderr, "Analyzing...")
 	}
-	ctx := context.Background()
-	ir, diag := text.Analyze(ctx, parsed, nil)
+	ir, diag := text.Analyze(cmd.Context(), parsed, symbolResolver)
 	if diag != nil && !diag.Ok() {
 		return formatDiagnostics(inputPath, source, diag)
 	}
@@ -96,7 +113,7 @@ func runCompile(cmd *cobra.Command, args []string) error {
 	if verbose {
 		fmt.Fprintln(os.Stderr, "Compiling to WebAssembly...")
 	}
-	mod, err := text.Compile(ctx, ir)
+	mod, err := text.Compile(cmd.Context(), ir)
 	if err != nil {
 		return fmt.Errorf("compilation failed: %w", err)
 	}

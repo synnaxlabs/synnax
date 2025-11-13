@@ -7,5 +7,16 @@ cc_library(
         "//arc/cpp/runtime/scheduler",
         "//arc/cpp/runtime/state",
         "//arc/cpp/runtime/wasm",
+        "//arc/cpp/runtime/time",
+    ],
+)
+
+cc_library(
+    name="runtime_test",
+    srcs=["runtime_test.cpp"],
+    deps = [
+        ":runtime",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
     ],
 )

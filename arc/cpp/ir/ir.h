@@ -19,6 +19,11 @@
 #include "arc/cpp/types/types.h"
 
 namespace arc::ir {
+constexpr std::string default_output_param = "output";
+constexpr std::string default_input_param = "input";
+constexpr std::string lhs_input_param = "lhs_input";
+constexpr std::string rhs_input_param = "rhs_input";
+
 struct Handle {
     std::string node, param;
 
@@ -99,9 +104,9 @@ struct Params {
     Params() = default;
     explicit Params(std::vector<Param> p): params(std::move(p)) {}
 
-    [[nodiscard]] const types::Type *get(const std::string &name) const {
+    [[nodiscard]] const Param *get(const std::string &name) const {
         for (const auto &p: this->params) {
-            if (p.name == name) return &p.type;
+            if (p.name == name) return &p;
         }
         return nullptr;
     }

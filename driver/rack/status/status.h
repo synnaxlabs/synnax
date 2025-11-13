@@ -37,7 +37,7 @@ public:
     Source(const synnax::ChannelKey key, const synnax::RackKey rack_key):
         key(key), rack_key(rack_key), loop(loop::Timer(EMISSION_RATE)) {}
 
-    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
         fr.clear();
         this->loop.wait(breaker);
         const synnax::RackStatus status{

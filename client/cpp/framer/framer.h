@@ -17,6 +17,7 @@
 #include "client/cpp/channel/channel.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/control.h"
+#include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
@@ -126,18 +127,18 @@ public:
     /// @param frame The frame to encode
     /// @param output The byte array to encode the frame into.
     /// @return The encoded frame as a byte vector
-    xerrors::Error encode(const Frame &frame, std::vector<uint8_t> &output);
+    xerrors::Error encode(const telem::Frame &frame, std::vector<uint8_t> &output);
 
     /// @brief Decodes a frame from a byte vector.
     /// @param data The byte vector to decode.
     /// @return The decoded frame.
-    [[nodiscard]] std::pair<Frame, xerrors::Error>
+    [[nodiscard]] std::pair<telem::Frame, xerrors::Error>
     decode(const std::vector<std::uint8_t> &data) const;
 
     /// @brief decodes a frame from the provided byte array and size.
     /// @param data The byte array to decode.
     /// @param size The size of the byte array.
-    [[nodiscard]] std::pair<Frame, xerrors::Error>
+    [[nodiscard]] std::pair<telem::Frame, xerrors::Error>
     decode(const std::uint8_t *data, std::size_t size) const;
 };
 
@@ -179,7 +180,7 @@ public:
     /// closed.
     /// @note read is not safe to call concurrently with itself or with close(), but
     /// it is safe to call concurrently with setChannels().
-    [[nodiscard]] std::pair<Frame, xerrors::Error> read() const;
+    [[nodiscard]] std::pair<telem::Frame, xerrors::Error> read() const;
 
     /// @brief sets the channels to stream from the Synnax cluster, replacing any
     /// channels set during construction or a previous call to setChannels().
@@ -338,7 +339,7 @@ public:
     /// @returns false if an error occurred in the write pipeline. After an error
     /// occurs, the caller must acknowledge the error by calling error() or close() on
     /// the writer.
-    xerrors::Error write(const Frame &fr);
+    xerrors::Error write(const telem::Frame &fr);
 
     /// @brief changes the authority of all channels in the writer to the given
     /// authority level.
@@ -413,7 +414,7 @@ private:
     );
 
     /// @brief initializes the cached request with the frame structure
-    xerrors::Error init_request(const Frame &fr);
+    xerrors::Error init_request(const telem::Frame &fr);
 
     friend class FrameClient;
 };

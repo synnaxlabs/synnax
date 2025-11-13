@@ -219,7 +219,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
         json{{"message", "hello world"}}
     );
     ASSERT_NIL(
-        writer.write(synnax::Frame(sy_task_cmd.key, telem::Series(cmd.to_json())))
+        writer.write(telem::Frame(sy_task_cmd.key, telem::Series(cmd.to_json())))
     );
     auto w_close_err = writer.close();
     ASSERT_FALSE(w_close_err) << w_close_err;

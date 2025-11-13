@@ -15,6 +15,7 @@ cc_library(
         "//x/cpp/binary",
         "//x/go/control:control_grpc",
         "//x/go/telem:telem_grpc",
+        "//core/pkg/api/grpc/v1:api_grpc",
         "@nlohmann_json//:json",
     ],
 )

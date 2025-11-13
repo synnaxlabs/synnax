@@ -1,11 +1,5 @@
-func pid{
-    period i64
-} (enable u8) f32 {
-    return 12
+func do_something(input u8) {
+    x := 1 + 1
 }
 
-func cat(value f32) {
-
-}
-
-pid{period=100ms} -> cat{}
+interval{period=100ms} -> do_something{}

@@ -117,7 +117,7 @@ public:
         return xerrors::NIL;
     }
 
-    xerrors::Error write(const synnax::Frame &frame) override {
+    xerrors::Error write(const ::telem::Frame &frame) override {
         auto err = this->perform_write(frame);
         if (!err.matches(opc::errors::UNREACHABLE)) return err;
         LOG(
@@ -136,7 +136,7 @@ public:
     }
 
 private:
-    xerrors::Error perform_write(const synnax::Frame &frame) {
+    xerrors::Error perform_write(const ::telem::Frame &frame) {
         if (!this->connection) return opc::errors::NO_CONNECTION;
         this->builder.clear();
         for (const auto &[key, s]: frame) {

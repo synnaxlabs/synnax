@@ -15,32 +15,23 @@
 #include <unordered_set>
 #include <vector>
 
-#include "x/cpp/defer/defer.h"
 #include "x/cpp/xerrors/errors.h"
 
-#include "arc/cpp/runtime/core/node.h"
+#include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 
-namespace arc {
-/// @brief Stratified scheduler for reactive Arc execution.
-///
-/// Implements Arc's stratified execution model:
-/// - Stratum 0: Always executes (source nodes, channel readers)
-/// - Stratum N: Executes only if marked as "changed" by upstream nodes
-///
-/// The scheduler maintains a pre-computed topological ordering (stratification)
-/// and tracks which nodes need re-execution via a "changed" set.
+namespace arc::runtime::scheduler {
 class Scheduler {
     ir::Strata strata;
     std::unordered_set<std::string> changed;
     struct NodeState {
         std::string key;
-        std::unique_ptr<Node> node;
+        std::unique_ptr<node::Node> node;
         std::vector<ir::Edge> output_edges;
     };
     std::unordered_map<std::string, NodeState> nodes;
     NodeState *current_state;
-    NodeContext ctx;
+    node::Context ctx;
 
     void mark_changed(const std::string &param) {
         for (const auto &edge: current_state->output_edges)
@@ -50,7 +41,7 @@ class Scheduler {
 public:
     Scheduler(
         const ir::IR &prog,
-        std::unordered_map<std::string, std::unique_ptr<Node>> &nodes
+        std::unordered_map<std::string, std::unique_ptr<node::Node>> &nodes
     ):
         strata(prog.strata), current_state() {
         for (auto &[key, node]: nodes)
@@ -59,7 +50,7 @@ public:
                 .node = std::move(node),
                 .output_edges = prog.outgoing_edges(key)
             };
-        this->ctx = NodeContext{
+        this->ctx = node::Context{
             .mark_changed =
                 [&](const std::string &param) { this->mark_changed(param); },
             .report_error = [&](const xerrors::Error &err) {}
@@ -67,16 +58,15 @@ public:
     }
 
     void next() {
-        for (auto it = this->strata.strata.begin(); it != this->strata.strata.end();
-             ++it) {
-            for (auto node_it = it->begin(); node_it != it->end(); ++node_it) {
-                if (it == this->strata.strata.begin() ||
-                    this->changed.contains(*node_it)) {
-                    const auto n = &this->nodes[*node_it];
+        bool first = true;
+        for (auto stratum: this->strata.strata) {
+            for (auto node_key: stratum)
+                if (first ||this->changed.contains(node_key)) {
+                    const auto n = &this->nodes[node_key];
                     this->current_state = n;
                     this->current_state->node->next(this->ctx);
                 }
-            }
+            first = false;
         }
         this->changed.clear();
     }

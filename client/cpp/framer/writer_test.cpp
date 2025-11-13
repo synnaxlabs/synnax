@@ -29,7 +29,7 @@ TEST(WriterTests, testWriteBasic) {
         }
     ));
 
-    auto frame = synnax::Frame(2);
+    auto frame = telem::Frame(2);
     frame.emplace(
         time.key,
         telem::Series(
@@ -85,7 +85,7 @@ TEST(WriterTests, testWriteToUnspecifiedChannel) {
             telem::ControlSubject{"test_writer"},
         }
     ));
-    auto frame = synnax::Frame(1);
+    auto frame = telem::Frame(1);
     frame.emplace(1000, telem::Series(telem::TimeStamp::now()));
     ASSERT_OCCURRED_AS(writer.write(frame), xerrors::VALIDATION);
     ASSERT_OCCURRED_AS_P(writer.commit(), xerrors::VALIDATION);
@@ -105,7 +105,7 @@ TEST(WriterTests, testWriteSeriesWithMismatchedDataType) {
             telem::ControlSubject{"test_writer"},
         }
     ));
-    auto frame = synnax::Frame(2);
+    auto frame = telem::Frame(2);
     frame.emplace(time.key, telem::Series(telem::TimeStamp::now()));
     frame.emplace(data.key, telem::Series(std::vector<uint32_t>{1}));
     ASSERT_OCCURRED_AS(writer.write(frame), xerrors::VALIDATION);
@@ -203,7 +203,7 @@ TEST(WriterTests, testCloseIdempotency) {
         }
     ));
 
-    auto frame = synnax::Frame(2);
+    auto frame = telem::Frame(2);
     frame.emplace(time.key, telem::Series(now));
     frame.emplace(data.key, telem::Series(std::vector<float>{2}));
 
@@ -231,7 +231,7 @@ TEST(WriterTests, testErrorCommunication) {
             telem::ControlSubject{"test_writer"},
         }
     ));
-    auto frame = synnax::Frame(2);
+    auto frame = telem::Frame(2);
     frame.emplace(time.key, telem::Series(telem::TimeStamp::now()));
     frame.emplace(data.key, telem::Series(std::vector<uint32_t>{1}));
     ASSERT_OCCURRED_AS(writer.write(frame), xerrors::VALIDATION);

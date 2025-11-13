@@ -415,7 +415,7 @@ INSTANTIATE_TEST_SUITE_P(
 );
 
 TEST(TestCommonReadTask, testGenerateIndexDataSingleIndex) {
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(2); // 1 data channel + 1 index
     fr.emplace(1, telem::Series(telem::FLOAT64_T, 3)); // Data channel
     fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3)); // Index channel
@@ -435,7 +435,7 @@ TEST(TestCommonReadTask, testGenerateIndexDataSingleIndex) {
 }
 
 TEST(TestCommonReadTask, testGenerateIndexDataMultipleIndices) {
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(3);
     fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
     fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3));
@@ -457,7 +457,7 @@ TEST(TestCommonReadTask, testGenerateIndexDataMultipleIndices) {
 }
 
 TEST(TestCommonReadTask, testGenerateIndexDataEmptyIndices) {
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(1);
     fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
 
@@ -472,7 +472,7 @@ TEST(TestCommonReadTask, testGenerateIndexDataEmptyIndices) {
 }
 
 TEST(TestCommonReadTask, testGenerateIndexDataInclusive) {
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(2);
     fr.emplace(1, telem::Series(telem::FLOAT64_T, 3)); // Data channel
     fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3)); // Index channel

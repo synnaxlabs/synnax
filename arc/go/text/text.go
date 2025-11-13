@@ -280,7 +280,7 @@ func analyzeFunctionNode(
 			}
 		}
 	}
-	h := ir.Handle{Node: key, Param: "input"}
+	h := ir.Handle{Node: key, Param: ir.DefaultOutputParam}
 	return n, h, true
 }
 

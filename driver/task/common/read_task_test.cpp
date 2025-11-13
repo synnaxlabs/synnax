@@ -29,7 +29,7 @@ class MockSource final : public common::Source {
 
 public:
     explicit MockSource(
-        const std::shared_ptr<std::vector<synnax::Frame>> &reads,
+        const std::shared_ptr<std::vector<telem::Frame>> &reads,
         const std::shared_ptr<std::vector<xerrors::Error>> &read_errors = nullptr,
         const std::vector<xerrors::Error> &start_err = {},
         const std::vector<xerrors::Error> &stop_err = {}
@@ -46,7 +46,7 @@ public:
         return stop_errs[stop_count++];
     }
 
-    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &data) override {
+    common::ReadResult read(breaker::Breaker &breaker, telem::Frame &data) override {
         common::ReadResult res;
         res.error = this->wrapped.read(breaker, data);
         return res;
@@ -58,9 +58,9 @@ TEST(TestCommonReadTask, testBasicOperation) {
     synnax::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    auto reads = std::make_shared<std::vector<telem::Frame>>();
     auto s = telem::Series(telem::TimeStamp::now());
-    reads->emplace_back(synnax::Frame(0, std::move(s)));
+    reads->emplace_back(telem::Frame(0, std::move(s)));
     auto mock_source = std::make_unique<MockSource>(reads);
     common::ReadTask read_task(
         t,
@@ -91,9 +91,9 @@ TEST(TestCommonReadTask, testErrorOnStart) {
     synnax::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    auto reads = std::make_shared<std::vector<telem::Frame>>();
     auto s = telem::Series(telem::TimeStamp::now());
-    reads->emplace_back(synnax::Frame(0, std::move(s)));
+    reads->emplace_back(telem::Frame(0, std::move(s)));
     auto mock_source = std::make_unique<MockSource>(
         reads,
         nullptr,
@@ -121,9 +121,9 @@ TEST(TestCommonReadTask, testErrorOnStop) {
     synnax::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    auto reads = std::make_shared<std::vector<telem::Frame>>();
     auto s = telem::Series(telem::TimeStamp::now());
-    reads->emplace_back(synnax::Frame(0, std::move(s)));
+    reads->emplace_back(telem::Frame(0, std::move(s)));
     auto mock_source = std::make_unique<MockSource>(
         reads,
         nullptr,
@@ -160,11 +160,11 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     synnax::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    auto reads = std::make_shared<std::vector<telem::Frame>>();
 
     auto s = telem::Series(telem::TimeStamp::now());
     for (int i = 0; i < 30; i++)
-        reads->emplace_back(synnax::Frame(i, s.deep_copy()));
+        reads->emplace_back(telem::Frame(i, s.deep_copy()));
 
     auto mock_source = std::make_unique<MockSource>(reads);
     common::ReadTask read_task(
@@ -219,10 +219,10 @@ TEST(TestCommonReadTask, testReadError) {
     synnax::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    auto reads = std::make_shared<std::vector<telem::Frame>>();
     auto s = telem::Series(telem::TimeStamp::now());
-    reads->emplace_back(synnax::Frame(0, s.deep_copy()));
-    reads->emplace_back(synnax::Frame(1, s.deep_copy()));
+    reads->emplace_back(telem::Frame(0, s.deep_copy()));
+    reads->emplace_back(telem::Frame(1, s.deep_copy()));
     auto mock_source = std::make_unique<MockSource>(
         reads,
         std::make_shared<std::vector<xerrors::Error>>(
@@ -269,9 +269,9 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     synnax::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    auto reads = std::make_shared<std::vector<telem::Frame>>();
     auto s = telem::Series(telem::TimeStamp::now());
-    reads->emplace_back(synnax::Frame(0, std::move(s)));
+    reads->emplace_back(telem::Frame(0, std::move(s)));
 
     // Create a source that fails on first start but succeeds on second start
     auto mock_source = std::make_unique<MockSource>(
@@ -325,11 +325,11 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     synnax::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    auto reads = std::make_shared<std::vector<telem::Frame>>();
     auto s = telem::Series(telem::TimeStamp::now());
     // Give the pipeline essentially infinite reads.
     for (int i = 0; i < 30; i++)
-        reads->emplace_back(synnax::Frame(0, s.deep_copy()));
+        reads->emplace_back(telem::Frame(0, s.deep_copy()));
 
     // Create a source that fails on first stop but succeeds on second stop
     auto mock_source = std::make_unique<MockSource>(
@@ -396,10 +396,10 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     synnax::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    auto reads = std::make_shared<std::vector<telem::Frame>>();
     const auto s = telem::Series(telem::TimeStamp::now());
     for (int i = 0; i < 30; i++)
-        reads->emplace_back(synnax::Frame(i, s.deep_copy()));
+        reads->emplace_back(telem::Frame(i, s.deep_copy()));
     auto mock_source = std::make_unique<MockSource>(
         reads,
         std::make_shared<std::vector<xerrors::Error>>(
@@ -532,7 +532,7 @@ TEST(BaseReadTaskConfigTest, testStreamRateOptional) {
 
 TEST(TestCommonReadTask, testTransferBufSingleChannel) {
     const std::vector buf = {1.0, 2.0, 3.0};
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(1);
     fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
 
@@ -547,7 +547,7 @@ TEST(TestCommonReadTask, testTransferBufSingleChannel) {
 TEST(TestCommonReadTask, testTransferBufMultipleChannels) {
     const std::vector buf =
         {1.0, 2.0, 3.0, 4.0, 5.0, 6.0}; // 2 channels, 3 samples each
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(2);
     fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
     fr.emplace(2, telem::Series(telem::FLOAT64_T, 3));
@@ -567,7 +567,7 @@ TEST(TestCommonReadTask, testTransferBufMultipleChannels) {
 
 TEST(TestCommonReadTask, testTransferBufIntegerType) {
     const std::vector buf = {1, 2, 3, 4}; // 2 channels, 2 samples each
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(2);
     fr.emplace(1, telem::Series(telem::INT32_T, 2));
     fr.emplace(2, telem::Series(telem::INT32_T, 2));

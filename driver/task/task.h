@@ -149,7 +149,7 @@ public:
         }
         // We're safe to ignore the error return value here and just check for a nil
         // error, as close() is guaranteed to return the same error as write.
-        if (!writer->write(synnax::Frame(chan.key, telem::Series(status.to_json()))))
+        if (!writer->write(telem::Frame(chan.key, telem::Series(status.to_json()))))
             return;
         auto err = writer->close();
         LOG(ERROR) << "[task.context] failed to write task state update" << err;

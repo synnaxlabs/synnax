@@ -129,7 +129,7 @@ protected:
 
 TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     parse_config();
-    auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    auto reads = std::make_shared<std::vector<telem::Frame>>();
     constexpr double v = 1;
     reads->emplace_back(cmd_ch_2.key, telem::Series(v, telem::FLOAT64_T));
     mock_streamer_factory = pipeline::mock::simple_streamer_factory(
