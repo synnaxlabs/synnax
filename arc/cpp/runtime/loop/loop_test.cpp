@@ -7,15 +7,16 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "arc/cpp/runtime/loop/loop.h"
-
 #include <atomic>
 #include <chrono>
 #include <thread>
 
 #include "gtest/gtest.h"
+
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/xtest/xtest.h"
+
+#include "arc/cpp/runtime/loop/loop.h"
 
 using namespace arc::runtime::loop;
 
@@ -32,7 +33,7 @@ TEST(LoopTest, Configure) {
 
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 1'000'000;  // 1ms
+    config.interval = 1'000'000; // 1ms
 
     auto err = loop->configure(config);
     ASSERT_NIL(err);
@@ -45,7 +46,7 @@ TEST(LoopTest, StartStop) {
 
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 1'000'000;  // 1ms
+    config.interval = 1'000'000; // 1ms
 
     ASSERT_NIL(loop->configure(config));
     ASSERT_NIL(loop->start());
@@ -60,7 +61,7 @@ TEST(LoopTest, NotifyData_EventDriven) {
 
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 0;  // No timer
+    config.interval = 0; // No timer
 
     ASSERT_NIL(loop->configure(config));
     ASSERT_NIL(loop->start());
@@ -96,7 +97,7 @@ TEST(LoopTest, TimerExpiration) {
 
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 10'000'000;  // 10ms
+    config.interval = 10'000'000; // 10ms
 
     ASSERT_NIL(loop->configure(config));
     ASSERT_NIL(loop->start());
@@ -109,8 +110,10 @@ TEST(LoopTest, TimerExpiration) {
 
     // Should have waited approximately 10ms
     // Allow some jitter (5-20ms range)
-    const auto elapsed_ms =
-        std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                elapsed
+    )
+                                .count();
     EXPECT_GE(elapsed_ms, 5);
     EXPECT_LE(elapsed_ms, 50);
 
@@ -124,7 +127,7 @@ TEST(LoopTest, BusyWaitMode) {
 
     Config config;
     config.mode = ExecutionMode::BUSY_WAIT;
-    config.interval = 0;  // No timer
+    config.interval = 0; // No timer
 
     ASSERT_NIL(loop->configure(config));
     ASSERT_NIL(loop->start());
@@ -146,8 +149,10 @@ TEST(LoopTest, BusyWaitMode) {
     waiter.join();
 
     const auto latency = std::chrono::steady_clock::now() - start;
-    const auto latency_us =
-        std::chrono::duration_cast<std::chrono::microseconds>(latency).count();
+    const auto latency_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                                latency
+    )
+                                .count();
 
     // Busy wait should have very low latency (< 1ms)
     EXPECT_LE(latency_us, 1000);
@@ -163,7 +168,7 @@ TEST(LoopTest, HighRateMode) {
 
     Config config;
     config.mode = ExecutionMode::HIGH_RATE;
-    config.interval = 10'000'000;  // 10ms
+    config.interval = 10'000'000; // 10ms
 
     ASSERT_NIL(loop->configure(config));
     ASSERT_NIL(loop->start());
@@ -174,8 +179,10 @@ TEST(LoopTest, HighRateMode) {
     loop->wait(breaker);
     const auto elapsed = std::chrono::steady_clock::now() - start;
 
-    const auto elapsed_ms =
-        std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                elapsed
+    )
+                                .count();
 
     // Should wait approximately 10ms with high-rate timer
     EXPECT_GE(elapsed_ms, 5);
@@ -191,8 +198,8 @@ TEST(LoopTest, HybridMode) {
 
     Config config;
     config.mode = ExecutionMode::HYBRID;
-    config.interval = 0;  // No timer
-    config.spin_duration_us = 50;  // 50us spin
+    config.interval = 0; // No timer
+    config.spin_duration_us = 50; // 50us spin
 
     ASSERT_NIL(loop->configure(config));
     ASSERT_NIL(loop->start());
@@ -222,16 +229,14 @@ TEST(LoopTest, BreakerStopsWait) {
 
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 0;  // No timer
+    config.interval = 0; // No timer
 
     ASSERT_NIL(loop->configure(config));
     ASSERT_NIL(loop->start());
 
     breaker::Breaker breaker;
 
-    std::thread waiter([&]() {
-        loop->wait(breaker);
-    });
+    std::thread waiter([&]() { loop->wait(breaker); });
 
     // Give the waiter time to start waiting
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -252,7 +257,7 @@ TEST(LoopTest, MultipleStartStop) {
 
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 1'000'000;  // 1ms
+    config.interval = 1'000'000; // 1ms
 
     for (int i = 0; i < 3; i++) {
         ASSERT_NIL(loop->configure(config));
@@ -269,7 +274,7 @@ TEST(LoopTest, Reconfigure) {
     // First configuration
     Config config1;
     config1.mode = ExecutionMode::EVENT_DRIVEN;
-    config1.interval = 1'000'000;  // 1ms
+    config1.interval = 1'000'000; // 1ms
 
     ASSERT_NIL(loop->configure(config1));
     ASSERT_NIL(loop->start());
@@ -278,7 +283,7 @@ TEST(LoopTest, Reconfigure) {
     // Second configuration
     Config config2;
     config2.mode = ExecutionMode::HIGH_RATE;
-    config2.interval = 5'000'000;  // 5ms
+    config2.interval = 5'000'000; // 5ms
 
     ASSERT_NIL(loop->configure(config2));
     ASSERT_NIL(loop->start());

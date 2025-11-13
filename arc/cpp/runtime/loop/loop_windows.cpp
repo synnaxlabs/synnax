@@ -7,16 +7,17 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "arc/cpp/runtime/loop/loop.h"
-
 #include <atomic>
 #include <chrono>
 #include <thread>
-#include <windows.h>
 
 #include "glog/logging.h"
+#include <windows.h>
+
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
+
+#include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime::loop {
 /// @brief Windows WaitForMultipleObjects-based implementation of Loop.
@@ -30,7 +31,7 @@ namespace arc::runtime::loop {
 ///
 /// Windows has RT support through high-priority threads and timer resolution.
 class WindowsLoop final : public Loop {
-  public:
+public:
     WindowsLoop() = default;
 
     ~WindowsLoop() override { stop(); }
@@ -44,9 +45,8 @@ class WindowsLoop final : public Loop {
         }
 
         if (config_.lock_memory) {
-            LOG(WARNING)
-                << "[loop] Memory locking on Windows requires "
-                << "VirtualLock API (not implemented)";
+            LOG(WARNING) << "[loop] Memory locking on Windows requires "
+                         << "VirtualLock API (not implemented)";
         }
 
         return xerrors::NIL;
@@ -57,8 +57,7 @@ class WindowsLoop final : public Loop {
 
         // Set the manual-reset event to wake up WaitForMultipleObjects
         if (!SetEvent(data_event_)) {
-            LOG(ERROR) << "[loop] Failed to set data event: "
-                       << GetLastError();
+            LOG(ERROR) << "[loop] Failed to set data event: " << GetLastError();
         }
 
         data_available_.store(true, std::memory_order_release);
@@ -68,72 +67,78 @@ class WindowsLoop final : public Loop {
         if (!running_) return;
 
         switch (config_.mode) {
-        case ExecutionMode::BUSY_WAIT:
-            busy_wait(breaker);
-            break;
+            case ExecutionMode::BUSY_WAIT:
+                busy_wait(breaker);
+                break;
 
-        case ExecutionMode::HIGH_RATE:
-            high_rate_wait(breaker);
-            break;
+            case ExecutionMode::HIGH_RATE:
+                high_rate_wait(breaker);
+                break;
 
-        case ExecutionMode::RT_EVENT:
-        case ExecutionMode::EVENT_DRIVEN:
-            event_driven_wait(breaker,
-                              config_.mode == ExecutionMode::EVENT_DRIVEN);
-            break;
+            case ExecutionMode::RT_EVENT:
+            case ExecutionMode::EVENT_DRIVEN:
+                event_driven_wait(breaker, config_.mode == ExecutionMode::EVENT_DRIVEN);
+                break;
 
-        case ExecutionMode::HYBRID:
-            hybrid_wait(breaker);
-            break;
+            case ExecutionMode::HYBRID:
+                hybrid_wait(breaker);
+                break;
         }
     }
 
     xerrors::Error start() override {
         if (running_) {
-            return xerrors::NIL;  // Already started
+            return xerrors::NIL; // Already started
         }
 
         // Create manual-reset event for data notifications
         data_event_ = CreateEvent(
-            NULL,   // Default security
-            TRUE,   // Manual reset
-            FALSE,  // Initial state: nonsignaled
-            NULL    // Unnamed
+            NULL, // Default security
+            TRUE, // Manual reset
+            FALSE, // Initial state: nonsignaled
+            NULL // Unnamed
         );
         if (data_event_ == NULL) {
-            return xerrors::Error("Failed to create data event: " +
-                                  std::to_string(GetLastError()));
+            return xerrors::Error(
+                "Failed to create data event: " + std::to_string(GetLastError())
+            );
         }
 
         // Create waitable timer if interval is configured
         if (config_.interval > 0) {
             timer_event_ = CreateWaitableTimer(
-                NULL,   // Default security
-                FALSE,  // Auto-reset
-                NULL    // Unnamed
+                NULL, // Default security
+                FALSE, // Auto-reset
+                NULL // Unnamed
             );
             if (timer_event_ == NULL) {
                 CloseHandle(data_event_);
-                return xerrors::Error("Failed to create waitable timer: " +
-                                      std::to_string(GetLastError()));
+                return xerrors::Error(
+                    "Failed to create waitable timer: " + std::to_string(GetLastError())
+                );
             }
 
             // Set timer interval
             // LARGE_INTEGER is in 100-nanosecond units, negative = relative time
             LARGE_INTEGER due_time;
-            const int64_t interval_100ns =
-                static_cast<int64_t>(config_.interval) / 100;
-            due_time.QuadPart = -interval_100ns;  // Negative = relative
+            const int64_t interval_100ns = static_cast<int64_t>(config_.interval) / 100;
+            due_time.QuadPart = -interval_100ns; // Negative = relative
 
-            const LONG period_ms =
-                static_cast<LONG>(config_.interval / 1'000'000);
+            const LONG period_ms = static_cast<LONG>(config_.interval / 1'000'000);
 
-            if (!SetWaitableTimer(timer_event_, &due_time, period_ms, NULL,
-                                  NULL, FALSE)) {
+            if (!SetWaitableTimer(
+                    timer_event_,
+                    &due_time,
+                    period_ms,
+                    NULL,
+                    NULL,
+                    FALSE
+                )) {
                 CloseHandle(timer_event_);
                 CloseHandle(data_event_);
-                return xerrors::Error("Failed to set waitable timer: " +
-                                      std::to_string(GetLastError()));
+                return xerrors::Error(
+                    "Failed to set waitable timer: " + std::to_string(GetLastError())
+                );
             }
 
             timer_enabled_ = true;
@@ -143,8 +148,9 @@ class WindowsLoop final : public Loop {
         if (config_.mode == ExecutionMode::HIGH_RATE ||
             config_.mode == ExecutionMode::HYBRID) {
             if (config_.interval > 0) {
-                const auto interval =
-                    telem::TimeSpan(static_cast<int64_t>(config_.interval));
+                const auto interval = telem::TimeSpan(
+                    static_cast<int64_t>(config_.interval)
+                );
                 timer_ = std::make_unique<::loop::Timer>(interval);
             }
         }
@@ -152,15 +158,13 @@ class WindowsLoop final : public Loop {
         // Apply thread priority and affinity
         if (config_.rt_priority > 0) {
             if (auto err = set_thread_priority(config_.rt_priority); err) {
-                LOG(WARNING) << "[loop] Failed to set thread priority: "
-                             << err.what();
+                LOG(WARNING) << "[loop] Failed to set thread priority: " << err.what();
             }
         }
 
         if (config_.cpu_affinity >= 0) {
             if (auto err = set_cpu_affinity(config_.cpu_affinity); err) {
-                LOG(WARNING) << "[loop] Failed to set CPU affinity: "
-                             << err.what();
+                LOG(WARNING) << "[loop] Failed to set CPU affinity: " << err.what();
             }
         }
 
@@ -190,7 +194,7 @@ class WindowsLoop final : public Loop {
         timer_enabled_ = false;
     }
 
-  private:
+private:
     /// @brief Busy-wait mode - continuously check events with zero timeout.
     void busy_wait(breaker::Breaker &breaker) {
         HANDLE handles[2];
@@ -203,13 +207,11 @@ class WindowsLoop final : public Loop {
         }
 
         while (!!breaker.running()) {
-            const DWORD result =
-                WaitForMultipleObjects(count, handles, FALSE, 0);
+            const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
 
-            if (result >= WAIT_OBJECT_0 &&
-                result < WAIT_OBJECT_0 + count) {
+            if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + count) {
                 // Event signaled
-                ResetEvent(data_event_);  // Manual-reset event
+                ResetEvent(data_event_); // Manual-reset event
                 data_available_.store(false, std::memory_order_release);
                 return;
             }
@@ -255,15 +257,13 @@ class WindowsLoop final : public Loop {
         // Blocking: INFINITE, Non-blocking (RT): short timeout
         const DWORD timeout_ms = blocking ? INFINITE : 10;
 
-        const DWORD result =
-            WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
+        const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
 
         if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + count) {
             // Event signaled
             ResetEvent(data_event_);
         } else if (result == WAIT_FAILED) {
-            LOG(ERROR) << "[loop] WaitForMultipleObjects failed: "
-                       << GetLastError();
+            LOG(ERROR) << "[loop] WaitForMultipleObjects failed: " << GetLastError();
         }
 
         data_available_.store(false, std::memory_order_release);
@@ -272,8 +272,7 @@ class WindowsLoop final : public Loop {
     /// @brief Hybrid mode - spin briefly, then block on events.
     void hybrid_wait(breaker::Breaker &breaker) {
         const auto spin_start = std::chrono::steady_clock::now();
-        const auto spin_duration =
-            std::chrono::microseconds(config_.spin_duration_us);
+        const auto spin_duration = std::chrono::microseconds(config_.spin_duration_us);
 
         HANDLE handles[2];
         DWORD count = 1;
@@ -288,11 +287,9 @@ class WindowsLoop final : public Loop {
         while (std::chrono::steady_clock::now() - spin_start < spin_duration) {
             if (!breaker.running()) return;
 
-            const DWORD result =
-                WaitForMultipleObjects(count, handles, FALSE, 0);
+            const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
 
-            if (result >= WAIT_OBJECT_0 &&
-                result < WAIT_OBJECT_0 + count) {
+            if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + count) {
                 ResetEvent(data_event_);
                 data_available_.store(false, std::memory_order_release);
                 return;
@@ -306,8 +303,7 @@ class WindowsLoop final : public Loop {
         }
 
         // Block phase - wait with timeout
-        const DWORD result =
-            WaitForMultipleObjects(count, handles, FALSE, 10);  // 10ms
+        const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 10); // 10ms
         if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + count) {
             ResetEvent(data_event_);
         }
@@ -336,8 +332,9 @@ class WindowsLoop final : public Loop {
         }
 
         if (!SetThreadPriority(GetCurrentThread(), win_priority)) {
-            return xerrors::Error("Failed to set thread priority: " +
-                                  std::to_string(GetLastError()));
+            return xerrors::Error(
+                "Failed to set thread priority: " + std::to_string(GetLastError())
+            );
         }
 
         return xerrors::NIL;
@@ -348,8 +345,9 @@ class WindowsLoop final : public Loop {
         const DWORD_PTR mask = static_cast<DWORD_PTR>(1) << cpu;
 
         if (!SetThreadAffinityMask(GetCurrentThread(), mask)) {
-            return xerrors::Error("Failed to set thread affinity: " +
-                                  std::to_string(GetLastError()));
+            return xerrors::Error(
+                "Failed to set thread affinity: " + std::to_string(GetLastError())
+            );
         }
 
         return xerrors::NIL;
@@ -367,4 +365,4 @@ class WindowsLoop final : public Loop {
 std::unique_ptr<Loop> create() {
     return std::make_unique<WindowsLoop>();
 }
-}  // namespace arc::runtime::loop
+} // namespace arc::runtime::loop

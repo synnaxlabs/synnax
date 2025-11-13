@@ -43,7 +43,7 @@ public:
     ):
         cfg(cfg), module(module), module_inst(module_inst), exec_env(exec_env) {}
 
-    static std::pair<std::unique_ptr<Module>, xerrors::Error>
+    static std::pair<std::shared_ptr<Module>, xerrors::Error>
     open(const ModuleConfig &cfg) {
         if (cfg.module.wasm.empty()) {
             return {nullptr, xerrors::Error("wasm bytes are empty")};
@@ -67,7 +67,7 @@ public:
 
         auto exec_env = wasm_runtime_create_exec_env(module_inst, cfg.stack_size);
         return {
-            std::make_unique<Module>(cfg, module, module_inst, exec_env),
+            std::make_shared<Module>(cfg, module, module_inst, exec_env),
             xerrors::NIL
         };
     }

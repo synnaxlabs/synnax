@@ -14,13 +14,14 @@
 
 namespace arc::wasm {
 class Factory : public NodeFactory {
-    Module &mod;
+    std::shared_ptr<Module> mod;
+
 public:
-    explicit Factory(Module &mod): mod(mod) {}
+    explicit Factory(std::shared_ptr<Module> &mod): mod(mod) {}
 
     std::pair<std::unique_ptr<arc::Node>, xerrors::Error>
     create(const NodeConfig &cfg) override {
-        auto [func, err] = mod.func(cfg.node.type);
+        auto [func, err] = mod->func(cfg.node.type);
         if (err) return {nullptr, err};
         return {std::make_unique<Node>(cfg.node, cfg.state, func), xerrors::NIL};
     }

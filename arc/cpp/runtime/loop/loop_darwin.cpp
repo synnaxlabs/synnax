@@ -7,19 +7,20 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "arc/cpp/runtime/loop/loop.h"
-
 #include <atomic>
 #include <chrono>
+#include <thread>
+
+#include "glog/logging.h"
 #include <sys/event.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <thread>
 #include <unistd.h>
 
-#include "glog/logging.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
+
+#include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime::loop {
 class DarwinLoop final : public Loop {
@@ -29,6 +30,7 @@ class DarwinLoop final : public Loop {
     std::unique_ptr<::loop::Timer> timer;
     std::atomic<bool> data_available{false};
     bool running = false;
+
 public:
     explicit DarwinLoop(const Config &config): cfg(config) {
         if (cfg.rt_priority > 0)
@@ -38,9 +40,8 @@ public:
             LOG(WARNING) << "[loop] Memory locking not fully supported on macOS";
 
         if (cfg.mode == ExecutionMode::RT_EVENT) {
-            LOG(INFO)
-                << "[loop] RT_EVENT mode not supported on macOS, "
-                << "falling back to HIGH_RATE";
+            LOG(INFO) << "[loop] RT_EVENT mode not supported on macOS, "
+                      << "falling back to HIGH_RATE";
             cfg.mode = ExecutionMode::HIGH_RATE;
         }
     }
@@ -54,8 +55,7 @@ public:
         EV_SET(&kev, USER_EVENT_IDENT, EVFILT_USER, 0, NOTE_TRIGGER, 0, nullptr);
 
         if (kevent(kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
-            LOG(ERROR) << "[loop] Failed to trigger user event: "
-                       << strerror(errno);
+            LOG(ERROR) << "[loop] Failed to trigger user event: " << strerror(errno);
         }
 
         data_available.store(true, std::memory_order_release);
@@ -64,20 +64,20 @@ public:
     void wait(breaker::Breaker &breaker) override {
         if (!this->running) return;
         switch (this->cfg.mode) {
-        case ExecutionMode::BUSY_WAIT:
-            busy_wait(breaker);
-            break;
-        case ExecutionMode::HIGH_RATE:
-            high_rate_wait(breaker);
-            break;
-        case ExecutionMode::HYBRID:
-            hybrid_wait(breaker);
-            break;
-        case ExecutionMode::EVENT_DRIVEN:
-        case ExecutionMode::RT_EVENT:
-        default:
-            event_driven_wait(breaker);
-            break;
+            case ExecutionMode::BUSY_WAIT:
+                busy_wait(breaker);
+                break;
+            case ExecutionMode::HIGH_RATE:
+                high_rate_wait(breaker);
+                break;
+            case ExecutionMode::HYBRID:
+                hybrid_wait(breaker);
+                break;
+            case ExecutionMode::EVENT_DRIVEN:
+            case ExecutionMode::RT_EVENT:
+            default:
+                event_driven_wait(breaker);
+                break;
         }
     }
 
@@ -87,18 +87,17 @@ public:
         this->kqueue_fd_ = kqueue();
         if (this->kqueue_fd_ == -1)
             return xerrors::Error(
-                "Failed to create kqueue: " +
-                                  std::string(strerror(errno))
+                "Failed to create kqueue: " + std::string(strerror(errno))
             );
 
         // Register user event for data notifications
         struct kevent kev;
-        EV_SET(&kev, USER_EVENT_IDENT, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0,
-               nullptr);
+        EV_SET(&kev, USER_EVENT_IDENT, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, nullptr);
         if (kevent(kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
             close(kqueue_fd_);
-            return xerrors::Error("Failed to register user event: " +
-                                  std::string(strerror(errno)));
+            return xerrors::Error(
+                "Failed to register user event: " + std::string(strerror(errno))
+            );
         }
 
         // Register timer event if interval is configured
@@ -111,34 +110,38 @@ public:
                              << "(<1ms), using 1ms";
             }
 
-            EV_SET(&kev, TIMER_EVENT_IDENT, EVFILT_TIMER, EV_ADD | EV_ENABLE, 0,
-                   interval_ms > 0 ? interval_ms : 1, nullptr);
+            EV_SET(
+                &kev,
+                TIMER_EVENT_IDENT,
+                EVFILT_TIMER,
+                EV_ADD | EV_ENABLE,
+                0,
+                interval_ms > 0 ? interval_ms : 1,
+                nullptr
+            );
             if (kevent(kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
                 close(kqueue_fd_);
-                return xerrors::Error("Failed to register timer event: " +
-                                      std::string(strerror(errno)));
+                return xerrors::Error(
+                    "Failed to register timer event: " + std::string(strerror(errno))
+                );
             }
 
             timer_enabled = true;
         }
 
         // Initialize high-rate timer if needed
-        if (cfg.mode == ExecutionMode::HIGH_RATE ||
-            cfg.mode == ExecutionMode::HYBRID) {
+        if (cfg.mode == ExecutionMode::HIGH_RATE || cfg.mode == ExecutionMode::HYBRID) {
             if (cfg.interval > 0) {
-                const auto interval =
-                    telem::TimeSpan(static_cast<int64_t>(cfg.interval));
+                const auto interval = telem::TimeSpan(
+                    static_cast<int64_t>(cfg.interval)
+                );
                 timer = std::make_unique<::loop::Timer>(interval);
             }
         }
 
         // Apply thread priority and affinity if configured
-        if (cfg.rt_priority > 0) {
-            set_thread_priority(cfg.rt_priority);
-        }
-        if (cfg.cpu_affinity >= 0) {
-            set_cpu_affinity(cfg.cpu_affinity);
-        }
+        if (cfg.rt_priority > 0) { set_thread_priority(cfg.rt_priority); }
+        if (cfg.cpu_affinity >= 0) { set_cpu_affinity(cfg.cpu_affinity); }
 
         running = true;
         data_available.store(false, std::memory_order_release);
@@ -160,13 +163,13 @@ public:
         timer_enabled = false;
     }
 
-  private:
+private:
     static constexpr uintptr_t USER_EVENT_IDENT = 1;
     static constexpr uintptr_t TIMER_EVENT_IDENT = 2;
 
     /// @brief Busy-wait mode - continuously check kqueue with zero timeout.
     void busy_wait(breaker::Breaker &breaker) {
-        struct timespec timeout = {0, 0};  // Zero timeout
+        struct timespec timeout = {0, 0}; // Zero timeout
         struct kevent events[2];
 
         while (!!breaker.running()) {
@@ -195,8 +198,7 @@ public:
     /// @brief Hybrid mode - spin briefly, then block on kqueue.
     void hybrid_wait(breaker::Breaker &breaker) {
         const auto spin_start = std::chrono::steady_clock::now();
-        const auto spin_duration =
-            std::chrono::microseconds(cfg.spin_duration_us);
+        const auto spin_duration = std::chrono::microseconds(cfg.spin_duration_us);
 
         // Spin phase - non-blocking kevent checks
         struct timespec timeout = {0, 0};
@@ -214,7 +216,7 @@ public:
 
         // Block phase - wait on kqueue with timeout
         timeout.tv_sec = 0;
-        timeout.tv_nsec = 10'000'000;  // 10ms max block
+        timeout.tv_nsec = 10'000'000; // 10ms max block
 
         const int n = kevent(kqueue_fd_, nullptr, 0, events, 2, &timeout);
         if (n > 0 || data_available.load(std::memory_order_acquire)) {
@@ -245,8 +247,7 @@ public:
 
         if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &param) != 0) {
             LOG(WARNING) << "[loop] Failed to set SCHED_FIFO priority: "
-                         << strerror(errno)
-                         << " (may require root)";
+                         << strerror(errno) << " (may require root)";
         }
     }
 
@@ -254,11 +255,9 @@ public:
         LOG(WARNING) << "[loop] CPU affinity setting on macOS requires "
                      << "Mach thread APIs (not implemented)";
     }
-
-
 };
 
 std::unique_ptr<Loop> create() {
     return std::make_unique<DarwinLoop>();
 }
-}  // namespace arc::runtime::loop
+} // namespace arc::runtime::loop

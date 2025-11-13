@@ -13,7 +13,7 @@
 #include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xtest/xtest.h"
 
-#include "arc/cpp/ir/ir.h"
+#include "arc/cpp/ir/types.h"
 
 using namespace arc::ir;
 using json = nlohmann::json;

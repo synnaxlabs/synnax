@@ -10,9 +10,7 @@
 
 #pragma once
 
-#include <functional>
 #include <memory>
-#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -21,7 +19,7 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xmemory/local_shared.h"
 
-#include "arc/cpp/ir/ir.h"
+#include "arc/cpp/ir/types.h"
 
 namespace arc::runtime::state {
 using Series = xmemory::local_shared<telem::Series>;
@@ -90,31 +88,19 @@ public:
     bool refresh_inputs();
 
     [[nodiscard]] const Series &input(const size_t param_index) const {
-        return aligned_data[param_index];
+        return this->aligned_data[param_index];
     }
 
     [[nodiscard]] const Series &input_time(const size_t param_index) const {
-        return aligned_time[param_index];
+        return this->aligned_time[param_index];
     }
 
     [[nodiscard]] Series &output(const size_t param_index) const {
-        return output_cache[param_index]->data;
+        return this->output_cache[param_index]->data;
     }
 
     [[nodiscard]] Series &output_time(const size_t param_index) const {
-        return output_cache[param_index]->time;
-    }
-
-    void write_channel(arc::ChannelKey key, const Series &data, const Series &time);
-
-    template<typename T>
-    void write_channel_value(arc::ChannelKey key, T value, telem::TimeStamp timestamp) {
-        const auto data_series = std::make_shared<telem::Series>(
-            telem::Series(1, &value)
-        );
-        const auto time_series = std::make_shared<telem::Series>(telem::TIMESTAMP_T, 1);
-        time_series->write(timestamp);
-        write_channel(key, data_series, time_series);
+        return this->output_cache[param_index]->time;
     }
 };
 
@@ -139,16 +125,6 @@ public:
     std::vector<std::pair<ChannelKey, Series>> flush_writes();
 
     void clear_reads();
-
-    template<typename T>
-    void write_channel_value(arc::ChannelKey key, T value, telem::TimeStamp timestamp) {
-        const auto data_series = std::make_shared<telem::Series>(
-            telem::Series(1, &value)
-        );
-        const auto time_series = std::make_shared<telem::Series>(telem::TIMESTAMP_T, 1);
-        time_series->write(timestamp);
-        write_channel(key, data_series, time_series);
-    }
 };
 
-} // namespace arc::runtime::state
+}

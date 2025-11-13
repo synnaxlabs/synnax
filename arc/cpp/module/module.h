@@ -7,7 +7,7 @@
 
 #include "x/cpp/xjson/xjson.h"
 
-#include "arc/cpp/ir/ir.h"
+#include "arc/cpp/ir/types.h"
 
 namespace arc::module {
 struct Module : ir::IR {

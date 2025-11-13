@@ -36,23 +36,29 @@ class Scheduler {
     struct NodeState {
         std::string key;
         std::unique_ptr<Node> node;
-        std::vector<ir::Edge> edges;
+        std::vector<ir::Edge> output_edges;
     };
     std::unordered_map<std::string, NodeState> nodes;
     NodeState *current_state;
     NodeContext ctx;
 
     void mark_changed(const std::string &param) {
-        for (auto it = this->current_state->edges.begin();
-             it != this->current_state->edges.end();
-             ++it)
-            if (param == this->current_state->key)
-                this->changed.insert(it->target.node);
+        for (const auto &edge: current_state->output_edges)
+            if (edge.source.param == param) this->changed.insert(edge.target.node);
     }
 
 public:
-    Scheduler(const ir::IR &prog, std::unordered_map<std::string, NodeState> &nodes):
-        strata(prog.strata), nodes(std::move(nodes)), current_state() {
+    Scheduler(
+        const ir::IR &prog,
+        std::unordered_map<std::string, std::unique_ptr<Node>> &nodes
+    ):
+        strata(prog.strata), current_state() {
+        for (auto &[key, node]: nodes)
+            this->nodes[key] = NodeState{
+                .key = key,
+                .node = std::move(node),
+                .output_edges = prog.outgoing_edges(key)
+            };
         this->ctx = NodeContext{
             .mark_changed =
                 [&](const std::string &param) { this->mark_changed(param); },

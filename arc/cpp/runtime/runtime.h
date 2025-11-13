@@ -11,48 +11,126 @@
 
 #include <map>
 #include <memory>
+#include <ranges>
+#include <set>
 
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
 
-#include "arc/cpp/runtime/core/types.h"
+#include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/runtime/wasm/factory.h"
 #include "arc/cpp/runtime/wasm/module.h"
-#include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime {
 struct Config {
     module::Module mod;
     breaker::Config breaker;
-    std::function<std::vector<state::ChannelDigest, xerrors::Error>()> retrieve_channels;
+    std::function<std::pair<std::vector<state::ChannelDigest>, xerrors::Error>(
+        const std::vector<ChannelKey> &
+    )>
+        retrieve_channels;
 };
 
-struct Runtime {
+class Runtime {
     static constexpr size_t DEFAULT_QUEUE_CAPACITY = 1024;
 
     breaker::Breaker breaker;
-    std::unique_ptr<wasm::Module> mod;
-    std::unique_ptr<Scheduler> scheduler;
+    std::shared_ptr<wasm::Module> mod;
     std::unique_ptr<state::State> state;
-    std::unique_ptr<loop::Loop> time_wheel;
+    std::unique_ptr<Scheduler> scheduler;
+    std::unique_ptr<loop::Loop> loop;
 
     std::unique_ptr<queue::SPSC<telem::Frame>> inputs;
     std::unique_ptr<queue::SPSC<telem::Frame>> outputs;
 
+public:
+    Runtime(
+        const breaker::Config &breaker_cfg,
+        std::shared_ptr<wasm::Module> mod,
+        std::unique_ptr<state::State> state,
+        std::unique_ptr<Scheduler> scheduler,
+        std::unique_ptr<loop::Loop> loop
+    ):
+        breaker(breaker_cfg),
+        mod(std::move(mod)),
+        state(std::move(state)),
+        scheduler(std::move(scheduler)),
+        loop(std::move(loop)),
+        inputs(std::make_unique<queue::SPSC<telem::Frame>>(DEFAULT_QUEUE_CAPACITY)),
+        outputs(std::make_unique<queue::SPSC<telem::Frame>>(DEFAULT_QUEUE_CAPACITY)) {}
+
     void run() {
         while (this->breaker.running()) {
-            this->time_wheel->wait(this->breaker);
+            this->loop->wait(this->breaker);
             this->scheduler->next();
         }
     }
 };
 
-inline std::pair<Runtime, xerrors::Error> load(Config cfg) {
+inline std::pair<std::unique_ptr<Runtime>, xerrors::Error> load(Config cfg) {
+
     // Step 1: Initialize state
-    // Step 2: Compile WASM module
-    // Step 3: Time loop
-    // Step 4: Queues
+    std::set<ChannelKey> reads;
+    std::set<ChannelKey> writes;
+    for (const auto &n: cfg.mod.nodes) {
+        const auto read_keys = std::views::keys(n.channels.read);
+        reads.insert(read_keys.begin(), read_keys.end());
+        const auto write_keys = std::views::keys(n.channels.write);
+        writes.insert(write_keys.begin(), write_keys.end());
+    }
+
+    std::vector<ChannelKey> keys;
+    keys.reserve(reads.size() + writes.size());
+    auto [digests, state_err] = cfg.retrieve_channels(keys);
+    if (state_err) return {nullptr, state_err};
+    for (const auto &d: digests) {
+        if (reads.contains(d.key) && d.index != 0) reads.insert(d.index);
+        if (writes.contains(d.key) && d.index != 0) writes.insert(d.index);
+    }
+
+    state::Config state_cfg{.ir = cfg.mod, .channels = digests};
+    auto state = std::make_unique<state::State>(state_cfg);
+
+    // Step 2: Initialize WASM Module
+    wasm::ModuleConfig module_cfg{.module = cfg.mod};
+    auto [mod, mod_err] = wasm::Module::open(module_cfg);
+    if (mod_err) return {nullptr, mod_err};
+
+    // Step 3: Put together factories.
+    wasm::Factory wasm_factory(mod);
+
+    // Step 4: Construct nodes.
+    std::unordered_map<std::string, std::unique_ptr<Node>> nodes;
+    for (const auto &n: cfg.mod.nodes) {
+        auto [node, err] = wasm_factory.create(
+            NodeConfig{
+                .node = n,
+                .state = state->node(n.key),
+            }
+        );
+        if (err) return {nullptr, err};
+    }
+
+    // Step 5: Construct scheduler.
+    auto sched = std::make_unique<Scheduler>(cfg.mod, nodes);
+
+    // Step 6: Construct Loop
+    auto [loop, err] = loop::create(loop::Config{});
+    if (err) return {nullptr, err};
+
+    // Step 6: Build Runtime
+    return {
+        std::make_unique<Runtime>(
+            cfg.breaker,
+            std::move(mod),
+            std::move(state),
+            std::move(sched),
+            std::move(loop)
+        ),
+        xerrors::NIL
+    };
 }
 
 }

@@ -7,22 +7,14 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "arc/cpp/runtime/state/state.h"
-
-#include <algorithm>
 #include <utility>
 
-namespace arc::runtime::state {
+#include "arc/cpp/runtime/state/state.h"
 
-/// @brief Parse a JSON default value into a typed series.
-/// @param value JSON value to parse (can be null, number, bool, string)
-/// @param type Expected type for the series
-/// @return Series with single element containing the parsed value
+namespace arc::runtime::state {
 Series parse_default_value(const nlohmann::json &value, const ir::Type &type) {
     auto data_type = type.telem();
     auto series = xmemory::make_local_shared<telem::Series>(data_type, 1);
-
-    // If value is null or missing, write zero/default
     if (value.is_null()) {
         switch (type.kind) {
             case ir::TypeKind::I8:
@@ -61,13 +53,16 @@ Series parse_default_value(const nlohmann::json &value, const ir::Type &type) {
         return series;
     }
 
-    // Parse actual value from JSON
     switch (type.kind) {
         case ir::TypeKind::I8:
-            series->write(static_cast<int8_t>(value.is_number() ? value.get<int>() : 0));
+            series->write(
+                static_cast<int8_t>(value.is_number() ? value.get<int>() : 0)
+            );
             break;
         case ir::TypeKind::I16:
-            series->write(static_cast<int16_t>(value.is_number() ? value.get<int>() : 0));
+            series->write(
+                static_cast<int16_t>(value.is_number() ? value.get<int>() : 0)
+            );
             break;
         case ir::TypeKind::I32:
             series->write(value.is_number() ? value.get<int32_t>() : 0);
@@ -76,10 +71,14 @@ Series parse_default_value(const nlohmann::json &value, const ir::Type &type) {
             series->write(value.is_number() ? value.get<int64_t>() : 0);
             break;
         case ir::TypeKind::U8:
-            series->write(static_cast<uint8_t>(value.is_number() ? value.get<unsigned>() : 0));
+            series->write(
+                static_cast<uint8_t>(value.is_number() ? value.get<unsigned>() : 0)
+            );
             break;
         case ir::TypeKind::U16:
-            series->write(static_cast<uint16_t>(value.is_number() ? value.get<unsigned>() : 0));
+            series->write(
+                static_cast<uint16_t>(value.is_number() ? value.get<unsigned>() : 0)
+            );
             break;
         case ir::TypeKind::U32:
             series->write(value.is_number() ? value.get<uint32_t>() : 0);
@@ -134,9 +133,7 @@ telem::DataType to_telem_type(const ir::Type &type) {
             return telem::TIMESTAMP_T;
         case ir::TypeKind::Series:
             // For series, get the element type
-            if (type.elem) {
-                return to_telem_type(*type.elem);
-            }
+            if (type.elem) { return to_telem_type(*type.elem); }
             return telem::UNKNOWN_T;
         default:
             return telem::UNKNOWN_T;
@@ -147,10 +144,10 @@ State::State(const Config &cfg): cfg(cfg) {
     for (const auto &digest: cfg.channels)
         indexes[digest.key] = digest.index;
     for (const auto &node: cfg.ir.nodes) {
-        for (const auto &output_param: node.outputs) {
-            ir::Handle handle(node.key, output_param.name);
+        for (const auto &output: node.outputs) {
+            ir::Handle handle(node.key, output.name);
             outputs[handle] = Value{
-                xmemory::local_shared<telem::Series>(to_telem_type(output_param.type), 0),
+                xmemory::local_shared<telem::Series>(to_telem_type(output.type), 0),
                 xmemory::local_shared<telem::Series>(telem::TIMESTAMP_T, 0)
             };
         }
@@ -173,7 +170,10 @@ Node State::node(const std::string &key) {
 
     // Initialize aligned time series
     for (size_t i = 0; i < num_inputs; i++)
-        aligned_time[i] = xmemory::make_local_shared<telem::Series>(telem::TIMESTAMP_T, 0);
+        aligned_time[i] = xmemory::make_local_shared<telem::Series>(
+            telem::TIMESTAMP_T,
+            0
+        );
 
     // Build inputs and handle default values
     for (size_t i = 0; i < num_inputs; i++) {
@@ -198,18 +198,18 @@ Node State::node(const std::string &key) {
                 // Initialize accumulated entry for connected input
                 // Data starts empty, will be populated when source produces output
                 accumulated[i].last_timestamp = telem::TimeStamp(0);
-                accumulated[i].consumed = true;  // Start as consumed (no data yet)
+                accumulated[i].consumed = true; // Start as consumed (no data yet)
             }
         } else {
             // Unconnected input - create synthetic source with default value
-            ir::Handle synthetic_handle(
-                "__default_" + key + "_" + param.name,
-                "out"
-            );
+            ir::Handle synthetic_handle("__default_" + key + "_" + param.name, "out");
             inputs[i] = ir::Edge(synthetic_handle, target_handle);
 
             auto data_series = parse_default_value(param.value, param.type);
-            auto time_series = xmemory::make_local_shared<telem::Series>(telem::TIMESTAMP_T, 1);
+            auto time_series = xmemory::make_local_shared<telem::Series>(
+                telem::TIMESTAMP_T,
+                1
+            );
             time_series->write(telem::TimeStamp(0));
 
             aligned_data[i] = data_series;
@@ -250,7 +250,9 @@ Node State::node(const std::string &key) {
 
 void State::ingest(const telem::Frame &frame) {
     for (auto i = 0; i < frame.size(); i++)
-        reads[frame.channels->at(i)].push_back(xmemory::local_shared<telem::Series>(std::move(frame.series->at(i))));
+        reads[frame.channels->at(i)].push_back(
+            xmemory::local_shared<telem::Series>(std::move(frame.series->at(i)))
+        );
 }
 
 std::vector<std::pair<arc::ChannelKey, Series>> State::flush_writes() {
@@ -275,20 +277,23 @@ void State::write_channel(
     const Series &time
 ) {
     writes[key] = data;
-    if (const auto idx_iter = indexes.find(key);idx_iter != indexes.end() && idx_iter->second != 0)
+    if (const auto idx_iter = indexes.find(key);
+        idx_iter != indexes.end() && idx_iter->second != 0)
         writes[idx_iter->second] = time;
 }
 
 // Node implementation
 
 bool Node::refresh_inputs() {
-    if (inputs.empty())return true;
+    if (inputs.empty()) return true;
 
     bool has_unconsumed = false;
     for (size_t i = 0; i < inputs.size(); i++) {
 
-        if (const auto *src = this->input_sources[i];src != nullptr && src->time != nullptr && !src->time->empty()) {
-            if (auto ts = src->time->at<telem::TimeStamp>(-1);ts > this->accumulated[i].last_timestamp) {
+        if (const auto *src = this->input_sources[i];
+            src != nullptr && src->time != nullptr && !src->time->empty()) {
+            if (auto ts = src->time->at<telem::TimeStamp>(-1);
+                ts > this->accumulated[i].last_timestamp) {
                 this->accumulated[i].data = src->data;
                 this->accumulated[i].time = src->time;
                 this->accumulated[i].last_timestamp = ts;
@@ -300,12 +305,10 @@ bool Node::refresh_inputs() {
         if (accumulated[i].data == nullptr || accumulated[i].data->empty())
             return false;
 
-        if (!accumulated[i].consumed)
-            has_unconsumed = true;
+        if (!accumulated[i].consumed) has_unconsumed = true;
     }
 
-    if (!has_unconsumed)
-        return false;
+    if (!has_unconsumed) return false;
 
     for (size_t i = 0; i < this->inputs.size(); i++) {
         this->aligned_data[i] = this->accumulated[i].data;
@@ -315,13 +318,4 @@ bool Node::refresh_inputs() {
 
     return true;
 }
-
-void Node::write_channel(
-    arc::ChannelKey key,
-    const Series &data,
-    const Series &time
-) {
-    state_.write_channel(key, data, time);
 }
-
-} // namespace arc::runtime::state

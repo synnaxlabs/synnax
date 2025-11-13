@@ -17,7 +17,6 @@
 namespace arc {
 struct NodeContext {
     std::function<void(const std::string &output_param)> mark_changed;
-
     std::function<void(const xerrors::Error &)> report_error;
 };
 }

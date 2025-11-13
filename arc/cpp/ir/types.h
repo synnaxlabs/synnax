@@ -20,101 +20,10 @@
 #include "x/cpp/xjson/xjson.h"
 
 namespace arc {
-using ChannelKey = std::uint32_t;
 
 namespace ir {
 
-enum class TypeKind : uint8_t {
-    Invalid = 0,
-    U8 = 1,
-    U16 = 2,
-    U32 = 3,
-    U64 = 4,
-    I8 = 5,
-    I16 = 6,
-    I32 = 7,
-    I64 = 8,
-    F32 = 9,
-    F64 = 10,
-    String = 11,
-    TimeStamp = 12,
-    TimeSpan = 13,
-    Chan = 14,
-    Series = 15,
-};
 
-// @brief a discrimated union representing a type in the arc programming language.
-struct Type {
-    /// @brief the kind of the type.
-    TypeKind kind = TypeKind::Invalid;
-    /// @brief the element type for channels or series.
-    std::unique_ptr<Type> elem;
-
-    explicit Type(xjson::Parser parser) {
-        this->kind = parser.field<TypeKind>("kind");
-        const auto elem_parser = parser.optional_child("elem");
-        if (elem_parser.ok()) this->elem = std::make_unique<Type>(elem_parser);
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        nlohmann::json j;
-        j["kind"] = static_cast<uint8_t>(kind);
-        if (elem) j["elem"] = elem->to_json();
-        return j;
-    }
-
-    Type() = default;
-    explicit Type(const TypeKind k): kind(k) {}
-    Type(const TypeKind k, Type elem_type):
-        kind(k), elem(std::make_unique<Type>(std::move(elem_type))) {}
-
-    Type(const Type &other): kind(other.kind) {
-        if (other.elem) { elem = std::make_unique<Type>(*other.elem); }
-    }
-
-    Type &operator=(const Type &other) {
-        if (this != &other) {
-            kind = other.kind;
-            if (other.elem)
-                elem = std::make_unique<Type>(*other.elem);
-            else
-                elem.reset();
-        }
-        return *this;
-    }
-
-    Type(Type &&) = default;
-    Type &operator=(Type &&) = default;
-
-    [[nodiscard]] size_t density() const {
-        switch (kind) {
-            case TypeKind::U8:
-            case TypeKind::I8:
-                return 1;
-            case TypeKind::U16:
-            case TypeKind::I16:
-                return 2;
-            case TypeKind::U32:
-            case TypeKind::I32:
-            case TypeKind::F32:
-                return 4;
-            case TypeKind::U64:
-            case TypeKind::I64:
-            case TypeKind::F64:
-            case TypeKind::TimeStamp:
-            case TypeKind::TimeSpan:
-                return 8;
-            default:
-                return 0;
-        }
-    }
-
-    [[nodiscard]] bool is_valid() const { return kind != TypeKind::Invalid; }
-
-    /// @brief Convert arc IR type to telem data type.
-    /// @return Corresponding telem data type.
-    [[nodiscard]] telem::DataType telem() const;
-};
 
 struct Handle {
     std::string node, param;
@@ -240,26 +149,21 @@ struct Params {
 };
 
 struct Channels {
-    std::map<uint32_t, std::string> read;
-    std::map<uint32_t, std::string> write;
+    std::map<ChannelKey, std::string> read;
+    std::map<ChannelKey, std::string> write;
 
     explicit Channels(xjson::Parser parser) {
-        this->read = parser.field<std::map<uint32_t, std::string>>("read", {});
-        this->write = parser.field<std::map<uint32_t, std::string>>("write", {});
+        this->read = parser.field<std::map<ChannelKey, std::string>>("read", {});
+        this->write = parser.field<std::map<ChannelKey, std::string>>("write", {});
     }
 
     [[nodiscard]] nlohmann::json to_json() const {
-        // nlohmann::json requires string keys in objects, so convert uint32_t to string
         nlohmann::json read_obj = nlohmann::json::object();
-        for (const auto &[key, value]: read) {
+        for (const auto &[key, value]: read)
             read_obj[std::to_string(key)] = value;
-        }
-
         nlohmann::json write_obj = nlohmann::json::object();
-        for (const auto &[key, value]: write) {
+        for (const auto &[key, value]: write)
             write_obj[std::to_string(key)] = value;
-        }
-
         return {{"read", read_obj}, {"write", write_obj}};
     }
 

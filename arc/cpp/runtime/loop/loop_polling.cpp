@@ -7,15 +7,16 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "arc/cpp/runtime/loop/loop.h"
-
 #include <atomic>
 #include <chrono>
 #include <thread>
 
 #include "glog/logging.h"
+
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
+
+#include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime::loop {
 /// @brief Polling-based fallback implementation of Loop.
@@ -24,7 +25,7 @@ namespace arc::runtime::loop {
 /// It uses simple polling with optional sleep intervals. Suitable for platforms
 /// without epoll/kqueue/IOCP support or as a simple fallback.
 class PollingLoop final : public Loop {
-  public:
+public:
     PollingLoop() = default;
     ~PollingLoop() override { stop(); }
 
@@ -36,8 +37,7 @@ class PollingLoop final : public Loop {
             LOG(WARNING) << "[loop] RT priority not supported in polling mode";
         }
         if (config_.cpu_affinity >= 0) {
-            LOG(WARNING)
-                << "[loop] CPU affinity not supported in polling mode";
+            LOG(WARNING) << "[loop] CPU affinity not supported in polling mode";
         }
         if (config_.lock_memory) {
             LOG(WARNING) << "[loop] Memory locking not supported in polling mode";
@@ -67,10 +67,10 @@ class PollingLoop final : public Loop {
         // Check if we need to wait for timer interval
         if (config_.interval > 0 && timer_) {
             const auto now = std::chrono::steady_clock::now();
-            const auto elapsed =
-                std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    now - last_tick_)
-                    .count();
+            const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                     now - last_tick_
+            )
+                                     .count();
 
             if (elapsed < static_cast<int64_t>(config_.interval)) {
                 // Timer hasn't expired yet
@@ -78,19 +78,19 @@ class PollingLoop final : public Loop {
 
                 // Choose wait strategy based on mode
                 switch (config_.mode) {
-                case ExecutionMode::BUSY_WAIT:
-                    // Busy wait - no sleep
-                    busy_wait(remaining_ns, breaker);
-                    break;
+                    case ExecutionMode::BUSY_WAIT:
+                        // Busy wait - no sleep
+                        busy_wait(remaining_ns, breaker);
+                        break;
 
-                case ExecutionMode::HIGH_RATE:
-                case ExecutionMode::RT_EVENT:
-                case ExecutionMode::EVENT_DRIVEN:
-                case ExecutionMode::HYBRID:
-                default:
-                    // Use precise timer for sleeping
-                    timer_->wait(breaker);
-                    break;
+                    case ExecutionMode::HIGH_RATE:
+                    case ExecutionMode::RT_EVENT:
+                    case ExecutionMode::EVENT_DRIVEN:
+                    case ExecutionMode::HYBRID:
+                    default:
+                        // Use precise timer for sleeping
+                        timer_->wait(breaker);
+                        break;
                 }
 
                 last_tick_ = std::chrono::steady_clock::now();
@@ -100,10 +100,10 @@ class PollingLoop final : public Loop {
             }
         } else {
             // No timer configured - use short sleep to avoid busy loop
-            const uint64_t poll_interval_us =
-                config_.mode == ExecutionMode::BUSY_WAIT ? 1 : 100;
-            std::this_thread::sleep_for(
-                std::chrono::microseconds(poll_interval_us));
+            const uint64_t poll_interval_us = config_.mode == ExecutionMode::BUSY_WAIT
+                                                ? 1
+                                                : 100;
+            std::this_thread::sleep_for(std::chrono::microseconds(poll_interval_us));
         }
 
         // Clear the data available flag after waiting
@@ -112,12 +112,14 @@ class PollingLoop final : public Loop {
 
     xerrors::Error start() override {
         if (running_) {
-            return xerrors::NIL;  // Already started
+            return xerrors::NIL; // Already started
         }
 
         // Initialize timer if interval is configured
         if (config_.interval > 0) {
-            const auto interval = telem::TimeSpan(static_cast<int64_t>(config_.interval));
+            const auto interval = telem::TimeSpan(
+                static_cast<int64_t>(config_.interval)
+            );
             timer_ = std::make_unique<::loop::Timer>(interval);
         }
 
@@ -133,19 +135,17 @@ class PollingLoop final : public Loop {
         timer_.reset();
     }
 
-  private:
+private:
     /// @brief Busy wait for the specified duration.
     void busy_wait(uint64_t duration_ns, breaker::Breaker &breaker) {
         const auto start = std::chrono::steady_clock::now();
         while (!!breaker.running()) {
             const auto now = std::chrono::steady_clock::now();
-            const auto elapsed =
-                std::chrono::duration_cast<std::chrono::nanoseconds>(now -
-                                                                      start)
-                    .count();
-            if (elapsed >= static_cast<int64_t>(duration_ns)) {
-                break;
-            }
+            const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                     now - start
+            )
+                                     .count();
+            if (elapsed >= static_cast<int64_t>(duration_ns)) { break; }
             // Optionally yield to prevent complete CPU starvation
             // std::this_thread::yield();
         }
@@ -161,4 +161,4 @@ class PollingLoop final : public Loop {
 std::unique_ptr<Loop> create() {
     return std::make_unique<PollingLoop>();
 }
-}  // namespace arc::runtime::loop
+} // namespace arc::runtime::loop

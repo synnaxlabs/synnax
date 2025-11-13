@@ -15,7 +15,7 @@
 
 #include "x/cpp/xerrors/errors.h"
 
-#include "arc/cpp/ir/ir.h"
+#include "arc/cpp/ir/types.h"
 #include "arc/cpp/runtime/core/node.h"
 #include "arc/cpp/runtime/state/state.h"
 

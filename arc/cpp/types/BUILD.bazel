@@ -1,0 +1,11 @@
+cc_library(
+    name = "types",
+    srcs = ["types.cpp"],
+    hdrs = ["types.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/telem",
+        "//x/cpp/xjson",
+        "@nlohmann_json//:json",
+    ],
+)

@@ -7,21 +7,22 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "arc/cpp/runtime/loop/loop.h"
-
 #include <atomic>
 #include <chrono>
+#include <thread>
+
+#include "glog/logging.h"
 #include <sched.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
 #include <sys/timerfd.h>
-#include <thread>
 #include <unistd.h>
 
-#include "glog/logging.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
+
+#include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime::loop {
 /// @brief Linux epoll-based implementation of Loop.
@@ -35,7 +36,7 @@ namespace arc::runtime::loop {
 ///
 /// Supports all execution modes including full RT guarantees on PREEMPT_RT kernels.
 class LinuxLoop final : public Loop {
-  public:
+public:
     LinuxLoop() = default;
 
     ~LinuxLoop() override { stop(); }
@@ -51,8 +52,7 @@ class LinuxLoop final : public Loop {
         // Write to eventfd to wake up epoll
         const uint64_t val = 1;
         if (write(event_fd_, &val, sizeof(val)) != sizeof(val)) {
-            LOG(ERROR) << "[loop] Failed to write to eventfd: "
-                       << strerror(errno);
+            LOG(ERROR) << "[loop] Failed to write to eventfd: " << strerror(errno);
         }
 
         data_available_.store(true, std::memory_order_release);
@@ -62,44 +62,45 @@ class LinuxLoop final : public Loop {
         if (!running_) return;
 
         switch (config_.mode) {
-        case ExecutionMode::BUSY_WAIT:
-            busy_wait(breaker);
-            break;
+            case ExecutionMode::BUSY_WAIT:
+                busy_wait(breaker);
+                break;
 
-        case ExecutionMode::HIGH_RATE:
-            high_rate_wait(breaker);
-            break;
+            case ExecutionMode::HIGH_RATE:
+                high_rate_wait(breaker);
+                break;
 
-        case ExecutionMode::RT_EVENT:
-        case ExecutionMode::EVENT_DRIVEN:
-            event_driven_wait(breaker,
-                              config_.mode == ExecutionMode::EVENT_DRIVEN);
-            break;
+            case ExecutionMode::RT_EVENT:
+            case ExecutionMode::EVENT_DRIVEN:
+                event_driven_wait(breaker, config_.mode == ExecutionMode::EVENT_DRIVEN);
+                break;
 
-        case ExecutionMode::HYBRID:
-            hybrid_wait(breaker);
-            break;
+            case ExecutionMode::HYBRID:
+                hybrid_wait(breaker);
+                break;
         }
     }
 
     xerrors::Error start() override {
         if (running_) {
-            return xerrors::NIL;  // Already started
+            return xerrors::NIL; // Already started
         }
 
         // Create epoll instance
         epoll_fd_ = epoll_create1(0);
         if (epoll_fd_ == -1) {
-            return xerrors::Error("Failed to create epoll: " +
-                                  std::string(strerror(errno)));
+            return xerrors::Error(
+                "Failed to create epoll: " + std::string(strerror(errno))
+            );
         }
 
         // Create eventfd for data notifications
         event_fd_ = eventfd(0, EFD_NONBLOCK);
         if (event_fd_ == -1) {
             close(epoll_fd_);
-            return xerrors::Error("Failed to create eventfd: " +
-                                  std::string(strerror(errno)));
+            return xerrors::Error(
+                "Failed to create eventfd: " + std::string(strerror(errno))
+            );
         }
 
         // Add eventfd to epoll
@@ -109,8 +110,9 @@ class LinuxLoop final : public Loop {
         if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, event_fd_, &ev) == -1) {
             close(event_fd_);
             close(epoll_fd_);
-            return xerrors::Error("Failed to add eventfd to epoll: " +
-                                  std::string(strerror(errno)));
+            return xerrors::Error(
+                "Failed to add eventfd to epoll: " + std::string(strerror(errno))
+            );
         }
 
         // Create timerfd if interval is configured
@@ -119,22 +121,24 @@ class LinuxLoop final : public Loop {
             if (timer_fd_ == -1) {
                 close(event_fd_);
                 close(epoll_fd_);
-                return xerrors::Error("Failed to create timerfd: " +
-                                      std::string(strerror(errno)));
+                return xerrors::Error(
+                    "Failed to create timerfd: " + std::string(strerror(errno))
+                );
             }
 
             // Configure timer interval
             struct itimerspec ts;
             ts.it_interval.tv_sec = config_.interval / 1'000'000'000;
             ts.it_interval.tv_nsec = config_.interval % 1'000'000'000;
-            ts.it_value = ts.it_interval;  // Initial expiration
+            ts.it_value = ts.it_interval; // Initial expiration
 
             if (timerfd_settime(timer_fd_, 0, &ts, nullptr) == -1) {
                 close(timer_fd_);
                 close(event_fd_);
                 close(epoll_fd_);
-                return xerrors::Error("Failed to set timerfd interval: " +
-                                      std::string(strerror(errno)));
+                return xerrors::Error(
+                    "Failed to set timerfd interval: " + std::string(strerror(errno))
+                );
             }
 
             // Add timerfd to epoll
@@ -144,8 +148,9 @@ class LinuxLoop final : public Loop {
                 close(timer_fd_);
                 close(event_fd_);
                 close(epoll_fd_);
-                return xerrors::Error("Failed to add timerfd to epoll: " +
-                                      std::string(strerror(errno)));
+                return xerrors::Error(
+                    "Failed to add timerfd to epoll: " + std::string(strerror(errno))
+                );
             }
 
             timer_enabled_ = true;
@@ -155,8 +160,9 @@ class LinuxLoop final : public Loop {
         if (config_.mode == ExecutionMode::HIGH_RATE ||
             config_.mode == ExecutionMode::HYBRID) {
             if (config_.interval > 0) {
-                const auto interval =
-                    telem::TimeSpan(static_cast<int64_t>(config_.interval));
+                const auto interval = telem::TimeSpan(
+                    static_cast<int64_t>(config_.interval)
+                );
                 timer_ = std::make_unique<::loop::Timer>(interval);
             }
         }
@@ -210,7 +216,7 @@ class LinuxLoop final : public Loop {
         timer_enabled_ = false;
     }
 
-  private:
+private:
     /// @brief Busy-wait mode - continuously check epoll with zero timeout.
     void busy_wait(breaker::Breaker &breaker) {
         struct epoll_event events[2];
@@ -265,8 +271,7 @@ class LinuxLoop final : public Loop {
     /// @brief Hybrid mode - spin briefly, then block on epoll.
     void hybrid_wait(breaker::Breaker &breaker) {
         const auto spin_start = std::chrono::steady_clock::now();
-        const auto spin_duration =
-            std::chrono::microseconds(config_.spin_duration_us);
+        const auto spin_duration = std::chrono::microseconds(config_.spin_duration_us);
 
         struct epoll_event events[2];
 
@@ -286,10 +291,8 @@ class LinuxLoop final : public Loop {
         }
 
         // Block phase - wait on epoll with timeout
-        const int n = epoll_wait(epoll_fd_, events, 2, 10);  // 10ms max block
-        if (n > 0) {
-            consume_events(events, n);
-        }
+        const int n = epoll_wait(epoll_fd_, events, 2, 10); // 10ms max block
+        if (n > 0) { consume_events(events, n); }
 
         data_available_.store(false, std::memory_order_release);
     }
@@ -300,7 +303,7 @@ class LinuxLoop final : public Loop {
             uint64_t val;
             // Read and discard - just to clear the event
             ssize_t ret = read(events[i].data.fd, &val, sizeof(val));
-            (void)ret;  // Ignore return value
+            (void) ret; // Ignore return value
         }
     }
 
@@ -312,7 +315,8 @@ class LinuxLoop final : public Loop {
         if (sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
             return xerrors::Error(
                 "Failed to set SCHED_FIFO priority (requires CAP_SYS_NICE): " +
-                std::string(strerror(errno)));
+                std::string(strerror(errno))
+            );
         }
 
         return xerrors::NIL;
@@ -325,8 +329,9 @@ class LinuxLoop final : public Loop {
         CPU_SET(cpu, &cpuset);
 
         if (sched_setaffinity(0, sizeof(cpuset), &cpuset) == -1) {
-            return xerrors::Error("Failed to set CPU affinity: " +
-                                  std::string(strerror(errno)));
+            return xerrors::Error(
+                "Failed to set CPU affinity: " + std::string(strerror(errno))
+            );
         }
 
         return xerrors::NIL;
@@ -337,7 +342,8 @@ class LinuxLoop final : public Loop {
         if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1) {
             return xerrors::Error(
                 "Failed to lock memory (requires CAP_IPC_LOCK): " +
-                std::string(strerror(errno)));
+                std::string(strerror(errno))
+            );
         }
 
         return xerrors::NIL;
@@ -356,4 +362,4 @@ class LinuxLoop final : public Loop {
 std::unique_ptr<Loop> create() {
     return std::make_unique<LinuxLoop>();
 }
-}  // namespace arc::runtime::loop
+} // namespace arc::runtime::loop
