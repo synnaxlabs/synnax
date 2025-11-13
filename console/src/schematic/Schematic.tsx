@@ -22,7 +22,6 @@ import {
   type Legend,
   Menu as PMenu,
   Schematic as Core,
-  Select,
   Text,
   Theming,
   usePrevious,
