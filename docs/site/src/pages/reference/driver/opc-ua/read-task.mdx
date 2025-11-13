@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "OPC UA Read Task"
-description: "Learn how to use Read Tasks for OPC UA servers."
+description: "Learn how to acquire data from OPC UA servers with Synnax."
 next: "Write Task"
 nextURL: "/reference/driver/opc-ua/write-task"
 prev: "Connect Server"
@@ -17,7 +17,8 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Acquires data from OPC UA server nodes at a specified sample rate using software timing.
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
 
 <Divider.Divider x />
 
@@ -104,7 +105,7 @@ using Synnax-generated timestamps.
 | `node_id` | string | Yes      | -       | OPC UA NodeId containing server timestamps               |
 
 **Note**: If timestamp channels are not added to the task, Synnax automatically
-generates timestamps with ~100μs precision using software timing.
+generates timestamps with ~ 100μs precision using software timing.
 
 </ChannelTypeDetails>
 
@@ -118,14 +119,15 @@ generates timestamps with ~100μs precision using software timing.
   load, timing precision may degrade.
 - **One running task per channel**: A channel can only receive live data from one task
   at a time.
-- **Stream rate optimization**: For low-rate tasks (&lt;50Hz), set stream rate = sample
-  rate. For high-rate tasks, keep stream rate &lt;50Hz for better performance.
-- **Array mode**: Only use array mode for high-rate tasks (&gt;500 Hz). Requires tuning
-  to avoid undersampling/oversampling.
+- **Stream rate optimization**: For low-rate tasks (< 50 Hz), set the stream rate to the
+  sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
+  performance.
+- **Array mode**: Only use array mode for high-rate tasks (> 500 Hz). Requires tuning to
+  avoid undersampling/oversampling.
 
 <Divider.Divider x />
 
-## How To
+## How-To
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
@@ -137,7 +139,7 @@ generates timestamps with ~100μs precision using software timing.
   <Fragment slot="python">
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
 import synnax as sy
@@ -203,7 +205,7 @@ with task.run():
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
 # Retrieve existing task
@@ -230,7 +232,7 @@ client.hardware.tasks.configure(task)
   <Fragment slot="typescript">
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";
@@ -304,7 +306,7 @@ await streamer.close();
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
 // Retrieve existing task
@@ -336,6 +338,3 @@ await client.hardware.tasks.create({
 
   </Fragment>
 </Client.Tabs>
-
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.

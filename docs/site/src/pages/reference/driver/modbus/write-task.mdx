@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Modbus Write Task"
-description: "Learn how to use Write Tasks for Modbus TCP devices."
+description: "Learn how to send commands to Modbus TCP devices with Synnax."
 prev: "Read Task"
 prevURL: "/reference/driver/modbus/read-task"
 ---
@@ -15,20 +15,20 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Sends control commands to Modbus TCP/IP servers by writing to holding registers and
-coils.
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
 
 <Divider.Divider x />
 
 ## How Commands Work
 
-Modbus write tasks use **command channels** to send values to the server:
+Modbus Write Tasks use **command channels** to send values to the server:
 
 - **Command channels**: Write values here to send commands to the Modbus server
 - **Command time channels** (`_cmd_time`): Index channels storing command timestamps
 
-Unlike some hardware drivers, Modbus write tasks do not create separate state channels.
-Commands are written directly to the Modbus server when you write to a command channel.
+Modbus write tasks do not create separate state channels. To read back the current
+state, configure a [read task](/reference/driver/modbus/read-task) for the same address.
 
 <Divider.Divider x />
 
@@ -86,16 +86,16 @@ control signals like relay states and valve positions.
 ## Important Rules
 
 - **Direct write**: Commands are written directly to the Modbus server without state
-  feedback channels
+  feedback channels.
 - **One running task per register**: A register/coil can only be controlled by one task
-  at a time
+  at a time.
 - **Byte/word order**: Ensure swap settings match your server configuration for
-  multi-register data types
-- **Read-only registers**: Input Registers and Discrete Inputs cannot be written to
+  multi-register data types.
+- **Read-only registers**: Input Registers and Discrete Inputs cannot be written to.
 
 <Divider.Divider x />
 
-## How To
+## How-To
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
@@ -107,7 +107,7 @@ control signals like relay states and valve positions.
   <Fragment slot="python">
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
 import synnax as sy
@@ -177,7 +177,7 @@ with task.run():
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
 # Retrieve existing task
@@ -204,7 +204,7 @@ client.hardware.tasks.configure(task)
   <Fragment slot="typescript">
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
 import { Synnax, TimeStamp } from "@synnaxlabs/client";
@@ -282,7 +282,7 @@ await writer.close();
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
 // Retrieve existing task
@@ -314,6 +314,3 @@ await client.hardware.tasks.create({
 
   </Fragment>
 </Client.Tabs>
-
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.

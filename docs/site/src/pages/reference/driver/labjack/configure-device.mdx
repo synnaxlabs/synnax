@@ -18,9 +18,6 @@ import { Client } from "@/components/client";
 import { Fragment } from "react";
 export const components = mdxOverrides;
 
-The first step to start acquiring data and sending commands to your LabJack devices is
-to connect and configure your device.
-
 <Divider.Divider x />
 
 ## Prerequisites
@@ -47,16 +44,17 @@ that you have the following:
 | `rack`            | string | Yes      | Synnax Driver (rack) key where the device is connected                  |
 | `model`           | string | Yes      | LabJack model (`LJM_dtT4`, `LJM_dtT7`, or `LJM_dtT8`)                   |
 | `location`        | string | Yes      | Physical connection identifier (see below)                              |
-| `identifier`      | string | Yes      | Device identifier: serial number, IP address, device name, or `ANY`     |
+| `identifier`      | string | Yes      | Device identifier: serial number, IP address, device name, etc.         |
 | `connection_type` | string | No       | Connection method: `ANY` (default), `USB`, `TCP`, `ETHERNET`, or `WIFI` |
 
 <Note.Note variant="info" className="compact">
-  `connection_type` is only supported trough the Python and TypeScript client libraries.
+  `connection_type` is only supported through the Python and TypeScript client
+  libraries.
 </Note.Note>
 
 <Divider.Divider x />
 
-## How To
+## How-To
 
 <Note.Note variant="warning" className="compact">
   Before you begin, connect to your device and update it using

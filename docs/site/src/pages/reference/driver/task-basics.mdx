@@ -109,12 +109,12 @@ there are no errors, Synnax will enable the play button in the task form.
 
 ### Starting the Task
 
-Click the Play (<Icon.Play />) button to start the task. The task will begin executing
+Click the play (<Icon.Play />) button to start the task. The task will begin executing
 in the background, either reading data from or writing data to your hardware.
 
 ### Stopping the Task
 
-To stop a running task, click the Pause button (<Icon.Pause />). The task will stop
+To stop a running task, click the pause button (<Icon.Pause />). The task will stop
 executing, but the configuration will remain saved.
 
 <Note.Note variant="info" className="compact">
@@ -125,7 +125,7 @@ executing, but the configuration will remain saved.
 
 <Divider.Divider x />
 
-## How To
+## How-To
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
@@ -137,7 +137,7 @@ executing, but the configuration will remain saved.
   <Fragment slot="python">
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Running a Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Running a task</Text.Text>
 
 ```python
 import synnax as sy
@@ -168,7 +168,7 @@ task.start()
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Details /> List all tasks and retrieve by name</Text.Text>
 
 ```python
 import synnax as sy
@@ -199,7 +199,7 @@ analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Copy and Edit a Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Copy and edit a task</Text.Text>
 
 ```python
 import synnax as sy
@@ -231,7 +231,7 @@ client.hardware.tasks.configure(copied_task)
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Close /> Stop and delete task</Text.Text>
 
 ```python
 import synnax as sy
@@ -254,7 +254,7 @@ client.hardware.tasks.delete(task.key)
   <Fragment slot="typescript">
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Running a Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Running a task</Text.Text>
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";
@@ -291,7 +291,7 @@ await task.start();
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Details /> List All Tasks & Retrieve by Name</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Details /> List all tasks and retrieve by name</Text.Text>
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";
@@ -322,7 +322,7 @@ const analogReadTasks = allTasks.filter((t) => t.type === "ni_analog_read");
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Copy and Edit a Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Copy and edit a task</Text.Text>
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";
@@ -355,7 +355,7 @@ await client.hardware.tasks.create({
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Close /> Stop and Delete Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Close /> Stop and delete task</Text.Text>
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";

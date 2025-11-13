@@ -19,8 +19,6 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The first step to acquiring data from your PLC is to connect to an OPC UA server.
-
 <Divider.Divider x />
 
 ## Prerequisites
@@ -32,8 +30,7 @@ following:
 2. A [Synnax Driver](/reference/driver/get-started) running on your network. This Driver
    must be connected to the Core and running on the same machine or network as your OPC
    UA server.
-3. The [Synnax Console](/reference/console/get-started) installed on your local machine
-   (for Console method).
+3. The [Synnax Console](/reference/console/get-started) installed on your local machine.
 4. An OPC UA server running on your network. This server must be reachable by the
    Driver.
 
@@ -78,7 +75,7 @@ following:
 
 <Divider.Divider x />
 
-## How To
+## How-To
 
 <Client.Tabs client:load exclude={["typescript", "cpp"]}>
   <Fragment slot="console">
@@ -124,7 +121,7 @@ print(f"Connected to OPC UA server: {device.name}")
 </ExampleDetails>
 
 <ExampleDetails open>
-<Text.Text slot="summary" level="p"><Icon.Close /> Disconnect Server</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Close /> Disconnect server</Text.Text>
 
 ```python
 import synnax as sy

@@ -11,9 +11,7 @@ import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Synnax Driver supports reading and writing data from LabJack devices. This page will
-walk you through the steps to start acquiring data from your LabJack devices using the
-Driver.
+The Synnax Driver supports reading and writing data from LabJack devices.
 
 <Divider.Divider x />
 
@@ -21,7 +19,7 @@ Driver.
 
 The
 [LabJack LJM library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit)
-must best installed for the Driver to communicate with your LabJack devices.
+must be installed for the Driver to communicate with your LabJack devices.
 
 <Divider.Divider x />
 
@@ -39,9 +37,10 @@ Synnax supports reading and writing data to all LabJack T-Series devices.
 
 ## Supported Operating Systems
 
-| Platform                      | Status          |
-| ----------------------------- | --------------- |
-| <Icon.Logo.Windows /> Windows | ✓ Supported     |
-| <Icon.Logo.Apple /> macOS     | ✓ Supported     |
-| <Icon.Logo.Linux /> Linux     | ✓ Supported     |
-| <Icon.Logo.Docker /> Docker   | ✗ Not Supported |
+| Platform                            | Status          |
+| ----------------------------------- | --------------- |
+| <Icon.Logo.Windows /> Windows       | ✓ Supported     |
+| <Icon.Logo.Linux /> Linux           | ✓ Supported     |
+| <Icon.Logo.NI /> NI Linux Real-Time | ✗ Not Supported |
+| <Icon.Logo.Apple /> macOS           | ✓ Supported     |
+| <Icon.Logo.Docker /> Docker         | ✗ Not Supported |

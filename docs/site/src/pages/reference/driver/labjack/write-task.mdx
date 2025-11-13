@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "LabJack Write Task"
-description: "Learn how to use Write Tasks for LabJack hardware."
+description: "Learn how to send commands to LabJack devices with Synnax."
 prev: "Read Task"
 prevURL: "/reference/driver/labjack/read-task"
 ---
@@ -15,7 +15,8 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Sends control commands to analog and digital outputs on LabJack devices.
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
 
 <Divider.Divider x />
 
@@ -76,14 +77,14 @@ Writes digital state (0 or 1) to a specified digital I/O line.
 
 ## Important Rules
 
-- **Command/State pairs**: Each output requires both a command and state channel
-- **State rate**: Higher state rates provide faster feedback but consume more resources
+- **Command/State pairs**: Each output requires both a command and state channel.
+- **State rate**: Higher state rates provide faster feedback but consume more resources.
 - **One running task per channel**: A channel can only send commands to one task at a
-  time
+  time.
 
 <Divider.Divider x />
 
-## How To
+## How-To
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
@@ -95,7 +96,7 @@ Writes digital state (0 or 1) to a specified digital I/O line.
   <Fragment slot="python">
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
 import synnax as sy
@@ -195,7 +196,7 @@ with task.run():
 
 </ExampleDetails>
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
 # Retrieve existing task
@@ -222,7 +223,7 @@ client.hardware.tasks.configure(task)
   <Fragment slot="typescript">
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
 import { Synnax, TimeStamp, Rate } from "@synnaxlabs/client";
@@ -335,7 +336,7 @@ await streamer.close();
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
 // Retrieve existing task
@@ -367,6 +368,3 @@ await client.hardware.tasks.create({
 
   </Fragment>
 </Client.Tabs>
-
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.

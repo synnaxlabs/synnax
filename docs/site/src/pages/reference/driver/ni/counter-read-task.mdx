@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "NI Counter Read Task"
-description: "Learn how to use Counter Read Tasks for NI hardware."
+description: "Learn how to acquire counter data from NI devices with Synnax."
 next: "Digital Read Task"
 nextURL: "/reference/driver/ni/digital-read-task"
 prev: "Analog Write Task"
@@ -17,9 +17,8 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Acquires data from counter inputs on NI devices at a specified sample rate. Counter
-tasks can measure frequency, count edges, track encoder positions, measure pulse widths,
-and more.
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
 
 <Divider.Divider x />
 
@@ -269,13 +268,13 @@ Measures the duty cycle of a periodic signal.
 - **Sample rates**: All channels in a task sample at the same rate. Create separate
   tasks for different rates.
 - **One task per module**: Only one running task can claim a module at a time.
-- **Stream rate optimization**: For low-rate tasks (&lt;50Hz), set stream rate = sample
-  rate. For high-rate tasks, keep stream rate &lt;50Hz for better performance.
+- **Stream rate optimization**: For low-rate tasks (< 50 Hz), set the stream rate to the
+  sample rate. For high-rate tasks, keep stream the rate < 50 Hz for better performance.
 - **Port validation**: Counter ports cannot be duplicated within the same task.
 
 <Divider.Divider x />
 
-## How To
+## How-To
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
@@ -287,7 +286,7 @@ Measures the duty cycle of a periodic signal.
   <Fragment slot="python">
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
 import synnax as sy
@@ -377,7 +376,7 @@ with task.run():
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
 # Retrieve existing task
@@ -417,7 +416,7 @@ client.hardware.tasks.configure(task)
   <Fragment slot="typescript">
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";
@@ -523,7 +522,7 @@ await streamer.close();
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
 // Retrieve existing task
@@ -568,6 +567,3 @@ await client.hardware.tasks.create({
 
   </Fragment>
 </Client.Tabs>
-
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.

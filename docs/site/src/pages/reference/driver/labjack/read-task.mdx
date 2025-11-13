@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "LabJack Read Task"
-description: "Learn how to use Read Tasks for LabJack hardware."
+description: "Learn how to acquire data from LabJack devices with Synnax."
 prev: "Configure a Device"
 prevURL: "/reference/driver/labjack/configure-device"
 next: "Write Task"
@@ -17,8 +17,8 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Acquires data from analog and digital inputs on LabJack devices at a specified sample
-rate.
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
 
 <Divider.Divider x />
 
@@ -60,8 +60,9 @@ Reads temperature from a thermocouple with cold junction compensation (CJC).
 
 <Note.Note variant="warning">
   **Performance Note**: Thermocouple channels use LabJack's built-in thermocouple
-  features, which reduce the maximum reliable sample rate compared to tasks with only
-  analog or digital inputs.
+  features, which [reduce the maximum reliable sample
+  rate](https://support.labjack.com/docs/using-a-thermocouple-with-the-t7#UsingaThermocouplewiththeT7-ThermocouplesinStreamMode)
+  compared to tasks with only analog or digital inputs.
 </Note.Note>
 
 | Parameter           | Type   | Required | Default                | Description                                                             |
@@ -106,12 +107,13 @@ Reads digital state (0 or 1) from a specified digital I/O line.
   sample rates due to LJM thermocouple processing.
 - **One running task per channel**: A channel can only receive live data from one task
   at a time.
-- **Stream rate optimization**: For low-rate tasks (&lt;50Hz), set stream rate = sample
-  rate. For high-rate tasks, keep stream rate &lt;50Hz for better performance.
+- **Stream rate optimization**: For low-rate tasks (< 50 Hz), set the stream rate to the
+  sample rate. For high-rate tasks, keep stream rate less than 50 Hz for better
+  performance.
 
 <Divider.Divider x />
 
-## How To
+## How-To
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
@@ -123,7 +125,7 @@ Reads digital state (0 or 1) from a specified digital I/O line.
   <Fragment slot="python">
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
 import synnax as sy
@@ -203,7 +205,7 @@ with task.run():
 
 </ExampleDetails>
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
 # Retrieve existing task
@@ -235,7 +237,7 @@ client.hardware.tasks.configure(task)
   <Fragment slot="typescript">
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and Run Task</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";
@@ -328,7 +330,7 @@ await streamer.close();
 </ExampleDetails>
 
 <ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Edit Task Configuration</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
 // Retrieve existing task
@@ -365,6 +367,3 @@ await client.hardware.tasks.create({
 
   </Fragment>
 </Client.Tabs>
-
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
