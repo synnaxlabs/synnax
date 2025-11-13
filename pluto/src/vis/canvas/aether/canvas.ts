@@ -18,8 +18,8 @@ import { render } from "@/vis/render";
 export const canvasStateZ = z.object({
   dpr: z.number(),
   region: box.box,
-  bootstrap: z.boolean().optional().default(false),
-  bootstrapped: z.boolean().optional().default(false),
+  bootstrap: z.boolean().default(false),
+  bootstrapped: z.boolean().default(false),
   // We set all of these to ay because nodejs can't identify OffscreenCanvas
   // and polyfilling causes more problems than it solves
   glCanvas: z.any().optional(),

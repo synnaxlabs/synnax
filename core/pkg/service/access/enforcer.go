@@ -22,5 +22,5 @@ type Request struct {
 }
 
 type Enforcer interface {
-	Enforce(ctx context.Context, req Request) error
+	Enforce(context.Context, Request) error
 }

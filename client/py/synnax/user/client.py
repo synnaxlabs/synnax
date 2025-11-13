@@ -49,13 +49,6 @@ class _ChangeNameRequest(Payload):
     last_name: str
 
 
-_CREATE_ENDPOINT = "/user/create"
-_CHANGE_USERNAME_ENDPOINT = "/user/change_username"
-_CHANGE_NAME_ENDPOINT = "/user/change_name"
-_DELETE_ENDPOINT = "/user/delete"
-_RETRIEVE_ENDPOINT = "/user/retrieve"
-
-
 class Client:
     client: UnaryClient
 
@@ -108,7 +101,7 @@ class Client:
             users = [user]
         res = send_required(
             self.client,
-            _CREATE_ENDPOINT,
+            "/user/create",
             _CreateRequest(users=users),
             _CreateResponse,
         ).users
@@ -119,7 +112,7 @@ class Client:
     def change_username(self, key: UUID, username: str) -> None:
         send_required(
             self.client,
-            _CHANGE_USERNAME_ENDPOINT,
+            "/user/change_username",
             _ChangeUsernameRequest(key=key, username=username),
             Empty,
         )
@@ -129,7 +122,7 @@ class Client:
     ) -> None:
         send_required(
             self.client,
-            _CHANGE_NAME_ENDPOINT,
+            "/user/change_name",
             _ChangeNameRequest(key=key, first_name=first_name, last_name=last_name),
             Empty,
         )
@@ -161,7 +154,7 @@ class Client:
             usernames = normalize(username)
         return send_required(
             self.client,
-            _RETRIEVE_ENDPOINT,
+            "/user/retrieve",
             _RetrieveRequest(keys=keys, usernames=usernames),
             _RetrieveResponse,
         ).users
@@ -169,7 +162,7 @@ class Client:
     def delete(self, keys: UUID | list[UUID] | None = None) -> None:
         send_required(
             self.client,
-            _DELETE_ENDPOINT,
+            "/user/delete",
             _DeleteRequest(keys=normalize(keys)),
             Empty,
         )

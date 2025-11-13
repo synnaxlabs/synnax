@@ -31,10 +31,10 @@ export const logState = z.object({
   scrolling: z.boolean(),
   empty: z.boolean(),
   visible: z.boolean(),
-  telem: telem.seriesSourceSpecZ.optional().default(telem.noopSeriesSourceSpec),
-  font: text.levelZ.optional().default("p"),
-  color: color.colorZ.optional().default(color.ZERO),
-  overshoot: xy.xy.optional().default({ x: 0, y: 0 }),
+  telem: telem.seriesSourceSpecZ.default(telem.noopSeriesSourceSpec),
+  font: text.levelZ.default("p"),
+  color: color.colorZ.default(color.ZERO),
+  overshoot: xy.xy.default({ x: 0, y: 0 }),
 });
 
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;

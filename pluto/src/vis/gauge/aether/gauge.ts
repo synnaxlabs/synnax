@@ -31,19 +31,19 @@ export const gaugeSizeZ = z.enum(["small", "medium", "large", "huge"]);
 
 const gaugeState = z.object({
   box: box.box,
-  telem: telem.stringSourceSpecZ.optional().default(telem.noopStringSourceSpec),
-  backgroundTelem: telem.colorSourceSpecZ.optional().default(telem.noopColorSourceSpec),
-  level: text.levelZ.optional().default("p"),
-  color: color.colorZ.optional().default(color.ZERO),
-  precision: z.number().optional().default(2),
-  minWidth: z.number().optional().default(60),
+  telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
+  backgroundTelem: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
+  level: text.levelZ.default("p"),
+  color: color.colorZ.default(color.ZERO),
+  precision: z.number().default(2),
+  minWidth: z.number().default(60),
   width: z.number().optional(),
-  notation: notation.notationZ.optional().default("standard"),
-  location: location.xy.optional().default({ x: "left", y: "center" }),
-  units: z.string().optional().default("RPM"),
-  bounds: bounds.bounds.optional().default(bounds.construct(0, 100)),
+  notation: notation.notationZ.default("standard"),
+  location: location.xy.default({ x: "left", y: "center" }),
+  units: z.string().default("RPM"),
+  bounds: bounds.bounds.default(bounds.construct(0, 100)),
   // New gauge configuration properties
-  barWidth: z.number().optional().default(12), // Width of the gauge bar in pixels
+  barWidth: z.number().default(12), // Width of the gauge bar in pixels
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];

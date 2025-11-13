@@ -15,7 +15,7 @@ import { render } from "@/vis/render";
 
 export const eraserStateZ = z.object({
   region: box.box,
-  enabled: z.boolean().optional().default(false),
+  enabled: z.boolean().default(false),
 });
 
 interface InternalState {

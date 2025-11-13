@@ -21,7 +21,7 @@ import (
 func (s *Service) migrateChannels(ctx context.Context) error {
 	var legacyCalculations []channel.Channel
 	if err := s.cfg.Channels.NewRetrieve().
-		WhereLegacyCalculated().
+		WhereLegacyCalculated(true).
 		Entries(&legacyCalculations).
 		Exec(ctx, nil); err != nil {
 		return err

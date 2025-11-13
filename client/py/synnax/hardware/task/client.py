@@ -53,10 +53,6 @@ class _RetrieveResponse(Payload):
     tasks: list[TaskPayload] | None = None
 
 
-_CREATE_ENDPOINT = "/hardware/task/create"
-_DELETE_ENDPOINT = "/hardware/task/delete"
-_RETRIEVE_ENDPOINT = "/hardware/task/retrieve"
-
 _TASK_STATE_CHANNEL = "sy_task_status"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
 
@@ -288,9 +284,13 @@ class Client:
         for pld in tasks:
             self.maybe_assign_def_rack(pld, rack)
         req = _CreateRequest(tasks=tasks)
-        res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
-        st = self.sugar(res.tasks)
-        return st[0] if is_single else st
+        tasks = self.__exec_create(req)
+        sugared = self.sugar(tasks)
+        return sugared[0] if is_single else sugared
+
+    def __exec_create(self, req: _CreateRequest) -> list[TaskPayload]:
+        res = send_required(self._client, "/hardware/task/create", req, _CreateResponse)
+        return res.tasks
 
     def maybe_assign_def_rack(self, pld: TaskPayload, rack: int = 0) -> Rack:
         if self._default_rack is None:
@@ -307,8 +307,8 @@ class Client:
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
             pld = self.maybe_assign_def_rack(task.to_payload())
             req = _CreateRequest(tasks=[pld])
-            res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
-            task.set_internal(self.sugar(res.tasks)[0])
+            tasks = self.__exec_create(req)
+            task.set_internal(self.sugar(tasks)[0])
             while True:
                 frame = streamer.read(timeout)
                 if frame is None:
@@ -333,7 +333,7 @@ class Client:
 
     def delete(self, keys: int | list[int]):
         req = _DeleteRequest(keys=normalize(keys))
-        send_required(self._client, _DELETE_ENDPOINT, req, Empty)
+        send_required(self._client, "/hardware/task/delete", req, Empty)
 
     @overload
     def retrieve(
@@ -364,7 +364,7 @@ class Client:
         is_single = check_for_none(names, keys, types)
         res = send_required(
             self._client,
-            _RETRIEVE_ENDPOINT,
+            "/hardware/task/retrieve",
             _RetrieveRequest(
                 keys=override(key, keys),
                 names=override(name, names),
