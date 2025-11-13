@@ -145,10 +145,7 @@ struct Channels {
 
     explicit Channels(xjson::Parser parser) {
         this->read = parser.field<std::map<types::ChannelKey, std::string>>("read", {});
-        this->write = parser.field<std::map<types::ChannelKey, std::string>>(
-            "write",
-            {}
-        );
+        this->write = parser.field<std::map<types::ChannelKey, std::string>>("write", {});
     }
 
     [[nodiscard]] nlohmann::json to_json() const {
@@ -174,9 +171,9 @@ struct Node {
         this->key = parser.field<std::string>("key");
         this->type = parser.field<std::string>("type");
         this->channels = parser.field<Channels>("channels");
-        this->config = Params(parser.field<std::vector<Param>>("config"));
-        this->inputs = Params(parser.field<std::vector<Param>>("inputs"));
-        this->outputs = Params(parser.field<std::vector<Param>>("outputs"));
+        this->config = Params(parser.field<std::vector<Param>>("config", {}));
+        this->inputs = Params(parser.field<std::vector<Param>>("inputs", {}));
+        this->outputs = Params(parser.field<std::vector<Param>>("outputs", {}));
     }
 
     [[nodiscard]] nlohmann::json to_json() const {
@@ -202,9 +199,9 @@ struct Function {
     explicit Function(xjson::Parser parser) {
         this->key = parser.field<std::string>("key");
         this->channels = parser.field<Channels>("channels");
-        this->config = Params(parser.field<std::vector<Param>>("config"));
-        this->inputs = Params(parser.field<std::vector<Param>>("inputs"));
-        this->outputs = Params(parser.field<std::vector<Param>>("outputs"));
+        this->config = Params(parser.field<std::vector<Param>>("config", {}));
+        this->inputs = Params(parser.field<std::vector<Param>>("inputs", {}));
+        this->outputs = Params(parser.field<std::vector<Param>>("outputs", {}));
     }
 
     [[nodiscard]] nlohmann::json to_json() const {
