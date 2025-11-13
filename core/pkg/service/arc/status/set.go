@@ -37,7 +37,7 @@ var (
 				{Name: "status_key", Type: types.String()},
 				{Name: "variant", Type: types.String()},
 				{Name: "message", Type: types.String()},
-				{Name: "name", Type: types.String()},
+				{Name: "name", Type: types.String(), Value: ""},
 			},
 			Inputs: types.Params{
 				{Name: ir.DefaultOutputParam, Type: types.U8()},

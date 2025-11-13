@@ -20,7 +20,7 @@ import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/lineplot/export";
-import { useSelect } from "@/lineplot/selectors";
+import { useSelectToolbar } from "@/lineplot/selectors";
 import { setActiveToolbarTab, type ToolbarTab } from "@/lineplot/slice";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
 import { Axes } from "@/lineplot/toolbar/Axes";
@@ -49,7 +49,7 @@ export interface ToolbarProps {
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
-  const state = useSelect(layoutKey);
+  const state = useSelectToolbar(layoutKey);
   const handleExport = useExport();
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
@@ -78,11 +78,11 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const value = useMemo(
     () => ({
       tabs: TABS,
-      selected: state.toolbar.activeTab,
+      selected: state?.activeTab,
       content,
       onSelect: handleTabSelect,
     }),
-    [state.toolbar.activeTab, content, handleTabSelect],
+    [state?.activeTab, content, handleTabSelect],
   );
   if (state == null) return null;
   return (
@@ -101,10 +101,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               >
                 <Icon.CSV />
               </Button.Button>
-              <Export.ToolbarButton onExport={() => handleExport(state.key)} />
+              <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
-                ontologyID={lineplot.ontologyID(state.key)}
+                ontologyID={lineplot.ontologyID(layoutKey)}
               />
             </Flex.Box>
             <Tabs.Selector style={{ borderBottom: "none" }} />

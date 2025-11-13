@@ -41,6 +41,21 @@
                   "description": "Parameters to pass to the test case",
                   "additionalProperties": true
                 },
+                "matrix": {
+                  "type": "object",
+                  "description": "Matrix of parameters to expand into multiple test runs.",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        { "type": "string" },
+                        { "type": "number" },
+                        { "type": "boolean" }
+                      ]
+                    },
+                    "minItems": 2
+                  }
+                },
                 "expect": {
                   "type": "string",
                   "enum": ["TIMEOUT", "FAILED", "PASSED"],

@@ -88,6 +88,12 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
             ni::ReadTaskConfig,
             ni::ReadTaskSource<uint8_t>,
             common::ReadTask>(ctx, task);
+    else if (task.type == COUNTER_READ_TASK_TYPE)
+        res = configure<
+            hardware::daqmx::CounterReader,
+            ni::ReadTaskConfig,
+            ni::ReadTaskSource<double>,
+            common::ReadTask>(ctx, task);
     else if (task.type == ANALOG_WRITE_TASK_TYPE)
         res = configure<
             hardware::daqmx::AnalogWriter,

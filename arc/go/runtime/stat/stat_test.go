@@ -320,7 +320,7 @@ var _ = Describe("Stat", func() {
 			inputNode := s.Node("input")
 			resetNode := s.Node("reset_signal")
 			n := MustSucceed(stat.Factory.Create(ctx, node.Config{
-				Node:   ir.Node{Type: "avg"},
+				Node:   ir.Node{Type: "avg", Key: "avg"},
 				State:  s.Node("avg"),
 				Module: module.Module{IR: analyzed},
 			}))

@@ -106,7 +106,10 @@ export const createStreamOpener =
       client = client.withCodec(new WSStreamerCodec(adapter.codec));
     const stream = await client.stream("/frame/stream", reqZ, resZ);
     const streamer = new CoreStreamer(stream, adapter);
-    stream.send({ keys: adapter.keys, downsampleFactor: cfg.downsampleFactor ?? 1 });
+    stream.send({
+      keys: Array.from(adapter.keys),
+      downsampleFactor: cfg.downsampleFactor,
+    });
     const [, err] = await stream.receive();
     if (err != null) throw err;
     return streamer;
@@ -137,7 +140,7 @@ class CoreStreamer implements Streamer {
   }
 
   get keys(): channel.Key[] {
-    return this.adapter.keys;
+    return Array.from(this.adapter.keys);
   }
 
   async next(): Promise<IteratorResult<Frame, any>> {
@@ -158,7 +161,7 @@ class CoreStreamer implements Streamer {
     const hasChanged = await this.adapter.update(channels);
     if (!hasChanged) return;
     this.stream.send({
-      keys: this.adapter.keys,
+      keys: Array.from(this.adapter.keys),
       downsampleFactor: this.downsampleFactor,
     });
   }

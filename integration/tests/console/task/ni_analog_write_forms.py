@@ -31,7 +31,7 @@ class NIAnalogWriteForms(ConsoleCase):
         # Talks to NI MAX sim devices
         rack_name = f"TestRack_{random.randint(100, 999)}"
         device_name = "E203"
-        sy.sleep(5)
+
         self.log("Creating NI Analog Write Task")
         console.ni_ao.new()
 

@@ -28,7 +28,7 @@ class DownloadCSV(ConsoleCase):
         console = self.console
         client = self.client
         index_channel = client.channels.create(
-            name="download_csv_index",
+            name="download_csv_csv_index",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
@@ -36,7 +36,7 @@ class DownloadCSV(ConsoleCase):
             f"Created index channel {index_channel.name} with key {index_channel.key} and data type {index_channel.data_type}"
         )
         data_channel = client.channels.create(
-            name="download_csv_data",
+            name="download_csv_csv_data",
             data_type=sy.DataType.FLOAT32,
             index=index_channel.key,
         )
@@ -69,8 +69,12 @@ class DownloadCSV(ConsoleCase):
         csv_file = io.StringIO(csv_data)
         reader = csv.reader(csv_file)
         header = next(reader)
-        assert header[0] == index_channel.name
-        assert header[1] == data_channel.name
+        assert (
+            header[0] == index_channel.name
+        ), f"Header {header[0]} != {index_channel.name}"
+        assert (
+            header[1] == data_channel.name
+        ), f"Header {header[1]} != {data_channel.name}"
         i = 0
         for row in reader:
             assert row[0] == str(
