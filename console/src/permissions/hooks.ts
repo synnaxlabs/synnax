@@ -24,7 +24,7 @@ export const useFetchPermissions = (): void => {
         dispatch(giveAll());
         return;
       }
-      const username = client.props.username;
+      const username = client.params.username;
       try {
         const user = await client.users.retrieve({ username });
         if (signal.aborted) return;
