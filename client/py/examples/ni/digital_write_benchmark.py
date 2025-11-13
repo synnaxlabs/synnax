@@ -81,7 +81,7 @@ client.hardware.tasks.configure(tsk)
 durations = list()
 
 # Start the task.
-with tsk.start():
+with tsk.run():
     with client.control.acquire(
         name="Control Sequence",
         read=["do_1_state"],

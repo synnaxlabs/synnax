@@ -12,16 +12,20 @@ from __future__ import annotations
 import json
 import warnings
 from contextlib import contextmanager
-from typing import Protocol, overload
+from typing import TYPE_CHECKING, Protocol, overload
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from synnax.ontology.client import Client as OntologyClient
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError, conint, field_validator
 
 from synnax import UnexpectedError
 from synnax.exceptions import ConfigurationError
 from synnax.framer import Client as FrameClient
+from synnax.hardware import device
 from synnax.hardware.rack import Client as RackClient
 from synnax.hardware.rack import Rack
 from synnax.hardware.task.payload import TaskPayload, TaskStatus
@@ -41,12 +45,24 @@ class _DeleteRequest(Payload):
     keys: list[int]
 
 
+class _CopyRequest(Payload):
+    key: int
+    name: str
+    snapshot: bool
+
+
+class _CopyResponse(Payload):
+    task: TaskPayload
+
+
 class _RetrieveRequest(Payload):
     rack: int | None = None
     keys: list[int] | None = None
     names: list[str] | None = None
     types: list[str] | None = None
     include_status: bool = False
+    internal: bool | None = None
+    snapshot: bool | None = None
 
 
 class _RetrieveResponse(Payload):
@@ -56,9 +72,65 @@ class _RetrieveResponse(Payload):
 _CREATE_ENDPOINT = "/hardware/task/create"
 _DELETE_ENDPOINT = "/hardware/task/delete"
 _RETRIEVE_ENDPOINT = "/hardware/task/retrieve"
+_COPY_ENDPOINT = "/hardware/task/copy"
 
 _TASK_STATE_CHANNEL = "sy_task_status"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
+
+
+class BaseTaskConfig(BaseModel):
+    """
+    Base configuration shared by all hardware task types.
+
+    This base class provides common fields that all hardware integration tasks need:
+    auto-start behavior.
+    """
+
+    auto_start: bool = False
+
+
+class BaseReadTaskConfig(BaseTaskConfig):
+    """
+    Base configuration for hardware read/acquisition tasks.
+
+    Extends BaseTaskConfig with sample rate and stream rate fields common to
+    all data acquisition tasks (LabJack, NI, Modbus, OPC UA read tasks).
+
+    Default rate limits are set to 50 kHz based on NI hardware constraints,
+    which are the most restrictive across supported hardware platforms.
+    Hardware-specific configs can override these limits for devices that
+    support higher rates.
+    """
+
+    data_saving: bool = True
+    "Whether to persist acquired data to disk (True) or only stream it (False)."
+    sample_rate: conint(ge=0, le=50000)
+    "The rate at which to sample data from the hardware device (Hz)."
+    stream_rate: conint(ge=0, le=50000)
+    "The rate at which acquired data will be streamed to the Synnax cluster (Hz)."
+
+    @field_validator("stream_rate")
+    def validate_stream_rate(cls, v, info):
+        """Validate that stream_rate is less than or equal to sample_rate."""
+        if "sample_rate" in info.data and v > info.data["sample_rate"]:
+            raise ValueError(
+                "Stream rate must be less than or equal to the sample rate"
+            )
+        return v
+
+
+class BaseWriteTaskConfig(BaseTaskConfig):
+    """
+    Base configuration for hardware write/control tasks.
+
+    Provides common fields (device, auto_start) for all hardware write tasks.
+    Note that state_rate and data_saving are NOT included in this base class as they
+    are hardware-specific - only write tasks with state feedback (NI, LabJack) use
+    these fields. Tasks without state feedback (Modbus, OPC UA) do not need them.
+    """
+
+    device: str = Field(min_length=1)
+    "The key of the Synnax device this task will communicate with."
 
 
 class Task:
@@ -107,6 +179,14 @@ class Task:
         self.config = task.config
         self.snapshot = task.snapshot
         self._frame_client = task._frame_client
+
+    def update_device_properties(self, device_client) -> None:
+        """Update device properties before task configuration.
+
+        Default implementation does nothing. Tasks that need to update device
+        properties should override this method.
+        """
+        pass
 
     def execute_command(self, type_: str, args: dict | None = None) -> str:
         """Executes a command on the task and returns the unique key assigned to the
@@ -168,6 +248,18 @@ class MetaTask(Protocol):
     def to_payload(self) -> TaskPayload: ...
 
     def set_internal(self, task: Task): ...
+
+    def update_device_properties(self, device_client) -> None:
+        """Update device properties before task configuration.
+
+        This method can be overridden by tasks that need to synchronize
+        their configuration with device properties (e.g., Modbus, OPC UA, LabJack).
+        The default implementation does nothing.
+
+        Args:
+            device_client: Client for accessing device operations
+        """
+        ...
 
 
 class StarterStopperMixin:
@@ -235,6 +327,8 @@ class Client:
     _frame_client: FrameClient
     _default_rack: Rack | None
     _racks: RackClient
+    _device_client: device.Client | None
+    _ontology_client: OntologyClient | None
     instrumentation: Instrumentation = NOOP
 
     def __init__(
@@ -242,11 +336,15 @@ class Client:
         client: UnaryClient,
         frame_client: FrameClient,
         rack_client: RackClient,
+        device_client: device.Client | None = None,
+        ontology_client: OntologyClient | None = None,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
         self._frame_client = frame_client
         self._racks = rack_client
+        self._device_client = device_client
+        self._ontology_client = ontology_client
         self._default_rack = None
         self.instrumentation = instrumentation
 
@@ -304,6 +402,10 @@ class Client:
         return pld
 
     def configure(self, task: MetaTask, timeout: float = 5) -> MetaTask:
+        # Call task-specific device property update (e.g., for Modbus, OPC UA, LabJack)
+        if self._device_client is not None:
+            task.update_device_properties(self._device_client)
+
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
             pld = self.maybe_assign_def_rack(task.to_payload())
             req = _CreateRequest(tasks=[pld])
@@ -373,7 +475,53 @@ class Client:
             _RetrieveResponse,
         )
         sug = self.sugar(res.tasks)
+
+        # Warn if multiple tasks found when retrieving by name
+        if is_single and name is not None and len(sug) > 1:
+            task_keys = ", ".join(str(t.key) for t in sug)
+            warnings.warn(
+                f"Multiple tasks ({len(sug)}) found with name '{name}'. "
+                f"Keys: [{task_keys}]. Returning the first task ({sug[0].key}).",
+                UserWarning,
+                stacklevel=2,
+            )
+
         return sug[0] if is_single else sug
+
+    def list(self, rack: int | None = None) -> list[Task]:
+        """Lists all tasks on a rack. If no rack is specified, lists all tasks on the
+        default rack. Excludes internal system tasks (scanner tasks and rack state).
+
+        :param rack: The rack key to list tasks from. If None, uses the default rack.
+        :return: A list of all user-created tasks on the specified rack.
+        """
+        if rack is None and self._default_rack is None:
+            self._default_rack = self._racks.retrieve_embedded_rack()
+        if rack is None:
+            rack = self._default_rack.key
+
+        res = send_required(
+            self._client,
+            _RETRIEVE_ENDPOINT,
+            _RetrieveRequest(rack=rack, internal=False),
+            _RetrieveResponse,
+        )
+        return self.sugar(res.tasks)
+
+    def copy(
+        self,
+        key: int,
+        name: str,
+    ) -> Task:
+        """Copies an existing task with a new name.
+
+        :param key: The key of the task to copy.
+        :param name: The name for the new task.
+        :return: The newly created task.
+        """
+        req = _CopyRequest(key=key, name=name, snapshot=False)
+        res = send_required(self._client, _COPY_ENDPOINT, req, _CopyResponse)
+        return self.sugar([res.task])[0]
 
     def sugar(self, tasks: list[Payload]):
         return [Task(**t.model_dump(), _frame_client=self._frame_client) for t in tasks]
