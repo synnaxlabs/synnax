@@ -14,9 +14,10 @@
 //   - Analyze: Performs semantic analysis and builds Intermediate Representation (IR)
 //   - Compile: Generates WebAssembly bytecode from IR
 //
-// The analyzer uses a two-pass approach: first analyzing function declarations
-// and building the symbol table, then processing flow statements to construct
-// the execution graph of nodes and edges.
+// The analyzer uses a multi-pass approach:
+//  1. Analyze function declarations and build the symbol table
+//  2. Process flow statements to construct nodes and edges
+//  3. Calculate execution stratification for deterministic reactive execution
 package text
 
 import (
@@ -32,6 +33,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
@@ -121,6 +123,16 @@ func Analyze(
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		}
+	}
+
+	// Step 4: Calculate execution stratification for deterministic reactive execution
+	if len(i.Nodes) > 0 {
+		strata, diag := stratifier.Stratify(ctx_, i.Nodes, i.Edges, ctx.Diagnostics)
+		if diag != nil && !diag.Ok() {
+			ctx.Diagnostics = diag
+			return i, ctx.Diagnostics
+		}
+		i.Strata = strata
 	}
 
 	return i, ctx.Diagnostics
