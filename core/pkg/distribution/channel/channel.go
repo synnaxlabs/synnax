@@ -239,14 +239,14 @@ func (c Channel) Equals(other Channel, exclude ...string) bool {
 		{"Expression", c.Expression == other.Expression},
 	}
 
-	if !lo.Contains(exclude, "Operations") {
-		if !slices.Equal(c.Operations, other.Operations) {
+	for _, comp := range comparisons {
+		if !comp.equal && !lo.Contains(exclude, comp.field) {
 			return false
 		}
 	}
 
-	for _, comp := range comparisons {
-		if !comp.equal && !lo.Contains(exclude, comp.field) {
+	if !lo.Contains(exclude, "Operations") {
+		if !slices.Equal(c.Operations, other.Operations) {
 			return false
 		}
 	}
