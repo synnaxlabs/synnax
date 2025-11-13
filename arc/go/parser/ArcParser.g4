@@ -34,12 +34,13 @@ input
     ;
 
 outputType
-    : type                      // Single output (existing)
-    | multiOutputBlock          // Multiple named outputs
+    : type                                          // Unnamed single output: f64
+    | IDENTIFIER type                               // Named single output without parens: result f64
+    | multiOutputBlock                              // Multiple or single named outputs with parens
     ;
 
 multiOutputBlock
-    : LBRACE namedOutput* RBRACE
+    : LPAREN namedOutput (COMMA namedOutput)* RPAREN
     ;
 
 namedOutput

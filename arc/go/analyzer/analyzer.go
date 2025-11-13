@@ -173,11 +173,27 @@ func analyzeOutputs[T antlr.ParserRuleContext](
 	if outputType == nil {
 		return true
 	}
+
+	// Case 1: Single named output without parens (e.g., "result f64")
+	if identifier := outputType.IDENTIFIER(); identifier != nil && outputType.Type_() != nil {
+		outputName := identifier.GetText()
+		outputTypeVal, _ := atypes.InferFromTypeContext(outputType.Type_())
+		*outputs = append(*outputs, types.Param{Name: outputName, Type: outputTypeVal})
+		if _, err := scope.Add(ctx, symbol.Symbol{Name: outputName, Kind: symbol.KindOutput, Type: outputTypeVal, AST: outputType}); err != nil {
+			ctx.Diagnostics.AddError(err, outputType)
+			return false
+		}
+		return true
+	}
+
+	// Case 2: Unnamed single output (e.g., "f64")
 	if typeCtx := outputType.Type_(); typeCtx != nil {
 		outputTypeVal, _ := atypes.InferFromTypeContext(typeCtx)
 		*outputs = append(*outputs, types.Param{Name: ir.DefaultOutputParam, Type: outputTypeVal})
 		return true
 	}
+
+	// Case 3: Multiple or parenthesized outputs (e.g., "(result f64)" or "(a f64, b f64)")
 	if multiOutputBlock := outputType.MultiOutputBlock(); multiOutputBlock != nil {
 		for _, namedOutput := range multiOutputBlock.AllNamedOutput() {
 			outputName := namedOutput.IDENTIFIER().GetText()

@@ -353,9 +353,7 @@ var _ = Describe("Compiler", func() {
 	Describe("Named Output Routing", func() {
 		It("Should compile a debug multi-param function", func() {
 			output := MustSucceed(compile(`
-			func debug(x i64, y i64) {
-				out i64
-			} {
+			func debug(x i64, y i64) (out i64) {
 				out = x + y
 			}
 			`, nil))
@@ -378,10 +376,7 @@ var _ = Describe("Compiler", func() {
 
 		It("Should compile a basic multi-output function", func() {
 			output := MustSucceed(compile(`
-			func classifier(value i64) {
-				high i64
-				low i64
-			} {
+			func classifier(value i64) (high i64, low i64) {
 				if value > 50 {
 					high = value
 				} else {
@@ -422,11 +417,7 @@ var _ = Describe("Compiler", func() {
 
 		It("Should handle conditional output routing", func() {
 			output := MustSucceed(compile(`
-			func router(x i64, y i64) {
-				sum i64
-				diff i64
-				both i64
-			} {
+			func router(x i64, y i64) (sum i64,	diff i64, both i64) {
 				if x > y {
 					diff = x - y
 				} else if x < y {
@@ -476,11 +467,7 @@ var _ = Describe("Compiler", func() {
 
 		It("Should support mixed output types", func() {
 			output := MustSucceed(compile(`
-			func converter(value i64) {
-				asFloat f64
-				asInt i32
-				original i64
-			} {
+			func converter(value i64) (asFloat f64,	asInt i32, original i64) {
 				asFloat = 3.14
 				asInt = i32(42)
 				original = value
@@ -514,10 +501,7 @@ var _ = Describe("Compiler", func() {
 
 		It("Should support multi-output functions", func() {
 			output := MustSucceed(compile(`
-			func divMod(a i64, b i64) {
-				quotient i64
-				remainder i64
-			} {
+			func divMod(a i64, b i64) (quotient i64, remainder i64) {
 				quotient = a / b
 				remainder = a % b
 			}

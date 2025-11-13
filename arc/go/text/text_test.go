@@ -323,6 +323,300 @@ var _ = Describe("Text", func() {
 				Expect(inter.Edges[2].Target.Node).To(Equal(inter.Nodes[3].Key))
 			})
 		})
+
+		Describe("Edge Parameter Validation", func() {
+			It("Should create edges with parameters that exist in node definitions", func() {
+				resolver := symbol.MapResolver(map[string]symbol.Symbol{
+					"sensor": {
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I64()),
+						ID:   1,
+					},
+				})
+
+				source := `
+				func filter{} (data i64) i64 {
+					return data
+				}
+
+				func transform{} (value i64) i64 {
+					return value * 2
+				}
+
+				sensor -> filter{} -> transform{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				Expect(inter.Nodes).To(HaveLen(3))
+				Expect(inter.Edges).To(HaveLen(2))
+
+				// Verify Edge 0: sensor -> filter
+				edge0 := inter.Edges[0]
+				srcNode0, _ := inter.Nodes.Find(edge0.Source.Node)
+				tgtNode0, _ := inter.Nodes.Find(edge0.Target.Node)
+
+				Expect(srcNode0.Key).To(Equal("on_0"))
+				Expect(edge0.Source.Param).To(Equal("output"))
+				Expect(srcNode0.Outputs.Has(edge0.Source.Param)).To(BeTrue(),
+					"Source param '%s' should exist in node '%s' outputs %v",
+					edge0.Source.Param, srcNode0.Key, srcNode0.Outputs)
+
+				Expect(tgtNode0.Key).To(Equal("filter_0"))
+				Expect(edge0.Target.Param).To(Equal("data")) // Should match actual input name
+				Expect(tgtNode0.Inputs.Has(edge0.Target.Param)).To(BeTrue(),
+					"Target param '%s' should exist in node '%s' inputs %v",
+					edge0.Target.Param, tgtNode0.Key, tgtNode0.Inputs)
+
+				// Verify Edge 1: filter -> transform
+				edge1 := inter.Edges[1]
+				srcNode1, _ := inter.Nodes.Find(edge1.Source.Node)
+				tgtNode1, _ := inter.Nodes.Find(edge1.Target.Node)
+
+				Expect(srcNode1.Key).To(Equal("filter_0"))
+				Expect(edge1.Source.Param).To(Equal("output")) // filter returns i64 (default output name)
+				Expect(srcNode1.Outputs.Has(edge1.Source.Param)).To(BeTrue(),
+					"Source param '%s' should exist in node '%s' outputs %v",
+					edge1.Source.Param, srcNode1.Key, srcNode1.Outputs)
+
+				Expect(tgtNode1.Key).To(Equal("transform_0"))
+				Expect(edge1.Target.Param).To(Equal("value")) // Should match actual input name
+				Expect(tgtNode1.Inputs.Has(edge1.Target.Param)).To(BeTrue(),
+					"Target param '%s' should exist in node '%s' inputs %v",
+					edge1.Target.Param, tgtNode1.Key, tgtNode1.Inputs)
+			})
+
+			It("Should handle functions with custom input parameter names", func() {
+				source := `
+				func generator{} () i64 {
+					return 42
+				}
+
+				func processor{} (inputValue i64) i64 {
+					return inputValue * 2
+				}
+
+				generator{} -> processor{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				Expect(inter.Edges).To(HaveLen(1))
+				edge := inter.Edges[0]
+				srcNode, _ := inter.Nodes.Find(edge.Source.Node)
+				tgtNode, _ := inter.Nodes.Find(edge.Target.Node)
+
+				// Source should use default output "output"
+				Expect(edge.Source.Param).To(Equal("output"))
+				Expect(srcNode.Outputs.Has("output")).To(BeTrue())
+
+				// Target should reference the actual input name "inputValue"
+				Expect(edge.Target.Param).To(Equal("inputValue"))
+				Expect(tgtNode.Inputs.Has("inputValue")).To(BeTrue())
+			})
+
+			It("Should verify channel node outputs are defined", func() {
+				resolver := symbol.MapResolver(map[string]symbol.Symbol{
+					"temp": {
+						Name: "temp",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   42,
+					},
+				})
+
+				source := `
+				func display{} (value f64) {
+				}
+
+				temp -> display{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Find channel node
+				channelNode, found := inter.Nodes.Find("on_0")
+				Expect(found).To(BeTrue())
+
+				// Verify channel node has outputs defined
+				Expect(channelNode.Outputs).To(HaveLen(1))
+				Expect(channelNode.Outputs[0].Name).To(Equal("output"))
+				Expect(channelNode.Outputs[0].Type).To(Equal(types.F64()))
+
+				// Verify edge uses the defined output parameter
+				edge := inter.Edges[0]
+				Expect(edge.Source.Param).To(Equal("output"))
+				Expect(channelNode.Outputs.Has(edge.Source.Param)).To(BeTrue())
+			})
+
+			It("Should handle binary operator parameter names", func() {
+				source := `
+				func add{} (a i64, b i64) i64 {
+					return a + b
+				}
+
+				func print{} (value i64) {
+				}
+
+				add{} -> print{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				edge := inter.Edges[0]
+				srcNode, _ := inter.Nodes.Find(edge.Source.Node)
+				tgtNode, _ := inter.Nodes.Find(edge.Target.Node)
+
+				// Source should use default output (add returns i64)
+				Expect(edge.Source.Param).To(Equal("output"))
+				Expect(srcNode.Outputs.Has(edge.Source.Param)).To(BeTrue())
+
+				// Target should use first input name "value"
+				Expect(edge.Target.Param).To(Equal("value"))
+				Expect(tgtNode.Inputs.Has(edge.Target.Param)).To(BeTrue())
+
+				// Verify add node has both inputs defined
+				Expect(srcNode.Inputs).To(HaveLen(2))
+				Expect(srcNode.Inputs.Has("a")).To(BeTrue())
+				Expect(srcNode.Inputs.Has("b")).To(BeTrue())
+			})
+		})
+
+		Describe("Output Routing Tables", func() {
+			It("Should analyze simple output routing with multiple targets", func() {
+				source := `
+				func demux{threshold f64} (value f64) (high f64, low f64) {
+					if (value > threshold) {
+						high = value
+					} else {
+						low = value
+					}
+				}
+
+				func alarm{} (value f64) {
+				}
+
+				func logger{} (value f64) {
+				}
+
+				demux{threshold=100.0} -> {
+					high: alarm{},
+					low: logger{}
+				}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have: demux, alarm, logger
+				Expect(inter.Nodes).To(HaveLen(3))
+
+				// Should have 2 edges: demux.high -> alarm, demux.low -> logger
+				Expect(inter.Edges).To(HaveLen(2))
+
+				// Find nodes
+				demuxNode, _ := inter.Nodes.Find("demux_0")
+				alarmNode, _ := inter.Nodes.Find("alarm_0")
+				loggerNode, _ := inter.Nodes.Find("logger_0")
+
+				// Verify demux has both outputs
+				Expect(demuxNode.Outputs).To(HaveLen(2))
+				Expect(demuxNode.Outputs.Has("high")).To(BeTrue())
+				Expect(demuxNode.Outputs.Has("low")).To(BeTrue())
+
+				// Find edges by source parameter
+				var highEdge, lowEdge int = -1, -1
+				for i := range inter.Edges {
+					if inter.Edges[i].Source.Param == "high" {
+						highEdge = i
+					} else if inter.Edges[i].Source.Param == "low" {
+						lowEdge = i
+					}
+				}
+
+				Expect(highEdge).ToNot(Equal(-1))
+				Expect(lowEdge).ToNot(Equal(-1))
+
+				// Verify high edge
+				Expect(inter.Edges[highEdge].Source.Node).To(Equal("demux_0"))
+				Expect(inter.Edges[highEdge].Source.Param).To(Equal("high"))
+				Expect(inter.Edges[highEdge].Target.Node).To(Equal(alarmNode.Key))
+				Expect(inter.Edges[highEdge].Target.Param).To(Equal("value")) // alarm's input parameter
+
+				// Verify low edge
+				Expect(inter.Edges[lowEdge].Source.Node).To(Equal("demux_0"))
+				Expect(inter.Edges[lowEdge].Source.Param).To(Equal("low"))
+				Expect(inter.Edges[lowEdge].Target.Node).To(Equal(loggerNode.Key))
+				Expect(inter.Edges[lowEdge].Target.Param).To(Equal("value")) // logger's input parameter
+			})
+
+			It("Should handle routing with chained processing", func() {
+				source := `
+				func demux{threshold f64} (value f64) (high f64, low f64) {
+					if (value > threshold) {
+						high = value
+					} else {
+						low = value
+					}
+				}
+
+				func amplify{} (signal f64) f64 {
+					return signal * 2
+				}
+
+				func display{} (value f64) {
+				}
+
+				demux{threshold=100.0} -> {
+					high: amplify{} -> display{}
+				}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have: demux, amplify, display
+				Expect(inter.Nodes).To(HaveLen(3))
+
+				// Should have 2 edges: demux.high -> amplify, amplify -> display
+				Expect(inter.Edges).To(HaveLen(2))
+
+				// Verify edge chain
+				edge0 := inter.Edges[0]
+				Expect(edge0.Source.Node).To(Equal("demux_0"))
+				Expect(edge0.Source.Param).To(Equal("high"))
+				Expect(edge0.Target.Node).To(Equal("amplify_0"))
+
+				edge1 := inter.Edges[1]
+				Expect(edge1.Source.Node).To(Equal("amplify_0"))
+				Expect(edge1.Target.Node).To(Equal("display_0"))
+			})
+
+			It("Should report error for non-existent output parameter", func() {
+				source := `
+				func simple{} () (bob i64) {
+					bob = 42
+				}
+
+				func display{} (value i64) {
+				}
+
+				simple{} -> {
+					nonexistent: display{}
+				}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				// Error message comes from text compiler validation
+				Expect(diagnostics.String()).To(ContainSubstring("nonexistent"))
+			})
+		})
 	})
 
 })

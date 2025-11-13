@@ -147,28 +147,101 @@ func analyzeFlow(
 	generateKey generateKey,
 ) ([]ir.Node, []ir.Edge, bool) {
 	var (
-		prevHandle ir.Handle
-		edges      []ir.Edge
-		nodes      []ir.Node
+		prevOutputHandle ir.Handle
+		prevNode         *ir.Node
+		edges            []ir.Edge
+		nodes            []ir.Node
 	)
-	for i, flowNode := range ctx.AST.AllFlowNode() {
-		node, handle, ok := analyzeExpressionNode(acontext.Child(ctx, flowNode), generateKey)
-		if !ok {
-			return nil, nil, false
+
+	// Check if this flow statement contains routing tables
+	hasRoutingTables := len(ctx.AST.AllRoutingTable()) > 0
+
+	if !hasRoutingTables {
+		// Simple flow chain without routing tables
+		for i, flowNode := range ctx.AST.AllFlowNode() {
+			node, inputHandle, outputHandle, ok := analyzeExpressionNode(acontext.Child(ctx, flowNode), generateKey)
+			if !ok {
+				return nil, nil, false
+			}
+			if i > 0 {
+				// Connect previous node's output to current node's input
+				edges = append(edges, ir.Edge{Source: prevOutputHandle, Target: inputHandle})
+			}
+			// Store output handle for next iteration
+			prevOutputHandle = outputHandle
+			nodes = append(nodes, node)
 		}
-		if i > 0 {
-			edges = append(edges, ir.Edge{Source: prevHandle, Target: handle})
-		}
-		prevHandle = handle
-		nodes = append(nodes, node)
+		return nodes, edges, true
 	}
+
+	// Flow chain with routing tables - iterate through children to maintain order
+	children := ctx.AST.GetChildren()
+	for _, child := range children {
+		switch c := child.(type) {
+		case parser.IFlowNodeContext:
+			node, inputHandle, outputHandle, ok := analyzeExpressionNode(acontext.Child(ctx, c), generateKey)
+			if !ok {
+				return nil, nil, false
+			}
+			// Connect to previous node if exists
+			if prevNode != nil {
+				edges = append(edges, ir.Edge{Source: prevOutputHandle, Target: inputHandle})
+			}
+			// Store for next iteration
+			prevOutputHandle = outputHandle
+			prevNode = &node
+			nodes = append(nodes, node)
+
+		case parser.IRoutingTableContext:
+			if prevNode == nil {
+				// Input routing table: { param1: source1, param2: source2 } -> func
+				newNodes, newEdges, ok := analyzeInputRoutingTable(
+					acontext.Child(ctx, c),
+					generateKey,
+				)
+				if !ok {
+					return nil, nil, false
+				}
+				nodes = append(nodes, newNodes...)
+				edges = append(edges, newEdges...)
+				// Find the last node to connect to next flow node
+				if len(newNodes) > 0 {
+					lastNode := newNodes[len(newNodes)-1]
+					prevNode = &lastNode
+					// Output handle depends on what follows the routing table
+					outputParam := ir.DefaultOutputParam
+					if len(lastNode.Outputs) > 0 {
+						outputParam = lastNode.Outputs[0].Name
+					}
+					prevOutputHandle = ir.Handle{Node: lastNode.Key, Param: outputParam}
+				}
+			} else {
+				// Output routing table: func -> { output1: target1, output2: target2 }
+				newNodes, newEdges, ok := analyzeOutputRoutingTable(
+					acontext.Child(ctx, c),
+					*prevNode,
+					prevOutputHandle,
+					generateKey,
+				)
+				if !ok {
+					return nil, nil, false
+				}
+				nodes = append(nodes, newNodes...)
+				edges = append(edges, newEdges...)
+				// After output routing, we may have multiple branches
+				// The prevNode becomes nil since we can't chain directly after routing
+				prevNode = nil
+			}
+		}
+	}
+
 	return nodes, edges, true
 }
 
 func analyzeExpressionNode(
 	ctx acontext.Context[parser.IFlowNodeContext],
 	generateKey generateKey,
-) (ir.Node, ir.Handle, bool) {
+) (ir.Node, ir.Handle, ir.Handle, bool) {
 	if channel := ctx.AST.ChannelIdentifier(); channel != nil {
 		return analyzeChannelNode(acontext.Child(ctx, channel), generateKey)
 	}
@@ -178,30 +251,35 @@ func analyzeExpressionNode(
 	if expr := ctx.AST.Expression(); expr != nil {
 		return analyzeExpression(acontext.Child(ctx, expr))
 	}
-	return ir.Node{}, ir.Handle{}, true
+	return ir.Node{}, ir.Handle{}, ir.Handle{}, true
 }
 
 func analyzeChannelNode(
 	ctx acontext.Context[parser.IChannelIdentifierContext],
 	generateKey generateKey,
-) (ir.Node, ir.Handle, bool) {
+) (ir.Node, ir.Handle, ir.Handle, bool) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	nodeKey := generateKey("on")
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return ir.Node{}, ir.Handle{}, false
+		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
 	}
 	chKey := uint32(sym.ID)
+	// Channel nodes produce output of the channel's inner type (unwrap chan<T> to get T)
+	outputType := sym.Type.Unwrap()
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "on",
 		Channels: symbol.NewChannels(),
 		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 	}
 	n.Channels.Read.Add(chKey)
-	h := ir.Handle{Node: nodeKey, Param: ir.DefaultOutputParam}
-	return n, h, true
+	// Channel nodes have no inputs (they're sources), only outputs
+	inputHandle := ir.Handle{Node: nodeKey, Param: ""}
+	outputHandle := ir.Handle{Node: nodeKey, Param: ir.DefaultOutputParam}
+	return n, inputHandle, outputHandle, true
 }
 
 func extractConfigValues(
@@ -241,7 +319,7 @@ func extractConfigValues(
 func analyzeFunctionNode(
 	ctx acontext.Context[parser.IFunctionContext],
 	generateKey generateKey,
-) (ir.Node, ir.Handle, bool) {
+) (ir.Node, ir.Handle, ir.Handle, bool) {
 	var (
 		name = ctx.AST.IDENTIFIER().GetText()
 		key  = generateKey(name)
@@ -249,12 +327,12 @@ func analyzeFunctionNode(
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, nil)
-		return ir.Node{}, ir.Handle{}, false
+		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
 	}
 	fnType := sym.Type
 	if fnType.Kind != types.KindFunction {
 		ctx.Diagnostics.AddError(fmt.Errorf("expected function type, got %s", fnType), nil)
-		return ir.Node{}, ir.Handle{}, false
+		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
 	}
 	n := ir.Node{
 		Key:      key,
@@ -271,7 +349,7 @@ func analyzeFunctionNode(
 		n,
 	)
 	if !ok {
-		return ir.Node{}, ir.Handle{}, false
+		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
 	}
 	if args := ctx.AST.Arguments(); args != nil {
 		if argList := args.ArgumentList(); argList != nil {
@@ -280,23 +358,135 @@ func analyzeFunctionNode(
 			}
 		}
 	}
-	h := ir.Handle{Node: key, Param: "input"}
-	return n, h, true
+
+	// Determine input handle - use first input parameter name or default
+	inputParam := ir.DefaultInputParam
+	if len(n.Inputs) > 0 {
+		inputParam = n.Inputs[0].Name
+	}
+	inputHandle := ir.Handle{Node: key, Param: inputParam}
+
+	// Determine output handle - use first output parameter name or default
+	outputParam := ir.DefaultOutputParam
+	if len(n.Outputs) > 0 {
+		outputParam = n.Outputs[0].Name
+	}
+	outputHandle := ir.Handle{Node: key, Param: outputParam}
+
+	return n, inputHandle, outputHandle, true
 }
 
-func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node, ir.Handle, bool) {
+func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node, ir.Handle, ir.Handle, bool) {
 	sym, err := ctx.Scope.Root().GetChildByParserRule(ctx.AST)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return ir.Node{}, ir.Handle{}, false
+		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
 	}
 	n := ir.Node{
 		Key:      sym.Name,
 		Type:     sym.Name,
 		Channels: symbol.NewChannels(),
 	}
-	h := ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam}
-	return n, h, true
+	// Expression nodes use default parameters
+	inputHandle := ir.Handle{Node: sym.Name, Param: ir.DefaultInputParam}
+	outputHandle := ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam}
+	return n, inputHandle, outputHandle, true
+}
+
+func analyzeOutputRoutingTable(
+	ctx acontext.Context[parser.IRoutingTableContext],
+	sourceNode ir.Node,
+	sourceHandle ir.Handle,
+	generateKey generateKey,
+) ([]ir.Node, []ir.Edge, bool) {
+	var (
+		nodes []ir.Node
+		edges []ir.Edge
+	)
+
+	// Process each routing entry: outputName: targetNode(s)
+	for _, entry := range ctx.AST.AllRoutingEntry() {
+		outputName := entry.IDENTIFIER(0).GetText()
+
+		// Validate that the source node has this output parameter
+		if !sourceNode.Outputs.Has(outputName) {
+			ctx.Diagnostics.AddError(
+				fmt.Errorf("node '%s' does not have output '%s'", sourceNode.Key, outputName),
+				entry,
+			)
+			return nil, nil, false
+		}
+
+		// Process flow nodes in this routing entry
+		flowNodes := entry.AllFlowNode()
+		if len(flowNodes) == 0 {
+			continue
+		}
+
+		// Optional target parameter mapping (last identifier in entry)
+		var targetParamName string
+		if len(entry.AllIDENTIFIER()) > 1 {
+			targetParamName = entry.IDENTIFIER(1).GetText()
+		}
+
+		// Analyze each flow node in the chain
+		var prevOutputHandle ir.Handle
+		for i, flowNode := range flowNodes {
+			node, inputHandle, outputHandle, ok := analyzeExpressionNode(acontext.Child(ctx, flowNode), generateKey)
+			if !ok {
+				return nil, nil, false
+			}
+
+			// First node connects to source node's output
+			if i == 0 {
+				edges = append(edges, ir.Edge{
+					Source: ir.Handle{Node: sourceNode.Key, Param: outputName},
+					Target: inputHandle,
+				})
+			} else {
+				// Chain subsequent nodes
+				edges = append(edges, ir.Edge{
+					Source: prevOutputHandle,
+					Target: inputHandle,
+				})
+			}
+
+			// If this is the last node and we have a target parameter mapping, override the input handle
+			if i == len(flowNodes)-1 && targetParamName != "" {
+				// Validate target parameter exists
+				if !node.Inputs.Has(targetParamName) {
+					ctx.Diagnostics.AddError(
+						fmt.Errorf("node '%s' does not have input '%s'", node.Key, targetParamName),
+						entry,
+					)
+					return nil, nil, false
+				}
+				// Update the last edge to use the mapped parameter
+				edges[len(edges)-1].Target.Param = targetParamName
+			}
+
+			prevOutputHandle = outputHandle
+			nodes = append(nodes, node)
+		}
+	}
+
+	return nodes, edges, true
+}
+
+func analyzeInputRoutingTable(
+	ctx acontext.Context[parser.IRoutingTableContext],
+	generateKey generateKey,
+) ([]ir.Node, []ir.Edge, bool) {
+	// TODO: Implement input routing table
+	// Input routing tables map sources to named input parameters
+	// Example: { param1: source1, param2: source2 } -> func{}
+	// This is more complex and less commonly used, so implementing as Phase 2.5
+
+	ctx.Diagnostics.AddError(
+		fmt.Errorf("input routing tables not yet implemented in text compiler"),
+		ctx.AST,
+	)
+	return nil, nil, false
 }
 
 // getExpressionText extracts the text representation of an expression

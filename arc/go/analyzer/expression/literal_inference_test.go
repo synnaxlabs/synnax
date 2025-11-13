@@ -57,9 +57,7 @@ var _ = Describe("Literal Type Inference", func() {
 	Describe("Numeric literals should adapt to context", func() {
 		It("should allow 2 + abc where abc is f32", func() {
 			program := MustSucceed(parser.Parse(`
-func test{} () {
-	result f32
-} {
+func test{} () (result f32) {
 	result = 2 + abc
 }
 `))
@@ -69,9 +67,7 @@ func test{} () {
 
 		It("should allow abc + 2 where abc is f32", func() {
 			program := MustSucceed(parser.Parse(`
-func test{} () {
-	result f32
-} {
+func test{} () (result f32) {
 	result = abc + 2
 }
 `))
@@ -81,9 +77,7 @@ func test{} () {
 
 		It("should allow 2.5 + abc where abc is f32", func() {
 			program := MustSucceed(parser.Parse(`
-func test{} () {
-	result f32
-} {
+func test{} () (result f32) {
 	result = 2.5 + abc
 }
 `))
@@ -93,9 +87,7 @@ func test{} () {
 
 		It("should allow 5 + xyz where xyz is i32", func() {
 			program := MustSucceed(parser.Parse(`
-func test{} () {
-	result i32
-} {
+func test{} () (result i32) {
 	result = 5 + xyz
 }
 `))
@@ -105,9 +97,7 @@ func test{} () {
 
 		It("should infer correct type for expressions with multiple literals", func() {
 			program := MustSucceed(parser.Parse(`
-func test{} () {
-	result f32
-} {
+func test{} () (result f32) {
 	result = 2 + abc + 3
 }
 `))
