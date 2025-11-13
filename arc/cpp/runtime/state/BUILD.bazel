@@ -10,5 +10,6 @@ cc_library(
     deps = [
         "//arc/cpp/ir",
         "//x/cpp/telem",
+        "//x/cpp/xmemory",
     ],
 )

@@ -37,14 +37,9 @@ namespace arc::runtime::loop {
 /// Supports all execution modes including full RT guarantees on PREEMPT_RT kernels.
 class LinuxLoop final : public Loop {
 public:
-    LinuxLoop() = default;
+    explicit LinuxLoop(const Config &config) : config_(config) {}
 
     ~LinuxLoop() override { stop(); }
-
-    xerrors::Error configure(const Config &config) override {
-        config_ = config;
-        return xerrors::NIL;
-    }
 
     void notify_data() override {
         if (!running_ || event_fd_ == -1) return;
@@ -116,7 +111,7 @@ public:
         }
 
         // Create timerfd if interval is configured
-        if (config_.interval > 0) {
+        if (config_.interval.nanoseconds() > 0) {
             timer_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
             if (timer_fd_ == -1) {
                 close(event_fd_);
@@ -127,9 +122,10 @@ public:
             }
 
             // Configure timer interval
+            const uint64_t interval_ns = config_.interval.nanoseconds();
             struct itimerspec ts;
-            ts.it_interval.tv_sec = config_.interval / 1'000'000'000;
-            ts.it_interval.tv_nsec = config_.interval % 1'000'000'000;
+            ts.it_interval.tv_sec = interval_ns / 1'000'000'000;
+            ts.it_interval.tv_nsec = interval_ns % 1'000'000'000;
             ts.it_value = ts.it_interval; // Initial expiration
 
             if (timerfd_settime(timer_fd_, 0, &ts, nullptr) == -1) {

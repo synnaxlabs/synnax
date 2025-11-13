@@ -44,8 +44,6 @@ struct Config {
 struct Loop {
     virtual ~Loop() = default;
 
-    virtual xerrors::Error configure(const Config &config) = 0;
-
     virtual void notify_data() = 0;
 
     virtual void wait(breaker::Breaker &breaker) = 0;
@@ -55,6 +53,6 @@ struct Loop {
     virtual void stop() = 0;
 };
 
-std::pair<std::unique_ptr<Loop>, xerrors::Error> create(Config cfg);
+std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg);
 
 }

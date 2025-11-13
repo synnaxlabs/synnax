@@ -122,8 +122,7 @@ State::State(const Config &cfg): cfg(cfg) {
 
 std::pair<Node, xerrors::Error> State::node(const std::string &key) {
     auto ir_node_iter = this->cfg.ir.find_node(key);
-    if (ir_node_iter == this->cfg.ir.nodes.end())
-        return {Node(*this), xerrors::NOT_FOUND};
+    if (ir_node_iter == this->cfg.ir.nodes.end()) return {Node(), xerrors::NOT_FOUND};
     const auto ir_node = *ir_node_iter;
 
     const size_t num_inputs = ir_node.inputs.size();
@@ -196,7 +195,6 @@ std::pair<Node, xerrors::Error> State::node(const std::string &key) {
     return {
         {std::move(inputs),
          std::move(output_handles),
-         *this,
          std::move(accumulated),
          std::move(aligned_data),
          std::move(aligned_time),
@@ -217,7 +215,7 @@ std::vector<std::pair<types::ChannelKey, Series>> State::flush_writes() {
     std::vector<std::pair<types::ChannelKey, Series>> result;
     result.reserve(writes.size());
     for (const auto &[key, data]: writes)
-        result.emplace_back(key, data);
+        result.push_back({key, data});
     writes.clear();
     return result;
 }

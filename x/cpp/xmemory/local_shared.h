@@ -64,8 +64,17 @@ public:
     /// @brief Default constructor - creates an empty local_shared
     local_shared() : ptr_(nullptr) {}
 
+    /// @brief Move constructor from T - wraps an existing object by moving it
+    explicit local_shared(T &&value):
+        ptr_(new ControlBlock(std::move(value))) {}
+
     /// @brief Constructs a local_shared managing a new object constructed with args
-    template<typename... Args>
+    /// SFINAE constraint: Don't use this constructor if Args is a local_shared
+    template<typename... Args,
+             typename = std::enable_if_t<!std::is_same_v<
+                 std::decay_t<std::tuple_element_t<0, std::tuple<Args..., void>>>,
+                 local_shared<T>
+             > || sizeof...(Args) != 1>>
     explicit local_shared(Args &&...args):
         ptr_(new ControlBlock(std::forward<Args>(args)...)) {}
 

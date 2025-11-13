@@ -22,33 +22,23 @@ using namespace arc::runtime::loop;
 
 /// @brief Test that Loop can be created.
 TEST(LoopTest, Create) {
-    auto loop = create();
-    ASSERT_NE(loop, nullptr);
-}
-
-/// @brief Test that Loop can be configured.
-TEST(LoopTest, Configure) {
-    auto loop = create();
-    ASSERT_NE(loop, nullptr);
-
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 1'000'000; // 1ms
+    config.interval = telem::MILLISECOND;
 
-    auto err = loop->configure(config);
+    auto [loop, err] = create(config);
     ASSERT_NIL(err);
+    ASSERT_NE(loop, nullptr);
 }
 
 /// @brief Test that Loop can be started and stopped.
 TEST(LoopTest, StartStop) {
-    auto loop = create();
-    ASSERT_NE(loop, nullptr);
-
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 1'000'000; // 1ms
+    config.interval = telem::MILLISECOND;
 
-    ASSERT_NIL(loop->configure(config));
+    auto [loop, err] = create(config);
+    ASSERT_NIL(err);
     ASSERT_NIL(loop->start());
 
     loop->stop();
@@ -56,14 +46,12 @@ TEST(LoopTest, StartStop) {
 
 /// @brief Test that Loop wakes up on data notification (EVENT_DRIVEN mode).
 TEST(LoopTest, NotifyData_EventDriven) {
-    auto loop = create();
-    ASSERT_NE(loop, nullptr);
-
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 0; // No timer
+    config.interval = telem::TimeSpan(0); // No timer
 
-    ASSERT_NIL(loop->configure(config));
+    auto [loop, err] = create(config);
+    ASSERT_NIL(err);
     ASSERT_NIL(loop->start());
 
     std::atomic<bool> woke_up{false};
@@ -92,14 +80,12 @@ TEST(LoopTest, NotifyData_EventDriven) {
 
 /// @brief Test that Loop wakes up on timer expiration.
 TEST(LoopTest, TimerExpiration) {
-    auto loop = create();
-    ASSERT_NE(loop, nullptr);
-
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 10'000'000; // 10ms
+    config.interval = 10 * telem::MILLISECOND;
 
-    ASSERT_NIL(loop->configure(config));
+    auto [loop, err] = create(config);
+    ASSERT_NIL(err);
     ASSERT_NIL(loop->start());
 
     breaker::Breaker breaker;
@@ -109,7 +95,7 @@ TEST(LoopTest, TimerExpiration) {
     const auto elapsed = std::chrono::steady_clock::now() - start;
 
     // Should have waited approximately 10ms
-    // Allow some jitter (5-20ms range)
+    // Allow some jitter (5-50ms range)
     const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                                 elapsed
     )
@@ -122,14 +108,12 @@ TEST(LoopTest, TimerExpiration) {
 
 /// @brief Test BUSY_WAIT mode responds quickly to notifications.
 TEST(LoopTest, BusyWaitMode) {
-    auto loop = create();
-    ASSERT_NE(loop, nullptr);
-
     Config config;
     config.mode = ExecutionMode::BUSY_WAIT;
-    config.interval = 0; // No timer
+    config.interval = telem::TimeSpan(0); // No timer
 
-    ASSERT_NIL(loop->configure(config));
+    auto [loop, err] = create(config);
+    ASSERT_NIL(err);
     ASSERT_NIL(loop->start());
 
     std::atomic<bool> woke_up{false};
@@ -163,14 +147,12 @@ TEST(LoopTest, BusyWaitMode) {
 
 /// @brief Test HIGH_RATE mode with timer.
 TEST(LoopTest, HighRateMode) {
-    auto loop = create();
-    ASSERT_NE(loop, nullptr);
-
     Config config;
     config.mode = ExecutionMode::HIGH_RATE;
-    config.interval = 10'000'000; // 10ms
+    config.interval = 10 * telem::MILLISECOND;
 
-    ASSERT_NIL(loop->configure(config));
+    auto [loop, err] = create(config);
+    ASSERT_NIL(err);
     ASSERT_NIL(loop->start());
 
     breaker::Breaker breaker;
@@ -193,15 +175,13 @@ TEST(LoopTest, HighRateMode) {
 
 /// @brief Test HYBRID mode behavior.
 TEST(LoopTest, HybridMode) {
-    auto loop = create();
-    ASSERT_NE(loop, nullptr);
-
     Config config;
     config.mode = ExecutionMode::HYBRID;
-    config.interval = 0; // No timer
-    config.spin_duration_us = 50; // 50us spin
+    config.interval = telem::TimeSpan(0); // No timer
+    config.spin_duration = 50 * telem::MICROSECOND; // 50us spin
 
-    ASSERT_NIL(loop->configure(config));
+    auto [loop, err] = create(config);
+    ASSERT_NIL(err);
     ASSERT_NIL(loop->start());
 
     std::atomic<bool> woke_up{false};
@@ -224,14 +204,12 @@ TEST(LoopTest, HybridMode) {
 
 /// @brief Test that breaker stops the wait.
 TEST(LoopTest, BreakerStopsWait) {
-    auto loop = create();
-    ASSERT_NE(loop, nullptr);
-
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 0; // No timer
+    config.interval = telem::TimeSpan(0); // No timer
 
-    ASSERT_NIL(loop->configure(config));
+    auto [loop, err] = create(config);
+    ASSERT_NIL(err);
     ASSERT_NIL(loop->start());
 
     breaker::Breaker breaker;
@@ -252,40 +230,36 @@ TEST(LoopTest, BreakerStopsWait) {
 
 /// @brief Test multiple start/stop cycles.
 TEST(LoopTest, MultipleStartStop) {
-    auto loop = create();
-    ASSERT_NE(loop, nullptr);
-
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 1'000'000; // 1ms
+    config.interval = telem::MILLISECOND;
 
     for (int i = 0; i < 3; i++) {
-        ASSERT_NIL(loop->configure(config));
+        auto [loop, err] = create(config);
+        ASSERT_NIL(err);
         ASSERT_NIL(loop->start());
         loop->stop();
     }
 }
 
-/// @brief Test reconfiguration between start/stop.
-TEST(LoopTest, Reconfigure) {
-    auto loop = create();
-    ASSERT_NE(loop, nullptr);
+/// @brief Test different execution modes.
+TEST(LoopTest, DifferentModes) {
+    ExecutionMode modes[] = {
+        ExecutionMode::BUSY_WAIT,
+        ExecutionMode::HIGH_RATE,
+        ExecutionMode::HYBRID,
+        ExecutionMode::EVENT_DRIVEN,
+        ExecutionMode::RT_EVENT
+    };
 
-    // First configuration
-    Config config1;
-    config1.mode = ExecutionMode::EVENT_DRIVEN;
-    config1.interval = 1'000'000; // 1ms
+    for (auto mode : modes) {
+        Config config;
+        config.mode = mode;
+        config.interval = telem::MILLISECOND;
 
-    ASSERT_NIL(loop->configure(config1));
-    ASSERT_NIL(loop->start());
-    loop->stop();
-
-    // Second configuration
-    Config config2;
-    config2.mode = ExecutionMode::HIGH_RATE;
-    config2.interval = 5'000'000; // 5ms
-
-    ASSERT_NIL(loop->configure(config2));
-    ASSERT_NIL(loop->start());
-    loop->stop();
+        auto [loop, err] = create(config);
+        ASSERT_NIL(err);
+        ASSERT_NIL(loop->start());
+        loop->stop();
+    }
 }

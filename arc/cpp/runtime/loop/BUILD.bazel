@@ -44,6 +44,7 @@ cc_test(
     srcs = ["loop_test.cpp"],
     deps = [
         ":loop",
+        "//x/cpp/breaker",
         "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],

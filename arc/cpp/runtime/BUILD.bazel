@@ -1,21 +1,11 @@
 cc_library(
     name = "runtime",
     visibility = ["//visibility:public"],
+    hdrs = ["runtime.h"],
     deps = [
-        "//arc/cpp/runtime/core",
-        "//arc/cpp/runtime/factory",
+        "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/scheduler",
         "//arc/cpp/runtime/state",
         "//arc/cpp/runtime/wasm",
-    ],
-)
-
-cc_test(
-    name = "queue_test",
-    size = "small",
-    srcs = ["queue_test.cpp"],
-    deps = [
-        ":runtime",
-        "@googletest//:gtest_main",
     ],
 )

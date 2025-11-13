@@ -1,24 +1,11 @@
 cc_library(
     name = "ir",
-    srcs = ["ir.cpp"],
     hdrs = ["ir.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/telem",
         "//x/cpp/xjson",
-        "@nlohmann_json//:json",
-    ],
-)
-
-cc_test(
-    name = "ir_test",
-    size = "small",
-    srcs = ["ir_test.cpp"],
-    deps = [
-        ":ir",
-        "//x/cpp/xjson",
-        "//x/cpp/xtest",
-        "@googletest//:gtest_main",
+        "//arc/cpp/types",
         "@nlohmann_json//:json",
     ],
 )

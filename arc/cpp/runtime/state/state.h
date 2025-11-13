@@ -47,7 +47,6 @@ class Node {
 
     std::vector<arc::ir::Edge> inputs;
     std::vector<arc::ir::Handle> outputs;
-    State &state;
 
     struct InputEntry {
         Series data;
@@ -56,7 +55,7 @@ class Node {
         bool consumed;
 
         InputEntry():
-            data(nullptr), time(nullptr), last_timestamp(0), consumed(false) {}
+            data(), time(), last_timestamp(0), consumed(false) {}
     };
 
     std::vector<InputEntry> accumulated;
@@ -64,13 +63,11 @@ class Node {
     std::vector<Series> aligned_time;
     std::vector<Value> input_sources;
     std::vector<Value> output_cache;
-
-    Node(State &state): state(state) {}
+    Node() = default;
 
     Node(
         std::vector<arc::ir::Edge> inputs,
         std::vector<arc::ir::Handle> outputs,
-        State &state,
         std::vector<InputEntry> accumulated,
         std::vector<Series> aligned_data,
         std::vector<Series> aligned_time,
@@ -79,7 +76,6 @@ class Node {
     ):
         inputs(std::move(inputs)),
         outputs(std::move(outputs)),
-        state(state),
         accumulated(std::move(accumulated)),
         aligned_data(std::move(aligned_data)),
         aligned_time(std::move(aligned_time)),

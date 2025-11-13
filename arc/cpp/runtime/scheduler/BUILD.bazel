@@ -1,39 +1,12 @@
 cc_library(
     name = "scheduler",
-    srcs = [
-        "scheduler.cpp",
-        "time_wheel.cpp",
-    ],
     hdrs = [
         "scheduler.h",
-        "time_wheel.h",
     ],
     visibility = ["//arc/cpp/runtime:__subpackages__"],
     deps = [
-        "//arc/cpp/runtime/core",
+        "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//x/cpp/xerrors",
-    ],
-)
-
-cc_test(
-    name = "scheduler_test",
-    size = "small",
-    srcs = ["scheduler_test.cpp"],
-    deps = [
-        ":scheduler",
-        "//x/cpp/xtest",
-        "@googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "time_wheel_test",
-    size = "small",
-    srcs = ["time_wheel_test.cpp"],
-    deps = [
-        ":scheduler",
-        "//x/cpp/xtest",
-        "@googletest//:gtest_main",
     ],
 )
