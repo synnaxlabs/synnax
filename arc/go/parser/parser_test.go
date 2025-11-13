@@ -1001,10 +1001,7 @@ func test() {
 				prog := mustParseProgram(`
 func demux{
     threshold f64
-} (value f32) {
-    high f32
-    low f32
-} {
+} (value f32) (high f32, low f32) {
     if (value > f32(threshold)) {
         high = value
     } else {
@@ -1022,8 +1019,8 @@ func demux{
 
 				multiOutput := returnType.MultiOutputBlock()
 				Expect(multiOutput).NotTo(BeNil())
-				Expect(multiOutput.LBRACE()).NotTo(BeNil())
-				Expect(multiOutput.RBRACE()).NotTo(BeNil())
+				Expect(multiOutput.LPAREN()).NotTo(BeNil())
+				Expect(multiOutput.RPAREN()).NotTo(BeNil())
 
 				// Check named outputs
 				outputs := multiOutput.AllNamedOutput()
@@ -1043,11 +1040,7 @@ func demux{
 func range_classifier{
     low f64
     high f64
-} (value f32) {
-    below_range f32
-    in_range f32
-    above_range f32
-} {
+} (value f32) (below_range f32, in_range f32, above_range f32) {
     // Logic
 }`)
 
@@ -1275,10 +1268,7 @@ stage1{} -> {
 				prog := mustParseProgram(`
 func demux{
     threshold f64
-} (value f32) {
-    high f32
-    low f32
-} {
+} (value f32) (high f32, low f32) {
     if (value > f32(threshold)) {
         high = value
     } else {

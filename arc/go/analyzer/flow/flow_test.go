@@ -398,10 +398,7 @@ sensor_chan > threshold -> alarm{}
 			ast := MustSucceed(parser.Parse(`
 			func demux{
 				threshold f64
-			} (value f32) {
-				high f32
-				low f32
-			} {
+			} (value f32) (high f32, low f32) {
 				if (value > f32(threshold)) {
 					high = value
 				} else {
@@ -434,10 +431,7 @@ sensor_chan > threshold -> alarm{}
 			ast := MustSucceed(parser.Parse(`
 			func demux{
 				threshold f64
-			} (value f64) {
-				high f64
-				low f64
-			} {
+			} (value f64) (high f64, low f64) {
 				if (value > threshold) {
 					high = value
 				} else {
@@ -477,10 +471,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should detect when routing to non-existent output", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -503,10 +494,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should type-check routing table targets", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -528,10 +516,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should analyze routing table with chained nodes", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -557,10 +542,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should route to channels in routing table", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -579,10 +561,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should warn about unassigned outputs", func() {
 			ast := MustSucceed(parser.Parse(`
-			func incomplete{} (value f32) {
-				high f32
-				low f32
-			} {
+			func incomplete{} (value f32) (high f32, low f32) {
 				if (value > 100.0) {
 					high = value
 				}
@@ -599,10 +578,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should validate config parameters in routing table targets", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -628,10 +604,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should analyze routing table with parameter mapping", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -654,10 +627,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should detect invalid parameter name in routing table", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -681,10 +651,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should type-check parameter mapping", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -712,10 +679,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should analyze routing table with chained processing and parameter mapping", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -746,10 +710,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should require next func when using parameter mapping", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
