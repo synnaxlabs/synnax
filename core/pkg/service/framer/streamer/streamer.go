@@ -149,9 +149,9 @@ func (s *Service) newCalculationUpdaterTransform(
 ) (confluence.Segment[Request, framer.StreamerRequest], error) {
 	ut := &calculationUpdaterTransform{
 		Instrumentation: s.cfg.Instrumentation,
-		c:               s.cfg.Calculation,
+		calcManager:     s.cfg.Calculation.OpenRequestManager(),
 		readable:        s.cfg.Channel,
 	}
 	ut.Transform = ut.transform
-	return ut, ut.update(ctx, cfg.Keys)
+	return ut, ut.calcManager.Set(ctx, cfg.Keys)
 }

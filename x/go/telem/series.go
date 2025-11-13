@@ -21,6 +21,7 @@ import (
 	xslices "github.com/synnaxlabs/x/slices"
 	"github.com/synnaxlabs/x/stringer"
 	"github.com/synnaxlabs/x/types"
+	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
 
 const newLineChar = '\n'
@@ -142,15 +143,19 @@ func (s *Series) Resize(length int64) {
 // ValueAt returns the numeric value at the given index in the series. ValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
-func ValueAt[T Sample](s Series, i int) T { return UnmarshalF[T](s.DataType)(s.At(i)) }
+func ValueAt[T Sample](s Series, i int) T {
+	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
+	data := xunsafe.CastSlice[byte, T](s.Data)
+	return data[i]
+}
 
 // SetValueAt sets the value at the given index in the series. SetValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.
 func SetValueAt[T types.Numeric](s Series, i int, v T) {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
-	f := MarshalF[T](s.DataType)
-	f(s.Data[i*int(s.DataType.Density()):], v)
+	data := xunsafe.CastSlice[byte, T](s.Data)
+	data[i] = v
 }
 
 // CopyValue copies the sample from src at the index srcIdx to the index srcIdx in src.
@@ -333,7 +338,7 @@ func NewMultiSeries(series []Series) MultiSeries {
 }
 
 // MultiSeriesAtAlignment returns the value at the given alignment in the MultiSeries.
-func MultiSeriesAtAlignment[T types.Numeric](
+func MultiSeriesAtAlignment[T Sample](
 	ms MultiSeries,
 	alignment Alignment,
 ) T {

@@ -7,7 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Literal
+
+from console.task.channels.utils import is_numeric_string
 
 if TYPE_CHECKING:
     from console.console import Console
@@ -17,13 +21,13 @@ class Analog:
     """Base class for analog channel types in NI tasks."""
 
     name: str
-    console: "Console"
+    console: Console
     device: str
-    form_values: dict[str, str]
+    form_values: dict[str, str | bool]
 
     def __init__(
         self,
-        console: "Console",
+        console: Console,
         name: str,
         device: str,
         chan_type: str,
@@ -61,7 +65,7 @@ class Analog:
         self.device = device
         self.name = name
 
-        values = {}
+        values: dict[str, str | bool] = {}
 
         # Configure channel type
         console.click_btn("Channel Type")
@@ -109,11 +113,14 @@ class Analog:
         self.form_values = values
 
     def assert_form(self) -> None:
-
+        """Assert that form values match expected values."""
         for key, expected_value in self.form_values.items():
-            try:
+            actual_value: str | bool
+            if isinstance(expected_value, bool):
+                actual_value = self.console.get_toggle(key)
+            elif is_numeric_string(expected_value):
                 actual_value = self.console.get_input_field(key)
-            except:
+            else:
                 actual_value = self.console.get_dropdown_value(key)
 
             assert (
@@ -122,12 +129,12 @@ class Analog:
 
     def has_terminal_config(self) -> bool:
         try:
-            return (
+            count: int = (
                 self.console.page.locator("text=Terminal Configuration")
                 .locator("..")
                 .locator("button")
                 .first.count()
-                > 0
             )
-        except:
+            return count > 0
+        except Exception:
             return False

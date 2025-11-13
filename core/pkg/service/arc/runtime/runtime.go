@@ -11,7 +11,6 @@ package runtime
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"slices"
 
@@ -112,7 +111,6 @@ type writerSeg struct {
 }
 
 func (w *writerSeg) sink(_ context.Context, res framer.WriterResponse) error {
-	fmt.Println(res)
 	return nil
 }
 

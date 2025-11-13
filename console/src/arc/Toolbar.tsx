@@ -34,7 +34,6 @@ import { EmptyAction, Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { Ontology } from "@/ontology";
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
@@ -154,7 +153,7 @@ const Content = () => {
 
   return (
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Ontology.Toolbar className={CSS(CSS.B("arc-toolbar"), menuProps.className)}>
+      <Toolbar.Content className={CSS(CSS.B("arc-toolbar"), menuProps.className)}>
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Arc />}>Arcs</Toolbar.Title>
           <Toolbar.Actions>
@@ -189,7 +188,7 @@ const Content = () => {
             )}
           </List.Items>
         </Select.Frame>
-      </Ontology.Toolbar>
+      </Toolbar.Content>
     </PMenu.ContextMenu>
   );
 };

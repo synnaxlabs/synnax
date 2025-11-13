@@ -15,6 +15,7 @@ from synnax.channel.payload import (
     ChannelNames,
     ChannelParams,
     ChannelPayload,
+    Operation,
     normalize_channel_params,
 )
 from synnax.channel.retrieve import ChannelRetriever

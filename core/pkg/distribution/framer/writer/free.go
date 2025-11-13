@@ -89,10 +89,8 @@ func (w *freeWriter) alignFrame(fr core.Frame) core.Frame {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
-		if s.Alignment == 0 {
-			s.Alignment = w.alignments[w.indexes[fr.RawKeyAt(rawI)]]
-			fr.SetRawSeriesAt(rawI, s)
-		}
+		s.Alignment = w.alignments[w.indexes[fr.RawKeyAt(rawI)]]
+		fr.SetRawSeriesAt(rawI, s)
 	}
 
 	for rawI, rawKey := range fr.RawKeys() {

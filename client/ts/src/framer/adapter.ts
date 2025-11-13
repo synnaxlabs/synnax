@@ -17,13 +17,13 @@ import { type CrudeFrame, Frame } from "@/framer/frame";
 export class ReadAdapter {
   private adapter: Map<channel.Key, channel.Name> | null;
   retriever: channel.Retriever;
-  keys: channel.Key[];
+  keys: Set<channel.Key>;
   codec: Codec;
 
   private constructor(retriever: channel.Retriever) {
     this.retriever = retriever;
     this.adapter = null;
-    this.keys = [];
+    this.keys = new Set();
     this.codec = new Codec();
   }
 
@@ -40,7 +40,10 @@ export class ReadAdapter {
     const { variant, normalized } = channel.analyzeParams(channels);
     const fetched = await this.retriever.retrieve(normalized);
     const newKeys = fetched.map((c) => c.key);
-    if (compare.uniqueUnorderedPrimitiveArrays(this.keys, newKeys) === compare.EQUAL)
+    if (
+      compare.uniqueUnorderedPrimitiveArrays(Array.from(this.keys), newKeys) ===
+      compare.EQUAL
+    )
       return false;
     this.codec.update(
       newKeys,
@@ -48,7 +51,7 @@ export class ReadAdapter {
     );
     if (variant === "keys") {
       this.adapter = null;
-      this.keys = normalized as channel.Key[];
+      this.keys = new Set(normalized as channel.Key[]);
       return true;
     }
     const a = new Map<channel.Key, channel.Name>();
@@ -58,20 +61,27 @@ export class ReadAdapter {
       if (channel == null) throw new Error(`Channel ${name} not found`);
       a.set(channel.key, channel.name);
     });
-    this.keys = Array.from(this.adapter.keys());
+    this.keys = new Set(this.adapter.keys());
     return true;
   }
 
-  adapt(columnsOrData: Frame): Frame {
-    if (this.adapter == null) return columnsOrData;
+  adapt(frm: Frame): Frame {
+    if (this.adapter == null) {
+      let shouldFilter = false;
+      frm.forEach((k) => {
+        if (!this.keys.has(k as channel.Key)) shouldFilter = true;
+      });
+      if (shouldFilter) return frm.filter((k) => this.keys.has(k as channel.Key));
+      return frm;
+    }
     const a = this.adapter;
-    return columnsOrData.map((k, arr) => {
-      if (typeof k === "number") {
-        const name = a.get(k);
-        if (name == null) throw new Error(`Channel ${k} not found`);
-        return [name, arr];
+    return frm.mapFilter((col, arr) => {
+      if (typeof col === "number") {
+        const name = a.get(col);
+        if (name == null) return [col, arr, false];
+        return [name, arr, true];
       }
-      return [k, arr];
+      return [col, arr, true];
     });
   }
 }

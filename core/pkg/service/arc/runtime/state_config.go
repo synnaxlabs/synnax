@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -61,12 +62,15 @@ func NewStateConfig(
 		if reads.Contains(ch.Key()) && ch.Index() != 0 {
 			reads.Add(ch.Index())
 		}
+		if writes.Contains(ch.Key()) && ch.Index() != 0 {
+			writes.Add(ch.Index())
+		}
 	}
 	return ExtendedStateConfig{
 		Reads:  reads,
 		Writes: writes,
 		State: state.Config{
-			ChannelDigests: channelDigests,
+			ChannelDigests: lo.Uniq(channelDigests),
 			IR:             module.IR,
 		},
 	}, nil

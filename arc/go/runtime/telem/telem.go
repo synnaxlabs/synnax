@@ -105,7 +105,7 @@ func (s *sink) Init(node.Context) {
 	s.WriteChan(s.key, data, time)
 }
 
-func (s *sink) Next(ctx node.Context) {
+func (s *sink) Next(node.Context) {
 	if !s.RefreshInputs() {
 		return
 	}

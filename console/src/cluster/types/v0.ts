@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type SynnaxProps } from "@synnaxlabs/client";
+import { type SynnaxParams } from "@synnaxlabs/client";
 
 export const VERSION = "0.0.1";
 export type Version = typeof VERSION;
 
-export type Cluster = { key: string; name: string; props: SynnaxProps };
+export type Cluster = { key: string; name: string; props: SynnaxParams };
 
 export type SliceState = {
   version: Version;

@@ -155,6 +155,22 @@ var _ = Describe("Unsafe", func() {
 			})
 		})
 
+		Describe("Panic Conditions", func() {
+			It("Should panic on zero length types", func() {
+				in := []float32{1.0, 2.0, 3.0}
+				Expect(func() {
+					unsafe.CastSlice[float32, struct{}](in)
+				}).To(Panic())
+			})
+
+			It("Should panic when the stride lengths are incompatible", func() {
+				in := []byte{1, 2, 3}
+				Expect(func() {
+					unsafe.CastSlice[byte, uint32](in)
+				}).To(PanicWith("unsafe.CastSlice: incompatible element size 1 (uint8) with total byte length 3 and element with size 4 (uint32)"))
+			})
+		})
+
 		Context("Bidirectional Conversions", func() {
 			It("should preserve data through round-trip conversions", func() {
 				// float64 -> uint8 -> float64
@@ -171,5 +187,13 @@ var _ = Describe("Unsafe", func() {
 				Expect(roundtrip).To(Equal(original))
 			})
 		})
+	})
+
+	Describe("CastBytes", func() {
+		It("Should cast bytes to a single element", func() {
+			b := unsafe.CastBytes[uint32]([]byte{1, 2, 3, 4})
+			Expect(b).To(Equal(uint32(67305985)))
+		})
+
 	})
 })

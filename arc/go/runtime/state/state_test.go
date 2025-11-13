@@ -196,9 +196,10 @@ var _ = Describe("State", func() {
 				Expect(data.Series).To(HaveLen(1))
 				s.ClearReads()
 				data, _, ok = n.ReadChan(10)
-				Expect(ok).To(BeTrue())
+				Expect(ok).To(BeFalse())
 				Expect(data.Series).To(BeEmpty())
 			})
+
 			It("Should clear multiple channels", func() {
 				cfg := state.Config{
 					ChannelDigests: []state.ChannelDigest{
@@ -229,6 +230,7 @@ var _ = Describe("State", func() {
 				_, _, ok2 = n.ReadChan(3)
 				Expect(ok2).To(BeFalse())
 			})
+
 			It("Should allow new data to be ingested after clearing", func() {
 				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
 				fr1 := telem.UnaryFrame[uint32](5, telem.NewSeriesV[uint8](10, 20))
@@ -246,6 +248,7 @@ var _ = Describe("State", func() {
 				Expect(data.Series).To(HaveLen(1))
 				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[uint8](30, 40)))
 			})
+
 			It("Should not affect channels that had no data", func() {
 				cfg := state.Config{
 					ChannelDigests: []state.ChannelDigest{
@@ -261,6 +264,7 @@ var _ = Describe("State", func() {
 				_, _, ok := n.ReadChan(999)
 				Expect(ok).To(BeFalse())
 			})
+
 			It("Should handle empty state", func() {
 				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
 				s.ClearReads()

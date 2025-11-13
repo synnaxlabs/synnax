@@ -10,7 +10,7 @@
 import {
   type connection,
   Synnax,
-  type SynnaxProps,
+  type SynnaxParams,
   TimeSpan,
 } from "@synnaxlabs/client";
 import { type breaker, caseconv, migrate, type status } from "@synnaxlabs/x";
@@ -53,7 +53,7 @@ export const use = () => useContext().client;
 export const useConnectionState = () => useContext().state;
 
 export interface ProviderProps extends PropsWithChildren {
-  connParams?: SynnaxProps;
+  connParams?: SynnaxParams;
 }
 
 export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant> = {
