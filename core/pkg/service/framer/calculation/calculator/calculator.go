@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package calculation
+package calculator
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
@@ -27,17 +27,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Calculator is an extension of the lua-based computron.Calculator to provide
-// specific functionality for evaluating calculations on channels using frame data.
+// Calculator is an engine for executing expressions and operations in calculated
+// channels.
 type Calculator struct {
-	cfg        CalculatorConfig
-	ch         channel.Channel
+	cfg        Config
 	state      *state.State
 	scheduler  *scheduler.Scheduler
 	stateCfg   arcruntime.ExtendedStateConfig
@@ -45,66 +45,55 @@ type Calculator struct {
 	timeRange  telem.TimeRange
 }
 
-type CalculatorConfig struct {
-	ChannelSvc          channel.Readable
-	Channel             channel.Channel
-	Resolver            arc.SymbolResolver
+type Config struct {
+	Module              compiler.Module
 	CalculateAlignments *bool
 }
 
 var (
-	_                       config.Config[CalculatorConfig] = CalculatorConfig{}
-	DefaultCalculatorConfig                                 = CalculatorConfig{
+	_                       config.Config[Config] = Config{}
+	DefaultCalculatorConfig                       = Config{
 		CalculateAlignments: config.True(),
 	}
 )
 
 // Override implements config.Config.
-func (c CalculatorConfig) Override(other CalculatorConfig) CalculatorConfig {
-	c.ChannelSvc = override.Nil(c.ChannelSvc, other.ChannelSvc)
-	c.Channel = other.Channel
-	c.Resolver = override.Nil(c.Resolver, other.Resolver)
+func (c Config) Override(other Config) Config {
 	c.CalculateAlignments = override.Nil(c.CalculateAlignments, other.CalculateAlignments)
+	c.Module = override.Zero(c.Module, other.Module)
 	return c
 }
 
 // Validate implements config.Config.
-func (c CalculatorConfig) Validate() error {
+func (c Config) Validate() error {
 	v := validate.New("arc.runtime")
 	validate.NotNil(v, "calculate_alignments", c.CalculateAlignments)
+	validate.NonZeroable(v, "module", c.Module)
 	return v.Error()
 }
 
-// OpenCalculator opens a new calculator that evaluates the Expression of the provided
+// Open opens a new calculator that evaluates the Expression of the provided
 // channel. The requiredChannels provided must include ALL and ONLY the channels
 // corresponding to the keys specified in ch.Requires.
 //
 // The calculator must be closed by calling Close() after use, or memory leaks will occur.
-func OpenCalculator(
+func Open(
 	ctx context.Context,
-	cfgs ...CalculatorConfig,
+	cfgs ...Config,
 ) (*Calculator, error) {
 	cfg, err := config.New(DefaultCalculatorConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	module, err := compile(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-	stateCfg, err := arcruntime.NewStateConfig(ctx, cfg.ChannelSvc, module)
-	if err != nil {
-		return nil, err
-	}
-	progState := state.New(stateCfg.State)
 
+	progState := state.New(cfg.Module.StateConfig.State)
 	telemFactory := ntelem.NewTelemFactory()
 	selectFactory := selector.NewFactory()
 	constantFactory := constant.NewFactory()
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
 	wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
-		Module: module,
+		Module: cfg.Module.Module,
 	})
 	if err != nil {
 		return nil, err
@@ -123,10 +112,10 @@ func OpenCalculator(
 		stat.Factory,
 	}
 	nodes := make(map[string]node.Node)
-	for _, irNode := range module.Nodes {
+	for _, irNode := range cfg.Module.Nodes {
 		n, err := f.Create(ctx, node.Config{
 			Node:   irNode,
-			Module: module,
+			Module: cfg.Module.Module,
 			State:  progState.Node(irNode.Key),
 		})
 		if err != nil {
@@ -135,10 +124,13 @@ func OpenCalculator(
 		nodes[irNode.Key] = n
 	}
 
-	sched := scheduler.New(ctx, module.IR, nodes)
+	sched := scheduler.New(ctx, cfg.Module.IR, nodes)
 	sched.Init(ctx)
 	alignments := make(map[channel.Key]telem.Alignment)
-	for _, ch := range stateCfg.State.ChannelDigests {
+	for _, ch := range cfg.Module.StateConfig.State.ChannelDigests {
+		if ch.Key == uint32(cfg.Module.Channel.Key()) {
+			continue
+		}
 		if ch.Index == 0 {
 			alignments[channel.Key(ch.Key)] = telem.Alignment(0)
 		} else {
@@ -149,18 +141,37 @@ func OpenCalculator(
 		cfg:        cfg,
 		scheduler:  sched,
 		state:      progState,
-		ch:         cfg.Channel,
-		stateCfg:   stateCfg,
+		stateCfg:   cfg.Module.StateConfig,
 		alignments: alignments,
 	}, nil
+}
+
+func (c *Calculator) WriteTo() channel.Keys {
+	return c.stateCfg.Writes.Keys()
 }
 
 func (c *Calculator) ReadFrom() channel.Keys {
 	return c.stateCfg.Reads.Keys()
 }
 
-// Channel returns information about the channel being calculated.
-func (c *Calculator) Channel() channel.Channel { return c.ch }
+func (c *Calculator) Channel() channel.Channel { return c.cfg.Module.Channel }
+
+// String returns a human-readable representation of the calculator including channel
+// properties like name, key, index, data type, and dependency count.
+func (c *Calculator) String() string {
+	ch := c.cfg.Module.Channel
+	indexStr := ""
+	if idx := ch.Index(); idx != 0 {
+		indexStr = fmt.Sprintf(" index=%d", idx)
+	}
+	return fmt.Sprintf("%s (key=%d%s type=%s deps=%d)",
+		ch.Name,
+		ch.Key(),
+		indexStr,
+		ch.DataType,
+		len(c.ReadFrom()),
+	)
+}
 
 // Next executes the next calculation step. It takes in the given frame and determines
 // if enough data is available to perform the next set of calculations. The returned
@@ -171,16 +182,16 @@ func (c *Calculator) Channel() channel.Channel { return c.ch }
 // Any error encountered during calculations is returned as well.
 func (c *Calculator) Next(
 	ctx context.Context,
-	inputFrame,
-	outputFrame framer.Frame,
+	input,
+	output framer.Frame,
 ) (framer.Frame, bool, error) {
 	if *c.cfg.CalculateAlignments {
-		for rawI, rawKey := range inputFrame.RawKeys() {
-			if inputFrame.ShouldExcludeRaw(rawI) {
+		for rawI, rawKey := range input.RawKeys() {
+			if input.ShouldExcludeRaw(rawI) {
 				continue
 			}
 			v, ok := c.alignments[rawKey]
-			s := inputFrame.RawSeriesAt(rawI)
+			s := input.RawSeriesAt(rawI)
 			if ok && v == 0 {
 				c.alignments[rawKey] = s.Alignment
 			}
@@ -192,9 +203,9 @@ func (c *Calculator) Next(
 			}
 		}
 	}
-	c.state.Ingest(inputFrame.ToStorage())
+	c.state.Ingest(input.ToStorage())
 	var (
-		ofr         = outputFrame.ToStorage()
+		ofr         = output.ToStorage()
 		currChanged bool
 		changed     bool
 	)
@@ -207,7 +218,7 @@ func (c *Calculator) Next(
 		changed = true
 	}
 	if !changed {
-		return outputFrame, changed, nil
+		return output, false, nil
 	}
 	c.state.ClearReads()
 	if *c.cfg.CalculateAlignments {

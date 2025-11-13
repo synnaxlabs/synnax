@@ -66,7 +66,7 @@ export const payloadZ = z.object({
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
-export const newZ = payloadZ.omit({ requires: true }).extend({
+export const newZ = payloadZ.extend({
   key: keyZ.optional(),
   leaseholder: zod.uint12.optional(),
   index: keyZ.optional(),
@@ -75,6 +75,7 @@ export const newZ = payloadZ.omit({ requires: true }).extend({
   virtual: z.boolean().default(false),
   expression: z.string().default(""),
   operations: array.nullableZ(operationZ).optional(),
+  requires: array.nullableZ(keyZ).optional(),
 });
 
 export interface New

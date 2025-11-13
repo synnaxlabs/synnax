@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package calculation_test
+package calculator_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -16,7 +16,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
@@ -25,7 +26,6 @@ import (
 
 var _ = Describe("Calculator", Ordered, func() {
 	var (
-		c      *calculation.Service
 		arcSvc *arc.Service
 		dist   mock.Node
 	)
@@ -53,48 +53,41 @@ var _ = Describe("Calculator", Ordered, func() {
 			Status:   statusSvc,
 			Signals:  dist.Signals,
 		}))
-		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
-			DB:                dist.DB,
-			Framer:            dist.Framer,
-			Channel:           dist.Channel,
-			ChannelObservable: dist.Channel.NewObservable(),
-			Arc:               arcSvc,
-		}))
 	})
 
 	AfterAll(func() {
-		Expect(c.Close()).To(Succeed())
 		Expect(dist.Close()).To(Succeed())
 	})
 
 	open := func(
 		indexes, bases *[]channel.Channel,
 		calc *channel.Channel,
-	) *calculation.Calculator {
+	) *calculator.Calculator {
 		if indexes != nil {
 			Expect(dist.Channel.CreateMany(ctx, indexes)).To(Succeed())
 		}
-		for i, channel := range *bases {
-			if channel.Virtual {
-				continue
+		if bases != nil {
+
+			for i, channel := range *bases {
+				if channel.Virtual {
+					continue
+				}
+				toGet := i
+				if len(*indexes) == 1 {
+					toGet = 0
+				}
+				channel.LocalIndex = (*indexes)[toGet].LocalKey
+				(*bases)[i] = channel
 			}
-			toGet := i
-			if len(*indexes) == 1 {
-				toGet = 0
-			}
-			channel.LocalIndex = (*indexes)[toGet].LocalKey
-			(*bases)[i] = channel
+			Expect(dist.Channel.CreateMany(ctx, bases)).To(Succeed())
 		}
-		Expect(dist.Channel.CreateMany(ctx, bases)).To(Succeed())
 		Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
-		return MustSucceed(calculation.OpenCalculator(
-			ctx,
-			calculation.CalculatorConfig{
-				ChannelSvc: dist.Channel,
-				Channel:    *calc,
-				Resolver:   arcSvc.SymbolResolver(),
-			},
-		))
+		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+			Channels:       dist.Channel,
+			Channel:        *calc,
+			SymbolResolver: arcSvc.SymbolResolver(),
+		}))
+		return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
 	}
 
 	Describe("Alignment", func() {
@@ -598,12 +591,15 @@ var _ = Describe("Calculator", Ordered, func() {
 				Expression: "return sensor + 10",
 			}
 			c := open(&indexes, &bases, &calc)
+
+			// First write: Data Series 1. Should not Calculate
 			data1 := telem.NewSeriesV[int64](5, 15)
 			data1.Alignment = telem.NewAlignment(2, 1)
 			fr1 := core.UnaryFrame(bases[0].Key(), data1)
 			_, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
 			Expect(changed).To(BeFalse())
 
+			// Second Write: Data Series 2. Should Not Calculate
 			idx1 := telem.NewSeriesSecondsTSV(1, 2)
 			idx1.Alignment = telem.NewAlignment(2, 1)
 			fr2 := core.UnaryFrame(indexes[0].Key(), idx1)
@@ -735,5 +731,123 @@ var _ = Describe("Calculator", Ordered, func() {
 		Expect(o.Len()).To(BeEquivalentTo(1))
 		Expect(o.Get(calc.Index()).Series[0]).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(6)))
 		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
+	})
+
+	Describe("Group", func() {
+
+		It("Should aggregate ReadFrom keys from all calculators", func() {
+			idx := []channel.Channel{{Name: "time", DataType: telem.TimeStampT, IsIndex: true}}
+			b1 := []channel.Channel{{Name: "base1", DataType: telem.Int64T}}
+			b2 := []channel.Channel{{Name: "base2", DataType: telem.Int64T, Virtual: true}}
+			c1 := channel.Channel{
+				Name:       "calc1",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return base1 + 1",
+			}
+			c2 := channel.Channel{
+				Name:       "calc2",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return base2 * 2",
+			}
+			calc1 := open(&idx, &b1, &c1)
+			calc2 := open(nil, &b2, &c2)
+			g := calculator.Group{calc1, calc2}
+			keys := g.ReadFrom()
+			Expect(keys).To(HaveLen(3))
+			Expect(keys).To(ContainElements(idx[0].Key(), b1[0].Key(), b2[0].Key()))
+		})
+
+		It("Should execute all calculators and aggregate results", func() {
+			idx := []channel.Channel{{Name: "time", DataType: telem.TimeStampT, IsIndex: true}}
+			b1 := []channel.Channel{{Name: "base1", DataType: telem.Int64T}}
+			b2 := []channel.Channel{{Name: "base2", DataType: telem.Int64T, Virtual: true}}
+			c1 := channel.Channel{
+				Name:       "calc1",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return base1 + 1",
+			}
+			c2 := channel.Channel{
+				Name:       "calc2",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return base2 * 2",
+			}
+			calc1 := open(&idx, &b1, &c1)
+			calc2 := open(nil, &b2, &c2)
+			g := calculator.Group{calc1, calc2}
+			d1 := telem.NewSeriesV[int64](10, 20)
+			d2 := telem.NewSeriesV[int64](5, 10)
+			i := telem.NewSeriesSecondsTSV(1, 2)
+			fr := core.MultiFrame([]channel.Key{idx[0].Key(), b1[0].Key(), b2[0].Key()}, []telem.Series{i, d1, d2})
+			output, changed, statuses := g.Next(ctx, fr)
+			Expect(statuses).To(BeEmpty())
+			Expect(changed).To(BeTrue())
+			Expect(output.Len()).To(BeNumerically(">", 0))
+			Expect(output.Get(c1.Key()).Series).ToNot(BeEmpty())
+			Expect(output.Get(c2.Key()).Series).ToNot(BeEmpty())
+			Expect(output.Get(c1.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](11, 21))
+			Expect(output.Get(c2.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](10, 20))
+		})
+
+		It("Should close all calculators", func() {
+			idx := []channel.Channel{{Name: "time", DataType: telem.TimeStampT, IsIndex: true}}
+			b1 := []channel.Channel{{Name: "base1", DataType: telem.Int64T}}
+			b2 := []channel.Channel{{Name: "base2", DataType: telem.Int64T, Virtual: true}}
+			c1 := channel.Channel{
+				Name:       "calc1",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return base1",
+			}
+			c2 := channel.Channel{
+				Name:       "calc2",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return base2",
+			}
+			calc1 := open(&idx, &b1, &c1)
+			calc2 := open(&idx, &b2, &c2)
+			g := calculator.Group{calc1, calc2}
+			Expect(g.Close()).To(Succeed())
+		})
+
+		It("Should execute nested calculators", func() {
+			b1 := []channel.Channel{{
+				Name:     "base_a_1",
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			c1 := channel.Channel{
+				Name:       "calc_a_1",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return base_a_1 + 1",
+			}
+			c2 := channel.Channel{
+				Name:       "calc_a_2",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return calc_a_1 * 2",
+			}
+			calc1 := open(nil, &b1, &c1)
+			calc2 := open(nil, nil, &c2)
+			g := calculator.Group{calc1, calc2}
+			for i := 0; i < 10; i++ {
+				d1 := telem.NewSeriesV[int64](10, 20)
+				d1.Alignment = telem.NewAlignment(0, uint32(i*2))
+				fr := core.MultiFrame([]channel.Key{b1[0].Key()}, []telem.Series{d1})
+				output, changed, statuses := g.Next(ctx, fr)
+				Expect(statuses).To(BeEmpty())
+				Expect(changed).To(BeTrue())
+				Expect(output.Len()).To(BeNumerically(">", 0))
+				Expect(output.Get(c1.Key()).Series).ToNot(BeEmpty())
+				Expect(output.Get(c2.Key()).Series).ToNot(BeEmpty())
+				Expect(output.Get(c1.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](11, 21))
+				Expect(output.Get(c2.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](22, 42))
+			}
+		})
 	})
 })
