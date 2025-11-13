@@ -2,10 +2,13 @@
 title: "Version 0.46 Release Notes"
 ---
 
-import { Flex } from "@synnaxlabs/pluto";
+import { Flex, Divider } from "@synnaxlabs/pluto";
 import Release from "@/components/releases/Release.astro";
 import Diagram from "@/components/Diagram.astro";
 import { Image } from "@/components/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
 
 <Release
     version="0.46.0"
@@ -19,12 +22,16 @@ also redesigned the browsing experience for ranges in the Console, added a new g
 component, and, as always, introduced a number of bug fixes and performance
 improvements.
 
+<Divider.Divider x />
+
 ### Arc
 
 Arc is the first iteration of our long term plan to build a unified automation language
 for Synnax. Arc is a hybrid language that allows for building programs using both a
 visual and a text-based representation. Today, we're releasing the first version of the
 visual language for implementing alarms within Synnax.
+
+<Divider.Divider x />
 
 ### Range Explorer
 
@@ -38,6 +45,8 @@ visualization.
 We've also added a new status indicator that shows the progress state of a range: to-do,
 in-progress, and complete. These indicators make it easy to see which operations are
 active and which have been completed.
+
+<Divider.Divider x />
 
 ### Gauge Symbol
 
@@ -53,7 +62,9 @@ active and which have been completed.
 Our new Schematic gauge symbol is a great way to display a bar-indicator representing
 the value of a gauge. To use it, simply drag and drop it into a schematic.
 
-### Bug Fixes and Other Improvements
+<Divider.Divider x />
+
+### Minor Improvements and Bug Fixes
 
 - Fixed an issue where OPC UA nodes with periods in their names were not displayed
   correctly inside of the Read Task configuration dialog.

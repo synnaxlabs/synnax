@@ -254,19 +254,6 @@ func (s *Service) Remove(ctx context.Context, key channel.Key) error {
 	return nil
 }
 
-// Request requests that the Service starts calculation the channel with the provided
-// key. The calculation will be started if the channel is calculated and not already
-// being calculated. If the channel is already being calculated, the number of active
-// requests will be increased. The caller must close the returned io.Closer when the
-// calculation is no longer needed, which will decrement the number of active requests.
-//
-// Deprecated: Use Add and Remove instead for declarative lifecycle management.
-func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.startCalculation(ctx, key, 1)
-}
-
 const defaultPipelineBufferSize = 50
 
 func (s *Service) startCalculation(

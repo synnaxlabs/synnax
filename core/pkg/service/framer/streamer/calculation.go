@@ -39,8 +39,9 @@ func (t *calculationUpdaterTransform) transform(ctx context.Context, req Request
 
 func (t *calculationUpdaterTransform) Flow(ctx signal.Context, opts ...confluence.Option) {
 	t.LinearTransform.Flow(ctx, append(opts, confluence.Defer(func() {
-		// TODO: Check if there are context risks here.
-		if err := t.calcManager.Close(ctx); err != nil {
+		// Explicitly use a context.TODO() here as the parent context may have
+		// been cancelled.
+		if err := t.calcManager.Close(context.TODO()); err != nil {
 			t.L.Error("failed to close calculation", zap.Error(err))
 		}
 	}))...)

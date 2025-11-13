@@ -82,7 +82,7 @@ export const SelectPort = ({
         <Select.Dialog<string>
           onSearch={(term) => retrieve({ searchTerm: term })}
           emptyContent={emptyContent}
-          resourceName="Port"
+          resourceName="port"
           {...dialogProps}
         >
           {listItem}

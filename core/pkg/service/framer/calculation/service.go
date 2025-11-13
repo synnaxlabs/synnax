@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/group"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/legacy"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
@@ -109,7 +108,7 @@ type Service struct {
 		sync.Mutex
 		graph       *graph.Graph
 		calculators map[channel.Key]*calculator.Calculator
-		groups      map[int]*group.Group
+		groups      map[int]*group
 	}
 	disconnectFromChannelChanges observe.Disconnect
 	stateKey                     channel.Key
@@ -170,7 +169,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
 	s.mu.graph = g
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
-	s.mu.groups = make(map[int]*group.Group)
+	s.mu.groups = make(map[int]*group)
 
 	if err = s.migrateChannels(ctx); err != nil {
 		s.cfg.L.Error("failed to migrate legacy calculated channels", zap.Error(err))
@@ -199,11 +198,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 func (s *Service) setStatus(
 	_ context.Context,
-	stats ...calculator.Status,
+	statuses ...calculator.Status,
 ) {
 	if _, err := s.writer.Write(core.UnaryFrame(
 		s.stateKey,
-		telem.NewSeriesStaticJSONV(stats...),
+		telem.NewSeriesStaticJSONV(statuses...),
 	)); err != nil {
 		s.cfg.L.Error("failed to encode state", zap.Error(err))
 	}
@@ -267,7 +266,7 @@ func (s *Service) openOrGetCalculator(
 
 func groupEquals(
 	mods []compiler.Module,
-	g *group.Group,
+	g *group,
 ) bool {
 	if g == nil {
 		return false
@@ -305,9 +304,9 @@ func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Modu
 		}
 		calculators[i] = calc
 	}
-	g, err := group.Open(
+	g, err := openGroup(
 		ctx,
-		group.Config{
+		groupConfig{
 			Instrumentation: s.cfg.Child("group"),
 			Calculators:     calculators,
 			OnStatusChange:  s.setStatus,

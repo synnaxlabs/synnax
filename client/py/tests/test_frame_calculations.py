@@ -663,3 +663,643 @@ class TestCalculatedChannelIteration:
         assert np.array_equal(
             data_ser, np.array([-2.0, -2.0, -2.0, -2.0, -2.0], dtype=np.float32)
         )
+
+
+@pytest.mark.framer
+@pytest.mark.calculations
+class TestCalculationOperations:
+    def test_avg_operation_accumulates_across_batches(self, client: sy.Synnax):
+        idx = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        calc = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="avg")],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(calc.key) as streamer:
+            with client.open_writer(start, [idx.key, data.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 1 * sy.TimeSpan.SECOND,
+                                start + 2 * sy.TimeSpan.SECOND,
+                                start + 3 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([10.0, 20.0, 30.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert len(frame[calc.key]) == 1
+                assert frame[calc.key][0] == pytest.approx(20.0)
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 4 * sy.TimeSpan.SECOND,
+                                start + 5 * sy.TimeSpan.SECOND,
+                                start + 6 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([40.0, 50.0, 60.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert len(frame[calc.key]) == 1
+                assert frame[calc.key][0] == pytest.approx(35.0)
+
+    def test_avg_duration_reset_triggers_on_boundary(self, client: sy.Synnax):
+        idx = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        calc = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[
+                sy.channel.Operation(type="avg", duration=5 * sy.TimeSpan.SECOND)
+            ],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(calc.key) as streamer:
+            with client.open_writer(start, [idx.key, data.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 1 * sy.TimeSpan.SECOND,
+                                start + 2 * sy.TimeSpan.SECOND,
+                                start + 3 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([10.0, 20.0, 30.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert len(frame[calc.key]) == 1
+                assert frame[calc.key][0] == pytest.approx(20.0)
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 6 * sy.TimeSpan.SECOND,
+                                start + 7 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([40.0, 50.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert len(frame[calc.key]) == 1
+                assert frame[calc.key][0] == pytest.approx(45.0)
+
+    def test_min_operation_duration_reset(self, client: sy.Synnax):
+        idx = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        calc = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[
+                sy.channel.Operation(type="min", duration=5 * sy.TimeSpan.SECOND)
+            ],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(calc.key) as streamer:
+            with client.open_writer(start, [idx.key, data.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 1 * sy.TimeSpan.SECOND,
+                                start + 2 * sy.TimeSpan.SECOND,
+                                start + 3 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([30.0, 10.0, 20.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert len(frame[calc.key]) == 1
+                assert frame[calc.key][0] == pytest.approx(10.0)
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 6 * sy.TimeSpan.SECOND,
+                                start + 7 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([50.0, 40.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert len(frame[calc.key]) == 1
+                assert frame[calc.key][0] == pytest.approx(40.0)
+
+    def test_max_operation_duration_reset(self, client: sy.Synnax):
+        idx = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        calc = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[
+                sy.channel.Operation(type="max", duration=5 * sy.TimeSpan.SECOND)
+            ],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(calc.key) as streamer:
+            with client.open_writer(start, [idx.key, data.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 1 * sy.TimeSpan.SECOND,
+                                start + 2 * sy.TimeSpan.SECOND,
+                                start + 3 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([10.0, 30.0, 20.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert len(frame[calc.key]) == 1
+                assert frame[calc.key][0] == pytest.approx(30.0)
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 6 * sy.TimeSpan.SECOND,
+                                start + 7 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([15.0, 25.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert len(frame[calc.key]) == 1
+                assert frame[calc.key][0] == pytest.approx(25.0)
+
+    def test_avg_signal_reset_triggers_on_channel(self, client: sy.Synnax):
+        idx = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        reset = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.UINT8, virtual=True
+        )
+        calc = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="avg", reset_channel=reset.key)],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(calc.key) as streamer:
+            with client.open_writer(start, [idx.key, data.key, reset.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 1 * sy.TimeSpan.SECOND,
+                                start + 2 * sy.TimeSpan.SECOND,
+                                start + 3 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([10.0, 20.0, 30.0], dtype=np.float32),
+                        reset.key: np.array([0, 0, 0], dtype=np.uint8),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert len(frame[calc.key]) == 1
+                assert frame[calc.key][0] == pytest.approx(20.0)
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 4 * sy.TimeSpan.SECOND,
+                                start + 5 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([40.0, 50.0], dtype=np.float32),
+                        reset.key: np.array([1, 0], dtype=np.uint8),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert len(frame[calc.key]) == 1
+                assert frame[calc.key][0] == pytest.approx(45.0)
+
+    def test_min_signal_reset_clears_state(self, client: sy.Synnax):
+        idx = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        reset = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.UINT8, virtual=True
+        )
+        calc = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="min", reset_channel=reset.key)],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(calc.key) as streamer:
+            with client.open_writer(start, [idx.key, data.key, reset.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 1 * sy.TimeSpan.SECOND,
+                                start + 2 * sy.TimeSpan.SECOND,
+                                start + 3 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([30.0, 10.0, 20.0], dtype=np.float32),
+                        reset.key: np.array([0, 0, 0], dtype=np.uint8),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert len(frame[calc.key]) == 1
+                assert frame[calc.key][0] == pytest.approx(10.0)
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 4 * sy.TimeSpan.SECOND,
+                                start + 5 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([50.0, 40.0], dtype=np.float32),
+                        reset.key: np.array([1, 0], dtype=np.uint8),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert len(frame[calc.key]) == 1
+                assert frame[calc.key][0] == pytest.approx(40.0)
+
+    def test_max_signal_reset_clears_state(self, client: sy.Synnax):
+        idx = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        reset = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.UINT8, virtual=True
+        )
+        calc = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="max", reset_channel=reset.key)],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(calc.key) as streamer:
+            with client.open_writer(start, [idx.key, data.key, reset.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 1 * sy.TimeSpan.SECOND,
+                                start + 2 * sy.TimeSpan.SECOND,
+                                start + 3 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([10.0, 30.0, 20.0], dtype=np.float32),
+                        reset.key: np.array([0, 0, 0], dtype=np.uint8),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert len(frame[calc.key]) == 1
+                assert frame[calc.key][0] == pytest.approx(30.0)
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 4 * sy.TimeSpan.SECOND,
+                                start + 5 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([15.0, 25.0], dtype=np.float32),
+                        reset.key: np.array([1, 0], dtype=np.uint8),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert len(frame[calc.key]) == 1
+                assert frame[calc.key][0] == pytest.approx(25.0)
+
+    def test_operations_with_single_sample(self, client: sy.Synnax):
+        idx = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        calc_min = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="min")],
+        )
+        calc_max = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="max")],
+        )
+        calc_avg = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="avg")],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(
+            [calc_min.key, calc_max.key, calc_avg.key]
+        ) as streamer:
+            with client.open_writer(start, [idx.key, data.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [start + 1 * sy.TimeSpan.SECOND], dtype=np.int64
+                        ),
+                        data.key: np.array([42.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert frame[calc_min.key][0] == pytest.approx(42.0)
+                assert frame[calc_max.key][0] == pytest.approx(42.0)
+                assert frame[calc_avg.key][0] == pytest.approx(42.0)
+
+    def test_avg_multiple_duration_resets(self, client: sy.Synnax):
+        idx = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        calc = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[
+                sy.channel.Operation(type="avg", duration=3 * sy.TimeSpan.SECOND)
+            ],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(calc.key) as streamer:
+            with client.open_writer(start, [idx.key, data.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [start + 1 * sy.TimeSpan.SECOND], dtype=np.int64
+                        ),
+                        data.key: np.array([10.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert frame[calc.key][0] == pytest.approx(10.0)
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [start + 4 * sy.TimeSpan.SECOND], dtype=np.int64
+                        ),
+                        data.key: np.array([20.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert frame[calc.key][0] == pytest.approx(20.0)
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [start + 7 * sy.TimeSpan.SECOND], dtype=np.int64
+                        ),
+                        data.key: np.array([30.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert frame[calc.key][0] == pytest.approx(30.0)
+
+    def test_avg_combined_duration_and_signal_reset(self, client: sy.Synnax):
+        idx = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        reset = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.UINT8, virtual=True
+        )
+        calc = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[
+                sy.channel.Operation(
+                    type="avg",
+                    duration=10 * sy.TimeSpan.SECOND,
+                    reset_channel=reset.key,
+                )
+            ],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(calc.key) as streamer:
+            with client.open_writer(start, [idx.key, data.key, reset.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 1 * sy.TimeSpan.SECOND,
+                                start + 2 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([10.0, 20.0], dtype=np.float32),
+                        reset.key: np.array([0, 0], dtype=np.uint8),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert frame[calc.key][0] == pytest.approx(15.0)
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [start + 3 * sy.TimeSpan.SECOND], dtype=np.int64
+                        ),
+                        data.key: np.array([30.0], dtype=np.float32),
+                        reset.key: np.array([1], dtype=np.uint8),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert frame[calc.key][0] == pytest.approx(30.0)
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [start + 4 * sy.TimeSpan.SECOND], dtype=np.int64
+                        ),
+                        data.key: np.array([40.0], dtype=np.float32),
+                        reset.key: np.array([0], dtype=np.uint8),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert frame[calc.key][0] == pytest.approx(35.0)
+
+    def test_operations_with_identical_values(self, client: sy.Synnax):
+        idx = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        calc_min = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="min")],
+        )
+        calc_max = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="max")],
+        )
+        calc_avg = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="avg")],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(
+            [calc_min.key, calc_max.key, calc_avg.key]
+        ) as streamer:
+            with client.open_writer(start, [idx.key, data.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 1 * sy.TimeSpan.SECOND,
+                                start + 2 * sy.TimeSpan.SECOND,
+                                start + 3 * sy.TimeSpan.SECOND,
+                                start + 4 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([5.0, 5.0, 5.0, 5.0], dtype=np.float32),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert frame[calc_min.key][0] == pytest.approx(5.0)
+                assert frame[calc_max.key][0] == pytest.approx(5.0)
+                assert frame[calc_avg.key][0] == pytest.approx(5.0)
+
+    def test_avg_signal_reset_fast_pulse(self, client: sy.Synnax):
+        idx = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        data = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+        )
+        reset = client.channels.create(
+            name=rand_name(), data_type=sy.DataType.UINT8, virtual=True
+        )
+        calc = client.channels.create(
+            name=rand_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="avg", reset_channel=reset.key)],
+        )
+        start = sy.TimeStamp.now()
+        with client.open_streamer(calc.key) as streamer:
+            with client.open_writer(start, [idx.key, data.key, reset.key]) as writer:
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 1 * sy.TimeSpan.SECOND,
+                                start + 2 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([10.0, 20.0], dtype=np.float32),
+                        reset.key: np.array([0, 0], dtype=np.uint8),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert frame[calc.key][0] == pytest.approx(15.0)
+                writer.write(
+                    {
+                        idx.key: np.array(
+                            [
+                                start + 3 * sy.TimeSpan.SECOND,
+                                start + 4 * sy.TimeSpan.SECOND,
+                                start + 5 * sy.TimeSpan.SECOND,
+                            ],
+                            dtype=np.int64,
+                        ),
+                        data.key: np.array([30.0, 40.0, 50.0], dtype=np.float32),
+                        reset.key: np.array([1, 0, 1], dtype=np.uint8),
+                    }
+                )
+                frame = streamer.read(timeout=1)
+                assert frame is not None
+                assert frame[calc.key][0] == pytest.approx(40.0)

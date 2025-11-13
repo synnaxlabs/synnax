@@ -37,39 +37,6 @@ struct is_vector<std::vector<T>> : std::true_type {
 template<typename T>
 inline constexpr bool is_vector_v = is_vector<T>::value;
 
-/// @brief Type trait to detect std::map types
-template<typename T>
-struct is_map : std::false_type {
-    using key_type = void;
-    using mapped_type = void;
-};
-
-template<typename K, typename V>
-struct is_map<std::map<K, V>> : std::true_type {
-    using key_type = K;
-    using mapped_type = V;
-};
-
-template<typename T>
-inline constexpr bool is_map_v = is_map<T>::value;
-
-/// @brief Helper to convert string to key type
-template<typename K>
-K parse_map_key(const std::string& key_str) {
-    if constexpr (std::is_same_v<K, std::string>) {
-        return key_str;
-    } else if constexpr (std::is_integral_v<K>) {
-        if constexpr (std::is_unsigned_v<K>) {
-            return static_cast<K>(std::stoull(key_str));
-        } else {
-            return static_cast<K>(std::stoll(key_str));
-        }
-    } else {
-        static_assert(std::is_same_v<K, std::string>, "Unsupported map key type");
-        return K();
-    }
-}
-
 /// @brief a utility class for improving the experience of parsing JSON-based
 /// configurations.
 class Parser {
@@ -176,22 +143,6 @@ public:
                 values.push_back(get<U>(child_path, iter->begin() + i));
             }
             return values;
-        } else if constexpr (is_map_v<T>) {
-            // Handle map types automatically
-            using K = typename is_map<T>::key_type;
-            using V = typename is_map<T>::mapped_type;
-            if (!iter->is_object()) {
-                field_err(path, "Expected an object");
-                return T();
-            }
-            std::map<K, V> map;
-            for (auto& [key_str, value_json] : iter->items()) {
-                K key = parse_map_key<K>(key_str);
-                const auto child_path = path + "." + key_str;
-                auto value_iter = iter->find(key_str);
-                map[key] = get<V>(child_path, value_iter);
-            }
-            return map;
         } else {
             // Handle scalar types
             return get<T>(path, iter);
@@ -225,22 +176,6 @@ public:
                 values.push_back(get<U>(child_path, iter->begin() + i));
             }
             return values;
-        } else if constexpr (is_map_v<T>) {
-            // Handle map types automatically
-            using K = typename is_map<T>::key_type;
-            using V = typename is_map<T>::mapped_type;
-            if (!iter->is_object()) {
-                field_err(path, "Expected an object");
-                return default_value;
-            }
-            std::map<K, V> map;
-            for (auto& [key_str, value_json] : iter->items()) {
-                K key = parse_map_key<K>(key_str);
-                const auto child_path = path + "." + key_str;
-                auto value_iter = iter->find(key_str);
-                map[key] = get<V>(child_path, value_iter);
-            }
-            return map;
         } else {
             // Handle scalar types
             return get<T>(path, iter);
@@ -272,21 +207,6 @@ public:
                     values.push_back(get<U>(child_path, iter->begin() + i));
                 }
                 return values;
-            } else if constexpr (is_map_v<T>) {
-                using K = typename is_map<T>::key_type;
-                using V = typename is_map<T>::mapped_type;
-                if (!iter->is_object()) {
-                    field_err(path, "Expected an object");
-                    return T();
-                }
-                std::map<K, V> map;
-                for (auto& [key_str, value_json] : iter->items()) {
-                    K key = parse_map_key<K>(key_str);
-                    const auto child_path = path + "." + key_str;
-                    auto value_iter = iter->find(key_str);
-                    map[key] = get<V>(child_path, value_iter);
-                }
-                return map;
             } else {
                 return get<T>(path, iter);
             }
@@ -308,21 +228,6 @@ public:
                         values.push_back(get<U>(child_path, it->begin() + i));
                     }
                     return {values, true};
-                } else if constexpr (is_map_v<T>) {
-                    using K = typename is_map<T>::key_type;
-                    using V = typename is_map<T>::mapped_type;
-                    if (!it->is_object()) {
-                        field_err(alt_path, "Expected an object");
-                        return {T(), false};
-                    }
-                    std::map<K, V> map;
-                    for (auto& [key_str, value_json] : it->items()) {
-                        K key = parse_map_key<K>(key_str);
-                        const auto child_path = alt_path + "." + key_str;
-                        auto value_iter = it->find(key_str);
-                        map[key] = get<V>(child_path, value_iter);
-                    }
-                    return {map, true};
                 } else {
                     return {get<T>(alt_path, it), true};
                 }

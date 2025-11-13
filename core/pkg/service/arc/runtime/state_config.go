@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -69,7 +70,7 @@ func NewStateConfig(
 		Reads:  reads,
 		Writes: writes,
 		State: state.Config{
-			ChannelDigests: channelDigests,
+			ChannelDigests: lo.Uniq(channelDigests),
 			IR:             module.IR,
 		},
 	}, nil

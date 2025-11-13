@@ -12,7 +12,11 @@
 // set types for various use cases.
 package set
 
-import "maps"
+import (
+	"maps"
+
+	"github.com/samber/lo"
+)
 
 // Mapped is a generic map-based collection that associates keys of type T
 // with values of type V. It serves as the foundation for the Set type.
@@ -31,22 +35,6 @@ func FromSlice[T comparable](values []T) Set[T] {
 	return s
 }
 
-// TODO: Test
-func Union[T comparable, V any](sets ...Mapped[T, V]) Mapped[T, V] {
-	count := 0
-	for _, set := range sets {
-		count += len(set)
-	}
-	s := make(Mapped[T, V], count)
-	for _, set := range sets {
-		for k, v := range set {
-			s[k] = v
-		}
-	}
-	return s
-}
-
-// TODO: Test
 // Difference returns a new set containing elements that are in a but not in b (a - b).
 func Difference[T comparable, V any](a, b Mapped[T, V]) Mapped[T, V] {
 	s := make(Mapped[T, V], len(a))
@@ -95,23 +83,11 @@ func (s Mapped[T, V]) Contains(v T) bool {
 
 // Keys returns a slice containing all keys in the set.
 // The order of the keys in the returned slice is not guaranteed.
-func (s Mapped[T, V]) Keys() []T {
-	values := make([]T, 0, len(s))
-	for k := range s {
-		values = append(values, k)
-	}
-	return values
-}
+func (s Mapped[T, V]) Keys() []T { return lo.Keys(s) }
 
 // Values returns a slice containing all values in the set.
 // The order of the values in the returned slice is not guaranteed.
-func (s Mapped[T, V]) Values() []V {
-	values := make([]V, 0, len(s))
-	for _, v := range s {
-		values = append(values, v)
-	}
-	return values
-}
+func (s Mapped[T, V]) Values() []V { return lo.Values(s) }
 
 // Equals checks if two sets contain exactly the same elements.
 func (s Mapped[T, V]) Equals(other Mapped[T, V]) bool {
@@ -126,8 +102,8 @@ func (s Mapped[T, V]) Equals(other Mapped[T, V]) bool {
 	return true
 }
 
-// Subset checks if s is a subset of other (all elements of s are in other).
-func (s Mapped[T, V]) Subset(other Mapped[T, V]) bool {
+// IsSubsetOf checks if s is a subset of other (all elements of s are in other).
+func (s Mapped[T, V]) IsSubsetOf(other Mapped[T, V]) bool {
 	for k := range s {
 		if !other.Contains(k) {
 			return false

@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type SynnaxProps } from "@synnaxlabs/client";
+import { type SynnaxParams } from "@synnaxlabs/client";
 import { Canvas, Channel, Pluto } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import WorkerURL from "@/components/pluto/worker?worker&url";
 
-const connParams: SynnaxProps = {
+const connParams: SynnaxParams = {
   host: "demo.synnaxlabs.com",
   port: 9090,
   username: "synnax",

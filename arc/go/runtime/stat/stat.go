@@ -153,8 +153,9 @@ var configSchema = zyn.Object(map[string]zyn.Schema{
 	countConfigParam:    zyn.Int64().Optional().Coerce(),
 })
 
-type statFactory struct {
-}
+type statFactory struct{}
+
+var Factory node.Factory = &statFactory{}
 
 func (f *statFactory) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
 	reductionMap, ok := ops[nodeCfg.Node.Type]
@@ -167,10 +168,17 @@ func (f *statFactory) Create(_ context.Context, nodeCfg node.Config) (node.Node,
 		resetIdx    = -1
 	)
 	if _, found := nodeCfg.Module.Edges.FindByTarget(ir.Handle{
-		Node:  nodeCfg.Node.Type,
+		Node:  nodeCfg.Node.Key,
 		Param: resetInputParam,
 	}); found {
 		resetIdx = 1
+		// Initialize optional reset input with dummy value to prevent alignment blocking
+		// Use timestamp=1 so it's > initial watermark of 0
+		nodeCfg.State.InitInput(
+			resetIdx,
+			telem.NewSeriesV[uint8](0),
+			telem.NewSeriesV[telem.TimeStamp](1),
+		)
 	}
 	var cfg ConfigValues
 	if err := configSchema.Parse(nodeCfg.Node.Config.ValueMap(), &cfg); err != nil {
@@ -183,10 +191,6 @@ func (f *statFactory) Create(_ context.Context, nodeCfg node.Config) (node.Node,
 		sampleCount: 0,
 		cfg:         cfg,
 	}, nil
-}
-
-func NewFactory() node.Factory {
-	return &statFactory{}
 }
 
 var ops = map[string]map[telem.DataType]func(telem.Series, int64, *telem.Series) int64{

@@ -25,6 +25,11 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
       layout: Task.ANALOG_WRITE_LAYOUT,
     },
     {
+      itemKey: "ni.counterReadTask",
+      label: "Create counter read task",
+      layout: Task.COUNTER_READ_LAYOUT,
+    },
+    {
       itemKey: "ni.digitalReadTask",
       label: "Create digital read task",
       layout: Task.DIGITAL_READ_LAYOUT,
