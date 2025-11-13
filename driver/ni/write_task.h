@@ -76,6 +76,12 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             cfg.field_err("channels", "task must have at least one enabled channel");
             return;
         }
+        auto [dev, err] = client->hardware.retrieve_device(this->device_key);
+        if (err) {
+            cfg.field_err("device", "failed to retrieve device " + err.message());
+            return;
+        }
+
         std::vector<synnax::ChannelKey> state_keys;
         state_keys.reserve(this->channels.size());
         std::unordered_map<synnax::ChannelKey, synnax::ChannelKey> state_to_cmd;
@@ -84,11 +90,6 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             state_keys.push_back(ch->state_ch_key);
             state_to_cmd[ch->state_ch_key] = ch->cmd_ch_key;
             buf_indexes[ch->cmd_ch_key] = index++;
-        }
-        auto [dev, err] = client->hardware.retrieve_device(this->device_key);
-        if (err) {
-            cfg.field_err("device", "failed to retrieve device " + err.message());
-            return;
         }
         auto [state_channels, ch_err] = client->channels.retrieve(state_keys);
         if (ch_err) {

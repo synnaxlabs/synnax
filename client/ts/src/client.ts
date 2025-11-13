@@ -31,7 +31,7 @@ import { user } from "@/user";
 import { view } from "@/view";
 import { workspace } from "@/workspace";
 
-export const synnaxPropsZ = z.object({
+export const synnaxParamsZ = z.object({
   host: z.string({ error: "Host is required" }).min(1, "Host is required"),
   port: z
     .number({ error: "Port is required" })
@@ -44,8 +44,8 @@ export const synnaxPropsZ = z.object({
   retry: breaker.breakerConfigZ.optional(),
 });
 
-export interface SynnaxProps extends z.input<typeof synnaxPropsZ> {}
-export interface ParsedSynnaxProps extends z.infer<typeof synnaxPropsZ> {}
+export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
+export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
 /**
  * Client to perform operations against a Synnax cluster.
@@ -57,7 +57,7 @@ export interface ParsedSynnaxProps extends z.infer<typeof synnaxPropsZ> {}
  */
 export default class Synnax extends framer.Client {
   readonly createdAt: TimeStamp;
-  readonly props: ParsedSynnaxProps;
+  readonly params: ParsedSynnaxParams;
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
   readonly auth: auth.Client | undefined;
@@ -95,8 +95,8 @@ export default class Synnax extends framer.Client {
    * A Synnax client must be closed when it is no longer needed. This will stop
    * the client from polling the cluster for connectivity information.
    */
-  constructor(props_: SynnaxProps) {
-    const props = synnaxPropsZ.parse(props_);
+  constructor(params: SynnaxParams) {
+    const parsedParams = synnaxParamsZ.parse(params);
     const {
       host,
       port,
@@ -105,7 +105,7 @@ export default class Synnax extends framer.Client {
       connectivityPollFrequency,
       secure,
       retry: breaker,
-    } = props;
+    } = parsedParams;
     const transport = new Transport(
       new URL({ host, port: Number(port) }),
       breaker,
@@ -123,7 +123,7 @@ export default class Synnax extends framer.Client {
     const chCreator = new channel.Writer(transport.unary, chRetriever);
     super(transport.stream, transport.unary, chRetriever);
     this.createdAt = TimeStamp.now();
-    this.props = props;
+    this.params = parsedParams;
     this.auth = auth_;
     this.transport = transport;
     this.channels = new channel.Client(this, chRetriever, transport.unary, chCreator);
@@ -131,7 +131,7 @@ export default class Synnax extends framer.Client {
       transport.unary,
       connectivityPollFrequency,
       this.clientVersion,
-      props.name,
+      parsedParams.name,
     );
     this.control = new control.Client(this);
     this.ontology = new ontology.Client(transport.unary, this);
@@ -167,6 +167,20 @@ export default class Synnax extends framer.Client {
   }
 
   close(): void {
-    this.connectivity.stopChecking();
+    this.connectivity.stop();
   }
 }
+
+export interface CheckConnectionParams
+  extends Pick<SynnaxParams, "host" | "port" | "secure" | "retry" | "name"> {}
+
+export const checkConnection = async (params: CheckConnectionParams) =>
+  await newConnectionChecker(params).check();
+
+export const newConnectionChecker = (params: CheckConnectionParams) => {
+  const { host, port, secure, name, retry } = params;
+  const retryConfig = breaker.breakerConfigZ.optional().parse(retry);
+  const url = new URL({ host, port: Number(port) });
+  const transport = new Transport(url, retryConfig, secure);
+  return new connection.Checker(transport.unary, undefined, __VERSION__, name);
+};

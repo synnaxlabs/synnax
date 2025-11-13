@@ -118,6 +118,7 @@ import {
   MdLabel,
   MdLightMode,
   MdLink,
+  MdLogout,
   MdMoreVert,
   MdNewReleases,
   MdOutlineControlCamera,
@@ -440,6 +441,7 @@ export const CSV = wrapSVGIcon(PiFileCsv, "csv");
 export const Reset = wrapSVGIcon(RxReset, "reset");
 export const FillColor = wrapSVGIcon(IoMdColorFill, "fill-color");
 export const StrokeColor = wrapSVGIcon(MdBorderColor, "stroke-color");
+export const Logout = wrapSVGIcon(MdLogout, "logout");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -595,6 +597,7 @@ const icons = {
   Status,
   FillColor,
   StrokeColor,
+  Logout,
 };
 
 export const resolve = ((

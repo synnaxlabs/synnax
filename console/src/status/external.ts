@@ -17,6 +17,8 @@ import { type View } from "@/view";
 export * from "@/status/Create";
 export * from "@/status/Explorer";
 export * from "@/status/palette";
+export * from "@/status/slice";
+export * from "@/status/Toolbar";
 export * from "@/status/useListenForChanges";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

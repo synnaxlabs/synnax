@@ -128,10 +128,11 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
-		Instrumentation:          cfg.Child("calculated"),
+		Instrumentation:          cfg.Child("calculation"),
 		DB:                       cfg.DB,
-		Channel:                  cfg.Channel,
+		Channels:                 cfg.Channel,
 		Framer:                   cfg.Framer,
 		Arc:                      cfg.Arc,
 		ChannelObservable:        cfg.Channel.NewObservable(),
@@ -151,7 +152,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
 		DistFramer: cfg.Framer,
-		Channel:    cfg.Channel,
+		Channels:   cfg.Channel,
 		Arc:        cfg.Arc,
 	})
 	if err != nil {

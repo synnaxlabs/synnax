@@ -12,6 +12,7 @@ import { ChannelServices } from "@/channel/services";
 import { Hardware } from "@/hardware";
 import { type Layout } from "@/layout";
 import { Range } from "@/range";
+import { Status } from "@/status";
 import { UserServices } from "@/user/services";
 import { Vis } from "@/vis";
 import { WorkspaceServices } from "@/workspace/services";
@@ -20,6 +21,7 @@ export const DRAWER_ITEMS: Layout.NavDrawerItem[] = [
   ...Hardware.NAV_DRAWER_ITEMS,
   Arc.TOOLBAR,
   Range.TOOLBAR,
+  Status.TOOLBAR,
   Vis.TOOLBAR,
   ChannelServices.TOOLBAR,
   WorkspaceServices.TOOLBAR,
