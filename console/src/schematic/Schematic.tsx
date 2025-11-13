@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/Schematic.css";
+
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
@@ -20,6 +22,7 @@ import {
   type Legend,
   Menu as PMenu,
   Schematic as Core,
+  Select,
   Text,
   Theming,
   usePrevious,
@@ -237,6 +240,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [layoutKey, syncDispatch],
   );
 
+  const toggleLegendVisible = useCallback(
+    (visible: boolean) =>
+      syncDispatch(setLegend({ key: layoutKey, legend: { visible } })),
+    [layoutKey, syncDispatch],
+  );
+
   const elRenderer = useCallback(
     (props: Diagram.SymbolProps) => (
       <SymbolRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
@@ -391,10 +400,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         >
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
           <Diagram.Background />
-          <Diagram.Controls>
-            <Diagram.SelectViewportModeControl />
-            <Diagram.FitViewControl />
-            <Flex.Box x pack>
+          <Flex.Box gap="small" className="pluto-diagram__controls">
+            <Flex.Box x gap="small" borderColor={5}>
+              <Diagram.FitViewControl />
               {canEditSchematic && (
                 <Diagram.ToggleEditControl
                   disabled={schematic.control === "acquired"}
@@ -420,13 +428,41 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
                 </Button.Toggle>
               )}
             </Flex.Box>
-          </Diagram.Controls>
+            {schematic.editable && (
+              <Flex.Box x className="pluto-diagram__edit-mode">
+                <Diagram.SelectViewportModeControl />
+              </Flex.Box>
+            )}
+            {schematic.control === "acquired" && (
+              <Flex.Box x className="pluto-diagram__control-legend">
+                <Button.Toggle
+                  value={schematic.legend.visible}
+                  onChange={toggleLegendVisible}
+                  size="small"
+                  uncheckedVariant="outlined"
+                  checkedVariant="outlined"
+                  tooltipLocation={location.BOTTOM_LEFT}
+                  tooltip={
+                    <Text.Text level="small">
+                      {schematic.legend.visible
+                        ? "Hide Control Legend"
+                        : "Show Control Legend"}
+                    </Text.Text>
+                  }
+                >
+                  {schematic.legend.visible ? <Icon.Visible /> : <Icon.Hidden />}
+                </Button.Toggle>
+              </Flex.Box>
+            )}
+          </Flex.Box>
         </Core.Schematic>
-        <Control.Legend
-          position={legendPosition}
-          onPositionChange={handleLegendPositionChange}
-          allowVisibleChange={false}
-        />
+        {schematic.legend.visible && (
+          <Control.Legend
+            position={legendPosition}
+            onPositionChange={handleLegendPositionChange}
+            allowVisibleChange={false}
+          />
+        )}
       </Control.Controller>
     </div>
   );
