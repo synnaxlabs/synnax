@@ -45,9 +45,9 @@ new Lua-based calculations will not be allowed.
 
 <Divider.Divider x />
 
-## Important Breaking Changes
+### Breaking Changes
 
-### Auto-Commit is now Enabled by Default with All Writers
+#### Auto-Commit is now Enabled by Default with All Writers
 
 [Auto-Commit](/reference/concepts/writes#auto-commit) is used to immediately persist
 written data to Synnax, as opposed to calling `commit` manually.
@@ -60,7 +60,7 @@ As a result, we've made the decision to enable auto-commit by default with write
 all of our client libraries. Any code that implicitly disables auto-commit will now need
 to explicitly disable it.
 
-### Changes to Writer Behavior Under Mixed Control Authority
+#### Changes to Writer Behavior Under Mixed Control Authority
 
 Synnax v0.47 fixes a critical issue that caused schematics to become unresponsive across
 all channels when a higher authority process acquired control of a channel on the
@@ -82,7 +82,9 @@ This fix significantly improves the reliability of schematics in complex control
 scenarios where multiple systems or users may be managing different aspects of the
 system simultaneously.
 
-### Bug Fixes and Other Improvements
+<Divider.Divider x />
+
+### Minor Improvements and Bug Fixes
 
 #### Core
 

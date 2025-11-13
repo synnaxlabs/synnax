@@ -10,9 +10,9 @@
 import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
 import { ingestRead, ingestWrite } from "@/hardware/modbus/task/import";
-import { Read, READ_SELECTABLE } from "@/hardware/modbus/task/Read";
+import { Read, READ_LAYOUT, READ_SELECTABLE } from "@/hardware/modbus/task/Read";
 import { READ_TYPE, WRITE_TYPE } from "@/hardware/modbus/task/types";
-import { Write, WRITE_SELECTABLE } from "@/hardware/modbus/task/Write";
+import { Write, WRITE_LAYOUT, WRITE_SELECTABLE } from "@/hardware/modbus/task/Write";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
@@ -38,3 +38,8 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 };
 
 export const SELECTABLES: Selector.Selectable[] = [READ_SELECTABLE, WRITE_SELECTABLE];
+
+export const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
+  [READ_TYPE]: READ_LAYOUT,
+  [WRITE_TYPE]: WRITE_LAYOUT,
+};

@@ -309,6 +309,7 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 	if currState.hasVariableDataTypes {
 		fgs.equalLens = false
 	}
+	src = src.KeepKeys(currState.keys)
 	if src.Count() != len(currState.keys) {
 		fgs.allChannelsPresent = false
 		byteArraySize += src.Count() * 4

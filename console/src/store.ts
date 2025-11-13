@@ -29,6 +29,7 @@ import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
+import { Status } from "@/status";
 import { Table } from "@/table";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
@@ -48,6 +49,7 @@ const ZERO_STATE: RootState = {
   [Permissions.SLICE_NAME]: Permissions.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
   [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
+  [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
   [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
   [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
@@ -64,6 +66,7 @@ const reducer = combineReducers({
   [Permissions.SLICE_NAME]: Permissions.reducer,
   [Range.SLICE_NAME]: Range.reducer,
   [Schematic.SLICE_NAME]: Schematic.reducer,
+  [Status.SLICE_NAME]: Status.reducer,
   [Table.SLICE_NAME]: Table.reducer,
   [Version.SLICE_NAME]: Version.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
@@ -80,6 +83,7 @@ export interface RootState {
   [Permissions.SLICE_NAME]: Permissions.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
   [Schematic.SLICE_NAME]: Schematic.SliceState;
+  [Status.SLICE_NAME]: Status.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
@@ -96,6 +100,7 @@ export type RootAction =
   | Permissions.Action
   | Range.Action
   | Schematic.Action
+  | Status.Action
   | Table.Action
   | Version.Action
   | Workspace.Action
@@ -121,6 +126,7 @@ export const migrateState = (prev: RootState): RootState => {
   const cluster = Cluster.migrateSlice(prev.cluster);
   const permissions = Permissions.migrateSlice(prev.permissions);
   const arc = Arc.migrateSlice(prev.arc);
+  const status = Status.migrateSlice(prev.status);
   console.log("Migrated State");
   console.groupEnd();
   return {
@@ -135,6 +141,7 @@ export const migrateState = (prev: RootState): RootState => {
     cluster,
     permissions,
     arc,
+    status,
   };
 };
 

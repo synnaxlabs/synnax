@@ -12,5 +12,4 @@ export * from "@/ontology/CopyMenuItem";
 export * from "@/ontology/hooks";
 export * from "@/ontology/service";
 export * from "@/ontology/ServicesProvider";
-export * from "@/ontology/Toolbar";
 export * from "@/ontology/Tree";

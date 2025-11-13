@@ -435,6 +435,129 @@ class TestChannel:
         with pytest.raises(sy.NotFoundError):
             client.channels.retrieve([0, 0, 0])
 
+    def test_create_channel_with_avg_operation_duration(self, client: sy.Synnax):
+        """Should create a calculated channel with an avg operation over a duration"""
+        from synnax.channel.payload import Operation
+
+        idx_ch = client.channels.create(
+            name="test", data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        base_channel = client.channels.create(
+            name="test",
+            data_type=sy.DataType.FLOAT32,
+            index=idx_ch.key,
+        )
+
+        operation = Operation(type="avg", duration=sy.TimeSpan.SECOND * 10)
+        channel = sy.Channel(
+            name="test_avg",
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {base_channel.name}",
+            operations=[operation],
+        )
+        created = client.channels.create(channel)
+
+        assert created.name == "test_avg"
+        assert created.virtual is True
+        assert len(created.operations) == 1
+        assert created.operations[0].type == "avg"
+        assert created.operations[0].duration == sy.TimeSpan.SECOND * 10
+        # reset_channel defaults to 0 when not set
+        assert created.operations[0].reset_channel == 0
+
+    def test_create_channel_with_min_operation_reset_channel(self, client: sy.Synnax):
+        """Should create a calculated channel with a min operation triggered by a reset channel"""
+        from synnax.channel.payload import Operation
+
+        idx_ch = client.channels.create(
+            name="test", data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        base_channel = client.channels.create(
+            name="test",
+            data_type=sy.DataType.FLOAT32,
+            index=idx_ch.key,
+        )
+        reset_channel = client.channels.create(
+            name="test_reset",
+            data_type=sy.DataType.UINT8,
+            index=idx_ch.key,
+        )
+
+        operation = Operation(type="min", reset_channel=reset_channel.key)
+        channel = sy.Channel(
+            name="test_min",
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {base_channel.name}",
+            operations=[operation],
+        )
+        created = client.channels.create(channel)
+
+        assert created.name == "test_min"
+        assert created.virtual is True
+        assert len(created.operations) == 1
+        assert created.operations[0].type == "min"
+        assert created.operations[0].reset_channel == reset_channel.key
+        assert created.operations[0].duration == 0
+
+    def test_create_channel_with_max_operation(self, client: sy.Synnax):
+        """Should create a calculated channel with a max operation"""
+        from synnax.channel.payload import Operation
+
+        idx_ch = client.channels.create(
+            name="test", data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        base_channel = client.channels.create(
+            name="test",
+            data_type=sy.DataType.FLOAT32,
+            index=idx_ch.key,
+        )
+
+        operation = Operation(
+            type="max",
+            duration=sy.TimeSpan.SECOND * 5,
+        )
+        channel = sy.Channel(
+            name="test_max",
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {base_channel.name}",
+            operations=[operation],
+        )
+        created = client.channels.create(channel)
+
+        assert created.name == "test_max"
+        assert len(created.operations) == 1
+        assert created.operations[0].type == "max"
+        assert created.operations[0].duration == sy.TimeSpan.SECOND * 5
+
+    def test_retrieve_channel_with_operations(self, client: sy.Synnax):
+        """Should retrieve a channel and preserve its operations"""
+        from synnax.channel.payload import Operation
+
+        idx_ch = client.channels.create(
+            name="test", data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        base_channel = client.channels.create(
+            name="test",
+            data_type=sy.DataType.FLOAT32,
+            index=idx_ch.key,
+        )
+
+        operation = Operation(type="avg", duration=sy.TimeSpan.SECOND * 15)
+        channel = sy.Channel(
+            name="test_retrieve_ops",
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {base_channel.name}",
+            operations=[operation],
+        )
+        created = client.channels.create(channel)
+
+        # Retrieve and verify operations are preserved
+        retrieved = client.channels.retrieve(created.key)
+        assert retrieved.name == "test_retrieve_ops"
+        assert len(retrieved.operations) == 1
+        assert retrieved.operations[0].type == "avg"
+        assert retrieved.operations[0].duration == sy.TimeSpan.SECOND * 15
+
 
 class TestChannelRetriever:
     """Tests methods internal to the channel retriever that are not publicly availble

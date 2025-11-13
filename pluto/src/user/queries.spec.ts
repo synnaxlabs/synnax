@@ -125,6 +125,64 @@ describe("User queries", () => {
     });
   });
 
+  describe("useRetrieve", () => {
+    it("should retrieve a user by key", async () => {
+      const testUser = await client.users.create({
+        username: `retrieve-test-${Date.now()}`,
+        firstName: "Retrieve",
+        lastName: "Test",
+        password: "password123",
+      });
+
+      const { result } = renderHook(() => User.useRetrieve({ key: testUser.key }), {
+        wrapper,
+      });
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
+
+      expect(result.current.data?.key).toEqual(testUser.key);
+      expect(result.current.data?.username).toEqual(testUser.username);
+      expect(result.current.data?.firstName).toEqual(testUser.firstName);
+      expect(result.current.data?.lastName).toEqual(testUser.lastName);
+    });
+
+    it("should retrieve the current authenticated user when no key provided", async () => {
+      const { result } = renderHook(() => User.useRetrieve({}), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
+
+      expect(result.current.data).toBeDefined();
+      expect(result.current.data?.key).toEqual(client.auth?.user?.key);
+      expect(result.current.data?.username).toEqual(client.auth?.user?.username);
+    });
+
+    it("should cache retrieved users", async () => {
+      const testUser = await client.users.create({
+        username: `cached-user-${Date.now()}`,
+        firstName: "Cached",
+        lastName: "User",
+        password: "password123",
+      });
+
+      const { result: result1 } = renderHook(
+        () => User.useRetrieve({ key: testUser.key }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result1.current.variant).toEqual("success"));
+
+      const { result: result2 } = renderHook(
+        () => User.useRetrieve({ key: testUser.key }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result2.current.variant).toEqual("success"));
+      expect(result2.current.data).toEqual(result1.current.data);
+    });
+  });
+
   describe("useForm", () => {
     describe("create mode", () => {
       it("should initialize with default values for new user", async () => {
