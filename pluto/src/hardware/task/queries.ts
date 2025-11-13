@@ -17,8 +17,8 @@ import { Ontology } from "@/ontology";
 import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "tasks";
-export const RESOURCE_NAME = "Task";
-export const PLURAL_RESOURCE_NAME = "Tasks";
+export const RESOURCE_NAME = "task";
+export const PLURAL_RESOURCE_NAME = "tasks";
 
 export interface FluxStore
   extends Flux.UnaryStore<task.Key, task.Task, ChangeVariant> {}

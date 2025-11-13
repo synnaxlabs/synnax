@@ -42,7 +42,9 @@ const SUB_POSITIONS: Record<location.CornerXYString, { x: number; y: number }> =
 };
 
 const createSubIcon = (key: location.CornerXYString, Icon: FC): ReactElement | null => {
+  // TODO: fix
   if (Icon == null) return null;
+
   return (
     <g transform={`translate(${SUB_POSITIONS[key].x}, ${SUB_POSITIONS[key].y})`}>
       <circle

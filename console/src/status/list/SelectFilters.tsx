@@ -8,16 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import {
-  Dialog,
-  Flex,
-  Icon,
-  Label as PLabel,
-  Menu,
-  state,
-  Tag,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Flex, Icon, Label as PLabel, state, Tag, Text } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 
 import { Label } from "@/label";
@@ -27,7 +18,7 @@ export interface SelectFiltersProps {
   onRequestChange: state.Setter<status.MultiRetrieveArgs>;
 }
 
-const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersProps) => {
+export const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersProps) => {
   const handleRequestChange = (setter: state.SetArg<status.MultiRetrieveArgs>) => {
     onRequestChange((prev) => {
       const next = state.executeSetter(setter, prev);
@@ -36,33 +27,14 @@ const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersProps) => 
   };
 
   return (
-    <Menu.Menu level="small" gap="small">
-      <Label.SelectMultiple
-        value={request.hasLabels ?? []}
-        onChange={(labels) => handleRequestChange((r) => ({ ...r, hasLabels: labels }))}
-        triggerProps={{ hideTags: true, variant: "text" }}
-        location={{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }}
-      />
-    </Menu.Menu>
+    <Label.SelectMultiple
+      value={request.hasLabels ?? []}
+      onChange={(labels) => handleRequestChange((r) => ({ ...r, hasLabels: labels }))}
+      triggerProps={{ hideTags: true, variant: "text" }}
+      location={{ targetCorner: location.TOP_RIGHT, dialogCorner: location.TOP_LEFT }}
+    />
   );
 };
-
-export const SelectFilters = ({ request, onRequestChange }: SelectFiltersProps) => (
-  <Dialog.Frame>
-    <Dialog.Trigger hideCaret>
-      <Icon.Filter />
-      <Text.Text>Filter</Text.Text>
-    </Dialog.Trigger>
-    <Dialog.Dialog
-      background={1}
-      style={{ padding: "1rem" }}
-      borderColor={5}
-      pack={false}
-    >
-      <FilterContextMenu request={request} onRequestChange={onRequestChange} />
-    </Dialog.Dialog>
-  </Dialog.Frame>
-);
 
 interface HasLabelsFilterProps {
   request: status.MultiRetrieveArgs;
@@ -97,7 +69,5 @@ const HasLabelsFilter = ({ request }: HasLabelsFilterProps) => {
 };
 
 export const Filters = ({ request }: SelectFiltersProps) => (
-  <Flex.Box x>
-    <HasLabelsFilter request={request} />
-  </Flex.Box>
+  <HasLabelsFilter request={request} />
 );
