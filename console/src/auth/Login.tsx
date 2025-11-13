@@ -80,11 +80,11 @@ export const Login = (): ReactElement => {
 
   const handleSubmit = (): void =>
     handleError(async () => {
-      const actuallySelectedCluster = servingCluster ?? selectedCluster;
-      if (!methods.validate() || actuallySelectedCluster == null) return;
+      const clusterToConnect = servingCluster ?? selectedCluster;
+      if (!methods.validate() || clusterToConnect == null) return;
       const credentials = methods.value();
       setStatus(status.create({ variant: "loading", message: "Connecting..." }));
-      const client = new Client({ ...actuallySelectedCluster, ...credentials });
+      const client = new Client({ ...clusterToConnect, ...credentials });
       const state = await client.connectivity.check();
       const key = state.clusterKey;
       if (state.status !== "connected") {
@@ -93,7 +93,7 @@ export const Login = (): ReactElement => {
       }
       if (state.nodeVersion != null && servingCluster != null)
         dispatch(Version.set(state.nodeVersion));
-      dispatch(Cluster.set({ key, ...actuallySelectedCluster, ...credentials }));
+      dispatch(Cluster.set({ key, ...clusterToConnect, ...credentials }));
       dispatch(setActive(key));
     }, "Failed to log in");
 
