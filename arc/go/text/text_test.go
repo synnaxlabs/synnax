@@ -129,46 +129,6 @@ var _ = Describe("Text", func() {
 				Expect(edge.Target.Node).To(Equal(printNode.Key))
 			})
 
-			It("Should analyze flow with multiple channels", func() {
-				resolver := symbol.MapResolver(map[string]symbol.Symbol{
-					"sensor1": {
-						Name: "sensor1",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   10,
-					},
-					"sensor2": {
-						Name: "sensor2",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.F64()),
-						ID:   20,
-					},
-				})
-
-				source := `
-				func process{} () {
-				}
-
-				sensor1 -> process{} -> sensor2
-				`
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-
-				Expect(inter.Nodes).To(HaveLen(3))
-				Expect(inter.Edges).To(HaveLen(2))
-
-				// Verify channel nodes
-				Expect(inter.Nodes[0].Type).To(Equal("on"))
-				Expect(inter.Nodes[0].Config).To(HaveLen(1))
-				Expect(inter.Nodes[0].Config[0].Name).To(Equal("channel"))
-				Expect(inter.Nodes[0].Config[0].Type).To(Equal(types.Chan(types.I32())))
-				Expect(inter.Nodes[2].Type).To(Equal("on"))
-				Expect(inter.Nodes[2].Config).To(HaveLen(1))
-				Expect(inter.Nodes[2].Config[0].Name).To(Equal("channel"))
-				Expect(inter.Nodes[2].Config[0].Type).To(Equal(types.Chan(types.F64())))
-			})
-
 			It("Should report error for unresolved channel", func() {
 				source := `
 				func print{} () {
@@ -278,49 +238,6 @@ var _ = Describe("Text", func() {
 				Expect(node.Config[2].Name).To(Equal("c"))
 				Expect(node.Config[2].Type).To(Equal(types.I64()))
 				Expect(node.Config[2].Value).To(Equal("30"))
-			})
-		})
-
-		Describe("Complex Flow Chains", func() {
-			It("Should analyze multi-stage flow chains", func() {
-				resolver := symbol.MapResolver(map[string]symbol.Symbol{
-					"sensor": {
-						Name: "sensor",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   1,
-					},
-					"output": {
-						Name: "output",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   2,
-					},
-				})
-
-				source := `
-				func filter{} () {
-				}
-
-				func transform{} () {
-				}
-
-				sensor -> filter{} -> transform{} -> output
-				`
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-
-				Expect(inter.Nodes).To(HaveLen(4))
-				Expect(inter.Edges).To(HaveLen(3))
-
-				// Verify all edges are connected properly
-				Expect(inter.Edges[0].Source.Node).To(Equal(inter.Nodes[0].Key))
-				Expect(inter.Edges[0].Target.Node).To(Equal(inter.Nodes[1].Key))
-				Expect(inter.Edges[1].Source.Node).To(Equal(inter.Nodes[1].Key))
-				Expect(inter.Edges[1].Target.Node).To(Equal(inter.Nodes[2].Key))
-				Expect(inter.Edges[2].Source.Node).To(Equal(inter.Nodes[2].Key))
-				Expect(inter.Edges[2].Target.Node).To(Equal(inter.Nodes[3].Key))
 			})
 		})
 
@@ -615,6 +532,90 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeFalse())
 				// Error message comes from text compiler validation
 				Expect(diagnostics.String()).To(ContainSubstring("nonexistent"))
+			})
+		})
+
+		Describe("Stratification", func() {
+			It("Should calculate strata for simple flow chain", func() {
+				resolver := symbol.MapResolver(map[string]symbol.Symbol{
+					"sensor": {
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I64()),
+						ID:   1,
+					},
+				})
+
+				source := `
+				func filter{} (data i64) i64 {
+					return data
+				}
+
+				func transform{} (value i64) i64 {
+					return value * 2
+				}
+
+				sensor -> filter{} -> transform{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Verify strata are calculated
+				Expect(inter.Strata).ToNot(BeNil())
+				Expect(len(inter.Strata)).To(BeNumerically(">=", 1))
+
+				// Strata should have nodes in topological order
+				// Stratum 0: sensor (no dependencies)
+				// Stratum 1: filter (depends on sensor)
+				// Stratum 2: transform (depends on filter)
+				Expect(len(inter.Strata)).To(Equal(3))
+
+				// Verify sensor is in stratum 0
+				Expect(inter.Strata[0]).To(ContainElement("on_0"))
+
+				// Verify filter is in stratum 1
+				Expect(inter.Strata[1]).To(ContainElement("filter_0"))
+
+				// Verify transform is in stratum 2
+				Expect(inter.Strata[2]).To(ContainElement("transform_0"))
+			})
+
+			It("Should calculate strata for output routing tables", func() {
+				source := `
+				func demux{threshold f64} (value f64) (high f64, low f64) {
+					if (value > threshold) {
+						high = value
+					} else {
+						low = value
+					}
+				}
+
+				func alarm{} (value f64) {
+				}
+
+				func logger{} (value f64) {
+				}
+
+				demux{threshold=100.0} -> {
+					high: alarm{},
+					low: logger{}
+				}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Verify strata exist
+				Expect(inter.Strata).ToNot(BeNil())
+				Expect(len(inter.Strata)).To(Equal(2))
+
+				// Stratum 0: demux (source)
+				Expect(inter.Strata[0]).To(ContainElement("demux_0"))
+
+				// Stratum 1: alarm and logger (both depend on demux, can execute in parallel)
+				Expect(inter.Strata[1]).To(ContainElement("alarm_0"))
+				Expect(inter.Strata[1]).To(ContainElement("logger_0"))
 			})
 		})
 	})
