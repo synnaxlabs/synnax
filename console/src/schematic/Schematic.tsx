@@ -422,11 +422,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             </Flex.Box>
           </Diagram.Controls>
         </Core.Schematic>
-        <Control.Legend
-          position={legendPosition}
-          onPositionChange={handleLegendPositionChange}
-          allowVisibleChange={false}
-        />
+        {schematic.legend.visible && (
+          <Control.Legend
+            position={legendPosition}
+            onPositionChange={handleLegendPositionChange}
+            allowVisibleChange={false}
+          />
+        )}
       </Control.Controller>
     </div>
   );
