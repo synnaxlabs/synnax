@@ -39,20 +39,32 @@ struct is_vector<std::vector<T>> : std::true_type {
 template<typename T>
 inline constexpr bool is_vector_v = is_vector<T>::value;
 
-/// @brief Type trait to detect std::map and std::unordered_map types with string keys
+/// @brief Type trait to detect std::map and std::unordered_map types with string or
+/// numeric keys
 template<typename T>
 struct is_map : std::false_type {
+    using key_type = void;
     using value_type = T;
 };
 
-template<typename T>
-struct is_map<std::map<std::string, T>> : std::true_type {
-    using value_type = T;
+template<typename K, typename V>
+struct is_map<std::map<K, V>>
+    : std::conditional_t<
+          std::is_same_v<K, std::string> || std::is_arithmetic_v<K>,
+          std::true_type,
+          std::false_type> {
+    using key_type = K;
+    using value_type = V;
 };
 
-template<typename T>
-struct is_map<std::unordered_map<std::string, T>> : std::true_type {
-    using value_type = T;
+template<typename K, typename V>
+struct is_map<std::unordered_map<K, V>>
+    : std::conditional_t<
+          std::is_same_v<K, std::string> || std::is_arithmetic_v<K>,
+          std::true_type,
+          std::false_type> {
+    using key_type = K;
+    using value_type = V;
 };
 
 template<typename T>
@@ -153,16 +165,36 @@ public:
 
         // Handle map types automatically
         if constexpr (is_map_v<T>) {
-            using U = typename is_map<T>::value_type;
+            using K = typename is_map<T>::key_type;
+            using V = typename is_map<T>::value_type;
             if (!iter->is_object()) {
                 field_err(path, "Expected an object");
                 return T();
             }
             T map_result;
-            for (auto &[key, value]: iter->items()) {
-                const auto child_path = path + "." + key;
-                auto value_iter = iter->find(key);
-                map_result[key] = get<U>(child_path, value_iter);
+            for (auto &[json_key, value]: iter->items()) {
+                // Convert JSON string key to map key type
+                K map_key;
+                if constexpr (std::is_same_v<K, std::string>) {
+                    map_key = json_key;
+                } else if constexpr (std::is_arithmetic_v<K>) {
+                    try {
+                        if constexpr (std::is_integral_v<K>) {
+                            map_key = static_cast<K>(std::stoll(json_key));
+                        } else {
+                            map_key = static_cast<K>(std::stod(json_key));
+                        }
+                    } catch (const std::exception &) {
+                        field_err(
+                            path + "." + json_key,
+                            "Invalid numeric key: '" + json_key + "'"
+                        );
+                        continue;
+                    }
+                }
+                const auto child_path = path + "." + json_key;
+                auto value_iter = iter->find(json_key);
+                map_result[map_key] = get<V>(child_path, value_iter);
             }
             return map_result;
         }
@@ -201,16 +233,36 @@ public:
 
         // Handle map types automatically
         if constexpr (is_map_v<T>) {
-            using U = typename is_map<T>::value_type;
+            using K = typename is_map<T>::key_type;
+            using V = typename is_map<T>::value_type;
             if (!iter->is_object()) {
                 field_err(path, "Expected an object");
                 return default_value;
             }
             T map_result;
-            for (auto &[key, value]: iter->items()) {
-                const auto child_path = path + "." + key;
-                auto value_iter = iter->find(key);
-                map_result[key] = get<U>(child_path, value_iter);
+            for (auto &[json_key, value]: iter->items()) {
+                // Convert JSON string key to map key type
+                K map_key;
+                if constexpr (std::is_same_v<K, std::string>) {
+                    map_key = json_key;
+                } else if constexpr (std::is_arithmetic_v<K>) {
+                    try {
+                        if constexpr (std::is_integral_v<K>) {
+                            map_key = static_cast<K>(std::stoll(json_key));
+                        } else {
+                            map_key = static_cast<K>(std::stod(json_key));
+                        }
+                    } catch (const std::exception &) {
+                        field_err(
+                            path + "." + json_key,
+                            "Invalid numeric key: '" + json_key + "'"
+                        );
+                        continue;
+                    }
+                }
+                const auto child_path = path + "." + json_key;
+                auto value_iter = iter->find(json_key);
+                map_result[map_key] = get<V>(child_path, value_iter);
             }
             return map_result;
         }
@@ -247,16 +299,36 @@ public:
         const auto iter = config.find(path);
         if (iter != config.end()) {
             if constexpr (is_map_v<T>) {
-                using U = typename is_map<T>::value_type;
+                using K = typename is_map<T>::key_type;
+                using V = typename is_map<T>::value_type;
                 if (!iter->is_object()) {
                     field_err(path, "Expected an object");
                     return T();
                 }
                 T map_result;
-                for (auto &[key, value]: iter->items()) {
-                    const auto child_path = path + "." + key;
-                    auto value_iter = iter->find(key);
-                    map_result[key] = get<U>(child_path, value_iter);
+                for (auto &[json_key, value]: iter->items()) {
+                    // Convert JSON string key to map key type
+                    K map_key;
+                    if constexpr (std::is_same_v<K, std::string>) {
+                        map_key = json_key;
+                    } else if constexpr (std::is_arithmetic_v<K>) {
+                        try {
+                            if constexpr (std::is_integral_v<K>) {
+                                map_key = static_cast<K>(std::stoll(json_key));
+                            } else {
+                                map_key = static_cast<K>(std::stod(json_key));
+                            }
+                        } catch (const std::exception &) {
+                            field_err(
+                                path + "." + json_key,
+                                "Invalid numeric key: '" + json_key + "'"
+                            );
+                            continue;
+                        }
+                    }
+                    const auto child_path = path + "." + json_key;
+                    auto value_iter = iter->find(json_key);
+                    map_result[map_key] = get<V>(child_path, value_iter);
                 }
                 return map_result;
             } else if constexpr (is_vector_v<T>) {
@@ -281,16 +353,36 @@ public:
             const auto it = config.find(alt_path);
             if (it != config.end()) {
                 if constexpr (is_map_v<T>) {
-                    using U = typename is_map<T>::value_type;
+                    using K = typename is_map<T>::key_type;
+                    using V = typename is_map<T>::value_type;
                     if (!it->is_object()) {
                         field_err(alt_path, "Expected an object");
                         return {T(), false};
                     }
                     T map_result;
-                    for (auto &[key, value]: it->items()) {
-                        const auto child_path = alt_path + "." + key;
-                        auto value_iter = it->find(key);
-                        map_result[key] = get<U>(child_path, value_iter);
+                    for (auto &[json_key, value]: it->items()) {
+                        // Convert JSON string key to map key type
+                        K map_key;
+                        if constexpr (std::is_same_v<K, std::string>) {
+                            map_key = json_key;
+                        } else if constexpr (std::is_arithmetic_v<K>) {
+                            try {
+                                if constexpr (std::is_integral_v<K>) {
+                                    map_key = static_cast<K>(std::stoll(json_key));
+                                } else {
+                                    map_key = static_cast<K>(std::stod(json_key));
+                                }
+                            } catch (const std::exception &) {
+                                field_err(
+                                    alt_path + "." + json_key,
+                                    "Invalid numeric key: '" + json_key + "'"
+                                );
+                                continue;
+                            }
+                        }
+                        const auto child_path = alt_path + "." + json_key;
+                        auto value_iter = it->find(json_key);
+                        map_result[map_key] = get<V>(child_path, value_iter);
                     }
                     return {map_result, true};
                 } else if constexpr (is_vector_v<T>) {
@@ -500,16 +592,33 @@ T Parser::field() {
 
     // Handle map types automatically
     if constexpr (is_map_v<T>) {
-        using U = typename is_map<T>::value_type;
+        using K = typename is_map<T>::key_type;
+        using V = typename is_map<T>::value_type;
         if (!config.is_object()) {
             field_err("", "Expected an object");
             return T();
         }
         T map_result;
-        for (auto &[key, value]: config.items()) {
-            const auto child_path = key;
-            auto value_iter = config.find(key);
-            map_result[key] = get<U>(child_path, value_iter);
+        for (auto &[json_key, value]: config.items()) {
+            // Convert JSON string key to map key type
+            K map_key;
+            if constexpr (std::is_same_v<K, std::string>) {
+                map_key = json_key;
+            } else if constexpr (std::is_arithmetic_v<K>) {
+                try {
+                    if constexpr (std::is_integral_v<K>) {
+                        map_key = static_cast<K>(std::stoll(json_key));
+                    } else {
+                        map_key = static_cast<K>(std::stod(json_key));
+                    }
+                } catch (const std::exception &) {
+                    field_err(json_key, "Invalid numeric key: '" + json_key + "'");
+                    continue;
+                }
+            }
+            const auto child_path = json_key;
+            auto value_iter = config.find(json_key);
+            map_result[map_key] = get<V>(child_path, value_iter);
         }
         return map_result;
     }
@@ -563,7 +672,41 @@ T Parser::field() {
 // Implementation of get method (defined after trait for proper SFINAE)
 template<typename T>
 T Parser::get(const std::string &path, const nlohmann::basic_json<>::iterator &iter) {
-    if constexpr (xjson::is_parser_constructible_v<T>) {
+    if constexpr (xjson::is_map_v<T>) {
+        // Handle map types recursively
+        using K = typename is_map<T>::key_type;
+        using V = typename is_map<T>::value_type;
+        if (!iter->is_object()) {
+            field_err(path, "Expected an object");
+            return T();
+        }
+        T map_result;
+        for (auto &[json_key, value]: iter->items()) {
+            // Convert JSON string key to map key type
+            K map_key;
+            if constexpr (std::is_same_v<K, std::string>) {
+                map_key = json_key;
+            } else if constexpr (std::is_arithmetic_v<K>) {
+                try {
+                    if constexpr (std::is_integral_v<K>) {
+                        map_key = static_cast<K>(std::stoll(json_key));
+                    } else {
+                        map_key = static_cast<K>(std::stod(json_key));
+                    }
+                } catch (const std::exception &) {
+                    field_err(
+                        path + "." + json_key,
+                        "Invalid numeric key: '" + json_key + "'"
+                    );
+                    continue;
+                }
+            }
+            const auto child_path = path + "." + json_key;
+            auto value_iter = iter->find(json_key);
+            map_result[map_key] = get<V>(child_path, value_iter);
+        }
+        return map_result;
+    } else if constexpr (xjson::is_parser_constructible_v<T>) {
         // Type can be constructed from a Parser - validate and create child parser
         if (!iter->is_object() && !iter->is_array()) {
             field_err(path, "Expected an object or array");

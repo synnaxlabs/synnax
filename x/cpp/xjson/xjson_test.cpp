@@ -1024,3 +1024,153 @@ TEST(testConfig, testMapWithAlternativePaths) {
     ASSERT_EQ(servers.at("host1"), 8080);
     ASSERT_EQ(servers.at("host2"), 8081);
 }
+
+// ============================================================================
+// Tests for Numeric Key Map Support
+// ============================================================================
+
+TEST(testConfig, testMapWithIntKeys) {
+    const json j = {{"ports", {{"8080", "http"}, {"8443", "https"}, {"3000", "dev"}}}};
+    xjson::Parser parser(j);
+    const auto ports = parser.field<std::map<int, std::string>>("ports");
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(ports.size(), 3);
+    ASSERT_EQ(ports.at(8080), "http");
+    ASSERT_EQ(ports.at(8443), "https");
+    ASSERT_EQ(ports.at(3000), "dev");
+}
+
+TEST(testConfig, testMapWithSizeTKeys) {
+    const json j = {{"indices", {{"0", "first"}, {"1", "second"}, {"42", "answer"}}}};
+    xjson::Parser parser(j);
+    const auto indices = parser.field<std::map<size_t, std::string>>("indices");
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(indices.size(), 3);
+    ASSERT_EQ(indices.at(0), "first");
+    ASSERT_EQ(indices.at(1), "second");
+    ASSERT_EQ(indices.at(42), "answer");
+}
+
+TEST(testConfig, testMapWithFloatKeys) {
+    const json j = {
+        {"thresholds", {{"1.5", "low"}, {"3.14", "medium"}, {"9.99", "high"}}}
+    };
+    xjson::Parser parser(j);
+    const auto thresholds = parser.field<std::map<float, std::string>>("thresholds");
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(thresholds.size(), 3);
+    ASSERT_EQ(thresholds.at(1.5f), "low");
+    ASSERT_NEAR(thresholds.count(3.14f), 1, 0.0001f);
+    ASSERT_EQ(thresholds.at(9.99f), "high");
+}
+
+TEST(testConfig, testMapWithInvalidNumericKey) {
+    const json j = {{"ports", {{"8080", "http"}, {"not_a_number", "invalid"}}}};
+    xjson::Parser parser(j);
+    const auto ports = parser.field<std::map<int, std::string>>("ports");
+
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "ports.not_a_number");
+    EXPECT_EQ(err["message"], "Invalid numeric key: 'not_a_number'");
+}
+
+TEST(testConfig, testMapWithNumericKeysAndComplexValues) {
+    const json j = {
+        {"items",
+         {{"0", {{"name", "first"}, {"id", 100}}},
+          {"1", {{"name", "second"}, {"id", 200}}},
+          {"5", {{"name", "fifth"}, {"id", 500}}}}}
+    };
+    xjson::Parser parser(j);
+    const auto items = parser.field<std::map<int, ArrayItem>>("items");
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(items.size(), 3);
+    ASSERT_EQ(items.at(0).name, "first");
+    ASSERT_EQ(items.at(0).id, 100);
+    ASSERT_EQ(items.at(1).name, "second");
+    ASSERT_EQ(items.at(1).id, 200);
+    ASSERT_EQ(items.at(5).name, "fifth");
+    ASSERT_EQ(items.at(5).id, 500);
+}
+
+TEST(testConfig, testMapWithNumericKeysOptional) {
+    const json j = {};
+    xjson::Parser parser(j);
+    std::map<int, std::string> default_ports = {{80, "default_http"}};
+    const auto ports = parser.field<std::map<int, std::string>>("ports", default_ports);
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(ports.size(), 1);
+    ASSERT_EQ(ports.at(80), "default_http");
+}
+
+TEST(testConfig, testMapWithNumericKeysNested) {
+    const json j = {
+        {"regions",
+         {{"0", {{"10", "server1"}, {"20", "server2"}}},
+          {"1", {{"30", "server3"}, {"40", "server4"}}}}}
+    };
+    xjson::Parser parser(j);
+    const auto regions = parser.field<std::map<int, std::map<int, std::string>>>(
+        "regions"
+    );
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(regions.size(), 2);
+    ASSERT_EQ(regions.at(0).size(), 2);
+    ASSERT_EQ(regions.at(0).at(10), "server1");
+    ASSERT_EQ(regions.at(0).at(20), "server2");
+    ASSERT_EQ(regions.at(1).size(), 2);
+    ASSERT_EQ(regions.at(1).at(30), "server3");
+    ASSERT_EQ(regions.at(1).at(40), "server4");
+}
+
+TEST(testConfig, testMapWithNumericKeysRootParsing) {
+    const json j = {{"0", 100}, {"1", 200}, {"10", 300}};
+    xjson::Parser parser(j);
+    const auto values = parser.field<std::map<int, int>>();
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(values.size(), 3);
+    ASSERT_EQ(values.at(0), 100);
+    ASSERT_EQ(values.at(1), 200);
+    ASSERT_EQ(values.at(10), 300);
+}
+
+TEST(testConfig, testUnorderedMapWithNumericKeys) {
+    const json j = {{"channels", {{"0", "red"}, {"1", "green"}, {"2", "blue"}}}};
+    xjson::Parser parser(j);
+    const auto channels = parser.field<std::unordered_map<int, std::string>>(
+        "channels"
+    );
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(channels.size(), 3);
+    ASSERT_EQ(channels.at(0), "red");
+    ASSERT_EQ(channels.at(1), "green");
+    ASSERT_EQ(channels.at(2), "blue");
+}
+
+TEST(testConfig, testMapMixedStringAndNumericKeys) {
+    // Test that we can handle string keys in one map and numeric keys in another
+    const json j = {
+        {"string_map", {{"host1", 8080}, {"host2", 8081}}},
+        {"numeric_map", {{"0", 100}, {"1", 200}}}
+    };
+    xjson::Parser parser(j);
+    const auto string_map = parser.field<std::map<std::string, int>>("string_map");
+    const auto numeric_map = parser.field<std::map<int, int>>("numeric_map");
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(string_map.size(), 2);
+    ASSERT_EQ(string_map.at("host1"), 8080);
+    ASSERT_EQ(numeric_map.size(), 2);
+    ASSERT_EQ(numeric_map.at(0), 100);
+    ASSERT_EQ(numeric_map.at(1), 200);
+}
