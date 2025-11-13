@@ -11,12 +11,13 @@ import { Flex, Input } from "@synnaxlabs/pluto";
 import { control } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
-import { useSelectAuthority } from "@/schematic/selectors";
-import { setAuthority } from "@/schematic/slice";
+import { useSelectAuthority, useSelectRequired } from "@/schematic/selectors";
+import { setAuthority, setLegend } from "@/schematic/slice";
 
 export const Control = ({ layoutKey }: { layoutKey: string }) => {
   const dispatch = useDispatch();
   const authority = useSelectAuthority(layoutKey);
+  const schematic = useSelectRequired(layoutKey);
 
   return (
     <Flex.Box x gap="small" style={{ padding: "1.5rem 2rem" }}>
@@ -25,6 +26,14 @@ export const Control = ({ layoutKey }: { layoutKey: string }) => {
           value={authority ?? 0}
           onChange={(v) => dispatch(setAuthority({ key: layoutKey, authority: v }))}
           bounds={control.AUTHORITY_BOUNDS}
+        />
+      </Input.Item>
+      <Input.Item label="Show Control State Legend">
+        <Input.Switch
+          value={schematic.legend.visible}
+          onChange={(v) =>
+            dispatch(setLegend({ key: layoutKey, legend: { visible: v } }))
+          }
         />
       </Input.Item>
     </Flex.Box>

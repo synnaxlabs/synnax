@@ -46,7 +46,7 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
     // Ensure existing schematics have legend visible by default
     legend: {
       ...state.legend,
-      visible: state.legend?.visible ?? true,
+      visible: true,
     },
   }),
 });

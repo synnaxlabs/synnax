@@ -30,11 +30,10 @@ import {
   selectViewport,
   useSelectRequiredEdge,
   useSelectRequiredNodeProps,
-  useSelectRequired,
   useSelectSelectedElementDigests,
   useSelectSelectedElementsProps,
 } from "@/schematic/selectors";
-import { setElementProps, setLegend, setNodePositions } from "@/schematic/slice";
+import { setElementProps, setNodePositions } from "@/schematic/slice";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import { type EdgeProps, type NodeProps } from "@/schematic/types";
 import { type nodePropsZ } from "@/schematic/types/v0";
@@ -47,51 +46,29 @@ export interface PropertiesProps {
 export const PropertiesControls = memo(
   ({ layoutKey }: PropertiesProps): ReactElement => {
     const digests = useSelectSelectedElementDigests(layoutKey);
-    const selected = digests.length === 1 ? digests[0] : null;
+    if (digests.length === 0)
+      return (
+        <Text.Text status="disabled" center>
+          Select a Schematic element to configure its properties.
+        </Text.Text>
+      );
 
+    if (digests.length > 1) return <MultiElementProperties layoutKey={layoutKey} />;
+
+    const selected = digests[0];
+
+    if (selected.type === "edge")
+      return <EdgeProperties layoutKey={layoutKey} edgeKey={selected.key} />;
     return (
-      <Flex.Box y style={{ height: "100%", overflow: "auto" }}>
-        <SchematicProperties layoutKey={layoutKey} />
-        {digests.length === 0 ? (
-          <Text.Text status="disabled" center style={{ padding: "2rem" }}>
-            Select a Schematic element to configure its properties.
-          </Text.Text>
-        ) : digests.length > 1 ? (
-          <MultiElementProperties layoutKey={layoutKey} />
-        ) : selected != null && selected.type === "edge" ? (
-          <EdgeProperties layoutKey={layoutKey} edgeKey={selected.key} />
-        ) : selected != null ? (
-          <IndividualProperties
-            key={selected.key}
-            layoutKey={layoutKey}
-            nodeKey={selected.key}
-          />
-        ) : null}
-      </Flex.Box>
+      <IndividualProperties
+        key={selected.key}
+        layoutKey={layoutKey}
+        nodeKey={selected.key}
+      />
     );
   },
 );
 PropertiesControls.displayName = "PropertiesControls";
-
-const SchematicProperties = ({ layoutKey }: PropertiesProps): ReactElement => {
-  const schematic = useSelectRequired(layoutKey);
-  const dispatch = useDispatch();
-
-  const handleLegendVisibilityChange = (value: boolean): void => {
-    dispatch(setLegend({ key: layoutKey, legend: { visible: value } }));
-  };
-
-  return (
-    <Flex.Box x style={{ padding: "2rem", borderBottom: "var(--pluto-border)" }}>
-      <Input.Item label="Show Control State Legend">
-        <Input.Switch
-          value={schematic.legend.visible}
-          onChange={handleLegendVisibilityChange}
-        />
-      </Input.Item>
-    </Flex.Box>
-  );
-};
 
 interface IndividualPropertiesProps {
   layoutKey: string;
