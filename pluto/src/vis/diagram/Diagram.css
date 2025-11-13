@@ -15,6 +15,13 @@
         top: 2rem;
         right: 2rem;
         z-index: 4;
+        opacity: 0;
+        transition: opacity 0.1s ease-in-out;
+    }
+    &:hover {
+        .pluto-diagram__controls {
+            opacity: 1;
+        }
     }
     .react-flow__selection,
     .react-flow__nodesselection-rect {
