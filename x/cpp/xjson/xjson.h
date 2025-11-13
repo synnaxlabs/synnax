@@ -10,9 +10,11 @@
 #pragma once
 
 #include <fstream>
+#include <map>
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 
 #include "nlohmann/json.hpp"
 
@@ -36,6 +38,25 @@ struct is_vector<std::vector<T>> : std::true_type {
 
 template<typename T>
 inline constexpr bool is_vector_v = is_vector<T>::value;
+
+/// @brief Type trait to detect std::map and std::unordered_map types with string keys
+template<typename T>
+struct is_map : std::false_type {
+    using value_type = T;
+};
+
+template<typename T>
+struct is_map<std::map<std::string, T>> : std::true_type {
+    using value_type = T;
+};
+
+template<typename T>
+struct is_map<std::unordered_map<std::string, T>> : std::true_type {
+    using value_type = T;
+};
+
+template<typename T>
+inline constexpr bool is_map_v = is_map<T>::value;
 
 /// @brief a utility class for improving the experience of parsing JSON-based
 /// configurations.
@@ -130,8 +151,23 @@ public:
             return T();
         }
 
+        // Handle map types automatically
+        if constexpr (is_map_v<T>) {
+            using U = typename is_map<T>::value_type;
+            if (!iter->is_object()) {
+                field_err(path, "Expected an object");
+                return T();
+            }
+            T map_result;
+            for (auto &[key, value]: iter->items()) {
+                const auto child_path = path + "." + key;
+                auto value_iter = iter->find(key);
+                map_result[key] = get<U>(child_path, value_iter);
+            }
+            return map_result;
+        }
         // Handle vector types automatically
-        if constexpr (is_vector_v<T>) {
+        else if constexpr (is_vector_v<T>) {
             using U = typename is_vector<T>::value_type;
             if (!iter->is_array()) {
                 field_err(path, "Expected an array");
@@ -163,8 +199,23 @@ public:
         const auto iter = config.find(path);
         if (iter == config.end()) return default_value;
 
+        // Handle map types automatically
+        if constexpr (is_map_v<T>) {
+            using U = typename is_map<T>::value_type;
+            if (!iter->is_object()) {
+                field_err(path, "Expected an object");
+                return default_value;
+            }
+            T map_result;
+            for (auto &[key, value]: iter->items()) {
+                const auto child_path = path + "." + key;
+                auto value_iter = iter->find(key);
+                map_result[key] = get<U>(child_path, value_iter);
+            }
+            return map_result;
+        }
         // Handle vector types automatically
-        if constexpr (is_vector_v<T>) {
+        else if constexpr (is_vector_v<T>) {
             using U = typename is_vector<T>::value_type;
             if (!iter->is_array()) {
                 field_err(path, "Expected an array");
@@ -195,7 +246,20 @@ public:
 
         const auto iter = config.find(path);
         if (iter != config.end()) {
-            if constexpr (is_vector_v<T>) {
+            if constexpr (is_map_v<T>) {
+                using U = typename is_map<T>::value_type;
+                if (!iter->is_object()) {
+                    field_err(path, "Expected an object");
+                    return T();
+                }
+                T map_result;
+                for (auto &[key, value]: iter->items()) {
+                    const auto child_path = path + "." + key;
+                    auto value_iter = iter->find(key);
+                    map_result[key] = get<U>(child_path, value_iter);
+                }
+                return map_result;
+            } else if constexpr (is_vector_v<T>) {
                 using U = typename is_vector<T>::value_type;
                 if (!iter->is_array()) {
                     field_err(path, "Expected an array");
@@ -216,7 +280,20 @@ public:
         auto try_path = [&](const std::string &alt_path) -> std::pair<T, bool> {
             const auto it = config.find(alt_path);
             if (it != config.end()) {
-                if constexpr (is_vector_v<T>) {
+                if constexpr (is_map_v<T>) {
+                    using U = typename is_map<T>::value_type;
+                    if (!it->is_object()) {
+                        field_err(alt_path, "Expected an object");
+                        return {T(), false};
+                    }
+                    T map_result;
+                    for (auto &[key, value]: it->items()) {
+                        const auto child_path = alt_path + "." + key;
+                        auto value_iter = it->find(key);
+                        map_result[key] = get<U>(child_path, value_iter);
+                    }
+                    return {map_result, true};
+                } else if constexpr (is_vector_v<T>) {
                     using U = typename is_vector<T>::value_type;
                     if (!it->is_array()) {
                         field_err(alt_path, "Expected an array");
@@ -421,8 +498,23 @@ template<typename T>
 T Parser::field() {
     if (noop) return T();
 
+    // Handle map types automatically
+    if constexpr (is_map_v<T>) {
+        using U = typename is_map<T>::value_type;
+        if (!config.is_object()) {
+            field_err("", "Expected an object");
+            return T();
+        }
+        T map_result;
+        for (auto &[key, value]: config.items()) {
+            const auto child_path = key;
+            auto value_iter = config.find(key);
+            map_result[key] = get<U>(child_path, value_iter);
+        }
+        return map_result;
+    }
     // Handle vector types automatically
-    if constexpr (is_vector_v<T>) {
+    else if constexpr (is_vector_v<T>) {
         using U = typename is_vector<T>::value_type;
         if (!config.is_array()) {
             field_err("", "Expected an array");

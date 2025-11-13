@@ -836,3 +836,191 @@ TEST(testConfig, testFieldEmptyStringEquivalentToNoArgs) {
     ASSERT_EQ(values[1], 2);
     ASSERT_EQ(values[2], 3);
 }
+
+// ============================================================================
+// Tests for Map Support
+// ============================================================================
+
+TEST(testConfig, testMapHappyPath) {
+    const json j = {{"servers", {{"host1", 8080}, {"host2", 8081}, {"host3", 8082}}}};
+    xjson::Parser parser(j);
+    const auto servers = parser.field<std::map<std::string, int>>("servers");
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(servers.size(), 3);
+    ASSERT_EQ(servers.at("host1"), 8080);
+    ASSERT_EQ(servers.at("host2"), 8081);
+    ASSERT_EQ(servers.at("host3"), 8082);
+}
+
+TEST(testConfig, testUnorderedMapHappyPath) {
+    const json j = {{"config", {{"key1", "value1"}, {"key2", "value2"}}}};
+    xjson::Parser parser(j);
+    const auto config = parser.field<std::unordered_map<std::string, std::string>>(
+        "config"
+    );
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(config.size(), 2);
+    ASSERT_EQ(config.at("key1"), "value1");
+    ASSERT_EQ(config.at("key2"), "value2");
+}
+
+TEST(testConfig, testMapDoesNotExist) {
+    const json j = {};
+    xjson::Parser parser(j);
+    const auto servers = parser.field<std::map<std::string, int>>("servers");
+
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "servers");
+    EXPECT_EQ(err["message"], "This field is required");
+}
+
+TEST(testConfig, testMapIsNotObject) {
+    const json j = {{"servers", "not an object"}};
+    xjson::Parser parser(j);
+    const auto servers = parser.field<std::map<std::string, int>>("servers");
+
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "servers");
+    EXPECT_EQ(err["message"], "Expected an object");
+}
+
+TEST(testConfig, testOptionalMapWithDefault) {
+    const json j = {};
+    xjson::Parser parser(j);
+    std::map<std::string, int> default_servers = {{"default", 9000}};
+    const auto servers = parser.field<std::map<std::string, int>>(
+        "servers",
+        default_servers
+    );
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(servers.size(), 1);
+    ASSERT_EQ(servers.at("default"), 9000);
+}
+
+TEST(testConfig, testMapWithInvalidValueType) {
+    const json j = {{"servers", {{"host1", "not_a_number"}, {"host2", 8081}}}};
+    xjson::Parser parser(j);
+    const auto servers = parser.field<std::map<std::string, int>>("servers");
+
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "servers.host1");
+    EXPECT_TRUE(
+        err["message"].get<std::string>().find("expected a number") != std::string::npos
+    );
+}
+
+TEST(testConfig, testNestedMaps) {
+    const json j = {
+        {"regions",
+         {{"us-east", {{"server1", 8080}, {"server2", 8081}}},
+          {"us-west", {{"server3", 9090}, {"server4", 9091}}}}}
+    };
+    xjson::Parser parser(j);
+    const auto regions = parser
+                             .field<std::map<std::string, std::map<std::string, int>>>(
+                                 "regions"
+                             );
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(regions.size(), 2);
+    ASSERT_EQ(regions.at("us-east").size(), 2);
+    ASSERT_EQ(regions.at("us-east").at("server1"), 8080);
+    ASSERT_EQ(regions.at("us-east").at("server2"), 8081);
+    ASSERT_EQ(regions.at("us-west").size(), 2);
+    ASSERT_EQ(regions.at("us-west").at("server3"), 9090);
+    ASSERT_EQ(regions.at("us-west").at("server4"), 9091);
+}
+
+TEST(testConfig, testMapWithVectorValues) {
+    const json j = {
+        {"groups", {{"admin", {1, 2, 3}}, {"user", {4, 5, 6}}, {"guest", {7, 8}}}}
+    };
+    xjson::Parser parser(j);
+    const auto groups = parser.field<std::map<std::string, std::vector<int>>>("groups");
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(groups.size(), 3);
+    ASSERT_EQ(groups.at("admin").size(), 3);
+    ASSERT_EQ(groups.at("admin")[0], 1);
+    ASSERT_EQ(groups.at("admin")[1], 2);
+    ASSERT_EQ(groups.at("admin")[2], 3);
+    ASSERT_EQ(groups.at("user").size(), 3);
+    ASSERT_EQ(groups.at("guest").size(), 2);
+}
+
+TEST(testConfig, testMapWithConstructibleTypeValues) {
+    const json j = {
+        {"devices",
+         {{"device1", {{"name", "sensor1"}, {"id", 100}}},
+          {"device2", {{"name", "sensor2"}, {"id", 200}}}}}
+    };
+    xjson::Parser parser(j);
+    const auto devices = parser.field<std::map<std::string, ArrayItem>>("devices");
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(devices.size(), 2);
+    ASSERT_EQ(devices.at("device1").name, "sensor1");
+    ASSERT_EQ(devices.at("device1").id, 100);
+    ASSERT_EQ(devices.at("device2").name, "sensor2");
+    ASSERT_EQ(devices.at("device2").id, 200);
+}
+
+TEST(testConfig, testMapWithConstructibleTypeValuesError) {
+    const json j = {
+        {"devices",
+         {{"device1", {{"name", "sensor1"}, {"id", 100}}},
+          {"device2", {{"name", "sensor2"}}}}} // Missing id
+    };
+    xjson::Parser parser(j);
+    const auto devices = parser.field<std::map<std::string, ArrayItem>>("devices");
+
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "devices.device2.id");
+    EXPECT_EQ(err["message"], "This field is required");
+}
+
+TEST(testConfig, testMapRootParsing) {
+    const json j = {{"key1", 10}, {"key2", 20}, {"key3", 30}};
+    xjson::Parser parser(j);
+    const auto map_values = parser.field<std::map<std::string, int>>();
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(map_values.size(), 3);
+    ASSERT_EQ(map_values.at("key1"), 10);
+    ASSERT_EQ(map_values.at("key2"), 20);
+    ASSERT_EQ(map_values.at("key3"), 30);
+}
+
+TEST(testConfig, testMapEmptyObject) {
+    const json j = {{"config", json::object()}};
+    xjson::Parser parser(j);
+    const auto config = parser.field<std::map<std::string, int>>("config");
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(config.size(), 0);
+}
+
+TEST(testConfig, testMapWithAlternativePaths) {
+    const json j = {{"servers_v2", {{"host1", 8080}, {"host2", 8081}}}};
+    xjson::Parser parser(j);
+    const auto servers = parser.field<std::map<std::string, int>>(
+        "servers",
+        "servers_v2"
+    );
+
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(servers.size(), 2);
+    ASSERT_EQ(servers.at("host1"), 8080);
+    ASSERT_EQ(servers.at("host2"), 8081);
+}
