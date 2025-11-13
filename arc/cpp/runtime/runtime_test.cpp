@@ -13,13 +13,13 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xtest/xtest.h"
 
-#include "arc/cpp/runtime/loop/loop.h"
-
-using namespace arc::runtime::loop;
+#include "arc/cpp/module/module.h"
 
 TEST(RuntimeTest, RuntimeStartStop) {
-
-
+    auto parser = xjson::Parser::from_file_path("/Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/cpp/runtime/pid.json");
+    auto mod = arc::module::Module(parser);
+    ASSERT_NIL(parser.error());
 }
