@@ -205,3 +205,107 @@ TEST(FrameTests, testIteratorWithSTLAlgorithms) {
     ASSERT_EQ(keys[1], 65538);
     ASSERT_EQ(keys[2], 65539);
 }
+
+/// @brief it should correctly move construct a frame.
+TEST(FrameTests, testMoveConstructor) {
+    // Create a frame with data
+    auto f1 = telem::Frame(2);
+    f1.emplace(65537, telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
+    f1.emplace(65538, telem::Series(std::vector<double>{4.0, 5.0, 6.0}));
+    ASSERT_EQ(f1.size(), 2);
+    ASSERT_EQ(f1.channels->at(0), 65537);
+    ASSERT_EQ(f1.series->at(0).at<float>(0), 1.0f);
+
+    // Move construct from f1
+    auto f2 = std::move(f1);
+
+    // f2 should have the data
+    ASSERT_EQ(f2.size(), 2);
+    ASSERT_EQ(f2.channels->at(0), 65537);
+    ASSERT_EQ(f2.channels->at(1), 65538);
+    ASSERT_EQ(f2.series->at(0).at<float>(0), 1.0f);
+    ASSERT_EQ(f2.series->at(0).at<float>(1), 2.0f);
+    ASSERT_EQ(f2.series->at(0).at<float>(2), 3.0f);
+    ASSERT_EQ(f2.series->at(1).at<double>(0), 4.0);
+    ASSERT_EQ(f2.series->at(1).at<double>(1), 5.0);
+    ASSERT_EQ(f2.series->at(1).at<double>(2), 6.0);
+
+    // f1 should be empty (moved-from state)
+    ASSERT_EQ(f1.channels, nullptr);
+    ASSERT_EQ(f1.series, nullptr);
+    ASSERT_EQ(f1.size(), 0);
+}
+
+/// @brief it should correctly move assign a frame.
+TEST(FrameTests, testMoveAssignment) {
+    // Create source frame with data
+    auto f1 = telem::Frame(2);
+    f1.emplace(65537, telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
+    f1.emplace(65538, telem::Series(std::vector<double>{4.0, 5.0, 6.0}));
+    ASSERT_EQ(f1.size(), 2);
+
+    // Create destination frame with different data
+    auto f2 = telem::Frame(1);
+    f2.emplace(99999, telem::Series(std::vector<int32_t>{100, 200}));
+    ASSERT_EQ(f2.size(), 1);
+
+    // Move assign f1 to f2
+    f2 = std::move(f1);
+
+    // f2 should now have f1's data
+    ASSERT_EQ(f2.size(), 2);
+    ASSERT_EQ(f2.channels->at(0), 65537);
+    ASSERT_EQ(f2.channels->at(1), 65538);
+    ASSERT_EQ(f2.series->at(0).at<float>(0), 1.0f);
+    ASSERT_EQ(f2.series->at(0).at<float>(1), 2.0f);
+    ASSERT_EQ(f2.series->at(0).at<float>(2), 3.0f);
+    ASSERT_EQ(f2.series->at(1).at<double>(0), 4.0);
+    ASSERT_EQ(f2.series->at(1).at<double>(1), 5.0);
+    ASSERT_EQ(f2.series->at(1).at<double>(2), 6.0);
+
+    // f1 should be empty (moved-from state)
+    ASSERT_EQ(f1.channels, nullptr);
+    ASSERT_EQ(f1.series, nullptr);
+    ASSERT_EQ(f1.size(), 0);
+}
+
+/// @brief it should correctly move assign an empty frame.
+TEST(FrameTests, testMoveAssignmentFromEmpty) {
+    // Create empty source frame
+    auto f1 = telem::Frame();
+    ASSERT_EQ(f1.size(), 0);
+
+    // Create destination frame with data
+    auto f2 = telem::Frame(1);
+    f2.emplace(65537, telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
+    ASSERT_EQ(f2.size(), 1);
+
+    // Move assign empty frame to f2
+    f2 = std::move(f1);
+
+    // f2 should now be empty
+    ASSERT_EQ(f2.size(), 0);
+    ASSERT_TRUE(f2.channels == nullptr || f2.channels->empty());
+}
+
+/// @brief it should correctly move assign to an empty frame.
+TEST(FrameTests, testMoveAssignmentToEmpty) {
+    // Create source frame with data
+    auto f1 = telem::Frame(2);
+    f1.emplace(65537, telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
+    ASSERT_EQ(f1.size(), 1);
+
+    // Create empty destination frame
+    auto f2 = telem::Frame();
+    ASSERT_EQ(f2.size(), 0);
+
+    // Move assign to empty frame
+    f2 = std::move(f1);
+
+    // f2 should now have the data
+    ASSERT_EQ(f2.size(), 1);
+    ASSERT_EQ(f2.channels->at(0), 65537);
+    ASSERT_EQ(f2.series->at(0).at<float>(0), 1.0f);
+    ASSERT_EQ(f2.series->at(0).at<float>(1), 2.0f);
+    ASSERT_EQ(f2.series->at(0).at<float>(2), 3.0f);
+}

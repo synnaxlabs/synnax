@@ -28,6 +28,9 @@ public:
     /// @brief move constructor.
     Frame(Frame &&other) noexcept;
 
+    /// @brief move assignment operator.
+    Frame &operator=(Frame &&other) noexcept;
+
     /// @brief allocates a frame that can hold the given number of series.
     /// @param size the number of series to allocate space for.
     explicit Frame(size_t size);

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <ranges>
 #include <set>
 
 #include "x/cpp/queue/spsc.h"
@@ -62,8 +63,41 @@ public:
     void run() {
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
+
+            // Step 1: Read all available frames from inputs
+            telem::Frame frame;
+            while (this->inputs->pop(frame)) {
+                // Step 2: Ingest frame into state
+                this->state->ingest(frame);
+            }
+
+            // Step 3: Execute scheduler to process nodes
             this->scheduler->next();
+
+            // Step 4: Flush writes from state
+            auto writes = this->state->flush_writes();
+
+            // Step 5: Create output frame from writes if any exist
+            if (!writes.empty()) {
+                telem::Frame out_frame(writes.size());
+                for (auto &[key, series] : writes) {
+                    // Dereference local_shared to get the underlying telem::Series
+                    out_frame.emplace(key, std::move(*series));
+                }
+                this->outputs->push(std::move(out_frame));
+            }
+
+            // Step 6: Clear reads for next iteration
+            this->state->clear_reads();
         }
+    }
+
+    bool write(telem::Frame frame)const {
+        return this->inputs->push(std::move(frame));
+    }
+
+    bool read(telem::Frame &frame)const {
+        return this->outputs->pop(frame);
     }
 };
 

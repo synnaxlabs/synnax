@@ -109,6 +109,16 @@ Frame::Frame(Frame &&other) noexcept:
     other.series = nullptr;
 }
 
+Frame &Frame::operator=(Frame &&other) noexcept {
+    if (this != &other) {
+        channels = std::move(other.channels);
+        series = std::move(other.series);
+        other.channels = nullptr;
+        other.series = nullptr;
+    }
+    return *this;
+}
+
 std::ostream &operator<<(std::ostream &os, const Frame &f) {
     os << "Frame{" << std::endl;
     for (size_t i = 0; i < f.channels->size(); i++)
