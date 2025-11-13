@@ -9,18 +9,18 @@
 
 #pragma once
 
-#include "arc/cpp/runtime/factory/factory.h"
+#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/wasm/node.h"
 
-namespace arc::wasm {
-class Factory : public NodeFactory {
+namespace arc::runtime::wasm {
+class Factory : public node::Factory {
     std::shared_ptr<Module> mod;
 
 public:
     explicit Factory(std::shared_ptr<Module> &mod): mod(mod) {}
 
-    std::pair<std::unique_ptr<arc::Node>, xerrors::Error>
-    create(const NodeConfig &cfg) override {
+    std::pair<std::unique_ptr<node::Node>, xerrors::Error>
+    create(const node::Config &cfg) override {
         auto [func, err] = mod->func(cfg.node.type);
         if (err) return {nullptr, err};
         return {std::make_unique<Node>(cfg.node, cfg.state, func), xerrors::NIL};

@@ -1,9 +1,7 @@
 cc_library(
-    name = "core",
+    name = "node",
     hdrs = [
-        "context.h",
         "node.h",
-        "types.h",
     ],
     visibility = ["//arc/cpp/runtime:__subpackages__"],
     deps = [
@@ -11,15 +9,5 @@ cc_library(
         "//x/cpp/queue:SPSC",
         "//x/cpp/telem",
         "//x/cpp/xerrors",
-    ],
-)
-
-cc_test(
-    name = "types_test",
-    size = "small",
-    srcs = ["types_test.cpp"],
-    deps = [
-        ":core",
-        "@googletest//:gtest_main",
     ],
 )

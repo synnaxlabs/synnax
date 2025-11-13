@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,13 +16,13 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 
-#include "arc/cpp/runtime/core/node.h"
+#include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/module.h"
 #include "arc/cpp/runtime/wasm/utils.h"
 
-namespace arc::wasm {
-class Node : public arc::Node {
+namespace arc::runtime::wasm {
+class Node : public node::Node {
     ir::Node ir_node;
     runtime::state::Node state;
     Module::Function func;
@@ -40,8 +39,8 @@ public:
         inputs.resize(node.inputs.size());
     }
 
-    xerrors::Error next(NodeContext &ctx) override {
-        if (!state.refresh_inputs()) { return xerrors::NIL; }
+    xerrors::Error next(node::Context &ctx) override {
+        if (!state.refresh_inputs()) return xerrors::NIL;
 
         int64_t max_length = 0;
         int64_t longest_input_idx = 0;
@@ -53,13 +52,12 @@ public:
             }
         }
 
-        if (ir_node.inputs.empty()) { max_length = 1; }
+        if (ir_node.inputs.empty()) max_length = 1;
 
-        if (max_length <= 0) { return xerrors::NIL; }
+        if (max_length <= 0) return xerrors::NIL;
 
-        for (auto &offset: offsets) {
+        for (auto &offset: offsets)
             offset = 0;
-        }
 
         for (size_t i = 0; i < ir_node.outputs.size(); i++) {
             const auto out = state.output(i);
@@ -69,10 +67,9 @@ public:
             }
         }
 
-        std::shared_ptr<telem::Series> longest_input_time;
-        if (!ir_node.inputs.empty()) {
+        state::Series longest_input_time;
+        if (!ir_node.inputs.empty())
             longest_input_time = state.input_time(longest_input_idx);
-        }
 
         for (int i = 0; i < max_length; i++) {
             for (size_t j = 0; j < ir_node.inputs.size(); j++) {
@@ -86,13 +83,11 @@ public:
 
             auto [results, err] = func.call(inputs);
             if (err) {
-                ctx.report_error(
-                    xerrors::Error(
-                        "WASM execution failed in node " + ir_node.key + " at sample " +
-                        std::to_string(i) + "/" + std::to_string(max_length) + ": " +
-                        err.message()
-                    )
-                );
+                ctx.report_error(xerrors::Error(
+                    "WASM execution failed in node " + ir_node.key + " at sample " +
+                    std::to_string(i) + "/" + std::to_string(max_length) + ": " +
+                    err.message()
+                ));
                 continue;
             }
 

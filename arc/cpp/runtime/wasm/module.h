@@ -18,7 +18,7 @@
 #include "arc/cpp/module/module.h"
 #include "wasm_export.h"
 
-namespace arc::wasm {
+namespace arc::runtime::wasm {
 const auto BASE_ERROR = errors::RUNTIME.sub("wasm");
 const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 

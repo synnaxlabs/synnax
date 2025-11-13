@@ -1,5 +1,6 @@
 #pragma once
 
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/xjson.h"
 
 namespace arc::types {
@@ -24,11 +25,8 @@ enum class Kind : uint8_t {
     Series = 15,
 };
 
-// @brief a discrimated union representing a type in the arc programming language.
 struct Type {
-    /// @brief the kind of the type.
     Kind kind = Kind::Invalid;
-    /// @brief the element type for channels or series.
     std::unique_ptr<Type> elem;
 
     explicit Type(xjson::Parser parser) {
@@ -92,8 +90,6 @@ struct Type {
 
     [[nodiscard]] bool is_valid() const { return kind != Kind::Invalid; }
 
-    /// @brief Convert arc IR type to telem data type.
-    /// @return Corresponding telem data type.
     [[nodiscard]] telem::DataType telem() const;
 };
 }

@@ -9,9 +9,7 @@
 
 #pragma once
 
-#include <map>
 #include <memory>
-#include <ranges>
 #include <set>
 
 #include "x/cpp/queue/spsc.h"
@@ -27,9 +25,9 @@ namespace arc::runtime {
 struct Config {
     module::Module mod;
     breaker::Config breaker;
-    std::function<std::pair<std::vector<state::ChannelDigest>, xerrors::Error>(
-        const std::vector<ChannelKey> &
-    )>
+    std::function<
+        std::pair<std::vector<state::ChannelDigest>, xerrors::Error>(const std::vector<
+                                                                     ChannelKey> &)>
         retrieve_channels;
 };
 
@@ -72,8 +70,8 @@ public:
 inline std::pair<std::unique_ptr<Runtime>, xerrors::Error> load(Config cfg) {
 
     // Step 1: Initialize state
-    std::set<ChannelKey> reads;
-    std::set<ChannelKey> writes;
+    std::set<types::ChannelKey> reads;
+    std::set<types::ChannelKey> writes;
     for (const auto &n: cfg.mod.nodes) {
         const auto read_keys = std::views::keys(n.channels.read);
         reads.insert(read_keys.begin(), read_keys.end());
@@ -81,7 +79,7 @@ inline std::pair<std::unique_ptr<Runtime>, xerrors::Error> load(Config cfg) {
         writes.insert(write_keys.begin(), write_keys.end());
     }
 
-    std::vector<ChannelKey> keys;
+    std::vector<types::ChannelKey> keys;
     keys.reserve(reads.size() + writes.size());
     auto [digests, state_err] = cfg.retrieve_channels(keys);
     if (state_err) return {nullptr, state_err};
@@ -102,14 +100,14 @@ inline std::pair<std::unique_ptr<Runtime>, xerrors::Error> load(Config cfg) {
     wasm::Factory wasm_factory(mod);
 
     // Step 4: Construct nodes.
-    std::unordered_map<std::string, std::unique_ptr<Node>> nodes;
+    std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
     for (const auto &n: cfg.mod.nodes) {
-        auto [node, err] = wasm_factory.create(
-            NodeConfig{
-                .node = n,
-                .state = state->node(n.key),
-            }
-        );
+        auto [node_state, node_state_err] = state->node(n.key);
+        if (node_state_err) return {nullptr, node_state_err};
+        auto [node, err] = wasm_factory.create(node::Config{
+            .node = n,
+            .state = node_state,
+        });
         if (err) return {nullptr, err};
     }
 

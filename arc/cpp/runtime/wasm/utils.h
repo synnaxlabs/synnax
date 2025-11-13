@@ -5,8 +5,10 @@
 
 #include "x/cpp/telem/series.h"
 
-namespace arc::wasm {
-inline uint64_t value_at(const std::shared_ptr<telem::Series> &s, const int i) {
+#include "arc/cpp/runtime/state/state.h"
+
+namespace arc::runtime::wasm {
+inline uint64_t value_at(const state::Series &s, const int i) {
     switch (s->data_type().density()) {
         case 1:
             return s->at<uint8_t>(i);
@@ -35,8 +37,7 @@ inline uint64_t value_at(const std::shared_ptr<telem::Series> &s, const int i) {
     }
 }
 
-inline void
-set_value_at(const std::shared_ptr<telem::Series> &s, const int i, const uint64_t v) {
+inline void set_value_at(const state::Series &s, const int i, const uint64_t v) {
     switch (const auto dt = s->data_type(); dt.density()) {
         case 1:
             s->set(i, static_cast<uint8_t>(v));

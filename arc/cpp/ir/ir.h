@@ -10,21 +10,15 @@
 #pragma once
 
 #include <algorithm>
-#include <cstdint>
 #include <map>
-#include <memory>
 #include <string>
 #include <vector>
 
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/xjson.h"
 
-namespace arc {
+#include "arc/cpp/types/types.h"
 
-namespace ir {
-
-
-
+namespace arc::ir {
 struct Handle {
     std::string node, param;
 
@@ -54,9 +48,8 @@ struct Handle {
     };
 };
 
-/// @brief Edge connecting two handles in the dataflow graph.
 struct Edge {
-    Handle source, target; ///< Output parameter
+    Handle source, target;
 
     explicit Edge(xjson::Parser parser) {
         this->source = parser.field<Handle>("source");
@@ -80,12 +73,12 @@ struct Edge {
 
 struct Param {
     std::string name;
-    Type type;
+    types::Type type;
     nlohmann::json value;
 
     explicit Param(xjson::Parser parser) {
         this->name = parser.field<std::string>("name");
-        this->type = parser.field<Type>("type");
+        this->type = parser.field<types::Type>("type");
         this->value = parser.field<nlohmann::json>("value", nlohmann::json(nullptr));
     }
 
@@ -100,41 +93,34 @@ struct Param {
     Param() = default;
 };
 
-/// @brief Named, ordered parameters for a function or node.
 struct Params {
     std::vector<Param> params;
 
     Params() = default;
     explicit Params(std::vector<Param> p): params(std::move(p)) {}
 
-    /// @brief Get parameter type by name, returns nullptr if not found
-    [[nodiscard]] const Type *get(const std::string &name) const {
+    [[nodiscard]] const types::Type *get(const std::string &name) const {
         for (const auto &p: this->params) {
             if (p.name == name) return &p.type;
         }
         return nullptr;
     }
 
-    /// @brief Extract all parameter names
     [[nodiscard]] std::vector<std::string> keys() const {
         std::vector<std::string> result;
         result.reserve(this->params.size());
-        for (const auto &p: this->params) {
+        for (const auto &p: this->params)
             result.push_back(p.name);
-        }
         return result;
     }
 
-    /// @brief Convert params to JSON array
     [[nodiscard]] nlohmann::json to_json() const {
         nlohmann::json arr = nlohmann::json::array();
-        for (const auto &p: this->params) {
+        for (const auto &p: this->params)
             arr.push_back(p.to_json());
-        }
         return arr;
     }
 
-    /// @brief Vector interface for iteration
     auto begin() { return this->params.begin(); }
     auto end() { return this->params.end(); }
     [[nodiscard]] auto begin() const { return this->params.begin(); }
@@ -149,12 +135,15 @@ struct Params {
 };
 
 struct Channels {
-    std::map<ChannelKey, std::string> read;
-    std::map<ChannelKey, std::string> write;
+    std::map<types::ChannelKey, std::string> read;
+    std::map<types::ChannelKey, std::string> write;
 
     explicit Channels(xjson::Parser parser) {
-        this->read = parser.field<std::map<ChannelKey, std::string>>("read", {});
-        this->write = parser.field<std::map<ChannelKey, std::string>>("write", {});
+        this->read = parser.field<std::map<types::ChannelKey, std::string>>("read", {});
+        this->write = parser.field<std::map<types::ChannelKey, std::string>>(
+            "write",
+            {}
+        );
     }
 
     [[nodiscard]] nlohmann::json to_json() const {
@@ -170,7 +159,6 @@ struct Channels {
     Channels() = default;
 };
 
-/// @brief Node instance in the dataflow graph.
 struct Node {
     std::string key;
     std::string type;
@@ -201,7 +189,6 @@ struct Node {
     explicit Node(std::string k): key(std::move(k)) {}
 };
 
-/// @brief Function template (stage definition).
 struct Function {
     std::string key;
     Channels channels;
@@ -229,7 +216,6 @@ struct Function {
     explicit Function(std::string k): key(std::move(k)) {}
 };
 
-/// @brief Execution strata (layers for reactive scheduling).
 struct Strata {
     std::vector<std::vector<std::string>> strata;
 
@@ -242,7 +228,6 @@ struct Strata {
     Strata() = default;
 };
 
-/// @brief Complete Arc IR (dataflow graph).
 struct IR {
     std::vector<Function> functions;
     std::vector<Node> nodes;
@@ -332,6 +317,4 @@ struct IR {
         return result;
     }
 };
-
-} // namespace ir
-} // namespace arc
+}

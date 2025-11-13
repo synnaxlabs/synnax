@@ -10,7 +10,6 @@
 
 #pragma once
 
-#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -19,7 +18,8 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xmemory/local_shared.h"
 
-#include "arc/cpp/ir/types.h"
+#include "arc/cpp/ir/ir.h"
+#include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
 using Series = xmemory::local_shared<telem::Series>;
@@ -30,9 +30,9 @@ struct Value {
 };
 
 struct ChannelDigest {
-    arc::ChannelKey key;
+    types::ChannelKey key;
     telem::DataType data_type;
-    arc::ChannelKey index;
+    types::ChannelKey index;
 };
 
 struct Config {
@@ -47,7 +47,7 @@ class Node {
 
     std::vector<arc::ir::Edge> inputs;
     std::vector<arc::ir::Handle> outputs;
-    State &state_;
+    State &state;
 
     struct InputEntry {
         Series data;
@@ -62,8 +62,10 @@ class Node {
     std::vector<InputEntry> accumulated;
     std::vector<Series> aligned_data;
     std::vector<Series> aligned_time;
-    std::vector<Value *> input_sources;
-    std::vector<Value *> output_cache;
+    std::vector<Value> input_sources;
+    std::vector<Value> output_cache;
+
+    Node(State &state): state(state) {}
 
     Node(
         std::vector<arc::ir::Edge> inputs,
@@ -72,12 +74,12 @@ class Node {
         std::vector<InputEntry> accumulated,
         std::vector<Series> aligned_data,
         std::vector<Series> aligned_time,
-        std::vector<Value *> input_sources,
-        std::vector<Value *> output_cache
+        std::vector<Value> input_sources,
+        std::vector<Value> output_cache
     ):
         inputs(std::move(inputs)),
         outputs(std::move(outputs)),
-        state_(state),
+        state(state),
         accumulated(std::move(accumulated)),
         aligned_data(std::move(aligned_data)),
         aligned_time(std::move(aligned_time)),
@@ -95,12 +97,12 @@ public:
         return this->aligned_time[param_index];
     }
 
-    [[nodiscard]] Series &output(const size_t param_index) const {
-        return this->output_cache[param_index]->data;
+    [[nodiscard]] Series &output(const size_t param_index) {
+        return this->output_cache[param_index].data;
     }
 
-    [[nodiscard]] Series &output_time(const size_t param_index) const {
-        return this->output_cache[param_index]->time;
+    [[nodiscard]] Series &output_time(const size_t param_index) {
+        return this->output_cache[param_index].time;
     }
 };
 
@@ -109,22 +111,21 @@ class State {
 
     Config cfg;
     std::unordered_map<ir::Handle, Value, ir::Handle::Hasher> outputs;
-    std::unordered_map<ChannelKey, ChannelKey> indexes;
-    std::unordered_map<ChannelKey, std::vector<Series>> reads;
-    std::unordered_map<ChannelKey, Series> writes;
+    std::unordered_map<types::ChannelKey, types::ChannelKey> indexes;
+    std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
+    std::unordered_map<types::ChannelKey, Series> writes;
 
-    void write_channel(ChannelKey key, const Series &data, const Series &time);
+    void write_channel(types::ChannelKey key, const Series &data, const Series &time);
 
 public:
     explicit State(const Config &cfg);
 
-    Node node(const std::string &key);
+    std::pair<Node, xerrors::Error> node(const std::string &key);
 
     void ingest(const telem::Frame &frame);
 
-    std::vector<std::pair<ChannelKey, Series>> flush_writes();
+    std::vector<std::pair<types::ChannelKey, Series>> flush_writes();
 
     void clear_reads();
 };
-
 }

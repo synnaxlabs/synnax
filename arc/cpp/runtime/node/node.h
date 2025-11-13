@@ -11,15 +11,15 @@
 
 #include "x/cpp/xerrors/errors.h"
 
-#include "arc/cpp/runtime/core/context.h"
-
-namespace arc {
-
+namespace arc::runtime::node {
+struct Context {
+    std::function<void(const std::string &output_param)> mark_changed;
+    std::function<void(const xerrors::Error &)> report_error;
+};
 class Node {
 public:
     virtual ~Node() = default;
 
-    virtual xerrors::Error next(NodeContext &ctx) = 0;
+    virtual xerrors::Error next(Context &ctx) = 0;
 };
-
 }

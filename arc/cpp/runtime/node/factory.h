@@ -10,38 +10,37 @@
 #pragma once
 
 #include <memory>
-#include <string>
 #include <vector>
 
 #include "x/cpp/xerrors/errors.h"
 
-#include "arc/cpp/ir/types.h"
-#include "arc/cpp/runtime/core/node.h"
+#include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 
-namespace arc {
-struct NodeConfig {
+namespace arc::runtime::node {
+struct Config {
     ir::Node node;
     runtime::state::Node state;
 };
 
-class NodeFactory {
+class Factory {
 public:
-    virtual ~NodeFactory() = default;
+    virtual ~Factory() = default;
 
-    virtual std::pair<std::unique_ptr<Node>, xerrors::Error>
-    create(const NodeConfig &cfg) = 0;
+    virtual std::pair<std::unique_ptr<Node>, xerrors::Error> create(const Config &cfg
+    ) = 0;
 };
 
-class MultiFactory : public NodeFactory {
-    std::vector<std::unique_ptr<NodeFactory>> factories;
+class MultiFactory : public Factory {
+    std::vector<std::unique_ptr<Factory>> factories;
 
 public:
-    explicit MultiFactory(std::vector<std::unique_ptr<NodeFactory>> &factories):
+    explicit MultiFactory(std::vector<std::unique_ptr<Factory>> &factories):
         factories(std::move(factories)) {}
 
-    std::pair<std::unique_ptr<Node>, xerrors::Error>
-    create(const NodeConfig &cfg) override {
+    std::pair<std::unique_ptr<Node>, xerrors::Error> create(const Config &cfg
+    ) override {
         for (const auto &factory: this->factories) {
             auto [node, err] = factory->create(cfg);
             if (!err) return {std::move(node), xerrors::NIL};
