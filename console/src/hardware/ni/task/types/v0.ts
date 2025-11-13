@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/pluto";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
+import { createPortValidator } from "@/hardware/ni/task/types/validation";
 
 export const PREFIX = "ni";
 
@@ -952,6 +953,461 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   [AI_VOLTAGE_CHAN_TYPE]: Icon.Units.Voltage,
 };
 
+const counterChannelExtensionShape = { port: portZ, device: Common.Device.keyZ };
+interface CounterChannelExtension
+  extends z.infer<z.ZodObject<typeof counterChannelExtensionShape>> {}
+const ZERO_COUNTER_CHANNEL_EXTENSION: CounterChannelExtension = { port: 0, device: "" };
+
+const baseCIChanZ = Common.Task.readChannelZ.extend(counterChannelExtensionShape);
+interface BaseCIChan extends z.infer<typeof baseCIChanZ> {}
+const ZERO_BASE_CI_CHAN: BaseCIChan = {
+  ...Common.Task.ZERO_READ_CHANNEL,
+  ...ZERO_COUNTER_CHANNEL_EXTENSION,
+};
+
+// Counter Input edge detection
+const RISING_EDGE = "Rising";
+const FALLING_EDGE = "Falling";
+const ciEdgeZ = z.enum([RISING_EDGE, FALLING_EDGE]);
+export type CIEdge = z.infer<typeof ciEdgeZ>;
+
+// Counter Input measurement methods
+const LOW_FREQ_1_CTR = "LowFreq1Ctr";
+const HIGH_FREQ_2_CTR = "HighFreq2Ctr";
+const LARGE_RNG_2_CTR = "LargeRng2Ctr";
+const DYNAMIC_AVG = "DynamicAvg";
+const ciMeasMethodZ = z.enum([
+  LOW_FREQ_1_CTR,
+  HIGH_FREQ_2_CTR,
+  LARGE_RNG_2_CTR,
+  DYNAMIC_AVG,
+]);
+export type CIMeasMethod = z.infer<typeof ciMeasMethodZ>;
+
+// Counter Input frequency units
+const TICKS = "Ticks";
+const ciFreqUnitsZ = z.enum([HZ, TICKS]);
+export type CIFreqUnits = z.infer<typeof ciFreqUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecifreqchan.html
+export const CI_FREQUENCY_CHAN_TYPE = "ci_frequency";
+export const ciFrequencyChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_FREQUENCY_CHAN_TYPE),
+  units: ciFreqUnitsZ,
+  edge: ciEdgeZ,
+  measMethod: ciMeasMethodZ,
+  measTime: z.number().optional(),
+  divisor: z.number().int().positive().optional(),
+  terminal: z.string(),
+});
+export interface CIFrequencyChan extends z.infer<typeof ciFrequencyChanZ> {}
+export const ZERO_CI_FREQUENCY_CHAN: CIFrequencyChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_FREQUENCY_CHAN_TYPE,
+  minVal: 2,
+  maxVal: 100,
+  units: HZ,
+  edge: RISING_EDGE,
+  measMethod: DYNAMIC_AVG,
+  measTime: 0.000006,
+  divisor: 4,
+  terminal: "",
+};
+
+// Counter Input count direction
+const COUNT_UP = "CountUp";
+const COUNT_DOWN = "CountDown";
+const EXTERNALLY_CONTROLLED = "ExternallyControlled";
+const ciCountDirectionZ = z.enum([COUNT_UP, COUNT_DOWN, EXTERNALLY_CONTROLLED]);
+export type CICountDirection = z.infer<typeof ciCountDirectionZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedgeschan.html
+export const CI_EDGE_COUNT_CHAN_TYPE = "ci_edge_count";
+export const ciEdgeCountChanZ = baseCIChanZ.extend({
+  type: z.literal(CI_EDGE_COUNT_CHAN_TYPE),
+  activeEdge: ciEdgeZ,
+  countDirection: ciCountDirectionZ,
+  initialCount: z.number(),
+  terminal: z.string(),
+});
+export interface CIEdgeCountChan extends z.infer<typeof ciEdgeCountChanZ> {}
+export const ZERO_CI_EDGE_COUNT_CHAN: CIEdgeCountChan = {
+  ...ZERO_BASE_CI_CHAN,
+  type: CI_EDGE_COUNT_CHAN_TYPE,
+  activeEdge: RISING_EDGE,
+  countDirection: COUNT_UP,
+  initialCount: 0,
+  terminal: "",
+};
+
+// Counter Input period units
+const ciPeriodUnitsZ = z.enum([SECONDS, TICKS]);
+export type CIPeriodUnits = z.infer<typeof ciPeriodUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodchan.html
+export const CI_PERIOD_CHAN_TYPE = "ci_period";
+export const ciPeriodChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_PERIOD_CHAN_TYPE),
+  units: ciPeriodUnitsZ,
+  startingEdge: ciEdgeZ,
+  measMethod: ciMeasMethodZ,
+  measTime: z.number().optional(),
+  divisor: z.number().int().positive().optional(),
+  terminal: z.string(),
+});
+export interface CIPeriodChan extends z.infer<typeof ciPeriodChanZ> {}
+export const ZERO_CI_PERIOD_CHAN: CIPeriodChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_PERIOD_CHAN_TYPE,
+  minVal: 0.000001,
+  maxVal: 0.1,
+  units: SECONDS,
+  startingEdge: RISING_EDGE,
+  measMethod: DYNAMIC_AVG,
+  measTime: 0.001,
+  divisor: 4,
+  terminal: "",
+};
+
+// Counter Input pulse width units (same as period)
+const ciPulseWidthUnitsZ = z.enum([SECONDS, TICKS]);
+export type CIPulseWidthUnits = z.infer<typeof ciPulseWidthUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecipulsewidthchan.html
+export const CI_PULSE_WIDTH_CHAN_TYPE = "ci_pulse_width";
+export const ciPulseWidthChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_PULSE_WIDTH_CHAN_TYPE),
+  units: ciPulseWidthUnitsZ,
+  startingEdge: ciEdgeZ,
+  terminal: z.string(),
+});
+export interface CIPulseWidthChan extends z.infer<typeof ciPulseWidthChanZ> {}
+export const ZERO_CI_PULSE_WIDTH_CHAN: CIPulseWidthChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_PULSE_WIDTH_CHAN_TYPE,
+  minVal: 0.000001,
+  maxVal: 0.1,
+  units: SECONDS,
+  startingEdge: RISING_EDGE,
+  terminal: "",
+};
+
+// Counter Input semi period units (same as period)
+const ciSemiPeriodUnitsZ = z.enum([SECONDS, TICKS]);
+export type CISemiPeriodUnits = z.infer<typeof ciSemiPeriodUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecisemiperiodchan.html
+export const CI_SEMI_PERIOD_CHAN_TYPE = "ci_semi_period";
+export const ciSemiPeriodChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_SEMI_PERIOD_CHAN_TYPE),
+  units: ciSemiPeriodUnitsZ,
+});
+export interface CISemiPeriodChan extends z.infer<typeof ciSemiPeriodChanZ> {}
+export const ZERO_CI_SEMI_PERIOD_CHAN: CISemiPeriodChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_SEMI_PERIOD_CHAN_TYPE,
+  minVal: 0.000001,
+  maxVal: 0.1,
+  units: SECONDS,
+};
+
+// Counter Input two edge separation units
+const ciTwoEdgeSepUnitsZ = z.enum([SECONDS, TICKS]);
+export type CITwoEdgeSepUnits = z.infer<typeof ciTwoEdgeSepUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoedgesepchan.html
+export const CI_TWO_EDGE_SEP_CHAN_TYPE = "ci_two_edge_sep";
+export const ciTwoEdgeSepChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_TWO_EDGE_SEP_CHAN_TYPE),
+  units: ciTwoEdgeSepUnitsZ,
+  firstEdge: ciEdgeZ,
+  secondEdge: ciEdgeZ,
+});
+export interface CITwoEdgeSepChan extends z.infer<typeof ciTwoEdgeSepChanZ> {}
+export const ZERO_CI_TWO_EDGE_SEP_CHAN: CITwoEdgeSepChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_TWO_EDGE_SEP_CHAN_TYPE,
+  minVal: 0.000001,
+  maxVal: 1,
+  units: SECONDS,
+  firstEdge: RISING_EDGE,
+  secondEdge: FALLING_EDGE,
+};
+
+// Counter Input decoding type
+const X1 = "X1";
+const X2 = "X2";
+const X4 = "X4";
+const TWO_PULSE = "TwoPulse";
+const ciDecodingTypeZ = z.enum([X1, X2, X4, TWO_PULSE]);
+export type CIDecodingType = z.infer<typeof ciDecodingTypeZ>;
+
+// Counter Input linear velocity units
+const CI_METERS_PER_SECOND = "m/s";
+const CI_INCHES_PER_SECOND = "in/s";
+const ciLinearVelocityUnitsZ = z.enum([CI_METERS_PER_SECOND, CI_INCHES_PER_SECOND]);
+export type CILinearVelocityUnits = z.infer<typeof ciLinearVelocityUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinvelocitychan.html
+export const CI_VELOCITY_LINEAR_CHAN_TYPE = "ci_velocity_linear";
+export const ciLinearVelocityChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_VELOCITY_LINEAR_CHAN_TYPE),
+  units: ciLinearVelocityUnitsZ,
+  decodingType: ciDecodingTypeZ,
+  distPerPulse: z.number(),
+  terminalA: z.string(),
+  terminalB: z.string(),
+});
+export interface CILinearVelocityChan extends z.infer<typeof ciLinearVelocityChanZ> {}
+export const ZERO_CI_LINEAR_VELOCITY_CHAN: CILinearVelocityChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_VELOCITY_LINEAR_CHAN_TYPE,
+  minVal: 0,
+  maxVal: 1,
+  units: CI_METERS_PER_SECOND,
+  decodingType: X4,
+  distPerPulse: 0.001,
+  terminalA: "",
+  terminalB: "",
+};
+
+// Counter Input angular velocity units
+const RPM = "RPM";
+const RADIANS_PER_SECOND = "Radians/s";
+const DEGREES_PER_SECOND = "Degrees/s";
+const ciAngularVelocityUnitsZ = z.enum([RPM, RADIANS_PER_SECOND, DEGREES_PER_SECOND]);
+export type CIAngularVelocityUnits = z.infer<typeof ciAngularVelocityUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangvelocitychan.html
+export const CI_VELOCITY_ANGULAR_CHAN_TYPE = "ci_velocity_angular";
+export const ciAngularVelocityChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_VELOCITY_ANGULAR_CHAN_TYPE),
+  units: ciAngularVelocityUnitsZ,
+  decodingType: ciDecodingTypeZ,
+  pulsesPerRev: z.number(),
+  terminalA: z.string(),
+  terminalB: z.string(),
+});
+export interface CIAngularVelocityChan extends z.infer<typeof ciAngularVelocityChanZ> {}
+export const ZERO_CI_ANGULAR_VELOCITY_CHAN: CIAngularVelocityChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_VELOCITY_ANGULAR_CHAN_TYPE,
+  minVal: 0,
+  maxVal: 1,
+  units: RPM,
+  decodingType: X4,
+  pulsesPerRev: 24,
+  terminalA: "",
+  terminalB: "",
+};
+
+// Counter Input Z Index Phase
+const A_HIGH_B_HIGH = "AHighBHigh";
+const A_HIGH_B_LOW = "AHighBLow";
+const A_LOW_B_HIGH = "ALowBHigh";
+const A_LOW_B_LOW = "ALowBLow";
+const ciZIndexPhaseZ = z.enum([A_HIGH_B_HIGH, A_HIGH_B_LOW, A_LOW_B_HIGH, A_LOW_B_LOW]);
+export type CIZIndexPhase = z.infer<typeof ciZIndexPhaseZ>;
+
+const zIndexShape = {
+  zIndexEnable: z.boolean(),
+  zIndexVal: z.number(),
+  zIndexPhase: ciZIndexPhaseZ,
+  terminalZ: z.string(),
+};
+interface ZIndex extends z.infer<z.ZodObject<typeof zIndexShape>> {}
+const ZERO_Z_INDEX: ZIndex = {
+  zIndexEnable: false,
+  zIndexVal: 0,
+  zIndexPhase: A_HIGH_B_HIGH,
+  terminalZ: "",
+};
+
+// Counter Input linear position units
+const ciLinearPositionUnitsZ = z.enum([METERS, INCHES, TICKS]);
+export type CILinearPositionUnits = z.infer<typeof ciLinearPositionUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecilinencoder.html
+export const CI_POSITION_LINEAR_CHAN_TYPE = "ci_position_linear";
+export const ciLinearPositionChanZ = baseCIChanZ.extend({
+  ...customScaleShape,
+  ...zIndexShape,
+  type: z.literal(CI_POSITION_LINEAR_CHAN_TYPE),
+  units: ciLinearPositionUnitsZ,
+  decodingType: ciDecodingTypeZ,
+  distPerPulse: z.number(),
+  initialPos: z.number(),
+  terminalA: z.string(),
+  terminalB: z.string(),
+});
+export interface CILinearPositionChan extends z.infer<typeof ciLinearPositionChanZ> {}
+export const ZERO_CI_LINEAR_POSITION_CHAN: CILinearPositionChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_CUSTOM_SCALE,
+  ...ZERO_Z_INDEX,
+  type: CI_POSITION_LINEAR_CHAN_TYPE,
+  units: METERS,
+  decodingType: X4,
+  distPerPulse: 0.000001,
+  initialPos: 0.0,
+  terminalA: "",
+  terminalB: "",
+};
+
+// Counter Input angular position units
+const ciAngularPositionUnitsZ = z.enum([DEGREES, RADIANS, TICKS]);
+export type CIAngularPositionUnits = z.infer<typeof ciAngularPositionUnitsZ>;
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciangencoder.html
+export const CI_POSITION_ANGULAR_CHAN_TYPE = "ci_position_angular";
+export const ciAngularPositionChanZ = baseCIChanZ.extend({
+  ...customScaleShape,
+  ...zIndexShape,
+  type: z.literal(CI_POSITION_ANGULAR_CHAN_TYPE),
+  units: ciAngularPositionUnitsZ,
+  decodingType: ciDecodingTypeZ,
+  pulsesPerRev: z.number(),
+  initialAngle: z.number(),
+  terminalA: z.string(),
+  terminalB: z.string(),
+});
+export interface CIAngularPositionChan extends z.infer<typeof ciAngularPositionChanZ> {}
+export const ZERO_CI_ANGULAR_POSITION_CHAN: CIAngularPositionChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_CUSTOM_SCALE,
+  ...ZERO_Z_INDEX,
+  type: CI_POSITION_ANGULAR_CHAN_TYPE,
+  units: DEGREES,
+  decodingType: X4,
+  pulsesPerRev: 24,
+  initialAngle: 0.0,
+  terminalA: "",
+  terminalB: "",
+};
+
+// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecidutycyclechan.html
+export const CI_DUTY_CYCLE_CHAN_TYPE = "ci_duty_cycle";
+export const ciDutyCycleChanZ = baseCIChanZ.extend({
+  ...minMaxValShape,
+  ...customScaleShape,
+  type: z.literal(CI_DUTY_CYCLE_CHAN_TYPE),
+  activeEdge: ciEdgeZ,
+  terminal: z.string(),
+});
+export interface CIDutyCycleChan extends z.infer<typeof ciDutyCycleChanZ> {}
+export const ZERO_CI_DUTY_CYCLE_CHAN: CIDutyCycleChan = {
+  ...ZERO_BASE_CI_CHAN,
+  ...ZERO_MIN_MAX_VAL,
+  ...ZERO_CUSTOM_SCALE,
+  type: CI_DUTY_CYCLE_CHAN_TYPE,
+  minVal: 2,
+  maxVal: 10000,
+  activeEdge: RISING_EDGE,
+  terminal: "",
+};
+
+export const ciChannelZ = z.union([
+  ciFrequencyChanZ,
+  ciEdgeCountChanZ,
+  ciPeriodChanZ,
+  ciPulseWidthChanZ,
+  ciSemiPeriodChanZ,
+  ciTwoEdgeSepChanZ,
+  ciLinearVelocityChanZ,
+  ciAngularVelocityChanZ,
+  ciLinearPositionChanZ,
+  ciAngularPositionChanZ,
+  ciDutyCycleChanZ,
+]);
+
+export type CIChannel = z.infer<typeof ciChannelZ>;
+export type CIChannelType = CIChannel["type"];
+
+export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
+  [CI_FREQUENCY_CHAN_TYPE]: "Frequency",
+  [CI_EDGE_COUNT_CHAN_TYPE]: "Edge Count",
+  [CI_PERIOD_CHAN_TYPE]: "Period",
+  [CI_PULSE_WIDTH_CHAN_TYPE]: "Pulse Width",
+  [CI_SEMI_PERIOD_CHAN_TYPE]: "Semi Period",
+  [CI_TWO_EDGE_SEP_CHAN_TYPE]: "Two Edge Separation",
+  [CI_POSITION_ANGULAR_CHAN_TYPE]: "Position Angular",
+  [CI_POSITION_LINEAR_CHAN_TYPE]: "Position Linear",
+  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: "Velocity Angular",
+  [CI_VELOCITY_LINEAR_CHAN_TYPE]: "Velocity Linear",
+  [CI_DUTY_CYCLE_CHAN_TYPE]: "Duty Cycle",
+};
+
+export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
+  [CI_FREQUENCY_CHAN_TYPE]: Icon.Wave.Square,
+  [CI_EDGE_COUNT_CHAN_TYPE]: Icon.Value,
+  [CI_PERIOD_CHAN_TYPE]: Icon.Time,
+  [CI_PULSE_WIDTH_CHAN_TYPE]: Icon.AutoFitWidth,
+  [CI_SEMI_PERIOD_CHAN_TYPE]: Icon.Range,
+  [CI_TWO_EDGE_SEP_CHAN_TYPE]: Icon.AutoFitWidth,
+  [CI_POSITION_ANGULAR_CHAN_TYPE]: Icon.Rotate,
+  [CI_POSITION_LINEAR_CHAN_TYPE]: Icon.Linear,
+  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: Icon.Rotate,
+  [CI_VELOCITY_LINEAR_CHAN_TYPE]: Icon.Linear,
+  [CI_DUTY_CYCLE_CHAN_TYPE]: Icon.Wave.Square,
+};
+
+export const CI_CHANNEL_SCHEMAS: Record<CIChannelType, z.ZodType<CIChannel>> = {
+  [CI_FREQUENCY_CHAN_TYPE]: ciFrequencyChanZ,
+  [CI_EDGE_COUNT_CHAN_TYPE]: ciEdgeCountChanZ,
+  [CI_PERIOD_CHAN_TYPE]: ciPeriodChanZ,
+  [CI_PULSE_WIDTH_CHAN_TYPE]: ciPulseWidthChanZ,
+  [CI_SEMI_PERIOD_CHAN_TYPE]: ciSemiPeriodChanZ,
+  [CI_TWO_EDGE_SEP_CHAN_TYPE]: ciTwoEdgeSepChanZ,
+  [CI_VELOCITY_LINEAR_CHAN_TYPE]: ciLinearVelocityChanZ,
+  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: ciAngularVelocityChanZ,
+  [CI_POSITION_LINEAR_CHAN_TYPE]: ciLinearPositionChanZ,
+  [CI_POSITION_ANGULAR_CHAN_TYPE]: ciAngularPositionChanZ,
+  [CI_DUTY_CYCLE_CHAN_TYPE]: ciDutyCycleChanZ,
+};
+
+export const ZERO_CI_CHANNELS: Record<CIChannelType, CIChannel> = {
+  [CI_FREQUENCY_CHAN_TYPE]: ZERO_CI_FREQUENCY_CHAN,
+  [CI_EDGE_COUNT_CHAN_TYPE]: ZERO_CI_EDGE_COUNT_CHAN,
+  [CI_PERIOD_CHAN_TYPE]: ZERO_CI_PERIOD_CHAN,
+  [CI_PULSE_WIDTH_CHAN_TYPE]: ZERO_CI_PULSE_WIDTH_CHAN,
+  [CI_SEMI_PERIOD_CHAN_TYPE]: ZERO_CI_SEMI_PERIOD_CHAN,
+  [CI_TWO_EDGE_SEP_CHAN_TYPE]: ZERO_CI_TWO_EDGE_SEP_CHAN,
+  [CI_VELOCITY_LINEAR_CHAN_TYPE]: ZERO_CI_LINEAR_VELOCITY_CHAN,
+  [CI_VELOCITY_ANGULAR_CHAN_TYPE]: ZERO_CI_ANGULAR_VELOCITY_CHAN,
+  [CI_POSITION_LINEAR_CHAN_TYPE]: ZERO_CI_LINEAR_POSITION_CHAN,
+  [CI_POSITION_ANGULAR_CHAN_TYPE]: ZERO_CI_ANGULAR_POSITION_CHAN,
+  [CI_DUTY_CYCLE_CHAN_TYPE]: ZERO_CI_DUTY_CYCLE_CHAN,
+};
+export const ZERO_CI_CHANNEL: CIChannel = ZERO_CI_CHANNELS[CI_FREQUENCY_CHAN_TYPE];
+
 const baseAOChanZ = Common.Task.writeChannelZ.extend(analogChannelExtensionShape);
 interface BaseAOChan extends z.infer<typeof baseAOChanZ> {}
 const ZERO_BASE_AO_CHAN: BaseAOChan = {
@@ -1185,6 +1641,64 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   config: ZERO_ANALOG_READ_CONFIG,
   type: ANALOG_READ_TYPE,
 };
+
+const validateCounterPorts = createPortValidator("Counter");
+
+const baseCounterReadConfigZ = baseReadConfigZ
+  .omit({ device: true })
+  .extend({
+    channels: z
+      .array(ciChannelZ)
+      .check(Common.Task.validateReadChannels)
+      .check(validateCounterPorts),
+  })
+  .check(Common.Task.validateStreamRate);
+export interface CounterReadConfig extends z.infer<typeof baseCounterReadConfigZ> {}
+export const counterReadConfigZ = z.union([
+  baseReadConfigZ
+    .extend({
+      channels: z.array(z.any()),
+    })
+    .transform<CounterReadConfig>(({ channels, device, ...rest }) => ({
+      ...rest,
+      channels: channels.map((c) => ({ ...c, device })),
+    })),
+  baseCounterReadConfigZ,
+]);
+const { device: _counterDevice, ...counterRest } = ZERO_BASE_READ_CONFIG;
+export const ZERO_COUNTER_READ_CONFIG: CounterReadConfig = {
+  ...counterRest,
+  channels: [],
+};
+
+export const counterReadStatusDataZ = z.unknown();
+export type CounterReadStatusDetails = task.Status<typeof counterReadStatusDataZ>;
+
+export const COUNTER_READ_TYPE = `${PREFIX}_counter_read`;
+export const counterReadTypeZ = z.literal(COUNTER_READ_TYPE);
+export type CounterReadType = z.infer<typeof counterReadTypeZ>;
+
+export interface CounterReadPayload
+  extends task.Payload<
+    typeof counterReadTypeZ,
+    typeof counterReadConfigZ,
+    typeof counterReadStatusDataZ
+  > {}
+export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
+  key: "",
+  name: "NI Counter Read Task",
+  config: ZERO_COUNTER_READ_CONFIG,
+  type: COUNTER_READ_TYPE,
+};
+
+export interface CounterReadTask
+  extends task.Task<
+    typeof counterReadTypeZ,
+    typeof counterReadConfigZ,
+    typeof counterReadStatusDataZ
+  > {}
+export interface NewCounterReadTask
+  extends task.New<typeof counterReadTypeZ, typeof counterReadConfigZ> {}
 
 export const analogWriteConfigZ = baseWriteConfigZ.extend({
   channels: z

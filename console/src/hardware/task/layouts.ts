@@ -18,17 +18,11 @@ import { Sequence } from "@/hardware/task/sequence";
 import { type Layout } from "@/layout";
 
 const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
-  [LabJack.Task.READ_TYPE]: LabJack.Task.READ_LAYOUT,
-  [LabJack.Task.WRITE_TYPE]: LabJack.Task.WRITE_LAYOUT,
-  [Modbus.Task.READ_TYPE]: Modbus.Task.READ_LAYOUT,
-  [Modbus.Task.WRITE_TYPE]: Modbus.Task.WRITE_LAYOUT,
-  [NI.Task.ANALOG_READ_TYPE]: NI.Task.ANALOG_READ_LAYOUT,
-  [NI.Task.DIGITAL_WRITE_TYPE]: NI.Task.DIGITAL_WRITE_LAYOUT,
-  [NI.Task.DIGITAL_READ_TYPE]: NI.Task.DIGITAL_READ_LAYOUT,
-  [NI.Task.ANALOG_WRITE_TYPE]: NI.Task.ANALOG_WRITE_LAYOUT,
-  [OPC.Task.READ_TYPE]: OPC.Task.READ_LAYOUT,
-  [OPC.Task.WRITE_TYPE]: OPC.Task.WRITE_LAYOUT,
-  [Sequence.TYPE]: Sequence.LAYOUT,
+  ...LabJack.Task.ZERO_LAYOUTS,
+  ...Modbus.Task.ZERO_LAYOUTS,
+  ...NI.Task.ZERO_LAYOUTS,
+  ...OPC.Task.ZERO_LAYOUTS,
+  ...Sequence.ZERO_LAYOUTS,
 };
 
 export const createLayout = ({ key, name, type }: task.Task): Layout.BaseState => {

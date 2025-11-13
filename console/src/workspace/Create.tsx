@@ -86,7 +86,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             tooltip={
               client == null
                 ? "No Core Connected"
-                : `Save to ${client.props.name ?? "Synnax"}`
+                : `Save to ${client.params.name ?? "Synnax"}`
             }
             onClick={() => save()}
             trigger={Triggers.SAVE}
