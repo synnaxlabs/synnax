@@ -9,4 +9,5 @@
 
 export * from "@/components/context-menu";
 export * from "@/components/EmptyAction";
+export * from "@/components/FavoriteButton";
 export * from "@/components/toolbar";

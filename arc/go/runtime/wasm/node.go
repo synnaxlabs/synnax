@@ -72,10 +72,14 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 		res, err := n.wasm.Call(ctx, n.inputs...)
 		if err != nil {
-			ctx.ReportError(errors.Wrapf(err,
+			ctx.ReportError(errors.Wrapf(
+				err,
 				"WASM execution failed in node %s at sample %d/%d",
-				n.ir.Key, i, maxLength))
-			continue // Skip this sample, use safe defaults
+				n.ir.Key,
+				i,
+				maxLength,
+			))
+			continue
 		}
 		var ts uint64
 		if len(n.ir.Inputs) > 0 {
@@ -88,13 +92,15 @@ func (n *nodeImpl) Next(ctx node.Context) {
 				setValueAt(*n.state.Output(j), n.offsets[j], value.value)
 				setValueAt(*n.state.OutputTime(j), n.offsets[j], ts)
 				n.offsets[j]++
-				ctx.MarkChanged(n.ir.Outputs[j].Name)
 			}
 		}
 	}
 	for j := range n.ir.Outputs {
 		n.state.Output(j).Resize(int64(n.offsets[j]))
 		n.state.OutputTime(j).Resize(int64(n.offsets[j]))
+		if n.offsets[j] > 0 {
+			ctx.MarkChanged(n.ir.Outputs[j].Name)
+		}
 	}
 }
 

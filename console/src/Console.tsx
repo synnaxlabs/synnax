@@ -25,7 +25,6 @@ import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { Arc } from "@/arc";
-import { Auth } from "@/auth";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
@@ -150,18 +149,16 @@ const MainUnderContext = (): ReactElement => {
       color={{ useState: useColorContextState }}
       alamos={{ level: "info" }}
     >
-      <Auth.Guard>
-        <ArcLSPClientSetter>
-          <Code.Provider
-            importExtensions={monacoExtensions}
-            initServices={monacoServices}
-          >
-            <Vis.Canvas>
-              <Layout.Window />
-            </Vis.Canvas>
-          </Code.Provider>
-        </ArcLSPClientSetter>
-      </Auth.Guard>
+      <ArcLSPClientSetter>
+        <Code.Provider
+          importExtensions={monacoExtensions}
+          initServices={monacoServices}
+        >
+          <Vis.Canvas>
+            <Layout.Window />
+          </Vis.Canvas>
+        </Code.Provider>
+      </ArcLSPClientSetter>
     </Pluto.Provider>
   );
 };

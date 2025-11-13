@@ -291,7 +291,7 @@ export const ContextMenu = ({ keys: [key] }: PContextMenu.MenuProps) => {
                 <PContextMenu.Divider />
                 <PContextMenu.Item onClick={() => persist(rng.key)}>
                   <Icon.Save />
-                  {`Save to ${client.props.name ?? "Synnax"}`}
+                  {`Save to ${client.params.name ?? "Synnax"}`}
                 </PContextMenu.Item>
               </>
             )

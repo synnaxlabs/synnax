@@ -13,28 +13,27 @@ import { type arc, UnexpectedError } from "@synnaxlabs/client";
 import {
   Arc,
   Button,
+  ContextMenu as PContextMenu,
   Flex,
   type Flux,
   Icon,
   List,
-  Menu as PMenu,
   Select,
   Status,
   stopPropagation,
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Editor } from "@/arc/editor";
 import { remove } from "@/arc/slice";
 import { translateGraphToConsole } from "@/arc/types/translate";
-import { EmptyAction, Menu, Toolbar } from "@/components";
+import { ContextMenu as CMenu, EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { Ontology } from "@/ontology";
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
@@ -52,7 +51,7 @@ const Content = () => {
   const [selected, setSelected] = useState<arc.Key[]>([]);
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
-  const menuProps = PMenu.useContextMenu();
+  const contextMenuProps = PContextMenu.use();
   const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
@@ -139,7 +138,7 @@ const Content = () => {
     ),
   });
 
-  const contextMenu = useCallback<NonNullable<PMenu.ContextMenuProps["menu"]>>(
+  const contextMenu = useCallback<NonNullable<PContextMenu.ContextMenuProps["menu"]>>(
     ({ keys }) => (
       <ContextMenu
         keys={keys}
@@ -153,8 +152,10 @@ const Content = () => {
   );
 
   return (
-    <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Ontology.Toolbar className={CSS(CSS.B("arc-toolbar"), menuProps.className)}>
+    <PContextMenu.ContextMenu menu={contextMenu} {...contextMenuProps}>
+      <Toolbar.Content
+        className={CSS(CSS.B("arc-toolbar"), contextMenuProps.className)}
+      >
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Arc />}>Arcs</Toolbar.Title>
           <Toolbar.Actions>
@@ -176,7 +177,7 @@ const Content = () => {
           <List.Items<arc.Key, arc.Arc>
             full="y"
             emptyContent={<EmptyContent />}
-            onContextMenu={menuProps.open}
+            onContextMenu={contextMenuProps.open}
           >
             {({ key, ...p }) => (
               <ArcListItem
@@ -189,8 +190,8 @@ const Content = () => {
             )}
           </List.Items>
         </Select.Frame>
-      </Ontology.Toolbar>
-    </PMenu.ContextMenu>
+      </Toolbar.Content>
+    </PContextMenu.ContextMenu>
   );
 };
 
@@ -272,60 +273,52 @@ const ContextMenu = ({
   const canStop = arcs.some((arc) => arc.deploy === true);
   const someSelected = arcs.length > 0;
   const isSingle = arcs.length === 1;
-
-  const handleChange = useMemo<PMenu.MenuProps["onChange"]>(
-    () => ({
-      start: () =>
-        arcs.forEach((arc) => {
-          if (!arc.deploy) onToggleDeploy(arc.key);
-        }),
-      stop: () =>
-        arcs.forEach((arc) => {
-          if (arc.deploy) onToggleDeploy(arc.key);
-        }),
-      edit: () => isSingle && onEdit(arcs[0].key),
-      rename: () => isSingle && Text.edit(`text-${arcs[0].key}`),
-      delete: () => onDelete(keys),
-    }),
-    [arcs, onToggleDeploy, onEdit, onDelete, isSingle, keys],
-  );
-
   return (
-    <PMenu.Menu level="small" gap="small" onChange={handleChange}>
+    <>
       {canDeploy && (
-        <PMenu.Item itemKey="start">
+        <PContextMenu.Item
+          onClick={() =>
+            arcs.forEach((arc) => {
+              if (!arc.deploy) onToggleDeploy(arc.key);
+            })
+          }
+        >
           <Icon.Play />
           Start
-        </PMenu.Item>
+        </PContextMenu.Item>
       )}
       {canStop && (
-        <PMenu.Item itemKey="stop">
+        <PContextMenu.Item
+          onClick={() =>
+            arcs.forEach((arc) => {
+              if (arc.deploy) onToggleDeploy(arc.key);
+            })
+          }
+        >
           <Icon.Pause />
           Stop
-        </PMenu.Item>
+        </PContextMenu.Item>
       )}
-      {(canDeploy || canStop) && <PMenu.Divider />}
+      {(canDeploy || canStop) && <PContextMenu.Divider />}
       {isSingle && (
         <>
-          <PMenu.Item itemKey="edit">
+          <PContextMenu.Item onClick={() => onEdit(arcs[0].key)} showBottomDivider>
             <Icon.Edit />
             Edit automation
-          </PMenu.Item>
-          <PMenu.Divider />
-          <Menu.RenameItem />
-          <PMenu.Divider />
+          </PContextMenu.Item>
+          <CMenu.RenameItem
+            onClick={() => Text.edit(`text-${arcs[0].key}`)}
+            showBottomDivider
+          />
         </>
       )}
       {someSelected && (
-        <>
-          <PMenu.Item itemKey="delete">
-            <Icon.Delete />
-            Delete
-          </PMenu.Item>
-          <PMenu.Divider />
-        </>
+        <PContextMenu.Item onClick={() => onDelete(keys)} showBottomDivider>
+          <Icon.Delete />
+          Delete
+        </PContextMenu.Item>
       )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
+      <CMenu.ReloadConsoleItem />
+    </>
   );
 };

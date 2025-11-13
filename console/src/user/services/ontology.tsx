@@ -74,7 +74,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     const user = getResource(id).data as user.User;
     return user.rootUser;
   });
-  const isNotCurrentUser = getResource(ids[0]).name !== client.props.username;
+  const isNotCurrentUser = getResource(ids[0]).name !== client.params.username;
   const canEditPermissions = Permissions.useSelectCanEditPolicies();
   const canEditOrDelete = useSelectHasPermission();
 

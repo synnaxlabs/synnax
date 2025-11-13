@@ -13,6 +13,7 @@ export { Breadcrumb } from "@/breadcrumb";
 export { Button } from "@/button";
 export { Caret } from "@/caret";
 export { Channel } from "@/channel";
+export { Cluster } from "@/cluster";
 export { Color } from "@/color";
 export { Component } from "@/component";
 export { ContextMenu } from "@/context-menu";

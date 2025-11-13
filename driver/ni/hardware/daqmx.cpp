@@ -98,7 +98,7 @@ AnalogReader::AnalogReader(
     const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
     TaskHandle task_handle
 ):
-    Base(task_handle, dmx) {}
+    SkewTrackingReader<double>(dmx, task_handle) {}
 
 ReadResult
 AnalogReader::read(const size_t samples_per_channel, std::vector<double> &data) {
@@ -120,7 +120,8 @@ AnalogReader::read(const size_t samples_per_channel, std::vector<double> &data) 
     return res;
 }
 
-xerrors::Error AnalogReader::start() {
+template<typename T>
+xerrors::Error SkewTrackingReader<T>::start() {
     this->total_samples_acquired = 0;
     this->total_samples_requested = 0;
     if (const auto err = this->dmx->SetReadOverWrite(
@@ -131,7 +132,8 @@ xerrors::Error AnalogReader::start() {
     return Base::start();
 }
 
-int64 AnalogReader::update_skew(const size_t &n_requested) {
+template<typename T>
+int64 SkewTrackingReader<T>::update_skew(const size_t &n_requested) {
     uInt64 next_total_samples_acquired;
     if (const auto err = this->dmx->GetReadTotalSampPerChanAcquired(
             this->task_handle,
@@ -147,4 +149,33 @@ int64 AnalogReader::update_skew(const size_t &n_requested) {
     return static_cast<int64>(this->total_samples_acquired) -
            static_cast<int64>(this->total_samples_requested);
 }
+
+// Explicit template instantiation
+template struct SkewTrackingReader<double>;
+
+CounterReader::CounterReader(
+    const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+    TaskHandle task_handle
+):
+    SkewTrackingReader<double>(dmx, task_handle) {}
+
+ReadResult
+CounterReader::read(const size_t samples_per_channel, std::vector<double> &data) {
+    ReadResult res;
+    int32 samples_read = 0;
+    if (res.error = this->dmx->ReadCounterF64(
+            this->task_handle,
+            static_cast<int32>(samples_per_channel),
+            DAQmx_Val_WaitInfinitely,
+            data.data(),
+            data.size(),
+            &samples_read,
+            nullptr
+        );
+        res.error)
+        return res;
+    res.skew = this->update_skew(samples_read);
+    return res;
+}
+
 }

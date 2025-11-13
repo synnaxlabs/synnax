@@ -25,14 +25,23 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useMemo } from "react";
+import { useDispatch } from "react-redux";
 
+import { FavoriteButton } from "@/components";
 import { CSS } from "@/css";
-import { ContextMenu } from "@/status/list/ContextMenu";
+import { contextMenuRenderProp } from "@/status/list/ContextMenu";
+import { useSelectIsFavorite } from "@/status/selectors";
+import { toggleFavorite } from "@/status/slice";
 
 export interface ItemProps extends List.ItemProps<status.Key> {}
 
 export const Item = (props: ItemProps): ReactElement | null => {
+  const dispatch = useDispatch();
   const { itemKey } = props;
+  const isFavorite = useSelectIsFavorite(itemKey);
+  const handleFavorite = () => {
+    dispatch(toggleFavorite(itemKey));
+  };
   const item = List.useItem<status.Key, status.Status>(itemKey);
   const initialValues = useMemo(() => {
     if (item == null) return undefined;
@@ -48,8 +57,6 @@ export const Item = (props: ItemProps): ReactElement | null => {
     sync: true,
   });
   const { selected, onSelect } = Select.useItemState(itemKey);
-  const { getItem } = List.useUtilContext<status.Key, status.Status>();
-  if (getItem == null) throw new Error("getItem is null");
   const contextMenuProps = PContextMenu.use();
 
   if (item == null) return null;
@@ -66,7 +73,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
     >
       <Form.Form<typeof Status.formSchema> {...form}>
         <PContextMenu.ContextMenu
-          menu={(p) => <ContextMenu {...p} getItem={getItem} />}
+          menu={contextMenuRenderProp}
           onClick={stopPropagation}
           {...contextMenuProps}
         />
@@ -78,16 +85,18 @@ export const Item = (props: ItemProps): ReactElement | null => {
             onClick={stopPropagation}
             ghost={!selected}
           />
-          <Text.Text level="p" weight={450} status={variant}>
+          <Text.Text level="p" weight={450}>
             <Status.Indicator variant={variant} />
-            {name}
-            {message.length > 0 && <Icon.Caret.Right />}
             <Text.Text el="span" status={variant}>
+              {name}
+            </Text.Text>
+            {message.length > 0 && <Icon.Caret.Right />}
+            <Text.Text el="span" color={9}>
               {message}
             </Text.Text>
           </Text.Text>
         </Flex.Box>
-        <Flex.Box x>
+        <Flex.Box x align="center">
           {labels != null && labels.length > 0 && (
             <Tag.Tags variant="text">
               {labels.map(({ key, name, color }) => (
@@ -109,6 +118,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
             </Telem.Text.TimeSpanSince>
             <Icon.Time color={8} />
           </Text.Text>
+          <FavoriteButton isFavorite={isFavorite} onFavorite={handleFavorite} />
         </Flex.Box>
       </Form.Form>
     </List.Item>
