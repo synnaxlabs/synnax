@@ -68,11 +68,13 @@ public:
         inputs(std::make_unique<queue::SPSC<telem::Frame>>(DEFAULT_QUEUE_CAPACITY)),
         outputs(std::make_unique<queue::SPSC<telem::Frame>>(DEFAULT_QUEUE_CAPACITY)) {}
 
-    void run() {
+    std::vector<telem::TimeSpan> run(int iterations) {
         this->start = telem::TimeStamp::now();
         this->loop->start();
         this->breaker.start();
-        while (this->breaker.running()) {
+        std::vector<telem::TimeSpan> results;
+        results.reserve(iterations);
+        for (auto i = 0; i < iterations; i++) {
             this->loop->wait(this->breaker);
             telem::Frame frame;
             while (this->inputs->pop(frame))
@@ -80,6 +82,7 @@ public:
 
             const auto elapsed = telem::TimeStamp::now() - this->start;
             this->scheduler->next(elapsed);
+            results.push_back(elapsed);
 
             if (auto writes = this->state->flush_writes(); !writes.empty()) {
                 telem::Frame out_frame(writes.size());
@@ -90,6 +93,8 @@ public:
 
             this->state->clear_reads();
         }
+        this->breaker.stop();
+        return results;
     }
 
     bool write(telem::Frame frame) const {
@@ -163,11 +168,13 @@ inline std::pair<std::unique_ptr<Runtime>, xerrors::Error> load(const Config &cf
     // Step 5: Construct scheduler.
     auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes);
 
-    // Step 6: Construct Loop
+    // Step 6: Construct Loop with Mach thread enhancements
     auto [loop, err] = loop::create(
         loop::Config{
             .mode = loop::ExecutionMode::HIGH_RATE,
             .interval = interval_factory->timing_base,
+            .rt_priority = 47,  // High real-time priority using time constraint policy
+            .cpu_affinity = -1,  // Disabled - not well supported on macOS
         }
     );
     if (err) return {nullptr, err};

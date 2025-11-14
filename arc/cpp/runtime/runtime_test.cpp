@@ -8,6 +8,7 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 #include <chrono>
+#include <fstream>
 #include <iomanip>
 #include <thread>
 
@@ -39,5 +40,14 @@ TEST(RuntimeTest, RuntimeStartStop) {
     };
     auto [runtime, err] = arc::runtime::load(config);
     ASSERT_NIL(err);
-    runtime->run();
+    auto results = runtime->run(10000 * 2);
+
+    // Write results to CSV file
+    std::ofstream csv_file("/Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/cpp/runtime/runtime_results.csv");
+    csv_file << "iteration,elapsed_ns\n";
+    for (size_t i = 0; i < results.size(); i++) {
+        csv_file << i << "," << results[i].nanoseconds() << "\n";
+    }
+    csv_file.close();
+    std::cout << "Results written to runtime_results.csv" << std::endl;
 }

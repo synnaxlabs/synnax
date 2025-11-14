@@ -42,7 +42,6 @@ public:
     xerrors::Error next(node::Context &ctx) override {
         if (!state.refresh_inputs()) return xerrors::NIL;
 
-        std::cout << "execute" << ctx.elapsed << std::endl ;
         int64_t max_length = 0;
         int64_t longest_input_idx = 0;
         for (size_t i = 0; i < ir_node.inputs.size(); i++) {

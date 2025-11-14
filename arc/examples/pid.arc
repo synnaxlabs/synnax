@@ -23,3 +23,10 @@ interval{period=100ms} -> pid{
     kd=0.01, 
     setpoint=50
 } -> setpoint_cmd
+
+interval{period=200ms} -> pid{
+    kp=1, 
+    ki=0.1, 
+    kd=0.01, 
+    setpoint=100
+} -> setpoint_2_cmd

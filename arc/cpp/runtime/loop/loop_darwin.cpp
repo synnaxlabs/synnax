@@ -12,6 +12,8 @@
 #include <thread>
 
 #include "glog/logging.h"
+#include <mach/mach.h>
+#include <mach/thread_policy.h>
 #include <sys/event.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -37,8 +39,6 @@ protected:
     bool running = false;
 
     explicit BaseDarwinLoop(const Config &config): cfg(config) {
-        if (cfg.rt_priority > 0)
-            LOG(WARNING) << "[loop] RT priority support is limited on macOS";
         if (cfg.lock_memory)
             LOG(WARNING) << "[loop] Memory locking not fully supported on macOS";
     }
@@ -91,17 +91,50 @@ protected:
     }
 
     void apply_thread_config() {
+        mach_port_t thread_port = pthread_mach_thread_np(pthread_self());
+
+        // Set thread priority using Mach APIs
         if (cfg.rt_priority > 0) {
-            struct sched_param param;
-            param.sched_priority = cfg.rt_priority;
-            if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &param) != 0) {
-                LOG(WARNING) << "[loop] Failed to set SCHED_FIFO priority: "
-                             << strerror(errno) << " (may require root)";
+            // Use precedence policy instead of time constraint
+            // Time constraint policy can throttle threads that exceed their computation
+            // budget, which may hurt performance for variable workloads
+            thread_precedence_policy_data_t precedence;
+            precedence.importance = cfg.rt_priority;
+
+            kern_return_t result = thread_policy_set(
+                thread_port,
+                THREAD_PRECEDENCE_POLICY,
+                reinterpret_cast<thread_policy_t>(&precedence),
+                THREAD_PRECEDENCE_POLICY_COUNT
+            );
+
+            if (result != KERN_SUCCESS) {
+                LOG(WARNING) << "[loop] Failed to set thread precedence: "
+                             << mach_error_string(result);
+            } else {
+                LOG(INFO) << "[loop] Set thread precedence to " << cfg.rt_priority;
             }
         }
+
+        // Set CPU affinity using thread affinity policy
         if (cfg.cpu_affinity >= 0) {
-            LOG(WARNING) << "[loop] CPU affinity setting on macOS requires "
-                         << "Mach thread APIs (not implemented)";
+            thread_affinity_policy_data_t affinity_policy;
+            affinity_policy.affinity_tag = cfg.cpu_affinity;
+
+            kern_return_t result = thread_policy_set(
+                thread_port,
+                THREAD_AFFINITY_POLICY,
+                reinterpret_cast<thread_policy_t>(&affinity_policy),
+                THREAD_AFFINITY_POLICY_COUNT
+            );
+
+            if (result != KERN_SUCCESS) {
+                LOG(WARNING) << "[loop] Failed to set CPU affinity to "
+                             << cfg.cpu_affinity << ": "
+                             << mach_error_string(result);
+            } else {
+                LOG(INFO) << "[loop] Set thread affinity tag to " << cfg.cpu_affinity;
+            }
         }
     }
 
