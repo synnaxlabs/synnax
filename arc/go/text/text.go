@@ -109,6 +109,7 @@ func Analyze(
 	var (
 		counter     = 0
 		generateKey = func(name string) string {
+			counter++
 			return fmt.Sprintf("%s_%d", name, counter)
 		}
 	)
