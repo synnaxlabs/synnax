@@ -13,3 +13,15 @@ cc_library(
         "//x/cpp/xmemory",
     ],
 )
+
+cc_test(
+    name = "state_test",
+    srcs = [
+        "state_test.cpp",
+    ],
+    deps = [
+        ":state",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

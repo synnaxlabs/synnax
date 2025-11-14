@@ -54,8 +54,7 @@ class Node {
         telem::TimeStamp last_timestamp;
         bool consumed;
 
-        InputEntry():
-            data(), time(), last_timestamp(0), consumed(false) {}
+        InputEntry(): data(), time(), last_timestamp(0), consumed(false) {}
     };
 
     std::vector<InputEntry> accumulated;

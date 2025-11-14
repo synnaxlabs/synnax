@@ -28,8 +28,8 @@ class Factory {
 public:
     virtual ~Factory() = default;
 
-    virtual std::pair<std::unique_ptr<Node>, xerrors::Error> create(const Config &cfg
-    ) = 0;
+    virtual std::pair<std::unique_ptr<Node>, xerrors::Error>
+    create(const Config &cfg) = 0;
 };
 
 class MultiFactory : public Factory {
@@ -39,8 +39,8 @@ public:
     explicit MultiFactory(std::vector<std::shared_ptr<Factory>> factories):
         factories(std::move(factories)) {}
 
-    std::pair<std::unique_ptr<Node>, xerrors::Error> create(const Config &cfg
-    ) override {
+    std::pair<std::unique_ptr<Node>, xerrors::Error>
+    create(const Config &cfg) override {
         for (const auto &factory: this->factories) {
             auto [node, err] = factory->create(cfg);
             if (!err) return {std::move(node), xerrors::NIL};

@@ -58,11 +58,13 @@ Series parse_default_value(const nlohmann::json &value, const types::Type &type)
 
     switch (type.kind) {
         case types::Kind::I8:
-            series->write(static_cast<int8_t>(value.is_number() ? value.get<int>() : 0)
+            series->write(
+                static_cast<int8_t>(value.is_number() ? value.get<int>() : 0)
             );
             break;
         case types::Kind::I16:
-            series->write(static_cast<int16_t>(value.is_number() ? value.get<int>() : 0)
+            series->write(
+                static_cast<int16_t>(value.is_number() ? value.get<int>() : 0)
             );
             break;
         case types::Kind::I32:

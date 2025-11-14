@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
 )
 
@@ -58,6 +59,26 @@ var symbolResolver = symbol.CompoundResolver{
 	telem.SymbolResolver,
 	status.SymbolResolver,
 	time.SymbolResolver,
+	symbol.MapResolver{
+		"measurement": symbol.Symbol{
+			Name: "measurement",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F32()),
+			ID:   4,
+		},
+		"measurement_time": symbol.Symbol{
+			Name: "measurement_time",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.I64()),
+			ID:   5,
+		},
+		"setpoint_cmd": symbol.Symbol{
+			Name: "setpoint_cmd",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F32()),
+			ID:   6,
+		},
+	},
 }
 
 func init() {

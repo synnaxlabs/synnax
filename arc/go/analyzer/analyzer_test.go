@@ -303,6 +303,46 @@ var _ = Describe("Analyzer", func() {
 				Expect(configScopeParamScopes[1].Name).To(Equal("sensor"))
 				Expect(configScopeParamScopes[1].ID).To(Equal(1))
 			})
+
+			It("Should correctly analyze a PID function", func() {
+				prog := MustSucceed(parser.Parse(`
+					func pid{
+						kp f32
+						ki f32
+						kd f32
+						setpoint f32
+					} (input u8) f64 {
+						error := setpoint - measurement
+						p := kp * error
+						last_measurement_time $= measurement_time
+						dt := measurement_time - last_measurement_time
+						integral $= 0
+						integral = integral + error * f32(dt)
+						i := ki * integral
+						last_error $= error
+						derivative := (error - last_error) / f32(dt)
+						d := kd * derivative
+						return p + i + d
+					}
+				`))
+				resolver := symbol.MapResolver{
+					"measurement": symbol.Symbol{
+						Name: "measurement",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   5,
+					},
+					"measurement_time": symbol.Symbol{
+						Name: "measurement_time",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I64()),
+						ID:   5,
+					},
+				}
+				ctx := context.CreateRoot(bCtx, prog, resolver)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+				Expect(*ctx.Diagnostics).To(BeEmpty())
+			})
 		})
 
 		Describe("Output Statements", func() {

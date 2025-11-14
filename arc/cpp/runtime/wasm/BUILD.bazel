@@ -1,6 +1,8 @@
 cc_library(
     name = "wasm",
+    srcs = ["bindings.cpp"],
     hdrs = [
+        "bindings.h",
         "factory.h",
         "module.h",
         "node.h",

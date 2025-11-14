@@ -3,8 +3,8 @@
 //
 
 #pragma once
-#include <vector>
 #include <string>
+#include <vector>
 
 #include "x/cpp/xjson/xjson.h"
 
@@ -15,11 +15,10 @@ namespace arc::module {
 /// @brief Decodes a base64-encoded string into a vector of bytes
 /// @param encoded The base64-encoded string
 /// @return A vector of decoded bytes
-static std::vector<uint8_t> decode_base64(const std::string& encoded) {
-    static const std::string base64_chars =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        "abcdefghijklmnopqrstuvwxyz"
-        "0123456789+/";
+static std::vector<uint8_t> decode_base64(const std::string &encoded) {
+    static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                            "abcdefghijklmnopqrstuvwxyz"
+                                            "0123456789+/";
 
     std::vector<uint8_t> decoded;
     std::vector<int> temp(4);
@@ -28,7 +27,8 @@ static std::vector<uint8_t> decode_base64(const std::string& encoded) {
     int in_idx = 0;
 
     while (in_len-- && encoded[in_idx] != '=' &&
-           (isalnum(encoded[in_idx]) || encoded[in_idx] == '+' || encoded[in_idx] == '/')) {
+           (isalnum(encoded[in_idx]) || encoded[in_idx] == '+' ||
+            encoded[in_idx] == '/')) {
         temp[i++] = encoded[in_idx++];
         if (i == 4) {
             for (i = 0; i < 4; i++) {

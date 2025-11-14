@@ -37,7 +37,7 @@ namespace arc::runtime::loop {
 /// Supports all execution modes including full RT guarantees on PREEMPT_RT kernels.
 class LinuxLoop final : public Loop {
 public:
-    explicit LinuxLoop(const Config &config) : config_(config) {}
+    explicit LinuxLoop(const Config &config): config_(config) {}
 
     ~LinuxLoop() override { stop(); }
 

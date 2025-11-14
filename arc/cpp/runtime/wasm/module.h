@@ -19,11 +19,16 @@
 #include "vendor/wamr/include/wasm_export.h"
 
 namespace arc::runtime::wasm {
+namespace bindings {
+class Runtime;
+}
+
 const auto BASE_ERROR = errors::RUNTIME.sub("wasm");
 const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 
 struct ModuleConfig {
     module::Module module;
+    bindings::Runtime *runtime = nullptr;
     std::uint32_t stack_size = 64 * 1024;
     std::uint32_t host_managed_heap_size = 64 * 1024;
 };
@@ -57,7 +62,12 @@ public:
         }
         std::printf("\n");
 
+        // Initialize WAMR runtime first
         if (!wasm_runtime_init()) return {nullptr, INITIALIZATION_ERROR};
+
+        // Register native functions AFTER runtime init but BEFORE module load
+        if (cfg.runtime != nullptr) { bindings::register_natives(cfg.runtime); }
+
         char error_buffer[1024];
         memset(error_buffer, 0, sizeof(error_buffer));
         auto module = wasm_runtime_load(
@@ -78,8 +88,26 @@ public:
             error_buffer,
             sizeof(error_buffer)
         );
+        if (module_inst == nullptr) {
+            std::printf(
+                "wasm_runtime_instantiate failed with error: '%s'\n",
+                error_buffer
+            );
+            wasm_runtime_unload(module);
+            return {nullptr, xerrors::Error(std::string(error_buffer))};
+        }
+
+        std::printf("Module instantiated successfully\n");
+
+        // Set the runtime association AFTER module instantiation
+        if (cfg.runtime != nullptr) {
+            bindings::set_runtime(module_inst, cfg.runtime);
+            std::printf("Runtime association set\n");
+        }
 
         auto exec_env = wasm_runtime_create_exec_env(module_inst, cfg.stack_size);
+        std::printf("Exec env created\n");
+
         return {
             std::make_shared<Module>(cfg, module, module_inst, exec_env),
             xerrors::NIL

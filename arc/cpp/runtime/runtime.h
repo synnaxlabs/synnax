@@ -21,6 +21,7 @@
 #include "arc/cpp/runtime/scheduler/scheduler.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/time/time.h"
+#include "arc/cpp/runtime/wasm/bindings.h"
 #include "arc/cpp/runtime/wasm/factory.h"
 #include "arc/cpp/runtime/wasm/module.h"
 
@@ -28,9 +29,9 @@ namespace arc::runtime {
 struct Config {
     module::Module mod;
     breaker::Config breaker;
-    std::function<std::pair<
-        std::vector<state::ChannelDigest>,
-        xerrors::Error>(const std::vector<types::ChannelKey> &)>
+    std::function<std::pair<std::vector<state::ChannelDigest>, xerrors::Error>(
+        const std::vector<types::ChannelKey> &
+    )>
         retrieve_channels;
 };
 
@@ -39,6 +40,7 @@ class Runtime {
 
     breaker::Breaker breaker;
     std::shared_ptr<wasm::Module> mod;
+    std::unique_ptr<wasm::bindings::Runtime> bindings_runtime;
     std::unique_ptr<state::State> state;
     std::unique_ptr<scheduler::Scheduler> scheduler;
     std::unique_ptr<loop::Loop> loop;
@@ -46,16 +48,20 @@ class Runtime {
     std::unique_ptr<queue::SPSC<telem::Frame>> inputs;
     std::unique_ptr<queue::SPSC<telem::Frame>> outputs;
 
+    telem::TimeStamp start = telem::TimeStamp(0);
+
 public:
     Runtime(
         const breaker::Config &breaker_cfg,
         std::shared_ptr<wasm::Module> mod,
+        std::unique_ptr<wasm::bindings::Runtime> bindings_runtime,
         std::unique_ptr<state::State> state,
         std::unique_ptr<scheduler::Scheduler> scheduler,
         std::unique_ptr<loop::Loop> loop
     ):
         breaker(breaker_cfg),
         mod(std::move(mod)),
+        bindings_runtime(std::move(bindings_runtime)),
         state(std::move(state)),
         scheduler(std::move(scheduler)),
         loop(std::move(loop)),
@@ -63,17 +69,19 @@ public:
         outputs(std::make_unique<queue::SPSC<telem::Frame>>(DEFAULT_QUEUE_CAPACITY)) {}
 
     void run() {
+        this->start = telem::TimeStamp::now();
+        this->loop->start();
+        this->breaker.start();
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
             telem::Frame frame;
             while (this->inputs->pop(frame))
                 this->state->ingest(frame);
 
-            this->scheduler->next();
+            const auto elapsed = telem::TimeStamp::now() - this->start;
+            this->scheduler->next(elapsed);
 
-            auto writes = this->state->flush_writes();
-
-            if (!writes.empty()) {
+            if (auto writes = this->state->flush_writes(); !writes.empty()) {
                 telem::Frame out_frame(writes.size());
                 for (auto &[key, series]: writes)
                     out_frame.emplace(key, std::move(*series));
@@ -116,36 +124,52 @@ inline std::pair<std::unique_ptr<Runtime>, xerrors::Error> load(const Config &cf
     state::Config state_cfg{.ir = cfg.mod, .channels = digests};
     auto state = std::make_unique<state::State>(state_cfg);
 
-    // Step 2: Initialize WASM Module
-    wasm::ModuleConfig module_cfg{.module = cfg.mod};
+    // Step 2: Create bindings runtime
+    auto bindings_runtime = std::make_unique<wasm::bindings::Runtime>(
+        state.get(),
+        nullptr
+    );
+
+    // Step 3: Initialize WASM Module with bindings
+    wasm::ModuleConfig module_cfg{.module = cfg.mod, .runtime = bindings_runtime.get()};
     auto [mod, mod_err] = wasm::Module::open(module_cfg);
     if (mod_err) return {nullptr, mod_err};
 
-    // Step 3: Put together factories.
+    // Step 4: Put together factories.
     auto wasm_factory = std::make_shared<wasm::Factory>(mod);
     auto interval_factory = std::make_shared<time::Factory>();
-    node::MultiFactory fact(std::vector<std::shared_ptr<node::Factory>>{
-        wasm_factory,
-        interval_factory,
-    });
+    node::MultiFactory fact(
+        std::vector<std::shared_ptr<node::Factory>>{
+            wasm_factory,
+            interval_factory,
+        }
+    );
 
     // Step 4: Construct nodes.
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
     for (const auto &n: cfg.mod.nodes) {
         auto [node_state, node_state_err] = state->node(n.key);
         if (node_state_err) return {nullptr, node_state_err};
-        auto [node, err] = fact.create(node::Config{
-            .node = n,
-            .state = node_state,
-        });
+        auto [node, err] = fact.create(
+            node::Config{
+                .node = n,
+                .state = node_state,
+            }
+        );
         if (err) return {nullptr, err};
+        nodes[n.key] = std::move(node);
     }
 
     // Step 5: Construct scheduler.
     auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes);
 
     // Step 6: Construct Loop
-    auto [loop, err] = loop::create(loop::Config{});
+    auto [loop, err] = loop::create(
+        loop::Config{
+            .mode = loop::ExecutionMode::HIGH_RATE,
+            .interval = interval_factory->timing_base,
+        }
+    );
     if (err) return {nullptr, err};
 
     // Step 6: Build Runtime
@@ -153,6 +177,7 @@ inline std::pair<std::unique_ptr<Runtime>, xerrors::Error> load(const Config &cf
         std::make_unique<Runtime>(
             cfg.breaker,
             std::move(mod),
+            std::move(bindings_runtime),
             std::move(state),
             std::move(sched),
             std::move(loop)

@@ -24,7 +24,7 @@
 namespace arc::runtime::wasm {
 class Node : public node::Node {
     ir::Node ir_node;
-    runtime::state::Node state;
+    state::Node state;
     Module::Function func;
     std::vector<uint64_t> inputs;
     std::vector<int> offsets;
@@ -42,6 +42,7 @@ public:
     xerrors::Error next(node::Context &ctx) override {
         if (!state.refresh_inputs()) return xerrors::NIL;
 
+        std::cout << "execute" << ctx.elapsed << std::endl ;
         int64_t max_length = 0;
         int64_t longest_input_idx = 0;
         for (size_t i = 0; i < ir_node.inputs.size(); i++) {
@@ -83,11 +84,13 @@ public:
 
             auto [results, err] = func.call(inputs);
             if (err) {
-                ctx.report_error(xerrors::Error(
-                    "WASM execution failed in node " + ir_node.key + " at sample " +
-                    std::to_string(i) + "/" + std::to_string(max_length) + ": " +
-                    err.message()
-                ));
+                ctx.report_error(
+                    xerrors::Error(
+                        "WASM execution failed in node " + ir_node.key + " at sample " +
+                        std::to_string(i) + "/" + std::to_string(max_length) + ": " +
+                        err.message()
+                    )
+                );
                 continue;
             }
 
@@ -116,6 +119,7 @@ public:
                 if (offsets[j] > 0) ctx.mark_changed(ir_node.outputs[j].name);
             }
         }
+
 
         return xerrors::NIL;
     }

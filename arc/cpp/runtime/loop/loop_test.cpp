@@ -247,7 +247,7 @@ TEST(LoopTest, DifferentModes) {
         ExecutionMode::RT_EVENT
     };
 
-    for (const auto mode : modes) {
+    for (const auto mode: modes) {
         Config config;
         config.mode = mode;
         config.interval = telem::MILLISECOND;

@@ -57,11 +57,12 @@ public:
         };
     }
 
-    void next() {
+    void next(const telem::TimeSpan elapsed) {
+        this->ctx.elapsed = elapsed;
         bool first = true;
         for (auto stratum: this->strata.strata) {
             for (auto node_key: stratum)
-                if (first ||this->changed.contains(node_key)) {
+                if (first || this->changed.contains(node_key)) {
                     const auto n = &this->nodes[node_key];
                     this->current_state = n;
                     this->current_state->node->next(this->ctx);

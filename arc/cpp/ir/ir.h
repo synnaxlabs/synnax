@@ -145,7 +145,10 @@ struct Channels {
 
     explicit Channels(xjson::Parser parser) {
         this->read = parser.field<std::map<types::ChannelKey, std::string>>("read", {});
-        this->write = parser.field<std::map<types::ChannelKey, std::string>>("write", {});
+        this->write = parser.field<std::map<types::ChannelKey, std::string>>(
+            "write",
+            {}
+        );
     }
 
     [[nodiscard]] nlohmann::json to_json() const {

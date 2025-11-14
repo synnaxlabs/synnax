@@ -36,7 +36,7 @@ protected:
     std::atomic<bool> data_available{false};
     bool running = false;
 
-    explicit BaseDarwinLoop(const Config &config) : cfg(config) {
+    explicit BaseDarwinLoop(const Config &config): cfg(config) {
         if (cfg.rt_priority > 0)
             LOG(WARNING) << "[loop] RT priority support is limited on macOS";
         if (cfg.lock_memory)
@@ -64,8 +64,7 @@ protected:
     }
 
     xerrors::Error setup_timer() {
-        if (cfg.interval.nanoseconds() <= 0)
-            return xerrors::NIL;
+        if (cfg.interval.nanoseconds() <= 0) return xerrors::NIL;
 
         const uint64_t interval_ms = cfg.interval.milliseconds();
         if (interval_ms == 0)
@@ -138,7 +137,7 @@ public:
 
 class BusyWaitLoop final : public BaseDarwinLoop {
 public:
-    explicit BusyWaitLoop(const Config &config) : BaseDarwinLoop(config) {}
+    explicit BusyWaitLoop(const Config &config): BaseDarwinLoop(config) {}
 
     xerrors::Error start() override {
         if (running) return xerrors::NIL;
@@ -164,7 +163,7 @@ public:
     void wait(breaker::Breaker &breaker) override {
         if (!running) return;
 
-          constexpr timespec timeout = {0, 0};
+        constexpr timespec timeout = {0, 0};
         struct kevent events[2];
 
         while (breaker.running()) {
@@ -185,7 +184,7 @@ class HighRateLoop final : public BaseDarwinLoop {
     std::unique_ptr<::loop::Timer> timer;
 
 public:
-    explicit HighRateLoop(const Config &config) : BaseDarwinLoop(config) {}
+    explicit HighRateLoop(const Config &config): BaseDarwinLoop(config) {}
 
     xerrors::Error start() override {
         if (running) return xerrors::NIL;
@@ -221,7 +220,7 @@ class HybridLoop final : public BaseDarwinLoop {
     std::unique_ptr<::loop::Timer> timer;
 
 public:
-    explicit HybridLoop(const Config &config) : BaseDarwinLoop(config) {}
+    explicit HybridLoop(const Config &config): BaseDarwinLoop(config) {}
 
     xerrors::Error start() override {
         if (running) return xerrors::NIL;
@@ -278,7 +277,7 @@ public:
 
 class EventDrivenLoop final : public BaseDarwinLoop {
 public:
-    explicit EventDrivenLoop(const Config &config) : BaseDarwinLoop(config) {}
+    explicit EventDrivenLoop(const Config &config): BaseDarwinLoop(config) {}
 
     xerrors::Error start() override {
         if (running) return xerrors::NIL;

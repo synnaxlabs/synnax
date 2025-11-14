@@ -436,7 +436,7 @@ func translateFunctionBackward(pb *gapi.Function) (ir.Function, error) {
 
 func translateParamsForward(p arctypes.Params) (*gapi.Params, error) {
 	values := make(map[string]*gapi.Type)
-	for key, typ := range p.Iter() {
+	for key, typ := range p.wIter() {
 		typePb, err := translateTypeForward(typ)
 		if err != nil {
 			return nil, err
