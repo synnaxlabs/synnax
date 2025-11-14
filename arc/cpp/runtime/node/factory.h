@@ -33,10 +33,10 @@ public:
 };
 
 class MultiFactory : public Factory {
-    std::vector<std::unique_ptr<Factory>> factories;
+    std::vector<std::shared_ptr<Factory>> factories;
 
 public:
-    explicit MultiFactory(std::vector<std::unique_ptr<Factory>> &factories):
+    explicit MultiFactory(std::vector<std::shared_ptr<Factory>> factories):
         factories(std::move(factories)) {}
 
     std::pair<std::unique_ptr<Node>, xerrors::Error> create(const Config &cfg

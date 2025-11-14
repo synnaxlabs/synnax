@@ -91,26 +91,27 @@ public:
     bool read(telem::Frame &frame) const { return this->outputs->pop(frame); }
 };
 
-inline std::pair<std::unique_ptr<Runtime>, xerrors::Error> load(Config cfg) {
+inline std::pair<std::unique_ptr<Runtime>, xerrors::Error> load(const Config &cfg) {
 
     // Step 1: Initialize state
-    std::set<types::ChannelKey> reads;
-    std::set<types::ChannelKey> writes;
-    for (const auto &n: cfg.mod.nodes) {
-        const auto read_keys = std::views::keys(n.channels.read);
-        reads.insert(read_keys.begin(), read_keys.end());
-        const auto write_keys = std::views::keys(n.channels.write);
-        writes.insert(write_keys.begin(), write_keys.end());
-    }
-
-    std::vector<types::ChannelKey> keys;
-    keys.reserve(reads.size() + writes.size());
-    auto [digests, state_err] = cfg.retrieve_channels(keys);
-    if (state_err) return {nullptr, state_err};
-    for (const auto &d: digests) {
-        if (reads.contains(d.key) && d.index != 0) reads.insert(d.index);
-        if (writes.contains(d.key) && d.index != 0) writes.insert(d.index);
-    }
+    // std::set<types::ChannelKey> reads;
+    // std::set<types::ChannelKey> writes;
+    // for (const auto &n: cfg.mod.nodes) {
+    //     const auto read_keys = std::views::keys(n.channels.read);
+    //     reads.insert(read_keys.begin(), read_keys.end());
+    //     const auto write_keys = std::views::keys(n.channels.write);
+    //     writes.insert(write_keys.begin(), write_keys.end());
+    // }
+    //
+    // std::vector<types::ChannelKey> keys;
+    // keys.reserve(reads.size() + writes.size());
+    // auto [digests, state_err] = cfg.retrieve_channels(keys);
+    // if (state_err) return {nullptr, state_err};
+    // for (const auto &d: digests) {
+    //     if (reads.contains(d.key) && d.index != 0) reads.insert(d.index);
+    //     if (writes.contains(d.key) && d.index != 0) writes.insert(d.index);
+    // }
+    std::vector<state::ChannelDigest> digests;
 
     state::Config state_cfg{.ir = cfg.mod, .channels = digests};
     auto state = std::make_unique<state::State>(state_cfg);
@@ -121,9 +122,12 @@ inline std::pair<std::unique_ptr<Runtime>, xerrors::Error> load(Config cfg) {
     if (mod_err) return {nullptr, mod_err};
 
     // Step 3: Put together factories.
-    auto wasm_factory = std::make_unique<wasm::Factory>(mod);
-    auto interval_factory = std::make_unique<time::Factory>();
-    node::MultiFactory fact{wasm_factory, interval_factory};
+    auto wasm_factory = std::make_shared<wasm::Factory>(mod);
+    auto interval_factory = std::make_shared<time::Factory>();
+    node::MultiFactory fact(std::vector<std::shared_ptr<node::Factory>>{
+        wasm_factory,
+        interval_factory,
+    });
 
     // Step 4: Construct nodes.
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;

@@ -16,10 +16,15 @@
 #include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xtest/xtest.h"
 
+#include "runtime.h"
 #include "arc/cpp/module/module.h"
 
 TEST(RuntimeTest, RuntimeStartStop) {
     auto parser = xjson::Parser::from_file_path("/Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/cpp/runtime/pid.json");
     auto mod = arc::module::Module(parser);
     ASSERT_NIL(parser.error());
+    arc::runtime::Config config{
+        .mod = mod,
+    };
+    auto loaded = arc::runtime::load(config);
 }
