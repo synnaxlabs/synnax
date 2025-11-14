@@ -4,7 +4,7 @@
 [submodule "vendor/mbedtls/mbedtls"]
 	path = vendor/mbedtls/mbedtls
 	url = https://github.com/mbed-tls/mbedtls
-[submodule "vendor/wamr/wasm-micro-runtime"]
-	path = vendor/wamr/wasm-micro-runtime
-	url = https://github.com/bytecodealliance/wasm-micro-runtime.git
-	branch = WAMR-2.4.3
+[submodule "vendor/wasmtime/wasmtime"]
+	path = vendor/wasmtime/wasmtime
+	url = https://github.com/bytecodealliance/wasmtime.git
+	branch = v38.0.1

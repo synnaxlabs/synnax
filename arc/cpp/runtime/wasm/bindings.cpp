@@ -14,14 +14,15 @@
 #include <cstring>
 #include <chrono>
 
+#include "wasmtime.h"  // For Wasmtime-specific APIs
+
 namespace arc::runtime::wasm::bindings {
 
-// Module-local storage for Runtime instance per module
-static std::unordered_map<wasm_module_inst_t, Runtime *> runtime_map;
+// Wasmtime uses Store context data for Runtime association
 
-Runtime::Runtime(state::State *state, wasm_module_inst_t module_inst)
+Runtime::Runtime(state::State *state, wasmtime_store_t *store)
     : state(state),
-      module_inst(module_inst),
+      store(store),
       string_handle_counter(1) {}
 
 // ===== Channel Operations (Stubs) =====
@@ -266,15 +267,11 @@ uint32_t Runtime::series_slice(uint32_t handle, uint32_t start, uint32_t end) {
 // ===== String Operations =====
 
 uint32_t Runtime::string_from_literal(uint32_t ptr, uint32_t len) {
-    if (module_inst == nullptr) return 0;
-
-    void *native_ptr = wasm_runtime_addr_app_to_native(module_inst, ptr);
-    if (native_ptr == nullptr) return 0;
-
-    std::string str(static_cast<const char *>(native_ptr), len);
-    uint32_t handle = string_handle_counter++;
-    strings[handle] = str;
-    return handle;
+    // TODO: Rewrite for Wasmtime - need memory access via store/instance
+    // void *mem_data = wasm_memory_data(memory);
+    // std::string str(static_cast<const char*>(mem_data + ptr), len);
+    std::fprintf(stderr, "WARNING: string_from_literal not yet implemented for Wasmtime\n");
+    return 0;
 }
 
 uint32_t Runtime::string_len(uint32_t handle) {
@@ -306,19 +303,8 @@ uint64_t Runtime::len(uint32_t handle) {
 }
 
 void Runtime::panic(uint32_t ptr, uint32_t len) {
-    if (module_inst == nullptr) {
-        std::fprintf(stderr, "WASM panic: (unable to read message)\n");
-        std::abort();
-    }
-
-    void *native_ptr = wasm_runtime_addr_app_to_native(module_inst, ptr);
-    if (native_ptr == nullptr) {
-        std::fprintf(stderr, "WASM panic: (invalid pointer)\n");
-        std::abort();
-    }
-
-    std::string msg(static_cast<const char *>(native_ptr), len);
-    std::fprintf(stderr, "WASM panic: %s\n", msg.c_str());
+    // TODO: Rewrite for Wasmtime - need memory access
+    std::fprintf(stderr, "WASM panic: ptr=%u, len=%u (message not yet readable in Wasmtime)\n", ptr, len);
     std::abort();
 }
 
@@ -374,8 +360,10 @@ int64_t Runtime::math_int_pow_i64(int64_t base, int64_t exp) {
     return int_pow(base, exp);
 }
 
-// ===== WAMR Native Function Wrappers =====
+/*
+// ===== WAMR Native Function Wrappers (COMMENTED OUT FOR WASMTIME MIGRATION) =====
 // These are the actual C functions that WAMR will call
+// TODO: Rewrite these to use Wasmtime's wasm_func_new() API
 
 #define GET_RUNTIME() \
     auto module_inst = wasm_runtime_get_module_inst(exec_env); \
@@ -1080,32 +1068,219 @@ static NativeSymbol native_symbols[] = {
     {"math_int_pow_i32", (void*)native_math_int_pow_i32, "(ii)i", NULL},
     {"math_int_pow_i64", (void*)native_math_int_pow_i64, "(II)I", NULL},
 };
+*/
 
-void register_natives(Runtime *runtime) {
-    uint32_t count = sizeof(native_symbols) / sizeof(NativeSymbol);
-    std::printf("Registering %u native functions\n", count);
+// ===== Wasmtime Host Function Implementation =====
 
-    bool result = wasm_runtime_register_natives(
-        "env",
-        native_symbols,
-        count
-    );
-
-    std::printf("Registration result: %s\n", result ? "SUCCESS" : "FAILED");
+// Helper: Get Runtime from store data using Wasmtime-specific API
+Runtime *get_runtime_from_store(wasmtime_store_t *store) {
+    wasmtime_context_t *context = wasmtime_store_context(store);
+    void *data = wasmtime_context_get_data(context);
+    return static_cast<Runtime*>(data);
 }
 
-Runtime *get_runtime(wasm_exec_env_t exec_env) {
-    auto module_inst = wasm_runtime_get_module_inst(exec_env);
-    auto it = runtime_map.find(module_inst);
-    if (it == runtime_map.end()) return nullptr;
-    return it->second;
-}
-
-void set_runtime(wasm_module_inst_t module_inst, Runtime *runtime) {
-    runtime_map[module_inst] = runtime;
+// Helper: Set Runtime in store data using Wasmtime-specific API
+void set_runtime_in_store(wasmtime_store_t *store, Runtime *runtime) {
+    wasmtime_context_t *context = wasmtime_store_context(store);
+    wasmtime_context_set_data(context, runtime);
     if (runtime) {
-        runtime->set_module_inst(module_inst);
+        runtime->set_store(store);
     }
+}
+
+// ===== Wasmtime Host Function Callbacks =====
+// Pattern: Each callback extracts Runtime from env (which is the store)
+
+// Example: state_load_u32
+static wasm_trap_t* host_state_load_u32(
+    void *env,
+    const wasm_val_vec_t *args,
+    wasm_val_vec_t *results
+) {
+    auto *store = static_cast<wasmtime_store_t*>(env);
+    Runtime *runtime = get_runtime_from_store(store);
+    if (!runtime) {
+        return wasmtime_trap_new("Runtime not found in store", 23);
+    }
+
+    // Extract args: func_id, var_id, init_value
+    uint32_t func_id = args->data[0].of.i32;
+    uint32_t var_id = args->data[1].of.i32;
+    uint32_t init_value = args->data[2].of.i32;
+
+    // Call runtime method
+    uint32_t result = runtime->state_load_u32(func_id, var_id, init_value);
+
+    // Set result
+    results->data[0].kind = WASM_I32;
+    results->data[0].of.i32 = result;
+
+    return nullptr;  // No trap
+}
+
+// Example: state_store_u32
+static wasm_trap_t* host_state_store_u32(
+    void *env,
+    const wasm_val_vec_t *args,
+    wasm_val_vec_t *results
+) {
+    auto *store = static_cast<wasmtime_store_t*>(env);
+    Runtime *runtime = get_runtime_from_store(store);
+    if (!runtime) {
+        return wasmtime_trap_new("Runtime not found in store", 23);
+    }
+
+    uint32_t func_id = args->data[0].of.i32;
+    uint32_t var_id = args->data[1].of.i32;
+    uint32_t value = args->data[2].of.i32;
+
+    runtime->state_store_u32(func_id, var_id, value);
+
+    return nullptr;
+}
+
+// Example: math_pow_f32
+static wasm_trap_t* host_math_pow_f32(
+    void *env,
+    const wasm_val_vec_t *args,
+    wasm_val_vec_t *results
+) {
+    auto *store = static_cast<wasmtime_store_t*>(env);
+    Runtime *runtime = get_runtime_from_store(store);
+    if (!runtime) {
+        return wasmtime_trap_new("Runtime not found in store", 23);
+    }
+
+    float base = args->data[0].of.f32;
+    float exp = args->data[1].of.f32;
+    float result = runtime->math_pow_f32(base, exp);
+
+    results->data[0].kind = WASM_F32;
+    results->data[0].of.f32 = result;
+
+    return nullptr;
+}
+
+// Example: now (returns current timestamp)
+static wasm_trap_t* host_now(
+    void *env,
+    const wasm_val_vec_t *args,
+    wasm_val_vec_t *results
+) {
+    auto *store = static_cast<wasmtime_store_t*>(env);
+    Runtime *runtime = get_runtime_from_store(store);
+    if (!runtime) {
+        return wasmtime_trap_new("Runtime not found in store", 23);
+    }
+
+    uint64_t now = runtime->now();
+
+    results->data[0].kind = WASM_I64;
+    results->data[0].of.i64 = now;
+
+    return nullptr;
+}
+
+// ===== Import Creation =====
+
+wasm_extern_vec_t create_imports(wasmtime_store_t *store, Runtime *runtime) {
+    std::vector<wasm_extern_t*> imports;
+
+    // Helper lambda to create function type
+    auto make_func_type = [](const std::vector<wasm_valkind_t> &params,
+                              const std::vector<wasm_valkind_t> &results) -> wasm_functype_t* {
+        wasm_valtype_vec_t param_types;
+        wasm_valtype_vec_new_uninitialized(&param_types, params.size());
+        for (size_t i = 0; i < params.size(); i++) {
+            param_types.data[i] = wasm_valtype_new(params[i]);
+        }
+
+        wasm_valtype_vec_t result_types;
+        wasm_valtype_vec_new_uninitialized(&result_types, results.size());
+        for (size_t i = 0; i < results.size(); i++) {
+            result_types.data[i] = wasm_valtype_new(results[i]);
+        }
+
+        return wasm_functype_new(&param_types, &result_types);
+    };
+
+    // Cast wasmtime_store_t to wasm_store_t for standard API compatibility
+    wasm_store_t *wasm_store = reinterpret_cast<wasm_store_t*>(store);
+
+    // Create function: state_load_u32(i32, i32, i32) -> i32
+    wasm_functype_t *state_load_u32_type = make_func_type(
+        {WASM_I32, WASM_I32, WASM_I32},  // func_id, var_id, init_value
+        {WASM_I32}                        // return value
+    );
+    wasm_func_t *state_load_u32_func = wasm_func_new_with_env(
+        wasm_store,
+        state_load_u32_type,
+        host_state_load_u32,
+        store,  // Pass wasmtime_store as env for callbacks
+        nullptr  // No finalizer
+    );
+    wasm_functype_delete(state_load_u32_type);
+    imports.push_back(wasm_func_as_extern(state_load_u32_func));
+
+    // Create function: state_store_u32(i32, i32, i32) -> void
+    wasm_functype_t *state_store_u32_type = make_func_type(
+        {WASM_I32, WASM_I32, WASM_I32},
+        {}  // No return
+    );
+    wasm_func_t *state_store_u32_func = wasm_func_new_with_env(
+        wasm_store,
+        state_store_u32_type,
+        host_state_store_u32,
+        store,
+        nullptr
+    );
+    wasm_functype_delete(state_store_u32_type);
+    imports.push_back(wasm_func_as_extern(state_store_u32_func));
+
+    // Create function: math_pow_f32(f32, f32) -> f32
+    wasm_functype_t *math_pow_f32_type = make_func_type(
+        {WASM_F32, WASM_F32},
+        {WASM_F32}
+    );
+    wasm_func_t *math_pow_f32_func = wasm_func_new_with_env(
+        wasm_store,
+        math_pow_f32_type,
+        host_math_pow_f32,
+        store,
+        nullptr
+    );
+    wasm_functype_delete(math_pow_f32_type);
+    imports.push_back(wasm_func_as_extern(math_pow_f32_func));
+
+    // Create function: now() -> i64
+    wasm_functype_t *now_type = make_func_type({}, {WASM_I64});
+    wasm_func_t *now_func = wasm_func_new_with_env(
+        wasm_store,
+        now_type,
+        host_now,
+        store,
+        nullptr
+    );
+    wasm_functype_delete(now_type);
+    imports.push_back(wasm_func_as_extern(now_func));
+
+    // TODO: Add remaining 266+ host functions following this pattern
+
+    // Convert to wasm_extern_vec_t
+    wasm_extern_vec_t import_vec;
+    wasm_extern_vec_new_uninitialized(&import_vec, imports.size());
+    for (size_t i = 0; i < imports.size(); i++) {
+        import_vec.data[i] = imports[i];
+    }
+
+    std::printf("Created %zu host function imports\n", imports.size());
+    return import_vec;
+}
+
+void delete_imports(wasm_extern_vec_t *imports) {
+    // Wasmtime manages memory - don't delete individual funcs
+    // Just delete the vector itself
+    wasm_extern_vec_delete(imports);
 }
 
 }

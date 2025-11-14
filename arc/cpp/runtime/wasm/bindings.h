@@ -15,7 +15,7 @@
 #include <unordered_map>
 
 #include "arc/cpp/runtime/state/state.h"
-#include "vendor/wamr/include/wasm_export.h"
+#include "wasmtime.h"
 
 namespace arc::runtime::wasm::bindings {
 
@@ -23,7 +23,7 @@ namespace arc::runtime::wasm::bindings {
 /// This is the "business logic" layer that the bindings call.
 class Runtime {
     [[maybe_unused]] state::State *state;
-    wasm_module_inst_t module_inst;
+    wasmtime_store_t *store;  // Non-owning pointer to store (for accessing caller context)
 
     // String storage - handle to string mapping
     std::unordered_map<uint32_t, std::string> strings;
@@ -48,10 +48,10 @@ class Runtime {
     }
 
 public:
-    Runtime(state::State *state, wasm_module_inst_t module_inst);
+    Runtime(state::State *state, wasmtime_store_t *store);
 
-    // Set the module instance (used after instantiation)
-    void set_module_inst(wasm_module_inst_t inst) { this->module_inst = inst; }
+    // Set the store (used after creation)
+    void set_store(wasmtime_store_t *store) { this->store = store; }
 
     // ===== Channel Operations =====
     uint8_t channel_read_u8(uint32_t channel_id);
@@ -163,16 +163,20 @@ public:
     int64_t math_int_pow_i64(int64_t base, int64_t exp);
 };
 
-/// Register all native functions with the WAMR runtime.
-/// This must be called before wasm_runtime_instantiate().
-void register_natives(Runtime *runtime);
+/// Create import vector with all registered host functions for Wasmtime.
+/// Must be called before wasm_instance_new().
+/// Returns wasm_extern_vec_t that should be passed to wasm_instance_new().
+wasm_extern_vec_t create_imports(wasmtime_store_t *store, Runtime *runtime);
 
-/// Get the Runtime instance from the execution environment.
-/// Used by native function wrappers to access the Runtime.
-Runtime *get_runtime(wasm_exec_env_t exec_env);
+/// Clean up the imports vector created by create_imports().
+void delete_imports(wasm_extern_vec_t *imports);
 
-/// Set the Runtime instance for the module instance.
-/// Called after instantiation.
-void set_runtime(wasm_module_inst_t module_inst, Runtime *runtime);
+/// Get the Runtime instance from the Wasmtime store.
+/// Used by host function callbacks to access the Runtime.
+Runtime *get_runtime_from_store(wasmtime_store_t *store);
+
+/// Set the Runtime instance in the store's user data.
+/// Called after store creation, before instantiation.
+void set_runtime_in_store(wasmtime_store_t *store, Runtime *runtime);
 
 }
