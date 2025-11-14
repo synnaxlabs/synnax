@@ -48,14 +48,28 @@ public:
         if (cfg.module.wasm.empty()) {
             return {nullptr, xerrors::Error("wasm bytes are empty")};
         }
+
+        // Debug: print wasm bytes before loading
+        std::printf("wasm::Module::open - size: %zu\n", cfg.module.wasm.size());
+        std::printf("wasm::Module::open - first 8 bytes: ");
+        for (size_t i = 0; i < 8 && i < cfg.module.wasm.size(); i++) {
+            std::printf("%02x ", cfg.module.wasm[i]);
+        }
+        std::printf("\n");
+
         if (!wasm_runtime_init()) return {nullptr, INITIALIZATION_ERROR};
         char error_buffer[1024];
+        memset(error_buffer, 0, sizeof(error_buffer));
         auto module = wasm_runtime_load(
             const_cast<uint8_t *>(cfg.module.wasm.data()),
             cfg.module.wasm.size(),
             error_buffer,
             sizeof(error_buffer)
         );
+        if (module == nullptr) {
+            std::printf("wasm_runtime_load failed with error: '%s'\n", error_buffer);
+            return {nullptr, xerrors::Error(std::string(error_buffer))};
+        }
 
         auto module_inst = wasm_runtime_instantiate(
             module,
