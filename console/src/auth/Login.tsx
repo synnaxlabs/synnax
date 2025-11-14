@@ -27,7 +27,6 @@ import { z } from "zod";
 
 import { LoginNav } from "@/auth/LoginNav";
 import { Cluster } from "@/cluster";
-import { setActive } from "@/cluster/slice";
 import { CSS } from "@/css";
 import { Version } from "@/version";
 
@@ -93,8 +92,8 @@ export const Login = (): ReactElement => {
       }
       if (state.nodeVersion != null && servingCluster != null)
         dispatch(Version.set(state.nodeVersion));
-      dispatch(Cluster.set({ key, ...clusterToConnect, ...credentials }));
-      dispatch(setActive(key));
+      dispatch(Cluster.set({ ...clusterToConnect, key, ...credentials }));
+      dispatch(Cluster.setActive(key));
     }, "Failed to log in");
 
   const handleSelectedClusterChange = useCallback(
