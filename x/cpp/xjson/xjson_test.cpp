@@ -103,7 +103,7 @@ TEST(testConfig, testParserFieldChildDoesNotExist) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "child");
-    EXPECT_EQ(err["message"], "This field is required");
+    EXPECT_EQ(err["message"], "this field is required");
 }
 
 TEST(testConfig, testParserChildFieldInvalidType) {
@@ -181,7 +181,7 @@ TEST(testConfig, testIterFieldDoesNotExist) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "children");
-    EXPECT_EQ(err["message"], "This field is required");
+    EXPECT_EQ(err["message"], "this field is required");
 }
 
 TEST(testConfig, testIterFieldIsNotArray) {
@@ -207,7 +207,7 @@ TEST(testConfig, testIterFieldIsNotArray) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "children");
-    EXPECT_EQ(err["message"], "Expected an array");
+    EXPECT_EQ(err["message"], "expected an array");
 }
 
 TEST(testConfig, testIterFieldChildFieldInvalidType) {
@@ -285,7 +285,7 @@ TEST(testConfig, testArrayIsNotArray) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "array");
-    EXPECT_EQ(err["message"], "Expected an array");
+    EXPECT_EQ(err["message"], "expected an array");
 }
 
 TEST(testConfig, testOptionalArray) {
@@ -385,11 +385,6 @@ TEST(testConfig, testFieldErrWithXError) {
     );
 }
 
-// ============================================================================
-// Tests for Parser-Constructible Types
-// ============================================================================
-
-// Test structs defined outside TEST for proper template instantiation
 struct BasicConstructibleConfig {
     std::string name;
     int value;
@@ -676,7 +671,7 @@ TEST(testConfig, testConstructibleTypeParentInvalidType) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "config");
-    EXPECT_EQ(err["message"], "Expected an object or array");
+    EXPECT_EQ(err["message"], "expected an object or array");
 }
 
 TEST(testConfig, testOptionalConstructibleType) {
@@ -729,10 +724,6 @@ TEST(testConfig, testEmptyPathBehaviorParsesRoot) {
     EXPECT_EQ(val4a, 123);
 }
 
-// ============================================================================
-// Tests for field<T>() - parsing root/current parser value
-// ============================================================================
-
 TEST(testConfig, testFieldNoArgsWithRootArray) {
     const json j = json::array({1, 2, 3, 4, 5});
     xjson::Parser parser(j);
@@ -783,7 +774,7 @@ TEST(testConfig, testFieldNoArgsRootNotArray) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "");
-    EXPECT_EQ(err["message"], "Expected an array");
+    EXPECT_EQ(err["message"], "expected an array");
 }
 
 TEST(testConfig, testFieldNoArgsWithError) {
@@ -837,10 +828,6 @@ TEST(testConfig, testFieldEmptyStringEquivalentToNoArgs) {
     ASSERT_EQ(values[2], 3);
 }
 
-// ============================================================================
-// Tests for Map Support
-// ============================================================================
-
 TEST(testConfig, testMapHappyPath) {
     const json j = {{"servers", {{"host1", 8080}, {"host2", 8081}, {"host3", 8082}}}};
     xjson::Parser parser(j);
@@ -887,7 +874,7 @@ TEST(testConfig, testMapIsNotObject) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "servers");
-    EXPECT_EQ(err["message"], "Expected an object");
+    EXPECT_EQ(err["message"], "expected an object");
 }
 
 TEST(testConfig, testOptionalMapWithDefault) {
@@ -1015,8 +1002,7 @@ TEST(testConfig, testMapWithAlternativePaths) {
     const json j = {{"servers_v2", {{"host1", 8080}, {"host2", 8081}}}};
     xjson::Parser parser(j);
     const auto servers = parser.field<std::map<std::string, int>>(
-        "servers",
-        "servers_v2"
+        std::vector<std::string>{"servers", "servers_v2"}
     );
 
     EXPECT_TRUE(parser.ok());
@@ -1024,10 +1010,6 @@ TEST(testConfig, testMapWithAlternativePaths) {
     ASSERT_EQ(servers.at("host1"), 8080);
     ASSERT_EQ(servers.at("host2"), 8081);
 }
-
-// ============================================================================
-// Tests for Numeric Key Map Support
-// ============================================================================
 
 TEST(testConfig, testMapWithIntKeys) {
     const json j = {{"ports", {{"8080", "http"}, {"8443", "https"}, {"3000", "dev"}}}};
@@ -1173,4 +1155,301 @@ TEST(testConfig, testMapMixedStringAndNumericKeys) {
     ASSERT_EQ(numeric_map.size(), 2);
     ASSERT_EQ(numeric_map.at(0), 100);
     ASSERT_EQ(numeric_map.at(1), 200);
+}
+
+TEST(testConfig, testAlternativePathsMultiple) {
+    const json j = {{"version_v3", "latest"}};
+    xjson::Parser parser(j);
+    const auto version = parser.field<std::string>(
+        std::vector<std::string>{"version", "version_v1", "version_v2", "version_v3"}
+    );
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(version, "latest");
+}
+
+TEST(testConfig, testAlternativePathsFirst) {
+    const json j = {{"version", "v1"}};
+    xjson::Parser parser(j);
+    const auto version = parser.field<std::string>(
+        std::vector<std::string>{"version", "version_v1", "version_v2", "version_v3"}
+    );
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(version, "v1");
+}
+
+TEST(testConfig, testAlternativePathsSecond) {
+    const json j = {{"version_v1", "v1"}};
+    xjson::Parser parser(j);
+    const auto version = parser.field<std::string>(
+        std::vector<std::string>{"version", "version_v1", "version_v2", "version_v3"}
+    );
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(version, "v1");
+}
+
+TEST(testConfig, testAlternativePathsNoneFound) {
+    const json j = {};
+    xjson::Parser parser(j);
+    const auto version = parser.field<std::string>(
+        std::vector<std::string>{"version", "version_v1", "version_v2", "version_v3"}
+    );
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "version");
+    EXPECT_EQ(err["message"], "this field is required");
+}
+
+TEST(testConfig, testAlternativePathsWithDefault) {
+    const json j = {};
+    xjson::Parser parser(j);
+    const auto version = parser.field<std::string>(
+        std::vector<std::string>{"version", "version_v1", "version_v2"},
+        "default_version"
+    );
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(version, "default_version");
+}
+
+TEST(testConfig, testAlternativePathsWithDefaultFoundInAlternative) {
+    const json j = {{"version_v2", "v2"}};
+    xjson::Parser parser(j);
+    const auto version = parser.field<std::string>(
+        std::vector<std::string>{"version", "version_v1", "version_v2"},
+        "default_version"
+    );
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(version, "v2");
+}
+
+TEST(testConfig, testAlternativePathsEmptyVector) {
+    const json j = {{"name", "test"}};
+    xjson::Parser parser(j);
+    std::vector<std::string> empty_paths;
+    const auto version = parser.field<std::string>(empty_paths);
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "");
+    EXPECT_EQ(err["message"], "No paths provided");
+}
+
+TEST(testConfig, testAlternativePathsEmptyVectorWithDefault) {
+    const json j = {{"name", "test"}};
+    xjson::Parser parser(j);
+    std::vector<std::string> empty_paths;
+    const auto version = parser.field<std::string>(empty_paths, "default");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(version, "default");
+}
+
+TEST(testConfig, testNestedVectors) {
+    const json j = {{"matrix", {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}}};
+    xjson::Parser parser(j);
+    const auto matrix = parser.field<std::vector<std::vector<int>>>("matrix");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(matrix.size(), 3);
+    ASSERT_EQ(matrix[0].size(), 3);
+    ASSERT_EQ(matrix[0][0], 1);
+    ASSERT_EQ(matrix[0][1], 2);
+    ASSERT_EQ(matrix[0][2], 3);
+    ASSERT_EQ(matrix[1][0], 4);
+    ASSERT_EQ(matrix[1][1], 5);
+    ASSERT_EQ(matrix[1][2], 6);
+    ASSERT_EQ(matrix[2][0], 7);
+    ASSERT_EQ(matrix[2][1], 8);
+    ASSERT_EQ(matrix[2][2], 9);
+}
+
+TEST(testConfig, testNestedVectorsEmpty) {
+    const json j = {{"matrix", json::array()}};
+    xjson::Parser parser(j);
+    const auto matrix = parser.field<std::vector<std::vector<int>>>("matrix");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(matrix.size(), 0);
+}
+
+TEST(testConfig, testNestedVectorsWithError) {
+    const json j = {{"matrix", {{1, 2}, {"invalid", 5}, {7, 8}}}};
+    xjson::Parser parser(j);
+    const auto matrix = parser.field<std::vector<std::vector<int>>>("matrix");
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "matrix.1.0");
+}
+
+TEST(testConfig, testMapMethod) {
+    const json j = {
+        {"items",
+         {{{"name", "item1"}, {"id", 1}},
+          {{"name", "item2"}, {"id", 2}},
+          {{"name", "item3"}, {"id", 3}}}}
+    };
+    xjson::Parser parser(j);
+    const auto items = parser.map<ArrayItem>(
+        "items",
+        [](xjson::Parser &p) -> std::pair<ArrayItem, bool> {
+            return {ArrayItem(p), true};
+        }
+    );
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(items.size(), 3);
+    ASSERT_EQ(items[0].name, "item1");
+    ASSERT_EQ(items[0].id, 1);
+    ASSERT_EQ(items[1].name, "item2");
+    ASSERT_EQ(items[1].id, 2);
+    ASSERT_EQ(items[2].name, "item3");
+    ASSERT_EQ(items[2].id, 3);
+}
+
+TEST(testConfig, testMapMethodWithFilter) {
+    const json j = {
+        {"items",
+         {{{"name", "item1"}, {"id", 1}},
+          {{"name", "skip"}, {"id", 2}},
+          {{"name", "item3"}, {"id", 3}}}}
+    };
+    xjson::Parser parser(j);
+    const auto items = parser.map<ArrayItem>(
+        "items",
+        [](xjson::Parser &p) -> std::pair<ArrayItem, bool> {
+            ArrayItem item(p);
+            // Skip items with name "skip"
+            if (item.name == "skip") return {item, false};
+            return {item, true};
+        }
+    );
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(items.size(), 2);
+    ASSERT_EQ(items[0].name, "item1");
+    ASSERT_EQ(items[1].name, "item3");
+}
+
+TEST(testConfig, testMapMethodFieldDoesNotExist) {
+    const json j = {};
+    xjson::Parser parser(j);
+    const auto items = parser.map<ArrayItem>(
+        "items",
+        [](xjson::Parser &p) -> std::pair<ArrayItem, bool> {
+            return {ArrayItem(p), true};
+        }
+    );
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "items");
+    EXPECT_EQ(err["message"], "this field is required");
+}
+
+TEST(testConfig, testMapMethodFieldNotArray) {
+    const json j = {{"items", "not an array"}};
+    xjson::Parser parser(j);
+    const auto items = parser.map<ArrayItem>(
+        "items",
+        [](xjson::Parser &p) -> std::pair<ArrayItem, bool> {
+            return {ArrayItem(p), true};
+        }
+    );
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "items");
+    EXPECT_EQ(err["message"], "expected an array");
+}
+
+TEST(testConfig, testMapMethodWithErrors) {
+    const json j = {
+        {"items",
+         {{{"name", "item1"}, {"id", 1}},
+          {{"name", "item2"}}, // Missing id
+          {{"name", "item3"}, {"id", 3}}}}
+    };
+    xjson::Parser parser(j);
+    const auto items = parser.map<ArrayItem>(
+        "items",
+        [](xjson::Parser &p) -> std::pair<ArrayItem, bool> {
+            return {ArrayItem(p), true};
+        }
+    );
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "items.1.id");
+    EXPECT_EQ(err["message"], "This field is required");
+}
+
+TEST(testConfig, testOptionalChildExists) {
+    const json j = {{"child", {{"name", "test"}, {"value", 42}}}};
+    xjson::Parser parser(j);
+    auto child = parser.optional_child("child");
+    const auto name = child.field<std::string>("name");
+    const auto value = child.field<int>("value");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(name, "test");
+    ASSERT_EQ(value, 42);
+}
+
+TEST(testConfig, testOptionalChildMissing) {
+    const json j = {};
+    xjson::Parser parser(j);
+    auto child = parser.optional_child("child");
+    // Should not accumulate error when child is missing
+    EXPECT_TRUE(parser.ok());
+    // Trying to use the child parser should be a noop
+    const auto name = child.field<std::string>("name");
+    EXPECT_TRUE(parser.ok()); // Still ok because child is noop
+}
+
+TEST(testConfig, testOptionalChildInvalidType) {
+    const json j = {{"child", "not an object"}};
+    xjson::Parser parser(j);
+    auto child = parser.optional_child("child");
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "child");
+    EXPECT_EQ(err["message"], "expected an object or array");
+}
+
+TEST(testConfig, testOptionalChildArray) {
+    const json j = {{"items", {{{"name", "a"}}, {{"name", "b"}}}}};
+    xjson::Parser parser(j);
+    auto items_parser = parser.optional_child("items");
+    EXPECT_TRUE(parser.ok());
+    // Arrays are valid for optional_child - verify we can use it
+    EXPECT_TRUE(items_parser.ok());
+}
+
+TEST(testConfig, testVectorStringToNumber) {
+    const json j = {{"values", {"1.5", "2.5", "3.5"}}};
+    xjson::Parser parser(j);
+    const auto values = parser.field<std::vector<float>>("values");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(values.size(), 3);
+    ASSERT_NEAR(values[0], 1.5f, 0.0001f);
+    ASSERT_NEAR(values[1], 2.5f, 0.0001f);
+    ASSERT_NEAR(values[2], 3.5f, 0.0001f);
+}
+
+TEST(testConfig, testVectorStringToInt) {
+    const json j = {{"ports", {"8080", "8443", "3000"}}};
+    xjson::Parser parser(j);
+    const auto ports = parser.field<std::vector<int>>("ports");
+    EXPECT_TRUE(parser.ok());
+    ASSERT_EQ(ports.size(), 3);
+    ASSERT_EQ(ports[0], 8080);
+    ASSERT_EQ(ports[1], 8443);
+    ASSERT_EQ(ports[2], 3000);
+}
+
+TEST(testConfig, testVectorStringToNumberInvalid) {
+    const json j = {{"values", {"1.5", "invalid", "3.5"}}};
+    xjson::Parser parser(j);
+    const auto values = parser.field<std::vector<float>>("values");
+    EXPECT_FALSE(parser.ok());
+    EXPECT_EQ(parser.errors->size(), 1);
+    auto err = parser.errors->at(0);
+    EXPECT_EQ(err["path"], "values.1");
+    EXPECT_EQ(err["message"], "expected a number, got 'invalid'");
 }

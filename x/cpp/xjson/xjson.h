@@ -87,8 +87,37 @@ class Parser {
         path_prefix(std::move(path_prefix)),
         errors(std::move(errors)) {}
 
+    /// @brief Core parsing logic - handles all type conversions in one place
     template<typename T>
-    T get(const std::string &path, const nlohmann::basic_json<>::iterator &iter);
+    T parse_value(const std::string &path, const json &j);
+
+    /// @brief Helper to convert JSON key to map key type
+    template<typename K>
+    std::pair<K, bool>
+    convert_key(const std::string &json_key, const std::string &path) {
+        if constexpr (std::is_same_v<K, std::string>)
+            return {json_key, true};
+        else if constexpr (std::is_arithmetic_v<K>) {
+            try {
+                K map_key;
+                if constexpr (std::is_integral_v<K>)
+                    map_key = static_cast<K>(std::stoll(json_key));
+                else
+                    map_key = static_cast<K>(std::stod(json_key));
+                return {map_key, true};
+            } catch (const std::exception &) {
+                field_err(path, "Invalid numeric key: '" + json_key + "'");
+                return {K{}, false};
+            }
+        }
+        return {K{}, false};
+    }
+
+    /// @brief Wrapper for iterator-based access
+    template<typename T>
+    T get(const std::string &path, const json::iterator &iter) {
+        return parse_value<T>(path, *iter);
+    }
 
     /// @brief Helper method to parse JSON and handle errors
     void parse_with_err_handling(const std::function<json()> &parser) {
@@ -142,9 +171,12 @@ public:
     /// to parse its entire value.
     /// @returns The parsed value of type T, or default-constructed T if parsing fails.
     template<typename T>
-    T field();
+    T field() {
+        if (noop) return T();
+        return parse_value<T>("", config);
+    }
 
-    /// @brief gets the field at the given path. Works for both scalars and vectors.
+    /// @brief gets the field at the given path. Works for scalars, vectors, and maps.
     /// If the field is not found, accumulates an error in the builder.
     /// Special case: if path is empty string "", parses the root value (same as
     /// field<T>()).
@@ -153,278 +185,67 @@ public:
     template<typename T>
     T field(const std::string &path) {
         if (noop) return T();
-
-        // Special case: empty path means parse root
         if (path.empty()) return field<T>();
-
         const auto iter = config.find(path);
         if (iter == config.end()) {
             field_err(path, "This field is required");
             return T();
         }
-
-        // Handle map types automatically
-        if constexpr (is_map_v<T>) {
-            using K = typename is_map<T>::key_type;
-            using V = typename is_map<T>::value_type;
-            if (!iter->is_object()) {
-                field_err(path, "Expected an object");
-                return T();
-            }
-            T map_result;
-            for (auto &[json_key, value]: iter->items()) {
-                // Convert JSON string key to map key type
-                K map_key;
-                if constexpr (std::is_same_v<K, std::string>) {
-                    map_key = json_key;
-                } else if constexpr (std::is_arithmetic_v<K>) {
-                    try {
-                        if constexpr (std::is_integral_v<K>) {
-                            map_key = static_cast<K>(std::stoll(json_key));
-                        } else {
-                            map_key = static_cast<K>(std::stod(json_key));
-                        }
-                    } catch (const std::exception &) {
-                        field_err(
-                            path + "." + json_key,
-                            "Invalid numeric key: '" + json_key + "'"
-                        );
-                        continue;
-                    }
-                }
-                const auto child_path = path + "." + json_key;
-                auto value_iter = iter->find(json_key);
-                map_result[map_key] = get<V>(child_path, value_iter);
-            }
-            return map_result;
-        }
-        // Handle vector types automatically
-        else if constexpr (is_vector_v<T>) {
-            using U = typename is_vector<T>::value_type;
-            if (!iter->is_array()) {
-                field_err(path, "Expected an array");
-                return T();
-            }
-            std::vector<U> values;
-            for (size_t i = 0; i < iter->size(); ++i) {
-                const auto child_path = path + "." + std::to_string(i);
-                values.push_back(get<U>(child_path, iter->begin() + i));
-            }
-            return values;
-        } else {
-            // Handle scalar types
-            return get<T>(path, iter);
-        }
+        return get<T>(path, iter);
     }
 
     /// @brief attempts to pull the value at the provided path. If that path is not
-    /// found, returns the default. Works for both scalars and vectors.
+    /// found, returns the default. Works for scalars, vectors, and maps.
     /// Note that this function will still accumulate an error if the path is found
     /// but the value is not of the expected type.
     /// @param path The JSON path to the value.
     /// @param default_value The default value to return if the path is not found.
     /// @returns The value at the path, or default_value if not found.
     template<typename T>
-    T field(const std::string &path, T default_value) {
+    T field(const std::string &path, const T &default_value) {
         if (noop) return default_value;
 
         const auto iter = config.find(path);
         if (iter == config.end()) return default_value;
-
-        // Handle map types automatically
-        if constexpr (is_map_v<T>) {
-            using K = typename is_map<T>::key_type;
-            using V = typename is_map<T>::value_type;
-            if (!iter->is_object()) {
-                field_err(path, "Expected an object");
-                return default_value;
-            }
-            T map_result;
-            for (auto &[json_key, value]: iter->items()) {
-                // Convert JSON string key to map key type
-                K map_key;
-                if constexpr (std::is_same_v<K, std::string>) {
-                    map_key = json_key;
-                } else if constexpr (std::is_arithmetic_v<K>) {
-                    try {
-                        if constexpr (std::is_integral_v<K>) {
-                            map_key = static_cast<K>(std::stoll(json_key));
-                        } else {
-                            map_key = static_cast<K>(std::stod(json_key));
-                        }
-                    } catch (const std::exception &) {
-                        field_err(
-                            path + "." + json_key,
-                            "Invalid numeric key: '" + json_key + "'"
-                        );
-                        continue;
-                    }
-                }
-                const auto child_path = path + "." + json_key;
-                auto value_iter = iter->find(json_key);
-                map_result[map_key] = get<V>(child_path, value_iter);
-            }
-            return map_result;
-        }
-        // Handle vector types automatically
-        else if constexpr (is_vector_v<T>) {
-            using U = typename is_vector<T>::value_type;
-            if (!iter->is_array()) {
-                field_err(path, "Expected an array");
-                return default_value;
-            }
-            std::vector<U> values;
-            for (size_t i = 0; i < iter->size(); ++i) {
-                const auto child_path = path + "." + std::to_string(i);
-                values.push_back(get<U>(child_path, iter->begin() + i));
-            }
-            return values;
-        } else {
-            // Handle scalar types
-            return get<T>(path, iter);
-        }
+        return get<T>(path, iter);
     }
 
-    /// @brief gets the field at the given path with multiple alternative paths.
-    /// Tries each path in order until one is found.
-    /// @param path The primary JSON path to try.
-    /// @param alt1 First alternative path to try.
-    /// @param alts Additional alternative paths to try.
+    /// @brief gets a field by trying multiple paths in order until one is found.
+    /// @param paths The paths to try in order.
     /// @returns The value at the first found path, or default-constructed T if none
     /// found.
-    template<typename T, typename... Paths>
-    T field(const std::string &path, const std::string &alt1, const Paths &...alts) {
+    template<typename T>
+    T field(const std::vector<std::string> &paths) {
         if (noop) return T();
-
-        const auto iter = config.find(path);
-        if (iter != config.end()) {
-            if constexpr (is_map_v<T>) {
-                using K = typename is_map<T>::key_type;
-                using V = typename is_map<T>::value_type;
-                if (!iter->is_object()) {
-                    field_err(path, "Expected an object");
-                    return T();
-                }
-                T map_result;
-                for (auto &[json_key, value]: iter->items()) {
-                    // Convert JSON string key to map key type
-                    K map_key;
-                    if constexpr (std::is_same_v<K, std::string>) {
-                        map_key = json_key;
-                    } else if constexpr (std::is_arithmetic_v<K>) {
-                        try {
-                            if constexpr (std::is_integral_v<K>) {
-                                map_key = static_cast<K>(std::stoll(json_key));
-                            } else {
-                                map_key = static_cast<K>(std::stod(json_key));
-                            }
-                        } catch (const std::exception &) {
-                            field_err(
-                                path + "." + json_key,
-                                "Invalid numeric key: '" + json_key + "'"
-                            );
-                            continue;
-                        }
-                    }
-                    const auto child_path = path + "." + json_key;
-                    auto value_iter = iter->find(json_key);
-                    map_result[map_key] = get<V>(child_path, value_iter);
-                }
-                return map_result;
-            } else if constexpr (is_vector_v<T>) {
-                using U = typename is_vector<T>::value_type;
-                if (!iter->is_array()) {
-                    field_err(path, "Expected an array");
-                    return T();
-                }
-                std::vector<U> values;
-                for (size_t i = 0; i < iter->size(); ++i) {
-                    const auto child_path = path + "." + std::to_string(i);
-                    values.push_back(get<U>(child_path, iter->begin() + i));
-                }
-                return values;
-            } else {
-                return get<T>(path, iter);
-            }
+        if (paths.empty()) {
+            field_err("", "No paths provided");
+            return T();
         }
 
-        // Try alternative paths - first try alt1, then the rest
-        auto try_path = [&](const std::string &alt_path) -> std::pair<T, bool> {
-            const auto it = config.find(alt_path);
-            if (it != config.end()) {
-                if constexpr (is_map_v<T>) {
-                    using K = typename is_map<T>::key_type;
-                    using V = typename is_map<T>::value_type;
-                    if (!it->is_object()) {
-                        field_err(alt_path, "Expected an object");
-                        return {T(), false};
-                    }
-                    T map_result;
-                    for (auto &[json_key, value]: it->items()) {
-                        // Convert JSON string key to map key type
-                        K map_key;
-                        if constexpr (std::is_same_v<K, std::string>) {
-                            map_key = json_key;
-                        } else if constexpr (std::is_arithmetic_v<K>) {
-                            try {
-                                if constexpr (std::is_integral_v<K>) {
-                                    map_key = static_cast<K>(std::stoll(json_key));
-                                } else {
-                                    map_key = static_cast<K>(std::stod(json_key));
-                                }
-                            } catch (const std::exception &) {
-                                field_err(
-                                    alt_path + "." + json_key,
-                                    "Invalid numeric key: '" + json_key + "'"
-                                );
-                                continue;
-                            }
-                        }
-                        const auto child_path = alt_path + "." + json_key;
-                        auto value_iter = it->find(json_key);
-                        map_result[map_key] = get<V>(child_path, value_iter);
-                    }
-                    return {map_result, true};
-                } else if constexpr (is_vector_v<T>) {
-                    using U = typename is_vector<T>::value_type;
-                    if (!it->is_array()) {
-                        field_err(alt_path, "Expected an array");
-                        return {T(), false};
-                    }
-                    std::vector<U> values;
-                    for (size_t i = 0; i < it->size(); ++i) {
-                        const auto child_path = alt_path + "." + std::to_string(i);
-                        values.push_back(get<U>(child_path, it->begin() + i));
-                    }
-                    return {values, true};
-                } else {
-                    return {get<T>(alt_path, it), true};
-                }
-            }
-            return {T(), false};
-        };
+        for (const auto &path : paths) {
+            if (const auto iter = config.find(path); iter != config.end())
+                return get<T>(path, iter);
+        }
 
-        // Try alt1 first
-        auto [result1, found1] = try_path(alt1);
-        if (found1) return result1;
-
-        // Try remaining alternatives
-        bool found = false;
-        T result{};
-        ((found = found ||
-                  [&](const std::string &alt_path) {
-                      auto [res, ok] = try_path(alt_path);
-                      if (ok) {
-                          result = res;
-                          return true;
-                      }
-                      return false;
-                  }(alts)),
-         ...);
-        if (found) return result;
-
-        field_err(path, "this field is required");
+        field_err(paths[0], "this field is required");
         return T();
+    }
+
+    /// @brief gets a field by trying multiple paths, with a default fallback.
+    /// @param paths The paths to try in order.
+    /// @param default_value The default value if no paths are found.
+    /// @returns The value at the first found path, or default_value if none found.
+    template<typename T>
+    T field(const std::vector<std::string> &paths, const T &default_value) {
+        if (noop) return default_value;
+        if (paths.empty()) return default_value;
+
+        for (const auto &path : paths) {
+            if (const auto iter = config.find(path); iter != config.end())
+                return get<T>(path, iter);
+        }
+
+        return default_value;
     }
 
     /// @brief gets the field at the given path and creates a new parser just for
@@ -436,11 +257,11 @@ public:
         if (noop) return {};
         const auto iter = config.find(path);
         if (iter == config.end()) {
-            field_err(path, "This field is required");
+            field_err(path, "this field is required");
             return {};
         }
         if (!iter->is_object() && !iter->is_array()) {
-            field_err(path, "Expected an object or array");
+            field_err(path, "expected an object or array");
             return {};
         }
         return {*iter, errors, path_prefix + path + "."};
@@ -451,7 +272,7 @@ public:
         const auto iter = config.find(path);
         if (iter == config.end()) return {};
         if (!iter->is_object() && !iter->is_array()) {
-            field_err(path, "Expected an object or array");
+            field_err(path, "expected an object or array");
             return {};
         }
         return {*iter, errors, path_prefix + path + "."};
@@ -466,8 +287,8 @@ public:
     iter(const std::string &path, const std::function<void(Parser &)> &func) const {
         if (noop) return;
         const auto iter = config.find(path);
-        if (iter == config.end()) return field_err(path, "This field is required");
-        if (!iter->is_array()) return field_err(path, "Expected an array");
+        if (iter == config.end()) return field_err(path, "this field is required");
+        if (!iter->is_array()) return field_err(path, "expected an array");
         for (size_t i = 0; i < iter->size(); ++i) {
             const auto child_path = path_prefix + path + "." + std::to_string(i) + ".";
             Parser childParser((*iter)[i], errors, child_path);
@@ -489,11 +310,11 @@ public:
         if (noop) return {};
         const auto iter = config.find(path);
         if (iter == config.end()) {
-            field_err(path, "This field is required");
+            field_err(path, "this field is required");
             return {};
         }
         if (!iter->is_array()) {
-            field_err(path, "Expected an array");
+            field_err(path, "expected an array");
             return {};
         }
         std::vector<T> results;
@@ -564,11 +385,11 @@ public:
     }
 };
 
-// Test struct to verify the mechanism works
+// Test struct to verify parser constructibility
 struct TestConstructibleType {
     std::string value;
     explicit TestConstructibleType(Parser p): value(p.field<std::string>("value")) {}
-    TestConstructibleType() {}
+    TestConstructibleType() = default;
 };
 
 /// @brief Type trait to detect if a type can be constructed from a Parser
@@ -585,155 +406,68 @@ static_assert(
     "Trait should detect TestConstructibleType"
 );
 
-// Implementation of field() no-args method (defined after trait for proper SFINAE)
+// Implementation of parse_value - the single source of truth for all type conversions
 template<typename T>
-T Parser::field() {
-    if (noop) return T();
-
-    // Handle map types automatically
+T Parser::parse_value(const std::string &path, const json &j) {
     if constexpr (is_map_v<T>) {
-        using K = typename is_map<T>::key_type;
-        using V = typename is_map<T>::value_type;
-        if (!config.is_object()) {
-            field_err("", "Expected an object");
+        typedef typename is_map<T>::key_type K;
+        using V = is_map<T>::value_type;
+        if (!j.is_object()) {
+            field_err(path, "expected an object");
             return T();
         }
         T map_result;
-        for (auto &[json_key, value]: config.items()) {
-            // Convert JSON string key to map key type
-            K map_key;
-            if constexpr (std::is_same_v<K, std::string>) {
-                map_key = json_key;
-            } else if constexpr (std::is_arithmetic_v<K>) {
-                try {
-                    if constexpr (std::is_integral_v<K>) {
-                        map_key = static_cast<K>(std::stoll(json_key));
-                    } else {
-                        map_key = static_cast<K>(std::stod(json_key));
-                    }
-                } catch (const std::exception &) {
-                    field_err(json_key, "Invalid numeric key: '" + json_key + "'");
-                    continue;
-                }
-            }
-            const auto child_path = json_key;
-            auto value_iter = config.find(json_key);
-            map_result[map_key] = get<V>(child_path, value_iter);
+        for (const auto &[json_key, value]: j.items()) {
+            auto [map_key, ok] = convert_key<K>(
+                json_key,
+                path.empty() ? json_key : path + "." + json_key
+            );
+            if (!ok) continue;
+            const auto child_path = path.empty() ? json_key : path + "." + json_key;
+            map_result[map_key] = parse_value<V>(child_path, value);
         }
         return map_result;
-    }
-    // Handle vector types automatically
-    else if constexpr (is_vector_v<T>) {
-        using U = typename is_vector<T>::value_type;
-        if (!config.is_array()) {
-            field_err("", "Expected an array");
+    } else if constexpr (is_vector_v<T>) {
+        using U = is_vector<T>::value_type;
+        if (!j.is_array()) {
+            field_err(path, "expected an array");
             return T();
         }
         std::vector<U> values;
-        for (size_t i = 0; i < config.size(); ++i) {
-            const auto child_path = std::to_string(i);
-            auto iter = config.begin() + i;
-            values.push_back(get<U>(child_path, iter));
+        values.reserve(j.size());
+        for (size_t i = 0; i < j.size(); ++i) {
+            const auto child_path = path.empty() ? std::to_string(i)
+                                                 : path + "." + std::to_string(i);
+            values.push_back(parse_value<U>(child_path, j[i]));
         }
         return values;
-    } else if constexpr (xjson::is_parser_constructible_v<T>) {
-        // Handle parser-constructible types
-        if (!config.is_object() && !config.is_array()) {
-            field_err("", "Expected an object or array");
+    } else if constexpr (is_parser_constructible_v<T>) {
+        if (!j.is_object() && !j.is_array()) {
+            field_err(path, "expected an object or array");
             return T();
         }
-        Parser child_parser(config, errors, path_prefix);
+        const auto child_prefix = path.empty() ? path_prefix : path_prefix + path + ".";
+        Parser child_parser(j, errors, child_prefix);
         return T(child_parser);
     } else {
-        // Handle primitive scalar types - parse config directly
         try {
             if constexpr (std::is_arithmetic_v<T>) {
-                if (config.is_string()) {
+                if (j.is_string()) {
                     T value;
-                    std::istringstream iss(config.get<std::string>());
+                    std::istringstream iss(j.get<std::string>());
                     if (!(iss >> value)) {
-                        this->field_err(
-                            "",
-                            "expected a number, got '" + config.get<std::string>() + "'"
-                        );
-                        return T();
-                    }
-                    return value;
-                }
-            }
-            return config.get<T>();
-        } catch (const nlohmann::json::type_error &e) {
-            this->field_err("", std::string(e.what()).substr(32));
-            return T();
-        }
-    }
-}
-
-// Implementation of get method (defined after trait for proper SFINAE)
-template<typename T>
-T Parser::get(const std::string &path, const nlohmann::basic_json<>::iterator &iter) {
-    if constexpr (xjson::is_map_v<T>) {
-        // Handle map types recursively
-        using K = typename is_map<T>::key_type;
-        using V = typename is_map<T>::value_type;
-        if (!iter->is_object()) {
-            field_err(path, "Expected an object");
-            return T();
-        }
-        T map_result;
-        for (auto &[json_key, value]: iter->items()) {
-            // Convert JSON string key to map key type
-            K map_key;
-            if constexpr (std::is_same_v<K, std::string>) {
-                map_key = json_key;
-            } else if constexpr (std::is_arithmetic_v<K>) {
-                try {
-                    if constexpr (std::is_integral_v<K>) {
-                        map_key = static_cast<K>(std::stoll(json_key));
-                    } else {
-                        map_key = static_cast<K>(std::stod(json_key));
-                    }
-                } catch (const std::exception &) {
-                    field_err(
-                        path + "." + json_key,
-                        "Invalid numeric key: '" + json_key + "'"
-                    );
-                    continue;
-                }
-            }
-            const auto child_path = path + "." + json_key;
-            auto value_iter = iter->find(json_key);
-            map_result[map_key] = get<V>(child_path, value_iter);
-        }
-        return map_result;
-    } else if constexpr (xjson::is_parser_constructible_v<T>) {
-        // Type can be constructed from a Parser - validate and create child parser
-        if (!iter->is_object() && !iter->is_array()) {
-            field_err(path, "Expected an object or array");
-            return T();
-        }
-        Parser child_parser(*iter, errors, path_prefix + path + ".");
-        return T(child_parser);
-    } else {
-        // Use standard JSON parsing or arithmetic conversion
-        try {
-            if constexpr (std::is_arithmetic_v<T>) {
-                if (iter->is_string()) {
-                    T value;
-                    std::istringstream iss(iter->get<std::string>());
-                    if (!(iss >> value)) {
-                        this->field_err(
+                        field_err(
                             path,
-                            "expected a number, got '" + iter->get<std::string>() + "'"
+                            "expected a number, got '" + j.get<std::string>() + "'"
                         );
                         return T();
                     }
                     return value;
                 }
             }
-            return iter->get<T>();
+            return j.get<T>();
         } catch (const nlohmann::json::type_error &e) {
-            this->field_err(path, e.what() + 32);
+            field_err(path, std::string(e.what()).substr(32));
             return T();
         }
     }
