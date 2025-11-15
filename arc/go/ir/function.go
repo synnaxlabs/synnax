@@ -21,9 +21,9 @@ import (
 // syntax tree for code generation and analysis.
 type Body struct {
 	// Raw is the original source code as written by the user.
-	Raw string
+	Raw string `json:"raw" msgpack:"raw"`
 	// AST is the parsed abstract syntax tree from the parser.
-	AST antlr.ParserRuleContext
+	AST antlr.ParserRuleContext `json:"-" msgpack:"-"`
 }
 
 // Function represents a function or stage definition in the IR. Functions are

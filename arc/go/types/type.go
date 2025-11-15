@@ -54,6 +54,7 @@
 package types
 
 import (
+	"encoding/json"
 	"slices"
 
 	"github.com/samber/lo"
@@ -126,6 +127,17 @@ func NewFunctionProperties() FunctionProperties {
 // Params are named, ordered parameters for a function.
 type Params []Param
 
+var _ json.Marshaler = (Params)(nil)
+
+// MarshalJSON implements the json.Marshal interface.
+func (p Params) MarshalJSON() ([]byte, error) {
+	if p == nil {
+		return json.Marshal([]Param{})
+	}
+	type params []Param
+	return json.Marshal(params(p))
+}
+
 // Get retrieves a parameter by name. Returns the parameter and true if found,
 // otherwise returns a zero Param and false.
 func (p Params) Get(name string) (Param, bool) {
@@ -161,7 +173,7 @@ func (p Params) ValueMap() map[string]any {
 type Param struct {
 	Name  string `json:"name"`
 	Type  Type   `json:"type"`
-	Value any    `json:"value"`
+	Value any    `json:"value,omitempty"`
 }
 
 // FunctionProperties holds the inputs, outputs, and configuration parameters for function
@@ -189,11 +201,11 @@ type Type struct {
 	// Kind is the discriminator that determines which type this represents.
 	Kind TypeKind `json:"kind" msgpack:"kind"`
 	// Elem is the element type for compound types (chan, series).
-	Elem *Type `json:"elem" msgpack:"elem"`
+	Elem *Type `json:"elem,omitempty" msgpack:"elem"`
 	// Name is the identifier for type variables.
-	Name string `json:"name" msgpack:"name"`
+	Name string `json:"name,omitempty" msgpack:"name"`
 	// Constraint is the optional constraint for type variables.
-	Constraint *Type `json:"constraint" msgpack:"constraint"`
+	Constraint *Type `json:"constraint,omitempty" msgpack:"constraint"`
 	// FunctionProperties contains inputs, outputs, and config for function types.
 	FunctionProperties
 }

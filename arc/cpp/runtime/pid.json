@@ -3,32 +3,23 @@
     {
       "key": "pid",
       "body": {
-        "Raw": "",
-        "AST": {
-          "RuleIndex": 22
-        }
+        "raw": ""
       },
       "config": [],
       "inputs": [
         {
           "name": "input",
           "type": {
-            "kind": 1,
-            "name": "",
-            "constraint": null
-          },
-          "value": null
+            "kind": 1
+          }
         }
       ],
       "outputs": [
         {
           "name": "output",
           "type": {
-            "kind": 9,
-            "name": "",
-            "constraint": null
-          },
-          "value": null
+            "kind": 9
+          }
         }
       ],
       "channels": {
@@ -49,11 +40,9 @@
         {
           "name": "period",
           "type": {
-            "kind": 8,
-            "name": "",
-            "constraint": null
+            "kind": 8
           },
-          "value": 1000000
+          "value": "100ms"
         }
       ],
       "inputs": [],
@@ -61,11 +50,8 @@
         {
           "name": "output",
           "type": {
-            "kind": 1,
-            "name": "",
-            "constraint": null
-          },
-          "value": null
+            "kind": 1
+          }
         }
       ]
     },
@@ -81,22 +67,16 @@
         {
           "name": "input",
           "type": {
-            "kind": 1,
-            "name": "",
-            "constraint": null
-          },
-          "value": null
+            "kind": 1
+          }
         }
       ],
       "outputs": [
         {
           "name": "output",
           "type": {
-            "kind": 9,
-            "name": "",
-            "constraint": null
-          },
-          "value": null
+            "kind": 9
+          }
         }
       ]
     }
