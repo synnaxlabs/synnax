@@ -13,17 +13,19 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "arc/cpp/runtime/state/state.h"
-#include "wasmtime.h"
+#include "wasmtime.hh"
 
-namespace arc::runtime::wasm::bindings {
+namespace arc::runtime::wasm {
 
 /// Runtime provides the actual implementation of Arc runtime functions.
 /// This is the "business logic" layer that the bindings call.
-class Runtime {
+class Bindings {
     [[maybe_unused]] state::State *state;
-    wasmtime_store_t *store;  // Non-owning pointer to store (for accessing caller context)
+    wasmtime::Store *store;  // Non-owning pointer to store (for accessing caller context)
+    wasmtime::Memory *memory;     // Non-owning pointer to WASM memory for string operations
 
     // String storage - handle to string mapping
     std::unordered_map<uint32_t, std::string> strings;
@@ -48,135 +50,126 @@ class Runtime {
     }
 
 public:
-    Runtime(state::State *state, wasmtime_store_t *store);
+    Bindings(state::State *state, wasmtime::Store *store);
 
     // Set the store (used after creation)
-    void set_store(wasmtime_store_t *store) { this->store = store; }
+    void set_store(wasmtime::Store *store) { this->store = store; }
 
-    // ===== Channel Operations =====
-    uint8_t channel_read_u8(uint32_t channel_id);
-    void channel_write_u8(uint32_t channel_id, uint8_t value);
-    uint8_t channel_blocking_read_u8(uint32_t channel_id);
+    // Set the memory (used after module instantiation)
+    void set_memory(wasmtime::Memory *mem) { this->memory = mem; }
 
-    uint16_t channel_read_u16(uint32_t channel_id);
-    void channel_write_u16(uint32_t channel_id, uint16_t value);
-    uint16_t channel_blocking_read_u16(uint32_t channel_id);
+    #define DECLARE_CHANNEL_OPS(suffix, cpptype) \
+         cpptype channel_read_##suffix(uint32_t channel_id); \
+         void channel_write_##suffix(uint32_t channel_id, cpptype value); \
+         cpptype channel_blocking_read_##suffix(uint32_t channel_id);
 
-    uint32_t channel_read_u32(uint32_t channel_id);
-    void channel_write_u32(uint32_t channel_id, uint32_t value);
-    uint32_t channel_blocking_read_u32(uint32_t channel_id);
+    DECLARE_CHANNEL_OPS(u8, uint8_t)
+    DECLARE_CHANNEL_OPS(u16, uint16_t)
+    DECLARE_CHANNEL_OPS(u32, uint32_t)
+    DECLARE_CHANNEL_OPS(u64, uint64_t)
+    DECLARE_CHANNEL_OPS(i8, int8_t);
+    DECLARE_CHANNEL_OPS(i16, int16_t)
+    DECLARE_CHANNEL_OPS(i32, int32_t)
+    DECLARE_CHANNEL_OPS(i64, int64_t)
+    DECLARE_CHANNEL_OPS(f32, float)
+    DECLARE_CHANNEL_OPS(f64, double)
 
-    uint64_t channel_read_u64(uint32_t channel_id);
-    void channel_write_u64(uint32_t channel_id, uint64_t value);
-    uint64_t channel_blocking_read_u64(uint32_t channel_id);
-
-    int8_t channel_read_i8(uint32_t channel_id);
-    void channel_write_i8(uint32_t channel_id, int8_t value);
-    int8_t channel_blocking_read_i8(uint32_t channel_id);
-
-    int16_t channel_read_i16(uint32_t channel_id);
-    void channel_write_i16(uint32_t channel_id, int16_t value);
-    int16_t channel_blocking_read_i16(uint32_t channel_id);
-
-    int32_t channel_read_i32(uint32_t channel_id);
-    void channel_write_i32(uint32_t channel_id, int32_t value);
-    int32_t channel_blocking_read_i32(uint32_t channel_id);
-
-    int64_t channel_read_i64(uint32_t channel_id);
-    void channel_write_i64(uint32_t channel_id, int64_t value);
-    int64_t channel_blocking_read_i64(uint32_t channel_id);
-
-    float channel_read_f32(uint32_t channel_id);
-    void channel_write_f32(uint32_t channel_id, float value);
-    float channel_blocking_read_f32(uint32_t channel_id);
-
-    double channel_read_f64(uint32_t channel_id);
-    void channel_write_f64(uint32_t channel_id, double value);
-    double channel_blocking_read_f64(uint32_t channel_id);
+    #undef DECLARE_CHANNEL_OPS
 
     uint32_t channel_read_str(uint32_t channel_id);
     void channel_write_str(uint32_t channel_id, uint32_t str_handle);
     uint32_t channel_blocking_read_str(uint32_t channel_id);
 
     // ===== State Operations =====
-    uint8_t state_load_u8(uint32_t func_id, uint32_t var_id, uint8_t init_value);
-    void state_store_u8(uint32_t func_id, uint32_t var_id, uint8_t value);
+    #define DECLARE_STATE_OPS(suffix, cpptype) \
+        cpptype state_load_##suffix(uint32_t func_id, uint32_t var_id, cpptype init_value); \
+        void state_store_##suffix(uint32_t func_id, uint32_t var_id, cpptype value);
 
-    uint16_t state_load_u16(uint32_t func_id, uint32_t var_id, uint16_t init_value);
-    void state_store_u16(uint32_t func_id, uint32_t var_id, uint16_t value);
+    DECLARE_STATE_OPS(u8, uint8_t)
+    DECLARE_STATE_OPS(u16, uint16_t)
+    DECLARE_STATE_OPS(u32, uint32_t)
+    DECLARE_STATE_OPS(u64, uint64_t)
+    DECLARE_STATE_OPS(i8, int8_t)
+    DECLARE_STATE_OPS(i16, int16_t)
+    DECLARE_STATE_OPS(i32, int32_t)
+    DECLARE_STATE_OPS(i64, int64_t)
+    DECLARE_STATE_OPS(f32, float)
+    DECLARE_STATE_OPS(f64, double)
 
-    uint32_t state_load_u32(uint32_t func_id, uint32_t var_id, uint32_t init_value);
-    void state_store_u32(uint32_t func_id, uint32_t var_id, uint32_t value);
-
-    uint64_t state_load_u64(uint32_t func_id, uint32_t var_id, uint64_t init_value);
-    void state_store_u64(uint32_t func_id, uint32_t var_id, uint64_t value);
-
-    int8_t state_load_i8(uint32_t func_id, uint32_t var_id, int8_t init_value);
-    void state_store_i8(uint32_t func_id, uint32_t var_id, int8_t value);
-
-    int16_t state_load_i16(uint32_t func_id, uint32_t var_id, int16_t init_value);
-    void state_store_i16(uint32_t func_id, uint32_t var_id, int16_t value);
-
-    int32_t state_load_i32(uint32_t func_id, uint32_t var_id, int32_t init_value);
-    void state_store_i32(uint32_t func_id, uint32_t var_id, int32_t value);
-
-    int64_t state_load_i64(uint32_t func_id, uint32_t var_id, int64_t init_value);
-    void state_store_i64(uint32_t func_id, uint32_t var_id, int64_t value);
-
-    float state_load_f32(uint32_t func_id, uint32_t var_id, float init_value);
-    void state_store_f32(uint32_t func_id, uint32_t var_id, float value);
-
-    double state_load_f64(uint32_t func_id, uint32_t var_id, double init_value);
-    void state_store_f64(uint32_t func_id, uint32_t var_id, double value);
+    #undef DECLARE_STATE_OPS
 
     uint32_t state_load_str(uint32_t func_id, uint32_t var_id, uint32_t init_handle);
     void state_store_str(uint32_t func_id, uint32_t var_id, uint32_t str_handle);
 
-    // ===== Series Operations =====
-    // For now, these are stubs that panic - series operations are complex
-    uint32_t series_create_empty(uint32_t length, uint32_t element_size);
-    uint64_t series_len(uint32_t handle);
-    uint32_t series_slice(uint32_t handle, uint32_t start, uint32_t end);
 
-    // ===== String Operations =====
-    uint32_t string_from_literal(uint32_t ptr, uint32_t len);
-    uint32_t string_len(uint32_t handle);
-    uint32_t string_equal(uint32_t handle1, uint32_t handle2);
+
+    // Series element operations (per type) - using macro with proper C++ types
+    #define DECLARE_SERIES_OPS(suffix, cpptype) \
+        uint32_t series_create_empty_##suffix(uint32_t length); \
+        void series_set_element_##suffix(uint32_t handle, uint32_t index, cpptype value); \
+        cpptype series_index_##suffix(uint32_t handle, uint32_t index); \
+        uint32_t series_element_add_##suffix(uint32_t handle, cpptype value); \
+        uint32_t series_element_mul_##suffix(uint32_t handle, cpptype value); \
+        uint32_t series_element_sub_##suffix(uint32_t handle, cpptype value); \
+        uint32_t series_element_div_##suffix(uint32_t handle, cpptype value); \
+        uint32_t series_series_add_##suffix(uint32_t a, uint32_t b); \
+        uint32_t series_series_mul_##suffix(uint32_t a, uint32_t b); \
+        uint32_t series_series_sub_##suffix(uint32_t a, uint32_t b); \
+        uint32_t series_series_div_##suffix(uint32_t a, uint32_t b); \
+        uint32_t series_compare_gt_##suffix(uint32_t a, uint32_t b); \
+        uint32_t series_compare_lt_##suffix(uint32_t a, uint32_t b); \
+        uint32_t series_compare_ge_##suffix(uint32_t a, uint32_t b); \
+        uint32_t series_compare_le_##suffix(uint32_t a, uint32_t b); \
+        uint32_t series_compare_eq_##suffix(uint32_t a, uint32_t b); \
+        uint32_t series_compare_ne_##suffix(uint32_t a, uint32_t b); \
+
+    DECLARE_SERIES_OPS(u8, uint8_t)
+    DECLARE_SERIES_OPS(u16, uint16_t)
+    DECLARE_SERIES_OPS(u32, uint32_t)
+    DECLARE_SERIES_OPS(u64, uint64_t)
+    DECLARE_SERIES_OPS(i8, int8_t)
+    DECLARE_SERIES_OPS(i16, int16_t)
+    DECLARE_SERIES_OPS(i32, int32_t)
+    DECLARE_SERIES_OPS(i64, int64_t)
+    DECLARE_SERIES_OPS(f32, float)
+    DECLARE_SERIES_OPS(f64, double)
+
+    #undef DECLARE_SERIES_OPS
 
     // ===== Generic Operations =====
     uint64_t now();
     uint64_t len(uint32_t handle);
     void panic(uint32_t ptr, uint32_t len);
 
-    // ===== Math Operations =====
-    float math_pow_f32(float base, float exp);
-    double math_pow_f64(double base, double exp);
+    #define DECLARE_MATH_POW_OP(suffix, cpptype) \
+        cpptype math_pow_##suffix(cpptype base, cpptype exp);
 
-    uint8_t math_int_pow_u8(uint8_t base, uint8_t exp);
-    uint16_t math_int_pow_u16(uint16_t base, uint16_t exp);
-    uint32_t math_int_pow_u32(uint32_t base, uint32_t exp);
-    uint64_t math_int_pow_u64(uint64_t base, uint64_t exp);
+    DECLARE_MATH_POW_OP(u8, uint8_t)
+    DECLARE_MATH_POW_OP(u16, uint16_t)
+    DECLARE_MATH_POW_OP(u32, uint32_t)
+    DECLARE_MATH_POW_OP(u64, uint64_t)
+    DECLARE_MATH_POW_OP(i8, int8_t)
+    DECLARE_MATH_POW_OP(i16, int16_t)
+    DECLARE_MATH_POW_OP(i32, int32_t)
+    DECLARE_MATH_POW_OP(i64, int64_t)
+    DECLARE_MATH_POW_OP(f32, float)
+    DECLARE_MATH_POW_OP(f64, double)
+    #undef DECLARE_MATH_POW_OP
 
-    int8_t math_int_pow_i8(int8_t base, int8_t exp);
-    int16_t math_int_pow_i16(int16_t base, int16_t exp);
-    int32_t math_int_pow_i32(int32_t base, int32_t exp);
-    int64_t math_int_pow_i64(int64_t base, int64_t exp);
+    // ===== Series Operations (Stubs for compiler bindings) =====
+    uint64_t series_len(uint32_t handle);
+    uint32_t series_slice(uint32_t handle, uint32_t start, uint32_t end);
+
+    // ===== String Operations =====
+    uint32_t string_from_literal(uint32_t ptr, uint32_t len);
+    uint32_t string_concat(uint32_t ptr, uint32_t len);
+    uint32_t string_equal(uint32_t handle1, uint32_t handle2);
+    uint32_t string_len(uint32_t handle);
 };
 
 /// Create import vector with all registered host functions for Wasmtime.
-/// Must be called before wasm_instance_new().
-/// Returns wasm_extern_vec_t that should be passed to wasm_instance_new().
-wasm_extern_vec_t create_imports(wasmtime_store_t *store, Runtime *runtime);
-
-/// Clean up the imports vector created by create_imports().
-void delete_imports(wasm_extern_vec_t *imports);
-
-/// Get the Runtime instance from the Wasmtime store.
-/// Used by host function callbacks to access the Runtime.
-Runtime *get_runtime_from_store(wasmtime_store_t *store);
-
-/// Set the Runtime instance in the store's user data.
-/// Called after store creation, before instantiation.
-void set_runtime_in_store(wasmtime_store_t *store, Runtime *runtime);
+/// Must be called before instance creation.
+/// Returns vector of Extern objects that should be passed to Instance::create().
+std::vector<wasmtime::Extern> create_imports(wasmtime::Store &store, Bindings *runtime);
 
 }

@@ -1084,3 +1084,102 @@ TEST(TestSeries, testResizeToZero) {
     ASSERT_EQ(s.size(), 0);
     ASSERT_TRUE(s.empty());
 }
+
+/// @brief it should correctly set a SampleValue at an index for numeric types
+TEST(TestSeries, testSetSampleValueF32) {
+    telem::Series s(telem::FLOAT32_T, 5);
+    s.write(1.0f);
+    s.write(2.0f);
+    s.write(3.0f);
+    s.write(4.0f);
+    s.write(5.0f);
+
+    // Test setting with different numeric types in SampleValue
+    telem::SampleValue val_double = 42.5f;
+    s.set(0, val_double);
+    ASSERT_EQ(s.at<float>(0), 42.5f);
+}
+
+/// @brief it should correctly set a SampleValue at a negative index
+TEST(TestSeries, testSetSampleValueNegativeIndex) {
+    telem::Series s(telem::INT32_T, 5);
+    for (int i = 1; i <= 5; i++)
+        s.write(i);
+
+    telem::SampleValue val = 999;
+    s.set(-1, val);
+    ASSERT_EQ(s.at<int32_t>(4), 999);
+
+    s.set(-3, val);
+    ASSERT_EQ(s.at<int32_t>(2), 999);
+}
+
+/// @brief it should correctly set a TimeStamp SampleValue
+TEST(TestSeries, testSetSampleValueTimestamp) {
+    telem::Series s(telem::TIMESTAMP_T, 3);
+    s.write(telem::TimeStamp(100));
+    s.write(telem::TimeStamp(200));
+    s.write(telem::TimeStamp(300));
+
+    telem::SampleValue val = telem::TimeStamp(9999);
+    s.set(1, val);
+    ASSERT_EQ(s.at<telem::TimeStamp>(1).nanoseconds(), 9999);
+}
+
+/// @brief it should throw an error when setting SampleValue on variable-size series
+TEST(TestSeries, testSetSampleValueVariableError) {
+    telem::Series s(std::vector<std::string>{"hello", "world"});
+
+    telem::SampleValue val = std::string("test");
+    ASSERT_THROW(s.set(0, val), std::runtime_error);
+}
+
+/// @brief it should throw an error when setting string SampleValue on non-string series
+TEST(TestSeries, testSetSampleValueStringError) {
+    telem::Series s(telem::INT32_T, 3);
+    s.write(1);
+    s.write(2);
+    s.write(3);
+
+    telem::SampleValue val = std::string("test");
+    ASSERT_THROW(s.set(0, val), std::runtime_error);
+}
+
+/// @brief it should throw an error when index is out of bounds
+TEST(TestSeries, testSetSampleValueOutOfBounds) {
+    telem::Series s(telem::UINT32_T, 3);
+    s.write(1u);
+    s.write(2u);
+    s.write(3u);
+
+    telem::SampleValue val = 999u;
+    ASSERT_THROW(s.set(5, val), std::runtime_error);
+    ASSERT_THROW(s.set(-10, val), std::runtime_error);
+}
+
+/// @brief it should work with all numeric data types
+TEST(TestSeries, testSetSampleValueAllNumericTypes) {
+    // Test uint8_t
+    telem::Series s_uint8(telem::UINT8_T, 3);
+    for (uint8_t i = 1; i <= 3; i++)
+        s_uint8.write(i);
+    telem::SampleValue val_uint8 = static_cast<uint8_t>(99);
+    s_uint8.set(1, val_uint8);
+    ASSERT_EQ(s_uint8.at<uint8_t>(1), 99);
+
+    // Test int64_t
+    telem::Series s_int64(telem::INT64_T, 3);
+    for (int64_t i = 1; i <= 3; i++)
+        s_int64.write(i);
+    telem::SampleValue val_int64 = static_cast<int64_t>(123456789);
+    s_int64.set(2, val_int64);
+    ASSERT_EQ(s_int64.at<int64_t>(2), 123456789);
+
+    // Test float64
+    telem::Series s_float64(telem::FLOAT64_T, 3);
+    for (int i = 1; i <= 3; i++)
+        s_float64.write(static_cast<double>(i));
+    telem::SampleValue val_float64 = 3.14159;
+    s_float64.set(0, val_float64);
+    ASSERT_DOUBLE_EQ(s_float64.at<double>(0), 3.14159);
+}

@@ -6,7 +6,6 @@ cc_library(
         "factory.h",
         "module.h",
         "node.h",
-        "utils.h",
     ],
     visibility = ["//arc/cpp/runtime:__subpackages__"],
     deps = [

@@ -404,11 +404,11 @@ public:
         }
     }
 
-    /// @brief sets a number at an index.
+    /// @brief sets a number at an index with type casting based on series data type.
     /// @param index the index to set the number at. If negative, the index is
     /// treated as an offset from the end of the series.
-    /// @param value the value to set. The provided value should be compatible with
-    /// the series' data type. It is up to you to ensure that this is the case.
+    /// @param value the value to set. The value will be cast to match the series'
+    /// data type.
     template<typename NumericType>
     void set(const int &index, const NumericType value) {
         static_assert(
@@ -416,10 +416,69 @@ public:
             "NumericType must be a numeric type"
         );
         const auto adjusted = this->validate_bounds(index);
-        auto *dest = reinterpret_cast<NumericType *>(
-            data_.get() + adjusted * this->data_type().density()
+        const auto dt = this->data_type();
+        auto *base_ptr = data_.get() + adjusted * dt.density();
+
+        if (dt == FLOAT64_T) {
+            *reinterpret_cast<double *>(base_ptr) = static_cast<double>(value);
+        } else if (dt == FLOAT32_T) {
+            *reinterpret_cast<float *>(base_ptr) = static_cast<float>(value);
+        } else if (dt == INT64_T || dt == TIMESTAMP_T) {
+            *reinterpret_cast<int64_t *>(base_ptr) = static_cast<int64_t>(value);
+        } else if (dt == INT32_T) {
+            *reinterpret_cast<int32_t *>(base_ptr) = static_cast<int32_t>(value);
+        } else if (dt == INT16_T) {
+            *reinterpret_cast<int16_t *>(base_ptr) = static_cast<int16_t>(value);
+        } else if (dt == INT8_T) {
+            *reinterpret_cast<int8_t *>(base_ptr) = static_cast<int8_t>(value);
+        } else if (dt == UINT64_T) {
+            *reinterpret_cast<uint64_t *>(base_ptr) = static_cast<uint64_t>(value);
+        } else if (dt == UINT32_T) {
+            *reinterpret_cast<uint32_t *>(base_ptr) = static_cast<uint32_t>(value);
+        } else if (dt == UINT16_T) {
+            *reinterpret_cast<uint16_t *>(base_ptr) = static_cast<uint16_t>(value);
+        } else if (dt == UINT8_T) {
+            *reinterpret_cast<uint8_t *>(base_ptr) = static_cast<uint8_t>(value);
+        }
+    }
+
+    /// @brief sets a TimeStamp at an index.
+    /// @param index the index to set the timestamp at. If negative, the index is
+    /// treated as an offset from the end of the series.
+    /// @param value the timestamp value to set.
+    void set(const int &index, const TimeStamp value) {
+        this->set(index, value.nanoseconds());
+    }
+
+    /// @brief sets a SampleValue at an index.
+    /// @param index the index to set the value at. If negative, the index is
+    /// treated as an offset from the end of the series.
+    /// @param val the SampleValue to set. The value will be written based on
+    /// the series' data type.
+    void set(const int &index, const SampleValue &val) {
+        if (this->data_type().is_variable()) {
+            throw std::runtime_error(
+                "set() with SampleValue is not supported for variable-size data types"
+            );
+        }
+        if (std::holds_alternative<std::string>(val)) {
+            throw std::runtime_error(
+                "cannot set string value on non-string series"
+            );
+        }
+        if (std::holds_alternative<TimeStamp>(val)) {
+            this->set(index, std::get<TimeStamp>(val));
+            return;
+        }
+        std::visit(
+            [this, index]<typename T>(const T &v) {
+                if constexpr (!std::is_same_v<T, std::string> &&
+                              !std::is_same_v<T, TimeStamp>) {
+                    this->set(index, v);
+                }
+            },
+            val
         );
-        *dest = value;
     }
 
     /// @brief sets the given array of numeric data at the given index.

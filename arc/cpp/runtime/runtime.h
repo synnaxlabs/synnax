@@ -40,7 +40,7 @@ class Runtime {
 
     breaker::Breaker breaker;
     std::shared_ptr<wasm::Module> mod;
-    std::unique_ptr<wasm::bindings::Runtime> bindings_runtime;
+    std::unique_ptr<wasm::Bindings> bindings_runtime;
     std::unique_ptr<state::State> state;
     std::unique_ptr<scheduler::Scheduler> scheduler;
     std::unique_ptr<loop::Loop> loop;
@@ -54,7 +54,7 @@ public:
     Runtime(
         const breaker::Config &breaker_cfg,
         std::shared_ptr<wasm::Module> mod,
-        std::unique_ptr<wasm::bindings::Runtime> bindings_runtime,
+        std::unique_ptr<wasm::Bindings> bindings_runtime,
         std::unique_ptr<state::State> state,
         std::unique_ptr<scheduler::Scheduler> scheduler,
         std::unique_ptr<loop::Loop> loop
@@ -130,13 +130,13 @@ inline std::pair<std::unique_ptr<Runtime>, xerrors::Error> load(const Config &cf
     auto state = std::make_unique<state::State>(state_cfg);
 
     // Step 2: Create bindings runtime
-    auto bindings_runtime = std::make_unique<wasm::bindings::Runtime>(
+    auto bindings_runtime = std::make_unique<wasm::Bindings>(
         state.get(),
         nullptr
     );
 
     // Step 3: Initialize WASM Module with bindings
-    wasm::ModuleConfig module_cfg{.module = cfg.mod, .runtime = bindings_runtime.get()};
+    wasm::ModuleConfig module_cfg{.module = cfg.mod, .bindings = bindings_runtime.get()};
     auto [mod, mod_err] = wasm::Module::open(module_cfg);
     if (mod_err) return {nullptr, mod_err};
 
