@@ -42,7 +42,7 @@
           "type": {
             "kind": 8
           },
-          "value": "100ms"
+          "value": 1000000
         }
       ],
       "inputs": [],

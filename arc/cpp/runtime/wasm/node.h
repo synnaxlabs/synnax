@@ -53,9 +53,7 @@ public:
         }
 
         if (this->ir.inputs.empty()) max_length = 1;
-
         if (max_length <= 0) return xerrors::NIL;
-
         for (auto &offset: this->offsets)
             offset = 0;
 
@@ -94,22 +92,19 @@ public:
                 ts = telem::TimeStamp::now();
 
             for (size_t j = 0; j < results.size(); j++) {
-                if (!results[j].changed) continue;
-                const auto out = this->state.output(j);
-                const auto out_time = this->state.output_time(j);
-                out->set(this->offsets[j], results[j].value);
-                out_time->set(this->offsets[j], ts);
+                auto [value, changed] = results[j];
+                if (!changed) continue;
+                this->state.output(j)->set(this->offsets[j], value);
+                this->state.output_time(j)->set(this->offsets[j], ts);
                 this->offsets[j]++;
             }
         }
 
         for (size_t j = 0; j < this->ir.outputs.size(); j++) {
-            const auto out = this->state.output(j);
-            const auto out_time = this->state.output_time(j);
             const auto off = this->offsets[j];
-            out->resize(off);
-            out_time->resize(off);
-            if (off > 0) ctx.mark_changed(ir.outputs[j].name);
+            this->state.output(j)->resize(off);
+            this->state.output_time(j)->resize(off);
+            if (off > 0) ctx.mark_changed(this->ir.outputs[j].name);
         }
 
         return xerrors::NIL;

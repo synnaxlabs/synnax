@@ -48,16 +48,30 @@ inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
 }
 
 /// Convert wasmtime::Val to SampleValue after WASM function returns
-inline telem::SampleValue sample_from_wasm(const wasmtime::Val &val) {
-    switch (val.kind()) {
-        case wasmtime::ValKind::I32:
+inline telem::SampleValue sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
+    switch (type.kind) {
+        case types::Kind::U8:
+            return telem::SampleValue(static_cast<uint8_t>(val.i32()));
+        case types::Kind::U16:
+            return telem::SampleValue(static_cast<uint16_t>(val.i32()));
+        case types::Kind::U32:
+            return telem::SampleValue(static_cast<uint32_t>(val.i32()));
+        case types::Kind::U64:
+            return telem::SampleValue(static_cast<uint64_t>(val.i64()));
+        case types::Kind::I8:
+            return telem::SampleValue(static_cast<int8_t>(val.i32()));
+        case types::Kind::I16:
+            return telem::SampleValue(static_cast<int16_t>(val.i32()));
+        case types::Kind::I32:
             return telem::SampleValue(val.i32());
-        case wasmtime::ValKind::I64:
+        case types::Kind::I64:
             return telem::SampleValue(val.i64());
-        case wasmtime::ValKind::F32:
+        case types::Kind::F32:
             return telem::SampleValue(val.f32());
-        case wasmtime::ValKind::F64:
+        case types::Kind::F64:
             return telem::SampleValue(val.f64());
+        case types::Kind::TimeStamp:
+            return telem::SampleValue(telem::TimeStamp(val.i64()));
         default:
             return telem::SampleValue(static_cast<int32_t>(0));
     }
@@ -251,7 +265,7 @@ public:
             if (base == 0) {
                 if (!output_values.empty() && !results.empty())
                     this->output_values[0] = Result{
-                        .value=sample_from_wasm(results[0]),
+                        .value=sample_from_wasm(results[0], this->outputs[0].type),
                         .changed=true
                     };
                 return {this->output_values, xerrors::NIL};
@@ -291,29 +305,24 @@ public:
         }
     };
 
+
     std::pair<Function, xerrors::Error> func(const std::string &name) {
         // Use C++ API to lookup export by name
         const auto export_opt = instance.get(store, name);
+        const Function zero_func(*this, wasmtime::Func({}), {}, {}, 0);
         if (!export_opt)
-            return {
-                Function(*this, wasmtime::Func({}), {}, {}, 0),
-                xerrors::NOT_FOUND,
-            };
+            return {zero_func,xerrors::NOT_FOUND};
 
-        // Check if the export is a function using std::get_if
         const auto *func_ptr = std::get_if<wasmtime::Func>(&*export_opt);
         if (!func_ptr)
             return {
-                Function(*this, wasmtime::Func({}), {}, {}, 0),
-                xerrors::Error("export is not a function")
+                zero_func,
+                xerrors::Error(xerrors::VALIDATION, "export is not a function")
             };
 
         const auto func_it = this->cfg.module.find_function(name);
         if (func_it == this->cfg.module.functions.end())
-            return {
-                Function(*this, wasmtime::Func({}), {}, {}, 0),
-                xerrors::NOT_FOUND
-            };
+            return {zero_func,xerrors::NOT_FOUND};
 
         uint32_t base = 0;
         if (const auto base_it = this->cfg.module.output_memory_bases.find(name);
@@ -321,7 +330,10 @@ public:
             base = base_it->second;
         }
 
-        return {Function(*this, *func_ptr, func_it->outputs, func_it->inputs, base), xerrors::NIL};
+        return {
+            Function(*this, *func_ptr, func_it->outputs, func_it->inputs, base),
+            xerrors::NIL
+        };
     }
 };
 }

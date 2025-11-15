@@ -40,7 +40,7 @@ TEST(RuntimeTest, RuntimeStartStop) {
     };
     auto [runtime, err] = arc::runtime::load(config);
     ASSERT_NIL(err);
-    auto results = runtime->run(10000 * 2);
+    auto results = runtime->run(1000 * 2);
 
     // Write results to CSV file
     std::ofstream csv_file("/Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/cpp/runtime/runtime_results.csv");
