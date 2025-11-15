@@ -1,0 +1,24 @@
+# NOTE: Windows does not support glob patterns like **/node_modules in .bazelignore.
+# We must list each node_modules directory explicitly for cross-platform compatibility.
+# If you add a new package with node_modules, add its path below.
+
+node_modules
+alamos/ts/node_modules
+arc/ts/node_modules
+client/ts/node_modules
+configs/eslint/node_modules
+configs/stylelint/node_modules
+configs/ts/node_modules
+configs/vite/node_modules
+console/node_modules
+docs/site/node_modules
+docs/videos/node_modules
+drift/examples/tauri/node_modules
+drift/node_modules
+freighter/ts/node_modules
+integration/node_modules
+integration/ts/node_modules
+pluto/examples/node_modules
+pluto/node_modules
+x/media/node_modules
+x/ts/node_modules

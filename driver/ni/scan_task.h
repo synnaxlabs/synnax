@@ -39,7 +39,7 @@ struct ResetDeviceCommandArgs {
     std::vector<std::string> device_keys;
 
     explicit ResetDeviceCommandArgs(xjson::Parser &parser):
-        device_keys(parser.required_vec<std::string>("device_keys")) {}
+        device_keys(parser.field<std::vector<std::string>>("device_keys")) {}
 };
 
 /// @brief an extension of the default synnax device that also includes NI related
@@ -97,9 +97,9 @@ struct ScanTaskConfig {
     std::vector<std::regex> ignored_models;
 
     explicit ScanTaskConfig(xjson::Parser &cfg):
-        rate(telem::Rate(cfg.optional<double>("rate", DEFAULT_SCAN_RATE.hz()))),
-        enabled(cfg.optional<bool>("enabled", true)) {
-        const auto i = cfg.optional_vec<std::string>(
+        rate(telem::Rate(cfg.field<double>("rate", DEFAULT_SCAN_RATE.hz()))),
+        enabled(cfg.field<bool>("enabled", true)) {
+        const auto i = cfg.field<std::vector<std::string>>(
             "ignored_models",
             DEFAULT_IGNORED_MODELS
         );

@@ -38,9 +38,9 @@ struct ScanTaskConfig {
     const int tcp_scan_multiplier;
 
     explicit ScanTaskConfig(xjson::Parser &cfg):
-        rate(telem::Rate(cfg.optional<double>("rate", DEFAULT_SCAN_RATE.hz()))),
-        enabled(cfg.optional<bool>("enabled", true)),
-        tcp_scan_multiplier(cfg.optional<int>("tcp_scan_multiplier", 10)) {}
+        rate(telem::Rate(cfg.field<double>("rate", DEFAULT_SCAN_RATE.hz()))),
+        enabled(cfg.field<bool>("enabled", true)),
+        tcp_scan_multiplier(cfg.field<int>("tcp_scan_multiplier", 10)) {}
 };
 
 class Scanner final : public common::Scanner {

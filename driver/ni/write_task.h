@@ -66,7 +66,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         xjson::Parser &cfg
     ):
         common::BaseWriteTaskConfig(cfg),
-        state_rate(telem::Rate(cfg.required<float>("state_rate"))) {
+        state_rate(telem::Rate(cfg.field<float>("state_rate"))) {
         cfg.iter("channels", [&](xjson::Parser &ch_cfg) {
             auto ch = channel::parse_output(ch_cfg);
             if (ch != nullptr && ch->enabled)
