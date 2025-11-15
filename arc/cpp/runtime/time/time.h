@@ -36,7 +36,7 @@ class Interval : public node::Node {
 
 public:
     explicit Interval(const IntervalConfig cfg, state::Node state):
-        state(state), cfg(cfg), last_fired(-1 * cfg.interval)  {}
+        state(state), cfg(cfg), last_fired(-1 * cfg.interval) {}
 
     xerrors::Error next(node::Context &ctx) override {
         if (ctx.elapsed - this->last_fired < this->cfg.interval) return xerrors::NIL;

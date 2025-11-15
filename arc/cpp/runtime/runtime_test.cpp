@@ -43,7 +43,9 @@ TEST(RuntimeTest, RuntimeStartStop) {
     auto results = runtime->run(1000 * 2);
 
     // Write results to CSV file
-    std::ofstream csv_file("/Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/cpp/runtime/runtime_results.csv");
+    std::ofstream csv_file(
+        "/Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/cpp/runtime/runtime_results.csv"
+    );
     csv_file << "iteration,elapsed_ns\n";
     for (size_t i = 0; i < results.size(); i++) {
         csv_file << i << "," << results[i].nanoseconds() << "\n";

@@ -133,8 +133,8 @@ struct Params {
     [[nodiscard]] size_t size() const { return this->params.size(); }
     [[nodiscard]] bool empty() const { return this->params.empty(); }
 
-    Param &operator[](size_t index) { return params.at(index); }
-    [[nodiscard]] const Param &operator[](size_t index) const {
+    Param &operator[](const size_t index) { return params.at(index); }
+    [[nodiscard]] const Param &operator[](const size_t index) const {
         return params.at(index);
     }
 };

@@ -29,11 +29,7 @@ class Node : public node::Node {
     std::vector<int> offsets;
 
 public:
-    Node(
-        const ir::Node &node,
-        state::Node state,
-        const Module::Function &func
-    ):
+    Node(const ir::Node &node, state::Node state, const Module::Function &func):
         ir(node), state(std::move(state)), func(func) {
         inputs.resize(node.inputs.size());
         offsets.resize(node.inputs.size());
@@ -45,8 +41,8 @@ public:
         int64_t max_length = 0;
         int64_t longest_input_idx = 0;
         for (size_t i = 0; i < this->ir.inputs.size(); i++) {
-            if (const auto data_len = static_cast<int64_t>(this->state.input(i)->size());
-                data_len > max_length) {
+            const auto data_len = static_cast<int64_t>(this->state.input(i)->size());
+            if (data_len > max_length) {
                 max_length = data_len;
                 longest_input_idx = static_cast<int64_t>(i);
             }
@@ -77,9 +73,9 @@ public:
             if (err) {
                 ctx.report_error(
                     xerrors::Error(
-                        "WASM execution failed in node " + this->ir.key + " at sample " +
-                        std::to_string(i) + "/" + std::to_string(max_length) + ": " +
-                        err.message()
+                        "WASM execution failed in node " + this->ir.key +
+                        " at sample " + std::to_string(i) + "/" +
+                        std::to_string(max_length) + ": " + err.message()
                     )
                 );
                 continue;

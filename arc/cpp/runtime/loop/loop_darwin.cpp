@@ -130,8 +130,7 @@ protected:
 
             if (result != KERN_SUCCESS) {
                 LOG(WARNING) << "[loop] Failed to set CPU affinity to "
-                             << cfg.cpu_affinity << ": "
-                             << mach_error_string(result);
+                             << cfg.cpu_affinity << ": " << mach_error_string(result);
             } else {
                 LOG(INFO) << "[loop] Set thread affinity tag to " << cfg.cpu_affinity;
             }

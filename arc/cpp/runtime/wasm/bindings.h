@@ -24,8 +24,9 @@ namespace arc::runtime::wasm {
 /// This is the "business logic" layer that the bindings call.
 class Bindings {
     [[maybe_unused]] state::State *state;
-    wasmtime::Store *store;  // Non-owning pointer to store (for accessing caller context)
-    wasmtime::Memory *memory;     // Non-owning pointer to WASM memory for string operations
+    wasmtime::Store
+        *store; // Non-owning pointer to store (for accessing caller context)
+    wasmtime::Memory *memory; // Non-owning pointer to WASM memory for string operations
 
     // String storage - handle to string mapping
     std::unordered_map<uint32_t, std::string> strings;
@@ -58,10 +59,10 @@ public:
     // Set the memory (used after module instantiation)
     void set_memory(wasmtime::Memory *mem) { this->memory = mem; }
 
-    #define DECLARE_CHANNEL_OPS(suffix, cpptype) \
-         cpptype channel_read_##suffix(uint32_t channel_id); \
-         void channel_write_##suffix(uint32_t channel_id, cpptype value); \
-         cpptype channel_blocking_read_##suffix(uint32_t channel_id);
+#define DECLARE_CHANNEL_OPS(suffix, cpptype)                                           \
+    cpptype channel_read_##suffix(uint32_t channel_id);                                \
+    void channel_write_##suffix(uint32_t channel_id, cpptype value);                   \
+    cpptype channel_blocking_read_##suffix(uint32_t channel_id);
 
     DECLARE_CHANNEL_OPS(u8, uint8_t)
     DECLARE_CHANNEL_OPS(u16, uint16_t)
@@ -74,16 +75,20 @@ public:
     DECLARE_CHANNEL_OPS(f32, float)
     DECLARE_CHANNEL_OPS(f64, double)
 
-    #undef DECLARE_CHANNEL_OPS
+#undef DECLARE_CHANNEL_OPS
 
     uint32_t channel_read_str(uint32_t channel_id);
     void channel_write_str(uint32_t channel_id, uint32_t str_handle);
     uint32_t channel_blocking_read_str(uint32_t channel_id);
 
-    // ===== State Operations =====
-    #define DECLARE_STATE_OPS(suffix, cpptype) \
-        cpptype state_load_##suffix(uint32_t func_id, uint32_t var_id, cpptype init_value); \
-        void state_store_##suffix(uint32_t func_id, uint32_t var_id, cpptype value);
+// ===== State Operations =====
+#define DECLARE_STATE_OPS(suffix, cpptype)                                             \
+    cpptype state_load_##suffix(                                                       \
+        uint32_t func_id,                                                              \
+        uint32_t var_id,                                                               \
+        cpptype init_value                                                             \
+    );                                                                                 \
+    void state_store_##suffix(uint32_t func_id, uint32_t var_id, cpptype value);
 
     DECLARE_STATE_OPS(u8, uint8_t)
     DECLARE_STATE_OPS(u16, uint16_t)
@@ -96,32 +101,30 @@ public:
     DECLARE_STATE_OPS(f32, float)
     DECLARE_STATE_OPS(f64, double)
 
-    #undef DECLARE_STATE_OPS
+#undef DECLARE_STATE_OPS
 
     uint32_t state_load_str(uint32_t func_id, uint32_t var_id, uint32_t init_handle);
     void state_store_str(uint32_t func_id, uint32_t var_id, uint32_t str_handle);
 
-
-
-    // Series element operations (per type) - using macro with proper C++ types
-    #define DECLARE_SERIES_OPS(suffix, cpptype) \
-        uint32_t series_create_empty_##suffix(uint32_t length); \
-        void series_set_element_##suffix(uint32_t handle, uint32_t index, cpptype value); \
-        cpptype series_index_##suffix(uint32_t handle, uint32_t index); \
-        uint32_t series_element_add_##suffix(uint32_t handle, cpptype value); \
-        uint32_t series_element_mul_##suffix(uint32_t handle, cpptype value); \
-        uint32_t series_element_sub_##suffix(uint32_t handle, cpptype value); \
-        uint32_t series_element_div_##suffix(uint32_t handle, cpptype value); \
-        uint32_t series_series_add_##suffix(uint32_t a, uint32_t b); \
-        uint32_t series_series_mul_##suffix(uint32_t a, uint32_t b); \
-        uint32_t series_series_sub_##suffix(uint32_t a, uint32_t b); \
-        uint32_t series_series_div_##suffix(uint32_t a, uint32_t b); \
-        uint32_t series_compare_gt_##suffix(uint32_t a, uint32_t b); \
-        uint32_t series_compare_lt_##suffix(uint32_t a, uint32_t b); \
-        uint32_t series_compare_ge_##suffix(uint32_t a, uint32_t b); \
-        uint32_t series_compare_le_##suffix(uint32_t a, uint32_t b); \
-        uint32_t series_compare_eq_##suffix(uint32_t a, uint32_t b); \
-        uint32_t series_compare_ne_##suffix(uint32_t a, uint32_t b); \
+// Series element operations (per type) - using macro with proper C++ types
+#define DECLARE_SERIES_OPS(suffix, cpptype)                                            \
+    uint32_t series_create_empty_##suffix(uint32_t length);                            \
+    void series_set_element_##suffix(uint32_t handle, uint32_t index, cpptype value);  \
+    cpptype series_index_##suffix(uint32_t handle, uint32_t index);                    \
+    uint32_t series_element_add_##suffix(uint32_t handle, cpptype value);              \
+    uint32_t series_element_mul_##suffix(uint32_t handle, cpptype value);              \
+    uint32_t series_element_sub_##suffix(uint32_t handle, cpptype value);              \
+    uint32_t series_element_div_##suffix(uint32_t handle, cpptype value);              \
+    uint32_t series_series_add_##suffix(uint32_t a, uint32_t b);                       \
+    uint32_t series_series_mul_##suffix(uint32_t a, uint32_t b);                       \
+    uint32_t series_series_sub_##suffix(uint32_t a, uint32_t b);                       \
+    uint32_t series_series_div_##suffix(uint32_t a, uint32_t b);                       \
+    uint32_t series_compare_gt_##suffix(uint32_t a, uint32_t b);                       \
+    uint32_t series_compare_lt_##suffix(uint32_t a, uint32_t b);                       \
+    uint32_t series_compare_ge_##suffix(uint32_t a, uint32_t b);                       \
+    uint32_t series_compare_le_##suffix(uint32_t a, uint32_t b);                       \
+    uint32_t series_compare_eq_##suffix(uint32_t a, uint32_t b);                       \
+    uint32_t series_compare_ne_##suffix(uint32_t a, uint32_t b);
 
     DECLARE_SERIES_OPS(u8, uint8_t)
     DECLARE_SERIES_OPS(u16, uint16_t)
@@ -134,15 +137,15 @@ public:
     DECLARE_SERIES_OPS(f32, float)
     DECLARE_SERIES_OPS(f64, double)
 
-    #undef DECLARE_SERIES_OPS
+#undef DECLARE_SERIES_OPS
 
     // ===== Generic Operations =====
     uint64_t now();
     uint64_t len(uint32_t handle);
     void panic(uint32_t ptr, uint32_t len);
 
-    #define DECLARE_MATH_POW_OP(suffix, cpptype) \
-        cpptype math_pow_##suffix(cpptype base, cpptype exp);
+#define DECLARE_MATH_POW_OP(suffix, cpptype)                                           \
+    cpptype math_pow_##suffix(cpptype base, cpptype exp);
 
     DECLARE_MATH_POW_OP(u8, uint8_t)
     DECLARE_MATH_POW_OP(u16, uint16_t)
@@ -154,7 +157,7 @@ public:
     DECLARE_MATH_POW_OP(i64, int64_t)
     DECLARE_MATH_POW_OP(f32, float)
     DECLARE_MATH_POW_OP(f64, double)
-    #undef DECLARE_MATH_POW_OP
+#undef DECLARE_MATH_POW_OP
 
     // ===== Series Operations (Stubs for compiler bindings) =====
     uint64_t series_len(uint32_t handle);

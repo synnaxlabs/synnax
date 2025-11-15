@@ -25,30 +25,35 @@ namespace arc::runtime::wasm {
 
 /// Convert SampleValue to wasmtime::Val for WASM function calls
 inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
-    return std::visit([](auto &&arg) -> wasmtime::Val {
-        using T = std::decay_t<decltype(arg)>;
-        if constexpr (std::is_same_v<T, double>) {
-            return wasmtime::Val(arg);
-        } else if constexpr (std::is_same_v<T, float>) {
-            return wasmtime::Val(arg);
-        } else if constexpr (std::is_same_v<T, int64_t>) {
-            return wasmtime::Val(arg);
-        } else if constexpr (std::is_same_v<T, uint64_t>) {
-            return wasmtime::Val(static_cast<int64_t>(arg));
-        } else if constexpr (std::is_same_v<T, telem::TimeStamp>) {
-            return wasmtime::Val(static_cast<int64_t>(arg.nanoseconds()));
-        } else if constexpr (std::is_same_v<T, std::string>) {
-            // Strings are passed as handles (uint32_t) which should already be converted
-            return wasmtime::Val(static_cast<int32_t>(0));
-        } else {
-            // int32_t, int16_t, int8_t, uint32_t, uint16_t, uint8_t
-            return wasmtime::Val(static_cast<int32_t>(arg));
-        }
-    }, val);
+    return std::visit(
+        [](auto &&arg) -> wasmtime::Val {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, double>) {
+                return wasmtime::Val(arg);
+            } else if constexpr (std::is_same_v<T, float>) {
+                return wasmtime::Val(arg);
+            } else if constexpr (std::is_same_v<T, int64_t>) {
+                return wasmtime::Val(arg);
+            } else if constexpr (std::is_same_v<T, uint64_t>) {
+                return wasmtime::Val(static_cast<int64_t>(arg));
+            } else if constexpr (std::is_same_v<T, telem::TimeStamp>) {
+                return wasmtime::Val(static_cast<int64_t>(arg.nanoseconds()));
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                // Strings are passed as handles (uint32_t) which should already be
+                // converted
+                return wasmtime::Val(static_cast<int32_t>(0));
+            } else {
+                // int32_t, int16_t, int8_t, uint32_t, uint16_t, uint8_t
+                return wasmtime::Val(static_cast<int32_t>(arg));
+            }
+        },
+        val
+    );
 }
 
 /// Convert wasmtime::Val to SampleValue after WASM function returns
-inline telem::SampleValue sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
+inline telem::SampleValue
+sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
     switch (type.kind) {
         case types::Kind::U8:
             return telem::SampleValue(static_cast<uint8_t>(val.i32()));
@@ -78,7 +83,8 @@ inline telem::SampleValue sample_from_wasm(const wasmtime::Val &val, const types
 }
 
 /// Convert raw memory bits to SampleValue based on Arc type
-inline telem::SampleValue sample_from_bits(const uint64_t bits, const types::Type &type) {
+inline telem::SampleValue
+sample_from_bits(const uint64_t bits, const types::Type &type) {
     switch (type.kind) {
         case types::Kind::U8:
             return telem::SampleValue(static_cast<uint8_t>(bits));
@@ -113,7 +119,6 @@ inline telem::SampleValue sample_from_bits(const uint64_t bits, const types::Typ
             return telem::SampleValue(static_cast<int32_t>(0));
     }
 }
-
 
 const auto BASE_ERROR = errors::RUNTIME.sub("wasm");
 const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
@@ -151,39 +156,50 @@ public:
 
     static std::pair<std::shared_ptr<Module>, xerrors::Error>
     open(const ModuleConfig &cfg) {
-        if (cfg.module.wasm.empty()) return {nullptr, xerrors::Error("wasm bytes are empty")};
+        if (cfg.module.wasm.empty())
+            return {
+                nullptr,
+                xerrors::Error(xerrors::VALIDATION, "wasm bytes are empty")
+            };
 
         wasmtime::Engine engine;
         wasmtime::Store store(engine);
 
-        // TODO: don't unwrap this
-        // Note: cfg.module.wasm is std::vector<uint8_t> (already decoded from base64)
-        // We need to convert to Span, but cfg is const, so we cast to non-const for the span
-        auto &wasm_bytes = const_cast<std::vector<uint8_t>&>(cfg.module.wasm);
-        auto mod = wasmtime::Module::compile(engine,
-            wasmtime::Span<uint8_t>(wasm_bytes.data(), wasm_bytes.size())).unwrap();
-
-        // Create imports if bindings are provided
-        std::vector<wasmtime::Extern> imports;
-        if (cfg.bindings != nullptr)
-            imports = create_imports(store, cfg.bindings);
-
+        auto &wasm_bytes = const_cast<std::vector<uint8_t> &>(cfg.module.wasm);
+        auto mod_result = wasmtime::Module::compile(
+            engine,
+            wasmtime::Span<uint8_t>(wasm_bytes.data(), wasm_bytes.size())
+        );
+        if (!mod_result)
+            return {
+                nullptr,
+                xerrors::Error(xerrors::VALIDATION, "failed to compile module")
+            };
+        const auto mod = mod_result.ok();
+        const auto imports = create_imports(store, cfg.bindings);
         auto instance = wasmtime::Instance::create(store, mod, imports).unwrap();
-        auto mem_opt = instance.get(store, "memory");
-        if (!mem_opt) {
-            return {nullptr, xerrors::Error("WASM module does not export 'memory'")};
-        }
+        const auto mem_opt = instance.get(store, "memory");
+        if (!mem_opt)
+            return {
+                nullptr,
+                xerrors::Error(
+                    xerrors::VALIDATION,
+                    "WASM module does not export 'memory'"
+                )
+            };
 
         const auto *mem_ptr = std::get_if<wasmtime::Memory>(&*mem_opt);
-        if (!mem_ptr) {
-            return {nullptr, xerrors::Error("export 'memory' is not a Memory type")};
-        }
+        if (!mem_ptr)
+            return {
+                nullptr,
+                xerrors::Error(
+                    xerrors::VALIDATION,
+                    "export 'memory' is not a Memory type"
+                )
+            };
         auto mem = *mem_ptr;
 
-        // Set memory in bindings after instantiation
-        if (cfg.bindings != nullptr) {
-            cfg.bindings->set_memory(&mem);
-        }
+        if (cfg.bindings != nullptr) cfg.bindings->set_memory(&mem);
         return {
             std::make_shared<Module>(
                 cfg,
@@ -197,17 +213,9 @@ public:
         };
     }
 
-    ~Module() {
-        // Wasmtime uses RAII - unique_ptrs will automatically clean up
-        // in reverse order: instance, module, store, engine
-        std::printf("Module destructor - cleaning up Wasmtime resources\n");
-    }
-
-    // Move semantics - default implementation works with unique_ptrs
     Module(Module &&other) noexcept = default;
     Module &operator=(Module &&other) noexcept = default;
 
-    // Delete copy operations
     Module(const Module &) = delete;
     Module &operator=(const Module &) = delete;
 
@@ -248,10 +256,9 @@ public:
                 changed = false;
 
             for (size_t i = 0; i < params.size(); i++)
-                args[i] = sample_to_wasm(params[i]);
+                this->args[i] = sample_to_wasm(params[i]);
 
-
-            auto result = fn.call(module.store, args);
+            auto result = fn.call(this->module.store, this->args);
             if (!result) {
                 auto trap = result.err();
                 auto msg = trap.message();
@@ -262,56 +269,46 @@ public:
 
             const auto results = result.ok();
 
-            if (base == 0) {
-                if (!output_values.empty() && !results.empty())
+            if (this->base == 0) {
+                if (!this->output_values.empty() && !results.empty())
                     this->output_values[0] = Result{
-                        .value=sample_from_wasm(results[0], this->outputs[0].type),
-                        .changed=true
+                        .value = sample_from_wasm(results[0], this->outputs[0].type),
+                        .changed = true
                     };
                 return {this->output_values, xerrors::NIL};
             }
 
-            // Access memory for outputs using C++ API
-            const auto mem_span = module.memory.data(module.store);
+            const auto mem_span = this->module.memory.data(this->module.store);
             const uint8_t *mem_data = mem_span.data();
             const size_t mem_size = mem_span.size();
 
-            // Check bounds for base address
-            if (base + sizeof(uint64_t) > mem_size)
+            if (this->base + sizeof(uint64_t) > mem_size)
                 return {{}, xerrors::Error("base address out of memory bounds")};
 
-            // Read dirty flags
             uint64_t dirty_flags = 0;
             memcpy(&dirty_flags, mem_data + base, sizeof(uint64_t));
-
-            // Extract output values
             for (size_t i = 0; i < this->outputs.size(); i++) {
-                if ((dirty_flags & 1ULL << i) != 0) {
-                    const uint32_t offset = this->offsets[i];
-                    if (offset + this->outputs[i].type.density() > mem_size) continue;
-
-                    uint64_t raw_value = 0;
-                    memcpy(&raw_value, mem_data + offset, this->outputs[i].type.density());
-
-                    // Store as Val - caller will extract based on type
-                    this->output_values[i] = Result{
-                        .value = sample_from_bits(raw_value, this->outputs[i].type),
-                        .changed = true
-                    };
-                }
+                if ((dirty_flags & 1ULL << i) == 0) continue;
+                const auto output = this->outputs[i];
+                const uint32_t offset = this->offsets[i];
+                if (offset + output.type.density() > mem_size) continue;
+                uint64_t raw_value = 0;
+                memcpy(&raw_value, mem_data + offset, output.type.density());
+                this->output_values[i] = Result{
+                    .value = sample_from_bits(raw_value, output.type),
+                    .changed = true
+                };
             }
 
             return {this->output_values, xerrors::NIL};
         }
     };
 
-
     std::pair<Function, xerrors::Error> func(const std::string &name) {
         // Use C++ API to lookup export by name
         const auto export_opt = instance.get(store, name);
         const Function zero_func(*this, wasmtime::Func({}), {}, {}, 0);
-        if (!export_opt)
-            return {zero_func,xerrors::NOT_FOUND};
+        if (!export_opt) return {zero_func, xerrors::NOT_FOUND};
 
         const auto *func_ptr = std::get_if<wasmtime::Func>(&*export_opt);
         if (!func_ptr)
@@ -322,7 +319,7 @@ public:
 
         const auto func_it = this->cfg.module.find_function(name);
         if (func_it == this->cfg.module.functions.end())
-            return {zero_func,xerrors::NOT_FOUND};
+            return {zero_func, xerrors::NOT_FOUND};
 
         uint32_t base = 0;
         if (const auto base_it = this->cfg.module.output_memory_bases.find(name);

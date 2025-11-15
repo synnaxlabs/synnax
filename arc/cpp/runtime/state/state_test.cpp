@@ -8,8 +8,10 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 #include "gtest/gtest.h"
-#include "x/cpp/xtest/xtest.h"
+
 #include "x/cpp/telem/series.h"
+#include "x/cpp/xtest/xtest.h"
+
 #include "arc/cpp/runtime/state/state.h"
 
 using namespace arc::runtime::state;
