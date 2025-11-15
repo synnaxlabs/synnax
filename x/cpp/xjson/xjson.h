@@ -411,7 +411,7 @@ template<typename T>
 T Parser::parse_value(const std::string &path, const json &j) {
     if constexpr (is_map_v<T>) {
         typedef typename is_map<T>::key_type K;
-        using V = is_map<T>::value_type;
+        using V = typename is_map<T>::value_type;
         if (!j.is_object()) {
             field_err(path, "expected an object");
             return T();
@@ -428,7 +428,7 @@ T Parser::parse_value(const std::string &path, const json &j) {
         }
         return map_result;
     } else if constexpr (is_vector_v<T>) {
-        using U = is_vector<T>::value_type;
+        using U = typename is_vector<T>::value_type;
         if (!j.is_array()) {
             field_err(path, "expected an array");
             return T();

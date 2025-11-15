@@ -1658,9 +1658,9 @@ struct CILinearPosition final : CICustomScale {
         initial_pos(cfg.field<double>("initial_pos", 0.0)),
         z_index_enable(cfg.field<bool>("z_index_enable", false)),
         z_index_val(cfg.field<double>("z_index_val", 0.0)),
-        z_index_phase(get_ci_z_index_phase(
-            cfg.field<std::string>("z_index_phase", "AHighBHigh")
-        )),
+        z_index_phase(
+            get_ci_z_index_phase(cfg.field<std::string>("z_index_phase", "AHighBHigh"))
+        ),
         terminal_a(cfg.field<std::string>("terminalA", "")),
         terminal_b(cfg.field<std::string>("terminalB", "")),
         terminal_z(cfg.field<std::string>("terminalZ", "")) {}
@@ -1746,9 +1746,9 @@ struct CIAngularPosition final : CICustomScale {
         initial_angle(cfg.field<double>("initial_angle", 0.0)),
         z_index_enable(cfg.field<bool>("z_index_enable", false)),
         z_index_val(cfg.field<double>("z_index_val", 0.0)),
-        z_index_phase(get_ci_z_index_phase(
-            cfg.field<std::string>("z_index_phase", "AHighBHigh")
-        )),
+        z_index_phase(
+            get_ci_z_index_phase(cfg.field<std::string>("z_index_phase", "AHighBHigh"))
+        ),
         terminal_a(cfg.field<std::string>("terminalA", "")),
         terminal_b(cfg.field<std::string>("terminalB", "")),
         terminal_z(cfg.field<std::string>("terminalZ", "")) {}
