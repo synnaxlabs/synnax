@@ -222,7 +222,7 @@ public:
             return T();
         }
 
-        for (const auto &path : paths) {
+        for (const auto &path: paths) {
             if (const auto iter = config.find(path); iter != config.end())
                 return get<T>(path, iter);
         }
@@ -240,7 +240,7 @@ public:
         if (noop) return default_value;
         if (paths.empty()) return default_value;
 
-        for (const auto &path : paths) {
+        for (const auto &path: paths) {
             if (const auto iter = config.find(path); iter != config.end())
                 return get<T>(path, iter);
         }
