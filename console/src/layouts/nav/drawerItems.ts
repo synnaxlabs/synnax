@@ -17,19 +17,13 @@ import { UserServices } from "@/user/services";
 import { Vis } from "@/vis";
 import { WorkspaceServices } from "@/workspace/services";
 
-export const LEFT_DRAWER_ITEMS: Layout.NavDrawerItem[] = [
-  ChannelServices.TOOLBAR,
-  UserServices.TOOLBAR,
-  WorkspaceServices.TOOLBAR,
-  Range.TOOLBAR,
+export const DRAWER_ITEMS: Layout.NavDrawerItem[] = [
   ...Hardware.NAV_DRAWER_ITEMS,
   Arc.TOOLBAR,
+  Range.TOOLBAR,
   Status.TOOLBAR,
-];
-
-export const BOTTOM_DRAWER_ITEMS: Layout.NavDrawerItem[] = [Vis.TOOLBAR];
-
-export const DRAWER_ITEMS: Layout.NavDrawerItem[] = [
-  ...LEFT_DRAWER_ITEMS,
-  ...BOTTOM_DRAWER_ITEMS,
+  Vis.TOOLBAR,
+  ChannelServices.TOOLBAR,
+  WorkspaceServices.TOOLBAR,
+  UserServices.TOOLBAR,
 ];

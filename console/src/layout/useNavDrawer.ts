@@ -38,6 +38,7 @@ export interface NavDrawerItem extends Nav.DrawerItem, NavMenuItem {}
 
 export interface UseNavDrawerReturn {
   activeItem: NavDrawerItem | undefined;
+  menuItems: NavMenuItem[];
   onSelect: (item: string) => void;
   onCollapse: () => void;
   onResize: (size: number) => void;
@@ -64,6 +65,9 @@ export const useNavDrawer = (
   let activeItem: NavDrawerItem | undefined;
   if (state?.activeItem != null)
     activeItem = items.find((item) => item.key === state.activeItem);
+  const menuItems = state?.menuItems
+    .map((key) => items.find((item) => item.key === key))
+    .filter((item) => item != null);
 
   if (activeItem != null) activeItem.initialSize = state?.size;
 
@@ -94,6 +98,7 @@ export const useNavDrawer = (
 
   return {
     activeItem,
+    menuItems: menuItems ?? [],
     onSelect,
     onCollapse,
     onResize,

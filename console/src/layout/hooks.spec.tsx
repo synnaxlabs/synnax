@@ -238,6 +238,7 @@ describe("layout hooks", () => {
       const { result } = renderHook(() => useNavDrawer("left", mockItems), { wrapper });
 
       expect(result.current.activeItem).toBeUndefined();
+      expect(result.current.menuItems).toHaveLength(mockItems.length);
       expect(result.current.hover).toBe(false);
     });
 
@@ -256,6 +257,7 @@ describe("layout hooks", () => {
       act(() => {
         result.current.onSelect("channel");
       });
+      expect(result.current.menuItems).toContain(mockItems[0]);
 
       act(() => {
         result.current.onCollapse();

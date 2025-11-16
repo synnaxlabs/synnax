@@ -14,7 +14,6 @@ import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
-import { BOTTOM_DRAWER_ITEMS, LEFT_DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
 import { LOGO_LOCATION } from "@/layouts/nav/logo";
 import { Menu } from "@/layouts/nav/Menu";
 
@@ -26,10 +25,10 @@ export const Left = (): ReactElement => (
       </Nav.Bar.Start>
     )}
     <Nav.Bar.Content>
-      <Menu location="left" items={LEFT_DRAWER_ITEMS} dividers={[1]} />
+      <Menu location="left" />
     </Nav.Bar.Content>
     <Nav.Bar.End bordered>
-      <Menu location="bottom" items={BOTTOM_DRAWER_ITEMS} />
+      <Menu location="bottom" />
     </Nav.Bar.End>
   </Layout.Nav.Bar>
 );

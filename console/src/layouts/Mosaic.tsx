@@ -341,7 +341,7 @@ const NavTop = (): ReactElement | null => {
   const { onSelect } = Layout.useNavDrawer("bottom", Nav.DRAWER_ITEMS);
   const activeName = Layout.useSelectActiveMosaicTabName();
   const activeWorkspaceName = Workspace.useSelectActiveName();
-  Layout.Nav.useTriggers({ items: NAV_ITEMS, location: "bottom" });
+  Layout.Nav.useTriggers({ items: NAV_ITEMS });
   const button = (
     <Button.Button
       variant="outlined"
@@ -395,10 +395,9 @@ export const MosaicWindow = memo<Layout.Renderer>(
     const [windowKey, mosaic] = Layout.useSelectMosaic();
     useLayoutEffect(() => {
       dispatch(
-        Layout.setNavDrawer({
+        Layout.setNavDrawerVisible({
           windowKey: layoutKey,
-          location: "bottom",
-          activeItem: "visualization",
+          key: "visualization",
         }),
       );
     }, [layoutKey]);

@@ -15,72 +15,61 @@ import { type ReactElement, useRef } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
 
 export interface MenuProps extends Omit<PMenu.MenuProps, "children" | "onChange"> {
   location: Layout.NavDrawerLocation;
-  items: Layout.NavDrawerItem[];
-  dividers?: number[];
 }
 
-export const Menu = ({
-  location,
-  items,
-  dividers,
-  ...rest
-}: MenuProps): ReactElement => {
+export const Menu = ({ location, ...rest }: MenuProps): ReactElement => {
   const positionRef = useRef<xy.XY>({ ...xy.ZERO });
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const { onSelect, activeItem, onStartHover, onStopHover } = Layout.useNavDrawer(
-    location,
-    items,
-  );
+  const { onSelect, menuItems, activeItem, onStartHover, onStopHover } =
+    Layout.useNavDrawer(location, DRAWER_ITEMS);
 
   return (
     <PMenu.Menu {...rest} onChange={onSelect}>
-      {items.map(({ key, icon, trigger }, index) => (
-        <>
-          <PMenu.Item
-            className={CSS(
-              CSS.BE("main-nav", "item"),
-              PCSS.selected(activeItem?.key === key),
-            )}
-            onClick={() => {
-              if (timeoutRef.current != null) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
-              }
-            }}
-            onMouseEnter={(e) => {
-              timeoutRef.current = setTimeout(() => {
-                timeoutRef.current = null;
-                onStartHover(key);
-                positionRef.current = xy.construct(e);
-                const lis = (e: MouseEvent) => {
-                  const delta = xy.translation(xy.construct(e), positionRef.current);
-                  if (Math.abs(delta.y) > 75 && Math.abs(delta.x) < 30) {
-                    onStopHover();
-                    window.removeEventListener("mousemove", lis);
-                  }
-                };
-                window.addEventListener("mousemove", lis);
-              }, 350);
-            }}
-            onMouseLeave={() => {
-              if (timeoutRef.current != null) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
-              }
-            }}
-            key={key}
-            itemKey={key}
-            size="large"
-            contrast={2}
-            triggerIndicator={trigger}
-          >
-            {icon}
-          </PMenu.Item>
-          {dividers?.includes(index) && <PMenu.Divider />}
-        </>
+      {menuItems.map(({ key, icon, trigger }) => (
+        <PMenu.Item
+          className={CSS(
+            CSS.BE("main-nav", "item"),
+            PCSS.selected(activeItem?.key === key),
+          )}
+          onClick={() => {
+            if (timeoutRef.current != null) {
+              clearTimeout(timeoutRef.current);
+              timeoutRef.current = null;
+            }
+          }}
+          onMouseEnter={(e) => {
+            timeoutRef.current = setTimeout(() => {
+              timeoutRef.current = null;
+              onStartHover(key);
+              positionRef.current = xy.construct(e);
+              const lis = (e: MouseEvent) => {
+                const delta = xy.translation(xy.construct(e), positionRef.current);
+                if (Math.abs(delta.y) > 75 && Math.abs(delta.x) < 30) {
+                  onStopHover();
+                  window.removeEventListener("mousemove", lis);
+                }
+              };
+              window.addEventListener("mousemove", lis);
+            }, 350);
+          }}
+          onMouseLeave={() => {
+            if (timeoutRef.current != null) {
+              clearTimeout(timeoutRef.current);
+              timeoutRef.current = null;
+            }
+          }}
+          key={key}
+          itemKey={key}
+          size="large"
+          contrast={2}
+          triggerIndicator={trigger}
+        >
+          {icon}
+        </PMenu.Item>
       ))}
     </PMenu.Menu>
   );

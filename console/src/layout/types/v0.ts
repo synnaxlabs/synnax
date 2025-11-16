@@ -157,7 +157,7 @@ export const ZERO_MOSAIC_STATE: MosaicState = {
   root: { key: 1, tabs: [] },
 };
 
-export const navDrawerEntryStateZ = z.object({
+const navDrawerEntryStateZ = z.object({
   activeItem: z.string().nullable(),
   menuItems: z.string().array(),
   size: z.number().optional(),
