@@ -20,7 +20,7 @@
 #include "x/cpp/binary/binary.h"
 #include "x/cpp/telem/telem.h"
 
-#include "x/go/telem/x/go/telem/telem.pb.h"
+#include "x/go/telem/telem.pb.h"
 
 using json = nlohmann::json;
 

@@ -11,6 +11,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"go/types"
 
 	"github.com/google/uuid"
@@ -18,6 +19,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	arclsp "github.com/synnaxlabs/arc/lsp"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
+	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -101,6 +103,7 @@ type (
 		Limit         int         `json:"limit" msgpack:"limit"`
 		Offset        int         `json:"offset" msgpack:"offset"`
 		IncludeStatus *bool       `json:"include_status" msgpack:"include_status"`
+		Compile       bool        `json:"compile" msgpack:"compile"`
 	}
 	ArcRetrieveResponse struct {
 		Arcs []Arc `json:"arcs" msgpack:"arcs"`
@@ -137,6 +140,15 @@ func (s *ArcService) Retrieve(ctx context.Context, req ArcRetrieveRequest) (res 
 	}
 
 	res.Arcs = translateArcsFromService(svcArcs)
+
+	// Compile Arcs to modules if requested
+	if req.Compile {
+		for i := range res.Arcs {
+			if err = s.compileArc(ctx, &res.Arcs[i]); err != nil {
+				return ArcRetrieveResponse{}, err
+			}
+		}
+	}
 
 	if req.IncludeStatus != nil && *req.IncludeStatus {
 		statuses := make([]status.Status, 0, len(res.Arcs))
@@ -186,4 +198,30 @@ func (s *ArcService) LSP(ctx context.Context, stream freighter.ServerStream[ArcL
 		return err
 	}
 	return arctransport.ServeFreighter(ctx, lspServer, stream)
+}
+
+// compileArc compiles the Arc text to a module containing IR and WASM bytecode.
+// Returns an error if parsing, analysis, or compilation fails.
+func (s *ArcService) compileArc(ctx context.Context, arc *Arc) error {
+	// Step 1: Parse the Arc text
+	parsed, diag := arctext.Parse(arc.Text)
+	if diag != nil && !diag.Ok() {
+		return fmt.Errorf("parse failed for arc %s: %w", arc.Key, diag)
+	}
+
+	// Step 2: Analyze the parsed text to produce IR
+	ir, diag := arctext.Analyze(ctx, parsed, s.internal.SymbolResolver())
+	if diag != nil && !diag.Ok() {
+		return fmt.Errorf("analysis failed for arc %s: %w", arc.Key, diag)
+	}
+
+	// Step 3: Compile IR to WebAssembly module
+	mod, err := arctext.Compile(ctx, ir)
+	if err != nil {
+		return fmt.Errorf("compilation failed for arc %s: %w", arc.Key, err)
+	}
+
+	// Step 4: Attach compiled module to Arc
+	arc.Module = mod
+	return nil
 }

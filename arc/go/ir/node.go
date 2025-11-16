@@ -22,14 +22,14 @@ type Node struct {
 	Key string `json:"key"`
 	// Type is the name of the function or stage this node instantiates.
 	Type string `json:"type"`
-	// Channels contains references to external channels used by this node.
-	Channels symbol.Channels `json:"channels"`
 	// Config contains the type definitions of configuration parameters.
 	Config types.Params `json:"config"`
 	// Inputs contains the type definitions of input parameters.
 	Inputs types.Params `json:"inputs"`
 	// Outputs contains the type definitions of output parameters.
 	Outputs types.Params `json:"outputs"`
+	// Channels contains references to external channels used by this node.
+	Channels symbol.Channels `json:"channels"`
 }
 
 // Nodes is a collection of node instances.

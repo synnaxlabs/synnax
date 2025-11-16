@@ -8,11 +8,6 @@ import "x/go/telem/telem.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1";
 
-message Frame {
-  repeated uint32 keys = 1;
-  repeated telem.PBSeries series = 2;
-}
-
 service FrameIteratorService {
   rpc Exec(stream FrameIteratorRequest) returns (stream FrameIteratorResponse) {}
 }
@@ -37,7 +32,7 @@ message FrameIteratorRequest {
 message FrameIteratorResponse {
   int32 variant = 1;
   int32 command = 2;
-  Frame frame = 3;
+  telem.PBFrame frame = 3;
   int32 node_key = 4;
   bool ack = 5;
   int32 seq_num = 6;
@@ -58,7 +53,7 @@ message FrameWriterConfig {
 message FrameWriterRequest {
   int32 command = 1;
   FrameWriterConfig config = 2;
-  Frame frame = 3;
+  telem.PBFrame frame = 3;
   bytes buffer = 4;
 }
 
@@ -77,7 +72,7 @@ message FrameStreamerRequest {
 }
 
 message FrameStreamerResponse {
-  Frame frame = 1;
+  telem.PBFrame frame = 1;
   bytes buffer = 2;
 }
 

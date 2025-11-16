@@ -15,7 +15,7 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-#include "x/go/telem/x/go/telem/telem.pb.h"
+#include "x/go/telem/telem.pb.h"
 
 template<typename T>
 class NumericSeriesTest : public ::testing::Test {

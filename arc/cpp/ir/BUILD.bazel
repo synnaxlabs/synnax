@@ -3,9 +3,24 @@ cc_library(
     hdrs = ["ir.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//arc/cpp/proto",
+        "//arc/cpp/types",
+        "//arc/go/ir:ir_grpc",
+        "//arc/go/symbol:symbol_grpc",
+        "//arc/go/types:types_grpc",
         "//x/cpp/telem",
         "//x/cpp/xjson",
-        "//arc/cpp/types",
         "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "ir_test",
+    srcs = ["ir_test.cpp"],
+    deps = [
+        ":ir",
+        "//arc/go/ir:ir_grpc",
+        "//arc/go/symbol:symbol_grpc",
+        "@googletest//:gtest_main",
     ],
 )

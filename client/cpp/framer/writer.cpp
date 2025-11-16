@@ -12,7 +12,7 @@
 
 #include "client/cpp/framer/framer.h"
 
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
+#include "core/pkg/api/grpc/v1/framer.pb.h"
 
 const std::string WRITE_ENDPOINT = "/frame/write";
 

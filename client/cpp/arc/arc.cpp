@@ -32,17 +32,18 @@ Arc::Arc(const api::v1::Arc &pb) :
     name(pb.name()),
     graph(pb.graph()),
     text(pb.text()),
+    module(pb.module()),
     deploy(pb.deploy()),
     version(pb.version()) {}
 
 void Arc::to_proto(api::v1::Arc *pb) const {
     // Only set key if it's not empty (server generates UUID for new Arcs)
-    if (!key.empty()) {
+    if (!key.empty())
         pb->set_key(key);
-    }
     pb->set_name(name);
     *pb->mutable_graph() = graph;
     *pb->mutable_text() = text;
+    *pb->mutable_module() = module;
     pb->set_deploy(deploy);
     pb->set_version(version);
 }
@@ -75,6 +76,7 @@ xerrors::Error ArcClient::create(Arc &arc) const {
     arc.name = first.name();
     arc.graph = first.graph();
     arc.text = first.text();
+    arc.module = first.module();
     arc.deploy = first.deploy();
     arc.version = first.version();
 
@@ -96,6 +98,7 @@ xerrors::Error ArcClient::create(std::vector<Arc> &arcs) const {
         arcs[i].name = pb.name();
         arcs[i].graph = pb.graph();
         arcs[i].text = pb.text();
+        arcs[i].module = pb.module();
         arcs[i].deploy = pb.deploy();
         arcs[i].version = pb.version();
     }

@@ -21,7 +21,7 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
+#include "core/pkg/api/grpc/v1/framer.pb.h"
 
 namespace synnax {
 /// @brief type alias for streamer network transport stream.
@@ -399,7 +399,7 @@ private:
     /// @brief cached request for reuse during writes
     std::unique_ptr<api::v1::FrameWriterRequest> cached_write_req;
     /// @brief cached frame within the request for reuse
-    api::v1::Frame *cached_frame = nullptr;
+    telem::PBFrame *cached_frame = nullptr;
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.

@@ -8,7 +8,7 @@
 
 #include "x/cpp/telem/series.h"
 
-#include "x/go/telem/x/go/telem/telem.pb.h"
+#include "x/go/telem/telem.pb.h"
 
 namespace telem {
 /// @brief A frame is a collection of series mapped to their corresponding channel

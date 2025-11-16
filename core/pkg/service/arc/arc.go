@@ -12,6 +12,7 @@ package arc
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -30,6 +31,9 @@ type Arc struct {
 	// Text is the raw representation of the arc program in its next format.
 	// Note that this text content does not necessarily represent a valid arg program.
 	Text text.Text `json:"text" msgpack:"text"`
+	// Module is the compiled Arc module containing IR and WASM bytecode.
+	// This field is computed on-demand and not persisted to the database.
+	Module module.Module `json:"module" msgpack:"-"`
 	// Deploy sets whether on not the arc program should be deployed.
 	Deploy  bool   `json:"deploy" msgpack:"deploy"`
 	Version string `json:"version" msgpack:"version"`

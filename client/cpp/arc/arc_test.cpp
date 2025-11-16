@@ -154,3 +154,19 @@ TEST(TestArc, testDeleteMany) {
     // Server returns error when arcs don't exist
     ASSERT_FALSE(err.ok());
 }
+
+/// @brief it should handle the module field correctly.
+TEST(TestArc, testModuleField) {
+    const auto client = new_test_client();
+    auto arc = synnax::Arc("module_test");
+    arc.text.set_raw("// Test program");
+
+    ASSERT_NIL(client.arcs.create(arc));
+
+    auto [retrieved, err] = client.arcs.retrieve_by_key(arc.key);
+
+    ASSERT_NIL(err);
+    ASSERT_EQ(retrieved.key, arc.key);
+    // Module field should exist (even if empty initially)
+    ASSERT_TRUE(retrieved.module.IsInitialized());
+}

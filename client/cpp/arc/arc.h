@@ -13,8 +13,11 @@
 #include <vector>
 #include <memory>
 
+#include "arc/go/graph/graph.pb.h"
+#include "arc/go/module/module.pb.h"
+#include "arc/go/text/text.pb.h"
+#include "core/pkg/api/grpc/v1/arc.pb.h"
 #include "freighter/cpp/freighter.h"
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/arc.pb.h"
 #include "google/protobuf/empty.pb.h"
 
 namespace synnax {
@@ -51,10 +54,13 @@ struct Arc {
     std::string name;
 
     /// @brief Visual graph representation of the Arc program.
-    api::v1::Graph graph;
+    arc::v1::graph::PBGraph graph;
 
     /// @brief Text-based source code representation.
-    api::v1::Text text;
+    arc::v1::text::PBText text;
+
+    /// @brief Compiled module with IR and WASM bytecode.
+    arc::v1::module::PBModule module;
 
     /// @brief Whether the Arc program should be deployed and running.
     bool deploy = false;

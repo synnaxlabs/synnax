@@ -19,7 +19,7 @@
 #include "x/cpp/status/status.h"
 #include "x/cpp/xjson/xjson.h"
 
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/hardware.pb.h"
+#include "core/pkg/api/grpc/v1/hardware.pb.h"
 
 namespace synnax {
 /// @brief Type alias for the transport used to create a rack.

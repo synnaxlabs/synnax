@@ -1,0 +1,9 @@
+cc_library(
+    name = "proto",
+    hdrs = ["proto.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@protobuf//:protobuf",
+        "@nlohmann_json//:json",
+    ],
+)

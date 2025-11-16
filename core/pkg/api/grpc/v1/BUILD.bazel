@@ -14,6 +14,10 @@ proto_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//arc/go/graph:graph_proto",
+        "//arc/go/ir:ir_proto",
+        "//arc/go/module:module_proto",
+        "//arc/go/text:text_proto",
         "//x/go/control:control_proto",
         "//x/go/errors:errors_proto",
         "//x/go/telem:telem_proto",
@@ -28,6 +32,10 @@ cpp_grpc_library(
     protos = [":api_proto"],
     visibility = ["//visibility:public"],
     deps = [
+        "//arc/go/graph:graph_grpc",
+        "//arc/go/ir:ir_grpc",
+        "//arc/go/module:module_grpc",
+        "//arc/go/text:text_grpc",
         "//x/go/control:control_grpc",
         "//x/go/errors:errors_grpc",
         "//x/go/telem:telem_grpc",
