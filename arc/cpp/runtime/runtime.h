@@ -94,14 +94,15 @@ public:
         return results;
     }
 
-    bool write(telem::Frame frame) const {
-        return this->inputs->push(std::move(frame));
+    xerrors::Error write(telem::Frame frame) const {
+        this->inputs->push(std::move(frame));
+        return xerrors::NIL;
     }
 
-    bool read(telem::Frame &frame) const { return this->outputs->pop(frame); }
+    xerrors::Error read(telem::Frame &frame) const { return this->outputs->pop(frame); }
 };
 
-inline std::pair<std::unique_ptr<Runtime>, xerrors::Error> load(const Config &cfg) {
+inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cfg) {
 
     // Step 1: Initialize state
     std::set<types::ChannelKey> reads;
@@ -177,7 +178,7 @@ inline std::pair<std::unique_ptr<Runtime>, xerrors::Error> load(const Config &cf
 
     // Step 6: Build Runtime
     return {
-        std::make_unique<Runtime>(
+        std::make_shared<Runtime>(
             cfg.breaker,
             std::move(mod),
             std::move(bindings_runtime),
