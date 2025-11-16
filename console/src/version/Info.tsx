@@ -32,9 +32,12 @@ export const INFO_LAYOUT: Layout.BaseState = {
 
 const { useRetrieve: useRetrieveUpdateAvailable } = Flux.createRetrieve<
   {},
-  Update | null
+  Update | null,
+  {},
+  true
 >({
   name: "Version",
+  allowDisconnected: true,
   retrieve: async () => {
     if (Runtime.ENGINE !== "tauri") return null;
     await new Promise((resolve) => setTimeout(resolve, 500));
