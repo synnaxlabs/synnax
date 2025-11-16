@@ -141,6 +141,7 @@ interface StartNavHoverPayload {
 interface ToggleNavHoverPayload {
   windowKey: string;
   key: string;
+  location: NavDrawerLocation;
 }
 
 interface StopNavHoverPayload {
@@ -392,28 +393,29 @@ export const { actions, reducer } = createSlice({
         navState = { drawers: {} };
         state.nav[windowKey] = navState;
       }
-      if (key != null)
-        Object.values(navState.drawers).forEach((drawer) => {
-          if (drawer.menuItems.includes(key)) {
-            const activeItem = (value ?? drawer.activeItem !== key) ? key : null;
-            if (drawer.hover) {
-              drawer.activeItem = key;
-              drawer.hover = false;
-            } else drawer.activeItem = activeItem;
-          }
-        });
-      else if (location != null) {
+      if (key != null && location != null) {
         let drawer = navState.drawers[location];
         if (drawer == null) {
-          drawer = { activeItem: null, menuItems: [] };
+          drawer = { activeItem: null };
           navState.drawers[location] = drawer;
         }
-        if (value === true && drawer.activeItem == null)
-          drawer.activeItem = drawer.menuItems[0];
+        const activeItem = (value ?? drawer.activeItem !== key) ? key : null;
+        if (drawer.hover) {
+          drawer.activeItem = key;
+          drawer.hover = false;
+        } else drawer.activeItem = activeItem;
+      } else if (location != null) {
+        let drawer = navState.drawers[location];
+        if (drawer == null) {
+          drawer = { activeItem: null };
+          navState.drawers[location] = drawer;
+        }
+        if (value === true && drawer.activeItem == null && key != null)
+          drawer.activeItem = key;
         else if (value === false) drawer.activeItem = null;
-        else if (drawer.activeItem == null) drawer.activeItem = drawer.menuItems[0];
+        else if (drawer.activeItem == null && key != null) drawer.activeItem = key;
         else drawer.activeItem = null;
-      } else throw new Error("setNavDrawerVisible requires either a key or location");
+      } else throw new Error("setNavDrawerVisible requires a location");
     },
     startNavHover: (
       state,
@@ -432,13 +434,11 @@ export const { actions, reducer } = createSlice({
     },
     toggleNavHover: (
       state,
-      { payload: { windowKey, key } }: PayloadAction<ToggleNavHoverPayload>,
+      { payload: { windowKey, key, location } }: PayloadAction<ToggleNavHoverPayload>,
     ) => {
       const navState = state.nav[windowKey];
       if (navState == null) return;
-      const drawer = Object.values(navState.drawers).find((drawer) =>
-        drawer.menuItems.includes(key),
-      );
+      const drawer = navState.drawers[location];
       if (drawer == null) return;
 
       if (drawer.activeItem != null && drawer.hover === false) {

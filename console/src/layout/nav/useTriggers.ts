@@ -29,9 +29,10 @@ const createModeConfig = (items: Layout.NavDrawerItem[]): Triggers.ModeConfig<st
 
 export interface UseTriggersProps {
   items: Layout.NavDrawerItem[];
+  location: Layout.NavDrawerLocation;
 }
 
-export const useTriggers = ({ items }: UseTriggersProps) => {
+export const useTriggers = ({ items, location }: UseTriggersProps) => {
   const dispatch = useDispatch();
   const store = useStore<RootState>();
   const modeConfig = useMemo(() => createModeConfig(items), [items]);
@@ -55,10 +56,10 @@ export const useTriggers = ({ items }: UseTriggersProps) => {
         if (mode.length === 0) return;
         if (mode.includes("double")) {
           const key = mode.split("-")[0];
-          dispatch(setNavDrawerVisible({ windowKey, key, value: true }));
-        } else dispatch(toggleNavHover({ windowKey, key: mode }));
+          dispatch(setNavDrawerVisible({ windowKey, key, location, value: true }));
+        } else dispatch(toggleNavHover({ windowKey, key: mode, location }));
       },
-      [dispatch, modeConfig, windowKey],
+      [dispatch, modeConfig, windowKey, location],
     ),
   });
 };

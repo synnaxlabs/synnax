@@ -14,7 +14,7 @@ import { type NavState } from "@/layout/types/v0";
 import * as v1 from "@/layout/types/v1";
 import * as v7 from "@/layout/types/v7";
 
-const VERSION = "8.0.0";
+export const VERSION = "8.0.0";
 
 const ZERO_NAV_STATE: NavState = {
   main: {
