@@ -1,0 +1,8 @@
+.console-workspace-create,
+.console-workspace-select {
+    border-radius: var(--pluto-border-radius);
+    box-shadow: var(--pluto-shadow-v2);
+    background: var(--pluto-gray-l0);
+    max-width: 600px;
+    width: 100%;
+}

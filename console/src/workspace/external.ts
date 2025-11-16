@@ -12,6 +12,7 @@ import { Create, CREATE_LAYOUT_TYPE } from "@/workspace/Create";
 
 export * from "@/workspace/Create";
 export * from "@/workspace/export";
+export * from "@/workspace/Guard";
 export * from "@/workspace/Selector";
 export * from "@/workspace/selectors";
 export * from "@/workspace/slice";
