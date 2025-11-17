@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Generic, Literal, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 from uuid import uuid4
 
 from freighter import Payload
@@ -40,6 +40,8 @@ class Status(Payload, Generic[D]):
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     """A unique key for the status."""
+    name: str = ""
+    """A human-readable name for the status."""
     variant: Variant
     """The variant of the status."""
     message: str
@@ -48,5 +50,19 @@ class Status(Payload, Generic[D]):
     """The description of the status."""
     time: TimeStamp = Field(default_factory=TimeStamp.now)
     """The time the status was created."""
-    details: D
+    labels: list[Any] | None = None
+    """Optional labels attached to the status (only present in responses)."""
+    details: D | None = None
     """The details are customizable details for component specific statuses."""
+
+
+def ontology_id(key: str) -> dict[str, str]:
+    """Create an ontology ID for a status.
+
+    Args:
+        key: The status key.
+
+    Returns:
+        An ontology ID dictionary with type "status" and the given key.
+    """
+    return {"type": "status", "key": key}

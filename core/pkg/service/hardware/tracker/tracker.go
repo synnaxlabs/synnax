@@ -314,7 +314,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 	if err != nil {
 		return nil, err
 	}
-	dcRackStateObs := rackStateObs.OnChange(t.handleRackState)
+	dcRackStateObs := rackStateObs.OnChange(t.sandleRackState)
 	taskStateObs, closeTaskStateObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
 		SetChannelName: TaskStatusChannelName,
 	})

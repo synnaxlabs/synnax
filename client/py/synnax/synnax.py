@@ -29,6 +29,7 @@ from synnax.options import SynnaxOptions
 from synnax.ranger import RangeRetriever, RangeWriter
 from synnax.ranger.client import RangeClient
 from synnax.signals.signals import Registry
+from synnax.status.client import Client as StatusClient
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
 from synnax.user.client import Client as UserClient
@@ -64,6 +65,7 @@ class Synnax(Client):
     signals: Registry
     hardware: HardwareClient
     ontology: OntologyClient
+    statuses: StatusClient
 
     _transport: Transport
 
@@ -157,6 +159,7 @@ class Synnax(Client):
         self.hardware = HardwareClient(tasks=tasks, devices=devices, racks=racks)
         self.access = PolicyClient(self._transport.unary, instrumentation)
         self.user = UserClient(self._transport.unary)
+        self.statuses = StatusClient(self._transport.unary)
 
     def close(self):
         """Shuts down the client and closes all connections. All open iterators or
