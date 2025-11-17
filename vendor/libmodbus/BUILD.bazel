@@ -66,8 +66,13 @@ genrule(
     ],
     cmd = select({
         "@platforms//os:windows": """
-# Copy headers to modbus/ directory (MODBUS_API handled via defines in cc_library)
-cp $(location libmodbus/src/modbus.h) $(@D)/modbus/modbus.h
+# Copy and patch modbus.h to respect pre-defined MODBUS_API
+sed '/#if defined(_MSC_VER)/,/#endif/{
+    /#if defined(_MSC_VER)/i\\
+#ifndef MODBUS_API
+    /#endif/a\\
+#endif
+}' $(location libmodbus/src/modbus.h) > $(@D)/modbus/modbus.h
 cp $(location libmodbus/src/modbus-tcp.h) $(@D)/modbus/modbus-tcp.h
 cp $(location libmodbus/src/modbus-rtu.h) $(@D)/modbus/modbus-rtu.h
 # Fix private headers to use correct modbus.h path
@@ -200,7 +205,6 @@ cc_library(
         "@platforms//os:windows": [
             "/DHAVE_CONFIG_H",
             "/D_WIN32_WINNT=0x0600",
-            "/DMODBUS_API=",  # Override MODBUS_API for static linking
             "/I$(GENDIR)/vendor/libmodbus",  # For config.h
         ],
         "//conditions:default": [
