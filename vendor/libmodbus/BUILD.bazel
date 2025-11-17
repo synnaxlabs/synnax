@@ -1,4 +1,11 @@
-# Create Windows config.h header
+###############################################################################
+# libmodbus BUILD Configuration
+#
+# This builds libmodbus from source for Windows, macOS, Linux, and NI Linux RT.
+# Uses manual config generation instead of autotools for hermetic Bazel builds.
+###############################################################################
+
+# Windows config.h - minimal defines for Windows platform
 genrule(
     name = "generate_config_h",
     outs = ["config.h"],
@@ -7,15 +14,13 @@ cat > $@ << 'EOF'
 #ifndef CONFIG_H
 #define CONFIG_H
 
-/* Package information */
 #define PACKAGE_NAME "libmodbus"
 #define PACKAGE_VERSION "3.1.11"
 #define VERSION "3.1.11"
 
-/* Windows platform configuration */
 #define _WIN32_WINNT 0x0600  /* Windows 7+ */
 
-/* Disable Unix-specific features not available on Windows */
+/* Unix-specific features unavailable on Windows */
 #define HAVE_DECL_TIOCSRS485 0
 #define HAVE_DECL_TIOCM_RTS 0
 
@@ -23,7 +28,7 @@ cat > $@ << 'EOF'
 EOF""",
 )
 
-# Create modbus-version.h header using upstream template
+# Version header - generated from upstream template
 genrule(
     name = "generate_version_h",
     srcs = ["libmodbus/src/modbus-version.h.in"],
@@ -37,7 +42,10 @@ sed -e 's/@LIBMODBUS_VERSION_MAJOR@/3/g' \
 """,
 )
 
-# Copy and modify ALL headers and sources for static linking
+# Prepare headers and sources for compilation
+# - Copies public headers to modbus/ subdirectory
+# - Rewrites private header includes to use modbus/modbus.h
+# - Rewrites source includes to use modbus/modbus.h
 genrule(
     name = "prepare_static_sources",
     srcs = [
@@ -98,8 +106,8 @@ sed -i 's|#include "modbus-tcp.h"|#include "../modbus/modbus-tcp.h"|g' $(@D)/src
 sed -i 's|#include "modbus-rtu.h"|#include "../modbus/modbus-rtu.h"|g' $(@D)/src/modbus-tcp.c
 """,
         "//conditions:default": """
-# Unix/Mac - same processing as Windows for consistency
-# Copy public headers to modbus/ directory
+# Unix/Mac: Same processing as Windows
+# Copy public headers
 cp $(location libmodbus/src/modbus.h) $(@D)/modbus/modbus.h
 cp $(location libmodbus/src/modbus-tcp.h) $(@D)/modbus/modbus-tcp.h
 cp $(location libmodbus/src/modbus-rtu.h) $(@D)/modbus/modbus-rtu.h
@@ -118,7 +126,7 @@ sed 's|#include "modbus.h"|#include "modbus/modbus.h"|g; s|#include "modbus-tcp.
     }),
 )
 
-# Generate config.h for Unix
+# Unix config.h - defines for Unix/Linux/macOS platforms
 genrule(
     name = "generate_unix_config_h",
     outs = ["unix/config.h"],
@@ -164,7 +172,7 @@ cat > $@ << 'EOF'
 EOF""",
 )
 
-# Generate modbus-version.h for Unix using upstream template
+# Unix version header (same as Windows, kept separate for config directory isolation)
 genrule(
     name = "generate_unix_version_h",
     srcs = ["libmodbus/src/modbus-version.h.in"],
@@ -178,7 +186,9 @@ sed -e 's/@LIBMODBUS_VERSION_MAJOR@/3/g' \
 """,
 )
 
-# Unified cc_library for all platforms
+# Main library target - handles all platforms via select()
+# Windows: Static linking with MODBUS_API override, WinSock2
+# Unix/Mac: POSIX sockets, standard libc
 cc_library(
     name = "libmodbus",
     srcs = select({
