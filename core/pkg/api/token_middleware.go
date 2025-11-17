@@ -37,7 +37,7 @@ func tokenMiddleware(svc *token.Service) freighter.Middleware {
 		if err != nil {
 			return ctx, err
 		}
-		setSubject(ctx.Params, user.OntologyID(userKey))
+		ctx.Params.Set(subjectKey, user.OntologyID(userKey))
 		oCtx, err := next(ctx)
 		if newTK != "" {
 			oCtx.Set("Refresh-Token", newTK)
@@ -81,10 +81,6 @@ func tryParseToken(params freighter.Params) (string, error) {
 }
 
 const subjectKey = "Subject"
-
-func setSubject(params freighter.Params, subject ontology.ID) {
-	params.Set(subjectKey, subject)
-}
 
 func getSubject(ctx context.Context) ontology.ID {
 	s, ok := freighter.MDFromContext(ctx).Get(subjectKey)

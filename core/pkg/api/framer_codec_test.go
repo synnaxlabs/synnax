@@ -29,10 +29,12 @@ import (
 
 var _ = Describe("FramerCodec", Ordered, func() {
 	var (
+		ctx         context.Context
 		mockCluster *mock.Cluster
 		dist        *distribution.Layer
 	)
 	BeforeAll(func() {
+		ctx = context.Background()
 		mockCluster = mock.ProvisionCluster(ctx, 1)
 		dist = mockCluster.Nodes[1].Layer
 	})
@@ -52,7 +54,6 @@ var _ = Describe("FramerCodec", Ordered, func() {
 				Frame:   core.MultiFrame(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
 			msg := fhttp.WSMessage[api.FrameWriterRequest]{Type: "data", Payload: req}
-			ctx := context.Background()
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			Expect(encoded[0]).To(Equal(uint8(255)))
 			var resMsg fhttp.WSMessage[api.FrameWriterRequest]
@@ -204,7 +205,6 @@ var _ = Describe("FramerCodec", Ordered, func() {
 				Frame: core.MultiFrame(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
 			msg := fhttp.WSMessage[api.FrameStreamerResponse]{Type: "data", Payload: res}
-			ctx := context.Background()
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			Expect(encoded[0]).To(Equal(uint8(255)))
 			var resMsg fhttp.WSMessage[api.FrameStreamerResponse]
