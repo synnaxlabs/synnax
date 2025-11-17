@@ -26,16 +26,17 @@ const std::string TASK_TYPE = TASK_NAME;
 const auto EMISSION_RATE = telem::HERTZ * 1;
 
 class Source final : public pipeline::Source {
-    /// @brief the key of the heartbeat channel.
-    const synnax::ChannelKey key;
     /// @brief the key of the rack the heartbeat is for.
     const synnax::RackKey rack_key;
     /// @brief the loop used to control the emission rate of the heartbeat.
     loop::Timer loop;
+    std::shared_ptr<synnax::Synnax> client;
 
 public:
-    Source(const synnax::ChannelKey key, const synnax::RackKey rack_key):
-        key(key), rack_key(rack_key), loop(loop::Timer(EMISSION_RATE)) {}
+    Source(
+        const synnax::RackKey rack_key,
+        const std::shared_ptr<synnax::Synnax> &client
+    ): rack_key(rack_key), loop(loop::Timer(EMISSION_RATE)), client(client) {}
 
     xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         fr.clear();
@@ -47,8 +48,11 @@ public:
                 .rack = this->rack_key,
             }
         };
-        VLOG(1) << "[rack_state] emitting state for rack " << this->rack_key;
-        fr.emplace(key, telem::Series(status.to_json()));
+        const auto [_, err] = this->client->statuses.set<synnax::RackStatusDetails>(status);
+        if (err)
+            LOG(ERROR) << "[rack_status] error updating status" << err;
+        else
+            VLOG(1) << "[rack_status] successfully set status" << this->rack_key;
         return xerrors::NIL;
     }
 };
@@ -94,8 +98,8 @@ public:
             return nullptr;
         }
         auto source = std::make_shared<Source>(
-            ch.key,
-            synnax::rack_key_from_task_key(task.key)
+            synnax::rack_key_from_task_key(task.key),
+            ctx->client
         );
         auto writer_cfg = synnax::WriterConfig{
             .channels = {ch.key},

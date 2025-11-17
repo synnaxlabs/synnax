@@ -340,8 +340,8 @@ struct RackStatusDetails {
     RackKey rack = 0;
 
     /// @brief parses the device status details from a JSON parser.
-    static DeviceStatusDetails parse(xjson::Parser parser) {
-        return DeviceStatusDetails{
+    static RackStatusDetails parse(xjson::Parser parser) {
+        return RackStatusDetails{
             .rack = parser.required<RackKey>("rack"),
         };
     }

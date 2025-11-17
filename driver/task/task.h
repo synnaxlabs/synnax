@@ -125,44 +125,8 @@ public:
         Context(client) {}
 
     void set_status(const synnax::TaskStatus &status) override {
-        std::unique_lock lock(mu);
-        if (writer == nullptr) {
-            auto [ch, err] = client->channels.retrieve(TASK_STATE_CHANNEL);
-            if (err) {
-                LOG(ERROR) << "[task.context] failed to retrieve channel to update "
-                              "task state"
-                           << err.message();
-                return;
-            }
-            chan = ch;
-            auto [su, su_err] = client->telem.open_writer(
-                synnax::WriterConfig{.channels = {ch.key}}
-            );
-            if (err) {
-                LOG(
-                    ERROR
-                ) << "[task.context] failed to open writer to update task state"
-                  << su_err.message();
-                return;
-            }
-            writer = std::make_unique<synnax::Writer>(std::move(su));
-        }
-        // We're safe to ignore the error return value here and just check for a nil
-        // error, as close() is guaranteed to return the same error as write.
-        if (!writer->write(synnax::Frame(chan.key, telem::Series(status.to_json()))))
-            return;
-        auto err = writer->close();
-        LOG(ERROR) << "[task.context] failed to write task state update" << err;
-        writer = nullptr;
-    }
-
-    ~SynnaxContext() override {
-        std::unique_lock lock(mu);
-        if (writer == nullptr) return;
-        /// VERY IMPORTANT THAT WE USE CERR, as GLOG can cause problems in
-        /// destructors.
-        if (const auto err = writer->close())
-            std::cerr << "[task.context] failed to close writer: " << err.message();
+        if (const auto [_, err] = this->client->statuses.set<synnax::TaskStatusDetails>(status); err)
+            LOG(ERROR) << "[task.context] failed to write task state update" << err;
     }
 };
 

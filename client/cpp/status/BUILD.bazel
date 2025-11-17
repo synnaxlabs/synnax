@@ -1,8 +1,5 @@
 cc_library(
     name = "status",
-    srcs = [
-        "status.cpp",
-    ],
     hdrs = ["status.h"],
     visibility = ["//visibility:public"],
     deps = [

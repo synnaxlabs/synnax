@@ -15,47 +15,6 @@
 
 using namespace synnax;
 
-TEST(StatusTest, VariantConstants) {
-    EXPECT_EQ(status::variant::SUCCESS, "success");
-    EXPECT_EQ(status::variant::INFO, "info");
-    EXPECT_EQ(status::variant::WARNING, "warning");
-    EXPECT_EQ(status::variant::ERR, "error");
-    EXPECT_EQ(status::variant::LOADING, "loading");
-    EXPECT_EQ(status::variant::DISABLED, "disabled");
-}
-
-TEST(StatusTest, StatusConstruction) {
-    Status s1;
-    s1.key = "test-key-1";
-    s1.variant = status::variant::INFO;
-    s1.message = "Test message";
-    EXPECT_EQ(s1.key, "test-key-1");
-    EXPECT_EQ(s1.message, "Test message");
-    EXPECT_EQ(s1.variant, status::variant::INFO);
-    EXPECT_TRUE(s1.name.empty());
-    EXPECT_TRUE(s1.description.empty());
-
-    Status s2;
-    s2.key = "custom-key";
-    s2.name = "Error Name";
-    s2.variant = status::variant::ERR;
-    s2.message = "Error message";
-    s2.description = "Detailed description";
-    EXPECT_EQ(s2.key, "custom-key");
-    EXPECT_EQ(s2.message, "Error message");
-    EXPECT_EQ(s2.variant, status::variant::ERR);
-    EXPECT_EQ(s2.name, "Error Name");
-    EXPECT_EQ(s2.description, "Detailed description");
-}
-
-TEST(StatusTest, StatusClientEmpty) {
-    StatusClient client;
-    Status s;
-    s.key = "test-key";
-    s.variant = status::variant::INFO;
-    s.message = "Test";
-}
-
 TEST(StatusTest, SetSingleStatus) {
     auto client = new_test_client();
     Status s;
@@ -219,4 +178,143 @@ TEST(StatusTest, DetailsRoundTrip) {
     auto details_json = retrieved.details.to_json();
     EXPECT_TRUE(details_json.is_object());
     EXPECT_TRUE(details_json.empty());
+}
+
+// Custom details type for testing templated status client
+struct CustomStatusDetails {
+    std::string device_id;
+    int error_code = 0;
+    bool critical = false;
+
+    [[nodiscard]] json to_json() const {
+        return json{
+            {"device_id", device_id},
+            {"error_code", error_code},
+            {"critical", critical}
+        };
+    }
+
+    static CustomStatusDetails parse(xjson::Parser &parser) {
+        return CustomStatusDetails{
+            .device_id = parser.optional<std::string>("device_id", ""),
+            .error_code = parser.optional<int>("error_code", 0),
+            .critical = parser.optional<bool>("critical", false),
+        };
+    }
+};
+
+TEST(StatusTest, CustomDetailsSetAndRetrieve) {
+    auto client = new_test_client();
+    status::Status<CustomStatusDetails> s;
+    s.key = "test-custom-details-1";
+    s.variant = status::variant::ERR;
+    s.message = "Device error occurred";
+    s.description = "Critical device failure";
+    s.time = telem::TimeStamp::now();
+    s.details.device_id = "device-alpha-123";
+    s.details.error_code = 42;
+    s.details.critical = true;
+
+    auto set_err = client.statuses.set<CustomStatusDetails>(s);
+    EXPECT_FALSE(set_err) << set_err.message();
+
+    auto [retrieved, err] = client.statuses.retrieve<CustomStatusDetails>(s.key);
+    EXPECT_FALSE(err) << err.message();
+    EXPECT_EQ(retrieved.key, s.key);
+    EXPECT_EQ(retrieved.variant, s.variant);
+    EXPECT_EQ(retrieved.message, s.message);
+    EXPECT_EQ(retrieved.description, s.description);
+    EXPECT_EQ(retrieved.details.device_id, "device-alpha-123");
+    EXPECT_EQ(retrieved.details.error_code, 42);
+    EXPECT_EQ(retrieved.details.critical, true);
+}
+
+TEST(StatusTest, CustomDetailsSetMultiple) {
+    auto client = new_test_client();
+    std::vector<status::Status<CustomStatusDetails>> statuses;
+
+    for (int i = 0; i < 3; i++) {
+        status::Status<CustomStatusDetails> s;
+        s.key = "test-custom-batch-" + std::to_string(i);
+        s.variant = status::variant::WARNING;
+        s.message = "Warning " + std::to_string(i);
+        s.time = telem::TimeStamp::now();
+        s.details.device_id = "device-" + std::to_string(i);
+        s.details.error_code = i * 10;
+        s.details.critical = (i % 2 == 0);
+        statuses.push_back(s);
+    }
+
+    auto set_err = client.statuses.set<CustomStatusDetails>(statuses);
+    EXPECT_FALSE(set_err) << set_err.message();
+    EXPECT_EQ(statuses.size(), 3);
+
+    std::vector<std::string> keys;
+    for (const auto &s: statuses) {
+        keys.push_back(s.key);
+    }
+
+    auto [retrieved, err] = client.statuses.retrieve<CustomStatusDetails>(keys);
+    EXPECT_FALSE(err) << err.message();
+    EXPECT_EQ(retrieved.size(), 3);
+
+    for (size_t i = 0; i < retrieved.size(); i++) {
+        EXPECT_EQ(retrieved[i].key, "test-custom-batch-" + std::to_string(i));
+        EXPECT_EQ(retrieved[i].variant, status::variant::WARNING);
+        EXPECT_EQ(retrieved[i].details.device_id, "device-" + std::to_string(i));
+        EXPECT_EQ(retrieved[i].details.error_code, static_cast<int>(i * 10));
+        EXPECT_EQ(retrieved[i].details.critical, (i % 2 == 0));
+    }
+}
+
+TEST(StatusTest, CustomDetailsUpdate) {
+    auto client = new_test_client();
+    status::Status<CustomStatusDetails> s;
+    s.key = "test-custom-update";
+    s.variant = status::variant::WARNING;
+    s.message = "Initial warning";
+    s.time = telem::TimeStamp::now();
+    s.details.device_id = "device-xyz";
+    s.details.error_code = 100;
+    s.details.critical = false;
+
+    auto err1 = client.statuses.set<CustomStatusDetails>(s);
+    EXPECT_FALSE(err1) << err1.message();
+
+    // Update the status with new details
+    s.variant = status::variant::ERR;
+    s.message = "Escalated to error";
+    s.details.error_code = 500;
+    s.details.critical = true;
+
+    auto err2 = client.statuses.set<CustomStatusDetails>(s);
+    EXPECT_FALSE(err2) << err2.message();
+
+    auto [retrieved, err3] = client.statuses.retrieve<CustomStatusDetails>(s.key);
+    EXPECT_FALSE(err3) << err3.message();
+    EXPECT_EQ(retrieved.key, "test-custom-update");
+    EXPECT_EQ(retrieved.variant, status::variant::ERR);
+    EXPECT_EQ(retrieved.message, "Escalated to error");
+    EXPECT_EQ(retrieved.details.device_id, "device-xyz");
+    EXPECT_EQ(retrieved.details.error_code, 500);
+    EXPECT_EQ(retrieved.details.critical, true);
+}
+
+TEST(StatusTest, CustomDetailsEmptyFields) {
+    auto client = new_test_client();
+    status::Status<CustomStatusDetails> s;
+    s.key = "test-custom-empty";
+    s.variant = status::variant::INFO;
+    s.message = "Empty details test";
+    s.time = telem::TimeStamp::now();
+    // Leave details with default values
+
+    auto set_err = client.statuses.set<CustomStatusDetails>(s);
+    EXPECT_FALSE(set_err) << set_err.message();
+
+    auto [retrieved, err] = client.statuses.retrieve<CustomStatusDetails>(s.key);
+    EXPECT_FALSE(err) << err.message();
+    EXPECT_EQ(retrieved.details.device_id, "");
+    EXPECT_EQ(retrieved.details.error_code, 0);
+    EXPECT_EQ(retrieved.details.critical, false);
 }
