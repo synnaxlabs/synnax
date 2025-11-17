@@ -23,6 +23,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
+import { useDispatch } from "react-redux";
 
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
@@ -31,6 +32,7 @@ import { CREATE_LAYOUT } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
 import { contextMenuRenderProp } from "@/status/list/ContextMenu";
 import { useSelectFavorites } from "@/status/selectors";
+import { removeFavorites } from "@/status/slice";
 
 const NoStatuses = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
@@ -63,6 +65,8 @@ const List = (): ReactElement => {
 const ListItem = (props: CoreList.ItemProps<status.Key>) => {
   const { itemKey } = props;
   const q = Status.useRetrieve({ key: itemKey });
+  const dispatch = useDispatch();
+  if (q.variant === "error") dispatch(removeFavorites([itemKey]));
   if (q.variant !== "success") return null;
   const item = q.data;
   if (item == null) return null;
