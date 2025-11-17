@@ -25,7 +25,7 @@ import {
   AiOutlineMinus,
   AiOutlineSync,
 } from "react-icons/ai";
-import { BiLinkExternal, BiMath, BiRename } from "react-icons/bi";
+import { BiLinkExternal, BiRename } from "react-icons/bi";
 import {
   BsBorderWidth,
   BsFillInfoSquareFill,
@@ -86,6 +86,7 @@ import {
   MdBlurLinear,
   MdBook,
   MdBorderColor,
+  MdCalculate,
   MdCalendarToday,
   MdComment,
   MdCommit,
@@ -116,6 +117,7 @@ import {
   MdLabel,
   MdLightMode,
   MdLink,
+  MdLogout,
   MdMoreVert,
   MdNewReleases,
   MdOutlineControlCamera,
@@ -380,7 +382,7 @@ export const Calendar = wrapSVGIcon(MdCalendarToday, "calendar");
 export const Release = wrapSVGIcon(MdNewReleases, "release");
 export const OpenExternal = wrapSVGIcon(MdArrowOutward, "open-external");
 export const Feedback = wrapSVGIcon(MdFeedback, "feedback");
-export const Calculation = wrapSVGIcon(BiMath, "calculation");
+export const Calculation = wrapSVGIcon(MdCalculate, "calculation");
 export const Binary = wrapSVGIcon(PiBinary, "binary");
 export const Index = wrapSVGIcon(IoTime, "index");
 export const Decimal = wrapSVGIcon(TbDecimal, "decimal");
@@ -437,6 +439,7 @@ export const CSV = wrapSVGIcon(PiFileCsv, "csv");
 export const Reset = wrapSVGIcon(RxReset, "reset");
 export const FillColor = wrapSVGIcon(IoMdColorFill, "fill-color");
 export const StrokeColor = wrapSVGIcon(MdBorderColor, "stroke-color");
+export const Logout = wrapSVGIcon(MdLogout, "logout");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -591,6 +594,7 @@ const icons = {
   Status,
   FillColor,
   StrokeColor,
+  Logout,
 };
 
 export const resolve = ((

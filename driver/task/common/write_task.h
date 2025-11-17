@@ -58,7 +58,7 @@ public:
     explicit Sink(std::vector<synnax::ChannelKey> cmd_channels):
         cmd_channels(std::move(cmd_channels)),
         state_indexes({}),
-        data_saving(false),
+        data_saving(true),
         state_rate(0) {}
 
     Sink(
@@ -96,8 +96,7 @@ public:
             keys.push_back(idx);
         return synnax::WriterConfig{
             .channels = keys,
-            .mode = synnax::data_saving_writer_mode(this->data_saving),
-            .enable_auto_commit = true,
+            .mode = common::data_saving_writer_mode(this->data_saving),
         };
     }
 

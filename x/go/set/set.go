@@ -12,6 +12,12 @@
 // set types for various use cases.
 package set
 
+import (
+	"maps"
+
+	"github.com/samber/lo"
+)
+
 // Mapped is a generic map-based collection that associates keys of type T
 // with values of type V. It serves as the foundation for the Set type.
 type Mapped[T comparable, V any] map[T]V
@@ -28,6 +34,26 @@ func FromSlice[T comparable](values []T) Set[T] {
 	s.Add(values...)
 	return s
 }
+
+// Difference returns a new set containing elements that are in a but not in b (a - b).
+func Difference[T comparable, V any](a, b Mapped[T, V]) Mapped[T, V] {
+	s := make(Mapped[T, V], len(a))
+	for k, v := range a {
+		if !b.Contains(k) {
+			s[k] = v
+		}
+	}
+	return s
+}
+
+// Reset removes all elements from the set, leaving it empty.
+// The underlying map is cleared but not deallocated.
+func (s Mapped[T, V]) Reset() { clear(s) }
+
+// Copy creates and returns a shallow copy of the set.
+// The returned set contains the same key-value pairs as the original,
+// but modifications to one set will not affect the other.
+func (s Mapped[T, V]) Copy() Mapped[T, V] { return maps.Clone(s) }
 
 // Add inserts the provided values into the set.
 // If a value already exists in the set, it will not be duplicated.
@@ -57,20 +83,31 @@ func (s Mapped[T, V]) Contains(v T) bool {
 
 // Keys returns a slice containing all keys in the set.
 // The order of the keys in the returned slice is not guaranteed.
-func (s Mapped[T, V]) Keys() []T {
-	values := make([]T, 0, len(s))
-	for k := range s {
-		values = append(values, k)
-	}
-	return values
-}
+func (s Mapped[T, V]) Keys() []T { return lo.Keys(s) }
 
 // Values returns a slice containing all values in the set.
 // The order of the values in the returned slice is not guaranteed.
-func (s Mapped[T, V]) Values() []V {
-	values := make([]V, 0, len(s))
-	for _, v := range s {
-		values = append(values, v)
+func (s Mapped[T, V]) Values() []V { return lo.Values(s) }
+
+// Equals checks if two sets contain exactly the same elements.
+func (s Mapped[T, V]) Equals(other Mapped[T, V]) bool {
+	if len(s) != len(other) {
+		return false
 	}
-	return values
+	for k := range s {
+		if !other.Contains(k) {
+			return false
+		}
+	}
+	return true
+}
+
+// IsSubsetOf checks if s is a subset of other (all elements of s are in other).
+func (s Mapped[T, V]) IsSubsetOf(other Mapped[T, V]) bool {
+	for k := range s {
+		if !other.Contains(k) {
+			return false
+		}
+	}
+	return true
 }

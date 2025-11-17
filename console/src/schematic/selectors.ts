@@ -99,7 +99,7 @@ export const selectSelectedElementsProps = (
       key: node.key,
       type: "node",
       node,
-      props: schematic.props[node.key],
+      props: schematic.props[node.key] ?? {},
     }));
   const edges: ElementInfo[] = schematic.edges
     .filter((edge) => edge.selected)
@@ -155,7 +155,7 @@ export const selectSelectedElementNames = (
 ): (string | null)[] => {
   const elements = selectSelectedElementsProps(state, layoutKey);
   return elements.map((element) => {
-    if (element.type === "node" && element.props.label?.label != null)
+    if (element.type === "node" && element.props?.label?.label != null)
       return element.props.label.label;
     return null;
   });
@@ -198,13 +198,13 @@ export const useSelectRequiredNodeProps = (layoutKey: string, key: string): Node
     [layoutKey, key],
   );
 
-export const selectRequiredToolbar = (
+export const selectToolbar = (
   state: StoreState,
   key: string,
 ): ToolbarState | undefined => selectOptional(state, key)?.toolbar;
 
-export const useSelectRequiredToolbar = (key: string): ToolbarState | undefined =>
-  useMemoSelect((state: StoreState) => selectRequiredToolbar(state, key), [key]);
+export const useSelectToolbar = (key: string): ToolbarState | undefined =>
+  useMemoSelect((state: StoreState) => selectToolbar(state, key), [key]);
 
 export const selectEditable = (state: StoreState, key: string): boolean | undefined =>
   selectOptional(state, key)?.editable;

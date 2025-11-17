@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import synnax as sy
 
@@ -19,30 +19,16 @@ class Valve(Symbol):
 
     def edit_properties(
         self,
-        channel_name: Optional[str] = None,
-        state_channel: Optional[str] = None,
-        command_channel: Optional[str] = None,
-        show_control_chip: Optional[bool] = None,
+        channel_name: str | None = None,
+        state_channel: str | None = None,
+        command_channel: str | None = None,
+        show_control_chip: bool | None = None,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Edit Setpoint properties including channel settings."""
         self._click_symbol()
 
-        applied_properties: Dict[str, Any] = {}
-
-        # Only set label if the names match
-        if (
-            state_channel is not None
-            and command_channel is not None
-            and state_channel.endswith("_state")
-            and command_channel.endswith("_cmd")
-        ):
-            if state_channel[:-5] == command_channel[:-3]:
-                self.set_label(state_channel[:-6])
-        elif state_channel is not None or command_channel is not None:
-            raise ValueError(
-                "State and command channels must match and end with _state and _cmd respectively"
-            )
+        applied_properties: dict[str, Any] = {}
 
         # Navigate to Properties > Control tab
         self.page.get_by_text("Properties").click()
@@ -70,13 +56,13 @@ class Valve(Symbol):
 
         return applied_properties
 
-    def get_properties(self) -> Dict[str, Any]:
+    def get_properties(self) -> dict[str, Any]:
         """Get the current properties of the symbol"""
         self._click_symbol()
         self.page.get_by_text("Properties").click()
         self.page.get_by_text("Control").last.click()
 
-        props: Dict[str, Any] = {
+        props: dict[str, Any] = {
             "channel": "",
             "activation_delay": -1.0,
             "show_control_chip": False,

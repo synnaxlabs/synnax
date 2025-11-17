@@ -35,7 +35,7 @@ const TerminalConfigField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "terminalConfig",
   fieldProps: { label: "Terminal Configuration" },
   inputProps: {
-    resourceName: "Terminal Configuration",
+    resourceName: "terminal configuration",
     data: [
       { key: "RSE", name: "Referenced Single Ended" },
       { key: "NRSE", name: "Non-Referenced Single Ended" },
@@ -53,7 +53,7 @@ const AccelSensitivityUnitsField = Form.buildSelectField<
   fieldKey: "sensitivityUnits",
   fieldProps: { label: "Sensitivity Units" },
   inputProps: {
-    resourceName: "Sensitivity Units",
+    resourceName: "sensitivity units",
     data: [
       { key: "mVoltsPerG", name: "mV/g" },
       { key: "VoltsPerG", name: "V/g" },
@@ -65,7 +65,7 @@ const ExcitSourceField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "excitSource",
   fieldProps: { label: "Excitation Source" },
   inputProps: {
-    resourceName: "Excitation Source",
+    resourceName: "excitation source",
     data: [
       { key: "Internal", name: "Internal" },
       { key: "External", name: "External" },
@@ -78,7 +78,7 @@ const BridgeConfigField = Form.buildSelectField<string, record.KeyedNamed<string
   fieldKey: "bridgeConfig",
   fieldProps: { label: "Bridge Configuration" },
   inputProps: {
-    resourceName: "Bridge Configuration",
+    resourceName: "bridge configuration",
     data: [
       { key: "FullBridge", name: "Full Bridge" },
       { key: "HalfBridge", name: "Half Bridge" },
@@ -94,7 +94,7 @@ const ShuntResistorLocField = Form.buildSelectField<
   fieldKey: "shuntResistorLoc",
   fieldProps: { label: "Shunt Resistor Location" },
   inputProps: {
-    resourceName: "Shunt Resistor Location",
+    resourceName: "shunt resistor location",
     data: [
       { key: "Default", name: "Default" },
       { key: "Internal", name: "Internal" },
@@ -107,7 +107,7 @@ const ResistanceConfigField = Form.buildSelectField<string, record.KeyedNamed<st
   fieldKey: "resistanceConfig",
   fieldProps: { label: "Resistance Configuration" },
   inputProps: {
-    resourceName: "Resistance Configuration",
+    resourceName: "resistance configuration",
     data: [
       { key: "2Wire", name: "2-Wire" },
       { key: "3Wire", name: "3-Wire" },
@@ -120,7 +120,7 @@ const StrainConfig = Form.buildSelectField({
   fieldKey: "strainConfig",
   fieldProps: { label: "Strain Configuration" },
   inputProps: {
-    resourceName: "Strain Configuration",
+    resourceName: "strain configuration",
     data: [
       { key: "FullBridgeI", name: "Full Bridge I" },
       { key: "FullBridgeII", name: "Full Bridge II" },
@@ -146,7 +146,7 @@ const ForceUnitsField = Form.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Force Units" },
   inputProps: {
-    resourceName: "Force Units",
+    resourceName: "force units",
     data: [
       { key: "Newtons", name: "Newtons" },
       { key: "Pounds", name: "Pounds" },
@@ -162,7 +162,7 @@ const ElectricalUnitsField = Form.buildSelectField<
   fieldKey: "electricalUnits",
   fieldProps: { label: "Electrical Units" },
   inputProps: {
-    resourceName: "Electrical Units",
+    resourceName: "electrical units",
     data: [
       { key: "VoltsPerVolt", name: "V/V" },
       { key: "mVoltsPerVolt", name: "mV/V" },
@@ -177,7 +177,7 @@ const PressureUnitsField = Form.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Pressure Units" },
   inputProps: {
-    resourceName: "Pressure Units",
+    resourceName: "pressure units",
     data: [
       { key: "Pascals", name: "Pascals" },
       { key: "PoundsPerSquareInch", name: "PSI" },
@@ -192,7 +192,7 @@ const TemperatureUnitsField = Form.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Temperature Units" },
   inputProps: {
-    resourceName: "Temperature Units",
+    resourceName: "temperature units",
     data: [
       { key: "DegC", name: "Celsius" },
       { key: "DegF", name: "Fahrenheit" },
@@ -206,7 +206,7 @@ const ThermocoupleTypeField = Form.buildSelectField({
   fieldKey: "thermocoupleType",
   fieldProps: { label: "Thermocouple Type" },
   inputProps: {
-    resourceName: "Thermocouple Type",
+    resourceName: "thermocouple type",
     data: [
       { key: "B", name: "B" },
       { key: "E", name: "E" },
@@ -227,7 +227,7 @@ const TorqueUnitsField = Form.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Torque Units" },
   inputProps: {
-    resourceName: "Torque Units",
+    resourceName: "torque units",
     data: [
       { key: "NewtonMeters", name: "Newton Meters" },
       { key: "InchOunces", name: "Inch Ounces" },
@@ -431,7 +431,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       fieldKey: "sensitivityUnits",
       fieldProps: { label: "Sensitivity Units" },
       inputProps: {
-        resourceName: "Sensitivity Units",
+        resourceName: "sensitivity units",
         data: [
           { key: "mVoltsPerNewton", name: "mV/N" },
           { key: "mVoltsPerPound", name: "mV/lb" },
@@ -447,7 +447,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
           path={prefix}
           inputProps={{
             filter: ({ key }) => key !== "KilogramForce",
-            resourceName: "Force Units",
+            resourceName: "force units",
           }}
         />
         <SensitivityField
@@ -483,7 +483,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       fieldKey: "units",
       fieldProps: { label: "Sound Pressure Units" },
       inputProps: {
-        resourceName: "Sound Pressure Units",
+        resourceName: "sound pressure units",
         data: [{ key: "Pascals", name: "Pascals" }],
       },
     });
@@ -655,7 +655,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       fieldKey: "rtdType",
       fieldProps: { label: "RTD Type" },
       inputProps: {
-        resourceName: "RTD Type",
+        resourceName: "RTD type",
         data: [
           { key: "Pt3750", name: "Pt3750" },
           { key: "Pt3851", name: "Pt3851" },
@@ -750,7 +750,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         },
       },
       inputProps: {
-        resourceName: "CJC Source",
+        resourceName: "CJC source",
         data: [
           { key: "BuiltIn", name: "Built In", icon: <Icon.Device /> },
           { key: "ConstVal", name: "Constant Value", icon: <Icon.Constant /> },
@@ -890,7 +890,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       fieldKey: "units",
       fieldProps: { label: "Velocity Units" },
       inputProps: {
-        resourceName: "Velocity Units",
+        resourceName: "velocity units",
         data: [
           { key: "MetersPerSecond", name: "m/s" },
           { key: "InchesPerSecond", name: "in/s" },
@@ -904,7 +904,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       fieldKey: "sensitivityUnits",
       fieldProps: { label: "Sensitivity Units" },
       inputProps: {
-        resourceName: "Sensitivity Units",
+        resourceName: "sensitivity units",
         data: [
           { key: "MillivoltsPerMillimeterPerSecond", name: "mV/mm/s" },
           { key: "MilliVoltsPerInchPerSecond", name: "mV/in/s" },

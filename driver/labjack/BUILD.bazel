@@ -1,4 +1,11 @@
 cc_library(
+    name = "labjack_errors",
+    hdrs = ["errors.h"],
+    visibility = ["//visibility:public"],
+    deps = ["//driver/errors"],
+)
+
+cc_library(
     name = "labjack",
     srcs = [
         "factory.cpp",
@@ -25,8 +32,8 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
+        ":labjack_errors",
         "//client/cpp:synnax",
-        "//driver/errors",
         "//driver/labjack/device",
         "//driver/labjack/ljm",
         "//driver/pipeline",

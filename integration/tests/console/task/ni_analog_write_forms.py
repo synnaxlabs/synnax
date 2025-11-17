@@ -31,7 +31,7 @@ class NIAnalogWriteForms(ConsoleCase):
         # Talks to NI MAX sim devices
         rack_name = f"TestRack_{random.randint(100, 999)}"
         device_name = "E203"
-        sy.sleep(5)
+
         self.log("Creating NI Analog Write Task")
         console.ni_ao.new()
 
@@ -79,12 +79,12 @@ class NIAnalogWriteForms(ConsoleCase):
 
         console.ni_ao.add_channel(
             name="v0",
-            type="Voltage",
+            chan_type="Voltage",
             device=device_name,
         )
         console.ni_ao.add_channel(
             name="v1",
-            type="Voltage",
+            chan_type="Voltage",
             device=device_name,
             min_val=-0.1,
             max_val=6.5,
@@ -97,12 +97,12 @@ class NIAnalogWriteForms(ConsoleCase):
 
         console.ni_ao.add_channel(
             name="Current_1",
-            type="Current",
+            chan_type="Current",
             device=device_name,
         )
         console.ni_ao.add_channel(
             name="Current_2",
-            type="Current",
+            chan_type="Current",
             device=device_name,
             min_val=-0.1,
             max_val=6.5,

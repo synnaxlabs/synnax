@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import ssl
-from typing import Any, Generic, Literal, MutableMapping, Self
+from collections.abc import MutableMapping
+from typing import Any, Generic, Literal, Self
 
 from pydantic import BaseModel
 from websockets.asyncio.client import ClientConnection as AsyncClientConnection
@@ -57,6 +58,7 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
             obj: Any,
             *,
             strict: bool | None = None,
+            extra: Literal["allow", "ignore", "forbid"] | None = None,
             from_attributes: bool | None = None,
             context: Any | None = None,
             by_alias: bool | None = None,
@@ -66,6 +68,7 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
             obj["payload"] = res_t.model_validate(
                 obj["payload"],
                 strict=strict,
+                extra=extra,
                 from_attributes=from_attributes,
                 context=context,
                 by_alias=by_alias,
@@ -74,6 +77,7 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
             return super().model_validate(
                 obj,
                 strict=strict,
+                extra=extra,
                 from_attributes=from_attributes,
                 context=context,
                 by_alias=by_alias,

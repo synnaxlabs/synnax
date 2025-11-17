@@ -27,23 +27,14 @@
       "sequence_order": "asynchronous",
       "tests": [
         {
-          "case": "console/plot_abcd"
+          "case": "console/line-plot/abcd"
         },
         {
           "case": "latency/abcd",
-          "name": "async_a"
-        },
-        {
-          "case": "latency/abcd",
-          "name": "async_b"
-        },
-        {
-          "case": "latency/abcd",
-          "name": "async_c"
-        },
-        {
-          "case": "latency/abcd",
-          "name": "async_d"
+          "name": "async",
+          "parameters": {
+            "mode": ["a", "b", "c", "d"]
+          }
         }
       ]
     }

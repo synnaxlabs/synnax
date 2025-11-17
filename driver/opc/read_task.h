@@ -9,16 +9,22 @@
 
 #pragma once
 
+/// external
 #include "open62541/client_highlevel.h"
 #include "open62541/common.h"
 #include "open62541/types.h"
 
-#include "x/cpp/defer/defer.h"
+/// module
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/xjson/xjson.h"
 
-#include "driver/opc/util/conn_pool.h"
-#include "driver/opc/util/util.h"
+/// internal
+#include "x/cpp/defer/defer.h"
+
+#include "driver/opc/connection/connection.h"
+#include "driver/opc/errors/errors.h"
+#include "driver/opc/telem/telem.h"
+#include "driver/opc/types/types.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/task/common/read_task.h"
 #include "driver/task/common/sample_clock.h"
@@ -27,7 +33,7 @@ namespace opc {
 struct InputChan {
     const bool enabled;
     /// @brief the OPC UA node id.
-    const UA_NodeId node;
+    opc::NodeId node;
     /// @brief the corresponding channel key to write the variable for the node
     /// from.
     const synnax::ChannelKey synnax_key;
@@ -37,8 +43,22 @@ struct InputChan {
 
     explicit InputChan(xjson::Parser &parser):
         enabled(parser.optional<bool>("enabled", true)),
-        node(util::parse_node_id("node_id", parser)),
+        node(opc::NodeId::parse("node_id", parser)),
         synnax_key(parser.required<synnax::ChannelKey>("channel")) {}
+
+    // Move constructor - needed because NodeId is move-only
+    InputChan(InputChan &&other) noexcept:
+        enabled(other.enabled),
+        node(std::move(other.node)),
+        synnax_key(other.synnax_key),
+        ch(std::move(other.ch)) {}
+
+    // Delete copy constructor - NodeId is move-only
+    InputChan(const InputChan &) = delete;
+    InputChan &operator=(const InputChan &) = delete;
+    InputChan &operator=(InputChan &&) = delete;
+
+    // No manual destructor needed - opc::NodeId handles cleanup automatically
 };
 
 struct ReadTaskConfig : common::BaseReadTaskConfig {
@@ -47,7 +67,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief array_size;
     const size_t array_size;
     /// @brief the config for connecting to the OPC UA server.
-    util::ConnectionConfig conn;
+    opc::connection::Config connection;
     /// @brief keys of the index channels for the input channels.
     std::set<synnax::ChannelKey> index_keys;
     /// @brief the list of channels to read from the server.
@@ -60,7 +80,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         common::BaseReadTaskConfig(std::move(other)),
         device_key(other.device_key),
         array_size(other.array_size),
-        conn(std::move(other.conn)),
+        connection(std::move(other.connection)),
         index_keys(std::move(other.index_keys)),
         channels(std::move(other.channels)),
         samples_per_chan(other.samples_per_chan) {}
@@ -84,8 +104,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         array_size(parser.optional<std::size_t>("array_size", 1)),
         samples_per_chan(this->sample_rate / this->stream_rate) {
         parser.iter("channels", [&](xjson::Parser &cp) {
-            const auto ch = InputChan(cp);
-            if (ch.enabled) channels.push_back(std::make_unique<InputChan>(ch));
+            auto ch = InputChan(cp);
+            if (ch.enabled)
+                channels.push_back(std::make_unique<InputChan>(std::move(ch)));
         });
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");
@@ -97,7 +118,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
         const auto properties = xjson::Parser(dev.properties);
-        this->conn = util::ConnectionConfig(properties.child("connection"));
+        this->connection = opc::connection::Config(properties.child("connection"));
         if (properties.error()) {
             parser.field_err("device", properties.error().message());
             return;
@@ -143,8 +164,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             channel_keys.push_back(idx);
         return {
             .channels = channel_keys,
-            .mode = synnax::data_saving_writer_mode(this->data_saving),
-            .enable_auto_commit = true
+            .mode = common::data_saving_writer_mode(this->data_saving),
         };
     }
 
@@ -155,43 +175,34 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     }
 };
 
-struct ReadRequest {
-    UA_ReadRequest base;
-    std::vector<UA_ReadValueId> read_value_ids;
-
-    explicit ReadRequest(const ReadTaskConfig &cfg) {
-        UA_ReadRequest_init(&this->base);
-        read_value_ids.reserve(cfg.channels.size());
-        for (const auto &ch: cfg.channels) {
-            if (!ch->enabled) continue;
-            UA_ReadValueId rvid;
-            UA_ReadValueId_init(&rvid);
-            rvid.nodeId = ch->node;
-            rvid.attributeId = UA_ATTRIBUTEID_VALUE;
-            read_value_ids.push_back(rvid);
-        }
-        base.nodesToRead = read_value_ids.data();
-        base.nodesToReadSize = read_value_ids.size();
+/// @brief Helper to create a ReadRequestBuilder from config.
+/// The builder borrows NodeIds from cfg, so cfg must outlive the builder.
+static opc::ReadRequestBuilder create_read_request(const ReadTaskConfig &cfg) {
+    opc::ReadRequestBuilder builder;
+    for (const auto &ch: cfg.channels) {
+        if (!ch->enabled) continue;
+        builder.add_node(ch->node, UA_ATTRIBUTEID_VALUE);
     }
-};
+    return builder;
+}
 
 class BaseReadTaskSource : public common::Source {
 protected:
     const ReadTaskConfig cfg;
-    std::shared_ptr<util::ConnectionPool> pool;
-    util::ConnectionPool::Connection conn;
-    ReadRequest request;
+    std::shared_ptr<opc::connection::Pool> pool;
+    opc::connection::Pool::Connection connection;
+    opc::ReadRequestBuilder request_builder;
     loop::Timer timer;
 
     BaseReadTaskSource(
-        std::shared_ptr<util::ConnectionPool> pool,
+        std::shared_ptr<opc::connection::Pool> pool,
         ReadTaskConfig cfg,
-        const telem::Rate rate
+        const ::telem::Rate rate
     ):
         cfg(std::move(cfg)),
         pool(std::move(pool)),
-        conn(nullptr, nullptr, ""),
-        request(this->cfg),
+        connection(nullptr, nullptr, ""),
+        request_builder(create_read_request(this->cfg)),
         timer(rate) {}
 
     synnax::WriterConfig writer_config() const override {
@@ -199,21 +210,24 @@ protected:
     }
 
     xerrors::Error start() override {
-        auto [c, err] = pool->acquire(cfg.conn, "[opc.read] ");
+        auto [c, err] = pool->acquire(cfg.connection, "[opc.read] ");
         if (err) return err;
-        conn = std::move(c);
+        connection = std::move(c);
         return xerrors::NIL;
     }
 
     xerrors::Error stop() override {
-        conn = util::ConnectionPool::Connection(nullptr, nullptr, "");
+        connection = opc::connection::Pool::Connection(nullptr, nullptr, "");
         return xerrors::NIL;
     }
 };
 
 class ArrayReadTaskSource final : public BaseReadTaskSource {
 public:
-    ArrayReadTaskSource(std::shared_ptr<util::ConnectionPool> pool, ReadTaskConfig cfg):
+    ArrayReadTaskSource(
+        std::shared_ptr<opc::connection::Pool> pool,
+        ReadTaskConfig cfg
+    ):
         BaseReadTaskSource(
             std::move(pool),
             std::move(cfg),
@@ -227,12 +241,11 @@ public:
     common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
         common::ReadResult res;
         this->timer.wait(breaker);
-        UA_ReadResponse ua_res = UA_Client_Service_read(
-            this->conn.get(),
-            this->request.base
-        );
-        x::defer clear_res([&ua_res] { UA_ReadResponse_clear(&ua_res); });
-        if (res.error = util::parse_error(ua_res.responseHeader.serviceResult);
+        opc::ReadResponse ua_res(UA_Client_Service_read(
+            this->connection.get(),
+            this->request_builder.build()
+        ));
+        if (res.error = opc::errors::parse(ua_res.get().responseHeader.serviceResult);
             res.error)
             return res;
         common::initialize_frame(
@@ -242,13 +255,13 @@ public:
             this->cfg.array_size
         );
         std::vector<std::string> error_messages;
-        for (std::size_t i = 0; i < ua_res.resultsSize; ++i) {
-            auto &result = ua_res.results[i];
-            if (res.error = util::parse_error(result.status); res.error) return res;
+        for (std::size_t i = 0; i < ua_res.get().resultsSize; ++i) {
+            auto &result = ua_res.get().results[i];
+            if (res.error = opc::errors::parse(result.status); res.error) return res;
             const auto &ch = cfg.channels[i];
             auto &s = fr.series->at(i);
             s.clear();
-            auto [written, err] = util::ua_array_write_to_series(
+            auto [written, err] = opc::telem::ua_array_write_to_series(
                 s,
                 &result.value,
                 this->cfg.array_size,
@@ -262,6 +275,7 @@ public:
                 error_messages.push_back(msg);
             }
         }
+        auto start = ::telem::TimeStamp::now();
 
         if (!error_messages.empty()) {
             // Aggregate all error messages
@@ -273,7 +287,6 @@ public:
             return res;
         }
 
-        auto start = telem::TimeStamp::now();
         auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
         common::generate_index_data(
             fr,
@@ -290,7 +303,10 @@ public:
 
 class UnaryReadTaskSource final : public BaseReadTaskSource {
 public:
-    UnaryReadTaskSource(std::shared_ptr<util::ConnectionPool> pool, ReadTaskConfig cfg):
+    UnaryReadTaskSource(
+        std::shared_ptr<opc::connection::Pool> pool,
+        ReadTaskConfig cfg
+    ):
         BaseReadTaskSource(std::move(pool), std::move(cfg), cfg.sample_rate) {}
 
     common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
@@ -304,20 +320,22 @@ public:
         for (auto [k, s]: fr)
             s.clear();
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
-            const auto start = telem::TimeStamp::now();
-            UA_ReadResponse ua_res = UA_Client_Service_read(
-                this->conn.get(),
-                this->request.base
-            );
-            x::defer clear_res([&ua_res] { UA_ReadResponse_clear(&ua_res); });
-            if (res.error = util::parse_error(ua_res.responseHeader.serviceResult);
+            const auto start = ::telem::TimeStamp::now();
+            opc::ReadResponse ua_res(UA_Client_Service_read(
+                this->connection.get(),
+                this->request_builder.build()
+            ));
+            if (res.error = opc::errors::parse(
+                    ua_res.get().responseHeader.serviceResult
+                );
                 res.error)
                 return res;
             bool skip_sample = false;
-            for (std::size_t j = 0; j < ua_res.resultsSize; ++j) {
-                UA_DataValue &result = ua_res.results[j];
-                if (res.error = util::parse_error(result.status); res.error) return res;
-                auto [written, write_err] = util::write_to_series(
+            for (std::size_t j = 0; j < ua_res.get().resultsSize; ++j) {
+                UA_DataValue &result = ua_res.get().results[j];
+                if (res.error = opc::errors::parse(result.status); res.error)
+                    return res;
+                auto [written, write_err] = opc::telem::write_to_series(
                     fr.series->at(j),
                     result.value
                 );
@@ -333,8 +351,8 @@ public:
                 fr.clear();
                 return res;
             }
-            const auto end = telem::TimeStamp::now();
-            const auto ts = telem::TimeStamp::midpoint(start, end);
+            const auto end = ::telem::TimeStamp::now();
+            const auto ts = ::telem::TimeStamp::midpoint(start, end);
             for (std::size_t j = this->cfg.channels.size(); j < fr.size(); j++)
                 fr.series->at(j).write(ts);
             this->timer.wait(breaker);

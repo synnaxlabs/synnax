@@ -26,6 +26,7 @@ import {
   usePrevious,
   Viewport,
 } from "@synnaxlabs/pluto";
+import { type measure } from "@synnaxlabs/pluto/ether";
 import {
   box,
   color,
@@ -78,6 +79,7 @@ import {
   setControlState,
   setLegend,
   setLine,
+  setMeasureMode,
   setRanges,
   setRemoteCreated,
   setRule,
@@ -140,11 +142,11 @@ const RangeAnnotationContextMenu = ({
       </PMenu.Item>
       <PMenu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
         <Icon.LinePlot />
-        Open in New Plot
+        Open in new plot
       </PMenu.Item>
       <PMenu.Item itemKey="metadata" onClick={handleViewDetails}>
         <Icon.Annotate />
-        View Details
+        View details
       </PMenu.Item>
     </PMenu.Menu>
   );
@@ -334,6 +336,27 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
   }, [windowKey, dispatch, layoutKey]);
 
+  const handleSelectRule = useCallback(
+    (ruleKey: string) => {
+      dispatch(setSelectedRule({ key: layoutKey, ruleKey }));
+    },
+    [dispatch, layoutKey],
+  );
+
+  const handleMeasureModeChange = useCallback(
+    (mode: measure.Mode) => {
+      dispatch(setMeasureMode({ key: layoutKey, mode }));
+    },
+    [dispatch, layoutKey],
+  );
+
+  const handleHold = useCallback(
+    (hold: boolean) => {
+      dispatch(setControlState({ key: layoutKey, state: { hold } }));
+    },
+    [dispatch, layoutKey],
+  );
+
   const props = PMenu.useContextMenu();
 
   interface ContextMenuContentProps extends PMenu.ContextMenuMenuProps {
@@ -392,26 +415,26 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         {!box.areaIsZero(selection) && (
           <>
             <PMenu.Item itemKey="iso">
-              <Icon.Range /> Copy ISO Time Range
+              <Icon.Range /> Copy ISO time range
             </PMenu.Item>
             <PMenu.Item itemKey="python">
-              <Icon.Python /> Copy Python Time Range
+              <Icon.Python /> Copy Python time range
             </PMenu.Item>
             <PMenu.Item itemKey="typescript">
-              <Icon.TypeScript /> Copy TypeScript Time Range
+              <Icon.TypeScript /> Copy TypeScript time range
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="range">
-              <Ranger.CreateIcon /> Create Range from Selection
+              <Ranger.CreateIcon /> Create range from selection
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="download">
-              <Icon.CSV /> Download Region as CSV
+              <Icon.CSV /> Download region as CSV
             </PMenu.Item>
             <PMenu.Divider />
           </>
         )}
-        <Menu.HardReloadItem />
+        <Menu.ReloadConsoleItem />
       </PMenu.Menu>
     );
   };
@@ -456,13 +479,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
-          onSelectRule={(ruleKey) =>
-            dispatch(setSelectedRule({ key: layoutKey, ruleKey }))
-          }
-          onHold={(hold) =>
-            dispatch(setControlState({ key: layoutKey, state: { hold } }))
-          }
+          onSelectRule={handleSelectRule}
+          onHold={handleHold}
           rangeProviderProps={rangeProviderProps}
+          measureMode={vis.measure.mode}
+          onMeasureModeChange={handleMeasureModeChange}
         >
           {!focused && <NavControls layoutKey={layoutKey} />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />

@@ -40,11 +40,12 @@ import {
 import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
 import { type Flex } from "@/flex";
-import { Input } from "@/input";
+import { Input as CoreInput } from "@/input";
 import { useCustom } from "@/schematic/symbol/Custom";
 import { useRetrieve } from "@/schematic/symbol/queries";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
+import { stopPropagation } from "@/util/event";
 
 interface PathProps extends ComponentPropsWithoutRef<"path"> {}
 
@@ -202,7 +203,7 @@ const Handle = ({
       position={swapRF(smartPosition(location, orientation), !swap)}
       {...rest}
       type="source"
-      onClick={(e) => e.stopPropagation()}
+      onClick={stopPropagation}
       className={(CSS.B("handle"), CSS.BE("handle", rest.id))}
       style={{
         left: `${adjusted.left}%`,
@@ -1975,7 +1976,7 @@ export const Switch = ({
   orientation = "left",
 }: SwitchProps): ReactElement => (
   <Div orientation={orientation}>
-    <Input.Switch value={enabled} onClick={onClick} onChange={() => {}} />
+    <CoreInput.Switch value={enabled} onClick={onClick} onChange={() => {}} />
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
@@ -2072,10 +2073,63 @@ export const TextBox = ({
   );
 };
 
+export interface InputProps
+  extends Omit<DivProps, "onClick" | "value" | "onChange">,
+    Pick<CoreInput.TextProps, "size"> {
+  dimensions?: dimensions.Dimensions;
+  color?: color.Crude;
+  value: string;
+  onChange: (value: string) => void;
+  onSend?: (value: string) => void;
+  disabled?: boolean;
+}
+
+export const Input = ({
+  className,
+  orientation = "left",
+  color: colorVal,
+  value,
+  onChange,
+  size,
+  dimensions,
+  onSend,
+  disabled,
+  ...rest
+}: InputProps): ReactElement => (
+  <Div
+    orientation={orientation}
+    className={CSS(CSS.B("input-symbol"), className)}
+    {...rest}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
+      <Handle location="bottom" orientation={orientation} left={50} top={100} id="4" />
+    </HandleBoundary>
+    <CoreInput.Text
+      value={value}
+      onChange={onChange}
+      size={size}
+      borderWidth={1}
+      disabled={disabled}
+      color={colorVal}
+    >
+      <CoreButton.Button
+        size={size}
+        variant="filled"
+        onClick={() => onSend?.(value)}
+        color={colorVal}
+      >
+        Send
+      </CoreButton.Button>
+    </CoreInput.Text>
+  </Div>
+);
 export interface SetpointProps
   extends Omit<DivProps, "onClick" | "value" | "onChange">,
-    Input.Control<number>,
-    Pick<Input.NumericProps, "size"> {
+    CoreInput.Control<number>,
+    Pick<CoreInput.NumericProps, "size"> {
   dimensions?: dimensions.Dimensions;
   color?: color.Crude;
   units?: string;
@@ -2123,7 +2177,7 @@ export const Setpoint = ({
           id="4"
         />
       </HandleBoundary>
-      <Input.Numeric
+      <CoreInput.Numeric
         size={size}
         value={currValue}
         onChange={setCurrValue}
@@ -2142,7 +2196,7 @@ export const Setpoint = ({
         >
           Set
         </CoreButton.Button>
-      </Input.Numeric>
+      </CoreInput.Numeric>
     </Div>
   );
 };

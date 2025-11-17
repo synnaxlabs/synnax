@@ -19,12 +19,12 @@ import { Label } from "@/label";
 import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "statuses";
-const RESOURCE_NAME = "Status";
-const PLURAL_RESOURCE_NAME = "Statuses";
+const RESOURCE_NAME = "status";
+const PLURAL_RESOURCE_NAME = "statuses";
 
 export interface FluxStore extends Flux.UnaryStore<status.Key, status.Status> {}
 
-interface FluxSubStore extends Label.FluxSubStore {
+export interface FluxSubStore extends Label.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
@@ -118,7 +118,7 @@ interface RetrieveSingleParams<DetailsSchema extends z.ZodType = z.ZodNever>
   detailsSchema?: DetailsSchema;
 }
 
-const retrieveSingle = async <DetailsSchema extends z.ZodType = z.ZodNever>({
+export const retrieveSingle = async <DetailsSchema extends z.ZodType = z.ZodNever>({
   store,
   client,
   query,
@@ -190,11 +190,88 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
     ],
   });
 
+export interface RetrieveMultipleParams {
+  keys: status.Key[];
+}
+
+export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
+  RetrieveMultipleParams,
+  status.Status[],
+  FluxSubStore
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query: { keys }, store }) => {
+    const cached = store.statuses.get(keys);
+    const missing = keys.filter((k) => !store.statuses.has(k));
+    if (missing.length === 0) return cached;
+    const retrieved = await client.statuses.retrieve({ keys: missing });
+    store.statuses.set(retrieved);
+    return [...cached, ...retrieved];
+  },
+  mountListeners: ({ client, store, onChange, query: { keys } }) => {
+    const keysSet = new Set(keys);
+    return [
+      store.statuses.onSet(async (status) => {
+        if (!keysSet.has(status.key)) return;
+        onChange((prev) => {
+          if (prev == null) return [status];
+          return [...prev.filter((s) => s.key !== status.key), status];
+        });
+      }),
+      store.relationships.onSet(async (rel) => {
+        for (const key of keys) {
+          const isLabelChange = Label.matchRelationship(rel, status.ontologyID(key));
+          if (!isLabelChange) return;
+          const l = await Label.retrieveSingle({
+            store,
+            query: { key: rel.to.key },
+            client,
+          });
+          onChange(
+            state.skipNull((prev) =>
+              prev.map((s) => {
+                if (s.key !== key) return s;
+                return {
+                  ...s,
+                  labels: array.upsertKeyed(s.labels, l),
+                };
+              }),
+            ),
+          );
+        }
+      }),
+      store.relationships.onDelete(async (relKey) => {
+        const rel = ontology.relationshipZ.parse(relKey);
+        for (const key of keys) {
+          const isLabelChange = Label.matchRelationship(rel, status.ontologyID(key));
+          if (!isLabelChange) return;
+          onChange(
+            state.skipNull((prev) =>
+              prev.map((s) => {
+                if (s.key !== key) return s;
+                return {
+                  ...s,
+                  labels: array.removeKeyed(s.labels, rel.to.key),
+                };
+              }),
+            ),
+          );
+        }
+      }),
+    ];
+  },
+});
+
 export const { useRetrieve } = createRetrieve();
 
 export const useSetSynchronizer = (onSet: (status: status.Status) => void): void => {
   const store = useStore<FluxSubStore>();
   useEffect(() => store.statuses.onSet(onSet), [store]);
+};
+
+export const useDeleteSynchronizer = (onDelete: (key: status.Key) => void): void => {
+  const store = useStore<FluxSubStore>();
+  useEffect(() => store.statuses.onDelete(onDelete), [store]);
 };
 
 export const formSchema = status.statusZ().omit({ labels: true }).safeExtend({

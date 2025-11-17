@@ -24,7 +24,7 @@
 #include "driver/task/common/factory.h"
 
 const std::string
-    NO_LIBS_MSG = "Cannot create the task because the National Instruments DAQMX and "
+    NO_LIBS_MSG = "Cannot create the task because the NI-DAQmx and "
                   "System Configuration libraries are not installed on this system.";
 
 ni::Factory::Factory(
@@ -87,6 +87,12 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
             hardware::daqmx::DigitalReader,
             ni::ReadTaskConfig,
             ni::ReadTaskSource<uint8_t>,
+            common::ReadTask>(ctx, task);
+    else if (task.type == COUNTER_READ_TASK_TYPE)
+        res = configure<
+            hardware::daqmx::CounterReader,
+            ni::ReadTaskConfig,
+            ni::ReadTaskSource<double>,
             common::ReadTask>(ctx, task);
     else if (task.type == ANALOG_WRITE_TASK_TYPE)
         res = configure<

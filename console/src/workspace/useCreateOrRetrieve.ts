@@ -14,7 +14,7 @@ import { useDispatch } from "react-redux";
 import { Layout } from "@/layout";
 import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { useSelectActive } from "@/workspace/selectors";
-import { replace } from "@/workspace/slice";
+import { setActive } from "@/workspace/slice";
 
 export const useCreateOrRetrieve = () => {
   const handleError = Status.useErrorHandler();
@@ -28,18 +28,21 @@ export const useCreateOrRetrieve = () => {
     if (prevClient != null)
       handleError(
         async () => await prevClient.workspaces.setLayout(activeWS.key, purgedLayout),
-        `Failed to save workspace ${activeWS.name}`,
+        `Failed to save workspace ${activeWS.name} to ${prevClient.params.name ?? "previous Core"}`,
       );
-    handleError(async () => {
-      try {
-        await client.workspaces.retrieve(activeWS.key);
-        dispatch(replace(activeWS));
-        await client.workspaces.setLayout(activeWS.key, purgedLayout);
-      } catch (e) {
-        if (!NotFoundError.matches(e)) throw e;
-        await client.workspaces.create({ ...activeWS, layout: purgedLayout });
-        dispatch(replace(activeWS));
-      }
-    }, `Failed to create workspace ${activeWS.name}`);
+    handleError(
+      async () => {
+        try {
+          await client.workspaces.retrieve(activeWS.key);
+          await client.workspaces.setLayout(activeWS.key, purgedLayout);
+          dispatch(setActive(activeWS));
+        } catch (e) {
+          if (!NotFoundError.matches(e)) throw e;
+          await client.workspaces.create({ ...activeWS, layout: purgedLayout });
+          dispatch(setActive(activeWS));
+        }
+      },
+      `Failed to create workspace ${activeWS.name} on ${client.params.name ?? "current Core"}`,
+    );
   };
 };

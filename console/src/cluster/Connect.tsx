@@ -9,52 +9,59 @@
 
 import "@/cluster/Connect.css";
 
-import { type connection, Synnax as Client } from "@synnaxlabs/client";
-import { Button, Flex, Form, Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
+import { checkConnection, type connection } from "@synnaxlabs/client";
+import { Button, Flex, Form, type Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";
 
 import { useSelectAllNames } from "@/cluster/selectors";
-import { clusterZ, set, setActive } from "@/cluster/slice";
-import { testConnection } from "@/cluster/testConnection";
+import { clusterZ, set } from "@/cluster/slice";
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
-import { useCreateOrRetrieve } from "@/workspace/useCreateOrRetrieve";
 
 export const CONNECT_LAYOUT_TYPE = "connectCluster";
 
 export const CONNECT_LAYOUT: Layout.BaseState = {
   key: CONNECT_LAYOUT_TYPE,
   type: CONNECT_LAYOUT_TYPE,
-  name: "Cluster.Connect",
+  name: "Core.Connect",
   icon: "Cluster",
   location: "modal",
-  window: { resizable: false, size: { height: 430, width: 650 }, navTop: true },
+  window: { resizable: false, size: { height: 300, width: 650 }, navTop: true },
 };
 
-const ZERO_VALUES: z.infer<typeof clusterZ> = {
+const baseFormSchema = clusterZ.pick({
+  name: true,
+  host: true,
+  port: true,
+  secure: true,
+});
+
+const ZERO_VALUES: z.infer<typeof baseFormSchema> = {
   name: "",
   host: "",
   port: "",
-  username: "",
-  password: "",
   secure: false,
 };
 
-/**
- * Connect implements the LayoutRenderer component type to provide a form for connecting
- * to a cluster.
- */
+const PORT_FIELD_PROPS: Partial<Input.TextProps> = {
+  placeholder: "9090",
+};
+
+const HOST_FIELD_PROPS: Partial<Input.TextProps> = {
+  placeholder: "localhost",
+};
+
 export const Connect: Layout.Renderer = ({ onClose }) => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);
   const names = useSelectAllNames();
-  const formSchema = clusterZ.check(({ value: { name }, issues }) => {
+  const formSchema = baseFormSchema.check(({ value: { name }, issues }) => {
     if (names.includes(name))
       issues.push({
         input: name,
@@ -69,25 +76,17 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
     values: { ...ZERO_VALUES },
   });
 
-  const createWS = useCreateOrRetrieve();
-
   const handleSubmit = (): void =>
     handleError(async () => {
       if (!methods.validate()) return;
       const data = methods.value();
       setConnState(null);
       setLoading("submit");
-      const state = await testConnection(data);
+      const state = await checkConnection(data);
       setLoading(null);
       setConnState(state);
-      if (state.status !== "connected") return;
-      setTimeout(() => {
-        const clusterProps = { ...data, key: state.clusterKey };
-        dispatch(set(clusterProps));
-        dispatch(setActive(state.clusterKey));
-        createWS(new Client(clusterProps));
-        onClose();
-      }, 500);
+      dispatch(set({ ...data, key: state.clusterKey, username: "", password: "" }));
+      onClose();
     }, "Failed to connect to cluster");
 
   return (
@@ -106,28 +105,14 @@ export const Connect: Layout.Renderer = ({ onClose }) => {
               autoFocus: true,
               variant: "text",
               level: "h2",
-              placeholder: "My Synnax Cluster",
+              placeholder: "Synnax Core",
               grow: true,
             }}
           />
           <Flex.Box x align="stretch">
-            <Form.Field<string> path="host" grow>
-              {(p) => <Input.Text placeholder="localhost" {...p} full="x" />}
-            </Form.Field>
-            <Form.Field<string> path="port">
-              {(p) => <Input.Text placeholder="9090" {...p} />}
-            </Form.Field>
-          </Flex.Box>
-          <Form.Field<string> path="username">
-            {(p) => <Input.Text placeholder="synnax" {...p} full="x" />}
-          </Form.Field>
-          <Flex.Box x align="stretch">
-            <Form.Field<string> path="password" grow>
-              {(p) => (
-                <Input.Text {...p} placeholder="seldon" type="password" full="x" />
-              )}
-            </Form.Field>
-            <Form.SwitchField path="secure" label="Secure" />
+            <Form.TextField path="host" grow inputProps={HOST_FIELD_PROPS} />
+            <Form.TextField path="port" inputProps={PORT_FIELD_PROPS} />
+            <Form.SwitchField path="secure" />
           </Flex.Box>
         </Flex.Box>
       </Form.Form>

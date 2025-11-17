@@ -222,9 +222,9 @@ export class Frame {
 
   /**
    * @returns true if the frame is horizontal. Horizontal frames have a single channel,
-   * and are strongly aligned by default.A horizontal frame typically has a single array
-   * (in which case, it's also 'square'), although it can have multiple series if all
-   * the series are continuous in time.
+   * and are strongly aligned by default. A horizontal frame typically has a single
+   * array (in which case, it's also 'square'), although it can have multiple series if
+   * all the series are continuous in time.
    */
   get isHorizontal(): boolean {
     return this.uniqueColumns.length === 1;
@@ -305,7 +305,11 @@ export class Frame {
 
   push(keyOrFrame: channel.KeyOrName | Frame, ...v: Series[]): void {
     if (keyOrFrame instanceof Frame) {
-      if (this.colType !== null && keyOrFrame.colType !== this.colType)
+      if (
+        keyOrFrame.colType != null &&
+        this.colType !== null &&
+        keyOrFrame.colType !== this.colType
+      )
         throw new ValidationError("keyVariant must match");
       this.series.push(...keyOrFrame.series);
       (this.columns as channel.Keys).push(...(keyOrFrame.columns as channel.Keys));
@@ -352,6 +356,21 @@ export class Frame {
   ): Frame {
     const frame = new Frame();
     this.forEach((k, arr, i) => frame.push(...fn(k, arr, i)));
+    return frame;
+  }
+
+  mapFilter(
+    fn: (
+      k: channel.KeyOrName,
+      arr: Series,
+      i: number,
+    ) => [channel.KeyOrName, Series, boolean],
+  ): Frame {
+    const frame = new Frame();
+    this.forEach((k, arr, i) => {
+      const [newK, newArr, keep] = fn(k, arr, i);
+      if (keep) frame.push(newK, newArr);
+    });
     return frame;
   }
 

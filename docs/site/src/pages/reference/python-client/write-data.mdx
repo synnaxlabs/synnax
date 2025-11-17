@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Write Data"
-description: "Use the Python client to write to a Synnax cluster."
+description: "Use the Python client to write to a Synnax Core."
 next: "Stream Data"
 nextURL: "/reference/python-client/stream-data"
 prev: "Read Data"
@@ -12,8 +12,8 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Synnax supports multiple methods for writing data to a cluster. We can write directly to
-a channel, fetch a range and set its data, or leverage writers for writing large volumes
+Synnax supports multiple methods for writing data to a Core. We can write directly to a
+channel, fetch a range and set its data, or leverage writers for writing large volumes
 of data.
 
 Writes in Synnax are more complicated than reads, and, as such, we recommend checking
@@ -178,7 +178,7 @@ This example will write 100 samples to the `my_precise_tc` channel, each spaced 
 0.1 seconds apart, and will commit all writes when finished.
 
 It's typical to write and commit millions of samples over the course of hours or days,
-intermittently calling commit to ensure that the data is persisted to the cluster.
+intermittently calling commit to ensure that the data is persisted to the Core.
 
 We recommend using writers within a context manager. This ensures that a writer is
 properly closed after use, ensuring that resources have been freed and sockets are
@@ -189,9 +189,25 @@ using it.
 
 ### Auto-Commit
 
-You can also configure a writer to automatically commit written data after each write,
-making it immediately available for read access. To do this, set the
-`enable_auto_commit` argument to `True` when opening the writer:
+By default, writers are configured with auto-commit enabled, meaning each write is
+immediately committed and available for read access. This is ideal for real-time data
+acquisition where you want data to be immediately available for monitoring and analysis.
+
+#### When to Disable Auto-Commit
+
+You may want to disable auto-commit in the following scenarios:
+
+- **Chunk-based file ingestion**: When loading historical data from files, you may want
+  to commit data in logical chunks (e.g., after processing each file) to ensure atomic
+  visibility of complete datasets.
+- **Batch processing**: When ingesting large volumes of historical data where real-time
+  visibility is not required and you want to optimize performance by reducing commit
+  overhead.
+- **Atomic transactions**: When you need multiple writes to appear together atomically
+  to maintain data consistency across channels.
+
+To disable auto-commit, set the `enable_auto_commit` argument to `False` when opening
+the writer:
 
 ```python
 import time
@@ -199,14 +215,17 @@ import time
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["timestamps", "my_precise_tc"],
-    enable_auto_commit=True,
+    enable_auto_commit=False,  # Disable auto-commit for manual control
 ) as writer:
-    for i in range(100):
-        writer.write({
-            "timestamps": sy.TimeStamp.now(),
-            "my_precise_tc": i,
-        })
-        time.sleep(0.1)
+    # Write data in chunks
+    for chunk in range(10):
+        for i in range(1000):
+            writer.write({
+                "timestamps": sy.TimeStamp.now(),
+                "my_precise_tc": i,
+            })
+        # Commit after each chunk of 1000 samples
+        writer.commit()
 ```
 
 ### Write Authorities
@@ -307,9 +326,8 @@ with client.open_writer(
 
 ## Common Pitfalls
 
-There are several common pitfalls to avoid when writing data to a Synnax cluster. These
-are important to avoid as they can lead to performance degradation and/or control
-issues.
+There are several common pitfalls to avoid when writing data to a Synnax Core. These are
+important to avoid as they can lead to performance degradation and/or control issues.
 
 ### Using Many Individual Write Calls Instead of a Writer
 
@@ -337,7 +355,6 @@ for i in range(100):
     with client.open_writer(
         start=sy.TimeStamp.now(),
         channels=["timestamps", "my_precise_tc"],
-        enable_auto_commit=True,
     ) as writer:
         writer.write({
             "timestamps": sy.TimeStamp.now(),
@@ -352,7 +369,6 @@ Instead, repeatedly call `write` on a single writer:
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["timestamps", "my_precise_tc"],
-    enable_auto_commit=True,
 ) as writer:
     for i in range(100):
         writer.write({
@@ -363,12 +379,12 @@ with client.open_writer(
 
 ### Calling Commit on Every Write
 
-If you're not using auto-commit, it's important to call `commit` on the writer
+If you've disabled auto-commit, it's important to call `commit` on the writer
 periodically to ensure that the data is persisted to the cluster. However, calling
 `commit` on every write is a bad idea. This is because `commit` requires a round-trip to
-the cluster to ensure that the data is persisted. This can be very slow if you're
-writing a lot of data. If you're writing a lot of data, commit every few seconds or turn
-on auto-commit.
+the core to ensure that the data is persisted. This can be very slow if you're writing a
+lot of data. If you're writing a lot of data, commit every few seconds or use
+auto-commit (which is enabled by default).
 
 This is a bad idea:
 
@@ -385,13 +401,13 @@ with client.open_writer(
         writer.commit()
 ```
 
-Instead, use auto-commit:
+Instead, use auto-commit (which is enabled by default):
 
 ```python
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["timestamps", "my_precise_tc"],
-    enable_auto_commit=True,
+    # Auto-commit is enabled by default
 ) as writer:
     for i in range(100):
         writer.write({

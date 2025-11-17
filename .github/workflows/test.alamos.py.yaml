@@ -18,6 +18,7 @@ jobs:
   test:
     name: Test (${{ matrix.os }})
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:

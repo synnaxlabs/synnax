@@ -13,8 +13,9 @@ from dataclasses import dataclass
 from typing import Literal, cast
 
 from freighter import Payload
+from pydantic import BaseModel, Field
 
-from synnax.telem import DataType, Rate
+from synnax.telem import DataType, Rate, TimeSpan
 from synnax.util.normalize import normalize
 
 ChannelKey = int
@@ -22,6 +23,17 @@ ChannelName = str
 ChannelKeys = list[int]
 ChannelNames = list[str]
 ChannelParams = ChannelKeys | ChannelNames | ChannelKey | ChannelName
+
+
+OPERATION_TYPES = Literal["min", "max", "avg", "none"]
+
+
+class Operation(BaseModel):
+    """Represents an operation on a calculated channel."""
+
+    type: OPERATION_TYPES
+    reset_channel: ChannelKey = 0
+    duration: TimeSpan = 0
 
 
 class ChannelPayload(Payload):
@@ -38,7 +50,7 @@ class ChannelPayload(Payload):
     internal: bool = False
     virtual: bool = False
     expression: str | None = ""
-    requires: ChannelKeys | None = []
+    operations: list[Operation] | None = None
 
     def __str__(self):
         return f"Channel(name={self.name}, key={self.key})"

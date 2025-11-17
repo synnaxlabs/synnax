@@ -2,7 +2,19 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "NI Form Input Verification 1",
+      "sequence_name": "NI Counter Forms",
+      "sequence_order": "asynchronous",
+      "tests": [
+        {
+          "case": "console/task/ni_counter_read_forms",
+          "parameters": {
+            "set": [1, 2, 3]
+          }
+        }
+      ]
+    },
+    {
+      "sequence_name": "NI Analog Forms 1",
       "sequence_order": "asynchronous",
       "tests": [
         {
@@ -10,33 +22,21 @@
         },
         {
           "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_a"
-        },
-        {
-          "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_b"
-        },
-        {
-          "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_c"
+          "parameters": {
+            "set": [1, 2, 3]
+          }
         }
       ]
     },
     {
-      "sequence_name": "NI Form Input Verification 2",
+      "sequence_name": "NI Analog Forms 2",
       "sequence_order": "asynchronous",
       "tests": [
         {
           "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_d"
-        },
-        {
-          "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_e"
-        },
-        {
-          "case": "console/task/ni_analog_read_forms",
-          "name": "ni_analog_read_forms_f"
+          "parameters": {
+            "set": [4, 5, 6]
+          }
         }
       ]
     },

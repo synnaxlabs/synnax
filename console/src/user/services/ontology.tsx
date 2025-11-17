@@ -47,8 +47,7 @@ const useRename = ({
     },
     [firstID],
   );
-  const { update, status } = User.useRename({ beforeUpdate });
-  console.log(status);
+  const { update } = User.useRename({ beforeUpdate });
   return useCallback(
     () => update({ key: firstID.key, username: getResource(firstID).name }),
     [update, firstID, getResource],
@@ -73,7 +72,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     const user = getResource(id).data as user.User;
     return user.rootUser;
   });
-  const isNotCurrentUser = getResource(ids[0]).name !== client.props.username;
+  const isNotCurrentUser = getResource(ids[0]).name !== client.params.username;
   const canEditPermissions = Permissions.useSelectCanEditPolicies();
   const canEditOrDelete = useSelectHasPermission();
 
@@ -84,14 +83,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           {canEditPermissions && !hasRootUser && (
             <PMenu.Item itemKey="permissions">
               <Icon.Access />
-              Edit Permissions
+              Edit permissions
             </PMenu.Item>
           )}
           {canEditOrDelete && (
             <>
               <PMenu.Item itemKey="rename">
                 <Icon.Rename />
-                Change Username
+                Change username
               </PMenu.Item>
               <PMenu.Divider />
             </>
@@ -110,7 +109,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Menu.HardReloadItem />
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 };

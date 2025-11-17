@@ -21,6 +21,7 @@ from synnax.channel.payload import (
     ChannelNames,
     ChannelParams,
     ChannelPayload,
+    Operation,
     normalize_channel_params,
 )
 from synnax.channel.retrieve import ChannelRetriever
@@ -63,7 +64,7 @@ class Channel(ChannelPayload):
         virtual: bool | None = None,
         internal: bool = False,
         expression: str = "",
-        requires: ChannelKeys | None = None,
+        operations: list[Operation] | None = None,
         _frame_client: FrameClient | None = None,
         _client: ChannelClient | None = None,
     ) -> None:
@@ -83,12 +84,11 @@ class Channel(ChannelPayload):
         :param expression: An optional Lua expression that defines the channel as a
         calculation of another channel. If this is set, the channel will be
         automatically configured as virtual.
-        :param requires: A list of keys of channels that the expression for the
-        calculated channel depends on in order to be evaluated. This should only be
-        set if expression is not an empty string. If expression is not an empty string,
-        this should have at least one channel.
         :param internal: Boolean indicating whether the channel is internal. Internal
         channels are not visible to the user and are used for internal purposes only.
+        :param operations: A list of operations to apply to the channel. Operations
+        include aggregations like min, max, avg over a time duration or triggered by
+        a reset channel.
         :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
@@ -106,7 +106,7 @@ class Channel(ChannelPayload):
             internal=internal,
             virtual=virtual,
             expression=expression,
-            requires=requires,
+            operations=operations,
         )
         self.___frame_client = _frame_client
         self.__client = _client
@@ -183,7 +183,7 @@ class Channel(ChannelPayload):
             virtual=self.virtual,
             internal=self.internal,
             expression=self.expression,
-            requires=self.requires,
+            operations=self.operations,
         )
 
 
@@ -218,6 +218,8 @@ class ChannelClient:
         is_index: bool = False,
         leaseholder: int = 0,
         virtual: bool | None = None,
+        expression: str | None = None,
+        operations: list[Operation] | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel: ...
 
@@ -242,7 +244,7 @@ class ChannelClient:
         leaseholder: int = 0,
         virtual: bool | None = None,
         expression: str = "",
-        requires: ChannelKeys | None = None,
+        operations: list[Operation] | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
         """Creates new channel(s) in the Synnax cluster.
@@ -260,8 +262,6 @@ class ChannelClient:
         :param expression: An optional expression that defines the channel as a
         calculation of another channel. If this is set, the channel will be
         automatically configured as virtual.
-        :param requires: A list of keys of channels that the expression for the
-        calculated channel depends on in order to be evaluated. This should only be
         set if expression is not an empty string. If expression is not an empty string,
         this should have at least one channel.
         :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
@@ -295,7 +295,7 @@ class ChannelClient:
                     is_index=is_index,
                     virtual=virtual if virtual is not None else len(expression) > 0,
                     expression=expression,
-                    requires=requires,
+                    operations=operations,
                 )
             ]
         elif isinstance(channels, Channel):

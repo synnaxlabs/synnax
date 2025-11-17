@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
@@ -534,18 +533,18 @@ var _ = Describe("Delete", func() {
 						Expect(frame.Count()).To(Equal(2))
 						Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(12 * telem.SecondTS))
 
-						series0Data := telem.UnmarshalSlice[int](frame.SeriesAt(0).Data, telem.Int64T)
-						Expect(series0Data).To(ContainElement(0))
-						Expect(series0Data).To(ContainElement(1))
-						Expect(series0Data).ToNot(ContainElement(2))
+						series0Data := telem.UnmarshalSlice[int64](frame.SeriesAt(0).Data, telem.Int64T)
+						Expect(series0Data).To(ContainElement(int64(0)))
+						Expect(series0Data).To(ContainElement(int64(1)))
+						Expect(series0Data).ToNot(ContainElement(int64(2)))
 
 						Expect(frame.SeriesAt(1).TimeRange.Start).To(Equal(17 * telem.SecondTS))
-						series1Data := telem.UnmarshalSlice[int](frame.SeriesAt(1).Data, telem.Int64T)
+						series1Data := telem.UnmarshalSlice[int64](frame.SeriesAt(1).Data, telem.Int64T)
 
-						Expect(series1Data).ToNot(ContainElement(6))
-						Expect(series1Data).To(ContainElement(7))
-						Expect(series1Data).To(ContainElement(8))
-						Expect(series1Data).To(ContainElement(9))
+						Expect(series1Data).ToNot(ContainElement(int64(6)))
+						Expect(series1Data).To(ContainElement(int64(7)))
+						Expect(series1Data).To(ContainElement(int64(8)))
+						Expect(series1Data).To(ContainElement(int64(9)))
 					})
 				})
 
@@ -657,9 +656,8 @@ var _ = Describe("Delete", func() {
 								cesium.Channel{Name: "Bohmer", Key: basic2, DataType: telem.Int64T, Index: index1},
 							)).To(Succeed())
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-								Channels:         []cesium.ChannelKey{index1, basic1, basic2},
-								Start:            10 * telem.SecondTS,
-								EnableAutoCommit: config.True(),
+								Channels: []cesium.ChannelKey{index1, basic1, basic2},
+								Start:    10 * telem.SecondTS,
 							}))
 
 							By("Writing data to the channel")
@@ -700,9 +698,8 @@ var _ = Describe("Delete", func() {
 
 							By("Asserting that writes are still successful")
 							w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-								Channels:         []cesium.ChannelKey{index1, basic1, basic2},
-								Start:            11 * telem.SecondTS,
-								EnableAutoCommit: config.True(),
+								Channels: []cesium.ChannelKey{index1, basic1, basic2},
+								Start:    11 * telem.SecondTS,
 							}))
 							MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
 								[]cesium.ChannelKey{index1, basic1, basic2},

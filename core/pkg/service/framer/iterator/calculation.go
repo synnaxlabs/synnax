@@ -12,28 +12,42 @@ package iterator
 import (
 	"context"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 )
 
 type calculationTransform struct {
 	confluence.LinearTransform[framer.IteratorResponse, framer.IteratorResponse]
-	calculators      []*calculation.Calculator
+	keepKeys         channel.Keys
+	calculators      []*calculator.Calculator
 	accumulatedError error
 }
 
 func newCalculationTransform(
-	calculators []*calculation.Calculator,
-) ResponseSegment {
-	t := &calculationTransform{calculators: calculators}
+	keepKeys channel.Keys,
+	calculators []*calculator.Calculator,
+) *calculationTransform {
+	t := &calculationTransform{
+		calculators: calculators,
+		keepKeys:    keepKeys,
+	}
 	t.Transform = t.transform
 	return t
 }
 
+func (t *calculationTransform) close() error {
+	c := errors.NewCatcher(errors.WithAggregation())
+	for _, calc := range t.calculators {
+		c.Exec(calc.Close)
+	}
+	return c.Error()
+}
+
 func (t *calculationTransform) transform(
-	_ context.Context,
+	ctx context.Context,
 	res framer.IteratorResponse,
 ) (framer.IteratorResponse, bool, error) {
 	if res.Command == Error {
@@ -47,15 +61,17 @@ func (t *calculationTransform) transform(
 		return res, true, nil
 	}
 
+	var err error
 	for _, c := range t.calculators {
-		s, err := c.Next(res.Frame)
+		res.Frame, _, err = c.Next(ctx, res.Frame, res.Frame)
 		if err != nil {
 			t.accumulatedError = err
 			continue
 		}
-		if s.Len() > 0 {
-			res.Frame = res.Frame.Append(c.Channel().Key(), s)
-		}
+	}
+	res.Frame = res.Frame.KeepKeys(t.keepKeys)
+	if res.Frame.Count() == 0 {
+		return framer.IteratorResponse{}, false, nil
 	}
 	return res, true, nil
 }

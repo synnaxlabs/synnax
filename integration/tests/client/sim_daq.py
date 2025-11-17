@@ -29,12 +29,11 @@ class SimDaq(TestCase):
         """
         client = self.client
 
-        # Index channel:
+        # Pressure Index channel:
         # -------------------
         daq_time_ch = client.channels.create(
             name="daq_time", is_index=True, retrieve_if_name_exists=True
         )
-
         # Pressure channel:
         # -------------------
         press_pt = client.channels.create(
@@ -44,51 +43,27 @@ class SimDaq(TestCase):
             retrieve_if_name_exists=True,
         )
 
-        # Start test channels:
+        # Generic Flag:
         # -------------------
-        start_test_cmd_time = client.channels.create(
-            name="start_test_cmd_time",
-            is_index=True,
-            data_type=sy.DataType.TIMESTAMP,
-            retrieve_if_name_exists=True,
-        )
-
-        start_test_cmd = client.channels.create(
-            name="start_test_cmd",
+        test_flag_cmd = client.channels.create(
+            name="test_flag_cmd",
             data_type=sy.DataType.UINT8,
             retrieve_if_name_exists=True,
-            index=start_test_cmd_time.key,
+            virtual=True,
         )
 
-        start_test_state = client.channels.create(
-            name="start_test_state",
-            index=daq_time_ch.key,
-            data_type=sy.DataType.UINT8,
-            retrieve_if_name_exists=True,
-        )
-
-        # End test channels:
+        # End Test Flag
         # -------------------
-        end_test_cmd_time = client.channels.create(
-            name="end_test_cmd_time",
-            is_index=True,
-            data_type=sy.DataType.TIMESTAMP,
-            retrieve_if_name_exists=True,
-        )
-
         end_test_cmd = client.channels.create(
             name="end_test_cmd",
             data_type=sy.DataType.UINT8,
             retrieve_if_name_exists=True,
-            index=end_test_cmd_time.key,
+            virtual=True,
         )
 
-        end_test_state = client.channels.create(
-            name="end_test_state",
-            index=daq_time_ch.key,
-            data_type=sy.DataType.UINT8,
-            retrieve_if_name_exists=True,
-        )
+        # Initialize virtual channel with a value
+        client.write(sy.TimeStamp.now(), test_flag_cmd.key, [0])
+        client.write(sy.TimeStamp.now(), end_test_cmd.key, [0])
 
         # Pres valve channels:
         # -------------------
@@ -140,45 +115,30 @@ class SimDaq(TestCase):
 
         state = {
             "daq_time": sy.TimeStamp.now(),
-            "start_test_state": 0,
-            "end_test_state": 0,
-            "press_vlv_state": 0,
-            "vent_vlv_state": 0,
-            "press_pt": 0,
-        }
-
-        loop = sy.Loop(sy.Rate.HZ * 100)
-
-        state = {
-            "daq_time": sy.TimeStamp.now(),
-            "start_test_state": 0,
-            "end_test_state": 0,
             "press_vlv_state": 0,
             "vent_vlv_state": 0,
             "press_pt": 0,
         }
 
         with client.open_streamer(
-            ["start_test_cmd", "end_test_cmd", "press_vlv_cmd", "vent_vlv_cmd"]
+            ["end_test_cmd", "press_vlv_cmd", "vent_vlv_cmd"]
         ) as streamer:
             with client.open_writer(
                 start=sy.TimeStamp.now(),
                 channels=[
                     daq_time_ch.key,
-                    "start_test_state",
-                    "end_test_state",
                     "press_vlv_state",
                     "vent_vlv_state",
                     "press_pt",
                 ],
                 name="Simulated DAQ",
-                enable_auto_commit=True,
             ) as writer:
 
                 def test_active() -> bool:
                     return all([loop.wait(), self.should_continue])
 
                 self.log("Sim DAQ running")
+                end_test_flag = 0
                 while test_active():
                     # Read incoming commands
                     frame = streamer.read(timeout=0)
@@ -186,25 +146,21 @@ class SimDaq(TestCase):
                     if frame is not None:
                         vent_vlv_cmd = frame.get("vent_vlv_cmd")
                         if len(vent_vlv_cmd) > 0:
-                            state["vent_vlv_state"] = vent_vlv_cmd[-1]
+                            state["vent_vlv_state"] = vent_vlv_cmd[-1].item()
 
                         press_vlv_cmd = frame.get("press_vlv_cmd")
                         if len(press_vlv_cmd) > 0:
-                            state["press_vlv_state"] = press_vlv_cmd[-1]
-
-                        start_test_cmd = frame.get("start_test_cmd")
-                        if len(start_test_cmd) > 0:
-                            state["start_test_state"] = start_test_cmd[-1]
+                            state["press_vlv_state"] = press_vlv_cmd[-1].item()
 
                         end_test_cmd = frame.get("end_test_cmd")
                         if len(end_test_cmd) > 0:
-                            state["end_test_state"] = end_test_cmd[-1]
+                            end_test_flag = end_test_cmd[-1].item()
 
                     # Simulate pressure
                     if state["press_vlv_state"] == 1:
                         state["press_pt"] += 0.2
 
-                    elif state["vent_vlv_state"] == 1:
+                    if state["vent_vlv_state"] == 1:
                         state["press_pt"] -= 0.2
 
                     if state["press_pt"] < 0:
@@ -215,7 +171,7 @@ class SimDaq(TestCase):
                     writer.write(state)
 
                     # Check for test end
-                    if state["end_test_state"] > 0.9:
+                    if end_test_flag != 0:
                         self.log("Controller has stopped. Ending simulation.")
                         break
 

@@ -32,26 +32,25 @@ export interface SelectProps
     Flux.UseListParams<ListParams, status.Key, status.Status> {}
 
 export const Select = ({
-  value,
-  onChange,
-  filter,
   initialQuery,
+  filter,
   ...props
 }: SelectProps): ReactElement => {
-  const { data, retrieve, subscribe, getItem, status } = useList({ initialQuery });
+  const { data, retrieve, subscribe, getItem, status } = useList({
+    initialQuery,
+    filter,
+  });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Core.Single<status.Key, status.Status>
-      resourceName="Status"
+      {...props}
+      resourceName="status"
       data={data}
       subscribe={subscribe}
       getItem={getItem}
       onFetchMore={fetchMore}
       onSearch={search}
-      value={value}
-      onChange={onChange}
       status={status}
-      {...props}
     >
       {listItemRenderProp}
     </Core.Single>

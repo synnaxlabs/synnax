@@ -10,14 +10,13 @@
 import { record, xy } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import { type Status } from "@/status/payload";
+import { statusZ as baseStatusZ } from "@/status/payload";
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
 export const irNodeZ = z.object({
   key: z.string(),
   type: z.string(),
   config: record.unknownZ.or(z.string().transform(parseWithoutKeyConversion)),
-  source: z.string().optional(),
 });
 
 export const graphNodeZ = irNodeZ.extend({
@@ -48,6 +47,14 @@ export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Params = Key | Key[];
 
+export const statusDetailsZ = z.object({
+  running: z.boolean(),
+});
+
+export const statusZ = baseStatusZ(statusDetailsZ);
+
+export type Status = z.infer<typeof statusZ>;
+
 export const arcZ = z.object({
   key: keyZ,
   name: z.string(),
@@ -55,13 +62,12 @@ export const arcZ = z.object({
   text: textZ,
   deploy: z.boolean(),
   version: z.string(),
+  status: statusZ.optional().nullable(),
 });
 
-export interface Arc extends z.infer<typeof arcZ> {
-  status?: Status;
-}
+export interface Arc extends z.infer<typeof arcZ> {}
 
-export const newZ = arcZ.partial({ key: true });
+export const newZ = arcZ.partial({ key: true }).omit({ status: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ONTOLOGY_TYPE = "arc";

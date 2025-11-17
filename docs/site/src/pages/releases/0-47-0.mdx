@@ -1,0 +1,121 @@
+---
+title: "Version 0.47 Release Notes"
+---
+
+import Release from "@/components/releases/Release.astro";
+import { Image } from "@/components/Media";
+import { Divider } from "@synnaxlabs/pluto";
+import Diagram from "@/components/Diagram.astro";
+
+<Release
+    version="0.47.0"
+    breakingChanges
+    date="Oct 24, 2025"
+    title="Arc-Based Calculated Channels"
+>
+
+<Diagram preview style="height: 425px; padding: 0rem 9rem">
+  <Image client:only="react" id="releases/0-47-0/thumbnail" themed={false} />
+</Diagram>
+
+Our Lua-based calculated channels were a powerful first step towards deriving values in
+real-time from a set of input channels. They also came with several limitations, notably
+the inability to create calculations that relied on channels with different indexes, and
+the lack of statistical functions such as averages, minimum, maximum, and standard
+deviation.
+
+Our new Arc language is becoming the bedrock for building automations in Synnax, and the
+next step in its evolution is the introduction of Arc-based calculated channels. This
+uses a new, text-based syntax. It allows for calculations using mixes of persisted
+channels with different indexes, virtual channels, and even other calculated channels.
+
+We've also added three statistical aggregation functions: `avg`, `min`, and `max`. These
+functions can be used to calculate the average, minimum, and maximum values of a
+calculation over a time- or trigger-based window.
+
+### Deprecation of Lua-Based Calculations
+
+With the introduction of Arc-based calculated channels, Lua-based calculations are
+deprecated and will be removed in a future release. We'll automatically attempt to
+migrate compatible Lua-based calculations to their Arc equivalent, and will provide
+warnings for incompatible calculations that must be manually re-written.
+
+In this release, Lua-based calculations will continue to function normally, but creating
+new Lua-based calculations will not be allowed.
+
+<Divider.Divider x />
+
+### Breaking Changes
+
+#### Auto-Commit is now Enabled by Default with All Writers
+
+[Auto-Commit](/reference/concepts/writes#auto-commit) is used to immediately persist
+written data to Synnax, as opposed to calling `commit` manually.
+
+Over the course of several release, we've observed that it's far more common to write
+data in scenarios where you'd want to have auto-commit enabled (telemetry streaming,
+control) than in scenarios where you'd want to disable it.
+
+As a result, we've made the decision to enable auto-commit by default with writers in
+all of our client libraries. Any code that implicitly disables auto-commit will now need
+to explicitly disable it.
+
+#### Changes to Writer Behavior Under Mixed Control Authority
+
+Synnax v0.47 fixes a critical issue that caused schematics to become unresponsive across
+all channels when a higher authority process acquired control of a channel on the
+schematic.
+
+In this scenario, a schematic will have mixed control over a set of actuators. For
+example, a schematic is controlling `cmd_channel_1` and `cmd_channel_2`. Both of these
+have independent, associated indexes (`cmd_channel_1_time` and `cmd_channel_2_time`). In
+the scenario where the schematic operator has control over `cmd_channel_1` but not
+`cmd_channel_2` and auto commit is enabled, any writes to `cmd_channel_1` would fail
+regardless of the fact that the operator has control over it.
+
+We've changed the behavior of writers to support partial writes, meaning that a caller
+may have control over only a subset of channels in a particular write. When the user
+writes to a mixture of the channels it has control over as well as those it does not,
+all writes to a channel that it has control over will succeed.
+
+This fix significantly improves the reliability of schematics in complex control
+scenarios where multiple systems or users may be managing different aspects of the
+system simultaneously.
+
+<Divider.Divider x />
+
+### Minor Improvements and Bug Fixes
+
+#### Core
+
+- Fixed an issue where devices would accidentally regroup on startup.
+- Fixed channel renaming synchronization issues across Synnax.
+- Fixed issues with opening streamers when the channel key is 0.
+
+#### Console
+
+- Added a new Arc toolbar with language server support for improved code editing and
+  development experience.
+- Added a new input symbol to the schematic editor for sending messages to string
+  channels.
+- Fixed an issue where CSV exports failed for channels with different indexes, allowing
+  proper data export from line plots.
+- Improved workspace management with better synchronization and export functionality
+  that now uses layout names for JSON files.
+- Fixed schematic edge selection, node selectors, and symbol creation for more reliable
+  schematic editing.
+- Fixed styling issues for long channel names in task configuration dialogs.
+- Fixed tooltip coloring to improve visual consistency.
+- Added a copy properties context menu item to ontology toolbars for easier
+  configuration management.
+
+#### Driver
+
+- Fixed OPC UA write task reliability, including proper handling of boolean writes.
+- Fixed OPC UA browser status display to show accurate connection states.
+- Added validation for NI Analog Read task minimum sample rate to prevent configuration
+  errors.
+- Fixed startup warnings in the embedded driver for cleaner initialization.
+- Enabled auto-commit for Modbus driver to improve data persistence.
+
+</Release>

@@ -7,43 +7,39 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Page
 
-from console.task.channels.accelerometer import Accelerometer
 from console.task.channels.analog import Analog
-from console.task.channels.bridge import Bridge
-from console.task.channels.current import Current
-from console.task.channels.force_bridge_table import ForceBridgeTable
-from console.task.channels.force_bridge_two_point_linear import (
+from console.task.channels.analog_input import (
+    RTD,
+    Accelerometer,
+    Bridge,
+    Current,
+    ForceBridgeTable,
     ForceBridgeTwoPointLinear,
-)
-from console.task.channels.force_iepe import ForceIEPE
-from console.task.channels.microphone import Microphone
-from console.task.channels.pressure_bridge_table import PressureBridgeTable
-from console.task.channels.pressure_bridge_two_point_linear import (
+    ForceIEPE,
+    Microphone,
+    PressureBridgeTable,
     PressureBridgeTwoPointLinear,
-)
-from console.task.channels.resistance import Resistance
-from console.task.channels.rtd import RTD
-from console.task.channels.strain_gauge import StrainGauge
-from console.task.channels.temperature_built_in_sensor import TemperatureBuiltInSensor
-from console.task.channels.thermocouple import Thermocouple
-from console.task.channels.torque_bridge_table import TorqueBridgeTable
-from console.task.channels.torque_bridge_two_point_linear import (
+    Resistance,
+    StrainGauge,
+    TemperatureBuiltInSensor,
+    Thermocouple,
+    TorqueBridgeTable,
     TorqueBridgeTwoPointLinear,
+    VelocityIEPE,
+    Voltage,
 )
-from console.task.channels.velocity_iepe import VelocityIEPE
-from console.task.channels.voltage import Voltage
 
-from .ni import NITask
+from .ni import NIChannel, NITask
 
 if TYPE_CHECKING:
     from console.console import Console
 
 # Valid channel types for NI Analog Read tasks
-ANALOG_READ_CHANNEL_TYPES: dict[str, Type[Analog]] = {
+ANALOG_READ_CHANNEL_TYPES: dict[str, type[Analog]] = {
     "Accelerometer": Accelerometer,
     "Bridge": Bridge,
     "Current": Current,
@@ -79,17 +75,17 @@ class AnalogRead(NITask):
     def add_channel(
         self,
         name: str,
-        type: str,
+        chan_type: str,
         device: str,
-        dev_name: Optional[str] = None,
+        dev_name: str | None = None,
         **kwargs: Any,
-    ) -> Analog:
+    ) -> NIChannel:
         """
         Add an analog read channel to the task.
 
         Args:
             name: Channel name
-            type: Channel type (must be valid for analog read tasks)
+            chan_type: Channel type (must be valid for analog read tasks)
             device: Device identifier
             dev_name: Optional device name
             **kwargs: Additional channel-specific configuration
@@ -100,26 +96,25 @@ class AnalogRead(NITask):
         Raises:
             ValueError: If channel type is not valid for analog read tasks
         """
-        if type not in ANALOG_READ_CHANNEL_TYPES:
+        if chan_type not in ANALOG_READ_CHANNEL_TYPES:
             raise ValueError(
-                f"Invalid channel type for NI Analog Read: {type}. "
+                f"Invalid channel type for NI Analog Read: {chan_type}. "
                 f"Valid types: {list(ANALOG_READ_CHANNEL_TYPES.keys())}"
             )
 
         return self._add_channel_helper(
             name=name,
-            type=type,
             device=device,
             dev_name=dev_name,
-            channel_class=ANALOG_READ_CHANNEL_TYPES[type],
+            channel_class=ANALOG_READ_CHANNEL_TYPES[chan_type],
             **kwargs,
         )
 
     def set_parameters(
         self,
-        task_name: Optional[str] = None,
-        data_saving: Optional[bool] = None,
-        auto_start: Optional[bool] = None,
+        task_name: str | None = None,
+        data_saving: bool | None = None,
+        auto_start: bool | None = None,
         **kwargs: Any,
     ) -> None:
         """

@@ -7,21 +7,20 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Page
 
 from console.task.channels.analog import Analog
-from console.task.channels.current import Current
-from console.task.channels.voltage import Voltage
+from console.task.channels.analog_output import Current, Voltage
 
-from .ni import NITask
+from .ni import NIChannel, NITask
 
 if TYPE_CHECKING:
     from console.console import Console
 
 # Channel type registry for NI Analog Output
-AO_CHANNEL_TYPES: dict[str, Type[Analog]] = {
+AO_CHANNEL_TYPES: dict[str, type[Analog]] = {
     "Voltage": Voltage,
     "Current": Current,
 }
@@ -41,18 +40,17 @@ class AnalogWrite(NITask):
     def add_channel(
         self,
         name: str,
-        type: str,
+        chan_type: str,
         device: str,
-        dev_name: Optional[str] = None,
+        dev_name: str | None = None,
         **kwargs: Any,
-    ) -> Analog:
+    ) -> NIChannel:
         """
         Add a channel to the NI AO task. Only Voltage and Current types are allowed.
-        Terminal configuration and shunt resistor parameters are not supported for AO tasks.
 
         Args:
             name: Channel name
-            type: Channel type (must be "Voltage" or "Current")
+            chan_type: Channel type (must be "Voltage" or "Current")
             device: Device identifier
             dev_name: Optional device name
             **kwargs: Additional channel-specific configuration
@@ -63,31 +61,26 @@ class AnalogWrite(NITask):
         Raises:
             ValueError: If channel type is not valid for analog write tasks
         """
-        if type not in AO_CHANNEL_TYPES:
+        if chan_type not in AO_CHANNEL_TYPES:
             raise ValueError(
-                f"Invalid channel type for NI Analog Write: {type}. "
+                f"Invalid channel type for NI Analog Write: {chan_type}. "
                 f"Valid types: {list(AO_CHANNEL_TYPES.keys())}"
             )
 
-        # Remove parameters not supported for AO tasks
-        kwargs.pop("terminal_config", None)
-        kwargs.pop("shunt_resistor", None)
-        kwargs.pop("resistance", None)
-
         return self._add_channel_helper(
             name=name,
-            type=type,
             device=device,
             dev_name=dev_name,
-            channel_class=AO_CHANNEL_TYPES[type],
+            channel_class=AO_CHANNEL_TYPES[chan_type],
             **kwargs,
         )
 
     def set_parameters(
         self,
-        task_name: Optional[str] = None,
-        data_saving: Optional[bool] = None,
-        auto_start: Optional[bool] = None,
+        task_name: str | None = None,
+        data_saving: bool | None = None,
+        auto_start: bool | None = None,
+        state_update_rate: float | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -95,12 +88,11 @@ class AnalogWrite(NITask):
 
         Args:
             task_name: The name of the task.
-            state_update_rate: The state update rate for the AO task.
             data_saving: Whether to save data to the core.
             auto_start: Whether to start the task automatically.
+            state_update_rate: The state update rate for the AO task.
             **kwargs: Additional parameters.
         """
-        state_update_rate = kwargs.pop("state_update_rate", None)
 
         super().set_parameters(
             task_name=task_name,

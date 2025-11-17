@@ -20,16 +20,64 @@ from synnax import TimeSpan
 @pytest.mark.framer
 @pytest.mark.streamer
 class TestStreamer:
-    def test_basic_stream(self, virtual_channel: sy.Channel, client: sy.Synnax):
-        """Should correctly stream data for a channel"""
-        with client.open_streamer(
-            virtual_channel.key, use_experimental_codec=True
-        ) as s:
+    def test_basic_stream_virtual(self, virtual_channel: sy.Channel, client: sy.Synnax):
+        """Should correctly stream data for a virtual channel"""
+        with client.open_streamer(virtual_channel.key) as s:
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
-                data = np.random.rand(10).astype(np.float64)
-                w.write(pd.DataFrame({virtual_channel.key: data}))
-                frame = s.read(timeout=1)
-                assert np.array_equal(frame[virtual_channel.key], data)
+                for i in range(10):
+                    data = np.random.rand(10).astype(np.float64)
+                    w.write(pd.DataFrame({virtual_channel.key: data}))
+                    frame = s.read(timeout=1)
+                    assert np.array_equal(frame[virtual_channel.key], data)
+
+    def test_basic_stream_indexed_pair(
+        self,
+        indexed_pair: list[sy.Channel],
+        client: sy.Synnax,
+    ):
+        idx, data = indexed_pair
+        """Should correctly stream data from a virtual/index channel pair"""
+        with client.open_streamer(channels=[idx.name, data.name]) as s:
+            with client.open_writer(sy.TimeStamp.now(), channels=indexed_pair) as w:
+                for i in range(10):
+                    ts = sy.TimeStamp.now()
+                    value = np.random.rand(1)
+                    w.write(pd.DataFrame({idx.name: ts, data.name: value}))
+                    frame = s.read(timeout=1)
+                    assert frame[idx.name][0] == ts
+                    assert frame[data.name][0] == value
+
+    def test_basic_stream_multiple_writers(
+        self,
+        indexed_pair: list[sy.Channel],
+        virtual_channel: sy.Channel,
+        client: sy.Synnax,
+    ):
+        idx, data = indexed_pair
+        start = sy.TimeStamp.now()
+        with client.open_streamer(
+            channels=[idx.name, data.name, virtual_channel.name]
+        ) as s:
+            with client.open_writer(start, channels=indexed_pair) as idx_writer:
+                with client.open_writer(
+                    start,
+                    channels=virtual_channel,
+                ) as virtual_writer:
+                    for i in range(10):
+                        ts = sy.TimeStamp.now()
+                        value = np.random.rand(1)
+                        v_value = np.random.rand(1)
+                        idx_writer.write(pd.DataFrame({idx.name: ts, data.name: value}))
+                        virtual_writer.write(
+                            pd.DataFrame({virtual_channel.name: v_value})
+                        )
+                        for _ in range(2):
+                            frame = s.read(timeout=1)
+                            if len(frame.channels) == 1:
+                                assert frame[virtual_channel.name] == v_value
+                            else:
+                                assert frame[idx.name][0] == ts
+                                assert frame[data.name][0] == value
 
     def test_open_streamer_no_channels(self, client: sy.Synnax):
         """Should not throw an exception when a streamer is opened with no channels"""
@@ -58,6 +106,38 @@ class TestStreamer:
                 w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = s.read(timeout=1)
                 assert np.array_equal(frame[virtual_channel.key], data)
+
+    def test_update_channels_rapid(
+        self,
+        indexed_pair: list[sy.Channel],
+        virtual_channel: sy.Channel,
+        client: sy.Synnax,
+    ):
+        idx, data_ch = indexed_pair
+        start = sy.TimeStamp.now()
+        channel_names = [idx.name, data_ch.name, virtual_channel.name]
+        curr_channels = [*channel_names]
+        with client.open_streamer(channels=channel_names) as s:
+            with client.open_writer(start, channels=channel_names) as writer:
+                for i in range(300):
+                    ts = sy.TimeStamp.now()
+                    value = np.random.rand(1)
+                    data = {
+                        idx.name: ts,
+                        data_ch.name: value,
+                        virtual_channel.name: value,
+                    }
+                    writer.write(data)
+                    if i % 50 == 0:
+                        c = int((i % 150) / 50) + 1
+                        curr_channels = channel_names[:c]
+                        s.update_channels(curr_channels)
+                    frm = s.read(timeout=1)
+                    for channel in curr_channels:
+                        d = frm.get(channel, None)
+                        if len(d) > 0:
+                            assert len(d) == 1
+                            assert d[0] == data[channel]
 
     def test_timeout_seconds(self, client: sy.Synnax):
         """Should return None after the specified timeout is exceeded"""
@@ -105,7 +185,7 @@ class TestStreamer:
                 frame = s.read(timeout=1)
                 assert np.array_equal(frame[virtual_channel.key], expect)
 
-    def tesst_downsample_negative(self, virtual_channel: sy.Channel, client: sy.Synnax):
+    def test_downsample_negative(self, virtual_channel: sy.Channel, client: sy.Synnax):
         with pytest.raises(sy.ValidationError):
             with client.open_streamer(virtual_channel.key, -1) as s:
                 ...
@@ -121,9 +201,7 @@ class TestStreamer:
         )
         assert_eventually_channels_are_found(client, [idx.key, data.key])
         with client.open_streamer(data.key) as s:
-            with client.open_writer(
-                sy.TimeStamp.now(), [idx.key, data.key], enable_auto_commit=True
-            ) as w:
+            with client.open_writer(sy.TimeStamp.now(), [idx.key, data.key]) as w:
                 w.write({idx.key: [sy.TimeStamp.now()], data.key: [1]})
                 f = s.read(timeout=1)
                 assert f is not None
@@ -157,7 +235,7 @@ class TestStreamer:
         assert_eventually_channels_are_found(node_2_client, [idx.key, data.key])
         with node_1_client.open_streamer(data.key) as s:
             with node_2_client.open_writer(
-                sy.TimeStamp.now(), [idx.key, data.key], enable_auto_commit=True
+                sy.TimeStamp.now(), [idx.key, data.key]
             ) as w:
                 w.write({idx.key: [sy.TimeStamp.now()], data.key: [1]})
                 f = s.read(timeout=1)

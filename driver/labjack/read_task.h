@@ -142,7 +142,7 @@ struct ThermocoupleChan final : InputChan {
     //     LJM_ttT (val=6008)
     //     LJM_ttC (val=6009)
     // Note that the values above do not align with the AIN_EF index values
-    // or order. We use a lookup table provided by labjack to convert our
+    // or order. We use a lookup table provided by LabJack to convert our
     // thermocouple constant to the correct index when using the AIN_EF
     // Lookup table: TC_INDEX_LUT[ x - 60001] = AIN_EF_INDEX
     long type;
@@ -396,8 +396,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(idx);
         return synnax::WriterConfig{
             .channels = keys,
-            .mode = synnax::data_saving_writer_mode(this->data_saving),
-            .enable_auto_commit = true,
+            .mode = common::data_saving_writer_mode(this->data_saving),
         };
     }
 
@@ -431,7 +430,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     }
 };
 
-/// @brief a source implementation that reads from labjack devices via a unary
+/// @brief a source implementation that reads from LabJack devices via a unary
 /// request-response cycle on each acquisition. This source is only used when the
 /// task has thermocouples, as LJM does not support streaming of thermocouple data.
 class UnarySource final : public common::Source {
@@ -511,7 +510,7 @@ public:
     }
 };
 
-/// @brief a source implementation that reads from labjack deices via the LJM
+/// @brief a source implementation that reads from LabJack devices via the LJM
 /// streaming protocol. This is much higher performance than unary request/response
 /// cycles, and is preferred in cases where we don't acquire data from
 /// thermocouples.

@@ -40,7 +40,6 @@ import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
-import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 
 const EmptyContent = () => {
@@ -182,7 +181,7 @@ const Content = () => {
   );
   return (
     <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Ontology.Toolbar className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
+      <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
           <Toolbar.Actions>
@@ -217,7 +216,7 @@ const Content = () => {
             )}
           </List.Items>
         </Select.Frame>
-      </Ontology.Toolbar>
+      </Toolbar.Content>
     </PMenu.ContextMenu>
   );
 };
@@ -247,12 +246,8 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
   const isLoading = variant === "loading";
   const isRunning = details?.running === true;
   if (!isRunning && variant === "success") variant = "info";
-  const handleStartStopClick = useCallback<NonNullable<Button.ButtonProps["onClick"]>>(
-    (e) => {
-      e.stopPropagation();
-      const command = isRunning ? "stop" : "start";
-      onStopStart(command);
-    },
+  const handleStartStopClick = useCallback(
+    () => onStopStart(isRunning ? "stop" : "start"),
     [isRunning, onStopStart],
   );
   return (
@@ -382,7 +377,7 @@ const ContextMenu = ({
         <>
           <PMenu.Item itemKey="edit">
             <Icon.Edit />
-            Edit Configuration
+            Edit configuration
           </PMenu.Item>
           <PMenu.Divider />
           <Menu.RenameItem />
@@ -406,7 +401,7 @@ const ContextMenu = ({
           <PMenu.Divider />
         </>
       )}
-      <Menu.HardReloadItem />
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 };

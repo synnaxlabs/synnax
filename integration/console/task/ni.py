@@ -8,23 +8,28 @@
 #  included in the file licenses/APL.txt.
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, Literal, Optional, Type
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import synnax as sy
 from playwright.sync_api import Page
 
 from console.task.channels.analog import Analog
+from console.task.channels.counter import Counter
 
 from ..page import ConsolePage
 
 if TYPE_CHECKING:
     from console.console import Console
 
+# Union type for all NI channel types
+NIChannel = Analog | Counter
+NIChannelT = TypeVar("NIChannelT", bound=NIChannel)
+
 
 class NITask(ConsolePage):
-    """NI Task automation interface for managing analog channels."""
+    """NI Task automation interface for managing channels."""
 
-    channels: list[Analog]
+    channels: list[NIChannel]
     channels_by_name: list[str]
     task_name: str
 
@@ -37,11 +42,11 @@ class NITask(ConsolePage):
     def add_channel(
         self,
         name: str,
-        type: str,
+        chan_type: str,
         device: str,
-        dev_name: Optional[str] = None,
+        dev_name: str | None = None,
         **kwargs: Any,
-    ) -> Analog:
+    ) -> NIChannel:
         """
         Add a channel to the task.
 
@@ -50,7 +55,7 @@ class NITask(ConsolePage):
 
         Args:
             name: Channel name
-            type: Channel type string for UI selection
+            chan_type: Channel type string for UI selection
             device: Device identifier
             dev_name: Optional device name
             **kwargs: Additional channel-specific configuration
@@ -63,18 +68,16 @@ class NITask(ConsolePage):
     def _add_channel_helper(
         self,
         name: str,
-        type: str,
         device: str,
-        dev_name: Optional[str],
-        channel_class: Type[Analog],
+        dev_name: str | None,
+        channel_class: type[NIChannelT],
         **kwargs: Any,
-    ) -> Analog:
+    ) -> NIChannelT:
         """
         Helper method for adding a channel with common UI automation logic.
 
         Args:
             name: Channel name
-            type: Channel type string for UI selection
             device: Device identifier
             dev_name: Optional device name
             channel_class: Channel class to instantiate
@@ -123,7 +126,7 @@ class NITask(ConsolePage):
 
         self.channels.append(channel)
         self.channels_by_name.append(name)
-        return channel
+        return cast(NIChannelT, channel)
 
     def assert_channel(self, name: str | list[str]) -> None:
         """
@@ -146,10 +149,9 @@ class NITask(ConsolePage):
 
     def set_parameters(
         self,
-        task_name: Optional[str] = None,
-        data_saving: Optional[bool] = None,
-        auto_start: Optional[bool] = None,
-        **kwargs: Any,
+        task_name: str | None = None,
+        data_saving: bool | None = None,
+        auto_start: bool | None = None,
     ) -> None:
         """
         Set the parameters for the task.

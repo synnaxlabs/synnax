@@ -98,7 +98,7 @@ type IteratorRequest struct {
 	SeqNum int
 }
 
-// IteratorResponse is a response containing segments satisfying a RetrieveP Params as
+// IteratorResponse is a response containing segments satisfying an iterator request as
 // well as any errors encountered during the retrieval.
 type IteratorResponse struct {
 	// Variant is the type of response being issued.

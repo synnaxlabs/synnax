@@ -25,7 +25,7 @@ protected:
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
     std::unique_ptr<mock::Server> server;
-    std::shared_ptr<util::ConnectionPool> conn_pool;
+    std::shared_ptr<opc::connection::Pool> conn_pool;
     synnax::Channel index_channel;
     synnax::Channel bool_channel;
     synnax::Channel uint16_channel;
@@ -88,7 +88,7 @@ protected:
             client->hardware.create_rack("opc_read_task_test_rack")
         );
 
-        util::ConnectionConfig conn_cfg;
+        opc::connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://localhost:4840";
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
@@ -204,11 +204,22 @@ protected:
 
         ctx = std::make_shared<task::MockContext>(client);
         mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-        conn_pool = std::make_shared<util::ConnectionPool>();
+        conn_pool = std::make_shared<opc::connection::Pool>();
 
         server = std::make_unique<mock::Server>(server_cfg);
         server->start();
-        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+        // Wait for server to be ready by attempting to connect
+        opc::connection::Config test_conn_cfg;
+        test_conn_cfg.endpoint = conn_cfg.endpoint;
+        test_conn_cfg.security_mode = "None";
+        test_conn_cfg.security_policy = "None";
+        auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+            opc::connection::connect(test_conn_cfg, "test"),
+            (5 * telem::SECOND).chrono(),
+            (250 * telem::MILLISECOND).chrono()
+        );
+        UA_Client_disconnect(test_client.get());
     }
 
     std::unique_ptr<common::ReadTask> create_task() {
@@ -784,7 +795,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         ctx->client->hardware.create_rack("opc_invalid_bool_rack")
     );
 
-    util::ConnectionConfig invalid_conn_cfg;
+    opc::connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4841";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
@@ -863,7 +874,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         ctx->client->hardware.create_rack("opc_invalid_float_rack")
     );
 
-    util::ConnectionConfig invalid_conn_cfg;
+    opc::connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4842";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
@@ -941,7 +952,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         ctx->client->hardware.create_rack("opc_invalid_double_rack")
     );
 
-    util::ConnectionConfig invalid_conn_cfg;
+    opc::connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4843";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
@@ -1005,4 +1016,57 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     EXPECT_TRUE(mock_factory->writes->size() == 0 || has_empty_frames);
 
     invalid_server->stop();
+}
+
+/// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
+/// This prevents data from being written but not committed, making it unavailable for
+/// reads.
+TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    // Create rack and device
+    auto rack = ASSERT_NIL_P(client->hardware.create_rack("opc_test_rack"));
+
+    opc::connection::Config conn_cfg;
+    conn_cfg.endpoint = "opc.tcp://localhost:4840";
+    conn_cfg.security_mode = "None";
+    conn_cfg.security_policy = "None";
+
+    synnax::Device dev(
+        "opc_test_device_key",
+        "OPC UA Test Device",
+        rack.key,
+        "opc.tcp://localhost:4840",
+        "opc",
+        "OPC UA Server",
+        nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
+    );
+    ASSERT_NIL(client->hardware.create_device(dev));
+
+    // Create index and data channels
+    auto index_ch = ASSERT_NIL_P(
+        client->channels.create("opc_test_index", telem::TIMESTAMP_T, 0, true)
+    );
+    auto ch = ASSERT_NIL_P(
+        client->channels.create("test_channel", telem::FLOAT32_T, index_ch.key, false)
+    );
+
+    // Create task config
+    json task_cfg{
+        {"data_saving", true},
+        {"device", dev.key},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"array_mode", false},
+        {"array_size", 1},
+        {"channels", json::array({{{"node_id", "NS=2;I=8"}, {"channel", ch.key}}})}
+    };
+
+    auto p = xjson::Parser(task_cfg);
+    auto cfg = std::make_unique<opc::ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+
+    // Verify that writer_config has enable_auto_commit set to true
+    auto writer_cfg = cfg->writer_config();
+    ASSERT_TRUE(writer_cfg.enable_auto_commit);
 }

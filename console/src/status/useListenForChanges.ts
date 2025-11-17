@@ -7,11 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status } from "@synnaxlabs/pluto";
+import { type status } from "@synnaxlabs/client";
+import { Status, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
+import { useDispatch } from "react-redux";
+
+import { filterFavoritesToKeys, removeFavorites } from "@/status/slice";
 
 export const useListenForChanges = () => {
+  const dispatch = useDispatch();
   const addStatus = Status.useAdder();
-  const handleSet = useCallback(addStatus, [addStatus]);
-  Status.useSetSynchronizer(handleSet);
+  const listQuery = Status.useList();
+  useAsyncEffect(
+    async (signal) => {
+      await listQuery.retrieveAsync({}, { signal });
+      if (listQuery.variant !== "success") return;
+      dispatch(filterFavoritesToKeys(listQuery.data));
+    },
+    [dispatch],
+  );
+  Status.useSetSynchronizer(addStatus);
+  const handleDelete = useCallback(
+    (key: status.Key) => {
+      dispatch(removeFavorites(key));
+    },
+    [dispatch],
+  );
+  Status.useDeleteSynchronizer(handleDelete);
 };

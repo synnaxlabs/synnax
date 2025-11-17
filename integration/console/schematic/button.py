@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Literal
 
 import synnax as sy
 
@@ -19,18 +19,18 @@ class Button(Symbol):
 
     def edit_properties(
         self,
-        channel_name: Optional[str] = None,
-        activation_delay: Optional[float] = None,
-        show_control_chip: Optional[bool] = None,
-        mode: Optional[
-            Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"]
-        ] = None,
+        channel_name: str | None = None,
+        activation_delay: float | None = None,
+        show_control_chip: bool | None = None,
+        mode: (
+            Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"] | None
+        ) = None,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Edit Setpoint properties including channel settings."""
         self._click_symbol()
 
-        applied_properties: Dict[str, Any] = {}
+        applied_properties: dict[str, Any] = {}
         if channel_name is not None:
             self.set_label(channel_name)
 
@@ -61,19 +61,18 @@ class Button(Symbol):
 
         if mode is not None:
             # Convert to title case for UI interaction
-            mode_title = mode.title()
-            self.page.get_by_text(mode_title, exact=True).click()
+            self.page.get_by_text(mode.title()).click()
             applied_properties["mode"] = mode.lower()
 
         return applied_properties
 
-    def get_properties(self) -> Dict[str, Any]:
+    def get_properties(self) -> dict[str, Any]:
         """Get the current properties of the symbol"""
         self._click_symbol()
         self.page.get_by_text("Properties").click()
         self.page.get_by_text("Control").last.click()
 
-        props: Dict[str, Any] = {
+        props: dict[str, Any] = {
             "channel": "",
             "activation_delay": -1.0,
             "show_control_chip": False,
