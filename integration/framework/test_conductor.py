@@ -125,8 +125,8 @@ class TestConductor:
         else:
             self.synnax_connection = synnax_connection
 
+        # Initialize client
         try:
-            # Initialize Synnax client and range
             self.client = sy.Synnax(
                 host=self.synnax_connection.server_address,
                 port=self.synnax_connection.port,
@@ -134,14 +134,18 @@ class TestConductor:
                 password=self.synnax_connection.password,
                 secure=self.synnax_connection.secure,
             )
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize client: {e}")
 
-            self.range: sy.Range = self.client.ranges.create(
+        # Initialize range
+        self.range: sy.Range | None = None
+        try:
+            self.range = self.client.ranges.create(
                 name=self.name,
                 time_range=sy.TimeRange(start=sy.TimeStamp.now(), end=sy.TimeStamp.MAX),
             )
         except Exception as e:
-            self.logger.error(f"Error: Failed to initialize client: {e}")
-            raise e
+            raise RuntimeError(f"Failed to create range: {e}")
 
         self.state = STATE.INITIALIZING
         self.test_definitions: list[TestDefinition] = []
@@ -151,7 +155,7 @@ class TestConductor:
         self.is_running = False
         self.should_stop = False
         self.status_callbacks: list[Callable[[Test], None]] = []
-        # Track all active tests - tests are added when started, removed when complete/killed
+        # Track active tests
         self.active_tests: list[tuple[TestCase, sy.Range, threading.Thread]] = []
         self.active_tests_lock = threading.Lock()
         self.tests_lock = threading.Lock()
@@ -768,11 +772,14 @@ class TestConductor:
         color = COLORS[test_index % len(COLORS)]
 
         # Create range for this test case (MAX = in progress)
-        test.range = self.range.create_child_range(
-            name=test.name or test.test_name,
-            time_range=sy.TimeRange(start=sy.TimeStamp.now(), end=sy.TimeStamp.MAX),
-            color=color,
-        )
+        if self.range is not None:
+            test.range = self.range.create_child_range(
+                name=test.name or test.test_name,
+                time_range=sy.TimeRange(start=sy.TimeStamp.now(), end=sy.TimeStamp.MAX),
+                color=color,
+            )
+        else:
+            test.range = None
 
         try:
             # Load and instantiate the test class
@@ -804,8 +811,11 @@ class TestConductor:
             self.log_message(f"Traceback: {traceback.format_exc()}")
 
         finally:
-            # Finalize the test case range
-            test.range = self._finalize_range(test.range)
+            if test.range is not None:
+                try:
+                    test.range = self._finalize_range(test.range)
+                except RuntimeError as e:
+                    self.log_message(f"Warning: Could not finalize range: {e}")
 
             # Clean up test tracking
             with self.active_tests_lock:
@@ -819,7 +829,7 @@ class TestConductor:
 
         return test
 
-    def _finalize_range(self, test_range: sy.Range) -> sy.Range | None:
+    def _finalize_range(self, test_range: sy.Range) -> sy.Range:
         """Finalize a test range by updating its end time."""
         try:
             return self.client.ranges.create(
@@ -832,7 +842,9 @@ class TestConductor:
             )
         except Exception as e:
             self.logger.error(f"Error: Failed to finalize range: {e}")
-            return None
+            raise RuntimeError(
+                f"Failed to finalize range '{test_range.name}': {e}"
+            ) from e
 
     def _test_runner_thread(
         self, test_def: TestDefinition, result_container: list[Test]
@@ -931,12 +943,23 @@ class TestConductor:
             threads_to_terminate = []
 
             for test_instance, test_range, thread in self.active_tests:
-                status, error_msg = self._determine_kill_status(
-                    test_instance, test_range
-                )
-                test_instance._status = status
-                finalized_range = self._finalize_range(test_range)
+                if test_range is None:
+                    status = STATUS.KILLED
+                    error_msg = "Test was killed (no range available)"
+                    finalized_range = None
+                else:
+                    status, error_msg = self._determine_kill_status(
+                        test_instance, test_range
+                    )
+                    try:
+                        finalized_range = self._finalize_range(test_range)
+                    except RuntimeError as e:
+                        self.log_message(
+                            f"Warning: Could not finalize range for killed test: {e}"
+                        )
+                        finalized_range = test_range  # Keep original range with end=MAX
 
+                test_instance._status = status
                 test_result = Test(
                     test_name=test_instance.name,
                     name=getattr(test_instance, "custom_name", None),
@@ -990,6 +1013,8 @@ class TestConductor:
                     "elapsed_time": (
                         (sy.TimeStamp.now() - test_range.time_range.start)
                         / sy.TimeSpan.SECOND
+                        if test_range is not None
+                        else 0
                     ),
                 }
                 for test_instance, test_range, _ in self.active_tests
@@ -1005,6 +1030,7 @@ class TestConductor:
                         (result.range.time_range.end - result.range.time_range.start)
                         / sy.TimeSpan.SECOND
                         if result.range is not None
+                        and result.range.time_range.end != sy.TimeStamp.MAX
                         else None
                     ),
                     "error": result.error_message,
@@ -1063,7 +1089,8 @@ class TestConductor:
         # Individual Summary
         self.log_message("\n" + "=" * 60, False)
         for test in tests_snapshot:
-            if test.range is not None:
+            # Calculate duration if range is finalized
+            if test.range is not None and test.range.time_range.end != sy.TimeStamp.MAX:
                 duration = (
                     test.range.time_range.end - test.range.time_range.start
                 ) / sy.TimeSpan.SECOND
@@ -1189,17 +1216,20 @@ def main() -> None:
         raise
     finally:
         # Update conductor range end time
-        try:
-            conductor.client.ranges.create(
-                key=conductor.range.key,
-                name=conductor.range.name,
-                time_range=sy.TimeRange(
-                    start=conductor.range.time_range.start,
-                    end=sy.TimeStamp.now(),
-                ),
-            )
-        except Exception as e:
-            conductor.log_message(f"Warning: Failed to finalize conductor range: {e}")
+        if conductor.range is not None:
+            try:
+                conductor.client.ranges.create(
+                    key=conductor.range.key,
+                    name=conductor.range.name,
+                    time_range=sy.TimeRange(
+                        start=conductor.range.time_range.start,
+                        end=sy.TimeStamp.now(),
+                    ),
+                )
+            except Exception as e:
+                conductor.log_message(
+                    f"Warning: Failed to finalize conductor range: {e}"
+                )
 
         conductor.log_message(f"Fin.")
         if conductor.tests:
