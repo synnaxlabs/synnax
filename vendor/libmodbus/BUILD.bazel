@@ -7,57 +7,34 @@ cat > $@ << 'EOF'
 #ifndef CONFIG_H
 #define CONFIG_H
 
-/* Windows MSVC Configuration */
+/* Package information */
 #define PACKAGE_NAME "libmodbus"
-#define PACKAGE_VERSION "3.1.10"
-#define VERSION "3.1.10"
+#define PACKAGE_VERSION "3.1.11"
+#define VERSION "3.1.11"
 
-/* Standard C headers available in MSVC */
-#define HAVE_ERRNO_H 1
-#define HAVE_FCNTL_H 1
-#define HAVE_INTTYPES_H 1
-#define HAVE_LIMITS_H 1
-#define HAVE_STDINT_H 1
-#define HAVE_STDIO_H 1
-#define HAVE_STDLIB_H 1
-#define HAVE_STRING_H 1
-#define HAVE_SYS_STAT_H 1
-#define HAVE_SYS_TYPES_H 1
-#define HAVE_TIME_H 1
-#define HAVE_UNISTD_H 1
-#define HAVE_WCHAR_H 1
+/* Windows platform configuration */
+#define _WIN32_WINNT 0x0600  /* Windows 7+ */
 
-/* Windows socket functions */
-#define HAVE_SELECT 1
-#define HAVE_SOCKET 1
-#define HAVE_INET_NTOP 1
-#define HAVE_INET_PTON 1
-
-/* Windows doesn't have these Unix-specific features */
+/* Disable Unix-specific features not available on Windows */
 #define HAVE_DECL_TIOCSRS485 0
 #define HAVE_DECL_TIOCM_RTS 0
-
-/* Define for Windows */
-#define _WIN32_WINNT 0x0600
 
 #endif
 EOF""",
 )
 
-# Create modbus-version.h header
+# Create modbus-version.h header using upstream template
 genrule(
     name = "generate_version_h",
+    srcs = ["libmodbus/src/modbus-version.h.in"],
     outs = ["modbus/modbus-version.h"],
     cmd = """
-cat > $@ << 'EOF'
-#ifndef MODBUS_VERSION_H
-#define MODBUS_VERSION_H
-#define LIBMODBUS_VERSION_MAJOR 3
-#define LIBMODBUS_VERSION_MINOR 1
-#define LIBMODBUS_VERSION_MICRO 10
-#define LIBMODBUS_VERSION_STRING "3.1.10"
-#endif
-EOF""",
+sed -e 's/@LIBMODBUS_VERSION_MAJOR@/3/g' \
+    -e 's/@LIBMODBUS_VERSION_MINOR@/1/g' \
+    -e 's/@LIBMODBUS_VERSION_MICRO@/11/g' \
+    -e 's/@LIBMODBUS_VERSION@/3.1.11/g' \
+    $(location libmodbus/src/modbus-version.h.in) > $@
+""",
 )
 
 # Copy and modify ALL headers and sources for static linking
@@ -65,7 +42,7 @@ genrule(
     name = "prepare_static_sources",
     srcs = [
         "libmodbus/src/modbus.h",
-        "libmodbus/src/modbus-tcp.h", 
+        "libmodbus/src/modbus-tcp.h",
         "libmodbus/src/modbus-rtu.h",
         "libmodbus/src/modbus-private.h",
         "libmodbus/src/modbus-tcp-private.h",
@@ -89,25 +66,9 @@ genrule(
     ],
     cmd = select({
         "@platforms//os:windows": """
-# First, copy and fix modbus.h header
-cp $(location libmodbus/src/modbus.h) $(@D)/modbus/modbus.h.tmp
-# Use Python to replace the MODBUS_API definitions and fix stdint.h
-python -c "
-import re
-with open('$(@D)/modbus/modbus.h.tmp', 'r') as f:
-    content = f.read()
-# Replace the entire _MSC_VER block with a simple MODBUS_API definition
-pattern = r'#if defined\\(_MSC_VER\\)[\\s\\S]*?#else[\\s\\S]*?#endif'
-replacement = '#define MODBUS_API'
-content = re.sub(pattern, replacement, content)
-# Fix stdint.h include for Windows
-content = content.replace('#include \"stdint.h\"', '#include <stdint.h>')
-with open('$(@D)/modbus/modbus.h', 'w') as f:
-    f.write(content)
-"
-
-# Copy other headers as-is
-cp $(location libmodbus/src/modbus-tcp.h) $(@D)/modbus/modbus-tcp.h 
+# Copy headers to modbus/ directory (MODBUS_API handled via defines in cc_library)
+cp $(location libmodbus/src/modbus.h) $(@D)/modbus/modbus.h
+cp $(location libmodbus/src/modbus-tcp.h) $(@D)/modbus/modbus-tcp.h
 cp $(location libmodbus/src/modbus-rtu.h) $(@D)/modbus/modbus-rtu.h
 # Fix private headers to use correct modbus.h path
 sed 's|#include "modbus.h"|#include "modbus/modbus.h"|g' $(location libmodbus/src/modbus-private.h) > $(@D)/modbus-private.h
@@ -128,56 +89,91 @@ sed -i 's|#include "modbus-tcp.h"|#include "../modbus/modbus-tcp.h"|g' $(@D)/src
 sed -i 's|#include "modbus-rtu.h"|#include "../modbus/modbus-rtu.h"|g' $(@D)/src/modbus-rtu.c
 
 sed 's|#include "modbus.h"|#include "../modbus/modbus.h"|g' $(location libmodbus/src/modbus-tcp.c) > $(@D)/src/modbus-tcp.c
-sed -i 's|#include "modbus-tcp.h"|#include "../modbus/modbus-tcp.h"|g' $(@D)/src/modbus-tcp.c  
+sed -i 's|#include "modbus-tcp.h"|#include "../modbus/modbus-tcp.h"|g' $(@D)/src/modbus-tcp.c
 sed -i 's|#include "modbus-rtu.h"|#include "../modbus/modbus-rtu.h"|g' $(@D)/src/modbus-tcp.c
 """,
         "//conditions:default": """
-# Unix/Mac - just copy headers as-is, use standard autotools build
+# Unix/Mac - same processing as Windows for consistency
+# Copy public headers to modbus/ directory
 cp $(location libmodbus/src/modbus.h) $(@D)/modbus/modbus.h
-cp $(location libmodbus/src/modbus-tcp.h) $(@D)/modbus/modbus-tcp.h 
+cp $(location libmodbus/src/modbus-tcp.h) $(@D)/modbus/modbus-tcp.h
 cp $(location libmodbus/src/modbus-rtu.h) $(@D)/modbus/modbus-rtu.h
-cp $(location libmodbus/src/modbus-private.h) $(@D)/modbus-private.h
-cp $(location libmodbus/src/modbus-tcp-private.h) $(@D)/modbus-tcp-private.h
-cp $(location libmodbus/src/modbus-rtu-private.h) $(@D)/modbus-rtu-private.h
-# Sources aren't used on Unix, but copy for consistency
-cp $(location libmodbus/src/modbus.c) $(@D)/src/modbus.c
-cp $(location libmodbus/src/modbus-data.c) $(@D)/src/modbus-data.c
-cp $(location libmodbus/src/modbus-rtu.c) $(@D)/src/modbus-rtu.c
-cp $(location libmodbus/src/modbus-tcp.c) $(@D)/src/modbus-tcp.c
+
+# Fix private headers to use modbus/modbus.h path
+sed 's|#include "modbus.h"|#include "modbus/modbus.h"|g' $(location libmodbus/src/modbus-private.h) > $(@D)/modbus-private.h
+sed 's|#include "modbus.h"|#include "modbus/modbus.h"|g' $(location libmodbus/src/modbus-tcp-private.h) > $(@D)/modbus-tcp-private.h
+sed 's|#include "modbus.h"|#include "modbus/modbus.h"|g' $(location libmodbus/src/modbus-rtu-private.h) > $(@D)/modbus-rtu-private.h
+
+# Fix source files to use modbus/modbus.h path
+sed 's|#include "modbus.h"|#include "modbus/modbus.h"|g; s|#include "modbus-tcp.h"|#include "modbus/modbus-tcp.h"|g; s|#include "modbus-rtu.h"|#include "modbus/modbus-rtu.h"|g' $(location libmodbus/src/modbus.c) > $(@D)/src/modbus.c
+sed 's|#include "modbus.h"|#include "modbus/modbus.h"|g; s|#include "modbus-tcp.h"|#include "modbus/modbus-tcp.h"|g; s|#include "modbus-rtu.h"|#include "modbus/modbus-rtu.h"|g' $(location libmodbus/src/modbus-data.c) > $(@D)/src/modbus-data.c
+sed 's|#include "modbus.h"|#include "modbus/modbus.h"|g; s|#include "modbus-tcp.h"|#include "modbus/modbus-tcp.h"|g; s|#include "modbus-rtu.h"|#include "modbus/modbus-rtu.h"|g' $(location libmodbus/src/modbus-rtu.c) > $(@D)/src/modbus-rtu.c
+sed 's|#include "modbus.h"|#include "modbus/modbus.h"|g; s|#include "modbus-tcp.h"|#include "modbus/modbus-tcp.h"|g; s|#include "modbus-rtu.h"|#include "modbus/modbus-rtu.h"|g' $(location libmodbus/src/modbus-tcp.c) > $(@D)/src/modbus-tcp.c
 """,
     }),
 )
 
-# Build libmodbus using autotools for Unix/Mac (matches git history approach)
+# Generate config.h for Unix
 genrule(
-    name = "build_libmodbus_unix",
-    srcs = glob(["libmodbus/**"]),
-    outs = [
-        "include/modbus/modbus.h",
-        "include/modbus/modbus-rtu.h",
-        "include/modbus/modbus-tcp.h", 
-        "include/modbus/modbus-version.h",
-        "lib/libmodbus.a",
-        "lib/modbus.lib",  # Empty file to satisfy Windows outs
-    ],
+    name = "generate_unix_config_h",
+    outs = ["unix/config.h"],
     cmd = """
-# Get absolute path for prefix (from git history)
-PREFIX_PATH="$$(pwd)/$(GENDIR)/vendor/libmodbus"
+cat > $@ << 'EOF'
+#ifndef LIBMODBUS_CONFIG_H
+#define LIBMODBUS_CONFIG_H
 
-cd ./vendor/libmodbus/libmodbus
-# configure already exists, so skip autogen.sh
-./configure --prefix="$$PREFIX_PATH" --disable-shared --enable-static
-make
-make install
+#define PACKAGE_NAME "libmodbus"
+#define PACKAGE_VERSION "3.1.11"
+#define VERSION "3.1.11"
 
-# Create directory for Windows library if it doesn't exist
-mkdir -p "$$PREFIX_PATH/lib"
-# Create empty Windows library to satisfy Bazel
-touch "$$PREFIX_PATH/lib/modbus.lib"
-""",
-    visibility = ["//visibility:public"],
+#define HAVE_ARPA_INET_H 1
+#define HAVE_ERRNO_H 1
+#define HAVE_FCNTL_H 1
+#define HAVE_LIMITS_H 1
+#define HAVE_NETDB_H 1
+#define HAVE_NETINET_IN_H 1
+#define HAVE_NETINET_TCP_H 1
+#define HAVE_SYS_IOCTL_H 1
+#define HAVE_SYS_SOCKET_H 1
+#define HAVE_SYS_TIME_H 1
+#define HAVE_SYS_TYPES_H 1
+#define HAVE_TERMIOS_H 1
+#define HAVE_TIME_H 1
+#define HAVE_UNISTD_H 1
+#define HAVE_STDINT_H 1
+#define HAVE_INTTYPES_H 1
+
+#define HAVE_GETADDRINFO 1
+#define HAVE_GETTIMEOFDAY 1
+#define HAVE_INET_NTOP 1
+#define HAVE_INET_PTON 1
+#define HAVE_SELECT 1
+#define HAVE_SOCKET 1
+#define HAVE_STRERROR 1
+#define HAVE_STRLCPY 1
+
+#define HAVE_DECL_TIOCM_RTS 1
+#define HAVE_DECL_TIOCSRS485 0
+
+#endif
+EOF""",
 )
 
+# Generate modbus-version.h for Unix using upstream template
+genrule(
+    name = "generate_unix_version_h",
+    srcs = ["libmodbus/src/modbus-version.h.in"],
+    outs = ["unix/modbus-version.h"],
+    cmd = """
+sed -e 's/@LIBMODBUS_VERSION_MAJOR@/3/g' \
+    -e 's/@LIBMODBUS_VERSION_MINOR@/1/g' \
+    -e 's/@LIBMODBUS_VERSION_MICRO@/11/g' \
+    -e 's/@LIBMODBUS_VERSION@/3.1.11/g' \
+    $(location libmodbus/src/modbus-version.h.in) > $@
+""",
+)
+
+# Unified cc_library for all platforms
 cc_library(
     name = "libmodbus",
     srcs = select({
@@ -185,28 +181,37 @@ cc_library(
             ":prepare_static_sources",
             ":generate_config_h",
         ],
-        "//conditions:default": ["lib/libmodbus.a"],  # Unix uses standard autotools output
+        "//conditions:default": [
+            ":prepare_static_sources",
+            ":generate_unix_config_h",
+        ],
     }),
     hdrs = select({
         "@platforms//os:windows": [
-            ":prepare_static_sources", 
+            ":prepare_static_sources",
             ":generate_version_h",
         ],
-        "//conditions:default": [":build_libmodbus_unix"],  # Unix uses autotools headers
+        "//conditions:default": [
+            ":prepare_static_sources",
+            ":generate_version_h",
+        ],
     }),
     copts = select({
         "@platforms//os:windows": [
             "/DHAVE_CONFIG_H",
             "/D_WIN32_WINNT=0x0600",
             "/DMODBUS_API=",  # Override MODBUS_API for static linking
-            "/I$(GENDIR)/vendor/libmodbus",  # For config.h 
+            "/I$(GENDIR)/vendor/libmodbus",  # For config.h
         ],
-        "//conditions:default": [],
+        "//conditions:default": [
+            "-DHAVE_CONFIG_H",
+            "-DIPTOS_LOWDELAY=0x10",
+        ],
     }),
     defines = select({
         "@platforms//os:windows": [
             "HAVE_CONFIG_H",
-            "_WIN32_WINNT=0x0600", 
+            "_WIN32_WINNT=0x0600",
             "MODBUS_API=",  # Override MODBUS_API for static linking
             "MODBUS_STATIC",  # Force static mode
         ],
@@ -214,17 +219,16 @@ cc_library(
     }),
     includes = select({
         "@platforms//os:windows": [
-            ".",  # Generated files - allows modbus/modbus.h to be found
+            ".",  # Allows modbus/modbus.h to be found
         ],
-        "//conditions:default": ["include"],  # Unix uses standard include/ from autotools
+        "//conditions:default": [
+            ".",  # Allows modbus/modbus.h to be found
+            "unix",  # For generated config.h
+        ],
     }),
     linkopts = select({
         "@platforms//os:windows": ["ws2_32.lib"],
         "//conditions:default": [],
-    }),
-    strip_include_prefix = select({
-        "@platforms//os:windows": "",
-        "//conditions:default": "include",  # Unix strips include/ prefix (from git history)
     }),
     visibility = ["//visibility:public"],
 )
