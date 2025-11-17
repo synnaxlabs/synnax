@@ -319,6 +319,7 @@ class TestConductor:
 
         # Load all sequences from all files
         all_sequences = []
+        failed_files = []
         for test_file in test_files:
             self.log_message(f"Loading tests from: {test_file}")
 
@@ -335,8 +336,17 @@ class TestConductor:
             except Exception as e:
                 if isinstance(sequence, list):
                     self.log_message(f"Warning: Failed to load {test_file}: {e}")
+                    failed_files.append((test_file, str(e)))
                 else:
                     raise FileNotFoundError(f"Test file not found: {test_file}")
+
+        if failed_files:
+            failed_list = "\n".join(
+                [f"  - {file}: {error}" for file, error in failed_files]
+            )
+            raise FileNotFoundError(
+                f"Failed to load {len(failed_files)} file(s):\n{failed_list}"
+            )
 
         if not all_sequences:
             raise FileNotFoundError("No valid sequences found")
