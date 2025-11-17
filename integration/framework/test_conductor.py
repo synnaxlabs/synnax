@@ -51,14 +51,8 @@ class Test:
     test_name: str
     status: STATUS
     name: str | None = None  # Custom name from test definition
-    start_time: datetime | None = None
-    end_time: datetime | None = None
     error_message: str | None = None
-    duration: float | None = None
-
-    def __post_init__(self) -> None:
-        if self.start_time and self.end_time:
-            self.duration = (self.end_time - self.start_time).total_seconds()
+    range: sy.Range | None = None
 
     def __str__(self) -> str:
         """Return display name for test result."""
@@ -144,23 +138,21 @@ class TestConductor:
             name=self.name,
             time_range=sy.TimeRange(start=sy.TimeStamp.now(), end=sy.TimeStamp.MAX),
         )
-        self.start_time = datetime.now()
         self.state = STATE.INITIALIZING
         self.test_definitions: list[TestDefinition] = []
-        self.test_results: list[TestResult] = []
         self.sequences: list[dict[str, Any]] = []
         self.current_test: TestCase | None = None
-        self.current_test_start_time: datetime | None = None
+        self.current_test_start_time: sy.TimeStamp | None = None
         self.timeout_monitor_thread: threading.Thread | None = None
         self.client_manager_thread: threading.Thread | None = None
         self.current_test_thread: threading.Thread | None = None
-        self._timeout_result: TestResult | None = None
+        self._timeout_result: Test | None = None
         self.is_running = False
         self.should_stop = False
-        self.status_callbacks: list[Callable[[TestResult], None]] = []
+        self.status_callbacks: list[Callable[[Test], None]] = []
         self.sequence_ordering: str = "Sequential"
         # For asynchronous execution, track multiple tests
-        self.active_tests: list[tuple[TestCase, datetime]] = []
+        self.active_tests: list[tuple[TestCase, sy.TimeStamp]] = []
 
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -168,7 +160,7 @@ class TestConductor:
 
         # Start client manager
         self._start_client_manager_async()
-        time.sleep(1)  # Allow client manager to start
+        sy.sleep(1)  # Allow client manager to start
 
     def _start_client_manager_async(self) -> None:
         """Start client manager in separate daemon thread."""
@@ -473,7 +465,7 @@ class TestConductor:
         # Update telemetry
         self.tlm[f"{self.name}_test_case_count"] = len(self.test_definitions)
 
-    def run_sequence(self) -> list[TestResult]:
+    def run_sequence(self) -> list[Test]:
         """Execute all tests in the loaded sequence."""
         if not self.test_definitions:
             raise ValueError(
@@ -483,7 +475,7 @@ class TestConductor:
         self.state = STATE.RUNNING
         self.is_running = True
         self.should_stop = False
-        self.tests = []
+        self.tests: list[Test] = []
 
         # Start timeout monitoring
         self.timeout_monitor_thread = threading.Thread(
@@ -545,17 +537,17 @@ class TestConductor:
             )
 
             # Run test in separate thread
-            result_container: list[TestResult] = []
+            result_container: list[Test] = []
             test_thread = threading.Thread(
-                target=self._test_runner_thread, args=(test_def, test_container)
+                target=self._test_runner_thread, args=(test_def, result_container)
             )
 
             test_thread.start()
             test_thread.join()
 
             # Get test result
-            if test_container:
-                test_result = test_container[0]
+            if result_container:
+                test_result = result_container[0]
             else:
                 test_result = Test(
                     test_name=test_def.case,
@@ -586,13 +578,13 @@ class TestConductor:
             )
 
             # Create result container and thread for each test
-            result_container: list[TestResult] = []
+            result_container: list[Test] = []
             test_thread = threading.Thread(
-                target=self._test_runner_thread, args=(test_def, test_container)
+                target=self._test_runner_thread, args=(test_def, result_container)
             )
 
             test_threads.append(test_thread)
-            test_containers.append(test_container)
+            test_containers.append(result_container)
 
             # Start the test thread
             test_thread.start()
@@ -837,7 +829,7 @@ class TestConductor:
         return test
 
     def _test_runner_thread(
-        self, test_def: TestDefinition, result_container: list[TestResult]
+        self, test_def: TestDefinition, result_container: list[Test]
     ) -> None:
         """Thread function for running a single test."""
         result = self._execute_single_test(test_def)
@@ -883,7 +875,7 @@ class TestConductor:
                 for test_tuple in tests_to_remove:
                     self.active_tests.remove(test_tuple)
 
-            time.sleep(monitor_interval)
+            sy.sleep(monitor_interval)
 
     def kill_current_test(self) -> bool:
         """Kill currently running test and create timeout result."""
@@ -1061,7 +1053,7 @@ def monitor_test_execution(conductor: TestConductor) -> None:
         )
         if status["current_test"]:
             conductor.log_message(f"Currently running: {status['current_test']}")
-        time.sleep(1)
+        sy.sleep(1)
 
 
 def main() -> None:
