@@ -126,10 +126,10 @@ sed 's|#include "modbus.h"|#include "modbus/modbus.h"|g; s|#include "modbus-tcp.
     }),
 )
 
-# Unix config.h - defines for Unix/Linux/macOS platforms
+# Linux config.h - glibc-based Linux systems
 genrule(
-    name = "generate_unix_config_h",
-    outs = ["unix/config.h"],
+    name = "generate_linux_config_h",
+    outs = ["linux/config.h"],
     cmd = """
 cat > $@ << 'EOF'
 #ifndef LIBMODBUS_CONFIG_H
@@ -163,10 +163,56 @@ cat > $@ << 'EOF'
 #define HAVE_SELECT 1
 #define HAVE_SOCKET 1
 #define HAVE_STRERROR 1
-#define HAVE_STRLCPY 1
+#define HAVE_STRLCPY 0  /* glibc doesn't have strlcpy, use fallback */
 
 #define HAVE_DECL_TIOCM_RTS 1
-#define HAVE_DECL_TIOCSRS485 0
+#define HAVE_DECL_TIOCSRS485 1  /* Linux has RS485 support */
+
+#endif
+EOF""",
+)
+
+# macOS config.h - BSD-based macOS systems
+genrule(
+    name = "generate_macos_config_h",
+    outs = ["macos/config.h"],
+    cmd = """
+cat > $@ << 'EOF'
+#ifndef LIBMODBUS_CONFIG_H
+#define LIBMODBUS_CONFIG_H
+
+#define PACKAGE_NAME "libmodbus"
+#define PACKAGE_VERSION "3.1.11"
+#define VERSION "3.1.11"
+
+#define HAVE_ARPA_INET_H 1
+#define HAVE_ERRNO_H 1
+#define HAVE_FCNTL_H 1
+#define HAVE_LIMITS_H 1
+#define HAVE_NETDB_H 1
+#define HAVE_NETINET_IN_H 1
+#define HAVE_NETINET_TCP_H 1
+#define HAVE_SYS_IOCTL_H 1
+#define HAVE_SYS_SOCKET_H 1
+#define HAVE_SYS_TIME_H 1
+#define HAVE_SYS_TYPES_H 1
+#define HAVE_TERMIOS_H 1
+#define HAVE_TIME_H 1
+#define HAVE_UNISTD_H 1
+#define HAVE_STDINT_H 1
+#define HAVE_INTTYPES_H 1
+
+#define HAVE_GETADDRINFO 1
+#define HAVE_GETTIMEOFDAY 1
+#define HAVE_INET_NTOP 1
+#define HAVE_INET_PTON 1
+#define HAVE_SELECT 1
+#define HAVE_SOCKET 1
+#define HAVE_STRERROR 1
+#define HAVE_STRLCPY 1  /* BSD/macOS has native strlcpy */
+
+#define HAVE_DECL_TIOCM_RTS 1
+#define HAVE_DECL_TIOCSRS485 0  /* macOS doesn't have RS485 ioctls */
 
 #endif
 EOF""",
@@ -188,7 +234,8 @@ sed -e 's/@LIBMODBUS_VERSION_MAJOR@/3/g' \
 
 # Main library target - handles all platforms via select()
 # Windows: Static linking with MODBUS_API override, WinSock2
-# Unix/Mac: POSIX sockets, standard libc
+# Linux: glibc, RS485 support, strlcpy fallback
+# macOS: BSD libc, native strlcpy, no RS485
 cc_library(
     name = "libmodbus",
     srcs = select({
@@ -196,21 +243,19 @@ cc_library(
             ":prepare_static_sources",
             ":generate_config_h",
         ],
-        "//conditions:default": [
+        "@platforms//os:linux": [
             ":prepare_static_sources",
-            ":generate_unix_config_h",
+            ":generate_linux_config_h",
+        ],
+        "@platforms//os:macos": [
+            ":prepare_static_sources",
+            ":generate_macos_config_h",
         ],
     }),
-    hdrs = select({
-        "@platforms//os:windows": [
-            ":prepare_static_sources",
-            ":generate_version_h",
-        ],
-        "//conditions:default": [
-            ":prepare_static_sources",
-            ":generate_version_h",
-        ],
-    }),
+    hdrs = [
+        ":prepare_static_sources",
+        ":generate_version_h",
+    ],
     copts = select({
         "@platforms//os:windows": [
             "/DHAVE_CONFIG_H",
@@ -235,9 +280,13 @@ cc_library(
         "@platforms//os:windows": [
             ".",  # Allows modbus/modbus.h to be found
         ],
-        "//conditions:default": [
+        "@platforms//os:linux": [
             ".",  # Allows modbus/modbus.h to be found
-            "unix",  # For generated config.h
+            "linux",  # For generated config.h
+        ],
+        "@platforms//os:macos": [
+            ".",  # Allows modbus/modbus.h to be found
+            "macos",  # For generated config.h
         ],
     }),
     linkopts = select({
