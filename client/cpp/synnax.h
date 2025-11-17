@@ -17,6 +17,7 @@
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/hardware/hardware.h"
 #include "client/cpp/ranger/ranger.h"
+#include "client/cpp/status/status.h"
 #include "client/cpp/transport.h"
 #include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xlog/xlog.h"
@@ -151,6 +152,8 @@ public:
         nullptr,
         nullptr
     );
+    /// @brief Client for managing statuses.
+    StatusClient statuses = StatusClient();
     std::shared_ptr<AuthMiddleware> auth = nullptr;
 
     /// @brief constructs the Synnax client from the provided configuration.
@@ -194,6 +197,7 @@ public:
             std::move(t.device_retrieve),
             std::move(t.device_delete)
         );
+        this->statuses = StatusClient(t.status_retrieve, t.status_set, t.status_delete);
     }
 };
 }

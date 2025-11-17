@@ -22,6 +22,8 @@
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/hardware.pb.h"
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/ranger.grpc.pb.h"
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/ranger.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/status.grpc.pb.h"
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/status.pb.h"
 
 synnax::Transport synnax::Transport::configure(
     const uint16_t port,
@@ -112,7 +114,19 @@ synnax::Transport synnax::Transport::configure(
         .device_delete = std::make_unique<fgrpc::UnaryClient<
             api::v1::HardwareDeleteDeviceRequest,
             google::protobuf::Empty,
-            api::v1::HardwareDeleteDeviceService>>(pool, base_target)
+            api::v1::HardwareDeleteDeviceService>>(pool, base_target),
+        .status_retrieve = std::make_shared<fgrpc::UnaryClient<
+            api::v1::StatusRetrieveRequest,
+            api::v1::StatusRetrieveResponse,
+            api::v1::StatusRetrieveService>>(pool, base_target),
+        .status_set = std::make_shared<fgrpc::UnaryClient<
+            api::v1::StatusSetRequest,
+            api::v1::StatusSetResponse,
+            api::v1::StatusSetService>>(pool, base_target),
+        .status_delete = std::make_shared<fgrpc::UnaryClient<
+            api::v1::StatusDeleteRequest,
+            google::protobuf::Empty,
+            api::v1::StatusDeleteService>>(pool, base_target)
     };
 }
 
@@ -135,4 +149,7 @@ void synnax::Transport::use(const std::shared_ptr<freighter::Middleware> &mw) co
     device_create->use(mw);
     device_retrieve->use(mw);
     device_delete->use(mw);
+    status_retrieve->use(mw);
+    status_set->use(mw);
+    status_delete->use(mw);
 }

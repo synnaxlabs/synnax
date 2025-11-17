@@ -14,6 +14,7 @@ from freighter import Payload
 from pydantic import Field
 
 from synnax.telem import TimeStamp
+from synnax.ontology import ID
 
 SUCCESS_VARIANT = "success"
 INFO_VARIANT = "info"
@@ -56,7 +57,7 @@ class Status(Payload, Generic[D]):
     """The details are customizable details for component specific statuses."""
 
 
-def ontology_id(key: str) -> dict[str, str]:
+def ontology_id(key: str) -> ID:
     """Create an ontology ID for a status.
 
     Args:
@@ -65,4 +66,4 @@ def ontology_id(key: str) -> dict[str, str]:
     Returns:
         An ontology ID dictionary with type "status" and the given key.
     """
-    return {"type": "status", "key": key}
+    return ID(type="status", key=key)

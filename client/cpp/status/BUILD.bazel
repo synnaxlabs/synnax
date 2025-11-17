@@ -1,0 +1,30 @@
+cc_library(
+    name = "status",
+    srcs = [
+        "status.cpp",
+    ],
+    hdrs = ["status.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/errors",
+        "//core/pkg/api/grpc/v1:api_grpc",
+        "//freighter/cpp:freighter",
+        "//freighter/cpp/fgrpc",
+        "//x/cpp/status",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+        "@grpc//:grpc++",
+    ],
+)
+
+cc_test(
+    name = "status_test",
+    srcs = ["status_test.cpp"],
+    deps = [
+        ":status",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

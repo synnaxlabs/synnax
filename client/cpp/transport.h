@@ -14,6 +14,7 @@
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/hardware/hardware.h"
 #include "client/cpp/ranger/ranger.h"
+#include "client/cpp/status/status.h"
 
 namespace synnax {
 struct Transport {
@@ -46,5 +47,8 @@ struct Transport {
     std::unique_ptr<HardwareCreateDeviceClient> device_create;
     std::unique_ptr<HardwareRetrieveDeviceClient> device_retrieve;
     std::unique_ptr<HardwareDeleteDeviceClient> device_delete;
+    std::shared_ptr<StatusRetrieveClient> status_retrieve;
+    std::shared_ptr<StatusSetClient> status_set;
+    std::shared_ptr<StatusDeleteClient> status_delete;
 };
 }
