@@ -22,7 +22,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { EmptyAction, Toolbar } from "@/components";
@@ -66,7 +66,9 @@ const ListItem = (props: CoreList.ItemProps<status.Key>) => {
   const { itemKey } = props;
   const q = Status.useRetrieve({ key: itemKey });
   const dispatch = useDispatch();
-  if (q.variant === "error") dispatch(removeFavorites([itemKey]));
+  useEffect(() => {
+    if (q.variant === "error") dispatch(removeFavorites([itemKey]));
+  }, [q.variant, dispatch, itemKey]);
   if (q.variant !== "success") return null;
   const item = q.data;
   if (item == null) return null;
