@@ -37,7 +37,7 @@ func tokenMiddleware(svc *token.Service) freighter.Middleware {
 		if err != nil {
 			return ctx, err
 		}
-		ctx.Params.Set(subjectKey, user.OntologyID(userKey))
+		ctx.Set(subjectKey, user.OntologyID(userKey))
 		oCtx, err := next(ctx)
 		if newTK != "" {
 			oCtx.Set("Refresh-Token", newTK)
