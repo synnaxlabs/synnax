@@ -29,6 +29,7 @@ type PBStatus struct {
 	Message       string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
 	Description   string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
 	Time          int64                  `protobuf:"varint,6,opt,name=time,proto3" json:"time,omitempty"`
+	Details       string                 `protobuf:"bytes,7,opt,name=details,proto3" json:"details,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -105,18 +106,26 @@ func (x *PBStatus) GetTime() int64 {
 	return 0
 }
 
+func (x *PBStatus) GetDetails() string {
+	if x != nil {
+		return x.Details
+	}
+	return ""
+}
+
 var File_x_go_status_status_proto protoreflect.FileDescriptor
 
 const file_x_go_status_status_proto_rawDesc = "" +
 	"\n" +
-	"\x18x/go/status/status.proto\x12\x06status\"\x9a\x01\n" +
+	"\x18x/go/status/status.proto\x12\x06status\"\xb4\x01\n" +
 	"\bPBStatus\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
 	"\avariant\x18\x03 \x01(\tR\avariant\x12\x18\n" +
 	"\amessage\x18\x04 \x01(\tR\amessage\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x12\n" +
-	"\x04time\x18\x06 \x01(\x03R\x04timeBq\n" +
+	"\x04time\x18\x06 \x01(\x03R\x04time\x12\x18\n" +
+	"\adetails\x18\a \x01(\tR\adetailsBq\n" +
 	"\n" +
 	"com.statusB\vStatusProtoP\x01Z\x1egithub.com/synnaxlabs/x/status\xa2\x02\x03SXX\xaa\x02\x06Status\xca\x02\x06Status\xe2\x02\x12Status\\GPBMetadata\xea\x02\x06Statusb\x06proto3"
 

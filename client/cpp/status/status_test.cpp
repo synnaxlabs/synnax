@@ -199,3 +199,24 @@ TEST(StatusTest, DeleteMultipleStatuses) {
     auto [retrieved, err] = client.statuses.retrieve(keys);
     EXPECT_TRUE(err);
 }
+
+TEST(StatusTest, DetailsRoundTrip) {
+    auto client = new_test_client();
+    Status s;
+    s.key = "test-status-details";
+    s.variant = status::variant::INFO;
+    s.message = "Testing details";
+    s.time = telem::TimeStamp::now();
+    // DefaultDetails has a default to_json that returns empty object
+    // Verify it round-trips correctly
+    auto set_err = client.statuses.set(s);
+    EXPECT_FALSE(set_err) << set_err.message();
+    auto [retrieved, err] = client.statuses.retrieve(s.key);
+    EXPECT_FALSE(err) << err.message();
+    EXPECT_EQ(retrieved.key, s.key);
+    EXPECT_EQ(retrieved.message, s.message);
+    // DefaultDetails should serialize as empty JSON object and deserialize back
+    auto details_json = retrieved.details.to_json();
+    EXPECT_TRUE(details_json.is_object());
+    EXPECT_TRUE(details_json.empty());
+}

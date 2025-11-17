@@ -13,14 +13,12 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xstatus "github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -36,31 +34,13 @@ type (
 		api.StatusSetResponse,
 		*gapi.StatusSetResponse,
 	]
-	statusSetClient = fgrpc.UnaryClient[
-		api.StatusSetRequest,
-		*gapi.StatusSetRequest,
-		api.StatusSetResponse,
-		*gapi.StatusSetResponse,
-	]
 	statusRetrieveServer = fgrpc.UnaryServer[
 		api.StatusRetrieveRequest,
 		*gapi.StatusRetrieveRequest,
 		api.StatusRetrieveResponse,
 		*gapi.StatusRetrieveResponse,
 	]
-	statusRetrieveClient = fgrpc.UnaryClient[
-		api.StatusRetrieveRequest,
-		*gapi.StatusRetrieveRequest,
-		api.StatusRetrieveResponse,
-		*gapi.StatusRetrieveResponse,
-	]
 	statusDeleteServer = fgrpc.UnaryServer[
-		api.StatusDeleteRequest,
-		*gapi.StatusDeleteRequest,
-		types.Nil,
-		*emptypb.Empty,
-	]
-	statusDeleteClient = fgrpc.UnaryClient[
 		api.StatusDeleteRequest,
 		*gapi.StatusDeleteRequest,
 		types.Nil,
@@ -76,38 +56,36 @@ var (
 	_ fgrpc.Translator[api.StatusDeleteRequest, *gapi.StatusDeleteRequest]       = (*statusDeleteRequestTranslator)(nil)
 )
 
-func translateStatusForward(s api.Status, _ int) *gapi.Status {
-	return &gapi.Status{
-		Key:         s.Key,
-		Name:        s.Name,
-		Variant:     string(s.Variant),
-		Message:     s.Message,
-		Description: s.Description,
-		Time:        int64(s.Time),
+func translateStatusesForward(s []api.Status) ([]*xstatus.PBStatus, error) {
+	var err error
+	out := make([]*xstatus.PBStatus, len(s))
+	for i, stat := range s {
+		out[i], err = xstatus.TranslateForward[any](xstatus.Status[any](stat.Status))
 	}
+	return out, err
 }
 
-func translateStatusBackward(s *gapi.Status, _ int) api.Status {
-	return api.Status{
-		Status: status.Status(xstatus.Status[any]{
-			Key:         s.Key,
-			Name:        s.Name,
-			Variant:     xstatus.Variant(s.Variant),
-			Message:     s.Message,
-			Description: s.Description,
-			Time:        telem.TimeStamp(s.Time),
-		}),
+func translateStatusesBackward(s []*xstatus.PBStatus) ([]api.Status, error) {
+	out := make([]api.Status, len(s))
+	for i, stat := range s {
+		os, err := xstatus.TranslateBackward[any](stat)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = api.Status{Status: status.Status(os)}
 	}
+	return out, nil
 }
 
 func (t statusSetRequestTranslator) Forward(
 	_ context.Context,
 	msg api.StatusSetRequest,
 ) (*gapi.StatusSetRequest, error) {
-	return &gapi.StatusSetRequest{
-		Parent:   msg.Parent.String(),
-		Statuses: lo.Map(msg.Statuses, translateStatusForward),
-	}, nil
+	statuses, err := translateStatusesForward(msg.Statuses)
+	if err != nil {
+		return nil, err
+	}
+	return &gapi.StatusSetRequest{Parent: msg.Parent.String(), Statuses: statuses}, nil
 }
 
 func (t statusSetRequestTranslator) Backward(
@@ -122,28 +100,33 @@ func (t statusSetRequestTranslator) Backward(
 			return api.StatusSetRequest{}, err
 		}
 	}
-	return api.StatusSetRequest{
-		Parent:   parent,
-		Statuses: lo.Map(msg.Statuses, translateStatusBackward),
-	}, nil
+	statuses, err := translateStatusesBackward(msg.Statuses)
+	if err != nil {
+		return api.StatusSetRequest{}, err
+	}
+	return api.StatusSetRequest{Parent: parent, Statuses: statuses}, nil
 }
 
 func (t statusSetResponseTranslator) Forward(
 	_ context.Context,
 	msg api.StatusSetResponse,
 ) (*gapi.StatusSetResponse, error) {
-	return &gapi.StatusSetResponse{
-		Statuses: lo.Map(msg.Statuses, translateStatusForward),
-	}, nil
+	statuses, err := translateStatusesForward(msg.Statuses)
+	if err != nil {
+		return nil, err
+	}
+	return &gapi.StatusSetResponse{Statuses: statuses}, nil
 }
 
 func (t statusSetResponseTranslator) Backward(
 	_ context.Context,
 	msg *gapi.StatusSetResponse,
 ) (api.StatusSetResponse, error) {
-	return api.StatusSetResponse{
-		Statuses: lo.Map(msg.Statuses, translateStatusBackward),
-	}, nil
+	statuses, err := translateStatusesBackward(msg.Statuses)
+	if err != nil {
+		return api.StatusSetResponse{}, err
+	}
+	return api.StatusSetResponse{Statuses: statuses}, nil
 }
 
 func (t statusRetrieveRequestTranslator) Forward(
@@ -181,36 +164,36 @@ func (t statusRetrieveResponseTranslator) Forward(
 	_ context.Context,
 	msg api.StatusRetrieveResponse,
 ) (*gapi.StatusRetrieveResponse, error) {
-	return &gapi.StatusRetrieveResponse{
-		Statuses: lo.Map(msg.Statuses, translateStatusForward),
-	}, nil
+	statuses, err := translateStatusesForward(msg.Statuses)
+	if err != nil {
+		return nil, err
+	}
+	return &gapi.StatusRetrieveResponse{Statuses: statuses}, nil
 }
 
 func (t statusRetrieveResponseTranslator) Backward(
 	_ context.Context,
 	msg *gapi.StatusRetrieveResponse,
 ) (api.StatusRetrieveResponse, error) {
-	return api.StatusRetrieveResponse{
-		Statuses: lo.Map(msg.Statuses, translateStatusBackward),
-	}, nil
+	statuses, err := translateStatusesBackward(msg.Statuses)
+	if err != nil {
+		return api.StatusRetrieveResponse{}, err
+	}
+	return api.StatusRetrieveResponse{Statuses: statuses}, nil
 }
 
 func (t statusDeleteRequestTranslator) Forward(
 	_ context.Context,
 	msg api.StatusDeleteRequest,
 ) (*gapi.StatusDeleteRequest, error) {
-	return &gapi.StatusDeleteRequest{
-		Keys: msg.Keys,
-	}, nil
+	return &gapi.StatusDeleteRequest{Keys: msg.Keys}, nil
 }
 
 func (t statusDeleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.StatusDeleteRequest,
 ) (api.StatusDeleteRequest, error) {
-	return api.StatusDeleteRequest{
-		Keys: msg.Keys,
-	}, nil
+	return api.StatusDeleteRequest{Keys: msg.Keys}, nil
 }
 
 func newStatus(a *api.Transport) []fgrpc.BindableTransport {

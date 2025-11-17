@@ -11,4 +11,5 @@ message PBStatus {
   string message = 4;
   string description = 5;
   int64 time = 6;
+  string details = 7;
 }

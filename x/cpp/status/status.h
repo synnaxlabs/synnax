@@ -54,23 +54,20 @@ struct DefaultDetails {
 template<typename Details = DefaultDetails>
 struct Status {
     /// @brief a unique key for the status message.
-    std::string key = "";
+    std::string key;
     /// @brief a human-readable name for the status.
-    std::string name = "";
+    std::string name;
     /// @brief the variant of the status message. This should be one of the
     /// status::variant::* constants.
-    std::string variant = "";
+    std::string variant;
     /// @brief a short, descriptive message about the status.
-    std::string message = "";
+    std::string message;
     /// @brief optional longer description of the status.
-    std::string description = "";
+    std::string description;
     /// @brief the time at which the status was created.
     telem::TimeStamp time = telem::TimeStamp(0);
     /// @brief custom details about the status.
     Details details = Details{};
-
-    /// @brief default constructor.
-    Status() = default;
 
     /// @brief parses a Status object from a JSON representation.
     static Status parse(xjson::Parser &parser) {
@@ -100,24 +97,34 @@ struct Status {
     }
 
     /// @brief constructs a Status from its protobuf representation.
-    explicit Status(const ::status::PBStatus &pb):
-        key(pb.key()),
-        name(pb.name()),
-        variant(pb.variant()),
-        message(pb.message()),
-        description(pb.description()),
-        time(telem::TimeStamp(pb.time())),
-        details(Details{}) {}
+    static std::pair<Status<Details>, xerrors::Error> from_proto(const PBStatus &pb){
+        Status status{
+            .key = pb.key(),
+            .name = pb.name(),
+            .variant = pb.variant(),
+            .message = pb.message(),
+            .description = pb.description(),
+            .time = telem::TimeStamp(pb.time()),
+            .details = Details{},
+        };
+        if (!pb.details().empty()) {
+            xjson::Parser parser(pb.details());
+            status.details = Details::parse(parser);
+            if (!parser.ok()) return {Status(), parser.error()};
+        }
+        return {status, xerrors::NIL};
+    }
 
     /// @brief converts the Status to its protobuf representation.
     /// @param pb the protobuf message to encode the fields into.
-    void to_proto(::status::PBStatus *pb) const {
+    void to_proto(PBStatus *pb) const {
         pb->set_key(key);
         pb->set_name(name);
         pb->set_variant(variant);
         pb->set_message(message);
         pb->set_description(description);
         pb->set_time(time.nanoseconds());
+        pb->set_details(details.to_json().dump());
     }
 };
 }
