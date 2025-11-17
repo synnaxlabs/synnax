@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "gtest/gtest.h"
+
 #include "arc/cpp/module/module.h"
 #include "arc/go/module/arc/go/module/module.pb.h"
-#include "gtest/gtest.h"
 
 /// @brief it should correctly round-trip Module through protobuf
 TEST(ModuleTest, testModuleProtobufRoundTrip) {
@@ -42,13 +43,19 @@ TEST(ModuleTest, testModuleProtobufRoundTrip) {
     ASSERT_EQ(reconstructed.output_memory_bases["output2"], 2048);
 }
 
-/// @brief it should correctly round-trip Module through JSON (requires base64 encoding for wasm)
+/// @brief it should correctly round-trip Module through JSON (requires base64 encoding
+/// for wasm)
 TEST(ModuleTest, testModuleJSONRoundTrip) {
     nlohmann::json j;
     j["functions"] = nlohmann::json::array();
-    j["nodes"] = nlohmann::json::array({
-        {{"key", "test_node"}, {"type", "multiply"}, {"channels", {{"read", {}}, {"write", {}}}}, {"config", nlohmann::json::array()}, {"inputs", nlohmann::json::array()}, {"outputs", nlohmann::json::array()}}
-    });
+    j["nodes"] = nlohmann::json::array(
+        {{{"key", "test_node"},
+          {"type", "multiply"},
+          {"channels", {{"read", {}}, {"write", {}}}},
+          {"config", nlohmann::json::array()},
+          {"inputs", nlohmann::json::array()},
+          {"outputs", nlohmann::json::array()}}}
+    );
     j["edges"] = nlohmann::json::array();
     j["strata"] = nlohmann::json::array();
     // Base64 encoded WASM magic number: "\x00asm\x01\x00\x00\x00" -> "AGFzbQEAAAA="

@@ -7,7 +7,6 @@
 package text
 
 import (
-	_ "github.com/synnaxlabs/arc/types"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -70,7 +69,7 @@ var File_arc_go_text_text_proto protoreflect.FileDescriptor
 
 const file_arc_go_text_text_proto_rawDesc = "" +
 	"\n" +
-	"\x16arc/go/text/text.proto\x12\varc.v1.text\x1a\x18arc/go/types/types.proto\"\x1a\n" +
+	"\x16arc/go/text/text.proto\x12\varc.v1.text\"\x1a\n" +
 	"\x06PBText\x12\x10\n" +
 	"\x03raw\x18\x01 \x01(\tR\x03rawB\x8a\x01\n" +
 	"\x0fcom.arc.v1.textB\tTextProtoP\x01Z\x1egithub.com/synnaxlabs/arc/text\xa2\x02\x03AVT\xaa\x02\vArc.V1.Text\xca\x02\vArc\\V1\\Text\xe2\x02\x17Arc\\V1\\Text\\GPBMetadata\xea\x02\rArc::V1::Textb\x06proto3"

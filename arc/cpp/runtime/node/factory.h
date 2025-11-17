@@ -21,7 +21,7 @@
 namespace arc::runtime::node {
 struct Config {
     ir::Node node;
-    runtime::state::Node state;
+    state::Node state;
 };
 
 class Factory {

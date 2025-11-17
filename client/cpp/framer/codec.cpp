@@ -241,7 +241,8 @@ xerrors::Error Codec::encode(const telem::Frame &frame, std::vector<uint8_t> &ou
     return xerrors::NIL;
 }
 
-std::pair<telem::Frame, xerrors::Error> Codec::decode(const std::vector<uint8_t> &data) const {
+std::pair<telem::Frame, xerrors::Error>
+Codec::decode(const std::vector<uint8_t> &data) const {
     return this->decode(data.data(), data.size());
 }
 

@@ -1,0 +1,27 @@
+cc_library(
+    name = "arc",
+    hdrs = ["arc.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/module",
+        "//arc/cpp/runtime",
+        "//arc/cpp/runtime/loop",
+        "//client/cpp/arc",
+        "//driver/pipeline",
+        "//driver/task",
+        "//driver/task/common",
+        "//x/cpp/breaker",
+        "//x/cpp/telem",
+        "//x/cpp/xjson",
+    ],
+)
+
+cc_test(
+    name = "arc_test",
+    srcs = ["arc_test.cpp"],
+    deps = [
+        "//driver/arc",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

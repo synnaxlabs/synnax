@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <string>
 #include <random>
+#include <string>
 
 #include <include/gtest/gtest.h>
 
@@ -56,7 +56,7 @@ TEST(TestArc, testCreateMany) {
 
     ASSERT_NIL(client.arcs.create(arcs));
 
-    for (const auto &arc : arcs) {
+    for (const auto &arc: arcs) {
         ASSERT_FALSE(arc.key.empty());
     }
     ASSERT_EQ(arcs[0].name, "arc1");

@@ -10,8 +10,9 @@
 #include <memory>
 #include <vector>
 
-#include "x/cpp/telem/series.h"
 #include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/series.h"
+
 #include "core/pkg/api/grpc/v1/framer.pb.h"
 
 namespace telem {

@@ -8,6 +8,7 @@
 // Version 2.0, included in the file licenses/APL.txt.
 
 #include "gtest/gtest.h"
+
 #include "x/cpp/xmemory/local_shared.h"
 #include "x/cpp/xtest/xtest.h"
 
@@ -120,8 +121,7 @@ TEST(LocalShared, StructWithMembers) {
         double y;
         std::string z;
 
-        TestStruct(int x_, double y_, std::string z_):
-            x(x_), y(y_), z(std::move(z_)) {}
+        TestStruct(int x_, double y_, std::string z_): x(x_), y(y_), z(std::move(z_)) {}
     };
 
     auto ptr = make_local_shared<TestStruct>(42, 3.14, "test");
@@ -147,7 +147,7 @@ TEST(LocalShared, NullptrComparison) {
 struct DestructorCounter {
     int *counter;
 
-    explicit DestructorCounter(int *c) : counter(c) {}
+    explicit DestructorCounter(int *c): counter(c) {}
 
     ~DestructorCounter() {
         if (counter) ++(*counter);
@@ -166,8 +166,8 @@ TEST(LocalShared, DestructorCalled) {
             EXPECT_EQ(counter, 0);
         }
 
-        EXPECT_EQ(counter, 0);  // Still one reference
+        EXPECT_EQ(counter, 0); // Still one reference
     }
 
-    EXPECT_EQ(counter, 1);  // Now destroyed
+    EXPECT_EQ(counter, 1); // Now destroyed
 }

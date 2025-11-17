@@ -53,7 +53,6 @@ public:
     /// @param f the protobuf representation to bind to. This pb must be non-null.
     void to_proto(PBFrame *f) const;
 
-
     /// @brief adds a channel and series to the frame.
     /// @param chan the channel key to add.
     /// @param ser the series to add for the channel key.
@@ -79,7 +78,8 @@ public:
         throw std::runtime_error("channel not found");
     }
 
-    [[nodiscard]] telem::SampleValue at(const std::uint32_t &key, const int &index) const;
+    [[nodiscard]] telem::SampleValue
+    at(const std::uint32_t &key, const int &index) const;
 
     /// @brief returns the number of series in the frame.
     [[nodiscard]] size_t size() const { return series != nullptr ? series->size() : 0; }

@@ -8,7 +8,6 @@ package graph
 
 import (
 	ir "github.com/synnaxlabs/arc/ir"
-	_ "github.com/synnaxlabs/arc/types"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -200,7 +199,7 @@ type PBGraph struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Viewport      *PBViewport            `protobuf:"bytes,1,opt,name=viewport,proto3" json:"viewport,omitempty"`
 	Functions     []*ir.PBFunction       `protobuf:"bytes,2,rep,name=functions,proto3" json:"functions,omitempty"`
-	Edges         []*ir.PBNode           `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
+	Edges         []*ir.PBEdge           `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
 	Nodes         []*PBNode              `protobuf:"bytes,4,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -250,7 +249,7 @@ func (x *PBGraph) GetFunctions() []*ir.PBFunction {
 	return nil
 }
 
-func (x *PBGraph) GetEdges() []*ir.PBNode {
+func (x *PBGraph) GetEdges() []*ir.PBEdge {
 	if x != nil {
 		return x.Edges
 	}
@@ -268,7 +267,7 @@ var File_arc_go_graph_graph_proto protoreflect.FileDescriptor
 
 const file_arc_go_graph_graph_proto_rawDesc = "" +
 	"\n" +
-	"\x18arc/go/graph/graph.proto\x12\farc.v1.graph\x1a\x1cgoogle/protobuf/struct.proto\x1a\x18arc/go/types/types.proto\x1a\x12arc/go/ir/ir.proto\" \n" +
+	"\x18arc/go/graph/graph.proto\x12\farc.v1.graph\x1a\x1cgoogle/protobuf/struct.proto\x1a\x12arc/go/ir/ir.proto\" \n" +
 	"\x02XY\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x02R\x01x\x12\f\n" +
 	"\x01y\x18\x02 \x01(\x02R\x01y\"\xe9\x01\n" +
@@ -287,7 +286,7 @@ const file_arc_go_graph_graph_proto_rawDesc = "" +
 	"\aPBGraph\x124\n" +
 	"\bviewport\x18\x01 \x01(\v2\x18.arc.v1.graph.PBViewportR\bviewport\x123\n" +
 	"\tfunctions\x18\x02 \x03(\v2\x15.arc.v1.ir.PBFunctionR\tfunctions\x12'\n" +
-	"\x05edges\x18\x03 \x03(\v2\x11.arc.v1.ir.PBNodeR\x05edges\x12*\n" +
+	"\x05edges\x18\x03 \x03(\v2\x11.arc.v1.ir.PBEdgeR\x05edges\x12*\n" +
 	"\x05nodes\x18\x04 \x03(\v2\x14.arc.v1.graph.PBNodeR\x05nodesB\x91\x01\n" +
 	"\x10com.arc.v1.graphB\n" +
 	"GraphProtoP\x01Z\x1fgithub.com/synnaxlabs/arc/graph\xa2\x02\x03AVG\xaa\x02\fArc.V1.Graph\xca\x02\fArc\\V1\\Graph\xe2\x02\x18Arc\\V1\\Graph\\GPBMetadata\xea\x02\x0eArc::V1::Graphb\x06proto3"
@@ -312,7 +311,7 @@ var file_arc_go_graph_graph_proto_goTypes = []any{
 	(*PBGraph)(nil),        // 3: arc.v1.graph.PBGraph
 	nil,                    // 4: arc.v1.graph.PBNode.ConfigEntry
 	(*ir.PBFunction)(nil),  // 5: arc.v1.ir.PBFunction
-	(*ir.PBNode)(nil),      // 6: arc.v1.ir.PBNode
+	(*ir.PBEdge)(nil),      // 6: arc.v1.ir.PBEdge
 	(*structpb.Value)(nil), // 7: google.protobuf.Value
 }
 var file_arc_go_graph_graph_proto_depIdxs = []int32{
@@ -321,7 +320,7 @@ var file_arc_go_graph_graph_proto_depIdxs = []int32{
 	0, // 2: arc.v1.graph.PBViewport.position:type_name -> arc.v1.graph.XY
 	2, // 3: arc.v1.graph.PBGraph.viewport:type_name -> arc.v1.graph.PBViewport
 	5, // 4: arc.v1.graph.PBGraph.functions:type_name -> arc.v1.ir.PBFunction
-	6, // 5: arc.v1.graph.PBGraph.edges:type_name -> arc.v1.ir.PBNode
+	6, // 5: arc.v1.graph.PBGraph.edges:type_name -> arc.v1.ir.PBEdge
 	1, // 6: arc.v1.graph.PBGraph.nodes:type_name -> arc.v1.graph.PBNode
 	7, // 7: arc.v1.graph.PBNode.ConfigEntry.value:type_name -> google.protobuf.Value
 	8, // [8:8] is the sub-list for method output_type

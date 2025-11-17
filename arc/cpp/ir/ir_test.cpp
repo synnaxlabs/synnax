@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "gtest/gtest.h"
+
 #include "arc/cpp/ir/ir.h"
 #include "arc/go/ir/arc/go/ir/ir.pb.h"
-#include "gtest/gtest.h"
 
 /// @brief it should correctly round-trip Handle through protobuf
 TEST(IRTest, testHandleProtobufRoundTrip) {
@@ -79,10 +80,7 @@ TEST(IRTest, testIRProtobufRoundTrip) {
     node.type = "add";
     original.nodes.push_back(node);
 
-    arc::ir::Edge edge(
-        arc::ir::Handle("node1", "out"),
-        arc::ir::Handle("node2", "in")
-    );
+    arc::ir::Edge edge(arc::ir::Handle("node1", "out"), arc::ir::Handle("node2", "in"));
     original.edges.push_back(edge);
 
     arc::v1::ir::PBIR pb;
@@ -155,10 +153,7 @@ TEST(IRTest, testIRJSONRoundTrip) {
     node.type = "add";
     original.nodes.push_back(node);
 
-    arc::ir::Edge edge(
-        arc::ir::Handle("node1", "out"),
-        arc::ir::Handle("node2", "in")
-    );
+    arc::ir::Edge edge(arc::ir::Handle("node1", "out"), arc::ir::Handle("node2", "in"));
     original.edges.push_back(edge);
 
     nlohmann::json j = original.to_json();

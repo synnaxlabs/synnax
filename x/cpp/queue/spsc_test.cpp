@@ -7,11 +7,11 @@
 // Source License, use of this software will be governed by the Apache License,
 // Version 2.0, included in the file licenses/APL.txt.
 
-#include "x/cpp/queue/spsc.h"
-
 #include <thread>
 
 #include "gtest/gtest.h"
+
+#include "x/cpp/queue/spsc.h"
 
 TEST(SPSCQueueTest, BasicPushPop) {
     queue::SPSC<int, 16> queue;
@@ -42,7 +42,7 @@ TEST(SPSCQueueTest, Empty) {
 }
 
 TEST(SPSCQueueTest, Full) {
-    queue::SPSC<int, 4> queue;  // Capacity 3 (N-1)
+    queue::SPSC<int, 4> queue; // Capacity 3 (N-1)
 
     // Fill queue
     EXPECT_TRUE(queue.push(1));
@@ -66,7 +66,7 @@ TEST(SPSCQueueTest, MoveSemantics) {
     // Push unique_ptr
     auto ptr = std::make_unique<int>(42);
     EXPECT_TRUE(queue.push(std::move(ptr)));
-    EXPECT_EQ(ptr, nullptr);  // Moved from
+    EXPECT_EQ(ptr, nullptr); // Moved from
 
     // Pop unique_ptr
     std::unique_ptr<int> result;
@@ -97,7 +97,7 @@ TEST(SPSCQueueTest, MultipleRounds) {
     // Push and pop multiple rounds to test wrap-around
     for (int round = 0; round < 10; round++) {
         // Fill queue
-        for (int i = 0; i < 7; i++) {  // Capacity is 7 (N-1)
+        for (int i = 0; i < 7; i++) { // Capacity is 7 (N-1)
             EXPECT_TRUE(queue.push(round * 100 + i));
         }
 
@@ -119,10 +119,10 @@ TEST(SPSCQueueTest, ProducerConsumerThreads) {
     // Producer thread
     std::thread producer([&]() {
         for (int i = 0; i < num_items; i++) {
-            int val = i;  // Create copy for move
+            int val = i; // Create copy for move
             while (!queue.push(std::move(val))) {
                 // Busy wait if queue full (should be rare with 1024 capacity)
-                val = i;  // Recreate if push failed
+                val = i; // Recreate if push failed
                 std::this_thread::yield();
             }
         }

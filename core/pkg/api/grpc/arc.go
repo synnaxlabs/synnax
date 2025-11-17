@@ -319,14 +319,9 @@ func translateGraphToPB(g arcgraph.Graph) (*arcgraph.PBGraph, error) {
 		functionsPb[i] = fnPb
 	}
 
-	// Note: The proto has `repeated ir.PBNode edges = 3;` which seems wrong,
-	// but we'll work with what's generated. It should be PBEdge.
-	edgesPb := make([]*arcir.PBNode, len(g.Edges))
+	edgesPb := make([]*arcir.PBEdge, len(g.Edges))
 	for i, edge := range g.Edges {
-		// Since proto expects PBNode but we have edges, we'll leave this as a type mismatch
-		// that needs to be fixed in the proto. For now, skip edges.
-		_ = edge
-		edgesPb[i] = nil
+		edgesPb[i] = translateEdgeToPB(edge)
 	}
 
 	nodesPb := make([]*arcgraph.PBNode, len(g.Nodes))
@@ -369,8 +364,10 @@ func translateGraphFromPB(pb *arcgraph.PBGraph) (arcgraph.Graph, error) {
 		functions[i] = fn
 	}
 
-	// Skip edges due to proto type mismatch (PBNode instead of PBEdge)
-	edges := make([]arcir.Edge, 0)
+	edges := make([]arcir.Edge, len(pb.Edges))
+	for i, edgePb := range pb.Edges {
+		edges[i] = translateEdgeFromPB(edgePb)
+	}
 
 	nodes := make([]arcgraph.Node, len(pb.Nodes))
 	for i, nodePb := range pb.Nodes {

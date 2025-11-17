@@ -462,9 +462,7 @@ public:
             );
         }
         if (std::holds_alternative<std::string>(val)) {
-            throw std::runtime_error(
-                "cannot set string value on non-string series"
-            );
+            throw std::runtime_error("cannot set string value on non-string series");
         }
         if (std::holds_alternative<TimeStamp>(val)) {
             this->set(index, std::get<TimeStamp>(val));
@@ -930,7 +928,9 @@ public:
 
     void resize(size_t new_size) {
         if (this->data_type().is_variable()) {
-            throw std::runtime_error("resize not supported for variable-size data types");
+            throw std::runtime_error(
+                "resize not supported for variable-size data types"
+            );
         }
         if (new_size > this->cap_) {
             const auto density = this->data_type().density();
@@ -1111,23 +1111,15 @@ struct MultiSeries {
     std::vector<Series> series; ///< Accumulated series
 
     /// @brief Append adds a series to the accumulation.
-    void append(Series s) {
-        series.push_back(std::move(s));
-    }
+    void append(Series s) { series.push_back(std::move(s)); }
 
     /// @brief Clear removes all accumulated series.
-    void clear() {
-        series.clear();
-    }
+    void clear() { series.clear(); }
 
     /// @brief Empty returns true if no series are accumulated.
-    [[nodiscard]] bool empty() const {
-        return series.empty();
-    }
+    [[nodiscard]] bool empty() const { return series.empty(); }
 
     /// @brief Size returns the number of accumulated series.
-    [[nodiscard]] size_t size() const {
-        return series.size();
-    }
+    [[nodiscard]] size_t size() const { return series.size(); }
 };
 }

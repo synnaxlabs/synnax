@@ -1,8 +1,9 @@
 #pragma once
 
-#include "arc/go/types/arc/go/types/types.pb.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/xjson.h"
+
+#include "arc/go/types/arc/go/types/types.pb.h"
 
 namespace arc::types {
 using ChannelKey = std::uint32_t;
@@ -45,14 +46,12 @@ struct Type {
 
     explicit Type(const arc::v1::types::PBType &pb) {
         this->kind = static_cast<Kind>(pb.kind());
-        if (pb.has_elem())
-            this->elem = std::make_unique<Type>(pb.elem());
+        if (pb.has_elem()) this->elem = std::make_unique<Type>(pb.elem());
     }
 
     void to_proto(arc::v1::types::PBType *pb) const {
         pb->set_kind(static_cast<arc::v1::types::PBKind>(kind));
-        if (elem)
-            elem->to_proto(pb->mutable_elem());
+        if (elem) elem->to_proto(pb->mutable_elem());
     }
 
     Type() = default;

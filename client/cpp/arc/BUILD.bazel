@@ -6,9 +6,9 @@ cc_library(
     hdrs = ["arc.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//arc/go/graph:graph_grpc",
-        "//arc/go/module:module_grpc",
-        "//arc/go/text:text_grpc",
+        "//arc/cpp/graph",
+        "//arc/cpp/module",
+        "//arc/cpp/text",
         "//client/cpp/errors",
         "//core/pkg/api/grpc/v1:api_grpc",
         "//freighter/cpp:freighter",

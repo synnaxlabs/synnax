@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "gtest/gtest.h"
+
 #include "arc/cpp/types/types.h"
 #include "arc/go/types/arc/go/types/types.pb.h"
-#include "gtest/gtest.h"
 
 /// @brief it should correctly round-trip a simple Type through protobuf
 TEST(TypesTest, testTypeProtobufRoundTrip) {
@@ -60,7 +61,7 @@ TEST(TypesTest, testAllKindValues) {
         arc::types::Kind::Series,
     };
 
-    for (const auto kind : kinds) {
+    for (const auto kind: kinds) {
         arc::types::Type original(kind);
         arc::v1::types::PBType pb;
         original.to_proto(&pb);

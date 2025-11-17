@@ -9,36 +9,32 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 
-#include "arc/go/graph/graph.pb.h"
-#include "arc/go/module/module.pb.h"
-#include "arc/go/text/text.pb.h"
-#include "core/pkg/api/grpc/v1/arc.pb.h"
-#include "freighter/cpp/freighter.h"
 #include "google/protobuf/empty.pb.h"
+
+#include "freighter/cpp/freighter.h"
+
+#include "arc/cpp/graph/graph.h"
+#include "arc/cpp/module/module.h"
+#include "arc/cpp/text/text.h"
+#include "core/pkg/api/grpc/v1/arc.pb.h"
 
 namespace synnax {
 
 /// @brief Freighter client for creating Arc programs.
-using ArcCreateClient = freighter::UnaryClient<
-    api::v1::ArcCreateRequest,
-    api::v1::ArcCreateResponse
->;
+using ArcCreateClient = freighter::
+    UnaryClient<api::v1::ArcCreateRequest, api::v1::ArcCreateResponse>;
 
 /// @brief Freighter client for retrieving Arc programs.
-using ArcRetrieveClient = freighter::UnaryClient<
-    api::v1::ArcRetrieveRequest,
-    api::v1::ArcRetrieveResponse
->;
+using ArcRetrieveClient = freighter::
+    UnaryClient<api::v1::ArcRetrieveRequest, api::v1::ArcRetrieveResponse>;
 
 /// @brief Freighter client for deleting Arc programs.
-using ArcDeleteClient = freighter::UnaryClient<
-    api::v1::ArcDeleteRequest,
-    google::protobuf::Empty
->;
+using ArcDeleteClient = freighter::
+    UnaryClient<api::v1::ArcDeleteRequest, google::protobuf::Empty>;
 
 class ArcClient;
 
@@ -54,13 +50,13 @@ struct Arc {
     std::string name;
 
     /// @brief Visual graph representation of the Arc program.
-    arc::v1::graph::PBGraph graph;
+    arc::graph::Graph graph;
 
     /// @brief Text-based source code representation.
-    arc::v1::text::PBText text;
+    arc::text::Text text;
 
     /// @brief Compiled module with IR and WASM bytecode.
-    arc::v1::module::PBModule module;
+    arc::module::Module module;
 
     /// @brief Whether the Arc program should be deployed and running.
     bool deploy = false;
@@ -112,7 +108,8 @@ public:
     [[nodiscard]] xerrors::Error create(Arc &arc) const;
 
     /// @brief Creates multiple Arc programs in the Synnax cluster.
-    /// @details More efficient than calling create() individually and provides atomicity.
+    /// @details More efficient than calling create() individually and provides
+    /// atomicity.
     /// @param arcs Vector of Arc programs to create.
     /// @modifies arcs Assigns unique keys to each Arc program.
     /// @returns An error if the Arc programs could not be created.
@@ -129,18 +126,21 @@ public:
     /// @returns A pair containing the retrieved Arc program and an error.
     /// If the Arc program does not exist or multiple programs have the same name,
     /// an error is returned.
-    [[nodiscard]] std::pair<Arc, xerrors::Error> retrieve_by_name(const std::string &name) const;
+    [[nodiscard]] std::pair<Arc, xerrors::Error>
+    retrieve_by_name(const std::string &name) const;
 
     /// @brief Retrieves an Arc program by its key (UUID).
     /// @param key The key of the Arc program to retrieve.
     /// @returns A pair containing the retrieved Arc program and an error.
     /// If the Arc program does not exist, an error is returned.
-    [[nodiscard]] std::pair<Arc, xerrors::Error> retrieve_by_key(const std::string &key) const;
+    [[nodiscard]] std::pair<Arc, xerrors::Error>
+    retrieve_by_key(const std::string &key) const;
 
     /// @brief Retrieves Arc programs by their names.
     /// @param names Vector of names of Arc programs to retrieve.
     /// @returns A pair containing a vector of retrieved Arc programs and an error.
-    /// If an Arc program with a given name does not exist, it will not be in the result.
+    /// If an Arc program with a given name does not exist, it will not be in the
+    /// result.
     [[nodiscard]] std::pair<std::vector<Arc>, xerrors::Error>
     retrieve(const std::vector<std::string> &names) const;
 

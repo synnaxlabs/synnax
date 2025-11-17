@@ -2,9 +2,6 @@ syntax = "proto3";
 
 package arc.v1.text;
 
-import "arc/go/types/types.proto";
-
-
 option go_package = "github.com/synnaxlabs/arc/text";
 
 message PBText {

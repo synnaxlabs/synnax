@@ -1,0 +1,21 @@
+cc_library(
+    name = "graph",
+    hdrs = ["graph.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/proto",
+        "//arc/go/graph:graph_grpc",
+        "//x/cpp/xjson",
+    ],
+)
+
+cc_test(
+    name = "graph_test",
+    srcs = ["graph_test.cpp"],
+    deps = [
+        ":graph",
+        "//arc/go/graph:graph_grpc",
+        "@googletest//:gtest_main",
+    ],
+)

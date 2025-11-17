@@ -6,7 +6,6 @@ option go_package = "github.com/synnaxlabs/arc/graph";
 
 import "google/protobuf/struct.proto";
 
-import "arc/go/types/types.proto";
 import "arc/go/ir/ir.proto";
 
 message XY {
@@ -29,6 +28,6 @@ message PBViewport {
 message PBGraph {
     PBViewport viewport = 1;
     repeated ir.PBFunction functions = 2;
-    repeated ir.PBNode edges = 3;
+    repeated ir.PBEdge edges = 3;
     repeated PBNode nodes = 4;
 }

@@ -12,6 +12,7 @@
 #include <memory>
 #include <ranges>
 #include <set>
+#include <utility>
 
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
@@ -36,28 +37,28 @@ struct Config {
 };
 
 class Runtime {
-    static constexpr size_t DEFAULT_QUEUE_CAPACITY = 1024;
-
     breaker::Breaker breaker;
     std::shared_ptr<wasm::Module> mod;
     std::unique_ptr<wasm::Bindings> bindings_runtime;
     std::unique_ptr<state::State> state;
     std::unique_ptr<scheduler::Scheduler> scheduler;
     std::unique_ptr<loop::Loop> loop;
-
     std::unique_ptr<queue::SPSC<telem::Frame>> inputs;
     std::unique_ptr<queue::SPSC<telem::Frame>> outputs;
-
     telem::TimeStamp start = telem::TimeStamp(0);
 
 public:
+    std::vector<types::ChannelKey> read_channels;
+    std::vector<types::ChannelKey> write_channels;
     Runtime(
         const breaker::Config &breaker_cfg,
         std::shared_ptr<wasm::Module> mod,
         std::unique_ptr<wasm::Bindings> bindings_runtime,
         std::unique_ptr<state::State> state,
         std::unique_ptr<scheduler::Scheduler> scheduler,
-        std::unique_ptr<loop::Loop> loop
+        std::unique_ptr<loop::Loop> loop,
+        const std::vector<types::ChannelKey> &read_channels,
+        std::vector<types::ChannelKey> write_channels
     ):
         breaker(breaker_cfg),
         mod(std::move(mod)),
@@ -65,8 +66,10 @@ public:
         state(std::move(state)),
         scheduler(std::move(scheduler)),
         loop(std::move(loop)),
-        inputs(std::make_unique<queue::SPSC<telem::Frame>>(DEFAULT_QUEUE_CAPACITY)),
-        outputs(std::make_unique<queue::SPSC<telem::Frame>>(DEFAULT_QUEUE_CAPACITY)) {}
+        inputs(std::make_unique<queue::SPSC<telem::Frame>>()),
+        outputs(std::make_unique<queue::SPSC<telem::Frame>>()),
+        read_channels(read_channels),
+        write_channels(std::move(write_channels)) {}
 
     std::vector<telem::TimeSpan> run() {
         this->start = telem::TimeStamp::now();
@@ -75,7 +78,7 @@ public:
         std::vector<telem::TimeSpan> results;
         this->loop->wait(this->breaker);
         telem::Frame frame;
-        while (this->inputs->pop(frame))
+        while (this->inputs->try_pop(frame))
             this->state->ingest(frame);
 
         const auto elapsed = telem::TimeStamp::now() - this->start;
@@ -99,7 +102,10 @@ public:
         return xerrors::NIL;
     }
 
-    xerrors::Error read(telem::Frame &frame) const { return this->outputs->pop(frame); }
+    xerrors::Error read(telem::Frame &frame) const {
+        this->outputs->pop(frame);
+        return xerrors::NIL;
+    }
 };
 
 inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cfg) {
@@ -184,7 +190,9 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
             std::move(bindings_runtime),
             std::move(state),
             std::move(sched),
-            std::move(loop)
+            std::move(loop),
+            std::vector(reads.begin(), reads.end()),
+            std::vector(writes.begin(), writes.end())
         ),
         xerrors::NIL
     };

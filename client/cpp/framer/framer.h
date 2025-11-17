@@ -44,8 +44,6 @@ const auto FRAMER_ERROR = xerrors::Error("framer");
 const xerrors::Error FRAMER_CLOSED = FRAMER_ERROR.sub("closed");
 const xerrors::Error WRITER_CLOSED = FRAMER_CLOSED.sub("writer");
 
-
-
 /// @brief Bit positions for flags in the frame codec
 enum class FlagPosition : uint8_t {
     ZeroAlignments = 5,

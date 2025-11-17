@@ -14,11 +14,12 @@
 #include <string>
 #include <vector>
 
+#include "x/cpp/xjson/xjson.h"
+
 #include "arc/cpp/proto/proto.h"
 #include "arc/cpp/types/types.h"
 #include "arc/go/ir/arc/go/ir/ir.pb.h"
 #include "arc/go/symbol/arc/go/symbol/symbol.pb.h"
-#include "x/cpp/xjson/xjson.h"
 
 namespace arc::ir {
 constexpr std::string default_output_param = "output";
@@ -42,12 +43,12 @@ struct Handle {
         return {{"node", node}, {"param", param}};
     }
 
-    explicit Handle(const arc::v1::ir::PBHandle &pb) {
+    explicit Handle(const v1::ir::PBHandle &pb) {
         this->node = pb.node();
         this->param = pb.param();
     }
 
-    void to_proto(arc::v1::ir::PBHandle *pb) const {
+    void to_proto(v1::ir::PBHandle *pb) const {
         pb->set_node(node);
         pb->set_param(param);
     }
@@ -81,10 +82,8 @@ struct Edge {
     }
 
     explicit Edge(const arc::v1::ir::PBEdge &pb) {
-        if (pb.has_source())
-            this->source = Handle(pb.source());
-        if (pb.has_target())
-            this->target = Handle(pb.target());
+        if (pb.has_source()) this->source = Handle(pb.source());
+        if (pb.has_target()) this->target = Handle(pb.target());
     }
 
     void to_proto(arc::v1::ir::PBEdge *pb) const {
@@ -121,17 +120,14 @@ struct Param {
 
     explicit Param(const arc::v1::types::PBParam &pb) {
         this->name = pb.name();
-        if (pb.has_type())
-            this->type = types::Type(pb.type());
-        if (pb.has_value())
-            this->value = arc::proto::pb_value_to_json(pb.value());
+        if (pb.has_type()) this->type = types::Type(pb.type());
+        if (pb.has_value()) this->value = arc::proto::pb_value_to_json(pb.value());
     }
 
     void to_proto(arc::v1::types::PBParam *pb) const {
         pb->set_name(name);
         type.to_proto(pb->mutable_type());
-        if (!value.is_null())
-            arc::proto::json_to_pb_value(value, pb->mutable_value());
+        if (!value.is_null()) arc::proto::json_to_pb_value(value, pb->mutable_value());
     }
 
     Param() = default;
@@ -146,14 +142,14 @@ struct Params {
     template<typename PBParamContainer>
     explicit Params(const PBParamContainer &pb_params) {
         params.reserve(pb_params.size());
-        for (const auto &pb_param : pb_params)
+        for (const auto &pb_param: pb_params)
             params.emplace_back(pb_param);
     }
 
     template<typename PBParamRepeatedField>
     void to_proto(PBParamRepeatedField *pb_params) const {
         pb_params->Reserve(static_cast<int>(params.size()));
-        for (const auto &param : params)
+        for (const auto &param: params)
             param.to_proto(pb_params->Add());
     }
 
@@ -215,18 +211,18 @@ struct Channels {
     }
 
     explicit Channels(const arc::v1::symbol::PBChannels &pb) {
-        for (const auto &[key, value] : pb.read())
+        for (const auto &[key, value]: pb.read())
             read[key] = value;
-        for (const auto &[key, value] : pb.write())
+        for (const auto &[key, value]: pb.write())
             write[key] = value;
     }
 
     void to_proto(arc::v1::symbol::PBChannels *pb) const {
         auto *read_map = pb->mutable_read();
-        for (const auto &[key, value] : read)
+        for (const auto &[key, value]: read)
             (*read_map)[key] = value;
         auto *write_map = pb->mutable_write();
-        for (const auto &[key, value] : write)
+        for (const auto &[key, value]: write)
             (*write_map)[key] = value;
     }
 
@@ -262,8 +258,7 @@ struct Node {
     explicit Node(const arc::v1::ir::PBNode &pb) {
         this->key = pb.key();
         this->type = pb.type();
-        if (pb.has_channels())
-            this->channels = Channels(pb.channels());
+        if (pb.has_channels()) this->channels = Channels(pb.channels());
         this->config = Params(pb.config());
         this->inputs = Params(pb.inputs());
         this->outputs = Params(pb.outputs());
@@ -307,8 +302,7 @@ struct Function {
 
     explicit Function(const arc::v1::ir::PBFunction &pb) {
         this->key = pb.key();
-        if (pb.has_channels())
-            this->channels = Channels(pb.channels());
+        if (pb.has_channels()) this->channels = Channels(pb.channels());
         this->config = Params(pb.config());
         this->inputs = Params(pb.inputs());
         this->outputs = Params(pb.outputs());
@@ -339,10 +333,10 @@ struct Strata {
     template<typename PBStrataContainer>
     explicit Strata(const PBStrataContainer &pb_strata) {
         strata.reserve(pb_strata.size());
-        for (const auto &pb_stratum : pb_strata) {
+        for (const auto &pb_stratum: pb_strata) {
             std::vector<std::string> stratum;
             stratum.reserve(pb_stratum.nodes_size());
-            for (const auto &node : pb_stratum.nodes())
+            for (const auto &node: pb_stratum.nodes())
                 stratum.push_back(node);
             strata.push_back(std::move(stratum));
         }
@@ -351,10 +345,10 @@ struct Strata {
     template<typename PBStrataRepeatedField>
     void to_proto(PBStrataRepeatedField *pb_strata) const {
         pb_strata->Reserve(static_cast<int>(strata.size()));
-        for (const auto &stratum : strata) {
+        for (const auto &stratum: strata) {
             auto *pb_stratum = pb_strata->Add();
             pb_stratum->mutable_nodes()->Reserve(static_cast<int>(stratum.size()));
-            for (const auto &node : stratum)
+            for (const auto &node: stratum)
                 pb_stratum->add_nodes(node);
         }
     }
@@ -379,20 +373,14 @@ struct IR {
 
     [[nodiscard]] nlohmann::json to_json() const {
         nlohmann::json functions_arr = nlohmann::json::array();
-        for (const auto &fn: functions) {
+        for (const auto &fn: functions)
             functions_arr.push_back(fn.to_json());
-        }
-
         nlohmann::json nodes_arr = nlohmann::json::array();
-        for (const auto &node: nodes) {
+        for (const auto &node: nodes)
             nodes_arr.push_back(node.to_json());
-        }
-
         nlohmann::json edges_arr = nlohmann::json::array();
-        for (const auto &edge: edges) {
+        for (const auto &edge: edges)
             edges_arr.push_back(edge.to_json());
-        }
-
         return {
             {"functions", functions_arr},
             {"nodes", nodes_arr},
@@ -401,28 +389,28 @@ struct IR {
         };
     }
 
-    explicit IR(const arc::v1::ir::PBIR &pb) {
+    explicit IR(const v1::ir::PBIR &pb) {
         functions.reserve(pb.functions_size());
-        for (const auto &fn_pb : pb.functions())
+        for (const auto &fn_pb: pb.functions())
             functions.emplace_back(fn_pb);
         nodes.reserve(pb.nodes_size());
-        for (const auto &node_pb : pb.nodes())
+        for (const auto &node_pb: pb.nodes())
             nodes.emplace_back(node_pb);
         edges.reserve(pb.edges_size());
-        for (const auto &edge_pb : pb.edges())
+        for (const auto &edge_pb: pb.edges())
             edges.emplace_back(edge_pb);
         strata = Strata(pb.strata());
     }
 
     void to_proto(arc::v1::ir::PBIR *pb) const {
         pb->mutable_functions()->Reserve(static_cast<int>(functions.size()));
-        for (const auto &fn : functions)
+        for (const auto &fn: functions)
             fn.to_proto(pb->add_functions());
         pb->mutable_nodes()->Reserve(static_cast<int>(nodes.size()));
-        for (const auto &node : nodes)
+        for (const auto &node: nodes)
             node.to_proto(pb->add_nodes());
         pb->mutable_edges()->Reserve(static_cast<int>(edges.size()));
-        for (const auto &edge : edges)
+        for (const auto &edge: edges)
             edge.to_proto(pb->add_edges());
         strata.to_proto(pb->mutable_strata());
     }
@@ -466,14 +454,14 @@ struct IR {
     [[nodiscard]] std::vector<Edge> outgoing_edges(const std::string &node_key) const {
         std::vector<Edge> result;
         for (const auto &e: edges)
-            if (e.source.node == node_key) { result.push_back(e); }
+            if (e.source.node == node_key) result.push_back(e);
         return result;
     }
 
     [[nodiscard]] std::vector<Edge> incoming_edges(const std::string &node_key) const {
         std::vector<Edge> result;
         for (const auto &e: edges)
-            if (e.target.node == node_key) { result.push_back(e); }
+            if (e.target.node == node_key) result.push_back(e);
         return result;
     }
 };

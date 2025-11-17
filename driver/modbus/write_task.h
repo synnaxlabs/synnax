@@ -72,10 +72,8 @@ public:
         );
     }
 
-    xerrors::Error write(
-        const std::shared_ptr<device::Device> &dev,
-        const telem::Frame &fr
-    ) override {
+    xerrors::Error
+    write(const std::shared_ptr<device::Device> &dev, const telem::Frame &fr) override {
         if (channels.empty()) return xerrors::NIL;
         this->initialize_state(dev);
         const int start_addr = channels.front().address;
@@ -112,10 +110,8 @@ public:
         );
     }
 
-    xerrors::Error write(
-        const std::shared_ptr<device::Device> &dev,
-        const telem::Frame &fr
-    ) override {
+    xerrors::Error
+    write(const std::shared_ptr<device::Device> &dev, const telem::Frame &fr) override {
         if (channels.empty()) return xerrors::NIL;
         this->initialize_state(dev);
         const int start_addr = channels.front().address;

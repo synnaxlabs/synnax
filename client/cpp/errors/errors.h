@@ -19,7 +19,8 @@ inline xerrors::Error unexpected_missing(const std::string &name) {
     );
 }
 
-inline xerrors::Error multiple_results(const std::string &resource_type, const std::string &identifier) {
+inline xerrors::Error
+multiple_results(const std::string &resource_type, const std::string &identifier) {
     return xerrors::Error(
         xerrors::MULTIPLE_RESULTS,
         "Multiple " + resource_type + " found for identifier '" + identifier + "'"

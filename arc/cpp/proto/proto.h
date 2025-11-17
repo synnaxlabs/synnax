@@ -29,14 +29,14 @@ inline nlohmann::json pb_value_to_json(const google::protobuf::Value &v) {
             return v.bool_value();
         case google::protobuf::Value::kStructValue: {
             nlohmann::json obj = nlohmann::json::object();
-            for (const auto &[key, value] : v.struct_value().fields()) {
+            for (const auto &[key, value]: v.struct_value().fields()) {
                 obj[key] = pb_value_to_json(value);
             }
             return obj;
         }
         case google::protobuf::Value::kListValue: {
             nlohmann::json arr = nlohmann::json::array();
-            for (const auto &elem : v.list_value().values()) {
+            for (const auto &elem: v.list_value().values()) {
                 arr.push_back(pb_value_to_json(elem));
             }
             return arr;
@@ -69,10 +69,10 @@ inline void json_to_pb_value(const nlohmann::json &j, google::protobuf::Value *v
         }
     } else if (j.is_array()) {
         auto *list_value = v->mutable_list_value();
-        for (const auto &elem : j) {
+        for (const auto &elem: j) {
             json_to_pb_value(elem, list_value->add_values());
         }
     }
 }
 
-}  // namespace arc::proto
+} // namespace arc::proto
