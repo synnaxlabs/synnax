@@ -51,7 +51,6 @@ const { actions, reducer } = createSlice({
   initialState: ZERO_SLICE_STATE,
   reducers: {
     set: (state, { payload: cluster }: PayloadAction<SetPayload>) => {
-      checkName(state, cluster.name, cluster.key);
       const predefinedKey = getPredefinedClusterKey(cluster);
       if (predefinedKey != null) delete state.clusters[predefinedKey];
       state.clusters[cluster.key] = cluster;
