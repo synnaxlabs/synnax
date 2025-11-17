@@ -306,7 +306,7 @@ func translateArcBackward(msg *gapi.Arc, _ int) (api.Arc, error) {
 // translateGraphToPB converts arcgraph.Graph to *arcgraph.PBGraph
 func translateGraphToPB(g arcgraph.Graph) (*arcgraph.PBGraph, error) {
 	viewportPb := &arcgraph.PBViewport{
-		Position: &arcgraph.XY{X: float32(g.Viewport.Position.X), Y: float32(g.Viewport.Position.Y)},
+		Position: &spatial.PBXY{X: float32(g.Viewport.Position.X), Y: float32(g.Viewport.Position.Y)},
 		Zoom:     g.Viewport.Zoom,
 	}
 
@@ -651,7 +651,7 @@ func translateGraphNodeToPB(n arcgraph.Node) (*arcgraph.PBNode, error) {
 		Key:      n.Key,
 		Type:     n.Type,
 		Config:   configMap,
-		Position: &arcgraph.XY{X: float32(n.Position.X), Y: float32(n.Position.Y)},
+		Position: &spatial.PBXY{X: float32(n.Position.X), Y: float32(n.Position.Y)},
 	}, nil
 }
 

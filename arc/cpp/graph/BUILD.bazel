@@ -6,6 +6,7 @@ cc_library(
         "//arc/cpp/ir",
         "//arc/cpp/proto",
         "//arc/go/graph:graph_grpc",
+        "//x/cpp/spatial",
         "//x/cpp/xjson",
     ],
 )

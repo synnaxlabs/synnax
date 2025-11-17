@@ -8,6 +8,7 @@ package graph
 
 import (
 	ir "github.com/synnaxlabs/arc/ir"
+	spatial "github.com/synnaxlabs/x/spatial"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -23,71 +24,19 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type XY struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	X             float32                `protobuf:"fixed32,1,opt,name=x,proto3" json:"x,omitempty"`
-	Y             float32                `protobuf:"fixed32,2,opt,name=y,proto3" json:"y,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *XY) Reset() {
-	*x = XY{}
-	mi := &file_arc_go_graph_graph_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *XY) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*XY) ProtoMessage() {}
-
-func (x *XY) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_graph_graph_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use XY.ProtoReflect.Descriptor instead.
-func (*XY) Descriptor() ([]byte, []int) {
-	return file_arc_go_graph_graph_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *XY) GetX() float32 {
-	if x != nil {
-		return x.X
-	}
-	return 0
-}
-
-func (x *XY) GetY() float32 {
-	if x != nil {
-		return x.Y
-	}
-	return 0
-}
-
 type PBNode struct {
 	state         protoimpl.MessageState     `protogen:"open.v1"`
 	Key           string                     `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Type          string                     `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	Config        map[string]*structpb.Value `protobuf:"bytes,3,rep,name=config,proto3" json:"config,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Position      *XY                        `protobuf:"bytes,4,opt,name=position,proto3" json:"position,omitempty"`
+	Position      *spatial.PBXY              `protobuf:"bytes,4,opt,name=position,proto3" json:"position,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PBNode) Reset() {
 	*x = PBNode{}
-	mi := &file_arc_go_graph_graph_proto_msgTypes[1]
+	mi := &file_arc_go_graph_graph_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -99,7 +48,7 @@ func (x *PBNode) String() string {
 func (*PBNode) ProtoMessage() {}
 
 func (x *PBNode) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_graph_graph_proto_msgTypes[1]
+	mi := &file_arc_go_graph_graph_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -112,7 +61,7 @@ func (x *PBNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PBNode.ProtoReflect.Descriptor instead.
 func (*PBNode) Descriptor() ([]byte, []int) {
-	return file_arc_go_graph_graph_proto_rawDescGZIP(), []int{1}
+	return file_arc_go_graph_graph_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *PBNode) GetKey() string {
@@ -136,7 +85,7 @@ func (x *PBNode) GetConfig() map[string]*structpb.Value {
 	return nil
 }
 
-func (x *PBNode) GetPosition() *XY {
+func (x *PBNode) GetPosition() *spatial.PBXY {
 	if x != nil {
 		return x.Position
 	}
@@ -145,7 +94,7 @@ func (x *PBNode) GetPosition() *XY {
 
 type PBViewport struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Position      *XY                    `protobuf:"bytes,1,opt,name=position,proto3" json:"position,omitempty"`
+	Position      *spatial.PBXY          `protobuf:"bytes,1,opt,name=position,proto3" json:"position,omitempty"`
 	Zoom          float32                `protobuf:"fixed32,2,opt,name=zoom,proto3" json:"zoom,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -153,7 +102,7 @@ type PBViewport struct {
 
 func (x *PBViewport) Reset() {
 	*x = PBViewport{}
-	mi := &file_arc_go_graph_graph_proto_msgTypes[2]
+	mi := &file_arc_go_graph_graph_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -165,7 +114,7 @@ func (x *PBViewport) String() string {
 func (*PBViewport) ProtoMessage() {}
 
 func (x *PBViewport) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_graph_graph_proto_msgTypes[2]
+	mi := &file_arc_go_graph_graph_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -178,10 +127,10 @@ func (x *PBViewport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PBViewport.ProtoReflect.Descriptor instead.
 func (*PBViewport) Descriptor() ([]byte, []int) {
-	return file_arc_go_graph_graph_proto_rawDescGZIP(), []int{2}
+	return file_arc_go_graph_graph_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *PBViewport) GetPosition() *XY {
+func (x *PBViewport) GetPosition() *spatial.PBXY {
 	if x != nil {
 		return x.Position
 	}
@@ -207,7 +156,7 @@ type PBGraph struct {
 
 func (x *PBGraph) Reset() {
 	*x = PBGraph{}
-	mi := &file_arc_go_graph_graph_proto_msgTypes[3]
+	mi := &file_arc_go_graph_graph_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -219,7 +168,7 @@ func (x *PBGraph) String() string {
 func (*PBGraph) ProtoMessage() {}
 
 func (x *PBGraph) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_graph_graph_proto_msgTypes[3]
+	mi := &file_arc_go_graph_graph_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -232,7 +181,7 @@ func (x *PBGraph) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PBGraph.ProtoReflect.Descriptor instead.
 func (*PBGraph) Descriptor() ([]byte, []int) {
-	return file_arc_go_graph_graph_proto_rawDescGZIP(), []int{3}
+	return file_arc_go_graph_graph_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *PBGraph) GetViewport() *PBViewport {
@@ -267,21 +216,18 @@ var File_arc_go_graph_graph_proto protoreflect.FileDescriptor
 
 const file_arc_go_graph_graph_proto_rawDesc = "" +
 	"\n" +
-	"\x18arc/go/graph/graph.proto\x12\farc.v1.graph\x1a\x1cgoogle/protobuf/struct.proto\x1a\x12arc/go/ir/ir.proto\" \n" +
-	"\x02XY\x12\f\n" +
-	"\x01x\x18\x01 \x01(\x02R\x01x\x12\f\n" +
-	"\x01y\x18\x02 \x01(\x02R\x01y\"\xe9\x01\n" +
+	"\x18arc/go/graph/graph.proto\x12\farc.v1.graph\x1a\x1cgoogle/protobuf/struct.proto\x1a\x12arc/go/ir/ir.proto\x1a\x1ax/go/spatial/spatial.proto\"\xeb\x01\n" +
 	"\x06PBNode\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x128\n" +
-	"\x06config\x18\x03 \x03(\v2 .arc.v1.graph.PBNode.ConfigEntryR\x06config\x12,\n" +
-	"\bposition\x18\x04 \x01(\v2\x10.arc.v1.graph.XYR\bposition\x1aQ\n" +
+	"\x06config\x18\x03 \x03(\v2 .arc.v1.graph.PBNode.ConfigEntryR\x06config\x12.\n" +
+	"\bposition\x18\x04 \x01(\v2\x12.x.v1.spatial.PBXYR\bposition\x1aQ\n" +
 	"\vConfigEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
-	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01\"N\n" +
+	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01\"P\n" +
 	"\n" +
-	"PBViewport\x12,\n" +
-	"\bposition\x18\x01 \x01(\v2\x10.arc.v1.graph.XYR\bposition\x12\x12\n" +
+	"PBViewport\x12.\n" +
+	"\bposition\x18\x01 \x01(\v2\x12.x.v1.spatial.PBXYR\bposition\x12\x12\n" +
 	"\x04zoom\x18\x02 \x01(\x02R\x04zoom\"\xc9\x01\n" +
 	"\aPBGraph\x124\n" +
 	"\bviewport\x18\x01 \x01(\v2\x18.arc.v1.graph.PBViewportR\bviewport\x123\n" +
@@ -303,25 +249,25 @@ func file_arc_go_graph_graph_proto_rawDescGZIP() []byte {
 	return file_arc_go_graph_graph_proto_rawDescData
 }
 
-var file_arc_go_graph_graph_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_arc_go_graph_graph_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_arc_go_graph_graph_proto_goTypes = []any{
-	(*XY)(nil),             // 0: arc.v1.graph.XY
-	(*PBNode)(nil),         // 1: arc.v1.graph.PBNode
-	(*PBViewport)(nil),     // 2: arc.v1.graph.PBViewport
-	(*PBGraph)(nil),        // 3: arc.v1.graph.PBGraph
-	nil,                    // 4: arc.v1.graph.PBNode.ConfigEntry
+	(*PBNode)(nil),         // 0: arc.v1.graph.PBNode
+	(*PBViewport)(nil),     // 1: arc.v1.graph.PBViewport
+	(*PBGraph)(nil),        // 2: arc.v1.graph.PBGraph
+	nil,                    // 3: arc.v1.graph.PBNode.ConfigEntry
+	(*spatial.PBXY)(nil),   // 4: x.v1.spatial.PBXY
 	(*ir.PBFunction)(nil),  // 5: arc.v1.ir.PBFunction
 	(*ir.PBEdge)(nil),      // 6: arc.v1.ir.PBEdge
 	(*structpb.Value)(nil), // 7: google.protobuf.Value
 }
 var file_arc_go_graph_graph_proto_depIdxs = []int32{
-	4, // 0: arc.v1.graph.PBNode.config:type_name -> arc.v1.graph.PBNode.ConfigEntry
-	0, // 1: arc.v1.graph.PBNode.position:type_name -> arc.v1.graph.XY
-	0, // 2: arc.v1.graph.PBViewport.position:type_name -> arc.v1.graph.XY
-	2, // 3: arc.v1.graph.PBGraph.viewport:type_name -> arc.v1.graph.PBViewport
+	3, // 0: arc.v1.graph.PBNode.config:type_name -> arc.v1.graph.PBNode.ConfigEntry
+	4, // 1: arc.v1.graph.PBNode.position:type_name -> x.v1.spatial.PBXY
+	4, // 2: arc.v1.graph.PBViewport.position:type_name -> x.v1.spatial.PBXY
+	1, // 3: arc.v1.graph.PBGraph.viewport:type_name -> arc.v1.graph.PBViewport
 	5, // 4: arc.v1.graph.PBGraph.functions:type_name -> arc.v1.ir.PBFunction
 	6, // 5: arc.v1.graph.PBGraph.edges:type_name -> arc.v1.ir.PBEdge
-	1, // 6: arc.v1.graph.PBGraph.nodes:type_name -> arc.v1.graph.PBNode
+	0, // 6: arc.v1.graph.PBGraph.nodes:type_name -> arc.v1.graph.PBNode
 	7, // 7: arc.v1.graph.PBNode.ConfigEntry.value:type_name -> google.protobuf.Value
 	8, // [8:8] is the sub-list for method output_type
 	8, // [8:8] is the sub-list for method input_type
@@ -341,7 +287,7 @@ func file_arc_go_graph_graph_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_arc_go_graph_graph_proto_rawDesc), len(file_arc_go_graph_graph_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

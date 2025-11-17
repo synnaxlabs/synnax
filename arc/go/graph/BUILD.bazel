@@ -8,6 +8,7 @@ proto_library(
     deps = [
         "//arc/go/types:types_proto",
         "//arc/go/ir:ir_proto",
+        "//x/go/spatial:spatial_proto",
         "@protobuf//:struct_proto",
     ],
 )
@@ -20,5 +21,6 @@ cpp_grpc_library(
     deps = [
         "//arc/go/types:types_grpc",
         "//arc/go/ir:ir_grpc",
+        "//x/go/spatial:spatial_grpc"
     ],
 )

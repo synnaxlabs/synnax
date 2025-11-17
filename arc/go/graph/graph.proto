@@ -7,21 +7,17 @@ option go_package = "github.com/synnaxlabs/arc/graph";
 import "google/protobuf/struct.proto";
 
 import "arc/go/ir/ir.proto";
-
-message XY {
-    float x = 1;
-    float y = 2;
-}
+import "x/go/spatial/spatial.proto";
 
 message PBNode {
     string key = 1;
     string type = 2;
     map<string, google.protobuf.Value> config = 3;
-    XY position = 4;
+    x.v1.spatial.PBXY position = 4;
 }
 
 message PBViewport {
-    XY position = 1;
+    x.v1.spatial.PBXY position = 1;
     float zoom = 2;
 }
 

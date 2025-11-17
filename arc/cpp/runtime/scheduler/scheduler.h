@@ -18,7 +18,6 @@
 #include "x/cpp/xerrors/errors.h"
 
 #include "arc/cpp/runtime/node/node.h"
-#include "arc/cpp/runtime/state/state.h"
 
 namespace arc::runtime::scheduler {
 class Scheduler {
@@ -60,8 +59,8 @@ public:
     void next(const telem::TimeSpan elapsed) {
         this->ctx.elapsed = elapsed;
         bool first = true;
-        for (auto stratum: this->strata.strata) {
-            for (auto node_key: stratum)
+        for (const auto& stratum: this->strata.strata) {
+            for (const auto& node_key: stratum)
                 if (first || this->changed.contains(node_key)) {
                     const auto n = &this->nodes[node_key];
                     this->current_state = n;
