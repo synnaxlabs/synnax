@@ -43,7 +43,8 @@ struct ClusterAPI {
 
     virtual xerrors::Error create_devices(std::vector<synnax::Device> &devs) = 0;
 
-    virtual xerrors::Error update_statuses(std::vector<synnax::DeviceStatus> statuses) = 0;
+    virtual xerrors::Error
+    update_statuses(std::vector<synnax::DeviceStatus> statuses) = 0;
 };
 
 struct SynnaxClusterAPI final : ClusterAPI {
@@ -65,7 +66,8 @@ struct SynnaxClusterAPI final : ClusterAPI {
         return this->client->hardware.create_devices(devs);
     }
 
-    xerrors::Error update_statuses(std::vector<synnax::DeviceStatus> statuses) override {
+    xerrors::Error
+    update_statuses(std::vector<synnax::DeviceStatus> statuses) override {
         return this->client->statuses.set(statuses);
     }
 };
@@ -76,11 +78,11 @@ struct DeviceInfo {
 };
 
 class ScanTask final : public task::Task, public pipeline::Base {
-    const std::string task_name;
+    const synnax::Task task;
     loop::Timer timer;
     std::unique_ptr<Scanner> scanner;
     std::shared_ptr<task::Context> ctx;
-    synnax::TaskStatus state;
+    synnax::TaskStatus status;
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, DeviceInfo> dev_states;
@@ -108,13 +110,14 @@ public:
         std::unique_ptr<ClusterAPI> client
     ):
         pipeline::Base(breaker_config),
-        task_name(task.name),
+        task(task),
         timer(scan_rate),
         scanner(std::move(scanner)),
         ctx(ctx),
         client(std::move(client)) {
         this->key = task.key;
-        this->state.details.task = task.key;
+        this->status.key = task.status_key();
+        this->status.details.task = task.key;
     }
 
     ScanTask(
@@ -135,43 +138,43 @@ public:
 
     void run() override {
         if (const auto err = this->scanner->start()) {
-            this->state.variant = status::variant::ERR;
-            this->state.message = err.message();
-            this->ctx->set_status(this->state);
+            this->status.variant = status::variant::ERR;
+            this->status.message = err.message();
+            this->ctx->set_status(this->status);
             return;
         }
-        this->state.variant = status::variant::SUCCESS;
-        this->state.message = "scan task started";
-        this->ctx->set_status(this->state);
+        this->status.variant = status::variant::SUCCESS;
+        this->status.message = "scan task started";
+        this->ctx->set_status(this->status);
         while (this->breaker.running()) {
             if (const auto err = this->scan()) {
-                this->state.variant = status::variant::WARNING;
-                this->state.message = err.message();
-                this->ctx->set_status(this->state);
+                this->status.variant = status::variant::WARNING;
+                this->status.message = err.message();
+                this->ctx->set_status(this->status);
                 LOG(WARNING) << "[scan_task] failed to scan for devices: " << err;
             }
             this->timer.wait(this->breaker);
         }
         if (const auto err = this->scanner->stop()) {
-            this->state.variant = status::variant::ERR;
-            this->state.message = err.message();
+            this->status.variant = status::variant::ERR;
+            this->status.message = err.message();
         } else {
-            this->state.variant = status::variant::SUCCESS;
-            this->state.message = "scan task stopped";
+            this->status.variant = status::variant::SUCCESS;
+            this->status.message = "scan task stopped";
         }
-        this->ctx->set_status(this->state);
+        this->ctx->set_status(this->status);
     }
 
     void exec(task::Command &cmd) override {
-        this->state.key = cmd.key;
+        this->status.details.cmd = cmd.key;
         if (cmd.type == common::STOP_CMD_TYPE) return this->stop(false);
         if (cmd.type == common::START_CMD_TYPE)
             this->start();
         else if (cmd.type == common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
-            this->state.variant = status::variant::ERR;
-            this->state.message = err.message();
-            this->ctx->set_status(this->state);
+            this->status.variant = status::variant::ERR;
+            this->status.message = err.message();
+            this->ctx->set_status(this->status);
         }
     }
 
@@ -274,7 +277,7 @@ public:
         return this->client->update_statuses(statuses);
     }
 
-    std::string name() const override { return this->task_name; }
+    std::string name() const override { return this->task.name; }
 
     using pipeline::Base::stop;
 

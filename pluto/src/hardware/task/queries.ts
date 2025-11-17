@@ -9,32 +9,31 @@
 
 import { ontology, type rack, task } from "@synnaxlabs/client";
 import { array, type Optional } from "@synnaxlabs/x";
-import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
+import { type Status } from "@/status";
 
 export const FLUX_STORE_KEY = "tasks";
 export const RESOURCE_NAME = "Task";
 export const PLURAL_RESOURCE_NAME = "Tasks";
 
 export interface FluxStore
-  extends Flux.UnaryStore<task.Key, task.Task, ChangeVariant> {}
+  extends Flux.UnaryStore<task.Key, Omit<task.Task, "status">> {}
 
 export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
+  [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
 
 // Temporary hack that filters the set of commands that should change the
 // status of a task to loading.
 // Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
 const LOADING_COMMANDS = ["start", "stop"];
-
-type ChangeVariant = "payload" | "status";
 
 const SET_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.keyZ> = {
   channel: task.SET_CHANNEL_NAME,
@@ -43,7 +42,6 @@ const SET_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.keyZ> = {
     store.tasks.set(
       key,
       await client.hardware.tasks.retrieve({ key, includeStatus: true }),
-      "payload",
     ),
 };
 
@@ -53,63 +51,22 @@ const DELETE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.keyZ> = {
   onChange: ({ store, changed }) => store.tasks.delete(changed),
 };
 
-const unknownStatusZ = task.statusZ(z.unknown());
-
-const SET_STATUS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof unknownStatusZ> = {
-  channel: task.STATUS_CHANNEL_NAME,
-  schema: unknownStatusZ,
-  onChange: async ({ store, changed, client }) => {
-    const hasTask = store.tasks.has(changed.details.task);
-    if (!hasTask) {
-      const task = await client.hardware.tasks.retrieve({ key: changed.details.task });
-      store.tasks.set(changed.details.task, task, "payload");
-    }
-    store.tasks.set(
-      changed.details.task,
-      (prev) =>
-        prev == null ? prev : client.hardware.tasks.sugar({ ...prev, status: changed }),
-      "status",
-    );
-  },
-};
-
 const SET_COMMAND_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.commandZ> = {
   channel: task.COMMAND_CHANNEL_NAME,
   schema: task.commandZ,
-  onChange: ({ store, changed, client }) =>
-    store.tasks.set(
-      changed.task,
-      (prev) => {
-        if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
-        return client.hardware.tasks.sugar({
-          ...prev,
-          status: {
-            ...prev.status,
-            variant: "loading",
-            message: `Running ${changed.type} command...`,
-            details: { task: changed.task, running: true, data: {} },
-          },
-        } as task.Task);
-      },
-      "status",
-    ),
-};
-
-export const useStatusSynchronizer = (
-  onStatus: (status: task.Status) => void,
-): void => {
-  const store = Flux.useStore<FluxSubStore>();
-  useEffect(
-    () =>
-      store.tasks.onSet((task) => {
-        if (task.status != null) onStatus(task.status);
-      }),
-    [store],
-  );
+  onChange: ({ store, changed }) =>
+    store.statuses.set(changed.task, (prev) => {
+      if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
+      return task.statusZ(z.unknown()).parse({
+        variant: "loading",
+        message: `Running ${changed.type} command...`,
+        details: { task: changed.task, running: true, data: {} },
+      });
+    }),
 };
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  listeners: [SET_LISTENER, DELETE_LISTENER, SET_STATUS_LISTENER, SET_COMMAND_LISTENER],
+  listeners: [SET_LISTENER, DELETE_LISTENER, SET_COMMAND_LISTENER],
 };
 
 export type RetrieveQuery = task.RetrieveSingleParams;
@@ -132,13 +89,14 @@ export const retrieveSingle = async <
     const cached = store.tasks.get(query.key.toString());
     if (cached != null) return cached as unknown as task.Task<Type, Config, StatusData>;
   }
-  const task = await client.hardware.tasks.retrieve<Type, Config, StatusData>({
+  const tsk = await client.hardware.tasks.retrieve<Type, Config, StatusData>({
     ...BASE_QUERY,
     ...query,
     schemas,
   });
-  store.tasks.set(task.key.toString(), task as unknown as task.Task, "payload");
-  return task;
+  store.tasks.set(tsk.key.toString(), tsk as unknown as task.Task);
+  if (tsk.status != null) store.statuses.set(tsk.status);
+  return tsk;
 };
 
 export const createRetrieve = <
@@ -171,6 +129,8 @@ export const { useRetrieve } = createRetrieve();
 
 export interface ListQuery extends task.RetrieveMultipleParams {}
 
+const unknownStatusZ = task.statusZ(z.unknown());
+
 export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
   retrieveCached: ({ store }) => store.tasks.list(),
@@ -180,14 +140,23 @@ export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubSt
       internal: false,
       ...query,
     });
-    store.tasks.set(tasks, "payload");
+    store.tasks.set(tasks);
+    const statuses = tasks.map((t) => t.status).filter((s) => s != null);
+    store.statuses.set(statuses);
     return tasks;
   },
   retrieveByKey: async ({ key, ...args }) =>
     await retrieveSingle({ ...args, query: { key } }),
-  mountListeners: ({ store, onChange, onDelete }) => [
+  mountListeners: ({ store, onChange, onDelete, client }) => [
     store.tasks.onSet((task) => onChange(task.key, task)),
     store.tasks.onDelete(onDelete),
+    store.statuses.onSet((status) => {
+      const parsed = unknownStatusZ.parse(status);
+      onChange(
+        parsed.details.task,
+        state.skipNull((p) => client.hardware.tasks.sugar({ ...p, status: parsed })),
+      );
+    }),
   ],
 });
 
@@ -295,14 +264,7 @@ export const createForm = <
           type: value.type,
           config: value.config,
         });
-        store.tasks.set(
-          task.key,
-          state.skipNull((p) => {
-            task.status = p.status;
-            return task;
-          }),
-          "payload",
-        );
+        store.tasks.set(task);
         const updatedValues = taskToFormValues<Type, Config, StatusData>(
           task.payload as task.Payload<Type, Config, StatusData>,
         );
@@ -314,13 +276,16 @@ export const createForm = <
         form.set("snapshot", updatedValues.snapshot);
       },
       mountListeners: ({ store, get, reset, set }) => [
-        store.tasks.onSet((task, variant) => {
+        store.tasks.onSet((task) => {
           const prevKey = get<string>("key", { optional: true })?.value;
           if (prevKey == null || prevKey !== task.key) return;
-          if (variant === "payload") {
-            const payload = task.payload as task.Payload<Type, Config, StatusData>;
-            reset(taskToFormValues(payload));
-          } else if (variant === "status") set("status", task.status);
+          const payload = task.payload as task.Payload<Type, Config, StatusData>;
+          reset(taskToFormValues(payload));
+        }),
+        store.statuses.onSet((status) => {
+          const prevKey = get<string>("key", { optional: true })?.value;
+          if (prevKey == null || status.key !== task.statusKey(prevKey)) return;
+          set("status", task.statusZ(z.unknown()).parse(status));
         }),
       ],
     },
@@ -388,8 +353,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
     rollbacks.push(
       store.tasks.set(
         key,
-        state.skipNull((p) => client.hardware.tasks.sugar({ ...p.payload, name })),
-        "payload",
+        state.skipUndefined((p) => client.hardware.tasks.sugar({ ...p.payload, name })),
       ),
     );
     rollbacks.push(Ontology.renameFluxResource(store, task.ontologyID(key), name));
@@ -438,11 +402,13 @@ export const { useUpdate: useCommand } = Flux.createUpdate<
         keys: Array.from(difference),
         includeStatus: true,
       });
-      store.tasks.set(fetchedTasks, "payload");
+      store.tasks.set(fetchedTasks);
     }
-    const filteredCommands = commands.filter(({ task, type }) => {
-      const t = store.tasks.get(task);
-      return t?.status == null || shouldExecuteCommand(t.status, type);
+    const filteredCommands = commands.filter(({ task: t, type }) => {
+      const s = store.statuses.get(ontology.idToString(task.ontologyID(t)));
+      if (s == null) return true;
+      const status = task.statusZ(z.unknown()).parse(s);
+      return shouldExecuteCommand(status, type);
     });
     return await client.hardware.tasks.executeCommandSync<z.ZodUnknown>({
       commands: filteredCommands,

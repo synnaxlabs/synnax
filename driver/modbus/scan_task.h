@@ -45,9 +45,10 @@ class ScanTask final : public task::Task {
         xjson::Parser parser(cmd.args);
         const ScanCommandArgs args(parser);
         synnax::TaskStatus status;
-        status.key = cmd.key;
+        status.key = task.status_key();
         status.details.task = task.key;
         status.details.running = true;
+        status.details.cmd = cmd.key;
         x::defer set_state([&] { this->ctx->set_status(status); });
         if (!parser.ok()) {
             status.details.data = parser.error_json();

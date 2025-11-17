@@ -25,7 +25,6 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_device_set";
 export const DELETE_CHANNEL_NAME = "sy_device_delete";
-export const STATUS_CHANNEL_NAME = "sy_device_status";
 
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
 const CREATE_ENDPOINT = "/hardware/device/create";

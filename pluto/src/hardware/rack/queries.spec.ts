@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, rack } from "@synnaxlabs/client";
+import { createTestClient, type rack } from "@synnaxlabs/client";
 import { id, status } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -217,9 +217,7 @@ describe("queries", () => {
       });
 
       await act(async () => {
-        const writer = await client.openWriter([rack.STATUS_CHANNEL_NAME]);
-        await writer.write(rack.STATUS_CHANNEL_NAME, [rackStatus]);
-        await writer.close();
+        await client.statuses.set(rackStatus);
       });
 
       await waitFor(() => {

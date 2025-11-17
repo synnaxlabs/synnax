@@ -15,6 +15,8 @@ import { Flux } from "@/flux";
 import { type Rack } from "@/hardware/rack";
 import { type Task } from "@/hardware/task";
 import { Ontology } from "@/ontology";
+import { state } from "@/state";
+import { type Status } from "@/status";
 
 export const FLUX_STORE_KEY = "devices";
 const RESOURCE_NAME = "Device";
@@ -22,8 +24,10 @@ const PLURAL_RESOURCE_NAME = "Devices";
 
 type ChangeVariant = "payload" | "status";
 
+// Explicitly omit 'status' from the device type to make sure we aren't storing two
+// copies of the statuses in the flux store.
 export interface FluxStore
-  extends Flux.UnaryStore<string, device.Device, ChangeVariant> {}
+  extends Flux.UnaryStore<string, Omit<device.Device, "status">, ChangeVariant> {}
 
 export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
@@ -31,17 +35,13 @@ export interface FluxSubStore extends Flux.Store {
   [Rack.FLUX_STORE_KEY]: Rack.FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
+  [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
 
 const SET_DEVICE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof device.deviceZ> = {
   channel: device.SET_CHANNEL_NAME,
   schema: device.deviceZ,
-  onChange: ({ store, changed }) =>
-    store.devices.set(
-      changed.key,
-      (p) => (p == null ? changed : { ...changed, status: p.status }),
-      "payload",
-    ),
+  onChange: ({ store, changed }) => store.devices.set(changed.key, changed, "payload"),
 };
 
 const DELETE_DEVICE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof device.keyZ> = {
@@ -50,20 +50,8 @@ const DELETE_DEVICE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof device.k
   onChange: ({ store, changed }) => store.devices.delete(changed),
 };
 
-const SET_STATUS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof device.statusZ> = {
-  channel: device.STATUS_CHANNEL_NAME,
-  schema: device.statusZ,
-  onChange: ({ store, changed }) => {
-    store.devices.set(
-      changed.details.device,
-      (p) => (p == null ? p : { ...p, status: changed }),
-      "status",
-    );
-  },
-};
-
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  listeners: [SET_DEVICE_LISTENER, DELETE_DEVICE_LISTENER, SET_STATUS_LISTENER],
+  listeners: [SET_DEVICE_LISTENER, DELETE_DEVICE_LISTENER],
 };
 
 export const useSetSynchronizer = (onSet: (device: device.Device) => void): void => {
@@ -91,6 +79,7 @@ const retrieveSingle = async <
     includeStatus: true,
   });
   store.devices.set(device, "payload");
+  if (device.status != null) store.statuses.set(device.status);
   return device;
 };
 
@@ -110,6 +99,11 @@ export const createRetrieve = <
       store.devices.onSet(
         (changed) => onChange(changed as device.Device<Properties, Make, Model>),
         key,
+      ),
+      store.statuses.onSet((status) =>
+        onChange(
+          state.skipUndefined((p) => ({ ...p, status: device.statusZ.parse(status) })),
+        ),
       ),
     ],
   });
@@ -160,6 +154,12 @@ export const useList = Flux.createList<
     await retrieveSingle({ ...rest, query: { key } }),
   mountListeners: ({ store, onChange, onDelete }) => [
     store.devices.onSet((changed) => onChange(changed.key, changed)),
+    store.statuses.onSet((status) =>
+      onChange(
+        status.key,
+        state.skipNull((p) => ({ ...p, status: device.statusZ.parse(status) })),
+      ),
+    ),
     store.devices.onDelete(onDelete),
   ],
 });
@@ -287,11 +287,12 @@ export const createForm = <
       const result = await client.hardware.devices.create(value());
       rollbacks.push(store.devices.set(result, "payload"));
     },
-    mountListeners: ({ store, query: { key }, reset }) => {
+    mountListeners: ({ store, query: { key }, reset, set }) => {
       if (primitive.isZero(key)) return [];
-      return store.devices.onSet((device, variant) => {
-        if (variant === "payload") reset(device);
-      }, key);
+      return [
+        store.devices.onSet(reset),
+        store.statuses.onSet((status) => set("status", device.statusZ.parse(status))),
+      ];
     },
   });
 

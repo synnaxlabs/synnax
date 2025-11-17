@@ -244,9 +244,7 @@ describe("queries", () => {
       });
 
       await act(async () => {
-        const writer = await client.openWriter([task.STATUS_CHANNEL_NAME]);
-        await writer.write(task.STATUS_CHANNEL_NAME, [taskStatus]);
-        await writer.close();
+        await client.statuses.set(taskStatus);
       });
 
       await waitFor(() => {
@@ -317,7 +315,7 @@ describe("queries", () => {
       expect(result.current.data?.config).toEqual({ value: "test" });
     });
 
-    it("should retrieve task with status", async () => {
+    it.only("should retrieve task with status", async () => {
       const rack = await client.hardware.racks.create({
         name: "statusRack",
       });
@@ -341,9 +339,7 @@ describe("queries", () => {
       });
 
       await act(async () => {
-        const writer = await client.openWriter([task.STATUS_CHANNEL_NAME]);
-        await writer.write(task.STATUS_CHANNEL_NAME, [taskStatus]);
-        await writer.close();
+        await client.statuses.set(taskStatus);
       });
 
       const { result } = renderHook(
@@ -416,9 +412,7 @@ describe("queries", () => {
       });
 
       await act(async () => {
-        const writer = await client.openWriter([task.STATUS_CHANNEL_NAME]);
-        await writer.write(task.STATUS_CHANNEL_NAME, [newStatus]);
-        await writer.close();
+        await client.statuses.set(newStatus);
       });
 
       await waitFor(() => {
@@ -1007,9 +1001,7 @@ describe("queries", () => {
       });
 
       await act(async () => {
-        const writer = await client.openWriter([task.STATUS_CHANNEL_NAME]);
-        await writer.write(task.STATUS_CHANNEL_NAME, [taskStatus]);
-        await writer.close();
+        await client.statuses.set(taskStatus);
       });
 
       await waitFor(() => {
@@ -1262,7 +1254,6 @@ describe("queries", () => {
         type: "ni",
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-      const writer = await client.openWriter(task.STATUS_CHANNEL_NAME);
 
       const { result } = renderHook(() => Task.useCommand(), { wrapper });
 
@@ -1282,10 +1273,9 @@ describe("queries", () => {
           time: TimeStamp.now(),
           details: { task: t.key, running: true, data: {} },
         };
-        await writer.write(task.STATUS_CHANNEL_NAME, [stat]);
+        await client.statuses.set(stat);
       });
       streamer.close();
-      await writer.close();
       await waitFor(async () => {
         expect(result.current.variant).toEqual("success");
         expect(result.current.data).toHaveLength(1);

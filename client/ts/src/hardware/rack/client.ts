@@ -21,14 +21,13 @@ import {
   type Status,
 } from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 const CREATE_ENDPOINT = "/hardware/rack/create";
 const DELETE_ENDPOINT = "/hardware/rack/delete";
 
-export const STATUS_CHANNEL_NAME = "sy_rack_status";
 export const SET_CHANNEL_NAME = "sy_rack_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
@@ -193,3 +192,5 @@ export const ontologyID = (key: Key): ontology.ID => ({
   type: "rack",
   key: key.toString(),
 });
+
+export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));

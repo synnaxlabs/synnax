@@ -15,6 +15,7 @@
 
 #include "google/protobuf/empty.pb.h"
 
+#include "client/cpp/ontology/id.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/status/status.h"
 #include "x/cpp/xjson/xjson.h"
@@ -70,12 +71,60 @@ using RackKey = std::uint32_t;
 /// @brief An alias for the type of task's key.
 using TaskKey = std::uint64_t;
 
-/// @brief the name of the channel used to propagate device state.
-const std::string DEVICE_STATUS_CHANNEL_NAME = "sy_device_status";
-/// @brief the name of the channel used to propagate task state.
-const std::string TASK_STATUS_CHANNEL_NAME = "sy_task_status";
-/// @brief the name of the channel used to propagate rack state.
-const std::string RACK_STATUS_CHANNEL_NAME = "sy_rack_status";
+/// @brief Converts a rack key to an ontology ID.
+/// @param key The rack key.
+/// @returns An ontology ID with type "rack" and the given key.
+inline ontology::ID rack_ontology_id(RackKey key) {
+    return ontology::ID("rack", std::to_string(key));
+}
+
+/// @brief Converts a vector of rack keys to a vector of ontology IDs.
+/// @param keys The rack keys.
+/// @returns A vector of ontology IDs.
+inline std::vector<ontology::ID> rack_ontology_ids(const std::vector<RackKey> &keys) {
+    std::vector<ontology::ID> ids;
+    ids.reserve(keys.size());
+    for (const auto &key: keys)
+        ids.push_back(rack_ontology_id(key));
+    return ids;
+}
+
+/// @brief Converts a task key to an ontology ID.
+/// @param key The task key.
+/// @returns An ontology ID with type "task" and the given key.
+inline ontology::ID task_ontology_id(TaskKey key) {
+    return ontology::ID("task", std::to_string(key));
+}
+
+/// @brief Converts a vector of task keys to a vector of ontology IDs.
+/// @param keys The task keys.
+/// @returns A vector of ontology IDs.
+inline std::vector<ontology::ID> task_ontology_ids(const std::vector<TaskKey> &keys) {
+    std::vector<ontology::ID> ids;
+    ids.reserve(keys.size());
+    for (const auto &key: keys)
+        ids.push_back(task_ontology_id(key));
+    return ids;
+}
+
+/// @brief Converts a device key to an ontology ID.
+/// @param key The device key.
+/// @returns An ontology ID with type "device" and the given key.
+inline ontology::ID device_ontology_id(const std::string &key) {
+    return ontology::ID("device", key);
+}
+
+/// @brief Converts a vector of device keys to a vector of ontology IDs.
+/// @param keys The device keys.
+/// @returns A vector of ontology IDs.
+inline std::vector<ontology::ID>
+device_ontology_ids(const std::vector<std::string> &keys) {
+    std::vector<ontology::ID> ids;
+    ids.reserve(keys.size());
+    for (const auto &key: keys)
+        ids.push_back(device_ontology_id(key));
+    return ids;
+}
 
 /// @brief Creates a task key from a rack key and a local task key.
 /// @param rack The rack key.
@@ -173,6 +222,8 @@ public:
     friend std::ostream &operator<<(std::ostream &os, const Task &task) {
         return os << task.name << " (" << task.key << ")";
     }
+
+    std::string status_key() const { return task_ontology_id(this->key).string(); }
 
 private:
     /// @brief Converts the task to its protobuf representation.
@@ -358,6 +409,8 @@ struct RackStatusDetails {
 struct TaskStatusDetails {
     /// @brief The key of the task that this status is for.
     TaskKey task;
+    /// @brief Is a non-empty string if the status is an explicit response to a command.
+    std::string cmd;
     /// @brief whether the task is currently running.
     bool running;
     /// @brief additional data associated with the task.
@@ -367,6 +420,7 @@ struct TaskStatusDetails {
     static TaskStatusDetails parse(xjson::Parser parser) {
         return TaskStatusDetails{
             .task = parser.required<TaskKey>("task"),
+            .cmd = parser.required<std::string>("cmd"),
             .running = parser.required<bool>("running"),
             .data = parser.required<json>("data"),
         };
@@ -378,6 +432,7 @@ struct TaskStatusDetails {
         j["task"] = this->task;
         j["running"] = this->running;
         j["data"] = this->data;
+        j["cmd"] = this->cmd;
         return j;
     }
 };

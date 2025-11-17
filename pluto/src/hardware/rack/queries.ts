@@ -12,17 +12,21 @@ import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
+import { state } from "@/state";
+import { type Status } from "@/status";
 
 export const FLUX_STORE_KEY = "racks";
 const RESOURCE_NAME = "Rack";
 const PLURAL_RESOURCE_NAME = "Racks";
 
-export interface FluxStore extends Flux.UnaryStore<rack.Key, rack.Payload> {}
+export interface FluxStore
+  extends Flux.UnaryStore<rack.Key, Omit<rack.Payload, "status">> {}
 
 interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
+  [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
 
 const SET_RACK_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.keyZ> = {
@@ -43,17 +47,8 @@ const DELETE_RACK_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.keyZ>
   onChange: ({ store, changed }) => store.racks.delete(changed),
 };
 
-const SET_STATUS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.statusZ> = {
-  channel: rack.STATUS_CHANNEL_NAME,
-  schema: rack.statusZ,
-  onChange: ({ store, changed }) =>
-    store.racks.set(changed.details.rack, (prev) =>
-      prev == null ? prev : { ...prev, status: changed },
-    ),
-};
-
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  listeners: [SET_RACK_LISTENER, DELETE_RACK_LISTENER, SET_STATUS_LISTENER],
+  listeners: [SET_RACK_LISTENER, DELETE_RACK_LISTENER],
 };
 
 export interface RetrieveQuery {
@@ -70,8 +65,10 @@ const retrieveSingle = async ({
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   let rack = store.racks.get(query.key);
   if (rack == null) {
-    rack = await client.hardware.racks.retrieve({ ...BASE_QUERY, ...query });
-    store.racks.set(rack.key, rack);
+    const res = await client.hardware.racks.retrieve({ ...BASE_QUERY, ...query });
+    store.racks.set(res.key, res);
+    if (res.status != null) store.statuses.set(res.status);
+    rack = res;
   }
   return rack;
 };
@@ -85,6 +82,8 @@ export const useList = Flux.createList<ListQuery, rack.Key, rack.Payload, FluxSu
     retrieve: async ({ client, query, store }) => {
       const racks = await client.hardware.racks.retrieve({ ...BASE_QUERY, ...query });
       store.racks.set(racks);
+      const statuses = racks.map((r) => r.status).filter((s) => s != null);
+      store.statuses.set(statuses);
       return racks;
     },
     retrieveByKey: async ({ client, key, store }) =>
@@ -92,6 +91,13 @@ export const useList = Flux.createList<ListQuery, rack.Key, rack.Payload, FluxSu
     mountListeners: ({ store, onChange, onDelete }) => [
       store.racks.onSet((rack) => onChange(rack.key, rack)),
       store.racks.onDelete(onDelete),
+      store.statuses.onSet((s) => {
+        const status = rack.statusZ.parse(s);
+        onChange(
+          status.details.rack,
+          state.skipNull((p) => ({ ...p, status })),
+        );
+      }),
     ],
   },
 );
@@ -105,6 +111,11 @@ export const { useRetrieve, useRetrieveStateful } = Flux.createRetrieve<
   retrieve: retrieveSingle,
   mountListeners: ({ store, onChange, query: { key } }) => [
     store.racks.onSet(onChange, key),
+    store.statuses.onSet((status) => {
+      const parsed = rack.statusZ.parse(status);
+      if (parsed.details.rack !== key) return;
+      onChange(state.skipUndefined((p) => ({ ...p, status: parsed })));
+    }),
   ],
 });
 

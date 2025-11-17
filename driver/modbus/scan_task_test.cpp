@@ -37,7 +37,8 @@ TEST(ScanTask, testConnection) {
     ASSERT_EQ(ctx->states.size(), 1);
     auto first = ctx->states[0];
     EXPECT_EQ(first.variant, "success");
-    EXPECT_EQ(first.key, cmd.key);
+    EXPECT_EQ(first.key, t.status_key());
+    EXPECT_EQ(first.details.cmd, cmd.key);
     EXPECT_EQ(first.details.task, t.key);
     EXPECT_EQ(first.message, "Connection successful");
 }

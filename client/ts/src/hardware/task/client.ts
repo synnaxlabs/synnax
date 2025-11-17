@@ -32,11 +32,11 @@ import {
   statusZ,
   taskZ,
 } from "@/hardware/task/payload";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { type ranger } from "@/ranger";
+import { status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
-export const STATUS_CHANNEL_NAME = "sy_task_status";
 export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
@@ -498,6 +498,8 @@ export class Client {
 
 export const ontologyID = (key: Key): ontology.ID => ({ type: "task", key });
 
+export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
+
 interface ExecuteCommandInternalParams {
   frameClient: framer.Client | null;
   task: Key;
@@ -577,7 +579,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodType>({
   name: taskName,
 }: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
   if (frameClient == null) throw NOT_CREATED_ERROR;
-  const streamer = await frameClient.openStreamer(STATUS_CHANNEL_NAME);
+  const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
   const cmdKeys = await executeCommands({ frameClient, commands });
   const parsedTimeout = new TimeSpan(timeout);
   let states: Status<StatusData>[] = [];
@@ -593,7 +595,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodType>({
   try {
     while (true) {
       const frame = await Promise.race([streamer.read(), timeoutPromise]);
-      const state = statusZ(statusDataZ).parse(frame.at(-1)[STATUS_CHANNEL_NAME]);
+      const state = statusZ(statusDataZ).parse(frame.at(-1)[status.SET_CHANNEL_NAME]);
       if (!cmdKeys.includes(state.key)) continue;
       states = [...states.filter((s) => s.key !== state.key), state];
       if (states.length === cmdKeys.length) return states;

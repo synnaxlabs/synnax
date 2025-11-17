@@ -76,9 +76,6 @@ public:
     virtual ~Task() = default;
 };
 
-/// @brief name of the channel used in Synnax to communicate state updates.
-const std::string TASK_STATE_CHANNEL = "sy_task_status";
-
 /// @brief an interface for a standard context that is provided to every task in the
 /// driver. This context provides access to the Synnax client and allows tasks to
 /// easily update their state.
@@ -95,7 +92,7 @@ public:
         client(std::move(client)) {}
 
     /// @brief updates the state of the task in the Synnax cluster.
-    virtual void set_status(const synnax::TaskStatus &status) = 0;
+    virtual void set_status(synnax::TaskStatus &status) = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -108,7 +105,7 @@ public:
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
 
-    void set_status(const synnax::TaskStatus &status) override {
+    void set_status(synnax::TaskStatus &status) override {
         mu.lock();
         states.push_back(status);
         mu.unlock();
@@ -124,8 +121,12 @@ public:
     explicit SynnaxContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
 
-    void set_status(const synnax::TaskStatus &status) override {
-        if (const auto [_, err] = this->client->statuses.set<synnax::TaskStatusDetails>(status); err)
+    void set_status(synnax::TaskStatus &status) override {
+        if (status.time == 0) status.time = telem::TimeStamp::now();
+        if (const auto err = this->client->statuses.set<synnax::TaskStatusDetails>(
+                status
+            );
+            err)
             LOG(ERROR) << "[task.context] failed to write task state update" << err;
     }
 };

@@ -25,7 +25,7 @@ const std::string TASK_NAME = "Rack State";
 const std::string TASK_TYPE = TASK_NAME;
 const auto EMISSION_RATE = telem::HERTZ * 1;
 
-class Source final : public pipeline::Source {
+class Source final : public pipeline::Base {
     /// @brief the key of the rack the heartbeat is for.
     const synnax::RackKey rack_key;
     /// @brief the loop used to control the emission rate of the heartbeat.
@@ -36,83 +36,62 @@ public:
     Source(
         const synnax::RackKey rack_key,
         const std::shared_ptr<synnax::Synnax> &client
-    ): rack_key(rack_key), loop(loop::Timer(EMISSION_RATE)), client(client) {}
-
-    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
-        fr.clear();
-        this->loop.wait(breaker);
-        const synnax::RackStatus status{
-            .variant = ::status::variant::SUCCESS,
-            .message = "Driver is running",
-            .details = synnax::RackStatusDetails{
-                .rack = this->rack_key,
+    ):
+        Base(
+            breaker::Config{
+                .name = TASK_NAME,
+                .base_interval = 1 * telem::SECOND,
+                .max_retries = breaker::RETRY_INFINITELY,
+                .scale = 1.05f,
+                .max_interval = 5 * telem::SECOND,
             }
-        };
-        const auto [_, err] = this->client->statuses.set<synnax::RackStatusDetails>(status);
-        if (err)
-            LOG(ERROR) << "[rack_status] error updating status" << err;
-        else
-            VLOG(1) << "[rack_status] successfully set status" << this->rack_key;
-        return xerrors::NIL;
-    }
+        ),
+        rack_key(rack_key),
+        loop(loop::Timer(EMISSION_RATE)),
+        client(client) {}
+
+    void run() override {
+        while (breaker.running()) {
+            this->loop.wait(breaker);
+            synnax::RackStatus status{
+                .key = synnax::rack_ontology_id(this->rack_key).string(),
+                .variant = ::status::variant::SUCCESS,
+                .message = "Driver is running",
+                .time = telem::TimeStamp::now(),
+                .details = synnax::RackStatusDetails{.rack = this->rack_key}
+            };
+            if (const auto err = this->client->statuses.set<synnax::RackStatusDetails>(
+                    status
+                );
+                err)
+                LOG(ERROR) << "[rack_status] error updating status" << err;
+            else
+                VLOG(1) << "[rack_status] successfully set status" << this->rack_key;
+        }
+    };
 };
 
 /// @brief a task that periodically
 /// to indicate that the driver is still alive.
 class Task final : public task::Task {
-    pipeline::Acquisition pipe;
+    Source pipe;
 
 public:
-    Task(
-        const std::shared_ptr<task::Context> &ctx,
-        std::shared_ptr<pipeline::Source> source,
-        const synnax::WriterConfig &writer_config,
-        const breaker::Config &breaker_config
-    ):
-        pipe(
-            pipeline::Acquisition(
-                ctx->client,
-                writer_config,
-                std::move(source),
-                breaker_config
-            )
-        ) {
-        pipe.start();
+    Task(const synnax::RackKey rack_key, const std::shared_ptr<task::Context> &ctx):
+        pipe(rack_key, ctx->client) {
+        this->pipe.start();
     }
 
     /// @brief implements task::Task.
     std::string name() const override { return TASK_NAME; }
 
     /// @brief stop the heartbeat process
-    void stop(bool will_reconfigure) override { pipe.stop(); }
+    void stop(bool will_reconfigure) override { this->pipe.stop(); }
 
     /// @brief configures the heartbeat task.
     static std::unique_ptr<task::Task>
     configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
-        auto [ch, err] = ctx->client->channels.retrieve(
-            synnax::RACK_STATUS_CHANNEL_NAME
-        );
-        if (err) {
-            LOG(WARNING) << "[rack_state] failed to retrieve rack state channel: "
-                         << err;
-            return nullptr;
-        }
-        auto source = std::make_shared<Source>(
-            synnax::rack_key_from_task_key(task.key),
-            ctx->client
-        );
-        auto writer_cfg = synnax::WriterConfig{
-            .channels = {ch.key},
-            .start = telem::TimeStamp::now(),
-        };
-        auto breaker_config = breaker::Config{
-            .name = TASK_NAME,
-            .base_interval = 1 * telem::SECOND,
-            .max_retries = breaker::RETRY_INFINITELY,
-            .scale = 1.05f,
-            .max_interval = 5 * telem::SECOND,
-        };
-        return std::make_unique<Task>(ctx, source, writer_cfg, breaker_config);
+        return std::make_unique<Task>(synnax::rack_key_from_task_key(task.key), ctx);
     }
 };
 

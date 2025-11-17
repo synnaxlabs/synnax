@@ -11,6 +11,7 @@ import { id, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { task } from "@/hardware/task";
+import { status } from "@/status";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -89,7 +90,7 @@ describe("Task", async () => {
           config: { a: "dog" },
           type: "ni",
         });
-        const w = await client.openWriter([task.STATUS_CHANNEL_NAME]);
+        const w = await client.openWriter([status.SET_CHANNEL_NAME]);
         const communicatedStatus: task.Status = {
           key: id.create(),
           name: "test",
@@ -98,7 +99,7 @@ describe("Task", async () => {
           message: "test",
           time: TimeStamp.now(),
         };
-        await w.write(task.STATUS_CHANNEL_NAME, [communicatedStatus]);
+        await w.write(status.SET_CHANNEL_NAME, [communicatedStatus]);
         await w.close();
         await expect
           .poll(async () => {

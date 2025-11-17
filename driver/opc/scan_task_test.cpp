@@ -72,7 +72,8 @@ TEST_F(TestScanTask, testBasicScan) {
 
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto &state = ctx->states[0];
-    EXPECT_EQ(state.key, "scan_cmd");
+    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.details.cmd, "scan_cmd");
     EXPECT_EQ(state.variant, status::variant::SUCCESS);
 
     auto data = state.details.data;
@@ -164,7 +165,8 @@ TEST_F(TestScanTask, testTestConnection) {
 
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto &state = ctx->states[0];
-    EXPECT_EQ(state.key, "test_conn_cmd");
+    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.details.cmd, "test_conn_cmd");
     EXPECT_EQ(state.variant, status::variant::SUCCESS);
     EXPECT_EQ(state.message, "Connection successful");
 }
@@ -188,6 +190,7 @@ TEST_F(TestScanTask, testInvalidConnection) {
 
     ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
     const auto &state = ctx->states[0];
-    EXPECT_EQ(state.key, "invalid_scan_cmd");
+    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.details.cmd, "invalid_scan_cmd");
     EXPECT_EQ(state.variant, status::variant::ERR);
 }

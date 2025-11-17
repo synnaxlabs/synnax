@@ -81,8 +81,8 @@ public:
         return xerrors::NIL;
     }
 
-    xerrors::Error update_statuses(std::vector<synnax::DeviceStatus> statuses
-    ) override {
+    xerrors::Error
+    update_statuses(std::vector<synnax::DeviceStatus> statuses) override {
         propagated_statuses.push_back(statuses);
         return xerrors::NIL;
     }

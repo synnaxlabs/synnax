@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, device, NotFoundError } from "@synnaxlabs/client";
+import { createTestClient, type device, NotFoundError } from "@synnaxlabs/client";
 import { id, type record, status } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -101,9 +101,7 @@ describe("queries", () => {
           },
         },
       );
-      const writer = await client.openWriter([device.STATUS_CHANNEL_NAME]);
-      await writer.write(device.STATUS_CHANNEL_NAME, [devStatus]);
-      await writer.close();
+      await client.statuses.set(devStatus);
       await waitFor(() => {
         expect(result.current.data?.status?.variant).toEqual("success");
         expect(result.current.data?.status?.details.device).toEqual(dev.key);
@@ -395,9 +393,7 @@ describe("queries", () => {
         },
       );
       await act(async () => {
-        const writer = await client.openWriter([device.STATUS_CHANNEL_NAME]);
-        await writer.write(device.STATUS_CHANNEL_NAME, [devStatus]);
-        await writer.close();
+        await client.statuses.set(devStatus);
       });
 
       await waitFor(() => {

@@ -25,6 +25,8 @@ namespace synnax {
 /// @brief Alias for status with default details (no custom details).
 using Status = status::Status<status::DefaultDetails>;
 
+const std::string STATUS_SET_CHANNEL_NAME = "sy_status_set";
+
 namespace internal {
 const std::string SET_ENDPOINT = "/api/v1/status/set";
 const std::string RETRIEVE_ENDPOINT = "/api/v1//status/retrieve";
@@ -66,24 +68,17 @@ public:
     /// Use err.message() to get the error message or err.type to get the error type.
     template<typename Details = status::DefaultDetails>
     [[nodiscard]] xerrors::Error set(status::Status<Details> &status) const {
-        const auto [decoded, err] = this->set<Details>(const_cast<status::Status<Details>>(status));
-        if (err) return err;
-        status = decoded;
-        return xerrors::NIL;
-    }
-
-    template<typename Details = status::DefaultDetails>
-    std::pair<status::Status<Details>, xerrors::Error> set(const status::Status<Details> &status) {
         api::v1::StatusSetRequest req;
         status.to_proto(req.add_statuses());
         auto [res, err] = this->set_client->send(internal::SET_ENDPOINT, req);
-        if (err) return {status::Status<Details>(), err};
-        if (res.statuses_size() == 0) return {status::Status<Details>(), unexpected_missing("status")};
+        if (err) return err;
+        if (res.statuses_size() == 0) return unexpected_missing("status");
         auto [decoded, decode_err] = status::Status<Details>::from_proto(
             res.statuses(0)
         );
-        if (decode_err) return {status::Status<Details>(), decode_err};
-        return {decoded, xerrors::NIL};
+        if (decode_err) return decode_err;
+        status = decoded;
+        return xerrors::NIL;
     }
 
     /// @brief Creates or updates the given statuses in the Synnax cluster.
