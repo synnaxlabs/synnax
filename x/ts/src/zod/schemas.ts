@@ -7,19 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package latency
+import { z } from "zod";
 
-import (
-	"github.com/synnaxlabs/freighter"
-	"time"
-)
+import { MAX_UINT12 } from "@/math/constants";
 
-func Middleware(delay time.Duration) freighter.Middleware {
-	return freighter.MiddlewareFunc(func(
-		ctx freighter.Context,
-		next freighter.Next,
-	) (oMD freighter.Context, err error) {
-		time.Sleep(delay)
-		return next(ctx)
-	})
-}
+export const uint12 = z.int().min(0).max(MAX_UINT12);

@@ -16,8 +16,6 @@ import {
 } from "@synnaxlabs/freighter";
 import { binary, type breaker, type URL } from "@synnaxlabs/x";
 
-const baseAPIEndpoint = "/api/v1/";
-
 export class Transport {
   readonly url: URL;
   readonly unary: UnaryClient;
@@ -26,7 +24,7 @@ export class Transport {
 
   constructor(url: URL, breakerCfg: breaker.Config = {}, secure: boolean = false) {
     this.secure = secure;
-    this.url = url.child(baseAPIEndpoint);
+    this.url = url.child("/api/v1/");
     const codec = new binary.JSONCodec();
     this.unary = unaryWithBreaker(
       new HTTPClient(this.url, codec, this.secure),
