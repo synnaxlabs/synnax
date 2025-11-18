@@ -592,7 +592,7 @@ const SearchSymbolList = ({
   );
 };
 
-export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
+export const Symbols = (): ReactElement => {
   const dispatch = useDispatch();
   const groupKey = useSelectSelectedSymbolGroup(layoutKey);
   const setGroupKey = useCallback(

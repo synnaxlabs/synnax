@@ -11,10 +11,7 @@ import { Flex, Input } from "@synnaxlabs/pluto";
 import { control } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
-import { useSelectAuthority } from "@/schematic/selectors";
-import { setAuthority } from "@/schematic/slice";
-
-export const Control = ({ layoutKey }: { layoutKey: string }) => {
+export const Control = () => {
   const dispatch = useDispatch();
   const authority = useSelectAuthority(layoutKey);
 

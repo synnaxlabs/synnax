@@ -104,7 +104,7 @@ export const Edge = ({
   style,
   data,
   selected = false,
-  onDataChange,
+  // onDataChange,
   ...rest
 }: Diagram.EdgeProps<EdgeData>): ReactElement => {
   const {
@@ -138,12 +138,7 @@ export const Edge = ({
   const targetOrientationRef = useRef(targetOrientation);
   const sourceOrientationRef = useRef(sourceOrientation);
 
-  const handleSegmentsChange = useCallback(
-    (segments: connector.Segment[]) => {
-      onDataChange({ ...data, segments });
-    },
-    [data, onDataChange],
-  );
+  const handleSegmentsChange = useCallback((_: connector.Segment[]) => {}, [data]);
 
   const debouncedOnSegmentsChange = useDebouncedCallback(handleSegmentsChange, 100, [
     handleSegmentsChange,

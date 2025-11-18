@@ -9,8 +9,10 @@
 
 import { type ontology, schematic, type workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 
 import { Flux } from "@/flux";
+import { proxyMemo } from "@/memo/proxyMemo";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
 
@@ -181,3 +183,32 @@ export const { useUpdate } = Flux.createUpdate<schematic.ScopedAction, FluxSubSt
     return data;
   },
 });
+
+export const useSelect = <V extends (s: schematic.Schematic) => any>(
+  key: string,
+  selector: V,
+): ReturnType<V> => {
+  const store = Flux.useStore();
+  const memoizedSelector = useMemo(() => proxyMemo(selector), [selector]);
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => store.schematics.onSet(onStoreChange, key),
+    [store, key],
+  );
+  const getSnapshot = useCallback(
+    () => memoizedSelector(store.schematics.get(key)),
+    [store, key, memoizedSelector],
+  );
+  return useSyncExternalStore(subscribe, getSnapshot);
+};
+
+export const useSelectNodePropsAndType = (key: string) =>
+  useSelect(
+    key,
+    useCallback(
+      (s) => ({
+        props: s.props[key],
+        type: s.nodes.find((n) => n.key === key)?.type,
+      }),
+      [key],
+    ),
+  );

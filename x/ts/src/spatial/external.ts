@@ -15,4 +15,3 @@ export * from "@/spatial/location";
 export * from "@/spatial/scale";
 export * as spatial from "@/spatial/spatial";
 export * from "@/spatial/xy";
-export * from "@/spatial/xyz";

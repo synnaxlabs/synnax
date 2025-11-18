@@ -10,13 +10,9 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { box, color, location, type record, xy } from "@synnaxlabs/x";
+import { box, location, type record, type xy } from "@synnaxlabs/x";
 import {
-  addEdge as rfAddEdge,
-  applyEdgeChanges as rfApplyEdgeChanges,
-  applyNodeChanges as rfApplyNodeChanges,
   Background as RFBackground,
-  type Connection as RFConnection,
   type ConnectionLineComponent,
   ConnectionMode,
   type Edge as RFEdge,
@@ -25,14 +21,13 @@ import {
   type FitViewOptions as RFFitViewOptions,
   type IsValidConnection,
   type Node as RFNode,
-  type NodeChange,
+  type NodeChange as RFNodeChange,
   type NodeProps as RFNodeProps,
   type ProOptions,
   ReactFlow,
   type ReactFlowInstance,
   type ReactFlowProps,
   ReactFlowProvider,
-  reconnectEdge,
   SelectionMode,
   useOnViewportChange as useRFOnViewportChange,
   useReactFlow,
@@ -62,17 +57,18 @@ import { Icon } from "@/icon";
 import { useMemoCompare, useMemoDeepEqual } from "@/memo";
 import { Select } from "@/select";
 import { Text } from "@/text";
-import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 import { Viewport as CoreViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";
 import {
   type Edge,
-  edgeConverter,
+  type EdgeChange,
   type Node,
-  nodeConverter,
+  type NodeChange,
+  translateEdgeChangeForward,
   translateEdgesForward,
+  translateNodeChangeForward,
   translateNodesForward,
   translateViewportBackward,
   translateViewportForward,
@@ -93,51 +89,9 @@ export interface UseProps {
   initialViewport?: Viewport;
 }
 
-export const use = ({
-  initialNodes,
-  initialEdges,
-  allowEdit = true,
-  initialViewport = { position: xy.ZERO, zoom: 1 },
-}: UseProps): UseReturn => {
-  const [editable, onEditableChange] = useState(allowEdit);
-  const [viewportMode, onViewportModeChange] = useState<CoreViewport.Mode>("select");
-  const [nodes, onNodesChange] = useState<Node[]>(initialNodes);
-  const [edges, onEdgesChange] = useState<Edge[]>(initialEdges);
-  const [viewport, onViewportChange] = useState<Viewport>(initialViewport);
-  const [fitViewOnResize, setFitViewOnResize] = useState(false);
-
-  return {
-    viewport,
-    onViewportChange,
-    edges,
-    nodes,
-    onNodesChange,
-    onEdgesChange,
-    editable,
-    onEditableChange,
-    fitViewOnResize,
-    setFitViewOnResize,
-    viewportMode,
-    onViewportModeChange,
-  };
-};
-
 const isValidConnection: IsValidConnection = (): boolean => true;
 
-export interface UseReturn {
-  edges: Edge[];
-  nodes: Node[];
-  onNodesChange: (nodes: Node[], changes: NodeChange[]) => void;
-  onEdgesChange: (edges: Edge[]) => void;
-  editable: boolean;
-  onEditableChange: (v: boolean) => void;
-  onViewportChange: (vp: Viewport) => void;
-  viewport: Viewport;
-  fitViewOnResize: boolean;
-  setFitViewOnResize: (v: boolean) => void;
-  viewportMode: CoreViewport.Mode;
-  onViewportModeChange: (v: CoreViewport.Mode) => void;
-}
+export interface UseReturn {}
 
 const EDITABLE_PROPS: ReactFlowProps = {
   nodesDraggable: true,
@@ -186,6 +140,18 @@ export interface DiagramProps
     > {
   triggers?: CoreViewport.UseTriggers;
   dragHandleSelector?: string;
+  edges: Edge[];
+  nodes: Node[];
+  onNodesChange: (changes: NodeChange[]) => void;
+  onEdgesChange: (edges: EdgeChange[]) => void;
+  editable: boolean;
+  onEditableChange: (v: boolean) => void;
+  onViewportChange: (vp: Viewport) => void;
+  viewport: Viewport;
+  fitViewOnResize: boolean;
+  setFitViewOnResize: (v: boolean) => void;
+  viewportMode: CoreViewport.Mode;
+  onViewportModeChange: (v: CoreViewport.Mode) => void;
 }
 
 interface ContextValue {
@@ -222,9 +188,7 @@ export interface NodeRendererProps {
   children: RenderProp<SymbolProps>;
 }
 
-export interface EdgeProps<D extends record.Unknown> extends RFEdgeProps<RFEdge<D>> {
-  onDataChange: (data: D) => void;
-}
+export interface EdgeProps<D extends record.Unknown> extends RFEdgeProps<RFEdge<D>> {}
 
 export const NodeRenderer = memo(
   ({ children }: NodeRendererProps): ReactElement | null => {
@@ -318,8 +282,6 @@ const Core = ({
   );
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 
-  const defaultEdgeColor = color.hex(Theming.use().colors.gray.l11);
-
   const triggers = useMemoCompare(
     () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
     Triggers.compareModeConfigs,
@@ -389,28 +351,12 @@ const Core = ({
     [nodeRenderer],
   );
 
-  const handleDataChange = useCallback(
-    (id: string, data: record.Unknown) => {
-      const next = [...edgesRef.current];
-      const index = next.findIndex((e) => e.key === id);
-      if (index === -1) return;
-      next[index] = { ...next[index], data };
-      edgesRef.current = next;
-      onEdgesChange(next);
-    },
-    [onEdgesChange, defaultEdgeColor],
-  );
-
   const edgeTypes = useMemo(() => {
     if (edgeRenderer == null) return undefined;
     return {
-      default: (props: RFEdgeProps<RFEdge<record.Unknown>>) =>
-        edgeRenderer({
-          ...props,
-          onDataChange: (data) => handleDataChange(props.id, data),
-        }),
+      default: (props: RFEdgeProps<RFEdge<record.Unknown>>) => edgeRenderer(props),
     };
-  }, [edgeRenderer, handleDataChange]);
+  }, [edgeRenderer]);
 
   const edgesRef = useRef(edges);
   const edges_ = useMemo<RFEdge<record.Unknown>[]>(() => {
@@ -422,47 +368,6 @@ const Core = ({
     nodesRef.current = nodes;
     return translateNodesForward(nodes, dragHandleSelector);
   }, [nodes, dragHandleSelector]);
-
-  const handleNodesChange = useCallback(
-    (changes: NodeChange[]) =>
-      onNodesChange(
-        nodeConverter(nodesRef.current, (n) => rfApplyNodeChanges(changes, n)),
-        changes,
-      ),
-    [onNodesChange],
-  );
-
-  const handleEdgesChange = useCallback(
-    (changes: RFEdgeChange<RFEdge<record.Unknown>>[]) =>
-      onEdgesChange(
-        edgeConverter(
-          edgesRef.current,
-          (e) => rfApplyEdgeChanges(changes, e),
-          defaultEdgeColor,
-        ),
-      ),
-    [onEdgesChange, defaultEdgeColor],
-  );
-
-  const handleEdgeUpdate = useCallback(
-    (oldEdge: RFEdge<record.Unknown>, newConnection: RFConnection) =>
-      onEdgesChange(
-        edgeConverter(
-          edgesRef.current,
-          (e) => reconnectEdge(oldEdge, newConnection, e),
-          defaultEdgeColor,
-        ),
-      ),
-    [],
-  );
-
-  const handleConnect = useCallback(
-    (conn: RFConnection) =>
-      onEdgesChange(
-        edgeConverter(edgesRef.current, (e) => rfAddEdge(conn, e), defaultEdgeColor),
-      ),
-    [onEdgesChange, defaultEdgeColor],
-  );
 
   const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
 
@@ -497,6 +402,15 @@ const Core = ({
       void i.fitView(fitViewOptions);
     },
     [fitViewOptions],
+  );
+
+  const handleNodesChange = useCallback(
+    (changes: RFNodeChange[]) => onNodesChange(changes.map(translateNodeChangeForward)),
+    [onNodesChange],
+  );
+  const handleEdgesChange = useCallback(
+    (changes: RFEdgeChange[]) => onEdgesChange(changes.map(translateEdgeChangeForward)),
+    [onEdgesChange],
   );
 
   const ctxValue = useMemo(
@@ -559,9 +473,7 @@ const Core = ({
             fitView
             onNodesChange={handleNodesChange}
             onEdgesChange={handleEdgesChange}
-            onConnect={handleConnect}
             connectionLineComponent={connectionLineComponent}
-            onReconnect={handleEdgeUpdate}
             defaultViewport={translateViewportForward(viewport)}
             elevateEdgesOnSelect
             defaultEdgeOptions={defaultEdgeOptions}

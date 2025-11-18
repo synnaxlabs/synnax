@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type workspace } from "@synnaxlabs/client";
+import { NotFoundError, type workspace } from "@synnaxlabs/client";
 
 import { useMemoSelect } from "@/hooks";
 import { SLICE_NAME, type StoreState } from "@/workspace/slice";
@@ -31,3 +31,12 @@ export const selectActiveName = (state: StoreState): string | null =>
 
 export const useSelectActiveName = (): string | null =>
   useMemoSelect(selectActiveName, []);
+
+export const selectRequiredActiveKey = (state: StoreState): workspace.Key => {
+  const key = selectActiveKey(state);
+  if (key == null) throw new NotFoundError("Active workspace not found");
+  return key;
+};
+
+export const useSelectRequiredActiveKey = (): workspace.Key =>
+  useMemoSelect(selectRequiredActiveKey, []);

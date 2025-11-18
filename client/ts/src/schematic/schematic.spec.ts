@@ -11,7 +11,7 @@ import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError, ValidationError } from "@/errors";
-import { addNode } from "@/schematic/reducer";
+import { setNode } from "@/schematic/reducer";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -70,8 +70,7 @@ describe("Schematic", () => {
       });
       await client.workspaces.schematics.update(
         schematic.key,
-        addNode({
-          key: "node1",
+        setNode({
           node: { key: "node1", position: { x: 0, y: 0 }, type: "test" },
         }),
       );
@@ -144,8 +143,7 @@ describe("Schematic", () => {
         await expect(
           client.workspaces.schematics.update(
             schematic2.key,
-            addNode({
-              key: "node1",
+            setNode({
               node: { key: "node1", position: { x: 0, y: 0 }, type: "test" },
             }),
           ),

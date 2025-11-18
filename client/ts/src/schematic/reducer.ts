@@ -10,18 +10,19 @@
 import { record, relapse, xy } from "@synnaxlabs/x";
 import z from "zod";
 
-import { nodeZ, type Schematic } from "@/schematic/payload";
+import { edgeZ, nodeZ, type Schematic } from "@/schematic/payload";
 
-export const addNode = relapse.createAction({
-  type: "add_node" as const,
+export const setNode = relapse.createAction({
+  type: "set_node" as const,
   payload: z.object({
-    key: z.string(),
     node: nodeZ,
     props: record.unknownZ.optional(),
   }),
-  handler: (state: Schematic, payload) => {
-    state.nodes.push(payload.node);
-    if (payload.props != null) state.props[payload.key] = payload.props;
+  handler: (state: Schematic, { node, props }) => {
+    const index = state.nodes.findIndex((n) => n.key === node.key);
+    if (index !== -1) state.nodes[index] = node;
+    else state.nodes.push(node);
+    if (props != null) state.props[node.key] = props;
   },
 });
 
@@ -51,6 +52,16 @@ export const removeNode = relapse.createAction({
   },
 });
 
+export const setEdge = relapse.createAction({
+  type: "set_edge" as const,
+  payload: edgeZ,
+  handler: (state: Schematic, edge) => {
+    const index = state.edges.findIndex((e) => e.key === edge.key);
+    if (index !== -1) state.edges[index] = edge;
+    else state.edges.push(edge);
+  },
+});
+
 export const removeEdge = relapse.createAction({
   type: "remove_edge" as const,
   payload: z.object({ key: z.string() }),
@@ -63,13 +74,14 @@ export const removeEdge = relapse.createAction({
 export const { actionZ, reducer } = relapse.createReducer<
   Schematic,
   [
-    typeof addNode,
+    typeof setNode,
     typeof setNodeProps,
     typeof setNodePosition,
     typeof removeNode,
     typeof removeEdge,
+    typeof setEdge,
   ]
->([addNode, setNodeProps, setNodePosition, removeNode, removeEdge] as const);
+>([setNode, setNodeProps, setNodePosition, removeNode, removeEdge, setEdge] as const);
 
 export type Action = z.infer<typeof actionZ>;
 

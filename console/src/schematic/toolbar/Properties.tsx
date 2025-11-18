@@ -39,35 +39,29 @@ import { type EdgeProps, type NodeProps } from "@/schematic/types";
 import { type nodePropsZ } from "@/schematic/types/v0";
 import { type RootState } from "@/store";
 
-export interface PropertiesProps {
-  layoutKey: string;
-}
-
-export const PropertiesControls = memo(
-  ({ layoutKey }: PropertiesProps): ReactElement => {
-    const digests = useSelectSelectedElementDigests(layoutKey);
-    if (digests.length === 0)
-      return (
-        <Text.Text status="disabled" center>
-          Select a Schematic element to configure its properties.
-        </Text.Text>
-      );
-
-    if (digests.length > 1) return <MultiElementProperties layoutKey={layoutKey} />;
-
-    const selected = digests[0];
-
-    if (selected.type === "edge")
-      return <EdgeProperties layoutKey={layoutKey} edgeKey={selected.key} />;
+export const PropertiesControls = memo((): ReactElement => {
+  const digests = useSelectSelectedElementDigests(layoutKey);
+  if (digests.length === 0)
     return (
-      <IndividualProperties
-        key={selected.key}
-        layoutKey={layoutKey}
-        nodeKey={selected.key}
-      />
+      <Text.Text status="disabled" center>
+        Select a Schematic element to configure its properties.
+      </Text.Text>
     );
-  },
-);
+
+  if (digests.length > 1) return <MultiElementProperties layoutKey={layoutKey} />;
+
+  const selected = digests[0];
+
+  if (selected.type === "edge")
+    return <EdgeProperties layoutKey={layoutKey} edgeKey={selected.key} />;
+  return (
+    <IndividualProperties
+      key={selected.key}
+      layoutKey={layoutKey}
+      nodeKey={selected.key}
+    />
+  );
+});
 PropertiesControls.displayName = "PropertiesControls";
 
 interface IndividualPropertiesProps {

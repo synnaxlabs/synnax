@@ -14,7 +14,10 @@ export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Params = Key | Key[];
 
-export const nodeZ = graph.nodeZ.extend({ position: xy.xy });
+export const nodeZ = graph.nodeZ.extend({
+  position: xy.xy,
+  zIndex: z.number().optional(),
+});
 export type Node = z.infer<typeof nodeZ>;
 
 export const edgeZ = graph.edgeZ;
@@ -31,5 +34,12 @@ export const schematicZ = z.object({
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 
-export const newZ = schematicZ.partial({ key: true, snapshot: true, version: true });
+export const newZ = schematicZ.partial({
+  key: true,
+  snapshot: true,
+  version: true,
+  nodes: true,
+  edges: true,
+  props: true,
+});
 export type New = z.input<typeof newZ>;
