@@ -1,0 +1,211 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Series & Frames"
+description: "Understanding the core data structures for working with telemetry data in Synnax."
+next: "Ranges"
+nextURL: "/reference/client/working-with-data/ranges"
+prev: "Writing Data"
+prevURL: "/reference/client/fundamentals/write-data"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This guide covers the fundamental data structures used in Synnax: Series (typed arrays) and Frames (multi-channel containers). These are the core types returned by read operations and used for write operations.
+
+<Divider.Divider x />
+
+## Series
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/series-and-frames#series">Python Series and Frames - Series</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/series-and-frames#series">TypeScript Series and Frames - Series</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Constructing a Series
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/series-and-frames#constructing-a-series">Python Series and Frames - Constructing a Series</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/series-and-frames#constructing-a-series">TypeScript Series and Frames - Constructing a Series</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Interop with Numpy
+
+<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/series-and-frames#interop-with-numpy">Python Series and Frames - Interop with Numpy</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Python-specific feature**: TypeScript uses TypedArrays instead of numpy.
+</Note.Note>
+
+### Accessing Data
+
+<Client.Tabs client:load exclude={["cpp", "python"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/series-and-frames#accessing-data">TypeScript Series and Frames - Accessing Data (at, as, TypedArray methods)</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **TypeScript-specific section**: Includes `at()` method, `as()` method, and TypedArray access patterns.
+</Note.Note>
+
+### Converting to Javascript Array
+
+<Client.Tabs client:load exclude={["cpp", "python"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/series-and-frames#converting-to-a-javascript-array">TypeScript Series and Frames - Converting to a JavaScript Array</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### The Time Range Property
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/series-and-frames#the-time-range-property">Python Series and Frames - The Time Range Property</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/series-and-frames#the-time-range-property">TypeScript Series and Frames - The Time Range Property</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Other Useful Properties
+
+<Client.Tabs client:load exclude={["cpp", "python"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/series-and-frames#other-useful-properties">TypeScript Series and Frames - Other Useful Properties (length, data type, max, min, bounds)</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Frames
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/series-and-frames#frames">Python Series and Frames - Frames</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/series-and-frames#frames">TypeScript Series and Frames - Frames</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Constructing a Frame
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/series-and-frames#constructing-a-frame">Python Series and Frames - Constructing a Frame</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/series-and-frames#constructing-a-frame">TypeScript Series and Frames - Constructing a Frame</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Accessing Frame Data
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/series-and-frames#accessing-frame-data">Python Series and Frames - Accessing Frame Data (dictionary interface)</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/series-and-frames#accessing-frame-data">TypeScript Series and Frames - Accessing Frame Data (get, at methods)</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>

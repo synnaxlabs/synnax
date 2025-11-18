@@ -1,0 +1,94 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Reading Data"
+description: "Learn the fundamentals of reading data from channels in Synnax."
+next: "Writing Data"
+nextURL: "/reference/client/fundamentals/write-data"
+prev: "Channels"
+prevURL: "/reference/client/fundamentals/channels"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This guide covers the fundamental patterns for reading data from Synnax channels. We'll
+focus on simple, straightforward reads to get you started quickly.
+
+If you'd like a conceptual overview of how reads work in Synnax, check out the
+[reads concepts guide](/reference/concepts/reads).
+
+<Divider.Divider x />
+
+## Reading from a Channel
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/read-data#reading-from-a-channel">Python Read Data - Reading from a Channel</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/read-data#reading-from-a-channel">TypeScript Read Data - Reading from a Channel</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Reading from Multiple Channels
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/read-data#reading-from-multiple-channels">Python Read Data - Reading from Multiple Channels</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/read-data#reading-from-multiple-channels">TypeScript Read Data - Reading from Multiple Channels</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Reading the Latest Data
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/read-data#reading-the-latest-data">Python Read Data - Reading the Latest Data</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/read-data#reading-the-latest-data">TypeScript Read Data - Reading the Latest Data</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Excluded from this section**: Reading channel data from ranges is covered in <a href="/reference/client/working-with-data/ranges#reading-from-ranges">Working with Data - Ranges</a>. Reading with iterators for large datasets is covered in <a href="/reference/client/working-with-data/iterators">Working with Data - Iterators</a>. Real-time streaming is covered in <a href="/reference/client/working-with-data/streaming-data">Working with Data - Streaming Data</a>.
+</Note.Note>

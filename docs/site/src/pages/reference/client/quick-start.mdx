@@ -1,0 +1,159 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Quick Start"
+description: "Get started with the Synnax client in 5 minutes - from installation to reading and writing data."
+next: "Complete Setup"
+nextURL: "/reference/client/complete-setup"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This guide will get you from zero to reading and writing data in 5 minutes. We'll install
+the client, connect to a Core, create channels, write some data, and read it back.
+
+<Divider.Divider x />
+
+## Installation
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/get-started#installation">Python Get Started - Installation</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/get-started#installation">TypeScript Get Started - Installation</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Create a Client
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/get-started#passing-credentials-directly">Python Get Started - Passing Credentials Directly</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/get-started#authenticating-with-a-core">TypeScript Get Started - Authenticating with a Core</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Excluded from this section**: CLI login method, environment variables, and detailed authentication options are covered in <a href="/reference/client/complete-setup#authentication-methods">Complete Setup - Authentication Methods</a>.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Create Your First Channels
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/channels#creating-a-data-channel-and-its-index">Python Channels - Creating a Data Channel and its Index</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/channels#creating-a-data-channel-and-its-index">TypeScript Channels - Creating a Data Channel and its Index</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Excluded from this section**: Creating multiple channels, conditional creation, and detailed channel options are covered in <a href="/reference/client/fundamentals/channels#creating-channels">Fundamentals - Channels</a>.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Write Some Data
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/write-data#writing-to-a-channel">Python Write Data - Writing to a Channel</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/write-data#writing-to-a-channel">TypeScript Write Data - Writing to a Channel</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Excluded from this section**: Writers, transactions, authorities, and advanced writing patterns are covered in <a href="/reference/client/advanced/writers">Advanced Topics - Writers</a>.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Read It Back
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/read-data#reading-from-a-channel">Python Read Data - Reading from a Channel</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/read-data#reading-from-a-channel">TypeScript Read Data - Reading from a Channel</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Excluded from this section**: Iterators and streaming are covered in <a href="/reference/client/working-with-data/iterators">Working with Data - Iterators</a> and <a href="/reference/client/working-with-data/streaming-data">Working with Data - Streaming Data</a>. Range-based reading is covered in <a href="/reference/client/working-with-data/ranges#reading-from-ranges">Working with Data - Ranges</a>.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Next Steps
+
+Now that you've completed the quick start, here are some recommended next steps:
+
+- **[Complete Setup](/reference/client/complete-setup)** - Learn about authentication methods, connection parameters, and troubleshooting
+- **[Fundamentals > Channels](/reference/client/fundamentals/channels)** - Master channel creation, retrieval, renaming, and deletion
+- **[Fundamentals > Reading Data](/reference/client/fundamentals/read-data)** - Explore different ways to read data from Synnax
+- **[Fundamentals > Writing Data](/reference/client/fundamentals/write-data)** - Learn best practices for writing data to Synnax
+- **[Examples](/reference/python-client/examples)** - Browse full working examples for common use cases

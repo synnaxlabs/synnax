@@ -1,0 +1,464 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Ranges"
+description: "Organizing telemetry data with time-based ranges and metadata."
+next: "Streaming Data"
+nextURL: "/reference/client/working-with-data/streaming-data"
+prev: "Series & Frames"
+prevURL: "/reference/client/working-with-data/series-and-frames"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This guide covers working with Ranges - time-based categorizations of data with metadata. Ranges are useful for organizing telemetry into tests, runs, events, or other logical groupings.
+
+<Divider.Divider x />
+
+## Range Configuration Reference
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#range-configuration-reference">Python Ranges - Range Configuration Reference</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#range-configuration-reference">TypeScript Ranges - Range Configuration Reference</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Creating Ranges
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#creating-ranges">Python Ranges - Creating Ranges</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#creating-ranges">TypeScript Ranges - Creating Ranges</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Only Create a Range if it Doesn't Exist
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#only-create-a-range-if-it-doesnt-exist">Python Ranges - Only Create a Range if it Doesn't Exist</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="warning">
+      <span style={{ color: "red" }}>No corresponding section - TypeScript doesn't support conditional range creation</span>{" "}
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Creating Child Ranges
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#creating-child-ranges">Python Ranges - Creating Child Ranges</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#creating-child-ranges">TypeScript Ranges - Creating Child Ranges</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Retrieving Ranges
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#retrieving-ranges">Python Ranges - Retrieving Ranges</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#retrieving-ranges">TypeScript Ranges - Retrieving Ranges</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Retrieving a Single Range
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#retrieving-a-single-range">Python Ranges - Retrieving a Single Range</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#retrieving-a-single-range">TypeScript Ranges - Retrieving a Single Range</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Retrieving Multiple Ranges
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#retrieving-multiple-ranges">Python Ranges - Retrieving Multiple Ranges</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#retrieving-multiple-ranges">TypeScript Ranges - Retrieving Multiple Ranges</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Retrieving Child Ranges
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#retrieving-child-ranges">Python Ranges - Retrieving Child Ranges</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#retrieving-child-ranges">TypeScript Ranges - Retrieving Child Ranges</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Updating a Range
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#updating-a-range">Python Ranges - Updating a Range</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#updating-a-range">TypeScript Ranges - Updating a Range</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Working with Channels
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#working-with-channels">Python Ranges - Working with Channels</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#working-with-channels">TypeScript Ranges - Working with Channels</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Accessing Channels
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#accessing-channels">Python Ranges - Accessing Channels</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#accessing-channels">TypeScript Ranges - Accessing Channels</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Accessing Multiple Channels
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#accessing-multiple-channels">Python Ranges - Accessing Multiple Channels</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#accessing-multiple-channels">TypeScript Ranges - Accessing Multiple Channels</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Aliasing Channels
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#aliasing-channels">Python Ranges - Aliasing Channels</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#aliasing-channels">TypeScript Ranges - Aliasing Channels</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Attaching Metadata
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#attaching-metadata">Python Ranges - Attaching Metadata</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#attaching-metadata">TypeScript Ranges - Attaching Metadata</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Setting Metadata
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#setting-metadata">Python Ranges - Setting Metadata</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#setting-metadata">TypeScript Ranges - Setting Metadata</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Getting Metadata
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#getting-metadata">Python Ranges - Getting Metadata</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#getting-metadata">TypeScript Ranges - Getting Metadata</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Deleting Metadata
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#deleting-metadata">Python Ranges - Deleting Metadata</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#deleting-metadata">TypeScript Ranges - Deleting Metadata</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Deleting Ranges
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/ranges#deleting-ranges">Python Ranges - Deleting Ranges</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/ranges#deleting-ranges">TypeScript Ranges - Deleting Ranges</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Reading from Ranges
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/channels#retrieving-a-channel-using-a-range">Python Channels - Retrieving a Channel Using a Range</a> and <a href="/reference/python-client/read-data#reading-channel-data-from-a-range">Python Read Data - Reading Channel Data from a Range</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/channels#retrieving-a-channel-using-a-range">TypeScript Channels - Retrieving a Channel Using a Range</a> and <a href="/reference/typescript-client/read-data#reading-channel-data-from-a-range">TypeScript Read Data - Reading Channel Data from a Range</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Note**: This section combines range-based channel retrieval and reading patterns that were deferred from <a href="/reference/client/fundamentals/channels">Fundamentals - Channels</a> and <a href="/reference/client/fundamentals/read-data">Fundamentals - Reading Data</a>.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Writing to Ranges
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/write-data#writing-to-a-range">Python Write Data - Writing to a Range</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/write-data#writing-to-a-range">TypeScript Write Data - Writing to a Range</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Note**: This section covers range-based writes that were deferred from <a href="/reference/client/fundamentals/write-data">Fundamentals - Writing Data</a>.
+</Note.Note>

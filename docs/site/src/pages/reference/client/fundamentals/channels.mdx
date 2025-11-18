@@ -1,0 +1,220 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Channels"
+description: "Learn the fundamentals of creating, retrieving, renaming, and deleting channels."
+next: "Reading Data"
+nextURL: "/reference/client/fundamentals/read-data"
+prev: "Complete Setup"
+prevURL: "/reference/client/complete-setup"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Channels are the fundamental building blocks for storing and organizing data in Synnax.
+This guide covers all the basic CRUD operations you need to work with channels.
+
+If you're unfamiliar with what channels are and how they work, check out the
+[channels concepts guide](/reference/concepts/channels).
+
+<Divider.Divider x />
+
+## Creating Channels
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/channels#creating-channels">Python Channels - Creating Channels</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/channels#creating-channels">TypeScript Channels - Creating Channels</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Creating a Data Channel and its Index
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/channels#creating-a-data-channel-and-its-index">Python Channels - Creating a Data Channel and its Index</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/channels#creating-a-data-channel-and-its-index">TypeScript Channels - Creating a Data Channel and its Index</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Creating Multiple Channels
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/channels#creating-multiple-channels">Python Channels - Creating Multiple Channels</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/channels#creating-multiple-channels">TypeScript Channels - Creating Multiple Channels</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Only Create a Channel if it Doesn't Exist
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/channels#only-create-a-channel-if-it-doesnt-exist">Python Channels - Only Create a Channel if it Doesn't Exist</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="warning">
+      <span style={{ color: "red" }}>No corresponding section - feature may not exist in TypeScript</span>{" "}
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Retrieving Channels
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/channels#retrieving-channels">Python Channels - Retrieving Channels</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/channels#retrieving-channels">TypeScript Channels - Retrieving Channels</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Retrieving a Single Channel
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/channels#retrieving-a-single-channel">Python Channels - Retrieving a Single Channel</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/channels#retrieving-a-single-channel">TypeScript Channels - Retrieving a Single Channel</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Retrieving Multiple Channels
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/channels#retrieving-multiple-channels">Python Channels - Retrieving Multiple Channels</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/channels#retrieving-multiple-channels">TypeScript Channels - Retrieving Multiple Channels</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Excluded from this section**: Retrieving channels using ranges is covered in <a href="/reference/client/working-with-data/ranges#working-with-channels">Working with Data - Ranges - Working with Channels</a>. Retrieving channels using regular expressions (Python only) is covered in <a href="/reference/python-client/channels#retrieving-channels-using-regular-expressions">Python Channels - Retrieving Channels Using Regular Expressions</a>.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Renaming Channels
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/channels#renaming-channels">Python Channels - Renaming Channels</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="warning">
+      <span style={{ color: "red" }}>No corresponding section - feature may not exist in TypeScript</span>{" "}
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Deleting Channels
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/channels#deleting-channels">Python Channels - Deleting Channels</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/channels#deleting-channels">TypeScript Channels - Deleting Channels</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
