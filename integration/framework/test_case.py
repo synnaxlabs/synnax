@@ -22,6 +22,7 @@ from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
+from pathlib import Path
 from typing import Any, Literal, overload
 
 import synnax as sy
@@ -63,10 +64,10 @@ class STATUS(Enum):
 
 
 class SYMBOLS(Enum):
-    PASSED = "✅"  # Green check mark
-    FAILED = "❌"  # Red X
-    KILLED = "💀"  # Skull
-    TIMEOUT = "⏰"  # Alarm clock
+    PASSED = "✅"
+    FAILED = "❌"
+    KILLED = "💀"
+    TIMEOUT = "⏰"
 
     @classmethod
     def get_symbol(cls, status: STATUS) -> str:
@@ -74,7 +75,7 @@ class SYMBOLS(Enum):
         try:
             return cls[status.name].value
         except (KeyError, AttributeError):
-            return "❓"  # Question mark emoji
+            return "❓"
 
 
 class TestCase(ABC):
@@ -335,6 +336,18 @@ class TestCase(ABC):
         for handler in self.logger.handlers:
             if hasattr(handler, "flush"):
                 handler.flush()
+
+    @property
+    def repo_root(self) -> Path:
+        """Find the repository root directory by looking for .git folder."""
+        from pathlib import Path
+
+        repo_root = Path(__file__).parent
+        while repo_root.parent != repo_root:
+            if (repo_root / ".git").exists():
+                break
+            repo_root = repo_root.parent
+        return repo_root
 
     def _start_client_threads(self) -> None:
         # Start writer thread (writes telemetry at consistent interval)
