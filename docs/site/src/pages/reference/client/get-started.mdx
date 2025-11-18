@@ -1,0 +1,42 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Get Started"
+description: "Use the Console, Python client, or TypeScript client to interact with the Core."
+nextURL: "/reference/client/channels"
+next: "Channels"
+---
+
+import { Divider } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+
+## Installation
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+  </Fragment>
+
+  <Fragment slot="typescript">
+  </Fragment>
+
+</Client.Tabs>
+
+## Authenticating with a Core
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+  </Fragment>
+
+  <Fragment slot="typescript">
+  </Fragment>
+
+</Client.Tabs>

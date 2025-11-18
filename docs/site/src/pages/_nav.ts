@@ -13,6 +13,7 @@ import { COMPARISON_NAV } from "@/pages/guides/comparison/_nav";
 import { GET_STARTED_NAV } from "@/pages/guides/get-started/_nav";
 import { OPERATIONS_NAV } from "@/pages/guides/operations/_nav";
 import { SYS_ADMIN_NAV } from "@/pages/guides/sys-admin/_nav";
+import { CLIENT_NAV } from "@/pages/reference/client/_nav";
 import { CONCEPTS_NAV } from "@/pages/reference/concepts/_nav";
 import { CONSOLE_NAV } from "@/pages/reference/console/_nav";
 import { CONTROL_NAV } from "@/pages/reference/control/_nav";
@@ -26,6 +27,7 @@ export const REFERENCE_PAGES: PageNavNode[] = [
   { name: "Get Started", key: "/reference/", href: "/reference/" },
   CONCEPTS_NAV,
   CORE_NAV,
+  CLIENT_NAV,
   TYPESCRIPT_CLIENT_NAV,
   PYTHON_CLIENT_NAV,
   CONTROL_NAV,
