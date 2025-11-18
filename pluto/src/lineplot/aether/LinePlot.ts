@@ -26,10 +26,10 @@ import { render } from "@/vis/render";
 export const linePlotStateZ = z.object({
   container: box.box,
   viewport: box.box,
-  hold: z.boolean().optional().default(false),
+  hold: z.boolean().default(false),
   grid: z.record(z.string(), grid.regionZ),
-  visible: z.boolean().optional().default(true),
-  clearOverScan: xy.crudeZ.optional().default(xy.ZERO),
+  visible: z.boolean().default(true),
+  clearOverScan: xy.crudeZ.default(xy.ZERO),
 });
 
 interface InternalState {
