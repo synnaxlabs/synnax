@@ -53,9 +53,9 @@ export interface CreateRetrieveParams<
   AllowDisconnected extends boolean = false,
 > {
   name: string;
-  retrieve: (Params: RetrieveParams<Query, Store, AllowDisconnected>) => Promise<Data>;
+  retrieve: (params: RetrieveParams<Query, Store, AllowDisconnected>) => Promise<Data>;
   mountListeners?: (
-    Params: RetrieveMountListenersParams<Query, Data, Store, AllowDisconnected>,
+    params: RetrieveMountListenersParams<Query, Data, Store, AllowDisconnected>,
   ) => Destructor | Destructor[];
   allowDisconnected?: AllowDisconnected;
 }

@@ -47,10 +47,10 @@ export { status } from "@/status";
 export { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil/client";
 export { user } from "@/user";
 export { workspace } from "@/workspace";
-export { lineplot } from "@/workspace/lineplot";
-export { log } from "@/workspace/log";
-export { schematic } from "@/workspace/schematic";
-export { table } from "@/workspace/table";
+export { lineplot } from "@/lineplot";
+export { log } from "@/log";
+export { schematic } from "@/schematic";
+export { table } from "@/table";
 export {
   type CrudeDataType,
   type CrudeDensity,

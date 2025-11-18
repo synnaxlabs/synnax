@@ -13,29 +13,21 @@ import { z } from "zod";
 
 import { type ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
 import {
   type Key,
   keyZ,
+  type LinePlot,
+  linePlotZ,
   type New,
   newZ,
   type Params,
-  remoteZ,
-  type Schematic,
-  schematicZ,
-} from "@/workspace/schematic/payload";
-import { symbol } from "@/workspace/schematic/symbol";
+} from "@/lineplot/payload";
+import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const setDataReqZ = z.object({ key: keyZ, data: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-
-const copyReqZ = z.object({
-  key: keyZ,
-  name: z.string(),
-  snapshot: z.boolean(),
-});
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
 const singleRetrieveArgsZ = z
@@ -46,49 +38,42 @@ export const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
-export type CopyArgs = z.input<typeof copyReqZ>;
 
-const retrieveResZ = z.object({ schematics: array.nullableZ(remoteZ) });
+const retrieveResZ = z.object({ linePlots: array.nullableZ(linePlotZ) });
 
-const createReqZ = z.object({
-  workspace: workspaceKeyZ,
-  schematics: newZ.array(),
-});
-const createResZ = z.object({ schematics: remoteZ.array() });
+const createReqZ = z.object({ workspace: workspaceKeyZ, linePlots: newZ.array() });
+const createResZ = z.object({ linePlots: linePlotZ.array() });
 
-const copyResZ = z.object({ schematic: schematicZ });
 const emptyResZ = z.object({});
 
 export class Client {
-  readonly symbols: symbol.Client;
   private readonly client: UnaryClient;
 
   constructor(client: UnaryClient) {
     this.client = client;
-    this.symbols = new symbol.Client(client);
   }
 
-  async create(workspace: WorkspaceKey, schematic: New): Promise<Schematic>;
-  async create(workspace: WorkspaceKey, schematics: New[]): Promise<Schematic[]>;
+  async create(workspace: WorkspaceKey, linePlot: New): Promise<LinePlot>;
+  async create(workspace: WorkspaceKey, linePlots: New[]): Promise<LinePlot[]>;
   async create(
     workspace: WorkspaceKey,
-    schematics: New | New[],
-  ): Promise<Schematic | Schematic[]> {
-    const isMany = Array.isArray(schematics);
+    linePlots: New | New[],
+  ): Promise<LinePlot | LinePlot[]> {
+    const isMany = Array.isArray(linePlots);
     const res = await sendRequired(
       this.client,
-      "/workspace/schematic/create",
-      { workspace, schematics: array.toArray(schematics) },
+      "/workspace/lineplot/create",
+      { workspace, linePlots: array.toArray(linePlots) },
       createReqZ,
       createResZ,
     );
-    return isMany ? res.schematics : res.schematics[0];
+    return isMany ? res.linePlots : res.linePlots[0];
   }
 
   async rename(key: Key, name: string): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/schematic/rename",
+      "/workspace/lineplot/rename",
       { key, name },
       renameReqZ,
       emptyResZ,
@@ -98,53 +83,39 @@ export class Client {
   async setData(key: Key, data: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/schematic/set-data",
+      "/workspace/lineplot/set-data",
       { key, data: JSON.stringify(data) },
       setDataReqZ,
       emptyResZ,
     );
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Schematic>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Schematic[]>;
+  async retrieve(args: RetrieveSingleParams): Promise<LinePlot>;
+  async retrieve(args: RetrieveMultipleParams): Promise<LinePlot[]>;
   async retrieve(
     args: RetrieveSingleParams | RetrieveMultipleParams,
-  ): Promise<Schematic | Schematic[]> {
+  ): Promise<LinePlot | LinePlot[]> {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
-      "/workspace/schematic/retrieve",
+      "/workspace/lineplot/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Schematic", args, res.schematics, isSingle);
-    return isSingle ? res.schematics[0] : res.schematics;
+    checkForMultipleOrNoResults("LinePlot", args, res.linePlots, isSingle);
+    return isSingle ? res.linePlots[0] : res.linePlots;
   }
 
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/schematic/delete",
+      "/workspace/lineplot/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,
     );
   }
-
-  async copy(args: CopyArgs): Promise<Schematic> {
-    const res = await sendRequired(
-      this.client,
-      "/workspace/schematic/copy",
-      args,
-      copyReqZ,
-      copyResZ,
-    );
-    return res.schematic;
-  }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({
-  type: "schematic",
-  key,
-});
+export const ontologyID = (key: Key): ontology.ID => ({ type: "lineplot", key });

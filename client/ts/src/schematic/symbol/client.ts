@@ -21,7 +21,7 @@ import {
   newZ,
   type Symbol,
   symbolZ,
-} from "@/workspace/schematic/symbol/payload";
+} from "@/schematic/symbol/payload";
 
 const createReqZ = z.object({ symbols: newZ.array(), parent: ontology.idZ });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });

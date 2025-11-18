@@ -711,6 +711,9 @@ importers:
       fuse.js:
         specifier: ^7.1.0
         version: 7.1.0
+      immer:
+        specifier: ^10.2.0
+        version: 10.2.0
       mathjs:
         specifier: ^15.1.0
         version: 15.1.0

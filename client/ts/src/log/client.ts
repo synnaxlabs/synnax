@@ -13,16 +13,16 @@ import { z } from "zod";
 
 import { type ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
 import {
   type Key,
   keyZ,
+  type Log,
+  logZ,
   type New,
   newZ,
   type Params,
-  remoteZ,
-  type Table,
-} from "@/workspace/table/payload";
+} from "@/log/payload";
+import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
@@ -39,10 +39,10 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
-const retrieveResZ = z.object({ tables: array.nullableZ(remoteZ) });
+const retrieveResZ = z.object({ logs: array.nullableZ(logZ) });
 
-const createReqZ = z.object({ workspace: workspaceKeyZ, tables: newZ.array() });
-const createResZ = z.object({ tables: remoteZ.array() });
+const createReqZ = z.object({ workspace: workspaceKeyZ, logs: newZ.array() });
+const createResZ = z.object({ logs: logZ.array() });
 
 const emptyResZ = z.object({});
 
@@ -53,24 +53,24 @@ export class Client {
     this.client = client;
   }
 
-  async create(workspace: WorkspaceKey, table: New): Promise<Table>;
-  async create(workspace: WorkspaceKey, tables: New[]): Promise<Table[]>;
-  async create(workspace: WorkspaceKey, tables: New | New[]): Promise<Table | Table[]> {
-    const isMany = Array.isArray(tables);
+  async create(workspace: WorkspaceKey, log: New): Promise<Log>;
+  async create(workspace: WorkspaceKey, logs: New[]): Promise<Log[]>;
+  async create(workspace: WorkspaceKey, logs: New | New[]): Promise<Log | Log[]> {
+    const isMany = Array.isArray(logs);
     const res = await sendRequired(
       this.client,
-      "/workspace/table/create",
-      { workspace, tables: array.toArray(tables) },
+      "/workspace/log/create",
+      { workspace, logs: array.toArray(logs) },
       createReqZ,
       createResZ,
     );
-    return isMany ? res.tables : res.tables[0];
+    return isMany ? res.logs : res.logs[0];
   }
 
   async rename(key: Key, name: string): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/table/rename",
+      "/workspace/log/rename",
       { key, name },
       renameReqZ,
       emptyResZ,
@@ -80,34 +80,34 @@ export class Client {
   async setData(key: Key, data: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/table/set-data",
+      "/workspace/log/set-data",
       { key, data: JSON.stringify(data) },
       setDataReqZ,
       emptyResZ,
     );
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Table>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Table[]>;
+  async retrieve(args: RetrieveSingleParams): Promise<Log>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Log[]>;
   async retrieve(
     args: RetrieveSingleParams | RetrieveMultipleParams,
-  ): Promise<Table | Table[]> {
+  ): Promise<Log | Log[]> {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
-      "/workspace/table/retrieve",
+      "/workspace/log/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Table", args, res.tables, isSingle);
-    return isSingle ? res.tables[0] : res.tables;
+    checkForMultipleOrNoResults("Log", args, res.logs, isSingle);
+    return isSingle ? res.logs[0] : res.logs;
   }
 
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/table/delete",
+      "/workspace/log/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,
@@ -115,4 +115,4 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "table", key });
+export const ontologyID = (key: Key): ontology.ID => ({ type: "log", key });

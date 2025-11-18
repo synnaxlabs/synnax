@@ -12,6 +12,7 @@ export * from "@/flux/core/store";
 export * from "@/flux/core/types";
 export * from "@/flux/form";
 export * from "@/flux/list";
+export * from "@/flux/model";
 export * from "@/flux/Provider";
 export * from "@/flux/result";
 export * from "@/flux/retrieve";

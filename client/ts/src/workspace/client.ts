@@ -13,8 +13,8 @@ import { z } from "zod";
 
 import { type ontology } from "@/ontology";
 import { keyZ as userKeyZ } from "@/user/payload";
-import { lineplot } from "@/workspace/lineplot";
-import { log } from "@/workspace/log";
+import { lineplot } from "@/lineplot";
+import { log } from "@/log";
 import {
   type Key,
   keyZ,
@@ -25,8 +25,8 @@ import {
   type Workspace,
   workspaceZ,
 } from "@/workspace/payload";
-import { schematic } from "@/workspace/schematic";
-import { table } from "@/workspace/table";
+import { schematic } from "@/schematic";
+import { table } from "@/table";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),

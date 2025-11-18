@@ -7,4 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as log from "@/workspace/log/external";
+export * as symbol from "@/schematic/symbol/external";
