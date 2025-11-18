@@ -80,18 +80,18 @@ class TestDefinition:
 
 
 COLORS: list[str] = [
-    "#FF0000",  # Red (0°)
-    "#FF8000",  # Orange (30°)
-    "#FFFF00",  # Yellow (60°)
-    "#80FF80",  # Lime (90°)
-    "#AAFFAA",  # Green (120°)
-    "#00FF80",  # Spring Green (150°)
-    "#00FFFF",  # Cyan (180°)
-    "#0080FF",  # Sky Blue (210°)
-    "#0000FF",  # Blue (240°)
-    "#8000FF",  # Purple (270°)
-    "#FF00FF",  # Magenta (300°)
-    "#FF0080",  # Rose (330°)
+    "#001833",  # Dark Sky Blue (210°)
+    "#003333",  # Dark Cyan (180°)
+    "#003318",  # Dark Spring Green (150°)
+    "#223322",  # Dark Green (120°)
+    "#183318",  # Dark Lime (90°)
+    "#333300",  # Dark Yellow (60°)
+    "#331800",  # Dark Orange (30°)
+    "#330000",  # Dark Red (0°)
+    "#330018",  # Dark Rose (330°)
+    "#330033",  # Dark Magenta (300°)
+    "#180033",  # Dark Purple (270°)
+    "#000033",  # Dark Blue (240°)
 ]
 
 

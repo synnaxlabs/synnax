@@ -75,38 +75,9 @@ class Driver(TestCase):
         """Start simulator and connect to device (if simulator configured)."""
         if self.simulator is not None:
             self._start_simulator()
-            device = self.connect_device(self.simulator.value.device_factory)
+            device = self.connect_device(self.simulator.device_factory)
             self.log(f"Device: {device.name} (key={device.key})")
 
-    def _start_simulator(self) -> None:
-        """Start the simulator server."""
-        config = self.simulator.value
-        server_script = self.repo_root / config.server_script
-
-        if not server_script.exists():
-            raise FileNotFoundError(f"Server script not found: {server_script}")
-
-        # Launch the simulator server
-        self.server_process = subprocess.Popen(
-            [sys.executable, str(server_script)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        self.log(f"Server started with PID: {self.server_process.pid}")
-
-        # Register cleanup handler for process exit scenarios
-        atexit.register(self._cleanup_server)
-
-        # Wait for server to start
-        sy.sleep(config.startup_delay_seconds)
-
-        if self.server_process.poll() is not None:
-            # Server failed - capture output for debugging
-            stdout, stderr = self.server_process.communicate()
-            error_msg = stderr.decode() if stderr else "No error output"
-            raise RuntimeError(
-                f"Server failed to start (exit code: {self.server_process.returncode})\n{error_msg}"
-            )
 
     @abstractmethod
     def run(self) -> None:
@@ -114,7 +85,7 @@ class Driver(TestCase):
         pass
 
     def connect_device(
-        self, device_factory: Callable[[str], SynnaxDevice]
+        self, device_factory: Callable[[int], SynnaxDevice]
     ) -> sy.Device:
         """
         Get or create a hardware device using a factory from KnownDevices.
@@ -149,8 +120,152 @@ class Driver(TestCase):
 
         return device
 
-    def _cleanup_server(self, log: bool = False) -> None:
+    def assert_sample_count(
+        self, task: sy.Task, sample_rate: sy.Rate, time_range: sy.TimeRange
+    ) -> None:
+        """Assert that the task has the expected number of samples.
+
+        Args:
+            task: The task to assert the sample count of
+            sample_rate: The sample rate of the task
+            time_range: The time range to read samples from
+        """
+
+        # Calculate duration from time range
+        duration_seconds = time_range.end.span(time_range.start).seconds
+
+        # Allow 10% tolerance for CI environments with timing variance
+        expected_samples = int(sample_rate * duration_seconds)
+        min_samples = int(expected_samples * 0.90)
+        max_samples = int(expected_samples * 1.1)
+
+        for channel_config in task.config.channels:
+            ch = self.client.channels.retrieve(channel_config.channel)
+            num_samples = len(ch.read(time_range))
+
+            if num_samples < min_samples or num_samples > max_samples:
+                self.fail(
+                    f"Channel '{ch.name}' has {num_samples} samples, "
+                    f"expected {expected_samples} ±10% ({min_samples}-{max_samples})"
+                )
+            else:
+                self.log(
+                    f"✓ Channel '{ch.name}': {num_samples} samples "
+                    f"(expected {expected_samples} ±10%)"
+                )
+
+    def assert_task_exists(self, task_key: str) -> None:
+        """Assert that a task exists in Synnax.
+
+        Args:
+            task_key: The key of the task to check
+
+        Raises:
+            Fails the test if the task does not exist
+        """
+        try:
+            task = self.client.hardware.tasks.retrieve(task_key)
+            self.log(f"✓ Task {task_key} exists (name: {task.name})")
+        except Exception as e:
+            self.fail(f"Task {task_key} does not exist: {e}")
+
+    def assert_task_deleted(self, task_key: str) -> None:
+        """Assert that a task has been deleted from Synnax.
+
+        Args:
+            task_key: The key of the task that should be deleted
+
+        Raises:
+            Fails the test if the task still exists
+        """
+        try:
+            self.client.hardware.tasks.retrieve(task_key)
+            self.fail(f"Task {task_key} still exists after deletion")
+        except:
+            # Expected: task should not be found
+            self.log(f"✓ Task {task_key} successfully deleted")
+
+    def assert_device_deleted(self, device: sy.Device) -> None:
+        """Assert that a device has been deleted from Synnax.
+
+        Args:
+            device_name: The name of the device that should be deleted
+
+        Raises:
+            Fails the test if the device still exists
+        """
+        try:
+            self.client.hardware.devices.retrieve(name=device.name)
+            self.fail(f"Device '{device.name}' still exists after deletion")
+        except:
+            # Expected: device should not be found
+            self.log(f"✓ Device '{device.name}' successfully deleted")
+
+    def assert_channel_names(
+        self, task: sy.Task, expected_names: list[str]
+    ) -> None:
+        """Assert that the task's channels match the expected channel names.
+
+        Args:
+            task: The task to check channel names for
+            expected_names: List of expected channel names in any order
+
+        Raises:
+            Fails the test if channel names don't match
+        """
+        # Retrieve all channel names from the task
+        actual_names = []
+        for channel_config in task.config.channels:
+            ch = self.client.channels.retrieve(channel_config.channel)
+            actual_names.append(ch.name)
+
+        # Sort both lists for comparison (order doesn't matter)
+        expected_sorted = sorted(expected_names)
+        actual_sorted = sorted(actual_names)
+
+        if actual_sorted != expected_sorted:
+            self.fail(
+                f"Channel names mismatch. Expected: {expected_sorted}, "
+                f"Actual: {actual_sorted}"
+            )
+        else:
+            self.log(f"✓ Channel names match: {actual_sorted}")
+
+    def _start_simulator(self) -> None:
+        """Start the simulator server."""
+        server_script = self.repo_root / self.simulator.server_script
+
+        if not server_script.exists():
+            raise FileNotFoundError(f"Server script not found: {server_script}")
+
+        # Launch the simulator server
+        self.server_process = subprocess.Popen(
+            [sys.executable, str(server_script)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        self.log(f"Server started with PID: {self.server_process.pid}")
+
+        # Register cleanup handler for process exit scenarios
+        atexit.register(self._cleanup_simulator)
+
+        # Wait for server to start
+        sy.sleep(self.simulator.startup_delay_seconds)
+
+        if self.server_process.poll() is not None:
+            # Server failed - capture output for debugging
+            stdout, stderr = self.server_process.communicate()
+            error_msg = stderr.decode() if stderr else "No error output"
+            raise RuntimeError(
+                f"Server failed to start (exit code: {self.server_process.returncode})\n{error_msg}"
+            )
+
+    def _cleanup_simulator(self, log: bool = False) -> None:
         """Terminate simulator server process (internal use only)."""
+
+        # Check if server process exists and hasn't been cleaned up already
+        if self.server_process is None:
+            return
 
         if self.server_process.poll() is not None:
             self.log("Server already terminated")
@@ -179,4 +294,4 @@ class Driver(TestCase):
     def teardown(self) -> None:
         """Terminate the simulator server if one was started."""
         if self.server_process is not None:
-            self._cleanup_server()
+            self._cleanup_simulator()

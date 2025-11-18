@@ -12,11 +12,10 @@ Device and simulator configurations for driver integration tests.
 
 This module provides:
 - KnownDevices: Registry of all test device configurations
-- Simulator: Enum of available simulator servers
+- Simulator: Class with available simulator server configurations
 """
 
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from typing import Callable
 
@@ -33,7 +32,7 @@ class KnownDevices:
     """
 
     @staticmethod
-    def modbus_sim(rack_key: str) -> modbus.Device:
+    def modbus_sim(rack_key: int) -> modbus.Device:
         """Modbus TCP simulator device configuration."""
         return modbus.Device(
             host="127.0.0.1",
@@ -46,12 +45,12 @@ class KnownDevices:
         )
 
     @staticmethod
-    def opcua_sim(rack_key: str) -> opcua.Device:
+    def opcua_sim(rack_key: int) -> opcua.Device:
         """OPC UA simulator device configuration."""
         return opcua.Device(
-            endpoint="opc.tcp://localhost:4841/",
+            endpoint="opc.tcp://localhost:4841/freeopcua/server/",
             name="OPC UA Test Server",
-            location="opc.tcp://localhost:4841",
+            location="opc.tcp://localhost:4841/freeopcua/server/",
             rack=rack_key,
         )
 
@@ -67,20 +66,24 @@ class SimulatorConfig:
 
     server_script: Path
     startup_delay_seconds: float
-    device_factory: Callable[[str], SynnaxDevice]
+    device_factory: Callable[[int], SynnaxDevice]
+    device_name: str
+    """The name of the device (for easy retrieval without calling the factory)."""
 
 
-class Simulator(Enum):
+class Simulator:
     """Available simulator servers for driver testing."""
 
     MODBUS = SimulatorConfig(
         server_script=Path("client/py/examples/modbus/server.py"),
         startup_delay_seconds=2.0,
         device_factory=KnownDevices.modbus_sim,
+        device_name="Modbus TCP Test Server",
     )
 
     OPCUA = SimulatorConfig(
         server_script=Path("client/py/examples/opcua/server.py"),
         startup_delay_seconds=2.0,
         device_factory=KnownDevices.opcua_sim,
+        device_name="OPC UA Test Server",
     )
