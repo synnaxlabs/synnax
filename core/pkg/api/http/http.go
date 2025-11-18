@@ -83,7 +83,7 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transpo
 		SchematicRetrieve: fhttp.UnaryServer[api.SchematicRetrieveRequest, api.SchematicRetrieveResponse](router, "/api/v1/workspace/schematic/retrieve"),
 		SchematicDelete:   fhttp.UnaryServer[api.SchematicDeleteRequest, types.Nil](router, "/api/v1/workspace/schematic/delete"),
 		SchematicRename:   fhttp.UnaryServer[api.SchematicRenameRequest, types.Nil](router, "/api/v1/workspace/schematic/rename"),
-		SchematicSetData:  fhttp.UnaryServer[api.SchematicSetDataRequest, types.Nil](router, "/api/v1/workspace/schematic/set-data"),
+		SchematicUpdate:   fhttp.UnaryServer[api.SchematicUpdateRequest, types.Nil](router, "/api/v1/workspace/schematic/update"),
 		SchematicCopy:     fhttp.UnaryServer[api.SchematicCopyRequest, api.SchematicCopyResponse](router, "/api/v1/workspace/schematic/copy"),
 
 		// SCHEMATIC SYMBOL

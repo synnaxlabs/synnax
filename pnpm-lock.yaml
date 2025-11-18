@@ -180,6 +180,9 @@ importers:
       async-mutex:
         specifier: 'catalog:'
         version: 0.5.0
+      immer:
+        specifier: ^10.2.0
+        version: 10.2.0
       zod:
         specifier: 'catalog:'
         version: 4.1.12
@@ -857,6 +860,9 @@ importers:
       async-mutex:
         specifier: 'catalog:'
         version: 0.5.0
+      immer:
+        specifier: ^10.2.0
+        version: 10.2.0
       nanoid:
         specifier: ^5.1.6
         version: 5.1.6

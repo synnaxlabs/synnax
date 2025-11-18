@@ -11,6 +11,7 @@ import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError, ValidationError } from "@/errors";
+import { addNode } from "@/schematic/reducer";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -24,11 +25,14 @@ describe("Schematic", () => {
       });
       const schematic = await client.workspaces.schematics.create(ws.key, {
         name: "Schematic",
-        data: { version: "1.0.0", nodes: [], edges: [], props: {} },
+        version: 1,
+        nodes: [],
+        edges: [],
+        props: {},
       });
       expect(schematic.name).toEqual("Schematic");
       expect(schematic.key).not.toEqual(uuid.ZERO);
-      expect(schematic.data.version).toEqual("1.0.0");
+      expect(schematic.version).toEqual(1);
     });
   });
   describe("rename", () => {
@@ -39,7 +43,10 @@ describe("Schematic", () => {
       });
       const schematic = await client.workspaces.schematics.create(ws.key, {
         name: "Schematic",
-        data: { version: "1.0.0", nodes: [], edges: [], props: {} },
+        version: 1,
+        nodes: [],
+        edges: [],
+        props: {},
       });
       await client.workspaces.schematics.rename(schematic.key, "Schematic2");
       const res = await client.workspaces.schematics.retrieve({
@@ -48,21 +55,31 @@ describe("Schematic", () => {
       expect(res.name).toEqual("Schematic2");
     });
   });
-  describe("setData", () => {
-    test("set data", async () => {
+  describe("update", () => {
+    test("add node", async () => {
       const ws = await client.workspaces.create({
         name: "Schematic",
         layout: { one: 1 },
       });
       const schematic = await client.workspaces.schematics.create(ws.key, {
         name: "Schematic",
-        data: { version: "1.0.0", nodes: [], edges: [], props: {} },
+        version: 1,
+        nodes: [],
+        edges: [],
+        props: {},
       });
-      await client.workspaces.schematics.setData(schematic.key, { two: 2 });
+      await client.workspaces.schematics.update(
+        schematic.key,
+        addNode({
+          key: "node1",
+          node: { key: "node1", position: { x: 0, y: 0 }, type: "test" },
+        }),
+      );
       const res = await client.workspaces.schematics.retrieve({
         key: schematic.key,
       });
-      expect(res.data.version).toEqual("1.0.0");
+      expect(res.nodes).toHaveLength(1);
+      expect(res.nodes[0].key).toEqual("node1");
     });
   });
   describe("delete", () => {
@@ -73,7 +90,10 @@ describe("Schematic", () => {
       });
       const schematic = await client.workspaces.schematics.create(ws.key, {
         name: "Schematic",
-        data: { version: "1.0.0", nodes: [], edges: [], props: {} },
+        version: 1,
+        nodes: [],
+        edges: [],
+        props: {},
       });
       await client.workspaces.schematics.delete(schematic.key);
       await expect(
@@ -89,7 +109,10 @@ describe("Schematic", () => {
       });
       const schematic = await client.workspaces.schematics.create(ws.key, {
         name: "Schematic",
-        data: { version: "1.0.0", nodes: [], edges: [], props: {} },
+        version: 1,
+        nodes: [],
+        edges: [],
+        props: {},
       });
       const schematic2 = await client.workspaces.schematics.copy({
         key: schematic.key,
@@ -98,7 +121,7 @@ describe("Schematic", () => {
       });
       expect(schematic2.name).toEqual("Schematic2");
       expect(schematic2.key).not.toEqual(uuid.ZERO);
-      expect(schematic2.data.version).toEqual("1.0.0");
+      expect(schematic2.version).toEqual(1);
     });
     describe("snapshot", () => {
       it("should not allow the caller to edit the snapshot", async () => {
@@ -108,7 +131,10 @@ describe("Schematic", () => {
         });
         const schematic = await client.workspaces.schematics.create(ws.key, {
           name: "Schematic",
-          data: { version: "1.0.0", nodes: [], edges: [], props: {} },
+          version: 1,
+          nodes: [],
+          edges: [],
+          props: {},
         });
         const schematic2 = await client.workspaces.schematics.copy({
           key: schematic.key,
@@ -116,7 +142,13 @@ describe("Schematic", () => {
           snapshot: true,
         });
         await expect(
-          client.workspaces.schematics.setData(schematic2.key, { two: 2 }),
+          client.workspaces.schematics.update(
+            schematic2.key,
+            addNode({
+              key: "node1",
+              node: { key: "node1", position: { x: 0, y: 0 }, type: "test" },
+            }),
+          ),
         ).rejects.toThrow(ValidationError);
       });
     });

@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
+	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/x/gorp"
 )
 

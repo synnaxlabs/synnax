@@ -36,6 +36,11 @@ export type XY = z.infer<typeof xy>;
 export const clientXY = z.object({ clientX: z.number(), clientY: z.number() });
 export type ClientXY = z.infer<typeof clientXY>;
 
+// XYZ
+
+export const xyz = z.object({ x: z.number(), y: z.number(), z: z.number() });
+export type XYZ = z.infer<typeof xyz>;
+
 // Direction
 
 export const DIRECTIONS = ["x", "y"] as const;

@@ -12,15 +12,27 @@ import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
+import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "schematics";
 const RESOURCE_NAME = "Schematic";
+
+const SET_LISTENER: Flux.ChannelListener<FluxSubStore, typeof schematic.scopedActionZ> =
+  {
+    channel: schematic.SET_CHANNEL_NAME,
+    schema: schematic.scopedActionZ,
+    onChange: ({ store, changed }) =>
+      store.schematics.set(
+        changed.key,
+        state.skipNull((p) => schematic.reducer(p, changed)),
+      ),
+  };
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   FluxSubStore,
   schematic.Key,
   schematic.Schematic
-> = { listeners: [] };
+> = { listeners: [SET_LISTENER] };
 
 export interface FluxStore
   extends Flux.UnaryStore<schematic.Key, schematic.Schematic> {}
@@ -151,6 +163,21 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     await client.workspaces.schematics.rename(key, name);
     rollbacks.push(Flux.partialUpdate(store.schematics, key, { name }));
     rollbacks.push(Ontology.renameFluxResource(store, schematic.ontologyID(key), name));
+    return data;
+  },
+});
+
+export const { useUpdate } = Flux.createUpdate<schematic.ScopedAction, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.UPDATE_VERBS,
+  update: async ({ client, data, store, rollbacks }) => {
+    rollbacks.push(
+      store.schematics.set(
+        data.key,
+        state.skipNull((p) => schematic.reducer(p, data)),
+      ),
+    );
+    await client.workspaces.schematics.update(data.key, data);
     return data;
   },
 });

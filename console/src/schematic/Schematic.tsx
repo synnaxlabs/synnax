@@ -20,6 +20,7 @@ import {
   type Legend,
   Menu as PMenu,
   Schematic as Core,
+  Schematic,
   Text,
   Theming,
   usePrevious,
@@ -42,7 +43,6 @@ import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import {
   selectHasPermission,
-  selectOptional,
   selectRequired,
   useSelectEditable,
   useSelectHasPermission,
@@ -64,7 +64,6 @@ import {
   setFitViewOnResize,
   setLegend,
   setNodes,
-  setRemoteCreated,
   setViewport,
   setViewportMode,
   type State,
@@ -74,31 +73,8 @@ import {
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 import { type Selector } from "@/selector";
 import { type RootState } from "@/store";
-import { Workspace } from "@/workspace";
 
 export const HAUL_TYPE = "schematic-element";
-
-const useSyncComponent = Workspace.createSyncComponent(
-  "Schematic",
-  async ({ key, workspace, store, client }) => {
-    const storeState = store.getState();
-    if (!selectHasPermission(storeState)) return;
-    const data = selectOptional(storeState, key);
-    if (data == null) return;
-    const layout = Layout.selectRequired(storeState, key);
-    if (data.snapshot) {
-      await client.workspaces.schematics.rename(key, layout.name);
-      return;
-    }
-    const setData = { ...data, key: undefined };
-    if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
-    await client.workspaces.schematics.create(workspace, {
-      key,
-      name: layout.name,
-      data: setData,
-    });
-  },
-);
 
 interface SymbolRendererProps extends Diagram.SymbolProps {
   layoutKey: string;
@@ -159,34 +135,26 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
-  const schematic = useSelectRequired(layoutKey);
-  const dispatch = useDispatch();
-  const syncDispatch = useSyncComponent(layoutKey);
-  const selector = useCallback(
-    (state: RootState) => selectRequired(state, layoutKey),
-    [layoutKey],
-  );
-  const [undoableDispatch_, undo, redo] = useUndoableDispatch<RootState, State>(
-    selector,
-    internalCreate,
-    30, // roughly the right time needed to prevent actions that get dispatch automatically by Diagram.tsx, like setNodes immediately following addElement
-  );
-  const undoableDispatch = useSyncComponent(layoutKey, undoableDispatch_);
+
+  const result = Schematic.useRetrieve({ key: layoutKey });
+  // TODO: Fix
+  if (result.variant !== "success") return null;
+  const schematic = result.data;
+
+  const { update: dispatch } = Schematic.useUpdate();
+
+  // const selector = useCallback(
+  //   (state: RootState) => selectRequired(state, layoutKey),
+  //   [layoutKey],
+  // );
+  // const [undoableDispatch_, undo, redo] = useUndoableDispatch<RootState, State>(
+  //   selector,
+  //   internalCreate,
+  //   30, // roughly the right time needed to prevent actions that get dispatch automatically by Diagram.tsx, like setNodes immediately following addElement
+  // );
 
   const theme = Theming.use();
   const viewportRef = useSyncedRef(schematic.viewport);
-
-  const prevName = usePrevious(name);
-  useEffect(() => {
-    if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
-  }, [name, prevName, layoutKey, syncDispatch]);
-
-  const isEditable = useSelectEditable(layoutKey);
-  const canBeEditable = useSelectHasPermission();
-  useEffect(() => {
-    if (!canBeEditable && isEditable)
-      syncDispatch(setEditable({ key: layoutKey, editable: false }));
-  }, [canBeEditable, isEditable, layoutKey, syncDispatch]);
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
@@ -438,12 +406,6 @@ const useLoadRemote = createLoadRemote<schematic.Schematic>({
   useSelectVersion,
   actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),
 });
-
-export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
-  const schematic = useLoadRemote(layoutKey);
-  if (schematic == null) return null;
-  return <Loaded layoutKey={layoutKey} {...rest} />;
-};
 
 export const LAYOUT_TYPE = "schematic";
 export type LayoutType = typeof LAYOUT_TYPE;

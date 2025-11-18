@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -84,12 +84,12 @@ func (s *SchematicService) Rename(ctx context.Context, req SchematicRenameReques
 	})
 }
 
-type SchematicSetDataRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-	Data string    `json:"data" msgpack:"data"`
+type SchematicUpdateRequest struct {
+	Key     uuid.UUID          `json:"key" msgpack:"key"`
+	Actions []schematic.Action `json:"actions" msgpack:"actions"`
 }
 
-func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequest) (res types.Nil, err error) {
+func (s *SchematicService) Update(ctx context.Context, req SchematicUpdateRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Update,
@@ -98,7 +98,7 @@ func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequ
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
+		return s.internal.NewWriter(tx).Update(ctx, req.Key, req.Actions...)
 	})
 }
 

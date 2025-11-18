@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type record } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type ontology } from "@/ontology";
@@ -21,13 +21,17 @@ import {
   type Schematic,
   schematicZ,
 } from "@/schematic/payload";
+import { type Action, actionZ } from "@/schematic/reducer";
 import { symbol } from "@/schematic/symbol";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
 
+export const SET_CHANNEL_NAME = "sy_schematic_set";
+export const DELETE_CHANNEL_NAME = "sy_schematic_delete";
+
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const setDataReqZ = z.object({ key: keyZ, data: z.string() });
+const updateReqZ = z.object({ key: keyZ, actions: actionZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({
@@ -94,12 +98,12 @@ export class Client {
     );
   }
 
-  async setData(key: Key, data: record.Unknown): Promise<void> {
+  async update(key: Key, actions: Action | Action[]): Promise<void> {
     await sendRequired(
       this.client,
-      "/workspace/schematic/set-data",
-      { key, data: JSON.stringify(data) },
-      setDataReqZ,
+      "/workspace/schematic/update",
+      { key, actions: array.toArray(actions) },
+      updateReqZ,
       emptyResZ,
     );
   }

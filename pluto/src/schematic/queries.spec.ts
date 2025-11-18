@@ -32,7 +32,9 @@ describe("schematic queries", () => {
       });
       const schematic = await client.workspaces.schematics.create(workspace.key, {
         name: "retrieve_test",
-        data: {},
+        nodes: [],
+        edges: [],
+        props: {},
       });
 
       const { result } = renderHook(
@@ -55,7 +57,9 @@ describe("schematic queries", () => {
       });
       const schematic = await client.workspaces.schematics.create(workspace.key, {
         name: "cached_schematic",
-        data: {},
+        nodes: [],
+        edges: [],
+        props: {},
       });
 
       const { result: result1 } = renderHook(
@@ -88,7 +92,9 @@ describe("schematic queries", () => {
           key,
           workspace: workspace.key,
           name: "created_schematic",
-          data: {},
+          nodes: [],
+          edges: [],
+          props: {},
         });
       });
 
@@ -116,7 +122,9 @@ describe("schematic queries", () => {
           key,
           workspace: workspace.key,
           name: "stored_schematic",
-          data: {},
+          nodes: [],
+          edges: [],
+          props: {},
         });
       });
 
@@ -137,7 +145,9 @@ describe("schematic queries", () => {
       });
       const schematic = await client.workspaces.schematics.create(workspace.key, {
         name: "original_name",
-        data: {},
+        nodes: [],
+        edges: [],
+        props: {},
       });
 
       const { result } = renderHook(
@@ -172,7 +182,9 @@ describe("schematic queries", () => {
       });
       const schematic = await client.workspaces.schematics.create(workspace.key, {
         name: "cache_original",
-        data: {},
+        nodes: [],
+        edges: [],
+        props: {},
       });
 
       const { result } = renderHook(
@@ -205,7 +217,9 @@ describe("schematic queries", () => {
       });
       const schematic = await client.workspaces.schematics.create(workspace.key, {
         name: "delete_single",
-        data: {},
+        nodes: [],
+        edges: [],
+        props: {},
       });
 
       const { result } = renderHook(() => Schematic.useDelete(), { wrapper });
@@ -226,11 +240,15 @@ describe("schematic queries", () => {
       });
       const schematic1 = await client.workspaces.schematics.create(workspace.key, {
         name: "delete_multi_1",
-        data: {},
+        nodes: [],
+        edges: [],
+        props: {},
       });
       const schematic2 = await client.workspaces.schematics.create(workspace.key, {
         name: "delete_multi_2",
-        data: {},
+        nodes: [],
+        edges: [],
+        props: {},
       });
 
       const { result } = renderHook(() => Schematic.useDelete(), { wrapper });

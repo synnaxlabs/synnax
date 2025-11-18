@@ -135,18 +135,24 @@ func (w Writer) Copy(
 	)
 }
 
-// SetData sets the data of the log with the given key to the provided data.
-func (w Writer) SetData(
+// Update applies one or more actions to update the schematic's state.
+func (w Writer) Update(
 	ctx context.Context,
 	key uuid.UUID,
-	data string,
+	actions ...Action,
 ) error {
 	return gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).
 		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
 			if s.Snapshot {
-				return s, errors.Wrapf(validate.Error, "[Schematic] - cannot set data on snapshot %s:%s", key, s.Name)
+				return s, errors.Wrapf(validate.Error, "[Schematic] - cannot update snapshot %s:%s", key, s.Name)
 			}
-			s.Data = data
+			var err error
+			for _, action := range actions {
+				s, err = action.Reduce(s)
+				if err != nil {
+					return s, err
+				}
+			}
 			return s, nil
 		}).Exec(ctx, w.tx)
 }

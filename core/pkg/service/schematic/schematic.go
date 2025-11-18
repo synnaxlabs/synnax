@@ -12,7 +12,27 @@ package schematic
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/version"
 )
+
+type Node struct {
+	Key      string     `json:"key"`
+	Type     string     `json:"type"`
+	Position spatial.XY `json:"position"`
+	ZIndex   int        `json:"zIndex"`
+}
+
+type Handle struct {
+	Source string `json:"source"`
+	Target string `json:"target"`
+}
+
+type Edge struct {
+	Key    string `json:"key"`
+	Source Handle `json:"source"`
+	Target Handle `json:"target"`
+}
 
 // Schematic is the data for a visualization used to view and operate a schematic of a
 // hardware system.
@@ -22,9 +42,12 @@ type Schematic struct {
 	// Snapshot is true if the schematic can no longer be modified.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Name is a human-readable name for the schematic.
-	Name string `json:"name" msgpack:"name"`
+	Name    string          `json:"name" msgpack:"name"`
+	Version version.Counter `json:"version" msgpack:"version"`
 	// Data is JSON-encoded data for the schematic.
-	Data string `json:"data" msgpack:"data"`
+	Nodes []Node                    `json:"nodes" msgpack:"nodes"`
+	Edges []Edge                    `json:"edges" msgpack:"edges"`
+	Props map[string]map[string]any `json:"props"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Schematic{}

@@ -36,13 +36,14 @@
     "@synnaxlabs/freighter": "workspace:^",
     "@synnaxlabs/x": "workspace:^",
     "async-mutex": "catalog:",
+    "immer": "^10.2.0",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
-    "@vitest/coverage-v8": "catalog:",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "eslint-config-synnaxlabs": "workspace:^",
     "madge": "catalog:",

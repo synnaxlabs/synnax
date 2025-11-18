@@ -7,53 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { record, xy } from "@synnaxlabs/x";
+import { graph, record, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Params = Key | Key[];
 
-const nodeZ = z.object({
-  key: z.string(),
-  position: xy.xy,
-  selected: z.boolean().optional(),
-  zIndex: z.number().optional(),
-  type: z.string().optional(),
-});
-
+export const nodeZ = graph.nodeZ.extend({ position: xy.xy });
 export type Node = z.infer<typeof nodeZ>;
 
-export const edgeZ = z.object({
-  key: z.string(),
-  source: z.string(),
-  target: z.string(),
-  id: z.string(),
-  data: record.unknownZ.optional(),
-  sourceHandle: z.string().nullable().optional(),
-  targetHandle: z.string().nullable().optional(),
-});
-
+export const edgeZ = graph.edgeZ;
 export type Edge = z.infer<typeof edgeZ>;
-
-export const stateZ = z.object({
-  version: z.string(),
-  nodes: nodeZ.array(),
-  edges: edgeZ.array(),
-  props: z.record(z.string(), record.unknownZ),
-});
-
-export type State = z.infer<typeof stateZ>;
 
 export const schematicZ = z.object({
   key: keyZ,
   name: z.string(),
-  data: stateZ,
+  version: z.number(),
   snapshot: z.boolean(),
+  nodes: nodeZ.array(),
+  edges: edgeZ.array(),
+  props: z.record(z.string(), record.unknownZ),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 
-export const newZ = schematicZ
-  .partial({ key: true, snapshot: true })
-  .transform((p) => ({ ...p, data: JSON.stringify(p.data) }));
-export interface New extends z.input<typeof newZ> {}
+export const newZ = schematicZ.partial({ key: true, snapshot: true, version: true });
+export type New = z.input<typeof newZ>;

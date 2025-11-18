@@ -23,6 +23,7 @@
   "dependencies": {
     "@msgpack/msgpack": "^3.1.2",
     "async-mutex": "catalog:",
+    "immer": "^10.2.0",
     "nanoid": "^5.1.6",
     "uuid": "^13.0.0",
     "zod": "catalog:"
