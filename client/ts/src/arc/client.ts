@@ -127,13 +127,6 @@ export class Client {
     );
   }
 
-  /**
-   * Opens a new LSP stream to the server for Language Server Protocol communication.
-   * This allows editor integrations to communicate with the Arc LSP server using
-   * JSON-RPC messages over a WebSocket transport.
-   *
-   * @returns A bidirectional stream for sending and receiving JSON-RPC messages
-   */
   async openLSP(): Promise<Stream<typeof lspMessageZ, typeof lspMessageZ>> {
     return await this.streamClient.stream(LSP_ENDPOINT, lspMessageZ, lspMessageZ);
   }
