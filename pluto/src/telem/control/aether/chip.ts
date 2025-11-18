@@ -23,8 +23,8 @@ export const chipStatusDetailsZ = z
 export const chipStateZ = z.object({
   triggered: z.boolean(),
   status: status.statusZ(chipStatusDetailsZ),
-  sink: telem.booleanSinkSpecZ.optional().default(telem.noopBooleanSinkSpec),
-  source: telem.statusSourceSpecZ.optional().default(telem.noopStatusSourceSpec),
+  sink: telem.booleanSinkSpecZ.default(telem.noopBooleanSinkSpec),
+  source: telem.statusSourceSpecZ.default(telem.noopStatusSourceSpec),
 });
 
 interface InternalState {

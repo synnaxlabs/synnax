@@ -196,9 +196,9 @@ export class Iterator {
   }
 
   /**
-   * @returns true if the iterator value contains a valid segment, and fale otherwise.
-   * valid most commonly returns false when the iterator is exhausted or has
-   * accumulated an error.
+   * @returns true if the iterator value contains a valid segment, and false otherwise.
+   * valid most commonly returns false when the iterator is exhausted or has accumulated
+   * an error.
    */
   async valid(): Promise<boolean> {
     return await this.execute({ command: Command.Valid });

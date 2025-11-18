@@ -34,10 +34,6 @@ const deleteResZ = z.object({});
 const renameReqZ = z.object({ keys: keyZ.array(), names: nameZ.array() });
 const renameResZ = z.object({});
 
-const CREATE_ENDPOINT = "/channel/create";
-const DELETE_ENDPOINT = "/channel/delete";
-const RENAME_ENDPOINT = "/channel/rename";
-
 export interface DeleteProps extends z.input<typeof deleteReqZ> {}
 export interface RenameProps extends z.input<typeof renameReqZ> {}
 
@@ -56,7 +52,7 @@ export class Writer {
       typeof createResZ
     >(
       this.client,
-      CREATE_ENDPOINT,
+      "/channel/create",
       {
         channels: channels.map((c) => ({
           ...c,
@@ -74,7 +70,7 @@ export class Writer {
     const keys = keyZ.array().parse(props.keys ?? []);
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
-      DELETE_ENDPOINT,
+      "/channel/delete",
       props,
       deleteReqZ,
       deleteResZ,
@@ -86,7 +82,7 @@ export class Writer {
   async rename(keys: Key[], names: string[]): Promise<void> {
     await sendRequired<typeof renameReqZ, typeof renameResZ>(
       this.client,
-      RENAME_ENDPOINT,
+      "/channel/rename",
       { keys, names },
       renameReqZ,
       renameResZ,

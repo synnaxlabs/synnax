@@ -24,10 +24,6 @@ import { type task } from "@/hardware/task";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
-const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
-const CREATE_ENDPOINT = "/hardware/rack/create";
-const DELETE_ENDPOINT = "/hardware/rack/delete";
-
 export const SET_CHANNEL_NAME = "sy_rack_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
@@ -37,8 +33,8 @@ const retrieveReqZ = z.object({
   searchTerm: z.string().optional(),
   embedded: z.boolean().optional(),
   hostIsNode: z.boolean().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional(),
+  limit: z.int().optional(),
+  offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
 const retrieveResZ = z.object({ racks: array.nullableZ(rackZ) });
@@ -85,7 +81,7 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
-      DELETE_ENDPOINT,
+      "/hardware/rack/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       deleteResZ,
@@ -98,7 +94,7 @@ export class Client {
     const isSingle = !Array.isArray(rack);
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
-      CREATE_ENDPOINT,
+      "/hardware/rack/create",
       { racks: array.toArray(rack) },
       createReqZ,
       createResZ,
@@ -113,7 +109,7 @@ export class Client {
     const isSingle = "key" in args || "name" in args;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/hardware/rack/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,

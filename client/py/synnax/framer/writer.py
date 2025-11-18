@@ -168,7 +168,6 @@ class Writer:
     error, close will raise the accumulated error.
     """
 
-    _ENDPOINT = "/frame/write"
     _stream: Stream[WriterRequest, WriterResponse]
     _adapter: WriteFrameAdapter
     _close_exc: Exception | None = None
@@ -192,7 +191,7 @@ class Writer:
         self._adapter = adapter
         if use_experimental_codec:
             client = client.with_codec(WSWriterCodec(adapter.codec))
-        self._stream = client.stream(self._ENDPOINT, WriterRequest, WriterResponse)
+        self._stream = client.stream("/frame/write", WriterRequest, WriterResponse)
         config = WriterConfig(
             control_subject=Subject(name=name, key=str(uuid4())),
             keys=self._adapter.keys,

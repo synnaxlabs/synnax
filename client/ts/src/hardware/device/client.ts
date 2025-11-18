@@ -26,10 +26,6 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_device_set";
 export const DELETE_CHANNEL_NAME = "sy_device_delete";
 
-const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
-const CREATE_ENDPOINT = "/hardware/device/create";
-const DELETE_ENDPOINT = "/hardware/device/delete";
-
 const createReqZ = z.object({ devices: newZ.array() });
 const createResZ = z.object({ devices: deviceZ.array() });
 
@@ -44,8 +40,8 @@ const retrieveRequestZ = z.object({
   locations: z.string().array().optional(),
   racks: rackKeyZ.array().optional(),
   searchTerm: z.string().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional(),
+  limit: z.int().optional(),
+  offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
 const retrieveResZ = z.object({ devices: array.nullableZ(deviceZ) });
@@ -96,7 +92,7 @@ export class Client {
     const isSingle = typeof args === "object" && "key" in args;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/hardware/device/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
@@ -126,7 +122,7 @@ export class Client {
     const isSingle = !Array.isArray(devices);
     const res = await sendRequired(
       this.client,
-      CREATE_ENDPOINT,
+      "/hardware/device/create",
       { devices: array.toArray(devices) },
       createReqZ,
       createResZ,
@@ -138,7 +134,7 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,
-      DELETE_ENDPOINT,
+      "/hardware/device/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       deleteResZ,

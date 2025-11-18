@@ -56,9 +56,9 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.OntologyMoveChildren = fnoop.UnaryServer[api.OntologyMoveChildrenRequest, types.Nil]{}
 
 	// GROUP
-	a.OntologyGroupCreate = fnoop.UnaryServer[api.OntologyCreateGroupRequest, api.OntologyCreateGroupResponse]{}
-	a.OntologyGroupDelete = fnoop.UnaryServer[api.OntologyDeleteGroupRequest, types.Nil]{}
-	a.OntologyGroupRename = fnoop.UnaryServer[api.OntologyRenameGroupRequest, types.Nil]{}
+	a.GroupCreate = fnoop.UnaryServer[api.GroupCreateRequest, api.GroupCreateResponse]{}
+	a.GroupDelete = fnoop.UnaryServer[api.GroupDeleteRequest, types.Nil]{}
+	a.GroupRename = fnoop.UnaryServer[api.GroupRenameRequest, types.Nil]{}
 
 	// WORKSPACE
 	a.WorkspaceCreate = fnoop.UnaryServer[api.WorkspaceCreateRequest, api.WorkspaceCreateResponse]{}

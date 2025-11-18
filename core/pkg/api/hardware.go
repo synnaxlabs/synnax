@@ -119,11 +119,11 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 	if hasOffset {
 		q = q.Offset(req.Offset)
 	}
-	if req.Embedded != nil && *req.Embedded {
+	if req.Embedded != nil {
 		q = q.WhereEmbedded(*req.Embedded)
 	}
-	if req.HostIsNode != nil && *req.HostIsNode {
-		q = q.WhereNodeIsHost()
+	if req.HostIsNode != nil {
+		q = q.WhereNodeIsHost(*req.HostIsNode)
 	}
 	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
 		return res, err
@@ -411,7 +411,7 @@ type HardwareRetrieveDeviceRequest struct {
 	Limit          int        `json:"limit" msgpack:"limit"`
 	Offset         int        `json:"offset" msgpack:"offset"`
 	IgnoreNotFound bool       `json:"ignore_not_found" msgpack:"ignore_not_found"`
-	IncludeStatus  *bool      `json:"include_status" msgpack:"include_status"`
+	IncludeStatus  bool       `json:"include_status" msgpack:"include_status"`
 }
 
 type HardwareRetrieveDeviceResponse struct {
@@ -459,7 +459,7 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 		q = q.WhereRacks(req.Racks...)
 	}
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
-	if req.IncludeStatus != nil && *req.IncludeStatus {
+	if req.IncludeStatus {
 		for i := range res.Devices {
 			if s, ok := svc.internal.State.GetDevice(ctx, res.Devices[i].Key); ok {
 				res.Devices[i].Status = &s
