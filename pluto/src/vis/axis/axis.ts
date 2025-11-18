@@ -22,9 +22,9 @@ export interface RenderResult {
 
 export const axisStateZ = tickFactoryProps.extend({
   color: color.colorZ,
-  type: tickType.optional().default("linear"),
+  type: tickType.default("linear"),
   font: z.string(),
-  showGrid: z.boolean().optional().default(true),
+  showGrid: z.boolean().default(true),
   location: location.outer,
   gridColor: color.colorZ,
 });

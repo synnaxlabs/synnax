@@ -18,8 +18,8 @@ import { type diagram } from "@/vis/diagram/aether";
 export const toggleStateZ = z.object({
   triggered: z.boolean(),
   enabled: z.boolean(),
-  sink: telem.booleanSinkSpecZ.optional().default(telem.noopBooleanSinkSpec),
-  source: telem.booleanSourceSpecZ.optional().default(telem.noopBooleanSourceSpec),
+  sink: telem.booleanSinkSpecZ.default(telem.noopBooleanSinkSpec),
+  source: telem.booleanSourceSpecZ.default(telem.noopBooleanSourceSpec),
 });
 
 export type ToggleState = z.input<typeof toggleStateZ>;

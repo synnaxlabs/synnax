@@ -223,8 +223,6 @@ export class Channel {
 
 export const CALCULATION_STATUS_CHANNEL_NAME = "sy_calculation_status";
 
-const RETRIEVE_GROUP_ENDPOINT = "/channel/retrieve-group";
-
 const retrieveGroupReqZ = z.object({});
 
 const retrieveGroupResZ = z.object({ group: group.groupZ });
@@ -427,7 +425,7 @@ export class Client {
   async retrieveGroup(): Promise<group.Group> {
     const res = await sendRequired(
       this.client,
-      RETRIEVE_GROUP_ENDPOINT,
+      "/channel/retrieve-group",
       {},
       retrieveGroupReqZ,
       retrieveGroupResZ,

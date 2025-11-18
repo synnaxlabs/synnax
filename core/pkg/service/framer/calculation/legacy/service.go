@@ -23,15 +23,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/status"
@@ -50,10 +47,6 @@ type ServiceConfig struct {
 	// Channel is used to retrieve information about the channels being calculated.
 	// [REQUIRED]
 	Channel channel.Service
-	// ChannelObservable is used to listen to real-time changes in calculated channels
-	// so the calculation routines can be updated accordingly.
-	// [REQUIRED]
-	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
 	// StateCodec is the encoder/decoder used to communicate calculation state
 	// changes.
 	// [OPTIONAL]
@@ -69,10 +62,9 @@ var (
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
-	validate.NotNil(v, "Framer", c.Framer)
-	validate.NotNil(v, "Channel", c.Channel)
-	validate.NotNil(v, "ChannelObservable", c.ChannelObservable)
-	validate.NotNil(v, "StateCodec", c.StateCodec)
+	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "state_codec", c.StateCodec)
 	return v.Error()
 }
 
@@ -81,7 +73,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
 	c.StateCodec = override.Nil(c.StateCodec, other.StateCodec)
 	return c
 }
@@ -107,9 +98,8 @@ type Service struct {
 		sync.Mutex
 		entries map[channel.Key]*entry
 	}
-	disconnectFromChannelChanges observe.Disconnect
-	stateKey                     channel.Key
-	w                            *framer.Writer
+	stateKey channel.Key
+	w        *framer.Writer
 }
 
 const StatusChannelName = "sy_calculation_status"
@@ -154,7 +144,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 
 	s := &Service{cfg: cfg, w: w, stateKey: calculationStateCh.Key()}
-	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
 	s.mu.entries = make(map[channel.Key]*entry)
 
 	return s, nil
@@ -172,41 +161,7 @@ func (s *Service) setStatus(
 	}
 }
 
-func (s *Service) handleChange(
-	ctx context.Context,
-	reader gorp.TxReader[channel.Key, channel.Channel],
-) {
-	c, ok := reader.Next(ctx)
-	if !ok {
-		return
-	}
-	// Don't stop calculating if the channel is deleted. The calculation will be
-	// automatically shut down when it is no longer needed.
-	if c.Variant != change.Set || !c.Value.IsCalculated() {
-		return
-	}
-	// If the channel is a legacy calculated channel
-	existing, found := s.mu.entries[c.Key]
-	if !found {
-		if !c.Value.IsLegacyCalculated() {
-			return
-		}
-		s.update(ctx, c.Value)
-		return
-	}
-	if existing.ch.IsLegacyCalculated() && !c.Value.IsLegacyCalculated() {
-		existing.calculation.Close()
-		if err := existing.shutdown.Close(); err != nil {
-			s.cfg.L.Error("failed to shutdown calculation", zap.Error(err))
-		}
-	}
-	if existing.ch.Equals(c.Value, "Name") {
-		return
-	}
-	s.update(ctx, c.Value)
-}
-
-func (s *Service) update(ctx context.Context, ch channel.Channel) {
+func (s *Service) Update(ctx context.Context, ch channel.Channel) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	e, found := s.mu.entries[ch.Key()]
@@ -252,7 +207,6 @@ func (s *Service) releaseEntryCloser(key channel.Key) io.Closer {
 func (s *Service) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.disconnectFromChannelChanges()
 	for _, e := range s.mu.entries {
 		e.calculation.Close()
 	}
@@ -264,15 +218,40 @@ func (s *Service) Close() error {
 	return c.Error()
 }
 
-// Request requests that the Service starts calculation the channel with the provided
+// Add requests that the Service starts calculating the channel with the provided
 // key. The calculation will be started if the channel is calculated and not already
 // being calculated. If the channel is already being calculated, the number of active
-// requests will be increased. The caller must close the returned io.Closer when the
-// calculation is no longer needed, which will decrement the number of active requests.
-func (s *Service) Request(ctx context.Context, key channel.Key) (io.Closer, error) {
+// requests will be increased. The caller must call Remove when the calculation is no
+// longer needed, which will decrement the number of active requests.
+func (s *Service) Add(ctx context.Context, key channel.Key) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.startCalculation(ctx, key, 1)
+	_, err := s.startCalculation(ctx, key, 1)
+	return err
+}
+
+// Remove decrements the reference count for the calculation of the channel with the
+// provided key. If the reference count reaches zero, the calculation will be stopped
+// and the channel will be removed from the service.
+func (s *Service) Remove(ctx context.Context, key channel.Key) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e, found := s.mu.entries[key]
+	if !found {
+		return nil
+	}
+	e.count--
+	if e.count > 0 {
+		s.cfg.L.Debug("decremented calculation reference count",
+			zap.Stringer("key", key),
+			zap.Int("count", e.count),
+		)
+		return nil
+	}
+	s.cfg.L.Debug("closing calculated channel", zap.Stringer("key", key))
+	e.calculation.Close()
+	delete(s.mu.entries, key)
+	return nil
 }
 
 const defaultPipelineBufferSize = 50
@@ -292,6 +271,9 @@ func (s *Service) startCalculation(
 		}
 		if !ch.IsCalculated() {
 			return nil, errors.Wrapf(validate.Error, "channel %v is not calculated", ch)
+		}
+		if !ch.IsLegacyCalculated() {
+			return nil, nil
 		}
 		if _, exists := s.mu.entries[key]; exists {
 			s.mu.entries[key].count++

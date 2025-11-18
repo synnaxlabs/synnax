@@ -27,7 +27,6 @@ import { z } from "zod";
 
 import { LoginNav } from "@/auth/LoginNav";
 import { Cluster } from "@/cluster";
-import { setActive } from "@/cluster/slice";
 import { CSS } from "@/css";
 import { Version } from "@/version";
 
@@ -80,18 +79,21 @@ export const Login = (): ReactElement => {
 
   const handleSubmit = (): void =>
     handleError(async () => {
-      if (!methods.validate() || selectedCluster == null) return;
+      const clusterToConnect = servingCluster ?? selectedCluster;
+      if (!methods.validate() || clusterToConnect == null) return;
       const credentials = methods.value();
       setStatus(status.create({ variant: "loading", message: "Connecting..." }));
-      const client = new Client({ ...selectedCluster, ...credentials });
+      const client = new Client({ ...clusterToConnect, ...credentials });
       const state = await client.connectivity.check();
+      const key = state.clusterKey;
       if (state.status !== "connected") {
         const message = state.message ?? "Unknown error";
         return setStatus(status.create({ variant: "error", message }));
       }
-      if (state.nodeVersion != null) dispatch(Version.set(state.nodeVersion));
-      dispatch(Cluster.set({ ...selectedCluster, ...credentials }));
-      dispatch(setActive(selectedCluster.key));
+      if (state.nodeVersion != null && servingCluster != null)
+        dispatch(Version.set(state.nodeVersion));
+      dispatch(Cluster.set({ ...clusterToConnect, key, ...credentials }));
+      dispatch(Cluster.setActive(key));
     }, "Failed to log in");
 
   const handleSelectedClusterChange = useCallback(
