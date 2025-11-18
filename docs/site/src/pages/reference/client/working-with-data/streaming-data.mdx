@@ -1,0 +1,227 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Streaming Data"
+description: "Real-time data streaming patterns for live telemetry."
+next: "Iterators"
+nextURL: "/reference/client/working-with-data/iterators"
+prev: "Ranges"
+prevURL: "/reference/client/working-with-data/ranges"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This guide covers real-time data streaming for consuming live telemetry as it's written to Synnax.
+
+<Divider.Divider x />
+
+## Opening a Streamer
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/stream-data#opening-a-streamer">Python Stream Data - Opening a Streamer</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/stream-data#open-a-streamer">TypeScript Stream Data - Opening a Streamer</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Reading Frames
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/stream-data#reading-frames">Python Stream Data - Reading Frames</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/stream-data#reading-frames">TypeScript Stream Data - Reading Frames</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Specifying a Timeout
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/stream-data#specifying-a-timeout">Python Stream Data - Specifying a Timeout</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="warning">
+      <span style={{ color: "red" }}>No corresponding section - TypeScript streamer doesn't have timeout configuration</span>{" "}
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Downsampling
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/stream-data#downsampling">Python Stream Data - Downsampling</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/stream-data#downsampling">TypeScript Stream Data - Downsampling</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Handling Partial Frames
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/stream-data#handling-partial-frames">Python Stream Data - Handling Partial Frames</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/stream-data#handling-partial-frames">TypeScript Stream Data - Handling Partial Frames</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Using a For Loop
+
+<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/stream-data#using-a-for-loop">Python Stream Data - Using a For Loop</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Python-specific pattern**: Python supports iterator protocol for streamers.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Updating the Channel List
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/stream-data#updating-the-channel-list">Python Stream Data - Updating the Channel List</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/stream-data#updating-the-channel-list">TypeScript Stream Data - Updating the Channel List</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Closing the Streamer
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/stream-data#closing-the-streamer">Python Stream Data - Closing the Streamer</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/stream-data#closing-the-streamer">TypeScript Stream Data - Closing the Streamer</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Using a Context Manager
+
+<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/stream-data#using-a-context-manager">Python Stream Data - Using a Context Manager</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Python-specific pattern**: Python supports context managers (`with` statement) for automatic cleanup.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Using an Async Streamer
+
+<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/stream-data#using-an-async-streamer">Python Stream Data - Using an Async Streamer</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Python-specific feature**: TypeScript streaming is async by default, Python offers both sync and async APIs.
+</Note.Note>

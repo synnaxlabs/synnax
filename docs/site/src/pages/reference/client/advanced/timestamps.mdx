@@ -1,0 +1,99 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Timestamps"
+description: "High-precision timestamp handling in JavaScript with microsecond accuracy."
+next: "Build a Device Driver"
+nextURL: "/reference/client/resources/build-device-driver"
+prev: "Delete Data"
+prevURL: "/reference/client/advanced/delete-data"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This guide covers Synnax's timestamp utilities for handling high-precision time in JavaScript/TypeScript, which has native limitations with microsecond precision.
+
+**TypeScript-specific feature**: Python has native support for high-precision timestamps via `datetime` and doesn't need these utilities.
+
+<Divider.Divider x />
+
+## The Precision Problem
+
+<Client.Tabs client:load exclude={["cpp", "python"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/timestamps#javascripts-limitations">TypeScript Timestamps - The Precision Problem</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## TimeStamp Class
+
+<Client.Tabs client:load exclude={["cpp", "python"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/timestamps#timestamp">TypeScript Timestamps - TimeStamp Class</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## TimeSpan Class
+
+<Client.Tabs client:load exclude={["cpp", "python"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/timestamps#timespan">TypeScript Timestamps - TimeSpan Class</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## TimeRange Class
+
+<Client.Tabs client:load exclude={["cpp", "python"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/timestamps#timerange">TypeScript Timestamps - TimeRange Class</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Converting to JavaScript Date
+
+<Client.Tabs client:load exclude={["cpp", "python"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/timestamps#converting-to-a-date">TypeScript Timestamps - Converting to JavaScript Date</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>

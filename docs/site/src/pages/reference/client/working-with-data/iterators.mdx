@@ -1,0 +1,113 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Iterators"
+description: "Lazy evaluation for efficiently reading large datasets."
+next: "Writers"
+nextURL: "/reference/client/advanced/writers"
+prev: "Streaming Data"
+prevURL: "/reference/client/working-with-data/streaming-data"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This guide covers using iterators for efficient lazy evaluation when reading large datasets. Iterators allow you to process data in chunks without loading everything into memory.
+
+<Divider.Divider x />
+
+## What are Iterators?
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/read-data#reading-with-iterators">Python Read Data - Reading with Iterators (intro)</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/read-data#using-iterators">TypeScript Read Data - Using Iterators (intro)</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Note**: This content was deferred from <a href="/reference/client/fundamentals/read-data">Fundamentals - Reading Data</a> as an intermediate concept.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Creating an Iterator
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/read-data#reading-with-iterators">Python Read Data - Reading with Iterators (setup)</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/read-data#using-iterators">TypeScript Read Data - Using Iterators (setup)</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Iterating through Data
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/read-data#reading-with-iterators">Python Read Data - Reading with Iterators (loop examples)</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/read-data#using-iterators">TypeScript Read Data - Using Iterators (loop examples)</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Iterator Configuration
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/read-data#reading-with-iterators">Python Read Data - Reading with Iterators (chunk size)</a>
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/typescript-client/read-data#using-iterators">TypeScript Read Data - Using Iterators (chunk size)</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>

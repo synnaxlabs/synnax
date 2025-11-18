@@ -1,0 +1,135 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Build a Device Driver"
+description: "Creating custom hardware integrations with Python device drivers."
+prev: "Timestamps"
+prevURL: "/reference/client/advanced/timestamps"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This guide covers building custom device drivers in Python to integrate hardware that isn't natively supported by Synnax's built-in drivers. This is useful for prototyping or integrating specialized hardware.
+
+**Python-specific feature**: Device driver development is currently only supported in Python. For production-grade drivers, see the C++ Driver documentation.
+
+<Divider.Divider x />
+
+## Setup and Installation
+
+<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/device-driver">Python Device Driver - Setup and Installation</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Downloading the Arduino IDE
+
+<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/device-driver">Python Device Driver - Downloading the Arduino IDE</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+### Installing Synnax (The Core, Console)
+
+<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/device-driver">Python Device Driver - Installing Synnax</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Read-Only Driver
+
+<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/device-driver">Python Device Driver - Read-Only Driver (Arduino example)</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Example**: This section demonstrates reading sensor data from an Arduino and streaming it to Synnax in real-time.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Write-Only Driver
+
+<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/device-driver">Python Device Driver - Write-Only Driver (Arduino example)</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Example**: This section demonstrates sending control commands from Synnax to an Arduino.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Read-Write Driver
+
+<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="info">
+      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+        <a href="/reference/python-client/device-driver">Python Device Driver - Read-Write Driver (Arduino example)</a>
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **Example**: This section demonstrates bidirectional communication - reading sensor data AND sending control commands simultaneously.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Production Drivers
+
+<Note.Note variant="info">
+  **For production-grade C++ driver development**: See the <a href="/reference/driver/">Driver documentation</a> for building robust, high-performance hardware integrations with built-in support for:
+  - **LabJack** devices (U3, U6, T4, T7, T8)
+  - **National Instruments** DAQmx devices
+  - **OPC UA** servers
+  - **Modbus TCP/IP** devices
+
+  C++ drivers offer better performance, built-in device pooling, cross-platform support, and integration with the Synnax task system.
+</Note.Note>
