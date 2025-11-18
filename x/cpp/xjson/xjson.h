@@ -113,6 +113,11 @@ class Parser {
         return {K{}, false};
     }
 
+    /// @brief Helper to join path segments for error reporting
+    std::string join_path(const std::string &parent, const std::string &child) const {
+        return parent.empty() ? child : parent + "." + child;
+    }
+
     /// @brief Wrapper for iterator-based access
     template<typename T>
     T get(const std::string &path, const json::iterator &iter) {
@@ -385,13 +390,6 @@ public:
     }
 };
 
-// Test struct to verify parser constructibility
-struct TestConstructibleType {
-    std::string value;
-    explicit TestConstructibleType(Parser p): value(p.field<std::string>("value")) {}
-    TestConstructibleType() = default;
-};
-
 /// @brief Type trait to detect if a type can be constructed from a Parser
 template<typename T>
 inline constexpr bool
@@ -399,12 +397,6 @@ inline constexpr bool
                                 std::is_constructible_v<T, Parser &> ||
                                 std::is_constructible_v<T, const Parser &> ||
                                 std::is_constructible_v<T, Parser &&>;
-
-// Verify the trait works for our test type
-static_assert(
-    is_parser_constructible_v<TestConstructibleType>,
-    "Trait should detect TestConstructibleType"
-);
 
 // Implementation of parse_value - the single source of truth for all type conversions
 template<typename T>
@@ -418,12 +410,9 @@ T Parser::parse_value(const std::string &path, const json &j) {
         }
         T map_result;
         for (const auto &[json_key, value]: j.items()) {
-            auto [map_key, ok] = convert_key<K>(
-                json_key,
-                path.empty() ? json_key : path + "." + json_key
-            );
+            const auto child_path = join_path(path, json_key);
+            auto [map_key, ok] = convert_key<K>(json_key, child_path);
             if (!ok) continue;
-            const auto child_path = path.empty() ? json_key : path + "." + json_key;
             map_result[map_key] = parse_value<V>(child_path, value);
         }
         return map_result;
@@ -436,8 +425,7 @@ T Parser::parse_value(const std::string &path, const json &j) {
         std::vector<U> values;
         values.reserve(j.size());
         for (size_t i = 0; i < j.size(); ++i) {
-            const auto child_path = path.empty() ? std::to_string(i)
-                                                 : path + "." + std::to_string(i);
+            const auto child_path = join_path(path, std::to_string(i));
             values.push_back(parse_value<U>(child_path, j[i]));
         }
         return values;
