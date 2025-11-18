@@ -33,6 +33,19 @@ struct BaseTaskConfig {
         auto_start(parser.optional<bool>("auto_start", false)) {}
 };
 
+/// @brief a common base configuration result for tasks that is used across various
+/// helper functions.
+struct ConfigureResult {
+    /// @brief the task instantiated by a specific task driver. Should be null if error
+    /// is not xerrors::NIL.
+    std::unique_ptr<task::Task> task;
+    /// @brief whether to auto-start the task if no error occurred.
+    bool auto_start = false;
+    /// @brief the error that occurred during configuration. If no error occurred, this
+    /// field should be set to xerrors::NIL.
+    xerrors::Error error = xerrors::NIL;
+};
+
 /// @brief converts a data_saving boolean to the appropriate WriterMode.
 inline synnax::WriterMode data_saving_writer_mode(const bool data_saving) {
     if (data_saving) return synnax::WriterMode::PersistStream;

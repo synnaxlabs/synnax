@@ -100,47 +100,45 @@ public:
     ) override;
 
     template<typename HardwareT, typename ConfigT, typename SourceSinkT, typename TaskT>
-    std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task,
-        bool &auto_start
-    ) {
+    common::ConfigureResult
+    configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
+        common::ConfigureResult result;
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
-        if (cfg_err) return {nullptr, cfg_err};
-        auto_start = cfg.auto_start;
+        if (cfg_err) {
+            result.error = cfg_err;
+            return result;
+        }
         TaskHandle handle;
         const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) +
                                           ")";
-        if (const auto err = this->dmx->CreateTask(dmx_task_name.c_str(), &handle))
-            return {nullptr, err};
+        if (const auto err = this->dmx->CreateTask(dmx_task_name.c_str(), &handle)) {
+            result.error = err;
+            return result;
+        }
         // Very important that we instantiate the Hardware API here, as we pass
         // ownership over the lifecycle of the task handle to it. If we encounter
         // any errors when applying the configuration or cycling the task, we need
         // to make sure it gets cleared.
         auto hw = std::make_unique<HardwareT>(this->dmx, handle);
-        if (const auto err = cfg.apply(this->dmx, handle)) return {nullptr, err};
+        if (result.error = cfg.apply(this->dmx, handle); result.error) return result;
         // NI will look for invalid configuration parameters internally, so we
         // quickly cycle the task to catch and communicate any errors as
         // soon as possible.
-        if (const auto err = hw->start()) return {nullptr, err};
-        if (const auto err = hw->stop()) return {nullptr, err};
-        return {
-            std::make_unique<TaskT>(
-                task,
-                ctx,
-                breaker::default_config(task.name),
-                std::make_unique<SourceSinkT>(std::move(cfg), std::move(hw))
-            ),
-            xerrors::NIL
-        };
+        if (result.error = hw->start(); result.error) return result;
+        if (result.error = hw->stop(); result.error) return result;
+        result.task = std::make_unique<TaskT>(
+            task,
+            ctx,
+            breaker::default_config(task.name),
+            std::make_unique<SourceSinkT>(std::move(cfg), std::move(hw))
+        );
+        result.auto_start = cfg.auto_start;
+        return result;
     }
 
     std::string name() override { return INTEGRATION_NAME; }
 
-    std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_scan(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task,
-        bool &auto_start
-    );
+    common::ConfigureResult
+    configure_scan(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
 };
 }

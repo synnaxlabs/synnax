@@ -73,50 +73,40 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     if (!this->check_health(ctx, task)) return {nullptr, true};
-    bool auto_start = false;
-    std::pair<std::unique_ptr<task::Task>, xerrors::Error> res = {
-        nullptr,
-        xerrors::NIL
-    };
+    common::ConfigureResult res;
     if (task.type == SCAN_TASK_TYPE)
-        res = configure_scan(ctx, task, auto_start);
+        res = configure_scan(ctx, task);
     else if (task.type == ANALOG_READ_TASK_TYPE)
         res = configure<
             hardware::daqmx::AnalogReader,
             ni::ReadTaskConfig,
             ni::ReadTaskSource<double>,
-            common::ReadTask>(ctx, task, auto_start);
+            common::ReadTask>(ctx, task);
     else if (task.type == DIGITAL_READ_TASK_TYPE)
         res = configure<
             hardware::daqmx::DigitalReader,
             ni::ReadTaskConfig,
             ni::ReadTaskSource<uint8_t>,
-            common::ReadTask>(ctx, task, auto_start);
+            common::ReadTask>(ctx, task);
     else if (task.type == COUNTER_READ_TASK_TYPE)
         res = configure<
             hardware::daqmx::CounterReader,
             ni::ReadTaskConfig,
             ni::ReadTaskSource<double>,
-            common::ReadTask>(ctx, task, auto_start);
+            common::ReadTask>(ctx, task);
     else if (task.type == ANALOG_WRITE_TASK_TYPE)
         res = configure<
             hardware::daqmx::AnalogWriter,
             ni::WriteTaskConfig,
             ni::WriteTaskSink<double>,
-            common::WriteTask>(ctx, task, auto_start);
+            common::WriteTask>(ctx, task);
     else if (task.type == DIGITAL_WRITE_TASK_TYPE)
         res = configure<
             hardware::daqmx::DigitalWriter,
             ni::WriteTaskConfig,
             ni::WriteTaskSink<uint8_t>,
-            common::WriteTask>(ctx, task, auto_start);
-    return common::handle_config_err(
-        ctx,
-        task,
-        std::move(res.first),
-        res.second,
-        auto_start
-    );
+            common::WriteTask>(ctx, task);
+    return common::handle_config_err(ctx, task, res);
 }
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
@@ -135,23 +125,24 @@ ni::Factory::configure_initial_tasks(
     );
 }
 
-std::pair<std::unique_ptr<task::Task>, xerrors::Error> ni::Factory::configure_scan(
+common::ConfigureResult ni::Factory::configure_scan(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task,
-    bool &auto_start
+    const synnax::Task &task
 ) {
     auto parser = xjson::Parser(task.config);
     auto cfg = ScanTaskConfig(parser);
-    if (parser.error()) return {nullptr, parser.error()};
-    auto_start = cfg.enabled;
-    return {
-        std::make_unique<common::ScanTask>(
-            std::make_unique<ni::Scanner>(this->syscfg, cfg, task),
-            ctx,
-            task,
-            breaker::default_config(task.name),
-            cfg.rate
-        ),
-        xerrors::NIL
-    };
+    common::ConfigureResult res;
+    if (parser.error()) {
+        res.error = parser.error();
+        return res;
+    }
+    res.task = std::make_unique<common::ScanTask>(
+        std::make_unique<ni::Scanner>(this->syscfg, cfg, task),
+        ctx,
+        task,
+        breaker::default_config(task.name),
+        cfg.rate
+    );
+    res.auto_start = cfg.enabled;
+    return res;
 }

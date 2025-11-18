@@ -19,58 +19,53 @@ const std::string READ_TASK_TYPE = INTEGRATION_NAME + "_read";
 const std::string SCAN_TASK_TYPE = INTEGRATION_NAME + "_scan";
 const std::string WRITE_TASK_TYPE = INTEGRATION_NAME + "_write";
 
-std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_read(
+common::ConfigureResult configure_read(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task,
-    bool &auto_start
+    const synnax::Task &task
 ) {
+    common::ConfigureResult result;
     auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task);
-    if (err) return {nullptr, err};
-    auto_start = cfg.auto_start;
+    if (result.error = err; result.error) return result;
     auto [dev, d_err] = devs->acquire(cfg.conn);
-    if (d_err) return {nullptr, d_err};
-    return {
-        std::make_unique<common::ReadTask>(
-            task,
-            ctx,
-            breaker::default_config(task.name),
-            std::make_unique<ReadTaskSource>(dev, std::move(cfg))
-        ),
-        xerrors::NIL
-    };
+    if (result.error = d_err; result.error) return result;
+    result.task = std::make_unique<common::ReadTask>(
+        task,
+        ctx,
+        breaker::default_config(task.name),
+        std::make_unique<ReadTaskSource>(dev, std::move(cfg))
+    );
+    return result;
 }
 
-std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_scan(
+common::ConfigureResult configure_scan(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task,
-    bool &auto_start
+    const synnax::Task &task
 ) {
-    auto_start = true;
-    return {std::make_unique<ScanTask>(ctx, task, devs), xerrors::NIL};
+    common::ConfigureResult result;
+    result.task = std::make_unique<ScanTask>(ctx, task, devs);
+    result.auto_start = true;
+    return result;
 }
 
-std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_write(
+common::ConfigureResult configure_write(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task,
-    bool &auto_start
+    const synnax::Task &task
 ) {
+    common::ConfigureResult result;
     auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
-    if (err) return {nullptr, err};
-    auto_start = cfg.auto_start;
+    if (result.error = err; result.error) return result;
     auto [dev, d_err] = devs->acquire(cfg.conn);
-    if (d_err) return {nullptr, d_err};
-    return {
-        std::make_unique<common::WriteTask>(
-            task,
-            ctx,
-            breaker::default_config(task.name),
-            std::make_unique<WriteTaskSink>(dev, std::move(cfg))
-        ),
-        xerrors::NIL
-    };
+    if (result.error = d_err; result.error) return result;
+    result.task = std::make_unique<common::WriteTask>(
+        task,
+        ctx,
+        breaker::default_config(task.name),
+        std::make_unique<WriteTaskSink>(dev, std::move(cfg))
+    );
+    return result;
 }
 
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
@@ -78,24 +73,14 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const synnax::Task &task
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
-    bool auto_start = false;
-    std::pair<std::unique_ptr<task::Task>, xerrors::Error> res = {
-        nullptr,
-        xerrors::NIL
-    };
+    common::ConfigureResult res;
     if (task.type == READ_TASK_TYPE)
-        res = configure_read(this->devices, ctx, task, auto_start);
+        res = configure_read(this->devices, ctx, task);
     else if (task.type == WRITE_TASK_TYPE)
-        res = configure_write(this->devices, ctx, task, auto_start);
+        res = configure_write(this->devices, ctx, task);
     else if (task.type == SCAN_TASK_TYPE)
-        res = configure_scan(this->devices, ctx, task, auto_start);
-    return common::handle_config_err(
-        ctx,
-        task,
-        std::move(res.first),
-        res.second,
-        auto_start
-    );
+        res = configure_scan(this->devices, ctx, task);
+    return common::handle_config_err(ctx, task, res);
 }
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
