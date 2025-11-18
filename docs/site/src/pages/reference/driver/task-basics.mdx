@@ -175,13 +175,16 @@ import synnax as sy
 
 client = sy.Synnax()
 
+# Retrieve task by name
+task = client.hardware.tasks.retrieve(name="My Example Task")
+
+# Retrieve multiple tasks by names
+tasks = client.hardware.tasks.retrieve(names=["Task 1", "Task 2"])
+
 # List all tasks
 all_tasks = client.hardware.tasks.list()
 for task in all_tasks:
     print(f"Task: {task.name}, Type: {task.type}")
-
-# Retrieve task by name
-task = client.hardware.tasks.retrieve(name="My Example Task")
 
 # List tasks by type
 analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
@@ -298,14 +301,17 @@ import { Synnax } from "@synnaxlabs/client";
 
 const client = new Synnax();
 
+// Retrieve task by name
+const task = await client.hardware.tasks.retrieve({ name: "My Example Task" });
+
+// Retrieve multiple tasks by names
+const tasks = await client.hardware.tasks.retrieve({ names: ["Task 1", "Task 2"] });
+
 // List all tasks
 const allTasks = await client.hardware.tasks.list();
 allTasks.forEach((task) => {
   console.log(`Task: ${task.name}, Type: ${task.type}`);
 });
-
-// Retrieve task by name
-const task = await client.hardware.tasks.retrieve({ name: "My Example Task" });
 
 // List tasks by type
 const analogReadTasks = allTasks.filter((t) => t.type === "ni_analog_read");
