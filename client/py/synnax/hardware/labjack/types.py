@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
-from typing import Literal
+from typing import Literal, get_args
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, confloat, conint, field_validator
@@ -31,6 +31,7 @@ MAKE = "LabJack"
 T4 = "LJM_dtT4"
 T7 = "LJM_dtT7"
 T8 = "LJM_dtT8"
+SUPPORTED_MODELS = Literal[T4, T7, T8]
 
 
 class BaseChan(BaseModel):
@@ -433,7 +434,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             channels=channels if channels is not None else [],
         )
 
-    def update_device_properties(self, device_client):
+    def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
         props = (
@@ -450,7 +451,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             props["read"]["channels"][ch.port] = ch.channel
 
         dev.properties = json.dumps(props)
-        device_client.create(dev)
+        return device_client.create(dev)
 
 
 class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
@@ -500,7 +501,7 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             channels=channels if channels is not None else [],
         )
 
-    def update_device_properties(self, device_client):
+    def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration."""
         dev = device_client.retrieve(key=self.config.device)
         props = (
@@ -517,7 +518,7 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             props["write"]["channels"][ch.port] = ch.state_channel
 
         dev.properties = json.dumps(props)
-        device_client.create(dev)
+        return device_client.create(dev)
 
 
 class Device(device.Device):
@@ -546,10 +547,15 @@ class Device(device.Device):
 
     def __init__(
         self,
-        model: str,
+        *,
+        model: SUPPORTED_MODELS,
         identifier: str,
         connection_type: str = "ANY",
-        **kwargs,
+        name: str = "",
+        location: str = "",
+        rack: int = 0,
+        key: str = "",
+        configured: bool = False,
     ):
         """
         Initialize a LabJack device.
@@ -558,20 +564,22 @@ class Device(device.Device):
             model: LabJack model (use module constants: T4, T7, T8)
             identifier: Device identifier (serial number, IP address, or device name)
             connection_type: Connection method - "ANY", "USB", "TCP", "ETHERNET", or "WIFI"
-            **kwargs: Additional device properties (name, location, rack, etc.)
+            name: Human-readable name for the device
+            location: Physical location or description
+            rack: Rack key this device belongs to
+            key: Unique key for the device (auto-generated if empty)
+            configured: Whether the device has been configured
         """
         # Validate model
-        valid_models = [T4, T7, T8]
+        valid_models = get_args(SUPPORTED_MODELS)
         if model not in valid_models:
-            raise ValueError(f"Invalid model '{model}'. Must be one of: {valid_models}")
+            raise ValueError(
+                f"Invalid model '{model}'. Must be one of: {list(valid_models)}"
+            )
 
         # Auto-generate key if not provided
-        if "key" not in kwargs:
-            kwargs["key"] = str(uuid4())
-
-        # Set make and model
-        kwargs["make"] = MAKE
-        kwargs["model"] = model
+        if not key:
+            key = str(uuid4())
 
         # Build connection properties
         props = {
@@ -582,6 +590,14 @@ class Device(device.Device):
             "read": {"index": 0, "channels": {}},
             "write": {"channels": {}},
         }
-        kwargs["properties"] = json.dumps(props)
 
-        super().__init__(**kwargs)
+        super().__init__(
+            key=key,
+            location=location,
+            rack=rack,
+            name=name,
+            make=MAKE,
+            model=model,
+            configured=configured,
+            properties=json.dumps(props),
+        )

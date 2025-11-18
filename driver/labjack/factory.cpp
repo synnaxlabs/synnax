@@ -128,7 +128,13 @@ std::pair<std::unique_ptr<task::Task>, bool> labjack::Factory::configure_task(
         );
     if (task.type == WRITE_TASK_TYPE)
         res = configure_write(this->dev_manager, ctx, task, auto_start);
-    return common::handle_config_err(ctx, task, std::move(res), auto_start);
+    return common::handle_config_err(
+        ctx,
+        task,
+        std::move(res.first),
+        res.second,
+        auto_start
+    );
 }
 
 std::unique_ptr<labjack::Factory>

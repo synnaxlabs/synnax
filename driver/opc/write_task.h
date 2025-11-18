@@ -47,11 +47,7 @@ struct OutputChan {
         }()) {}
 };
 
-struct WriteTaskConfig {
-    /// @brief the key of the device the task is writing to.
-    std::string device_key;
-    /// @brief whether to automatically start the task after configuration.
-    bool auto_start;
+struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the list of channels to read from the server.
     std::unordered_map<synnax::ChannelKey, std::unique_ptr<OutputChan>> channels;
     /// @brief the config for connecting to the OPC UA server.
@@ -61,8 +57,7 @@ struct WriteTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         xjson::Parser &parser
     ):
-        device_key(parser.required<std::string>("device")),
-        auto_start(parser.optional<bool>("auto_start", false)) {
+        common::BaseWriteTaskConfig(parser) {
         parser.iter("channels", [&](xjson::Parser &channel_builder) {
             auto ch = std::make_unique<OutputChan>(channel_builder);
             if (ch->enabled) channels[ch->cmd_channel] = std::move(ch);

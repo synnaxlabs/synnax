@@ -23,7 +23,7 @@ from synnax.hardware.task import (
     StarterStopperMixin,
     Task,
 )
-from synnax.telem import CrudeRate
+from synnax.telem import CrudeDataType, CrudeRate
 
 # Device identifiers - must match Console expectations
 MAKE = "Modbus"
@@ -486,7 +486,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             channels=channels if channels is not None else [],
         )
 
-    def update_device_properties(self, device_client):
+    def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration.
 
         This method synchronizes channel configurations with device properties
@@ -525,7 +525,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             props["read"]["channels"][key] = ch.channel
 
         dev.properties = json.dumps(props)
-        device_client.create(dev)
+        return device_client.create(dev)
 
 
 class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
@@ -568,7 +568,7 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             channels=channels if channels is not None else [],
         )
 
-    def update_device_properties(self, device_client):
+    def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Update device properties before task configuration.
 
         This method synchronizes channel configurations with device properties
@@ -605,7 +605,7 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
             props["write"]["channels"][key] = ch.channel
 
         dev.properties = json.dumps(props)
-        device_client.create(dev)
+        return device_client.create(dev)
 
 
 class Device(device.Device):
@@ -636,11 +636,16 @@ class Device(device.Device):
 
     def __init__(
         self,
+        *,
         host: str,
         port: int,
         swap_bytes: bool = False,
         swap_words: bool = False,
-        **kwargs,
+        name: str = "",
+        location: str = "",
+        rack: int = 0,
+        key: str = "",
+        configured: bool = False,
     ):
         """
         Initialize a Modbus TCP device.
@@ -650,15 +655,15 @@ class Device(device.Device):
             port: The TCP port number (typically 502)
             swap_bytes: Whether to swap byte order within 16-bit words
             swap_words: Whether to swap word order for 32-bit+ values
-            **kwargs: Additional device properties (name, location, rack, etc.)
+            name: Human-readable name for the device
+            location: Physical location or description
+            rack: Rack key this device belongs to
+            key: Unique key for the device (auto-generated if empty)
+            configured: Whether the device has been configured
         """
         # Auto-generate key if not provided
-        if "key" not in kwargs:
-            kwargs["key"] = str(uuid4())
-
-        # Set make and model
-        kwargs["make"] = MAKE
-        kwargs["model"] = MODEL
+        if not key:
+            key = str(uuid4())
 
         # Build connection properties
         props = {
@@ -671,6 +676,14 @@ class Device(device.Device):
             "read": {"index": 0, "channels": {}},
             "write": {"channels": {}},
         }
-        kwargs["properties"] = json.dumps(props)
 
-        super().__init__(**kwargs)
+        super().__init__(
+            key=key,
+            location=location,
+            rack=rack,
+            name=name,
+            make=MAKE,
+            model=MODEL,
+            configured=configured,
+            properties=json.dumps(props),
+        )

@@ -2795,22 +2795,43 @@ class Device(device.Device):
     :param identifier: Channel name prefix for all channels on this device
     """
 
-    def __init__(self, identifier: str, **kwargs):
+    def __init__(
+        self,
+        *,
+        identifier: str,
+        name: str = "",
+        model: str = "",
+        location: str = "",
+        rack: int = 0,
+        key: str = "",
+        configured: bool = False,
+    ):
         """
         Initialize an NI device.
 
         Args:
             identifier: Channel name prefix for all channels on this device
-            **kwargs: Additional device properties (name, model, location, rack, etc.)
+            name: Human-readable name for the device
+            model: Device model (e.g., "NI 9205", "NI 9263")
+            location: Physical location or description
+            rack: Rack key this device belongs to
+            key: Unique key for the device (auto-generated if empty)
+            configured: Whether the device has been configured
         """
         # Auto-generate key if not provided
-        if "key" not in kwargs:
-            kwargs["key"] = str(uuid4())
-
-        # Set make to NI
-        kwargs["make"] = MAKE
+        if not key:
+            key = str(uuid4())
 
         # Set properties with identifier
-        kwargs["properties"] = json.dumps({"identifier": identifier})
+        props = json.dumps({"identifier": identifier})
 
-        super().__init__(**kwargs)
+        super().__init__(
+            key=key,
+            location=location,
+            rack=rack,
+            name=name,
+            make=MAKE,
+            model=model,
+            configured=configured,
+            properties=props,
+        )

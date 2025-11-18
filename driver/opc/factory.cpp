@@ -86,7 +86,13 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
         res = configure_read(ctx, task, conn_pool_, auto_start);
     else if (task.type == WRITE_TASK_TYPE)
         res = configure_write(ctx, task, conn_pool_, auto_start);
-    return common::handle_config_err(ctx, task, std::move(res), auto_start);
+    return common::handle_config_err(
+        ctx,
+        task,
+        std::move(res.first),
+        res.second,
+        auto_start
+    );
 }
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>

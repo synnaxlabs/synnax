@@ -39,7 +39,7 @@ class TestOPCUATask:
                     "auto_start": True,
                     "channels": [
                         {
-                            "name": "",
+                            "node_name": "",
                             "key": "k09AWoiyLxN",
                             "node_id": "NS=2;I=8",
                             "channel": 1234,

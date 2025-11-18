@@ -12,11 +12,8 @@ from __future__ import annotations
 import json
 import warnings
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Protocol, overload
+from typing import Protocol, overload
 from uuid import uuid4
-
-if TYPE_CHECKING:
-    from synnax.ontology.client import Client as OntologyClient
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
@@ -180,13 +177,19 @@ class Task:
         self.snapshot = task.snapshot
         self._frame_client = task._frame_client
 
-    def update_device_properties(self, device_client) -> None:
+    def update_device_properties(
+        self, device_client: device.Client
+    ) -> device.Device | None:
         """Update device properties before task configuration.
 
-        Default implementation does nothing. Tasks that need to update device
-        properties should override this method.
+        Default implementation for base Task class does nothing and returns None.
+        Tasks that need to update device properties (LabJack, Modbus, OPC UA)
+        should override this method in their respective classes.
+
+        Returns:
+            None - base implementation performs no updates.
         """
-        pass
+        return None
 
     def execute_command(self, type_: str, args: dict | None = None) -> str:
         """Executes a command on the task and returns the unique key assigned to the
@@ -249,7 +252,9 @@ class MetaTask(Protocol):
 
     def set_internal(self, task: Task): ...
 
-    def update_device_properties(self, device_client) -> None:
+    def update_device_properties(
+        self, device_client: device.Client
+    ) -> device.Device | None:
         """Update device properties before task configuration.
 
         This method can be overridden by tasks that need to synchronize
@@ -258,6 +263,9 @@ class MetaTask(Protocol):
 
         Args:
             device_client: Client for accessing device operations
+
+        Returns:
+            The updated device, or None if no update was performed.
         """
         ...
 
@@ -328,7 +336,6 @@ class Client:
     _default_rack: Rack | None
     _racks: RackClient
     _device_client: device.Client | None
-    _ontology_client: OntologyClient | None
     instrumentation: Instrumentation = NOOP
 
     def __init__(
@@ -337,14 +344,12 @@ class Client:
         frame_client: FrameClient,
         rack_client: RackClient,
         device_client: device.Client | None = None,
-        ontology_client: OntologyClient | None = None,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
         self._frame_client = frame_client
         self._racks = rack_client
         self._device_client = device_client
-        self._ontology_client = ontology_client
         self._default_rack = None
         self.instrumentation = instrumentation
 

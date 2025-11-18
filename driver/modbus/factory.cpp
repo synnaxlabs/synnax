@@ -89,7 +89,13 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         res = configure_write(this->devices, ctx, task, auto_start);
     else if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(this->devices, ctx, task, auto_start);
-    return common::handle_config_err(ctx, task, std::move(res), auto_start);
+    return common::handle_config_err(
+        ctx,
+        task,
+        std::move(res.first),
+        res.second,
+        auto_start
+    );
 }
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>

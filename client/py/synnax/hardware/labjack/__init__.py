@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.hardware.labjack.types import (
+    SUPPORTED_MODELS,
     T4,
     T7,
     T8,

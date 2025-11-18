@@ -110,7 +110,13 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
             ni::WriteTaskConfig,
             ni::WriteTaskSink<uint8_t>,
             common::WriteTask>(ctx, task, auto_start);
-    return common::handle_config_err(ctx, task, std::move(res), auto_start);
+    return common::handle_config_err(
+        ctx,
+        task,
+        std::move(res.first),
+        res.second,
+        auto_start
+    );
 }
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
