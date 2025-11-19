@@ -1,176 +1,415 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "NI Digital Write Task"
-description: "Learn how to create a digital write task for NI hardware."
+description: "Learn how to send digital commands to NI devices with Synnax."
 prev: "Digital Read Task"
 prevURL: "/reference/driver/ni/digital-read-task"
 ---
 
-import { Divider, Note, Icon } from "@synnaxlabs/pluto";
-import StepText from "@/components/StepText.astro";
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/Media";
+import { Fragment } from "react";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The NI Digital Write Task is used for sending commands to the digital outputs of your NI
-cards. In this guide, we'll walk you through the steps to create a Digital Write Task in
-Synnax.
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
 
 <Divider.Divider x />
 
-## Prerequisites
+## How Commands Work
 
-Before configuring the task, you'll need to have
-[connected and configured an NI device](/reference/driver/ni/configure-device).
+Write tasks use **command** and **state** channels:
 
-<Divider.Divider x />
+- **Command channels** (`_cmd`): Write values here to set digital outputs (1 = high, 0 =
+  low)
+- **State channels** (`_state`): Reflect the current output state
+- **Command time channels** (`_cmd_time`): Index channels storing command timestamps
 
-## A Short Primer on Tasks
-
-Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
-can be used for both control and data acquisition purposes. In the context of the NI
-Driver, a digital write task defines a background process that writes to the digital
-outputs of your device based on values written to Synnax
-[command channels](#how-commands-work-in-synnax).
-
-A digital write task can be started, stopped, and re-configured at any time. We
-permanently store the configuration of the task in Synnax, so it's easy to set up
-multiple tasks for different purposes.
+When you write to a command channel, the task processes it and updates the state
+channel, providing acknowledgment that the command was executed.
 
 <Divider.Divider x />
 
-## How Commands Work in Synnax
+## Task Configuration Reference
 
-Commands in Synnax require two types of channels: a command channel and state channel.
-Command channels signal a task to set the value of a digital output. To set a digital
-output to high, you would write a `1` to the command channel. To set it to low, you
-would write a `0`.
-
-A command channel for a digital output might be `my_temp_card_do_0_1_cmd`, where
-`my_temp_card` is the device identifier, `do_0_1` is the port and line of the digital
-output, and `_cmd` indicates that it's a command channel.
-
-<Note.Note variant="info">
-  Command channels also have an associated index channel that stores the timestamps at
-  which commands were sent. This channel is suffixed with `_cmd_time`. For the command
-  channel `my_temp_card_do_0_1_cmd`, the index channel would be
-  `my_temp_card_do_0_1_cmd_time`.
-</Note.Note>
-
-State channels represent the current state of the digital output. When you send a
-command, the corresponding digital write task will process the command and update the
-value in the state channel.
-
-State channels are typically suffixed with `_state`. A state channel maintains the same
-format as its corresponding command channel, but suffixed with `_state` instead of
-`_cmd`.
-
-As an example, to configure a valve in the [schematic](/reference/console/schematics) to
-write to a digital output, you would set the `command` field to the command channel of
-the digital output and the `state` field to the state channel of the digital output.
-Clicking the valve would send a command to the digital output, and the valve would turn
-solid or transparent based on the state channel.
-
-Using two channels provides a guarantee that a particular command was acknowledged by a
-running task.
+| Parameter     | Type    | Required | Default | Description                                   |
+| ------------- | ------- | -------- | ------- | --------------------------------------------- |
+| `name`        | string  | Yes      | -       | Human-readable task name                      |
+| `state_rate`  | number  | No       | `20`    | Rate (Hz) at which state channels are updated |
+| `data_saving` | boolean | No       | `false` | Enable permanent storage in Synnax            |
+| `auto_start`  | boolean | No       | `false` | Automatically start task after configuration  |
+| `channels`    | array   | Yes      | -       | List of digital output channel configurations |
 
 <Divider.Divider x />
 
-## Open the Task Configuration Dialog
+## Channel Configuration
 
-### From the Devices Toolbar
+[DO Channel NI-DAQmx C API Reference](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatedochan.html)
 
-To create a digital write task from the Devices Toolbar, open the Console and click on
-the device icon (<Icon.Device />) on the left-hand side of the screen. Find the device
-you'd like to create the task for, right-click on it, and select "Create digital write
-task".
-
-<Video
-  client:only="react"
-  id="device-drivers/ni/digital-write-task/device-create-digital-write-task"
-/>
-
-### From the Command Palette
-
-To create a digital write task from the command palette, open the Console and click on
-the Search and Command Palette at the top. You can also open this palette with
-`Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
-
-In command mode (enabled when the first character in the input is ">"), type "NI".
-You'll see an option called "Create an NI Digital Write Task". Select this option to
-open the digital write task configuration dialog.
-
-<Video
-  client:only="react"
-  id="device-drivers/ni/digital-write-task/palette-create-digital-write-task"
-/>
-
-### From The Layout Selector
-
-To create a digital write task from the layout selector, click on the add icon
-(<Icon.Add />) in the top-right corner and select "NI Digital Write Task".
-
-<Video
-  client:only="react"
-  id="device-drivers/ni/digital-write-task/layout-create-digital-write-task"
-/>
+| Parameter | Type   | Required | Default | Description             |
+| --------- | ------ | -------- | ------- | ----------------------- |
+| `device`  | string | Yes      | -       | Device identifier       |
+| `port`    | number | Yes      | -       | Physical port           |
+| `line`    | number | Yes      | -       | Line number on the port |
 
 <Divider.Divider x />
 
-## Configure the Task
+## Important Rules
 
-### <StepText level="h3" step={1}>Select your NI Device</StepText>
-
-The first step is to select the NI device you'd like to write to the outputs of. Use the
-dropdown menu in the top-left corner to do so.
-
-<Video
-  client:only="react"
-  id="device-drivers/ni/digital-write-task/digital-write-task-select-device"
-/>
-
-### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
-
-Next, you'll need to add the channels you'd like to write to. Click the add icon
-(<Icon.Add />) in the channels section. Then, click on the new channel in the list to
-configure it.
-
-You'll need to select both a digital output port and line to write to.
-
-<Video
-  client:only="react"
-  id="device-drivers/ni/digital-write-task/digital-write-task-add-channel"
-/>
-
-### <StepText level="h3" step={3}>Configure the State Update Rate</StepText>
-
-The state update rate determines how often the state channels in the task are updated.
-Set the rate higher in scenarios that require quick response times.
-
-<div style={{ display: "flex", justifyContent: "center" }}>
-  <Image
-    client:only="react"
-    id="device-drivers/ni/digital-write-task/digital-write-task-state-rate"
-    style={{ width: "50%", minWidth: 200 }}
-  />
-</div>
+- **Command/State pairs**: Each digital output requires both a command and state
+  channel.
+- **One task per module**: Only one running task can claim a module at a time.
+- **State rate**: Higher state rates provide faster feedback but consume more resources.
 
 <Divider.Divider x />
 
-## Start the Task
+## How-To
 
-Once you've added all of the channels you need and have configured sampling rates, hit
-the "Configure" button. If there are no errors, Synnax will acknowledge the configured
-task and enable the Play (<Icon.Play />) button in the dialog. Click this button to
-start the task.
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+    <Video
+      client:only="react"
+      id="device-drivers/ni/digital-write-task/ni-digital-write"
+    />
+  </Fragment>
+  <Fragment slot="python">
 
-<Video
-  client:only="react"
-  id="device-drivers/ni/digital-write-task/digital-write-task-start"
-/>
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
-<Note.Note variant="info">
-  Starting and stopping a task does not re-apply the task configuration. If you've made
-  changes to the configuration, you'll need to re-configure the task by hitting the
-  "Configure" button.
-</Note.Note>
+```python
+import synnax as sy
+from synnax.hardware import ni
+
+client = sy.Synnax()
+
+# Retrieve device
+digital_dev = client.hardware.devices.retrieve(name="Mod1_Digital")
+
+# Create command time index
+do_cmd_time = client.channels.create(
+    name="do_cmd_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create command channels
+do_0_0_cmd = client.channels.create(
+    name="do_0_0_cmd",
+    index=do_cmd_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+do_0_1_cmd = client.channels.create(
+    name="do_0_1_cmd",
+    index=do_cmd_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+do_1_0_cmd = client.channels.create(
+    name="do_1_0_cmd",
+    index=do_cmd_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+
+# Create state time index
+do_state_time = client.channels.create(
+    name="do_state_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create state channels
+do_0_0_state = client.channels.create(
+    name="do_0_0_state",
+    index=do_state_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+do_0_1_state = client.channels.create(
+    name="do_0_1_state",
+    index=do_state_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+do_1_0_state = client.channels.create(
+    name="do_1_0_state",
+    index=do_state_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+
+# Create and configure task
+task = ni.DigitalWriteTask(
+    name="Digital Write Task",
+    state_rate=sy.Rate.HZ * 20,
+    data_saving=True,
+    channels=[
+        ni.DOLineChan(
+            cmd_channel=do_0_0_cmd.key,
+            state_channel=do_0_0_state.key,
+            device=digital_dev.key,
+            port=0,
+            line=0,
+        ),
+        ni.DOLineChan(
+            cmd_channel=do_0_1_cmd.key,
+            state_channel=do_0_1_state.key,
+            device=digital_dev.key,
+            port=0,
+            line=1,
+        ),
+        ni.DOLineChan(
+            cmd_channel=do_1_0_cmd.key,
+            state_channel=do_1_0_state.key,
+            device=digital_dev.key,
+            port=1,
+            line=0,
+        ),
+    ],
+)
+
+client.hardware.tasks.configure(task)
+
+# Start task and write commands
+with task.run():
+    with client.open_writer(
+        start=sy.TimeStamp.now(),
+        channels=["do_0_0_cmd", "do_0_1_cmd", "do_1_0_cmd"],
+    ) as writer:
+        # Set outputs
+        writer.write({
+            "do_0_0_cmd": 1,  # Port 0 Line 0 high
+            "do_0_1_cmd": 0,  # Port 0 Line 1 low
+            "do_1_0_cmd": 1,  # Port 1 Line 0 high
+        })
+
+        # Read back states
+        with client.open_streamer(["do_0_0_state", "do_0_1_state", "do_1_0_state"]) as streamer:
+            frame = streamer.read()
+            print(f"Port 0 Line 0: {frame['do_0_0_state']}")
+            print(f"Port 0 Line 1: {frame['do_0_1_state']}")
+            print(f"Port 1 Line 0: {frame['do_1_0_state']}")
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```python
+# Retrieve existing task
+task = client.hardware.tasks.retrieve(name="Digital Write Task")
+task = ni.DigitalWriteTask(internal=task)
+
+# Update task-level configuration
+task.config.auto_start = True
+task.config.state_rate = int(sy.Rate.HZ * 50)
+
+# Update first channel configuration
+task.config.channels[0].port = 0
+task.config.channels[0].line = 2
+
+# Update second channel configuration
+task.config.channels[1].port = 0
+task.config.channels[1].line = 3
+
+# Update third channel configuration
+task.config.channels[2].port = 1
+task.config.channels[2].line = 1
+
+# Apply changes
+client.hardware.tasks.configure(task)
+```
+
+</ExampleDetails>
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```typescript
+import { Synnax, TimeStamp } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve device
+const digitalDev = await client.hardware.devices.retrieve({ name: "Mod1_Digital" });
+
+// Create command time index
+const doCmdTime = await client.channels.create({
+  name: "do_cmd_time",
+  isIndex: true,
+  dataType: "timestamp",
+  retrieveIfNameExists: true,
+});
+
+// Create command channels
+const do00Cmd = await client.channels.create({
+  name: "do_0_0_cmd",
+  index: doCmdTime.key,
+  dataType: "uint8",
+  retrieveIfNameExists: true,
+});
+
+const do01Cmd = await client.channels.create({
+  name: "do_0_1_cmd",
+  index: doCmdTime.key,
+  dataType: "uint8",
+  retrieveIfNameExists: true,
+});
+
+const do10Cmd = await client.channels.create({
+  name: "do_1_0_cmd",
+  index: doCmdTime.key,
+  dataType: "uint8",
+  retrieveIfNameExists: true,
+});
+
+// Create state time index
+const doStateTime = await client.channels.create({
+  name: "do_state_time",
+  isIndex: true,
+  dataType: "timestamp",
+  retrieveIfNameExists: true,
+});
+
+// Create state channels
+const do00State = await client.channels.create({
+  name: "do_0_0_state",
+  index: doStateTime.key,
+  dataType: "uint8",
+  retrieveIfNameExists: true,
+});
+
+const do01State = await client.channels.create({
+  name: "do_0_1_state",
+  index: doStateTime.key,
+  dataType: "uint8",
+  retrieveIfNameExists: true,
+});
+
+const do10State = await client.channels.create({
+  name: "do_1_0_state",
+  index: doStateTime.key,
+  dataType: "uint8",
+  retrieveIfNameExists: true,
+});
+
+// Create and configure task
+const task = await client.hardware.tasks.create({
+  name: "Digital Write Task",
+  type: "ni_digital_write",
+  config: JSON.stringify({
+    state_rate: 20,
+    data_saving: true,
+    channels: [
+      {
+        type: "do_line",
+        cmd_channel: do00Cmd.key,
+        state_channel: do00State.key,
+        device: digitalDev.key,
+        port: 0,
+        line: 0,
+      },
+      {
+        type: "do_line",
+        cmd_channel: do01Cmd.key,
+        state_channel: do01State.key,
+        device: digitalDev.key,
+        port: 0,
+        line: 1,
+      },
+      {
+        type: "do_line",
+        cmd_channel: do10Cmd.key,
+        state_channel: do10State.key,
+        device: digitalDev.key,
+        port: 1,
+        line: 0,
+      },
+    ],
+  }),
+});
+
+// Start task
+await task.executeCommandSync("start");
+
+// Write commands
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["do_0_0_cmd", "do_0_1_cmd", "do_1_0_cmd"],
+});
+
+await writer.write({
+  do_0_0_cmd: 1, // Port 0 Line 0 high
+  do_0_1_cmd: 0, // Port 0 Line 1 low
+  do_1_0_cmd: 1, // Port 1 Line 0 high
+});
+
+// Read states
+const streamer = await client.openStreamer([
+  "do_0_0_state",
+  "do_0_1_state",
+  "do_1_0_state",
+]);
+const frame = await streamer.read();
+console.log(`Port 0 Line 0: ${frame["do_0_0_state"]}`);
+console.log(`Port 0 Line 1: ${frame["do_0_1_state"]}`);
+console.log(`Port 1 Line 0: ${frame["do_1_0_state"]}`);
+
+// Stop task
+await task.executeCommandSync("stop");
+await writer.close();
+await streamer.close();
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```typescript
+// Retrieve existing task
+const task = await client.hardware.tasks.retrieve({ name: "Digital Write Task" });
+
+// Parse and update configuration
+const config = JSON.parse(task.config);
+
+// Update task-level configuration
+config.auto_start = true;
+config.state_rate = 50;
+
+// Update first channel configuration
+config.channels[0].port = 0;
+config.channels[0].line = 2;
+
+// Update second channel configuration
+config.channels[1].port = 0;
+config.channels[1].line = 3;
+
+// Update third channel configuration
+config.channels[2].port = 1;
+config.channels[2].line = 1;
+
+// Apply changes
+await client.hardware.tasks.create({
+  key: task.key,
+  name: task.name,
+  type: task.type,
+  config: JSON.stringify(config),
+});
+```
+
+</ExampleDetails>
+
+  </Fragment>
+</Client.Tabs>
