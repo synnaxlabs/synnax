@@ -21,8 +21,8 @@ import {
   useSelectControlStatus,
   useSelectEditable,
   useSelectIsSnapshot,
-  useSelectRequiredToolbar,
   useSelectSelectedElementNames,
+  useSelectToolbar,
 } from "@/schematic/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
 import { Control } from "@/schematic/toolbar/Control";
@@ -67,7 +67,7 @@ export interface ToolbarProps {
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
-  const toolbar = useSelectRequiredToolbar(layoutKey);
+  const toolbar = useSelectToolbar(layoutKey);
   const isEditable = useSelectEditable(layoutKey) === true;
   const handleExport = useExport();
   const selectedNames = useSelectSelectedElementNames(layoutKey);

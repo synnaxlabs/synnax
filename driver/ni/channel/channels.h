@@ -21,7 +21,7 @@
 
 namespace channel {
 static int32_t parse_terminal_config(xjson::Parser &p) {
-    const auto s = p.required<std::string>("terminal_config");
+    const auto s = p.field<std::string>("terminal_config");
     if (s == "PseudoDiff") return DAQmx_Val_PseudoDiff;
     if (s == "Diff") return DAQmx_Val_Diff;
     if (s == "NRSE") return DAQmx_Val_NRSE;
@@ -30,7 +30,7 @@ static int32_t parse_terminal_config(xjson::Parser &p) {
 }
 
 static int32_t parse_bridge_config(xjson::Parser &p) {
-    const auto s = p.required<std::string>("bridge_config");
+    const auto s = p.field<std::string>("bridge_config");
     if (s == "FullBridge") return DAQmx_Val_FullBridge;
     if (s == "HalfBridge") return DAQmx_Val_HalfBridge;
     if (s == "QuarterBridge") return DAQmx_Val_QuarterBridge;
@@ -38,7 +38,7 @@ static int32_t parse_bridge_config(xjson::Parser &p) {
 }
 
 static int32_t parse_resistance_config(xjson::Parser &p) {
-    const auto s = p.required<std::string>("resistance_config");
+    const auto s = p.field<std::string>("resistance_config");
     if (s == "2Wire") return DAQmx_Val_2Wire;
     if (s == "3Wire") return DAQmx_Val_3Wire;
     if (s == "4Wire") return DAQmx_Val_4Wire;
@@ -82,6 +82,43 @@ static int32_t get_rosette_meas_type(const std::string &s) {
     return DAQmx_Val_PrincipalStrain1;
 }
 
+static int32_t get_ci_edge(const std::string &s) {
+    if (s == "Rising") return DAQmx_Val_Rising;
+    if (s == "Falling") return DAQmx_Val_Falling;
+    return DAQmx_Val_Rising;
+}
+
+static int32_t get_ci_meas_method(const std::string &s) {
+    if (s == "LowFreq1Ctr") return DAQmx_Val_LowFreq1Ctr;
+    if (s == "HighFreq2Ctr") return DAQmx_Val_HighFreq2Ctr;
+    if (s == "LargeRng2Ctr") return DAQmx_Val_LargeRng2Ctr;
+    if (s == "DynamicAvg") return DAQmx_Val_DynAvg;
+    return DAQmx_Val_LowFreq1Ctr;
+}
+
+static int32_t get_ci_count_direction(const std::string &s) {
+    if (s == "CountUp") return DAQmx_Val_CountUp;
+    if (s == "CountDown") return DAQmx_Val_CountDown;
+    if (s == "ExternallyControlled") return DAQmx_Val_ExtControlled;
+    return DAQmx_Val_CountUp;
+}
+
+static int32_t get_ci_decoding_type(const std::string &s) {
+    if (s == "X1") return DAQmx_Val_X1;
+    if (s == "X2") return DAQmx_Val_X2;
+    if (s == "X4") return DAQmx_Val_X4;
+    if (s == "TwoPulse") return DAQmx_Val_TwoPulseCounting;
+    return DAQmx_Val_X4;
+}
+
+static int32_t get_ci_z_index_phase(const std::string &s) {
+    if (s == "AHighBHigh") return DAQmx_Val_AHighBHigh;
+    if (s == "AHighBLow") return DAQmx_Val_AHighBLow;
+    if (s == "ALowBHigh") return DAQmx_Val_ALowBHigh;
+    if (s == "ALowBLow") return DAQmx_Val_ALowBLow;
+    return DAQmx_Val_AHighBHigh;
+}
+
 struct ExcitationConfig {
     const int32_t source;
     const double val;
@@ -90,11 +127,11 @@ struct ExcitationConfig {
     const bool32 use_excit_for_scaling; // optional
 
     explicit ExcitationConfig(xjson::Parser &cfg, const std::string &prefix):
-        source(get_excitation_src(cfg.required<std::string>(prefix + "_excit_source"))),
-        val(cfg.required<double>(prefix + "_excit_val")),
-        min_val_for_excitation(cfg.optional<double>("min_val_for_excitation", 0)),
-        max_val_for_excitation(cfg.optional<double>("max_val_for_excitation", 0)),
-        use_excit_for_scaling(cfg.optional<bool32>("use_excit_for_scaling", 0)) {}
+        source(get_excitation_src(cfg.field<std::string>(prefix + "_excit_source"))),
+        val(cfg.field<double>(prefix + "_excit_val")),
+        min_val_for_excitation(cfg.field<double>("min_val_for_excitation", 0)),
+        max_val_for_excitation(cfg.field<double>("max_val_for_excitation", 0)),
+        use_excit_for_scaling(cfg.field<bool32>("use_excit_for_scaling", 0)) {}
 };
 
 const std::string CURR_EXCIT_PREFIX = "current";
@@ -109,10 +146,10 @@ struct BridgeConfig {
     explicit BridgeConfig(xjson::Parser &cfg):
         ni_bridge_config(parse_bridge_config(cfg)),
         voltage_excit_source(
-            get_excitation_src(cfg.required<std::string>("voltage_excit_source"))
+            get_excitation_src(cfg.field<std::string>("voltage_excit_source"))
         ),
-        voltage_excit_val(cfg.required<double>("voltage_excit_val")),
-        nominal_bridge_resistance(cfg.required<double>("nominal_bridge_resistance")) {}
+        voltage_excit_val(cfg.field<double>("voltage_excit_val")),
+        nominal_bridge_resistance(cfg.field<double>("nominal_bridge_resistance")) {}
 };
 
 struct PolynomialConfig {
@@ -124,10 +161,10 @@ struct PolynomialConfig {
     int32_t physical_units;
 
     explicit PolynomialConfig(xjson::Parser &cfg):
-        num_forward_coeffs(cfg.required<uint32_t>("num_forward_coeffs")),
-        num_reverse_coeffs(cfg.required<uint32_t>("num_reverse_coeffs")) {
-        const auto eu = cfg.required<std::string>("electrical_units");
-        const auto pu = cfg.required<std::string>("physical_units");
+        num_forward_coeffs(cfg.field<uint32_t>("num_forward_coeffs")),
+        num_reverse_coeffs(cfg.field<uint32_t>("num_reverse_coeffs")) {
+        const auto eu = cfg.field<std::string>("electrical_units");
+        const auto pu = cfg.field<std::string>("physical_units");
 
         const auto ni_eu = channel::UNITS_MAP.find(eu);
         if (ni_eu == channel::UNITS_MAP.end())
@@ -142,7 +179,7 @@ struct PolynomialConfig {
             physical_units = channel::UNITS_MAP.at(pu);
         forward_coeffs = new double[num_forward_coeffs];
         reverse_coeffs = new double[num_reverse_coeffs];
-        const auto f = cfg.required_vec<double>("forward_coeffs");
+        const auto f = cfg.field<std::vector<double>>("forward_coeffs");
         for (uint32_t i = 0; i < num_forward_coeffs; i++)
             forward_coeffs[i] = f[i];
     }
@@ -164,21 +201,21 @@ struct TableConfig {
     TableConfig() = default;
 
     explicit TableConfig(xjson::Parser &cfg) {
-        const auto eu = cfg.required<std::string>("electrical_units");
-        const auto pu = cfg.required<std::string>("physical_units");
+        const auto eu = cfg.field<std::string>("electrical_units");
+        const auto pu = cfg.field<std::string>("physical_units");
 
         electrical_units = channel::UNITS_MAP.at(eu);
         physical_units = channel::UNITS_MAP.at(pu);
 
         // TODO: figure out why using vector and .data() throws exception when
         // passed to NI function
-        const auto ev = cfg.required_vec<double>("electrical_vals");
+        const auto ev = cfg.field<std::vector<double>>("electrical_vals");
         num_electrical_vals = ev.size();
         electrical_vals = new double[num_electrical_vals];
         for (uint32_t i = 0; i < num_electrical_vals; i++)
             electrical_vals[i] = ev[i];
 
-        const auto pv = cfg.required_vec<double>("physical_vals");
+        const auto pv = cfg.field<std::vector<double>>("physical_vals");
         num_physical_vals = pv.size();
         physical_vals = new double[num_physical_vals];
         for (uint32_t i = 0; i < num_physical_vals; i++)
@@ -202,13 +239,13 @@ struct TwoPointLinConfig {
     TwoPointLinConfig() = default;
 
     explicit TwoPointLinConfig(xjson::Parser &cfg):
-        first_electrical_val(cfg.required<double>("first_electrical_val")),
-        second_electrical_val(cfg.required<double>("second_electrical_val")),
-        electrical_units(UNITS_MAP.at(cfg.required<std::string>("electrical_units"))),
-        first_physical_val(cfg.required<double>("first_physical_val")),
-        second_physical_val(cfg.required<double>("second_physical_val")),
-        physical_units(UNITS_MAP.at(cfg.required<std::string>("physical_units"))) {
-        const auto eu = cfg.required<std::string>("electrical_units");
+        first_electrical_val(cfg.field<double>("first_electrical_val")),
+        second_electrical_val(cfg.field<double>("second_electrical_val")),
+        electrical_units(UNITS_MAP.at(cfg.field<std::string>("electrical_units"))),
+        first_physical_val(cfg.field<double>("first_physical_val")),
+        second_physical_val(cfg.field<double>("second_physical_val")),
+        physical_units(UNITS_MAP.at(cfg.field<std::string>("physical_units"))) {
+        const auto eu = cfg.field<std::string>("electrical_units");
     }
 };
 
@@ -245,8 +282,8 @@ struct Base {
     virtual ~Base() = default;
 
     explicit Base(xjson::Parser &cfg):
-        enabled(cfg.optional<bool>("enabled", true)),
-        dev_key(cfg.optional<std::string>("device", "")),
+        enabled(cfg.field<bool>("enabled", true)),
+        dev_key(cfg.field<std::string>("device", "")),
         cfg_path(format_cfg_path(cfg.path_prefix)) {}
 
     /// @brief applies the channel configuration to the DAQmx task.
@@ -266,7 +303,7 @@ struct Input : virtual Base {
     synnax::Channel ch;
 
     explicit Input(xjson::Parser &cfg):
-        Base(cfg), synnax_key(cfg.required<synnax::ChannelKey>("channel")) {}
+        Base(cfg), synnax_key(cfg.field<synnax::ChannelKey>("channel")) {}
 
     /// @brief binds remotely fetched information to the channel.
     void bind_remote_info(const synnax::Channel &ch, const std::string &dev_loc) {
@@ -289,8 +326,8 @@ struct Output : virtual Base {
 
     explicit Output(xjson::Parser &cfg):
         Base(cfg),
-        cmd_ch_key(cfg.required<synnax::ChannelKey>("cmd_channel")),
-        state_ch_key(cfg.required<synnax::ChannelKey>("state_channel")) {}
+        cmd_ch_key(cfg.field<synnax::ChannelKey>("cmd_channel")),
+        state_ch_key(cfg.field<synnax::ChannelKey>("state_channel")) {}
 
     /// @brief binds remotely fetched information to the channel.
     void bind_remote_info(const synnax::Channel &state_ch, const std::string &dev_loc) {
@@ -305,7 +342,7 @@ struct Digital : virtual Base {
     const int line;
 
     explicit Digital(xjson::Parser &cfg):
-        port(cfg.required<int>("port")), line(cfg.required<int>("line")) {}
+        port(cfg.field<int>("port")), line(cfg.field<int>("line")) {}
 
     [[nodiscard]] std::string loc() const {
         return this->dev_loc + "/port" + std::to_string(this->port) + "/line" +
@@ -355,9 +392,9 @@ struct Analog : virtual Base {
     int32_t units;
 
     explicit Analog(xjson::Parser &cfg):
-        port(cfg.required<int>("port")),
-        min_val(cfg.optional<float>("min_val", 0)),
-        max_val(cfg.optional<float>("max_val", 0)),
+        port(cfg.field<int>("port")),
+        min_val(cfg.field<double>("min_val", 0)),
+        max_val(cfg.field<double>("max_val", 0)),
         units(parse_units(cfg, "units")) {}
 };
 
@@ -413,6 +450,61 @@ struct AICustomScale : AI, AnalogCustomScale {
 /// @brief base class for analog channels that can have a custom scale applied.
 struct AOCustomScale : AO, AnalogCustomScale {
     explicit AOCustomScale(xjson::Parser &cfg): AO(cfg), AnalogCustomScale(cfg) {}
+};
+
+/// @brief base class for a counter channel (CI, CO)
+struct Counter : virtual Base {
+    const int port;
+    const double min_val;
+    const double max_val;
+    int32_t units;
+
+    explicit Counter(xjson::Parser &cfg):
+        port(cfg.field<int>("port")),
+        min_val(cfg.field<double>("min_val", 0)),
+        max_val(cfg.field<double>("max_val", 0)),
+        units(parse_units(cfg, "units")) {}
+
+    [[nodiscard]] std::string loc() const {
+        return this->dev_loc + "/ctr" + std::to_string(this->port);
+    }
+};
+
+/// @brief base class for counter channels that can have a custom scale applied.
+struct CounterCustomScale : virtual Counter {
+    const std::unique_ptr<Scale> scale;
+
+    explicit CounterCustomScale(xjson::Parser &cfg):
+        Counter(cfg), scale(parse_scale(cfg, "custom_scale")) {
+        if (!this->scale->is_none()) units = DAQmx_Val_FromCustomScale;
+    }
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle
+    ) const override {
+        auto [scale_key, err] = this->scale->apply(dmx);
+        if (err) return err;
+        return this
+            ->apply(dmx, task_handle, scale_key.empty() ? nullptr : scale_key.c_str());
+    }
+
+    virtual xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const = 0;
+};
+
+/// @brief base class for counter input channels.
+struct CI : virtual Counter, Input {
+    explicit CI(xjson::Parser &cfg): Counter(cfg), Input(cfg) {}
+};
+
+/// @brief base class for counter input channels that can have a custom scale applied.
+struct CICustomScale : CI, CounterCustomScale {
+    explicit CICustomScale(xjson::Parser &cfg):
+        Counter(cfg), CI(cfg), CounterCustomScale(cfg) {}
 };
 
 struct AIVoltage : AICustomScale {
@@ -516,9 +608,9 @@ struct AICurrent : AICustomScale {
         Analog(cfg),
         AICustomScale(cfg),
         shunt_resistor_loc(
-            get_shunt_resistor_loc(cfg.required<std::string>("shunt_resistor_loc"))
+            get_shunt_resistor_loc(cfg.field<std::string>("shunt_resistor_loc"))
         ),
-        ext_shunt_resistor_val(cfg.required<double>("ext_shunt_resistor_val")),
+        ext_shunt_resistor_val(cfg.field<double>("ext_shunt_resistor_val")),
         terminal_config(parse_terminal_config(cfg)) {}
 
     using Base::apply;
@@ -587,10 +679,10 @@ struct AIRTD final : AI {
         Base(cfg),
         Analog(cfg),
         AI(cfg),
-        rtd_type(get_rtd_type(cfg.required<std::string>("rtd_type"))),
+        rtd_type(get_rtd_type(cfg.field<std::string>("rtd_type"))),
         resistance_config(parse_resistance_config(cfg)),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
-        r0(cfg.required<double>("r0")) {}
+        r0(cfg.field<double>("r0")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -619,7 +711,7 @@ struct AIThermocouple final : AI {
     std::string cjc_port;
 
     [[nodiscard]] int32_t static parse_type(xjson::Parser &cfg) {
-        const auto type = cfg.required<std::string>("thermocouple_type");
+        const auto type = cfg.field<std::string>("thermocouple_type");
         if (type == "J") return DAQmx_Val_J_Type_TC;
         if (type == "K") return DAQmx_Val_K_Type_TC;
         if (type == "N") return DAQmx_Val_N_Type_TC;
@@ -633,7 +725,7 @@ struct AIThermocouple final : AI {
     }
 
     [[nodiscard]] int32_t static parse_cjc_source(xjson::Parser &cfg) {
-        const auto source = cfg.required<std::string>("cjc_source");
+        const auto source = cfg.field<std::string>("cjc_source");
         if (source == "BuiltIn") return DAQmx_Val_BuiltIn;
         if (source == "ConstVal") return DAQmx_Val_ConstVal;
         if (source == "Chan") return DAQmx_Val_Chan;
@@ -647,13 +739,11 @@ struct AIThermocouple final : AI {
         AI(cfg),
         thermocouple_type(parse_type(cfg)),
         cjc_source(parse_cjc_source(cfg)),
-        cjc_val(cfg.optional<double>("cjc_val", 0)),
-        cjc_port(
-            format_cjc_port(this->cfg_path, cfg.optional<int32_t>("cjc_port", 0))
-        ) {
+        cjc_val(cfg.field<double>("cjc_val", 0)),
+        cjc_port(format_cjc_port(this->cfg_path, cfg.field<int32_t>("cjc_port", 0))) {
         this->cjc_port = format_cjc_port(
             this->cfg_path,
-            cfg.optional<int32_t>("cjc_port", 0)
+            cfg.field<int32_t>("cjc_port", 0)
         );
     }
 
@@ -706,9 +796,9 @@ struct AIThermistorIEX final : AI {
         AI(cfg),
         resistance_config(parse_resistance_config(cfg)),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
-        a(cfg.required<double>("a")),
-        b(cfg.required<double>("b")),
-        c(cfg.required<double>("c")) {}
+        a(cfg.field<double>("a")),
+        b(cfg.field<double>("b")),
+        c(cfg.field<double>("c")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -745,10 +835,10 @@ struct AIThermistorVex final : AI {
         AI(cfg),
         resistance_config(parse_resistance_config(cfg)),
         excitation_config(cfg, VOLT_EXCIT_PREFIX),
-        a(cfg.required<double>("a")),
-        b(cfg.required<double>("b")),
-        c(cfg.required<double>("c")),
-        r1(cfg.required<double>("r1")) {}
+        a(cfg.field<double>("a")),
+        b(cfg.field<double>("b")),
+        c(cfg.field<double>("c")),
+        r1(cfg.field<double>("r1")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -782,9 +872,9 @@ struct AIAccel : AICustomScale {
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
-        sensitivity(cfg.required<double>("sensitivity")),
+        sensitivity(cfg.field<double>("sensitivity")),
         sensitivity_units(
-            UNITS_MAP.at(cfg.optional<std::string>("sensitivity_units", "mVoltsPerG"))
+            UNITS_MAP.at(cfg.field<std::string>("sensitivity_units", "mVoltsPerG"))
         ),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
         terminal_config(parse_terminal_config(cfg)) {}
@@ -849,8 +939,8 @@ struct AIAccelCharge final : AICustomScale {
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
-        sensitivity(cfg.required<double>("sensitivity")),
-        sensitivity_units(UNITS_MAP.at(cfg.required<std::string>("sensitivity_units"))),
+        sensitivity(cfg.field<double>("sensitivity")),
+        sensitivity_units(UNITS_MAP.at(cfg.field<std::string>("sensitivity_units"))),
         terminal_config(parse_terminal_config(cfg)) {}
 
     using Base::apply;
@@ -950,13 +1040,13 @@ struct AIStrainGauge final : AICustomScale {
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
-        strain_config(get_strain_config(cfg.required<std::string>("strain_config"))),
+        strain_config(get_strain_config(cfg.field<std::string>("strain_config"))),
         excitation_config(cfg, VOLT_EXCIT_PREFIX),
-        gage_factor(cfg.required<double>("gage_factor")),
-        initial_bridge_voltage(cfg.required<double>("initial_bridge_voltage")),
-        nominal_gage_resistance(cfg.required<double>("nominal_gage_resistance")),
-        poisson_ratio(cfg.required<double>("poisson_ratio")),
-        lead_wire_resistance(cfg.required<double>("lead_wire_resistance")) {}
+        gage_factor(cfg.field<double>("gage_factor")),
+        initial_bridge_voltage(cfg.field<double>("initial_bridge_voltage")),
+        nominal_gage_resistance(cfg.field<double>("nominal_gage_resistance")),
+        poisson_ratio(cfg.field<double>("poisson_ratio")),
+        lead_wire_resistance(cfg.field<double>("lead_wire_resistance")) {}
 
     using Base::apply;
 
@@ -1000,17 +1090,17 @@ struct AIRosetteStrainGauge final : AI {
         Base(cfg),
         Analog(cfg),
         AI(cfg),
-        rosette_type(get_rosette_type(cfg.required<std::string>("rosette_type"))),
-        gage_orientation(cfg.required<double>("gage_orientation")),
+        rosette_type(get_rosette_type(cfg.field<std::string>("rosette_type"))),
+        gage_orientation(cfg.field<double>("gage_orientation")),
         rosette_meas_type(
-            get_rosette_meas_type(cfg.required<std::string>("rosette_meas_type"))
+            get_rosette_meas_type(cfg.field<std::string>("rosette_meas_type"))
         ),
-        strain_config(get_strain_config(cfg.required<std::string>("strain_config"))),
+        strain_config(get_strain_config(cfg.field<std::string>("strain_config"))),
         excitation_config(cfg, VOLT_EXCIT_PREFIX),
-        gage_factor(cfg.required<double>("gage_factor")),
-        nominal_gage_resistance(cfg.required<double>("nominal_gage_resistance")),
-        poisson_ratio(cfg.required<double>("poisson_ratio")),
-        lead_wire_resistance(cfg.required<double>("lead_wire_resistance")) {}
+        gage_factor(cfg.field<double>("gage_factor")),
+        nominal_gage_resistance(cfg.field<double>("nominal_gage_resistance")),
+        poisson_ratio(cfg.field<double>("poisson_ratio")),
+        lead_wire_resistance(cfg.field<double>("lead_wire_resistance")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1047,8 +1137,8 @@ struct AIMicrophone final : AICustomScale {
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
-        mic_sensitivity(cfg.required<double>("mic_sensitivity")),
-        max_snd_press_level(cfg.required<double>("max_snd_press_level")),
+        mic_sensitivity(cfg.field<double>("mic_sensitivity")),
+        max_snd_press_level(cfg.field<double>("max_snd_press_level")),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
         terminal_config(parse_terminal_config(cfg)) {}
 
@@ -1082,8 +1172,8 @@ struct AIFrequencyVoltage final : AICustomScale {
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
-        threshold_level(cfg.required<double>("threshold_level")),
-        hysteresis(cfg.required<double>("hysteresis")) {}
+        threshold_level(cfg.field<double>("threshold_level")),
+        hysteresis(cfg.field<double>("hysteresis")) {}
 
     using Base::apply;
 
@@ -1107,6 +1197,664 @@ struct AIFrequencyVoltage final : AICustomScale {
     }
 };
 
+/// @brief Counter input frequency measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecif
+/// reqchan.html
+struct CIFrequency final : CICustomScale {
+    const int32_t edge;
+    const int32_t meas_method;
+    const double meas_time;
+    const uint32_t divisor;
+    const std::string terminal;
+
+    explicit CIFrequency(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        edge(get_ci_edge(cfg.field<std::string>("edge"))),
+        meas_method(get_ci_meas_method(cfg.field<std::string>("meas_method"))),
+        meas_time(cfg.field<double>("meas_time", 0.001)),
+        divisor(cfg.field<uint32_t>("divisor", 4)),
+        terminal(cfg.field<std::string>("terminal", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        auto err = dmx->CreateCIFreqChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->edge,
+            this->meas_method,
+            this->meas_time,
+            this->divisor,
+            scale_key
+        );
+        if (err) return err;
+
+        // Set the PFI terminal if specified (empty string uses DAQmx default)
+        if (!this->terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Freq_Term,
+                this->terminal.c_str()
+            );
+        }
+
+        return err;
+    }
+};
+
+/// @brief Counter input edge count channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecicountedc
+/// han.html
+struct CIEdgeCount final : CI {
+    const int32_t edge;
+    const int32_t count_direction;
+    const uint32_t initial_count;
+    const std::string terminal;
+
+    explicit CIEdgeCount(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CI(cfg),
+        edge(get_ci_edge(cfg.field<std::string>("active_edge"))),
+        count_direction(
+            get_ci_count_direction(cfg.field<std::string>("count_direction"))
+        ),
+        initial_count(cfg.field<uint32_t>("initial_count", 0)),
+        terminal(cfg.field<std::string>("terminal", "")) {}
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle
+    ) const override {
+        auto err = dmx->CreateCICountEdgesChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->edge,
+            this->initial_count,
+            this->count_direction
+        );
+        if (err) return err;
+
+        // Set the PFI terminal if specified (empty string uses DAQmx default)
+        if (!this->terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_CountEdges_Term,
+                this->terminal.c_str()
+            );
+        }
+
+        return err;
+    }
+};
+
+/// @brief Counter input period measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciperiodch
+/// an.html
+struct CIPeriod final : CICustomScale {
+    const int32_t edge;
+    const int32_t meas_method;
+    const double meas_time;
+    const uint32_t divisor;
+    const std::string terminal;
+
+    explicit CIPeriod(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        edge(get_ci_edge(cfg.field<std::string>("starting_edge"))),
+        meas_method(get_ci_meas_method(cfg.field<std::string>("meas_method"))),
+        meas_time(cfg.field<double>("meas_time", 0.001)),
+        divisor(cfg.field<uint32_t>("divisor", 4)),
+        terminal(cfg.field<std::string>("terminal", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        auto err = dmx->CreateCIPeriodChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->edge,
+            this->meas_method,
+            this->meas_time,
+            this->divisor,
+            scale_key
+        );
+        if (err) return err;
+
+        // Set the PFI terminal if specified (empty string uses DAQmx default)
+        if (!this->terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Period_Term,
+                this->terminal.c_str()
+            );
+        }
+
+        return err;
+    }
+};
+
+/// @brief Counter input pulse width measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateciplsewidthchan.html
+struct CIPulseWidth final : CICustomScale {
+    const int32_t edge;
+    const std::string terminal;
+
+    explicit CIPulseWidth(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        edge(get_ci_edge(cfg.field<std::string>("starting_edge"))),
+        terminal(cfg.field<std::string>("terminal", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        auto err = dmx->CreateCIPulseWidthChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->edge,
+            scale_key
+        );
+        if (err) return err;
+
+        // Set the PFI terminal if specified (empty string uses DAQmx default)
+        if (!this->terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_PulseWidth_Term,
+                this->terminal.c_str()
+            );
+        }
+
+        return err;
+    }
+};
+
+/// @brief Counter input semi period measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecisemiperiodchan.html
+struct CISemiPeriod final : CICustomScale {
+    const std::string terminal;
+
+    explicit CISemiPeriod(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        terminal(cfg.field<std::string>("terminal", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        auto err = dmx->CreateCISemiPeriodChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->units,
+            scale_key
+        );
+        if (err) return err;
+
+        // Set the PFI terminal if specified (empty string uses DAQmx default)
+        if (!this->terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_SemiPeriod_Term,
+                this->terminal.c_str()
+            );
+        }
+
+        return err;
+    }
+};
+
+/// @brief Counter input two edge separation measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecitwoe
+/// dgeseparationchan.html
+struct CITwoEdgeSep final : CICustomScale {
+    const int32_t first_edge;
+    const int32_t second_edge;
+    const std::string first_terminal;
+    const std::string second_terminal;
+
+    explicit CITwoEdgeSep(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        first_edge(get_ci_edge(cfg.field<std::string>("first_edge"))),
+        second_edge(get_ci_edge(cfg.field<std::string>("second_edge"))),
+        first_terminal(cfg.field<std::string>("first_terminal", "")),
+        second_terminal(cfg.field<std::string>("second_terminal", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        auto err = dmx->CreateCITwoEdgeSepChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->units,
+            this->first_edge,
+            this->second_edge,
+            scale_key
+        );
+        if (err) return err;
+
+        // Set the first terminal if specified (empty string uses DAQmx default)
+        if (!this->first_terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_TwoEdgeSep_FirstTerm,
+                this->first_terminal.c_str()
+            );
+            if (err) return err;
+        }
+
+        // Set the second terminal if specified (empty string uses DAQmx default)
+        if (!this->second_terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_TwoEdgeSep_SecondTerm,
+                this->second_terminal.c_str()
+            );
+        }
+
+        return err;
+    }
+};
+
+/// @brief Counter input linear velocity measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateci
+/// linvelocitychan.html
+struct CILinearVelocity final : CICustomScale {
+    const int32_t decoding_type;
+    const double dist_per_pulse;
+    const std::string terminal_a;
+    const std::string terminal_b;
+
+    explicit CILinearVelocity(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        decoding_type(get_ci_decoding_type(cfg.field<std::string>("decoding_type"))),
+        dist_per_pulse(cfg.field<double>("dist_per_pulse")),
+        terminal_a(cfg.field<std::string>("terminalA", "")),
+        terminal_b(cfg.field<std::string>("terminalB", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        auto err = dmx->CreateCILinVelocityChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->decoding_type,
+            this->units,
+            this->dist_per_pulse,
+            scale_key
+        );
+        if (err) return err;
+
+        // Set terminal A if specified (empty string uses DAQmx default)
+        if (!this->terminal_a.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Velocity_Encoder_AInputTerm,
+                this->terminal_a.c_str()
+            );
+            if (err) return err;
+        }
+
+        // Set terminal B if specified (empty string uses DAQmx default)
+        if (!this->terminal_b.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Velocity_Encoder_BInputTerm,
+                this->terminal_b.c_str()
+            );
+        }
+
+        return err;
+    }
+};
+
+/// @brief Counter input angular velocity measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecia
+/// ngvelocitychan.html
+struct CIAngularVelocity final : CICustomScale {
+    const int32_t decoding_type;
+    const uint32_t pulses_per_rev;
+    const std::string terminal_a;
+    const std::string terminal_b;
+
+    explicit CIAngularVelocity(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        decoding_type(get_ci_decoding_type(cfg.field<std::string>("decoding_type"))),
+        pulses_per_rev(cfg.field<uint32_t>("pulses_per_rev")),
+        terminal_a(cfg.field<std::string>("terminalA", "")),
+        terminal_b(cfg.field<std::string>("terminalB", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        auto err = dmx->CreateCIAngVelocityChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->decoding_type,
+            this->units,
+            this->pulses_per_rev,
+            scale_key
+        );
+        if (err) return err;
+
+        // Set terminal A if specified (empty string uses DAQmx default)
+        if (!this->terminal_a.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Velocity_Encoder_AInputTerm,
+                this->terminal_a.c_str()
+            );
+            if (err) return err;
+        }
+
+        // Set terminal B if specified (empty string uses DAQmx default)
+        if (!this->terminal_b.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Velocity_Encoder_BInputTerm,
+                this->terminal_b.c_str()
+            );
+        }
+
+        return err;
+    }
+};
+
+/// @brief Counter input linear position measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecil
+/// inencoderchan.html
+struct CILinearPosition final : CICustomScale {
+    const int32_t decoding_type;
+    const double dist_per_pulse;
+    const double initial_pos;
+    const bool z_index_enable;
+    const double z_index_val;
+    const int32_t z_index_phase;
+    const std::string terminal_a;
+    const std::string terminal_b;
+    const std::string terminal_z;
+
+    explicit CILinearPosition(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        decoding_type(get_ci_decoding_type(cfg.field<std::string>("decoding_type"))),
+        dist_per_pulse(cfg.field<double>("dist_per_pulse")),
+        initial_pos(cfg.field<double>("initial_pos", 0.0)),
+        z_index_enable(cfg.field<bool>("z_index_enable", false)),
+        z_index_val(cfg.field<double>("z_index_val", 0.0)),
+        z_index_phase(
+            get_ci_z_index_phase(cfg.field<std::string>("z_index_phase", "AHighBHigh"))
+        ),
+        terminal_a(cfg.field<std::string>("terminalA", "")),
+        terminal_b(cfg.field<std::string>("terminalB", "")),
+        terminal_z(cfg.field<std::string>("terminalZ", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        auto err = dmx->CreateCILinEncoderChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->decoding_type,
+            this->z_index_enable,
+            this->z_index_val,
+            this->z_index_phase,
+            this->units,
+            this->dist_per_pulse,
+            this->initial_pos,
+            scale_key
+        );
+        if (err) return err;
+
+        // Set terminal A if specified (empty string uses DAQmx default)
+        if (!this->terminal_a.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Encoder_AInputTerm,
+                this->terminal_a.c_str()
+            );
+            if (err) return err;
+        }
+
+        // Set terminal B if specified (empty string uses DAQmx default)
+        if (!this->terminal_b.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Encoder_BInputTerm,
+                this->terminal_b.c_str()
+            );
+            if (err) return err;
+        }
+
+        // Set terminal Z if specified (empty string uses DAQmx default)
+        if (!this->terminal_z.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Encoder_ZInputTerm,
+                this->terminal_z.c_str()
+            );
+        }
+
+        return err;
+    }
+};
+
+/// @brief Counter input angular position measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecia
+/// ngencoderchan.html
+struct CIAngularPosition final : CICustomScale {
+    const int32_t decoding_type;
+    const uint32_t pulses_per_rev;
+    const double initial_angle;
+    const bool z_index_enable;
+    const double z_index_val;
+    const int32_t z_index_phase;
+    const std::string terminal_a;
+    const std::string terminal_b;
+    const std::string terminal_z;
+
+    explicit CIAngularPosition(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        decoding_type(get_ci_decoding_type(cfg.field<std::string>("decoding_type"))),
+        pulses_per_rev(cfg.field<uint32_t>("pulses_per_rev")),
+        initial_angle(cfg.field<double>("initial_angle", 0.0)),
+        z_index_enable(cfg.field<bool>("z_index_enable", false)),
+        z_index_val(cfg.field<double>("z_index_val", 0.0)),
+        z_index_phase(
+            get_ci_z_index_phase(cfg.field<std::string>("z_index_phase", "AHighBHigh"))
+        ),
+        terminal_a(cfg.field<std::string>("terminalA", "")),
+        terminal_b(cfg.field<std::string>("terminalB", "")),
+        terminal_z(cfg.field<std::string>("terminalZ", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        auto err = dmx->CreateCIAngEncoderChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->decoding_type,
+            this->z_index_enable,
+            this->z_index_val,
+            this->z_index_phase,
+            this->units,
+            this->pulses_per_rev,
+            this->initial_angle,
+            scale_key
+        );
+        if (err) return err;
+
+        // Set terminal A if specified (empty string uses DAQmx default)
+        if (!this->terminal_a.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Encoder_AInputTerm,
+                this->terminal_a.c_str()
+            );
+            if (err) return err;
+        }
+
+        // Set terminal B if specified (empty string uses DAQmx default)
+        if (!this->terminal_b.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Encoder_BInputTerm,
+                this->terminal_b.c_str()
+            );
+            if (err) return err;
+        }
+
+        // Set terminal Z if specified (empty string uses DAQmx default)
+        if (!this->terminal_z.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_Encoder_ZInputTerm,
+                this->terminal_z.c_str()
+            );
+        }
+
+        return err;
+    }
+};
+
+/// @brief Counter input duty cycle measurement channel.
+/// https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatecidutycyclechan.html
+struct CIDutyCycle final : CICustomScale {
+    const int32_t edge;
+    const std::string terminal;
+
+    explicit CIDutyCycle(xjson::Parser &cfg):
+        Base(cfg),
+        Counter(cfg),
+        CICustomScale(cfg),
+        edge(get_ci_edge(cfg.field<std::string>("activeEdge"))),
+        terminal(cfg.field<std::string>("terminal", "")) {}
+
+    using Base::apply;
+
+    xerrors::Error apply(
+        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle,
+        const char *scale_key
+    ) const override {
+        auto err = dmx->CreateCIDutyCycleChan(
+            task_handle,
+            this->loc().c_str(),
+            this->cfg_path.c_str(),
+            this->min_val,
+            this->max_val,
+            this->edge,
+            scale_key
+        );
+        if (err) return err;
+
+        // Set the input terminal if specified (empty string uses DAQmx default)
+        if (!this->terminal.empty()) {
+            err = dmx->SetChanAttributeString(
+                task_handle,
+                this->cfg_path.c_str(),
+                DAQmx_CI_DutyCycle_Term,
+                this->terminal.c_str()
+            );
+        }
+
+        return err;
+    }
+};
 struct AIPressureBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
@@ -1359,7 +2107,7 @@ struct AIVelocityIEPE final : AICustomScale {
         Analog(cfg),
         AICustomScale(cfg),
         sensitivity_units(parse_units(cfg, "sensitivity_units")),
-        sensitivity(cfg.required<double>("sensitivity")),
+        sensitivity(cfg.field<double>("sensitivity")),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
         terminal_config(parse_terminal_config(cfg)) {}
 
@@ -1518,7 +2266,7 @@ struct AIForceIEPE final : AICustomScale {
         Analog(cfg),
         AICustomScale(cfg),
         sensitivity_units(parse_units(cfg, "sensitivity_units")),
-        sensitivity(cfg.required<double>("sensitivity")),
+        sensitivity(cfg.field<double>("sensitivity")),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
         terminal_config(parse_terminal_config(cfg)) {}
 
@@ -1640,10 +2388,10 @@ struct AOFunctionGenerator final : AO {
         Base(cfg),
         Analog(cfg),
         AO(cfg),
-        frequency(cfg.required<double>("frequency")),
-        amplitude(cfg.required<double>("amplitude")),
-        offset(cfg.required<double>("offset")),
-        wave_type(get_type(cfg.required<std::string>("wave_type"), cfg)) {}
+        frequency(cfg.field<double>("frequency")),
+        amplitude(cfg.field<double>("amplitude")),
+        offset(cfg.field<double>("offset")),
+        wave_type(get_type(cfg.field<std::string>("wave_type"), cfg)) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1699,11 +2447,22 @@ static const std::map<std::string, Factory<Input>> INPUTS = {
     INPUT_CHAN_FACTORY("ai_velocity_iepe", AIVelocityIEPE),
     INPUT_CHAN_FACTORY("ai_voltage", AIVoltage),
     INPUT_CHAN_FACTORY("ai_frequency_voltage", AIFrequencyVoltage),
+    INPUT_CHAN_FACTORY("ci_edge_count", CIEdgeCount),
+    INPUT_CHAN_FACTORY("ci_frequency", CIFrequency),
+    INPUT_CHAN_FACTORY("ci_period", CIPeriod),
+    INPUT_CHAN_FACTORY("ci_pulse_width", CIPulseWidth),
+    INPUT_CHAN_FACTORY("ci_semi_period", CISemiPeriod),
+    INPUT_CHAN_FACTORY("ci_two_edge_sep", CITwoEdgeSep),
+    INPUT_CHAN_FACTORY("ci_velocity_angular", CIAngularVelocity),
+    INPUT_CHAN_FACTORY("ci_velocity_linear", CILinearVelocity),
+    INPUT_CHAN_FACTORY("ci_position_angular", CIAngularPosition),
+    INPUT_CHAN_FACTORY("ci_position_linear", CILinearPosition),
+    INPUT_CHAN_FACTORY("ci_duty_cycle", CIDutyCycle),
     INPUT_CHAN_FACTORY("digital_input", DI)
 };
 
 inline std::unique_ptr<Input> parse_input(xjson::Parser &cfg) {
-    const auto type = cfg.required<std::string>("type");
+    const auto type = cfg.field<std::string>("type");
     const auto input = INPUTS.find(type);
     if (input != INPUTS.end()) return input->second(cfg);
     cfg.field_err("type", "unknown channel type: " + type);
@@ -1711,7 +2470,7 @@ inline std::unique_ptr<Input> parse_input(xjson::Parser &cfg) {
 }
 
 inline std::unique_ptr<Output> parse_output(xjson::Parser &cfg) {
-    const auto type = cfg.required<std::string>("type");
+    const auto type = cfg.field<std::string>("type");
     const auto output = OUTPUTS.find(type);
     if (output != OUTPUTS.end()) return output->second(cfg);
     return nullptr;

@@ -71,7 +71,6 @@ func (s *LabelService) Create(
 }
 
 type LabelRetrieveRequest struct {
-	// Keys are the keys of the labels to retrieve.
 	Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
 	Names      []string    `json:"names" msgpack:"names"`
 	For        ontology.ID `json:"for" msgpack:"for"`

@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from freighter.context import Context
-from freighter.transport import RQ, RS, Middleware, MiddlewareCollector, Transport
+from freighter.transport import Middleware, MiddlewareCollector, Transport
 
 
 class MockUnaryClient[RQ, RS](Transport):

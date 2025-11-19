@@ -111,7 +111,7 @@ export class Iterator {
     const iter = new Iterator(stream, adapter);
     await iter.execute({
       command: Command.Open,
-      keys: adapter.keys,
+      keys: Array.from(adapter.keys),
       bounds: new TimeRange(tr),
       chunkSize: opts.chunkSize ?? 1e5,
     });
@@ -196,9 +196,9 @@ export class Iterator {
   }
 
   /**
-   * @returns true if the iterator value contains a valid segment, and fale otherwise.
-   * valid most commonly returns false when the iterator is exhausted or has
-   * accumulated an error.
+   * @returns true if the iterator value contains a valid segment, and false otherwise.
+   * valid most commonly returns false when the iterator is exhausted or has accumulated
+   * an error.
    */
   async valid(): Promise<boolean> {
     return await this.execute({ command: Command.Valid });

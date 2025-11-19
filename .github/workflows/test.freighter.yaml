@@ -128,8 +128,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ghcr.io/synnaxlabs/freighter-go-integration:latest
-          cache-from: type=gha,scope=test-freighter
-          cache-to: type=gha,mode=max,scope=test-freighter
+          cache-from: type=gha,scope=synnax-docker-cache
+          cache-to: type=inline
 
   integration:
     name: Test - Integration
@@ -237,7 +237,7 @@ jobs:
       - name: Check Types
         run: pnpm check-types:freighter
 
-      - name: Madge
+      - name: Check Circular Dependencies
         run: pnpm madge:freighter
 
       - name: Lint

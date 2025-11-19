@@ -28,7 +28,7 @@ export const CONNECT_LAYOUT_TYPE = "connectCluster";
 export const CONNECT_LAYOUT: Layout.BaseState = {
   key: CONNECT_LAYOUT_TYPE,
   type: CONNECT_LAYOUT_TYPE,
-  name: "Cluster.Connect",
+  name: "Core.Connect",
   icon: "Cluster",
   location: "modal",
   window: { resizable: false, size: { height: 300, width: 650 }, navTop: true },

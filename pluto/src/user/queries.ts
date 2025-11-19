@@ -221,3 +221,27 @@ export const useList = Flux.createList<ListQuery, user.Key, user.User, FluxSubSt
     ];
   },
 });
+
+export const { useRetrieve } = Flux.createRetrieve<
+  Partial<RetrieveQuery>,
+  user.User,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query, store }) => {
+    const { key } = query;
+    if (key == null) {
+      const user = client.auth?.user;
+      if (user == null) {
+        const res = await client.connectivity.check();
+        if (res.error != null) throw res.error;
+      }
+      if (client.auth?.user == null)
+        throw new UnexpectedError(
+          "Expected user to be available after successfully connecting to cluster",
+        );
+      return client.auth.user;
+    }
+    return await retrieveSingle({ client, query: { key }, store });
+  },
+});

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology, ranger, type Synnax } from "@synnaxlabs/client";
-import { array, type Optional, primitive } from "@synnaxlabs/x";
+import { array, type optional, primitive } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -511,7 +511,7 @@ export const toFormValues = (range: ranger.Range): z.infer<typeof formSchema> =>
   labels: range.labels?.map((l) => l.key) ?? [],
 });
 
-export interface FormQuery extends Optional<RetrieveQuery, "key"> {}
+export interface FormQuery extends optional.Optional<RetrieveQuery, "key"> {}
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",

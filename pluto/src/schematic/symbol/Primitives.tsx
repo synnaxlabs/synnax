@@ -15,7 +15,7 @@ import {
   dimensions,
   direction,
   type location,
-  type Optional,
+  type optional,
   xy,
 } from "@synnaxlabs/x";
 import {
@@ -45,6 +45,7 @@ import { useCustom } from "@/schematic/symbol/Custom";
 import { useRetrieve } from "@/schematic/symbol/queries";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
+import { stopPropagation } from "@/util/event";
 
 interface PathProps extends ComponentPropsWithoutRef<"path"> {}
 
@@ -202,7 +203,7 @@ const Handle = ({
       position={swapRF(smartPosition(location, orientation), !swap)}
       {...rest}
       type="source"
-      onClick={(e) => e.stopPropagation()}
+      onClick={stopPropagation}
       className={(CSS.B("handle"), CSS.BE("handle", rest.id))}
       style={{
         left: `${adjusted.left}%`,
@@ -2028,7 +2029,10 @@ export const Button = ({
 
 export interface TextBoxProps
   extends Omit<DivProps, "onChange">,
-    Optional<Pick<Text.EditableProps, "level" | "value" | "onChange">, "onChange"> {
+    optional.Optional<
+      Pick<Text.EditableProps, "level" | "value" | "onChange">,
+      "onChange"
+    > {
   color?: color.Crude;
   width?: number;
   align?: Flex.Alignment;

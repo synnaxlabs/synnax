@@ -20,6 +20,8 @@ import { Workspace } from "@/workspace";
 
 export const Badge = (): ReactElement | null => {
   const dispatch = useDispatch();
+  const { data: u } = User.useRetrieve({}, { addStatusOnFailure: false });
+  const cluster = Cluster.useSelect();
   const { data: u } = User.useRetrieve({});
   const isAdmin = Access.useIsAdmin();
   const placeLayout = Layout.usePlacer();
@@ -29,25 +31,15 @@ export const Badge = (): ReactElement | null => {
     dispatch(Workspace.setActive(null));
     dispatch(Layout.clearWorkspace());
   }, [dispatch]);
-
-  if (u == null) return null;
-
+  const username = u?.username ?? cluster?.username ?? "";
+  const displayName =
+    u?.firstName != null && u?.firstName != "" ? u.firstName : username;
   return (
     <Dialog.Frame>
-      <Flex.Box x>
-        <Flex.Box x pack>
-          <User.Avatar username={u?.username ?? ""} square size="large" />
-          <Dialog.Trigger
-            contrast={2}
-            hideCaret
-            textColor={10}
-            gap="small"
-            weight={400}
-          >
-            {u.firstName != "" ? `${u.firstName}` : u.username}
-          </Dialog.Trigger>
-        </Flex.Box>
-      </Flex.Box>
+      <Dialog.Trigger contrast={2} hideCaret textColor={10} gap="small" weight={400}>
+        <Icon.User />
+        {displayName}
+      </Dialog.Trigger>
       <Dialog.Dialog bordered borderColor={6} style={{ padding: "1rem", width: 200 }}>
         {isAdmin && (
           <>

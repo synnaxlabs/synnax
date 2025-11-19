@@ -100,7 +100,7 @@ export class Checker {
     try {
       const res = await sendRequired(
         this.client,
-        ENDPOINT,
+        "/connectivity/check",
         undefined,
         requestZ,
         responseZ,

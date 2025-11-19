@@ -305,7 +305,11 @@ export class Frame {
 
   push(keyOrFrame: channel.KeyOrName | Frame, ...v: Series[]): void {
     if (keyOrFrame instanceof Frame) {
-      if (this.colType !== null && keyOrFrame.colType !== this.colType)
+      if (
+        keyOrFrame.colType != null &&
+        this.colType !== null &&
+        keyOrFrame.colType !== this.colType
+      )
         throw new ValidationError("keyVariant must match");
       this.series.push(...keyOrFrame.series);
       (this.columns as channel.Keys).push(...(keyOrFrame.columns as channel.Keys));
@@ -352,6 +356,21 @@ export class Frame {
   ): Frame {
     const frame = new Frame();
     this.forEach((k, arr, i) => frame.push(...fn(k, arr, i)));
+    return frame;
+  }
+
+  mapFilter(
+    fn: (
+      k: channel.KeyOrName,
+      arr: Series,
+      i: number,
+    ) => [channel.KeyOrName, Series, boolean],
+  ): Frame {
+    const frame = new Frame();
+    this.forEach((k, arr, i) => {
+      const [newK, newArr, keep] = fn(k, arr, i);
+      if (keep) frame.push(newK, newArr);
+    });
     return frame;
   }
 
@@ -438,11 +457,11 @@ export class Frame {
 export const frameZ = z.object({
   keys: z.union([
     z.null().transform<number[]>(() => []),
-    z.number().array().optional().default([]),
+    z.number().array().default([]),
   ]),
   series: z.union([
     z.null().transform<z.infer<typeof Series.crudeZ>[]>(() => []),
-    Series.crudeZ.array().optional().default([]),
+    Series.crudeZ.array().default([]),
   ]),
 });
 

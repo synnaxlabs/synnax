@@ -31,7 +31,7 @@ struct BaseWriteTaskConfig : BaseTaskConfig {
     const BaseWriteTaskConfig &operator=(const BaseWriteTaskConfig &) = delete;
 
     explicit BaseWriteTaskConfig(xjson::Parser &cfg):
-        BaseTaskConfig(cfg), device_key(cfg.required<std::string>("device")) {}
+        BaseTaskConfig(cfg), device_key(cfg.field<std::string>("device")) {}
 };
 class Sink : public pipeline::Sink, public pipeline::Source {
     /// @brief the vector of channels to stream for commands.
@@ -58,7 +58,7 @@ public:
     explicit Sink(std::vector<synnax::ChannelKey> cmd_channels):
         cmd_channels(std::move(cmd_channels)),
         state_indexes({}),
-        data_saving(false),
+        data_saving(true),
         state_rate(0) {}
 
     Sink(
@@ -96,7 +96,7 @@ public:
             keys.push_back(idx);
         return synnax::WriterConfig{
             .channels = keys,
-            .mode = synnax::data_saving_writer_mode(this->data_saving),
+            .mode = common::data_saving_writer_mode(this->data_saving),
         };
     }
 

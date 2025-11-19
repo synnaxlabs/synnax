@@ -15,7 +15,6 @@ import {
   type axis,
   Channel,
   Icon,
-  type Legend,
   LinePlot as Core,
   Menu as PMenu,
   Ranger,
@@ -26,6 +25,7 @@ import {
   usePrevious,
   Viewport,
 } from "@synnaxlabs/pluto";
+import { type measure } from "@synnaxlabs/pluto/ether";
 import {
   box,
   color,
@@ -34,6 +34,7 @@ import {
   primitive,
   record,
   scale,
+  type sticky,
   TimeRange,
   unique,
 } from "@synnaxlabs/x";
@@ -78,6 +79,7 @@ import {
   setControlState,
   setLegend,
   setLine,
+  setMeasureMode,
   setRanges,
   setRemoteCreated,
   setRule,
@@ -300,14 +302,14 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const [legendPosition, setLegendPosition] = useState(vis.legend.position);
 
   const storeLegendPosition = useDebouncedCallback(
-    (position: Legend.StickyXY) =>
+    (position: sticky.XY) =>
       syncDispatch(setLegend({ key: layoutKey, legend: { position } })),
     100,
     [syncDispatch, layoutKey],
   );
 
   const handleLegendPositionChange = useCallback(
-    (position: Legend.StickyXY) => {
+    (position: sticky.XY) => {
       setLegendPosition(position);
       storeLegendPosition(position);
     },
@@ -333,6 +335,27 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     );
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
   }, [windowKey, dispatch, layoutKey]);
+
+  const handleSelectRule = useCallback(
+    (ruleKey: string) => {
+      dispatch(setSelectedRule({ key: layoutKey, ruleKey }));
+    },
+    [dispatch, layoutKey],
+  );
+
+  const handleMeasureModeChange = useCallback(
+    (mode: measure.Mode) => {
+      dispatch(setMeasureMode({ key: layoutKey, mode }));
+    },
+    [dispatch, layoutKey],
+  );
+
+  const handleHold = useCallback(
+    (hold: boolean) => {
+      dispatch(setControlState({ key: layoutKey, state: { hold } }));
+    },
+    [dispatch, layoutKey],
+  );
 
   const props = PMenu.useContextMenu();
 
@@ -456,13 +479,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
-          onSelectRule={(ruleKey) =>
-            dispatch(setSelectedRule({ key: layoutKey, ruleKey }))
-          }
-          onHold={(hold) =>
-            dispatch(setControlState({ key: layoutKey, state: { hold } }))
-          }
+          onSelectRule={handleSelectRule}
+          onHold={handleHold}
           rangeProviderProps={rangeProviderProps}
+          measureMode={vis.measure.mode}
+          onMeasureModeChange={handleMeasureModeChange}
         >
           {!focused && <NavControls layoutKey={layoutKey} />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />

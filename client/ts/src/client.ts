@@ -30,7 +30,7 @@ import { Transport } from "@/transport";
 import { user } from "@/user";
 import { workspace } from "@/workspace";
 
-export const synnaxPropsZ = z.object({
+export const synnaxParamsZ = z.object({
   host: z.string({ error: "Host is required" }).min(1, "Host is required"),
   port: z
     .number({ error: "Port is required" })
@@ -38,15 +38,13 @@ export const synnaxPropsZ = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
-  secure: z.boolean().optional().default(false),
+  secure: z.boolean().default(false),
   name: z.string().optional(),
   retry: breaker.breakerConfigZ.optional(),
 });
 
-export interface SynnaxParams extends z.input<typeof synnaxPropsZ> {}
-export type SynnaxProps = SynnaxParams;
-export interface ParsedSynnaxParams extends z.infer<typeof synnaxPropsZ> {}
-export type ParsedSynnaxProps = ParsedSynnaxParams;
+export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
+export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
 /**
  * Client to perform operations against a Synnax cluster.
@@ -96,8 +94,8 @@ export default class Synnax extends framer.Client {
    * A Synnax client must be closed when it is no longer needed. This will stop
    * the client from polling the cluster for connectivity information.
    */
-  constructor(params: SynnaxProps) {
-    const parsedParams = synnaxPropsZ.parse(params);
+  constructor(params: SynnaxParams) {
+    const parsedParams = synnaxParamsZ.parse(params);
     const {
       host,
       port,
@@ -175,17 +173,13 @@ export default class Synnax extends framer.Client {
 export interface CheckConnectionParams
   extends Pick<SynnaxParams, "host" | "port" | "secure" | "retry" | "name"> {}
 
-export const checkConnection = async ({
-  host,
-  port,
-  secure,
-  name,
-}: CheckConnectionParams) =>
-  await newConnectionChecker({ host, port, secure, name }).check();
+export const checkConnection = async (params: CheckConnectionParams) =>
+  await newConnectionChecker(params).check();
 
 export const newConnectionChecker = (params: CheckConnectionParams) => {
-  const { host, port, secure, name } = params;
+  const { host, port, secure, name, retry } = params;
+  const retryConfig = breaker.breakerConfigZ.optional().parse(retry);
   const url = new URL({ host, port: Number(port) });
-  const transport = new Transport(url, undefined, secure);
+  const transport = new Transport(url, retryConfig, secure);
   return new connection.Checker(transport.unary, undefined, __VERSION__, name);
 };

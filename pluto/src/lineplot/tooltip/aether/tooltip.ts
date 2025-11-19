@@ -32,11 +32,11 @@ const TOOLTIP_PADDING: xy.XY = xy.construct(6);
 
 export const tooltipStateZ = z.object({
   position: xy.xy.or(z.null()),
-  textColor: color.colorZ.optional().default(color.ZERO),
-  backgroundColor: color.colorZ.optional().default(color.ZERO),
-  borderColor: color.colorZ.optional().default(color.ZERO),
-  ruleColor: color.colorZ.optional().default(color.ZERO),
-  ruleStrokeWidth: z.number().optional().default(1),
+  textColor: color.colorZ.default(color.ZERO),
+  backgroundColor: color.colorZ.default(color.ZERO),
+  borderColor: color.colorZ.default(color.ZERO),
+  ruleColor: color.colorZ.default(color.ZERO),
+  ruleStrokeWidth: z.number().default(1),
   ruleStrokeDash: z.number().default(0),
 });
 

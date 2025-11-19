@@ -172,6 +172,23 @@ export class Task<
     });
   }
 
+  async start(): Promise<void> {
+    await this.executeCommand({ type: "start" });
+  }
+
+  async stop(): Promise<void> {
+    await this.executeCommand({ type: "stop" });
+  }
+
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    await this.start();
+    try {
+      return await fn();
+    } finally {
+      await this.stop();
+    }
+  }
+
   async snapshottedTo(): Promise<ontology.Resource | null> {
     if (this.ontologyClient == null || this.rangeClient == null)
       throw NOT_CREATED_ERROR;
@@ -189,8 +206,8 @@ const retrieveReqZ = z.object({
   internal: z.boolean().optional(),
   snapshot: z.boolean().optional(),
   searchTerm: z.string().optional(),
-  offset: z.number().optional(),
-  limit: z.number().optional(),
+  offset: z.int().optional(),
+  limit: z.int().optional(),
 });
 
 const singleRetrieveArgsZ = z.union([
@@ -235,11 +252,6 @@ const retrieveResZ = <
   });
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
-
-const RETRIEVE_ENDPOINT = "/hardware/task/retrieve";
-const CREATE_ENDPOINT = "/hardware/task/create";
-const DELETE_ENDPOINT = "/hardware/task/delete";
-const COPY_ENDPOINT = "/hardware/task/copy";
 
 const createReqZ = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -319,7 +331,7 @@ export class Client {
     const createRes = createResZ(schemas);
     const res = await sendRequired(
       this.client,
-      CREATE_ENDPOINT,
+      "/hardware/task/create",
       { tasks: array.toArray(task) } as z.infer<typeof createReq>,
       createReq,
       createRes,
@@ -334,7 +346,7 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
-      DELETE_ENDPOINT,
+      "/hardware/task/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       deleteResZ,
@@ -370,7 +382,7 @@ export class Client {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/hardware/task/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ(schemas),
@@ -385,12 +397,18 @@ export class Client {
     const copyRes = copyResZ();
     const response = await sendRequired(
       this.client,
-      COPY_ENDPOINT,
+      "/hardware/task/copy",
       { key, name, snapshot },
       copyReqZ,
       copyRes,
     );
     return this.sugar(response.task as Payload);
+  }
+
+  async list(rack?: number): Promise<Task[]> {
+    const params: RetrieveMultipleParams = { internal: false };
+    if (rack !== undefined) params.rack = rack;
+    return await this.retrieve(params);
   }
 
   async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.Resource | null> {
@@ -459,11 +477,11 @@ export class Client {
   }
 
   async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
-    parms: ExecuteCommandsSyncParams<StatusData>,
+    params: ExecuteCommandsSyncParams<StatusData>,
   ): Promise<Status<StatusData>[]>;
 
   async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
-    parms: ExecuteCommandSyncParams<StatusData>,
+    params: ExecuteCommandSyncParams<StatusData>,
   ): Promise<Status<StatusData>>;
 
   async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(

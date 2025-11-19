@@ -1,6 +1,6 @@
 [project]
 name = "synnax"
-version = "0.47.0"
+version = "0.48.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
@@ -16,26 +16,28 @@ Repository = "https://github.com/synnaxlabs/synnax"
 
 [tool.poetry.dependencies]
 alamos = { path = "../../alamos/py", develop = true }
-click = "^8.2.1"
+click = "^8.3.0"
 keyring = "^25.6.0"
-matplotlib = "^3.10.6"
+matplotlib = "^3.10.7"
 nptdms = "^1.10.0"
-numpy = "^2.3.3"
-pandas = "^2.3.2"
-pydantic = "^2.11.9"
-rich = "^14.1.0"
+numpy = "^2.3.4"
+pandas = "^2.3.3"
+pydantic = "^2.12.4"
+rich = "^14.2.0"
 synnax-freighter = { path = "../../freighter/py", develop = true }
 urllib3 = "^2.5.0"
 
 [tool.poetry.group.dev.dependencies]
-black = "^25.1.0"
-isort = "^6.0.1"
-mypy = "^1.18.1"
-poetry = "^2.2.0"
+asyncua = "^1.1.5"
+black = "^25.9.0"
+isort = "^7.0.0"
+mypy = "^1.18.2"
+poetry = "^2.2.1"
+pymodbus = "^3.8.2"
 pytest = "^8.4.2"
 pytest-asyncio = "^1.2.0"
-scipy = "^1.16.2"
-vermin = "^1.6.0"
+scipy = "^1.16.3"
+vermin = "^1.7.0"
 
 [tool.isort]
 profile = "black"
@@ -61,8 +63,10 @@ markers = [
     "frame_codec: mark test as a frame codec test",
     "iterator: mark test as a reader test",
     "internal: mark test as an internal test",
+    "labjack: mark test as a labjack test",
     "io: mark test as an io test",
     "multi_node: mark test as a multi_node test",
+    "modbus: mark test as a modbus test",
     "ni: mark test as a ni test",
     "ontology: mark test as an ontology test",
     "opcua: mark test as an opcua test",

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -18,8 +18,8 @@ export const stateZ = z.object({
   trigger: z.number(),
   command: z.number().optional(),
   value: z.number(),
-  sink: telem.numberSinkSpecZ.optional().default(telem.noopNumericSinkSpec),
-  source: telem.numberSourceSpecZ.optional().default(telem.noopNumericSourceSpec),
+  sink: telem.numberSinkSpecZ.default(telem.noopNumericSinkSpec),
+  source: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
 });
 
 export type SetpointState = z.input<typeof stateZ>;
@@ -27,7 +27,7 @@ export type SetpointState = z.input<typeof stateZ>;
 interface InternalState {
   source: telem.NumberSource;
   sink: telem.NumberSink;
-  stopListening: Destructor;
+  stopListening: destructor.Destructor;
   prevTrigger: number;
 }
 

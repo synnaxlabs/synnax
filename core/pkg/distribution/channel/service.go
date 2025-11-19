@@ -31,7 +31,7 @@ type Service interface {
 	Writeable
 	ontology.Service
 	Group() group.Group
-	SetCalculationAnalyzer(calc CalculationAnalyzer)
+	SetCalculationAnalyzer(CalculationAnalyzer)
 }
 
 type Writeable interface {

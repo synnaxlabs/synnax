@@ -10,9 +10,11 @@
 import { z } from "zod";
 
 import { compare } from "@/compare";
-import { type Optional } from "@/optional";
+import { type optional } from "@/optional";
 
-export const semVerZ = z.string().regex(/^\d+\.\d+\.\d+$/);
+export const semVerZ = z
+  .string()
+  .regex(/^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/);
 
 export type SemVer = z.infer<typeof semVerZ>;
 
@@ -35,6 +37,48 @@ export interface CompareSemVerOptions {
 }
 
 /**
+ * Compares two pre-release identifiers according to semver spec.
+ * @param a - First pre-release identifier (without leading hyphen)
+ * @param b - Second pre-release identifier (without leading hyphen)
+ * @returns compare.LESS_THAN if a < b, compare.GREATER_THAN if a > b, compare.EQUAL if equal
+ */
+const comparePreRelease = (a: string, b: string): number => {
+  const aParts = a.split(".");
+  const bParts = b.split(".");
+  const maxLength = Math.max(aParts.length, bParts.length);
+
+  for (let i = 0; i < maxLength; i++) {
+    const aPart = aParts[i];
+    const bPart = bParts[i];
+
+    // A larger set of pre-release fields has higher precedence
+    if (aPart === undefined) return compare.LESS_THAN;
+    if (bPart === undefined) return compare.GREATER_THAN;
+
+    const aIsNumeric = /^\d+$/.test(aPart);
+    const bIsNumeric = /^\d+$/.test(bPart);
+
+    // Numeric identifiers always have lower precedence than non-numeric
+    if (aIsNumeric && !bIsNumeric) return compare.LESS_THAN;
+    if (!aIsNumeric && bIsNumeric) return compare.GREATER_THAN;
+
+    if (aIsNumeric && bIsNumeric) {
+      // Compare numerically
+      const aNum = parseInt(aPart);
+      const bNum = parseInt(bPart);
+      if (aNum < bNum) return compare.LESS_THAN;
+      if (aNum > bNum) return compare.GREATER_THAN;
+    } else {
+      // Compare lexically (ASCII sort order)
+      if (aPart < bPart) return compare.LESS_THAN;
+      if (aPart > bPart) return compare.GREATER_THAN;
+    }
+  }
+
+  return compare.EQUAL;
+};
+
+/**
  * Compares the two semantic versions.
  *
  * @param a  The first semantic version.
@@ -55,8 +99,14 @@ export const compareSemVer = ((
   opts.checkPatch ??= true;
   const semA = semVerZ.parse(a);
   const semB = semVerZ.parse(b);
-  const [aMajor, aMinor, aPatch] = semA.split(".").map(Number);
-  const [bMajor, bMinor, bPatch] = semB.split(".").map(Number);
+
+  // Split version and pre-release parts
+  const [aCore, aPreRelease] = semA.split("-");
+  const [bCore, bPreRelease] = semB.split("-");
+
+  const [aMajor, aMinor, aPatch] = aCore.split(".").map(Number);
+  const [bMajor, bMinor, bPatch] = bCore.split(".").map(Number);
+
   if (opts.checkMajor) {
     if (aMajor < bMajor) return compare.LESS_THAN;
     if (aMajor > bMajor) return compare.GREATER_THAN;
@@ -69,7 +119,15 @@ export const compareSemVer = ((
     if (aPatch < bPatch) return compare.LESS_THAN;
     if (aPatch > bPatch) return compare.GREATER_THAN;
   }
-  return compare.EQUAL;
+
+  // When major.minor.patch are equal, compare pre-release versions
+  // Version without pre-release > version with pre-release
+  if (aPreRelease === undefined && bPreRelease === undefined) return compare.EQUAL;
+  if (aPreRelease === undefined) return compare.GREATER_THAN;
+  if (bPreRelease === undefined) return compare.LESS_THAN;
+
+  // Both have pre-release, compare them
+  return comparePreRelease(aPreRelease, bPreRelease);
 }) satisfies compare.Comparator<SemVer>;
 
 /**
@@ -163,10 +221,12 @@ interface MigratorProps<O extends Migratable, ZO extends z.ZodType = z.ZodType> 
   targetSchema?: ZO;
 }
 
-export type Migrator = <I extends Optional<Migratable, "version">, O>(v: I) => O;
+export type Migrator = <I extends optional.Optional<Migratable, "version">, O>(
+  v: I,
+) => O;
 
 export const migrator = <
-  I extends Optional<Migratable, "version">,
+  I extends optional.Optional<Migratable, "version">,
   O extends Migratable,
   ZO extends z.ZodType = z.ZodType,
 >({

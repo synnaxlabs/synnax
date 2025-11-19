@@ -105,13 +105,13 @@ const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement =>
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Multiple<string, Range>
-      resourceName="Range"
-      data={data}
       icon={<Icon.Range />}
       renderTag={renderTag}
       onFetchMore={fetchMore}
       onSearch={search}
       {...props}
+      resourceName="range"
+      data={data}
     >
       {listItem}
     </Select.Multiple>

@@ -623,6 +623,360 @@ TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
     EXPECT_EQ(cfg->channels[0]->dev_loc, "cDAQ1Mod1");
 }
 
+class CounterReadTest : public ::testing::Test {
+protected:
+    std::shared_ptr<synnax::Synnax> sy;
+    synnax::Task task;
+    std::unique_ptr<ni::ReadTaskConfig> cfg;
+    std::shared_ptr<task::MockContext> ctx;
+    std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
+    synnax::Channel
+        index_channel = synnax::Channel("time_channel", telem::TIMESTAMP_T, 0, true);
+    synnax::Channel data_channel = synnax::Channel(
+        "counter_channel",
+        telem::FLOAT64_T, // Counter frequency data
+        index_channel.key,
+        false
+    );
+
+    void parse_config() {
+        sy = std::make_shared<synnax::Synnax>(new_test_client());
+
+        auto idx_err = sy->channels.create(index_channel);
+        ASSERT_FALSE(idx_err) << idx_err;
+
+        data_channel.index = index_channel.key;
+        auto data_err = sy->channels.create(data_channel);
+        ASSERT_FALSE(data_err) << data_err;
+
+        auto [rack, rack_err] = sy->hardware.create_rack("counter_rack");
+        ASSERT_FALSE(rack_err) << rack_err;
+
+        synnax::Device dev(
+            "f8a9c7e6-1234-4567-890a-bcdef0123456",
+            "counter_device",
+            rack.key,
+            "Dev1",
+            "ni",
+            "PCIe-6343",
+            ""
+        );
+        auto dev_err = sy->hardware.create_device(dev);
+        ASSERT_FALSE(dev_err) << dev_err;
+
+        task = synnax::Task(rack.key, "counter_task", "ni_counter_read", "");
+
+        json j{
+            {"data_saving", true},
+            {"sample_rate", 25},
+            {"stream_rate", 25},
+            {"device", dev.key},
+            {"channels",
+             json::array({{
+                 {"type", "ci_frequency"},
+                 {"key", "counter_freq_key"},
+                 {"port", 0},
+                 {"enabled", true},
+                 {"channel", data_channel.key},
+                 {"min_val", 2},
+                 {"max_val", 10000},
+                 {"units", "Hz"},
+                 {"edge", "Rising"},
+                 {"meas_method", "DynamicAvg"},
+                 {"meas_time", 0.001},
+                 {"divisor", 4},
+                 {"terminal", ""},
+                 {"custom_scale", {{"type", "none"}}},
+             }})}
+        };
+
+        auto p = xjson::Parser(j);
+        cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_counter_read");
+        ASSERT_FALSE(p.error()) << p.error();
+
+        auto client = std::make_shared<synnax::Synnax>(new_test_client());
+        ctx = std::make_shared<task::MockContext>(client);
+        mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    }
+
+    std::unique_ptr<common::ReadTask>
+    create_task(std::unique_ptr<hardware::mock::Reader<double>> mock_hw) {
+        return std::make_unique<common::ReadTask>(
+            task,
+            ctx,
+            breaker::default_config(task.name),
+            std::make_unique<ni::ReadTaskSource<double>>(
+                std::move(*cfg),
+                std::move(mock_hw)
+            ),
+            mock_factory
+        );
+    }
+};
+
+/// @brief it should run a basic counter frequency read task using a mock hardware
+/// implementation.
+TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
+    parse_config();
+    auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(
+            std::vector{xerrors::NIL},
+            std::vector{xerrors::NIL},
+            std::vector<std::pair<std::vector<double>, xerrors::Error>>{
+                {{100.5}, xerrors::NIL} // 100.5 Hz frequency reading
+            }
+        )
+    );
+
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    const auto first_state = ctx->states[0];
+    EXPECT_EQ(first_state.key, "start_cmd");
+    EXPECT_EQ(first_state.details.task, task.key);
+    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(first_state.message, "Task started successfully");
+    ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
+
+    rt->stop("stop_cmd", true);
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
+    const auto second_state = ctx->states[1];
+    EXPECT_EQ(second_state.key, "stop_cmd");
+    EXPECT_EQ(second_state.details.task, task.key);
+    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(second_state.message, "Task stopped successfully");
+
+    ASSERT_GE(mock_factory->writes->size(), 1);
+    auto &fr = mock_factory->writes->at(0);
+    ASSERT_EQ(fr.size(), 2);
+    ASSERT_EQ(fr.length(), 1);
+    ASSERT_TRUE(fr.contains(data_channel.key));
+    ASSERT_TRUE(fr.contains(index_channel.key));
+    ASSERT_DOUBLE_EQ(
+        fr.at<double>(data_channel.key, 0),
+        100.5
+    ); // Verify frequency value
+    ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
+}
+
+/// @brief it should communicate an error when the counter hardware fails to start.
+TEST_F(CounterReadTest, testCounterErrorOnStart) {
+    parse_config();
+    const auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(std::vector{
+            xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Counter failed to start")
+        })
+    );
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    const auto state = ctx->states[0];
+    EXPECT_EQ(state.key, "start_cmd");
+    EXPECT_EQ(state.details.task, task.key);
+    EXPECT_EQ(state.variant, status::variant::ERR);
+    EXPECT_EQ(state.message, "Counter failed to start");
+    rt->stop(false);
+}
+
+/// @brief it should communicate an error when the counter hardware fails to stop.
+TEST_F(CounterReadTest, testCounterErrorOnStop) {
+    parse_config();
+    auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(
+            std::vector{xerrors::NIL},
+            std::vector{xerrors::Error(
+                driver::CRITICAL_HARDWARE_ERROR,
+                "Counter failed to stop"
+            )}
+        )
+    );
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    const auto start_state = ctx->states[0];
+    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+    rt->stop("stop_cmd", true);
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
+    const auto stop_state = ctx->states[1];
+    EXPECT_EQ(stop_state.key, "stop_cmd");
+    EXPECT_EQ(stop_state.details.task, task.key);
+    EXPECT_EQ(stop_state.variant, status::variant::ERR);
+    EXPECT_EQ(stop_state.message, "Counter failed to stop");
+}
+
+/// @brief it should communicate an error when the counter hardware fails to read.
+TEST_F(CounterReadTest, testCounterErrorOnRead) {
+    parse_config();
+    auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(
+            std::vector{xerrors::NIL},
+            std::vector{xerrors::NIL},
+            std::vector<std::pair<std::vector<double>, xerrors::Error>>{
+                {{},
+                 xerrors::Error(driver::CRITICAL_HARDWARE_ERROR, "Counter read failed")}
+            }
+        )
+    );
+
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    const auto start_state = ctx->states[0];
+    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
+    const auto read_err_state = ctx->states[1];
+    EXPECT_EQ(read_err_state.variant, status::variant::ERR);
+    EXPECT_EQ(read_err_state.message, "Counter read failed");
+    rt->stop("stop_cmd", true);
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 3);
+    const auto stop_state = ctx->states[2];
+    EXPECT_EQ(stop_state.variant, status::variant::ERR);
+    EXPECT_EQ(stop_state.message, "Counter read failed");
+}
+
+/// @brief it should correctly handle multiple counter frequency readings.
+TEST_F(CounterReadTest, testMultipleCounterReadings) {
+    parse_config();
+    auto rt = create_task(
+        std::make_unique<hardware::mock::Reader<double>>(
+            std::vector{xerrors::NIL},
+            std::vector{xerrors::NIL},
+            std::vector<std::pair<std::vector<double>, xerrors::Error>>{
+                {{100.0}, xerrors::NIL},
+                {{150.5}, xerrors::NIL},
+                {{200.75}, xerrors::NIL}
+            }
+        )
+    );
+
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    const auto start_state = ctx->states[0];
+    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+
+    // Wait for multiple writes
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 3);
+
+    // Verify all three readings
+    for (size_t i = 0; i < 3; i++) {
+        auto &fr = mock_factory->writes->at(i);
+        ASSERT_EQ(fr.size(), 2);
+        ASSERT_EQ(fr.length(), 1);
+        ASSERT_TRUE(fr.contains(data_channel.key));
+        ASSERT_TRUE(fr.contains(index_channel.key));
+    }
+
+    EXPECT_DOUBLE_EQ(
+        mock_factory->writes->at(0).at<double>(data_channel.key, 0),
+        100.0
+    );
+    EXPECT_DOUBLE_EQ(
+        mock_factory->writes->at(1).at<double>(data_channel.key, 0),
+        150.5
+    );
+    EXPECT_DOUBLE_EQ(
+        mock_factory->writes->at(2).at<double>(data_channel.key, 0),
+        200.75
+    );
+
+    rt->stop("stop_cmd", true);
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
+    const auto stop_state = ctx->states[1];
+    EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
+}
+
+/// @brief it should correctly parse a counter edge count task configuration.
+TEST(ReadTaskConfigTest, testCounterEdgeCountConfig) {
+    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
+
+    auto dev = synnax::Device(
+        "counter_dev_123",
+        "test_counter_device",
+        rack.key,
+        "Dev1",
+        "ni",
+        "USB-6343",
+        ""
+    );
+    ASSERT_NIL(sy->hardware.create_device(dev));
+    auto ch = ASSERT_NIL_P(sy->channels.create("edge_count", telem::UINT32_T, true));
+
+    json j{
+        {"data_saving", false},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", dev.key},
+        {"channels",
+         json::array({{
+             {"type", "ci_edge_count"},
+             {"key", "edge_count_key"},
+             {"port", 0},
+             {"enabled", true},
+             {"channel", ch.key},
+             {"active_edge", "Rising"},
+             {"count_direction", "CountUp"},
+             {"initial_count", 0},
+             {"terminal", ""},
+         }})}
+    };
+
+    auto p = xjson::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_counter_read");
+    ASSERT_NIL(p.error());
+
+    // Verify channel configuration
+    ASSERT_EQ(cfg->channels.size(), 1);
+    EXPECT_EQ(cfg->channels[0]->dev_loc, "Dev1");
+}
+
+/// @brief it should correctly parse a counter period task configuration.
+TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
+    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
+
+    auto dev = synnax::Device(
+        "counter_dev_456",
+        "test_period_device",
+        rack.key,
+        "Dev2",
+        "ni",
+        "PCIe-6343",
+        ""
+    );
+    ASSERT_NIL(sy->hardware.create_device(dev));
+    auto ch = ASSERT_NIL_P(sy->channels.create("period", telem::FLOAT64_T, true));
+
+    json j{
+        {"data_saving", false},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", dev.key},
+        {"channels",
+         json::array({{
+             {"type", "ci_period"},
+             {"key", "period_key"},
+             {"port", 0},
+             {"enabled", true},
+             {"channel", ch.key},
+             {"min_val", 0.000001},
+             {"max_val", 0.1},
+             {"units", "Seconds"},
+             {"starting_edge", "Rising"},
+             {"meas_method", "DynamicAvg"},
+             {"meas_time", 0.001},
+             {"divisor", 4},
+             {"terminal", ""},
+             {"custom_scale", {{"type", "none"}}},
+         }})}
+    };
+
+    auto p = xjson::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(sy, p, "ni_counter_read");
+    ASSERT_NIL(p.error());
+
+    // Verify channel configuration
+    ASSERT_EQ(cfg->channels.size(), 1);
+    EXPECT_EQ(cfg->channels[0]->dev_loc, "Dev2");
+}
+
 /// @brief Verify cross-device task has multiple device locations in channels
 TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     auto sy = std::make_shared<synnax::Synnax>(new_test_client());

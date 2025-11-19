@@ -61,10 +61,6 @@ const createResZ = z.object({ policies: policyZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
-const RETRIEVE_ENDPOINT = "/access/policy/retrieve";
-const CREATE_ENDPOINT = "/access/policy/create";
-const DELETE_ENDPOINT = "/access/policy/delete";
-
 export class Client {
   private readonly client: UnaryClient;
 
@@ -78,9 +74,9 @@ export class Client {
     const isMany = Array.isArray(policies);
     const res = await sendRequired<typeof createArgsZ, typeof createResZ>(
       this.client,
-      CREATE_ENDPOINT,
+      "/access/policy/create",
       policies,
-      createArgsZ,
+      createReqZ,
       createResZ,
     );
     return isMany ? res.policies : res.policies[0];
@@ -92,7 +88,7 @@ export class Client {
     const isSingle = "key" in args;
     const res = await sendRequired<typeof retrieveArgsZ, typeof retrieveResZ>(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/access/policy/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
@@ -105,7 +101,7 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
-      DELETE_ENDPOINT,
+      "/access/policy/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       deleteResZ,

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Divider, Flex, Form as PForm, Icon, Select } from "@synnaxlabs/pluto";
-import { deep, type Optional, type record } from "@synnaxlabs/x";
+import { deep, type optional, type record } from "@synnaxlabs/x";
 import { type FC, useMemo } from "react";
 
 import { Device } from "@/hardware/labjack/device";
@@ -67,7 +67,7 @@ const SelectScaleTypeField = PForm.buildSelectField<
     },
   },
   inputProps: {
-    resourceName: "Scale Type",
+    resourceName: "scale type",
     data: [
       { key: NO_SCALE_TYPE, name: "None", icon: <Icon.None /> },
       { key: LINEAR_SCALE_TYPE, name: "Linear", icon: <Icon.Linear /> },
@@ -108,7 +108,7 @@ const ThermocoupleTypeField = PForm.buildSelectField<
   fieldKey: "thermocoupleType",
   fieldProps: { label: "Thermocouple Type" },
   inputProps: {
-    resourceName: "Thermocouple Type",
+    resourceName: "thermocouple type",
     data: [
       { key: B_TC_TYPE, name: "B" },
       { key: E_TC_TYPE, name: "E" },
@@ -130,7 +130,7 @@ const TemperatureUnitsField = PForm.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Temperature Units" },
   inputProps: {
-    resourceName: "Temperature Units",
+    resourceName: "temperature units",
     data: [
       { key: CELSIUS_UNIT, name: "Celsius" },
       { key: FAHRENHEIT_UNIT, name: "Fahrenheit" },
@@ -142,7 +142,7 @@ const TemperatureUnitsField = PForm.buildSelectField<
 interface CJCSourceEntry extends record.KeyedNamed<string> {}
 
 interface SelectCJCSourceFieldProps
-  extends Optional<
+  extends optional.Optional<
     Select.StaticProps<string, CJCSourceEntry>,
     "data" | "resourceName"
   > {
@@ -164,7 +164,7 @@ const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => 
       data={data}
       allowNone={false}
       {...rest}
-      resourceName="CJC Source"
+      resourceName="CJC source"
     />
   );
 };

@@ -1,0 +1,148 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package telem
+
+import (
+	"context"
+
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/runtime/state"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/query"
+	xtelem "github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/zyn"
+)
+
+var (
+	sourceSymbolName = "on"
+	sourceSymbol     = symbol.Symbol{
+		Name: sourceSymbolName,
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)}},
+			Config:  types.Params{{Name: "channel", Type: types.Chan(types.Variable("T", nil))}},
+		}),
+	}
+	sinkSymbolName = "write"
+	sinkSymbol     = symbol.Symbol{
+		Name: sinkSymbolName,
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
+			Config: types.Params{{Name: "channel", Type: types.Chan(types.Variable("T", nil))}},
+		}),
+	}
+	SymbolResolver = symbol.MapResolver{
+		sourceSymbolName: sourceSymbol,
+		sinkSymbolName:   sinkSymbol,
+	}
+)
+
+type source struct {
+	*state.Node
+	key           uint32
+	highWaterMark xtelem.Alignment
+}
+
+func (s *source) Init(node.Context) {}
+
+func (s *source) Next(ctx node.Context) {
+	data, indexData, ok := s.ReadChan(s.key)
+	if !ok {
+		return
+	}
+	for i, ser := range data.Series {
+		ab := ser.AlignmentBounds()
+		if ab.Lower >= s.highWaterMark {
+			var timeSeries xtelem.Series
+			if indexData.DataType() == xtelem.UnknownT {
+				timeSeries = xtelem.Arange[xtelem.TimeStamp](
+					xtelem.Now(),
+					int(data.Len()),
+					1*xtelem.NanosecondTS,
+				)
+				timeSeries.Alignment = ser.Alignment
+			} else if len(indexData.Series) > i {
+				timeSeries = indexData.Series[i]
+			} else {
+				return
+			}
+			if timeSeries.Alignment != ser.Alignment {
+				return
+			}
+			*s.Output(0) = ser
+			*s.OutputTime(0) = timeSeries
+			s.highWaterMark = ab.Upper
+			ctx.MarkChanged(ir.DefaultOutputParam)
+			return
+		}
+	}
+}
+
+type sink struct {
+	*state.Node
+	key uint32
+}
+
+func (s *sink) Init(node.Context) {
+	if !s.RefreshInputs() {
+		return
+	}
+	data := s.Input(0)
+	time := s.InputTime(0)
+	if data.Len() == 0 {
+		return
+	}
+	s.WriteChan(s.key, data, time)
+}
+
+func (s *sink) Next(node.Context) {
+	if !s.RefreshInputs() {
+		return
+	}
+	data := s.Input(0)
+	time := s.InputTime(0)
+	if data.Len() == 0 {
+		return
+	}
+	s.WriteChan(s.key, data, time)
+}
+
+type telemFactory struct{}
+
+var schema = zyn.Object(map[string]zyn.Schema{
+	"channel": zyn.Uint32().Coerce(),
+})
+
+type config struct {
+	Channel uint32 `json:"channel"`
+}
+
+func (t telemFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+	isSource := cfg.Node.Type == sourceSymbolName
+	isSink := cfg.Node.Type == sinkSymbolName
+	if !isSource && !isSink {
+		return nil, query.NotFound
+	}
+	var nodeCfg config
+	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
+		return nil, err
+	}
+	if isSource {
+		return &source{Node: cfg.State, key: nodeCfg.Channel, highWaterMark: 0}, nil
+	}
+	return &sink{Node: cfg.State, key: nodeCfg.Channel}, nil
+}
+
+func NewTelemFactory() node.Factory {
+	return &telemFactory{}
+}
