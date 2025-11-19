@@ -14,6 +14,7 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -50,6 +51,7 @@ type Config struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	Channel channel.Writeable
 }
 
 var (
@@ -66,6 +68,7 @@ func (c Config) Override(other Config) Config {
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	return c
 }
 
@@ -77,6 +80,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "rack", c.Rack)
 	validate.NotNil(v, "status", c.Status)
+	validate.NotNil(v, "channel", c.Channel)
 	return v.Error()
 }
 
@@ -103,12 +107,23 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	if cfg.Signals == nil {
 		return
 	}
-	cdcS, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T))
+	if err = cfg.Channel.Create(ctx, &channel.Channel{
+		Name:     "sy_task_cmd",
+		DataType: telem.JSONT,
+		Virtual:  true,
+		Internal: true,
+	}); err != nil {
+		return nil, err
+	}
+	cdcS, err := signals.PublishFromGorp(
+		ctx,
+		cfg.Signals,
+		signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T),
+	)
 	if err != nil {
 		return
 	}
 	s.shutdownSignals = cdcS
-
 	return
 }
 

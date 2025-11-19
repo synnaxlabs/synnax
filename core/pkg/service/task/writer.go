@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
+	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type Writer struct {
@@ -27,7 +29,17 @@ type Writer struct {
 	status status.Writer[StatusDetails]
 }
 
-func (w Writer) Create(ctx context.Context, t *Task) (err error) {
+func newUnknownTaskStatus(key Key) *Status {
+	return &Status{
+		Key:     OntologyID(key).String(),
+		Time:    telem.Now(),
+		Message: "Task state unknown",
+		Variant: xstatus.WarningVariant,
+		Details: StatusDetails{Task: key},
+	}
+}
+
+func (w Writer) Create(ctx context.Context, t *Task) error {
 	if !t.Key.IsValid() {
 		localKey, err := w.rack.NewTaskKey(ctx, t.Rack())
 		if err != nil {
@@ -36,7 +48,7 @@ func (w Writer) Create(ctx context.Context, t *Task) (err error) {
 		t.Key = NewKey(t.Rack(), localKey)
 	}
 	t.Status = nil
-	if err = gorp.NewCreate[Key, Task]().
+	if err := gorp.NewCreate[Key, Task]().
 		MergeExisting(func(_ gorp.Context, creating, existing Task) (Task, error) {
 			if existing.Snapshot {
 				creating.Config = existing.Config
@@ -46,7 +58,10 @@ func (w Writer) Create(ctx context.Context, t *Task) (err error) {
 		Entry(t).
 		// We don't create ontology resources for internal tasks.
 		Exec(ctx, w.tx); err != nil || t.Internal {
-		return
+		return err
+	}
+	if err := w.status.Set(ctx, newUnknownTaskStatus(t.Key)); err != nil {
+		return err
 	}
 	otgID := OntologyID(t.Key)
 	exists, err := w.otg.HasResource(ctx, otgID)

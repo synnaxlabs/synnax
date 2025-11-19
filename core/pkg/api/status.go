@@ -88,7 +88,7 @@ func (s *StatusService) Set(
 	// For status setting, we use Create action for new statuses
 	// and Update action for existing ones. Since Set can do both,
 	// we'll use Create permission.
-	if err := s.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
 		Objects: ids,
@@ -97,8 +97,11 @@ func (s *StatusService) Set(
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		translated := translateStatusesToService(req.Statuses)
-		err := s.internal.NewWriter(tx).SetManyWithParent(ctx, &translated, req.Parent)
-		if err != nil {
+		if err = s.internal.NewWriter(tx).SetManyWithParent(
+			ctx,
+			&translated,
+			req.Parent,
+		); err != nil {
 			return err
 		}
 		res.Statuses = translateStatusesFromService(translated)

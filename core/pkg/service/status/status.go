@@ -26,3 +26,7 @@ func (s Status[D]) GorpKey() string { return s.Key }
 
 // SetOptions implements gorp.Entry.
 func (s Status[D]) SetOptions() []any { return nil }
+
+// CustomTypeName implements types.CustomTypeName to ensure that Status struct does
+// not conflict with any other types in gorp.
+func (s Status[D]) CustomTypeName() string { return "Status" }

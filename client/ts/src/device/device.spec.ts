@@ -33,6 +33,7 @@ describe("Device", async () => {
       expect(d.make).toBe("ni");
     });
   });
+
   it("should properly encode and decode properties", async () => {
     const properties = {
       rate: 10,
@@ -53,6 +54,7 @@ describe("Device", async () => {
     expect(retrieved.key).toEqual(d.key);
     expect(retrieved.properties).toEqual(properties);
   });
+
   describe("retrieve", () => {
     it("should retrieve a device by its key", async () => {
       const d = await client.devices.create({
@@ -69,6 +71,7 @@ describe("Device", async () => {
       expect(retrieved.name).toBe("test");
       expect(retrieved.make).toBe("ni");
     });
+
     it("should retrieve multiple devices by their keys", async () => {
       const d1 = await client.devices.create({
         key: id.create(),
@@ -96,8 +99,8 @@ describe("Device", async () => {
       expect(retrieved[1].key).toBe(d2.key);
     });
 
-    describe("state", () => {
-      it("should not include state by default", async () => {
+    describe("status", () => {
+      it("should not include status by default", async () => {
         const d = await client.devices.create({
           key: id.create(),
           rack: testRack.key,
@@ -134,7 +137,7 @@ describe("Device", async () => {
           .toBe(true);
       });
 
-      it("should include state for multiple devices", async () => {
+      it("should include status for multiple devices", async () => {
         const d1 = await client.devices.create({
           key: id.create(),
           rack: testRack.key,
@@ -187,7 +190,7 @@ describe("Device", async () => {
             });
             return (
               retrieved.status !== undefined &&
-              retrieved.status.variant === "info" &&
+              retrieved.status.variant === "warning" &&
               retrieved.status.details.device === key
             );
           })

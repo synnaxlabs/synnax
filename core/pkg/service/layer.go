@@ -257,6 +257,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Ontology:        cfg.Distribution.Ontology,
 		Group:           cfg.Distribution.Group,
 		Signals:         cfg.Distribution.Signals,
+		Channel:         cfg.Distribution.Channel,
 		Rack:            l.Rack,
 		Status:          l.Status,
 	}); !ok(err, l.Task) {

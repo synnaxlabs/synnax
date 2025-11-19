@@ -10,8 +10,9 @@
 import { id, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { task } from "@/task";
+import { ontology } from "@/ontology";
 import { status } from "@/status";
+import { task } from "@/task";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -83,24 +84,22 @@ describe("Task", async () => {
       expect(retrieved.key).toBe(m.key);
     });
 
-    describe("state", () => {
+    describe("status", () => {
       it("should include task status when requested", async () => {
         const t = await testRack.createTask({
           name: "test",
           config: { a: "dog" },
           type: "ni",
         });
-        const w = await client.openWriter([status.SET_CHANNEL_NAME]);
         const communicatedStatus: task.Status = {
-          key: id.create(),
+          key: ontology.idToString(task.ontologyID(t.key)),
           name: "test",
           variant: "success",
           details: { task: t.key, running: false, data: {} },
           message: "test",
           time: TimeStamp.now(),
         };
-        await w.write(status.SET_CHANNEL_NAME, [communicatedStatus]);
-        await w.close();
+        await client.statuses.set(communicatedStatus);
         await expect
           .poll(async () => {
             const retrieved = await client.tasks.retrieve({

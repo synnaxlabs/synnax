@@ -13,6 +13,7 @@ import (
 	"context"
 	"go/types"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -133,7 +134,7 @@ func (svc *DeviceService) RetrieveDevice(ctx context.Context, req DeviceRetrieve
 	if req.IncludeStatus {
 		statuses := make([]device.Status, 0, len(res.Devices))
 		if err := status.NewRetrieve[device.StatusDetails](svc.status.status).
-			WhereKeys(req.Keys...).
+			WhereKeys(ontology.IDsToString(device.OntologyIDsFromDevices(res.Devices))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err
