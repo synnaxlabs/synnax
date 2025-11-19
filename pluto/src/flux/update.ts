@@ -34,9 +34,10 @@ export interface UpdateParams<
   Input extends core.Shape,
   Store extends core.Store,
   StatusDetails extends z.ZodType = z.ZodNever,
+  AllowDisconnected extends boolean = false,
 > {
   data: Input;
-  client: Client;
+  client: AllowDisconnected extends true ? Client | null : Client;
   store: Store;
   rollbacks: destructor.Destructor[];
   setStatus: (setter: state.SetArg<ResultStatus<StatusDetails>>) => void;
@@ -47,12 +48,14 @@ export type CreateUpdateParams<
   ScopedStore extends core.Store,
   Output extends core.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
+  AllowDisconnected extends boolean = false,
 > = {
   name: string;
   verbs: core.Verbs;
   update: (
-    params: UpdateParams<Input, ScopedStore, StatusDetails>,
+    params: UpdateParams<Input, ScopedStore, StatusDetails, AllowDisconnected>,
   ) => Promise<Output | false>;
+  allowDisconnected?: AllowDisconnected;
 } & InitialStatusDetailsContainer<StatusDetails>;
 
 export interface UseObservableUpdateReturn<Input extends core.Shape> {
@@ -64,30 +67,44 @@ export interface UseObservableUpdateParams<
   Input extends core.Shape,
   Output extends core.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
+  AllowDisconnected extends boolean = false,
 > {
   debounce?: number;
   onChange: state.Setter<Result<Input | undefined, StatusDetails>>;
   scope?: string;
   beforeUpdate?: (
-    params: BeforeUpdateParams<Input>,
+    params: BeforeUpdateParams<Input, AllowDisconnected>,
   ) => Promise<Input | boolean> | Input | boolean;
-  afterSuccess?: (params: AfterSuccessParams<Output>) => Promise<void> | void;
-  afterFailure?: (params: AfterFailureParams<Input>) => Promise<void> | void;
+  afterSuccess?: (
+    params: AfterSuccessParams<Output, AllowDisconnected>,
+  ) => Promise<void> | void;
+  afterFailure?: (
+    params: AfterFailureParams<Input, AllowDisconnected>,
+  ) => Promise<void> | void;
 }
 
-export interface BeforeUpdateParams<Data extends core.Shape> {
+export interface BeforeUpdateParams<
+  Data extends core.Shape,
+  AllowDisconnected extends boolean = false,
+> {
   rollbacks: destructor.Destructor[];
-  client: Client;
+  client: AllowDisconnected extends true ? Client | null : Client;
   data: Data;
 }
 
-export interface AfterSuccessParams<Output extends core.Shape> {
-  client: Client;
+export interface AfterSuccessParams<
+  Output extends core.Shape,
+  AllowDisconnected extends boolean = false,
+> {
+  client: AllowDisconnected extends true ? Client | null : Client;
   data: Output;
 }
 
-export interface AfterFailureParams<Data extends core.Shape> {
-  client: Client;
+export interface AfterFailureParams<
+  Data extends core.Shape,
+  AllowDisconnected extends boolean = false,
+> {
+  client: AllowDisconnected extends true ? Client | null : Client;
   status: status.Status<typeof status.exceptionDetailsSchema, "error">;
   data: Data;
 }
@@ -96,7 +113,11 @@ export interface UseDirectUpdateParams<
   Input extends core.Shape,
   Output extends core.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-> extends Omit<UseObservableUpdateParams<Input, Output, StatusDetails>, "onChange"> {}
+  AllowDisconnected extends boolean = false,
+> extends Omit<
+    UseObservableUpdateParams<Input, Output, StatusDetails, AllowDisconnected>,
+    "onChange"
+  > {}
 
 export type UseDirectUpdateReturn<
   Input extends core.Shape,
@@ -107,9 +128,10 @@ export interface UseObservableUpdate<
   Input extends core.Shape,
   Output extends core.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
+  AllowDisconnected extends boolean = false,
 > {
   (
-    args: UseObservableUpdateParams<Input, Output, StatusDetails>,
+    args: UseObservableUpdateParams<Input, Output, StatusDetails, AllowDisconnected>,
   ): UseObservableUpdateReturn<Input>;
 }
 
@@ -117,9 +139,10 @@ export interface UseUpdate<
   Input extends core.Shape,
   Output extends core.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
+  AllowDisconnected extends boolean = false,
 > {
   (
-    args?: UseDirectUpdateParams<Input, Output, StatusDetails>,
+    args?: UseDirectUpdateParams<Input, Output, StatusDetails, AllowDisconnected>,
   ): UseDirectUpdateReturn<Input, StatusDetails>;
 }
 
@@ -127,9 +150,15 @@ export interface CreateUpdateReturn<
   Input extends core.Shape,
   Output extends core.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
+  AllowDisconnected extends boolean = false,
 > {
-  useObservableUpdate: UseObservableUpdate<Input, Output, StatusDetails>;
-  useUpdate: UseUpdate<Input, Output, StatusDetails>;
+  useObservableUpdate: UseObservableUpdate<
+    Input,
+    Output,
+    StatusDetails,
+    AllowDisconnected
+  >;
+  useUpdate: UseUpdate<Input, Output, StatusDetails, AllowDisconnected>;
 }
 
 const useObservable = <
@@ -137,9 +166,10 @@ const useObservable = <
   Store extends core.Store,
   Output extends core.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
+  AllowDisconnected extends boolean = false,
 >(
-  params: UseObservableUpdateParams<Input, Output, StatusDetails> &
-    CreateUpdateParams<Input, Store, Output, StatusDetails>,
+  params: UseObservableUpdateParams<Input, Output, StatusDetails, AllowDisconnected> &
+    CreateUpdateParams<Input, Store, Output, StatusDetails, AllowDisconnected>,
 ): UseObservableUpdateReturn<Input> => {
   const {
     onChange,
@@ -151,8 +181,9 @@ const useObservable = <
     beforeUpdate,
     afterSuccess,
     afterFailure,
+    allowDisconnected = false as AllowDisconnected,
   } = params;
-  const client = Synnax.use();
+  const maybeClient = Synnax.use();
   const store = useStore<Store>(scope);
   const addStatus = useAdder();
   const handleUpdate = useDebouncedCallback(
@@ -168,7 +199,7 @@ const useObservable = <
         }
       };
 
-      if (client == null) {
+      if (maybeClient == null && !allowDisconnected) {
         onChange((p) =>
           nullClientResult(
             `${present} ${name}`,
@@ -177,6 +208,10 @@ const useObservable = <
         );
         return false;
       }
+
+      const client = maybeClient as AllowDisconnected extends true
+        ? Client | null
+        : Client;
 
       try {
         onChange((p) =>
@@ -188,7 +223,11 @@ const useObservable = <
         );
 
         if (beforeUpdate != null) {
-          const updatedValue = await beforeUpdate({ client, data, rollbacks });
+          const updatedValue = await beforeUpdate({
+            client,
+            data,
+            rollbacks,
+          });
           if (signal?.aborted === true) return false;
           if (updatedValue === false) {
             onChange(successResult(`${past} ${name}`, data));
@@ -229,7 +268,6 @@ const useObservable = <
         onChange(result);
         addStatus(status);
         await afterFailure?.({ client, status, data });
-
         return false;
       }
     },
@@ -248,9 +286,10 @@ const useDirect = <
   Store extends core.Store = {},
   Output extends core.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
+  AllowDisconnected extends boolean = false,
 >(
-  params: UseDirectUpdateParams<Input, Output, StatusDetails> &
-    CreateUpdateParams<Input, Store, Output, StatusDetails>,
+  params: UseDirectUpdateParams<Input, Output, StatusDetails, AllowDisconnected> &
+    CreateUpdateParams<Input, Store, Output, StatusDetails, AllowDisconnected>,
 ): UseDirectUpdateReturn<Input, StatusDetails> => {
   const { name, verbs, ...restParams } = params;
   const initialStatusDetails = parseInitialStatusDetails<StatusDetails>(params);
@@ -261,13 +300,15 @@ const useDirect = <
       initialStatusDetails,
     ),
   );
-  const methods = useObservable<Input, Store, Output, StatusDetails>({
-    ...restParams,
-    initialStatusDetails,
-    verbs,
-    name,
-    onChange: setResult,
-  });
+  const methods = useObservable<Input, Store, Output, StatusDetails, AllowDisconnected>(
+    {
+      ...restParams,
+      initialStatusDetails,
+      verbs,
+      name,
+      onChange: setResult,
+    },
+  );
   return { ...result, ...methods };
 };
 
@@ -276,18 +317,27 @@ export const createUpdate = <
   ScopedStore extends core.Store,
   Output extends core.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
+  AllowDisconnected extends boolean = false,
 >(
-  createParams: CreateUpdateParams<Input, ScopedStore, Output, StatusDetails>,
-): CreateUpdateReturn<Input, Output, StatusDetails> => ({
+  createParams: CreateUpdateParams<
+    Input,
+    ScopedStore,
+    Output,
+    StatusDetails,
+    AllowDisconnected
+  >,
+): CreateUpdateReturn<Input, Output, StatusDetails, AllowDisconnected> => ({
   useObservableUpdate: (
-    params: UseObservableUpdateParams<Input, Output, StatusDetails>,
+    params: UseObservableUpdateParams<Input, Output, StatusDetails, AllowDisconnected>,
   ) =>
-    useObservable<Input, ScopedStore, Output, StatusDetails>({
+    useObservable<Input, ScopedStore, Output, StatusDetails, AllowDisconnected>({
       ...params,
       ...createParams,
     }),
-  useUpdate: (params: UseDirectUpdateParams<Input, Output, StatusDetails> = {}) =>
-    useDirect<Input, ScopedStore, Output, StatusDetails>({
+  useUpdate: (
+    params: UseDirectUpdateParams<Input, Output, StatusDetails, AllowDisconnected> = {},
+  ) =>
+    useDirect<Input, ScopedStore, Output, StatusDetails, AllowDisconnected>({
       ...params,
       ...createParams,
     }),
