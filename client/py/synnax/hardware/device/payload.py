@@ -17,4 +17,5 @@ class Device(Payload):
     name: str = ""
     make: str = ""
     model: str = ""
+    configured: bool = False
     properties: str = ""
