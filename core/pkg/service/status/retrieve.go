@@ -48,6 +48,11 @@ func (r Retrieve[D]) Entries(s *[]Status[D]) Retrieve[D] { r.gorp.Entries(s); re
 // WhereKeys filters for statuses whose Key attribute matches the provided key.
 func (r Retrieve[D]) WhereKeys(keys ...string) Retrieve[D] { r.gorp.WhereKeys(keys...); return r }
 
+func (r Retrieve[D]) WhereKeyPrefix(prefix string) Retrieve[D] {
+	r.gorp = r.gorp.WherePrefix([]byte(prefix))
+	return r
+}
+
 func (r Retrieve[D]) WhereHasLabels(matchLabels ...uuid.UUID) Retrieve[D] {
 	r.gorp.Where(func(ctx gorp.Context, s *Status[D]) (bool, error) {
 		labels, err := r.label.RetrieveFor(ctx, OntologyID(s.Key), ctx.Tx)

@@ -54,6 +54,10 @@ type Config struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// HealthCheckInterval specifies the interval at which the rack service will check
+	// that it has received a status update from a rack.
+	// [OPTIONAL]
+	HealthCheckInterval telem.TimeSpan
 }
 
 var (
@@ -61,7 +65,9 @@ var (
 	// DefaultConfig is the default configuration for opening a rack service. Note
 	// that this configuration is not valid. See the Config documentation for more
 	// details on which fields must be set.
-	DefaultConfig = Config{}
+	DefaultConfig = Config{
+		HealthCheckInterval: 5 * telem.Second,
+	}
 )
 
 // Override implements config.Config.
@@ -73,6 +79,7 @@ func (c Config) Override(other Config) Config {
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.HealthCheckInterval = override.Numeric(c.HealthCheckInterval, other.HealthCheckInterval)
 	return c
 }
 
@@ -84,6 +91,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "host", c.HostProvider)
 	validate.NotNil(v, "status", c.Status)
+	validate.Positive(v, "health", c.HealthCheckInterval)
 	return v.Error()
 }
 
@@ -94,6 +102,7 @@ type Service struct {
 	shutdownSignals io.Closer
 	group           group.Group
 	keyMu           *sync.Mutex
+	closeMonitor    io.Closer
 }
 
 const localKeyCounterSuffix = ".rack.counter"
@@ -119,7 +128,10 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-
+	s.closeMonitor, err = openMonitor(s.Instrumentation.Child("monitor"), s)
+	if err != nil {
+		return nil, err
+	}
 	if cfg.Signals != nil {
 		s.shutdownSignals, err = signals.PublishFromGorp[Key](
 			ctx,
@@ -164,10 +176,13 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 }
 
 func (s *Service) Close() error {
+	c := errors.NewCatcher(errors.WithAggregation())
+	c.Exec(s.closeMonitor.Close)
 	if s.shutdownSignals == nil {
 		return nil
 	}
-	return s.shutdownSignals.Close()
+	c.Exec(s.shutdownSignals.Close)
+	return c.Error()
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
