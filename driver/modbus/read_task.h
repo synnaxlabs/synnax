@@ -181,7 +181,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     ):
         BaseReadTaskConfig(cfg),
         data_channel_count(0),
-        device_key(cfg.required<std::string>("device")),
+        device_key(cfg.field<std::string>("device")),
         samples_per_chan(sample_rate / stream_rate) {
         std::vector<channel::InputRegister> holding_registers;
         std::vector<channel::InputRegister> input_registers;
@@ -202,7 +202,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
 
         cfg.iter("channels", [&, this](xjson::Parser &ch) {
-            const auto type = ch.required<std::string>("type");
+            const auto type = ch.field<std::string>("type");
             if (type == "holding_register_input")
                 holding_registers.emplace_back(ch);
             else if (type == "register_input")
