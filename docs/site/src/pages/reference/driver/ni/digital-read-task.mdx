@@ -1,175 +1,314 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "NI Digital Read Task"
-description: "Learn how to create a digital read task for NI hardware."
-prev: "Analog Write Task"
-prevURL: "/reference/driver/ni/analog-write-task"
+description: "Learn how to acquire digital data from NI devices with Synnax."
+prev: "Counter Write Task"
+prevURL: "/reference/driver/ni/counter-write-task"
 next: "Digital Write Task"
 nextURL: "/reference/driver/ni/digital-write-task"
 ---
 
-import { Divider, Note, Icon } from "@synnaxlabs/pluto";
-import StepText from "@/components/StepText.astro";
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Video, Image } from "@/components/Media";
+import { Fragment } from "react";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The NI Digital Read Task is used for acquiring data from digital inputs on your NI
-devices. In this guide, we'll walk you through the steps to create a digital read task
-in Synnax.
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
 
 <Divider.Divider x />
 
-## Prerequisites
+## Task Configuration Reference
 
-Before configuring the task, you'll need to have
-[connected and configured an NI device](/reference/driver/ni/configure-device).
-
-<Divider.Divider x />
-
-## A Short Primer on Tasks
-
-Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
-can be used for both control and data acquisition purposes. In the context of the NI
-Driver, a digital read task defines a background process that reads data from the
-digital inputs on a particular DAQ card.
-
-A digital read task can be started, stopped, and re-configured at any time. Synnax
-permanently stores the configuration of the task, so it's easy to set up multiple tasks
-for different purposes.
+| Parameter     | Type    | Required | Default       | Description                                                   |
+| ------------- | ------- | -------- | ------------- | ------------------------------------------------------------- |
+| `name`        | string  | Yes      | -             | Human-readable task name                                      |
+| `sample_rate` | number  | Yes      | -             | Samples per second (Hz)                                       |
+| `stream_rate` | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
+| `data_saving` | boolean | No       | `false`       | Enable permanent storage in Synnax                            |
+| `auto_start`  | boolean | No       | `false`       | Automatically start task after configuration                  |
+| `channels`    | array   | Yes      | -             | List of digital input channel configurations                  |
 
 <Divider.Divider x />
 
-## Important Rules for Digital Read Tasks
+## Channel Configuration
 
-There are a few important rules to keep in mind when creating a digital read task.
+[DI Channel NI-DAQmx C API Reference](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatedichan.html)
 
-### Sample Rates
-
-All channels in the task are sampled at the same rate. If you'd like to sample different
-channels at different rates, create a separate task to do so.
-
-### One Running Task Per Channel
-
-Synnax can only accept live data from a channel from one source at a time. If you have a
-task running that reads from a `pressure` channel, you cannot start another task that
-reads from the same channel.
+| Parameter | Type   | Required | Default | Description             |
+| --------- | ------ | -------- | ------- | ----------------------- |
+| `device`  | string | Yes      | -       | Device identifier       |
+| `port`    | number | Yes      | -       | Physical port           |
+| `line`    | number | Yes      | -       | Line number on the port |
 
 <Divider.Divider x />
 
-## Open the Task Configuration Dialog
+## Important Rules
 
-### From the Devices Toolbar
-
-To create a digital read task from the Devices Toolbar, open the Console and click on
-the device icon (<Icon.Device />) on the left-hand side of the screen. Find the device
-you'd like to create the task for, right-click on it, and select "Create digital read
-task".
-
-<Video
-  client:only="react"
-  id="device-drivers/ni/digital-read-task/device-create-digital-read-task"
-/>
-
-### From the Command Palette
-
-To create a digital read task from the command palette, open the Console and click on
-the Search and Command Palette at the top. You can also open this palette with with
-`Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
-
-In command mode (enabled when the first character in the input is ">"), type "NI".
-You'll see an option called "Create an NI Digital Read Task". Select this option to open
-the digital read task configuration dialog.
-
-<Video
-  client:only="react"
-  id="device-drivers/ni/digital-read-task/palette-create-digital-read-task"
-/>
-
-### From The Layout Selector
-
-To create a digital read task from the layout selector, click on the add icon (<Icon.Add
-/>) in the top-right corner and select "NI Digital Read Task".
-
-<Video
-  client:only="react"
-  id="device-drivers/ni/digital-read-task/layout-create-digital-read-task"
-/>
+- **Sample rates**: All channels in a task sample at the same rate. Create separate
+  tasks for different rates.
+- **One task per module**: Only one running task can claim a module at a time.
+- **Stream rate optimization**: For low-rate tasks (< 50 Hz), set the stream rate to the
+  sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
+  performance.
 
 <Divider.Divider x />
 
-## Configuring the Task
+## How-To
 
-### <StepText level="h3" step={1}>Select your NI Device</StepText>
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+    <Video
+      client:only="react"
+      id="device-drivers/ni/digital-read-task/ni-digital-read"
+    />
+  </Fragment>
+  <Fragment slot="python">
 
-The first step is to select the NI device you'd like to read data from. Use the dropdown
-menu in the top-left corner to do so.
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
-<Video
-  client:only="react"
-  id="device-drivers/ni/digital-read-task/digital-read-task-select-device"
-/>
+```python
+import synnax as sy
+from synnax.hardware import ni
 
-### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
+client = sy.Synnax()
 
-Next, you'll need to add channels to read data from. Click on the add icon (<Icon.Add
-/>) in the channels section. Then, click on the new channel in the list to configure it.
+# Retrieve device
+digital_dev = client.hardware.devices.retrieve(name="Mod1_Digital")
 
-<Video
-  client:only="react"
-  id="device-drivers/ni/digital-read-task/digital-read-task-add-channel"
-/>
+# Create index channel
+di_time = client.channels.create(
+    name="di_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
 
-### <StepText level="h3" step={3}>Configure Timing</StepText>
+# Create data channels
+di_0_0 = client.channels.create(
+    name="di_0_0",
+    index=di_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+di_0_1 = client.channels.create(
+    name="di_0_1",
+    index=di_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+di_1_0 = client.channels.create(
+    name="di_1_0",
+    index=di_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
 
-There are two parameters to control the timing of the task: the sample rate and the
-stream rate. The sample rate defines at how many samples per second the task will read
-from the device. The stream rate defines how often the task will stream data into
-Synnax.
+# Create and configure task
+task = ni.DigitalReadTask(
+    name="Digital Read Task",
+    sample_rate=sy.Rate.HZ * 100,
+    stream_rate=sy.Rate.HZ * 25,
+    data_saving=True,
+    channels=[
+        ni.DILineChan(
+            channel=di_0_0.key,
+            device=digital_dev.key,
+            port=0,
+            line=0,
+        ),
+        ni.DILineChan(
+            channel=di_0_1.key,
+            device=digital_dev.key,
+            port=0,
+            line=1,
+        ),
+        ni.DILineChan(
+            channel=di_1_0.key,
+            device=digital_dev.key,
+            port=1,
+            line=0,
+        ),
+    ],
+)
 
-For example, if you set the sample rate to 10 Hz and the stream rate to 1 Hz, Synnax
-will read a batch of 10 samples every second, and then forward the entire batch to the
-Core.
+client.hardware.tasks.configure(task)
 
-For very low rate tasks (&lt; 50 Hz), we recommend setting the stream rate to the same
-value as the sample rate. For higher rate tasks, lowering the stream rate can
-significantly improve performance. It's typically best to keep the stream rate below 50
-Hz unless you need to quickly process incoming data in real-time.
+# Start task and read data
+with task.run():
+    with client.open_streamer(["di_0_0", "di_0_1", "di_1_0"]) as streamer:
+        for _ in range(10):
+            frame = streamer.read()
+            print(frame)
+```
 
-<div style={{ display: "flex", justifyContent: "center" }}>
-  <Image
-    client:only="react"
-    id="device-drivers/ni/digital-read-task/digital-read-task-timing"
-    style={{ width: "50%", minWidth: 200 }}
-  />
-</div>
+</ExampleDetails>
 
-### <StepText level="h3" step={4}>Enable/Disable Data Saving</StepText>
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
-Data saving defines whether acquired data will be permanently stored in Synnax. When
-enabled, Synnax will both stream and store data. When disabled, Synnax will only stream
-data for real-time visualization. Historical data will not be available for review.
+```python
+# Retrieve existing task
+task = client.hardware.tasks.retrieve(name="Digital Read Task")
+task = ni.DigitalReadTask(internal=task)
 
-Once you'd added all of the channels you need and have configured sampling rates, hit
-the "Configure" button. If there are no errors, Synnax will acknowledge the configured
-task and enable the "Play" button in the dialog. Click this button to start the task.
+# Update task-level configuration
+task.config.auto_start = True
+task.config.stream_rate = int(sy.Rate.HZ * 50)
 
-<Divider.Divider x />
+# Update first channel configuration
+task.config.channels[0].port = 0
+task.config.channels[0].line = 2
 
-## Start the Task
+# Update second channel configuration
+task.config.channels[1].port = 0
+task.config.channels[1].line = 3
 
-Once you'd added all of the channels you need and have configured task
-PerformanceTiming, hit the "Configure" button. If there are no errors, Synnax will
-acknowledge the configured task and enable the Play (<Icon.Play />) button in the
-dialog. Click this button to start the task.
+# Update third channel configuration
+task.config.channels[2].port = 1
+task.config.channels[2].line = 1
 
-<Video
-  client:only="react"
-  id="device-drivers/ni/digital-read-task/digital-read-task-start"
-/>
+# Apply changes
+client.hardware.tasks.configure(task)
+```
 
-<Note.Note variant="info">
-  Starting and stopping a task does not re-apply the task configuration. If you've made
-  changes to the configuration, you'll need to re-configure the task by hitting the
-  "Configure" button.
-</Note.Note>
+</ExampleDetails>
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve device
+const digitalDev = await client.hardware.devices.retrieve({ name: "Mod1_Digital" });
+
+// Create index channel
+const diTime = await client.channels.create({
+  name: "di_time",
+  isIndex: true,
+  dataType: "timestamp",
+  retrieveIfNameExists: true,
+});
+
+// Create data channels
+const di00 = await client.channels.create({
+  name: "di_0_0",
+  index: diTime.key,
+  dataType: "uint8",
+  retrieveIfNameExists: true,
+});
+
+const di01 = await client.channels.create({
+  name: "di_0_1",
+  index: diTime.key,
+  dataType: "uint8",
+  retrieveIfNameExists: true,
+});
+
+const di10 = await client.channels.create({
+  name: "di_1_0",
+  index: diTime.key,
+  dataType: "uint8",
+  retrieveIfNameExists: true,
+});
+
+// Create and configure task
+const task = await client.hardware.tasks.create({
+  name: "Digital Read Task",
+  type: "ni_digital_read",
+  config: JSON.stringify({
+    sample_rate: 100,
+    stream_rate: 25,
+    data_saving: true,
+    channels: [
+      {
+        type: "di_line",
+        channel: di00.key,
+        device: digitalDev.key,
+        port: 0,
+        line: 0,
+      },
+      {
+        type: "di_line",
+        channel: di01.key,
+        device: digitalDev.key,
+        port: 0,
+        line: 1,
+      },
+      {
+        type: "di_line",
+        channel: di10.key,
+        device: digitalDev.key,
+        port: 1,
+        line: 0,
+      },
+    ],
+  }),
+});
+
+// Start task
+await task.executeCommandSync("start");
+
+// Read data
+const streamer = await client.openStreamer(["di_0_0", "di_0_1", "di_1_0"]);
+for (let i = 0; i < 10; i++) {
+  const frame = await streamer.read();
+  console.log(frame);
+}
+
+// Stop task
+await task.executeCommandSync("stop");
+await streamer.close();
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```typescript
+// Retrieve existing task
+const task = await client.hardware.tasks.retrieve({ name: "Digital Read Task" });
+
+// Parse and update configuration
+const config = JSON.parse(task.config);
+
+// Update task-level configuration
+config.auto_start = true;
+config.stream_rate = 50;
+
+// Update first channel configuration
+config.channels[0].port = 0;
+config.channels[0].line = 2;
+
+// Update second channel configuration
+config.channels[1].port = 0;
+config.channels[1].line = 3;
+
+// Update third channel configuration
+config.channels[2].port = 1;
+config.channels[2].line = 1;
+
+// Apply changes
+await client.hardware.tasks.create({
+  key: task.key,
+  name: task.name,
+  type: task.type,
+  config: JSON.stringify(config),
+});
+```
+
+</ExampleDetails>
+
+  </Fragment>
+</Client.Tabs>

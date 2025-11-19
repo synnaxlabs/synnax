@@ -10,13 +10,14 @@
 import asyncio
 import math
 import time
-from pymodbus.server import StartAsyncTcpServer
+
+from pymodbus import ModbusDeviceIdentification
 from pymodbus.datastore import (
+    ModbusDeviceContext,
     ModbusSequentialDataBlock,
-    ModbusSlaveContext,
     ModbusServerContext,
 )
-from pymodbus.device import ModbusDeviceIdentification
+from pymodbus.server import StartAsyncTcpServer
 
 
 async def updating_writer(context):
@@ -70,14 +71,14 @@ async def updating_writer(context):
 async def run_server():
     """Run the Modbus TCP server."""
     # Initialize data store
-    store = ModbusSlaveContext(
+    store = ModbusDeviceContext(
         di=ModbusSequentialDataBlock(0, [0] * 100),  # Discrete Inputs
         co=ModbusSequentialDataBlock(0, [0] * 100),  # Coils
         hr=ModbusSequentialDataBlock(0, [0] * 100),  # Holding Registers
         ir=ModbusSequentialDataBlock(0, [0] * 100),  # Input Registers
     )
 
-    context = ModbusServerContext(slaves=store, single=True)
+    context = ModbusServerContext(devices=store, single=True)
 
     # Server identification
     identity = ModbusDeviceIdentification()
