@@ -7,10 +7,12 @@ proto_library(
         "auth.proto",
         "channel.proto",
         "connectivity.proto",
+        "device.proto",
         "framer.proto",
-        "hardware.proto",
+        "rack.proto",
         "ranger.proto",
         "status.proto",
+        "task.proto",
     ],
     visibility = ["//visibility:public"],
     deps = [

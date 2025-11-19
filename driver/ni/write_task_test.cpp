@@ -61,12 +61,12 @@ protected:
         ASSERT_FALSE(cmd_err) << cmd_err;
         cmd_err = sy->channels.create(cmd_ch_2);
 
-        auto [rack, rack_err] = sy->hardware.create_rack("cat");
+        auto [rack, rack_err] = sy->racks.create("cat");
         ASSERT_FALSE(rack_err) << rack_err;
 
         synnax::Device
             dev("abc123", "my_device", rack.key, "dev1", "ni", "PXI-6255", "");
-        auto dev_err = sy->hardware.create_device(dev);
+        auto dev_err = sy->devices.create(dev);
         ASSERT_FALSE(dev_err) << dev_err;
 
         task = synnax::Task(rack.key, "my_task", "ni_analog_write", "");
@@ -181,7 +181,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
 /// and reported
 TEST(WriteTaskConfigTest, testInvalidChannelType) {
     auto sy = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
+    auto rack = ASSERT_NIL_P(sy->racks.create("test_rack"));
 
     // Create a device
     auto dev = synnax::Device(
@@ -193,7 +193,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
         "PXI-6255",
         ""
     );
-    ASSERT_NIL(sy->hardware.create_device(dev));
+    ASSERT_NIL(sy->devices.create(dev));
 
     // Create state and command channels
     auto state_idx_ch = ASSERT_NIL_P(

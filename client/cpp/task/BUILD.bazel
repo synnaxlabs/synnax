@@ -1,29 +1,26 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
 cc_library(
-    name = "hardware",
-    srcs = ["hardware.cpp"],
-    hdrs = ["hardware.h"],
+    name = "task",
+    srcs = ["task.cpp"],
+    hdrs = ["task.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/errors",
         "//client/cpp/ontology",
-        "//freighter/cpp:freighter",
-        "//freighter/cpp/fgrpc",
         "//core/pkg/api/grpc/v1:api_grpc",
+        "//freighter/cpp:freighter",
         "//x/cpp/status",
-        "//x/cpp/telem",
-        "//x/cpp/xerrors",
         "//x/cpp/xjson",
-        "//x/go/telem:telem_grpc",
-        "@grpc//:grpc++",
+        "//x/cpp/xerrors",
     ],
 )
 
 cc_test(
-    name = "hardware_test",
-    srcs = [
-        "hardware_test.cpp",
-    ],
+    name = "task_test",
+    srcs = ["task_test.cpp"],
     deps = [
+        ":task",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/xtest",

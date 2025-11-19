@@ -13,107 +13,12 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xtest/xtest.h"
 
-std::mt19937 gen_rand = random_generator("Hardware Tests");
-
 namespace synnax {
-/// @brief it should correctly create a rack in the cluster.
-TEST(RackTests, testCreateRack) {
-    const auto client = new_test_client();
-    auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
-    ASSERT_EQ(r.name, "test_rack");
-}
-
-/// @brief it should correctly retrieve a rack from the cluster.
-TEST(RackTests, testRetrieveRack) {
-    const auto client = new_test_client();
-    auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
-    const auto r2 = ASSERT_NIL_P(client.hardware.retrieve_rack(r.key));
-    ASSERT_EQ(r2.name, "test_rack");
-    ASSERT_EQ(r.key, r2.key);
-}
-
-/// @brief it should correctly delete a rack from the cluster.
-TEST(RackTests, testDeleteRack) {
-    const auto client = new_test_client();
-    auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
-    ASSERT_NIL(client.hardware.delete_rack(r.key));
-    ASSERT_OCCURRED_AS_P(client.hardware.retrieve_rack(r.key), xerrors::QUERY);
-}
-
-/// @brief it should correctly create a module on the rack.
-TEST(TaskTests, testCreateTask) {
-    auto client = new_test_client();
-    auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
-    auto m = Task(r.key, "test_module", "mock", "config", false, true);
-    ASSERT_NIL(r.tasks.create(m));
-    ASSERT_EQ(m.name, "test_module");
-    ASSERT_EQ(synnax::rack_key_from_task_key(m.key), r.key);
-    ASSERT_NE(synnax::local_task_key(m.key), 0);
-}
-
-/// @brief it should correctly retrieve a module from the rack.
-TEST(TaskTests, testRetrieveTask) {
-    const auto client = new_test_client();
-    auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
-    auto t = Task(r.key, "test_module", "mock", "config", false, true);
-    ASSERT_NIL(r.tasks.create(t));
-    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key));
-    ASSERT_EQ(t2.name, "test_module");
-    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
-    ASSERT_EQ(synnax::local_task_key(t2.key), synnax::local_task_key(t.key));
-    ASSERT_TRUE(t2.snapshot);
-}
-
-/// @brief it should retrieve a task by its name
-TEST(TaskTests, testRetrieveTaskByName) {
-    const auto client = new_test_client();
-    auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
-    const auto rand_name = std::to_string(gen_rand());
-    auto t = Task(r.key, rand_name, "mock", "config");
-    ASSERT_NIL(r.tasks.create(t));
-    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name));
-    ASSERT_EQ(t2.name, rand_name);
-    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
-}
-
-/// @brief it should retrieve a task by its type
-TEST(TaskTests, testRetrieveTaskByType) {
-    const auto client = new_test_client();
-    auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
-    const auto rand_type = std::to_string(gen_rand());
-    auto t = Task(r.key, "test_module", rand_type, "config");
-    ASSERT_NIL(r.tasks.create(t));
-    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type(rand_type));
-    ASSERT_EQ(t2.name, "test_module");
-    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
-}
-
-/// @brief it should correctly list the tasks on a rack.
-TEST(TaskTests, testListTasks) {
-    const auto client = new_test_client();
-    auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
-    auto m = Task(r.key, "test_module", "mock", "config");
-    ASSERT_NIL(r.tasks.create(m));
-    const auto tasks = ASSERT_NIL_P(r.tasks.list());
-    ASSERT_EQ(tasks.size(), 1);
-    ASSERT_EQ(tasks[0].name, "test_module");
-    ASSERT_EQ(synnax::rack_key_from_task_key(tasks[0].key), r.key);
-    ASSERT_NE(synnax::local_task_key(tasks[0].key), 0);
-}
-
 /// @brief it should correctly create a device.
 TEST(DeviceTests, testCreateDevice) {
     const auto client = new_test_client();
     auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
+    ASSERT_NIL(client.racks.create(r));
     auto d = Device(
         "asdfjahsdfkasjdfhaks",
         "test_device",
@@ -123,7 +28,7 @@ TEST(DeviceTests, testCreateDevice) {
         "test_model",
         "test_properties"
     );
-    ASSERT_NIL(client.hardware.create_device(d));
+    ASSERT_NIL(client.devices.create(d));
     ASSERT_EQ(d.name, "test_device");
 }
 
@@ -131,7 +36,7 @@ TEST(DeviceTests, testCreateDevice) {
 TEST(DeviceTests, testRetrieveDevice) {
     const auto client = new_test_client();
     auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
+    ASSERT_NIL(client.racks.create(r));
     auto d = Device(
         "asdfjahsdfkasjdfhaks",
         "test_device",
@@ -141,8 +46,8 @@ TEST(DeviceTests, testRetrieveDevice) {
         "test_model",
         "test_properties"
     );
-    ASSERT_NIL(client.hardware.create_device(d));
-    const auto d2 = ASSERT_NIL_P(client.hardware.retrieve_device(d.key));
+    ASSERT_NIL(client.devices.create(d));
+    const auto d2 = ASSERT_NIL_P(client.devices.retrieve(d.key));
     ASSERT_EQ(d2.name, "test_device");
     ASSERT_EQ(d2.key, d.key);
 }
@@ -151,7 +56,7 @@ TEST(DeviceTests, testRetrieveDevice) {
 TEST(DeviceTests, testRetrieveDevices) {
     const auto client = new_test_client();
     auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
+    ASSERT_NIL(client.racks.create(r));
 
     // Create first device
     auto d1 = Device(
@@ -163,7 +68,7 @@ TEST(DeviceTests, testRetrieveDevices) {
         "model_1",
         "properties_1"
     );
-    ASSERT_NIL(client.hardware.create_device(d1));
+    ASSERT_NIL(client.devices.create(d1));
 
     // Create second device
     auto d2 = Device(
@@ -175,11 +80,11 @@ TEST(DeviceTests, testRetrieveDevices) {
         "model_2",
         "properties_2"
     );
-    ASSERT_NIL(client.hardware.create_device(d2));
+    ASSERT_NIL(client.devices.create(d2));
 
     // Retrieve both devices
     std::vector keys = {d1.key, d2.key};
-    const auto devices = ASSERT_NIL_P(client.hardware.retrieve_devices(keys));
+    const auto devices = ASSERT_NIL_P(client.devices.retrieve(keys));
 
     // Verify we got both devices
     ASSERT_EQ(devices.size(), 2);
@@ -205,7 +110,7 @@ TEST(DeviceTests, testRetrieveDevices) {
 TEST(DeviceTests, testCreateDevices) {
     const auto client = new_test_client();
     auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
+    ASSERT_NIL(client.racks.create(r));
 
     // Create a vector of devices to add
     std::vector devices = {
@@ -239,12 +144,12 @@ TEST(DeviceTests, testCreateDevices) {
     };
 
     // Create all devices at once
-    ASSERT_NIL(client.hardware.create_devices(devices));
+    ASSERT_NIL(client.devices.create(devices));
 
     // Verify each device was created correctly by retrieving them
     for (const auto &device: devices) {
         const auto retrieved = ASSERT_NIL_P(
-            client.hardware.retrieve_device(device.key)
+            client.devices.retrieve(device.key)
         );
         ASSERT_EQ(retrieved.key, device.key);
         ASSERT_EQ(retrieved.name, device.name);
@@ -261,7 +166,7 @@ TEST(DeviceTests, testCreateDevices) {
     for (const auto &device: devices)
         keys.push_back(device.key);
 
-    const auto retrieved_devices = ASSERT_NIL_P(client.hardware.retrieve_devices(keys));
+    const auto retrieved_devices = ASSERT_NIL_P(client.devices.retrieve(keys));
     ASSERT_EQ(retrieved_devices.size(), devices.size());
 
     // Create a map for easier lookup
@@ -280,7 +185,7 @@ TEST(DeviceTests, testCreateDevices) {
 TEST(DeviceTests, testDeviceConfigured) {
     const auto client = new_test_client();
     auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
+    ASSERT_NIL(client.racks.create(r));
 
     auto d1 = Device(
         "device1_key",
@@ -292,7 +197,7 @@ TEST(DeviceTests, testDeviceConfigured) {
         "properties_1"
     );
     d1.configured = false;
-    ASSERT_NIL(client.hardware.create_device(d1));
+    ASSERT_NIL(client.devices.create(d1));
 
     auto d2 = Device(
         "device2_key",
@@ -304,16 +209,16 @@ TEST(DeviceTests, testDeviceConfigured) {
         "properties_2"
     );
     d2.configured = true;
-    ASSERT_NIL(client.hardware.create_device(d2));
+    ASSERT_NIL(client.devices.create(d2));
 
-    const auto retrieved1 = ASSERT_NIL_P(client.hardware.retrieve_device(d1.key));
+    const auto retrieved1 = ASSERT_NIL_P(client.devices.retrieve(d1.key));
     ASSERT_FALSE(retrieved1.configured);
 
-    const auto retrieved2 = ASSERT_NIL_P(client.hardware.retrieve_device(d2.key));
+    const auto retrieved2 = ASSERT_NIL_P(client.devices.retrieve(d2.key));
     ASSERT_TRUE(retrieved2.configured);
 
     std::vector keys = {d1.key, d2.key};
-    const auto devices = ASSERT_NIL_P(client.hardware.retrieve_devices(keys));
+    const auto devices = ASSERT_NIL_P(client.devices.retrieve(keys));
     auto device_map = map_device_keys(devices);
 
     ASSERT_FALSE(device_map[d1.key].configured);
@@ -324,7 +229,7 @@ TEST(DeviceTests, testDeviceConfigured) {
 TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
     const auto client = new_test_client();
     auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
+    ASSERT_NIL(client.racks.create(r));
 
     // Create two devices
     auto d1 = Device(
@@ -336,7 +241,7 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
         "model_1",
         "properties_1"
     );
-    ASSERT_NIL(client.hardware.create_device(d1));
+    ASSERT_NIL(client.devices.create(d1));
 
     auto d2 = Device(
         "device2_key",
@@ -347,16 +252,16 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
         "model_2",
         "properties_2"
     );
-    ASSERT_NIL(client.hardware.create_device(d2));
+    ASSERT_NIL(client.devices.create(d2));
 
     // Delete the first device
-    ASSERT_NIL(client.hardware.delete_device(d1.key));
+    ASSERT_NIL(client.devices.del(d1.key));
 
     // Try to retrieve both devices
     std::vector<std::string> keys;
     keys.push_back(d1.key);
     keys.push_back(d2.key);
-    auto devices = ASSERT_NIL_P(client.hardware.retrieve_devices(keys, true));
+    auto devices = ASSERT_NIL_P(client.devices.retrieve(keys, true));
 
     // Assert that we got at least one device back (the non-deleted one)
     ASSERT_GE(devices.size(), 1);
@@ -377,7 +282,7 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
 TEST(DeviceTests, testDeleteDevice) {
     const auto client = new_test_client();
     auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
+    ASSERT_NIL(client.racks.create(r));
 
     auto d = Device(
         "device_key",
@@ -388,11 +293,11 @@ TEST(DeviceTests, testDeleteDevice) {
         "test_model",
         "test_properties"
     );
-    ASSERT_NIL(client.hardware.create_device(d));
+    ASSERT_NIL(client.devices.create(d));
 
-    ASSERT_NIL(client.hardware.delete_device(d.key));
+    ASSERT_NIL(client.devices.del(d.key));
 
-    auto [_, err] = client.hardware.retrieve_device(d.key);
+    auto [_, err] = client.devices.retrieve(d.key);
     ASSERT_TRUE(err);
     ASSERT_MATCHES(err, xerrors::NOT_FOUND);
 }
@@ -401,7 +306,7 @@ TEST(DeviceTests, testDeleteDevice) {
 TEST(DeviceTests, testDeleteDevices) {
     const auto client = new_test_client();
     auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
+    ASSERT_NIL(client.racks.create(r));
 
     auto d1 = Device(
         "device1_key",
@@ -412,7 +317,7 @@ TEST(DeviceTests, testDeleteDevices) {
         "model_1",
         "properties_1"
     );
-    ASSERT_NIL(client.hardware.create_device(d1));
+    ASSERT_NIL(client.devices.create(d1));
 
     auto d2 = Device(
         "device2_key",
@@ -423,22 +328,22 @@ TEST(DeviceTests, testDeleteDevices) {
         "model_2",
         "properties_2"
     );
-    ASSERT_NIL(client.hardware.create_device(d2));
+    ASSERT_NIL(client.devices.create(d2));
 
     const std::vector keys = {d1.key, d2.key};
-    ASSERT_NIL(client.hardware.delete_devices(keys));
+    ASSERT_NIL(client.devices.del(keys));
 
-    ASSERT_OCCURRED_AS_P(client.hardware.retrieve_devices(keys), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.devices.retrieve(keys), xerrors::NOT_FOUND);
 }
 
 /// @brief it should correctly handle ignore_not_found flag.
 TEST(DeviceTests, testRetrieveDeviceIgnoreNotFound) {
     const auto client = new_test_client();
     auto r = Rack("test_rack");
-    ASSERT_NIL(client.hardware.create_rack(r));
+    ASSERT_NIL(client.racks.create(r));
 
     // Test retrieving non-existent device with ignore_not_found=true
-    const auto [device1, err1] = client.hardware.retrieve_device(
+    const auto [device1, err1] = client.devices.retrieve(
         "nonexistent_key",
         true // ignore_not_found
     );
@@ -455,10 +360,10 @@ TEST(DeviceTests, testRetrieveDeviceIgnoreNotFound) {
         "model_1",
         "properties_1"
     );
-    ASSERT_NIL(client.hardware.create_device(d1));
+    ASSERT_NIL(client.devices.create(d1));
 
     std::vector<std::string> keys = {d1.key, "nonexistent_key"};
-    const auto [devices, err2] = client.hardware.retrieve_devices(
+    const auto [devices, err2] = client.devices.retrieve(
         keys,
         true // ignore_not_found
     );

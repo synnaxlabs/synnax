@@ -14,8 +14,9 @@
 #include "glog/logging.h"
 
 #include "client/cpp/channel/channel.h"
+#include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
-#include "client/cpp/hardware/hardware.h"
+#include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/transport.h"
@@ -140,18 +141,10 @@ public:
     RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr);
     /// @brief Client for reading and writing telemetry to a cluster.
     FrameClient telem = FrameClient(nullptr, nullptr, ChannelClient());
-    /// @brief Client for managing devices and their configuration.
-    HardwareClient hardware = HardwareClient(
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr
-    );
+    /// @brief Client for managing racks.
+    RackClient racks = RackClient(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    /// @brief Client for managing devices.
+    DeviceClient devices = DeviceClient(nullptr, nullptr, nullptr);
     /// @brief Client for managing statuses.
     StatusClient statuses = StatusClient();
     std::shared_ptr<AuthMiddleware> auth = nullptr;
@@ -186,13 +179,15 @@ public:
             std::move(t.frame_write),
             ChannelClient(t.chan_retrieve, t.chan_create)
         );
-        this->hardware = HardwareClient(
+        this->racks = RackClient(
             std::move(t.rack_create_client),
             std::move(t.rack_retrieve),
             std::move(t.rack_delete),
             t.module_create,
             t.module_retrieve,
-            t.module_delete,
+            t.module_delete
+        );
+        this->devices = DeviceClient(
             std::move(t.device_create),
             std::move(t.device_retrieve),
             std::move(t.device_delete)

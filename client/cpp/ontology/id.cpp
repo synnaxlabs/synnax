@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "client/cpp/ontology/id.h"
-
 #include <sstream>
+
+#include "client/cpp/ontology/id.h"
 
 namespace synnax::ontology {
 ID::ID(std::string type, std::string key): type(std::move(type)), key(std::move(key)) {}
 
-std::string ID::string() const { return type + ":" + key; }
+std::string ID::string() const {
+    return type + ":" + key;
+}
 
 std::pair<ID, xerrors::Error> ID::parse(const std::string &s) {
     const auto colon_pos = s.find(':');
@@ -53,9 +55,13 @@ bool ID::operator==(const ID &other) const {
     return type == other.type && key == other.key;
 }
 
-bool ID::operator!=(const ID &other) const { return !(*this == other); }
+bool ID::operator!=(const ID &other) const {
+    return !(*this == other);
+}
 
-void to_json(json &j, const ID &id) { j = json{{"type", id.type}, {"key", id.key}}; }
+void to_json(json &j, const ID &id) {
+    j = json{{"type", id.type}, {"key", id.key}};
+}
 
 void from_json(const json &j, ID &id) {
     j.at("type").get_to(id.type);

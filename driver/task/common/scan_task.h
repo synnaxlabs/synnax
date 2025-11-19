@@ -11,7 +11,6 @@
 
 #include "glog/logging.h"
 
-#include "client/cpp/hardware/hardware.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
 
@@ -59,11 +58,11 @@ struct SynnaxClusterAPI final : ClusterAPI {
     retrieve_devices(std::vector<std::string> &keys) override {
         // Ignore devices that are not found, as we can still work with partial
         // results.
-        return this->client->hardware.retrieve_devices(keys, true);
+        return this->client->devices.retrieve(keys, true);
     }
 
     xerrors::Error create_devices(std::vector<synnax::Device> &devs) override {
-        return this->client->hardware.create_devices(devs);
+        return this->client->devices.create(devs);
     }
 
     xerrors::Error

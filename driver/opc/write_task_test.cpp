@@ -78,7 +78,7 @@ protected:
             client->channels.create("double_cmd", telem::FLOAT64_T, true)
         );
 
-        auto rack = ASSERT_NIL_P(client->hardware.create_rack("cat"));
+        auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
         opc::connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
@@ -94,7 +94,7 @@ protected:
             "PXI-6255",
             nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
         );
-        ASSERT_NIL(client->hardware.create_device(dev));
+        ASSERT_NIL(client->devices.create(dev));
 
         json task_cfg = {
             {"data_saving", true},

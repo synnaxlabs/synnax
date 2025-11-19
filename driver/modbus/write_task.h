@@ -147,7 +147,7 @@ struct WriteTaskConfig {
 
     WriteTaskConfig(const std::shared_ptr<synnax::Synnax> &client, xjson::Parser &cfg):
         device_key(cfg.required<std::string>("device")) {
-        auto [dev_info, dev_err] = client->hardware.retrieve_device(this->device_key);
+        auto [dev_info, dev_err] = client->devices.retrieve(this->device_key);
         if (dev_err) {
             cfg.field_err("device", dev_err);
             return;

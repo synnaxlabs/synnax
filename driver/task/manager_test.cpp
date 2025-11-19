@@ -92,7 +92,7 @@ protected:
 
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
-        auto [r, err] = client->hardware.create_rack("test_rack");
+        auto [r, err] = client->racks.create("test_rack");
         ASSERT_FALSE(err) << err.message();
         rack = r;
 
@@ -260,7 +260,7 @@ TEST_F(TaskManagerTestFixture, testIgnoreDifferentRackTask) {
     ASSERT_FALSE(s_err) << s_err;
 
     // Create a different rack
-    auto [other_rack, r_err] = client->hardware.create_rack("other_rack");
+    auto [other_rack, r_err] = client->racks.create("other_rack");
     ASSERT_FALSE(r_err) << r_err;
 
     // Create a task for the other rack

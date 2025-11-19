@@ -84,9 +84,7 @@ protected:
             client->channels
                 .create("double_test", telem::FLOAT64_T, this->index_channel.key, false)
         );
-        auto rack = ASSERT_NIL_P(
-            client->hardware.create_rack("opc_read_task_test_rack")
-        );
+        auto rack = ASSERT_NIL_P(client->racks.create("opc_read_task_test_rack"));
 
         opc::connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://localhost:4840";
@@ -102,7 +100,7 @@ protected:
             "OPC UA Server",
             nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
         );
-        ASSERT_NIL(client->hardware.create_device(dev));
+        ASSERT_NIL(client->devices.create(dev));
 
         // Use the comprehensive default server configuration
         auto server_cfg = mock::ServerConfig::create_default();
@@ -792,7 +790,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
 
     // Create a separate rack and device for the invalid data server
     auto invalid_rack = ASSERT_NIL_P(
-        ctx->client->hardware.create_rack("opc_invalid_bool_rack")
+        ctx->client->racks.create("opc_invalid_bool_rack")
     );
 
     opc::connection::Config invalid_conn_cfg;
@@ -809,7 +807,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         "OPC UA Server",
         nlohmann::to_string(json::object({{"connection", invalid_conn_cfg.to_json()}}))
     );
-    ASSERT_NIL(ctx->client->hardware.create_device(invalid_dev));
+    ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     // Create a task that reads from the invalid boolean node
     json invalid_bool_cfg{
@@ -871,7 +869,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
 
     // Create a separate rack and device for the invalid data server
     auto invalid_rack = ASSERT_NIL_P(
-        ctx->client->hardware.create_rack("opc_invalid_float_rack")
+        ctx->client->racks.create("opc_invalid_float_rack")
     );
 
     opc::connection::Config invalid_conn_cfg;
@@ -888,7 +886,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         "OPC UA Server",
         nlohmann::to_string(json::object({{"connection", invalid_conn_cfg.to_json()}}))
     );
-    ASSERT_NIL(ctx->client->hardware.create_device(invalid_dev));
+    ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     json invalid_float_cfg{
         {"data_saving", true},
@@ -949,7 +947,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
 
     // Create a separate rack and device for the invalid data server
     auto invalid_rack = ASSERT_NIL_P(
-        ctx->client->hardware.create_rack("opc_invalid_double_rack")
+        ctx->client->racks.create("opc_invalid_double_rack")
     );
 
     opc::connection::Config invalid_conn_cfg;
@@ -966,7 +964,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         "OPC UA Server",
         nlohmann::to_string(json::object({{"connection", invalid_conn_cfg.to_json()}}))
     );
-    ASSERT_NIL(ctx->client->hardware.create_device(invalid_dev));
+    ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     json invalid_double_cfg{
         {"data_saving", true},
@@ -1025,7 +1023,7 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     // Create rack and device
-    auto rack = ASSERT_NIL_P(client->hardware.create_rack("opc_test_rack"));
+    auto rack = ASSERT_NIL_P(client->racks.create("opc_test_rack"));
 
     opc::connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
@@ -1041,7 +1039,7 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
         "OPC UA Server",
         nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
     );
-    ASSERT_NIL(client->hardware.create_device(dev));
+    ASSERT_NIL(client->devices.create(dev));
 
     // Create index and data channels
     auto index_ch = ASSERT_NIL_P(

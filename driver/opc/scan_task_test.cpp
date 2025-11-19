@@ -31,7 +31,7 @@ protected:
         ctx = std::make_shared<task::MockContext>(client);
         conn_pool = std::make_shared<opc::connection::Pool>();
 
-        rack = ASSERT_NIL_P(client->hardware.create_rack("opc_scan_task_test_rack"));
+        rack = ASSERT_NIL_P(client->racks.create("opc_scan_task_test_rack"));
 
         task = synnax::Task(rack.key, "OPC UA Scan Task Test", "opc_scan", "");
 
