@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
 
-export const LoginNav = (): ReactElement => {
+export const Simple = (): ReactElement => {
   const os = OS.use();
   return (
     <Layout.Nav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>

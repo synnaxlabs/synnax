@@ -9,10 +9,9 @@
 
 import "@/workspace/Selector.css";
 
-import { UnexpectedError, type workspace } from "@synnaxlabs/client";
+import { UnexpectedError } from "@synnaxlabs/client";
 import {
   Button,
-  Component,
   Dialog,
   Flex,
   Icon,
@@ -20,7 +19,6 @@ import {
   List,
   Select,
   Synnax,
-  Text,
   Workspace,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
@@ -29,21 +27,9 @@ import { useDispatch } from "react-redux";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/workspace/Create";
+import { List as WorkspaceList } from "@/workspace/list";
 import { useSelectActive } from "@/workspace/selectors";
 import { setActive } from "@/workspace/slice";
-
-const listItem = Component.renderProp(
-  (props: List.ItemProps<workspace.Key>): ReactElement | null => {
-    const { itemKey } = props;
-    const ws = List.useItem<workspace.Key, workspace.Workspace>(itemKey);
-    if (ws == null) return null;
-    return (
-      <Select.ListItem {...props}>
-        <Text.Text>{ws.name}</Text.Text>
-      </Select.ListItem>
-    );
-  },
-);
 
 const DIALOG_STYLE = { minHeight: 200, minWidth: 400 };
 
@@ -57,11 +43,7 @@ export const Selector = (): ReactElement => {
   const [search, setSearch] = useState("");
   const handleChange = useCallback(
     (v: string | null) => {
-      if (v === null) {
-        dispatch(setActive(null));
-        dispatch(Layout.clearWorkspace());
-        return;
-      }
+      if (v == null) return;
       const ws = getItem(v);
       if (ws == null) throw new UnexpectedError(`Workspace ${v} not found`);
       dispatch(setActive(ws));
@@ -81,7 +63,7 @@ export const Selector = (): ReactElement => {
         getItem={getItem}
         subscribe={subscribe}
         onFetchMore={() => retrieve({})}
-        allowNone
+        allowNone={false}
       >
         <Dialog.Trigger
           size="medium"
@@ -115,21 +97,7 @@ export const Selector = (): ReactElement => {
             />
             <Button.Button
               size="large"
-              variant="outlined"
-              onClick={() => {
-                handleChange(null);
-                setDialogVisible(false);
-              }}
-              gap="small"
-              tooltip="Switch to no workspace"
-              borderColor={6}
-            >
-              <Icon.Close />
-              Clear
-            </Button.Button>
-            <Button.Button
-              size="large"
-              variant="outlined"
+              variant="filled"
               onClick={() => {
                 setDialogVisible(false);
                 placeLayout(CREATE_LAYOUT);
@@ -140,11 +108,10 @@ export const Selector = (): ReactElement => {
               borderColor={6}
             >
               <Icon.Add />
-              New
             </Button.Button>
           </Flex.Box>
           <List.Items bordered borderColor={6} grow>
-            {listItem}
+            {WorkspaceList.item}
           </List.Items>
         </Dialog.Dialog>
       </Select.Frame>

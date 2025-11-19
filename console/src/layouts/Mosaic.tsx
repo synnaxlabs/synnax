@@ -395,11 +395,9 @@ export const MosaicWindow = memo<Layout.Renderer>(
     const [windowKey, mosaic] = Layout.useSelectMosaic();
     useLayoutEffect(() => {
       dispatch(
-        Layout.setNavDrawer({
+        Layout.setNavDrawerVisible({
           windowKey: layoutKey,
-          location: "bottom",
-          menuItems: ["visualization"],
-          activeItem: "visualization",
+          key: "visualization",
         }),
       );
     }, [layoutKey]);

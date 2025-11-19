@@ -81,22 +81,24 @@ export const Main = (): ReactElement => (
     <Layout.Modals />
     <SideEffect />
     <Auth.Guard>
-      <Nav.Top />
-      <Flex.Box
-        x
-        gap="tiny"
-        grow
-        style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
-      >
-        <Nav.Left />
-        <Flex.Box gap="tiny" grow style={{ width: 0 }}>
-          <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
-            <Layout.Nav.Drawer location="left" menuItems={Nav.DRAWER_ITEMS} />
-            <Mosaic />
+      <Workspace.Guard>
+        <Nav.Top />
+        <Flex.Box
+          x
+          gap="tiny"
+          grow
+          style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
+        >
+          <Nav.Left />
+          <Flex.Box gap="tiny" grow style={{ width: 0 }}>
+            <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
+              <Layout.Nav.Drawer location="left" menuItems={Nav.DRAWER_ITEMS} />
+              <Mosaic />
+            </Flex.Box>
+            <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
           </Flex.Box>
-          <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
         </Flex.Box>
-      </Flex.Box>
+      </Workspace.Guard>
     </Auth.Guard>
   </>
 );
