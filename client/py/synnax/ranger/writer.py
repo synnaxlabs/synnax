@@ -26,10 +26,6 @@ class _DeleteRequest(Payload):
     keys: list[RangeKey]
 
 
-_CREATE_ENDPOINT = "/range/create"
-_DELETE_ENDPOINT = "/range/delete"
-
-
 class RangeWriter:
     _client: UnaryClient
     instrumentation: Instrumentation
@@ -47,11 +43,9 @@ class RangeWriter:
         self, ranges: list[RangePayload], *, parent: ID | None = None
     ) -> list[RangePayload]:
         req = _CreateRequest(ranges=ranges, parent=parent)
-        return send_required(
-            self._client, _CREATE_ENDPOINT, req, _CreateResponse
-        ).ranges
+        return send_required(self._client, "/range/create", req, _CreateResponse).ranges
 
     @trace("debug", "range.delete")
     def delete(self, keys: list[RangeKey]):
         req = _DeleteRequest(keys=keys)
-        send_required(self._client, _DELETE_ENDPOINT, req, Empty)
+        send_required(self._client, "/range/delete", req, Empty)

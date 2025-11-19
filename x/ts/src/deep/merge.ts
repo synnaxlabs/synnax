@@ -10,7 +10,7 @@
 import { type z } from "zod";
 
 import { type Partial } from "@/deep/partial";
-import { isObject } from "@/identity";
+import { narrow } from "@/narrow";
 
 /**
  * Overrides the properties of the base object with the existing properties of the provided
@@ -22,10 +22,10 @@ export const override = <T>(base: T, ...overrides: Array<Partial<T>>): T => {
   if (overrides.length === 0) return base;
   const source = overrides.shift();
 
-  if (isObject(base) && isObject(source))
+  if (narrow.isObject(base) && narrow.isObject(source))
     for (const key in source)
       try {
-        if (isObject(source[key])) {
+        if (narrow.isObject(source[key])) {
           if (!(key in base)) Object.assign(base, { [key]: {} });
           override(base[key], source[key]);
         } else Object.assign(base, { [key]: source[key] });

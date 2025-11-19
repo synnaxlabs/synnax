@@ -406,3 +406,81 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     EXPECT_EQ(second_state.key, "stop_cmd");
     EXPECT_EQ(second_state.variant, "success");
 }
+
+/// Regression test for buffer size calculation bug with UINT8 holding registers.
+/// This test ensures that multiple sequential UINT8 holding registers can be written
+/// correctly, especially the last register which was previously affected by an
+/// off-by-one error in the buffer size calculation (density / 2 should be ceiling
+/// division).
+TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
+    this->setup_task_config();
+    modbus::mock::SlaveConfig slave_cfg;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = modbus::mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer stop_slave([&slave] { slave.stop(); });
+
+    // Create three UINT8 channels for sequential holding registers
+    auto holding0 = ASSERT_NIL_P(sy->channels.create("holding0", telem::UINT8_T, true));
+    auto holding1 = ASSERT_NIL_P(sy->channels.create("holding1", telem::UINT8_T, true));
+    auto holding2 = ASSERT_NIL_P(sy->channels.create("holding2", telem::UINT8_T, true));
+
+    json task_cfg{
+        {"device", "modbus_test_dev"},
+        {"channels",
+         json::array(
+             {{{"type", "holding_register_output"},
+               {"address", 0},
+               {"enabled", true},
+               {"channel", holding0.key},
+               {"data_type", "uint8"}},
+              {{"type", "holding_register_output"},
+               {"address", 1},
+               {"enabled", true},
+               {"channel", holding1.key},
+               {"data_type", "uint8"}},
+              {{"type", "holding_register_output"},
+               {"address", 2},
+               {"enabled", true},
+               {"channel", holding2.key},
+               {"data_type", "uint8"}}}
+         )}
+    };
+
+    auto p = xjson::Parser(task_cfg);
+    cfg = std::make_unique<modbus::WriteTaskConfig>(sy, p);
+    ASSERT_NIL(p.error());
+
+    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    synnax::Frame fr(3);
+    fr.emplace(holding0.key, telem::Series(static_cast<uint8_t>(50)));
+    fr.emplace(holding1.key, telem::Series(static_cast<uint8_t>(100)));
+    fr.emplace(holding2.key, telem::Series(static_cast<uint8_t>(150)));
+    reads->push_back(std::move(fr));
+
+    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+        {holding0.key, holding1.key, holding2.key},
+        reads
+    );
+
+    auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
+
+    auto wt = std::make_unique<common::WriteTask>(
+        task,
+        ctx,
+        breaker::default_config(task.name),
+        std::make_unique<modbus::WriteTaskSink>(dev, std::move(*cfg)),
+        nullptr,
+        mock_streamer_factory
+    );
+
+    wt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
+    // All three registers should be written correctly, including the last one
+    ASSERT_EVENTUALLY_EQ(slave.get_holding_register(0), 50);
+    ASSERT_EVENTUALLY_EQ(slave.get_holding_register(1), 100);
+    ASSERT_EVENTUALLY_EQ(slave.get_holding_register(2), 150);
+    wt->stop("stop_cmd", true);
+}

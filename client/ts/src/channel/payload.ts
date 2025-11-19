@@ -53,7 +53,7 @@ export const payloadZ = z.object({
   name: nameZ,
   key: keyZ,
   dataType: DataType.z,
-  leaseholder: z.number(),
+  leaseholder: zod.uint12,
   index: keyZ,
   isIndex: z.boolean(),
   internal: z.boolean(),
@@ -68,12 +68,12 @@ export interface Payload extends z.infer<typeof payloadZ> {}
 
 export const newZ = payloadZ.extend({
   key: keyZ.optional(),
-  leaseholder: z.number().optional(),
+  leaseholder: zod.uint12.optional(),
   index: keyZ.optional(),
   isIndex: z.boolean().optional(),
-  internal: z.boolean().optional().default(false),
-  virtual: z.boolean().optional().default(false),
-  expression: z.string().optional().default(""),
+  internal: z.boolean().default(false),
+  virtual: z.boolean().default(false),
+  expression: z.string().default(""),
   operations: array.nullableZ(operationZ).optional(),
   requires: array.nullableZ(keyZ).optional(),
 });

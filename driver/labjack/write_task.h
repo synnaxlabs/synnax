@@ -36,8 +36,12 @@ struct OutputChan {
     explicit OutputChan(xjson::Parser &parser):
         port(parser.field<std::string>("port", "")),
         enabled(parser.field<bool>("enabled", true)),
-        cmd_ch_key(parser.field<uint32_t>("cmd_key", "cmd_channel")),
-        state_ch_key(parser.field<uint32_t>("state_key", "state_channel")) {}
+        cmd_ch_key(
+            parser.field<uint32_t>(std::vector<std::string>{"cmd_key", "cmd_channel"})
+        ),
+        state_ch_key(parser.field<uint32_t>(
+            std::vector<std::string>{"state_key", "state_channel"}
+        )) {}
 
     /// @brief binds cluster information about the channel after it has been
     /// externally fetched.

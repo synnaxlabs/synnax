@@ -457,11 +457,11 @@ export class Frame {
 export const frameZ = z.object({
   keys: z.union([
     z.null().transform<number[]>(() => []),
-    z.number().array().optional().default([]),
+    z.number().array().default([]),
   ]),
   series: z.union([
     z.null().transform<z.infer<typeof Series.crudeZ>[]>(() => []),
-    Series.crudeZ.array().optional().default([]),
+    Series.crudeZ.array().default([]),
   ]),
 });
 

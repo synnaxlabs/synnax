@@ -460,9 +460,9 @@ struct Counter : virtual Base {
     int32_t units;
 
     explicit Counter(xjson::Parser &cfg):
-        port(cfg.required<int>("port")),
-        min_val(cfg.optional<double>("min_val", 0)),
-        max_val(cfg.optional<double>("max_val", 0)),
+        port(cfg.field<int>("port")),
+        min_val(cfg.field<double>("min_val", 0)),
+        max_val(cfg.field<double>("max_val", 0)),
         units(parse_units(cfg, "units")) {}
 
     [[nodiscard]] std::string loc() const {
@@ -1211,11 +1211,11 @@ struct CIFrequency final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        edge(get_ci_edge(cfg.required<std::string>("edge"))),
-        meas_method(get_ci_meas_method(cfg.required<std::string>("meas_method"))),
-        meas_time(cfg.optional<double>("meas_time", 0.001)),
-        divisor(cfg.optional<uint32_t>("divisor", 4)),
-        terminal(cfg.optional<std::string>("terminal", "")) {}
+        edge(get_ci_edge(cfg.field<std::string>("edge"))),
+        meas_method(get_ci_meas_method(cfg.field<std::string>("meas_method"))),
+        meas_time(cfg.field<double>("meas_time", 0.001)),
+        divisor(cfg.field<uint32_t>("divisor", 4)),
+        terminal(cfg.field<std::string>("terminal", "")) {}
 
     using Base::apply;
 
@@ -1266,12 +1266,12 @@ struct CIEdgeCount final : CI {
         Base(cfg),
         Counter(cfg),
         CI(cfg),
-        edge(get_ci_edge(cfg.required<std::string>("active_edge"))),
+        edge(get_ci_edge(cfg.field<std::string>("active_edge"))),
         count_direction(
-            get_ci_count_direction(cfg.required<std::string>("count_direction"))
+            get_ci_count_direction(cfg.field<std::string>("count_direction"))
         ),
-        initial_count(cfg.optional<uint32_t>("initial_count", 0)),
-        terminal(cfg.optional<std::string>("terminal", "")) {}
+        initial_count(cfg.field<uint32_t>("initial_count", 0)),
+        terminal(cfg.field<std::string>("terminal", "")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1315,11 +1315,11 @@ struct CIPeriod final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        edge(get_ci_edge(cfg.required<std::string>("starting_edge"))),
-        meas_method(get_ci_meas_method(cfg.required<std::string>("meas_method"))),
-        meas_time(cfg.optional<double>("meas_time", 0.001)),
-        divisor(cfg.optional<uint32_t>("divisor", 4)),
-        terminal(cfg.optional<std::string>("terminal", "")) {}
+        edge(get_ci_edge(cfg.field<std::string>("starting_edge"))),
+        meas_method(get_ci_meas_method(cfg.field<std::string>("meas_method"))),
+        meas_time(cfg.field<double>("meas_time", 0.001)),
+        divisor(cfg.field<uint32_t>("divisor", 4)),
+        terminal(cfg.field<std::string>("terminal", "")) {}
 
     using Base::apply;
 
@@ -1367,8 +1367,8 @@ struct CIPulseWidth final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        edge(get_ci_edge(cfg.required<std::string>("starting_edge"))),
-        terminal(cfg.optional<std::string>("terminal", "")) {}
+        edge(get_ci_edge(cfg.field<std::string>("starting_edge"))),
+        terminal(cfg.field<std::string>("terminal", "")) {}
 
     using Base::apply;
 
@@ -1412,7 +1412,7 @@ struct CISemiPeriod final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        terminal(cfg.optional<std::string>("terminal", "")) {}
+        terminal(cfg.field<std::string>("terminal", "")) {}
 
     using Base::apply;
 
@@ -1459,10 +1459,10 @@ struct CITwoEdgeSep final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        first_edge(get_ci_edge(cfg.required<std::string>("first_edge"))),
-        second_edge(get_ci_edge(cfg.required<std::string>("second_edge"))),
-        first_terminal(cfg.optional<std::string>("first_terminal", "")),
-        second_terminal(cfg.optional<std::string>("second_terminal", "")) {}
+        first_edge(get_ci_edge(cfg.field<std::string>("first_edge"))),
+        second_edge(get_ci_edge(cfg.field<std::string>("second_edge"))),
+        first_terminal(cfg.field<std::string>("first_terminal", "")),
+        second_terminal(cfg.field<std::string>("second_terminal", "")) {}
 
     using Base::apply;
 
@@ -1522,10 +1522,10 @@ struct CILinearVelocity final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
-        dist_per_pulse(cfg.required<double>("dist_per_pulse")),
-        terminal_a(cfg.optional<std::string>("terminalA", "")),
-        terminal_b(cfg.optional<std::string>("terminalB", "")) {}
+        decoding_type(get_ci_decoding_type(cfg.field<std::string>("decoding_type"))),
+        dist_per_pulse(cfg.field<double>("dist_per_pulse")),
+        terminal_a(cfg.field<std::string>("terminalA", "")),
+        terminal_b(cfg.field<std::string>("terminalB", "")) {}
 
     using Base::apply;
 
@@ -1585,10 +1585,10 @@ struct CIAngularVelocity final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
-        pulses_per_rev(cfg.required<uint32_t>("pulses_per_rev")),
-        terminal_a(cfg.optional<std::string>("terminalA", "")),
-        terminal_b(cfg.optional<std::string>("terminalB", "")) {}
+        decoding_type(get_ci_decoding_type(cfg.field<std::string>("decoding_type"))),
+        pulses_per_rev(cfg.field<uint32_t>("pulses_per_rev")),
+        terminal_a(cfg.field<std::string>("terminalA", "")),
+        terminal_b(cfg.field<std::string>("terminalB", "")) {}
 
     using Base::apply;
 
@@ -1653,17 +1653,17 @@ struct CILinearPosition final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
-        dist_per_pulse(cfg.required<double>("dist_per_pulse")),
-        initial_pos(cfg.optional<double>("initial_pos", 0.0)),
-        z_index_enable(cfg.optional<bool>("z_index_enable", false)),
-        z_index_val(cfg.optional<double>("z_index_val", 0.0)),
-        z_index_phase(get_ci_z_index_phase(
-            cfg.optional<std::string>("z_index_phase", "AHighBHigh")
-        )),
-        terminal_a(cfg.optional<std::string>("terminalA", "")),
-        terminal_b(cfg.optional<std::string>("terminalB", "")),
-        terminal_z(cfg.optional<std::string>("terminalZ", "")) {}
+        decoding_type(get_ci_decoding_type(cfg.field<std::string>("decoding_type"))),
+        dist_per_pulse(cfg.field<double>("dist_per_pulse")),
+        initial_pos(cfg.field<double>("initial_pos", 0.0)),
+        z_index_enable(cfg.field<bool>("z_index_enable", false)),
+        z_index_val(cfg.field<double>("z_index_val", 0.0)),
+        z_index_phase(
+            get_ci_z_index_phase(cfg.field<std::string>("z_index_phase", "AHighBHigh"))
+        ),
+        terminal_a(cfg.field<std::string>("terminalA", "")),
+        terminal_b(cfg.field<std::string>("terminalB", "")),
+        terminal_z(cfg.field<std::string>("terminalZ", "")) {}
 
     using Base::apply;
 
@@ -1741,17 +1741,17 @@ struct CIAngularPosition final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
-        pulses_per_rev(cfg.required<uint32_t>("pulses_per_rev")),
-        initial_angle(cfg.optional<double>("initial_angle", 0.0)),
-        z_index_enable(cfg.optional<bool>("z_index_enable", false)),
-        z_index_val(cfg.optional<double>("z_index_val", 0.0)),
-        z_index_phase(get_ci_z_index_phase(
-            cfg.optional<std::string>("z_index_phase", "AHighBHigh")
-        )),
-        terminal_a(cfg.optional<std::string>("terminalA", "")),
-        terminal_b(cfg.optional<std::string>("terminalB", "")),
-        terminal_z(cfg.optional<std::string>("terminalZ", "")) {}
+        decoding_type(get_ci_decoding_type(cfg.field<std::string>("decoding_type"))),
+        pulses_per_rev(cfg.field<uint32_t>("pulses_per_rev")),
+        initial_angle(cfg.field<double>("initial_angle", 0.0)),
+        z_index_enable(cfg.field<bool>("z_index_enable", false)),
+        z_index_val(cfg.field<double>("z_index_val", 0.0)),
+        z_index_phase(
+            get_ci_z_index_phase(cfg.field<std::string>("z_index_phase", "AHighBHigh"))
+        ),
+        terminal_a(cfg.field<std::string>("terminalA", "")),
+        terminal_b(cfg.field<std::string>("terminalB", "")),
+        terminal_z(cfg.field<std::string>("terminalZ", "")) {}
 
     using Base::apply;
 
@@ -1821,8 +1821,8 @@ struct CIDutyCycle final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        edge(get_ci_edge(cfg.required<std::string>("activeEdge"))),
-        terminal(cfg.optional<std::string>("terminal", "")) {}
+        edge(get_ci_edge(cfg.field<std::string>("activeEdge"))),
+        terminal(cfg.field<std::string>("terminal", "")) {}
 
     using Base::apply;
 

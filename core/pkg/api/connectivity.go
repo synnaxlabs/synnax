@@ -14,37 +14,39 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/telem"
 )
 
-// ConnectivityService is a simple service that allows a client to check their connection
-// to the server.
-type ConnectivityService struct {
-	clusterProvider
-}
+type ConnectivityService struct{ clusterProvider }
 
 func NewConnectivityService(p Provider) *ConnectivityService {
 	return &ConnectivityService{clusterProvider: p.cluster}
 }
 
-// ClusterInfo is returned by the ConnectivityService.Check method.
+// ClusterInfo is general information about the cluster and node that the request was
+// sent to.
 type ClusterInfo struct {
-	ClusterKey  string          `json:"cluster_key" msgpack:"cluster_key"`
-	NodeVersion string          `json:"node_version" msgpack:"node_version"`
-	NodeKey     cluster.NodeKey `json:"node_key" msgpack:"node_key"`
-	NodeTime    telem.TimeStamp `json:"node_time" msgpack:"node_time"`
+	// ClusterKey is the key of the cluster.
+	ClusterKey string `json:"cluster_key" msgpack:"cluster_key"`
+	// NodeVersion is the current version of the Synnax Core being used.
+	NodeVersion string `json:"node_version" msgpack:"node_version"`
+	// NodeKey is the key of the node in the cluster that the request was sent to.
+	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
+	// NodeTime is the time of the node that the request was sent to.
+	NodeTime telem.TimeStamp `json:"node_time" msgpack:"node_time"`
 }
 
 type ConnectivityCheckResponse = ClusterInfo
 
-// Check does nothing except return a success response.
-func (c *ConnectivityService) Check(_ context.Context, _ types.Nil) (ConnectivityCheckResponse, error) {
+func (s *ConnectivityService) Check(
+	context.Context,
+	types.Nil,
+) (ConnectivityCheckResponse, error) {
 	return ConnectivityCheckResponse{
-		ClusterKey:  c.clusterProvider.cluster.Key().String(),
+		ClusterKey:  s.clusterProvider.cluster.Key().String(),
 		NodeVersion: version.Get(),
-		NodeKey:     c.cluster.HostKey(),
+		NodeKey:     s.cluster.HostKey(),
 		NodeTime:    telem.Now(),
 	}, nil
 }

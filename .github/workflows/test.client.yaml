@@ -307,7 +307,7 @@ jobs:
       - name: Check Types
         run: pnpm check-types:client
 
-      - name: Madge
+      - name: Check Circular Dependencies
         run: pnpm madge:client
 
       - name: Lint

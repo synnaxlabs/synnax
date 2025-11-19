@@ -28,7 +28,6 @@
 const std::string HEADER_KEY = "authorization";
 /// @brief auth token prefix that will be parsed by the cluster.
 const std::string HEADER_VALUE_PREFIX = "Bearer ";
-const std::string AUTH_ENDPOINT = "/auth/login";
 
 /// @brief type alias for the auth login transport.
 using AuthLoginClient = freighter::
@@ -106,7 +105,7 @@ public:
         req.set_password(this->password);
         auto skew_calc = telem::ClockSkewCalculator();
         skew_calc.start();
-        auto [res, err] = login_client->send(AUTH_ENDPOINT, req);
+        auto [res, err] = login_client->send("/auth/login", req);
         if (err) return err;
         this->token = res.token();
         this->cluster_info = ClusterInfo(res.cluster_info());

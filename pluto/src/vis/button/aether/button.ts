@@ -19,8 +19,8 @@ export type Mode = z.infer<typeof modeZ>;
 
 export const buttonStateZ = z.object({
   trigger: z.number(),
-  sink: telem.booleanSinkSpecZ.optional().default(telem.noopBooleanSinkSpec),
-  mode: modeZ.optional().default("fire"),
+  sink: telem.booleanSinkSpecZ.default(telem.noopBooleanSinkSpec),
+  mode: modeZ.default("fire"),
 });
 
 interface InternalState {
