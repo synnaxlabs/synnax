@@ -14,9 +14,13 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
+	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Writer is used to create, update, and delete devices within Synnax. The writer
@@ -24,9 +28,20 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly on
 // the database.
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	group group.Group
+	tx     gorp.Tx
+	otg    ontology.Writer
+	group  group.Group
+	status status.Writer[StatusDetails]
+}
+
+func newUnknownStatus(devKey string, rackKey rack.Key) *Status {
+	return &Status{
+		Key:     OntologyID(devKey).String(),
+		Time:    telem.Now(),
+		Variant: xstatus.WarningVariant,
+		Message: "Device state unknown",
+		Details: StatusDetails{Rack: rackKey, Device: devKey},
+	}
 }
 
 // Create creates or updates the given device. Create will redefine ontology
@@ -56,6 +71,9 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 	// ontology, as to not mess with existing groups or relationships.
 	if exists && device.Rack == existing.Rack {
 		return nil
+	}
+	if err = w.status.Set(ctx, newUnknownStatus(device.Key, device.Rack)); err != nil {
+		return err
 	}
 	otgID := OntologyID(device.Key)
 	if err = w.otg.DefineResource(ctx, otgID); err != nil {

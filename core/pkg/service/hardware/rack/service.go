@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -46,6 +47,9 @@ type Config struct {
 	// HostProvider is used to assign keys to racks.
 	// [REQUIRED]
 	HostProvider cluster.HostProvider
+	// Status is used to define and process statuses for racks.
+	// [REQUIRED]
+	Status *status.Service
 	// Signals is used to propagate rack changes through the Synnax signals' channel
 	// communication mechanism.
 	// [OPTIONAL]
@@ -68,6 +72,7 @@ func (c Config) Override(other Config) Config {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
 
@@ -78,6 +83,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "host", c.HostProvider)
+	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
 
@@ -115,12 +121,11 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	cfg.Ontology.RegisterService(s)
 
 	if cfg.Signals != nil {
-		cdcS, err := signals.PublishFromGorp[Key](
+		s.shutdownSignals, err = signals.PublishFromGorp[Key](
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigPureNumeric[Key, Rack](cfg.DB, telem.Uint32T),
+			signals.GorpPublisherConfigNumeric[Key, Rack](cfg.DB, telem.Uint32T),
 		)
-		s.shutdownSignals = cdcS
 		if err != nil {
 			return nil, err
 		}
@@ -172,6 +177,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		newKey:     s.newKey,
 		newTaskKey: s.newTaskKey,
 		group:      s.group,
+		status:     status.NewWriter[StatusDetails](s.Status, tx),
 	}
 }
 

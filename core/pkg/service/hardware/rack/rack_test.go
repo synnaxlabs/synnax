@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -37,12 +39,25 @@ var _ = Describe("Rack", Ordered, func() {
 		db = gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+		label := MustSucceed(label.OpenService(ctx, label.Config{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+		}))
+		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+			Ontology: otg,
+			DB:       db,
+			Group:    g,
+			Label:    label,
+		}))
 		svc = MustSucceed(rack.OpenService(ctx, rack.Config{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       stat,
 		}))
+
 	})
 	BeforeEach(func() {
 		tx = db.OpenTx()
@@ -162,6 +177,17 @@ var _ = Describe("Migration", func() {
 		db := gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+		label := MustSucceed(label.OpenService(ctx, label.Config{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+		}))
+		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+			Ontology: otg,
+			DB:       db,
+			Group:    g,
+			Label:    label,
+		}))
 
 		v1EmbeddedRack := rack.Rack{
 			Key:  65538,
@@ -176,6 +202,7 @@ var _ = Describe("Migration", func() {
 			Ontology:     otg,
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       stat,
 		}))
 		Expect(svc.EmbeddedKey).To(Equal(rack.Key(65538)))
 		// Retrieve the embedded rack

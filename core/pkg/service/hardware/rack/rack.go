@@ -14,8 +14,8 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/validate"
 )
 

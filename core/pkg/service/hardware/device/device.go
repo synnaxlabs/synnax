@@ -14,8 +14,8 @@ package device
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -73,14 +73,4 @@ type StatusDetails struct {
 }
 
 // Status represents information about the state of the device at a given point in time.
-type Status status.Status[StatusDetails]
-
-// GorpKey gives a unique key for the status.
-func (s Status) GorpKey() string { return s.Key }
-
-// SetOptions returns the node of the rack that the status refers to.
-func (s Status) SetOptions() []any { return []any{s.Details.Rack.Node()} }
-
-// CustomTypeName implements types.CustomTypeName to ensure that Status struct does not
-// conflict with any other types in gorp.
-func (s Status) CustomTypeName() string { return "DeviceStatus" }
+type Status = status.Status[StatusDetails]

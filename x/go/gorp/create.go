@@ -40,21 +40,37 @@ func (c Create[K, E]) Entries(entries *[]E) Create[K, E] { SetEntries[K](c.param
 // Entry sets the entry to write to the DB.
 func (c Create[K, E]) Entry(entry *E) Create[K, E] { SetEntry[K](c.params, entry); return c }
 
+// SkipExisting configures the query to skip entries that already exist in the DB.
+// If an entry with a matching GorpKey is found, it will not be created or overwritten.
+// SkipExisting adds overhead to the query, as a retrieval is required to check for
+// existing entries.
+func (c Create[K, E]) SkipExisting() Create[K, E] {
+	c.params.Set(skipExistingKey, true)
+	return c
+}
+
 // Exec executes the query against the provided transaction. It returns any errors
 // encountered during execution.
 func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
 	entries, w := GetEntries[K, E](c.params), WrapWriter[K, E](tx)
 	mergeExisting, hasMergeExisting := getMergeExisting[K, E](c.params)
-	if hasMergeExisting {
+	skipExisting := getSkipExisting(c.params)
+	if hasMergeExisting || skipExisting {
 		r := WrapReader[K, E](tx)
-		for i, entry := range entries.All() {
+		all := entries.All()
+		toWrite := make([]E, 0, len(all))
+		for _, entry := range all {
 			e, err := r.Get(ctx, entry.GorpKey())
 			if errors.Is(err, query.NotFound) {
+				toWrite = append(toWrite, entry)
 				continue
 			}
 			if err != nil {
 				return err
+			}
+			if skipExisting {
+				continue
 			}
 			if e, err = mergeExisting.exec(Context{
 				Context: ctx,
@@ -62,11 +78,14 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 			}, entry, e); err != nil {
 				return err
 			}
-			entries.Set(i, e)
+			toWrite = append(toWrite, e)
 		}
+		return w.Set(ctx, toWrite...)
 	}
 	return w.Set(ctx, entries.All()...)
 }
+
+const skipExistingKey = "skipExisting"
 
 const mergeExistingKey = "mergeExisting"
 
@@ -102,4 +121,12 @@ func getMergeExisting[K Key, E Entry[K]](q query.Parameters) (o onUpdate[K, E], 
 		return nil, false
 	}
 	return ro.(onUpdate[K, E]), true
+}
+
+func getSkipExisting(q query.Parameters) bool {
+	v, ok := q.Get(skipExistingKey)
+	if !ok {
+		return false
+	}
+	return v.(bool)
 }

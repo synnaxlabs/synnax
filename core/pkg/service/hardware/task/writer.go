@@ -15,14 +15,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	rack  rack.Writer
-	group group.Group
+	tx     gorp.Tx
+	otg    ontology.Writer
+	rack   rack.Writer
+	group  group.Group
+	status status.Writer[StatusDetails]
 }
 
 func (w Writer) Create(ctx context.Context, t *Task) (err error) {

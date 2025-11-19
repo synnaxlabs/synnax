@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -40,16 +42,29 @@ var _ = Describe("Device", func() {
 		groupSvc = MustSucceed(
 			group.OpenService(ctx, group.Config{DB: db, Ontology: otg}),
 		)
+		label := MustSucceed(label.OpenService(ctx, label.Config{
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+		}))
+		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+			Ontology: otg,
+			DB:       db,
+			Group:    groupSvc,
+			Label:    label,
+		}))
 		rackSvc = MustSucceed(rack.OpenService(ctx, rack.Config{
 			DB:           db,
 			Ontology:     otg,
 			Group:        groupSvc,
 			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       stat,
 		}))
 		svc = MustSucceed(device.OpenService(ctx, device.Config{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
+			Status:   stat,
 		}))
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx)

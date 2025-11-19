@@ -29,16 +29,10 @@ interface FluxSubStore extends Flux.Store {
   [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
 
-const SET_RACK_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.keyZ> = {
+const SET_RACK_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.rackZ> = {
   channel: rack.SET_CHANNEL_NAME,
-  schema: rack.keyZ,
-  onChange: async ({ store, changed, client }) => {
-    const r = await client.hardware.racks.retrieve({
-      key: changed,
-      includeStatus: true,
-    });
-    store.racks.set(changed, r.payload);
-  },
+  schema: rack.rackZ,
+  onChange: ({ store, changed }) => store.racks.set(changed),
 };
 
 const DELETE_RACK_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.keyZ> = {
@@ -92,10 +86,10 @@ export const useList = Flux.createList<ListQuery, rack.Key, rack.Payload, FluxSu
       store.racks.onSet((rack) => onChange(rack.key, rack)),
       store.racks.onDelete(onDelete),
       store.statuses.onSet((s) => {
-        const status = rack.statusZ.parse(s);
+        const stat = rack.statusZ.parse(s);
         onChange(
-          status.details.rack,
-          state.skipNull((p) => ({ ...p, status })),
+          stat.details.rack,
+          state.skipNull((p) => ({ ...p, status: stat })),
         );
       }),
     ],

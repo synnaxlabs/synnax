@@ -127,6 +127,21 @@ func GorpPublisherConfigPureNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.D
 	}
 }
 
+func GorpPublisherConfigNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpPublisherConfig[K, E] {
+	return GorpPublisherConfig[K, E]{
+		DB:             db,
+		DeleteDataType: dt,
+		SetDataType:    telem.JSONT,
+		MarshalDelete: func(k K) (b []byte, err error) {
+			b = make([]byte, dt.Density())
+			data := xunsafe.CastSlice[byte, K](b)
+			data[0] = k
+			return b, nil
+		},
+		MarshalSet: MarshalJSON[K, E],
+	}
+}
+
 func GorpPublisherConfigString[E gorp.Entry[string]](db *gorp.DB) GorpPublisherConfig[string, E] {
 	return GorpPublisherConfig[string, E]{
 		DB:             db,

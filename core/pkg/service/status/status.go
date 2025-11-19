@@ -15,14 +15,14 @@ import (
 	"github.com/synnaxlabs/x/status"
 )
 
-type Status status.Status[any]
+type Status[D any] status.Status[D]
 
-var _ gorp.Entry[string] = (*Status)(nil)
+var _ gorp.Entry[string] = (*Status[any])(nil)
 
-func (s Status) OntologyID() ontology.ID { return OntologyID(s.Key) }
+func (s Status[D]) OntologyID() ontology.ID { return OntologyID(s.Key) }
 
 // GorpKey implements gorp.Entry.
-func (s Status) GorpKey() string { return s.Key }
+func (s Status[D]) GorpKey() string { return s.Key }
 
 // SetOptions implements gorp.Entry.
-func (s Status) SetOptions() []any { return nil }
+func (s Status[D]) SetOptions() []any { return nil }

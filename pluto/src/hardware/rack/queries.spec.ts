@@ -24,6 +24,18 @@ describe("queries", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
+  describe("useRetrieve", () => {
+    it("should retrieve a rack by its key", async () => {
+      const testRack = await client.hardware.racks.create({ name: "testRack" });
+      const { result } = renderHook(() => Rack.useRetrieve({ key: testRack.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data?.key).toEqual(testRack.key);
+      expect(result.current.data?.name).toEqual("testRack");
+    });
+  });
+
   describe("useList", () => {
     it("should return a list of rack keys", async () => {
       const rack1 = await client.hardware.racks.create({

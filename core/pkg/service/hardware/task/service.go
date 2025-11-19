@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -32,10 +33,24 @@ import (
 type Config struct {
 	alamos.Instrumentation
 	// DB is the gorp database that tasks will be stored in.
-	DB           *gorp.DB
-	Ontology     *ontology.Ontology
-	Group        *group.Service
-	Rack         *rack.Service
+	// [REQUIRED]
+	DB *gorp.DB
+	// Ontology is used to define relationships between tasks and other resources
+	// in the Synnax cluster.
+	// [REQUIRED]
+	Ontology *ontology.Ontology
+	// Group is used to create task related groups of ontology resources.
+	// [REQUIRED]
+	Group *group.Service
+	// Rack is used to manage rack-related operations for tasks.
+	// [REQUIRED]
+	Rack *rack.Service
+	// Status is used to define and process statuses for tasks.
+	// [REQUIRED]
+	Status *status.Service
+	// Signals is used to propagate task changes through the Synnax signals' channel
+	// communication mechanism.
+	// [OPTIONAL]
 	Signals      *signals.Provider
 	HostProvider cluster.HostProvider
 	Channel      channel.Writeable
@@ -53,19 +68,22 @@ func (c Config) Override(other Config) Config {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Rack = override.Nil(c.Rack, other.Rack)
+	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	return c
 }
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
-	v := validate.New("workspace")
+	v := validate.New("hardware.task")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "rack", c.Rack)
-	validate.NotNil(v, "hostProvider", c.HostProvider)
+	validate.NotNil(v, "status", c.Status)
+	validate.NotNil(v, "host_provider", c.HostProvider)
 	return v.Error()
 }
 
@@ -126,10 +144,11 @@ func (s *Service) Close() error {
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    gorp.OverrideTx(s.cfg.DB, tx),
-		otg:   s.cfg.Ontology.NewWriter(tx),
-		rack:  s.cfg.Rack.NewWriter(tx),
-		group: s.group,
+		tx:     gorp.OverrideTx(s.cfg.DB, tx),
+		otg:    s.cfg.Ontology.NewWriter(tx),
+		rack:   s.cfg.Rack.NewWriter(tx),
+		group:  s.group,
+		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
 	}
 }
 

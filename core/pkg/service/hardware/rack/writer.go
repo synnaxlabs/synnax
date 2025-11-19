@@ -14,7 +14,10 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
+	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Writer is used to create, update, and delete racks within a Synnax cluster.
@@ -28,8 +31,21 @@ type Writer struct {
 	// group is the base group that racks will be created under.
 	group group.Group
 	// newKey returns a new key for a rack.
-	newKey     func() (Key, error)
+	newKey func() (Key, error)
+	// newTaskKey returns a new key for a task within the rack.
 	newTaskKey func(context.Context, Key) (uint32, error)
+	// status is used to write status updates.
+	status status.Writer[StatusDetails]
+}
+
+func unknownRackStatus(key Key) *Status {
+	return &Status{
+		Key:     OntologyID(key).String(),
+		Time:    telem.Now(),
+		Variant: xstatus.WarningVariant,
+		Message: "Rack state unknown",
+		Details: StatusDetails{Rack: key},
+	}
 }
 
 // Create creates or updates a rack. If the rack key is zero or a rack with the key
@@ -49,6 +65,9 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 	}
 	otgID := OntologyID(r.Key)
 	if err = w.otg.DefineResource(ctx, otgID); err != nil {
+		return err
+	}
+	if err = w.status.Set(ctx, unknownRackStatus(r.Key)); err != nil {
 		return err
 	}
 	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)

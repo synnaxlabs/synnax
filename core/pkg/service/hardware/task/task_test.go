@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -37,13 +39,31 @@ var _ = Describe("Task", Ordered, func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{DB: db, Ontology: otg, Group: g, HostProvider: mock.StaticHostKeyProvider(1)}))
+		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+		}))
+		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+			Ontology: otg,
+			DB:       db,
+			Group:    g,
+			Label:    labelSvc,
+		}))
+		rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
+			DB:           db,
+			Ontology:     otg,
+			Group:        g,
+			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       stat,
+		}))
 		svc = MustSucceed(task.OpenService(ctx, task.Config{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
 			Rack:         rackSvc,
 			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       stat,
 		}))
 		rack_ = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, rack_)).To(Succeed())

@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -25,14 +26,21 @@ import (
 // Config is the configuration for creating a device service.
 type Config struct {
 	// DB is the gorp database that devices will be stored in.
+	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology is used to define relationships between devices and other resources in
 	// the Synnax cluster.
+	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Group is used to create device related groups of ontology resources.
+	// [REQUIRED]
 	Group *group.Service
+	// Status is used to define and process statuses for devices.
+	// [REQUIRED]
+	Status *status.Service
 	// Signals is used to propagate device changes through the Synnax signals' channel
 	// communication mechanism.
+	// [OPTIONAL]
 	Signals *signals.Provider
 }
 
@@ -43,6 +51,7 @@ func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -53,6 +62,7 @@ func (c Config) Validate() error {
 	v := validate.New("hardware.device")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "group", c.Group)
 	return v.Error()
 }
@@ -113,9 +123,10 @@ func (s *Service) RootGroup() group.Group { return s.group }
 // operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    gorp.OverrideTx(s.cfg.DB, tx),
-		otg:   s.cfg.Ontology.NewWriter(tx),
-		group: s.group,
+		tx:     gorp.OverrideTx(s.cfg.DB, tx),
+		otg:    s.cfg.Ontology.NewWriter(tx),
+		group:  s.group,
+		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
 	}
 }
 
