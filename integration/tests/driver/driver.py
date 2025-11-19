@@ -66,18 +66,16 @@ class Driver(TestCase):
     Subclasses must implement:
     - run(): Test execution logic
     """
-    
+
     # Sim server process variables
     simulator: Simulator | None = None
-    server_process: subprocess.Popen[bytes] | None = None
+    simulator_process: subprocess.Popen[bytes] | None = None
 
     def setup(self) -> None:
         """Start simulator and connect to device (if simulator configured)."""
         if self.simulator is not None:
             self._start_simulator()
-            device = self.connect_device(self.simulator.device_factory)
-            self.log(f"Device: {device.name} (key={device.key})")
-
+            self.connect_device(self.simulator.device_factory)
 
     @abstractmethod
     def run(self) -> None:
@@ -114,9 +112,8 @@ class Driver(TestCase):
             device = client.hardware.devices.retrieve(name=device_name)
             self.log(f"Found existing device: {device.name}")
         except:
-            self.log(f"Creating new device: {device_name}")
             device = client.hardware.devices.create(device_instance)
-            self.log(f"Created device: {device.name} (key={device.key})")
+            self.log(f"Created device: {device.name}")
 
         return device
 
@@ -136,23 +133,25 @@ class Driver(TestCase):
 
         # Allow 10% tolerance for CI environments with timing variance
         expected_samples = int(sample_rate * duration_seconds)
-        min_samples = int(expected_samples * 0.90)
+        min_samples = int(expected_samples * 0.9)
         max_samples = int(expected_samples * 1.1)
 
+        # Collect sample counts for all channels
+        sample_counts = []
         for channel_config in task.config.channels:
             ch = self.client.channels.retrieve(channel_config.channel)
             num_samples = len(ch.read(time_range))
+            sample_counts.append(num_samples)
 
             if num_samples < min_samples or num_samples > max_samples:
                 self.fail(
                     f"Channel '{ch.name}' has {num_samples} samples, "
                     f"expected {expected_samples} ±10% ({min_samples}-{max_samples})"
                 )
-            else:
-                self.log(
-                    f"✓ Channel '{ch.name}': {num_samples} samples "
-                    f"(expected {expected_samples} ±10%)"
-                )
+
+        # Check all channels have the same sample count
+        if len(set(sample_counts)) > 1:
+            self.fail(f"Channels have different sample counts: {sample_counts}")
 
     def assert_task_exists(self, task_key: str) -> None:
         """Assert that a task exists in Synnax.
@@ -165,9 +164,8 @@ class Driver(TestCase):
         """
         try:
             task = self.client.hardware.tasks.retrieve(task_key)
-            self.log(f"✓ Task {task_key} exists (name: {task.name})")
         except Exception as e:
-            self.fail(f"Task {task_key} does not exist: {e}")
+            self.fail(f"Task {task.name} does not exist: {e}")
 
     def assert_task_deleted(self, task_key: str) -> None:
         """Assert that a task has been deleted from Synnax.
@@ -179,11 +177,11 @@ class Driver(TestCase):
             Fails the test if the task still exists
         """
         try:
-            self.client.hardware.tasks.retrieve(task_key)
+            self.client.hardware.tasks.retrieve(task_key + "")
             self.fail(f"Task {task_key} still exists after deletion")
         except:
-            # Expected: task should not be found
-            self.log(f"✓ Task {task_key} successfully deleted")
+            # This is the expected behavior
+            pass
 
     def assert_device_deleted(self, device: sy.Device) -> None:
         """Assert that a device has been deleted from Synnax.
@@ -197,13 +195,15 @@ class Driver(TestCase):
         try:
             self.client.hardware.devices.retrieve(name=device.name)
             self.fail(f"Device '{device.name}' still exists after deletion")
-        except:
-            # Expected: device should not be found
-            self.log(f"✓ Device '{device.name}' successfully deleted")
+        except sy.NotFoundError:
+            # Win condition
+            self.log(f"Device deleted")
+        except Exception as e:
+            self.fail(
+                f"Unexpected error asserting device deletion '{device.name}': {e}"
+            )
 
-    def assert_channel_names(
-        self, task: sy.Task, expected_names: list[str]
-    ) -> None:
+    def assert_channel_names(self, task: sy.Task, expected_names: list[str]) -> None:
         """Assert that the task's channels match the expected channel names.
 
         Args:
@@ -228,8 +228,6 @@ class Driver(TestCase):
                 f"Channel names mismatch. Expected: {expected_sorted}, "
                 f"Actual: {actual_sorted}"
             )
-        else:
-            self.log(f"✓ Channel names match: {actual_sorted}")
 
     def _start_simulator(self) -> None:
         """Start the simulator server."""
@@ -239,12 +237,12 @@ class Driver(TestCase):
             raise FileNotFoundError(f"Server script not found: {server_script}")
 
         # Launch the simulator server
-        self.server_process = subprocess.Popen(
+        self.simulator_process = subprocess.Popen(
             [sys.executable, str(server_script)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        self.log(f"Server started with PID: {self.server_process.pid}")
+        self.log(f"Server started with PID: {self.simulator_process.pid}")
 
         # Register cleanup handler for process exit scenarios
         atexit.register(self._cleanup_simulator)
@@ -252,46 +250,44 @@ class Driver(TestCase):
         # Wait for server to start
         sy.sleep(self.simulator.startup_delay_seconds)
 
-        if self.server_process.poll() is not None:
+        if self.simulator_process.poll() is not None:
             # Server failed - capture output for debugging
-            stdout, stderr = self.server_process.communicate()
+            stdout, stderr = self.simulator_process.communicate()
             error_msg = stderr.decode() if stderr else "No error output"
             raise RuntimeError(
-                f"Server failed to start (exit code: {self.server_process.returncode})\n{error_msg}"
+                f"Server failed to start (exit code: {self.simulator_process.returncode})\n{error_msg}"
             )
 
     def _cleanup_simulator(self, log: bool = False) -> None:
         """Terminate simulator server process (internal use only)."""
 
         # Check if server process exists and hasn't been cleaned up already
-        if self.server_process is None:
+        if self.simulator_process is None:
             return
 
-        if self.server_process.poll() is not None:
+        if self.simulator_process.poll() is not None:
             self.log("Server already terminated")
-            self.server_process = None
+            self.simulator_process = None
             return
 
-        self.log("Terminating server...")
         try:
-            self.server_process.terminate()
+            self.simulator_process.terminate()
+
             try:
-                self.server_process.wait(timeout=5 if log else 3)
-                self.log("Server terminated successfully")
+                self.simulator_process.wait(timeout=5 if log else 3)
 
             except subprocess.TimeoutExpired:
-                self.log("Server did not terminate gracefully, killing...")
-                self.server_process.kill()
-                self.server_process.wait(timeout=2 if log else 1)
+                self.simulator_process.kill()
+                self.simulator_process.wait(timeout=2 if log else 1)
                 self.log("Server killed")
 
         except Exception as e:
             raise RuntimeError(f"Error during server cleanup: {e}")
 
         finally:
-            self.server_process = None
+            self.simulator_process = None
 
     def teardown(self) -> None:
         """Terminate the simulator server if one was started."""
-        if self.server_process is not None:
+        if self.simulator_process is not None:
             self._cleanup_simulator()

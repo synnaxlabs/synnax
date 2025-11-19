@@ -2,13 +2,13 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "Driver Tests",
+      "sequence_name": "Driver Task Lifecycle",
       "tests": [
         {
-          "case": "driver/modbus_basic"
-        },
-        {
-          "case": "driver/opcua_basic"
+          "case": "driver/task_lifecycle",
+          "parameters": {
+            "protocol": ["modbus", "opcua", "opcua_bool", "opcua_array"]
+          }
         }
       ]
     }
