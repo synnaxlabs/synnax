@@ -6,84 +6,21 @@ settings:
 
 catalogs:
   default:
-    '@eslint/compat':
-      specifier: ^1.4.1
-      version: 1.4.1
-    '@fontsource/geist-mono':
-      specifier: ^5.2.7
-      version: 5.2.7
-    '@fontsource/inter':
-      specifier: ^5.2.8
-      version: 5.2.8
-    '@reduxjs/toolkit':
-      specifier: ^2.10.1
-      version: 2.10.1
-    '@tauri-apps/api':
-      specifier: ^2.9.0
-      version: 2.9.0
-    '@testing-library/react':
-      specifier: ^16.3.0
-      version: 16.3.0
     '@types/node':
       specifier: ^24.10.0
       version: 24.10.0
-    '@types/offscreencanvas':
-      specifier: ^2019.7.3
-      version: 2019.7.3
-    '@types/pluralize':
-      specifier: ^0.0.33
-      version: 0.0.33
-    '@types/react':
-      specifier: ^19.2.2
-      version: 19.2.2
-    '@types/react-dom':
-      specifier: ^19.2.2
-      version: 19.2.2
-    '@vitejs/plugin-react':
-      specifier: ^5.1.0
-      version: 5.1.0
     '@vitest/coverage-v8':
       specifier: ^3.2.4
       version: 3.2.4
     async-mutex:
       specifier: ^0.5.0
       version: 0.5.0
-    clsx:
-      specifier: ^2.1.1
-      version: 2.1.1
-    compromise:
-      specifier: ^14.14.4
-      version: 14.14.4
-    compromise-dates:
-      specifier: ^3.7.1
-      version: 3.7.1
     eslint:
       specifier: ^9.39.1
       version: 9.39.1
     madge:
       specifier: ^8.0.0
       version: 8.0.0
-    pluralize:
-      specifier: ^8.0.0
-      version: 8.0.0
-    prettier:
-      specifier: ^3.6.2
-      version: 3.6.2
-    proxy-memoize:
-      specifier: 2.0.3
-      version: 2.0.3
-    react:
-      specifier: ^19.2.0
-      version: 19.2.0
-    react-dom:
-      specifier: ^19.2.0
-      version: 19.2.0
-    react-icons:
-      specifier: ^5.5.0
-      version: 5.5.0
-    react-redux:
-      specifier: ^9.2.0
-      version: 9.2.0
     typescript:
       specifier: ^5.9.3
       version: 5.9.3
@@ -882,9 +819,6 @@ importers:
       eslint-config-synnaxlabs:
         specifier: workspace:^
         version: link:../../configs/eslint
-      jsdom:
-        specifier: ^27.1.0
-        version: 27.1.0
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)

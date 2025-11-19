@@ -21,8 +21,8 @@ describe("scheduler", () => {
 
     it("should flush microtasks before continuing", async () => {
       const order: number[] = [];
-      Promise.resolve().then(() => order.push(1));
-      Promise.resolve().then(() => order.push(2));
+      void Promise.resolve().then(() => order.push(1));
+      void Promise.resolve().then(() => order.push(2));
       await scheduler.flushMicrotasks();
       expect(order).toEqual([1, 2]);
     });
@@ -52,7 +52,7 @@ describe("scheduler", () => {
 
     it("should execute after microtasks", async () => {
       const order: string[] = [];
-      Promise.resolve().then(() => order.push("micro"));
+      void Promise.resolve().then(() => order.push("micro"));
       setTimeout(() => order.push("macro"), 0);
       await scheduler.flushTaskQueue();
       expect(order).toEqual(["micro", "macro"]);
@@ -72,7 +72,7 @@ describe("scheduler", () => {
     it("should flush microtasks before macrotasks", async () => {
       const order: string[] = [];
       setTimeout(() => order.push("macro"), 0);
-      Promise.resolve().then(() => order.push("micro"));
+      void Promise.resolve().then(() => order.push("micro"));
       await scheduler.flushMicrotasks();
       expect(order).toEqual(["micro"]);
       await scheduler.flushTaskQueue();

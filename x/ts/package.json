@@ -33,13 +33,12 @@
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "eslint-config-synnaxlabs": "workspace:^",
-    "jsdom": "^27.1.0",
     "madge": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
   },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/src/index.d.ts"
+  "main": "dist/x.cjs",
+  "module": "dist/x.js",
+  "types": "dist/src/index.d.ts"
 }

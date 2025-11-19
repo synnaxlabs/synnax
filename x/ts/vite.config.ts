@@ -16,14 +16,5 @@ import { defineConfig } from "vite";
 export default defineConfig({
   base: "/x/",
   plugins: [lib({ name: "x" })],
-  build: {
-    lib: {
-      name: "x",
-      entry: {
-        index: path.resolve(".", "src/index.ts"),
-      },
-    },
-    rollupOptions: { external: ["zod"] },
-  },
-  test: { globals: true, environment: "jsdom" },
+  build: { rollupOptions: { external: ["zod"] } },
 });

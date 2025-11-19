@@ -131,7 +131,7 @@ describe("shallow", () => {
     });
 
     it("should fill holes in sparse arrays", () => {
-      const arr = [1, , 3];
+      const arr = [1, undefined, 3];
       const copied = shallow.copy(arr);
       expect(copied).not.toBe(arr);
       expect(copied).toEqual([1, undefined, 3]);
