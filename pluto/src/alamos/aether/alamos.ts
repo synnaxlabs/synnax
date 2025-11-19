@@ -15,7 +15,7 @@ import { aether } from "@/aether/aether";
 export const providerStateZ = z.object({
   include: z.string().array().optional(),
   exclude: z.string().array().optional(),
-  level: z.enum(alamos.LOG_LEVELS).optional().default("info"),
+  level: z.enum(alamos.LOG_LEVELS).default("info"),
 });
 export type ProviderState = z.input<typeof providerStateZ>;
 

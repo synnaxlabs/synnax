@@ -12,10 +12,6 @@ import { z } from "zod";
 
 import { type ID, idZ } from "@/ontology/payload";
 
-const ADD_CHILDREN_ENDPOINT = "/ontology/add-children";
-const REMOVE_CHILDREN_ENDPOINT = "/ontology/remove-children";
-const MOVE_CHILDREN_ENDPOINT = "/ontology/move-children";
-
 export const addRemoveChildrenReqZ = z.object({ id: idZ, children: idZ.array() });
 export const moveChildrenReqZ = z.object({ from: idZ, to: idZ, children: idZ.array() });
 export const emptyResZ = z.object({});
@@ -30,7 +26,7 @@ export class Writer {
   async addChildren(id: ID, ...children: ID[]): Promise<void> {
     await sendRequired<typeof addRemoveChildrenReqZ, typeof emptyResZ>(
       this.client,
-      ADD_CHILDREN_ENDPOINT,
+      "/ontology/add-children",
       { id, children },
       addRemoveChildrenReqZ,
       emptyResZ,
@@ -40,7 +36,7 @@ export class Writer {
   async removeChildren(id: ID, ...children: ID[]): Promise<void> {
     await sendRequired<typeof addRemoveChildrenReqZ, typeof emptyResZ>(
       this.client,
-      REMOVE_CHILDREN_ENDPOINT,
+      "/ontology/remove-children",
       { id, children },
       addRemoveChildrenReqZ,
       emptyResZ,
@@ -50,7 +46,7 @@ export class Writer {
   async moveChildren(from: ID, to: ID, ...children: ID[]): Promise<void> {
     await sendRequired<typeof moveChildrenReqZ, typeof emptyResZ>(
       this.client,
-      MOVE_CHILDREN_ENDPOINT,
+      "/ontology/move-children",
       { from, to, children },
       moveChildrenReqZ,
       emptyResZ,

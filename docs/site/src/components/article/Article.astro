@@ -128,12 +128,18 @@ const {
 
         .pluto-note {
             display: block;
+            padding: var(--note-padding-block, 2rem) var(--note-padding-inline, 3rem) !important;
             & > * {
                 font-size: var(--pluto-small-size);
                 font-family: var(--pluto-font-family);
                 font-weight: 450 !important;
                 line-height: calc(var(--pluto-small-line-height) * 1.2);
             }
+        }
+
+        .pluto-note.compact {
+            --note-padding-block: 0.5rem;
+            --note-padding-inline: 1.5rem;
         }
 
         figure {

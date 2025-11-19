@@ -59,7 +59,7 @@ export interface Spec extends z.infer<typeof specZ> {}
 
 export const symbolZ = z.object({
   key: keyZ,
-  version: z.literal(1).optional().default(1),
+  version: z.literal(1).default(1),
   name: z.string().min(1, "Name is required"),
   data: specZ,
 });

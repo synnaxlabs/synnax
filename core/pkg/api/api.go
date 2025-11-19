@@ -44,7 +44,7 @@ var (
 func (c Config) Validate() error {
 	v := validate.New("api")
 	validate.NotNil(v, "service", c.Service)
-	validate.NotNil(v, "dist", c.Distribution)
+	validate.NotNil(v, "distribution", c.Distribution)
 	return v.Error()
 }
 
@@ -98,9 +98,9 @@ type Transport struct {
 	OntologyRemoveChildren freighter.UnaryServer[OntologyRemoveChildrenRequest, types.Nil]
 	OntologyMoveChildren   freighter.UnaryServer[OntologyMoveChildrenRequest, types.Nil]
 	// GROUP
-	OntologyGroupCreate freighter.UnaryServer[OntologyCreateGroupRequest, OntologyCreateGroupResponse]
-	OntologyGroupDelete freighter.UnaryServer[OntologyDeleteGroupRequest, types.Nil]
-	OntologyGroupRename freighter.UnaryServer[OntologyRenameGroupRequest, types.Nil]
+	GroupCreate freighter.UnaryServer[GroupCreateRequest, GroupCreateResponse]
+	GroupDelete freighter.UnaryServer[GroupDeleteRequest, types.Nil]
+	GroupRename freighter.UnaryServer[GroupRenameRequest, types.Nil]
 	// WORKSPACE
 	WorkspaceCreate    freighter.UnaryServer[WorkspaceCreateRequest, WorkspaceCreateResponse]
 	WorkspaceRetrieve  freighter.UnaryServer[WorkspaceRetrieveRequest, WorkspaceRetrieveResponse]
@@ -186,6 +186,7 @@ type Layer struct {
 	Connectivity *ConnectivityService
 	Ontology     *OntologyService
 	Range        *RangeService
+	Group        *GroupService
 	Workspace    *WorkspaceService
 	Schematic    *SchematicService
 	LinePlot     *LinePlotService
@@ -249,9 +250,9 @@ func (a *Layer) BindTo(t Transport) {
 		t.OntologyMoveChildren,
 
 		// GROUP
-		t.OntologyGroupCreate,
-		t.OntologyGroupDelete,
-		t.OntologyGroupRename,
+		t.GroupCreate,
+		t.GroupDelete,
+		t.GroupRename,
 
 		// RANGE
 		t.RangeCreate,
@@ -345,7 +346,7 @@ func (a *Layer) BindTo(t Transport) {
 		t.ViewRetrieve,
 		t.ViewDelete,
 
-		// Arc
+		// ARC
 		t.ArcCreate,
 		t.ArcDelete,
 		t.ArcRetrieve,
@@ -383,9 +384,9 @@ func (a *Layer) BindTo(t Transport) {
 	t.OntologyMoveChildren.BindHandler(a.Ontology.MoveChildren)
 
 	// GROUP
-	t.OntologyGroupCreate.BindHandler(a.Ontology.CreateGroup)
-	t.OntologyGroupDelete.BindHandler(a.Ontology.DeleteGroup)
-	t.OntologyGroupRename.BindHandler(a.Ontology.RenameGroup)
+	t.GroupCreate.BindHandler(a.Group.Create)
+	t.GroupDelete.BindHandler(a.Group.Delete)
+	t.GroupRename.BindHandler(a.Group.Rename)
 
 	// RANGE
 	t.RangeRetrieve.BindHandler(a.Range.Retrieve)
@@ -485,31 +486,35 @@ func (a *Layer) BindTo(t Transport) {
 	t.ArcLSP.BindHandler(a.Arc.LSP)
 }
 
-// New instantiates the server API layer using the provided Config. This should only be called
-// once.
-func New(configs ...Config) (*Layer, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+// New instantiates the server API layer using the provided Configs. This should only be
+// called once.
+func New(cfgs ...Config) (*Layer, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	api := &Layer{config: cfg, provider: NewProvider(cfg)}
-	api.Auth = NewAuthService(api.provider)
-	api.User = NewUserService(api.provider)
-	api.Access = NewAccessService(api.provider)
-	api.Framer = NewFrameService(api.provider)
-	api.Channel = NewChannelService(api.provider)
-	api.Connectivity = NewConnectivityService(api.provider)
-	api.Ontology = NewOntologyService(api.provider)
-	api.Range = NewRangeService(api.provider)
-	api.Workspace = NewWorkspaceService(api.provider)
-	api.Schematic = NewSchematicService(api.provider)
-	api.LinePlot = NewLinePlotService(api.provider)
-	api.Label = NewLabelService(api.provider)
-	api.Hardware = NewHardwareService(api.provider)
-	api.Log = NewLogService(api.provider)
-	api.Table = NewTableService(api.provider)
-	api.Status = NewStatusService(api.provider)
-	api.View = NewViewService(api.provider)
-	api.Arc = NewArcService(api.provider)
-	return api, nil
+	provider := NewProvider(cfg)
+	return &Layer{
+		config:       cfg,
+		provider:     provider,
+		Auth:         NewAuthService(provider),
+		User:         NewUserService(provider),
+		Access:       NewAccessService(provider),
+		Framer:       NewFrameService(provider),
+		Channel:      NewChannelService(provider),
+		Connectivity: NewConnectivityService(provider),
+		Ontology:     NewOntologyService(provider),
+		Range:        NewRangeService(provider),
+		Group:        NewGroupService(provider),
+		Workspace:    NewWorkspaceService(provider),
+		Schematic:    NewSchematicService(provider),
+		LinePlot:     NewLinePlotService(provider),
+		Label:        NewLabelService(provider),
+		Hardware:     NewHardwareService(provider),
+		Log:          NewLogService(provider),
+		Table:        NewTableService(provider),
+		Status:       NewStatusService(provider),
+		Arc:          NewArcService(provider),
+		View:         NewViewService(provider),
+	}, nil
 }
