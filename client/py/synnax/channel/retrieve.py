@@ -45,9 +45,6 @@ class ChannelRetriever(Protocol):
     def retrieve_one(self, param: ChannelKey | ChannelName) -> ChannelPayload: ...
 
 
-_ENDPOINT = "/channel/retrieve"
-
-
 class ClusterChannelRetriever:
     _client: UnaryClient
     instrumentation: Instrumentation
@@ -69,7 +66,7 @@ class ClusterChannelRetriever:
         if len(normal.channels) == 0:
             return list()
         req = _Request(**{normal.variant: normal.channels})
-        return send_required(self._client, _ENDPOINT, req, _Response).channels
+        return self.__exec_retrieve(req)
 
     @trace("debug")
     def retrieve_one(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
@@ -78,10 +75,13 @@ class ClusterChannelRetriever:
             req.keys = [param]
         else:
             req.names = [param]
-        res = send_required(self._client, _ENDPOINT, req, _Response)
-        if len(res.channels) == 0:
+        channels = self.__exec_retrieve(req)
+        if len(channels) == 0:
             raise NotFoundError(f"Could not find channel matching {param}")
-        return res.channels[0]
+        return channels[0]
+
+    def __exec_retrieve(self, req: _Request) -> list[ChannelPayload]:
+        return send_required(self._client, "/channel/retrieve", req, _Response).channels
 
 
 class CacheChannelRetriever:

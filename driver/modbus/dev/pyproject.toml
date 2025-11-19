@@ -7,7 +7,7 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-pymodbus = "^3.7.4"
+pymodbus = "^3.11.3"
 
 [build-system]
 requires = ["poetry-core"]
