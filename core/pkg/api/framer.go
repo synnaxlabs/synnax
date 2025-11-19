@@ -54,7 +54,6 @@ const (
 
 type FrameService struct {
 	alamos.Instrumentation
-	authProvider
 	dbProvider
 	accessProvider
 	Channel  channel.Readable
@@ -66,7 +65,6 @@ func NewFrameService(p Provider) *FrameService {
 		Instrumentation: p.Instrumentation,
 		Internal:        p.Service.Framer,
 		Channel:         p.Distribution.Channel,
-		authProvider:    p.auth,
 		dbProvider:      p.db,
 		accessProvider:  p.access,
 	}

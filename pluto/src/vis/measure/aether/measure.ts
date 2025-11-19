@@ -33,20 +33,20 @@ export const measureStateZ = z.object({
   one: xy.xy.nullable(),
   two: xy.xy.nullable(),
   hover: xy.xy.nullable(),
-  mode: modeZ.optional().default("one"),
+  mode: modeZ.default("one"),
   color: z
     .union([
       color.colorZ,
       z.object({
-        verticalLine: color.colorZ.optional().default(color.ZERO),
-        horizontalLine: color.colorZ.optional().default(color.ZERO),
-        obliqueLine: color.colorZ.optional().default(color.ZERO),
+        verticalLine: color.colorZ.default(color.ZERO),
+        horizontalLine: color.colorZ.default(color.ZERO),
+        obliqueLine: color.colorZ.default(color.ZERO),
       }),
     ])
     .optional()
     .default(color.ZERO),
-  strokeWidth: z.number().optional().default(1),
-  strokeDash: z.number().optional().default(2),
+  strokeWidth: z.number().default(1),
+  strokeDash: z.number().default(2),
 });
 
 interface InternalState {

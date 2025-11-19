@@ -84,9 +84,9 @@ func (r Retrieve) WhereInternal(internal bool) Retrieve {
 	return r
 }
 
-func (r Retrieve) WhereLegacyCalculated() Retrieve {
+func (r Retrieve) WhereLegacyCalculated(legacyCalculated bool) Retrieve {
 	r.gorp.Where(func(ctx gorp.Context, ch *Channel) (bool, error) {
-		return ch.IsLegacyCalculated(), nil
+		return ch.IsLegacyCalculated() == legacyCalculated, nil
 	}, gorp.Required())
 	return r
 }

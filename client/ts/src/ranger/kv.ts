@@ -34,9 +34,6 @@ const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
 export interface DeleteRequest extends z.infer<typeof deleteReqZ> {}
 
 export class KV {
-  private static readonly GET_ENDPOINT = "/range/kv/get";
-  private static readonly SET_ENDPOINT = "/range/kv/set";
-  private static readonly DELETE_ENDPOINT = "/range/kv/delete";
   private readonly rangeKey: Key;
   private readonly client: UnaryClient;
 
@@ -50,7 +47,7 @@ export class KV {
   async get(keys: string | string[]): Promise<string | Record<string, string>> {
     const res = await sendRequired(
       this.client,
-      KV.GET_ENDPOINT,
+      "/range/kv/get",
       { range: this.rangeKey, keys: array.toArray(keys) },
       getReqZ,
       getResZ,
@@ -76,7 +73,7 @@ export class KV {
     else pairs = [{ range: this.rangeKey, key, value }];
     await sendRequired(
       this.client,
-      KV.SET_ENDPOINT,
+      "/range/kv/set",
       { range: this.rangeKey, pairs },
       setReqZ,
       z.unknown(),
@@ -86,7 +83,7 @@ export class KV {
   async delete(key: string | string[]): Promise<void> {
     await sendRequired(
       this.client,
-      KV.DELETE_ENDPOINT,
+      "/range/kv/delete",
       { range: this.rangeKey, keys: array.toArray(key) },
       deleteReqZ,
       z.unknown(),

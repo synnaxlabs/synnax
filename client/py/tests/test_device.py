@@ -105,3 +105,55 @@ class TestDevice:
             client.hardware.devices.retrieve(
                 keys=["nonexistent_key1", "nonexistent_key2"], ignore_not_found=False
             )
+
+    def test_create_with_configured_true(self, client: sy.Synnax):
+        """Test creating a device with configured=True."""
+        r = client.hardware.racks.create(name="Test Rack")
+        device = client.hardware.devices.create(
+            key=str(uuid4()),
+            name="Configured Device",
+            rack=r.key,
+            location="test-location",
+            configured=True,
+        )
+        assert device.configured is True
+        # Verify it persists when retrieved
+        retrieved = client.hardware.devices.retrieve(key=device.key)
+        assert retrieved.configured is True
+
+    def test_create_with_configured_false(self, client: sy.Synnax):
+        """Test creating a device with configured=False (default)."""
+        r = client.hardware.racks.create(name="Test Rack")
+        device = client.hardware.devices.create(
+            key=str(uuid4()),
+            name="Unconfigured Device",
+            rack=r.key,
+            location="test-location",
+            configured=False,
+        )
+        assert device.configured is False
+        # Verify it persists when retrieved
+        retrieved = client.hardware.devices.retrieve(key=device.key)
+        assert retrieved.configured is False
+
+    def test_create_multiple_with_configured(self, client: sy.Synnax):
+        """Test creating multiple devices with different configured states."""
+        r = client.hardware.racks.create(name="Test Rack")
+        d1 = sy.Device(
+            key=str(uuid4()),
+            name="Device 1",
+            rack=r.key,
+            location="loc1",
+            configured=True,
+        )
+        d2 = sy.Device(
+            key=str(uuid4()),
+            name="Device 2",
+            rack=r.key,
+            location="loc2",
+            configured=False,
+        )
+        devices = client.hardware.devices.create(devices=[d1, d2])
+        assert len(devices) == 2
+        assert devices[0].configured is True
+        assert devices[1].configured is False
