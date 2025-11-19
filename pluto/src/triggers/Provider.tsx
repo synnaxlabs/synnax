@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
+import { type destructor, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -33,7 +33,7 @@ import {
 } from "@/triggers/triggers";
 
 export interface Listen {
-  (callback: Callback): Destructor;
+  (callback: Callback): destructor.Destructor;
 }
 
 export interface ContextValue {

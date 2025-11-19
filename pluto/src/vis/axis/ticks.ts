@@ -28,7 +28,7 @@ export type TickType = z.infer<typeof tickType>;
 
 export const tickFactoryProps = z.object({
   tickSpacing: z.number().default(75),
-  type: tickType.optional().default("linear"),
+  type: tickType.default("linear"),
 });
 
 export type TickFactoryProps = z.input<typeof tickFactoryProps>;

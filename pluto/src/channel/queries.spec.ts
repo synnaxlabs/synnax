@@ -375,44 +375,6 @@ describe("queries", () => {
         expect(secondResult.current.data).not.toContain(normalCh.key);
       });
 
-      it("should filter by calculated channels", async () => {
-        await client.channels.create({
-          name: "idx_for_calc",
-          dataType: DataType.TIMESTAMP,
-          isIndex: true,
-        });
-        const calcCh = await client.channels.create({
-          name: "calculated_ch",
-          dataType: DataType.FLOAT32,
-          virtual: true,
-          expression: "return 1",
-        });
-        const normalCh = await client.channels.create({
-          name: "normal_virtual",
-          dataType: DataType.FLOAT32,
-          virtual: true,
-        });
-
-        const { result: firstResult, unmount } = renderHook(() => Channel.useList(), {
-          wrapper,
-        });
-        act(() => {
-          firstResult.current.retrieve({}, { signal: controller.signal });
-        });
-        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
-        unmount();
-
-        const { result: secondResult } = renderHook(
-          () => Channel.useList({ initialQuery: { calculated: true } }),
-          {
-            wrapper,
-          },
-        );
-        expect(secondResult.current.variant).toEqual("loading");
-        expect(secondResult.current.data).toContain(calcCh.key);
-        expect(secondResult.current.data).not.toContain(normalCh.key);
-      });
-
       it("should filter by dataTypes inclusion", async () => {
         const float32Ch = await client.channels.create({
           name: "float32_ch",

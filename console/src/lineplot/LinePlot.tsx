@@ -15,7 +15,6 @@ import {
   type axis,
   Channel,
   Icon,
-  type Legend,
   LinePlot as Core,
   Menu as PMenu,
   Ranger,
@@ -35,6 +34,7 @@ import {
   primitive,
   record,
   scale,
+  type sticky,
   TimeRange,
   unique,
 } from "@synnaxlabs/x";
@@ -302,14 +302,14 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const [legendPosition, setLegendPosition] = useState(vis.legend.position);
 
   const storeLegendPosition = useDebouncedCallback(
-    (position: Legend.StickyXY) =>
+    (position: sticky.XY) =>
       syncDispatch(setLegend({ key: layoutKey, legend: { position } })),
     100,
     [syncDispatch, layoutKey],
   );
 
   const handleLegendPositionChange = useCallback(
-    (position: Legend.StickyXY) => {
+    (position: sticky.XY) => {
       setLegendPosition(position);
       storeLegendPosition(position);
     },

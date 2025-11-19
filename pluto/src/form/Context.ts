@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor, type status } from "@synnaxlabs/x";
+import { type destructor, type status } from "@synnaxlabs/x";
 import { createContext, use } from "react";
 import { type z } from "zod";
 
@@ -31,7 +31,7 @@ export interface Listener {
 }
 
 export interface BindFunc {
-  (props: Listener): Destructor;
+  (props: Listener): destructor.Destructor;
 }
 
 export type Mode = "normal" | "preview";

@@ -11,6 +11,7 @@ import { Nav, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
+import { Version } from "@/version";
 
 export const LoginNav = (): ReactElement => {
   const os = OS.use();
@@ -20,6 +21,7 @@ export const LoginNav = (): ReactElement => {
         <Layout.Controls visibleIfOS="macOS" forceOS={os} />
       </Nav.Bar.Start>
       <Nav.Bar.End data-tauri-drag-region justify="end">
+        <Version.Badge />
         <Layout.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>
     </Layout.Nav.Bar>

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, type Optional } from "@synnaxlabs/x";
+import { type color, type optional } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
 import { Button } from "@/button";
@@ -30,7 +30,7 @@ export interface EntryData {
 export interface EntriesProps {
   allowVisibleChange?: boolean;
   background?: Theming.Shade;
-  data: Optional<EntryData, "visible">[];
+  data: optional.Optional<EntryData, "visible">[];
   onEntryChange?: (value: EntryData) => void;
   colorPickerVisible?: boolean;
   onColorPickerVisibleChange?: state.Setter<boolean>;

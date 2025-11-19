@@ -63,8 +63,8 @@ export class TransformerFactory implements Factory {
 }
 
 const setpointProps = z.object({
-  truthy: z.number().optional().default(1),
-  falsy: z.number().optional().default(0),
+  truthy: z.number().default(1),
+  falsy: z.number().default(0),
 });
 
 export type SetpointProps = z.infer<typeof setpointProps>;
@@ -143,7 +143,7 @@ export const mean = (props: z.input<typeof meanProps>): BooleanSourceSpec => ({
 });
 
 export const booleanStatusProps = z.object({
-  trueVariant: status.variantZ.optional().default("success"),
+  trueVariant: status.variantZ.default("success"),
 });
 
 export class BooleanStatus extends UnarySourceTransformer<
@@ -170,10 +170,10 @@ export const booleanStatus = (
 });
 
 export const stringifyNumberProps = z.object({
-  precision: z.number().optional().default(2),
-  prefix: z.string().optional().default(""),
-  suffix: z.string().optional().default(""),
-  notation: notation.notationZ.optional().default("standard"),
+  precision: z.number().default(2),
+  prefix: z.string().default(""),
+  suffix: z.string().default(""),
+  notation: notation.notationZ.default("standard"),
 });
 
 export class StringifyNumber extends UnarySourceTransformer<
@@ -202,7 +202,7 @@ export const stringifyNumber = (
 });
 
 export const rollingAverageProps = z.object({
-  windowSize: z.number().optional().default(5),
+  windowSize: z.number().default(5),
 });
 
 export class RollingAverage extends UnarySourceTransformer<
@@ -299,7 +299,7 @@ export type DownsampleMode = z.infer<typeof downsampleModeZ>;
 
 export const downsampleModeProps = z.object({
   mode: downsampleModeZ,
-  windowSize: z.number().optional().default(5),
+  windowSize: z.number().default(5),
 });
 
 export type DownsampleModeProps = z.infer<typeof downsampleModeProps>;

@@ -70,13 +70,11 @@ class DownloadCSV(ConsoleCase):
         reader = csv.reader(csv_file)
         header = next(reader)
         assert (
-            header[0] == index_channel.name,
-            f"Header {header[0]} != {index_channel.name}",
-        )
+            header[0] == index_channel.name
+        ), f"Header {header[0]} != {index_channel.name}"
         assert (
-            header[1] == data_channel.name,
-            f"Header {header[1]} != {data_channel.name}",
-        )
+            header[1] == data_channel.name
+        ), f"Header {header[1]} != {data_channel.name}"
         i = 0
         for row in reader:
             assert row[0] == str(
