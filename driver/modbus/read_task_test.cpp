@@ -483,7 +483,7 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
     cfg["channels"].push_back(create_channel_config("register_input", input2, 2));
 
     auto p = xjson::Parser(cfg);
-    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     auto devs = std::make_shared<modbus::device::Manager>();
@@ -551,7 +551,7 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
     );
 
     auto p = xjson::Parser(cfg);
-    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     auto devs = std::make_shared<modbus::device::Manager>();

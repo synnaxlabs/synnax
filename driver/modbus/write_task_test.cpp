@@ -428,9 +428,15 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     // Create three UINT8 channels for sequential holding registers
-    auto holding0 = ASSERT_NIL_P(sy->channels.create("holding0", telem::UINT8_T, true));
-    auto holding1 = ASSERT_NIL_P(sy->channels.create("holding1", telem::UINT8_T, true));
-    auto holding2 = ASSERT_NIL_P(sy->channels.create("holding2", telem::UINT8_T, true));
+    auto holding0 = ASSERT_NIL_P(
+        client->channels.create("holding0", telem::UINT8_T, true)
+    );
+    auto holding1 = ASSERT_NIL_P(
+        client->channels.create("holding1", telem::UINT8_T, true)
+    );
+    auto holding2 = ASSERT_NIL_P(
+        client->channels.create("holding2", telem::UINT8_T, true)
+    );
 
     json task_cfg{
         {"device", "modbus_test_dev"},
@@ -455,7 +461,7 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     };
 
     auto p = xjson::Parser(task_cfg);
-    cfg = std::make_unique<modbus::WriteTaskConfig>(sy, p);
+    cfg = std::make_unique<modbus::WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     const auto reads = std::make_shared<std::vector<synnax::Frame>>();
