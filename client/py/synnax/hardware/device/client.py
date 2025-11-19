@@ -63,6 +63,7 @@ class Client:
         name: str = "",
         make: str = "",
         model: str = "",
+        configured: bool = False,
         properties: str = "",
     ): ...
 
@@ -82,6 +83,7 @@ class Client:
         name: str = "",
         make: str = "",
         model: str = "",
+        configured: bool = False,
         properties: str = "",
     ):
         is_single = not isinstance(devices, list)
@@ -94,6 +96,7 @@ class Client:
                     name=name,
                     make=make,
                     model=model,
+                    configured=configured,
                     properties=properties,
                 )
             ]
@@ -164,9 +167,9 @@ class Client:
             _RetrieveResponse,
         )
         if is_single:
-            if len(res.devices) > 0:
+            if res.devices is not None and len(res.devices) > 0:
                 return res.devices[0]
             if ignore_not_found:
                 return None
             raise NotFoundError("Device not found")
-        return res.devices
+        return res.devices if res.devices is not None else []

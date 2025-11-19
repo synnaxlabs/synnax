@@ -140,10 +140,13 @@ class Synnax(Client):
         range_creator = RangeWriter(self._transport.unary, instrumentation)
         self.signals = Registry(frame_client=self, channels=ch_retriever)
         racks = RackClient(client=self._transport.unary)
-        tasks = TaskClient(
-            client=self._transport.unary, frame_client=self, rack_client=racks
-        )
         devices = DeviceClient(client=self._transport.unary)
+        tasks = TaskClient(
+            client=self._transport.unary,
+            frame_client=self,
+            rack_client=racks,
+            device_client=devices,
+        )
         self.ranges = RangeClient(
             unary_client=self._transport.unary,
             frame_client=self,

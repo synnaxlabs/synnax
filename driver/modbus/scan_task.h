@@ -16,6 +16,7 @@
 #include "x/cpp/xjson/xjson.h"
 
 #include "driver/modbus/device/device.h"
+#include "driver/task/common/status.h"
 #include "driver/task/task.h"
 
 namespace modbus {
@@ -73,6 +74,18 @@ public:
         ctx(context), task(std::move(task)), devices(devices) {}
 
     void exec(task::Command &cmd) override {
+        if (cmd.type == common::START_CMD_TYPE) {
+            ctx->set_status(
+                {.key = cmd.key,
+                 .variant = status::variant::SUCCESS,
+                 .message = "Modbus scanner ready",
+                 .details = synnax::TaskStatusDetails{
+                     .task = task.key,
+                     .running = true
+                 }}
+            );
+            return;
+        }
         if (cmd.type == TEST_CONNECTION_CMD_TYPE) this->test_connection(cmd);
     }
 

@@ -15,6 +15,7 @@
 
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/mock/slave.h"
+#include "driver/modbus/modbus.h"
 #include "driver/modbus/read_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
@@ -445,4 +446,275 @@ TEST_F(ModbusReadTest, testModbusDriverSetsAutoCommitTrue) {
     // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = task_cfg->writer_config();
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}
+
+/// Regression test for buffer size calculation bug with UINT8 registers.
+/// This test ensures that multiple sequential UINT8 input registers are read correctly,
+/// especially the last channel which was previously always zero due to an off-by-one
+/// error in the buffer size calculation (density / 2 should be ceiling division).
+TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
+    // Set up mock slave with multiple UINT8 input register values
+    modbus::mock::SlaveConfig slave_cfg;
+    slave_cfg.input_registers[0] = static_cast<uint8_t>(100);
+    slave_cfg.input_registers[1] = static_cast<uint8_t>(150);
+    slave_cfg.input_registers[2] = static_cast<uint8_t>(200);
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = modbus::mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer stop_slave([&slave] { slave.stop(); });
+
+    // Create three UINT8 channels for sequential input registers
+    auto input0 = ASSERT_NIL_P(
+        client->channels.create("input_reg_0", telem::UINT8_T, index_channel.key)
+    );
+    auto input1 = ASSERT_NIL_P(
+        client->channels.create("input_reg_1", telem::UINT8_T, index_channel.key)
+    );
+    auto input2 = ASSERT_NIL_P(
+        client->channels.create("input_reg_2", telem::UINT8_T, index_channel.key)
+    );
+
+    // Create task configuration with three sequential UINT8 input registers
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(create_channel_config("register_input", input0, 0));
+    cfg["channels"].push_back(create_channel_config("register_input", input1, 1));
+    cfg["channels"].push_back(create_channel_config("register_input", input2, 2));
+
+    auto p = xjson::Parser(cfg);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    ASSERT_NIL(p.error());
+
+    auto devs = std::make_shared<modbus::device::Manager>();
+    auto modbus_dev = ASSERT_NIL_P(
+        devs->acquire(modbus::device::ConnectionConfig{"127.0.0.1", 1502})
+    );
+
+    auto task = common::ReadTask(
+        synnax::Task(rack.key, "uint8_test", "modbus_read", ""),
+        ctx,
+        breaker::default_config("uint8_test"),
+        std::make_unique<modbus::ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        mock_factory
+    );
+
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
+    task.stop("stop_cmd", true);
+
+    auto &fr = mock_factory->writes->at(0);
+    ASSERT_EQ(fr.size(), 4); // 3 data channels + 1 index channel
+    ASSERT_EQ(fr.length(), 1);
+    // All three channels should have correct values, including the last one
+    ASSERT_EQ(fr.at<uint8_t>(input0.key, 0), 100);
+    ASSERT_EQ(fr.at<uint8_t>(input1.key, 0), 150);
+    ASSERT_EQ(fr.at<uint8_t>(input2.key, 0), 200);
+}
+
+/// Regression test for buffer size calculation bug with UINT8 holding registers.
+/// Similar to testMultipleUint8InputRegisters but tests holding registers instead.
+TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
+    // Set up mock slave with multiple UINT8 holding register values
+    modbus::mock::SlaveConfig slave_cfg;
+    slave_cfg.holding_registers[0] = static_cast<uint8_t>(50);
+    slave_cfg.holding_registers[1] = static_cast<uint8_t>(75);
+    slave_cfg.holding_registers[2] = static_cast<uint8_t>(125);
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = modbus::mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer stop_slave([&slave] { slave.stop(); });
+
+    // Create three UINT8 channels for sequential holding registers
+    auto holding0 = ASSERT_NIL_P(
+        client->channels.create("holding_reg_0", telem::UINT8_T, index_channel.key)
+    );
+    auto holding1 = ASSERT_NIL_P(
+        client->channels.create("holding_reg_1", telem::UINT8_T, index_channel.key)
+    );
+    auto holding2 = ASSERT_NIL_P(
+        client->channels.create("holding_reg_2", telem::UINT8_T, index_channel.key)
+    );
+
+    // Create task configuration with three sequential UINT8 holding registers
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(
+        create_channel_config("holding_register_input", holding0, 0)
+    );
+    cfg["channels"].push_back(
+        create_channel_config("holding_register_input", holding1, 1)
+    );
+    cfg["channels"].push_back(
+        create_channel_config("holding_register_input", holding2, 2)
+    );
+
+    auto p = xjson::Parser(cfg);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    ASSERT_NIL(p.error());
+
+    auto devs = std::make_shared<modbus::device::Manager>();
+    auto modbus_dev = ASSERT_NIL_P(
+        devs->acquire(modbus::device::ConnectionConfig{"127.0.0.1", 1502})
+    );
+
+    auto task = common::ReadTask(
+        synnax::Task(rack.key, "uint8_holding_test", "modbus_read", ""),
+        ctx,
+        breaker::default_config("uint8_holding_test"),
+        std::make_unique<modbus::ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        mock_factory
+    );
+
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
+    task.stop("stop_cmd", true);
+
+    auto &fr = mock_factory->writes->at(0);
+    ASSERT_EQ(fr.size(), 4); // 3 data channels + 1 index channel
+    ASSERT_EQ(fr.length(), 1);
+    // All three channels should have correct values, including the last one
+    ASSERT_EQ(fr.at<uint8_t>(holding0.key, 0), 50);
+    ASSERT_EQ(fr.at<uint8_t>(holding1.key, 0), 75);
+    ASSERT_EQ(
+        fr.at<uint8_t>(holding2.key, 0),
+        125
+    ); // This would have been 0 before the fix
+}
+
+/// Test that auto_start=true causes the task to start automatically
+TEST_F(ModbusReadTest, testAutoStartTrue) {
+    // Set up mock slave
+    modbus::mock::SlaveConfig slave_cfg;
+    slave_cfg.input_registers[0] = 42;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = modbus::mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer stop_slave([&slave] { slave.stop(); });
+
+    // Create data channel
+    auto data_channel = ASSERT_NIL_P(
+        client->channels.create("input_reg", telem::UINT8_T, index_channel.key, false)
+    );
+
+    // Create task with auto_start=true
+    json config{
+        {"data_saving", false},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", device.key},
+        {"auto_start", true}, // Enable auto-start
+        {"channels",
+         json::array(
+             {{{"type", "register_input"},
+               {"enabled", true},
+               {"channel", data_channel.key},
+               {"address", 0},
+               {"data_type", "uint8"}}}
+         )}
+    };
+
+    task = synnax::Task(rack.key, "test_task", "modbus_read", config.dump(), false);
+
+    // Configure task through factory
+    auto factory = modbus::Factory();
+    auto [configured_task, ok] = factory.configure_task(ctx, task);
+
+    ASSERT_TRUE(ok);
+    ASSERT_NE(configured_task, nullptr);
+
+    // Task should have auto-started - check that a start status was sent
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    bool found_start = false;
+    for (const auto &s: ctx->states) {
+        if (s.details.running && s.variant == "success") {
+            found_start = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found_start);
+
+    // Stop the task to clean up
+    task::Command stop_cmd(task.key, "stop", {});
+    configured_task->exec(stop_cmd);
+}
+
+/// Test that auto_start=false does NOT start the task automatically
+TEST_F(ModbusReadTest, testAutoStartFalse) {
+    // Set up mock slave
+    modbus::mock::SlaveConfig slave_cfg;
+    slave_cfg.input_registers[0] = 99;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = modbus::mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer stop_slave([&slave] { slave.stop(); });
+
+    // Create data channel
+    auto data_channel = ASSERT_NIL_P(
+        client->channels.create("input_reg_2", telem::UINT8_T, index_channel.key, false)
+    );
+
+    // Create task with auto_start=false
+    json config{
+        {"data_saving", false},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", device.key},
+        {"auto_start", false}, // Disable auto-start
+        {"channels",
+         json::array(
+             {{{"type", "register_input"},
+               {"enabled", true},
+               {"channel", data_channel.key},
+               {"address", 0},
+               {"data_type", "uint8"}}}
+         )}
+    };
+
+    task = synnax::Task(
+        rack.key,
+        "test_task_no_auto",
+        "modbus_read",
+        config.dump(),
+        false
+    );
+
+    // Configure task through factory
+    auto factory = modbus::Factory();
+    auto [configured_task, ok] = factory.configure_task(ctx, task);
+
+    ASSERT_TRUE(ok);
+    ASSERT_NE(configured_task, nullptr);
+
+    // Task should NOT have auto-started - check that the status is "configured" not
+    // "running"
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    const auto &initial_state = ctx->states[0];
+    ASSERT_FALSE(initial_state.details.running);
+    ASSERT_EQ(initial_state.variant, "success");
+    ASSERT_EQ(initial_state.message, "Task configured successfully");
+
+    // Manually start the task
+    task::Command start_cmd(task.key, "start", {});
+    configured_task->exec(start_cmd);
+
+    // Now task should be running
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
+    bool found_start = false;
+    for (const auto &s: ctx->states) {
+        if (s.details.running && s.variant == "success") {
+            found_start = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found_start);
+
+    // Stop the task to clean up
+    task::Command stop_cmd(task.key, "stop", {});
+    configured_task->exec(stop_cmd);
 }

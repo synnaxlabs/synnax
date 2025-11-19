@@ -24,9 +24,20 @@
 #include "driver/opc/scan_task.h"
 #include "driver/opc/telem/telem.h"
 #include "driver/opc/types/types.h"
+#include "driver/task/common/status.h"
 
 namespace opc {
 void ScanTask::exec(task::Command &cmd) {
+    if (cmd.type == common::START_CMD_TYPE) {
+        synnax::TaskStatus status{
+            .key = cmd.key,
+            .variant = status::variant::SUCCESS,
+            .message = "OPC scanner ready",
+            .details = synnax::TaskStatusDetails{.task = task.key, .running = true}
+        };
+        ctx->set_status(status);
+        return;
+    }
     if (cmd.type == SCAN_CMD_TYPE) return scan(cmd);
     if (cmd.type == TEST_CONNECTION_CMD_TYPE) return test_connection(cmd);
     LOG(ERROR) << "[opc] Scanner received unknown command type: " << cmd.type;

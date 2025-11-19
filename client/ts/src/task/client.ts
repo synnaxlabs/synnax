@@ -172,6 +172,23 @@ export class Task<
     });
   }
 
+  async start(): Promise<void> {
+    await this.executeCommand({ type: "start" });
+  }
+
+  async stop(): Promise<void> {
+    await this.executeCommand({ type: "stop" });
+  }
+
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    await this.start();
+    try {
+      return await fn();
+    } finally {
+      await this.stop();
+    }
+  }
+
   async snapshottedTo(): Promise<ontology.Resource | null> {
     if (this.ontologyClient == null || this.rangeClient == null)
       throw NOT_CREATED_ERROR;
@@ -386,6 +403,12 @@ export class Client {
       copyRes,
     );
     return this.sugar(response.task as Payload);
+  }
+
+  async list(rack?: number): Promise<Task[]> {
+    const params: RetrieveMultipleParams = { internal: false };
+    if (rack !== undefined) params.rack = rack;
+    return await this.retrieve(params);
   }
 
   async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.Resource | null> {
