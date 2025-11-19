@@ -29,6 +29,7 @@ std::pair<common::ConfigureResult, xerrors::Error> configure_read(
     if (err) return {std::move(result), err};
     auto [dev, d_err] = devs->acquire(cfg.conn);
     if (d_err) return {std::move(result), d_err};
+    result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
@@ -59,6 +60,7 @@ std::pair<common::ConfigureResult, xerrors::Error> configure_write(
     if (err) return {std::move(result), err};
     auto [dev, d_err] = devs->acquire(cfg.conn);
     if (d_err) return {std::move(result), d_err};
+    result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
