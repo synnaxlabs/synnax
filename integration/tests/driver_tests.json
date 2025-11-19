@@ -5,9 +5,45 @@
       "sequence_name": "Driver Task Lifecycle",
       "tests": [
         {
-          "case": "driver/task_lifecycle",
+          "case": "driver/modbus_read",
           "parameters": {
-            "protocol": ["modbus", "opcua", "opcua_bool", "opcua_array"]
+            "task": [
+              "input_register",
+              "holding_register",
+              "discrete_input",
+              "coil"
+            ]
+          }
+        },
+        {
+          "case": "driver/opcua_read",
+          "parameters": {
+            "task": [
+              "float",
+              "bool",
+              "array"
+            ]
+          }
+        },
+        {
+          "case": "driver/disconnect_modbus",
+          "parameters": {
+            "task": [
+              "input_register",
+              "holding_register",
+              "discrete_input",
+              "coil"
+            ]
+          }
+        },
+        {
+          "case": "driver/disconnect_opcua",
+          "parameters": {
+            "task": [
+              "float",
+              "bool",
+              "array"
+            ]
           }
         }
       ]

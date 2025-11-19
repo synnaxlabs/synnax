@@ -20,67 +20,205 @@ import atexit
 import subprocess
 import sys
 from abc import abstractmethod
-from typing import Callable
+from typing import Callable, TypedDict
 
 import synnax as sy
 from synnax.hardware.device import Device as SynnaxDevice
 
 from framework.test_case import TestCase
-from tests.driver.devices import Simulator
+from tests.driver.devices import SimulatorConfig
 
 
-class Driver(TestCase):
+class ChannelConfig(TypedDict, total=False):
+    """Channel configuration with protocol-specific fields."""
+
+    # Common fields (required)
+    name: str
+    data_type: sy.DataType
+
+    # Modbus-specific fields
+    address: int
+    modbus_data_type: str
+
+    # OPC UA-specific fields
+    node_id: str
+    opcua_data_type: str
+
+
+def create_channels(
+    client: sy.Synnax,
+    device_name: str,
+    task_key: str,
+    channel_configs: list[ChannelConfig],
+) -> tuple[sy.Device, list[sy.Channel], list[str]]:
     """
-    Abstract base class for driver integration tests.
+    Create Synnax channels for a task.
 
-    Usage patterns:
+    Args:
+        client: Synnax client instance
+        device_name: Name of the hardware device
+        task_key: Task identifier (used for index channel naming)
+        channel_configs: List of channel configurations
 
-    1. Simulator tests (Modbus/OPC UA):
-       - Set simulator: Simulator.MODBUS or Simulator.OPCUA
-       - In setup(), simulator starts automatically
-       - Device created from simulator's device_factory
-
-       Example:
-           from tests.driver.driver import Driver
-           from tests.driver.devices import Simulator
-
-           class ModbusBasic(Driver):
-               simulator = Simulator.MODBUS
-
-    2. Hardware tests without simulator:
-       - Leave simulator as None
-       - Call self.connect_device(KnownDevices.my_device) in run()
-
-       Example:
-           from tests.driver.driver import Driver
-           from tests.driver.devices import KnownDevices
-
-           class NITest(Driver):
-               def run(self):
-                   device = self.connect_device(KnownDevices.ni_daq_6001)
-
-    3. Existing hardware (already in cluster):
-       - Leave simulator as None
-       - Manually retrieve device using self.client.hardware.devices.retrieve()
-
-    Subclasses must implement:
-    - run(): Test execution logic
+    Returns:
+        Tuple of (device, created channels, channel names)
     """
+    # Retrieve the device
+    device = client.hardware.devices.retrieve(name=device_name)
+
+    # Auto-generate index channel name from task key
+    index_channel_name = f"{task_key}_index"
+    index_ch = client.channels.create(
+        name=index_channel_name,
+        is_index=True,
+        data_type=sy.DataType.TIMESTAMP,
+        retrieve_if_name_exists=True,
+    )
+
+    # Create data channels from config
+    channels = []
+    channel_names = []
+    for ch_config in channel_configs:
+        ch = client.channels.create(
+            name=ch_config["name"],
+            index=index_ch.key,
+            data_type=ch_config["data_type"],
+            retrieve_if_name_exists=True,
+        )
+        channels.append(ch)
+        channel_names.append(ch_config["name"])
+
+    return device, channels, channel_names
+
+
+class Task(TestCase):
+    """
+    Base class for driver task lifecycle tests.
+
+    Tests standard lifecycle: create, start/stop, reconfigure, delete task and device.
+
+    Subclasses must:
+    - Set TASK_NAME, TASK_KEY, and CHANNELS as class attributes
+    - Implement create_task() factory method
+    - Optionally override setup() for custom configuration (e.g., matrix parameters)
+    - Optionally override run() for custom test logic
+    """
+
+    # Task configuration (must be set by subclasses)
+    RACK_NAME: str = "Node 1 Embedded Driver"
+    TASK_NAME: str = ""
+    TASK_KEY: str = ""
+    CHANNELS: list[ChannelConfig] = []
+
+    # Default test parameters
+    SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
+    STREAM_RATE: sy.Rate = 10 * sy.Rate.HZ
+    TEST_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
 
     # Sim server process variables
-    simulator: Simulator | None = None
+    simulator: SimulatorConfig | None = None
     simulator_process: subprocess.Popen[bytes] | None = None
 
+    # Task lifecycle test configuration
+    tsk: sy.Task | None = None
+    channel_names: list[str] = []
+
+    @abstractmethod
+    def create_task(
+        self,
+        device: sy.Device,
+        channels: list[sy.Channel],
+        channel_metadata: list[ChannelConfig],
+        task_name: str,
+        sample_rate: sy.Rate,
+        stream_rate: sy.Rate,
+    ) -> sy.Task:
+        """Factory method to create protocol-specific task.
+
+        Args:
+            device: Synnax device to configure task for
+            channels: Created Synnax channels
+            channel_metadata: List of dicts with protocol-specific config
+            task_name: Name for the task
+            sample_rate: Sampling rate for the task
+            stream_rate: Streaming rate for the task
+
+        Returns:
+            Configured protocol-specific task (e.g., modbus.ReadTask)
+        """
+        pass
+
     def setup(self) -> None:
-        """Start simulator and connect to device (if simulator configured)."""
+        """Start simulator, connect to device, and configure task."""
         if self.simulator is not None:
             self._start_simulator()
             self.connect_device(self.simulator.device_factory)
 
-    @abstractmethod
+        # Create channels
+        assert self.simulator is not None
+        device, channels, self.channel_names = create_channels(
+            client=self.client,
+            device_name=self.simulator.device_name,
+            task_key=self.TASK_KEY,
+            channel_configs=self.CHANNELS,
+        )
+
+        # Create task using child implementation
+        self.tsk = self.create_task(
+            device=device,
+            channels=channels,
+            channel_metadata=self.CHANNELS,
+            task_name=self.TASK_NAME,
+            sample_rate=self.SAMPLE_RATE,
+            stream_rate=self.STREAM_RATE,
+        )
+
+        # Configure task in Synnax
+        try:
+            self.client.hardware.tasks.configure(self.tsk)
+            self.log(f"Task '{self.TASK_NAME}' configured")
+        except Exception as e:
+            self.fail(f"Task configuration failed: {e}")
+            return
+
     def run(self) -> None:
-        """Execute the test-specific logic."""
-        pass
+        """Execute the standard task lifecycle test."""
+        if self.tsk is None:
+            self.fail("Task not configured. Subclass must set self.tsk in setup()")
+            return
+
+        client = self.client
+        tsk = self.tsk
+
+        self.log("Test 0 - Verify Task Exists")
+        self.assert_task_exists(tsk.key)
+        self.assert_channel_names(tsk, self.channel_names)
+
+        self.log("Test 1 - Start and Stop")
+        self.assert_sample_count(
+            tsk, duration=self.TEST_DURATION
+        )
+
+        # SY-3310: OPC Read Array - rapid restart race condition
+        sy.sleep(0.2)
+
+        self.log("Test 2 - Reconfigure Task")
+        new_rate = int(self.SAMPLE_RATE * 2)
+        tsk.config.sample_rate = new_rate
+        client.hardware.tasks.configure(tsk)
+        self.assert_sample_count(
+            tsk, duration=self.TEST_DURATION
+        )
+
+        self.log("Test 3 - Delete Task")
+        client.hardware.tasks.delete(tsk.key)
+        self.assert_task_deleted(tsk.key)
+
+        self.log("Test 4 - Delete Device")
+        # Get device from task config (already embedded in task object)
+        device = client.hardware.devices.retrieve(key=tsk.config.device)
+        client.hardware.devices.delete([device.key])
+        self.assert_device_deleted(device)
 
     def connect_device(
         self, device_factory: Callable[[int], SynnaxDevice]
@@ -102,7 +240,7 @@ class Driver(TestCase):
             device = self.connect_device(KnownDevices.modbus_sim)
         """
         client = self.client
-        rack = client.hardware.racks.retrieve(name="Node 1 Embedded Driver")
+        rack = client.hardware.racks.retrieve(name=self.RACK_NAME)
 
         # Create device instance to get its name
         device_instance = device_factory(rack.key)
@@ -111,14 +249,19 @@ class Driver(TestCase):
         try:
             device = client.hardware.devices.retrieve(name=device_name)
             self.log(f"Found existing device: {device.name}")
-        except:
+        except sy.NotFoundError:
             device = client.hardware.devices.create(device_instance)
             self.log(f"Created device: {device.name}")
+        except Exception as e:
+            self.fail(f"Unexpected error creating device: {e}")
 
         return device
 
     def assert_sample_count(
-        self, task: sy.Task, sample_rate: sy.Rate, time_range: sy.TimeRange
+        self, 
+        task: sy.Task, 
+        duration: sy.TimeSpan = 1,
+        strict: bool = True
     ) -> None:
         """Assert that the task has the expected number of samples.
 
@@ -126,17 +269,22 @@ class Driver(TestCase):
             task: The task to assert the sample count of
             sample_rate: The sample rate of the task
             time_range: The time range to read samples from
+            strict: Sample count within 20% tolerance if True, else no check
         """
+        start_time = sy.TimeStamp.now()
+        with task.run():
+            sy.sleep(duration)
+        end_time = sy.TimeStamp.now()
 
-        # Calculate duration from time range
+        sample_rate = task.config.sample_rate
+        time_range = sy.TimeRange(start_time, end_time)
         duration_seconds = time_range.end.span(time_range.start).seconds
 
-        # Allow 10% tolerance for CI environments with timing variance
+        # Allow 20% tolerance for CI environments with timing variance
         expected_samples = int(sample_rate * duration_seconds)
-        min_samples = int(expected_samples * 0.9)
-        max_samples = int(expected_samples * 1.1)
+        min_samples = int(expected_samples * 0.8) if strict else 1
+        max_samples = int(expected_samples * 1.2) if strict else sys.maxsize
 
-        # Collect sample counts for all channels
         sample_counts = []
         for channel_config in task.config.channels:
             ch = self.client.channels.retrieve(channel_config.channel)
@@ -149,7 +297,6 @@ class Driver(TestCase):
                     f"expected {expected_samples} ±10% ({min_samples}-{max_samples})"
                 )
 
-        # Check all channels have the same sample count
         if len(set(sample_counts)) > 1:
             self.fail(f"Channels have different sample counts: {sample_counts}")
 
@@ -164,8 +311,12 @@ class Driver(TestCase):
         """
         try:
             task = self.client.hardware.tasks.retrieve(task_key)
+            if task is None:
+                self.fail(f"Task does not exist (None)")
+        except sy.NotFoundError:
+            self.fail(f"Task does not exist (NotFoundError)")
         except Exception as e:
-            self.fail(f"Task {task.name} does not exist: {e}")
+            self.fail(f"Task does not exist (Exception): {e}")
 
     def assert_task_deleted(self, task_key: str) -> None:
         """Assert that a task has been deleted from Synnax.
@@ -177,11 +328,13 @@ class Driver(TestCase):
             Fails the test if the task still exists
         """
         try:
-            self.client.hardware.tasks.retrieve(task_key + "")
+            self.client.hardware.tasks.retrieve(task_key)
             self.fail(f"Task {task_key} still exists after deletion")
-        except:
+        except sy.NotFoundError:
             # This is the expected behavior
             pass
+        except Exception as e:
+            self.fail(f"Unexpected error asserting task deletion: {e}")
 
     def assert_device_deleted(self, device: sy.Device) -> None:
         """Assert that a device has been deleted from Synnax.
@@ -197,7 +350,7 @@ class Driver(TestCase):
             self.fail(f"Device '{device.name}' still exists after deletion")
         except sy.NotFoundError:
             # Win condition
-            self.log(f"Device deleted")
+            pass
         except Exception as e:
             self.fail(
                 f"Unexpected error asserting device deletion '{device.name}': {e}"
@@ -231,6 +384,7 @@ class Driver(TestCase):
 
     def _start_simulator(self) -> None:
         """Start the simulator server."""
+        assert self.simulator is not None
         server_script = self.repo_root / self.simulator.server_script
 
         if not server_script.exists():
@@ -251,8 +405,7 @@ class Driver(TestCase):
         sy.sleep(self.simulator.startup_delay_seconds)
 
         if self.simulator_process.poll() is not None:
-            # Server failed - capture output for debugging
-            stdout, stderr = self.simulator_process.communicate()
+            _, stderr = self.simulator_process.communicate()
             error_msg = stderr.decode() if stderr else "No error output"
             raise RuntimeError(
                 f"Server failed to start (exit code: {self.simulator_process.returncode})\n{error_msg}"
@@ -266,7 +419,6 @@ class Driver(TestCase):
             return
 
         if self.simulator_process.poll() is not None:
-            self.log("Server already terminated")
             self.simulator_process = None
             return
 

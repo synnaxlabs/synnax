@@ -19,7 +19,7 @@ ARRAY_COUNT = 5
 ARRAY_SIZE = 5
 FLOAT_COUNT = 5
 BOOL_COUNT = 5
-RATE = 100  # Hz
+RATE = 50  # Hz
 BOOL_OFFSET = 0.2  # seconds between each boolean transition
 
 # Error injection configuration
