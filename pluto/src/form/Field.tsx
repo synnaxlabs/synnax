@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep, type Optional, type record } from "@synnaxlabs/x";
+import { caseconv, deep, type optional, type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { type RenderProp, renderProp } from "@/component/renderProp";
@@ -95,7 +95,7 @@ export type BuiltFieldProps<
   P extends {},
   OptionalFields extends keyof Omit<P, "value" | "onChange"> = never,
 > = FieldProps<I, O> & {
-  inputProps?: Optional<Omit<P, "value" | "onChange">, OptionalFields>;
+  inputProps?: optional.Optional<Omit<P, "value" | "onChange">, OptionalFields>;
   fieldKey?: string;
 };
 

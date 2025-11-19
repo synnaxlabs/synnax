@@ -22,7 +22,7 @@ import {
   compare,
   control as xcontrol,
   type CrudeSeries,
-  type Destructor,
+  type destructor,
   type status as xstatus,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -377,7 +377,7 @@ export class AuthoritySource
   static readonly TYPE = "controlled-status-source";
   private readonly prov: StateProvider;
   private valid = false;
-  private stopListening?: Destructor;
+  private stopListening?: destructor.Destructor;
   private readonly controller: Controller;
   schema = authoritySourceProps;
 

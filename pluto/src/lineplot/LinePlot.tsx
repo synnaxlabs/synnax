@@ -13,7 +13,7 @@ import {
   box,
   type color,
   deep,
-  type Destructor,
+  type destructor,
   direction,
   location,
   xy,
@@ -53,7 +53,7 @@ export interface ContextValue {
   removeLine: (key: string) => void;
   lines: LineSpec[];
   setViewport: (viewport: Viewport.UseEvent) => void;
-  addViewportHandler: (handler: Viewport.UseHandler) => Destructor;
+  addViewportHandler: (handler: Viewport.UseHandler) => destructor.Destructor;
   setHold: (hold: boolean) => void;
 }
 

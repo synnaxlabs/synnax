@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type Destructor, type status } from "@synnaxlabs/x";
+import { type destructor, type status } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import type z from "zod";
 
@@ -38,7 +38,7 @@ export interface UpdateParams<
   data: Input;
   client: Client;
   store: Store;
-  rollbacks: Destructor[];
+  rollbacks: destructor.Destructor[];
   setStatus: (setter: state.SetArg<ResultStatus<StatusDetails>>) => void;
 }
 
@@ -76,7 +76,7 @@ export interface UseObservableUpdateParams<
 }
 
 export interface BeforeUpdateParams<Data extends core.Shape> {
-  rollbacks: Destructor[];
+  rollbacks: destructor.Destructor[];
   client: Client;
   data: Data;
 }
@@ -159,7 +159,7 @@ const useObservable = <
     async (data: Input, opts: core.FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
 
-      const rollbacks: Destructor[] = [];
+      const rollbacks: destructor.Destructor[] = [];
       const runRollbacks = () => {
         try {
           rollbacks.reverse().forEach((rollback) => rollback());

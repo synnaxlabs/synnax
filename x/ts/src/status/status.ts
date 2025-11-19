@@ -12,7 +12,7 @@ import { z } from "zod";
 import { array } from "@/array";
 import { id } from "@/id";
 import { label } from "@/label";
-import { type Optional } from "@/optional";
+import { type optional } from "@/optional";
 import { TimeStamp } from "@/telem";
 
 export const variantZ = z.enum([
@@ -75,10 +75,10 @@ type Base<V extends Variant> = {
 export type Status<DetailsSchema = z.ZodNever, V extends Variant = Variant> = Base<V> &
   ([DetailsSchema] extends [z.ZodNever] ? {} : { details: z.output<DetailsSchema> });
 
-export type Crude<DetailsSchema = z.ZodNever, V extends Variant = Variant> = Optional<
-  Base<V>,
-  "key" | "time" | "name"
-> &
+export type Crude<
+  DetailsSchema = z.ZodNever,
+  V extends Variant = Variant,
+> = optional.Optional<Base<V>, "key" | "time" | "name"> &
   ([DetailsSchema] extends [z.ZodNever] ? {} : { details: z.output<DetailsSchema> });
 
 export const exceptionDetailsSchema = z.object({
