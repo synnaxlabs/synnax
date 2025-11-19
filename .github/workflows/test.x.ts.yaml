@@ -71,11 +71,11 @@ jobs:
         if: matrix.lint
         run: pnpm check-types:x
 
-      - name: Madge
+      - name: Check Circular Dependencies
         if: matrix.lint
         run: pnpm madge:x
 
-      - name: Knip
+      - name: Check Unused Code
         if: matrix.lint
         run: pnpm knip:x
 

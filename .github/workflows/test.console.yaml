@@ -84,7 +84,7 @@ jobs:
         if: matrix.lint
         run: pnpm check-types:console
 
-      - name: Madge
+      - name: Check Circular Dependencies
         if: matrix.lint
         run: pnpm madge:console
 
