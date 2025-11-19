@@ -51,6 +51,8 @@ type Config struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Channel is used to create channels related to task operations.
+	// [OPTIONAL]
 	Channel channel.Writeable
 }
 
@@ -80,7 +82,6 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "rack", c.Rack)
 	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "channel", c.Channel)
 	return v.Error()
 }
 
@@ -104,16 +105,18 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	s = &Service{cfg: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
 	s.cleanupInternalOntologyResources(ctx)
+	if cfg.Channel != nil {
+		if err = cfg.Channel.Create(ctx, &channel.Channel{
+			Name:     "sy_task_cmd",
+			DataType: telem.JSONT,
+			Virtual:  true,
+			Internal: true,
+		}); err != nil {
+			return nil, err
+		}
+	}
 	if cfg.Signals == nil {
 		return
-	}
-	if err = cfg.Channel.Create(ctx, &channel.Channel{
-		Name:     "sy_task_cmd",
-		DataType: telem.JSONT,
-		Virtual:  true,
-		Internal: true,
-	}); err != nil {
-		return nil, err
 	}
 	cdcS, err := signals.PublishFromGorp(
 		ctx,

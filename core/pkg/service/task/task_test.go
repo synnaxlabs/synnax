@@ -16,10 +16,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -58,12 +58,11 @@ var _ = Describe("Task", Ordered, func() {
 			Status:       stat,
 		}))
 		svc = MustSucceed(task.OpenService(ctx, task.Config{
-			DB:           db,
-			Ontology:     otg,
-			Group:        g,
-			Rack:         rackSvc,
-			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       stat,
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+			Rack:     rackSvc,
+			Status:   stat,
 		}))
 		rack_ = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, rack_)).To(Succeed())

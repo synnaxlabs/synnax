@@ -312,7 +312,7 @@ describe("Task", async () => {
 
   describe("list", () => {
     it("should list all tasks excluding internal tasks", async () => {
-      const tasks = await client.hardware.tasks.list();
+      const tasks = await client.tasks.list();
       expect(Array.isArray(tasks)).toBe(true);
       expect(tasks.every((t) => t.internal === false)).toBe(true);
     });
@@ -323,14 +323,14 @@ describe("Task", async () => {
         config: { test: true },
         type: "ni",
       });
-      const tasks = await client.hardware.tasks.list(testRack.key);
+      const tasks = await client.tasks.list(testRack.key);
       expect(tasks.some((t) => t.key === task1.key)).toBe(true);
       expect(tasks.every((t) => task.rackKey(t.key) === testRack.key)).toBe(true);
     });
 
     it("should exclude internal tasks by default", async () => {
-      const allTasks = await client.hardware.tasks.list();
-      const internalTasks = await client.hardware.tasks.retrieve({
+      const allTasks = await client.tasks.list();
+      const internalTasks = await client.tasks.retrieve({
         internal: true,
       });
       const allTaskKeys = allTasks.map((t) => t.key);
