@@ -99,5 +99,5 @@ func openKV(o *options) (xkv.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return pebblekv.Wrap(pebbleDB), nil
+	return pebblekv.Wrap(pebbleDB, pebblekv.DisableObservation()), nil
 }

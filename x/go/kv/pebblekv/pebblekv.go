@@ -50,9 +50,27 @@ func parseOpts(opts []any) *pebble.WriteOptions {
 	return defaultWriteOpts
 }
 
+type openOptions struct {
+	enableObserver bool
+}
+
+type OpenOption func(*openOptions)
+
+func DisableObservation() OpenOption {
+	return func(o *openOptions) { o.enableObserver = false }
+}
+
 // Wrap wraps a pebble.DB to satisfy the kv.db interface.
-func Wrap(db_ *pebble.DB) kv.DB {
-	return &db{DB: db_, Observer: observe.New[kv.TxReader]()}
+func Wrap(base *pebble.DB, opts ...OpenOption) kv.DB {
+	o := &openOptions{enableObserver: true}
+	for _, opt := range opts {
+		opt(o)
+	}
+	wrapped := &db{DB: base}
+	if o.enableObserver {
+		wrapped.Observer = observe.New[kv.TxReader]()
+	}
+	return wrapped
 }
 
 type logger struct{ alamos.Instrumentation }
@@ -79,14 +97,28 @@ func (l logger) Fatalf(format string, args ...any) {
 func (d db) OpenTx() kv.Tx { return &tx{Batch: d.NewIndexedBatch(), db: d} }
 
 // Commit implements kv.DB.
-func (d db) Commit(ctx context.Context, opts ...any) error { return nil }
+func (d db) Commit(context.Context, ...any) error { return nil }
 
 // NewReader implement kv.DB.
 func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
 
 // Set implement kv.DB.
-func (d db) Set(_ context.Context, key, value []byte, opts ...any) error {
-	return translateError(d.DB.Set(key, value, parseOpts(opts)))
+func (d db) Set(ctx context.Context, key, value []byte, opts ...any) error {
+	if d.Observer == nil {
+		return translateError(d.DB.Set(key, value, parseOpts(opts)))
+	}
+	var (
+		err error
+		t   = d.OpenTx()
+	)
+	defer func() {
+		err = errors.Combine(err, t.Close())
+	}()
+	if err = t.Set(ctx, key, value, opts...); err != nil {
+		return err
+	}
+	err = t.Commit(ctx)
+	return err
 }
 
 // Get implement kv.DB.
@@ -110,8 +142,10 @@ func (d db) apply(ctx context.Context, txn *tx) error {
 	if err != nil {
 		return translateError(err)
 	}
-	// We need to notify with a generator so that each subscriber gets a fresh reader.
-	d.NotifyGenerator(ctx, txn.NewReader)
+	if d.Observer != nil {
+		// We need to notify with a generator so that each subscriber gets a fresh reader.
+		d.NotifyGenerator(ctx, txn.NewReader)
+	}
 	return nil
 }
 
