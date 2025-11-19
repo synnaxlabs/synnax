@@ -54,8 +54,11 @@ type openOptions struct {
 	enableObserver bool
 }
 
+// OpenOption configures behavior when wrapping a pebble.DB.
 type OpenOption func(*openOptions)
 
+// DisableObservation disables the observer pattern, preventing change notifications.
+// This improves performance when observation is not needed.
 func DisableObservation() OpenOption {
 	return func(o *openOptions) { o.enableObserver = false }
 }
