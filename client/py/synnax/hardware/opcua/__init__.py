@@ -12,6 +12,8 @@ from synnax.hardware.opcua.types import (
     Device,
     ReadChannel,
     ReadTask,
+    SecurityMode,
+    SecurityPolicy,
     WrappedReadTaskConfig,
     WriteChannel,
     WriteTask,

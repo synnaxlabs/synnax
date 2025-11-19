@@ -19,9 +19,9 @@ from synnax.hardware.task import (
     BaseReadTaskConfig,
     BaseWriteTaskConfig,
     JSONConfigMixin,
-    MetaTask,
     StarterStopperMixin,
     Task,
+    TaskProtocol,
 )
 from synnax.telem import CrudeRate
 
@@ -2503,7 +2503,7 @@ class AnalogReadStateDetails(TaskStateDetails):
     errors: list[dict[str, str]] | None
 
 
-class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     """A task for reading analog data from NI devices and writing them to a Synnax
     cluster. This task is a programmatic representation of the analog read task
     configurable within the Synnax console. For detailed information on
@@ -2566,7 +2566,7 @@ class AnalogReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
                 channel.device = device
 
 
-class AnalogWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+class AnalogWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     """A task for writing analog output data to NI devices. This task is a programmatic
     representation of the analog write task configurable within the Synnax console.
     For detailed information on configuring/operating an analog write task, see
@@ -2612,7 +2612,7 @@ class AnalogWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         )
 
 
-class CounterReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+class CounterReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     """A task for reading counter data from NI devices and writing them to a Synnax
     cluster. This task is a programmatic representation of the counter read task
     configurable within the Synnax console. For detailed information on
@@ -2675,7 +2675,7 @@ class CounterReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
                 channel.device = device
 
 
-class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     """A task for reading digital data from NI devices and writing them to a Synnax
     cluster. This task is a programmatic representation of the digital read task
     configurable within the Synnax console. For detailed information on
@@ -2725,7 +2725,7 @@ class DigitalReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         )
 
 
-class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+class DigitalWriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     """A task for reading digital data from NI devices and writing them to a Synnax
     cluster. This task is a programmatic representation of the digital write task
     configurable within the Synnax console. For detailed information on

@@ -13,9 +13,9 @@ from synnax.hardware.task.client import (
     BaseWriteTaskConfig,
     Client,
     JSONConfigMixin,
-    MetaTask,
     StarterStopperMixin,
     Task,
+    TaskProtocol,
 )
 from synnax.hardware.task.payload import TaskStatus, TaskStatusDetails
 
@@ -25,7 +25,7 @@ __all__ = [
     "BaseWriteTaskConfig",
     "Task",
     "TaskStatus",
-    "MetaTask",
+    "TaskProtocol",
     "StarterStopperMixin",
     "JSONConfigMixin",
     "Client",

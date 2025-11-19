@@ -19,9 +19,9 @@ from synnax.hardware.task import (
     BaseReadTaskConfig,
     BaseWriteTaskConfig,
     JSONConfigMixin,
-    MetaTask,
     StarterStopperMixin,
     Task,
+    TaskProtocol,
 )
 from synnax.telem import CrudeRate
 
@@ -381,7 +381,7 @@ class WriteTaskConfig(BaseWriteTaskConfig):
         return v
 
 
-class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     """
     A read task for sampling data from LabJack devices and writing the data to a
     Synnax cluster. This task is a programmatic representation of the LabJack read
@@ -454,7 +454,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
         return device_client.create(dev)
 
 
-class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     """
     A write task for sending commands to LabJack devices. This task is a programmatic
     representation of the LabJack write task configurable within the Synnax console.

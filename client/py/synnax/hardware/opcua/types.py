@@ -14,15 +14,28 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
+# Security mode constants
+SecurityMode = Literal["None", "Sign", "SignAndEncrypt"]
+
+# Security policy constants
+SecurityPolicy = Literal[
+    "None",
+    "Basic128Rsa15",
+    "Basic256",
+    "Basic256Sha256",
+    "Aes128_Sha256_RsaOaep",
+    "Aes256_Sha256_RsaPss",
+]
+
 from synnax.channel import ChannelKey
 from synnax.hardware import device
 from synnax.hardware.task import (
     BaseTaskConfig,
     BaseWriteTaskConfig,
     JSONConfigMixin,
-    MetaTask,
     StarterStopperMixin,
     Task,
+    TaskProtocol,
 )
 from synnax.telem import CrudeDataType, CrudeRate, Rate
 
@@ -275,7 +288,7 @@ class WrappedReadTaskConfig(BaseModel):
     )
 
 
-class ReadTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     """A read task for sampling data from OPC UA devices and writing the data to a
     Synnax cluster. This task is a programmatic representation of the OPC UA read
     task configurable within the Synnax console. For detailed information on configuring/
@@ -390,7 +403,7 @@ class WriteTaskConfig(BaseWriteTaskConfig):
         return v
 
 
-class WriteTask(StarterStopperMixin, JSONConfigMixin, MetaTask):
+class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     """A write task for sending commands to OPC UA devices. This task is a programmatic
     representation of the OPC UA write task configurable within the Synnax console.
     For detailed information on configuring/operating an OPC UA write task,
@@ -490,8 +503,8 @@ class Device(device.Device):
         endpoint: str,
         username: str = "",
         password: str = "",
-        security_mode: str = "",
-        security_policy: str = "",
+        security_mode: SecurityMode = "None",
+        security_policy: SecurityPolicy = "None",
         client_cert: str = "",
         client_private_key: str = "",
         server_cert: str = "",

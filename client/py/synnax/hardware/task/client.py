@@ -245,7 +245,7 @@ class Task:
                     ) from e
 
 
-class MetaTask(Protocol):
+class TaskProtocol(Protocol):
     key: int
 
     def to_payload(self) -> TaskPayload: ...
@@ -306,7 +306,7 @@ class StarterStopperMixin:
             self.stop(timeout)
 
 
-class JSONConfigMixin(MetaTask):
+class JSONConfigMixin(TaskProtocol):
     _internal: Task
     config: BaseModel
 
@@ -316,17 +316,17 @@ class JSONConfigMixin(MetaTask):
 
     @property
     def key(self) -> int:
-        """Implements MetaTask protocol"""
+        """Implements TaskProtocol protocol"""
         return self._internal.key
 
     def to_payload(self) -> TaskPayload:
-        """Implements MetaTask protocol"""
+        """Implements TaskProtocol protocol"""
         pld = self._internal.to_payload()
         pld.config = json.dumps(self.config.dict())
         return pld
 
     def set_internal(self, task: Task):
-        """Implements MetaTask protocol"""
+        """Implements TaskProtocol protocol"""
         self._internal = task
 
 
@@ -410,7 +410,7 @@ class Client:
             pld.key = (rack << 32) + 0
         return pld
 
-    def configure(self, task: MetaTask, timeout: float = 5) -> MetaTask:
+    def configure(self, task: TaskProtocol, timeout: float = 5) -> TaskProtocol:
         # Call task-specific device property update (e.g., for Modbus, OPC UA, LabJack)
         if self._device_client is not None:
             task.update_device_properties(self._device_client)
