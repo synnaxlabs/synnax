@@ -42,11 +42,6 @@ class _RetrieveResponse(Payload):
     racks: list[Rack] | None = None
 
 
-_CREATE_ENDPOINT = "/hardware/rack/create"
-_DELETE_ENDPOINT = "/hardware/rack/delete"
-_RETRIEVE_ENDPOINT = "/hardware/rack/retrieve"
-
-
 class Client:
     _client: UnaryClient
     _embedded_rack: Rack | None = None
@@ -84,22 +79,22 @@ class Client:
         else:
             is_single = False
         req = _CreateRequest(racks=racks)
-        res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
+        res = send_required(self._client, "/hardware/rack/create", req, _CreateResponse)
         if is_single:
             return res.racks[0]
         return res.racks
 
     def delete(self, keys: list[int]):
         req = _DeleteRequest(keys=keys)
-        send_required(self._client, _DELETE_ENDPOINT, req, Empty)
+        send_required(self._client, "/hardware/rack/delete", req, Empty)
 
     @overload
     def retrieve(
         self,
         key: int | None = None,
         name: str | None = None,
-        embedded: bool = False,
-        host_is_node: bool = False,
+        embedded: bool | None = None,
+        host_is_node: bool | None = None,
     ) -> Rack: ...
 
     def retrieve(
@@ -109,13 +104,13 @@ class Client:
         keys: list[int] | None = None,
         names: list[str] | None = None,
         *,
-        host_is_node: bool = False,
-        embedded: bool = False,
+        host_is_node: bool | None = None,
+        embedded: bool | None = None,
     ) -> list[Rack]:
         is_single = check_for_none(keys, names)
         res = send_required(
             self._client,
-            _RETRIEVE_ENDPOINT,
+            "/hardware/rack/retrieve",
             _RetrieveRequest(
                 keys=override(key, keys),
                 names=override(name, names),

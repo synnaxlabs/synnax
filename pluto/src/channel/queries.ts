@@ -400,8 +400,6 @@ export const useList = Flux.createList<
     if (query.searchTerm != null && query.searchTerm.length > 0) return [];
     return store.channels.get((ch) => {
       if (query.internal != null && ch.internal !== query.internal) return false;
-      if (query.calculated != null && ch.isCalculated !== query.calculated)
-        return false;
       if (
         primitive.isNonZero(query.notDataTypes) &&
         query.notDataTypes.some((dt) => new DataType(dt).equals(ch.dataType))

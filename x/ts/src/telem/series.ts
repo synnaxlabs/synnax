@@ -200,7 +200,7 @@ export class Series<T extends TelemValue = TelemValue>
       z.instanceof(ArrayBuffer),
       z.instanceof(Uint8Array),
     ]),
-    glBufferUsage: glBufferUsageZ.optional().default("static").optional(),
+    glBufferUsage: glBufferUsageZ.default("static").optional(),
   });
 
   /**

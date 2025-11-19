@@ -41,9 +41,6 @@ struct ConfigureResult {
     std::unique_ptr<task::Task> task;
     /// @brief whether to auto-start the task if no error occurred.
     bool auto_start = false;
-    /// @brief the error that occurred during configuration. If no error occurred, this
-    /// field should be set to xerrors::NIL.
-    xerrors::Error error = xerrors::NIL;
 };
 
 /// @brief converts a data_saving boolean to the appropriate WriterMode.

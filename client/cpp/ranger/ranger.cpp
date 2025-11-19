@@ -139,15 +139,11 @@ RangeClient::create(const std::string &name, telem::TimeRange time_range) const 
     return {rng, err};
 }
 
-const std::string KV_SET_ENDPOINT = "/range/kv/set";
-const std::string KV_GET_ENDPOINT = "/range/kv/get";
-const std::string KV_DELETE_ENDPOINT = "/range/kv/delete";
-
 std::pair<std::string, xerrors::Error> RangeKV::get(const std::string &key) const {
     auto req = api::v1::RangeKVGetRequest();
     req.add_keys(key);
     req.set_range_key(range_key);
-    auto [res, err] = kv_get_client->send(KV_GET_ENDPOINT, req);
+    auto [res, err] = kv_get_client->send("/range/kv/get", req);
     if (err) return {"", err};
     if (res.pairs_size() == 0)
         return {"", xerrors::Error(xerrors::NOT_FOUND, "key not found")};
@@ -160,7 +156,7 @@ xerrors::Error RangeKV::set(const std::string &key, const std::string &value) co
     const auto pair = req.add_pairs();
     pair->set_key(key);
     pair->set_value(value);
-    auto [res, err] = kv_set_client->send(KV_SET_ENDPOINT, req);
+    auto [res, err] = kv_set_client->send("/range/kv/set", req);
     return err;
 }
 
@@ -168,7 +164,7 @@ xerrors::Error RangeKV::del(const std::string &key) const {
     auto req = api::v1::RangeKVDeleteRequest();
     req.set_range_key(range_key);
     req.add_keys(key);
-    auto [res, err] = kv_delete_client->send(KV_DELETE_ENDPOINT, req);
+    auto [res, err] = kv_delete_client->send("/range/kv/delete", req);
     return err;
 }
 }

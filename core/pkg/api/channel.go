@@ -210,15 +210,15 @@ func (s *ChannelService) Retrieve(
 	if req.Internal != nil {
 		q = q.WhereInternal(*req.Internal)
 	}
-	if req.LegacyCalculated != nil && *req.LegacyCalculated {
-		q = q.WhereLegacyCalculated()
+	if req.LegacyCalculated != nil {
+		q = q.WhereLegacyCalculated(*req.LegacyCalculated)
 	}
 	if err := q.Exec(ctx, nil); err != nil {
 		return ChannelRetrieveResponse{}, err
 	}
 	if len(aliasChannels) > 0 {
 		aliasKeys := channel.KeysFromChannels(aliasChannels)
-		resChannels = append(aliasChannels, lo.Filter(resChannels, func(ch channel.Channel, i int) bool {
+		resChannels = append(aliasChannels, lo.Filter(resChannels, func(ch channel.Channel, _ int) bool {
 			return !aliasKeys.Contains(ch.Key())
 		})...)
 	}

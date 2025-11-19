@@ -24,12 +24,6 @@ import {
   type Table,
 } from "@/workspace/table/payload";
 
-const RETRIEVE_ENDPOINT = "/workspace/table/retrieve";
-const CREATE_ENDPOINT = "/workspace/table/create";
-const RENAME_ENDPOINT = "/workspace/table/rename";
-const SET_DATA_ENDPOINT = "/workspace/table/set-data";
-const DELETE_ENDPOINT = "/workspace/table/delete";
-
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const setDataReqZ = z.object({ key: keyZ, data: z.string() });
@@ -65,7 +59,7 @@ export class Client {
     const isMany = Array.isArray(tables);
     const res = await sendRequired(
       this.client,
-      CREATE_ENDPOINT,
+      "/workspace/table/create",
       { workspace, tables: array.toArray(tables) },
       createReqZ,
       createResZ,
@@ -76,7 +70,7 @@ export class Client {
   async rename(key: Key, name: string): Promise<void> {
     await sendRequired(
       this.client,
-      RENAME_ENDPOINT,
+      "/workspace/table/rename",
       { key, name },
       renameReqZ,
       emptyResZ,
@@ -86,7 +80,7 @@ export class Client {
   async setData(key: Key, data: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
-      SET_DATA_ENDPOINT,
+      "/workspace/table/set-data",
       { key, data: JSON.stringify(data) },
       setDataReqZ,
       emptyResZ,
@@ -101,7 +95,7 @@ export class Client {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/workspace/table/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
@@ -113,7 +107,7 @@ export class Client {
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,
-      DELETE_ENDPOINT,
+      "/workspace/table/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,

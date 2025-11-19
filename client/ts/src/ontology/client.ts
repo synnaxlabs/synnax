@@ -25,17 +25,15 @@ import {
 } from "@/ontology/payload";
 import { Writer } from "@/ontology/writer";
 
-const RETRIEVE_ENDPOINT = "/ontology/retrieve";
-
 const retrieveReqZ = z.object({
   ids: idZ.array().optional(),
   children: z.boolean().optional(),
   parents: z.boolean().optional(),
   excludeFieldData: z.boolean().optional(),
-  searchTerm: z.string().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional(),
   types: resourceTypeZ.array().optional(),
+  searchTerm: z.string().optional(),
+  limit: z.int().optional(),
+  offset: z.int().optional(),
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
@@ -174,7 +172,7 @@ export class Client {
   private async execRetrieve(request: RetrieveRequest): Promise<Resource[]> {
     const { resources } = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/ontology/retrieve",
       request,
       retrieveReqZ,
       retrieveResZ,
