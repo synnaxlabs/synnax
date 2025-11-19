@@ -256,7 +256,6 @@ class TestCase(ABC):
                     client.write(self.tlm)
                 except:
                     pass
-            self.log("Writer thread shutting down")
 
         except Exception as e:
             if is_websocket_error(e):
@@ -304,8 +303,6 @@ class TestCase(ABC):
                     else:
                         self.log(f"Streamer error: {e}")
                         break
-
-            self.log("Streamer thread shutting down")
 
         except Exception as e:
             if is_websocket_error(e):
@@ -357,7 +354,6 @@ class TestCase(ABC):
         # Start streamer thread (reads data on demand)
         self.streamer_thread = threading.Thread(target=self._streamer_loop, daemon=True)
         self.streamer_thread.start()
-        self.log("Streamer and Writer threads started")
 
     def _stop_client(self) -> None:
         """Stop client threads and wait for completion."""
