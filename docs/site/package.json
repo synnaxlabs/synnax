@@ -10,7 +10,7 @@
     "check-types": "tsc --noEmit",
     "preview": "astro preview",
     "astro": "astro",
-    "algolia": "node --experimental-strip-types ./src/util/algoliasearch.ts",
+    "algolia": "node src/util/algoliasearch.ts",
     "lint": "eslint",
     "fix": "eslint --fix",
     "format": "prettier --write .",
