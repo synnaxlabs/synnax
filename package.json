@@ -85,8 +85,8 @@
     "turbo": "^2.6.0"
   },
   "engines": {
-    "node": ">=22"
+    "node": "^24.11.1"
   },
-  "packageManager": "pnpm@10.16.1",
+  "packageManager": "pnpm@10.22.0",
   "name": "synnax"
 }
