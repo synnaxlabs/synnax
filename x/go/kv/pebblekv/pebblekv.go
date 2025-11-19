@@ -102,11 +102,7 @@ func (d db) Commit(context.Context, ...any) error { return nil }
 // NewReader implement kv.DB.
 func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
 
-// Set implement kv.DB.
-func (d db) Set(ctx context.Context, key, value []byte, opts ...any) error {
-	if d.Observer == nil {
-		return translateError(d.DB.Set(key, value, parseOpts(opts)))
-	}
+func (d db) withTx(ctx context.Context, f func(tx kv.Tx) error) error {
 	var (
 		err error
 		t   = d.OpenTx()
@@ -114,11 +110,23 @@ func (d db) Set(ctx context.Context, key, value []byte, opts ...any) error {
 	defer func() {
 		err = errors.Combine(err, t.Close())
 	}()
-	if err = t.Set(ctx, key, value, opts...); err != nil {
+	if err = f(t); err != nil {
 		return err
 	}
 	err = t.Commit(ctx)
 	return err
+}
+
+// Set implement kv.DB.
+func (d db) Set(ctx context.Context, key, value []byte, opts ...any) error {
+	// Hot path: if we don't need to notify observers of changes, then go straight
+	// to the underlying DB.
+	if d.Observer == nil {
+		return translateError(d.DB.Set(key, value, parseOpts(opts)))
+	}
+	return d.withTx(ctx, func(tx kv.Tx) error {
+		return tx.Set(ctx, key, value, opts...)
+	})
 }
 
 // Get implement kv.DB.
@@ -129,7 +137,14 @@ func (d db) Get(_ context.Context, key []byte, _ ...any) ([]byte, io.Closer, err
 
 // Delete implement kv.DB.
 func (d db) Delete(ctx context.Context, key []byte, opts ...any) error {
-	return translateError(d.DB.Delete(key, parseOpts(opts)))
+	// Hot path: if we don't need to notify observers of changes, then go straight
+	// to the underlying DB.
+	if d.Observer == nil {
+		return translateError(d.DB.Delete(key, parseOpts(opts)))
+	}
+	return d.withTx(ctx, func(tx kv.Tx) error {
+		return tx.Delete(ctx, key, opts...)
+	})
 }
 
 // OpenIterator implement kv.DB.
