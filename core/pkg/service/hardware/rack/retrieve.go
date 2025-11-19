@@ -53,11 +53,12 @@ func (r Retrieve) WhereEmbedded(embedded bool, opts ...gorp.FilterOption) Retrie
 	return r
 }
 
-// WhereNodeIsHost filters for racks that are bound to the provided node and are a
-// gateway.
-func (r Retrieve) WhereNodeIsHost(opts ...gorp.FilterOption) Retrieve {
+// WhereNodeIsHost filters for racks that are bound to the provided node and are
+// a gateway.
+func (r Retrieve) WhereNodeIsHost(nodeIsHost bool, opts ...gorp.FilterOption) Retrieve {
 	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
-		return rack.Key.Node() == r.hostProvider.HostKey(), nil
+		isNodeHost := rack.Key.Node() == r.hostProvider.HostKey()
+		return isNodeHost == nodeIsHost, nil
 	}, opts...)
 	return r
 }

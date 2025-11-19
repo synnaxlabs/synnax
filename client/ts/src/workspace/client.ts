@@ -12,7 +12,7 @@ import { array, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type ontology } from "@/ontology";
-import { type Key as UserKey, keyZ as userKeyZ } from "@/user/payload";
+import { keyZ as userKeyZ } from "@/user/payload";
 import { lineplot } from "@/workspace/lineplot";
 import { log } from "@/workspace/log";
 import {
@@ -28,18 +28,12 @@ import {
 import { schematic } from "@/workspace/schematic";
 import { table } from "@/workspace/table";
 
-const RETRIEVE_ENDPOINT = "/workspace/retrieve";
-const CREATE_ENDPOINT = "/workspace/create";
-const RENAME_ENDPOINT = "/workspace/rename";
-const SET_LAYOUT_ENDPOINT = "/workspace/set-layout";
-const DELETE_ENDPOINT = "/workspace/delete";
-
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   searchTerm: z.string().optional(),
   author: userKeyZ.optional(),
-  offset: z.number().optional(),
-  limit: z.number().optional(),
+  offset: z.int().optional(),
+  limit: z.int().optional(),
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 const createReqZ = z.object({ workspaces: newZ.array() });
@@ -80,7 +74,7 @@ export class Client {
     const isMany = Array.isArray(workspaces);
     const res = await sendRequired(
       this.client,
-      CREATE_ENDPOINT,
+      "/workspace/create",
       { workspaces: array.toArray(workspaces) },
       createReqZ,
       createResZ,
@@ -91,7 +85,7 @@ export class Client {
   async rename(key: Key, name: string): Promise<void> {
     await sendRequired(
       this.client,
-      RENAME_ENDPOINT,
+      "/workspace/rename",
       { key, name },
       renameReqZ,
       emptyResZ,
@@ -101,7 +95,7 @@ export class Client {
   async setLayout(key: Key, layout: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
-      SET_LAYOUT_ENDPOINT,
+      "/workspace/set-layout",
       { key, layout },
       setLayoutReqZ,
       emptyResZ,
@@ -119,7 +113,7 @@ export class Client {
     else req = keys;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/workspace/retrieve",
       req,
       retrieveReqZ,
       retrieveResZ,
@@ -127,23 +121,12 @@ export class Client {
     return isMany ? res.workspaces : res.workspaces[0];
   }
 
-  async retrieveByAuthor(author: UserKey): Promise<Workspace[]> {
-    const res = await sendRequired(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { author },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return res.workspaces;
-  }
-
   async delete(key: Key): Promise<void>;
   async delete(keys: Key[]): Promise<void>;
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,
-      DELETE_ENDPOINT,
+      "/workspace/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,

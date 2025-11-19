@@ -14,8 +14,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -66,12 +65,12 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(s Status) ontology.Resource {
-	return core.NewResource(schema, OntologyID(s.Key), s.Name, s)
+	return ontology.NewResource(schema, OntologyID(s.Key), s.Name, s)
 }
 
 var _ ontology.Service = (*Service)(nil)
 
-type change = changex.Change[string, Status]
+type change = xchange.Change[string, Status]
 
 func (s *Service) Type() ontology.Type { return OntologyType }
 

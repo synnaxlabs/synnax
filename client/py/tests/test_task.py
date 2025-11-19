@@ -135,3 +135,38 @@ class TestTaskClient:
         tsk = sy.Task()
         with pytest.raises(TimeoutError):
             client.hardware.tasks.configure(tsk, timeout=0.1)
+
+    def test_list_tasks(self, client: sy.Synnax):
+        """Should list all tasks on the default rack."""
+        # Create some tasks
+        task1 = client.hardware.tasks.create(name=str(uuid4()), type="test1")
+        task2 = client.hardware.tasks.create(name=str(uuid4()), type="test2")
+
+        # List all tasks
+        tasks = client.hardware.tasks.list()
+
+        # Should contain at least the tasks we just created
+        task_keys = [t.key for t in tasks]
+        assert task1.key in task_keys
+        assert task2.key in task_keys
+
+    def test_copy_task(self, client: sy.Synnax):
+        """Should copy a task with a new name."""
+        # Create an original task
+        original_name = str(uuid4())
+        original = client.hardware.tasks.create(
+            name=original_name, type="test", config='{"foo": "bar"}'
+        )
+
+        # Copy the task
+        copy_name = str(uuid4())
+        copied = client.hardware.tasks.copy(
+            key=original.key,
+            name=copy_name,
+        )
+
+        # Verify the copy
+        assert copied.key != original.key
+        assert copied.name == copy_name
+        assert copied.type == original.type
+        assert copied.config == original.config

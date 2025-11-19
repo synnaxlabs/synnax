@@ -15,8 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -60,13 +59,13 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"key": zyn.UUID(),
 })
 
-func newResource(c Arc) core.Resource {
-	return core.NewResource(schema, OntologyID(c.Key), c.Name, c)
+func newResource(c Arc) ontology.Resource {
+	return ontology.NewResource(schema, OntologyID(c.Key), c.Name, c)
 }
 
 var _ ontology.Service = (*Service)(nil)
 
-type change = changex.Change[uuid.UUID, Arc]
+type change = xchange.Change[uuid.UUID, Arc]
 
 func (s *Service) Type() ontology.Type { return ontologyType }
 
@@ -74,15 +73,15 @@ func (s *Service) Type() ontology.Type { return ontologyType }
 func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (core.Resource, error) {
+func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	k := uuid.MustParse(key)
 	var arc Arc
 	err := s.NewRetrieve().WhereKeys(k).Entry(&arc).Exec(ctx, tx)
 	return newResource(arc), err
 }
 
-func translateChange(c change) core.Change {
-	return core.Change{
+func translateChange(c change) ontology.Change {
+	return ontology.Change{
 		Variant: c.Variant,
 		Key:     OntologyID(c.Key),
 		Value:   newResource(c.Value),
@@ -90,17 +89,17 @@ func translateChange(c change) core.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[core.Change])) observe.Disconnect {
+func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[ontology.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Arc]) {
-		f(ctx, iter.NexterTranslator[change, core.Change]{Wrap: reader, Translate: translateChange})
+		f(ctx, iter.NexterTranslator[change, ontology.Change]{Wrap: reader, Translate: translateChange})
 	}
 	return gorp.Observe[uuid.UUID, Arc](s.cfg.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter() (iter.NexterCloser[core.Resource], error) {
+func (s *Service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	n, err := gorp.WrapReader[uuid.UUID, Arc](s.cfg.DB).OpenNexter()
-	return iter.NexterCloserTranslator[Arc, core.Resource]{
+	return iter.NexterCloserTranslator[Arc, ontology.Resource]{
 		Wrap:      n,
 		Translate: newResource,
 	}, err

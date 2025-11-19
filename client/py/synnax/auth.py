@@ -40,8 +40,6 @@ TOKEN_PREFIX = "Bearer "
 
 
 class AuthenticationClient:
-    _LOGIN_ENDPOINT = "/auth/login"
-
     client: UnaryClient
     username: str
     password: str
@@ -63,7 +61,7 @@ class AuthenticationClient:
     def authenticate(self) -> None:
         res = send_required(
             self.client,
-            self._LOGIN_ENDPOINT,
+            "/auth/login",
             InsecureCredentials(username=self.username, password=self.password),
             TokenResponse,
         )

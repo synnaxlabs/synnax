@@ -22,8 +22,6 @@ const LOGIN_ENDPOINT = "/auth/login";
 
 const MAX_RETRIES = 3;
 
-const CHANGE_PASSWORD_ENDPOINT = "/auth/change-password";
-
 const changePasswordReqZ = z.object({
   username: z.string(),
   password: z.string(),
@@ -53,7 +51,7 @@ export class Client {
     if (!this.authenticated) throw new Error("Not authenticated");
     await sendRequired<typeof changePasswordReqZ, typeof changePasswordResZ>(
       this.client,
-      CHANGE_PASSWORD_ENDPOINT,
+      "/auth/change-password",
       {
         username: this.credentials.username,
         password: this.credentials.password,

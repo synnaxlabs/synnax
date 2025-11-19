@@ -173,6 +173,7 @@ import {
 } from "react-icons/ri";
 import { RxComponentBoolean, RxReset } from "react-icons/rx";
 import {
+  SiCplusplus,
   SiGooglenearby,
   SiNpm,
   SiPnpm,
@@ -268,6 +269,7 @@ export const Workspace = wrapSVGIcon(MdWorkspacesFilled, "workspace");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Python = wrapSVGIcon(SiPython, "python");
 export const TypeScript = wrapSVGIcon(SiTypescript, "typescript");
+export const CPlusPlus = wrapSVGIcon(SiCplusplus, "cplusplus");
 export const NPM = wrapSVGIcon(SiNpm, "npm");
 export const PNPM = wrapSVGIcon(SiPnpm, "pnpm");
 export const Yarn = wrapSVGIcon(SiYarn, "yarn");
@@ -490,6 +492,7 @@ const icons = {
   Box,
   Python,
   TypeScript,
+  CPlusPlus,
   NPM,
   PNPM,
   Yarn,

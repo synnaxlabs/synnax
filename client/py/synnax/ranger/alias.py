@@ -33,8 +33,6 @@ class _EmptyResponse(Payload): ...
 
 
 class Aliaser:
-    __SET_ENDPOINT = "/range/alias/set"
-    __RESOLVE_ENDPOINT = "/range/alias/resolve"
     __client: UnaryClient
     __cache: dict[str, ChannelKey]
 
@@ -64,7 +62,7 @@ class Aliaser:
             return results
 
         req = _ResolveRequest(range=self.__rng, aliases=to_fetch)
-        res, exc = self.__client.send(self.__RESOLVE_ENDPOINT, req, _ResolveResponse)
+        res, exc = self.__client.send("/range/alias/resolve", req, _ResolveResponse)
         if exc is not None:
             raise exc
 
@@ -77,6 +75,6 @@ class Aliaser:
 
     def set(self, aliases: dict[ChannelKey, str]) -> None:
         req = _SetRequest(range=self.__rng, aliases=aliases)
-        res, exc = self.__client.send(self.__SET_ENDPOINT, req, _EmptyResponse)
+        res, exc = self.__client.send("/range/alias/set", req, _EmptyResponse)
         if exc is not None:
             raise exc
