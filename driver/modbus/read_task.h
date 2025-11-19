@@ -70,7 +70,8 @@ public:
         BaseReader(chs), register_type(register_type) {
         auto first_addr = this->channels.front().address;
         auto last_addr = this->channels.back().address;
-        last_addr += this->channels.back().value_type.density() / 2;
+        // Use ceiling division to convert bytes to 16-bit registers
+        last_addr += (this->channels.back().value_type.density() + 1) / 2;
         this->buffer.resize(last_addr - first_addr);
     }
 
@@ -283,12 +284,12 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @param client the Synnax client to use to retrieve the device and channel
     /// information.
     /// @param task the task to parse.
-    /// @returns a pair containing the parsed configuration and any error that occurred
-    /// during parsing.
+    /// @returns a pair containing the parsed configuration and any error that occurred.
     static std::pair<ReadTaskConfig, xerrors::Error>
     parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
         auto parser = xjson::Parser(task.config);
-        return {ReadTaskConfig(client, parser), parser.error()};
+        ReadTaskConfig cfg(client, parser);
+        return {std::move(cfg), parser.error()};
     }
 
     /// @brief all synnax channels that the task will write to, excluding indexes.

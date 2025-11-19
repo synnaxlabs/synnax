@@ -100,9 +100,10 @@ public:
     xerrors::Error initialize_state(const std::shared_ptr<device::Device> &dev) {
         if (!this->state.empty()) return xerrors::NIL;
         const auto &last_ch = channels.back();
+        // Use ceiling division to convert bytes to 16-bit registers
         state.resize(
             last_ch.address - channels.front().address +
-            last_ch.value_type.density() / 2
+            (last_ch.value_type.density() + 1) / 2
         );
         return dev->read_registers(
             device::HoldingRegister,
@@ -144,9 +145,12 @@ struct WriteTaskConfig {
     device::ConnectionConfig conn;
     /// @brief the list of writers to use for writing data to the device.
     std::vector<std::unique_ptr<Writer>> writers;
+    /// @brief whether to automatically start the task after configuration.
+    bool auto_start;
 
     WriteTaskConfig(const std::shared_ptr<synnax::Synnax> &client, xjson::Parser &cfg):
-        device_key(cfg.field<std::string>("device")) {
+        device_key(cfg.field<std::string>("device")),
+        auto_start(cfg.optional<bool>("auto_start", false)) {
         auto [dev_info, dev_err] = client->hardware.retrieve_device(this->device_key);
         if (dev_err) {
             cfg.field_err("device", dev_err);
@@ -189,12 +193,12 @@ struct WriteTaskConfig {
     /// @param client the Synnax client to use to retrieve the device and channel
     /// information.
     /// @param task the task to parse.
-    /// @returns a pair containing the parsed configuration and any error that
-    /// occurred during parsing.
+    /// @returns a pair containing the parsed configuration and any error that occurred.
     static std::pair<WriteTaskConfig, xerrors::Error>
     parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
         auto parser = xjson::Parser(task.config);
-        return {WriteTaskConfig(client, parser), parser.error()};
+        WriteTaskConfig cfg(client, parser);
+        return {std::move(cfg), parser.error()};
     }
 };
 

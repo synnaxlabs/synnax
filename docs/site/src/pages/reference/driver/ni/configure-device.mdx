@@ -10,13 +10,13 @@ nextURL: "/reference/driver/ni/analog-read-task"
 ---
 
 import StepText from "@/components/StepText.astro";
-import { Divider } from "@synnaxlabs/pluto";
-import { Video } from "@/components/Media";
+import { Divider, Icon, Note, Text } from "@synnaxlabs/pluto";
+import { Image, Video } from "@/components/Media";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { Client } from "@/components/client";
+import { Fragment } from "react";
 export const components = mdxOverrides;
-
-The first step to start acquiring data and sending commands to your National Instruments
-(NI) hardware is to connect and configure your module.
 
 <Divider.Divider x />
 
@@ -27,7 +27,7 @@ you have the following:
 
 1. A [Synnax Core](/reference/core/quick-start) running on your network.
 2. A [Synnax Driver](/reference/driver/get-started) running on your network. This Driver
-   must be connected to the Core and running on the same machine as your NI hardware is
+   must be connected to the Core and running on the same machine your NI hardware is
    connected to.
 3. The
    [NI-DAQmx](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html)
@@ -38,51 +38,104 @@ you have the following:
 
 <Divider.Divider x />
 
-## <StepText level="h2" step={1}>Select a Device to Configure</StepText>
+## Configuration Parameters Reference
 
-Synnax will automatically detect new NI modules, and display a notification in the
+| Parameter    | Type   | Required | Description                                                 |
+| ------------ | ------ | -------- | ----------------------------------------------------------- |
+| `name`       | string | Yes      | Human-readable device name for identification in Console    |
+| `rack`       | string | Yes      | Synnax Driver (rack) key where the device is connected      |
+| `model`      | string | Yes      | NI device model (e.g., `cDAQ-9174`, `PXI-6259`, `USB-6008`) |
+| `location`   | string | Yes      | Physical connection identifier (device name from NI MAX)    |
+| `identifier` | string | Yes      | Channel name prefix for all channels on this device         |
+
+<Divider.Divider x />
+
+## How-To
+
+<Note.Note variant="warning" className="compact">
+  Before you begin, connect to your device and reserve it using [NI
+  MAX](https://www.ni.com/en/support/documentation/supplemental/21/what-is-ni-measurement---automation-explorer--ni-max--.html).
+  The Driver must run on the same machine used to reserve the hardware.
+</Note.Note>
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+
+Synnax will automatically detect new NI modules and display a notification in the
 Console when a new device is connected. To start configuring the device, find the device
 in the Devices Toolbar, right click on the device and select "Configure".
 
 <Video
   client:only="react"
-  id="device-drivers/ni/configure-device/device-configure-from-resources"
+  id="device-drivers/ni/configure-device/ni-configure-device"
 />
 
-<Divider.Divider x />
+</Fragment>
+  <Fragment slot="python">
 
-## <StepText level="h2" step={2}>Name Your Device</StepText>
+```python
+import synnax as sy
+from synnax.hardware import ni
 
-The first step in the configuration dialog will prompt you to name your device. This
-name will be used to identify the device in Synnax.
+# Connect to Synnax
+client = sy.Synnax()
 
-<Video
-  client:only="react"
-  id="device-drivers/ni/configure-device/device-configure-name"
-/>
+# Get the embedded rack (local driver rack)
+rack = client.hardware.racks.retrieve_embedded_rack()
 
-<Divider.Divider x />
+# Configure device using the ni.Device class
+device = ni.Device(
+    identifier="dev_mod1",
+    name="My NI Module",
+    model="NI 9205",
+    location="cDAQ1/dev_mod1",
+    rack=rack.key,
+)
 
-## <StepText level="h2" step={3}>Set the Device Identifier</StepText>
+# Create the device in Synnax
+device = client.hardware.devices.create(device)
 
-Next, you'll need to set a short device identifier. This identifier will be used to
-prefix the names of all of the channels on your device. We've automatically generated a
-few suggestions, although you're welcome to choose your own. We recommend keeping this
-as short as possible, while still uniquely identifying the device.
+# Or retrieve by model
+device = client.hardware.devices.retrieve(model="NI 9205")
 
-<Video
-  client:only="react"
-  id="device-drivers/ni/configure-device/device-configure-id"
-/>
+# Or retrieve by name
+device = client.hardware.devices.retrieve(name="My NI Module")
 
-<Divider.Divider x />
+print(f"Device configured: {device.name} (key={device.key})")
+```
 
-## <StepText level="h2" step={4}>Save the Configuration</StepText>
+</Fragment>
+  <Fragment slot="typescript">
 
-Once you're happy with the name and identifier, the last step is to save the
-configuration by hitting the blue "Save" button in the bottom-right corner.
+```typescript
+import { Synnax } from "@synnaxlabs/client";
 
-<Video
-  client:only="react"
-  id="device-drivers/ni/configure-device/device-configure-save"
-/>
+// Connect to Synnax
+const client = new Synnax();
+
+// Get the embedded rack (local driver rack)
+const rack = await client.hardware.racks.retrieveEmbeddedRack();
+
+// Configure device connection
+const device = await client.hardware.devices.create({
+  rack: rack.key,
+  name: "My NI Module",
+  make: "NI",
+  model: "NI 9205",
+  location: "cDAQ1/dev_mod1",
+  properties: {
+    identifier: "dev_mod1", // Channel name prefix
+  },
+});
+
+// Or retrieve by model
+const device = await client.hardware.devices.retrieve({ model: "NI 9205" });
+
+// Or retrieve by name
+const device = await client.hardware.devices.retrieve({ name: "My NI Module" });
+
+console.log(`Device configured: ${device.name} (key=${device.key})`);
+```
+
+  </Fragment>
+</Client.Tabs>

@@ -10,6 +10,8 @@
 package api_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/fhttp"
@@ -27,10 +29,12 @@ import (
 
 var _ = Describe("FramerCodec", Ordered, func() {
 	var (
+		ctx         context.Context
 		mockCluster *mock.Cluster
 		dist        *distribution.Layer
 	)
 	BeforeAll(func() {
+		ctx = context.Background()
 		mockCluster = mock.ProvisionCluster(ctx, 1)
 		dist = mockCluster.Nodes[1].Layer
 	})
