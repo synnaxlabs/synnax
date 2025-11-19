@@ -170,8 +170,6 @@ void Task::to_proto(api::v1::Task *task) const {
 }
 
 const std::string RETRIEVE_TASK_ENDPOINT = "/hardware/task/retrieve";
-const std::string CREATE_TASK_ENDPOINT = "/hardware/task/create";
-const std::string DELETE_TASK_ENDPOINT = "/hardware/task/delete";
 
 std::pair<Task, xerrors::Error> TaskClient::retrieve(const TaskKey key) const {
     auto req = api::v1::HardwareRetrieveTaskRequest();
@@ -244,7 +242,7 @@ TaskClient::retrieve_by_type(const std::vector<std::string> &types) const {
 xerrors::Error TaskClient::create(Task &task) const {
     auto req = api::v1::HardwareCreateTaskRequest();
     task.to_proto(req.add_tasks());
-    auto [res, err] = task_create_client->send(CREATE_TASK_ENDPOINT, req);
+    auto [res, err] = task_create_client->send("/hardware/task/create", req);
     if (err) return err;
     if (res.tasks_size() == 0) return unexpected_missing("task");
     task.key = res.tasks().at(0).key();
@@ -254,7 +252,7 @@ xerrors::Error TaskClient::create(Task &task) const {
 xerrors::Error TaskClient::del(const TaskKey key) const {
     auto req = api::v1::HardwareDeleteTaskRequest();
     req.add_keys(key);
-    auto [res, err] = task_delete_client->send(DELETE_TASK_ENDPOINT, req);
+    auto [res, err] = task_delete_client->send("/hardware/task/delete", req);
     return err;
 }
 

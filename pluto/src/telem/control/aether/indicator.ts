@@ -18,8 +18,8 @@ export const indicatorStatusDetailsZ = z
   .default({ color: undefined });
 
 export const indicatorStateZ = z.object({
-  statusSource: telem.statusSourceSpecZ.optional().default(telem.noopStatusSourceSpec),
-  colorSource: telem.colorSourceSpecZ.optional().default(telem.noopColorSourceSpec),
+  statusSource: telem.statusSourceSpecZ.default(telem.noopStatusSourceSpec),
+  colorSource: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
   status: status.statusZ(indicatorStatusDetailsZ),
   color: color.colorZ.optional(),
 });

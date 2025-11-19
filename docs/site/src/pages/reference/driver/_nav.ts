@@ -32,6 +32,11 @@ export const DRIVER_NAV: PageNavNode = {
       href: "/reference/driver/timing",
       name: "Timing",
     },
+    {
+      key: "/reference/driver/task-basics",
+      href: "/reference/driver/task-basics",
+      name: "Task Basics",
+    },
     LABJACK_NAV,
     MODBUS_NAV,
     NI_NAV,

@@ -40,10 +40,6 @@ class _DeleteRequest(Payload):
 
 ONTOLOGY_TYPE = ID(type="policy")
 
-_CREATE_ENDPOINT = "/access/policy/create"
-_RETRIEVE_ENDPOINT = "/access/policy/retrieve"
-_DELETE_ENDPOINT = "/access/policy/delete"
-
 
 class PolicyClient:
     _client: UnaryClient
@@ -94,7 +90,7 @@ class PolicyClient:
                 actions=actions,
             )
         req = _CreateRequest(policies=normalize(policies))
-        res = send_required(self._client, _CREATE_ENDPOINT, req, _CreateResponse)
+        res = send_required(self._client, "/access/policy/create", req, _CreateResponse)
         return res.policies[0] if is_single else res.policies
 
     def retrieve(
@@ -102,7 +98,7 @@ class PolicyClient:
     ) -> list[Policy]:
         res = send_required(
             self._client,
-            _RETRIEVE_ENDPOINT,
+            "/access/policy/retrieve",
             _RetrieveRequest(keys=keys, subjects=subjects),
             _RetrieveResponse,
         )
@@ -110,4 +106,4 @@ class PolicyClient:
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
-        send_required(self._client, _DELETE_ENDPOINT, req, Empty)
+        send_required(self._client, "/access/policy/delete", req, Empty)

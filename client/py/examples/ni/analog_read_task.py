@@ -25,7 +25,6 @@ via the NI-MAX software.
 # See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
 client = sy.Synnax()
 
-# Retrieve the USB-6289 device from Synnax.
 dev = client.hardware.devices.retrieve(model="USB-6289")
 
 # Create an index channel that will be used to store the timestamps
@@ -117,13 +116,8 @@ total_reads = 100
 frame = sy.Frame()
 
 # Start the task under a context manager, which ensures the task gets stopped
-# when the block exits. If you want to stop the task manually, you can call
-# tsk.start()
-# ...your code
-# tsk.stop()
-# We recommend wrapped your code in a try/finally block to ensure the task is
-# stopped in case of an exception.
-with tsk.start():
+# when the block exits.
+with tsk.run():
     # Open a streamer on the analog input channels.
     with client.open_streamer(["ai_0", "ai_1"]) as streamer:
         for i in range(total_reads):

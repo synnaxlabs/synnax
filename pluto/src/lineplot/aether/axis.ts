@@ -32,15 +32,15 @@ export const coreAxisStateZ = axis.axisStateZ
     bounds: bounds.bounds.optional(),
     autoBounds: z
       .object({
-        lower: z.boolean().optional().default(true),
-        upper: z.boolean().optional().default(true),
+        lower: z.boolean().default(true),
+        upper: z.boolean().default(true),
       })
-      .or(z.boolean().optional().default(true)),
+      .or(z.boolean().default(true)),
     autoBoundPadding: z.number().optional(),
-    autoBoundUpdateInterval: TimeSpan.z.optional().default(TimeSpan.seconds(10)),
-    size: z.number().optional().default(0),
-    label: z.string().optional().default(""),
-    labelSize: z.number().optional().default(0),
+    autoBoundUpdateInterval: TimeSpan.z.default(TimeSpan.seconds(10)),
+    size: z.number().default(0),
+    label: z.string().default(""),
+    labelSize: z.number().default(0),
   })
   .partial({ color: true, font: true, gridColor: true });
 

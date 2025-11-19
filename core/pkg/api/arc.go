@@ -100,7 +100,7 @@ type (
 		SearchTerm    string      `json:"search_term" msgpack:"search_term"`
 		Limit         int         `json:"limit" msgpack:"limit"`
 		Offset        int         `json:"offset" msgpack:"offset"`
-		IncludeStatus *bool       `json:"include_status" msgpack:"include_status"`
+		IncludeStatus bool        `json:"include_status" msgpack:"include_status"`
 	}
 	ArcRetrieveResponse struct {
 		Arcs []Arc `json:"arcs" msgpack:"arcs"`
@@ -138,7 +138,7 @@ func (s *ArcService) Retrieve(ctx context.Context, req ArcRetrieveRequest) (res 
 
 	res.Arcs = translateArcsFromService(svcArcs)
 
-	if req.IncludeStatus != nil && *req.IncludeStatus {
+	if req.IncludeStatus {
 		statuses := make([]status.Status, 0, len(res.Arcs))
 		uuidStrings := lo.Map(res.Arcs, func(a Arc, _ int) string {
 			return a.Key.String()

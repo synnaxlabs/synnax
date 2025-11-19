@@ -19,8 +19,8 @@ export const ruleStateZ = z.object({
   position: z.number().optional(),
   pixelPosition: z.number().optional(),
   dragging: z.boolean(),
-  lineWidth: z.number().optional().default(1),
-  lineDash: z.number().optional().default(20),
+  lineWidth: z.number().default(1),
+  lineDash: z.number().default(20),
   color: color.colorZ,
 });
 

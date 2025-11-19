@@ -13,7 +13,12 @@ from typing import Any
 from pydantic import BaseModel
 
 from synnax.channel import ChannelKey
-from synnax.hardware.task import JSONConfigMixin, MetaTask, StarterStopperMixin, Task
+from synnax.hardware.task import (
+    JSONConfigMixin,
+    StarterStopperMixin,
+    Task,
+    TaskProtocol,
+)
 from synnax.telem import CrudeRate, Rate
 
 TYPE = "sequence"
@@ -39,7 +44,7 @@ class StateDetails(BaseModel):
     message: str
 
 
-class Sequence(StarterStopperMixin, JSONConfigMixin, MetaTask):
+class Sequence(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     """A task for executing control sequences on a Synnax cluster."""
 
     TYPE = TYPE

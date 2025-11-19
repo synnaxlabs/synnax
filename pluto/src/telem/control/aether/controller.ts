@@ -45,7 +45,7 @@ export const controllerStateZ = z.object({
   authority: z.number().default(0),
   acquireTrigger: z.number(),
   status: statusZ.optional(),
-  needsControlOf: channel.keyZ.array().optional().default([]),
+  needsControlOf: channel.keyZ.array().default([]),
 });
 
 interface InternalState {

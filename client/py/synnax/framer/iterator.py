@@ -65,7 +65,6 @@ class Iterator:
     between two timestamps, see the segment Client read method instead.
     """
 
-    __ENDPOINT = "/frame/iterate"
     __stream: Stream[_Request, _Response]
     __adapter: ReadFrameAdapter
 
@@ -86,7 +85,7 @@ class Iterator:
         self.tr = tr
         self.instrumentation = instrumentation
         self.__adapter = adapter
-        self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
+        self.__stream = client.stream("/frame/iterate", _Request, _Response)
         self._chunk_size = chunk_size
         self.__open()
 

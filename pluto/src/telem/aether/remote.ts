@@ -155,7 +155,7 @@ const fetchChannelProperties = async (
 const channelDataSourcePropsZ = z.object({
   timeRange: TimeRange.z,
   channel: z.number().or(z.string()),
-  useIndexOfChannel: z.boolean().optional().default(false),
+  useIndexOfChannel: z.boolean().default(false),
 });
 
 export type ChannelDataProps = z.input<typeof channelDataSourcePropsZ>;
@@ -226,7 +226,7 @@ export class ChannelData
 
 const streamChannelDataPropsZ = z.object({
   channel: z.number().or(z.string()),
-  useIndexOfChannel: z.boolean().optional().default(false),
+  useIndexOfChannel: z.boolean().default(false),
   timeSpan: TimeSpan.z,
   keepFor: TimeSpan.z.optional(),
 });

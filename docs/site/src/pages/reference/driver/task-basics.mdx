@@ -1,0 +1,399 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Task Basics"
+description: "Learn the fundamentals of working with tasks in Synnax."
+prev: "Timing"
+prevURL: "/reference/driver/timing"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Video } from "@/components/Media";
+import { Tabs } from "@/components/Tabs";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+## Prerequisites
+
+Before creating any tasks, you'll need to have connected and configured a hardware
+device:
+
+- [LabJack](/reference/driver/labjack/configure-device)
+- [National Instruments](/reference/driver/ni/configure-device)
+- [OPC UA](/reference/driver/opc-ua/connect-server)
+- [Modbus TCP](/reference/driver/modbus/connect-server)
+
+<Divider.Divider x />
+
+## What Are Tasks?
+
+Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
+can be used for both control and data acquisition purposes. A task defines a background
+process that either reads data from or writes data to your hardware.
+
+Tasks can be started, stopped, and re-configured at any time. Synnax permanently stores
+the configuration of each task, so it's easy to set up multiple tasks for different
+purposes and switch between them as needed.
+
+<Divider.Divider x />
+
+## Creating a Task
+
+The examples below apply to all hardware tasks types (analog Write, labjack read, etc.).
+
+<Tabs
+  client:load
+  tabs={[
+    { name: "Devices Toolbar", tabKey: "tab1" },
+    { name: "Search and Command Palette", tabKey: "tab2" },
+    { name: "Layout Selector", tabKey: "tab3" }
+  ]}
+>
+<Fragment slot="tab1">
+
+Click on the device icon (<Icon.Device />) on the left-hand side of the screen. Find the
+device you'd like to create the task for, right-click on it, and select the appropriate
+task type.
+
+<Video client:only="react" id="device-drivers/task/toolbar" />
+
+</Fragment>
+<Fragment slot="tab2">
+
+Click on the Search and Command Palette at the top. Alternatively, you can also open
+this palette with `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
+
+In command mode (first character in the input is `>`), type "Create". You'll see options
+for creating different task types. Select the one you need to open the task
+configuration dialog.
+
+<Video client:only="react" id="device-drivers/task/command-palette" />
+
+</Fragment>
+<Fragment slot="tab3">
+
+Click on the add icon (<Icon.Add />) in the top-right corner of the central mosaic and
+select the appropriate NI task type from the menu.
+
+<Video client:only="react" id="device-drivers/task/layout-selector" />
+
+</Fragment>
+</Tabs>
+
+<Divider.Divider x />
+
+## Task Lifecycle
+
+### Configuring the Task
+
+After making any changes to your task configuration, click the `Configure` button. If
+there are no errors, Synnax will enable the play button in the task form.
+
+### Starting the Task
+
+Click the play (<Icon.Play />) button to start the task. The task will begin executing
+in the background, either reading data from or writing data to your hardware.
+
+### Stopping the Task
+
+To stop a running task, click the pause button (<Icon.Pause />). The task will stop
+executing, but the configuration will remain saved.
+
+<Note.Note variant="info" className="compact">
+  Starting and stopping a task does not re-apply the task configuration. If you've made
+  changes to the configuration, you'll need to re-configure the task by clicking the
+  "Configure" button before those changes take effect.
+</Note.Note>
+
+<Divider.Divider x />
+
+## How-To
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+    <Video
+      client:only="react"
+      id="device-drivers/task/task-basic"
+    />
+  </Fragment>
+  <Fragment slot="python">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Running a task</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# Retrieve your task
+task = client.hardware.tasks.retrieve(name="My Analog Read Task")
+
+# Option 1: Use run() context manager (Recommended)
+# Automatically starts and stops the task, even if
+# an exception occurs
+with task.run():
+    # task.start() called under the hood
+    with client.open_streamer(["ai_0", "ai_1"]) as streamer:
+        for i in range(100):
+            frame = streamer.read()
+# task.stop() called under the hood
+
+# Option 2: Start task and leave it running
+# Task continues running even after the script exits
+task.start()
+
+# Later, you can stop it with:
+# task.stop()
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Details /> List all tasks and retrieve by name</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# List all tasks
+all_tasks = client.hardware.tasks.list()
+for task in all_tasks:
+    print(f"Task: {task.name}, Type: {task.type}")
+
+# Retrieve task by name
+task = client.hardware.tasks.retrieve(name="My Example Task")
+
+# List tasks by type
+analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
+
+# Available task types:
+#   ni_analog_read, ni_analog_write,
+#   ni_counter_read,
+#   ni_digital_read, ni_digital_write,
+#   labjack_read, labjack_write,
+#   modbus_read, modbus_write,
+#   opc_read, opc_write,
+
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Copy and edit a task</Text.Text>
+
+```python
+import synnax as sy
+from synnax.hardware import modbus, ni, labjack, opcua
+
+client = sy.Synnax()
+
+# Retrieve the original task
+original_task = client.hardware.tasks.retrieve(name="My Example Task")
+
+# Copy the task with a new name
+copied_task_raw = client.hardware.tasks.copy(
+    key=original_task.key,
+    name="My Example Task Copy"
+)
+
+# Convert to the appropriate task type to modify configuration
+# For this example, we are assuming a modbus task
+copied_task = modbus.ReadTask(internal=copied_task_raw)
+
+# Modify the configuration
+copied_task.config.auto_start = True
+
+# Apply the changes
+client.hardware.tasks.configure(copied_task)
+
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Close /> Stop and delete task</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# Retrieve task
+task = client.hardware.tasks.retrieve(name="My Example Task")
+
+# Stop task if running
+task.stop()
+
+# Delete task
+client.hardware.tasks.delete(task.key)
+```
+
+</ExampleDetails>
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Running a task</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve your task
+const task = await client.hardware.tasks.retrieve({ name: "My Analog Read Task" });
+
+// Option 1: Use run() context manager (Recommended)
+// Automatically starts and stops the task, even if
+// an exception occurs
+await task.run(async () => {
+  // task.start() called under the hood
+  const streamer = await client.openStreamer(["ai_0", "ai_1"]);
+  try {
+    for (let i = 0; i < 100; i++) {
+      const frame = await streamer.read();
+    }
+  } finally {
+    await streamer.close();
+  }
+});
+// task.stop() called under the hood
+
+// Option 2: Start task and leave it running
+// Task continues running even after the script exits
+await task.start();
+
+// Later, you can stop it with:
+// await task.stop();
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Details /> List all tasks and retrieve by name</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// List all tasks
+const allTasks = await client.hardware.tasks.list();
+allTasks.forEach((task) => {
+  console.log(`Task: ${task.name}, Type: ${task.type}`);
+});
+
+// Retrieve task by name
+const task = await client.hardware.tasks.retrieve({ name: "My Example Task" });
+
+// List tasks by type
+const analogReadTasks = allTasks.filter((t) => t.type === "ni_analog_read");
+
+// Available task types:
+//   ni_analog_read, ni_analog_write,
+//   ni_counter_read,
+//   ni_digital_read, ni_digital_write,
+//   labjack_read, labjack_write,
+//   modbus_read, modbus_write,
+//   opc_read, opc_write,
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Copy and edit a task</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve the original task
+const originalTask = await client.hardware.tasks.retrieve({ name: "My Example Task" });
+
+// Copy the task with a new name
+const copiedTask = await client.hardware.tasks.copy(
+  originalTask.key,
+  "My Example Task Copy",
+  false, // snapshot = false
+);
+
+// Modify the configuration
+const config = JSON.parse(copiedTask.config);
+config.auto_start = true;
+
+// Update the task (create with key updates existing task)
+await client.hardware.tasks.create({
+  key: copiedTask.key,
+  name: copiedTask.name,
+  type: copiedTask.type,
+  config: JSON.stringify(config),
+});
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Close /> Stop and delete task</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve task
+const task = await client.hardware.tasks.retrieve({ name: "My Example Task" });
+
+// Stop task if running
+await task.stop();
+
+// Delete task
+await client.hardware.tasks.delete(task.key);
+```
+
+</ExampleDetails>
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Next Steps
+
+Now that you understand the basics of working with tasks, you can learn how to configure
+a specific task type:
+
+### LabJack
+
+- [Read Task](/reference/driver/labjack/read-task) - Acquire data from LabJack devices
+- [Write Task](/reference/driver/labjack/write-task) - Send commands to LabJack devices
+
+### National Instruments
+
+- [Analog Read Task](/reference/driver/ni/analog-read-task) - Acquire data from analog
+  inputs
+- [Analog Write Task](/reference/driver/ni/analog-write-task) - Send commands to analog
+  outputs
+- [Counter Read Task](/reference/driver/ni/counter-read-task) - Acquire data from
+  counter inputs
+- [Counter Write Task](/reference/driver/ni/counter-write-task) - Generate pulse train
+  outputs
+- [Digital Read Task](/reference/driver/ni/digital-read-task) - Acquire data from
+  digital inputs
+- [Digital Write Task](/reference/driver/ni/digital-write-task) - Send commands to
+  digital outputs
+
+### OPC UA
+
+- [Read Task](/reference/driver/opc-ua/read-task) - Read data from OPC UA servers
+- [Write Task](/reference/driver/opc-ua/write-task) - Write data to OPC UA servers
+
+### Modbus
+
+- [Read Task](/reference/driver/modbus/read-task) - Read data from Modbus servers
+- [Write Task](/reference/driver/modbus/write-task) - Write data to Modbus servers

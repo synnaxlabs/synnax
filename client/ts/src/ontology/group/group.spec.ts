@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -22,6 +23,23 @@ describe("Group", () => {
       const name = `group-${Math.random()}`;
       const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
       expect(g.name).toEqual(name);
+    });
+    it("should update an existing group", async () => {
+      const parent = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `test-parent-key${id.create()}`,
+      });
+      const g = await client.ontology.groups.create({
+        parent: group.ontologyID(parent.key),
+        name: `original-name-${id.create()}`,
+      });
+      await client.ontology.groups.create({
+        parent: group.ontologyID(parent.key),
+        key: g.key,
+        name: "updated-name",
+      });
+      const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
+      expect(g2.name).toEqual("updated-name");
     });
   });
   describe("rename", () => {
