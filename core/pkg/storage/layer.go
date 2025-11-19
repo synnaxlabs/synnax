@@ -334,7 +334,7 @@ func openKV(cfg Config, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 	if cfg.KVEngine != PebbleKV {
 		return nil, errors.Newf("[storage] - unsupported key-value engine: %s", cfg.KVEngine)
 	}
-
+	ins := cfg.Child("kv")
 	dirname := filepath.Join(cfg.Dirname, kvDirname)
 	requiresMigration, err := pebblekv.RequiresMigration(dirname, fs)
 	if err != nil {
@@ -342,20 +342,20 @@ func openKV(cfg Config, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 	}
 	if requiresMigration {
 		cfg.L.Info("existing key-value store requires migration. this may take a moment. Be patient and do not kill this process or risk corrupting data")
-		if err = pebblekv.Migrate(dirname); err != nil {
+		if err = pebblekv.Migrate(dirname, ins); err != nil {
 			return nil, err
 		}
 	}
 
-	ev := pebble.MakeLoggingEventListener(pebblekv.NewLogger(
-		cfg.Child("kv"),
-	))
+	logger := pebblekv.NewLogger(cfg.Child("kv"))
+	ev := pebble.MakeLoggingEventListener(logger)
 
 	// Create optimized options for read-heavy workloads
 	opts := &pebble.Options{
 		FS:                 fs,
 		FormatMajorVersion: pebble.FormatNewest,
 		EventListener:      &ev,
+		Logger:             logger,
 		Cache:              cache,
 		// 128 MB (up from 4 MB default)
 		MemTableSize: uint64(128 * telem.Megabyte),

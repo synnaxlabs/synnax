@@ -95,7 +95,10 @@ func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
 }
 
 func openKV(o *options) (xkv.DB, error) {
-	pebbleDB, err := pebble.Open(o.dirname, &pebble.Options{FS: o.fs})
+	log := pebblekv.NewLogger(o.Instrumentation.Child("kv"))
+	ev := pebble.MakeLoggingEventListener(log)
+	opts := &pebble.Options{FS: o.fs, Logger: log, EventListener: &ev}
+	pebbleDB, err := pebble.Open(o.dirname, opts)
 	if err != nil {
 		return nil, err
 	}

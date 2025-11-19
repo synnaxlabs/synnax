@@ -19,6 +19,7 @@ package pebblekv
 import (
 	"context"
 	"io"
+	"strings"
 
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/cockroachdb/pebble/v2/batchrepr"
@@ -88,7 +89,17 @@ func NewLogger(ins alamos.Instrumentation) pebble.Logger {
 	return logger{Instrumentation: ins}
 }
 
-func (l logger) Infof(format string, args ...any) { l.L.Infof(format, args...) }
+func NewNoopLogger() pebble.Logger {
+	return logger{Instrumentation: alamos.Instrumentation{}}
+}
+
+func (l logger) Infof(format string, args ...any) {
+	// Filter out Pebble's WAL discovery log messages which clutter test output
+	if strings.Contains(format, "WAL") {
+		return
+	}
+	l.L.Infof(format, args...)
+}
 func (l logger) Errorf(format string, args ...any) {
 	l.L.Zap().Sugar().Errorf(format, args...)
 }
