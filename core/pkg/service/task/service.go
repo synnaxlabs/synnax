@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -86,9 +87,10 @@ func (c Config) Validate() error {
 }
 
 type Service struct {
-	cfg             Config
-	shutdownSignals io.Closer
-	group           group.Group
+	cfg                           Config
+	shutdownSignals               io.Closer
+	group                         group.Group
+	disconnectSuspectRackObserver observe.Disconnect
 }
 
 const groupName = "Tasks"
@@ -115,6 +117,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 			return nil, err
 		}
 	}
+	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
 	if cfg.Signals == nil {
 		return
 	}
@@ -147,6 +150,7 @@ func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 }
 
 func (s *Service) Close() error {
+	s.disconnectSuspectRackObserver()
 	if s.shutdownSignals != nil {
 		return s.shutdownSignals.Close()
 	}
@@ -169,5 +173,28 @@ func (s *Service) NewRetrieve() Retrieve {
 		otg:    s.cfg.Ontology,
 		baseTX: s.cfg.DB,
 		gorp:   gorp.NewRetrieve[Key, Task](),
+	}
+}
+
+func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
+	var tasks []Task
+	if err := s.NewRetrieve().WhereRacks(rackStat.Details.Rack).
+		Entries(&tasks).
+		Exec(ctx, nil); err != nil {
+		s.cfg.L.Error("failed to retrieve tasks on suspect rack", zap.Error(err))
+	}
+	statuses := make([]Status, len(tasks))
+	for i, tsk := range tasks {
+		statuses[i] = Status{
+			Key:         OntologyID(tsk.Key).String(),
+			Time:        telem.Now(),
+			Message:     rackStat.Message,
+			Description: rackStat.Description,
+			Details:     StatusDetails{Task: tsk.Key},
+		}
+	}
+	if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).
+		SetMany(ctx, &statuses); err != nil {
+		s.cfg.L.Error("failed to set statuses on suspect rack", zap.Error(err))
 	}
 }

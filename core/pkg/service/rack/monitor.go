@@ -32,6 +32,7 @@ import (
 )
 
 type monitor struct {
+	observe.Observer[Status]
 	alamos.Instrumentation
 	interval telem.TimeSpan
 	svc      *Service
@@ -39,15 +40,15 @@ type monitor struct {
 		sync.Mutex
 		lastUpdated map[Key]telem.TimeStamp
 	}
-	disconnectObserver observe.Disconnect
-	shutdownRoutines   io.Closer
+	disconnectStatusObserver observe.Disconnect
+	shutdownRoutines         io.Closer
 }
 
 func (m *monitor) Close() error {
 	// Shutdown background routines first to stop checkAlive from triggering
 	// new observer notifications, then disconnect the observer to avoid deadlock
 	err := m.shutdownRoutines.Close()
-	m.disconnectObserver()
+	m.disconnectStatusObserver()
 	return err
 }
 
@@ -99,6 +100,9 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	if err := status.NewWriter[StatusDetails](m.svc.Status, nil).
 		SetMany(ctx, &statuses); err != nil {
 		return err
+	}
+	for _, stat := range statuses {
+		m.Observer.Notify(ctx, stat)
 	}
 	return nil
 }
@@ -156,13 +160,14 @@ func openMonitor(
 	obs := gorp.Observe[string, status.Status[any]](svc.DB)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(ins))
 	s := &monitor{
+		Observer:         observe.New[Status](),
 		Instrumentation:  ins,
 		svc:              svc,
 		interval:         svc.HealthCheckInterval,
 		shutdownRoutines: signal.NewHardShutdown(sCtx, cancel),
 	}
 	s.mu.lastUpdated = make(map[Key]telem.TimeStamp)
-	s.disconnectObserver = obs.OnChange(s.handleChange)
+	s.disconnectStatusObserver = obs.OnChange(s.handleChange)
 	signal.GoTick(sCtx, svc.HealthCheckInterval.Duration(), func(ctx context.Context, t time.Time) error {
 		if err := s.checkAlive(ctx); err != nil {
 			s.L.Error("failed to check alive status", zap.Error(err))

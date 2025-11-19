@@ -13,18 +13,26 @@ import (
 	"context"
 	"io"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // Config is the configuration for creating a device service.
 type Config struct {
+	// Instrumentation is used for logging, tracing, and metrics.
+	// [OPTIONAL] - Defaults to noop instrumentation.
+	alamos.Instrumentation
 	// DB is the gorp database that devices will be stored in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -42,6 +50,9 @@ type Config struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Rack is used to retrieve and manage racks.
+	// [OPTIONAL]
+	Rack *rack.Service
 }
 
 var _ config.Config[Config] = Config{}
@@ -53,6 +64,7 @@ func (c Config) Override(other Config) Config {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Rack = override.Nil(c.Rack, other.Rack)
 	return c
 }
 
@@ -64,6 +76,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "rack", c.Rack)
 	return v.Error()
 }
 
@@ -73,9 +86,10 @@ var DefaultConfig = Config{}
 // mechanisms for creating, retrieving, updating, and deleting devices. It also
 // provides mechanisms for listening to changes in devices.
 type Service struct {
-	cfg             Config
-	shutdownSignals io.Closer
-	group           group.Group
+	cfg                           Config
+	shutdownSignals               io.Closer
+	group                         group.Group
+	disconnectSuspectRackObserver observe.Disconnect
 }
 
 // OpenService opens a new device service using the provided configuration. If error
@@ -92,21 +106,22 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	s := &Service{cfg: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
-	if cfg.Signals == nil {
-		return s, nil
-	}
-	if s.shutdownSignals, err = signals.PublishFromGorp(
-		ctx,
-		cfg.Signals,
-		signals.GorpPublisherConfigString[Device](cfg.DB),
-	); err != nil {
-		return nil, err
+	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
+	if cfg.Signals != nil {
+		if s.shutdownSignals, err = signals.PublishFromGorp(
+			ctx,
+			cfg.Signals,
+			signals.GorpPublisherConfigString[Device](cfg.DB),
+		); err != nil {
+			return nil, err
+		}
 	}
 	return s, nil
 }
 
 // Close closes the device service and releases any resources that it may have acquired.
 func (s *Service) Close() error {
+	s.disconnectSuspectRackObserver()
 	if s.shutdownSignals == nil {
 		return nil
 	}
@@ -137,5 +152,28 @@ func (s *Service) NewRetrieve() Retrieve {
 		otg:    s.cfg.Ontology,
 		baseTX: s.cfg.DB,
 		gorp:   gorp.NewRetrieve[string, Device](),
+	}
+}
+
+func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
+	var devices []Device
+	if err := s.NewRetrieve().WhereRacks(rackStat.Details.Rack).
+		Entries(&devices).
+		Exec(ctx, nil); err != nil {
+		s.cfg.L.Error("failed to retrieve devices on suspect rack", zap.Error(err))
+	}
+	statuses := make([]Status, len(devices))
+	for i, device := range devices {
+		statuses[i] = Status{
+			Key:         OntologyID(device.Key).String(),
+			Time:        telem.Now(),
+			Message:     rackStat.Message,
+			Description: rackStat.Description,
+			Details:     StatusDetails{Rack: rackStat.Details.Rack, Device: device.Key},
+		}
+	}
+	if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).
+		SetMany(ctx, &statuses); err != nil {
+		s.cfg.L.Error("failed to set statuses on suspect rack", zap.Error(err))
 	}
 }

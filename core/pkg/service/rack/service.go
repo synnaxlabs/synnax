@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -96,11 +97,11 @@ func (c Config) Validate() error {
 type Service struct {
 	Config
 	EmbeddedKey     Key
+	keyMu           *sync.Mutex
 	localKeyCounter *kv.AtomicInt64Counter
 	shutdownSignals io.Closer
 	group           group.Group
-	keyMu           *sync.Mutex
-	closeMonitor    io.Closer
+	monitor         *monitor
 }
 
 const localKeyCounterSuffix = ".rack.counter"
@@ -126,7 +127,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	s.closeMonitor, err = openMonitor(s.Instrumentation.Child("monitor"), s)
+	s.monitor, err = openMonitor(s.Instrumentation.Child("monitor"), s)
 	if err != nil {
 		return nil, err
 	}
@@ -141,6 +142,10 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		}
 	}
 	return s, nil
+}
+
+func (s *Service) OnSuspect(handler func(ctx context.Context, status Status)) observe.Disconnect {
+	return s.monitor.OnChange(handler)
 }
 
 func (s *Service) loadEmbeddedRack(ctx context.Context) error {
@@ -175,7 +180,7 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 
 func (s *Service) Close() error {
 	c := errors.NewCatcher(errors.WithAggregation())
-	c.Exec(s.closeMonitor.Close)
+	c.Exec(s.monitor.Close)
 	if s.shutdownSignals == nil {
 		return nil
 	}

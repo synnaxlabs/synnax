@@ -65,6 +65,7 @@ var _ = Describe("Device", func() {
 			Ontology: otg,
 			Group:    groupSvc,
 			Status:   stat,
+			Rack:     rackSvc,
 		}))
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx)
