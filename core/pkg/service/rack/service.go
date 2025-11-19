@@ -65,9 +65,7 @@ var (
 	// DefaultConfig is the default configuration for opening a rack service. Note
 	// that this configuration is not valid. See the Config documentation for more
 	// details on which fields must be set.
-	DefaultConfig = Config{
-		HealthCheckInterval: 5 * telem.Second,
-	}
+	DefaultConfig = Config{HealthCheckInterval: 5 * telem.Second}
 )
 
 // Override implements config.Config.
@@ -183,6 +181,17 @@ func (s *Service) Close() error {
 	}
 	c.Exec(s.shutdownSignals.Close)
 	return c.Error()
+}
+
+func (s *Service) RetrieveStatus(ctx context.Context, key Key) (Status, error) {
+	var stat Status
+	if err := status.NewRetrieve[StatusDetails](s.Status).
+		WhereKeys(OntologyID(key).String()).
+		Entry(&stat).
+		Exec(ctx, nil); err != nil {
+		return Status{}, err
+	}
+	return stat, nil
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

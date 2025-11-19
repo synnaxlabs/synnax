@@ -25,16 +25,20 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
+	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Rack", Ordered, func() {
 	var (
-		db  *gorp.DB
-		svc *rack.Service
-		w   rack.Writer
-		tx  gorp.Tx
+		writer rack.Writer
+		tx     gorp.Tx
+		db     *gorp.DB
+		svc    *rack.Service
+		stat   *status.Service
 	)
+
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
@@ -44,27 +48,35 @@ var _ = Describe("Rack", Ordered, func() {
 			Ontology: otg,
 			Group:    g,
 		}))
-		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		stat = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    g,
 			Label:    label,
 		}))
 		svc = MustSucceed(rack.OpenService(ctx, rack.Config{
-			DB:           db,
-			Ontology:     otg,
-			Group:        g,
-			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       stat,
+			DB:                  db,
+			Ontology:            otg,
+			Group:               g,
+			HostProvider:        mock.StaticHostKeyProvider(1),
+			Status:              stat,
+			HealthCheckInterval: 10 * telem.Millisecond,
 		}))
-
+		DeferCleanup(func() {
+			Expect(svc.Close()).To(Succeed())
+			Expect(stat.Close()).To(Succeed())
+			Expect(label.Close()).To(Succeed())
+			Expect(g.Close()).To(Succeed())
+			Expect(otg.Close()).To(Succeed())
+			Expect(db.Close()).To(Succeed())
+		})
 	})
 	BeforeEach(func() {
 		tx = db.OpenTx()
-		w = svc.NewWriter(tx)
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
+		writer = svc.NewWriter(tx)
+		DeferCleanup(func() {
+			Expect(tx.Close()).To(Succeed())
+		})
 	})
 	Describe("Key", func() {
 		It("Should correctly construct and deconstruct key from its components", func() {
@@ -76,19 +88,19 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("Create", func() {
 		It("Should create a rack and assign it a key", func() {
 			r := &rack.Rack{Name: "rack1"}
-			Expect(w.Create(ctx, r)).To(Succeed())
+			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(!r.Key.IsZero()).To(BeTrue())
 			Expect(r.Key.Node()).To(Equal(cluster.NodeKey(1)))
 			Expect(r.Key.LocalKey()).To(Equal(uint16(2)))
 		})
 		It("Should correctly increment the local key counter", func() {
 			r := &rack.Rack{Name: "rack2"}
-			Expect(w.Create(ctx, r)).To(Succeed())
+			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(r.Key.LocalKey()).To(Equal(uint16(3)))
 		})
 		It("Should return an error if the rack has no name", func() {
 			r := &rack.Rack{}
-			err := w.Create(ctx, r)
+			err := writer.Create(ctx, r)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("name: required"))
 		})
@@ -96,14 +108,14 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("Retrieve", func() {
 		It("Should retrieve a rack by its key", func() {
 			r := &rack.Rack{Name: "rack3"}
-			Expect(w.Create(ctx, r)).To(Succeed())
+			Expect(writer.Create(ctx, r)).To(Succeed())
 			var res rack.Rack
 			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(Equal(*r))
 		})
 		It("Should retrieve racks where the host is the rack's node", func() {
 			r := &rack.Rack{Name: "rack4"}
-			Expect(w.Create(ctx, r)).To(Succeed())
+			Expect(writer.Create(ctx, r)).To(Succeed())
 			var res rack.Rack
 			Expect(svc.NewRetrieve().WhereNodeIsHost(true).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(Equal(*r))
@@ -117,8 +129,8 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("DeleteChannel", func() {
 		It("Should delete a rack by its key", func() {
 			r := &rack.Rack{Name: "rack4"}
-			Expect(w.Create(ctx, r)).To(Succeed())
-			Expect(w.Delete(ctx, r.Key)).To(Succeed())
+			Expect(writer.Create(ctx, r)).To(Succeed())
+			Expect(writer.Delete(ctx, r.Key)).To(Succeed())
 			var res rack.Rack
 			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&res).Exec(ctx, tx)).To(MatchError(query.NotFound))
 		})
@@ -168,6 +180,34 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(keys[i] - keys[i-1]).To(BeEquivalentTo(1))
 			}
 
+		})
+	})
+
+	Describe("Status", func() {
+		It("Should initialize a rack with an unknown status", func() {
+			r := rack.Rack{Name: "test rack"}
+			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
+			Expect(s.Message).To(Equal("Rack state unknown"))
+			Expect(s.Variant).To(Equal(xstatus.WarningVariant))
+			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
+			Expect(s.Key).To(ContainSubstring(string(rack.OntologyType)))
+			Expect(s.Details.Rack).To(Equal(r.Key))
+		})
+
+		It("Should mark a rack as dead when it doesn't receive a status within the health check interval", func() {
+			r := rack.Rack{Name: "dead test rack"}
+			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
+				g.Expect(s.Message).To(Equal("Synnax driver on dead test rack not running"))
+				g.Expect(s.Variant).To(Equal(xstatus.WarningVariant))
+				g.Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
+				g.Expect(s.Key).To(ContainSubstring(string(rack.OntologyType)))
+				g.Expect(s.Details.Rack).To(Equal(r.Key))
+				g.Expect(s.Description).To(ContainSubstring("Driver was last alive"))
+			}).Should(Succeed())
 		})
 	})
 })

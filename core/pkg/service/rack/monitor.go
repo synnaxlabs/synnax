@@ -44,14 +44,16 @@ type monitor struct {
 }
 
 func (m *monitor) Close() error {
+	// Shutdown background routines first to stop checkAlive from triggering
+	// new observer notifications, then disconnect the observer to avoid deadlock
+	err := m.shutdownRoutines.Close()
 	m.disconnectObserver()
-	return m.shutdownRoutines.Close()
+	return err
 }
 
 func (m *monitor) checkAlive(ctx context.Context) error {
 	m.L.Debug("checking health of racks")
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	now := telem.Now()
 	var toCreate []Key
 	for k, ts := range m.mu.lastUpdated {
@@ -60,15 +62,27 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		}
 		toCreate = append(toCreate, k)
 	}
+	m.mu.Unlock()
+
+	if len(toCreate) == 0 {
+		return nil
+	}
 	racks := make([]Rack, 0, len(toCreate))
-	if err := m.svc.NewRetrieve().WhereKeys(toCreate...).Exec(ctx, nil); err != nil || !errors.Is(err, query.NotFound) {
+	if err := m.svc.NewRetrieve().
+		WhereKeys(toCreate...).
+		Entries(&racks).
+		Exec(ctx, nil); errors.Skip(err, query.NotFound) != nil {
 		return err
 	}
+
+	// Re-acquire lock to read lastUpdated timestamps for status messages
+	m.mu.Lock()
 	statuses := make([]Status, len(racks))
 	for i, r := range racks {
 		lastUpdated := m.mu.lastUpdated[r.Key]
 		timeSinceAlive := telem.TimeSpan(now - lastUpdated)
 		stat := Status{
+			Key:         OntologyID(r.Key).String(),
 			Variant:     xstatus.WarningVariant,
 			Time:        lastUpdated,
 			Message:     fmt.Sprintf("Synnax driver on %s not running", r.Name),
@@ -78,6 +92,10 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		m.L.Warn(strings.ToLower(stat.Message), zap.Stringer("time_since_alive", timeSinceAlive))
 		statuses[i] = stat
 	}
+	m.mu.Unlock()
+
+	// Call SetMany without holding the lock to avoid deadlock when observer
+	// notifications trigger handleChange which also needs the lock
 	if err := status.NewWriter[StatusDetails](m.svc.Status, nil).
 		SetMany(ctx, &statuses); err != nil {
 		return err
@@ -140,6 +158,7 @@ func openMonitor(
 	s := &monitor{
 		Instrumentation:  ins,
 		svc:              svc,
+		interval:         svc.HealthCheckInterval,
 		shutdownRoutines: signal.NewHardShutdown(sCtx, cancel),
 	}
 	s.mu.lastUpdated = make(map[Key]telem.TimeStamp)

@@ -19,6 +19,10 @@ import (
 
 var ctx = context.Background()
 
+var _ = BeforeEach(func() {
+	ctx = context.Background()
+})
+
 func TestRack(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Rack Suite")

@@ -85,8 +85,12 @@ func (d db) Commit(ctx context.Context, opts ...any) error { return nil }
 func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
 
 // Set implement kv.DB.
-func (d db) Set(_ context.Context, key, value []byte, opts ...any) error {
-	return translateError(d.DB.Set(key, value, parseOpts(opts)))
+func (d db) Set(ctx context.Context, key, value []byte, opts ...any) error {
+	tx := d.OpenTx()
+	if err := tx.Set(ctx, key, value, opts...); err != nil {
+		return err
+	}
+	return tx.Commit(ctx, opts...)
 }
 
 // Get implement kv.DB.
