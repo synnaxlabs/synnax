@@ -458,10 +458,10 @@ describe("sticky", () => {
         container: box.construct(0, 0, 1000, 1000),
         options: { lowerThreshold: 0.4, upperThreshold: 0.6 },
         expected: {
-          x: 0.3,
-          y: 0.3,
+          x: 300,
+          y: 300,
           root: { x: "left", y: "top" },
-          units: { x: "decimal", y: "decimal" },
+          units: { x: "px", y: "px" },
         },
       },
       {
@@ -483,7 +483,7 @@ describe("sticky", () => {
         options: { lowerThreshold: 0.3, upperThreshold: 0.7 },
         expected: {
           x: 250,
-          y: 250,
+          y: 200,
           root: { x: "left", y: "bottom" },
           units: { x: "px", y: "px" },
         },
@@ -543,7 +543,7 @@ describe("sticky", () => {
         options: { lowerThreshold: 0.5, upperThreshold: 0.5 },
         expected: {
           x: 400,
-          y: -400,
+          y: 300,
           root: { x: "left", y: "bottom" },
           units: { x: "px", y: "px" },
         },

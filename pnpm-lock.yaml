@@ -851,9 +851,6 @@ importers:
 
   x/ts:
     dependencies:
-      '@msgpack/msgpack':
-        specifier: ^3.1.2
-        version: 3.1.2
       async-mutex:
         specifier: 'catalog:'
         version: 0.5.0
@@ -885,6 +882,9 @@ importers:
       eslint-config-synnaxlabs:
         specifier: workspace:^
         version: link:../../configs/eslint
+      jsdom:
+        specifier: ^27.1.0
+        version: 27.1.0
       madge:
         specifier: 'catalog:'
         version: 8.0.0(typescript@5.9.3)
@@ -2169,10 +2169,6 @@ packages:
 
   '@microsoft/tsdoc@0.15.1':
     resolution: {integrity: sha512-4aErSrCR/On/e5G2hDP0wjooqDdauzEbIq8hIkIe5pXV0rtWJZvdCEKL0ykZxex+IxIwBp0eGeV48hQN07dXtw==}
-
-  '@msgpack/msgpack@3.1.2':
-    resolution: {integrity: sha512-JEW4DEtBzfe8HvUYecLU9e6+XJnKDlUAIve8FvPzF3Kzs6Xo/KuZkZJsDH0wJXl/qEZbeeE7edxDNY3kMs39hQ==}
-    engines: {node: '>= 18'}
 
   '@napi-rs/wasm-runtime@1.0.7':
     resolution: {integrity: sha512-SeDnOO0Tk7Okiq6DbXmmBODgOAb9dp9gjlphokTUxmt8U3liIP1ZsozBahH69j/RJv+Rfs6IwUKHTgQYJ/HBAw==}
@@ -8652,8 +8648,6 @@ snapshots:
       resolve: 1.22.11
 
   '@microsoft/tsdoc@0.15.1': {}
-
-  '@msgpack/msgpack@3.1.2': {}
 
   '@napi-rs/wasm-runtime@1.0.7':
     dependencies:

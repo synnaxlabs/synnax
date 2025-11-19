@@ -10,7 +10,6 @@
 import { z } from "zod";
 
 export const numberCouple = z.tuple([z.number(), z.number()]);
-export const bigNumberCouple = z.tuple([z.bigint(), z.bigint()]);
 export type NumberCouple<T extends number | bigint = number> = [T, T];
 
 // Dimensions
@@ -22,11 +21,9 @@ export const signedDimensions = z.object({
   signedHeight: z.number(),
 });
 export const DIMENSIONS = ["width", "height"] as const;
-export const dimension = z.enum(DIMENSIONS);
 export type Dimension = (typeof DIMENSIONS)[number];
 export const ALIGNMENTS = ["start", "center", "end"] as const;
 export const SIGNED_DIMENSIONS = ["signedWidth", "signedHeight"] as const;
-export const signedDimension = z.enum(SIGNED_DIMENSIONS);
 export type SignedDimension = (typeof SIGNED_DIMENSIONS)[number];
 
 // XY
@@ -71,14 +68,11 @@ export type Order = (typeof ORDERS)[number];
 // Bounds
 
 export const bounds = z.object({ lower: z.number(), upper: z.number() });
-export const bigBounds = z.object({ lower: z.bigint(), upper: z.bigint() });
 export interface Bounds<T extends number | bigint = number> {
   lower: T;
   upper: T;
 }
 
-export const crudeBounds = z.union([bounds, numberCouple]);
-export const bigCrudeBounds = z.union([bigBounds, numberCouple]);
 export type CrudeBounds<T extends number | bigint = number> =
   | Bounds<T>
   | NumberCouple<T>;

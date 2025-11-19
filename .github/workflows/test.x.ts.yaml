@@ -7,6 +7,7 @@ on:
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
+      - knip.json
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -21,6 +22,7 @@ on:
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
+      - knip.json
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -72,6 +74,10 @@ jobs:
       - name: Madge
         if: matrix.lint
         run: pnpm madge:x
+
+      - name: Knip
+        if: matrix.lint
+        run: pnpm -w run knip:x
 
       - name: Lint
         if: matrix.lint
