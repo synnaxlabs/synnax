@@ -347,7 +347,7 @@ func openKV(cfg Config, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 		}
 	}
 
-	logger := pebblekv.NewLogger(cfg.Child("kv"))
+	logger := pebblekv.NewLogger(ins)
 	ev := pebble.MakeLoggingEventListener(logger)
 
 	// Create optimized options for read-heavy workloads
