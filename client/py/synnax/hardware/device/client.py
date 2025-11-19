@@ -41,11 +41,6 @@ class _RetrieveResponse(Payload):
     devices: list[Device] | None = None
 
 
-_CREATE_ENDPOINT = "/hardware/device/create"
-_DELETE_ENDPOINT = "/hardware/device/delete"
-_RETRIEVE_ENDPOINT = "/hardware/device/retrieve"
-
-
 class Client:
     _client: UnaryClient
     instrumentation: Instrumentation = NOOP
@@ -68,6 +63,7 @@ class Client:
         name: str = "",
         make: str = "",
         model: str = "",
+        configured: bool = False,
         properties: str = "",
     ): ...
 
@@ -87,6 +83,7 @@ class Client:
         name: str = "",
         make: str = "",
         model: str = "",
+        configured: bool = False,
         properties: str = "",
     ):
         is_single = not isinstance(devices, list)
@@ -99,13 +96,14 @@ class Client:
                     name=name,
                     make=make,
                     model=model,
+                    configured=configured,
                     properties=properties,
                 )
             ]
         req = _CreateRequest(devices=normalize(devices))
         res = send_required(
             self._client,
-            _CREATE_ENDPOINT,
+            "/hardware/device/create",
             req,
             _CreateResponse,
         )
@@ -113,7 +111,7 @@ class Client:
 
     def delete(self, keys: list[str]) -> None:
         req = _DeleteRequest(keys=keys)
-        send_required(self._client, _DELETE_ENDPOINT, req, Empty)
+        send_required(self._client, "/hardware/device/delete", req, Empty)
 
     @overload
     def retrieve(
@@ -157,7 +155,7 @@ class Client:
         is_single = check_for_none(keys, makes, models, locations, names)
         res = send_required(
             self._client,
-            _RETRIEVE_ENDPOINT,
+            "/hardware/device/retrieve",
             _RetrieveRequest(
                 keys=override(key, keys),
                 makes=override(make, makes),
@@ -169,9 +167,9 @@ class Client:
             _RetrieveResponse,
         )
         if is_single:
-            if len(res.devices) > 0:
+            if res.devices is not None and len(res.devices) > 0:
                 return res.devices[0]
             if ignore_not_found:
                 return None
             raise NotFoundError("Device not found")
-        return res.devices
+        return res.devices if res.devices is not None else []

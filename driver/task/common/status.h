@@ -112,23 +112,23 @@ struct StatusHandler {
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task,
-    common::ConfigureResult &res
+    std::pair<common::ConfigureResult, xerrors::Error> res
 ) {
     synnax::TaskStatus status;
     status.details.task = task.key;
     status.details.running = false;
-    if (res.error) {
+    if (res.second) {
         status.variant = status::variant::ERR;
-        status.message = res.error.message();
+        status.message = res.second.message();
     } else {
         status.variant = status::variant::SUCCESS;
-        if (!res.auto_start) { status.message = "Task configured successfully"; }
+        if (!res.first.auto_start) { status.message = "Task configured successfully"; }
     }
-    if (res.auto_start) {
+    if (res.first.auto_start) {
         task::Command start_cmd(task.key, START_CMD_TYPE, {});
-        res.task->exec(start_cmd);
+        res.first.task->exec(start_cmd);
     } else
         ctx->set_status(status);
-    return {std::move(res.task), true};
+    return {std::move(res.first.task), true};
 }
 }

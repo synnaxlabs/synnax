@@ -18,8 +18,8 @@ export const stateZ = z.object({
   trigger: z.number(),
   command: z.number().optional(),
   value: z.number(),
-  sink: telem.numberSinkSpecZ.optional().default(telem.noopNumericSinkSpec),
-  source: telem.numberSourceSpecZ.optional().default(telem.noopNumericSourceSpec),
+  sink: telem.numberSinkSpecZ.default(telem.noopNumericSinkSpec),
+  source: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
 });
 
 export type SetpointState = z.input<typeof stateZ>;

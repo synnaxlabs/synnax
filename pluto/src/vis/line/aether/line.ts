@@ -44,7 +44,7 @@ export const stateZ = z.object({
   strokeWidth: z.number().default(1),
   downsample: z.number().min(1).max(50).default(1),
   downsampleMode: telem.downsampleModeZ.default("decimate"),
-  visible: z.boolean().optional().default(true),
+  visible: z.boolean().default(true),
 });
 
 const safelyGetDataValue = (

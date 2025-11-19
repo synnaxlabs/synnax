@@ -87,8 +87,8 @@ export const valuePropsZ = z.object({
   level: CoreText.levelZ,
   color: z.string(),
   units: z.string(),
-  stalenessTimeout: z.number().optional().default(5),
-  stalenessColor: color.colorZ.optional().default(color.ZERO),
+  stalenessTimeout: z.number().default(5),
+  stalenessColor: color.colorZ.default(color.ZERO),
 });
 export type ValueProps = z.infer<typeof valuePropsZ>;
 
