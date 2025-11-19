@@ -149,8 +149,8 @@ struct WriteTaskConfig {
     bool auto_start;
 
     WriteTaskConfig(const std::shared_ptr<synnax::Synnax> &client, xjson::Parser &cfg):
-        device_key(cfg.required<std::string>("device")),
-        auto_start(cfg.optional<bool>("auto_start", false)) {
+        device_key(cfg.field<std::string>("device")),
+        auto_start(cfg.field<bool>("auto_start", false)) {
         auto [dev_info, dev_err] = client->devices.retrieve(this->device_key);
         if (dev_err) {
             cfg.field_err("device", dev_err);
@@ -165,7 +165,7 @@ struct WriteTaskConfig {
         std::vector<channel::OutputCoil> coils;
         std::vector<channel::OutputHoldingRegister> registers;
         cfg.iter("channels", [&](xjson::Parser &ch) {
-            const auto type = ch.required<std::string>("type");
+            const auto type = ch.field<std::string>("type");
             if (type == "coil_output")
                 coils.emplace_back(ch);
             else if (type == "holding_register_output")

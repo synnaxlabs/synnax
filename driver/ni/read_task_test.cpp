@@ -853,6 +853,14 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 3);
 
     // Verify all three readings
+    for (size_t i = 0; i < 3; i++) {
+        auto &fr = mock_factory->writes->at(i);
+        ASSERT_EQ(fr.size(), 2);
+        ASSERT_EQ(fr.length(), 1);
+        ASSERT_TRUE(fr.contains(data_channel.key));
+        ASSERT_TRUE(fr.contains(index_channel.key));
+    }
+
     EXPECT_DOUBLE_EQ(
         mock_factory->writes->at(0).at<double>(data_channel.key, 0),
         100.0

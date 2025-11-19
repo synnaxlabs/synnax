@@ -28,7 +28,7 @@ protected:
                 "/tmp/rack-config-test/state.json"
             }
         );
-        std::cout << args.required<std::string>("--state-file") << std::endl;
+        std::cout << args.field<std::string>("--state-file") << std::endl;
         const auto c_err = rack::Config::clear_persisted_state(args);
         ASSERT_FALSE(c_err) << c_err;
     }
