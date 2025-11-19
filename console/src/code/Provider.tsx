@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useCombinedStateAndRef } from "@synnaxlabs/pluto";
-import { type AsyncDestructor } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import type * as monacoT from "monaco-editor";
 import {
   createContext,
@@ -43,7 +43,7 @@ export const Provider = ({
   initServices: services,
 }: ProviderProps) => {
   const [monaco, setMonaco, monacoRef] = useCombinedStateAndRef<Monaco | null>(null);
-  const destructorRef = useRef<AsyncDestructor>(null);
+  const destructorRef = useRef<destructor.Async>(null);
   const requestInit = useCallback(() => {
     if (monacoRef.current != null) return;
     initializeMonaco({ extensions, services })

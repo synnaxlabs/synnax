@@ -54,7 +54,7 @@ jobs:
       - name: Check Types
         run: pnpm check-types:media
 
-      - name: Madge
+      - name: Check Circular Dependencies
         run: pnpm madge:media
 
       - name: Lint

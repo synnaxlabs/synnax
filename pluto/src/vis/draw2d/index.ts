@@ -11,7 +11,7 @@ import {
   array,
   box,
   color,
-  type Destructor,
+  type destructor,
   type dimensions,
   direction,
   location,
@@ -410,7 +410,7 @@ export class Draw2D {
     else this.canvas.fillStyle = color.hex(this.theme.colors.gray[`l${shade}`]);
     this.canvas.textAlign = justify;
     this.canvas.textBaseline = align;
-    let removeScissor: Destructor | undefined;
+    let removeScissor: destructor.Destructor | undefined;
     if (maxWidth != null)
       removeScissor = this.canvas.scissor(box.construct(position, maxWidth, 1000));
     this.canvas.fillText(text, position.x, position.y, undefined, { useAtlas });

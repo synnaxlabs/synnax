@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType, type group, ontology, ranger } from "@synnaxlabs/client";
-import { array, deep, type Optional, primitive, TimeSpan } from "@synnaxlabs/x";
+import { array, deep, type optional, primitive, TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -348,7 +348,7 @@ const updateForm = async ({
   set("key", ch.key);
 };
 
-export interface FormQuery extends Optional<RetrieveQuery, "key"> {}
+export interface FormQuery extends optional.Optional<RetrieveQuery, "key"> {}
 
 const formMountListeners: Flux.CreateFormParams<
   FormQuery,
@@ -471,7 +471,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
 
 const ALIAS_RESOURCE_NAME = "channel alias";
 
-export interface UpdateAliasParams extends Optional<ranger.Alias, "range" | "channel"> {
+export interface UpdateAliasParams
+  extends optional.Optional<ranger.Alias, "range" | "channel"> {
   alias: string;
 }
 

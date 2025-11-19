@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type rack, task } from "@synnaxlabs/client";
-import { array, type Optional, TimeStamp } from "@synnaxlabs/x";
+import { array, type optional, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -222,7 +222,7 @@ export interface InitialValues<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
-> extends Optional<task.Payload<Type, Config, StatusData>, "key"> {
+> extends optional.Optional<task.Payload<Type, Config, StatusData>, "key"> {
   key?: task.Key;
 }
 

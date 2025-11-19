@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { type z } from "zod";
 
@@ -59,7 +59,7 @@ export interface CreateFormParams<
   retrieve: (args: FormRetrieveParams<Query, Schema, Store>) => Promise<void>;
   mountListeners?: (
     args: FormMountListenersParams<Query, Schema, Store>,
-  ) => Destructor | Destructor[];
+  ) => destructor.Destructor | destructor.Destructor[];
 }
 
 export type UseFormReturn<Schema extends z.ZodType<core.Shape>> = Omit<
@@ -204,7 +204,7 @@ export const createForm =
     const saveAsync = useCallback(
       async (opts: core.FetchOptions = {}): Promise<boolean> => {
         const { signal } = opts;
-        const rollbacks: Destructor[] = [];
+        const rollbacks: destructor.Destructor[] = [];
         try {
           if (client == null) {
             setResult(nullClientResult<undefined>(`update ${name}`));

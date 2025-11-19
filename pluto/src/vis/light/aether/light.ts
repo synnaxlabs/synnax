@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -22,7 +22,7 @@ export interface State extends z.input<typeof stateZ> {}
 
 interface InternalState {
   source: telem.BooleanSource;
-  stopListening: Destructor;
+  stopListening: destructor.Destructor;
 }
 
 // Light is a component that listens to a telemetry source to update its state.
