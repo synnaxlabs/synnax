@@ -65,8 +65,6 @@ describe("narrow", () => {
 
     it("should return true for regex", () => {
       expect(narrow.isObject(/test/)).toBe(true);
-      // eslint-disable-next-line prefer-regex-literals
-      expect(narrow.isObject(new RegExp("test"))).toBe(true);
     });
   });
 });

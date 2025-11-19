@@ -7,33 +7,23 @@
     },
     "alamos/ts": {
       "entry": ["src/index.ts", "src/dev/index.ts"],
-      "project": ["src/**/*.ts", "!src/**/*.spec.ts"],
-      "ignore": ["**/*.spec.ts"],
-      "ignoreDependencies": ["@types/*"]
+      "project": ["src/**/*.ts"]
     },
     "arc/ts": {
       "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts", "!src/**/*.spec.ts"],
-      "ignore": ["**/*.spec.ts"],
-      "ignoreDependencies": ["@types/*"]
+      "project": ["src/**/*.ts"]
     },
     "client/ts": {
       "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts", "!src/**/*.spec.ts"],
-      "ignore": ["**/*.spec.ts"],
-      "ignoreDependencies": ["@types/*"]
+      "project": ["src/**/*.ts"]
     },
     "drift": {
       "entry": ["src/index.ts", "src/react/index.ts", "src/tauri/index.ts"],
-      "project": ["src/**/*.{ts,tsx}", "!src/**/*.spec.ts", "!src/**/*.spec.tsx"],
-      "ignore": ["**/*.spec.ts", "**/*.spec.tsx"],
-      "ignoreDependencies": ["@types/*"]
+      "project": ["src/**/*.{ts,tsx}"]
     },
     "freighter/ts": {
       "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts", "!src/**/*.spec.ts"],
-      "ignore": ["**/*.spec.ts"],
-      "ignoreDependencies": ["@types/*"]
+      "project": ["src/**/*.ts"]
     },
     "pluto": {
       "entry": [
@@ -55,37 +45,31 @@
         "src/color/index.ts",
         "src/css/index.ts"
       ],
-      "project": ["src/**/*.{ts,tsx}", "!src/**/*.spec.ts", "!src/**/*.spec.tsx"],
-      "ignore": ["**/*.spec.ts", "**/*.spec.tsx"],
-      "ignoreDependencies": ["@types/*"]
+      "project": ["src/**/*.{ts,tsx}"]
     },
     "x/media": {
       "entry": ["src/index.ts"],
-      "project": ["src/**/*.{ts,tsx}", "!src/**/*.spec.ts", "!src/**/*.spec.tsx"],
-      "ignore": ["**/*.spec.ts", "**/*.spec.tsx"],
-      "ignoreDependencies": ["@types/*"]
+      "project": ["src/**/*.{ts,tsx}"]
     },
     "x/ts": {
       "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts", "!src/**/*.spec.ts"],
-      "ignore": ["**/*.spec.ts"],
-      "ignoreDependencies": ["@types/*", "@vitest/coverage-v8"]
+      "project": ["src/**/*.ts"],
+      "ignoreDependencies": ["@vitest/coverage-v8"]
     },
     "console": {
       "entry": ["src/main.tsx", "src-tauri/src/main.rs"],
-      "project": ["src/**/*.{ts,tsx}", "!src/**/*.spec.ts", "!src/**/*.spec.tsx"],
-      "ignore": ["**/*.spec.ts", "**/*.spec.tsx", "src-tauri/**"],
-      "ignoreDependencies": ["@types/*"]
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignore": ["src-tauri/**"]
     },
     "docs/site": {
       "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
       "project": ["src/**/*.{ts,tsx,astro}"],
-      "ignoreDependencies": ["@types/*", "@astrojs/*"]
+      "ignoreDependencies": ["@astrojs/*"]
     },
     "configs/eslint": {
       "entry": ["index.ts"],
       "project": ["*.ts"],
-      "ignoreDependencies": ["@types/*", "eslint-*", "@eslint/*"]
+      "ignoreDependencies": ["eslint-*", "@eslint/*"]
     },
     "configs/ts": {
       "entry": ["base.json"],
@@ -94,7 +78,7 @@
     "configs/vite": {
       "entry": ["lib.ts"],
       "project": ["*.ts"],
-      "ignoreDependencies": ["@types/*", "vite-*"]
+      "ignoreDependencies": ["vite-*"]
     },
     "configs/stylelint": {
       "entry": ["index.cjs"],
@@ -103,8 +87,6 @@
     }
   },
   "ignore": [
-    "**/*.spec.ts",
-    "**/*.spec.tsx",
     "**/examples/**",
     "**/dist/**",
     "**/node_modules/**",

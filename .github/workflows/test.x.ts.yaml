@@ -77,7 +77,7 @@ jobs:
 
       - name: Knip
         if: matrix.lint
-        run: pnpm -w run knip:x
+        run: pnpm knip:x
 
       - name: Lint
         if: matrix.lint
