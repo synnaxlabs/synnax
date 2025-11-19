@@ -196,9 +196,9 @@ struct CustomStatusDetails {
 
     static CustomStatusDetails parse(xjson::Parser &parser) {
         return CustomStatusDetails{
-            .device_id = parser.optional<std::string>("device_id", ""),
-            .error_code = parser.optional<int>("error_code", 0),
-            .critical = parser.optional<bool>("critical", false),
+            .device_id = parser.field<std::string>("device_id", ""),
+            .error_code = parser.field<int>("error_code", 0),
+            .critical = parser.field<bool>("critical", false),
         };
     }
 };

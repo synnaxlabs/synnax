@@ -74,7 +74,7 @@ struct RackStatusDetails {
     /// @brief Parses the rack status details from a JSON parser.
     static RackStatusDetails parse(xjson::Parser parser) {
         return RackStatusDetails{
-            .rack = parser.required<RackKey>("rack"),
+            .rack = parser.field<RackKey>("rack"),
         };
     }
 

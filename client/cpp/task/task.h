@@ -260,10 +260,10 @@ struct TaskStatusDetails {
     /// @brief parses the task status details from a JSON parser.
     static TaskStatusDetails parse(xjson::Parser parser) {
         return TaskStatusDetails{
-            .task = parser.required<TaskKey>("task"),
-            .cmd = parser.required<std::string>("cmd"),
-            .running = parser.required<bool>("running"),
-            .data = parser.required<json>("data"),
+            .task = parser.field<TaskKey>("task"),
+            .cmd = parser.field<std::string>("cmd"),
+            .running = parser.field<bool>("running"),
+            .data = parser.field<json>("data"),
         };
     }
 

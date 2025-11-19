@@ -55,8 +55,8 @@ struct TestDetails {
 
     static TestDetails parse(xjson::Parser &parser) {
         return TestDetails{
-            .field1 = parser.optional<std::string>("field1", ""),
-            .field2 = parser.optional<int>("field2", 0),
+            .field1 = parser.field<std::string>("field1", ""),
+            .field2 = parser.field<int>("field2", 0),
         };
     }
 };

@@ -71,8 +71,8 @@ struct DeviceStatusDetails {
     /// @brief parses the device status details from a JSON parser.
     static DeviceStatusDetails parse(xjson::Parser parser) {
         return DeviceStatusDetails{
-            .rack = parser.required<RackKey>("rack"),
-            .device = parser.required<std::string>("device"),
+            .rack = parser.field<RackKey>("rack"),
+            .device = parser.field<std::string>("device"),
         };
     }
 
