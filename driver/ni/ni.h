@@ -115,7 +115,8 @@ public:
         // any errors when applying the configuration or cycling the task, we need
         // to make sure it gets cleared.
         auto hw = std::make_unique<HardwareT>(this->dmx, handle);
-        if (const auto err = cfg.apply(this->dmx, handle)) return {std::move(result), err};
+        if (const auto err = cfg.apply(this->dmx, handle))
+            return {std::move(result), err};
         // NI will look for invalid configuration parameters internally, so we
         // quickly cycle the task to catch and communicate any errors as
         // soon as possible.
