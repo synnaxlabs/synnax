@@ -72,7 +72,7 @@ func translateStatusesBackward(s []*xstatus.PBStatus) ([]api.Status, error) {
 		if err != nil {
 			return nil, err
 		}
-		out[i] = api.Status{Status: status.Status(os)}
+		out[i] = api.Status{Status: status.Status[any](os)}
 	}
 	return out, nil
 }

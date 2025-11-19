@@ -26,10 +26,10 @@ describe("queries", () => {
 
   describe("useRetrieve", () => {
     it("should return a device", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "test",
       });
-      const dev = await client.hardware.devices.create({
+      const dev = await client.devices.create({
         key: id.create(),
         name: "test",
         rack: rack.key,
@@ -46,8 +46,8 @@ describe("queries", () => {
     });
 
     it("should update the query when the device is updated", async () => {
-      const rack = await client.hardware.racks.create({ name: "test" });
-      const dev = await client.hardware.devices.create({
+      const rack = await client.racks.create({ name: "test" });
+      const dev = await client.devices.create({
         key: id.create(),
         name: "test",
         rack: rack.key,
@@ -62,7 +62,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.key).toEqual(dev.key);
       await act(async () => {
-        await client.hardware.devices.create({
+        await client.devices.create({
           ...dev,
           name: "test2",
         });
@@ -73,10 +73,10 @@ describe("queries", () => {
     });
 
     it("should update the query when the device status is updated", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "test",
       });
-      const dev = await client.hardware.devices.create({
+      const dev = await client.devices.create({
         key: id.create(),
         name: "test",
         rack: rack.key,
@@ -114,10 +114,10 @@ describe("queries", () => {
 
   describe("useList", () => {
     it("should return a list of device keys", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "test",
       });
-      const dev1 = await client.hardware.devices.create({
+      const dev1 = await client.devices.create({
         key: id.create(),
         name: "device1",
         rack: rack.key,
@@ -126,7 +126,7 @@ describe("queries", () => {
         model: "model1",
         properties: {},
       });
-      const dev2 = await client.hardware.devices.create({
+      const dev2 = await client.devices.create({
         key: id.create(),
         name: "device2",
         rack: rack.key,
@@ -147,10 +147,10 @@ describe("queries", () => {
     });
 
     it("should get individual devices using getItem", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "test",
       });
-      const dev = await client.hardware.devices.create({
+      const dev = await client.devices.create({
         key: id.create(),
         name: "testDevice",
         rack: rack.key,
@@ -172,10 +172,10 @@ describe("queries", () => {
     });
 
     it("should filter devices by search term", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "test",
       });
-      await client.hardware.devices.create({
+      await client.devices.create({
         key: id.create(),
         name: "device1",
         rack: rack.key,
@@ -184,7 +184,7 @@ describe("queries", () => {
         model: "model1",
         properties: {},
       });
-      await client.hardware.devices.create({
+      await client.devices.create({
         key: id.create(),
         name: "special",
         rack: rack.key,
@@ -210,11 +210,11 @@ describe("queries", () => {
     });
 
     it("should filter devices by makes", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "test",
       });
       const targetMake = id.create();
-      const dev1 = await client.hardware.devices.create({
+      const dev1 = await client.devices.create({
         key: id.create(),
         name: "device1",
         rack: rack.key,
@@ -223,7 +223,7 @@ describe("queries", () => {
         model: "model1",
         properties: {},
       });
-      await client.hardware.devices.create({
+      await client.devices.create({
         key: id.create(),
         name: "device2",
         rack: rack.key,
@@ -245,11 +245,11 @@ describe("queries", () => {
     });
 
     it("should handle pagination with limit and offset", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "test",
       });
       for (let i = 0; i < 5; i++)
-        await client.hardware.devices.create({
+        await client.devices.create({
           key: id.create(),
           name: `device${i}`,
           rack: rack.key,
@@ -270,7 +270,7 @@ describe("queries", () => {
     });
 
     it("should update the list when a device is created", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "test",
       });
 
@@ -283,7 +283,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       const initialLength = result.current.data.length;
 
-      const newDev = await client.hardware.devices.create({
+      const newDev = await client.devices.create({
         key: id.create(),
         name: "newDevice",
         rack: rack.key,
@@ -300,10 +300,10 @@ describe("queries", () => {
     });
 
     it("should update the list when a device is updated", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "test",
       });
-      const dev = await client.hardware.devices.create({
+      const dev = await client.devices.create({
         key: id.create(),
         name: "original",
         rack: rack.key,
@@ -322,7 +322,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.getItem(dev.key)?.name).toEqual("original");
 
-      await client.hardware.devices.create({
+      await client.devices.create({
         ...dev,
         name: "updated",
       });
@@ -333,10 +333,10 @@ describe("queries", () => {
     });
 
     it("should remove device from list when deleted", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "test",
       });
-      const dev = await client.hardware.devices.create({
+      const dev = await client.devices.create({
         key: id.create(),
         name: "toDelete",
         rack: rack.key,
@@ -355,7 +355,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toContain(dev.key);
 
-      await client.hardware.devices.delete(dev.key);
+      await client.devices.delete(dev.key);
 
       await waitFor(() => {
         expect(result.current.data).not.toContain(dev.key);
@@ -363,10 +363,10 @@ describe("queries", () => {
     });
 
     it("should update device status in the list", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "test",
       });
-      const dev = await client.hardware.devices.create({
+      const dev = await client.devices.create({
         key: id.create(),
         name: "device",
         rack: rack.key,
@@ -405,10 +405,10 @@ describe("queries", () => {
 
     describe("retrieveCached", () => {
       it("should use cached data on initial mount", async () => {
-        const rack = await client.hardware.racks.create({
+        const rack = await client.racks.create({
           name: "test",
         });
-        const dev = await client.hardware.devices.create({
+        const dev = await client.devices.create({
           key: id.create(),
           name: "cached_device",
           rack: rack.key,
@@ -436,11 +436,11 @@ describe("queries", () => {
       });
 
       it("should filter cached data by makes", async () => {
-        const rack = await client.hardware.racks.create({
+        const rack = await client.racks.create({
           name: "test",
         });
         const targetMake = id.create();
-        const dev1 = await client.hardware.devices.create({
+        const dev1 = await client.devices.create({
           key: id.create(),
           name: "device_make1",
           rack: rack.key,
@@ -449,7 +449,7 @@ describe("queries", () => {
           model: "model",
           properties: {},
         });
-        const dev2 = await client.hardware.devices.create({
+        const dev2 = await client.devices.create({
           key: id.create(),
           name: "device_make2",
           rack: rack.key,
@@ -478,11 +478,11 @@ describe("queries", () => {
       });
 
       it("should filter cached data by models", async () => {
-        const rack = await client.hardware.racks.create({
+        const rack = await client.racks.create({
           name: "test",
         });
         const targetModel = id.create();
-        const dev1 = await client.hardware.devices.create({
+        const dev1 = await client.devices.create({
           key: id.create(),
           name: "device_model1",
           rack: rack.key,
@@ -491,7 +491,7 @@ describe("queries", () => {
           model: targetModel,
           properties: {},
         });
-        const dev2 = await client.hardware.devices.create({
+        const dev2 = await client.devices.create({
           key: id.create(),
           name: "device_model2",
           rack: rack.key,
@@ -520,13 +520,13 @@ describe("queries", () => {
       });
 
       it("should filter cached data by racks", async () => {
-        const rack1 = await client.hardware.racks.create({
+        const rack1 = await client.racks.create({
           name: "rack1",
         });
-        const rack2 = await client.hardware.racks.create({
+        const rack2 = await client.racks.create({
           name: "rack2",
         });
-        const dev1 = await client.hardware.devices.create({
+        const dev1 = await client.devices.create({
           key: id.create(),
           name: "device_rack1",
           rack: rack1.key,
@@ -535,7 +535,7 @@ describe("queries", () => {
           model: "model",
           properties: {},
         });
-        const dev2 = await client.hardware.devices.create({
+        const dev2 = await client.devices.create({
           key: id.create(),
           name: "device_rack2",
           rack: rack2.key,
@@ -564,11 +564,11 @@ describe("queries", () => {
       });
 
       it("should filter cached data by locations", async () => {
-        const rack = await client.hardware.racks.create({
+        const rack = await client.racks.create({
           name: "test",
         });
         const targetLocation = id.create();
-        const dev1 = await client.hardware.devices.create({
+        const dev1 = await client.devices.create({
           key: id.create(),
           name: "device_loc1",
           rack: rack.key,
@@ -577,7 +577,7 @@ describe("queries", () => {
           model: "model",
           properties: {},
         });
-        const dev2 = await client.hardware.devices.create({
+        const dev2 = await client.devices.create({
           key: id.create(),
           name: "device_loc2",
           rack: rack.key,
@@ -606,11 +606,11 @@ describe("queries", () => {
       });
 
       it("should filter cached data by names", async () => {
-        const rack = await client.hardware.racks.create({
+        const rack = await client.racks.create({
           name: "test",
         });
         const targetName = id.create();
-        const dev1 = await client.hardware.devices.create({
+        const dev1 = await client.devices.create({
           key: id.create(),
           name: targetName,
           rack: rack.key,
@@ -619,7 +619,7 @@ describe("queries", () => {
           model: "model",
           properties: {},
         });
-        const dev2 = await client.hardware.devices.create({
+        const dev2 = await client.devices.create({
           key: id.create(),
           name: "other_name",
           rack: rack.key,
@@ -648,12 +648,12 @@ describe("queries", () => {
       });
 
       it("should handle combined filters", async () => {
-        const rack1 = await client.hardware.racks.create({
+        const rack1 = await client.racks.create({
           name: "test_rack",
         });
         const targetMake = id.create();
         const targetModel = id.create();
-        const dev1 = await client.hardware.devices.create({
+        const dev1 = await client.devices.create({
           key: id.create(),
           name: "device_combined1",
           rack: rack1.key,
@@ -662,7 +662,7 @@ describe("queries", () => {
           model: targetModel,
           properties: {},
         });
-        const dev2 = await client.hardware.devices.create({
+        const dev2 = await client.devices.create({
           key: id.create(),
           name: "device_combined2",
           rack: rack1.key,
@@ -671,7 +671,7 @@ describe("queries", () => {
           model: "other_model",
           properties: {},
         });
-        const dev3 = await client.hardware.devices.create({
+        const dev3 = await client.devices.create({
           key: id.create(),
           name: "device_combined3",
           rack: rack1.key,
@@ -711,7 +711,7 @@ describe("queries", () => {
 
   describe("useCreate", () => {
     it("should create a device", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "test",
       });
       const { result } = renderHook(() => Device.useCreate(), {
@@ -731,7 +731,7 @@ describe("queries", () => {
         await result.current.updateAsync(dev);
       });
       expect(result.current.variant).toEqual("success");
-      const retrieved = await client.hardware.devices.retrieve({ key });
+      const retrieved = await client.devices.retrieve({ key });
       expect(retrieved.key).toEqual(key);
       expect(retrieved.name).toEqual("test");
       expect(retrieved.make).toEqual("ni");
@@ -742,10 +742,10 @@ describe("queries", () => {
 
   describe("useRename", () => {
     it("should rename a device", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "test",
       });
-      const dev = await client.hardware.devices.create({
+      const dev = await client.devices.create({
         key: id.create(),
         name: "test",
         rack: rack.key,
@@ -761,17 +761,17 @@ describe("queries", () => {
         await result.current.updateAsync({ key: dev.key, name: "new-name" });
       });
       expect(result.current.variant).toEqual("success");
-      const retrieved = await client.hardware.devices.retrieve({ key: dev.key });
+      const retrieved = await client.devices.retrieve({ key: dev.key });
       expect(retrieved.name).toEqual("new-name");
     });
   });
 
   describe("useDelete", () => {
     it("should delete a device", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "test",
       });
-      const dev = await client.hardware.devices.create({
+      const dev = await client.devices.create({
         key: id.create(),
         name: "test",
         rack: rack.key,
@@ -787,7 +787,7 @@ describe("queries", () => {
         await result.current.updateAsync(dev.key);
       });
       expect(result.current.variant).toEqual("success");
-      await expect(client.hardware.devices.retrieve({ key: dev.key })).rejects.toThrow(
+      await expect(client.devices.retrieve({ key: dev.key })).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -824,7 +824,7 @@ describe("queries", () => {
       });
 
       it("should create a new device on save", async () => {
-        const rack = await client.hardware.racks.create({
+        const rack = await client.racks.create({
           name: "test form rack",
         });
         const useForm = Device.createForm();
@@ -851,7 +851,7 @@ describe("queries", () => {
         });
 
         const key = result.current.form.get<device.Key>("key").value;
-        const retrieved = await client.hardware.devices.retrieve({ key });
+        const retrieved = await client.devices.retrieve({ key });
         expect(retrieved).toEqual({
           key,
           name: "Test Form Device",
@@ -893,7 +893,7 @@ describe("queries", () => {
           calibrationDate: string;
         }
 
-        const rack = await client.hardware.racks.create({
+        const rack = await client.racks.create({
           name: "test custom props rack",
         });
         const useForm = Device.createForm<CustomProperties>();
@@ -930,10 +930,10 @@ describe("queries", () => {
 
     describe("update mode", () => {
       it("should load existing device data", async () => {
-        const rack = await client.hardware.racks.create({
+        const rack = await client.racks.create({
           name: "test update rack",
         });
-        const testDevice = await client.hardware.devices.create({
+        const testDevice = await client.devices.create({
           key: id.create(),
           rack: rack.key,
           name: "Existing Device",
@@ -967,10 +967,10 @@ describe("queries", () => {
       });
 
       it("should update existing device", async () => {
-        const rack = await client.hardware.racks.create({
+        const rack = await client.racks.create({
           name: "test update rack 2",
         });
-        const testDevice = await client.hardware.devices.create({
+        const testDevice = await client.devices.create({
           key: id.create(),
           rack: rack.key,
           name: "Device to Update",
@@ -1001,7 +1001,7 @@ describe("queries", () => {
 
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
-        const updatedDevice = await client.hardware.devices.retrieve({
+        const updatedDevice = await client.devices.retrieve({
           key: testDevice.key,
         });
         expect(updatedDevice.name).toBe("Updated Device Name");

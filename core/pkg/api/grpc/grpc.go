@@ -25,14 +25,13 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	transports = append(transports, newConnectivity(&a))
 	transports = append(transports, newAuth(&a))
 	transports = append(transports, newRanger(&a))
-	transports = append(transports, newHardware(&a))
+	transports = append(transports, newRack(&a))
+	transports = append(transports, newTask(&a))
+	transports = append(transports, newDevice(&a))
 	transports = append(transports, newStatus(&a)...)
 
 	// AUTH
 	a.AuthChangePassword = fnoop.UnaryServer[api.AuthChangePasswordRequest, types.Nil]{}
-
-	// HARDWARE
-	a.HardwareCopyTask = fnoop.UnaryServer[api.HardwareCopyTaskRequest, api.HardwareCopyTaskResponse]{}
 
 	// CHANNEL
 	a.ChannelRename = fnoop.UnaryServer[api.ChannelRenameRequest, types.Nil]{}

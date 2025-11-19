@@ -29,7 +29,7 @@ export const COMMANDS: Palette.Command[] = [
   ...ChannelServices.COMMANDS,
   ...ClusterServices.COMMANDS,
   ...Docs.COMMANDS,
-  ...Hardware.COMMANDS,
+  ...COMMANDS,
   ...LabelServices.COMMANDS,
   ...Layout.COMMANDS,
   ...LinePlotServices.COMMANDS,

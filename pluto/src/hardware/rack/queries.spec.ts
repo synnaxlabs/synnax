@@ -26,7 +26,7 @@ describe("queries", () => {
 
   describe("useRetrieve", () => {
     it("should retrieve a rack by its key", async () => {
-      const testRack = await client.hardware.racks.create({ name: "testRack" });
+      const testRack = await client.racks.create({ name: "testRack" });
       const { result } = renderHook(() => Rack.useRetrieve({ key: testRack.key }), {
         wrapper,
       });
@@ -38,10 +38,10 @@ describe("queries", () => {
 
   describe("useList", () => {
     it("should return a list of rack keys", async () => {
-      const rack1 = await client.hardware.racks.create({
+      const rack1 = await client.racks.create({
         name: "rack1",
       });
-      const rack2 = await client.hardware.racks.create({
+      const rack2 = await client.racks.create({
         name: "rack2",
       });
 
@@ -58,7 +58,7 @@ describe("queries", () => {
     });
 
     it("should get individual racks using getItem", async () => {
-      const testRack = await client.hardware.racks.create({
+      const testRack = await client.racks.create({
         name: "testRack",
       });
 
@@ -76,10 +76,10 @@ describe("queries", () => {
     });
 
     it("should filter racks by search term", async () => {
-      await client.hardware.racks.create({
+      await client.racks.create({
         name: "ordinary",
       });
-      await client.hardware.racks.create({
+      await client.racks.create({
         name: "special",
       });
 
@@ -100,7 +100,7 @@ describe("queries", () => {
 
     it("should handle pagination with limit and offset", async () => {
       for (let i = 0; i < 5; i++)
-        await client.hardware.racks.create({
+        await client.racks.create({
           name: `paginationRack${i}`,
         });
 
@@ -115,7 +115,7 @@ describe("queries", () => {
     });
 
     it("should include status when requested", async () => {
-      const testRack = await client.hardware.racks.create({
+      const testRack = await client.racks.create({
         name: "statusRack",
       });
 
@@ -145,7 +145,7 @@ describe("queries", () => {
       });
       const initialLength = result.current.data.length;
 
-      const newRack = await client.hardware.racks.create({
+      const newRack = await client.racks.create({
         name: "newRack",
       });
 
@@ -156,7 +156,7 @@ describe("queries", () => {
     });
 
     it("should update the list when a rack is updated", async () => {
-      const testRack = await client.hardware.racks.create({
+      const testRack = await client.racks.create({
         name: "original",
       });
 
@@ -171,7 +171,7 @@ describe("queries", () => {
       });
       expect(result.current.getItem(testRack.key)?.name).toEqual("original");
 
-      await client.hardware.racks.create({
+      await client.racks.create({
         ...testRack,
         name: "updated",
       });
@@ -182,7 +182,7 @@ describe("queries", () => {
     });
 
     it("should remove rack from list when deleted", async () => {
-      const testRack = await client.hardware.racks.create({
+      const testRack = await client.racks.create({
         name: "toDelete",
       });
 
@@ -197,7 +197,7 @@ describe("queries", () => {
       });
       expect(result.current.data).toContain(testRack.key);
 
-      await client.hardware.racks.delete(testRack.key);
+      await client.racks.delete(testRack.key);
 
       await waitFor(() => {
         expect(result.current.data).not.toContain(testRack.key);
@@ -205,7 +205,7 @@ describe("queries", () => {
     });
 
     it("should update rack status in the list", async () => {
-      const testRack = await client.hardware.racks.create({
+      const testRack = await client.racks.create({
         name: "statusRack",
       });
 
@@ -242,7 +242,7 @@ describe("queries", () => {
 
   describe("useDelete", () => {
     it("should delete a single rack", async () => {
-      const testRack = await client.hardware.racks.create({
+      const testRack = await client.racks.create({
         name: "delete_single",
       });
       const { result } = renderHook(
@@ -268,10 +268,10 @@ describe("queries", () => {
     });
 
     it("should delete multiple racks", async () => {
-      const rack1 = await client.hardware.racks.create({
+      const rack1 = await client.racks.create({
         name: "delete_multi_1",
       });
-      const rack2 = await client.hardware.racks.create({
+      const rack2 = await client.racks.create({
         name: "delete_multi_2",
       });
       const { result } = renderHook(
@@ -301,7 +301,7 @@ describe("queries", () => {
 
   describe("useRename", () => {
     it("should rename a rack", async () => {
-      const testRack = await client.hardware.racks.create({
+      const testRack = await client.racks.create({
         name: "original_name",
       });
       const { result } = renderHook(
@@ -327,7 +327,7 @@ describe("queries", () => {
     });
 
     it("should update rack in list after rename", async () => {
-      const testRack = await client.hardware.racks.create({
+      const testRack = await client.racks.create({
         name: "list_original",
       });
       const { result } = renderHook(

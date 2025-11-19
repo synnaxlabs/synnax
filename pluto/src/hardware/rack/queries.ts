@@ -59,7 +59,7 @@ const retrieveSingle = async ({
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   let rack = store.racks.get(query.key);
   if (rack == null) {
-    const res = await client.hardware.racks.retrieve({ ...BASE_QUERY, ...query });
+    const res = await client.racks.retrieve({ ...BASE_QUERY, ...query });
     store.racks.set(res.key, res);
     if (res.status != null) store.statuses.set(res.status);
     rack = res;
@@ -74,7 +74,7 @@ export const useList = Flux.createList<ListQuery, rack.Key, rack.Payload, FluxSu
     name: PLURAL_RESOURCE_NAME,
     retrieveCached: ({ store }) => store.racks.list(),
     retrieve: async ({ client, query, store }) => {
-      const racks = await client.hardware.racks.retrieve({ ...BASE_QUERY, ...query });
+      const racks = await client.racks.retrieve({ ...BASE_QUERY, ...query });
       store.racks.set(racks);
       const statuses = racks.map((r) => r.status).filter((s) => s != null);
       store.statuses.set(statuses);
@@ -128,7 +128,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
     rollbacks.push(store.racks.delete(keys));
-    await client.hardware.racks.delete(keys);
+    await client.racks.delete(keys);
     return data;
   },
 });
@@ -143,7 +143,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     rollbacks.push(Flux.partialUpdate(store.racks, key, { name }));
     rollbacks.push(Ontology.renameFluxResource(store, rack.ontologyID(key), name));
     const r = await retrieveSingle({ client, query: { key }, store });
-    await client.hardware.racks.create({ ...r, name });
+    await client.racks.create({ ...r, name });
     return data;
   },
 });

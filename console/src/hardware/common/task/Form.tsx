@@ -160,7 +160,7 @@ export const wrapForm = <
             cancel: { label: "Cancel" },
           });
           if (!confirmed) return false;
-          await client.hardware.tasks.delete(taskKey);
+          await client.tasks.delete(taskKey);
         }
         form.set("rackKey", rackKey);
         form.set("config", newConfig);

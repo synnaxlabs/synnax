@@ -29,7 +29,7 @@ describe("queries", () => {
 
   describe("useList", () => {
     it("should return a list of task keys", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "testRack",
       });
       const task1 = await rack.createTask({
@@ -58,7 +58,7 @@ describe("queries", () => {
     });
 
     it("should get individual tasks using getItem", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "testRack",
       });
       const testTask = await rack.createTask({
@@ -81,7 +81,7 @@ describe("queries", () => {
     });
 
     it("should filter tasks by search term", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "testRack",
       });
       await rack.createTask({
@@ -111,7 +111,7 @@ describe("queries", () => {
     });
 
     it("should handle pagination with limit and offset", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "testRack",
       });
       for (let i = 0; i < 5; i++)
@@ -132,7 +132,7 @@ describe("queries", () => {
     });
 
     it("should update the list when a task is created", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "testRack",
       });
 
@@ -158,7 +158,7 @@ describe("queries", () => {
     });
 
     it("should update the list when a task is updated", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "testRack",
       });
       const testTask = await rack.createTask({
@@ -176,7 +176,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.getItem(testTask.key)?.name).toEqual("original");
 
-      await client.hardware.tasks.create({
+      await client.tasks.create({
         ...testTask.payload,
         name: "updated",
       });
@@ -187,7 +187,7 @@ describe("queries", () => {
     });
 
     it("should remove task from list when deleted", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "testRack",
       });
       const testTask = await rack.createTask({
@@ -205,7 +205,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data).toContain(testTask.key);
 
-      await client.hardware.tasks.delete([testTask.key]);
+      await client.tasks.delete([testTask.key]);
 
       await waitFor(() => {
         expect(result.current.data).not.toContain(testTask.key);
@@ -213,7 +213,7 @@ describe("queries", () => {
     });
 
     it("should update task status in the list", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "testRack",
       });
       const testTask = await rack.createTask({
@@ -255,7 +255,7 @@ describe("queries", () => {
     });
 
     it("should update task status when a command is executed", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "testRack",
       });
       const testTask = await rack.createTask({
@@ -296,7 +296,7 @@ describe("queries", () => {
 
   describe("useRetrieve", () => {
     it("should retrieve a task by key", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "retrieveRack",
       });
       const testTask = await rack.createTask({
@@ -316,7 +316,7 @@ describe("queries", () => {
     });
 
     it.only("should retrieve task with status", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "statusRack",
       });
       const testTask = await rack.createTask({
@@ -352,7 +352,7 @@ describe("queries", () => {
     });
 
     it("should update when task is renamed", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "renameRack",
       });
       const testTask = await rack.createTask({
@@ -384,7 +384,7 @@ describe("queries", () => {
     });
 
     it("should update when task status changes", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "statusUpdateRack",
       });
       const testTask = await rack.createTask({
@@ -425,7 +425,7 @@ describe("queries", () => {
     });
 
     it("should handle retrieval with schemas", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "schemaRack",
       });
       const testTask = await rack.createTask({
@@ -457,7 +457,7 @@ describe("queries", () => {
 
   describe("useCreateSnapshot", () => {
     it("should create a snapshot of a single task", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "snapshotRack",
       });
       const originalName = id.create();
@@ -482,7 +482,7 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const snapshot = await client.hardware.tasks.retrieve({
+      const snapshot = await client.tasks.retrieve({
         name: `${originalName} (Snapshot)`,
       });
       expect(snapshot.name).toEqual(`${originalName} (Snapshot)`);
@@ -491,7 +491,7 @@ describe("queries", () => {
     });
 
     it("should create snapshots of multiple tasks", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "multiSnapshotRack",
       });
       const originalName1 = id.create();
@@ -528,7 +528,7 @@ describe("queries", () => {
       await waitFor(async () => {
         const firstSnapshotName = `${originalName1} (Snapshot)`;
         const secondSnapshotName = `${originalName2} (Snapshot)`;
-        const snapshots = await client.hardware.tasks.retrieve({
+        const snapshots = await client.tasks.retrieve({
           names: [firstSnapshotName, secondSnapshotName],
         });
         const snapshot1 = snapshots.find((s) => s.name === firstSnapshotName);
@@ -543,7 +543,7 @@ describe("queries", () => {
     });
 
     it("should add snapshots to parent ontology group", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "ontologyRack",
       });
       const originalName = id.create();
@@ -580,7 +580,7 @@ describe("queries", () => {
     });
 
     it("should preserve task configuration in snapshots", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "configRack",
       });
       const complexConfig = {
@@ -613,7 +613,7 @@ describe("queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const snapshot = await client.hardware.tasks.retrieve({
+      const snapshot = await client.tasks.retrieve({
         name: `${originalName} (Snapshot)`,
       });
       expect(snapshot).toBeDefined();
@@ -624,7 +624,7 @@ describe("queries", () => {
 
   describe("useDelete", () => {
     it("should delete a single task", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "deleteRack",
       });
       const testTask = await rack.createTask({
@@ -656,7 +656,7 @@ describe("queries", () => {
     });
 
     it("should delete multiple tasks", async () => {
-      const rack = await client.hardware.racks.create({
+      const rack = await client.racks.create({
         name: "deleteMultiRack",
       });
       const task1 = await rack.createTask({
@@ -696,7 +696,7 @@ describe("queries", () => {
   });
 
   describe("useForm", async () => {
-    const testRack = await client.hardware.racks.create({ name: "testRack" });
+    const testRack = await client.racks.create({ name: "testRack" });
     it("should initialize a form with default values", async () => {
       const useForm = Task.createForm({
         schemas: {
@@ -798,7 +798,7 @@ describe("queries", () => {
         expect(result.current.form.get("name").value).toEqual("updatedTaskName");
       });
 
-      const updatedTask = await client.hardware.tasks.retrieve({
+      const updatedTask = await client.tasks.retrieve({
         key: testTask.key,
       });
       expect(updatedTask.name).toEqual("updatedTaskName");
@@ -1154,7 +1154,7 @@ describe("queries", () => {
 
       await waitFor(
         async () => {
-          const updatedTask = await client.hardware.tasks.retrieve({
+          const updatedTask = await client.tasks.retrieve({
             key: testTask.key,
           });
           expect(updatedTask.name).toEqual("autoSavedName");
@@ -1231,7 +1231,7 @@ describe("queries", () => {
       });
 
       await waitFor(async () => {
-        const updatedTask = await client.hardware.tasks.retrieve<
+        const updatedTask = await client.tasks.retrieve<
           typeof typeSchema,
           typeof configSchema,
           typeof statusDataSchema
@@ -1247,7 +1247,7 @@ describe("queries", () => {
     it("should execute a command on a task", async () => {
       const type = "start";
       const args = { a: "dog" };
-      const testRack = await client.hardware.racks.create({ name: "test" });
+      const testRack = await client.racks.create({ name: "test" });
       const t = await testRack.createTask({
         name: "test",
         config: { a: "dog" },

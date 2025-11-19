@@ -15,7 +15,7 @@ import { Schematic } from "@/schematic";
 import { Table } from "@/table";
 
 export const EXTRACTORS: Export.Extractors = {
-  ...Hardware.EXTRACTORS,
+  ...EXTRACTORS,
   ...LinePlot.EXTRACTORS,
   ...Log.EXTRACTORS,
   ...Schematic.EXTRACTORS,

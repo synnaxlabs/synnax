@@ -39,10 +39,7 @@ const SET_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.keyZ> = {
   channel: task.SET_CHANNEL_NAME,
   schema: task.keyZ,
   onChange: async ({ store, changed: key, client }) =>
-    store.tasks.set(
-      key,
-      await client.hardware.tasks.retrieve({ key, includeStatus: true }),
-    ),
+    store.tasks.set(key, await client.tasks.retrieve({ key, includeStatus: true })),
 };
 
 const DELETE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.keyZ> = {
@@ -89,7 +86,7 @@ export const retrieveSingle = async <
     const cached = store.tasks.get(query.key.toString());
     if (cached != null) return cached as unknown as task.Task<Type, Config, StatusData>;
   }
-  const tsk = await client.hardware.tasks.retrieve<Type, Config, StatusData>({
+  const tsk = await client.tasks.retrieve<Type, Config, StatusData>({
     ...BASE_QUERY,
     ...query,
     schemas,
@@ -135,7 +132,7 @@ export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubSt
   name: PLURAL_RESOURCE_NAME,
   retrieveCached: ({ store }) => store.tasks.list(),
   retrieve: async ({ client, query, store }) => {
-    const tasks = await client.hardware.tasks.retrieve({
+    const tasks = await client.tasks.retrieve({
       ...BASE_QUERY,
       internal: false,
       ...query,
@@ -154,7 +151,7 @@ export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubSt
       const parsed = unknownStatusZ.parse(status);
       onChange(
         parsed.details.task,
-        state.skipNull((p) => client.hardware.tasks.sugar({ ...p, status: parsed })),
+        state.skipNull((p) => client.tasks.sugar({ ...p, status: parsed })),
       );
     }),
   ],
@@ -257,7 +254,7 @@ export const createForm = <
       },
       update: async ({ client, store, ...form }) => {
         const value = form.value();
-        const rack = await client.hardware.racks.retrieve({ key: value.rackKey });
+        const rack = await client.racks.retrieve({ key: value.rackKey });
         const task = await rack.createTask({
           key: value.key,
           name: value.name,
@@ -304,7 +301,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
     rollbacks.push(store.tasks.delete(keys));
-    await client.hardware.tasks.delete(keys);
+    await client.tasks.delete(keys);
     return data;
   },
 });
@@ -327,9 +324,7 @@ export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<
     const tasks = await Promise.all(
       array
         .toArray(taskPairs)
-        .map(({ key, name }) =>
-          client.hardware.tasks.copy(key, `${name} (Snapshot)`, true),
-        ),
+        .map(({ key, name }) => client.tasks.copy(key, `${name} (Snapshot)`, true)),
     );
     const otgIDs = tasks.map(({ ontologyID }) => ontologyID);
     await client.ontology.addChildren(parentID, ...otgIDs);
@@ -353,12 +348,12 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
     rollbacks.push(
       store.tasks.set(
         key,
-        state.skipUndefined((p) => client.hardware.tasks.sugar({ ...p.payload, name })),
+        state.skipUndefined((p) => client.tasks.sugar({ ...p.payload, name })),
       ),
     );
     rollbacks.push(Ontology.renameFluxResource(store, task.ontologyID(key), name));
     const t = await retrieveSingle({ ...params, query: { key } });
-    await client.hardware.tasks.create({ ...t.payload, name });
+    await client.tasks.create({ ...t.payload, name });
     return data;
   },
 });
@@ -398,7 +393,7 @@ export const { useUpdate: useCommand } = Flux.createUpdate<
     if (tasks.length < keys.length) {
       const existingKeys = tasks.map(({ key }) => key);
       const difference = new Set(keys).difference(new Set(existingKeys));
-      const fetchedTasks = await client.hardware.tasks.retrieve({
+      const fetchedTasks = await client.tasks.retrieve({
         keys: Array.from(difference),
         includeStatus: true,
       });
@@ -410,7 +405,7 @@ export const { useUpdate: useCommand } = Flux.createUpdate<
       const status = task.statusZ(z.unknown()).parse(s);
       return shouldExecuteCommand(status, type);
     });
-    return await client.hardware.tasks.executeCommandSync<z.ZodUnknown>({
+    return await client.tasks.executeCommandSync<z.ZodUnknown>({
       commands: filteredCommands,
       statusDataZ: z.unknown(),
     });

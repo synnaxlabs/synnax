@@ -74,7 +74,7 @@ const retrieveSingle = async <
 > => {
   const cached = store.devices.get(query.key);
   if (cached != null) return cached as device.Device<Properties, Make, Model>;
-  const device = await client.hardware.devices.retrieve<Properties, Make, Model>({
+  const device = await client.devices.retrieve<Properties, Make, Model>({
     ...query,
     includeStatus: true,
   });
@@ -143,7 +143,7 @@ export const useList = Flux.createList<
       return true;
     }),
   retrieve: async ({ client, query, store }) => {
-    const devices = await client.hardware.devices.retrieve({
+    const devices = await client.devices.retrieve({
       includeStatus: true,
       ...query,
     });
@@ -176,7 +176,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
     rollbacks.push(store.devices.delete(keys));
-    await client.hardware.devices.delete(keys);
+    await client.devices.delete(keys);
     return data;
   },
 });
@@ -191,7 +191,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ data, client, rollbacks, store }) => {
-    const dev = await client.hardware.devices.create(data);
+    const dev = await client.devices.create(data);
     rollbacks.push(store.devices.set(dev, "payload"));
     return dev;
   },
@@ -231,7 +231,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     const dev = await retrieveSingle({ client, store, query: { key } });
     const renamed = { ...dev, name };
     rollbacks.push(store.devices.set(renamed, "payload"));
-    await client.hardware.devices.create(renamed);
+    await client.devices.create(renamed);
     return data;
   },
 });
@@ -242,7 +242,7 @@ const retrieveInitialRackKey = async (client: Synnax, store: FluxSubStore) => {
   let rack = store.racks.get(() => true)[0];
   if (rack != null) return rack.key;
   rack = (
-    await client.hardware.racks.retrieve({
+    await client.racks.retrieve({
       offset: 0,
       limit: 1,
     })
@@ -284,7 +284,7 @@ export const createForm = <
       reset(device);
     },
     update: async ({ value, client, store, rollbacks }) => {
-      const result = await client.hardware.devices.create(value());
+      const result = await client.devices.create(value());
       rollbacks.push(store.devices.set(result, "payload"));
     },
     mountListeners: ({ store, query: { key }, reset, set }) => {

@@ -38,7 +38,7 @@ import { WorkspaceServices } from "@/workspace/services";
 
 const LINK_HANDLERS: Record<string, Link.Handler> = {
   channel: ChannelServices.handleLink,
-  ...Hardware.LINK_HANDLERS,
+  ...LINK_HANDLERS,
   lineplot: LinePlotServices.handleLink,
   log: LogServices.handleLink,
   range: RangeServices.handleLink,

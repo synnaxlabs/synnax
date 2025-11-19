@@ -62,6 +62,14 @@ func IDs(resources []Resource) []ID {
 	return ids
 }
 
+func IDsToString(ids []ID) []string {
+	strings := make([]string, 0, len(ids))
+	for _, id := range ids {
+		strings = append(strings, id.String())
+	}
+	return strings
+}
+
 // NewResource creates a new entity with the given schema and name and an empty set of
 // field data. NewResource panics if the provided data value does not fit the ontology
 // schema.

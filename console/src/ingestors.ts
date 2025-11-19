@@ -15,7 +15,7 @@ import { SchematicServices } from "@/schematic/services";
 import { TableServices } from "@/table/services";
 
 export const FILE_INGESTORS: Import.FileIngestors = {
-  ...Hardware.FILE_INGESTORS,
+  ...FILE_INGESTORS,
   ...LinePlotServices.FILE_INGESTORS,
   ...LogServices.FILE_INGESTORS,
   ...SchematicServices.FILE_INGESTORS,
