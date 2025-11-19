@@ -20,7 +20,7 @@ service StatusDeleteService {
 }
 
 message StatusSetRequest {
-  string parent = 1;  // Optional parent ontology ID in format "type:key"
+  string parent = 1; // Optional parent ontology ID in format "type:key"
   repeated status.PBStatus statuses = 2;
 }
 

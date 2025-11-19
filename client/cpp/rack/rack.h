@@ -17,25 +17,22 @@
 #include "google/protobuf/empty.pb.h"
 
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/task/task.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/status/status.h"
 #include "x/cpp/xjson/xjson.h"
 
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/rack.pb.h"
 
-#include "client/cpp/task/task.h"
-
 namespace synnax {
 
 /// @brief Type alias for the transport used to create a rack.
-using RackCreateClient = freighter::UnaryClient<
-    api::v1::RackCreateRequest,
-    api::v1::RackCreateResponse>;
+using RackCreateClient = freighter::
+    UnaryClient<api::v1::RackCreateRequest, api::v1::RackCreateResponse>;
 
 /// @brief Type alias for the transport used to retrieve a rack.
-using RackRetrieveClient = freighter::UnaryClient<
-    api::v1::RackRetrieveRequest,
-    api::v1::RackRetrieveResponse>;
+using RackRetrieveClient = freighter::
+    UnaryClient<api::v1::RackRetrieveRequest, api::v1::RackRetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a rack.
 using RackDeleteClient = freighter::

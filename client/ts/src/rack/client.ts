@@ -11,6 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { ontology } from "@/ontology";
 import {
   type Key,
   keyZ,
@@ -21,7 +22,6 @@ import {
   type Status,
 } from "@/rack/payload";
 import { type task } from "@/task";
-import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_rack_set";

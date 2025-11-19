@@ -66,8 +66,7 @@ std::pair<Rack, xerrors::Error> RackClient::retrieve(const RackKey key) const {
     return {rack, err};
 }
 
-std::pair<Rack, xerrors::Error>
-RackClient::retrieve(const std::string &name) const {
+std::pair<Rack, xerrors::Error> RackClient::retrieve(const std::string &name) const {
     auto req = api::v1::RackRetrieveRequest();
     req.add_names(name);
     auto [res, err] = rack_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
@@ -111,8 +110,7 @@ xerrors::Error RackClient::create(Rack &rack) const {
     return err;
 }
 
-std::pair<Rack, xerrors::Error>
-RackClient::create(const std::string &name) const {
+std::pair<Rack, xerrors::Error> RackClient::create(const std::string &name) const {
     auto rack = Rack(name);
     auto err = create(rack);
     return {rack, err};

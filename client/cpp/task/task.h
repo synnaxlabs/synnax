@@ -18,8 +18,8 @@
 #include "client/cpp/ontology/id.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/status/status.h"
-#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xerrors/errors.h"
+#include "x/cpp/xjson/xjson.h"
 
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/task.pb.h"
 
@@ -28,14 +28,12 @@ namespace synnax {
 using RackKey = std::uint32_t;
 
 /// @brief Type alias for the transport used to create a task.
-using TaskCreateClient = freighter::UnaryClient<
-    api::v1::TaskCreateRequest,
-    api::v1::TaskCreateResponse>;
+using TaskCreateClient = freighter::
+    UnaryClient<api::v1::TaskCreateRequest, api::v1::TaskCreateResponse>;
 
 /// @brief Type alias for the transport used to retrieve a task.
-using TaskRetrieveClient = freighter::UnaryClient<
-    api::v1::TaskRetrieveRequest,
-    api::v1::TaskRetrieveResponse>;
+using TaskRetrieveClient = freighter::
+    UnaryClient<api::v1::TaskRetrieveRequest, api::v1::TaskRetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a task.
 using TaskDeleteClient = freighter::

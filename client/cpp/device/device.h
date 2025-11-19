@@ -21,8 +21,8 @@
 #include "client/cpp/ontology/id.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/status/status.h"
-#include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xerrors/errors.h"
+#include "x/cpp/xjson/xjson.h"
 
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/device.pb.h"
 
@@ -31,14 +31,12 @@ namespace synnax {
 using RackKey = std::uint32_t;
 
 /// @brief Type alias for the transport used to create a device.
-using DeviceCreateClient = freighter::UnaryClient<
-    api::v1::DeviceCreateRequest,
-    api::v1::DeviceCreateResponse>;
+using DeviceCreateClient = freighter::
+    UnaryClient<api::v1::DeviceCreateRequest, api::v1::DeviceCreateResponse>;
 
 /// @brief Type alias for the transport used to retrieve a device.
-using DeviceRetrieveClient = freighter::UnaryClient<
-    api::v1::DeviceRetrieveRequest,
-    api::v1::DeviceRetrieveResponse>;
+using DeviceRetrieveClient = freighter::
+    UnaryClient<api::v1::DeviceRetrieveRequest, api::v1::DeviceRetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a device.
 using DeviceDeleteClient = freighter::
@@ -210,10 +208,8 @@ public:
     /// @returns A pair containing the retrieved devices and an error if one
     /// occurred.
     [[nodiscard]]
-    std::pair<std::vector<Device>, xerrors::Error> retrieve(
-        const std::vector<std::string> &keys,
-        bool ignore_not_found = false
-    ) const;
+    std::pair<std::vector<Device>, xerrors::Error>
+    retrieve(const std::vector<std::string> &keys, bool ignore_not_found = false) const;
 
     /// @brief Retrieves devices using a custom retrieve request.
     /// @param req The retrieve request with filter criteria.

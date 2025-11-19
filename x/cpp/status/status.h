@@ -97,7 +97,7 @@ struct Status {
     }
 
     /// @brief constructs a Status from its protobuf representation.
-    static std::pair<Status<Details>, xerrors::Error> from_proto(const PBStatus &pb){
+    static std::pair<Status<Details>, xerrors::Error> from_proto(const PBStatus &pb) {
         Status status{
             .key = pb.key(),
             .name = pb.name(),

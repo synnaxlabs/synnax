@@ -51,9 +51,7 @@ struct TestDetails {
     std::string field1 = "";
     int field2 = 0;
 
-    json to_json() const {
-        return json{{"field1", field1}, {"field2", field2}};
-    }
+    json to_json() const { return json{{"field1", field1}, {"field2", field2}}; }
 
     static TestDetails parse(xjson::Parser &parser) {
         return TestDetails{

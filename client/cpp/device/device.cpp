@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "client/cpp/errors/errors.h"
 #include "client/cpp/device/device.h"
+#include "client/cpp/errors/errors.h"
 #include "x/cpp/xerrors/errors.h"
 
 namespace synnax {
@@ -90,8 +90,7 @@ xerrors::Error DeviceClient::del(const std::string &key) const {
     return err;
 }
 
-xerrors::Error
-DeviceClient::del(const std::vector<std::string> &keys) const {
+xerrors::Error DeviceClient::del(const std::vector<std::string> &keys) const {
     auto req = api::v1::DeviceDeleteRequest();
     req.mutable_keys()->Add(keys.begin(), keys.end());
     auto [res, err] = device_delete_client->send(DELETE_DEVICE_ENDPOINT, req);
