@@ -56,12 +56,15 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 			return creating, nil
 		}).
 		Entry(t).
-		// We don't create ontology resources for internal tasks.
-		Exec(ctx, w.tx); err != nil || t.Internal {
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	if err := w.status.Set(ctx, newUnknownTaskStatus(t.Key)); err != nil {
 		return err
+	}
+	// We don't create ontology resources for internal tasks.
+	if t.Internal {
+		return nil
 	}
 	otgID := OntologyID(t.Key)
 	exists, err := w.otg.HasResource(ctx, otgID)
@@ -103,7 +106,10 @@ func (w Writer) Copy(
 	}).Exec(ctx, w.tx); err != nil {
 		return res, err
 	}
-	if err := w.otg.DefineResource(ctx, OntologyID(newKey)); err != nil {
+	if err = w.status.Set(ctx, newUnknownTaskStatus(res.Key)); err != nil {
+		return Task{}, err
+	}
+	if err = w.otg.DefineResource(ctx, OntologyID(newKey)); err != nil {
 		return Task{}, err
 	}
 	return res, err

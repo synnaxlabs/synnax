@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/device/Select.css";
+import "@/device/Select.css";
 
 import { type device } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
@@ -15,9 +15,9 @@ import { type ReactElement } from "react";
 import { Breadcrumb } from "@/breadcrumb";
 import { Component } from "@/component";
 import { CSS } from "@/css";
+import { type ListParams, useList } from "@/device/queries";
+import { StatusIndicator } from "@/device/StatusIndicator";
 import { type Flux } from "@/flux";
-import { type ListParams, useList } from "@/hardware/device/queries";
-import { StatusIndicator } from "@/hardware/device/StatusIndicator";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";

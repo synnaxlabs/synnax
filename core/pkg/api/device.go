@@ -51,7 +51,7 @@ type DeviceCreateResponse struct {
 	Devices []device.Device `json:"devices" msgpack:"devices"`
 }
 
-func (svc *DeviceService) CreateDevice(ctx context.Context, req DeviceCreateRequest) (res DeviceCreateResponse, _ error) {
+func (svc *DeviceService) Create(ctx context.Context, req DeviceCreateRequest) (res DeviceCreateResponse, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
@@ -89,7 +89,7 @@ type DeviceRetrieveResponse struct {
 	Devices []device.Device `json:"devices" msgpack:"devices"`
 }
 
-func (svc *DeviceService) RetrieveDevice(ctx context.Context, req DeviceRetrieveRequest) (res DeviceRetrieveResponse, _ error) {
+func (svc *DeviceService) Retrieve(ctx context.Context, req DeviceRetrieveRequest) (res DeviceRetrieveResponse, _ error) {
 	var (
 		hasSearch    = len(req.SearchTerm) > 0
 		hasKeys      = len(req.Keys) > 0
@@ -161,7 +161,7 @@ type DeviceDeleteRequest struct {
 	Keys []string `json:"keys" msgpack:"keys"`
 }
 
-func (svc *DeviceService) DeleteDevice(ctx context.Context, req DeviceDeleteRequest) (res types.Nil, _ error) {
+func (svc *DeviceService) Delete(ctx context.Context, req DeviceDeleteRequest) (res types.Nil, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,

@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type device, NotFoundError } from "@synnaxlabs/client";
+import { createTestClient, device, NotFoundError } from "@synnaxlabs/client";
 import { id, type record, status } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { Device } from "@/hardware/device";
+import { Device } from "@/device";
+import { Status } from "@/status";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -92,7 +93,7 @@ describe("queries", () => {
       expect(result.current.data?.key).toEqual(dev.key);
       const devStatus: device.Status = status.create<typeof device.statusDetailsSchema>(
         {
-          key: id.create(),
+          key: device.statusKey(dev.key),
           variant: "success",
           message: "Device is happy as a clam",
           details: {
@@ -376,28 +377,32 @@ describe("queries", () => {
         properties: {},
       });
 
-      const { result } = renderHook(() => Device.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const { result } = renderHook(
+        () => ({
+          list: Device.useList(),
+          status: Status.useSet(),
+        }),
+        {
+          wrapper,
+        },
+      );
+      result.current.list.retrieve({});
+      await waitFor(() => expect(result.current.list.variant).toEqual("success"));
 
       const devStatus: device.Status = status.create<typeof device.statusDetailsSchema>(
         {
-          key: id.create(),
+          key: device.statusKey(dev.key),
           variant: "error",
           message: "Device has issues",
           details: { rack: rack.key, device: dev.key },
         },
       );
       await act(async () => {
-        await client.statuses.set(devStatus);
+        await result.current.status.updateAsync({ statuses: devStatus });
       });
 
       await waitFor(() => {
-        const deviceInList = result.current.getItem(dev.key);
+        const deviceInList = result.current.list.getItem(dev.key);
         expect(deviceInList?.status?.variant).toEqual("error");
         expect(deviceInList?.status?.message).toEqual("Device has issues");
       });

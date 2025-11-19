@@ -59,7 +59,7 @@ func (x *Task) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Task.ProtoReflect.Descriptor instead.
+// Deprecated: Use Create.ProtoReflect.Descriptor instead.
 func (*Task) Descriptor() ([]byte, []int) {
 	return file_core_pkg_api_grpc_v1_task_proto_rawDescGZIP(), []int{0}
 }
@@ -510,7 +510,7 @@ func file_core_pkg_api_grpc_v1_task_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_api_grpc_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_core_pkg_api_grpc_v1_task_proto_goTypes = []any{
-	(*Task)(nil),                 // 0: api.v1.Task
+	(*Task)(nil),                 // 0: api.v1.Create
 	(*TaskCreateRequest)(nil),    // 1: api.v1.TaskCreateRequest
 	(*TaskCreateResponse)(nil),   // 2: api.v1.TaskCreateResponse
 	(*TaskRetrieveRequest)(nil),  // 3: api.v1.TaskRetrieveRequest
@@ -521,10 +521,10 @@ var file_core_pkg_api_grpc_v1_task_proto_goTypes = []any{
 	(*emptypb.Empty)(nil),        // 8: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_v1_task_proto_depIdxs = []int32{
-	0, // 0: api.v1.TaskCreateRequest.tasks:type_name -> api.v1.Task
-	0, // 1: api.v1.TaskCreateResponse.tasks:type_name -> api.v1.Task
-	0, // 2: api.v1.TaskRetrieveResponse.tasks:type_name -> api.v1.Task
-	0, // 3: api.v1.TaskCopyResponse.task:type_name -> api.v1.Task
+	0, // 0: api.v1.TaskCreateRequest.tasks:type_name -> api.v1.Create
+	0, // 1: api.v1.TaskCreateResponse.tasks:type_name -> api.v1.Create
+	0, // 2: api.v1.TaskRetrieveResponse.tasks:type_name -> api.v1.Create
+	0, // 3: api.v1.TaskCopyResponse.task:type_name -> api.v1.Create
 	1, // 4: api.v1.TaskCreateService.Exec:input_type -> api.v1.TaskCreateRequest
 	3, // 5: api.v1.TaskRetrieveService.Exec:input_type -> api.v1.TaskRetrieveRequest
 	5, // 6: api.v1.TaskDeleteService.Exec:input_type -> api.v1.TaskDeleteRequest

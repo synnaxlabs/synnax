@@ -61,7 +61,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Cluster.LAYOUTS,
   ...CSV.LAYOUTS,
   ...Docs.LAYOUTS,
-  ...LAYOUTS,
+  ...Hardware.LAYOUTS,
   ...Label.LAYOUTS,
   ...Layouts.LAYOUTS,
   ...LinePlot.LAYOUTS,

@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/rack/StatusIndicator.css";
+import "@/device/StatusIndicator.css";
 
-import { type rack } from "@synnaxlabs/client";
-import { useEffect, useRef } from "react";
+import { type device } from "@synnaxlabs/client";
 
 import { CSS } from "@/css";
-import { Icon } from "@/icon";
 import { Status } from "@/status/core";
 import { Tooltip } from "@/tooltip";
 
 export interface StatusIndicatorProps {
-  status?: rack.Status;
+  status?: device.Status;
   tooltipLocation?: Tooltip.DialogProps["location"];
 }
 
@@ -26,26 +24,16 @@ export const StatusIndicator = ({
   status,
   tooltipLocation = "right",
 }: StatusIndicatorProps) => {
-  const heartRef = useRef<SVGSVGElement>(null);
   const variant = status?.variant ?? "disabled";
-  useEffect(() => {
-    if (variant !== "success") return;
-    const heart = heartRef.current;
-    if (!heart) return;
-    heart.classList.remove(CSS.BEM("rack", "heartbeat", "beat"));
-    requestAnimationFrame(() =>
-      heart.classList.add(CSS.BEM("rack", "heartbeat", "beat")),
-    );
-  }, [status]);
+  const message = status?.message ?? "Device Status Unknown";
   return (
     <Tooltip.Dialog location={tooltipLocation}>
       <Status.Summary variant={variant} hideIcon level="small" weight={450}>
-        {status?.message}
+        {message}
       </Status.Summary>
-      <Icon.Heart
-        ref={heartRef}
-        className={CSS.BE("rack", "heartbeat")}
-        style={{ color: Status.VARIANT_COLORS[variant] }}
+      <Status.Indicator
+        variant={variant}
+        className={CSS.BE("device", "status-indicator")}
       />
     </Tooltip.Dialog>
   );

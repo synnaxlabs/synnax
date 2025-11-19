@@ -452,20 +452,20 @@ func (a *Layer) BindTo(t Transport) {
 	t.LabelRemove.BindHandler(a.Label.Remove)
 
 	// RACK
-	t.RackCreate.BindHandler(a.Rack.CreateRack)
-	t.RackRetrieve.BindHandler(a.Rack.RetrieveRack)
-	t.RackDelete.BindHandler(a.Rack.DeleteRack)
+	t.RackCreate.BindHandler(a.Rack.Create)
+	t.RackRetrieve.BindHandler(a.Rack.Retrieve)
+	t.RackDelete.BindHandler(a.Rack.Delete)
 
 	// TASK
-	t.TaskCreate.BindHandler(a.Task.CreateTask)
-	t.TaskRetrieve.BindHandler(a.Task.RetrieveTask)
-	t.TaskDelete.BindHandler(a.Task.DeleteTask)
-	t.TaskCopy.BindHandler(a.Task.CopyTask)
+	t.TaskCreate.BindHandler(a.Task.Create)
+	t.TaskRetrieve.BindHandler(a.Task.Retrieve)
+	t.TaskDelete.BindHandler(a.Task.Delete)
+	t.TaskCopy.BindHandler(a.Task.Copy)
 
 	// DEVICE
-	t.DeviceCreate.BindHandler(a.Device.CreateDevice)
-	t.DeviceRetrieve.BindHandler(a.Device.RetrieveDevice)
-	t.DeviceDelete.BindHandler(a.Device.DeleteDevice)
+	t.DeviceCreate.BindHandler(a.Device.Create)
+	t.DeviceRetrieve.BindHandler(a.Device.Retrieve)
+	t.DeviceDelete.BindHandler(a.Device.Delete)
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)

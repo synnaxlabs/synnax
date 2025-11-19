@@ -37,7 +37,7 @@ export const Selector: Layout.Renderer = (props) => {
   const store = useStore<RootState>();
   const selectables = [
     ...Vis.getSelectables(store.getState()),
-    ...SELECTABLES,
+    ...Hardware.SELECTABLES,
     ...Arc.SELECTABLES,
   ];
   return (

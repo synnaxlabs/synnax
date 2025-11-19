@@ -12,7 +12,7 @@ import { array, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Device, deviceZ, type Key, keyZ, type New, newZ } from "@/device/payload";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { keyZ as rackKeyZ } from "@/rack/payload";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -136,3 +136,5 @@ export class Client {
 }
 
 export const ontologyID = (key: Key): ontology.ID => ({ type: "device", key });
+
+export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));

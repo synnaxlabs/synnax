@@ -122,8 +122,9 @@ func (s *Service) RootGroup() group.Group { return s.group }
 // the writer will use that transaction. If tx is nil, the writer will execute
 // operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:     gorp.OverrideTx(s.cfg.DB, tx),
+		tx:     tx,
 		otg:    s.cfg.Ontology.NewWriter(tx),
 		group:  s.group,
 		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),

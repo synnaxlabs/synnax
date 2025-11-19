@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type rack, task } from "@synnaxlabs/client";
-import { array, type Optional } from "@synnaxlabs/x";
+import { array, type Optional, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -51,15 +51,20 @@ const DELETE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.keyZ> = {
 const SET_COMMAND_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.commandZ> = {
   channel: task.COMMAND_CHANNEL_NAME,
   schema: task.commandZ,
-  onChange: ({ store, changed }) =>
-    store.statuses.set(changed.task, (prev) => {
+  onChange: ({ store, changed }) => {
+    store.statuses.set(task.statusKey(changed.task), (prev) => {
       if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
-      return task.statusZ(z.unknown()).parse({
+      const status: task.Status = {
+        key: task.statusKey(changed.task),
+        name: "Task Status",
+        time: TimeStamp.now(),
         variant: "loading",
         message: `Running ${changed.type} command...`,
         details: { task: changed.task, running: true, data: {} },
-      });
-    }),
+      };
+      return status;
+    });
+  },
 };
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
@@ -111,13 +116,28 @@ export const createRetrieve = <
     name: RESOURCE_NAME,
     retrieve: async (args) =>
       await retrieveSingle<Type, Config, StatusData>({ ...args, schemas }),
-    mountListeners: ({ store, query, onChange }) => {
+    mountListeners: ({ store, query, onChange, client }) => {
       if (!("key" in query) || query.key == null) return [];
       return [
         store.tasks.onSet((task) => {
           if ("key" in query && query.key != null && task.key === query.key)
             onChange(task as unknown as task.Task<Type, Config, StatusData>);
         }, query.key.toString()),
+        store.statuses.onSet(
+          (status) => {
+            const parsed = task
+              .statusZ(schemas?.statusDataSchema ?? z.unknown())
+              .parse(status);
+            onChange((prev) => {
+              if (prev == null) return null;
+              return client.tasks.sugar({
+                ...prev.payload,
+                status: parsed,
+              }) as unknown as task.Task<Type, Config, StatusData>;
+            });
+          },
+          task.statusKey(query.key as task.Key),
+        ),
       ];
     },
   });
@@ -148,10 +168,11 @@ export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubSt
     store.tasks.onSet((task) => onChange(task.key, task)),
     store.tasks.onDelete(onDelete),
     store.statuses.onSet((status) => {
-      const parsed = unknownStatusZ.parse(status);
+      const parsed = unknownStatusZ.safeParse(status);
+      if (!parsed.success) return;
       onChange(
-        parsed.details.task,
-        state.skipNull((p) => client.tasks.sugar({ ...p, status: parsed })),
+        parsed.data.details.task,
+        state.skipNull((p) => client.tasks.sugar({ ...p, status: parsed.data })),
       );
     }),
   ],

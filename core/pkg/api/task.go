@@ -50,7 +50,11 @@ type (
 	}
 )
 
-func (svc *TaskService) CreateTask(ctx context.Context, req TaskCreateRequest) (res TaskCreateResponse, _ error) {
+func (svc *TaskService) Create(
+	ctx context.Context,
+	req TaskCreateRequest,
+) (TaskCreateResponse, error) {
+	var res TaskCreateResponse
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
@@ -89,11 +93,12 @@ type (
 	}
 )
 
-func (svc *TaskService) RetrieveTask(
+func (svc *TaskService) Retrieve(
 	ctx context.Context,
 	req TaskRetrieveRequest,
-) (res TaskRetrieveResponse, _ error) {
+) (TaskRetrieveResponse, error) {
 	var (
+		res       TaskRetrieveResponse
 		hasSearch = len(req.SearchTerm) > 0
 		hasKeys   = len(req.Keys) > 0
 		hasNames  = len(req.Names) > 0
@@ -136,7 +141,7 @@ func (svc *TaskService) RetrieveTask(
 
 	if req.IncludeStatus {
 		statuses := make([]task.Status, 0, len(res.Tasks))
-		if err := status.NewRetrieve[task.StatusDetails](svc.status.status).
+		if err = status.NewRetrieve[task.StatusDetails](svc.status.status).
 			WhereKeys(ontology.IDsToString(task.OntologyIDsFromTasks(res.Tasks))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
@@ -160,10 +165,11 @@ type TaskDeleteRequest struct {
 	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
 
-func (svc *TaskService) DeleteTask(
+func (svc *TaskService) Delete(
 	ctx context.Context,
 	req TaskDeleteRequest,
-) (res types.Nil, _ error) {
+) (types.Nil, error) {
+	var res types.Nil
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
@@ -193,7 +199,11 @@ type (
 	}
 )
 
-func (svc *TaskService) CopyTask(ctx context.Context, req TaskCopyRequest) (res TaskCopyResponse, _ error) {
+func (svc *TaskService) Copy(
+	ctx context.Context,
+	req TaskCopyRequest,
+) (TaskCopyResponse, error) {
+	var res TaskCopyResponse
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Retrieve,

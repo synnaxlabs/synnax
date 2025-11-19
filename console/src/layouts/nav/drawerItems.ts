@@ -18,7 +18,7 @@ import { Vis } from "@/vis";
 import { WorkspaceServices } from "@/workspace/services";
 
 export const DRAWER_ITEMS: Layout.NavDrawerItem[] = [
-  ...NAV_DRAWER_ITEMS,
+  ...Hardware.NAV_DRAWER_ITEMS,
   Arc.TOOLBAR,
   Range.TOOLBAR,
   Status.TOOLBAR,

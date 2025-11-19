@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, group, ontology, task } from "@synnaxlabs/client";
-import { id, status, TimeStamp, zod } from "@synnaxlabs/x";
+import { id, status, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import { Task } from "@/hardware/task";
+import { Task } from "@/task";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -315,7 +315,7 @@ describe("queries", () => {
       expect(result.current.data?.config).toEqual({ value: "test" });
     });
 
-    it.only("should retrieve task with status", async () => {
+    it("should retrieve task with status", async () => {
       const rack = await client.racks.create({
         name: "statusRack",
       });
@@ -328,7 +328,7 @@ describe("queries", () => {
       const taskStatus: task.Status = status.create<
         ReturnType<typeof task.statusDetailsZ>
       >({
-        key: id.create(),
+        key: task.statusKey(testTask.key),
         variant: "success",
         message: "Task running",
         details: {
@@ -346,9 +346,11 @@ describe("queries", () => {
         () => Task.useRetrieve({ key: testTask.key, includeStatus: true }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.status?.variant).toEqual("success");
-      expect(result.current.data?.status?.message).toEqual("Task running");
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data?.status?.variant).toEqual("success");
+        expect(result.current.data?.status?.message).toEqual("Task running");
+      });
     });
 
     it("should update when task is renamed", async () => {
@@ -401,7 +403,7 @@ describe("queries", () => {
       const newStatus: task.Status = status.create<
         ReturnType<typeof task.statusDetailsZ>
       >({
-        key: id.create(),
+        key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task failed",
         details: {
@@ -644,7 +646,9 @@ describe("queries", () => {
       act(() => {
         result.current.list.retrieve({});
       });
-      await waitFor(() => expect(result.current.list.variant).toEqual("success"));
+      await waitFor(() => {
+        expect(result.current.list.variant).toEqual("success");
+      });
       expect(result.current.list.data).toContain(testTask.key);
 
       await act(async () => {
@@ -990,7 +994,7 @@ describe("queries", () => {
       const taskStatus: task.Status = status.create<
         ReturnType<typeof task.statusDetailsZ>
       >({
-        key: id.create(),
+        key: task.statusKey(testTask.key),
         variant: "error",
         message: "Task error",
         details: {

@@ -12,11 +12,11 @@ import { array, primitive, type record, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";
-import { type Rack } from "@/hardware/rack";
-import { type Task } from "@/hardware/task";
 import { Ontology } from "@/ontology";
+import { type Rack } from "@/rack";
 import { state } from "@/state";
 import { type Status } from "@/status";
+import { type Task } from "@/task";
 
 export const FLUX_STORE_KEY = "devices";
 const RESOURCE_NAME = "Device";
@@ -100,11 +100,10 @@ export const createRetrieve = <
         (changed) => onChange(changed as device.Device<Properties, Make, Model>),
         key,
       ),
-      store.statuses.onSet((status) =>
-        onChange(
-          state.skipUndefined((p) => ({ ...p, status: device.statusZ.parse(status) })),
-        ),
-      ),
+      store.statuses.onSet((status) => {
+        const parsed = device.statusZ.parse(status);
+        onChange(state.skipUndefined((p) => ({ ...p, status: parsed })));
+      }, device.statusKey(key)),
     ],
   });
 
@@ -154,12 +153,14 @@ export const useList = Flux.createList<
     await retrieveSingle({ ...rest, query: { key } }),
   mountListeners: ({ store, onChange, onDelete }) => [
     store.devices.onSet((changed) => onChange(changed.key, changed)),
-    store.statuses.onSet((status) =>
+    store.statuses.onSet((status) => {
+      const parsed = device.statusZ.safeParse(status);
+      if (!parsed.success) return;
       onChange(
-        status.key,
-        state.skipNull((p) => ({ ...p, status: device.statusZ.parse(status) })),
-      ),
-    ),
+        parsed.data.details.device,
+        state.skipNull((p) => ({ ...p, status: parsed.data })),
+      );
+    }),
     store.devices.onDelete(onDelete),
   ],
 });
@@ -287,11 +288,15 @@ export const createForm = <
       const result = await client.devices.create(value());
       rollbacks.push(store.devices.set(result, "payload"));
     },
-    mountListeners: ({ store, query: { key }, reset, set }) => {
+    mountListeners: ({ store, query: { key }, reset, set, get }) => {
       if (primitive.isZero(key)) return [];
       return [
         store.devices.onSet(reset),
-        store.statuses.onSet((status) => set("status", device.statusZ.parse(status))),
+        store.statuses.onSet((status) => {
+          const key = get<device.Key>("key", { optional: true })?.value;
+          if (key == null || key !== device.statusKey(key)) return;
+          set("status", device.statusZ.parse(status));
+        }),
       ];
     },
   });

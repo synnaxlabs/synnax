@@ -16,7 +16,7 @@ import { Version } from "@/version";
 
 const NOTIFICATION_ADAPTERS: Core.Adapter[] = [
   ...Cluster.NOTIFICATION_ADAPTERS,
-  ...NOTIFICATION_ADAPTERS,
+  ...Hardware.NOTIFICATION_ADAPTERS,
   ...Version.NOTIFICATION_ADAPTERS,
 ];
 

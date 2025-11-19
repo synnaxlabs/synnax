@@ -151,8 +151,9 @@ func (s *Service) Close() error {
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:     gorp.OverrideTx(s.cfg.DB, tx),
+		tx:     tx,
 		otg:    s.cfg.Ontology.NewWriter(tx),
 		rack:   s.cfg.Rack.NewWriter(tx),
 		group:  s.group,

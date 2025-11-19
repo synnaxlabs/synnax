@@ -57,7 +57,11 @@ type (
 	}
 )
 
-func (svc *RackService) CreateRack(ctx context.Context, req RackCreateRequest) (res RackCreateResponse, _ error) {
+func (svc *RackService) Create(
+	ctx context.Context,
+	req RackCreateRequest,
+) (RackCreateResponse, error) {
+	var res RackCreateResponse
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
@@ -97,8 +101,12 @@ type (
 	}
 )
 
-func (svc *RackService) RetrieveRack(ctx context.Context, req RackRetrieveRequest) (res RackRetrieveResponse, _ error) {
+func (svc *RackService) Retrieve(
+	ctx context.Context,
+	req RackRetrieveRequest,
+) (RackRetrieveResponse, error) {
 	var (
+		res       RackRetrieveResponse
 		hasSearch = len(req.SearchTerm) > 0
 		hasKeys   = len(req.Keys) > 0
 		hasNames  = len(req.Names) > 0
@@ -171,10 +179,11 @@ func embeddedGuard(_ gorp.Context, r Rack) error {
 	return errors.Wrapf(validate.Error, "cannot delete embedded rack")
 }
 
-func (svc *RackService) DeleteRack(
+func (svc *RackService) Delete(
 	ctx context.Context,
 	req RackDeleteRequest,
-) (res types.Nil, _ error) {
+) (types.Nil, error) {
+	var res types.Nil
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Delete,
