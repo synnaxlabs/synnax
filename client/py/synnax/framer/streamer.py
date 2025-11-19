@@ -13,7 +13,6 @@ from freighter import (
     EOF,
     AsyncStream,
     AsyncStreamClient,
-    ExceptionPayload,
     Payload,
     Stream,
     WebsocketClient,

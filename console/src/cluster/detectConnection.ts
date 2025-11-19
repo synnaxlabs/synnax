@@ -10,9 +10,11 @@
 import { type Cluster } from "@/cluster/slice";
 import { Runtime } from "@/runtime";
 
-export interface ConnectionParams extends Pick<Cluster, "host" | "port" | "secure"> {}
+export interface ConnectionParams
+  extends Pick<Cluster, "name" | "host" | "port" | "secure"> {}
 
 const DEV_CONNECTION: ConnectionParams = {
+  name: "Core",
   host: "localhost",
   port: 9090,
   secure: false,
@@ -23,6 +25,7 @@ export const detectConnection = (): ConnectionParams | null => {
   if (IS_DEV) return DEV_CONNECTION;
   const url = new URL(window.location.origin);
   return {
+    name: "Core",
     host: url.hostname,
     port: url.port ? parseInt(url.port) : url.protocol === "https:" ? 443 : 80,
     secure: url.protocol === "https:",

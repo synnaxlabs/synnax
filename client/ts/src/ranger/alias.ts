@@ -12,7 +12,6 @@ import { array, type change } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { type framer } from "@/framer";
 import { type Key, keyZ } from "@/ranger/payload";
 
 export const SET_ALIAS_CHANNEL_NAME = "sy_range_alias_set";
@@ -39,21 +38,14 @@ const retrieveReqZ = z.object({ range: keyZ, channels: channel.keyZ.array() });
 const retrieveResZ = z.object({ aliases: z.record(z.string(), z.string()) });
 
 export class Aliaser {
-  private static readonly SET_ENDPOINT = "/range/alias/set";
-  private static readonly RESOLVE_ENDPOINT = "/range/alias/resolve";
-  private static readonly LIST_ENDPOINT = "/range/alias/list";
-  private static readonly RETRIEVE_ENDPOINT = "/range/alias/retrieve";
-  private static readonly DELETE_ENDPOINT = "/range/alias/delete";
-  private readonly frameClient: framer.Client;
   private readonly cache = new Map<string, channel.Key>();
   private readonly client: UnaryClient;
   private readonly rangeKey: Key;
 
-  constructor(rangeKey: Key, frameClient: framer.Client, client: UnaryClient) {
+  constructor(rangeKey: Key, client: UnaryClient) {
     this.rangeKey = rangeKey;
     this.cache = new Map();
     this.client = client;
-    this.frameClient = frameClient;
   }
 
   resolve(aliases: string): Promise<channel.Key>;
@@ -79,7 +71,7 @@ export class Aliaser {
     if (toFetch.length === 0) return cached;
     const res = await sendRequired<typeof resolveReqZ, typeof resolveResZ>(
       this.client,
-      Aliaser.RESOLVE_ENDPOINT,
+      "/range/alias/resolve",
       { range: this.rangeKey, aliases: toFetch },
       resolveReqZ,
       resolveResZ,
@@ -91,7 +83,7 @@ export class Aliaser {
   async set(aliases: Record<channel.Key, string>): Promise<void> {
     await sendRequired<typeof setReqZ, typeof setResZ>(
       this.client,
-      Aliaser.SET_ENDPOINT,
+      "/range/alias/set",
       { range: this.rangeKey, aliases },
       setReqZ,
       setResZ,
@@ -102,7 +94,7 @@ export class Aliaser {
     return (
       await sendRequired<typeof listReqZ, typeof listResZ>(
         this.client,
-        Aliaser.LIST_ENDPOINT,
+        "/range/alias/list",
         { range: this.rangeKey },
         listReqZ,
         listResZ,
@@ -119,7 +111,7 @@ export class Aliaser {
     const isSingle = typeof alias === "number";
     const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
-      Aliaser.RETRIEVE_ENDPOINT,
+      "/range/alias/retrieve",
       { range: this.rangeKey, channels: array.toArray(alias) },
       retrieveReqZ,
       retrieveResZ,
@@ -130,7 +122,7 @@ export class Aliaser {
   async delete(aliases: channel.Key | channel.Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
-      Aliaser.DELETE_ENDPOINT,
+      "/range/alias/delete",
       { range: this.rangeKey, channels: array.toArray(aliases) },
       deleteReqZ,
       deleteResZ,

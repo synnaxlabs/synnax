@@ -32,9 +32,6 @@ class _Request(Payload):
 class _Response(Payload): ...
 
 
-_ENDPOINT = "/frame/delete"
-
-
 class Deleter:
     """
     Deleter is used to delete a time range of telemetry from the data engine.
@@ -60,4 +57,4 @@ class Deleter:
                 "bounds": tr,
             }
         )
-        send_required(self._client, _ENDPOINT, req, _Response)
+        send_required(self._client, "/frame/delete", req, _Response)

@@ -16,7 +16,7 @@ import { type diagram } from "@/vis/diagram/aether";
 
 export const stateZ = z.object({
   enabled: z.boolean(),
-  source: telem.booleanSourceSpecZ.optional().default(telem.noopBooleanSourceSpec),
+  source: telem.booleanSourceSpecZ.default(telem.noopBooleanSourceSpec),
 });
 export interface State extends z.input<typeof stateZ> {}
 

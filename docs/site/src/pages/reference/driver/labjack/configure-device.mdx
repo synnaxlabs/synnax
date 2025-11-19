@@ -9,22 +9,21 @@ next: "Read Task"
 nextURL: "/reference/driver/labjack/read-task"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
-
 import StepText from "@/components/StepText.astro";
+import { Divider, Text, Icon, Note } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/Media";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { Client } from "@/components/client";
+import { Fragment } from "react";
 export const components = mdxOverrides;
-
-The first step to start acquiring data and sending commands to your LabJack devices is
-to connect and configure your device.
 
 <Divider.Divider x />
 
 ## Prerequisites
 
-Before you can start using your LabJack hardware with Synnax, you will need the
-following:
+Before you can start using your LabJack hardware with Synnax, you will need to ensure
+that you have the following:
 
 1. A [Synnax Core](/reference/core/quick-start) running on your network.
 2. A [Synnax Driver](/reference/driver/get-started) running on your network. This Driver
@@ -33,42 +32,121 @@ following:
 3. The
    [LJM library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit)
    installed on the machine running the Synnax Driver.
-4. The [Synnax Console](/reference/console/get-started) installed on your local machine
-   and connected to the Core.
+4. The [Synnax Console](/reference/console/get-started) installed on your local machine.
 
 <Divider.Divider x />
 
-## <StepText level="h2" step={1}>Select a Device to Configure</StepText>
+## Configuration Parameters Reference
 
-Synnax will automatically detect new LabJack devices, and display a notification in the
+| Parameter         | Type   | Required | Description                                                             |
+| ----------------- | ------ | -------- | ----------------------------------------------------------------------- |
+| `name`            | string | Yes      | Human-readable device name for identification in Console                |
+| `rack`            | string | Yes      | Synnax Driver (rack) key where the device is connected                  |
+| `model`           | string | Yes      | LabJack model (`LJM_dtT4`, `LJM_dtT7`, or `LJM_dtT8`)                   |
+| `location`        | string | Yes      | Physical connection identifier (see below)                              |
+| `identifier`      | string | Yes      | Device identifier: serial number, IP address, device name, etc.         |
+| `connection_type` | string | No       | Connection method: `ANY` (default), `USB`, `TCP`, `ETHERNET`, or `WIFI` |
+
+<Note.Note variant="info" className="compact">
+  `connection_type` is only supported through the Python and TypeScript client
+  libraries.
+</Note.Note>
+
+<Divider.Divider x />
+
+## How-To
+
+<Note.Note variant="warning" className="compact">
+  Before you begin, connect to your device and update it using
+  [Kipling](https://support.labjack.com/docs/kipling).
+</Note.Note>
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+
+Synnax will automatically detect new LabJack devices and display a notification in the
 Console when a new device is connected. To start configuring the device, find the device
 in the Devices Toolbar, right click on the device and select "Configure".
 
-<Video client:only="react" id="device-drivers/labjack/configure-device/open" />
+<Video client:only="react" id="device-drivers/labjack/configure-device/lj-configure" />
 
-<Divider.Divider x />
+</Fragment>
+  <Fragment slot="python">
 
-## <StepText level="h2" step={2}>Name Your Device</StepText>
+```python
+import synnax as sy
+from synnax.hardware import labjack
 
-The first step in the configuration dialog will prompt you to name your device. This
-name will be used to identify the device in Synnax.
+# Connect to Synnax
+client = sy.Synnax()
 
-<Image client:only="react" id="device-drivers/labjack/configure-device/name" />
+# Get the embedded rack (local driver rack)
+rack = client.hardware.racks.retrieve_embedded_rack()
 
-<Divider.Divider x />
+# Configure device connection
+device = labjack.Device(
+    model=labjack.T7,                 # Model: T4, T7, T8
+    identifier="ANY",                 # Serial number, IP, name, or "ANY"
+    name="My LabJack T7",             # Device name
+    location="ANY",                   # Connection identifier
+    rack=rack.key,                    # Rack key
+    connection_type="ANY",            # "ANY", "USB", "TCP", "ETHERNET", "WIFI"
+)
 
-## <StepText level="h2" step={3}> Set the Device Identifier</StepText>
+# Create the device in Synnax
+device = client.hardware.devices.create(device)
 
-Next, you'll need to set a short device identifier. This identifier will prefix the
-names of all of the channels on your device. Synnax will automatically suggest a few
-identifiers, although you're welcome to create your own. We recommend keeping this as
-short as possible, while still uniquely identifying the device.
+# Or retrieve by model
+device = client.hardware.devices.retrieve(model="LJM_dtT7")
 
-<Image client:only="react" id="device-drivers/labjack/configure-device/identifier" />
+# Or retrieve by name
+device = client.hardware.devices.retrieve(name="My LabJack T7")
 
-<Divider.Divider x />
+print(f"Device configured: {device.name} (key={device.key})")
+```
 
-## <StepText level="h2" step={3}>Save the Configuration</StepText>
+</Fragment>
+  <Fragment slot="typescript">
 
-Once you're happy with the name and identifier, the last step is to save the
-configuration by hitting the blue "Save" button in the bottom-right corner.
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+// Connect to Synnax
+const client = new Synnax();
+
+// Get the embedded rack (local driver rack)
+const rack = await client.hardware.racks.retrieveEmbeddedRack();
+
+// Configure device connection
+const device = await client.hardware.devices.create({
+  rack: rack.key,
+  name: "My LabJack T7",
+  make: "LabJack",
+  model: "LJM_dtT7", // Model: LJM_dtT4, LJM_dtT7, LJM_dtT8
+  location: "ANY", // Connection identifier
+  properties: {
+    connection: {
+      identifier: "ANY", // Serial number, IP, name, or "ANY"
+      connection_type: "ANY", // "ANY", "USB", "TCP", "ETHERNET", "WIFI"
+    },
+    read: {
+      index: 0,
+      channels: {},
+    },
+    write: {
+      channels: {},
+    },
+  },
+});
+
+// Or retrieve by model
+const device = await client.hardware.devices.retrieve({ model: "LJM_dtT7" });
+
+// Or retrieve by name
+const device = await client.hardware.devices.retrieve({ name: "My LabJack T7" });
+
+console.log(`Device configured: ${device.name} (key=${device.key})`);
+```
+
+  </Fragment>
+</Client.Tabs>

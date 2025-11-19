@@ -87,13 +87,12 @@ export const themeZ = z
       palettes: z.record(z.string(), color.paletteZ),
       visualization: z
         .object({ palettes: z.record(z.string(), z.array(color.colorZ)) })
-        .optional()
         .default({ palettes: {} }),
       white: color.colorZ,
       black: color.colorZ,
       text: color.colorZ,
       textInverted: color.colorZ,
-      textOnPrimary: color.colorZ.optional().default(color.ZERO),
+      textOnPrimary: color.colorZ.default(color.ZERO),
       logo: z.string(),
     }),
     sizes: z.object({

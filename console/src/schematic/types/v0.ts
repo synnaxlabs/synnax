@@ -82,7 +82,7 @@ export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 
 export const toolbarStateZ = z.object({
   activeTab: toolbarTabZ,
-  selectedSymbolGroup: z.string().optional().default("general"),
+  selectedSymbolGroup: z.string().default("general"),
 });
 export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
 export const ZERO_TOOLBAR_STATE: ToolbarState = {
