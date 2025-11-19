@@ -94,5 +94,8 @@
     "**/coverage/**"
   ],
   "ignoreDependencies": ["@types/*"],
-  "ignoreExportsUsedInFile": true
+  "ignoreExportsUsedInFile": {
+    "interface": true,
+    "type": true
+  }
 }
