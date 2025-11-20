@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type Destructor } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import { useCallback, useRef, useState } from "react";
 
 import { type core } from "@/flux/core";
@@ -55,8 +55,8 @@ export interface CreateRetrieveParams<
   name: string;
   retrieve: (params: RetrieveParams<Query, Store, AllowDisconnected>) => Promise<Data>;
   mountListeners?: (
-    params: RetrieveMountListenersParams<Query, Data, Store, AllowDisconnected>,
-  ) => Destructor | Destructor[];
+    Params: RetrieveMountListenersParams<Query, Data, Store, AllowDisconnected>,
+  ) => destructor.Destructor | destructor.Destructor[];
   allowDisconnected?: AllowDisconnected;
 }
 

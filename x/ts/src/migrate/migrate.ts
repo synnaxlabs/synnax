@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { compare } from "@/compare";
-import { type Optional } from "@/optional";
+import { type optional } from "@/optional";
 
 export const semVerZ = z
   .string()
@@ -221,10 +221,12 @@ interface MigratorProps<O extends Migratable, ZO extends z.ZodType = z.ZodType> 
   targetSchema?: ZO;
 }
 
-export type Migrator = <I extends Optional<Migratable, "version">, O>(v: I) => O;
+export type Migrator = <I extends optional.Optional<Migratable, "version">, O>(
+  v: I,
+) => O;
 
 export const migrator = <
-  I extends Optional<Migratable, "version">,
+  I extends optional.Optional<Migratable, "version">,
   O extends Migratable,
   ZO extends z.ZodType = z.ZodType,
 >({

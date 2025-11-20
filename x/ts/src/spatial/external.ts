@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/spatial/bounds";
-export { box } from "@/spatial/box";
+export * from "@/spatial/box";
 export * from "@/spatial/dimensions";
 export * from "@/spatial/direction";
 export * from "@/spatial/location";
 export * from "@/spatial/scale";
 export * as spatial from "@/spatial/spatial";
+export * from "@/spatial/sticky";
 export * from "@/spatial/xy";
