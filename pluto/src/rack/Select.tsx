@@ -13,10 +13,10 @@ import { type ReactElement } from "react";
 import { Component } from "@/component";
 import { type Dialog } from "@/dialog";
 import { type Flux } from "@/flux";
-import { type ListQuery, useList } from "@/rack/queries";
-import { StatusIndicator } from "@/rack/StatusIndicator";
 import { Icon } from "@/icon";
 import { List } from "@/list";
+import { type ListQuery, useList } from "@/rack/queries";
+import { StatusIndicator } from "@/rack/StatusIndicator";
 import { Select } from "@/select";
 import { Text } from "@/text";
 

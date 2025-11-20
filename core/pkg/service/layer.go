@@ -248,6 +248,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
 		Status:   l.Status,
+		Rack:     l.Rack,
 	}); !ok(err, l.Device) {
 		return nil, err
 	}
