@@ -111,7 +111,7 @@ class Task(TestCase):
     CHANNELS: list[ChannelConfig] = []
 
     # Default test parameters
-    SAMPLE_RATE: sy.Rate = 10 * sy.Rate.HZ
+    SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     STREAM_RATE: sy.Rate = 10 * sy.Rate.HZ
     TEST_DURATION: sy.TimeSpan = 3 * sy.TimeSpan.SECOND
 
@@ -203,6 +203,9 @@ class Task(TestCase):
         self.assert_sample_count(
             tsk, self.SAMPLE_RATE, sy.TimeRange(start_time, end_time)
         )
+
+        # SY-3310: OPC Read Array - rapid restart race condition
+        sy.sleep(0.2)
 
         self.log("Test 2 - Reconfigure Task")
         tsk.config.sample_rate = int(self.SAMPLE_RATE * 2)
