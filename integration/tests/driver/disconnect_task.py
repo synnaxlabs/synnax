@@ -66,7 +66,6 @@ class DisconnectTask(Task):
         tsk = self.tsk
         device = client.hardware.devices.retrieve(key=tsk.config.device)
 
-        # Test 1: Delete device while task exists
         self.log("Test 1 - Delete Device")
         try:
             client.hardware.devices.delete([device.key])
@@ -74,7 +73,6 @@ class DisconnectTask(Task):
             self.fail(f"Failed to delete device: {e}")
             return
 
-        # Verify device is actually deleted
         try:
             client.hardware.devices.retrieve(key=device.key)
             self.fail("Device still exists after deletion")
@@ -85,7 +83,6 @@ class DisconnectTask(Task):
             self.fail(f"Unexpected error verifying device deletion: {e}")
             return
 
-        # Test 2: Reconnect device
         self.log("Test 2 - Reconnect Device")
         try:
             reconnected_device = client.hardware.devices.create(device)
@@ -93,7 +90,6 @@ class DisconnectTask(Task):
             self.fail(f"Failed to recreate device: {e}")
             return
 
-        # Verify reconnected device
         try:
             retrieved_device = client.hardware.devices.retrieve(
                 key=reconnected_device.key
@@ -107,11 +103,10 @@ class DisconnectTask(Task):
             self.fail(f"Failed to retrieve reconnected device: {e}")
             return
 
-        # Test 3: Verify task works after device reconnection
         self.log("Test 3 - Run Task After Device Reconnection")
         self.assert_sample_count(tsk, strict=False)
 
-        # Test 4: Kill simulator while task is running
+
         self.log("Test 4 - Kill Simulator")
         if self.simulator_process is None:
             self.fail("Simulator process not found")
@@ -127,20 +122,17 @@ class DisconnectTask(Task):
             self.fail("Simulator process still running after cleanup")
             return
 
-        # Test 5: Restart simulator
-        self.log("Test 5 - Restart Simulator Server")
+        self.log("Test 5 - Restart Simulator")
         try:
             self._start_simulator()
         except Exception as e:
             self.fail(f"Failed to restart simulator: {e}")
             return
 
-        # Verify simulator is running
         if self.simulator_process is None or self.simulator_process.poll() is not None:
             self.fail("Simulator process not running after restart")
             return
 
-        # Test 6: Verify task works after simulator restart
-        self.log("Test 6 - Run Task After Simulator Restart")
+        self.log("Test 6 - Run Task")
         client.hardware.tasks.configure(tsk)
         self.assert_sample_count(tsk, strict=False)

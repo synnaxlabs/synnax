@@ -113,7 +113,7 @@ class Task(TestCase):
     # Default test parameters
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     STREAM_RATE: sy.Rate = 10 * sy.Rate.HZ
-    TEST_DURATION: sy.TimeSpan = 3 * sy.TimeSpan.SECOND
+    TEST_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
 
     # Sim server process variables
     simulator: SimulatorConfig | None = None

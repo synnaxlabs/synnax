@@ -7,17 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""
-OPC UA Read Task Test
-
-This test validates the standard task lifecycle for OPC UA read tasks.
-Configuration is self-contained within this test class.
-
-Example JSON configuration:
-{
-  "case": "driver/opcua_read"
-}
-"""
 
 from typing import TypedDict
 
@@ -143,7 +132,7 @@ class OpcuaRead(Task):
             {"case": "driver/opcua_read", "task": "array"}
         """
         # Select task configuration
-        task_type = self.params.get("task", "None")
+        task_type = self.params.get("task", "float")
         if task_type not in self.TASK_CONFIGS:
             self.fail(f"Unknown task_type: {task_type}")
             return

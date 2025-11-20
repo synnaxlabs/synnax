@@ -7,17 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""
-Modbus Read Task Test
 
-This test validates the standard task lifecycle for Modbus TCP read tasks.
-Configuration is self-contained within this test class.
-
-Example JSON configuration:
-{
-  "case": "driver/modbus_read"
-}
-"""
+from typing import TypedDict
 
 import synnax as sy
 from synnax.hardware import modbus
@@ -26,32 +17,140 @@ from tests.driver.devices import Simulator
 from tests.driver.task import ChannelConfig, Task
 
 
+class TaskTypeConfig(TypedDict, total=False):
+    """
+    Configuration for a specific Modbus task type.
+
+    Attributes:
+        task_name: Human-readable name for the task
+        task_key: Unique identifier for the task (used for index channel naming)
+        channels: List of channel configurations with Modbus-specific metadata
+    """
+
+    task_name: str
+    task_key: str
+    channels: list[ChannelConfig]
+
+
 class ModbusRead(Task):
     """
     Modbus TCP read task lifecycle test.
 
-    This test configures and validates a standard Modbus read task with
-    input register channels. The task configuration is self-contained.
+    This test configures and validates Modbus read tasks with different channel types.
+    The task type is selected via the 'task' matrix parameter.
+
+    Supported task types:
+    - "input_register": Input register channels (function code 4, read-only)
+    - "holding_register": Holding register input channels (function code 3, read/write)
+    - "discrete_input": Discrete input channels (function code 2, 1-bit read-only)
+    - "coil": Coil input channels (function code 1, 1-bit read/write)
     """
 
-    # Test configuration - see client/py/examples/modbus/server.py
+    # Simulator configuration
     simulator = Simulator.MODBUS
-    TASK_NAME = "Modbus Py - Read Task"
-    TASK_KEY = "modbus_read"
-    CHANNELS = [
-        {
-            "name": "input_register_0",
-            "data_type": sy.DataType.UINT8,
-            "address": 0,
-            "modbus_data_type": "uint8",
+
+    # Task configurations for different channel types
+    # See client/py/examples/modbus/server.py for simulator details
+    TASK_CONFIGS: dict[str, TaskTypeConfig] = {
+        "input_register": {
+            "task_name": "Modbus Py - Read Input Register",
+            "task_key": "modbus_read_input_register",
+            "channels": [
+                {
+                    "name": "input_register_0",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 0,
+                    "modbus_data_type": "uint8",
+                },
+                {
+                    "name": "input_register_1",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 1,
+                    "modbus_data_type": "uint8",
+                },
+            ],
         },
-        {
-            "name": "input_register_1",
-            "data_type": sy.DataType.UINT8,
-            "address": 1,
-            "modbus_data_type": "uint8",
+        "holding_register": {
+            "task_name": "Modbus Py - Read Holding Register",
+            "task_key": "modbus_read_holding_register",
+            "channels": [
+                {
+                    "name": "holding_register_0",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 0,
+                    "modbus_data_type": "uint8",
+                },
+                {
+                    "name": "holding_register_1",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 1,
+                    "modbus_data_type": "uint8",
+                },
+            ],
         },
-    ]
+        "discrete_input": {
+            "task_name": "Modbus Py - Read Discrete Input",
+            "task_key": "modbus_read_discrete_input",
+            "channels": [
+                {
+                    "name": "discrete_input_0",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 0,
+                },
+                {
+                    "name": "discrete_input_1",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 1,
+                },
+            ],
+        },
+        "coil": {
+            "task_name": "Modbus Py - Read Coil",
+            "task_key": "modbus_read_coil",
+            "channels": [
+                {
+                    "name": "coil_input_0",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 0,
+                },
+                {
+                    "name": "coil_input_1",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 1,
+                },
+            ],
+        },
+    }
+
+    def setup(self) -> None:
+        """
+        Select task configuration based on matrix parameter and setup task.
+
+        Matrix Parameters:
+            task (str): Task type selector. Valid values:
+                - "input_register": Read input registers (FC 4, addresses 0-1)
+                - "holding_register": Read holding registers (FC 3, addresses 0-1)
+                - "discrete_input": Read discrete inputs (FC 2, addresses 0-1)
+                - "coil": Read coils (FC 1, addresses 0-1)
+
+        Example JSON configurations:
+            {"case": "driver/modbus_read", "task": "input_register"}
+            {"case": "driver/modbus_read", "task": "holding_register"}
+            {"case": "driver/modbus_read", "task": "discrete_input"}
+            {"case": "driver/modbus_read", "task": "coil"}
+        """
+        # Select task configuration
+        task_type = self.params.get("task", "input_register")
+        if task_type not in self.TASK_CONFIGS:
+            self.fail(f"Unknown task_type: {task_type}")
+            return
+
+        config = self.TASK_CONFIGS[task_type]
+        self.TASK_NAME = config["task_name"]
+        self.TASK_KEY = config["task_key"]
+        self.CHANNELS = config["channels"]
+
+        super().setup()
 
     def create_task(
         self,
@@ -76,14 +175,46 @@ class ModbusRead(Task):
         Returns:
             Configured Modbus read task
         """
-        task_channels = [
-            modbus.InputRegisterChan(
-                channel=ch.key,
-                address=meta["address"],
-                data_type=meta["modbus_data_type"],
-            )
-            for ch, meta in zip(channels, channel_metadata)
-        ]
+        # Determine task type from params
+        task_type = self.params.get("task", "input_register")
+
+        # Create appropriate channel types based on task type
+        if task_type == "input_register":
+            task_channels = [
+                modbus.InputRegisterChan(
+                    channel=ch.key,
+                    address=meta["address"],
+                    data_type=meta["modbus_data_type"],
+                )
+                for ch, meta in zip(channels, channel_metadata)
+            ]
+        elif task_type == "holding_register":
+            task_channels = [
+                modbus.HoldingRegisterInputChan(
+                    channel=ch.key,
+                    address=meta["address"],
+                    data_type=meta["modbus_data_type"],
+                )
+                for ch, meta in zip(channels, channel_metadata)
+            ]
+        elif task_type == "discrete_input":
+            task_channels = [
+                modbus.DiscreteInputChan(
+                    channel=ch.key,
+                    address=meta["address"],
+                )
+                for ch, meta in zip(channels, channel_metadata)
+            ]
+        elif task_type == "coil":
+            task_channels = [
+                modbus.CoilInputChan(
+                    channel=ch.key,
+                    address=meta["address"],
+                )
+                for ch, meta in zip(channels, channel_metadata)
+            ]
+        else:
+            raise ValueError(f"Unknown task type: {task_type}")
 
         return modbus.ReadTask(
             name=task_name,
