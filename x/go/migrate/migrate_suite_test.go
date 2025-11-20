@@ -14,7 +14,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 )
+
+var db *gorp.DB
+
+var _ = BeforeSuite(func() {
+	db = gorp.Wrap(memkv.New())
+})
+
+var _ = AfterSuite(func() {
+	Expect(db.Close()).To(Succeed())
+})
 
 func TestMigrate(t *testing.T) {
 	RegisterFailHandler(Fail)
