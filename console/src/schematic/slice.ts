@@ -150,6 +150,11 @@ export interface SetLegendPayload {
   legend: Partial<LegendState>;
 }
 
+export interface SetLegendVisiblePayload {
+  key: string;
+  visible: boolean;
+}
+
 export interface SelectAllPayload {
   key: string;
 }
@@ -438,6 +443,11 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[layoutKey];
       schematic.legend = { ...schematic.legend, ...legend };
     },
+    setLegendVisible: (state, { payload }: PayloadAction<SetLegendVisiblePayload>) => {
+      const { key: layoutKey, visible } = payload;
+      const schematic = state.schematics[layoutKey];
+      schematic.legend.visible = visible;
+    },
     selectAll: (state, { payload }: PayloadAction<SelectAllPayload>) => {
       const { key: layoutKey } = payload;
       const schematic = state.schematics[layoutKey];
@@ -478,6 +488,7 @@ const clearSelections = (state: State): void => {
 
 export const {
   setLegend,
+  setLegendVisible,
   setNodePositions,
   toggleControl,
   setControlStatus,
