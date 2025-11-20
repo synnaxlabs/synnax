@@ -74,12 +74,14 @@ from synnax import ni
 from synnax import labjack
 from synnax import opcua
 from synnax import sequence
+from synnax.control import Controller
 
 __all__ = [
     "Alignment",
     "AUTO_SPAN",
     "AuthError",
     "Authority",
+    "Controller",
     "Bounds",
     "Channel",
     "ConfigurationError",

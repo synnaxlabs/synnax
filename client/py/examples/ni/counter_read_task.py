@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from synnax.hardware import ni
 
 """
 This example demonstrates how to configure and start a Counter Read Task on a National

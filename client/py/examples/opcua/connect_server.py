@@ -33,7 +33,6 @@ import json
 from uuid import uuid4
 
 import synnax as sy
-from synnax.hardware import opcua
 
 # Configuration
 DEVICE_NAME = "OPC UA Server"
