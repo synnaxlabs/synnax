@@ -25,8 +25,7 @@ import synnax as sy
 
 from framework.test_case import TestCase
 from tests.driver.devices import SimulatorConfig
-from tests.driver.driver import ChannelConfig
-from tests.driver.driver import Driver as driver
+from tests.driver.driver import ChannelConfig, Driver
 
 
 class TaskCase(TestCase):
@@ -90,7 +89,7 @@ class TaskCase(TestCase):
         """Start simulator, connect to device, and configure task."""
         if self.simulator is not None:
             self._start_simulator()
-            driver.connect_device(
+            Driver.connect_device(
                 client=self.client,
                 rack_name=self.RACK_NAME,
                 device_factory=self.simulator.device_factory,
@@ -98,7 +97,7 @@ class TaskCase(TestCase):
 
         # Create channels
         assert self.simulator is not None
-        device, channels, self.channel_names = driver.create_channels(
+        device, channels, self.channel_names = Driver.create_channels(
             client=self.client,
             device_name=self.simulator.device_name,
             task_key=self.TASK_KEY,
@@ -133,13 +132,11 @@ class TaskCase(TestCase):
         tsk = self.tsk
 
         self.log("Test 0 - Verify Task Exists")
-        driver.assert_task_exists(client, tsk.key)
-        driver.assert_channel_names(client, tsk, self.channel_names)
+        Driver.assert_task_exists(client, tsk.key)
+        Driver.assert_channel_names(client, tsk, self.channel_names)
 
         self.log("Test 1 - Start and Stop")
-        driver.assert_sample_count(
-            client, tsk, duration=self.TEST_DURATION
-        )
+        Driver.assert_sample_count(client, tsk, duration=self.TEST_DURATION)
 
         # SY-3310: OPC Read Array - rapid restart race condition
         sy.sleep(0.2)
@@ -148,18 +145,16 @@ class TaskCase(TestCase):
         new_rate = int(self.SAMPLE_RATE * 2)
         tsk.config.sample_rate = new_rate
         client.hardware.tasks.configure(tsk)
-        driver.assert_sample_count(
-            client, tsk, duration=self.TEST_DURATION
-        )
+        Driver.assert_sample_count(client, tsk, duration=self.TEST_DURATION)
 
         self.log("Test 3 - Delete Task")
         client.hardware.tasks.delete(tsk.key)
-        driver.assert_task_deleted(client, tsk.key)
+        Driver.assert_task_deleted(client, tsk.key)
 
         self.log("Test 4 - Delete Device")
         device = client.hardware.devices.retrieve(key=tsk.config.device)
         client.hardware.devices.delete([device.key])
-        driver.assert_device_deleted(client, device.key)
+        Driver.assert_device_deleted(client, device.key)
 
     def _start_simulator(self) -> None:
         """Start the simulator server."""

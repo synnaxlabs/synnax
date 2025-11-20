@@ -29,7 +29,7 @@ The base class provides the run() method that tests:
 
 import synnax as sy
 
-from tests.driver.driver import Driver as driver
+from tests.driver.driver import Driver
 from tests.driver.task import TaskCase
 
 
@@ -44,8 +44,10 @@ class DisconnectTask(TaskCase):
         class DisconnectModbus(DisconnectTask, ModbusRead):
             pass
 
-    The class uses these methods from TaskCase and driver:
-    - driver.assert_sample_count(): Verify task operation
+    The class uses these methods from TaskCase and Driver:
+    - Driver.assert_sample_count(): Verify task operation
+    - Driver.assert_device_deleted(): Verify device deletion
+    - Driver.assert_device_exists(): Verify device existence
     - self.fail(): Fail the test with a message
     - self.log(): Log test progress
     - self._cleanup_simulator(): Kill simulator process
@@ -69,14 +71,14 @@ class DisconnectTask(TaskCase):
 
         self.log("Test 1 - Delete Device")
         client.hardware.devices.delete([device.key])
-        driver.assert_device_deleted(client, device.key)
+        Driver.assert_device_deleted(client, device.key)
 
         self.log("Test 2 - Reconnect Device")
         reconnected_device = client.hardware.devices.create(device)
-        driver.assert_device_exists(client, reconnected_device.key)
+        Driver.assert_device_exists(client, reconnected_device.key)
 
         self.log("Test 3 - Run Task After Device Reconnection")
-        driver.assert_sample_count(client, tsk, strict=False)
+        Driver.assert_sample_count(client, tsk, strict=False)
 
         self.log("Test 4 - Kill Simulator")
         if self.simulator_process is None:
@@ -89,4 +91,4 @@ class DisconnectTask(TaskCase):
 
         self.log("Test 6 - Run Task")
         client.hardware.tasks.configure(tsk)
-        driver.assert_sample_count(client, tsk, strict=False)
+        Driver.assert_sample_count(client, tsk, strict=False)

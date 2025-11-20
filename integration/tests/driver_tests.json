@@ -19,12 +19,7 @@
         {
           "case": "driver/opcua_read",
           "parameters": {
-            "task": [
-              "float",
-              "bool",
-              "array",
-              "mixed"
-            ]
+            "task": ["float", "bool", "array", "mixed"]
           }
         },
         {

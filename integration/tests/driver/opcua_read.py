@@ -14,7 +14,8 @@ import synnax as sy
 from synnax.hardware import opcua
 
 from tests.driver.devices import Simulator
-from tests.driver.task import ChannelConfig, TaskCase
+from tests.driver.driver import ChannelConfig
+from tests.driver.task import TaskCase
 
 
 class TaskTypeConfig(TypedDict, total=False):

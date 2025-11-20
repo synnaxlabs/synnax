@@ -94,10 +94,8 @@ class Driver:
 
     @staticmethod
     def assert_channel_names(
-        client: sy.Synnax,
-        task: sy.Task,
-        expected_names: list[str]
-        ) -> list[str]:
+        client: sy.Synnax, task: sy.Task, expected_names: list[str]
+    ) -> list[str]:
         """Assert that the task's channels match the expected channel names.
 
         Args:
@@ -129,10 +127,7 @@ class Driver:
         return actual_names
 
     @staticmethod
-    def assert_device_deleted(
-        client: sy.Synnax,
-        device_key: str
-        ) -> None:
+    def assert_device_deleted(client: sy.Synnax, device_key: str) -> None:
         """Assert that a device has been deleted from Synnax.
 
         Args:
@@ -153,10 +148,7 @@ class Driver:
             )
 
     @staticmethod
-    def assert_device_exists(
-        client: sy.Synnax,
-        device_key: str
-        ) -> sy.Device:
+    def assert_device_exists(client: sy.Synnax, device_key: str) -> sy.Device:
         """
         Assert that a device exists in Synnax.
 
@@ -182,10 +174,7 @@ class Driver:
 
     @staticmethod
     def assert_sample_count(
-        client: sy.Synnax,
-        task: sy.Task,
-        duration: sy.TimeSpan = 1,
-        strict: bool = True
+        client: sy.Synnax, task: sy.Task, duration: sy.TimeSpan = 1, strict: bool = True
     ) -> None:
         """Assert that the task has the expected number of samples.
 
@@ -231,15 +220,14 @@ class Driver:
                     )
 
         if len(set(sample_counts)) > 1:
-            raise AssertionError(f"Channels have different sample counts: {sample_counts}")
+            raise AssertionError(
+                f"Channels have different sample counts: {sample_counts}"
+            )
 
         return
 
     @staticmethod
-    def assert_task_deleted(
-        client: sy.Synnax,
-        task_key: str
-        ) -> None:
+    def assert_task_deleted(client: sy.Synnax, task_key: str) -> None:
         """Assert that a task has been deleted from Synnax.
 
         Args:
@@ -253,15 +241,12 @@ class Driver:
             client.hardware.tasks.retrieve(task_key)
             raise AssertionError(f"Task {task_key} still exists after deletion")
         except sy.NotFoundError:
-            return ## Win condition
+            return  ## Win condition
         except Exception as e:
             raise AssertionError(f"Unexpected error asserting task deletion: {e}")
 
     @staticmethod
-    def assert_task_exists(
-        client: sy.Synnax,
-        task_key: int
-        ) -> sy.Task:
+    def assert_task_exists(client: sy.Synnax, task_key: int) -> sy.Task:
         """
         Assert that a task exists in Synnax.
 
