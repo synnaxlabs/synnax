@@ -128,6 +128,38 @@ class ModbusRead(TaskCase):
                 },
             ],
         },
+        "mixed": {
+            "task_name": "Modbus Py - Read Mixed",
+            "task_key": "modbus_read_mixed",
+            "channels": [
+                {
+                    "name": "input_register_0",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 0,
+                    "modbus_data_type": "uint8",
+                    "modbus_channel_type": "input_register",
+                },
+                {
+                    "name": "input_register_1",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 1,
+                    "modbus_data_type": "uint8",
+                    "modbus_channel_type": "input_register",
+                },
+                {
+                    "name": "discrete_input_0",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 0,
+                    "modbus_channel_type": "discrete_input",
+                },
+                {
+                    "name": "discrete_input_1",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 1,
+                    "modbus_channel_type": "discrete_input",
+                },
+            ],
+        },
     }
 
     def setup(self) -> None:
@@ -148,7 +180,7 @@ class ModbusRead(TaskCase):
             {"case": "driver/modbus_read", "task": "coil"}
         """
         # Select task configuration
-        task_type = self.params.get("task", "input_register")
+        task_type = self.params.get("task", "mixed")
         if task_type not in self.TASK_CONFIGS:
             self.fail(f"Unknown task_type: {task_type}")
             return

@@ -11,7 +11,8 @@
               "input_register",
               "holding_register",
               "discrete_input",
-              "coil"
+              "coil",
+              "mixed"
             ]
           }
         },
@@ -21,30 +22,16 @@
             "task": [
               "float",
               "bool",
-              "array"
+              "array",
+              "mixed"
             ]
           }
         },
         {
-          "case": "driver/disconnect_modbus",
-          "parameters": {
-            "task": [
-              "input_register",
-              "holding_register",
-              "discrete_input",
-              "coil"
-            ]
-          }
+          "case": "driver/disconnect_modbus"
         },
         {
-          "case": "driver/disconnect_opcua",
-          "parameters": {
-            "task": [
-              "float",
-              "bool",
-              "array"
-            ]
-          }
+          "case": "driver/disconnect_opcua"
         }
       ]
     }
