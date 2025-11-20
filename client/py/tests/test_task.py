@@ -48,22 +48,19 @@ class TestTaskClient:
     def test_execute_command_sync(self, client: sy.Synnax):
         def driver(ev: threading.Event):
             with client.open_streamer("sy_task_cmd") as s:
-                with client.open_writer(sy.TimeStamp.now(), "sy_task_status") as w:
                     ev.set()
                     f = s.read(timeout=1)
                     cmd = f["sy_task_cmd"][0]
-                    w.write(
-                        "sy_task_status",
-                        [
-                            sy.TaskStatus(
-                                key=cmd["key"],
-                                variant=SUCCESS_VARIANT,
-                                message="Command executed.",
-                                details=sy.TaskStatusDetails(
-                                    task=int(cmd["task"]),
-                                ),
-                            ).model_dump(),
-                        ],
+                    client.statuses.set(
+                        sy.TaskStatus(
+                            key=sy.task.payload.ontology_id(cmd["task"]),
+                            variant=SUCCESS_VARIANT,
+                            message="Command executed.",
+                            details=sy.TaskStatusDetails(
+                                task=int(cmd["task"]),
+                                cmd=cmd["key"]
+                            ),
+                        )
                     )
 
         ev = threading.Event()

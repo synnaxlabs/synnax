@@ -244,7 +244,7 @@ class Task:
                     continue
                 try:
                     status = TaskStatus.model_validate(frame[_TASK_STATE_CHANNEL][0])
-                    if status.key == key:
+                    if status.details.cmd == key:
                         return status
                 except ValidationError as e:
                     raise UnexpectedError(
