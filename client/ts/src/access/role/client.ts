@@ -62,12 +62,6 @@ export type UnassignArgs = z.input<typeof unassignReqZ>;
 
 const unassignResZ = z.object({});
 
-const RETRIEVE_ENDPOINT = "/access/role/retrieve";
-const CREATE_ENDPOINT = "/access/role/create";
-const DELETE_ENDPOINT = "/access/role/delete";
-const ASSIGN_ENDPOINT = "/access/role/assign";
-const UNASSIGN_ENDPOINT = "/access/role/unassign";
-
 export class Client {
   private readonly client: UnaryClient;
 
@@ -81,7 +75,7 @@ export class Client {
     const isMany = Array.isArray(roles);
     const res = await sendRequired<typeof createArgsZ, typeof createResZ>(
       this.client,
-      CREATE_ENDPOINT,
+      "/access/role/create",
       roles,
       createArgsZ,
       createResZ,
@@ -95,7 +89,7 @@ export class Client {
     const isSingle = "key" in args;
     const res = await sendRequired<typeof retrieveArgsZ, typeof retrieveResZ>(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/access/role/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
@@ -106,7 +100,7 @@ export class Client {
   async delete(args: DeleteArgs): Promise<void> {
     await sendRequired<typeof deleteArgsZ, typeof deleteResZ>(
       this.client,
-      DELETE_ENDPOINT,
+      "/access/role/delete",
       args,
       deleteArgsZ,
       deleteResZ,
@@ -116,7 +110,7 @@ export class Client {
   async assign(args: AssignArgs): Promise<void> {
     await sendRequired<typeof assignReqZ, typeof assignResZ>(
       this.client,
-      ASSIGN_ENDPOINT,
+      "/access/role/assign",
       args,
       assignReqZ,
       assignResZ,
@@ -126,7 +120,7 @@ export class Client {
   async unassign(args: UnassignArgs): Promise<void> {
     await sendRequired<typeof unassignReqZ, typeof unassignResZ>(
       this.client,
-      UNASSIGN_ENDPOINT,
+      "/access/role/unassign",
       args,
       unassignReqZ,
       unassignResZ,

@@ -86,10 +86,10 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 	cfg.Ontology.RegisterService(s)
 
 	if cfg.Signals != nil {
-		cdcS, err := signals.PublishFromGorp[uuid.UUID](
+		cdcS, err := signals.PublishFromGorp[uuid.UUID, User](
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigPureUUID[uuid.UUID, User](cfg.DB),
+			signals.GorpPublisherConfigUUID[User](cfg.DB),
 		)
 		s.shutdownSignals = cdcS
 		if err != nil {

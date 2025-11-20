@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	policyv0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/version"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
@@ -117,7 +116,7 @@ func applyHybridMigration(
 			}
 		}
 		v1Policy := pol.ToV1()
-		v1Policy.Version = version.V1
+		v1Policy.Version = 1
 		state.V1Policies = append(state.V1Policies, v1Policy)
 	}
 	policySetRoles := make(map[string]*role.Role)

@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/validate"
 )
 
 func ProvisionRootUser(
@@ -40,19 +39,12 @@ func ProvisionRootUser(
 		}
 		if rootUser.Key == uuid.Nil {
 			rootUser.Username = creds.Username
-			rootUser.RootUser = true
 			if err := svc.Auth.NewWriter(tx).Register(ctx, creds); err != nil {
 				return err
 			}
 			if err := svc.User.NewWriter(tx).Create(ctx, &rootUser); err != nil {
 				return err
 			}
-		} else if !rootUser.RootUser {
-			return errors.Wrapf(
-				validate.Error,
-				"a user with username %s exists but is not a root user",
-				rootUser.Username,
-			)
 		}
 		roleKey, err := access.ProvisionRootRole(ctx, tx, svc.RBAC)
 		if err != nil {

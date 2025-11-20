@@ -159,6 +159,10 @@ type Transport struct {
 	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
+	AccessCreateRole     freighter.UnaryServer[AccessCreateRoleRequest, AccessCreateRoleResponse]
+	AccessDeleteRole     freighter.UnaryServer[AccessDeleteRoleRequest, types.Nil]
+	AccessRetrieveRole   freighter.UnaryServer[AccessRetrieveRoleRequest, AccessRetrieveRoleResponse]
+	AccessAssignRole     freighter.UnaryServer[AccessAssignRoleRequest, types.Nil]
 	// STATUS
 	StatusSet      freighter.UnaryServer[StatusSetRequest, StatusSetResponse]
 	StatusRetrieve freighter.UnaryServer[StatusRetrieveRequest, StatusRetrieveResponse]
@@ -330,6 +334,10 @@ func (a *Layer) BindTo(t Transport) {
 		t.AccessCreatePolicy,
 		t.AccessDeletePolicy,
 		t.AccessRetrievePolicy,
+		t.AccessCreateRole,
+		t.AccessDeleteRole,
+		t.AccessRetrieveRole,
+		t.AccessAssignRole,
 
 		// STATUS
 		t.StatusSet,
@@ -458,6 +466,10 @@ func (a *Layer) BindTo(t Transport) {
 	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)
 	t.AccessDeletePolicy.BindHandler(a.Access.DeletePolicy)
 	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
+	t.AccessCreateRole.BindHandler(a.Access.CreateRole)
+	t.AccessDeleteRole.BindHandler(a.Access.DeleteRole)
+	t.AccessRetrieveRole.BindHandler(a.Access.RetrieveRole)
+	t.AccessAssignRole.BindHandler(a.Access.AssignRole)
 
 	// STATUS
 	t.StatusSet.BindHandler(a.Status.Set)

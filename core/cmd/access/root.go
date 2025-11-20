@@ -70,8 +70,7 @@ var (
 			{Type: role.OntologyType},
 			{Type: policy.OntologyType},
 		},
-		Actions:  []access.Action{access.ActionAll},
-		Internal: true,
+		Actions: []access.Action{access.ActionAll},
 	}
 )
 

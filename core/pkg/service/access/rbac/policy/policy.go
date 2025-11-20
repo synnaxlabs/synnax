@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/version"
 )
 
 type Effect string
@@ -32,15 +33,17 @@ const (
 type Policy struct {
 	Name string `json:"name" msgpack:"name"`
 	// Key is a unique uuid to identify the policy.
-	Key    uuid.UUID `json:"key" msgpack:"key"`
-	Effect Effect    `json:"effect" msgpack:"effect"`
+	Key uuid.UUID `json:"key" msgpack:"key"`
+	// Effect sets whether the policy denies or allows the actions on the provided
+	// objects.
+	Effect Effect `json:"effect" msgpack:"effect"`
 	// Objects is the list of objects that the policy applies to
 	Objects []ontology.ID `json:"objects" msgpack:"objects"`
 	// Actions is the list of actions that the policy applies to
 	Actions []access.Action `json:"actions" msgpack:"actions"`
 	// Version tracks the policy schema version (V1 = role-based)
-	Version  uint8 `json:"version" msgpack:"version"`
-	Internal bool  `json:"internal" msgpack:"internal"`
+	Version  version.Counter `json:"version" msgpack:"version"`
+	Internal bool            `json:"internal" msgpack:"internal"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Policy{}
@@ -50,6 +53,3 @@ func (p Policy) GorpKey() uuid.UUID { return p.Key }
 
 // SetOptions implements the gorp.Entry interface.
 func (p Policy) SetOptions() []any { return nil }
-
-// GetVersion returns the policy schema version.
-func (p Policy) GetVersion() uint8 { return p.Version }

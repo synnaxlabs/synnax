@@ -183,30 +183,33 @@ func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 
 func allowRequest(req access.Request, policies []policy.Policy) bool {
 	for _, requestedObj := range req.Objects {
-		allowed := false
+		var allowed *bool = nil
+		applyEffect := func(p policy.Policy) {
+			if p.Effect == policy.EffectDeny {
+				allowed = config.False()
+			} else if allowed == nil {
+				allowed = config.True()
+			}
+		}
 		for _, p := range policies {
-			actionAllowed := lo.Contains(p.Actions, req.Action) || lo.Contains(p.Actions, access.ActionAll)
-			if !actionAllowed {
+			hasAction := lo.Contains(p.Actions, req.Action) || lo.Contains(p.Actions, access.ActionAll)
+			if !hasAction {
 				continue
 			}
 			for _, policyObj := range p.Objects {
 				if policyObj.IsType() {
 					if policyObj.Type == requestedObj.Type {
-						allowed = true
-						break
+						applyEffect(p)
 					}
 				} else {
 					if policyObj.Type == requestedObj.Type && policyObj.Key == requestedObj.Key {
-						allowed = true
+						applyEffect(p)
 						break
 					}
 				}
 			}
-			if allowed {
-				break
-			}
 		}
-		if !allowed {
+		if allowed == nil || !*allowed {
 			return false
 		}
 	}

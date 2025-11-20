@@ -14,7 +14,7 @@ type Action string
 const (
 	ActionAll      Action = "*"
 	ActionCreate   Action = "create"
-	ActionDelete   Action = "delete"
 	ActionRetrieve Action = "retrieve"
 	ActionUpdate   Action = "update"
+	ActionDelete   Action = "delete"
 )

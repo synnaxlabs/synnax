@@ -76,7 +76,7 @@ export class Client {
       this.client,
       "/access/policy/create",
       policies,
-      createReqZ,
+      createArgsZ,
       createResZ,
     );
     return isMany ? res.policies : res.policies[0];
