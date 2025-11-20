@@ -19,7 +19,8 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
 from pydantic import BaseModel, Field, ValidationError, conint, field_validator
 
-from synnax.device import Device, Client as DeviceClient
+from synnax.device import Client as DeviceClient
+from synnax.device import Device
 from synnax.exceptions import ConfigurationError, UnexpectedError
 from synnax.framer import Client as FrameClient
 from synnax.rack import Client as RackClient

@@ -23,16 +23,14 @@ from synnax.channel.payload import (
     ChannelPayload,
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
+from synnax.exceptions import ValidationError
+from synnax.framer import AsyncStreamer as AsyncFrameStreamer
+from synnax.framer import Client as FrameClient
+from synnax.framer import Writer as FrameWriter
 from synnax.telem import CrudeTimeSpan, SampleValue, TimeSpan, TimeStamp
 from synnax.telem.control import CrudeAuthority
 from synnax.timing import sleep
 from synnax.util.thread import AsyncThread
-from synnax.exceptions import ValidationError
-from synnax.framer import (
-    Client as FrameClient,
-    Writer as FrameWriter,
-    AsyncStreamer as AsyncFrameStreamer,
-)
 
 
 class Processor(Protocol):
