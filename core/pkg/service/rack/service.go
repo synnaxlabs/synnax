@@ -127,7 +127,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	s.monitor, err = openMonitor(s.Instrumentation.Child("monitor"), s)
+	s.monitor, err = openMonitor(s.Child("monitor"), s)
 	if err != nil {
 		return nil, err
 	}
