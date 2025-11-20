@@ -36,6 +36,7 @@ describe("device", () => {
         name: "test",
         make: "ni",
         model: "test",
+        properties: {},
       });
       await expect(
         userClient.hardware.devices.retrieve({ key: randomDevice.key }),
@@ -59,6 +60,7 @@ describe("device", () => {
         name: "test",
         make: "ni",
         model: "test",
+        properties: {},
       });
       const retrieved = await userClient.hardware.devices.retrieve({
         key: randomDevice.key,
@@ -84,6 +86,7 @@ describe("device", () => {
         name: "test",
         make: "ni",
         model: "test",
+        properties: {},
       });
     });
 
@@ -105,6 +108,7 @@ describe("device", () => {
           name: "test",
           make: "ni",
           model: "test",
+          properties: {},
         }),
       ).rejects.toThrow(AuthError);
     });
@@ -126,6 +130,7 @@ describe("device", () => {
         name: "test",
         make: "ni",
         model: "test",
+        properties: {},
       });
       await userClient.hardware.devices.delete(randomDevice.key);
       await expect(
@@ -150,6 +155,7 @@ describe("device", () => {
         name: "test",
         make: "ni",
         model: "test",
+        properties: {},
       });
       await expect(
         userClient.hardware.devices.delete(randomDevice.key),
