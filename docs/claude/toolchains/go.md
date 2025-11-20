@@ -44,9 +44,20 @@ cd cesium && go build ./...
 
 ### Testing
 
+**IMPORTANT**: Always use `ginkgo` to run tests, not `go test`. The codebase uses Ginkgo/Gomega for testing.
+
 ```bash
-cd core && go test ./...
-cd cesium && go test -v ./...
+# Run all tests in a package
+cd core/pkg/distribution/channel && ginkgo
+
+# Run tests with verbose output
+cd cesium && ginkgo -v
+
+# Run specific tests by focus
+cd core/pkg/distribution/channel && ginkgo --focus "Name Validation"
+
+# Run all tests recursively
+cd core && ginkgo -r
 ```
 
 ### Integration Tests
