@@ -167,6 +167,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 		statuses[i] = Status{
 			Key:         OntologyID(device.Key).String(),
 			Time:        telem.Now(),
+			Variant:     rackStat.Variant,
 			Message:     rackStat.Message,
 			Description: rackStat.Description,
 			Details:     StatusDetails{Rack: rackStat.Details.Rack, Device: device.Key},

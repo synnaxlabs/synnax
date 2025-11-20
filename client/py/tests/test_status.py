@@ -194,7 +194,7 @@ class TestStatusClient:
     def test_set_with_parent(self, client: sy.Synnax):
         """Should create status with a parent ontology ID."""
         parent_group = client.ontology.groups.create(
-            parent=sy.ontology.ROOT, name="Status Parent Group"
+            parent=sy.ontology.ROOT_ID, name="Status Parent Group"
         )
         parent_id = {"type": "group", "key": str(parent_group.key)}
 
@@ -211,10 +211,10 @@ class TestStatusClient:
     def test_ontology_id_helper(self):
         """Should create proper ontology ID."""
         key = "test-status-key"
-        oid = ontology_id(key)
+        oid = sy.status.ontology_id(key)
 
-        assert oid["type"] == "status"
-        assert oid["key"] == key
+        assert oid.type == "status"
+        assert oid.key == key
 
     def test_retrieve_nonexistent_key(self, client: sy.Synnax):
         """Should raise error when retrieving non-existent status."""

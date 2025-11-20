@@ -15,9 +15,9 @@ from typing import Literal, cast
 from freighter import Payload
 from pydantic import BaseModel
 
+from synnax.ontology import ID
 from synnax.telem import DataType, TimeSpan
 from synnax.util.normalize import normalize
-from synnax.ontology import ID
 
 ChannelKey = int
 ChannelName = str

@@ -13,8 +13,8 @@ from uuid import uuid4
 from freighter import Payload
 from pydantic import Field
 
-from synnax.telem import TimeStamp
 from synnax.ontology import ID
+from synnax.telem import TimeStamp
 
 SUCCESS_VARIANT = "success"
 INFO_VARIANT = "info"
@@ -33,7 +33,7 @@ Variant = Literal[
 ]
 """Represents the variant of a status message."""
 
-D = TypeVar("D", bound=Payload)
+D = TypeVar("D", bound=Payload | None)
 
 STATUS_ONTOLOGY_TYPE = ID(type="status")
 
@@ -47,7 +47,7 @@ def ontology_id(key: str) -> ID:
     Returns:
         An ontology ID dictionary with type "status" and the given key.
     """
-    return ID(type=STATUS_ONTOLOGY_TYPE, key=key)
+    return ID(type=STATUS_ONTOLOGY_TYPE.type, key=key)
 
 
 class Status(Payload, Generic[D]):
@@ -67,7 +67,7 @@ class Status(Payload, Generic[D]):
     """The time the status was created."""
     labels: list[Any] | None = None
     """Optional labels attached to the status (only present in responses)."""
-    details: D | None = None
+    details: D = None
     """The details are customizable details for component specific statuses."""
 
     @property

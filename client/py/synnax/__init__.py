@@ -9,8 +9,11 @@
 
 __version__ = "0.3.0"
 
+from synnax import labjack, modbus, ni, opcua, sequence, status
 from synnax.access import Policy, PolicyClient
 from synnax.channel import Channel
+from synnax.control import Controller
+from synnax.device import Device
 from synnax.exceptions import (
     AuthError,
     ConfigurationError,
@@ -35,12 +38,12 @@ from synnax.framer import (
     Writer,
     WriterMode,
 )
-from synnax.device import Device
-from synnax.rack import Rack
-from synnax.task import Task, TaskStatus, TaskStatusDetails
 from synnax.options import SynnaxOptions
+from synnax.rack import Rack
 from synnax.ranger import Range
+from synnax.status import Status
 from synnax.synnax import Synnax
+from synnax.task import Task, TaskStatus, TaskStatusDetails
 from synnax.telem import (
     Alignment,
     Authority,
@@ -54,9 +57,9 @@ from synnax.telem import (
     CrudeTimeStamp,
     DataType,
     Density,
+    MultiSeries,
     Rate,
     Series,
-    MultiSeries,
     Size,
     TimeRange,
     TimeSpan,
@@ -67,14 +70,6 @@ from synnax.telem import (
 )
 from synnax.timing import Loop, Timer, sleep
 from synnax.user.payload import User
-from synnax.status import Status
-from synnax import status
-from synnax import modbus
-from synnax import ni
-from synnax import labjack
-from synnax import opcua
-from synnax import sequence
-from synnax.control import Controller
 
 __all__ = [
     "Alignment",

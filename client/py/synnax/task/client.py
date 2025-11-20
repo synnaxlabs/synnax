@@ -19,14 +19,13 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
 from pydantic import BaseModel, Field, ValidationError, conint, field_validator
 
-from synnax import UnexpectedError
+from synnax import UnexpectedError, device
 from synnax.exceptions import ConfigurationError
 from synnax.framer import Client as FrameClient
-from synnax import device
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
-from synnax.task.payload import TaskPayload, TaskStatus, ontology_id
 from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
+from synnax.task.payload import TaskPayload, TaskStatus, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
 
@@ -244,7 +243,7 @@ class Task:
                     continue
                 try:
                     status = TaskStatus.model_validate(frame[_TASK_STATE_CHANNEL][0])
-                    if status.details.cmd == key:
+                    if status.details.cmd is not None and status.details.cmd == key:
                         return status
                 except ValidationError as e:
                     raise UnexpectedError(

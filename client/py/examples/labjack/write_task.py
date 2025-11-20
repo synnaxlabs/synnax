@@ -28,7 +28,6 @@ import time
 
 import synnax as sy
 
-
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()

@@ -66,7 +66,7 @@ var (
 	// DefaultConfig is the default configuration for opening a rack service. Note
 	// that this configuration is not valid. See the Config documentation for more
 	// details on which fields must be set.
-	DefaultConfig = Config{HealthCheckInterval: 5 * telem.Second}
+	DefaultConfig = Config{HealthCheckInterval: 10 * telem.Second}
 )
 
 // Override implements config.Config.

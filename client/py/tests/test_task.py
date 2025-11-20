@@ -13,7 +13,6 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
-from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
 
 
 @pytest.mark.task
@@ -44,24 +43,22 @@ class TestTaskClient:
         assert res.type == type
         assert res.key == task.key
 
-    @pytest.mark.focus
     def test_execute_command_sync(self, client: sy.Synnax):
         def driver(ev: threading.Event):
             with client.open_streamer("sy_task_cmd") as s:
-                    ev.set()
-                    f = s.read(timeout=1)
-                    cmd = f["sy_task_cmd"][0]
-                    client.statuses.set(
-                        sy.TaskStatus(
-                            key=sy.task.payload.ontology_id(cmd["task"]),
-                            variant=SUCCESS_VARIANT,
-                            message="Command executed.",
-                            details=sy.TaskStatusDetails(
-                                task=int(cmd["task"]),
-                                cmd=cmd["key"]
-                            ),
-                        )
+                ev.set()
+                f = s.read(timeout=1)
+                cmd = f["sy_task_cmd"][0]
+                client.statuses.set(
+                    sy.TaskStatus(
+                        key=str(sy.task.payload.ontology_id(cmd["task"])),
+                        variant=sy.status.SUCCESS_VARIANT,
+                        message="Command executed.",
+                        details=sy.TaskStatusDetails(
+                            task=int(cmd["task"]), cmd=cmd["key"]
+                        ),
                     )
+                )
 
         ev = threading.Event()
         t = threading.Thread(target=driver, args=(ev,))
@@ -76,20 +73,17 @@ class TestTaskClient:
 
         def driver(ev: threading.Event):
             with client.open_streamer("sy_task_set") as s:
-                with client.open_writer(sy.TimeStamp.now(), "sy_task_status") as w:
-                    ev.set()
-                    f = s.read(timeout=2)
-                    key = f["sy_task_set"][0]
-                    w.write(
-                        "sy_task_status",
-                        [
-                            sy.TaskStatus(
-                                variant=SUCCESS_VARIANT,
-                                message="Task configured.",
-                                details=sy.TaskStatusDetails(task=int(key)),
-                            ).model_dump(),
-                        ],
+                ev.set()
+                f = s.read(timeout=2)
+                key = f["sy_task_set"][0]
+                client.statuses.set(
+                    sy.TaskStatus(
+                        key=str(sy.task.payload.ontology_id(int(key))),
+                        variant=sy.status.SUCCESS_VARIANT,
+                        message="Task configured.",
+                        details=sy.TaskStatusDetails(task=int(key)),
                     )
+                )
 
         tsk = sy.Task()
         ev = threading.Event()
@@ -104,20 +98,17 @@ class TestTaskClient:
 
         def driver(ev: threading.Event):
             with client.open_streamer("sy_task_set") as s:
-                with client.open_writer(sy.TimeStamp.now(), "sy_task_status") as w:
-                    ev.set()
-                    f = s.read(timeout=1)
-                    key = f["sy_task_set"][0]
-                    w.write(
-                        "sy_task_status",
-                        [
-                            sy.TaskStatus(
-                                variant=ERROR_VARIANT,
-                                message="Invalid Configuration.",
-                                details=sy.TaskStatusDetails(task=int(key)),
-                            ).model_dump(),
-                        ],
+                ev.set()
+                f = s.read(timeout=1)
+                key = f["sy_task_set"][0]
+                client.statuses.set(
+                    sy.TaskStatus(
+                        key=str(sy.task.payload.ontology_id(int(key))),
+                        variant=sy.status.ERROR_VARIANT,
+                        message="Invalid Configuration.",
+                        details=sy.TaskStatusDetails(task=int(key)),
                     )
+                )
 
         tsk = sy.Task()
         ev = threading.Event()

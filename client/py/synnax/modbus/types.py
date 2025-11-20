@@ -13,8 +13,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, confloat, conint, field_validator
 
-from synnax.channel import ChannelKey
 from synnax import device
+from synnax.channel import ChannelKey
 from synnax.task import (
     BaseReadTaskConfig,
     BaseWriteTaskConfig,

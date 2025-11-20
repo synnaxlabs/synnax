@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from freighter import Payload
+
 from synnax.ontology import ID
 
 DEVICE_ONTOLOGY_TYPE = ID(type="device")

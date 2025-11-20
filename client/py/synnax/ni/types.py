@@ -13,8 +13,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, confloat, conint, field_validator, validator
 
-from synnax import ValidationError
-from synnax import device
+from synnax import ValidationError, device
 from synnax.task import (
     BaseReadTaskConfig,
     BaseWriteTaskConfig,

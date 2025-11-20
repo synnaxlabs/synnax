@@ -27,8 +27,8 @@ SecurityPolicy = Literal[
     "Aes256_Sha256_RsaPss",
 ]
 
-from synnax.channel import ChannelKey
 from synnax import device
+from synnax.channel import ChannelKey
 from synnax.task import (
     BaseTaskConfig,
     BaseWriteTaskConfig,

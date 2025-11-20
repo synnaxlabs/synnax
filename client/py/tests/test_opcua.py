@@ -98,7 +98,7 @@ class TestOPCUATask:
             array_mode=False,
             array_size=1,
             channels=[
-                sy.opcua.Channel(
+                sy.opcua.ReadChannel(
                     key="k09AWoiyLxN",
                     node_id="NS=2;I=8",
                     channel=1234,

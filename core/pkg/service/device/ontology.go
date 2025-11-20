@@ -25,7 +25,9 @@ import (
 const OntologyType ontology.Type = "device"
 
 // OntologyID returns the unique ID for the device within the ontology.
-func OntologyID(key string) ontology.ID { return ontology.ID{Type: OntologyType, Key: key} }
+func OntologyID(key string) ontology.ID {
+	return ontology.ID{Type: OntologyType, Key: key}
+}
 
 // OntologyIDsFromDevices returns the ontology IDs for the given devices.
 func OntologyIDsFromDevices(devices []Device) []ontology.ID {

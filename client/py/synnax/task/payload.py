@@ -9,8 +9,8 @@
 
 from freighter import Payload
 
-from synnax.status import Status
 from synnax.ontology import ID
+from synnax.status import Status
 
 TASK_ONTOLOGY_TYPE = ID(type="task")
 

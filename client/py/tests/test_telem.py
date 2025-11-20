@@ -16,8 +16,7 @@ import pandas as pd
 import pytest
 
 import synnax as sy
-
-from synnax.telem import CrudeTimeSpan, CrudeRate, CrudeDataType
+from synnax.telem import CrudeDataType, CrudeRate, CrudeTimeSpan
 
 _now = sy.TimeStamp.now()
 

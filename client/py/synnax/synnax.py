@@ -17,18 +17,18 @@ from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriev
 from synnax.channel.writer import ChannelWriter
 from synnax.config import try_load_options_if_none_provided
 from synnax.control import Client as ControlClient
+from synnax.device import Client as DeviceClient
 from synnax.framer import Client
 from synnax.framer.deleter import Deleter
-from synnax.device import Client as DeviceClient
-from synnax.rack import Client as RackClient
-from synnax.task import Client as TaskClient
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.group import Client as GroupClient
 from synnax.options import SynnaxOptions
+from synnax.rack import Client as RackClient
 from synnax.ranger import RangeRetriever, RangeWriter
 from synnax.ranger.client import RangeClient
 from synnax.signals.signals import Registry
 from synnax.status.client import Client as StatusClient
+from synnax.task import Client as TaskClient
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
 from synnax.user.client import Client as UserClient
