@@ -399,15 +399,15 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     ASSERT_EVENTUALLY_EQ(slave.get_coil(0), 1);
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(1), 42);
 
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    const auto first_state = ctx->states[0];
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.key, "start_cmd");
     EXPECT_EQ(first_state.variant, "success");
 
     wt->stop("stop_cmd", true);
 
-    ASSERT_EQ(ctx->states.size(), 2);
-    const auto second_state = ctx->states[1];
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto second_state = ctx->statuses[1];
     EXPECT_EQ(second_state.key, "stop_cmd");
     EXPECT_EQ(second_state.variant, "success");
 }

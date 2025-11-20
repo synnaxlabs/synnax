@@ -613,8 +613,12 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodType>({
   try {
     while (true) {
       const frame = await Promise.race([streamer.read(), timeoutPromise]);
-      const state = statusZ(statusDataZ).parse(frame.at(-1)[status.SET_CHANNEL_NAME]);
-      if (!cmdKeys.includes(state.key)) continue;
+      const parseResult = statusZ(statusDataZ).safeParse(
+        frame.at(-1)[status.SET_CHANNEL_NAME],
+      );
+      if (!parseResult.success) continue;
+      const state = parseResult.data;
+      if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
       states = [...states.filter((s) => s.key !== state.key), state];
       if (states.length === cmdKeys.length) return states;
     }

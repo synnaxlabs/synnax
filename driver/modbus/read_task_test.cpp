@@ -235,16 +235,16 @@ TEST(ReadTask, testBasicReadTask) {
     );
 
     task.start("start_cmd");
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    const auto first_state = ctx->states[0];
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.key, "start_cmd");
     EXPECT_EQ(first_state.variant, "success");
     EXPECT_EQ(first_state.details.task, tsk.key);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(factory->writer_opens, 1);
     task.stop("stop_cmd", true);
-    ASSERT_EQ(ctx->states.size(), 2);
-    const auto second_state = ctx->states[1];
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto second_state = ctx->statuses[1];
     EXPECT_EQ(second_state.key, "stop_cmd");
     EXPECT_EQ(second_state.variant, "success");
     EXPECT_EQ(second_state.details.task, tsk.key);
@@ -627,9 +627,9 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
     ASSERT_NE(configured_task, nullptr);
 
     // Task should have auto-started - check that a start status was sent
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     bool found_start = false;
-    for (const auto &s: ctx->states) {
+    for (const auto &s: ctx->statuses) {
         if (s.details.running && s.variant == "success") {
             found_start = true;
             break;
@@ -693,8 +693,8 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
 
     // Task should NOT have auto-started - check that the status is "configured" not
     // "running"
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    const auto &initial_state = ctx->states[0];
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto &initial_state = ctx->statuses[0];
     ASSERT_FALSE(initial_state.details.running);
     ASSERT_EQ(initial_state.variant, "success");
     ASSERT_EQ(initial_state.message, "Task configured successfully");
@@ -704,9 +704,9 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     configured_task->exec(start_cmd);
 
     // Now task should be running
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     bool found_start = false;
-    for (const auto &s: ctx->states) {
+    for (const auto &s: ctx->statuses) {
         if (s.details.running && s.variant == "success") {
             found_start = true;
             break;

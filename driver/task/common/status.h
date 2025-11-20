@@ -32,6 +32,7 @@ struct StatusHandler {
 
     StatusHandler(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task):
         ctx(ctx), task(task) {
+        this->status.name = task.name;
         this->status.details.task = task.key;
         this->status.variant = status::variant::SUCCESS;
     }

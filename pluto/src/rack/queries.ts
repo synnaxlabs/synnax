@@ -86,10 +86,11 @@ export const useList = Flux.createList<ListQuery, rack.Key, rack.Payload, FluxSu
       store.racks.onSet((rack) => onChange(rack.key, rack)),
       store.racks.onDelete(onDelete),
       store.statuses.onSet((s) => {
-        const stat = rack.statusZ.parse(s);
+        const stat = rack.statusZ.safeParse(s);
+        if (!stat.success) return;
         onChange(
-          stat.details.rack,
-          state.skipNull((p) => ({ ...p, status: stat })),
+          stat.data.details.rack,
+          state.skipNull((p) => ({ ...p, status: stat.data })),
         );
       }),
     ],
@@ -107,9 +108,8 @@ export const { useRetrieve, useRetrieveStateful } = Flux.createRetrieve<
     store.racks.onSet(onChange, key),
     store.statuses.onSet((status) => {
       const parsed = rack.statusZ.parse(status);
-      if (parsed.details.rack !== key) return;
       onChange(state.skipUndefined((p) => ({ ...p, status: parsed })));
-    }),
+    }, rack.statusKey(key)),
   ],
 });
 

@@ -34,8 +34,8 @@ TEST(ScanTask, testConnection) {
     auto scan_task = modbus::ScanTask(ctx, t, dev_manager);
 
     scan_task.exec(cmd);
-    ASSERT_EQ(ctx->states.size(), 1);
-    auto first = ctx->states[0];
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    auto first = ctx->statuses[0];
     EXPECT_EQ(first.variant, "success");
     EXPECT_EQ(first.key, t.status_key());
     EXPECT_EQ(first.details.cmd, cmd.key);

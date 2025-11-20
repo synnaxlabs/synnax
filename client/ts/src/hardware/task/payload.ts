@@ -22,12 +22,7 @@ export const keyZ = z.union([
 export type Key = z.infer<typeof keyZ>;
 
 export const statusDetailsZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
-  z.object({
-    task: keyZ,
-    running: z.boolean(),
-    data,
-    cmd: z.string().optional(),
-  });
+  z.object({ task: keyZ, running: z.boolean(), data });
 
 export type StatusDetails<DataSchema extends z.ZodType> = z.infer<
   ReturnType<typeof statusDetailsZ<DataSchema>>

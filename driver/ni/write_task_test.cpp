@@ -142,8 +142,8 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     );
 
     wt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    const auto first_state = ctx->states[0];
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.key, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
@@ -153,8 +153,8 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 6);
 
     wt->stop("stop_cmd", true);
-    ASSERT_EQ(ctx->states.size(), 2);
-    const auto second_state = ctx->states[1];
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto second_state = ctx->statuses[1];
     EXPECT_EQ(second_state.key, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, status::variant::SUCCESS);

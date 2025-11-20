@@ -238,8 +238,8 @@ TEST_F(TestReadTask, testBasicReadTask) {
     auto start = telem::TimeStamp::now();
     const auto rt = create_task();
     rt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    const auto first_state = ctx->states[0];
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.key, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
@@ -247,7 +247,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop_cmd", true);
-    const auto second_state = ctx->states[1];
+    const auto second_state = ctx->statuses[1];
     EXPECT_EQ(second_state.key, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
@@ -318,9 +318,9 @@ TEST_F(TestReadTask, testInvalidNodeId) {
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     rt->stop("stop_cmd", true);
 
-    ASSERT_GE(ctx->states.size(), 1);
+    ASSERT_GE(ctx->statuses.size(), 1);
     bool found_error = false;
-    for (const auto &state: ctx->states) {
+    for (const auto &state: ctx->statuses) {
         if (state.variant == status::variant::ERR) {
             found_error = true;
             break;
@@ -342,7 +342,7 @@ TEST_F(TestReadTask, testServerDisconnectDuringRead) {
     rt->stop("stop_cmd", true);
 
     bool found_error = false;
-    for (const auto &state: ctx->states) {
+    for (const auto &state: ctx->statuses) {
         if (state.variant == status::variant::ERR) {
             found_error = true;
             break;
@@ -397,9 +397,9 @@ TEST_F(TestReadTask, testRapidStartStop) {
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     rt->stop("stop_cmd", true);
 
-    ASSERT_GE(ctx->states.size(), 2);
-    EXPECT_EQ(ctx->states[0].variant, status::variant::SUCCESS);
-    EXPECT_EQ(ctx->states[1].variant, status::variant::SUCCESS);
+    ASSERT_GE(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
 }
 
 TEST_F(TestReadTask, testConnectionPoolReuse) {
@@ -495,7 +495,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
     rt->stop("stop_cmd", true);
 
     // Check that the task started successfully despite potential data errors
-    ASSERT_GE(ctx->states.size(), 1);
+    ASSERT_GE(ctx->statuses.size(), 1);
 }
 
 TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
@@ -510,11 +510,11 @@ TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
     rt->stop("stop_cmd", true);
 
     // Verify task lifecycle worked correctly
-    ASSERT_GE(ctx->states.size(), 2);
-    EXPECT_EQ(ctx->states[0].variant, status::variant::SUCCESS);
-    EXPECT_EQ(ctx->states[0].message, "Task started successfully");
-    EXPECT_EQ(ctx->states[1].variant, status::variant::SUCCESS);
-    EXPECT_EQ(ctx->states[1].message, "Task stopped successfully");
+    ASSERT_GE(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].message, "Task started successfully");
+    EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].message, "Task stopped successfully");
 }
 
 TEST_F(TestReadTask, testEmptyFramesNotWrittenInUnaryMode) {
@@ -683,7 +683,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
     rt->stop("stop_cmd", true);
 
     // Task should handle multiple channels without crashing
-    ASSERT_GE(ctx->states.size(), 1);
+    ASSERT_GE(ctx->statuses.size(), 1);
 }
 
 TEST_F(TestReadTask, testWarningMessagesContainChannelInfo) {
@@ -700,7 +700,7 @@ TEST_F(TestReadTask, testWarningMessagesContainChannelInfo) {
     // If any warnings were generated, they should be informative
     // We can't force an error in this test without a mock server that returns bad data,
     // but we verify the task runs successfully
-    ASSERT_GE(ctx->states.size(), 2);
+    ASSERT_GE(ctx->statuses.size(), 2);
 }
 
 TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
@@ -715,9 +715,9 @@ TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
     rt->stop("stop_cmd", true);
 
     // Verify that task completed successfully
-    ASSERT_GE(ctx->states.size(), 2);
-    EXPECT_EQ(ctx->states[0].variant, status::variant::SUCCESS);
-    EXPECT_EQ(ctx->states[1].variant, status::variant::SUCCESS);
+    ASSERT_GE(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
 }
 
 TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
@@ -759,7 +759,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
     rt->stop("stop_cmd", true);
 
     // Verify task ran successfully
-    ASSERT_GE(ctx->states.size(), 1);
+    ASSERT_GE(ctx->statuses.size(), 1);
 }
 
 TEST_F(TestReadTask, testFrameClearedOnErrorInUnaryMode) {

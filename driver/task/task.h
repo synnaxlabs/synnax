@@ -100,14 +100,14 @@ class MockContext final : public Context {
     std::mutex mu;
 
 public:
-    std::vector<synnax::TaskStatus> states{};
+    std::vector<synnax::TaskStatus> statuses{};
 
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
 
     void set_status(synnax::TaskStatus &status) override {
         mu.lock();
-        states.push_back(status);
+        statuses.push_back(status);
         mu.unlock();
     }
 };
