@@ -19,8 +19,8 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
 from pydantic import BaseModel, Field, ValidationError, conint, field_validator
 
-from synnax import UnexpectedError, device
-from synnax.exceptions import ConfigurationError
+from synnax.device import Device, Client as DeviceClient
+from synnax.exceptions import ConfigurationError, UnexpectedError
 from synnax.framer import Client as FrameClient
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
@@ -185,9 +185,7 @@ class Task:
         """
         return ontology_id(self.key)
 
-    def update_device_properties(
-        self, device_client: device.Client
-    ) -> device.Device | None:
+    def update_device_properties(self, device_client: DeviceClient) -> Device | None:
         """Update device properties before task configuration.
 
         Default implementation for base Task class does nothing and returns None.
@@ -260,9 +258,7 @@ class TaskProtocol(Protocol):
 
     def set_internal(self, task: Task): ...
 
-    def update_device_properties(
-        self, device_client: device.Client
-    ) -> device.Device | None:
+    def update_device_properties(self, device_client: DeviceClient) -> Device | None:
         """Update device properties before task configuration.
 
         This method can be overridden by tasks that need to synchronize
@@ -343,7 +339,7 @@ class Client:
     _frame_client: FrameClient
     _default_rack: Rack | None
     _racks: RackClient
-    _device_client: device.Client | None
+    _device_client: DeviceClient | None
     instrumentation: Instrumentation = NOOP
 
     def __init__(
@@ -351,7 +347,7 @@ class Client:
         client: UnaryClient,
         frame_client: FrameClient,
         rack_client: RackClient,
-        device_client: device.Client | None = None,
+        device_client: DeviceClient | None = None,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client

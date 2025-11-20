@@ -10,7 +10,7 @@
 from alamos import NOOP, Instrumentation
 from freighter import URL
 
-from synnax import PolicyClient
+from synnax.access import PolicyClient
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
 from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriever
