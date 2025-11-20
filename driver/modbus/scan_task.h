@@ -76,10 +76,15 @@ public:
     void exec(task::Command &cmd) override {
         if (cmd.type == common::START_CMD_TYPE) {
             synnax::TaskStatus status{
-                .key = cmd.key,
+                .key = this->task.status_key(),
+                .name = this->task.name,
                 .variant = status::variant::SUCCESS,
-                .message = "Modbus scanner ready",
-                .details = synnax::TaskStatusDetails{.task = task.key, .running = true}
+                .message = "Running",
+                .details = synnax::TaskStatusDetails{
+                    .task = task.key,
+                    .running = true,
+                    .cmd = cmd.key,
+                }
             };
             ctx->set_status(status);
             return;

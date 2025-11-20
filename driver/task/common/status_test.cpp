@@ -16,7 +16,7 @@
 /// @brief it should correctly communicate the starting state of a task.
 TEST(TestTaskStateHandler, testStartCommunication) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    const synnax::Task task("task1","ni_analog_read", "");
+    const synnax::Task task("task1", "ni_analog_read", "");
     auto handler = common::StatusHandler(ctx, task);
 
     handler.send_start("cmd_key");
@@ -102,7 +102,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
 /// @brief it should correctly communicate the stopping state of a task.
 TEST(TestTaskStateHandler, testStopCommunication) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    const synnax::Task task( "task1", "ni_analog_read", "");
+    const synnax::Task task("task1", "ni_analog_read", "");
     auto handler = common::StatusHandler(ctx, task);
 
     handler.send_stop("cmd_key");

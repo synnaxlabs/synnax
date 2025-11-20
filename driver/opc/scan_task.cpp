@@ -103,6 +103,7 @@ void ScanTask::scan(const task::Command &cmd) const {
     const ScanCommandArgs args(parser);
     synnax::TaskStatus status{
         .key = this->task.status_key(),
+        .name = this->task.name,
         .variant = status::variant::ERR,
         .details = synnax::TaskStatusDetails{.task = task.key, .cmd = cmd.key}
     };
@@ -130,9 +131,12 @@ void ScanTask::scan(const task::Command &cmd) const {
         scan_ctx.get()
     );
 
+    status.message = "Scan successful";
     status.variant = status::variant::SUCCESS;
-    status.details.data = device::Properties(args.connection, *scan_ctx->channels)
-                              .to_json();
+    status.details.data = device::Properties(
+        args.connection,
+        *scan_ctx->channels
+    ).to_json();
     ctx->set_status(status);
 }
 
@@ -141,6 +145,7 @@ void ScanTask::test_connection(const task::Command &cmd) const {
     const ScanCommandArgs args(parser);
     synnax::TaskStatus status{
         .key = this->task.status_key(),
+        .name = this->task.name,
         .variant = status::variant::ERR,
         .details = synnax::TaskStatusDetails{
             .task = task.key,

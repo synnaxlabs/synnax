@@ -400,35 +400,25 @@ const COMMAND_VERBS: Flux.Verbs = {
   past: "commanded",
 };
 
-export const { useUpdate: useCommand } = Flux.createUpdate<
-  CommandParams,
-  FluxSubStore,
-  task.Status<z.ZodUnknown>[]
->({
-  name: PLURAL_RESOURCE_NAME,
-  verbs: COMMAND_VERBS,
-  update: async ({ data, client, store }) => {
-    const commands = array.toArray(data);
-    const keys = commands.map(({ task }) => task);
-    const tasks = store.tasks.get(keys);
-    if (tasks.length < keys.length) {
-      const existingKeys = tasks.map(({ key }) => key);
-      const difference = new Set(keys).difference(new Set(existingKeys));
-      const fetchedTasks = await client.tasks.retrieve({
-        keys: Array.from(difference),
-        includeStatus: true,
-      });
-      store.tasks.set(fetchedTasks);
-    }
-    const filteredCommands = commands.filter(({ task: t, type }) => {
-      const s = store.statuses.get(ontology.idToString(task.ontologyID(t)));
-      if (s == null) return true;
-      const status = task.statusZ(z.unknown()).parse(s);
-      return shouldExecuteCommand(status, type);
-    });
-    return await client.tasks.executeCommandSync<z.ZodUnknown>({
-      commands: filteredCommands,
-      statusDataZ: z.unknown(),
-    });
+export const { useUpdate: useCommand } = Flux.createUpdate<CommandParams, FluxSubStore>(
+  {
+    name: PLURAL_RESOURCE_NAME,
+    verbs: COMMAND_VERBS,
+    update: async ({ data, client, store }) => {
+      const commands = array.toArray(data);
+      const keys = commands.map(({ task }) => task);
+      const tasks = store.tasks.get(keys);
+      if (tasks.length < keys.length) {
+        const existingKeys = tasks.map(({ key }) => key);
+        const difference = new Set(keys).difference(new Set(existingKeys));
+        const fetchedTasks = await client.tasks.retrieve({
+          keys: Array.from(difference),
+          includeStatus: true,
+        });
+        store.tasks.set(fetchedTasks);
+      }
+      await client.tasks.executeCommand({ commands });
+      return data;
+    },
   },
-});
+);

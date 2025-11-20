@@ -108,7 +108,7 @@ public:
         const telem::Rate scan_rate,
         std::unique_ptr<ClusterAPI> client
     ):
-        pipeline::Base(breaker_config),
+        Base(breaker_config),
         task(task),
         timer(scan_rate),
         scanner(std::move(scanner)),
@@ -116,6 +116,7 @@ public:
         client(std::move(client)) {
         this->key = task.key;
         this->status.key = task.status_key();
+        this->status.name = task.name;
         this->status.details.task = task.key;
     }
 
@@ -143,7 +144,7 @@ public:
             return;
         }
         this->status.variant = status::variant::SUCCESS;
-        this->status.message = "scan task started";
+        this->status.message = "Scan task started";
         this->ctx->set_status(this->status);
         while (this->breaker.running()) {
             if (const auto err = this->scan()) {

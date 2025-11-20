@@ -34,9 +34,10 @@ type Writer struct {
 	status status.Writer[StatusDetails]
 }
 
-func newUnknownStatus(devKey string, rackKey rack.Key) *Status {
+func newUnknownStatus(devKey string, rackKey rack.Key, name string) *Status {
 	return &Status{
 		Key:     OntologyID(devKey).String(),
+		Name:    name,
 		Time:    telem.Now(),
 		Variant: xstatus.WarningVariant,
 		Message: "Device state unknown",
@@ -72,7 +73,7 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 	if exists && device.Rack == existing.Rack {
 		return nil
 	}
-	if err = w.status.Set(ctx, newUnknownStatus(device.Key, device.Rack)); err != nil {
+	if err = w.status.Set(ctx, newUnknownStatus(device.Key, device.Rack, device.Name)); err != nil {
 		return err
 	}
 	otgID := OntologyID(device.Key)

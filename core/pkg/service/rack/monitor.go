@@ -84,6 +84,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		timeSinceAlive := telem.TimeSpan(now - lastUpdated)
 		stat := Status{
 			Key:         OntologyID(r.Key).String(),
+			Name:        r.Name,
 			Variant:     xstatus.WarningVariant,
 			Time:        lastUpdated,
 			Message:     fmt.Sprintf("Synnax driver on %s not running", r.Name),
