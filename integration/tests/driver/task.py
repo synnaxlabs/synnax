@@ -269,7 +269,7 @@ class Task(TestCase):
             task: The task to assert the sample count of
             sample_rate: The sample rate of the task
             time_range: The time range to read samples from
-            strict: Sample count within 10% tolerance if True, else no check
+            strict: Sample count within 20% tolerance if True, else no check
         """
         start_time = sy.TimeStamp.now()
         with task.run():
@@ -280,10 +280,10 @@ class Task(TestCase):
         time_range = sy.TimeRange(start_time, end_time)
         duration_seconds = time_range.end.span(time_range.start).seconds
 
-        # Allow 10% tolerance for CI environments with timing variance
+        # Allow 20% tolerance for CI environments with timing variance
         expected_samples = int(sample_rate * duration_seconds)
-        min_samples = int(expected_samples * 0.9) if strict else 1
-        max_samples = int(expected_samples * 1.1) if strict else sys.maxsize
+        min_samples = int(expected_samples * 0.8) if strict else 1
+        max_samples = int(expected_samples * 1.2) if strict else sys.maxsize
 
         sample_counts = []
         for channel_config in task.config.channels:

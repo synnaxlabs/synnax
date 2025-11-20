@@ -12,6 +12,15 @@
           "parameters": {
             "task": ["float", "bool", "array"]
           }
+        },
+        {
+          "case": "driver/disconnect_modbus"
+        },
+        {
+          "case": "driver/disconnect_opcua",
+          "parameters": {
+            "task": ["float", "bool", "array"]
+          }
         }
       ]
     }
