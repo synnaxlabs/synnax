@@ -9,7 +9,6 @@
 
 import { type status } from "@synnaxlabs/client";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { type status as xstatus } from "@synnaxlabs/x";
 import { useCallback, useEffectEvent } from "react";
 import { useDispatch } from "react-redux";
 
@@ -20,16 +19,16 @@ export const useListenForChanges = () => {
   const addStatus = Status.useAdder();
   const listQuery = Status.useList();
   const client = Synnax.use();
-  const onVariantChange = useEffectEvent((variant: xstatus.Variant) => {
-    if (variant !== "success") return;
+  const onVariantChange = useEffectEvent(() => {
+    if (listQuery.variant !== "success") return;
     dispatch(filterFavoritesToKeys(listQuery.data));
   });
   useAsyncEffect(
     async (signal) => {
       await listQuery.retrieveAsync({}, { signal });
-      onVariantChange(listQuery.variant);
+      onVariantChange();
     },
-    [listQuery.retrieveAsync, listQuery.variant, client?.key],
+    [listQuery.retrieveAsync, client?.key],
   );
   Status.useSetSynchronizer(addStatus);
   const handleDelete = useCallback(
