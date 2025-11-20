@@ -133,10 +133,8 @@ void ScanTask::scan(const task::Command &cmd) const {
 
     status.message = "Scan successful";
     status.variant = status::variant::SUCCESS;
-    status.details.data = device::Properties(
-        args.connection,
-        *scan_ctx->channels
-    ).to_json();
+    status.details.data = device::Properties(args.connection, *scan_ctx->channels)
+                              .to_json();
     ctx->set_status(status);
 }
 
