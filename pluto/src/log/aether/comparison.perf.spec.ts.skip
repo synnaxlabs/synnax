@@ -1,0 +1,401 @@
+// comparison.perf.spec.ts
+
+import { box, DataType, MultiSeries, Series, TimeRange } from "@synnaxlabs/x";
+import { describe, it } from "vitest";
+
+import { Log as OriginalLog } from "./Log";
+import { Log as MidLog } from "./midLog";
+import { Log as WrapLog } from "./wrapLog";
+
+function createMockLog(LogClass: any, needsCanvas: boolean = false): any {
+    const mockProps = {
+        key: "test-log",
+        type: LogClass.TYPE,
+        sender: (() => { }) as any,
+        instrumentation: {
+            child: () => ({
+                child: () => ({}),
+            }),
+        } as any,
+        parentCtxValues: new Map(),
+    };
+
+    const log = new LogClass(mockProps);
+
+    (log as any)._state = {
+        region: box.construct({ x: 0, y: 0 }, { width: 800, height: 600 }),
+        font: "p",
+        wheelPos: 0,
+        scrolling: false,
+        empty: false,
+        visible: true,
+        color: { r: 0, g: 0, b: 0, a: 0 },
+        overshoot: { x: 0, y: 0 },
+    };
+
+    (log as any)._internalState = {
+        theme: {
+            typography: { p: { size: 12 } },
+            sizes: { base: 1 },
+            colors: {
+                gray: {
+                    l11: { r: 255, g: 255, b: 255, a: 1 },
+                    l6: { r: 100, g: 100, b: 100, a: 1 }
+                }
+            },
+        },
+    };
+
+    // Initialize charWidth for wrapLog
+    if (!needsCanvas) {
+        (log as any).charWidth = 7;
+    }
+
+    return log;
+}
+
+function createMockCanvas(): any {
+    return {
+        measureText: (text: string) => ({ width: text.length * 7 }),
+        font: "12px monospace",
+    };
+}
+
+function createLogSeries(count: number, lineLength: "short" | "medium" | "long"): MultiSeries {
+    const data: string[] = [];
+
+    for (let i = 0; i < count; i++) {
+        let line: string;
+        switch (lineLength) {
+            case "short":
+                line = `Log entry ${i}`;
+                break;
+            case "medium":
+                line = `[${new Date().toISOString()}] INFO: Processing request ${i} with status code 200`;
+                break;
+            case "long":
+                line = `[${new Date().toISOString()}] ERROR: Failed to connect to database server at 192.168.1.100:5432 after 3 retry attempts. Connection timeout: 30s. Last error: ECONNREFUSED. Request ID: ${i}-${Math.random().toString(36)}`;
+                break;
+        }
+        data.push(line);
+    }
+
+    const series = new Series({
+        data: new Float64Array(data.map((_, i) => i)),
+        dataType: DataType.STRING,
+        timeRange: TimeRange.ZERO,
+    });
+
+    (series as any)._data = data;
+    return new MultiSeries([series]);
+}
+
+function runComparison() {
+    const iterations = 1000;
+    const canvas = createMockCanvas();
+
+    const textCalls: any[] = [];
+    const mockDraw2D = {
+        text: (props: any) => {
+            textCalls.push({
+                text: props.text,
+                position: { ...props.position },
+                level: props.level,
+            });
+        },
+    } as any;
+
+    console.log("=== Performance Comparison: Original vs MidLog vs WrapLog ===\n");
+    console.log(`Running ${iterations} iterations for each test...\n`);
+
+    // Test 1: 10 short lines
+    {
+        const series = createLogSeries(10, "short");
+        const dataArray = Array.from({ length: 10 }, (_, i) => (series as any).series[0]._data[i]);
+
+        const originalLog = createMockLog(OriginalLog);
+        const midLog = createMockLog(MidLog, true);
+        const wrapLog = createMockLog(WrapLog);
+
+        originalLog.values = series;
+        midLog.values = series;
+        wrapLog.values = series;
+
+        // Original
+        textCalls.length = 0;
+        const start1 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            originalLog["renderElements"](mockDraw2D, dataArray);
+        }
+        const end1 = performance.now();
+        const originalTime = end1 - start1;
+
+        // MidLog
+        textCalls.length = 0;
+        const start2 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            midLog["renderElements"](mockDraw2D, dataArray, canvas);
+        }
+        const end2 = performance.now();
+        const midTime = end2 - start2;
+
+        // WrapLog (yours)
+        textCalls.length = 0;
+        const start3 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            wrapLog["renderElements"](mockDraw2D, dataArray);
+        }
+        const end3 = performance.now();
+        const wrapTime = end3 - start3;
+
+        console.log("10 Short Lines:");
+        console.log(`  Original:  ${originalTime.toFixed(2)}ms (${(originalTime / iterations).toFixed(4)}ms per iteration)`);
+        console.log(`  MidLog:    ${midTime.toFixed(2)}ms (${(midTime / iterations).toFixed(4)}ms per iteration) [${(midTime / originalTime).toFixed(2)}x]`);
+        console.log(`  WrapLog:   ${wrapTime.toFixed(2)}ms (${(wrapTime / iterations).toFixed(4)}ms per iteration) [${(wrapTime / originalTime).toFixed(2)}x]`);
+        console.log(`  Winner:    ${wrapTime < midTime ? 'WrapLog' : 'MidLog'} is ${Math.abs((wrapTime - midTime) / Math.min(wrapTime, midTime) * 100).toFixed(1)}% faster\n`);
+    }
+
+    // Test 2: 100 short lines
+    {
+        const series = createLogSeries(100, "short");
+        const dataArray = Array.from({ length: 100 }, (_, i) => (series as any).series[0]._data[i]);
+
+        const originalLog = createMockLog(OriginalLog);
+        const midLog = createMockLog(MidLog, true);
+        const wrapLog = createMockLog(WrapLog);
+
+        originalLog.values = series;
+        midLog.values = series;
+        wrapLog.values = series;
+
+        textCalls.length = 0;
+        const start1 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            originalLog["renderElements"](mockDraw2D, dataArray);
+        }
+        const end1 = performance.now();
+        const originalTime = end1 - start1;
+
+        textCalls.length = 0;
+        const start2 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            midLog["renderElements"](mockDraw2D, dataArray, canvas);
+        }
+        const end2 = performance.now();
+        const midTime = end2 - start2;
+
+        textCalls.length = 0;
+        const start3 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            wrapLog["renderElements"](mockDraw2D, dataArray);
+        }
+        const end3 = performance.now();
+        const wrapTime = end3 - start3;
+
+        console.log("100 Short Lines:");
+        console.log(`  Original:  ${originalTime.toFixed(2)}ms (${(originalTime / iterations).toFixed(4)}ms per iteration)`);
+        console.log(`  MidLog:    ${midTime.toFixed(2)}ms (${(midTime / iterations).toFixed(4)}ms per iteration) [${(midTime / originalTime).toFixed(2)}x]`);
+        console.log(`  WrapLog:   ${wrapTime.toFixed(2)}ms (${(wrapTime / iterations).toFixed(4)}ms per iteration) [${(wrapTime / originalTime).toFixed(2)}x]`);
+        console.log(`  Winner:    ${wrapTime < midTime ? 'WrapLog' : 'MidLog'} is ${Math.abs((wrapTime - midTime) / Math.min(wrapTime, midTime) * 100).toFixed(1)}% faster\n`);
+    }
+
+    // Test 3: 50 medium lines
+    {
+        const series = createLogSeries(50, "medium");
+        const dataArray = Array.from({ length: 50 }, (_, i) => (series as any).series[0]._data[i]);
+
+        const originalLog = createMockLog(OriginalLog);
+        const midLog = createMockLog(MidLog, true);
+        const wrapLog = createMockLog(WrapLog);
+
+        originalLog.values = series;
+        midLog.values = series;
+        wrapLog.values = series;
+
+        textCalls.length = 0;
+        const start1 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            originalLog["renderElements"](mockDraw2D, dataArray);
+        }
+        const end1 = performance.now();
+        const originalTime = end1 - start1;
+
+        textCalls.length = 0;
+        const start2 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            midLog["renderElements"](mockDraw2D, dataArray, canvas);
+        }
+        const end2 = performance.now();
+        const midTime = end2 - start2;
+
+        textCalls.length = 0;
+        const start3 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            wrapLog["renderElements"](mockDraw2D, dataArray);
+        }
+        const end3 = performance.now();
+        const wrapTime = end3 - start3;
+
+        console.log("50 Medium Lines:");
+        console.log(`  Original:  ${originalTime.toFixed(2)}ms (${(originalTime / iterations).toFixed(4)}ms per iteration)`);
+        console.log(`  MidLog:    ${midTime.toFixed(2)}ms (${(midTime / iterations).toFixed(4)}ms per iteration) [${(midTime / originalTime).toFixed(2)}x]`);
+        console.log(`  WrapLog:   ${wrapTime.toFixed(2)}ms (${(wrapTime / iterations).toFixed(4)}ms per iteration) [${(wrapTime / originalTime).toFixed(2)}x]`);
+        console.log(`  Winner:    ${wrapTime < midTime ? 'WrapLog' : 'MidLog'} is ${Math.abs((wrapTime - midTime) / Math.min(wrapTime, midTime) * 100).toFixed(1)}% faster\n`);
+    }
+
+    // Test 4: 100 medium lines
+    {
+        const series = createLogSeries(100, "medium");
+        const dataArray = Array.from({ length: 100 }, (_, i) => (series as any).series[0]._data[i]);
+
+        const originalLog = createMockLog(OriginalLog);
+        const midLog = createMockLog(MidLog, true);
+        const wrapLog = createMockLog(WrapLog);
+
+        originalLog.values = series;
+        midLog.values = series;
+        wrapLog.values = series;
+
+        textCalls.length = 0;
+        const start1 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            originalLog["renderElements"](mockDraw2D, dataArray);
+        }
+        const end1 = performance.now();
+        const originalTime = end1 - start1;
+
+        textCalls.length = 0;
+        const start2 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            midLog["renderElements"](mockDraw2D, dataArray, canvas);
+        }
+        const end2 = performance.now();
+        const midTime = end2 - start2;
+
+        textCalls.length = 0;
+        const start3 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            wrapLog["renderElements"](mockDraw2D, dataArray);
+        }
+        const end3 = performance.now();
+        const wrapTime = end3 - start3;
+
+        console.log("100 Medium Lines:");
+        console.log(`  Original:  ${originalTime.toFixed(2)}ms (${(originalTime / iterations).toFixed(4)}ms per iteration)`);
+        console.log(`  MidLog:    ${midTime.toFixed(2)}ms (${(midTime / iterations).toFixed(4)}ms per iteration) [${(midTime / originalTime).toFixed(2)}x]`);
+        console.log(`  WrapLog:   ${wrapTime.toFixed(2)}ms (${(wrapTime / iterations).toFixed(4)}ms per iteration) [${(wrapTime / originalTime).toFixed(2)}x]`);
+        console.log(`  Winner:    ${wrapTime < midTime ? 'WrapLog' : 'MidLog'} is ${Math.abs((wrapTime - midTime) / Math.min(wrapTime, midTime) * 100).toFixed(1)}% faster\n`);
+    }
+
+    // Test 5: 10 long lines
+    {
+        const series = createLogSeries(10, "long");
+        const dataArray = Array.from({ length: 10 }, (_, i) => (series as any).series[0]._data[i]);
+
+        const originalLog = createMockLog(OriginalLog);
+        const midLog = createMockLog(MidLog, true);
+        const wrapLog = createMockLog(WrapLog);
+
+        originalLog.values = series;
+        midLog.values = series;
+        wrapLog.values = series;
+
+        textCalls.length = 0;
+        const start1 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            originalLog["renderElements"](mockDraw2D, dataArray);
+        }
+        const end1 = performance.now();
+        const originalTime = end1 - start1;
+
+        textCalls.length = 0;
+        const start2 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            midLog["renderElements"](mockDraw2D, dataArray, canvas);
+        }
+        const end2 = performance.now();
+        const midTime = end2 - start2;
+
+        textCalls.length = 0;
+        const start3 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            wrapLog["renderElements"](mockDraw2D, dataArray);
+        }
+        const end3 = performance.now();
+        const wrapTime = end3 - start3;
+
+        console.log("10 Long Lines:");
+        console.log(`  Original:  ${originalTime.toFixed(2)}ms (${(originalTime / iterations).toFixed(4)}ms per iteration)`);
+        console.log(`  MidLog:    ${midTime.toFixed(2)}ms (${(midTime / iterations).toFixed(4)}ms per iteration) [${(midTime / originalTime).toFixed(2)}x]`);
+        console.log(`  WrapLog:   ${wrapTime.toFixed(2)}ms (${(wrapTime / iterations).toFixed(4)}ms per iteration) [${(wrapTime / originalTime).toFixed(2)}x]`);
+        console.log(`  Winner:    ${wrapTime < midTime ? 'WrapLog' : 'MidLog'} is ${Math.abs((wrapTime - midTime) / Math.min(wrapTime, midTime) * 100).toFixed(1)}% faster\n`);
+    }
+
+    // Test 6: 100 long lines
+    {
+        const series = createLogSeries(100, "long");
+        const dataArray = Array.from({ length: 100 }, (_, i) => (series as any).series[0]._data[i]);
+
+        const originalLog = createMockLog(OriginalLog);
+        const midLog = createMockLog(MidLog, true);
+        const wrapLog = createMockLog(WrapLog);
+
+        originalLog.values = series;
+        midLog.values = series;
+        wrapLog.values = series;
+
+        textCalls.length = 0;
+        const start1 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            originalLog["renderElements"](mockDraw2D, dataArray);
+        }
+        const end1 = performance.now();
+        const originalTime = end1 - start1;
+
+        textCalls.length = 0;
+        const start2 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            midLog["renderElements"](mockDraw2D, dataArray, canvas);
+        }
+        const end2 = performance.now();
+        const midTime = end2 - start2;
+
+        textCalls.length = 0;
+        const start3 = performance.now();
+        for (let i = 0; i < iterations; i++) {
+            textCalls.length = 0;
+            wrapLog["renderElements"](mockDraw2D, dataArray);
+        }
+        const end3 = performance.now();
+        const wrapTime = end3 - start3;
+
+        console.log("100 Long Lines:");
+        console.log(`  Original:  ${originalTime.toFixed(2)}ms (${(originalTime / iterations).toFixed(4)}ms per iteration)`);
+        console.log(`  MidLog:    ${midTime.toFixed(2)}ms (${(midTime / iterations).toFixed(4)}ms per iteration) [${(midTime / originalTime).toFixed(2)}x]`);
+        console.log(`  WrapLog:   ${wrapTime.toFixed(2)}ms (${(wrapTime / iterations).toFixed(4)}ms per iteration) [${(wrapTime / originalTime).toFixed(2)}x]`);
+        console.log(`  Winner:    ${wrapTime < midTime ? 'WrapLog' : 'MidLog'} is ${Math.abs((wrapTime - midTime) / Math.min(wrapTime, midTime) * 100).toFixed(1)}% faster\n`);
+    }
+}
+
+describe("Performance Comparison", () => {
+    it("should compare all three implementations", () => {
+        runComparison();
+    }, 30000);
+});

@@ -37,6 +37,8 @@ export const logState = z.object({
   overshoot: xy.xy.default({ x: 0, y: 0 }),
 });
 
+const PADDING_Y = 6;
+const PADDING_X = 6;
 const SCROLLBAR_WIDTH = 6;
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
 const CANVAS: render.Canvas2DVariant = "lower2d";
@@ -67,6 +69,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
   schema = Log.z;
   values: MultiSeries = new MultiSeries([]);
   scrollState: ScrollbackState = ZERO_SCROLLBACK;
+  private charWidth: number = 0;
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
@@ -154,13 +157,10 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     );
   }
 
-  // Becomes wrong with line wrapping
   get totalHeight(): number {
     return Math.ceil(this.values.length * this.lineHeight);
   }
 
-  // Becomes wrong with line wrapping
-  // Assumes 1 visual line per value
   get visibleLineCount(): number {
     return Math.min(
       Math.floor((box.height(this.state.region) - 12) / this.lineHeight),
@@ -189,9 +189,13 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
 
     const reg = this.state.region;
     const canvas = renderCtx[CANVAS];
+    // NEW: Measure once per render (or cache even longer)
+    if (this.charWidth === 0) {
+      this.charWidth = canvas.measureText('M').width; // Measure one char because monospace
+    }
     const draw2d = new Draw2D(canvas, this.internal.theme);
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
-    this.renderElements(draw2d, range, canvas); // Now passing canvas because this shows us text geometry
+    this.renderElements(draw2d, range);
     this.renderScrollbar(draw2d);
     clearScissor();
     const eraseRegion = box.copy(this.state.region);
@@ -227,76 +231,79 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     });
   }
 
-  // Create helper function for wrapped lines
-  // Take one long string, and break it into multiple lines
-  // Return list of wrapped lines that all fit in maxWidth
-  private wrapLogLine(text: string, maxWidth: number, measure: (s: string) => number): string[] {
-    const words = text.split(" ");
+  private softWrapLog(text: string, maxWidth: number): string[] {
     const lines: string[] = [];
-    let current = "";
-    
-    // Main loop for dealing with word level wrapping
-    for (const word of words){
-      const candidate = current === "" ? word : current + " " + word;
-      if (measure(candidate) <= maxWidth){
-        current = candidate;
-      } else {
-        if (current.length > 0) lines.push(current);
-        if (measure(word) > maxWidth) {
-          let chunk = "";
-          // Main loop for dealing with char level wrapping - if a single word is too big
-          for (const ch of word){
-            const candidateChunk = chunk + ch;
-            if (measure(candidateChunk) <= maxWidth) {
-              chunk = candidateChunk;
-            } else {
-              if (chunk.length > 0) lines.push(chunk);
-              chunk = ch;
-            }
+    if (text.length === 0) return [""];
+    if (this.charWidth === 0) return [text];
+    if (text.length * this.charWidth <= maxWidth) return [text];
+    let currentLine: string = "";
+    let currentWidth: number = 0;
+    if (text.includes(" ")) { // Text has spaces
+      const words = text.split(" ");
+      const spaceWidth = this.charWidth;
+      for (const word of words) {
+        const wordWidth = word.length * this.charWidth;
+        if (wordWidth > maxWidth) {
+          if (currentLine !== "") {
+            lines.push(currentLine);
+            currentLine = "";
+            currentWidth = 0;
           }
-          if (chunk.length > 0) {
-            current = chunk;
-          } else {
-            current = "";
+          const charsPerLine = Math.floor(maxWidth / this.charWidth);
+          for (let i = 0; i < word.length; i += charsPerLine) {
+            lines.push(word.slice(i, i + charsPerLine));
           }
+          continue;
+        }
+        if (currentLine === "") {
+          currentLine = word;
+          currentWidth = wordWidth;
         } else {
-          current = word;
+          const widthWithWord = currentWidth + spaceWidth + wordWidth;
+          if (widthWithWord <= maxWidth) {
+            currentLine += " " + word;
+            currentWidth = widthWithWord;
+          } else {
+            lines.push(currentLine);
+            currentLine = word;
+            currentWidth = wordWidth;
+          }
         }
       }
+      if (currentLine !== "") {
+        lines.push(currentLine);
+      }
+    } else { // Text is one whole string
+      const charsPerLine = Math.floor(maxWidth / this.charWidth);
+      for (let i = 0; i < text.length; i += charsPerLine) {
+        const chunk = text.slice(i, i + charsPerLine);
+        lines.push(chunk);
+      }
     }
-    if (current !== "") lines.push(current);
     return lines;
   }
 
-  private renderElements(draw2D: Draw2D, iter: Iterable<TelemValue>, canvas: OffscreenCanvasRenderingContext2D): void {
+  private renderElements(draw2D: Draw2D, iter: Iterable<TelemValue>): void {
     const reg = this.state.region;
-    // Avoiding drawing text under the scroolbar or flush to the left
-    const paddingX = 6;
-    const paddingY = 6;
-    const availableWidth = box.width(reg) - paddingX * 2 - SCROLLBAR_WIDTH;
-    const measure = (s: string) => canvas.measureText(s).width; // Expensive
+    const isJson = this.values.dataType.equals(DataType.JSON)
+    const lineMaxWidth = box.width(reg) - (PADDING_X * 2) - SCROLLBAR_WIDTH;
     let visualLineIndex = 0;
-
     for (const value of iter) {
-      const text = this.values.dataType.equals(DataType.JSON)
+      const text = isJson
         ? JSON.stringify(value)
         : value.toString();
-
-      // Create Wrapped Lines
-      const wrappedLines = this.wrapLogLine(text, availableWidth, measure);
-      // Iterate through the wrappedLines to create position
+      const wrappedLines = this.softWrapLog(text, lineMaxWidth);
       for (const line of wrappedLines) {
-        const position = xy.translate(box.topLeft(reg), {
-          x: paddingX,
-          y: visualLineIndex * this.lineHeight + paddingY,
-        });
-
+        const position = xy.translate(box.topLeft(reg),
+          {
+            x: PADDING_X,
+            y: visualLineIndex * this.lineHeight + PADDING_Y
+          });
         draw2D.text({
           text: line,
           level: this.state.font,
           shade: 11,
           position,
-          // position: xy.translate(box.topLeft(reg), { x: 6, y: visualLineIndex * this.lineHeight + 6 }), // Replace position
           code: true,
         });
         visualLineIndex++;
