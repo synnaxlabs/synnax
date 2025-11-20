@@ -29,11 +29,12 @@ type Writer struct {
 	status status.Writer[StatusDetails]
 }
 
-func newUnknownTaskStatus(key Key) *Status {
+func newUnknownTaskStatus(key Key, name string) *Status {
 	return &Status{
 		Key:     OntologyID(key).String(),
 		Time:    telem.Now(),
-		Message: "Task state unknown",
+		Name:    name,
+		Message: "Status unknown",
 		Variant: xstatus.WarningVariant,
 		Details: StatusDetails{Task: key},
 	}
@@ -59,7 +60,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.status.Set(ctx, newUnknownTaskStatus(t.Key)); err != nil {
+	if err := w.status.Set(ctx, newUnknownTaskStatus(t.Key, t.Name)); err != nil {
 		return err
 	}
 	// We don't create ontology resources for internal tasks.
@@ -106,7 +107,7 @@ func (w Writer) Copy(
 	}).Exec(ctx, w.tx); err != nil {
 		return res, err
 	}
-	if err = w.status.Set(ctx, newUnknownTaskStatus(res.Key)); err != nil {
+	if err = w.status.Set(ctx, newUnknownTaskStatus(res.Key, res.Name)); err != nil {
 		return Task{}, err
 	}
 	if err = w.otg.DefineResource(ctx, OntologyID(newKey)); err != nil {

@@ -38,12 +38,13 @@ type Writer struct {
 	status status.Writer[StatusDetails]
 }
 
-func unknownRackStatus(key Key) *Status {
+func unknownRackStatus(key Key, name string) *Status {
 	return &Status{
 		Key:     OntologyID(key).String(),
+		Name:    name,
 		Time:    telem.Now(),
 		Variant: xstatus.WarningVariant,
-		Message: "Rack state unknown",
+		Message: "Status unknown",
 		Details: StatusDetails{Rack: key},
 	}
 }
@@ -67,7 +68,7 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 	if err = w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	if err = w.status.Set(ctx, unknownRackStatus(r.Key)); err != nil {
+	if err = w.status.Set(ctx, unknownRackStatus(r.Key, r.Name)); err != nil {
 		return err
 	}
 	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
