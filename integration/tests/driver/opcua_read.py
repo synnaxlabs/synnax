@@ -14,7 +14,7 @@ import synnax as sy
 from synnax.hardware import opcua
 
 from tests.driver.devices import Simulator
-from tests.driver.task import ChannelConfig, Task
+from tests.driver.task import ChannelConfig, TaskCase
 
 
 class TaskTypeConfig(TypedDict, total=False):
@@ -36,7 +36,7 @@ class TaskTypeConfig(TypedDict, total=False):
     array_size: int
 
 
-class OpcuaRead(Task):
+class OpcuaRead(TaskCase):
     """
     OPC UA read task lifecycle test.
 

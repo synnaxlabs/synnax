@@ -14,7 +14,7 @@ import synnax as sy
 from synnax.hardware import modbus
 
 from tests.driver.devices import Simulator
-from tests.driver.task import ChannelConfig, Task
+from tests.driver.task import ChannelConfig, TaskCase
 
 
 class TaskTypeConfig(TypedDict, total=False):
@@ -32,7 +32,7 @@ class TaskTypeConfig(TypedDict, total=False):
     channels: list[ChannelConfig]
 
 
-class ModbusRead(Task):
+class ModbusRead(TaskCase):
     """
     Modbus TCP read task lifecycle test.
 
