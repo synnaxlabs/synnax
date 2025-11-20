@@ -49,7 +49,7 @@ TEST_F(ConnectionPoolTest, AcquireNewConnection) {
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 0);
 }
 
-TEST_F(ConnectionPoolTest, ReuseConnection) {
+TEST_F(ConnectionPoolTest, NoConnectionReuse) {
     opc::connection::Pool pool;
 
     {
@@ -58,7 +58,9 @@ TEST_F(ConnectionPoolTest, ReuseConnection) {
         ASSERT_TRUE(conn1);
     }
 
-    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
+    // After release, connection is disconnected and removed
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 0);
+    EXPECT_EQ(pool.size(), 0);
 
     auto [conn2, err2] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(err2);
@@ -151,7 +153,7 @@ TEST_F(ConnectionPoolTest, ThreadSafety) {
     EXPECT_EQ(success_count, num_threads * acquisitions_per_thread);
 }
 
-TEST_F(ConnectionPoolTest, ConnectionInvalidation) {
+TEST_F(ConnectionPoolTest, ConnectionDisposedOnRelease) {
     opc::connection::Pool pool;
 
     auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
@@ -160,7 +162,7 @@ TEST_F(ConnectionPoolTest, ConnectionInvalidation) {
 
     { opc::connection::Pool::Connection temp = std::move(conn1); }
 
-    UA_Client_disconnect(client_ptr.get());
+    EXPECT_EQ(pool.size(), 0);
 
     auto [conn2, err2] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(err2);
@@ -200,14 +202,15 @@ TEST_F(ConnectionPoolTest, AcquireFromBadServer) {
     EXPECT_EQ(pool.size(), 0);
 }
 
-TEST_F(ConnectionPoolTest, StaleConnectionAutoReconnect) {
+TEST_F(ConnectionPoolTest, FreshConnectionAfterServerRestart) {
     opc::connection::Pool pool;
 
     auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(err1);
 
     conn1 = opc::connection::Pool::Connection(nullptr, nullptr, "");
-    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 0);
+    EXPECT_EQ(pool.size(), 0);
 
     server_->stop();
     server_.reset();
@@ -222,13 +225,17 @@ TEST_F(ConnectionPoolTest, StaleConnectionAutoReconnect) {
     ASSERT_TRUE(conn2);
 }
 
-TEST_F(ConnectionPoolTest, NewConnectionAfterServerRestart) {
+TEST_F(ConnectionPoolTest, DeviceDeletionAndReconnection) {
     opc::connection::Pool pool;
 
-    auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
-    ASSERT_FALSE(err1);
+    auto *conn1_ptr = static_cast<UA_Client *>(nullptr);
+    {
+        auto [conn1, err1] = pool.acquire(conn_cfg_, "[test] ");
+        ASSERT_FALSE(err1);
+        conn1_ptr = conn1.get();
+    }
 
-    conn1 = opc::connection::Pool::Connection(nullptr, nullptr, "");
+    EXPECT_EQ(pool.size(), 0);
 
     server_->stop();
     server_.reset();
@@ -241,4 +248,5 @@ TEST_F(ConnectionPoolTest, NewConnectionAfterServerRestart) {
     auto [conn2, err2] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(err2);
     ASSERT_TRUE(conn2);
+    EXPECT_NE(conn2.get(), conn1_ptr);
 }

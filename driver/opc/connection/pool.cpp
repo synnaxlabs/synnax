@@ -88,16 +88,9 @@ void Pool::release(const std::string &key, std::shared_ptr<UA_Client> client) {
 
     for (auto &entry: it->second) {
         if (entry.client == client) {
-            UA_SessionState session_state;
-            UA_SecureChannelState channel_state;
-            UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
-            if (session_state == UA_SESSIONSTATE_ACTIVATED) {
-                entry.in_use = false;
-                VLOG(1) << "[conn_pool] Returned connection to pool";
-            } else {
-                entry.client.reset();
-                VLOG(1) << "[conn_pool] Discarding disconnected connection";
-            }
+            UA_Client_disconnect(client.get());
+            entry.client.reset();
+            VLOG(1) << "[conn_pool] Disconnecting and removing connection on release";
             break;
         }
     }

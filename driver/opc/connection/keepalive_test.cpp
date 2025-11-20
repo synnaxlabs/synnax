@@ -41,8 +41,9 @@ protected:
     Config conn_cfg_;
 };
 
-// Test that connections remain healthy when repeatedly acquired/released
-TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
+// Test that connections can be repeatedly acquired/released (creating fresh connections
+// each time)
+TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireCreatesNewConnections) {
     Pool pool;
 
     // Acquire and release 100 times over ~10 seconds
@@ -63,21 +64,21 @@ TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
         // Simulate some work
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        // Connection auto-released when connection goes out of scope
+        // Connection auto-released and disconnected when connection goes out of scope
     }
 
-    // Connection should still be in pool and reusable
-    EXPECT_EQ(pool.size(), 1);
-    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
+    // Pool should be empty after all connections released
+    EXPECT_EQ(pool.size(), 0);
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 0);
 
-    // Final acquire should succeed
+    // Final acquire should succeed with new connection
     auto [final_conn, final_err] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(final_err);
     ASSERT_TRUE(final_conn);
 }
 
-// Test that connections stay alive during idle periods between acquisitions
-TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
+// Test that new connections work after idle periods
+TEST_F(ConnectionPoolKeepAliveTest, NewConnectionAfterIdlePeriod) {
     Pool pool;
 
     // Initial acquisition
@@ -87,12 +88,13 @@ TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
         ASSERT_TRUE(connection);
     }
 
-    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 0);
+    EXPECT_EQ(pool.size(), 0);
 
     // Wait 5 seconds (simulating idle time)
     std::this_thread::sleep_for(std::chrono::seconds(5));
 
-    // Acquire again - should get same connection, still alive
+    // Acquire again - should create new connection
     auto [conn2, err2] = pool.acquire(conn_cfg_, "[test] ");
     ASSERT_FALSE(err2) << err2.message();
     ASSERT_TRUE(conn2);
@@ -102,7 +104,7 @@ TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
     UA_Client_getState(conn2.get(), &channel_state, &session_state, nullptr);
 
     EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED);
-    EXPECT_EQ(pool.size(), 1); // Same connection reused
+    EXPECT_EQ(pool.size(), 1); // New connection created
 }
 
 // Test concurrent access with keep-alive
@@ -180,8 +182,8 @@ TEST_F(ConnectionPoolKeepAliveTest, CanPerformReadAfterKeepAlive) {
     }
 }
 
-// Test keep-alive with very short timeouts (for fast testing)
-TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
+// Test fresh connections with short timeouts
+TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutFreshConnections) {
     Pool pool;
 
     // Configure very short timeouts for testing
@@ -190,10 +192,9 @@ TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
     short_cfg.session_timeout_ms = 30000; // 30 seconds
     short_cfg.client_timeout_ms = 15000; // 15 seconds
 
-    // Keep acquiring at regular intervals to trigger keep-alive
-    // Interval is less than half the lifetime to ensure renewal happens
+    // Keep acquiring at regular intervals, each time creating a new connection
     const int num_iterations = 8;
-    const int interval_seconds = 4; // 4s interval < 15s/2 lifetime
+    const int interval_seconds = 4; // 4s interval
 
     for (int i = 0; i < num_iterations; ++i) {
         auto [connection, err] = pool.acquire(short_cfg, "[test] ");
@@ -209,18 +210,14 @@ TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
             << "Iteration " << i << ": Session not activated";
 
         // Wait before next iteration
-        // Connection released when connection goes out of scope
+        // Connection released and disconnected when connection goes out of scope
         if (i < num_iterations - 1) {
             std::this_thread::sleep_for(std::chrono::seconds(interval_seconds));
         }
     }
 
-    // Total time elapsed: 8 iterations * 4s = 32 seconds
-    // SecureChannel would have expired at 15s without keep-alive
-    // We've gone through 2+ full SecureChannel lifetimes successfully
-
-    // Pool should have at most 1 connection (stale ones get cleaned up on acquire)
-    EXPECT_LE(pool.size(), 1);
+    // Pool should be empty (all connections disconnected on release)
+    EXPECT_EQ(pool.size(), 0);
 
     // Verify we can still acquire successfully
     auto [final_conn, final_err] = pool.acquire(short_cfg, "[test] ");

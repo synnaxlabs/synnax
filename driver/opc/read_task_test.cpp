@@ -404,7 +404,7 @@ TEST_F(TestReadTask, testRapidStartStop) {
     EXPECT_EQ(ctx->states[1].variant, status::variant::SUCCESS);
 }
 
-TEST_F(TestReadTask, testConnectionPoolReuse) {
+TEST_F(TestReadTask, testConnectionPoolNoReuse) {
     const std::string endpoint = "opc.tcp://localhost:4840";
     EXPECT_EQ(conn_pool->size(), 0);
     EXPECT_EQ(conn_pool->available_count(endpoint), 0);
@@ -418,20 +418,21 @@ TEST_F(TestReadTask, testConnectionPoolReuse) {
         rt1->stop("stop1", true);
     }
 
-    EXPECT_EQ(conn_pool->size(), 1);
-    EXPECT_EQ(conn_pool->available_count(endpoint), 1);
+    EXPECT_EQ(conn_pool->size(), 0);
+    EXPECT_EQ(conn_pool->available_count(endpoint), 0);
 
     {
         const auto rt2 = create_task();
-        EXPECT_EQ(conn_pool->size(), 1);
+        EXPECT_EQ(conn_pool->size(), 0);
         rt2->start("start2");
+        // New connection created
         EXPECT_EQ(conn_pool->size(), 1);
         EXPECT_EQ(conn_pool->available_count(endpoint), 0);
         rt2->stop("stop2", true);
     }
 
-    EXPECT_EQ(conn_pool->size(), 1);
-    EXPECT_EQ(conn_pool->available_count(endpoint), 1);
+    EXPECT_EQ(conn_pool->size(), 0);
+    EXPECT_EQ(conn_pool->available_count(endpoint), 0);
 }
 
 TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
