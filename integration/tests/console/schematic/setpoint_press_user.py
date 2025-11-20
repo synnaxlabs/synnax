@@ -38,9 +38,7 @@ class SetpointPressUser(ConsoleCase):
         self.log("Creating schematic symbols")
         schematic = Schematic(self.client, self.console, "setpoint_press_user")
 
-        start_cmd = schematic.create_valve(
-            "test_flag_cmd", no_state_channel=True
-        )
+        start_cmd = schematic.create_valve("test_flag_cmd", no_state_channel=True)
         start_cmd.move(-90, -100)
         end_cmd = schematic.create_button("end_test_cmd", mode="Fire")
         end_cmd.move(90, -100)

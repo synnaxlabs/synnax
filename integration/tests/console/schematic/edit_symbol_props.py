@@ -12,6 +12,7 @@ import synnax as sy
 from console.case import ConsoleCase
 from console.schematic.schematic import Schematic
 
+
 class EditSymbolProps(ConsoleCase):
     """
     Add a value component and edit its properties
@@ -29,7 +30,7 @@ class EditSymbolProps(ConsoleCase):
 
         self.log("Testing default properties of schematic value")
         value = schematic.create_value(f"{self.name}_uptime")
-        default_props = {
+        default_props: dict[str, float | str | bool] = {
             "channel": f"{self.name}_uptime",
             "notation": "standard",
             "precision": 2,
@@ -40,7 +41,7 @@ class EditSymbolProps(ConsoleCase):
         schematic.assert_symbol_properties(value, default_props)
 
         self.log("Testing edited properties of schematic value")
-        expected_edited_props = {
+        expected_edited_props: dict[str, float | str | bool] = {
             "channel": f"{self.name}_time",
             "notation": "scientific",
             "precision": 4,
@@ -57,9 +58,10 @@ class EditSymbolProps(ConsoleCase):
             stale_timeout=10,
         )
         schematic.assert_symbol_properties(value, expected_edited_props)
+        value.delete()
 
         self.log("Testing new node with non-default properties")
-        non_default_props = {
+        non_default_props: dict[str, float | str | bool] = {
             "channel": f"{self.name}_state",
             "notation": "engineering",
             "precision": 7,
@@ -76,6 +78,7 @@ class EditSymbolProps(ConsoleCase):
             stale_timeout=15,
         )
         schematic.assert_symbol_properties(non_default_value, non_default_props)
+        non_default_value.delete()
 
     def test_button_props(self, schematic: Schematic) -> None:
         client = self.client
@@ -118,17 +121,17 @@ class EditSymbolProps(ConsoleCase):
             show_control_chip=False,
             mode="Momentary",
         )
-        expected_edited_props = {
+        expected_edited_props: dict[str, float | str | bool] = {
             "channel": CHANNEL_NAME,
             "activation_delay": 4.2,
             "show_control_chip": False,
             "mode": "momentary",
         }
         schematic.assert_symbol_properties(button, expected_edited_props)
-
+        button.delete()
 
         self.log("Testing non-default properties of schematic button")
-        non_default_props = {
+        non_default_props: dict[str, float | str | bool] = {
             "channel": CHANNEL_NAME,
             "activation_delay": 2.3,
             "show_control_chip": True,

@@ -8,18 +8,15 @@
 #  included in the file licenses/APL.txt.
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import Any, TypeVar, cast
 
 import synnax as sy
-from playwright.sync_api import Page
 
+from console.console import Console
 from console.task.channels.analog import Analog
 from console.task.channels.counter import Counter
 
 from ..page import ConsolePage
-
-if TYPE_CHECKING:
-    from console.console import Console
 
 # Union type for all NI channel types
 NIChannel = Analog | Counter
@@ -33,10 +30,23 @@ class NITask(ConsolePage):
     channels_by_name: list[str]
     task_name: str
 
-    def __init__(self, page: Page, console: "Console") -> None:
-        super().__init__(page, console)
-        self.channels = []
-        self.channels_by_name = []
+    def __init__(
+        self,
+        client: sy.Synnax,
+        console: Console,
+        page_name: str,
+    ) -> None:
+        """
+        Initialize an NITask page.
+
+        Args:
+            client: Synnax client instance
+            console: Console instance
+            page_name: Name for the page
+        """
+        super().__init__(client, console, page_name)
+        self.channels: list[NIChannel] = []
+        self.channels_by_name: list[str] = []
 
     @abstractmethod
     def add_channel(

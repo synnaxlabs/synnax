@@ -48,9 +48,7 @@ class SetOutput(ConsoleCase):
         value_symbol = schematic.create_value(CHANNEL_NAME)
         value_symbol.move(200, 0)
 
-        schematic.connect_symbols(
-            setpoint_symbol, "right", value_symbol, "left"
-        )
+        schematic.connect_symbols(setpoint_symbol, "right", value_symbol, "left")
 
         set_p_value = 47.23
         self.log(f"Verifying setpoint value: {set_p_value}")

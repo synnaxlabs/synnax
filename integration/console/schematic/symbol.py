@@ -126,7 +126,7 @@ class Symbol(ABC):
 
         self.console.page.wait_for_timeout(100)
 
-    def get_properties(self, tab: str | None = None) -> dict[str, Any]:
+    def get_properties(self, tab: str = "Symbols") -> dict[str, Any]:
         """
         Get the current properties of the symbol.
 

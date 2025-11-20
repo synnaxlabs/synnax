@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, Union
+from typing import Literal
 
 import synnax as sy
 
@@ -198,7 +198,9 @@ class Schematic(ConsolePage):
         self.console.click("Control")
         self.console.fill_input_field("Control Authority", str(authority))
 
-    def assert_setpoint(self, setpoint_symbol: Setpoint, channel_name: str, value: float) -> None:
+    def assert_setpoint(
+        self, setpoint_symbol: Setpoint, channel_name: str, value: float
+    ) -> None:
         """Assert that setting the setpoint value results in the expected value in the Core."""
         setpoint_symbol.set_value(value)
         actual_value = self.get_value(channel_name)
@@ -206,7 +208,9 @@ class Schematic(ConsolePage):
             actual_value == value
         ), f"Setpoint value mismatch!\nActual: {actual_value}\nExpected: {value}"
 
-    def assert_symbol_properties(self, symbol: Symbol, expected_props: dict[str, Union[float, str, bool]]) -> None:
+    def assert_symbol_properties(
+        self, symbol: Symbol, expected_props: dict[str, float | str | bool]
+    ) -> None:
         actual_props = symbol.get_properties()
         assert (
             actual_props == expected_props

@@ -10,16 +10,17 @@
 import os
 import re
 import time
-from typing import cast, Literal
+from typing import Literal, cast
 
 import synnax as sy
-from playwright.sync_api import FloatRect, Locator, ViewportSize, Page
+from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 
-from .console import Console
+from .console import Console, PageType
 
 
 class ConsolePage:
     """Console page management interface"""
+
     client: sy.Synnax
     page: Page
     console: Console
@@ -77,7 +78,9 @@ class ConsolePage:
             time.sleep(0.1)
 
     def new(self) -> str:
-        self.tab_locator, self.id = self.console.create_page(self.page_type)
+        self.tab_locator, self.id = self.console.create_page(
+            cast(PageType, self.page_type)
+        )
         if self.pluto_label:
             # Handler assumes only one page with label will be open.
             self.pane_locator = self.page.locator(self.pluto_label)
@@ -210,4 +213,3 @@ class ConsolePage:
 
         except:
             raise RuntimeError(f'Could not get value for channel "{channel_name}"')
-

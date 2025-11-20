@@ -9,8 +9,8 @@
 
 import random
 from typing import cast
-import synnax as sy
 
+import synnax as sy
 from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
 
 from console.console import Console
@@ -60,7 +60,7 @@ class ConsoleCase(TestCase):
         # Wait for and fill login form
         username = self.synnax_connection.username
         password = self.synnax_connection.password
-        
+
         self.page.wait_for_selector(".pluto-field__username", timeout=5000)
         username_input = self.page.locator(".pluto-field__username input").first
         username_input.fill(username)

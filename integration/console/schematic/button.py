@@ -66,9 +66,9 @@ class Button(Symbol):
 
         return applied_properties
 
-    def get_properties(self) -> dict[str, Any]:
+    def get_properties(self, tab: str = "Control") -> dict[str, Any]:
         """Get the current properties of the symbol"""
-        super().get_properties(tab="Control")
+        super().get_properties(tab=tab)
 
         props: dict[str, Any] = {
             "channel": "",
