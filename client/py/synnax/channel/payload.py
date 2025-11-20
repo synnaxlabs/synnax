@@ -13,16 +13,25 @@ from dataclasses import dataclass
 from typing import Literal, cast
 
 from freighter import Payload
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from synnax.telem import DataType, Rate, TimeSpan
+from synnax.telem import DataType, TimeSpan
 from synnax.util.normalize import normalize
+from synnax.ontology import ID
 
 ChannelKey = int
 ChannelName = str
 ChannelKeys = list[int]
 ChannelNames = list[str]
 ChannelParams = ChannelKeys | ChannelNames | ChannelKey | ChannelName
+
+
+CHANNEL_ONTOLOGY_TYPE = ID(type="channel")
+
+
+def ontology_id(key: ChannelKey) -> ID:
+    """Returns the ontology ID for the Channel entity."""
+    return ID(type=CHANNEL_ONTOLOGY_TYPE.type, key=key)
 
 
 OPERATION_TYPES = Literal["min", "max", "avg", "none"]

@@ -13,7 +13,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from synnax.channel import ChannelKey
-from synnax.hardware.task import (
+from synnax.task import (
     JSONConfigMixin,
     StarterStopperMixin,
     Task,

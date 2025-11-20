@@ -19,31 +19,32 @@ from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
 @pytest.mark.task
 class TestTaskClient:
     def test_create_single(self, client: sy.Synnax):
-        task = client.hardware.tasks.create(name="test", type="test")
+        task = client.tasks.create(name="test", type="test")
         assert task.key != 0
 
     def test_create_multiple(self, client: sy.Synnax):
         t1 = sy.Task(name="test1", type="test")
         t2 = sy.Task(name="test2", type="test")
-        tasks = client.hardware.tasks.create(tasks=[t1, t2])
+        tasks = client.tasks.create(tasks=[t1, t2])
         assert len(tasks) == 2
         assert tasks[0].name == "test1"
         assert tasks[1].name == "test2"
 
     def test_retrieve_by_name(self, client: sy.Synnax):
         name = str(uuid4())
-        task = client.hardware.tasks.create(name=name, type="test")
-        res = client.hardware.tasks.retrieve(name=name)
+        task = client.tasks.create(name=name, type="test")
+        res = client.tasks.retrieve(name=name)
         assert res.name == name
         assert res.key == task.key
 
     def test_retrieve_by_type(self, client: sy.Synnax):
         type = str(uuid4())
-        task = client.hardware.tasks.create(type=type)
-        res = client.hardware.tasks.retrieve(type=type)
+        task = client.tasks.create(type=type)
+        res = client.tasks.retrieve(type=type)
         assert res.type == type
         assert res.key == task.key
 
+    @pytest.mark.focus
     def test_execute_command_sync(self, client: sy.Synnax):
         def driver(ev: threading.Event):
             with client.open_streamer("sy_task_cmd") as s:
@@ -68,7 +69,7 @@ class TestTaskClient:
         ev = threading.Event()
         t = threading.Thread(target=driver, args=(ev,))
         t.start()
-        tsk = client.hardware.tasks.create(name="test", type="test")
+        tsk = client.tasks.create(name="test", type="test")
         ev.wait()
         tsk.execute_command_sync("test", {"key": "value"})
         t.join()
@@ -98,7 +99,7 @@ class TestTaskClient:
         t = threading.Thread(target=driver, args=(ev,))
         t.start()
         ev.wait()
-        client.hardware.tasks.configure(tsk)
+        client.tasks.configure(tsk)
         t.join()
 
     def test_task_configure_invalid_config(self, client: sy.Synnax):
@@ -127,23 +128,23 @@ class TestTaskClient:
         t.start()
         ev.wait()
         with pytest.raises(sy.ConfigurationError, match="Invalid Configuration."):
-            client.hardware.tasks.configure(tsk)
+            client.tasks.configure(tsk)
         t.join()
 
     def test_task_configure_timeout(self, client: sy.Synnax):
         """Should throw an error when the task is not configured within the timeout."""
         tsk = sy.Task()
         with pytest.raises(TimeoutError):
-            client.hardware.tasks.configure(tsk, timeout=0.1)
+            client.tasks.configure(tsk, timeout=0.1)
 
     def test_list_tasks(self, client: sy.Synnax):
         """Should list all tasks on the default rack."""
         # Create some tasks
-        task1 = client.hardware.tasks.create(name=str(uuid4()), type="test1")
-        task2 = client.hardware.tasks.create(name=str(uuid4()), type="test2")
+        task1 = client.tasks.create(name=str(uuid4()), type="test1")
+        task2 = client.tasks.create(name=str(uuid4()), type="test2")
 
         # List all tasks
-        tasks = client.hardware.tasks.list()
+        tasks = client.tasks.list()
 
         # Should contain at least the tasks we just created
         task_keys = [t.key for t in tasks]
@@ -154,13 +155,13 @@ class TestTaskClient:
         """Should copy a task with a new name."""
         # Create an original task
         original_name = str(uuid4())
-        original = client.hardware.tasks.create(
+        original = client.tasks.create(
             name=original_name, type="test", config='{"foo": "bar"}'
         )
 
         # Copy the task
         copy_name = str(uuid4())
-        copied = client.hardware.tasks.copy(
+        copied = client.tasks.copy(
             key=original.key,
             name=copy_name,
         )

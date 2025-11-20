@@ -11,7 +11,7 @@ import signal
 import sys
 
 import synnax as sy
-from synnax.hardware import sequence
+from synnax import sequence
 
 """
 This example demonstrates how to configure and start a sequence on a Synnax cluster.
@@ -130,7 +130,7 @@ primary_sequence = sequence.Sequence(
 
 # This command will configure and create the sequence on the Synnax Cluster.
 
-client.hardware.tasks.configure(primary_sequence)
+client.tasks.configure(primary_sequence)
 
 # This command will start the sequence.
 
@@ -165,7 +165,7 @@ secondary_sequence = sequence.Sequence(
 
 # This command will configure and create the sequence on the Synnax Cluster.
 
-client.hardware.tasks.configure(secondary_sequence)
+client.tasks.configure(secondary_sequence)
 
 # This command will start the sequence.
 

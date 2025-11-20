@@ -35,6 +35,20 @@ Variant = Literal[
 
 D = TypeVar("D", bound=Payload)
 
+STATUS_ONTOLOGY_TYPE = ID(type="status")
+
+
+def ontology_id(key: str) -> ID:
+    """Create an ontology ID for a status.
+
+    Args:
+        key: The status key.
+
+    Returns:
+        An ontology ID dictionary with type "status" and the given key.
+    """
+    return ID(type=STATUS_ONTOLOGY_TYPE, key=key)
+
 
 class Status(Payload, Generic[D]):
     """A standardized payload used across Synnax."""
@@ -56,14 +70,11 @@ class Status(Payload, Generic[D]):
     details: D | None = None
     """The details are customizable details for component specific statuses."""
 
+    @property
+    def ontology_id(self) -> ID:
+        """Get the ontology ID for the status.
 
-def ontology_id(key: str) -> ID:
-    """Create an ontology ID for a status.
-
-    Args:
-        key: The status key.
-
-    Returns:
-        An ontology ID dictionary with type "status" and the given key.
-    """
-    return ID(type="status", key=key)
+        Returns:
+            An ontology ID dictionary with type "status" and the status key.
+        """
+        return ontology_id(self.key)

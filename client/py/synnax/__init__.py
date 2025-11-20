@@ -35,10 +35,9 @@ from synnax.framer import (
     Writer,
     WriterMode,
 )
-from synnax.hardware import Client as HardwareClient
-from synnax.hardware.device import Device
-from synnax.hardware.rack import Rack
-from synnax.hardware.task import Task, TaskStatus, TaskStatusDetails
+from synnax.device import Device
+from synnax.rack import Rack
+from synnax.task import Task, TaskStatus, TaskStatusDetails
 from synnax.options import SynnaxOptions
 from synnax.ranger import Range
 from synnax.synnax import Synnax
@@ -57,6 +56,7 @@ from synnax.telem import (
     Density,
     Rate,
     Series,
+    MultiSeries,
     Size,
     TimeRange,
     TimeSpan,
@@ -67,6 +67,13 @@ from synnax.telem import (
 )
 from synnax.timing import Loop, Timer, sleep
 from synnax.user.payload import User
+from synnax.status import Status
+from synnax import status
+from synnax import modbus
+from synnax import ni
+from synnax import labjack
+from synnax import opcua
+from synnax import sequence
 
 __all__ = [
     "Alignment",
@@ -93,7 +100,6 @@ __all__ = [
     "ExpiredToken",
     "PathError",
     "Frame",
-    "HardwareClient",
     "Iterator",
     "InvalidToken",
     "Loop",
@@ -107,6 +113,7 @@ __all__ = [
     "Rate",
     "RouteError",
     "Series",
+    "MultiSeries",
     "Size",
     "sleep",
     "Streamer",
@@ -126,4 +133,13 @@ __all__ = [
     "ValidationError",
     "Writer",
     "WriterMode",
+    "modbus",
+    "ni",
+    "labjack",
+    "opcua",
+    "sequence",
+    "ontology",
+    "auth",
+    "status",
+    "Status",
 ]

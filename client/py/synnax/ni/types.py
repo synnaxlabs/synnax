@@ -14,8 +14,8 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, confloat, conint, field_validator, validator
 
 from synnax import ValidationError
-from synnax.hardware import device
-from synnax.hardware.task import (
+from synnax import device
+from synnax.task import (
     BaseReadTaskConfig,
     BaseWriteTaskConfig,
     JSONConfigMixin,
@@ -2782,7 +2782,7 @@ class Device(device.Device):
     The `properties` field is automatically populated with the identifier for the device.
 
     Example:
-        >>> from synnax.hardware import ni
+        >>> from synnax import ni
         >>> device = ni.Device(
         ...     name="My NI Module",
         ...     model="NI 9205",
@@ -2790,7 +2790,7 @@ class Device(device.Device):
         ...     rack=rack.key,
         ...     identifier="dev_mod1"
         ... )
-        >>> client.hardware.devices.create(device)
+        >>> client.devices.create(device)
 
     :param identifier: Channel name prefix for all channels on this device
     """

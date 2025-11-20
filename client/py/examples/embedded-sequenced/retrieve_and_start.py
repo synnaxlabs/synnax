@@ -9,7 +9,7 @@
 
 
 import synnax as sy
-from synnax.hardware import sequence
+from synnax import sequence
 
 client = sy.Synnax()
 
@@ -24,7 +24,7 @@ ch_key = signal_channel.key
 
 
 # Retrieve the control sequence from Synnax.
-tsk = client.hardware.tasks.retrieve(name="Control Sequence")
+tsk = client.tasks.retrieve(name="Control Sequence")
 sequence = sequence.Sequence(tsk)
 
 # Open a stream on the signal channel. Start and stop the control sequence based on what

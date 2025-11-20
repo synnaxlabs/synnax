@@ -12,6 +12,15 @@ from uuid import UUID
 from freighter import Payload
 
 from synnax.telem import TimeRange
+from synnax.ontology import ID
+
+
+RANGE_ONTOLOGY_TYPE = ID(type="range")
+
+
+def ontology_id(key: UUID) -> ID:
+    """Returns the ontology ID for the Range entity."""
+    return ID(type=RANGE_ONTOLOGY_TYPE.type, key=str(key))
 
 
 class RangePayload(Payload):

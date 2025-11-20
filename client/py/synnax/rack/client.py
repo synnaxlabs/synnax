@@ -12,7 +12,7 @@ from typing import overload
 from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
 
-from synnax.hardware.rack.payload import Rack
+from synnax.rack.payload import Rack
 from synnax.util.normalize import check_for_none, override
 
 
@@ -79,14 +79,14 @@ class Client:
         else:
             is_single = False
         req = _CreateRequest(racks=racks)
-        res = send_required(self._client, "/hardware/rack/create", req, _CreateResponse)
+        res = send_required(self._client, "/rack/create", req, _CreateResponse)
         if is_single:
             return res.racks[0]
         return res.racks
 
     def delete(self, keys: list[int]):
         req = _DeleteRequest(keys=keys)
-        send_required(self._client, "/hardware/rack/delete", req, Empty)
+        send_required(self._client, "/rack/delete", req, Empty)
 
     @overload
     def retrieve(
@@ -110,7 +110,7 @@ class Client:
         is_single = check_for_none(keys, names)
         res = send_required(
             self._client,
-            "/hardware/rack/retrieve",
+            "/rack/retrieve",
             _RetrieveRequest(
                 keys=override(key, keys),
                 names=override(name, names),

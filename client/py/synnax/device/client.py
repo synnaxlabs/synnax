@@ -13,7 +13,7 @@ from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, Payload, UnaryClient, send_required
 
 from synnax.exceptions import NotFoundError
-from synnax.hardware.device.payload import Device
+from synnax.device.payload import Device
 from synnax.util.normalize import check_for_none, normalize, override
 
 
@@ -103,7 +103,7 @@ class Client:
         req = _CreateRequest(devices=normalize(devices))
         res = send_required(
             self._client,
-            "/hardware/device/create",
+            "/device/create",
             req,
             _CreateResponse,
         )
@@ -111,7 +111,7 @@ class Client:
 
     def delete(self, keys: list[str]) -> None:
         req = _DeleteRequest(keys=keys)
-        send_required(self._client, "/hardware/device/delete", req, Empty)
+        send_required(self._client, "/device/delete", req, Empty)
 
     @overload
     def retrieve(
@@ -155,7 +155,7 @@ class Client:
         is_single = check_for_none(keys, makes, models, locations, names)
         res = send_required(
             self._client,
-            "/hardware/device/retrieve",
+            "/device/retrieve",
             _RetrieveRequest(
                 keys=override(key, keys),
                 makes=override(make, makes),

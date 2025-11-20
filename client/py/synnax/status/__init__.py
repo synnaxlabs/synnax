@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.status.client import Client
-from synnax.status.status import (
+from synnax.status.payload import (
     DISABLED_VARIANT,
     ERROR_VARIANT,
     INFO_VARIANT,

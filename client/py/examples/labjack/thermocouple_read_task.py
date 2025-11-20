@@ -27,7 +27,7 @@ Note: Thermocouple streaming is slower than standard analog inputs due to the
 """
 
 import synnax as sy
-from synnax.hardware import labjack
+
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
@@ -35,7 +35,7 @@ client = sy.Synnax()
 
 # Retrieve the LabJack device from Synnax
 # Update this with the name you gave the device in the Synnax Console
-dev = client.hardware.devices.retrieve(name="My LabJack T7")
+dev = client.devices.retrieve(name="My LabJack T7")
 
 # Create an index channel that will be used to store the timestamps for the data.
 labjack_tc_time = client.channels.create(
@@ -62,7 +62,7 @@ tc1 = client.channels.create(
 
 # Create the LabJack Read Task with Thermocouples
 # Reads two K-type thermocouples at 10 Hz with device cold junction compensation
-tsk = labjack.ReadTask(
+tsk = sy.labjack.ReadTask(
     name="LabJack Py - Thermocouple Task",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz (max for thermocouples)
@@ -70,7 +70,7 @@ tsk = labjack.ReadTask(
     data_saving=True,
     channels=[
         # K-type thermocouple on AIN0 with device CJC in Celsius
-        labjack.ThermocoupleChan(
+        sy.labjack.ThermocoupleChan(
             port="AIN0",
             channel=tc0.key,
             thermocouple_type="K",
@@ -82,7 +82,7 @@ tsk = labjack.ReadTask(
             neg_chan=199,  # 199 = single-ended (GND)
         ),
         # K-type thermocouple on AIN2 with device CJC in Fahrenheit
-        labjack.ThermocoupleChan(
+        sy.labjack.ThermocoupleChan(
             port="AIN2",
             channel=tc1.key,
             thermocouple_type="K",
@@ -98,7 +98,7 @@ tsk = labjack.ReadTask(
 
 # Configure the task with Synnax
 try:
-    client.hardware.tasks.configure(tsk)
+    client.tasks.configure(tsk)
     print("✓ Task configured successfully")
 except Exception as e:
     print(f"✗ Task configuration failed: {e}")

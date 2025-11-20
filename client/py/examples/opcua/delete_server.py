@@ -44,9 +44,7 @@ print(f"Target Device Name: {DEVICE_NAME}")
 print()
 
 # Check if device exists
-existing_device = client.hardware.devices.retrieve(
-    name=DEVICE_NAME, ignore_not_found=True
-)
+existing_device = client.devices.retrieve(name=DEVICE_NAME, ignore_not_found=True)
 
 if existing_device is None:
     print("✓ Device not found - nothing to delete.")
@@ -75,7 +73,7 @@ if response in ("y", "yes"):
     print("\nDeleting device...")
 
     try:
-        client.hardware.devices.delete([existing_device.key])
+        client.devices.delete([existing_device.key])
 
         print("✓ Device deleted successfully!")
         print()

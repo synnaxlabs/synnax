@@ -22,10 +22,10 @@ from pydantic import BaseModel, Field, ValidationError, conint, field_validator
 from synnax import UnexpectedError
 from synnax.exceptions import ConfigurationError
 from synnax.framer import Client as FrameClient
-from synnax.hardware import device
-from synnax.hardware.rack import Client as RackClient
-from synnax.hardware.rack import Rack
-from synnax.hardware.task.payload import TaskPayload, TaskStatus
+from synnax import device
+from synnax.rack import Client as RackClient
+from synnax.rack import Rack
+from synnax.task.payload import TaskPayload, TaskStatus, ontology_id
 from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
@@ -66,12 +66,12 @@ class _RetrieveResponse(Payload):
     tasks: list[TaskPayload] | None = None
 
 
-_CREATE_ENDPOINT = "/hardware/task/create"
-_DELETE_ENDPOINT = "/hardware/task/delete"
-_RETRIEVE_ENDPOINT = "/hardware/task/retrieve"
-_COPY_ENDPOINT = "/hardware/task/copy"
+_CREATE_ENDPOINT = "/task/create"
+_DELETE_ENDPOINT = "/task/delete"
+_RETRIEVE_ENDPOINT = "/task/retrieve"
+_COPY_ENDPOINT = "/task/copy"
 
-_TASK_STATE_CHANNEL = "sy_task_status"
+_TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
 
 
@@ -176,6 +176,15 @@ class Task:
         self.config = task.config
         self.snapshot = task.snapshot
         self._frame_client = task._frame_client
+
+    @property
+    def ontology_id(self) -> dict:
+        """Get the ontology ID for the task.
+
+        Returns:
+            An ontology ID dictionary with type "task" and the task key.
+        """
+        return ontology_id(self.key)
 
     def update_device_properties(
         self, device_client: device.Client
@@ -396,7 +405,7 @@ class Client:
         return sugared[0] if is_single else sugared
 
     def __exec_create(self, req: _CreateRequest) -> list[TaskPayload]:
-        res = send_required(self._client, "/hardware/task/create", req, _CreateResponse)
+        res = send_required(self._client, "/task/create", req, _CreateResponse)
         return res.tasks
 
     def maybe_assign_def_rack(self, pld: TaskPayload, rack: int = 0) -> Rack:
@@ -444,7 +453,7 @@ class Client:
 
     def delete(self, keys: int | list[int]):
         req = _DeleteRequest(keys=normalize(keys))
-        send_required(self._client, "/hardware/task/delete", req, Empty)
+        send_required(self._client, "/task/delete", req, Empty)
 
     @overload
     def retrieve(
@@ -475,7 +484,7 @@ class Client:
         is_single = check_for_none(names, keys, types)
         res = send_required(
             self._client,
-            "/hardware/task/retrieve",
+            "/task/retrieve",
             _RetrieveRequest(
                 keys=override(key, keys),
                 names=override(name, names),

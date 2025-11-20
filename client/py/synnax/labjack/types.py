@@ -14,8 +14,8 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, confloat, conint, field_validator
 
 from synnax.channel import ChannelKey
-from synnax.hardware import device
-from synnax.hardware.task import (
+from synnax import device
+from synnax.task import (
     BaseReadTaskConfig,
     BaseWriteTaskConfig,
     JSONConfigMixin,
@@ -529,7 +529,7 @@ class Device(device.Device):
     including connection parameters and model validation.
 
     Example:
-        >>> from synnax.hardware import labjack
+        >>> from synnax import labjack
         >>> device = labjack.Device(
         ...     model=labjack.T7,
         ...     identifier="ANY",
@@ -538,7 +538,7 @@ class Device(device.Device):
         ...     rack=rack.key,
         ...     connection_type="USB"
         ... )
-        >>> client.hardware.devices.create(device)
+        >>> client.devices.create(device)
 
     :param model: LabJack model (use module constants: T4, T7, T8)
     :param identifier: Device identifier (serial number, IP address, or device name)

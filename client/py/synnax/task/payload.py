@@ -10,6 +10,9 @@
 from freighter import Payload
 
 from synnax.status import Status
+from synnax.ontology import ID
+
+TASK_ONTOLOGY_TYPE = ID(type="task")
 
 
 class TaskStatusDetails(Payload):
@@ -23,6 +26,7 @@ class TaskStatusDetails(Payload):
     """Whether the task is running."""
     data: dict | None = None
     """Arbitrary data about the task."""
+    cmd: str | None = None
 
 
 TaskStatus = Status[TaskStatusDetails]
@@ -38,3 +42,15 @@ class TaskPayload(Payload):
     config: str = ""
     snapshot: bool = False
     status: TaskStatus | None = None
+
+
+def ontology_id(key: int) -> ID:
+    """Create an ontology ID for a task.
+
+    Args:
+        key: The task key.
+
+    Returns:
+        An ontology ID dictionary with type "task" and the given key.
+    """
+    return ID(type=TASK_ONTOLOGY_TYPE.type, key=str(key))

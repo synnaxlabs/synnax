@@ -14,8 +14,8 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, confloat, conint, field_validator
 
 from synnax.channel import ChannelKey
-from synnax.hardware import device
-from synnax.hardware.task import (
+from synnax import device
+from synnax.task import (
     BaseReadTaskConfig,
     BaseWriteTaskConfig,
     JSONConfigMixin,
@@ -616,7 +616,7 @@ class Device(device.Device):
     including TCP connection parameters and byte/word swap settings.
 
     Example:
-        >>> from synnax.hardware import modbus
+        >>> from synnax import modbus
         >>> device = modbus.Device(
         ...     host="192.168.1.100",
         ...     port=502,
@@ -626,7 +626,7 @@ class Device(device.Device):
         ...     swap_bytes=False,
         ...     swap_words=False
         ... )
-        >>> client.hardware.devices.create(device)
+        >>> client.devices.create(device)
 
     :param host: The IP address or hostname of the Modbus server
     :param port: The TCP port number (typically 502)

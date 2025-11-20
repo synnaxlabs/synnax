@@ -31,7 +31,7 @@ client = sy.Synnax()
 
 # Retrieve the OPC UA server from Synnax
 # Update this with the name you gave the device in the Synnax Console
-dev = client.hardware.devices.retrieve(name="OPC UA Server")
+dev = client.devices.retrieve(name="OPC UA Server")
 
 # Create an index channel that will be used to store the timestamps for the data.
 opcua_bool_time = client.channels.create(
@@ -78,7 +78,7 @@ tsk = opcua.ReadTask(
 )
 
 # Configure the task with Synnax
-client.hardware.tasks.configure(tsk)
+client.tasks.configure(tsk)
 
 print("=" * 70)
 print("Starting OPC UA Boolean Read Task")

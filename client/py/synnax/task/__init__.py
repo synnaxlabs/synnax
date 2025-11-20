@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.hardware.task.client import (
+from synnax.task.client import (
     BaseReadTaskConfig,
     BaseTaskConfig,
     BaseWriteTaskConfig,
@@ -17,17 +17,18 @@ from synnax.hardware.task.client import (
     Task,
     TaskProtocol,
 )
-from synnax.hardware.task.payload import TaskStatus, TaskStatusDetails
+from synnax.task.payload import TaskPayload, TaskStatus, TaskStatusDetails
 
 __all__ = [
+    "Client",
+    "Task",
+    "TaskPayload",
+    "TaskStatus",
+    "TaskStatusDetails",
     "BaseTaskConfig",
     "BaseReadTaskConfig",
     "BaseWriteTaskConfig",
-    "Task",
-    "TaskStatus",
-    "TaskProtocol",
-    "StarterStopperMixin",
     "JSONConfigMixin",
-    "Client",
-    "TaskStatusDetails",
+    "StarterStopperMixin",
+    "TaskProtocol",
 ]

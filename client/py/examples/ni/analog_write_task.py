@@ -25,7 +25,7 @@ via the NI-MAX software.
 # See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
 client = sy.Synnax()
 
-dev = client.hardware.devices.retrieve(model="USB-6289")
+dev = client.devices.retrieve(model="USB-6289")
 
 # Create virtual command channels that will be used to send commands to the device.
 # These are virtual channels that won't store data to disk.
@@ -71,7 +71,7 @@ ao_1_state = client.channels.create(
 # Instantiate the task. A task is a background process that can be used to acquire data
 # from, or, in this case, write commands to a device. Tasks are the primary method for
 # interacting with Synnax hardware devices.
-tsk = ni.AnalogWriteTask(
+tsk = sy.ni.AnalogWriteTask(
     # A name to find and monitor the task via the Synnax Console.
     name="Basic Analog Write",
     # The key of the device to execute the task on.
@@ -85,7 +85,7 @@ tsk = ni.AnalogWriteTask(
     data_saving=True,
     # The mapping of the analog output channels on the device to the Synnax channels.
     channels=[
-        ni.AOVoltageChan(
+        sy.ni.AOVoltageChan(
             # The cmd channel will be used to send commands to the device.
             cmd_channel=ao_0_cmd.key,
             # The state channel will be used to store the state of the analog output
@@ -97,7 +97,7 @@ tsk = ni.AnalogWriteTask(
             min_val=-10.0,
             max_val=10.0,
         ),
-        ni.AOVoltageChan(
+        sy.ni.AOVoltageChan(
             cmd_channel=ao_1_cmd.key,
             state_channel=ao_1_state.key,
             port=1,
@@ -109,7 +109,7 @@ tsk = ni.AnalogWriteTask(
 
 # Create the task in Synnax and wait for the driver to validate that the configuration
 # is correct.
-client.hardware.tasks.configure(tsk)
+client.tasks.configure(tsk)
 
 # Start the task and write some analog values.
 with tsk.run():
@@ -144,4 +144,4 @@ with tsk.run():
             timeout=1,
         )
 
-client.hardware.tasks.delete(tsk.key)
+client.tasks.delete(tsk.key)

@@ -28,8 +28,8 @@ SecurityPolicy = Literal[
 ]
 
 from synnax.channel import ChannelKey
-from synnax.hardware import device
-from synnax.hardware.task import (
+from synnax import device
+from synnax.task import (
     BaseTaskConfig,
     BaseWriteTaskConfig,
     JSONConfigMixin,
@@ -474,7 +474,7 @@ class Device(device.Device):
     including connection parameters, security settings, and channel mappings.
 
     Example:
-        >>> from synnax.hardware import opcua
+        >>> from synnax import opcua
         >>> device = opcua.Device(
         ...     name="OPC UA Server",
         ...     location="opc.tcp://localhost:4840/",
@@ -485,7 +485,7 @@ class Device(device.Device):
         ...     security_mode="SignAndEncrypt",
         ...     security_policy="Basic256Sha256"
         ... )
-        >>> client.hardware.devices.create(device)
+        >>> client.devices.create(device)
 
     :param endpoint: The OPC UA server endpoint URL (e.g., "opc.tcp://localhost:4840/")
     :param username: Username for authentication (optional)
