@@ -23,9 +23,9 @@ from abc import abstractmethod
 
 import synnax as sy
 
+from driver.devices import SimulatorConfig
+from driver.driver import ChannelConfig, Driver
 from framework.test_case import TestCase
-from tests.driver.devices import SimulatorConfig
-from tests.driver.driver import ChannelConfig, Driver
 
 
 class TaskCase(TestCase):

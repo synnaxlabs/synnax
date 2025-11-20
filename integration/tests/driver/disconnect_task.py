@@ -29,7 +29,7 @@ The base class provides the run() method that tests:
 
 import synnax as sy
 
-from tests.driver.driver import Driver
+from driver.driver import Driver
 from tests.driver.task import TaskCase
 
 

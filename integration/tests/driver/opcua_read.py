@@ -13,8 +13,8 @@ from typing import TypedDict
 import synnax as sy
 from synnax.hardware import opcua
 
-from tests.driver.devices import Simulator
-from tests.driver.driver import ChannelConfig
+from driver.devices import Simulator
+from driver.driver import ChannelConfig
 from tests.driver.task import TaskCase
 
 
