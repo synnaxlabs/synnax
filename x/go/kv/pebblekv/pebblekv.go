@@ -50,9 +50,30 @@ func parseOpts(opts []any) *pebble.WriteOptions {
 	return defaultWriteOpts
 }
 
+type openOptions struct {
+	enableObserver bool
+}
+
+// OpenOption configures behavior when wrapping a pebble.DB.
+type OpenOption func(*openOptions)
+
+// DisableObservation disables the observer pattern, preventing change notifications.
+// This improves performance when observation is not needed.
+func DisableObservation() OpenOption {
+	return func(o *openOptions) { o.enableObserver = false }
+}
+
 // Wrap wraps a pebble.DB to satisfy the kv.db interface.
-func Wrap(db_ *pebble.DB) kv.DB {
-	return &db{DB: db_, Observer: observe.New[kv.TxReader]()}
+func Wrap(base *pebble.DB, opts ...OpenOption) kv.DB {
+	o := &openOptions{enableObserver: true}
+	for _, opt := range opts {
+		opt(o)
+	}
+	wrapped := &db{DB: base}
+	if o.enableObserver {
+		wrapped.Observer = observe.New[kv.TxReader]()
+	}
+	return wrapped
 }
 
 type logger struct{ alamos.Instrumentation }
@@ -79,14 +100,36 @@ func (l logger) Fatalf(format string, args ...any) {
 func (d db) OpenTx() kv.Tx { return &tx{Batch: d.NewIndexedBatch(), db: d} }
 
 // Commit implements kv.DB.
-func (d db) Commit(ctx context.Context, opts ...any) error { return nil }
+func (d db) Commit(context.Context, ...any) error { return nil }
 
 // NewReader implement kv.DB.
 func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
 
+func (d db) withTx(ctx context.Context, f func(tx kv.Tx) error) error {
+	var (
+		err error
+		t   = d.OpenTx()
+	)
+	defer func() {
+		err = errors.Combine(err, t.Close())
+	}()
+	if err = f(t); err != nil {
+		return err
+	}
+	err = t.Commit(ctx)
+	return err
+}
+
 // Set implement kv.DB.
-func (d db) Set(_ context.Context, key, value []byte, opts ...any) error {
-	return translateError(d.DB.Set(key, value, parseOpts(opts)))
+func (d db) Set(ctx context.Context, key, value []byte, opts ...any) error {
+	// Hot path: if we don't need to notify observers of changes, then go straight
+	// to the underlying DB.
+	if d.Observer == nil {
+		return translateError(d.DB.Set(key, value, parseOpts(opts)))
+	}
+	return d.withTx(ctx, func(tx kv.Tx) error {
+		return tx.Set(ctx, key, value, opts...)
+	})
 }
 
 // Get implement kv.DB.
@@ -97,7 +140,14 @@ func (d db) Get(_ context.Context, key []byte, _ ...any) ([]byte, io.Closer, err
 
 // Delete implement kv.DB.
 func (d db) Delete(ctx context.Context, key []byte, opts ...any) error {
-	return translateError(d.DB.Delete(key, parseOpts(opts)))
+	// Hot path: if we don't need to notify observers of changes, then go straight
+	// to the underlying DB.
+	if d.Observer == nil {
+		return translateError(d.DB.Delete(key, parseOpts(opts)))
+	}
+	return d.withTx(ctx, func(tx kv.Tx) error {
+		return tx.Delete(ctx, key, opts...)
+	})
 }
 
 // OpenIterator implement kv.DB.
@@ -110,8 +160,10 @@ func (d db) apply(ctx context.Context, txn *tx) error {
 	if err != nil {
 		return translateError(err)
 	}
-	// We need to notify with a generator so that each subscriber gets a fresh reader.
-	d.NotifyGenerator(ctx, txn.NewReader)
+	if d.Observer != nil {
+		// We need to notify with a generator so that each subscriber gets a fresh reader.
+		d.NotifyGenerator(ctx, txn.NewReader)
+	}
 	return nil
 }
 

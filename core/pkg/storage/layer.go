@@ -394,7 +394,7 @@ func openKV(cfg Config, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 			dirname,
 		)
 	}
-	return pebblekv.Wrap(db), err
+	return pebblekv.Wrap(db, pebblekv.DisableObservation()), err
 }
 
 func openTS(ctx context.Context, cfg Config, fs xfs.FS) (*ts.DB, error) {
