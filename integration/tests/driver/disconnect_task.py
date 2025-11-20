@@ -29,22 +29,25 @@ The base class provides the run() method that tests:
 
 import synnax as sy
 
-from tests.driver.task import Task
+from driver.driver import Driver
+from tests.driver.task import TaskCase
 
 
-class DisconnectTask(Task):
+class DisconnectTask(TaskCase):
     """
     Base class providing disconnect/reconnect test behavior.
 
-    Inherits from Task to access common test utilities and infrastructure.
+    Inherits from TaskCase to access common test utilities and infrastructure.
     Overrides the run() method to execute a disconnect/reconnect test sequence.
 
     Usage:
         class DisconnectModbus(DisconnectTask, ModbusRead):
             pass
 
-    The class uses these methods from Task:
-    - self.assert_sample_count(): Verify task operation
+    The class uses these methods from TaskCase and Driver:
+    - Driver.assert_sample_count(): Verify task operation
+    - Driver.assert_device_deleted(): Verify device deletion
+    - Driver.assert_device_exists(): Verify device existence
     - self.fail(): Fail the test with a message
     - self.log(): Log test progress
     - self._cleanup_simulator(): Kill simulator process
@@ -67,72 +70,25 @@ class DisconnectTask(Task):
         device = client.hardware.devices.retrieve(key=tsk.config.device)
 
         self.log("Test 1 - Delete Device")
-        try:
-            client.hardware.devices.delete([device.key])
-        except Exception as e:
-            self.fail(f"Failed to delete device: {e}")
-            return
-
-        try:
-            client.hardware.devices.retrieve(key=device.key)
-            self.fail("Device still exists after deletion")
-            return
-        except sy.NotFoundError:
-            pass  # Expected
-        except Exception as e:
-            self.fail(f"Unexpected error verifying device deletion: {e}")
-            return
+        client.hardware.devices.delete([device.key])
+        Driver.assert_device_deleted(client, device.key)
 
         self.log("Test 2 - Reconnect Device")
-        try:
-            reconnected_device = client.hardware.devices.create(device)
-        except Exception as e:
-            self.fail(f"Failed to recreate device: {e}")
-            return
-
-        try:
-            retrieved_device = client.hardware.devices.retrieve(
-                key=reconnected_device.key
-            )
-            if retrieved_device.name != device.name:
-                self.fail(
-                    f"Device name mismatch: {retrieved_device.name} != {device.name}"
-                )
-                return
-        except Exception as e:
-            self.fail(f"Failed to retrieve reconnected device: {e}")
-            return
+        reconnected_device = client.hardware.devices.create(device)
+        Driver.assert_device_exists(client, reconnected_device.key)
 
         self.log("Test 3 - Run Task After Device Reconnection")
-        self.assert_sample_count(tsk, strict=False)
-
+        Driver.assert_sample_count(client, tsk, strict=False)
 
         self.log("Test 4 - Kill Simulator")
         if self.simulator_process is None:
             self.fail("Simulator process not found")
             return
-
-        try:
-            self._cleanup_simulator()
-        except Exception as e:
-            self.fail(f"Failed to kill simulator: {e}")
-            return
-
-        if self.simulator_process is not None:
-            self.fail("Simulator process still running after cleanup")
-            return
+        self._cleanup_simulator()
 
         self.log("Test 5 - Restart Simulator")
-        try:
-            self._start_simulator()
-        except Exception as e:
-            self.fail(f"Failed to restart simulator: {e}")
-            return
-
-        if self.simulator_process is None or self.simulator_process.poll() is not None:
-            self.fail("Simulator process not running after restart")
-            return
+        self._start_simulator()
 
         self.log("Test 6 - Run Task")
         client.hardware.tasks.configure(tsk)
-        self.assert_sample_count(tsk, strict=False)
+        Driver.assert_sample_count(client, tsk, strict=False)

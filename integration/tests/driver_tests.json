@@ -11,40 +11,22 @@
               "input_register",
               "holding_register",
               "discrete_input",
-              "coil"
+              "coil",
+              "mixed"
             ]
           }
         },
         {
           "case": "driver/opcua_read",
           "parameters": {
-            "task": [
-              "float",
-              "bool",
-              "array"
-            ]
+            "task": ["float", "bool", "array", "mixed"]
           }
         },
         {
-          "case": "driver/disconnect_modbus",
-          "parameters": {
-            "task": [
-              "input_register",
-              "holding_register",
-              "discrete_input",
-              "coil"
-            ]
-          }
+          "case": "driver/disconnect_modbus"
         },
         {
-          "case": "driver/disconnect_opcua",
-          "parameters": {
-            "task": [
-              "float",
-              "bool",
-              "array"
-            ]
-          }
+          "case": "driver/disconnect_opcua"
         }
       ]
     }

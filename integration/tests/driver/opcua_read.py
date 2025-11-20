@@ -13,8 +13,9 @@ from typing import TypedDict
 import synnax as sy
 from synnax.hardware import opcua
 
-from tests.driver.devices import Simulator
-from tests.driver.task import ChannelConfig, Task
+from driver.devices import Simulator
+from driver.driver import ChannelConfig
+from tests.driver.task import TaskCase
 
 
 class TaskTypeConfig(TypedDict, total=False):
@@ -36,7 +37,7 @@ class TaskTypeConfig(TypedDict, total=False):
     array_size: int
 
 
-class OpcuaRead(Task):
+class OpcuaRead(TaskCase):
     """
     OPC UA read task lifecycle test.
 
@@ -44,9 +45,10 @@ class OpcuaRead(Task):
     The task type is selected via the 'task' matrix parameter.
 
     Supported task types:
-    - "opcua_float": Standard float32 channels
-    - "opcua_bool": Boolean channels (UINT8)
-    - "opcua_array": Array mode float32 channels
+    - "float": Standard float32 channels
+    - "bool": Boolean channels (UINT8)
+    - "array": Array mode float32 channels
+    - "mixed": Scalar mode with both float32 and boolean channels
     """
 
     # Simulator configuration
@@ -114,6 +116,36 @@ class OpcuaRead(Task):
                 },
             ],
         },
+        "mixed": {
+            "task_name": "OPC UA Py - Read Mixed",
+            "task_key": "opcua_read_mixed",
+            "channels": [
+                {
+                    "name": "my_float_0",
+                    "data_type": sy.DataType.FLOAT32,
+                    "node_id": "NS=2;I=8",
+                    "opcua_data_type": "float32",
+                },
+                {
+                    "name": "my_float_1",
+                    "data_type": sy.DataType.FLOAT32,
+                    "node_id": "NS=2;I=9",
+                    "opcua_data_type": "float32",
+                },
+                {
+                    "name": "my_bool_0",
+                    "data_type": sy.DataType.UINT8,
+                    "node_id": "NS=2;I=13",
+                    "opcua_data_type": "bool",
+                },
+                {
+                    "name": "my_bool_1",
+                    "data_type": sy.DataType.UINT8,
+                    "node_id": "NS=2;I=14",
+                    "opcua_data_type": "bool",
+                },
+            ],
+        },
     }
 
     def setup(self) -> None:
@@ -125,14 +157,16 @@ class OpcuaRead(Task):
                 - "float": Read scalar float32 channels (NodeIds NS=2;I=8, NS=2;I=9)
                 - "bool": Read scalar boolean channels (NodeIds NS=2;I=13, NS=2;I=14)
                 - "array": Read array float32 channels (NodeIds NS=2;I=2, NS=2;I=3)
+                - "mixed": Read scalar mixed channels (floats + bools)
 
         Example JSON configurations:
             {"case": "driver/opcua_read", "task": "float"}
             {"case": "driver/opcua_read", "task": "bool"}
             {"case": "driver/opcua_read", "task": "array"}
+            {"case": "driver/opcua_read", "task": "mixed"}
         """
         # Select task configuration
-        task_type = self.params.get("task", "float")
+        task_type = self.params.get("task", "mixed")
         if task_type not in self.TASK_CONFIGS:
             self.fail(f"Unknown task_type: {task_type}")
             return

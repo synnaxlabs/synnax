@@ -13,8 +13,9 @@ from typing import TypedDict
 import synnax as sy
 from synnax.hardware import modbus
 
-from tests.driver.devices import Simulator
-from tests.driver.task import ChannelConfig, Task
+from driver.devices import Simulator
+from driver.driver import ChannelConfig
+from tests.driver.task import TaskCase
 
 
 class TaskTypeConfig(TypedDict, total=False):
@@ -32,7 +33,7 @@ class TaskTypeConfig(TypedDict, total=False):
     channels: list[ChannelConfig]
 
 
-class ModbusRead(Task):
+class ModbusRead(TaskCase):
     """
     Modbus TCP read task lifecycle test.
 
@@ -61,12 +62,14 @@ class ModbusRead(Task):
                     "data_type": sy.DataType.UINT8,
                     "address": 0,
                     "modbus_data_type": "uint8",
+                    "modbus_channel_type": "input_register",
                 },
                 {
                     "name": "input_register_1",
                     "data_type": sy.DataType.UINT8,
                     "address": 1,
                     "modbus_data_type": "uint8",
+                    "modbus_channel_type": "input_register",
                 },
             ],
         },
@@ -79,12 +82,14 @@ class ModbusRead(Task):
                     "data_type": sy.DataType.UINT8,
                     "address": 0,
                     "modbus_data_type": "uint8",
+                    "modbus_channel_type": "holding_register",
                 },
                 {
                     "name": "holding_register_1",
                     "data_type": sy.DataType.UINT8,
                     "address": 1,
                     "modbus_data_type": "uint8",
+                    "modbus_channel_type": "holding_register",
                 },
             ],
         },
@@ -96,11 +101,13 @@ class ModbusRead(Task):
                     "name": "discrete_input_0",
                     "data_type": sy.DataType.UINT8,
                     "address": 0,
+                    "modbus_channel_type": "discrete_input",
                 },
                 {
                     "name": "discrete_input_1",
                     "data_type": sy.DataType.UINT8,
                     "address": 1,
+                    "modbus_channel_type": "discrete_input",
                 },
             ],
         },
@@ -112,11 +119,45 @@ class ModbusRead(Task):
                     "name": "coil_input_0",
                     "data_type": sy.DataType.UINT8,
                     "address": 0,
+                    "modbus_channel_type": "coil",
                 },
                 {
                     "name": "coil_input_1",
                     "data_type": sy.DataType.UINT8,
                     "address": 1,
+                    "modbus_channel_type": "coil",
+                },
+            ],
+        },
+        "mixed": {
+            "task_name": "Modbus Py - Read Mixed",
+            "task_key": "modbus_read_mixed",
+            "channels": [
+                {
+                    "name": "input_register_0",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 0,
+                    "modbus_data_type": "uint8",
+                    "modbus_channel_type": "input_register",
+                },
+                {
+                    "name": "input_register_1",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 1,
+                    "modbus_data_type": "uint8",
+                    "modbus_channel_type": "input_register",
+                },
+                {
+                    "name": "discrete_input_0",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 0,
+                    "modbus_channel_type": "discrete_input",
+                },
+                {
+                    "name": "discrete_input_1",
+                    "data_type": sy.DataType.UINT8,
+                    "address": 1,
+                    "modbus_channel_type": "discrete_input",
                 },
             ],
         },
@@ -140,7 +181,7 @@ class ModbusRead(Task):
             {"case": "driver/modbus_read", "task": "coil"}
         """
         # Select task configuration
-        task_type = self.params.get("task", "input_register")
+        task_type = self.params.get("task", "mixed")
         if task_type not in self.TASK_CONFIGS:
             self.fail(f"Unknown task_type: {task_type}")
             return
@@ -175,46 +216,43 @@ class ModbusRead(Task):
         Returns:
             Configured Modbus read task
         """
-        # Determine task type from params
-        task_type = self.params.get("task", "input_register")
+        # Create appropriate channel types based on per-channel type
+        task_channels = []
+        for ch, meta in zip(channels, channel_metadata):
+            channel_type = meta["modbus_channel_type"]
 
-        # Create appropriate channel types based on task type
-        if task_type == "input_register":
-            task_channels = [
-                modbus.InputRegisterChan(
-                    channel=ch.key,
-                    address=meta["address"],
-                    data_type=meta["modbus_data_type"],
+            if channel_type == "input_register":
+                task_channels.append(
+                    modbus.InputRegisterChan(
+                        channel=ch.key,
+                        address=meta["address"],
+                        data_type=meta["modbus_data_type"],
+                    )
                 )
-                for ch, meta in zip(channels, channel_metadata)
-            ]
-        elif task_type == "holding_register":
-            task_channels = [
-                modbus.HoldingRegisterInputChan(
-                    channel=ch.key,
-                    address=meta["address"],
-                    data_type=meta["modbus_data_type"],
+            elif channel_type == "holding_register":
+                task_channels.append(
+                    modbus.HoldingRegisterInputChan(
+                        channel=ch.key,
+                        address=meta["address"],
+                        data_type=meta["modbus_data_type"],
+                    )
                 )
-                for ch, meta in zip(channels, channel_metadata)
-            ]
-        elif task_type == "discrete_input":
-            task_channels = [
-                modbus.DiscreteInputChan(
-                    channel=ch.key,
-                    address=meta["address"],
+            elif channel_type == "discrete_input":
+                task_channels.append(
+                    modbus.DiscreteInputChan(
+                        channel=ch.key,
+                        address=meta["address"],
+                    )
                 )
-                for ch, meta in zip(channels, channel_metadata)
-            ]
-        elif task_type == "coil":
-            task_channels = [
-                modbus.CoilInputChan(
-                    channel=ch.key,
-                    address=meta["address"],
+            elif channel_type == "coil":
+                task_channels.append(
+                    modbus.CoilInputChan(
+                        channel=ch.key,
+                        address=meta["address"],
+                    )
                 )
-                for ch, meta in zip(channels, channel_metadata)
-            ]
-        else:
-            raise ValueError(f"Unknown task type: {task_type}")
+            else:
+                raise ValueError(f"Unknown channel type: {channel_type}")
 
         return modbus.ReadTask(
             name=task_name,

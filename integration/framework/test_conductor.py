@@ -1165,10 +1165,17 @@ def main() -> None:
         default=False,
         help="Run Playwright Console tests in headed mode (sets PLAYWRIGHT_CONSOLE_HEADED environment variable)",
     )
+    parser.add_argument(
+        "--driver",
+        "-d",
+        help="Driver rack name to use for driver tests (sets SYNNAX_DRIVER_RACK environment variable)",
+    )
 
     args = parser.parse_args()
 
     os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.headed else "0"
+    if args.driver:
+        os.environ["SYNNAX_DRIVER_RACK"] = args.driver
 
     # Create connection object
     connection = SynnaxConnection(
