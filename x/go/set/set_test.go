@@ -23,6 +23,20 @@ var _ = Describe("Set", func() {
 		s = make(set.Set[int])
 	})
 
+	Describe("New", func() {
+		It("should create a new set with the provided entries", func() {
+			s = set.New(1, 2, 3)
+			Expect(len(s)).To(Equal(3))
+			Expect(s.Contains(1)).To(BeTrue())
+			Expect(s.Contains(2)).To(BeTrue())
+			Expect(s.Contains(3)).To(BeTrue())
+		})
+		It("should work with no entries", func() {
+			s = set.New[int]()
+			Expect(len(s)).To(Equal(0))
+		})
+	})
+
 	Describe("Add", func() {
 		It("should add elements to the set", func() {
 			s.Add(1, 2, 3)
@@ -112,39 +126,6 @@ var _ = Describe("Set", func() {
 			values := m.Values()
 			Expect(len(values)).To(Equal(3))
 			Expect(values).To(ContainElements(1, 2, 3))
-		})
-	})
-
-	Describe("Reset", func() {
-		It("should clear all elements from the set", func() {
-			s.Add(1, 2, 3, 4, 5)
-			Expect(len(s)).To(Equal(5))
-
-			s.Reset()
-			Expect(len(s)).To(Equal(0))
-			Expect(s.Contains(1)).To(BeFalse())
-			Expect(s.Contains(2)).To(BeFalse())
-			Expect(s.Contains(3)).To(BeFalse())
-		})
-
-		It("should be idempotent when called on an empty set", func() {
-			s.Reset()
-			Expect(len(s)).To(Equal(0))
-
-			s.Reset()
-			Expect(len(s)).To(Equal(0))
-		})
-
-		It("should allow adding elements after reset", func() {
-			s.Add(1, 2, 3)
-			s.Reset()
-			s.Add(4, 5, 6)
-
-			Expect(len(s)).To(Equal(3))
-			Expect(s.Contains(1)).To(BeFalse())
-			Expect(s.Contains(4)).To(BeTrue())
-			Expect(s.Contains(5)).To(BeTrue())
-			Expect(s.Contains(6)).To(BeTrue())
 		})
 	})
 
