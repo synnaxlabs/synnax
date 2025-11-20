@@ -31,6 +31,7 @@ class ChannelConfig(TypedDict, total=False):
     # Modbus-specific fields
     address: int
     modbus_data_type: str
+    modbus_channel_type: str
 
     # OPC UA-specific fields
     node_id: str
