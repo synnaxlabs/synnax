@@ -88,7 +88,13 @@ func NewLogger(ins alamos.Instrumentation) pebble.Logger {
 	return logger{Instrumentation: ins}
 }
 
-func (l logger) Infof(format string, args ...any) { l.L.Infof(format, args...) }
+func NewNoopLogger() pebble.Logger {
+	return logger{Instrumentation: alamos.Instrumentation{}}
+}
+
+func (l logger) Infof(format string, args ...any) {
+	l.L.Infof(format, args...)
+}
 func (l logger) Errorf(format string, args ...any) {
 	l.L.Zap().Sugar().Errorf(format, args...)
 }
