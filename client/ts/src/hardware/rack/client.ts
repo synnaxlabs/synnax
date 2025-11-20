@@ -21,7 +21,7 @@ import {
   type Status,
 } from "@/hardware/rack/payload";
 import { type task } from "@/hardware/task";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const STATUS_CHANNEL_NAME = "sy_rack_status";
@@ -185,7 +185,4 @@ export class Rack {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({
-  type: "rack",
-  key: key.toString(),
-});
+export const ontologyID = ontology.createIDFactory("rack");

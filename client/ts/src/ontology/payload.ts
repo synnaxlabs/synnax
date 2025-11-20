@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type change, record } from "@synnaxlabs/x";
+import { array, type change, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export type ResourceChange = change.Change<ID, Resource>;
@@ -57,6 +57,13 @@ export const idZ = z.object({ type: resourceTypeZ, key: z.string() }).or(stringI
 export type ID = z.infer<typeof idZ>;
 
 export const ROOT_ID: ID = { type: "builtin", key: "root" };
+
+export const createIDFactory =
+  <K extends record.Key>(type: ResourceType) =>
+  (key: K): ID => ({
+    type,
+    key: primitive.isZero(key) ? "" : key.toString(),
+  });
 
 export interface IDToString {
   (id: ID | string): string;

@@ -18,6 +18,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { ontology } from "@/ontology";
+
 const errorMessage = "Channel key must be a valid uint32.";
 export const keyZ = z.uint32().or(
   z
@@ -89,3 +91,5 @@ export const paramsZ = z.union([
   zod.toArray(payloadZ).transform((p) => p.map((c) => c.key)),
 ]);
 export type Params = Key | Name | Keys | Names | Payload | Payload[];
+
+export const ontologyID = ontology.createIDFactory("channel");

@@ -69,6 +69,7 @@ var (
 			{Type: status.OntologyType},
 			{Type: role.OntologyType},
 			{Type: policy.OntologyType},
+			{Type: ontology.BuiltInType},
 		},
 		Actions: []access.Action{access.ActionAll},
 	}
