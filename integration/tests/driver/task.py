@@ -195,28 +195,19 @@ class Task(TestCase):
         self.assert_channel_names(tsk, self.channel_names)
 
         self.log("Test 1 - Start and Stop")
-        start_time = sy.TimeStamp.now()
-        with tsk.run():
-            sy.sleep(self.TEST_DURATION)
-        end_time = sy.TimeStamp.now()
-
         self.assert_sample_count(
-            tsk, self.SAMPLE_RATE, sy.TimeRange(start_time, end_time)
+            tsk, duration=self.TEST_DURATION
         )
 
         # SY-3310: OPC Read Array - rapid restart race condition
         sy.sleep(0.2)
 
         self.log("Test 2 - Reconfigure Task")
-        tsk.config.sample_rate = int(self.SAMPLE_RATE * 2)
+        new_rate = int(self.SAMPLE_RATE * 2)
+        tsk.config.sample_rate = new_rate
         client.hardware.tasks.configure(tsk)
-        start_time = sy.TimeStamp.now()
-        with tsk.run():
-            sy.sleep(self.TEST_DURATION)
-        end_time = sy.TimeStamp.now()
-
         self.assert_sample_count(
-            tsk, self.SAMPLE_RATE * 2, sy.TimeRange(start_time, end_time)
+            tsk, duration=self.TEST_DURATION
         )
 
         self.log("Test 3 - Delete Task")
@@ -267,7 +258,10 @@ class Task(TestCase):
         return device
 
     def assert_sample_count(
-        self, task: sy.Task, sample_rate: sy.Rate, time_range: sy.TimeRange
+        self, 
+        task: sy.Task, 
+        duration: sy.TimeSpan = 1,
+        strict: bool = True
     ) -> None:
         """Assert that the task has the expected number of samples.
 
@@ -275,14 +269,21 @@ class Task(TestCase):
             task: The task to assert the sample count of
             sample_rate: The sample rate of the task
             time_range: The time range to read samples from
+            strict: Sample count within 10% tolerance if True, else no check
         """
+        start_time = sy.TimeStamp.now()
+        with task.run():
+            sy.sleep(duration)
+        end_time = sy.TimeStamp.now()
 
+        sample_rate = task.config.sample_rate
+        time_range = sy.TimeRange(start_time, end_time)
         duration_seconds = time_range.end.span(time_range.start).seconds
 
         # Allow 10% tolerance for CI environments with timing variance
         expected_samples = int(sample_rate * duration_seconds)
-        min_samples = int(expected_samples * 0.9)
-        max_samples = int(expected_samples * 1.1)
+        min_samples = int(expected_samples * 0.9) if strict else 1
+        max_samples = int(expected_samples * 1.1) if strict else sys.maxsize
 
         sample_counts = []
         for channel_config in task.config.channels:
