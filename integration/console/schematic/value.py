@@ -89,9 +89,7 @@ class Value(Symbol):
     def get_properties(self) -> dict[str, Any]:
         """Get the current properties of the symbol"""
         console = self.console
-        self._click_symbol()
-        self.page.get_by_text("Properties").click()
-        self.page.get_by_text("Telemetry").click()
+        super().get_properties(tab="Telemetry")
 
         props: dict[str, Any] = {
             "channel": "",

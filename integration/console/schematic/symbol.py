@@ -125,3 +125,22 @@ class Symbol(ABC):
             chip.click(force=True)
 
         self.console.page.wait_for_timeout(100)
+
+    def get_properties(self, tab: str | None = None) -> dict[str, Any]:
+        """
+        Get the current properties of the symbol.
+
+        Base implementation opens the Properties panel and optionally selects a tab.
+        Subclasses should call super().get_properties(tab="TabName") to open the correct tab.
+
+        Args:
+            tab: Optional tab name to select (e.g., "Control", "Telemetry", "Style")
+
+        Returns:
+            Empty dict - subclasses should populate with actual properties
+        """
+        self._click_symbol()
+        self.page.get_by_text("Properties").click()
+        if tab:
+            self.page.get_by_text(tab).last.click()
+        return {}

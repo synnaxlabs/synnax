@@ -10,7 +10,7 @@
 import synnax as sy
 
 from console.case import ConsoleCase
-
+from console.schematic.schematic import Schematic
 
 class EditSymbolProps(ConsoleCase):
     """
@@ -18,20 +18,18 @@ class EditSymbolProps(ConsoleCase):
     """
 
     def run(self) -> None:
-        self.console.schematic.new()
-        self.test_value_props()
-        self.test_button_props()
+
+        schematic = Schematic(self.client, self.console, "edit_symbol_props")
+
+        self.test_value_props(schematic)
+        self.test_button_props(schematic)
         self.log("Test Complete")
 
-    def test_value_props(self) -> None:
-        self.log("Testing value props")
-        console = self.console
+    def test_value_props(self, schematic: Schematic) -> None:
 
-        self.log("Checking default properties of schematic value")
-        value = console.schematic.create_value(f"{self.name}_uptime")
-        default_props = value.get_properties()
-
-        expected_default_props = {
+        self.log("Testing default properties of schematic value")
+        value = schematic.create_value(f"{self.name}_uptime")
+        default_props = {
             "channel": f"{self.name}_uptime",
             "notation": "standard",
             "precision": 2,
@@ -39,11 +37,9 @@ class EditSymbolProps(ConsoleCase):
             "stale_color": "#C29D0A",  # pluto-warning-m1
             "stale_timeout": 5,
         }
-        assert (
-            default_props == expected_default_props
-        ), f"Props mismatch!\nActual: {default_props}\nExpected: {expected_default_props}"
+        schematic.assert_symbol_properties(value, default_props)
 
-        self.log("Checking edited properties of schematic value")
+        self.log("Testing edited properties of schematic value")
         expected_edited_props = {
             "channel": f"{self.name}_time",
             "notation": "scientific",
@@ -60,13 +56,9 @@ class EditSymbolProps(ConsoleCase):
             stale_color="#FF0000",
             stale_timeout=10,
         )
-        edited_props = value.get_properties()
-        assert (
-            edited_props == expected_edited_props
-        ), f"Props mismatch!\nActual: {edited_props}\nExpected: {expected_edited_props}"
-        value.delete()
+        schematic.assert_symbol_properties(value, expected_edited_props)
 
-        self.log("Checking new node with non-default properties")
+        self.log("Testing new node with non-default properties")
         non_default_props = {
             "channel": f"{self.name}_state",
             "notation": "engineering",
@@ -75,7 +67,7 @@ class EditSymbolProps(ConsoleCase):
             "stale_color": "#00FF00",
             "stale_timeout": 15,
         }
-        non_default_value = console.schematic.create_value(
+        non_default_value = schematic.create_value(
             f"{self.name}_state",
             notation="engineering",
             precision=7,
@@ -83,33 +75,29 @@ class EditSymbolProps(ConsoleCase):
             stale_color="#00FF00",
             stale_timeout=15,
         )
-        actual_non_default_props = non_default_value.get_properties()
-        assert (
-            actual_non_default_props == non_default_props
-        ), f"Props mismatch!\nActual: {actual_non_default_props}\nExpected: {non_default_props}"
-        non_default_value.delete()
+        schematic.assert_symbol_properties(non_default_value, non_default_props)
 
-    def test_button_props(self) -> None:
-        self.log("Testing button props")
-        console = self.console
+    def test_button_props(self, schematic: Schematic) -> None:
+        client = self.client
 
-        self.log("Creating channels")
+        self.log("Testing default properties of schematic button")
         CHANNEL_NAME = "button_cmd"
         INDEX_NAME = "button_idx"
 
-        console.channels.create(
+        index_ch = client.channels.create(
             name=INDEX_NAME,
             is_index=True,
+            retrieve_if_name_exists=True,
         )
-        console.channels.create(
+        cmd_ch = client.channels.create(
             name=CHANNEL_NAME,
             data_type=sy.DataType.UINT8,
             is_index=False,
-            index=INDEX_NAME,
+            index=index_ch.key,
+            retrieve_if_name_exists=True,
         )
 
-        self.log("Creating schematic button")
-        button = console.schematic.create_button(
+        button = schematic.create_button(
             channel_name=CHANNEL_NAME,
         )
         default_props = button.get_properties()
@@ -123,7 +111,7 @@ class EditSymbolProps(ConsoleCase):
             default_props == expected_default_props
         ), f"Props mismatch!\nActual: {default_props}\nExpected: {expected_default_props}"
 
-        self.log("Editing properties of schematic button")
+        self.log("Testing edited properties of schematic button")
         button.edit_properties(
             channel_name=CHANNEL_NAME,
             activation_delay=4.2,
@@ -136,28 +124,21 @@ class EditSymbolProps(ConsoleCase):
             "show_control_chip": False,
             "mode": "momentary",
         }
+        schematic.assert_symbol_properties(button, expected_edited_props)
 
-        edited_props = button.get_properties()
-        assert (
-            edited_props == expected_edited_props
-        ), f"Props mismatch!\nActual: {edited_props}\nExpected: {expected_edited_props}"
-        button.delete()
 
-        self.log("Checking non-default properties of schematic button")
+        self.log("Testing non-default properties of schematic button")
         non_default_props = {
             "channel": CHANNEL_NAME,
             "activation_delay": 2.3,
             "show_control_chip": True,
             "mode": "pulse",
         }
-        non_default_button = console.schematic.create_button(
+        non_default_button = schematic.create_button(
             channel_name=CHANNEL_NAME,
             activation_delay=2.3,
             show_control_chip=True,
             mode="pulse",
         )
-        actual_non_default_props = non_default_button.get_properties()
-        assert (
-            actual_non_default_props == non_default_props
-        ), f"Props mismatch!\nActual: {actual_non_default_props}\nExpected: {non_default_props}"
+        schematic.assert_symbol_properties(non_default_button, non_default_props)
         non_default_button.delete()

@@ -10,35 +10,54 @@
 import os
 import re
 import time
-from typing import TYPE_CHECKING, Literal, cast
+from typing import cast, Literal
 
-from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
+import synnax as sy
+from playwright.sync_api import FloatRect, Locator, ViewportSize, Page
 
-if TYPE_CHECKING:
-    from .console import Console, PageType
+from .console import Console
 
 
 class ConsolePage:
     """Console page management interface"""
+    client: sy.Synnax
+    page: Page
+    console: Console
+    page_name: str
+    page_type: str
+    pluto_label: str
+    tab_locator: Locator | None = None
+    pane_locator: Locator | None = None
+    id: str | None = None
 
-    def __init__(self, page: Page, console: "Console") -> None:
-        self.page = page
+    def __init__(
+        self,
+        client: sy.Synnax,
+        console: Console,
+        page_name: str,
+    ) -> None:
+        """
+        Initialize a ConsolePage.
+
+        Args:
+            client: Synnax client instance
+            console: Console instance
+            page_name: Name for the page
+        """
+        self.client = client
+        self.page = console.page
         self.console = console
+        self.page_name = page_name
 
-        # Page identification - subclasses should set these
-        self.page_type: "PageType" = "Log"  # Default, overridden by subclasses
-        self.pluto_label: str = ""
-        self.tab_locator: Locator | None = None
-        self.pane_locator: Locator | None = None
-        self.id: str | None = None
+        self.new()
 
-    def close(self, page_name: str) -> None:
+    def close(self) -> None:
         """
         Close a page by name.
         Ignore unsaved changes.
         """
         tab = self.page.locator("div").filter(
-            has_text=re.compile(f"^{re.escape(page_name)}$")
+            has_text=re.compile(f"^{re.escape(self.page_name)}$")
         )
         tab.get_by_label("pluto-tabs__close").click()
 
@@ -168,3 +187,27 @@ class ConsolePage:
         self.page.mouse.up()
         # Wait for the UI
         time.sleep(0.5)
+
+    def get_value(self, channel_name: str) -> float | None:
+        """Get the latest data value for any channel using the synnax client"""
+        try:
+            # Retry with short delays for CI resource constraints
+            for attempt in range(3):
+                latest_value = self.client.read_latest(channel_name)
+                if latest_value is not None and len(latest_value) > 0:
+                    return float(latest_value)
+
+                # If read_latest is empty, read recent time range
+                now = sy.TimeStamp.now()
+                recent_range = sy.TimeRange(now - sy.TimeSpan.SECOND * 3, now)
+                frame = self.client.read(recent_range, channel_name)
+                if len(frame) > 0:
+                    return float(frame[-1])
+                if attempt < 2:
+                    sy.sleep(0.2)
+
+            return None
+
+        except:
+            raise RuntimeError(f'Could not get value for channel "{channel_name}"')
+

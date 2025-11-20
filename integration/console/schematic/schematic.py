@@ -7,9 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Literal
+from typing import Literal, Union
 
-from playwright.sync_api import Page
+import synnax as sy
+
+from console.console import Console
 
 from ..page import ConsolePage
 from .button import Button
@@ -18,17 +20,12 @@ from .symbol import Symbol
 from .value import Value
 from .valve import Valve
 
-if TYPE_CHECKING:
-    from console.console import Console
-
 
 class Schematic(ConsolePage):
     """Schematic page management interface"""
 
-    def __init__(self, page: Page, console: "Console") -> None:
-        super().__init__(page, console)
-        self.page_type = "Schematic"
-        self.pluto_label = ".react-flow__pane"
+    page_type: str = "Schematic"
+    pluto_label: str = ".react-flow__pane"
 
     def _add_symbol(self, symbol_type: str) -> str:
         """Add a symbol to the schematic and return its ID."""
@@ -200,3 +197,17 @@ class Schematic(ConsolePage):
             )
         self.console.click("Control")
         self.console.fill_input_field("Control Authority", str(authority))
+
+    def assert_setpoint(self, setpoint_symbol: Setpoint, channel_name: str, value: float) -> None:
+        """Assert that setting the setpoint value results in the expected value in the Core."""
+        setpoint_symbol.set_value(value)
+        actual_value = self.get_value(channel_name)
+        assert (
+            actual_value == value
+        ), f"Setpoint value mismatch!\nActual: {actual_value}\nExpected: {value}"
+
+    def assert_symbol_properties(self, symbol: Symbol, expected_props: dict[str, Union[float, str, bool]]) -> None:
+        actual_props = symbol.get_properties()
+        assert (
+            actual_props == expected_props
+        ), f"Props mismatch!\nActual: {actual_props}\nExpected: {expected_props}"
