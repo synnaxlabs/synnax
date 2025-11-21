@@ -33,7 +33,9 @@ var _ = Describe("PebbleKV", func() {
 
 		BeforeAll(func() {
 			dbPath = filepath.Join(os.TempDir(), "pebblekv-test")
-			pdb, err := pebble.Open(dbPath, &pebble.Options{})
+			pdb, err := pebble.Open(dbPath, &pebble.Options{
+				Logger: pebblekv.NewNoopLogger(),
+			})
 			Expect(err).ToNot(HaveOccurred())
 			db = pebblekv.Wrap(pdb)
 		})
@@ -268,7 +270,9 @@ var _ = Describe("PebbleKV", func() {
 
 		open := func(disableObserver bool) {
 			path := filepath.Join(os.TempDir(), "pebblekv-observer-test")
-			pdb := MustSucceed(pebble.Open(path, &pebble.Options{}))
+			pdb := MustSucceed(pebble.Open(path, &pebble.Options{
+				Logger: pebblekv.NewNoopLogger(),
+			}))
 			var opts []pebblekv.OpenOption
 			if disableObserver {
 				opts = append(opts, pebblekv.DisableObservation())
