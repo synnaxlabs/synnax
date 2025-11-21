@@ -126,7 +126,9 @@ func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (typ
 func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, opts CreateOptions) error {
 	channels := *_channels
 	if *lp.ValidateNames {
-		if err := lp.validateChannelNames(ctx, tx, &channels, opts); err != nil {
+		keys := KeysFromChannels(channels)
+		names := Names(channels)
+		if err := lp.validateChannelNames(ctx, tx, keys, names, opts.RetrieveIfNameExists || opts.OverwriteIfNameExistsAndDifferentProperties); err != nil {
 			return err
 		}
 	}
@@ -355,63 +357,54 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	return lp.maybeSetResources(ctx, tx, toCreate)
 }
 
-// validateChannelNames validates that all channel names are valid and do not conflict
-// with existing channels in the database.
 func (lp *leaseProxy) validateChannelNames(
 	ctx context.Context,
 	tx gorp.Tx,
-	channels *[]Channel,
-	opts CreateOptions,
+	keys Keys,
+	names []string,
+	skipExisting bool,
 ) error {
-	// Step 1: Validate each channel name format
-	for i, ch := range *channels {
-		if err := ValidateName(ch.Name); err != nil {
+	for i, name := range names {
+		if err := ValidateName(name); err != nil {
 			return validate.PathedError(err, fmt.Sprintf("[%d].name", i))
 		}
 	}
-
-	// Step 2: Check for duplicate names within the batch being created
-	namesSeen := make(set.Set[string], len(*channels))
-	for i, ch := range *channels {
-		if namesSeen.Contains(ch.Name) {
+	namesSeen := make(set.Set[string], len(names))
+	for i, name := range names {
+		if namesSeen.Contains(name) {
 			return validate.PathedError(
-				errors.Wrapf(validate.Error, "duplicate channel name '%s' in request", ch.Name),
+				errors.Wrapf(validate.Error, "duplicate channel name '%s' in request", name),
 				fmt.Sprintf("[%d].name", i),
 			)
 		}
-		namesSeen.Add(ch.Name)
+		namesSeen.Add(name)
 	}
-
-	if opts.RetrieveIfNameExists || opts.OverwriteIfNameExistsAndDifferentProperties {
+	if skipExisting {
 		return nil
 	}
-
-	// Step 3: Check for conflicts with existing channels in the database
-	// Query all existing channels with these names
 	var conflictingChannels []Channel
 	if err := gorp.NewRetrieve[Key, Channel]().
 		Where(func(_ gorp.Context, c *Channel) (bool, error) {
 			return namesSeen.Contains(c.Name), nil
 		}).
-		Entries(&conflictingChannels).
-		Exec(ctx, tx); err != nil {
+		Entries(&conflictingChannels).Exec(ctx, tx); err != nil {
 		return errors.Skip(err, query.NotFound)
 	}
 	nameConflicts := make(map[string]int, len(conflictingChannels))
 	for i, ch := range conflictingChannels {
 		nameConflicts[ch.Name] = i
 	}
-	for i, ch := range *channels {
-		conflictingIdx, conflict := nameConflicts[ch.Name]
+	for i, name := range names {
+		conflictingIdx, conflict := nameConflicts[name]
 		if !conflict {
 			continue
 		}
 		existingCh := conflictingChannels[conflictingIdx]
-		if ch.Key() == existingCh.Key() {
+		if existingCh.Key() == keys[i] {
 			continue
 		}
 		return validate.PathedError(
-			errors.Wrapf(validate.Error, "channel with name '%s' already exists", ch.Name),
+			errors.Wrapf(validate.Error, "channel with name '%s' already exists", name),
 			fmt.Sprintf("[%d].name", i),
 		)
 	}
@@ -711,6 +704,10 @@ func (lp *leaseProxy) rename(
 	if len(keys) != len(names) {
 		return errors.Wrap(validate.Error, "keys and names must be the same length")
 	}
+	if err := lp.validateChannelNames(ctx, tx, keys, names, false); err != nil {
+		return err
+	}
+
 	batch := lp.renameRouter.Batch(newRenameBatch(keys, names))
 	for nodeKey, entries := range batch.Peers {
 		keys, names := unzipRenameBatch(entries)

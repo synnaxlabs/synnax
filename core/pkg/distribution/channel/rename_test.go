@@ -61,6 +61,23 @@ var _ = Describe("Rename", Ordered, func() {
 				Expect(resCh.Name).To(Equal(name))
 			})
 		})
+		Context("new name is invalid", func() {
+			It("Should return an error", func() {
+				Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), "invalid name", false)).To(MatchError(ContainSubstring("contains invalid characters")))
+			})
+		})
+		Context("new name is a duplicate", func() {
+			It("Should return an error", func() {
+				secondCh := channel.Channel{
+					Name:     channel.NewRandomName(),
+					Virtual:  true,
+					DataType: telem.Float64T,
+				}
+				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &secondCh)).To(Succeed())
+				Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), secondCh.Name, false)).
+					To(MatchError(ContainSubstring("channel with name '%s' already exists", secondCh.Name)))
+			})
+		})
 	})
 	Context("Multiple channels", func() {
 		It("Should rename the channels without error", func() {

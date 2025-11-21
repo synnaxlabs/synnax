@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
@@ -128,6 +130,62 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).
 					Error().To(MatchError(query.NotFound))
 			})
+		})
+		Context("error cases", func() {
+			It("Should return an error if the name is invalid", func() {
+				ch.Name = "invalid name"
+				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).
+					To(MatchError(ContainSubstring("contains invalid characters")))
+			})
+			It("Should return an error if the name is a duplicate", func() {
+				ch2 := channel.Channel{
+					Name:        ch.Name,
+					DataType:    telem.Float64T,
+					Leaseholder: 1,
+				}
+				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch2)).
+					To(MatchError(ContainSubstring(fmt.Sprintf("channel with name '%s' already exists", ch.Name))))
+			})
+		})
+	})
+	Context("Multiple channels", func() {
+		It("Should create multiple channels without error", func() {
+			chs := []channel.Channel{
+				{
+					Name:        channel.NewRandomName(),
+					DataType:    telem.TimeStampT,
+					Leaseholder: 1,
+					IsIndex:     true,
+				},
+				{
+					Name:        channel.NewRandomName(),
+					DataType:    telem.TimeStampT,
+					Leaseholder: 1,
+					IsIndex:     true,
+				},
+			}
+			Expect(mockCluster.Nodes[1].Channel.CreateMany(ctx, &chs)).To(Succeed())
+			Expect(chs[0].Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
+			Expect(chs[0].Key().LocalKey()).To(Not(BeZero()))
+			Expect(chs[1].Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
+			Expect(chs[1].Key().LocalKey()).To(Not(BeZero()))
+			Expect(chs[0].Key()).ToNot(Equal(chs[1].Key()))
+		})
+		It("Should return an error if the names are duplicates", func() {
+			ch1 := channel.Channel{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Float64T,
+				Leaseholder: 1,
+				Virtual:     true,
+			}
+			ch2 := channel.Channel{
+				Name:        ch1.Name,
+				DataType:    telem.Float64T,
+				Leaseholder: 1,
+				Virtual:     true,
+			}
+			Expect(mockCluster.Nodes[1].Channel.CreateMany(ctx, &[]channel.Channel{ch1, ch2})).
+				To(MatchError(ContainSubstring(fmt.Sprintf("duplicate channel name '%s' in request", ch1.Name))))
 		})
 	})
 	Context("Creating if name doesn't exist", func() {
