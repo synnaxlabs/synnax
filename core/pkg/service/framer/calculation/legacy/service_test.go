@@ -11,6 +11,7 @@ package legacy_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -53,18 +54,18 @@ var _ = Describe("Calculation", Ordered, func() {
 
 	It("Output a basic calculation", func() {
 		baseCh := channel.Channel{
-			Name:     "base",
+			Name:     channel.NewRandomName(),
 			DataType: telem.Int64T,
 			Virtual:  true,
 		}
 		Expect(dist.Channel.Create(ctx, &baseCh)).To(Succeed())
 		calculatedCh := channel.Channel{
-			Name:        "calculated",
+			Name:        channel.NewRandomName(),
 			DataType:    telem.Int64T,
 			Virtual:     true,
 			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCh.Key()},
-			Expression:  "return base * 2",
+			Expression:  fmt.Sprintf("return %s * 2", baseCh.Name),
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCh)).To(Succeed())
 		Expect(c.Add(ctx, calculatedCh.Key())).To(Succeed())
@@ -98,18 +99,18 @@ var _ = Describe("Calculation", Ordered, func() {
 
 	It("Handle undefined symbols", func() {
 		baseCh := channel.Channel{
-			Name:     "base",
+			Name:     channel.NewRandomName(),
 			DataType: telem.Int64T,
 			Virtual:  true,
 		}
 		Expect(dist.Channel.Create(ctx, &baseCh)).To(Succeed())
 		calculatedCh := channel.Channel{
-			Name:        "calculated",
+			Name:        channel.NewRandomName(),
 			DataType:    telem.Int64T,
 			Virtual:     true,
 			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCh.Key()},
-			Expression:  "return base * fake",
+			Expression:  fmt.Sprintf("return %s * fake", baseCh.Name),
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCh)).To(Succeed())
 		Expect(c.Add(ctx, calculatedCh.Key())).To(Succeed())
@@ -134,18 +135,18 @@ var _ = Describe("Calculation", Ordered, func() {
 
 	It("Return a warning for dividing by zero", func() {
 		baseCh := channel.Channel{
-			Name:     "base",
+			Name:     channel.NewRandomName(),
 			DataType: telem.Int64T,
 			Virtual:  true,
 		}
 		Expect(dist.Channel.Create(ctx, &baseCh)).To(Succeed())
 		calculatedCh := channel.Channel{
-			Name:        "calculated",
+			Name:        channel.NewRandomName(),
 			DataType:    telem.Int64T,
 			Virtual:     true,
 			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCh.Key()},
-			Expression:  "return base / 0",
+			Expression:  fmt.Sprintf("return %s / 0", baseCh.Name),
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCh)).To(Succeed())
 		Expect(c.Add(ctx, calculatedCh.Key())).To(Succeed())
@@ -174,7 +175,7 @@ var _ = Describe("Calculation", Ordered, func() {
 
 	It("Should handle nested calculations", func() {
 		baseCh := channel.Channel{
-			Name:     "base",
+			Name:     channel.NewRandomName(),
 			DataType: telem.Int64T,
 			Virtual:  true,
 		}
@@ -182,23 +183,23 @@ var _ = Describe("Calculation", Ordered, func() {
 
 		// First calculated channel that doubles the base value
 		calc1Ch := channel.Channel{
-			Name:        "calc1",
+			Name:        channel.NewRandomName(),
 			DataType:    telem.Int64T,
 			Virtual:     true,
 			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCh.Key()},
-			Expression:  "return base * 2",
+			Expression:  fmt.Sprintf("return %s * 2", baseCh.Name),
 		}
 		Expect(dist.Channel.Create(ctx, &calc1Ch)).To(Succeed())
 
 		// Second calculated channel that adds 1 to the first calculated channel
 		calc2Ch := channel.Channel{
-			Name:        "calc2",
+			Name:        channel.NewRandomName(),
 			DataType:    telem.Int64T,
 			Virtual:     true,
 			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{calc1Ch.Key()},
-			Expression:  "return calc1 + 1",
+			Expression:  fmt.Sprintf("return %s + 1", calc1Ch.Name),
 		}
 		Expect(dist.Channel.Create(ctx, &calc2Ch)).To(Succeed())
 
@@ -245,14 +246,14 @@ var _ = Describe("Calculation", Ordered, func() {
 
 	It("Should error when calculating with undefined channels in expression", func() {
 		baseCh := channel.Channel{
-			Name:     "base",
+			Name:     channel.NewRandomName(),
 			DataType: telem.Int64T,
 			Virtual:  true,
 		}
 		Expect(dist.Channel.Create(ctx, &baseCh)).To(Succeed())
 
 		calculatedCh := channel.Channel{
-			Name:        "calculated",
+			Name:        channel.NewRandomName(),
 			DataType:    telem.Int64T,
 			Virtual:     true,
 			Leaseholder: cluster.Free,
@@ -322,18 +323,18 @@ var _ = Describe("Calculation", Ordered, func() {
 
 	It("Should allow the caller to update a calculation", func() {
 		baseCh := channel.Channel{
-			Name:     "base",
+			Name:     channel.NewRandomName(),
 			DataType: telem.Int64T,
 			Virtual:  true,
 		}
 		Expect(dist.Channel.Create(ctx, &baseCh)).To(Succeed())
 		calculatedCh := channel.Channel{
-			Name:        "calculated",
+			Name:        channel.NewRandomName(),
 			DataType:    telem.Int64T,
 			Virtual:     true,
 			Leaseholder: cluster.Free,
 			Requires:    []channel.Key{baseCh.Key()},
-			Expression:  "return base * 2",
+			Expression:  fmt.Sprintf("return %s * 2", baseCh.Name),
 		}
 		Expect(dist.Channel.Create(ctx, &calculatedCh)).To(Succeed())
 		Expect(c.Add(ctx, calculatedCh.Key())).To(Succeed())
@@ -366,7 +367,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		Expect(telem.ValueAt[int64](series, 0)).To(Equal(int64(2)))
 		Expect(telem.ValueAt[int64](series, 1)).To(Equal(int64(4)))
 
-		calculatedCh.Expression = "return base * 3"
+		calculatedCh.Expression = fmt.Sprintf("return %s * 3", baseCh.Name)
 		Expect(dist.Channel.Create(ctx, &calculatedCh)).To(Succeed())
 		c.Update(ctx, calculatedCh)
 		time.Sleep(sleepInterval)

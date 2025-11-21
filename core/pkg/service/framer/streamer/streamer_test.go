@@ -10,6 +10,7 @@
 package streamer_test
 
 import (
+	"fmt"
 	"runtime"
 	"time"
 
@@ -116,19 +117,19 @@ var _ = Describe("Streamer", Ordered, func() {
 		)
 		BeforeEach(func() {
 			indexCh = &channel.Channel{
-				Name:     "Winston",
+				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
 			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
 			dataCh1 = &channel.Channel{
-				Name:       "Hobbs",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
 			Expect(dist.Channel.Create(ctx, dataCh1)).To(Succeed())
 			dataCh2 = &channel.Channel{
-				Name:       "Winston",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
@@ -138,9 +139,9 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should receive calculated values", func() {
 			calculation := &channel.Channel{
-				Name:       "Output",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
-				Expression: "return Hobbs + Winston",
+				Expression: fmt.Sprintf("return %s + %s", dataCh1.Name, dataCh2.Name),
 			}
 			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
@@ -177,9 +178,9 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should allow the user to dynamically update the channels being calculated", func() {
 			calculation := &channel.Channel{
-				Name:       "Output",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
-				Expression: "return Hobbs + Winston",
+				Expression: fmt.Sprintf("return %s + %s", dataCh1.Name, dataCh2.Name),
 			}
 			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
@@ -221,7 +222,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	Describe("Downsampling", func() {
 		It("Should correctly downsample a factor of 2", func() {
 			ch := &channel.Channel{
-				Name:     "test",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -253,7 +254,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should handle invalid downsampling factors", func() {
 			ch := &channel.Channel{
-				Name:     "test",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -270,30 +271,30 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should correctly combine downsampling with calculations", func() {
 			indexCh := &channel.Channel{
-				Name:     "index",
+				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
 			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
 
 			dataCh1 := &channel.Channel{
-				Name:       "data1",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
 			Expect(dist.Channel.Create(ctx, dataCh1)).To(Succeed())
 
 			dataCh2 := &channel.Channel{
-				Name:       "data2",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
 			Expect(dist.Channel.Create(ctx, dataCh2)).To(Succeed())
 
 			calculation := &channel.Channel{
-				Name:       "sum",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
-				Expression: "return data1 + data2",
+				Expression: fmt.Sprintf("return %s + %s", dataCh1.Name, dataCh2.Name),
 			}
 			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 
