@@ -13,11 +13,13 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Writer struct {
-	tx gorp.Tx
+	tx  gorp.Tx
+	otg ontology.Writer
 }
 
 // Create creates a new policy in the database.
@@ -28,7 +30,10 @@ func (w Writer) Create(
 	if p.Key == uuid.Nil {
 		p.Key = uuid.New()
 	}
-	return gorp.NewCreate[uuid.UUID, Policy]().Entry(p).Exec(ctx, w.tx)
+	if err := gorp.NewCreate[uuid.UUID, Policy]().Entry(p).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	return w.otg.DefineResource(ctx, OntologyID(p.Key))
 }
 
 // Delete removes policies with the given keys from the database.
@@ -38,5 +43,3 @@ func (w Writer) Delete(
 ) error {
 	return gorp.NewDelete[uuid.UUID, Policy]().WhereKeys(keys...).Exec(ctx, w.tx)
 }
-
-

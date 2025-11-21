@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -58,7 +59,7 @@ func (w Writer) AssignRole(
 	subject ontology.ID,
 	roleKey uuid.UUID,
 ) error {
-	return w.otg.DefineRelationship(ctx, subject, HasRole, OntologyID(roleKey))
+	return w.otg.DefineRelationship(ctx, OntologyID(roleKey), ontology.ParentOf, subject)
 }
 
 // UnassignRole removes a role from a subject by deleting the ontology relationship.
@@ -68,5 +69,15 @@ func (w Writer) UnassignRole(
 	subject ontology.ID,
 	roleKey uuid.UUID,
 ) error {
-	return w.otg.DeleteRelationship(ctx, subject, HasRole, OntologyID(roleKey))
+	return w.otg.DeleteRelationship(ctx, OntologyID(roleKey), ontology.ParentOf, subject)
+}
+
+func (w Writer) SetPolicies(ctx context.Context, roleKey uuid.UUID, policyKeys ...uuid.UUID) error {
+	policyIDs := policy.OntologyIDs(policyKeys)
+	for _, p := range policyIDs {
+		if err := w.otg.DefineRelationship(ctx, OntologyID(roleKey), ontology.ParentOf, p); err != nil {
+			return err
+		}
+	}
+	return nil
 }

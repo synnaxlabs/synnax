@@ -133,7 +133,6 @@ func applyHybridMigration(
 				Key:         uuid.New(),
 				Name:        generateRoleName(policyKeys, len(policySetRoles)),
 				Description: fmt.Sprintf("Auto-migrated from %d V0 policies", len(policyKeys)),
-				Policies:    policyKeys,
 				Internal:    false,
 			}
 			state.Roles = append(state.Roles, newRole)
@@ -198,7 +197,7 @@ func writeMigratedData(
 			if err := otgWriter.DefineRelationship(
 				ctx,
 				subjectID,
-				role.HasRole,
+				ontology.ParentOf,
 				role.OntologyID(roleKey),
 			); err != nil {
 				return errors.Wrapf(err, "failed to assign role %s to subject %s", roleKey, subjectID)

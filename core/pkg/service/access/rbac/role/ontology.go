@@ -25,26 +25,6 @@ import (
 
 const OntologyType ontology.Type = "role"
 
-const (
-	// HasRole indicates that a resource is labeled by another resource. When
-	// examining a Relationship of type HasRole, the Start field will be the
-	// resource that is labeled and the To field will be the resource that is
-	// doing the labeling (i.e. Start HasRole To).
-	HasRole ontology.RelationshipType = "has_role"
-)
-
-// Roles is an ontology.Traverser that allows the caller to traverse an ontology.Retrieve
-// query to find all the roles for a particular subject. Pass this traverser to
-// ontology.Retrieve.TraverseTo.
-var (
-	Roles = ontology.Traverser{
-		Filter: func(res *ontology.Resource, rel *ontology.Relationship) bool {
-			return rel.Type == HasRole && rel.From == res.ID
-		},
-		Direction: ontology.Forward,
-	}
-)
-
 // OntologyID constructs a unique ontology.ID for the Role with the given key.
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: k.String()}

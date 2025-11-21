@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -55,43 +54,4 @@ func (r Retriever) Entry(p *Policy) Retriever {
 func (r Retriever) Entries(ps *[]Policy) Retriever {
 	r.gorp = r.gorp.Entries(ps)
 	return r
-}
-
-type RoleRetriever struct {
-	baseTx gorp.Tx
-	gorp   gorp.Retrieve[uuid.UUID, role.Role]
-}
-
-func (r RoleRetriever) WhereKeys(keys ...uuid.UUID) RoleRetriever {
-	r.gorp = r.gorp.WhereKeys(keys...)
-	return r
-}
-
-func (r RoleRetriever) WhereName(name string) RoleRetriever {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, role *role.Role) (bool, error) {
-		return role.Name == name, nil
-	})
-	return r
-}
-
-func (r RoleRetriever) WhereBuiltin(builtin bool) RoleRetriever {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, role *role.Role) (bool, error) {
-		return role.Internal == builtin, nil
-	})
-	return r
-}
-
-func (r RoleRetriever) Entry(role *role.Role) RoleRetriever {
-	r.gorp = r.gorp.Entry(role)
-	return r
-}
-
-func (r RoleRetriever) Entries(roles *[]role.Role) RoleRetriever {
-	r.gorp = r.gorp.Entries(roles)
-	return r
-}
-
-func (r RoleRetriever) Exec(ctx context.Context, tx gorp.Tx) error {
-	tx = gorp.OverrideTx(r.baseTx, tx)
-	return r.gorp.Exec(ctx, tx)
 }

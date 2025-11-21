@@ -9,12 +9,13 @@
 
 import { id } from "@synnaxlabs/x";
 
-import { type policy } from "@/access/policy";
+import { policy } from "@/access/policy";
+import { role } from "@/access/role";
 import type Synnax from "@/client";
 import { createTestClient } from "@/testutil/client";
 import { user } from "@/user";
 
-export const createClientWithPolicy = async (client: Synnax, policy: policy.New) => {
+export const createClientWithPolicy = async (client: Synnax, pol: policy.New) => {
   const username = id.create();
   const u = await client.users.create({
     username,
@@ -22,12 +23,12 @@ export const createClientWithPolicy = async (client: Synnax, policy: policy.New)
     firstName: "test",
     lastName: "test",
   });
-  const p = await client.access.policies.create(policy);
+  const p = await client.access.policies.create(pol);
   const r = await client.access.roles.create({
     name: "test",
     description: "test",
-    policies: [p.key],
   });
+  await client.ontology.addChildren(role.ontologyID(r.key), policy.ontologyID(p.key));
   await client.access.roles.assign({ user: user.ontologyID(u.key), role: r.key });
   const userClient = createTestClient({ username, password: "test" });
   return userClient;

@@ -22,12 +22,10 @@ describe("role", () => {
       const role = await client.access.roles.create({
         name: "test",
         description: "test",
-        policies: [],
       });
       expect(role.key).toBeDefined();
       expect(role.name).toBe("test");
       expect(role.description).toBe("test");
-      expect(role.policies).toEqual([]);
     });
   });
 
@@ -36,13 +34,11 @@ describe("role", () => {
       const created = await client.access.roles.create({
         name: "test",
         description: "test",
-        policies: [],
       });
       const retrieved = await client.access.roles.retrieve({ key: created.key });
       expect(retrieved.key).toBe(created.key);
       expect(retrieved.name).toBe(created.name);
       expect(retrieved.description).toBe(created.description);
-      expect(retrieved.policies).toEqual(created.policies);
     });
   });
 
@@ -51,7 +47,6 @@ describe("role", () => {
       const created = await client.access.roles.create({
         name: "test",
         description: "test",
-        policies: [],
       });
       await client.access.roles.delete(created.key);
       await expect(client.access.roles.retrieve({ key: created.key })).rejects.toThrow(
@@ -65,7 +60,6 @@ describe("role", () => {
       const role = await client.access.roles.create({
         name: "test",
         description: "test",
-        policies: [],
       });
       const username = id.create();
       const u = await client.users.create({

@@ -12,7 +12,6 @@ package rbac
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -89,8 +88,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 
 	policyService, err := policy.OpenService(ctx, policy.Config{
-		DB:      cfg.DB,
-		Signals: cfg.Signals,
+		DB:       cfg.DB,
+		Signals:  cfg.Signals,
+		Ontology: cfg.Ontology,
 	})
 	if err != nil {
 		return nil, err
@@ -125,29 +125,26 @@ func (e *Enforcer) retrievePolicies(
 	subject ontology.ID,
 ) ([]policy.Policy, error) {
 	var (
-		roleIDs  []ontology.Resource
-		roles    []role.Role
-		policies []policy.Policy
+		policyResources []ontology.Resource
+		roles           []ontology.Resource
+		policies        []policy.Policy
 	)
 	if err := e.cfg.Ontology.NewRetrieve().WhereIDs(subject).
 		ExcludeFieldData(true).
-		TraverseTo(role.Roles).Entries(&roleIDs).ExcludeFieldData(true).
+		TraverseTo(ontology.Parents).
+		WhereTypes(role.OntologyType).
+		Entries(&roles).
+		TraverseTo(ontology.Children).
+		WhereTypes(policy.OntologyType).
+		Entries(&policyResources).
 		Exec(ctx, e.tx); err != nil {
 		return nil, err
 	}
-	keys, err := role.KeysFromOntologyIds(ontology.ResourceIDs(roleIDs))
+	keys, err := policy.KeysFromOntologyIds(ontology.ResourceIDs(policyResources))
 	if err != nil {
 		return nil, err
 	}
-	if err := e.role.NewRetrieve().WhereKeys(keys...).
-		Entries(&roles).
-		Exec(ctx, e.tx); err != nil {
-		return nil, err
-	}
-	policyKeys := lo.FlatMap(roles, func(item role.Role, index int) []uuid.UUID {
-		return item.Policies
-	})
-	if err := e.policy.NewRetrieve().WhereKeys(policyKeys...).
+	if err = e.policy.NewRetrieve().WhereKeys(keys...).
 		Entries(&policies).
 		Exec(ctx, e.tx); err != nil {
 		return nil, err

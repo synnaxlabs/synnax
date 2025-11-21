@@ -42,7 +42,7 @@ import (
 )
 
 var (
-	rootRoleName = "Root"
+	rootRoleName = "Owner"
 	rootPolicy   = policy.Policy{
 		Name:   rootRoleName,
 		Effect: policy.EffectAllow,
@@ -102,10 +102,13 @@ func ProvisionRootRole(
 	if rol.Key == uuid.Nil {
 		rol = role.Role{
 			Name:        rootRoleName,
-			Description: "Root Permissions",
-			Policies:    []uuid.UUID{pol.Key},
+			Description: "Owner Permissions",
 		}
-		if err := service.Role.NewWriter(tx).Create(ctx, &rol); err != nil {
+		w := service.Role.NewWriter(tx)
+		if err := w.Create(ctx, &rol); err != nil {
+			return uuid.Nil, err
+		}
+		if err := w.SetPolicies(ctx, rol.Key, pol.Key); err != nil {
 			return uuid.Nil, err
 		}
 	}

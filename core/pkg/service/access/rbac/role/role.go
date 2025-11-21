@@ -25,8 +25,6 @@ type Role struct {
 	Name string `json:"name" msgpack:"name"`
 	// Description explains what permissions this role provides.
 	Description string `json:"description" msgpack:"description"`
-	// Policies is the list of policy UUIDs that this role grants.
-	Policies []uuid.UUID `json:"policies" msgpack:"policies"`
 	// Internal indicates if this is a system-defined role that cannot be deleted.
 	Internal bool `json:"internal" msgpack:"internal"`
 }

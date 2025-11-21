@@ -14,8 +14,8 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -23,8 +23,9 @@ import (
 )
 
 type Config struct {
-	DB      *gorp.DB
-	Signals *signals.Provider
+	DB       *gorp.DB
+	Ontology *ontology.Ontology
+	Signals  *signals.Provider
 }
 
 var (
@@ -36,6 +37,7 @@ var (
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
@@ -43,6 +45,7 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("policy")
 	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -66,6 +69,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 			return nil, err
 		}
 	}
+	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
 
@@ -77,19 +81,16 @@ func (s *Service) Close() error {
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: gorp.OverrideTx(s.cfg.DB, tx)}
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	return Writer{
+		tx:  tx,
+		otg: s.cfg.Ontology.NewWriter(tx),
+	}
 }
 
 func (s *Service) NewRetrieve() Retriever {
 	return Retriever{
 		baseTx: s.cfg.DB,
 		gorp:   gorp.NewRetrieve[uuid.UUID, Policy](),
-	}
-}
-
-func (s *Service) NewRoleRetriever() RoleRetriever {
-	return RoleRetriever{
-		baseTx: s.cfg.DB,
-		gorp:   gorp.NewRetrieve[uuid.UUID, role.Role](),
 	}
 }

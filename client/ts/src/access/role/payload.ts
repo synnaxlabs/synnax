@@ -19,13 +19,12 @@ export const roleZ = z.object({
   key: keyZ,
   name: z.string(),
   description: z.string().optional(),
-  policies: keyZ.array(),
   internal: z.boolean(),
 });
 
 export type Role = z.infer<typeof roleZ>;
 
-export const newRoleZ = roleZ.partial({ key: true, policies: true, internal: true });
+export const newRoleZ = roleZ.partial({ key: true, internal: true });
 
 export type NewRole = z.infer<typeof newRoleZ>;
 
