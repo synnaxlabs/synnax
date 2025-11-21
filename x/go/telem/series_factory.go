@@ -16,7 +16,7 @@ import (
 	"github.com/samber/lo"
 	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/types"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 // Sample represents any numeric value that can be stored in a Series.
@@ -28,7 +28,7 @@ type Sample = types.SizedNumeric
 func NewSeries[T Sample](data []T) Series {
 	return Series{
 		DataType: InferDataType[T](),
-		Data:     MarshalSlice[T](data),
+		Data:     MarshalSlice(data),
 	}
 }
 
@@ -116,7 +116,7 @@ func UnmarshalStrings(b []byte) []string {
 func MarshalSlice[T Sample](data []T) []byte {
 	dt := InferDataType[T]()
 	b := make([]byte, dt.Density().Size(int64(len(data))))
-	typedData := xunsafe.CastSlice[byte, T](b)
+	typedData := unsafe.CastSlice[byte, T](b)
 	copy(typedData, data)
 	return b
 }
@@ -124,22 +124,22 @@ func MarshalSlice[T Sample](data []T) []byte {
 // UnmarshalSlice converts a byte slice back into a slice of numeric values according to
 // the specified DataType.
 func UnmarshalSlice[T Sample](b []byte, dt DataType) []T {
-	return xunsafe.CastSlice[byte, T](b)
+	return unsafe.CastSlice[byte, T](b)
 }
 
 // UnmarshalSeries converts a Series' data back into a slice of the original type.
 func UnmarshalSeries[T Sample](series Series) []T {
-	return xunsafe.CastSlice[byte, T](series.Data)
+	return unsafe.CastSlice[byte, T](series.Data)
 }
 
 // ByteOrder is the standard order for encoding/decoding numeric values across
 // the Synnax telemetry ecosystem.
 var ByteOrder = binary.LittleEndian
 
-// Arange creates a new Series containing count values starting from start, with each
-// subsequent value incremented by spacing. For example, Arange(0, 5, 2) produces [0, 2, 4, 6, 8].
-// Panics if count is less than or equal to 0.
-func Arange[T Sample](start T, count int, spacing T) Series {
+// Arrange creates a new Series containing count values starting from start, with each
+// subsequent value incremented by spacing. For example, Arrange(0, 5, 2) produces [0,
+// 2, 4, 6, 8]. Panics if count is less than or equal to 0.
+func Arrange[T Sample](start T, count int, spacing T) Series {
 	data := make([]T, count)
 	for i := 0; i < count; i++ {
 		data[i] = start + T(i)*spacing
@@ -154,27 +154,27 @@ func Arange[T Sample](start T, count int, spacing T) Series {
 func NewSeriesFromAny(value any, dt DataType) Series {
 	switch dt {
 	case Int64T:
-		return NewSeriesV[int64](castToInt64(value))
+		return NewSeriesV(castToInt64(value))
 	case Int32T:
-		return NewSeriesV[int32](castToInt32(value))
+		return NewSeriesV(castToInt32(value))
 	case Int16T:
-		return NewSeriesV[int16](castToInt16(value))
+		return NewSeriesV(castToInt16(value))
 	case Int8T:
-		return NewSeriesV[int8](castToInt8(value))
+		return NewSeriesV(castToInt8(value))
 	case Uint64T:
-		return NewSeriesV[uint64](castToUint64(value))
+		return NewSeriesV(castToUint64(value))
 	case Uint32T:
-		return NewSeriesV[uint32](castToUint32(value))
+		return NewSeriesV(castToUint32(value))
 	case Uint16T:
-		return NewSeriesV[uint16](castToUint16(value))
+		return NewSeriesV(castToUint16(value))
 	case Uint8T:
-		return NewSeriesV[uint8](castToUint8(value))
+		return NewSeriesV(castToUint8(value))
 	case Float64T:
-		return NewSeriesV[float64](castToFloat64(value))
+		return NewSeriesV(castToFloat64(value))
 	case Float32T:
-		return NewSeriesV[float32](castToFloat32(value))
+		return NewSeriesV(castToFloat32(value))
 	case TimeStampT:
-		return NewSeriesV[TimeStamp](castToTimeStamp(value))
+		return NewSeriesV(castToTimeStamp(value))
 	case StringT:
 		return NewSeriesStringsV(castToString(value))
 	case JSONT:

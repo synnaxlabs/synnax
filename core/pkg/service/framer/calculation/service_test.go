@@ -187,11 +187,11 @@ var _ = Describe("Calculation", Ordered, func() {
 			Specify("Single Write with Data for Both Channels", func() {
 				w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
-				baseCH1 := bases[0]
+				baseCh1 := bases[0]
 				baseCh2 := bases[1]
 				calcCh := calcs[0]
 				MustSucceed(w.Write(core.MultiFrame(
-					[]channel.Key{baseCH1.Key(), baseCh2.Key()},
+					[]channel.Key{baseCh1.Key(), baseCh2.Key()},
 					[]telem.Series{telem.NewSeriesV[int64](1, 2), telem.NewSeriesV[int64](2, 4)},
 				)))
 				var res framer.StreamerResponse
@@ -204,10 +204,10 @@ var _ = Describe("Calculation", Ordered, func() {
 			Specify("Two Writes with Data for Individual Channels", func() {
 				w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
-				baseCH1 := bases[0]
+				baseCh1 := bases[0]
 				baseCh2 := bases[1]
 				calcCh := calcs[0]
-				MustSucceed(w.Write(core.UnaryFrame(baseCH1.Key(), telem.NewSeriesV[int64](1, 2))))
+				MustSucceed(w.Write(core.UnaryFrame(baseCh1.Key(), telem.NewSeriesV[int64](1, 2))))
 				MustSucceed(w.Write(core.UnaryFrame(baseCh2.Key(), telem.NewSeriesV[int64](2, 4))))
 				var res framer.StreamerResponse
 				Eventually(sOutlet.Outlet()).Should(Receive(&res))

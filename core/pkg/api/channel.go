@@ -277,7 +277,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 	translated := make([]channel.Channel, len(channels))
 	for i, ch := range channels {
-		tCH := channel.Channel{
+		tCh := channel.Channel{
 			Name:        ch.Name,
 			Leaseholder: ch.Leaseholder,
 			DataType:    ch.DataType,
@@ -291,10 +291,10 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			Operations:  ch.Operations,
 		}
 		if ch.IsIndex {
-			tCH.LocalIndex = tCH.LocalKey
+			tCh.LocalIndex = tCh.LocalKey
 		}
 
-		translated[i] = tCH
+		translated[i] = tCh
 	}
 	return translated, nil
 }
