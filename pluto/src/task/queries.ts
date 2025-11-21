@@ -12,9 +12,10 @@ import { array, type optional, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
+import { type Label } from "@/label";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
-import { type Status } from "@/status";
+import { Status } from "@/status";
 
 export const FLUX_STORE_KEY = "tasks";
 export const RESOURCE_NAME = "Task";
@@ -23,10 +24,8 @@ export const PLURAL_RESOURCE_NAME = "Tasks";
 export interface FluxStore
   extends Flux.UnaryStore<task.Key, Omit<task.Task, "status">> {}
 
-export interface FluxSubStore extends Flux.Store {
+export interface FluxSubStore extends Ontology.FluxSubStore, Label.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
   [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
 
@@ -89,7 +88,19 @@ export const retrieveSingle = async <
 }): Promise<task.Task<Type, Config, StatusData>> => {
   if ("key" in query && query.key != null) {
     const cached = store.tasks.get(query.key.toString());
-    if (cached != null) return cached as unknown as task.Task<Type, Config, StatusData>;
+    if (cached != null) {
+      const tsk = cached as unknown as task.Task<Type, Config, StatusData>;
+      const detailsSchema = task.statusDetailsZ(
+        schemas?.statusDataSchema ?? z.unknown(),
+      );
+      tsk.status = (await Status.retrieveSingle<typeof detailsSchema>({
+        store,
+        client,
+        query: { key: task.statusKey(query.key.toString()) },
+        detailsSchema,
+      })) as task.Status<typeof detailsSchema>;
+      return tsk;
+    }
   }
   const tsk = await client.tasks.retrieve<Type, Config, StatusData>({
     ...BASE_QUERY,
@@ -150,7 +161,15 @@ const unknownStatusZ = task.statusZ(z.unknown());
 
 export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ store }) => store.tasks.list(),
+  retrieveCached: ({ store }) => {
+    const tasks = store.tasks.list();
+    return tasks.map((t) => {
+      const status = store.statuses.get(task.statusKey(t.key.toString()));
+      const tsk = t as task.Task;
+      tsk.status = status as unknown as task.Status;
+      return tsk;
+    });
+  },
   retrieve: async ({ client, query, store }) => {
     const tasks = await client.tasks.retrieve({
       ...BASE_QUERY,
