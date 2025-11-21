@@ -9,7 +9,7 @@
 
 import { type UnknownAction } from "@reduxjs/toolkit";
 import { Theming, useAsyncEffect } from "@synnaxlabs/pluto";
-import { type Destructor } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Dispatch } from "react";
 import { useDispatch } from "react-redux";
@@ -51,7 +51,7 @@ const matchThemeChange = (theme: string | null): keyof typeof Theming.SYNNAX_THE
 
 const synchronizeWithOS = async (
   dispatch: Dispatch<UnknownAction>,
-): Promise<Destructor> => {
+): Promise<destructor.Destructor> => {
   if (Runtime.ENGINE !== "tauri") {
     const query = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (e: MediaQueryListEvent) =>

@@ -25,7 +25,7 @@ import {
   Tree,
   useCombinedStateAndRef,
 } from "@synnaxlabs/pluto";
-import { type Optional, type status } from "@synnaxlabs/x";
+import { type optional, type status } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
@@ -142,7 +142,7 @@ export const Browser = ({ device }: BrowserProps) => {
   });
 
   const expand = useCallback(
-    ({ clicked, action }: Optional<Tree.HandleExpandProps, "clicked">) => {
+    ({ clicked, action }: optional.Optional<Tree.HandleExpandProps, "clicked">) => {
       if (action === "contract") return;
       retrieveNodes({
         clicked: { key: clicked, id: clicked == null ? "" : parseNodeID(clicked) },

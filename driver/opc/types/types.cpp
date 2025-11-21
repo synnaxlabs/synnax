@@ -70,7 +70,7 @@ std::string guid_to_string(const UA_Guid &guid) {
 }
 
 NodeId NodeId::parse(const std::string &field_name, xjson::Parser &parser) {
-    const std::string nodeIdStr = parser.required<std::string>(field_name);
+    const std::string nodeIdStr = parser.field<std::string>(field_name);
     if (!parser.ok()) return NodeId();
     auto [node_id, err] = parse(nodeIdStr);
     if (err) {

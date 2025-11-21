@@ -9,14 +9,14 @@
 
 import { type channel, NotFoundError } from "@synnaxlabs/client";
 import { Channel, Flex, Text, Tooltip } from "@synnaxlabs/pluto";
-import { location, type Optional, primitive, status } from "@synnaxlabs/x";
+import { location, type optional, primitive, status } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { useSelectActiveKey as useSelectActiveRangeKey } from "@/range/selectors";
 
 export interface ChannelNameProps
-  extends Optional<Omit<Text.MaybeEditableProps, "value">, "level"> {
+  extends optional.Optional<Omit<Text.MaybeEditableProps, "value">, "level"> {
   channel: channel.Key;
   defaultName?: string;
 }

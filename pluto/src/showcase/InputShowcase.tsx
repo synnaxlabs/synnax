@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Optional, TimeStamp } from "@synnaxlabs/x";
+import { type optional, TimeStamp } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { Flex } from "@/flex";
@@ -17,7 +17,7 @@ import { SubcategorySection } from "@/showcase/SubcategorySection";
 import { Text } from "@/text";
 
 export interface InputShowcaseTextProps
-  extends Optional<Input.TextProps, "value" | "onChange"> {}
+  extends optional.Optional<Input.TextProps, "value" | "onChange"> {}
 
 export const InputShowcaseText = (props: InputShowcaseTextProps) => {
   const [value, setValue] = useState<string>(props.value ?? "");
@@ -25,7 +25,7 @@ export const InputShowcaseText = (props: InputShowcaseTextProps) => {
 };
 
 export interface InputShowcaseNumericProps
-  extends Optional<Input.NumericProps, "value" | "onChange"> {}
+  extends optional.Optional<Input.NumericProps, "value" | "onChange"> {}
 
 export const InputShowcaseNumeric = (props: InputShowcaseNumericProps) => {
   const [value, setValue] = useState(0);
@@ -33,7 +33,7 @@ export const InputShowcaseNumeric = (props: InputShowcaseNumericProps) => {
 };
 
 export interface InputShowcaseSwitchProps
-  extends Optional<Input.SwitchProps, "value" | "onChange"> {}
+  extends optional.Optional<Input.SwitchProps, "value" | "onChange"> {}
 
 export const InputShowcaseSwitch = (props: InputShowcaseSwitchProps) => {
   const [value, setValue] = useState(props.value ?? false);
@@ -41,7 +41,7 @@ export const InputShowcaseSwitch = (props: InputShowcaseSwitchProps) => {
 };
 
 export interface InputShowcaseCheckboxProps
-  extends Optional<Input.CheckboxProps, "value" | "onChange"> {}
+  extends optional.Optional<Input.CheckboxProps, "value" | "onChange"> {}
 
 export const InputShowcaseCheckbox = (props: InputShowcaseCheckboxProps) => {
   const [value, setValue] = useState(props.value ?? false);
@@ -49,7 +49,7 @@ export const InputShowcaseCheckbox = (props: InputShowcaseCheckboxProps) => {
 };
 
 export interface InputShowcaseDateTimeProps
-  extends Optional<Input.DateTimeProps, "value" | "onChange"> {}
+  extends optional.Optional<Input.DateTimeProps, "value" | "onChange"> {}
 
 export const InputShowcaseDateTime = (props: InputShowcaseDateTimeProps) => {
   const [value, setValue] = useState(Number(TimeStamp.now().valueOf()));
@@ -64,7 +64,7 @@ const INPUT_PLACEHOLDER = (
 );
 
 export interface InputShowcaseTextAreaProps
-  extends Optional<Input.TextProps, "value" | "onChange"> {}
+  extends optional.Optional<Input.TextProps, "value" | "onChange"> {}
 
 export const InputShowcaseTextArea = (props: InputShowcaseTextAreaProps) => {
   const [value, setValue] = useState("");

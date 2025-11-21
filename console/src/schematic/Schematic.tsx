@@ -17,7 +17,6 @@ import {
   Flex,
   Haul,
   Icon,
-  type Legend,
   Schematic as Core,
   Text,
   Theming,
@@ -25,7 +24,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, location, uuid, xy } from "@synnaxlabs/x";
+import { box, deep, location, type sticky, uuid, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -287,18 +286,18 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     );
   }, [windowKey, schematic.editable, syncDispatch]);
 
-  const [legendPosition, setLegendPosition] = useState<Legend.StickyXY>(
+  const [legendPosition, setLegendPosition] = useState<sticky.XY>(
     schematic.legend.position,
   );
 
   const storeLegendPosition = useCallback(
-    (position: Legend.StickyXY) =>
+    (position: sticky.XY) =>
       syncDispatch(setLegend({ key: layoutKey, legend: { position } })),
     [layoutKey, syncDispatch],
   );
 
   const handleLegendPositionChange = useCallback(
-    (position: Legend.StickyXY) => {
+    (position: sticky.XY) => {
       setLegendPosition(position);
       storeLegendPosition(position);
     },
