@@ -44,7 +44,8 @@ cd cesium && go build ./...
 
 ### Testing
 
-**IMPORTANT**: Always use `ginkgo` to run tests, not `go test`. The codebase uses Ginkgo/Gomega for testing.
+**IMPORTANT**: Always use `ginkgo` to run tests, not `go test`. The codebase uses
+Ginkgo/Gomega for testing.
 
 ```bash
 # Run all tests in a package

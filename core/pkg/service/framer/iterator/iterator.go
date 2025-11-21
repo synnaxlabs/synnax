@@ -41,6 +41,7 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	DistFramer *framer.Service
 	// Channel is used to retrieve information about channels.
+	//
 	// [REQUIRED]
 	Channel *channel.Service
 	Arc     *arc.Service

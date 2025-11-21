@@ -29,6 +29,7 @@ func (s *Service) migrate(ctx context.Context) error {
 		Migrations: []migrate.GorpSpec{
 			{Name: "range_groups", Migrate: s.migrateRangeGroups},
 		},
+		Force: *s.ForceMigration,
 	}.Run(ctx, s.DB)
 }
 

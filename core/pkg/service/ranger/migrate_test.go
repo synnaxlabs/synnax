@@ -91,6 +91,9 @@ var _ = Describe("Migrate", func() {
 		Expect(
 			svc.NewWriter(tx).CreateManyWithParent(ctx, &ranges, subGroup.OntologyID()),
 		).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		Expect(tx.Close()).To(Succeed())
+		Expect(svc.Close()).To(Succeed())
 
 		// Reopen the service to run the migration
 		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{
@@ -109,8 +112,6 @@ var _ = Describe("Migrate", func() {
 		Expect(gSvc.NewRetrieve().WhereNames("Subgroup").Entry(&g).Exec(ctx, nil)).
 			To(MatchError(query.NotFound))
 
-		// There should be a new parent range named "Subgroup" whose time range is the
-		// union of r1 and r2
 		var parentRange ranger.Range
 		Expect(svc.NewRetrieve().WhereNames("Subgroup").
 			Entry(&parentRange).Exec(ctx, nil)).To(Succeed())
