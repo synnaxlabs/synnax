@@ -15,7 +15,7 @@ import {
   type record,
   type Sender,
   type SenderHandler,
-  shallowCopy,
+  shallow,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -223,7 +223,7 @@ export abstract class Leaf<
    */
   setState(next: state.SetArg<z.infer<StateSchema>>): void {
     const nextState = state.executeSetter(next, this.state);
-    this._prevState = shallowCopy(this._state);
+    this._prevState = shallow.copy(this._state);
     this._state = prettyParse(this._schema, nextState, `${this.toString()}`);
     this.sender.send({ variant: "update", key: this.key, state: this._state });
   }
