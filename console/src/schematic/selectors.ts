@@ -45,33 +45,6 @@ export const selectRequiredMany = (state: StoreState, keys: string[]): State[] =
 export const useSelectRequiredMany = (keys: string[]): State[] =>
   useMemoSelect((state: StoreState) => selectRequiredMany(state, keys), [keys]);
 
-export interface ElementDigest {
-  key: string;
-  type: "node" | "edge";
-}
-
-export const selectSelectedElementDigests = (
-  state: StoreState,
-  layoutKey: string,
-): ElementDigest[] => {
-  const schematic = selectOptional(state, layoutKey);
-  if (schematic == null) return [];
-  return [
-    ...schematic.nodes
-      .filter((node) => node.selected)
-      .map<ElementDigest>((node) => ({ key: node.key, type: "node" })),
-    ...schematic.edges
-      .filter((edge) => edge.selected)
-      .map<ElementDigest>((edge) => ({ key: edge.key, type: "edge" })),
-  ];
-};
-
-export const useSelectSelectedElementDigests = (layoutKey: string): ElementDigest[] =>
-  useMemoSelect(
-    (state: StoreState) => selectSelectedElementDigests(state, layoutKey),
-    [layoutKey],
-  );
-
 export interface NodeElementInfo {
   key: string;
   type: "node";
@@ -86,80 +59,6 @@ export interface EdgeElementInfo {
 }
 
 export type ElementInfo = NodeElementInfo | EdgeElementInfo;
-
-export const selectSelectedElementsProps = (
-  state: StoreState,
-  layoutKey: string,
-): ElementInfo[] => {
-  const schematic = selectOptional(state, layoutKey);
-  if (schematic == null) return [];
-  const nodes: ElementInfo[] = schematic.nodes
-    .filter((node) => node.selected)
-    .map((node) => ({
-      key: node.key,
-      type: "node",
-      node,
-      props: schematic.props[node.key] ?? {},
-    }));
-  const edges: ElementInfo[] = schematic.edges
-    .filter((edge) => edge.selected)
-    .map((edge) => ({
-      key: edge.key,
-      type: "edge",
-      edge,
-    }));
-  return [...nodes, ...edges];
-};
-
-export const useSelectSelectedElementsProps = (layoutKey: string): ElementInfo[] =>
-  useMemoSelect(
-    (state: StoreState) => selectSelectedElementsProps(state, layoutKey),
-    [layoutKey],
-  );
-
-export const selectEdge = (
-  state: StoreState,
-  layoutKey: string,
-  key: string,
-): Diagram.Edge | undefined =>
-  selectOptional(state, layoutKey)?.edges.find((edge) => edge.key === key);
-
-export const useSelectEdge = (
-  layoutKey: string,
-  key: string,
-): Diagram.Edge | undefined =>
-  useMemoSelect(
-    (state: StoreState) => selectEdge(state, layoutKey, key),
-    [layoutKey, key],
-  );
-
-export const selectRequiredEdge = (
-  state: StoreState,
-  layoutKey: string,
-  key: string,
-): Diagram.Edge => {
-  const edge = selectEdge(state, layoutKey, key);
-  if (edge == null) throw new UnexpectedError(`Edge not found for key: ${key}`);
-  return edge;
-};
-
-export const useSelectRequiredEdge = (layoutKey: string, key: string): Diagram.Edge =>
-  useMemoSelect(
-    (state: StoreState) => selectRequiredEdge(state, layoutKey, key),
-    [layoutKey, key],
-  );
-
-export const selectSelectedElementNames = (
-  state: StoreState,
-  layoutKey: string,
-): (string | null)[] => {
-  const elements = selectSelectedElementsProps(state, layoutKey);
-  return elements.map((element) => {
-    if (element.type === "node" && element.props?.label?.label != null)
-      return element.props.label.label;
-    return null;
-  });
-};
 
 export const useSelectSelectedElementNames = (layoutKey: string): (string | null)[] =>
   useMemoSelect(
