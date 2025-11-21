@@ -14,7 +14,7 @@
           "case": "console/schematic/set_output"
         },
         {
-          "case": "console/schematic/edit_symbol_props"
+          "case": "console/schematic/edit_props"
         },
         {
           "case": "console/line-plot/download_csv"
