@@ -26,7 +26,7 @@ constexpr auto PERSISTED_STATE_DIR_PERMISSIONS = std::filesystem::perms::owner_a
                                                  std::filesystem::perms::others_all;
 
 std::string get_persisted_state_path(xargs::Parser &parser) {
-    auto p_path = parser.optional<std::string>("--state-file", "");
+    auto p_path = parser.field<std::string>("--state-file", "");
     if (!p_path.empty()) return p_path;
 #ifdef _WIN32
     if (const char *appdata = std::getenv("LOCALAPPDATA"))

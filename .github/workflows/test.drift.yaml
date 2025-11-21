@@ -73,7 +73,7 @@ jobs:
         if: matrix.lint
         run: pnpm check-types:drift
 
-      - name: Madge
+      - name: Check Circular Dependencies
         if: matrix.lint
         run: pnpm madge:drift
 

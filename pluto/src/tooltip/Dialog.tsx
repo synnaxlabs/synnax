@@ -12,7 +12,7 @@ import "@/tooltip/Dialog.css";
 import {
   box,
   type CrudeTimeSpan,
-  type Destructor,
+  type destructor,
   type dimensions,
   location,
   TimeSpan,
@@ -167,7 +167,7 @@ export const Dialog = ({
   const [loadCLS, setLoadCLS] = useState<string>("");
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const id = useId();
-  const visibleCleanup = useRef<Destructor | null>(null);
+  const visibleCleanup = useRef<destructor.Destructor | null>(null);
   const updateCLSTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setStateAndLoadCLS = useCallback((s: State | null): void => {

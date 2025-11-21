@@ -320,8 +320,8 @@ struct DeviceStatusDetails {
     /// @brief parses the device status details from a JSON parser.
     static DeviceStatusDetails parse(xjson::Parser parser) {
         return DeviceStatusDetails{
-            .rack = parser.required<RackKey>("rack"),
-            .device = parser.required<std::string>("device"),
+            .rack = parser.field<RackKey>("rack"),
+            .device = parser.field<std::string>("device"),
         };
     }
 
@@ -342,7 +342,7 @@ struct RackStatusDetails {
     /// @brief parses the device status details from a JSON parser.
     static DeviceStatusDetails parse(xjson::Parser parser) {
         return DeviceStatusDetails{
-            .rack = parser.required<RackKey>("rack"),
+            .rack = parser.field<RackKey>("rack"),
         };
     }
 
@@ -366,9 +366,9 @@ struct TaskStatusDetails {
     /// @brief parses the task status details from a JSON parser.
     static TaskStatusDetails parse(xjson::Parser parser) {
         return TaskStatusDetails{
-            .task = parser.required<TaskKey>("task"),
-            .running = parser.required<bool>("running"),
-            .data = parser.required<json>("data"),
+            .task = parser.field<TaskKey>("task"),
+            .running = parser.field<bool>("running"),
+            .data = parser.field<json>("data"),
         };
     }
 

@@ -7,8 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const shallowCopy = <T>(obj: T): T => {
-  if (Array.isArray(obj)) return [...obj] as T;
-  if (typeof obj === "object" && obj !== null) return { ...obj };
-  return obj;
-};
+export * as scheduler from "@/scheduler/scheduler";
