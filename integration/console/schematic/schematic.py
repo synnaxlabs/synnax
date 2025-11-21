@@ -20,6 +20,8 @@ from .symbol import Symbol
 from .value import Value
 from .valve import Valve
 
+PropertyDict = dict[str, float | str | bool]
+
 
 class Schematic(ConsolePage):
     """Schematic page management interface"""
@@ -198,6 +200,126 @@ class Schematic(ConsolePage):
         self.console.click("Control")
         self.console.fill_input_field("Control Authority", str(authority))
 
+    def edit_properties(
+        self,
+        control_authority: int | None = None,
+        show_control_legend: bool | None = None,
+    ) -> None:
+        """Edit schematic properties."""
+        self.console.click("Control")
+
+        if control_authority is not None:
+            if control_authority < 0 or control_authority > 255:
+                raise ValueError(
+                    f"Control Authority must be between 0 and 255, got {control_authority}"
+                )
+            self.console.fill_input_field("Control Authority", str(control_authority))
+            self.page.keyboard.press("Enter")
+
+        if show_control_legend is not None:
+            legend_toggle = (
+                self.page.locator("text=Show Control State Legend")
+                .locator("..")
+                .locator("input[type='checkbox']")
+            )
+            if legend_toggle.count() > 0:
+                current_state = legend_toggle.is_checked()
+                if current_state != show_control_legend:
+                    legend_toggle.click()
+
+    def get_control_status(self) -> bool:
+        """Get whether control is currently acquired for this schematic."""
+        control_button = (
+            self.page.locator(".pluto-diagram__controls button")
+            .filter(has=self.page.locator("svg.pluto-icon--circle"))
+            .first
+        )
+
+        if control_button.count() > 0:
+            class_attr = control_button.get_attribute("class") or ""
+            has_filled = "pluto-btn--filled" in class_attr
+            return has_filled
+
+        return False
+
+    def acquire_control(self) -> None:
+        """Acquire control of the schematic if not already acquired."""
+        if not self.get_control_status():
+            control_button = (
+                self.page.locator(".pluto-diagram__controls button.pluto-btn--outlined")
+                .filter(has=self.page.locator("svg.pluto-icon--circle"))
+                .first
+            )
+            if control_button.count() > 0:
+                control_button.click()
+                self.page.wait_for_selector(
+                    ".pluto-diagram__controls button.pluto-btn--filled", timeout=2000
+                )
+
+    def release_control(self) -> None:
+        """Release control of the schematic if currently acquired."""
+        if self.get_control_status():
+            control_button = (
+                self.page.locator(".pluto-diagram__controls button.pluto-btn--filled")
+                .filter(has=self.page.locator("svg.pluto-icon--circle"))
+                .first
+            )
+            if control_button.count() > 0:
+                control_button.click()
+                self.page.wait_for_selector(
+                    ".pluto-diagram__controls button.pluto-btn--outlined", timeout=1000
+                )
+
+    def get_edit_status(self) -> bool:
+        """Get whether edit is currently enabled for this schematic."""
+        edit_button = (
+            self.page.locator(".pluto-diagram__controls button")
+            .filter(has=self.page.locator("svg.pluto-icon--edit"))
+            .first
+        )
+
+        if edit_button.count() == 0:
+            edit_button = (
+                self.page.locator(".pluto-diagram__controls button")
+                .filter(has=self.page.locator("svg.pluto-icon--edit-off"))
+                .first
+            )
+
+        if edit_button.count() > 0:
+            class_attr = edit_button.get_attribute("class") or ""
+            has_filled = "pluto-btn--filled" in class_attr
+            return has_filled
+
+        return False
+
+    def enable_edit(self) -> None:
+        """Enable edit for the schematic if not already enabled."""
+        if not self.get_edit_status():
+            edit_button = (
+                self.page.locator(".pluto-diagram__controls button.pluto-btn--outlined")
+                .filter(has=self.page.locator("svg.pluto-icon--edit"))
+                .first
+            )
+            if edit_button.count() > 0:
+                edit_button.click()
+                self.page.wait_for_selector(
+                    ".pluto-diagram__controls button.pluto-btn--filled", timeout=2000
+                )
+
+    def disable_edit(self) -> None:
+        """Disable edit for the schematic if currently enabled."""
+        if self.get_edit_status():
+            edit_button = (
+                self.page.locator(".pluto-diagram__controls button.pluto-btn--filled")
+                .filter(has=self.page.locator("svg.pluto-icon--edit"))
+                .first
+            )
+            if edit_button.count() > 0:
+                edit_button.click()
+                self.page.wait_for_selector(
+                    ".pluto-diagram__controls button.pluto-btn--outlined", timeout=2000
+                )
+
     def assert_setpoint(
         self, setpoint_symbol: Setpoint, channel_name: str, value: float
     ) -> None:
@@ -209,9 +331,73 @@ class Schematic(ConsolePage):
         ), f"Setpoint value mismatch!\nActual: {actual_value}\nExpected: {value}"
 
     def assert_symbol_properties(
-        self, symbol: Symbol, expected_props: dict[str, float | str | bool]
+        self, symbol: Symbol, expected_props: PropertyDict
     ) -> None:
         actual_props = symbol.get_properties()
         assert (
             actual_props == expected_props
         ), f"Props mismatch!\nActual: {actual_props}\nExpected: {expected_props}"
+
+    def get_properties(self) -> tuple[int, bool]:
+        """Get the current properties of the schematic.
+
+        Returns:
+            Tuple of (control_authority, show_control_legend)
+        """
+        self.console.click("Control")
+
+        control_authority = int(self.console.get_input_field("Control Authority"))
+
+        try:
+            show_control_legend = self.console.get_toggle("Show Control State Legend")
+        except Exception:
+            show_control_legend = True  # Default if not found
+
+        return (control_authority, show_control_legend)
+
+    def assert_properties(
+        self, control_authority: int = 1, show_control_legend: bool = True
+    ) -> None:
+        """Assert the schematic properties match expected values."""
+        if control_authority < 0 or control_authority > 255:
+            raise ValueError(
+                f"Control Authority must be between 0 and 255, got {control_authority}"
+            )
+
+        actual_authority, actual_legend = self.get_properties()
+
+        assert actual_authority == control_authority, (
+            f"Control Authority mismatch!\n"
+            f"Actual: {actual_authority}\n"
+            f"Expected: {control_authority}"
+        )
+
+        assert actual_legend == show_control_legend, (
+            f"Show Control Legend mismatch!\n"
+            f"Actual: {actual_legend}\n"
+            f"Expected: {show_control_legend}"
+        )
+
+    def assert_control_status(self, expected: bool) -> None:
+        """Assert the control status matches the expected value."""
+        actual = self.get_control_status()
+        assert actual == expected, (
+            f"Control status mismatch!\n" f"Actual: {actual}\n" f"Expected: {expected}"
+        )
+
+    def assert_control_legend_visible(self, expected: bool) -> None:
+        """Assert the control state legend visibility matches the expected value."""
+        legend = self.page.locator(".pluto-legend")
+        is_visible = legend.count() > 0 and legend.is_visible()
+        assert is_visible == expected, (
+            f"Control legend visibility mismatch!\n"
+            f"Actual: {is_visible}\n"
+            f"Expected: {expected}"
+        )
+
+    def assert_edit_status(self, expected: bool) -> None:
+        """Assert the edit status matches the expected value."""
+        actual = self.get_edit_status()
+        assert actual == expected, (
+            f"Edit status mismatch!\n" f"Actual: {actual}\n" f"Expected: {expected}"
+        )
