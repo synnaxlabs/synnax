@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  array,
-  type compare,
-  type record,
-  shallowCopy,
-  type status,
-} from "@synnaxlabs/x";
+import { array, type compare, type record, shallow, type status } from "@synnaxlabs/x";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { type z } from "zod";
 
@@ -181,12 +175,12 @@ export const fieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
 ): FieldListUtils<K, E> => ({
   value: () => ctx.get<E[]>(path).value,
   add: (value, start) => {
-    const copy = shallowCopy(ctx.get<E[]>(path).value);
+    const copy = shallow.copy(ctx.get<E[]>(path).value);
     copy.splice(start, 0, ...array.toArray(value));
     ctx.set(path, copy);
   },
   push: (value, sort) => {
-    const copy = shallowCopy(ctx.get<E[]>(path).value);
+    const copy = shallow.copy(ctx.get<E[]>(path).value);
     copy.push(...array.toArray(value));
     if (sort != null) copy.sort(sort);
     ctx.set(path, copy);
@@ -207,7 +201,7 @@ export const fieldListUtils = <K extends record.Key, E extends record.Keyed<K>>(
   },
   set: (values) => ctx.set(path, state.executeSetter(values, ctx.get<E[]>(path).value)),
   sort: (compareFn) => {
-    const copy = shallowCopy(ctx.get<E[]>(path).value);
+    const copy = shallow.copy(ctx.get<E[]>(path).value);
     copy.sort(compareFn);
     ctx.set(path, copy);
   },

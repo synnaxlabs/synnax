@@ -15,7 +15,7 @@ import {
   clamp,
   color,
   DataType,
-  type Destructor,
+  type destructor,
   type direction,
   math,
   type MultiSeries,
@@ -268,9 +268,9 @@ interface InternalState {
   instrumentation: Instrumentation;
   lineCtx: Context;
   xTelem: telem.SeriesSource;
-  stopListeningXTelem?: Destructor;
+  stopListeningXTelem?: destructor.Destructor;
   yTelem: telem.SeriesSource;
-  stopListeningYTelem?: Destructor;
+  stopListeningYTelem?: destructor.Destructor;
   requestRender: render.Requestor;
 
   xDownsampler: telem.SeriesDownsampler;

@@ -42,8 +42,8 @@ struct RemoteInfo {
 
     template<typename Parser>
     void override(Parser &p) {
-        this->rack_key = p.optional("rack_key", this->rack_key);
-        this->cluster_key = p.optional("cluster_key", this->cluster_key);
+        this->rack_key = p.field("rack_key", this->rack_key);
+        this->cluster_key = p.field("cluster_key", this->cluster_key);
     }
 
     [[nodiscard]] json to_json() const {

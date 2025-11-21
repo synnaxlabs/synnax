@@ -9,7 +9,7 @@
 
 import "@/tag/Tag.css";
 
-import { color, type Optional } from "@synnaxlabs/x";
+import { color, type optional } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Button } from "@/button";
@@ -18,7 +18,7 @@ import { CSS } from "@/css";
 import { Icon } from "@/icon";
 
 export interface TagProps
-  extends Optional<
+  extends optional.Optional<
     Omit<Button.ButtonProps<"div">, "size" | "wrap" | "color">,
     "level"
   > {

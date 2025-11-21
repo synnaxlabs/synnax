@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor, TimeSpan } from "@synnaxlabs/x";
+import { type destructor, TimeSpan } from "@synnaxlabs/x";
 
 class TrackerEntry {
   level: number;
@@ -22,7 +22,7 @@ class TrackerEntry {
     this.total = 0;
   }
 
-  measure(): [number, Destructor] {
+  measure(): [number, destructor.Destructor] {
     const start = performance.now();
     return [
       this.level,
@@ -52,7 +52,7 @@ export class Tracker {
     this.target = target;
   }
 
-  measure(key: string): [number, Destructor] {
+  measure(key: string): [number, destructor.Destructor] {
     if (!this.entries.has(key)) this.entries.set(key, new TrackerEntry(this.target));
     return this.entries.get(key)!.measure();
   }

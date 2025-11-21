@@ -95,6 +95,29 @@ describe("update", () => {
       });
     });
 
+    it("should allow null client when allowDisconnected is true", async () => {
+      const update = vi.fn().mockImplementation(async ({ client }) => {
+        if (client == null) return 42;
+        return 0;
+      });
+      const { useUpdate } = Flux.createUpdate<number, {}, number, never, true>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+        allowDisconnected: true,
+      });
+      const { result } = renderHook(useUpdate, {
+        wrapper: createSynnaxWrapper({ client: null }),
+      });
+      await act(async () => {
+        await result.current.updateAsync(12, { signal: controller.signal });
+      });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toEqual(12);
+        expect(update).toHaveBeenCalled();
+      });
+    });
+
     it("should return a loading result when the update function is being executed", async () => {
       const update = async () => {
         await new Promise((resolve) => setTimeout(resolve, 10));

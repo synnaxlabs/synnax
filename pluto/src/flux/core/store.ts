@@ -10,8 +10,8 @@
 import { type channel, type Synnax } from "@synnaxlabs/client";
 import {
   array,
-  type Destructor,
-  type IsExactlyUndefined,
+  type destructor,
+  type narrow,
   type observe,
   type record,
 } from "@synnaxlabs/x";
@@ -59,7 +59,7 @@ export class ScopedUnaryStore<
     key: Key,
     value: state.SetArg<Value | undefined>,
     variant: SetExtra,
-  ): Destructor | undefined {
+  ): destructor.Destructor | undefined {
     const prev = this.entries.get(key);
     const next = state.executeSetter(value, prev);
     if (next == null || (prev != null && this.equal(next, prev, key))) return undefined;
@@ -91,7 +91,7 @@ export class ScopedUnaryStore<
     value?: state.SetArg<Value | undefined> | SetExtra,
     extra?: SetExtra,
   ): () => void {
-    const rollbacks: Destructor[] = [];
+    const rollbacks: destructor.Destructor[] = [];
 
     // Case 1: Array of values with keys
     if (Array.isArray(key))
@@ -186,7 +186,11 @@ export class ScopedUnaryStore<
    * key trigger the callback)
    * @returns A destructor function to remove the listener
    */
-  onSet(scope: string, callback: SetHandler<Value, SetExtra>, key?: Key): Destructor {
+  onSet(
+    scope: string,
+    callback: SetHandler<Value, SetExtra>,
+    key?: Key,
+  ): destructor.Destructor {
     this.setListeners.set(callback, { scope, key });
     return () => this.setListeners.delete(callback);
   }
@@ -203,7 +207,7 @@ export class ScopedUnaryStore<
     scope: string,
     callback: observe.AsyncHandler<Key> | observe.Handler<Key>,
     key?: Key,
-  ): Destructor {
+  ): destructor.Destructor {
     this.deleteListeners.set(callback, { scope, key });
     return () => this.deleteListeners.delete(callback);
   }
@@ -325,9 +329,9 @@ export type UnaryStore<
   get(keys: Key[] | ((value: Value) => boolean)): Value[];
   list(): Value[];
   has(key: Key | Key[]): boolean;
-  onSet(callback: SetHandler<Value, SetExtra>, key?: Key): Destructor;
-  onDelete(callback: DeleteHandler<Key>, key?: Key): Destructor;
-} & (IsExactlyUndefined<SetExtra> extends true
+  onSet(callback: SetHandler<Value, SetExtra>, key?: Key): destructor.Destructor;
+  onDelete(callback: DeleteHandler<Key>, key?: Key): destructor.Destructor;
+} & (narrow.IsUndefined<SetExtra> extends true
   ? {
       set(key: Key, value: state.SetArg<Value | undefined>): () => void;
       set(
@@ -397,4 +401,5 @@ export const partialUpdate = <Key extends record.Key, Value extends Record<any, 
   store: UnaryStore<Key, Value>,
   key: Key,
   value: Partial<Value>,
-): Destructor => store.set(key, (p) => (p == null ? undefined : { ...p, ...value }));
+): destructor.Destructor =>
+  store.set(key, (p) => (p == null ? undefined : { ...p, ...value }));

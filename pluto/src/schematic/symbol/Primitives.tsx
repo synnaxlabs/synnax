@@ -15,7 +15,7 @@ import {
   dimensions,
   direction,
   type location,
-  type Optional,
+  type optional,
   xy,
 } from "@synnaxlabs/x";
 import {
@@ -2029,7 +2029,10 @@ export const Button = ({
 
 export interface TextBoxProps
   extends Omit<DivProps, "onChange">,
-    Optional<Pick<Text.EditableProps, "level" | "value" | "onChange">, "onChange"> {
+    optional.Optional<
+      Pick<Text.EditableProps, "level" | "value" | "onChange">,
+      "onChange"
+    > {
   color?: color.Crude;
   width?: number;
   align?: Flex.Alignment;

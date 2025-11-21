@@ -15,7 +15,7 @@ import {
   SpanStatusCode,
   type Tracer as OtelTracer,
 } from "@opentelemetry/api";
-import { type Destructor } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 
 import {
   type Environment,
@@ -53,7 +53,7 @@ export class Tracer {
     return t;
   }
 
-  debug(key: string): Destructor;
+  debug(key: string): destructor.Destructor;
   debug<F extends SpanF>(key: string, f: F): ReturnType<F>;
 
   /**
@@ -65,11 +65,11 @@ export class Tracer {
    * @returns A span that tracks program execution. If the Tracer's environment
    * rejects the 'debug' environment or the Tracer is noop, a NoopSpan is returned.
    */
-  debug<F extends SpanF>(key: string, f?: F): ReturnType<F> | Destructor {
+  debug<F extends SpanF>(key: string, f?: F): ReturnType<F> | destructor.Destructor {
     return this.trace(key, "debug", f);
   }
 
-  bench(key: string): Destructor;
+  bench(key: string): destructor.Destructor;
   bench<F extends SpanF>(key: string, f: F): ReturnType<F>;
 
   /**
@@ -81,11 +81,11 @@ export class Tracer {
    * @returns A span that tracks program execution. If the Tracer's environment
    * rejects the 'bench' environment or the Tracer is noop, a NoopSpan is returned.
    */
-  bench<F extends SpanF>(key: string, f?: F): ReturnType<F> | Destructor {
+  bench<F extends SpanF>(key: string, f?: F): ReturnType<F> | destructor.Destructor {
     return this.trace(key, "bench", f);
   }
 
-  prod(key: string): Destructor;
+  prod(key: string): destructor.Destructor;
   prod<F extends SpanF>(key: string, f: F): ReturnType<F>;
 
   /**
@@ -97,17 +97,17 @@ export class Tracer {
    * @returns A span that tracks program execution. If the Tracer's environment
    * rejects the 'prod' environment or the Tracer is noop, a NoopSpan is returned.
    */
-  prod<F extends SpanF>(key: string, f?: F): ReturnType<F> | Destructor {
+  prod<F extends SpanF>(key: string, f?: F): ReturnType<F> | destructor.Destructor {
     return this.trace(key, "prod", f);
   }
 
-  trace(key: string, env: Environment): Destructor;
+  trace(key: string, env: Environment): destructor.Destructor;
   trace<F extends SpanF>(key: string, env: Environment, f: F): ReturnType<F>;
   trace<F extends SpanF>(
     key: string,
     env: Environment,
     f?: F,
-  ): ReturnType<F> | Destructor;
+  ): ReturnType<F> | destructor.Destructor;
 
   /**
    * Stars a new span with the given key and environment. If a span already
@@ -123,7 +123,7 @@ export class Tracer {
     key: string,
     env: Environment,
     f?: F,
-  ): ReturnType<F> | Destructor {
+  ): ReturnType<F> | destructor.Destructor {
     const skip = this.meta.noop || !this.filter(env) || this.otelTracer == null;
     if (f == null) {
       if (skip) return () => {};

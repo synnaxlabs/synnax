@@ -11,7 +11,7 @@ import {
   box,
   color,
   DataType,
-  type Destructor,
+  type destructor,
   MultiSeries,
   type TelemValue,
   xy,
@@ -45,7 +45,7 @@ interface InternalState {
   render: render.Context;
   telem: telem.SeriesSource;
   textColor: color.Color;
-  stopListeningTelem?: Destructor;
+  stopListeningTelem?: destructor.Destructor;
 }
 
 interface ScrollbackState {
