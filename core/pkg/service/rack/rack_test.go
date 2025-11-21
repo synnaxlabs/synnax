@@ -188,7 +188,7 @@ var _ = Describe("Rack", Ordered, func() {
 			r := rack.Rack{Name: "test rack"}
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
-			Expect(s.Message).To(Equal("Rack state unknown"))
+			Expect(s.Message).To(Equal("Status unknown"))
 			Expect(s.Variant).To(Equal(xstatus.WarningVariant))
 			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 			Expect(s.Key).To(ContainSubstring(string(rack.OntologyType)))
