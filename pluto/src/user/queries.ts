@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, UnexpectedError, user } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { access, ontology, UnexpectedError, user } from "@synnaxlabs/client";
+import { array, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -118,6 +118,7 @@ export const formSchema = user.newZ.extend({
   password: z.string().min(1, "Password is required"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
+  role: access.role.keyZ,
 });
 
 export interface UseFormParams {
@@ -129,6 +130,7 @@ const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   firstName: "",
   lastName: "",
   password: "",
+  role: "",
 };
 
 export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSubStore>({
@@ -138,10 +140,18 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSub
   retrieve: async ({ client, query: { key }, reset, store }) => {
     if (key == null) return;
     const user = await retrieveSingle({ client, query: { key }, store });
-    reset({ ...user, password: "" });
+    reset({ ...user, password: "", role: "" });
   },
-  update: async ({ client, value }) => {
-    await client.users.create(value());
+  update: async ({ client, value, rollbacks, store }) => {
+    const v = value();
+    const newUser: user.New & user.User = { key: uuid.create(), ...v };
+    rollbacks.push(store.users.set(newUser.key, newUser));
+    const createdUser = await client.users.create(newUser);
+    if (v.role == null) return;
+    await client.access.roles.assign({
+      user: user.ontologyID(createdUser.key),
+      role: v.role,
+    });
   },
 });
 

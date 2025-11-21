@@ -49,10 +49,10 @@ export const { useRetrieve } = Flux.createRetrieve<
   ],
 });
 
-export interface ListParams extends List.PagerParams {}
+export interface ListQuery extends List.PagerParams {}
 
 export const useList = Flux.createList<
-  ListParams,
+  ListQuery,
   access.role.Key,
   access.role.Role,
   role.FluxSubStore
@@ -112,7 +112,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<
   },
 });
 
-export const formSchema = access.role.newZ;
+export const formSchema = access.role.newZ.extend({
+  policies: access.policy.keyZ.array(),
+});
 
 export const useForm = Flux.createForm<
   Partial<RetrieveQuery>,
@@ -125,6 +127,7 @@ export const useForm = Flux.createForm<
     key: undefined,
     name: "",
     description: "",
+    policies: [],
   },
   retrieve: async ({ client, query, store }) => {
     if (query.key == null) return;
@@ -134,8 +137,32 @@ export const useForm = Flux.createForm<
   update: async ({ client, value, store, set, rollbacks }) => {
     const v = value();
     let r: access.role.Role = { key: uuid.create(), ...v };
+    const otgID = access.role.ontologyID(r.key);
+    const otgKey = ontology.idToString(otgID);
+    rollbacks.push(
+      store.resources.set(otgKey, { key: otgKey, id: otgID, name: r.name, data: r }),
+    );
     rollbacks.push(store.roles.set(r.key, r));
+    if (v.policies.length > 0) {
+      await client.ontology.addChildren(
+        access.role.ontologyID(r.key),
+        ...v.policies.map((p) => access.policy.ontologyID(p)),
+      );
+      const newRels = v.policies.map(
+        (p): ontology.Relationship => ({
+          from: access.role.ontologyID(r.key),
+          to: access.policy.ontologyID(p),
+          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        }),
+      );
+      newRels.forEach((rel) =>
+        rollbacks.push(
+          store.relationships.set(ontology.relationshipToString(rel), rel),
+        ),
+      );
+    }
     r = await client.access.roles.create(r);
+
     set("key", r.key);
   },
 });

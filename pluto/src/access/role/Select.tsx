@@ -1,0 +1,66 @@
+import { type access } from "@synnaxlabs/client";
+import { type ReactElement } from "react";
+
+import { type ListQuery, useList } from "@/access/role/queries";
+import { Component } from "@/component";
+import { type Flux } from "@/flux";
+import { List } from "@/list";
+import { Select as Core } from "@/select";
+import { Text } from "@/text";
+
+const listItemRenderProp = Component.renderProp(
+  ({
+    itemKey,
+    ...rest
+  }: List.ItemRenderProps<access.role.Key>): ReactElement | null => {
+    const item = List.useItem<access.role.Key, access.role.Role>(itemKey);
+    if (item == null) return null;
+    const { name, description } = item;
+    return (
+      <Core.ListItem itemKey={itemKey} y gap="small" {...rest}>
+        <Text.Text level="p" weight={400}>
+          {name}
+        </Text.Text>
+        {item?.description != null && (
+          <Text.Text level="small" color={9}>
+            {description}
+          </Text.Text>
+        )}
+      </Core.ListItem>
+    );
+  },
+);
+
+export interface SelectProps
+  extends Omit<
+      Core.SingleProps<access.role.Key, access.role.Role | undefined>,
+      "resourceName" | "data" | "getItem" | "subscribe" | "children"
+    >,
+    Flux.UseListParams<ListQuery, access.role.Key, access.role.Role> {}
+
+export const Select = ({
+  initialQuery,
+  filter,
+  ...props
+}: SelectProps): ReactElement => {
+  const { data, retrieve, getItem, subscribe, status } = useList({
+    initialQuery,
+    filter,
+  });
+  const { fetchMore, search } = List.usePager({ retrieve });
+  return (
+    <Core.Single<access.role.Key, access.role.Role | undefined>
+      {...props}
+      data={data}
+      getItem={getItem}
+      subscribe={subscribe}
+      onFetchMore={fetchMore}
+      onSearch={search}
+      status={status}
+      resourceName="role"
+      itemHeight={56}
+    >
+      {listItemRenderProp}
+    </Core.Single>
+  );
+};

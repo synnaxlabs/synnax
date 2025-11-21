@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Access, Button, Flex, Form, Nav, Synnax } from "@synnaxlabs/pluto";
+import { type access } from "@synnaxlabs/client";
+import { Access, Button, Flex, Form, type Input, Nav, Synnax } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 
 import { type Layout } from "@/layout";
@@ -27,6 +28,19 @@ export const CREATE_LAYOUT: Layout.BaseState = {
     size: { height: 350, width: 650 },
     navTop: true,
   },
+};
+
+const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
+  variant: "text",
+  level: "h2",
+  autoFocus: true,
+  placeholder: "Technician",
+  full: "x",
+};
+
+const DESCRIPTION_INPUT_PROPS: Partial<Input.TextProps> = {
+  placeholder: "Minimal permissions for test operation",
+  area: true,
 };
 
 export const Create: Layout.Renderer = ({ onClose }) => {
@@ -49,22 +63,16 @@ export const Create: Layout.Renderer = ({ onClose }) => {
             <Form.TextField
               path="name"
               label="Role Name"
-              inputProps={{
-                variant: "text",
-                level: "h2",
-                autoFocus: true,
-                placeholder: "Administrator",
-                full: "x",
-              }}
+              inputProps={NAME_INPUT_PROPS}
             />
             <Form.TextField
               path="description"
               label="Description"
-              inputProps={{
-                placeholder: "Role description",
-                full: "x",
-              }}
+              inputProps={DESCRIPTION_INPUT_PROPS}
             />
+            <Form.Field<access.policy.Key[]> path="policies" label="Policies">
+              {(props) => <Access.Policy.SelectMultiple {...props} />}
+            </Form.Field>
           </Flex.Box>
         </Form.Form>
       </Flex.Box>

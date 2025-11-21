@@ -9,3 +9,4 @@
 
 export * from "@/access/role/CreateIcon";
 export * from "@/access/role/queries";
+export * from "@/access/role/Select";

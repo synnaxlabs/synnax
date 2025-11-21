@@ -20,13 +20,11 @@ export const userZ = z.object({
   // release.
   firstName: z.string().default(""),
   lastName: z.string().default(""),
-  rootUser: z.boolean().default(true),
 });
 
 export interface User extends z.infer<typeof userZ> {}
 
 export const newZ = userZ
   .partial({ key: true, firstName: true, lastName: true })
-  .omit({ rootUser: true })
   .extend({ password: z.string().min(1) });
 export interface New extends z.infer<typeof newZ> {}

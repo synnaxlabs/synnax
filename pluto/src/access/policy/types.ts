@@ -7,7 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/access/policy/CreateIcon";
-export * from "@/access/policy/queries";
-export * from "@/access/policy/Select";
-export * from "@/access/policy/types";
+export const HAUL_TYPE = "policy";

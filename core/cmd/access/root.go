@@ -100,7 +100,7 @@ func ProvisionRootRole(
 	if rol.Key == uuid.Nil {
 		rol = role.Role{
 			Name:        rootRoleName,
-			Description: "Owner Permissions",
+			Description: "Full control of deployment, including security and user registration",
 		}
 		w := service.Role.NewWriter(tx)
 		if err := w.Create(ctx, &rol); err != nil {
