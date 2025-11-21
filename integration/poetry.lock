@@ -2,7 +2,7 @@
 
 [[package]]
 name = "alamos"
-version = "0.47.1"
+version = "0.48.0"
 description = ""
 optional = false
 python-versions = ">=3.10,<4"
@@ -2731,7 +2731,7 @@ files = [
 
 [[package]]
 name = "synnax"
-version = "0.47.1"
+version = "0.48.0"
 description = "Synnax Client Library"
 optional = false
 python-versions = ">=3.11,<4"
@@ -2758,7 +2758,7 @@ url = "../client/py"
 
 [[package]]
 name = "synnax-freighter"
-version = "0.47.1"
+version = "0.48.0"
 description = ""
 optional = false
 python-versions = ">=3.11,<4"
