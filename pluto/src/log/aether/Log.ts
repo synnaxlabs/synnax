@@ -81,7 +81,8 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    if (color.isZero(this.state.color)) this.internal.textColor = i.theme.colors.gray.l11;
+    if (color.isZero(this.state.color))
+      this.internal.textColor = i.theme.colors.gray.l11;
     else i.textColor = this.state.color;
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
 
@@ -189,7 +190,11 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     let visualLinesShown = 0;
     let logicalLinesNeeded = 0;
     const targetVisualLines = this.visibleLineCount - 1;
-    for (let i = this.values.length - 1; i >= 0 && visualLinesShown < targetVisualLines; i--) {
+    for (
+      let i = this.values.length - 1;
+      i >= 0 && visualLinesShown < targetVisualLines;
+      i--
+    ) {
       const wrappedLines = this.wrappedCache.get(i);
       if (wrappedLines) {
         visualLinesShown += wrappedLines.length;
@@ -199,7 +204,10 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     return Math.max(0, this.values.length - logicalLinesNeeded);
   }
 
-  private calculateRenderRange(isScrolling: boolean): { range: Iterable<any>, startLogicalIndex: number } {
+  private calculateRenderRange(isScrolling: boolean): {
+    range: Iterable<any>;
+    startLogicalIndex: number;
+  } {
     if (!isScrolling) {
       const startLogicalIndex = this.calculateAutoScrollStartIndex();
       return {
@@ -222,12 +230,12 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       break;
     }
     const endLogicalIndex = Math.min(
-      this.values.length, 
-      startLogicalIndex + this.visibleLogicalLineCount
+      this.values.length,
+      startLogicalIndex + this.visibleLogicalLineCount,
     );
     const range = this.values.subIterator(startLogicalIndex, endLogicalIndex);
     return { range, startLogicalIndex };
-  }  
+  }
 
   private shouldRebuildCache(currentWidth: number): boolean {
     if (this.charWidth === 0) return false;
@@ -245,13 +253,13 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
     const canvas = renderCtx[CANVAS];
     const isScrolling = this.state.scrolling;
-    if (this.charWidth === 0) this.charWidth = canvas.measureText('M').width; // Font monospaced, get width of single char
-    const lineMaxWidth = box.width(region) - (PADDING_X * 2) - SCROLLBAR_WIDTH;
+    if (this.charWidth === 0) this.charWidth = canvas.measureText("M").width; // Font monospaced, get width of single char
+    const lineMaxWidth = box.width(region) - PADDING_X * 2 - SCROLLBAR_WIDTH;
     if (!isScrolling && this.shouldRebuildCache(lineMaxWidth)) {
       this.rebuildWrapCache();
       this.cachedDataLength = this.values.length;
     }
-    const {range, startLogicalIndex} = this.calculateRenderRange(isScrolling);
+    const { range, startLogicalIndex } = this.calculateRenderRange(isScrolling);
     const reg = this.state.region;
     const draw2d = new Draw2D(canvas, this.internal.theme);
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
@@ -291,7 +299,11 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     });
   }
 
-  private renderElements(draw2D: Draw2D, iter: Iterable<TelemValue>, startLogicalIndex: number): void {
+  private renderElements(
+    draw2D: Draw2D,
+    iter: Iterable<TelemValue>,
+    startLogicalIndex: number,
+  ): void {
     const reg = this.state.region;
     let visualLineIndex = 0;
     let logicalIndex = startLogicalIndex;
@@ -327,9 +339,8 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     let currentWidth: number = 0;
     const charsPerLine = Math.floor(maxWidth / this.charWidth);
     if (!text.includes(" "))
-      return Array.from(
-        { length: Math.ceil(text.length / charsPerLine) },
-        (_, i) => text.slice(i * charsPerLine, (i + 1) * charsPerLine)
+      return Array.from({ length: Math.ceil(text.length / charsPerLine) }, (_, i) =>
+        text.slice(i * charsPerLine, (i + 1) * charsPerLine),
       );
     const lines: string[] = [];
     const words = text.split(" ");
@@ -345,7 +356,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         }
         for (let i = 0; i < word.length; i += charsPerLine) {
           const chunk = word.slice(i, i + charsPerLine);
-          if (i + charsPerLine >= word.length){
+          if (i + charsPerLine >= word.length) {
             currentLine = chunk;
             currentWidth = chunk.length * this.charWidth;
             continue;
@@ -374,7 +385,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
   }
 
   private rebuildWrapCache(): void {
-    const lineMaxWidth = box.width(this.state.region) - (PADDING_X * 2) - SCROLLBAR_WIDTH;
+    const lineMaxWidth = box.width(this.state.region) - PADDING_X * 2 - SCROLLBAR_WIDTH;
     this.wrappedCache.clear();
     this.totalVisualLines = 0;
     if (this.charWidth === 0 || lineMaxWidth <= 0) {
@@ -399,7 +410,11 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     let visualLinesShown = 0;
     let logicalLinesNeeded = 0;
     const targetVisualLines = this.visibleLineCount;
-    for (let i = this.values.length - 1; i >= 0 && visualLinesShown < targetVisualLines; i--) {
+    for (
+      let i = this.values.length - 1;
+      i >= 0 && visualLinesShown < targetVisualLines;
+      i--
+    ) {
       const wrappedLines = this.wrappedCache.get(i);
       if (wrappedLines) {
         visualLinesShown += wrappedLines.length;
