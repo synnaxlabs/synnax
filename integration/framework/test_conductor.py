@@ -1156,10 +1156,20 @@ def main() -> None:
     parser.add_argument("--secure", default=False, help="Use secure connection")
     parser.add_argument(
         "--sequence",
+        "-s",
         help="Path to test sequence JSON file or comma-separated list of files (optional - will auto-discover *_tests.json if not provided)",
+    )
+    parser.add_argument(
+        "--console-headed",
+        "-ch",
+        type=bool,
+        default=False,
+        help="Run Playwright Console tests in headed mode (sets PLAYWRIGHT_CONSOLE_HEADED environment variable)",
     )
 
     args = parser.parse_args()
+
+    os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.console_headed else "0"
 
     # Create connection object
     connection = SynnaxConnection(

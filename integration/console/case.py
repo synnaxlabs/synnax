@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import os
 import random
 from typing import cast
 
@@ -20,6 +21,10 @@ from framework.test_case import TestCase
 class ConsoleCase(TestCase):
     """
     Console TestCase implementation using Playwright
+
+    Environment Variables:
+    - PLAYWRIGHT_CONSOLE_HEADED: Run in headed mode (default: False)
+      Can be set via command line: --console-headed or -ch
     """
 
     browser: Browser
@@ -30,7 +35,8 @@ class ConsoleCase(TestCase):
     console: Console
 
     def setup(self) -> None:
-        headed = self.params.get("headed", False)
+        env_headed = os.environ.get("PLAYWRIGHT_CONSOLE_HEADED", "0") == "1"
+        headed = self.params.get("headed", env_headed)
         slow_mo = self.params.get("slow_mo", 0)
         default_timeout = self.params.get("default_timeout", 15000)  # 15s
         default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
