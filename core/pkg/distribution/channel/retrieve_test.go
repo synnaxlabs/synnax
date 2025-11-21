@@ -38,12 +38,12 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     RandomName(),
+					Name:     channel.NewRandomName(),
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     RandomName(),
+					Name:     channel.NewRandomName(),
 				}}
 			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 
@@ -73,12 +73,12 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     RandomName(),
+					Name:     channel.NewRandomName(),
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     RandomName(),
+					Name:     channel.NewRandomName(),
 				},
 			}
 			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
@@ -93,7 +93,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(resChannels[0].Key()).To(Equal(created[0].Key()))
 		})
 		It("Should correctly retrieve a channel by its name", func() {
-			n := RandomName()
+			n := channel.NewRandomName()
 			created := []channel.Channel{
 				{
 					Virtual:  true,
@@ -185,12 +185,12 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     RandomName(),
+					Name:     channel.NewRandomName(),
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     RandomName(),
+					Name:     channel.NewRandomName(),
 				},
 			}
 			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())

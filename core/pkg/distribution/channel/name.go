@@ -11,6 +11,7 @@ package channel
 
 import (
 	"fmt"
+	"math/rand"
 	"regexp"
 	"strings"
 	"unicode"
@@ -123,9 +124,9 @@ func TransformName(name string) string {
 	return transformed
 }
 
-// GenerateUniqueName generates a unique channel name by appending a numeric suffix
-// if the name already exists in the provided name set.
-func GenerateUniqueName(baseName string, existingNames set.Set[string]) string {
+// NewUniqueName generates a unique channel name by appending a numeric suffix if the
+// name already exists in the provided name set.
+func NewUniqueName(baseName string, existingNames set.Set[string]) string {
 	name := baseName
 	counter := 1
 	for existingNames.Contains(name) {
@@ -133,4 +134,10 @@ func GenerateUniqueName(baseName string, existingNames set.Set[string]) string {
 		counter++
 	}
 	return name
+}
+
+// NewRandomName generates a random channel name that should be unique.
+func NewRandomName() string {
+	randomSuffix := rand.Intn(999999999)
+	return fmt.Sprintf("test_ch_%09d", randomSuffix)
 }

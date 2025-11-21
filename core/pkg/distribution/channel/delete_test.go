@@ -30,7 +30,7 @@ var _ = Describe("Delete", Ordered, func() {
 		Context("Single Channel", func() {
 			var idxCh, ch channel.Channel
 			JustBeforeEach(func() {
-				prefix := RandomName()
+				prefix := channel.NewRandomName()
 				idxCh.Name = prefix + "_time"
 				idxCh.DataType = telem.TimeStampT
 				idxCh.IsIndex = true

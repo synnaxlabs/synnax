@@ -31,14 +31,14 @@ var _ = Describe("Rename", Ordered, func() {
 		var ch channel.Channel
 		JustBeforeEach(func() {
 			ch.Virtual = true
-			ch.Name = RandomName()
+			ch.Name = channel.NewRandomName()
 			ch.DataType = telem.Float64T
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
 		})
 		Context("Node is local", func() {
 			BeforeEach(func() { ch.Leaseholder = 1 })
 			It("Should rename the channel without error", func() {
-				name := RandomName()
+				name := channel.NewRandomName()
 				Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), name, false)).To(Succeed())
 				var resCh channel.Channel
 				Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
@@ -51,7 +51,7 @@ var _ = Describe("Rename", Ordered, func() {
 		Context("Node is remote", func() {
 			BeforeEach(func() { ch.Leaseholder = 2 })
 			It("Should rename the channel without error", func() {
-				name := RandomName()
+				name := channel.NewRandomName()
 				Expect(mockCluster.Nodes[2].Channel.Rename(ctx, ch.Key(), name, false)).To(Succeed())
 				var resCh channel.Channel
 				Expect(mockCluster.Nodes[2].Channel.NewRetrieve().
@@ -66,17 +66,17 @@ var _ = Describe("Rename", Ordered, func() {
 		It("Should rename the channels without error", func() {
 			channels := []channel.Channel{
 				{
-					Name:     RandomName(),
+					Name:     channel.NewRandomName(),
 					Virtual:  true,
 					DataType: telem.Int64T,
 				},
 				{
-					Name:     RandomName(),
+					Name:     channel.NewRandomName(),
 					Virtual:  true,
 					DataType: telem.Float32T,
 				},
 				{
-					Name:        RandomName(),
+					Name:        channel.NewRandomName(),
 					DataType:    telem.StringT,
 					Leaseholder: cluster.Free,
 					Virtual:     true,
@@ -84,7 +84,7 @@ var _ = Describe("Rename", Ordered, func() {
 			}
 			Expect(mockCluster.Nodes[1].Channel.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			names := []string{RandomName(), RandomName(), RandomName()}
+			names := []string{channel.NewRandomName(), channel.NewRandomName(), channel.NewRandomName()}
 			Expect(mockCluster.Nodes[1].Channel.RenameMany(
 				ctx,
 				keys,
@@ -102,7 +102,7 @@ var _ = Describe("Rename", Ordered, func() {
 
 	Context("Map Rename", func() {
 		It("Should rename channels using a map of old names to new names", func() {
-			id := RandomName()
+			id := channel.NewRandomName()
 			ch1 := channel.Channel{
 				Name:     fmt.Sprintf("young_fermat_%s", id),
 				Virtual:  true,

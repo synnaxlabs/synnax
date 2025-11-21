@@ -47,7 +47,7 @@ func (s *Service) migrateChannelNames(ctx context.Context, tx gorp.Tx) error {
 		// Check if name is valid
 		if err := ValidateName(ch.Name); err != nil || existingNames.Contains(ch.Name) {
 			transformedName := TransformName(ch.Name)
-			uniqueName := GenerateUniqueName(transformedName, existingNames)
+			uniqueName := NewUniqueName(transformedName, existingNames)
 			ch.Name = uniqueName
 			channelsToUpdate = append(channelsToUpdate, ch)
 		}

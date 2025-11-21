@@ -33,7 +33,7 @@ var _ = Describe("Create", Ordered, func() {
 		var ch channel.Channel
 		JustBeforeEach(func() {
 			ch.IsIndex = true
-			ch.Name = RandomName()
+			ch.Name = channel.NewRandomName()
 			ch.DataType = telem.TimeStampT
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
 		})
@@ -76,7 +76,7 @@ var _ = Describe("Create", Ordered, func() {
 				func() {
 					ch2 := &channel.Channel{
 						IsIndex:     true,
-						Name:        RandomName(),
+						Name:        channel.NewRandomName(),
 						DataType:    telem.TimeStampT,
 						Leaseholder: 1,
 					}
@@ -86,7 +86,7 @@ var _ = Describe("Create", Ordered, func() {
 				})
 			It("Should correctly create a virtual channel", func() {
 				ch3 := &channel.Channel{
-					Name:        RandomName(),
+					Name:        channel.NewRandomName(),
 					DataType:    telem.JSONT,
 					Leaseholder: 2,
 					Virtual:     true,
@@ -103,7 +103,7 @@ var _ = Describe("Create", Ordered, func() {
 			})
 			It("Should create an index channel", func() {
 				ch4 := &channel.Channel{
-					Name:        RandomName(),
+					Name:        channel.NewRandomName(),
 					DataType:    telem.TimeStampT,
 					Leaseholder: 2,
 					IsIndex:     true,
@@ -134,7 +134,7 @@ var _ = Describe("Create", Ordered, func() {
 		var ch channel.Channel
 		BeforeEach(func() {
 			ch.IsIndex = true
-			ch.Name = RandomName()
+			ch.Name = channel.NewRandomName()
 			ch.DataType = telem.TimeStampT
 			ch.Leaseholder = 1
 		})
@@ -155,7 +155,7 @@ var _ = Describe("Create", Ordered, func() {
 		Describe("OverwriteIfNameExists", func() {
 
 			It("Should overwrite the channel if it already exists by name and the new channel has different properties than the old one", func() {
-				name := RandomName()
+				name := channel.NewRandomName()
 				ch := channel.Channel{
 					Virtual:     true,
 					Name:        name,
@@ -580,14 +580,14 @@ var _ = Describe("Create", Ordered, func() {
 		var ch channel.Channel
 		var ch2 channel.Channel
 		BeforeEach(func() {
-			ch.Name = RandomName()
+			ch.Name = channel.NewRandomName()
 			ch.DataType = telem.Float64T
 			ch.Virtual = true
 			ch.Internal = false
 			ch.Leaseholder = cluster.Free
 
 			ch2.IsIndex = true
-			ch2.Name = RandomName()
+			ch2.Name = channel.NewRandomName()
 			ch2.DataType = telem.TimeStampT
 			ch2.Leaseholder = 1
 
@@ -595,7 +595,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch2)).To(Succeed())
 		})
 		It("Should update the channel name without error", func() {
-			newName := RandomName()
+			newName := channel.NewRandomName()
 			ch.Name = newName
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Name).To(Equal(newName))

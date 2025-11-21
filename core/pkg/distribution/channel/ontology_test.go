@@ -31,7 +31,7 @@ var _ = Describe("Ontology", Ordered, func() {
 	})
 	Describe("OpenNexter", func() {
 		It("Should correctly iterate over all channels", func() {
-			names := []string{RandomName(), RandomName(), RandomName()}
+			names := []string{channel.NewRandomName(), channel.NewRandomName(), channel.NewRandomName()}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channel.Channel{Name: names[0], DataType: telem.Int64T, Virtual: true})).To(Succeed())
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channel.Channel{Name: names[1], DataType: telem.Int64T, Virtual: true})).To(Succeed())
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channel.Channel{Name: names[2], DataType: telem.Int64T, Virtual: true})).To(Succeed())
@@ -63,7 +63,7 @@ var _ = Describe("Ontology", Ordered, func() {
 					changes <- changesSlice
 				})
 				defer dc()
-				ch := &channel.Channel{Name: RandomName(), DataType: telem.Int64T, Virtual: true}
+				ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
 				Expect(mockCluster.Nodes[1].Channel.Create(ctx, ch))
 				Eventually(func(g Gomega) {
 					c := <-changes
@@ -77,7 +77,7 @@ var _ = Describe("Ontology", Ordered, func() {
 	})
 	Describe("RetrieveResource", func() {
 		It("Should correctly retrieve a resource", func() {
-			ch := &channel.Channel{Name: RandomName(), DataType: telem.Int64T, Virtual: true}
+			ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, ch)).To(Succeed())
 			r := MustSucceed(mockCluster.Nodes[1].Channel.RetrieveResource(ctx, ch.Key().String(), nil))
 			Expect(r.Name).To(Equal(ch.Name))

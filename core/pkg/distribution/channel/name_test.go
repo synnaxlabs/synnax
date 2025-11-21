@@ -63,15 +63,15 @@ var _ = Describe("Name Validation", func() {
 		Entry("trailing whitespace", "temperature  ", "temperature"),
 		Entry("leading and trailing whitespace", "  temperature  ", "temperature"),
 	)
-	Describe("GenerateUniqueName", func() {
+	Describe("NewUniqueName", func() {
 		It("Should return base name if it doesn't exist", func() {
-			Expect(channel.GenerateUniqueName("temperature", set.New("sensor1", "sensor2"))).
+			Expect(channel.NewUniqueName("temperature", set.New("sensor1", "sensor2"))).
 				To(Equal("temperature"))
 		})
 
 		It("Should append number if base name exists", func() {
 			existingNames := set.Set[string]{"temperature": struct{}{}}
-			Expect(channel.GenerateUniqueName("temperature", existingNames)).
+			Expect(channel.NewUniqueName("temperature", existingNames)).
 				To(Equal("temperature_1"))
 		})
 
@@ -81,13 +81,25 @@ var _ = Describe("Name Validation", func() {
 				"temperature_1": struct{}{},
 				"temperature_2": struct{}{},
 			}
-			Expect(channel.GenerateUniqueName("temperature", existingNames)).
+			Expect(channel.NewUniqueName("temperature", existingNames)).
 				To(Equal("temperature_3"))
 		})
 		It("Should work with empty existing names set", func() {
 			existingNames := set.Set[string]{}
-			Expect(channel.GenerateUniqueName("temperature", existingNames)).
+			Expect(channel.NewUniqueName("temperature", existingNames)).
 				To(Equal("temperature"))
+		})
+	})
+	Describe("NewRandomName", func() {
+		It("Should generate a random channel name that should be unique", func() {
+			count := 100
+			existingNames := make(set.Set[string], count)
+			for range count {
+				nextName := channel.NewRandomName()
+				Expect(channel.ValidateName(nextName)).To(Succeed())
+				Expect(existingNames.Contains(nextName)).To(BeFalse())
+				existingNames.Add(nextName)
+			}
 		})
 	})
 })
