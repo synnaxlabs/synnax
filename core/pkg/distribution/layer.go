@@ -345,7 +345,7 @@ func (l *Layer) configureControlUpdates(ctx context.Context) error {
 		DataType:    telem.StringT,
 		Internal:    true,
 	}
-	if err := l.Channel.Create(ctx, &controlCh, channel.RetrieveIfNameExists(true)); err != nil {
+	if err := l.Channel.Create(ctx, &controlCh, channel.RetrieveIfNameExists()); err != nil {
 		return err
 	}
 	return l.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), controlCh.Name)

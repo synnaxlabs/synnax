@@ -151,7 +151,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err = cfg.Channels.Create(
 		ctx,
 		&calculationStateCh,
-		channel.RetrieveIfNameExists(true),
+		channel.RetrieveIfNameExists(),
 	); err != nil {
 		return nil, err
 	}

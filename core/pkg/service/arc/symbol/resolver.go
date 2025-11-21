@@ -30,7 +30,7 @@ import (
 )
 
 type channelResolver struct {
-	channel.Readable
+	channel.Service
 }
 
 var _ arc.SymbolResolver = (*channelResolver)(nil)
@@ -85,6 +85,6 @@ func CreateResolver(cfgs ...runtime.Config) (arc.SymbolResolver, error) {
 		status.SymbolResolver,
 		telem.SymbolResolver,
 		stat.SymbolResolver,
-		&channelResolver{Readable: cfg.Channel},
+		&channelResolver{Service: cfg.Channel},
 	}, nil
 }

@@ -270,7 +270,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			dist.Channel.Create(
 				ctx,
 				&statusCh,
-				channel.RetrieveIfNameExists(true),
+				channel.RetrieveIfNameExists(),
 			),
 		).To(Succeed())
 

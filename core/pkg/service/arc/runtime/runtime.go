@@ -54,7 +54,7 @@ type Config struct {
 	// Channel is used for retrieving channel information from the cluster.
 	//
 	// [REQUIRED]
-	Channel channel.Readable
+	Channel channel.Service
 	// Framer is used for reading from and writing telemetry to the cluster.
 	//
 	// [REQUIRED]

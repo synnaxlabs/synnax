@@ -292,7 +292,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 		ctx,
 		&channels,
 		channel.OverwriteIfNameExistsAndDifferentProperties(),
-		channel.RetrieveIfNameExists(true),
+		channel.RetrieveIfNameExists(),
 	); err != nil {
 		return nil, err
 	}

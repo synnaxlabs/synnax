@@ -11,6 +11,8 @@ package channel_test
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,6 +20,11 @@ import (
 )
 
 var ctx = context.Background()
+
+func RandomName() string {
+	randomSuffix := rand.Intn(999999)
+	return fmt.Sprintf("test_ch_%06d", randomSuffix)
+}
 
 func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)

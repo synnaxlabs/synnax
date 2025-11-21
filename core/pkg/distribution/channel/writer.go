@@ -18,8 +18,8 @@ import (
 )
 
 type Writer interface {
-	Create(ctx context.Context, c *Channel, opts ...CreateOption) error
-	CreateMany(ctx context.Context, channels *[]Channel, opts ...CreateOption) error
+	Create(context.Context, *Channel, ...CreateOption) error
+	CreateMany(context.Context, *[]Channel, ...CreateOption) error
 	Delete(ctx context.Context, key Key, allowInternal bool) error
 	DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error
 	DeleteByName(ctx context.Context, name string, allowInternal bool) error
@@ -38,9 +38,11 @@ var _ Writer = writer{}
 
 func (w writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) error {
 	channels := []Channel{*c}
-	err := w.CreateMany(ctx, &channels, opts...)
+	if err := w.CreateMany(ctx, &channels, opts...); err != nil {
+		return err
+	}
 	*c = channels[0]
-	return err
+	return nil
 }
 
 type CreateOptions struct {
@@ -50,10 +52,8 @@ type CreateOptions struct {
 
 type CreateOption func(*CreateOptions)
 
-func RetrieveIfNameExists(v bool) CreateOption {
-	return func(o *CreateOptions) {
-		o.RetrieveIfNameExists = v
-	}
+func RetrieveIfNameExists() CreateOption {
+	return func(o *CreateOptions) { o.RetrieveIfNameExists = true }
 }
 
 func OverwriteIfNameExistsAndDifferentProperties() CreateOption {

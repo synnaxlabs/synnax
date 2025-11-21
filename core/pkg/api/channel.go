@@ -81,10 +81,10 @@ type ChannelCreateResponse struct {
 func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
-) (res ChannelCreateResponse, _ error) {
+) (ChannelCreateResponse, error) {
 	translated, err := translateChannelsBackward(req.Channels)
 	if err != nil {
-		return res, err
+		return ChannelCreateResponse{}, err
 	}
 	for i := range translated {
 		translated[i].Internal = false
@@ -94,14 +94,24 @@ func (s *ChannelService) Create(
 		Action:  access.Create,
 		Objects: channel.OntologyIDsFromChannels(translated),
 	}); err != nil {
-		return res, err
+		return ChannelCreateResponse{}, err
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) (err error) {
+	var res ChannelCreateResponse
+	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
-		err = w.CreateMany(ctx, &translated, channel.RetrieveIfNameExists(req.RetrieveIfNameExists))
+		opts := []channel.CreateOption{}
+		if req.RetrieveIfNameExists {
+			opts = append(opts, channel.RetrieveIfNameExists())
+		}
+		if err := w.CreateMany(ctx, &translated, opts...); err != nil {
+			return err
+		}
 		res.Channels = translateChannelsForward(translated)
-		return err
-	})
+		return nil
+	}); err != nil {
+		return ChannelCreateResponse{}, err
+	}
+	return res, nil
 }
 
 // ChannelRetrieveRequest is a request for retrieving information about a Channel
