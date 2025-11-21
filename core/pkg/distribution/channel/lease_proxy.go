@@ -211,7 +211,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	if lp.freeCounter == nil {
 		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
 	}
-	if err := lp.validateFreeVirtual(ctx, channels, tx); err != nil {
+	if err := lp.validateFreeVirtual(channels); err != nil {
 		return err
 	}
 
@@ -450,7 +450,7 @@ func (lp *leaseProxy) createGateway(
 		}
 	}
 
-	if err := lp.validateFreeVirtual(ctx, channels, tx); err != nil {
+	if err := lp.validateFreeVirtual(channels); err != nil {
 		return err
 	}
 
