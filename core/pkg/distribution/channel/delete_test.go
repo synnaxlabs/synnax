@@ -28,15 +28,14 @@ var _ = Describe("Delete", Ordered, func() {
 	})
 	Describe("Channel Deletion", func() {
 		Context("Single Channel", func() {
-			var (
-				idxCh, ch channel.Channel
-			)
+			var idxCh, ch channel.Channel
 			JustBeforeEach(func() {
-				idxCh.Name = "SG01_time"
+				prefix := RandomName()
+				idxCh.Name = prefix + "_time"
 				idxCh.DataType = telem.TimeStampT
 				idxCh.IsIndex = true
 				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &idxCh)).To(Succeed())
-				ch.Name = "SG01"
+				ch.Name = prefix + "_data"
 				ch.DataType = telem.Float64T
 				ch.LocalIndex = idxCh.LocalKey
 				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())

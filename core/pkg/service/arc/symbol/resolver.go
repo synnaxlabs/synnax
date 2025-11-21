@@ -29,9 +29,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 )
 
-type channelResolver struct {
-	channel.Service
-}
+type channelResolver struct{ *channel.Service }
 
 var _ arc.SymbolResolver = (*channelResolver)(nil)
 

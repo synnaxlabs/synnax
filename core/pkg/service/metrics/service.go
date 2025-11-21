@@ -36,7 +36,7 @@ type Config struct {
 	// Channel is used to create and retrieve metric collection channels.
 	//
 	// [REQUIRED]
-	Channel channel.Service
+	Channel *channel.Service
 	// Framer is used to write metrics to the metric channels.
 	//
 	// [REQUIRED}

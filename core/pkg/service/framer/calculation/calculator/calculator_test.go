@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -38,7 +38,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		}))
-		statusSvc := MustSucceed(svcstatus.OpenService(ctx, svcstatus.ServiceConfig{
+		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Label:    labelSvc,
 			Ontology: dist.Ontology,
@@ -83,7 +83,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		}
 		Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			Channels:       dist.Channel,
+			ChannelService: dist.Channel,
 			Channel:        *calc,
 			SymbolResolver: arcSvc.SymbolResolver(),
 		}))
@@ -318,7 +318,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			c := open(&indexes, &bases, &calc)
 			idxData := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idxData.Alignment = telem.NewAlignment(10, 5)
-			valData := telem.NewSeriesV[float64](100.0, 200.0, 300.0)
+			valData := telem.NewSeriesV(100.0, 200.0, 300.0)
 			valData.Alignment = telem.NewAlignment(10, 5)
 			fr := core.MultiFrame(
 				[]channel.Key{indexes[0].Key(), bases[0].Key()},
@@ -326,8 +326,8 @@ var _ = Describe("Calculator", Ordered, func() {
 			)
 			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
 			Expect(changed).To(BeTrue())
-			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float64](50.0, 100.0, 150.0))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV(50.0, 100.0, 150.0))
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 5)))
@@ -370,7 +370,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](20, 35, 50))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				10*telem.SecondTS, 20*telem.SecondTS, 30*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(5, 2)))
@@ -532,7 +532,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](30, 60, 90))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(5, 2)))
@@ -567,7 +567,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](30, 50, 70))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(3, 1)))
@@ -607,7 +607,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](15, 25))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(2, 1)))
@@ -626,7 +626,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed = MustSucceed2(c.Next(ctx, fr4, of))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](3 * telem.SecondTS))
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(3 * telem.SecondTS))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(3, 2)))
 
 			Expect(c.Close()).To(Succeed())
@@ -660,20 +660,20 @@ var _ = Describe("Calculator", Ordered, func() {
 			fr1 := core.UnaryFrame(indexes[0].Key(), idx)
 			_, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
 			Expect(changed).To(BeFalse())
-			ch1Data := telem.NewSeriesV[float64](10.0, 20.0, 30.0)
+			ch1Data := telem.NewSeriesV(10.0, 20.0, 30.0)
 			ch1Data.Alignment = telem.NewAlignment(5, 1)
 			fr2 := core.UnaryFrame(bases[0].Key(), ch1Data)
 			of := core.Frame{}
 			_, changed = MustSucceed2(c.Next(ctx, fr2, of))
 			Expect(changed).To(BeFalse())
-			ch2Data := telem.NewSeriesV[float64](1.0, 2.0, 3.0)
+			ch2Data := telem.NewSeriesV(1.0, 2.0, 3.0)
 			ch2Data.Alignment = telem.NewAlignment(5, 1)
 			fr3 := core.UnaryFrame(bases[1].Key(), ch2Data)
 			of = core.Frame{}
 			of, changed = MustSucceed2(c.Next(ctx, fr3, of))
 			Expect(changed).To(BeTrue())
-			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float64](11.0, 22.0, 33.0))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV(11.0, 22.0, 33.0))
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(5, 1)))

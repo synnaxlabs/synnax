@@ -51,7 +51,7 @@ type Channel struct {
 type ChannelService struct {
 	dbProvider
 	accessProvider
-	internal channel.Service
+	internal *channel.Service
 	ranger   *ranger.Service
 }
 

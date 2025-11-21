@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
 
-func New(channels channel.Readable) (a api.Transport, transports []fgrpc.BindableTransport) {
+func New(channels *channel.Service) (a api.Transport, transports []fgrpc.BindableTransport) {
 	transports = make([]fgrpc.BindableTransport, 0, 20)
 	transports = append(transports, newChannel(&a)...)
 	transports = append(transports, newFramer(&a, channels))

@@ -18,16 +18,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -45,7 +44,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		}))
-		statusSvc := MustSucceed(svcstatus.OpenService(ctx, svcstatus.ServiceConfig{
+		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Label:    labelSvc,
 			Ontology: dist.Ontology,
@@ -64,7 +63,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			DB:                dist.DB,
 			Arc:               arcSvc,
 			Framer:            dist.Framer,
-			Channels:          dist.Channel,
+			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
 		}))
 		streamerSvc = MustSucceed(streamer.NewService(streamer.ServiceConfig{
@@ -330,7 +329,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 
 			expectedValues := []float32{2, 6, 10, 14}
-			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](expectedValues...))
+			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV(expectedValues...))
 
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())

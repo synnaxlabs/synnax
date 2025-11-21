@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -102,7 +102,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		}))
-		statusSvc := MustSucceed(svcstatus.OpenService(ctx, svcstatus.ServiceConfig{
+		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Label:    labelSvc,
 			Ontology: dist.Ontology,
@@ -120,7 +120,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Framer:            dist.Framer,
-			Channels:          dist.Channel,
+			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
 			Arc:               arcSvc,
 		}))

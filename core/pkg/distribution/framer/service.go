@@ -47,9 +47,10 @@ type Config struct {
 	// Instrumentation is used for logging, tracing, etc.
 	// [OPTIONAL]
 	alamos.Instrumentation
-	// ChannelReader is used to retrieve channel information.
+	// Channel is used to retrieve channel information.
+	//
 	// [REQUIRED]
-	ChannelReader channel.Readable
+	Channel *channel.Service
 	// TS is the underlying storage time-series database for reading and writing telemetry.
 	// [REQUIRED]
 	TS *ts.DB
@@ -72,7 +73,7 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer")
-	validate.NotNil(v, "channels", c.ChannelReader)
+	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "ts", c.TS)
 	validate.NotNil(v, "transport", c.Transport)
 	validate.NotNil(v, "host_resolver", c.HostResolver)
@@ -82,7 +83,7 @@ func (c Config) Validate() error {
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
@@ -109,7 +110,7 @@ func Open(configs ...Config) (*Service, error) {
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Iterator(),
-		Channels:        cfg.ChannelReader,
+		Channel:         cfg.Channel,
 		Instrumentation: cfg.Child("writer"),
 	})
 	if err != nil {
@@ -118,7 +119,7 @@ func Open(configs ...Config) (*Service, error) {
 	freeWrites := confluence.NewStream[relay.Response](freeWritePipelineBuffer)
 	s.Relay, err = relay.Open(relay.Config{
 		Instrumentation: cfg.Child("relay"),
-		ChannelReader:   cfg.ChannelReader,
+		Channel:         cfg.Channel,
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Relay(),
@@ -131,7 +132,7 @@ func Open(configs ...Config) (*Service, error) {
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Writer(),
-		ChannelReader:   cfg.ChannelReader,
+		Channel:         cfg.Channel,
 		Instrumentation: cfg.Child("writer"),
 		FreeWrites:      freeWrites,
 	})
@@ -140,7 +141,7 @@ func Open(configs ...Config) (*Service, error) {
 	}
 	s.deleter, err = deleter.New(deleter.ServiceConfig{
 		HostResolver: cfg.HostResolver,
-		Channel:      cfg.ChannelReader,
+		Channel:      cfg.Channel,
 		TSChannel:    cfg.TS,
 		Transport:    cfg.Transport.Deleter(),
 	})
@@ -183,9 +184,7 @@ func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (Stream
 }
 
 // NewDeleter opens a new deleter for deleting data from a Synnax cluster.
-func (s *Service) NewDeleter() Deleter {
-	return s.deleter.New()
-}
+func (s *Service) NewDeleter() Deleter { return s.deleter.New() }
 
 // ConfigureControlUpdateChannel sets the name and key of the channel used to propagate
 // control transfers between opened writers.

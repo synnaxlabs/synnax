@@ -109,10 +109,10 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Signals *signals.Provider
-	// Channels is used to create channels for the tracker service.
+	// Channel is used to create channels for the tracker service.
 	//
 	// [REQUIRED]
-	Channels channel.ReadWriteable
+	Channel *channel.Service
 	// HostProvider returns information about the cluster host.
 	//
 	// [REQUIRED]
@@ -140,7 +140,7 @@ func (c Config) Override(other Config) Config {
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.Channels = override.Nil(c.Channels, other.Channels)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Framer = override.Nil(c.Framer, other.Framer)
@@ -158,7 +158,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "signals", c.Signals)
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "host", c.HostProvider)
-	validate.NotNil(v, "channels", c.Channels)
+	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "device", c.Device)
 	return v.Error()
@@ -247,7 +247,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 	}
 
 	if err =
-		cfg.Channels.DeleteByName(ctx, "sy_rack_heartbeat", true); err != nil {
+		cfg.Channel.DeleteByName(ctx, "sy_rack_heartbeat", true); err != nil {
 		return nil, err
 	}
 	channels := []channel.Channel{
@@ -284,7 +284,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 	defer func() {
 		err = errors.Combine(err, tx.Close())
 	}()
-	w := cfg.Channels.NewWriter(tx)
+	w := cfg.Channel.NewWriter(tx)
 	if err = w.MapRename(ctx, legacyChannelNames, true); err != nil {
 		return nil, err
 	}

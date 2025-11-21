@@ -163,7 +163,7 @@ type Layer struct {
 	// Cluster provides information about the cluster topology. Nodes, keys, addresses, states, etc.
 	Cluster cluster.Cluster
 	// Channel is for creating, deleting, and retrieving channels across the cluster.
-	Channel channel.Service
+	Channel *channel.Service
 	// Framer is for reading, writing, and streaming frames of telemetry across the
 	// cluster.
 	Framer *framer.Service
@@ -284,7 +284,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 
 	if l.Framer, err = framer.Open(framer.Config{
 		Instrumentation: cfg.Child("framer"),
-		ChannelReader:   l.Channel,
+		Channel:         l.Channel,
 		TS:              cfg.Storage.TS,
 		Transport:       cfg.FrameTransport,
 		HostResolver:    l.Cluster,

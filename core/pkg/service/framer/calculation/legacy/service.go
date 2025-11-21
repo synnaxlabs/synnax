@@ -45,8 +45,9 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	Framer *framer.Service
 	// Channel is used to retrieve information about the channels being calculated.
+	//
 	// [REQUIRED]
-	Channel channel.Service
+	Channel *channel.Service
 	// StateCodec is the encoder/decoder used to communicate calculation state
 	// changes.
 	// [OPTIONAL]

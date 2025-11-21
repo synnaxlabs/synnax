@@ -53,7 +53,7 @@ type ServiceConfig struct {
 	// Channel is used for retrieving channel information from the cluster.
 	//
 	// [REQUIRED]
-	Channel channel.Service
+	Channel *channel.Service
 	// Framer is used for reading and writing telemetry frames to/from the cluster.
 	//
 	// [REQUIRED]

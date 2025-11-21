@@ -19,53 +19,27 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
-type Service interface {
-	Readable
-	Writeable
-	ontology.Service
-	Group() group.Group
-	SetCalculationAnalyzer(CalculationAnalyzer)
-}
-
-type Writeable interface {
-	Writer
-	NewWriter(tx gorp.Tx) Writer
-}
-
-type Readable interface {
-	NewRetrieve() Retrieve
-	NewObservable() observe.Observable[gorp.TxReader[Key, Channel]]
-}
-
-type ReadWriteable interface {
-	Writeable
-	Readable
-}
-
 type CalculationAnalyzer = func(ctx context.Context, expr string) (telem.DataType, error)
 
-// service is central entity for managing channels within delta's distribution layer. It
+// Service is central entity for managing channels within delta's distribution layer. It
 // provides facilities for creating and retrieving channels.
-type service struct {
-	*gorp.DB
+type Service struct {
+	db *gorp.DB
 	Writer
 	proxy *leaseProxy
 	otg   *ontology.Ontology
 	group group.Group
 }
 
-func (s *service) SetCalculationAnalyzer(calc CalculationAnalyzer) {
+func (s *Service) SetCalculationAnalyzer(calc CalculationAnalyzer) {
 	s.proxy.analyzeCalculation = calc
 }
-
-var _ Service = (*service)(nil)
 
 type IntOverflowChecker = func(types.Uint20) error
 
@@ -113,7 +87,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultConfig = ServiceConfig{}
 
-func New(ctx context.Context, cfgs ...ServiceConfig) (Service, error) {
+func New(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -128,8 +102,8 @@ func New(ctx context.Context, cfgs ...ServiceConfig) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &service{
-		DB:    cfg.ClusterDB,
+	s := &Service{
+		db:    cfg.ClusterDB,
 		proxy: proxy,
 		otg:   cfg.Ontology,
 		group: g,
@@ -138,25 +112,28 @@ func New(ctx context.Context, cfgs ...ServiceConfig) (Service, error) {
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
+	if err := s.migrate(ctx); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
-func (s *service) NewWriter(tx gorp.Tx) Writer {
-	return writer{svc: s, tx: s.OverrideTx(tx)}
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	return Writer{svc: s, tx: s.db.OverrideTx(tx)}
 }
 
-func (s *service) Group() group.Group { return s.group }
+func (s *Service) Group() group.Group { return s.group }
 
-func (s *service) NewRetrieve() Retrieve {
+func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:                      gorp.NewRetrieve[Key, Channel](),
-		tx:                        s.DB,
+		tx:                        s.db,
 		otg:                       s.otg,
 		validateRetrievedChannels: s.validateChannels,
 	}
 }
 
-func (s *service) validateChannels(channels []Channel) ([]Channel, error) {
+func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {
 	res := make([]Channel, 0, len(channels))
 	s.proxy.mu.RLock()
 	defer s.proxy.mu.RUnlock()
@@ -172,12 +149,12 @@ func (s *service) validateChannels(channels []Channel) ([]Channel, error) {
 	return res, nil
 }
 
-func TryToRetrieveStringer(ctx context.Context, readable Readable, key Key) string {
-	var ch Channel
-	if readable == nil {
+func TryToRetrieveStringer(ctx context.Context, svc *Service, key Key) string {
+	if svc == nil {
 		return key.String()
 	}
-	if err := readable.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
+	var ch Channel
+	if err := svc.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
 		return key.String()
 	}
 	return ch.String()
