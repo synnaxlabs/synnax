@@ -23,8 +23,8 @@ export const roleZ = z.object({
 
 export type Role = z.infer<typeof roleZ>;
 
-export const newRoleZ = roleZ.partial({ key: true });
+export const newZ = roleZ.partial({ key: true });
 
-export type NewRole = z.infer<typeof newRoleZ>;
+export type New = z.infer<typeof newZ>;
 
 export const ontologyID = (key: Key): ontology.ID => ({ type: "role", key });

@@ -11,21 +11,23 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { keyZ, type NewRole, newRoleZ, type Role, roleZ } from "@/access/role/payload";
+import { keyZ, type New, newZ, type Role, roleZ } from "@/access/role/payload";
 import { ontology } from "@/ontology";
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
+  limit: z.number().optional(),
+  offset: z.number().optional(),
 });
 
 const keyRetrieveRequestZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-const singleCreateArgsZ = newRoleZ.transform((r) => ({ roles: [r] }));
+const singleCreateArgsZ = newZ.transform((r) => ({ roles: [r] }));
 export type SingleCreateArgs = z.input<typeof singleCreateArgsZ>;
 
-export const multipleCreateArgsZ = newRoleZ.array().transform((roles) => ({ roles }));
+export const multipleCreateArgsZ = newZ.array().transform((roles) => ({ roles }));
 
 export const createArgsZ = z.union([singleCreateArgsZ, multipleCreateArgsZ]);
 export type CreateArgs = z.input<typeof createArgsZ>;
@@ -62,6 +64,9 @@ export type UnassignArgs = z.input<typeof unassignReqZ>;
 
 const unassignResZ = z.object({});
 
+export const SET_CHANNEL_NAME = "sy_role_set";
+export const DELETE_CHANNEL_NAME = "sy_role_delete";
+
 export class Client {
   private readonly client: UnaryClient;
 
@@ -69,9 +74,9 @@ export class Client {
     this.client = client;
   }
 
-  async create(role: NewRole): Promise<Role>;
-  async create(roles: NewRole[]): Promise<Role[]>;
-  async create(roles: NewRole | NewRole[]): Promise<Role | Role[]> {
+  async create(role: New): Promise<Role>;
+  async create(roles: New[]): Promise<Role[]>;
+  async create(roles: New | New[]): Promise<Role | Role[]> {
     const isMany = Array.isArray(roles);
     const res = await sendRequired<typeof createArgsZ, typeof createResZ>(
       this.client,

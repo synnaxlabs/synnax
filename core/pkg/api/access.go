@@ -71,6 +71,8 @@ func (s *AccessService) CreatePolicy(
 type AccessRetrievePolicyRequest struct {
 	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
 	Keys     []uuid.UUID   `json:"keys" msgpack:"keys"`
+	Limit    int           `json:"limit" msgpack:"limit"`
+	Offset   int           `json:"offset" msgpack:"offset"`
 }
 
 type AccessRetrievePolicyResponse struct {
@@ -99,16 +101,39 @@ func (s *AccessService) RetrievePolicy(
 		for _, p := range policyMap {
 			res.Policies = append(res.Policies, p)
 		}
+		// Apply pagination to the result
+		if req.Offset > 0 {
+			if req.Offset >= len(res.Policies) {
+				res.Policies = []policy.Policy{}
+			} else {
+				res.Policies = res.Policies[req.Offset:]
+			}
+		}
+		if req.Limit > 0 && len(res.Policies) > req.Limit {
+			res.Policies = res.Policies[:req.Limit]
+		}
 	} else if len(req.Keys) > 0 {
 		// Retrieve by keys (existing behavior)
 		q := s.internal.Policy.NewRetrieve()
 		q = q.WhereKeys(req.Keys...)
+		if req.Limit > 0 {
+			q = q.Limit(req.Limit)
+		}
+		if req.Offset > 0 {
+			q = q.Offset(req.Offset)
+		}
 		if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
 			return AccessRetrievePolicyResponse{}, err
 		}
 	} else {
 		// No filters provided, retrieve all policies
 		q := s.internal.Policy.NewRetrieve()
+		if req.Limit > 0 {
+			q = q.Limit(req.Limit)
+		}
+		if req.Offset > 0 {
+			q = q.Offset(req.Offset)
+		}
 		if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
 			return AccessRetrievePolicyResponse{}, err
 		}
@@ -186,7 +211,9 @@ func (s *AccessService) CreateRole(
 
 type (
 	AccessRetrieveRoleRequest struct {
-		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+		Keys   []uuid.UUID `json:"keys" msgpack:"keys"`
+		Limit  int         `json:"limit" msgpack:"limit"`
+		Offset int         `json:"offset" msgpack:"offset"`
 	}
 	AccessRetrieveRoleResponse struct {
 		Roles []role.Role `json:"roles" msgpack:"roles"`
@@ -201,6 +228,12 @@ func (s *AccessService) RetrieveRole(
 	q := s.internal.Role.NewRetrieve()
 	if len(req.Keys) > 0 {
 		q = q.WhereKeys(req.Keys...)
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
 	}
 	if err := q.Entries(&res.Roles).Exec(ctx, nil); err != nil {
 		return AccessRetrieveRoleResponse{}, err

@@ -21,9 +21,14 @@ import {
 } from "@/access/policy/payload";
 import { ontology } from "@/ontology";
 
+export const SET_CHANNEL_NAME = "sy_policy_set";
+export const DELETE_CHANNEL_NAME = "sy_policy_delete";
+
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   subjects: ontology.idZ.array().optional(),
+  limit: z.number().optional(),
+  offset: z.number().optional(),
 });
 
 const keyRetrieveRequestZ = z

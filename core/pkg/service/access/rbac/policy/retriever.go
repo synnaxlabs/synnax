@@ -34,6 +34,16 @@ func (r Retriever) WhereNames(names ...string) Retriever {
 	return r
 }
 
+func (r Retriever) Limit(limit int) Retriever {
+	r.gorp = r.gorp.Limit(limit)
+	return r
+}
+
+func (r Retriever) Offset(offset int) Retriever {
+	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
 func (r Retriever) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTx, tx)
 	return r.gorp.Exec(ctx, tx)
