@@ -38,7 +38,7 @@ struct ScanCommandArgs {
 
     explicit ScanCommandArgs(xjson::Parser &parser):
         connection(opc::connection::Config(parser.child("connection"))),
-        node_id(parser.optional<std::string>("node_id", "")) {
+        node_id(parser.field<std::string>("node_id", "")) {
         if (node_id.empty())
             node = opc::NodeId(UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER));
         else

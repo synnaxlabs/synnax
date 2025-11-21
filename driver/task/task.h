@@ -41,10 +41,10 @@ struct Command {
 
     /// @brief constructs the command from the provided configuration parser.
     explicit Command(xjson::Parser parser):
-        task(parser.required<synnax::TaskKey>("task")),
-        type(parser.required<std::string>("type")),
-        key(parser.optional<std::string>("key", "")),
-        args(parser.optional<json>("args", json{})) {}
+        task(parser.field<synnax::TaskKey>("task")),
+        type(parser.field<std::string>("type")),
+        key(parser.field<std::string>("key", "")),
+        args(parser.field<json>("args", json{})) {}
 
     /// @brief Construct a new Task Command object
     Command(const synnax::TaskKey task, std::string type, json args):

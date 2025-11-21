@@ -43,10 +43,10 @@ struct Node {
         is_array(is_array) {}
 
     explicit Node(xjson::Parser &p):
-        data_type(::telem::DataType(p.required<std::string>("data_type"))),
-        name(p.required<std::string>("name")),
-        node_id(p.required<std::string>("node_id")),
-        is_array(p.optional<bool>("is_array", false)) {}
+        data_type(::telem::DataType(p.field<std::string>("data_type"))),
+        name(p.field<std::string>("name")),
+        node_id(p.field<std::string>("node_id")),
+        is_array(p.field<bool>("is_array", false)) {}
 
     json to_json() const {
         return {

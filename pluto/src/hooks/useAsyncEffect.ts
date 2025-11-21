@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type AsyncDestructor, type Destructor, flushTaskQueue } from "@synnaxlabs/x";
+import { type destructor, scheduler } from "@synnaxlabs/x";
 import { type DependencyList, useEffect } from "react";
 
 export type AsyncEffectCallback = (
   signal: AbortSignal,
-) => Promise<void | Destructor | AsyncDestructor>;
+) => Promise<void | destructor.Destructor | destructor.Async>;
 
 /**
  * A React hook that runs an asynchronous effect with proper cleanup handling.
@@ -64,7 +64,7 @@ export const useAsyncEffect = (
     const effectFn = async () => {
       // flush the task queue so that the effect from the previous render has a chance
       // to finish before the cleanup function is called.
-      await flushTaskQueue();
+      await scheduler.flushTaskQueue();
       const maybeCleanup = await effect(signal);
       return maybeCleanup;
     };

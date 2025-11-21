@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor } from "@/destructor";
+import { type destructor } from "@/destructor";
 
 /** Handler is called when the value of an Observable changes. */
 export type Handler<T> = (value: T) => void;
@@ -22,7 +22,7 @@ export interface Observable<T> {
    * @param handler The handler to bind to the Observable.
    * @returns A function that can be called to unbind the handler from the Observable.
    */
-  onChange: (handler: Handler<T>) => Destructor;
+  onChange: (handler: Handler<T>) => destructor.Destructor;
 }
 
 /** An Observable that can be closed using an async function. */
@@ -52,7 +52,7 @@ export class Observer<I, O = I> implements ObservableAsyncCloseable<O> {
   }
 
   /** Implements the observable interface. */
-  onChange(handler: Handler<O>): Destructor {
+  onChange(handler: Handler<O>): destructor.Destructor {
     this.handlers.set(handler, null);
     return () => this.handlers.delete(handler);
   }
@@ -84,7 +84,7 @@ export class BaseObserver<V> implements Observable<V> {
     this.handlers = handlers ?? new Map();
   }
 
-  onChange(handler: Handler<V>): Destructor {
+  onChange(handler: Handler<V>): destructor.Destructor {
     this.handlers.set(handler, null);
     return () => this.handlers.delete(handler);
   }

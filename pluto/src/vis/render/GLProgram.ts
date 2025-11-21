@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type Destructor, xy } from "@synnaxlabs/x";
+import { color, type destructor, xy } from "@synnaxlabs/x";
 
 import { type Context } from "@/vis/render/context";
 
@@ -49,7 +49,7 @@ export class GLProgram {
   }
 
   /** Sets the current program as the active program used by the context. */
-  setAsActive(): Destructor {
+  setAsActive(): destructor.Destructor {
     this.renderCtx.gl.useProgram(this.prog);
     return (): void => this.renderCtx.gl.useProgram(null);
   }

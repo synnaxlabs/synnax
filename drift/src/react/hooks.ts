@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type AsyncDestructor } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import { type EffectCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 
@@ -47,12 +47,12 @@ export const useWindowLifecycle = (cb: EffectCallback, key?: string): void => {
 };
 
 export const useAsyncWindowLifecycle = (
-  cb: () => Promise<AsyncDestructor | undefined>,
+  cb: () => Promise<destructor.Async | undefined>,
   key?: string,
 ): void => {
   const win = useSelectWindow(key);
   const dispatch = useDispatch();
-  const destructor = useRef<AsyncDestructor | null>(null);
+  const destructor = useRef<destructor.Async | null>(null);
   const promiseOut = useRef<boolean>(false);
   useEffect(() => {
     if (win == null) return;

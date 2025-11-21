@@ -18,6 +18,7 @@ import (
 	"github.com/cockroachdb/pebble/v2/vfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -41,6 +42,7 @@ var _ = Describe("Migrate", func() {
 			db, err := pebble.Open(dbPath, &pebble.Options{
 				FS:                 vfs.Default,
 				FormatMajorVersion: pebble.FormatNewest,
+				Logger:             pebblekv.NewNoopLogger(),
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(db.Close()).To(Succeed())
@@ -54,6 +56,7 @@ var _ = Describe("Migrate", func() {
 
 			oldDB := MustSucceed(pebblev1.Open(dbPath, &pebblev1.Options{
 				FormatMajorVersion: pebblev1.FormatDefault, // Use oldest supported format
+				Logger:             pebblekv.NewNoopLogger(),
 			}))
 			Expect(oldDB.Close()).To(Succeed())
 
@@ -75,6 +78,7 @@ var _ = Describe("Migrate", func() {
 
 			oldDB := MustSucceed(pebblev1.Open(dbPath, &pebblev1.Options{
 				FormatMajorVersion: pebblev1.FormatDefault, // Use oldest supported format
+				Logger:             pebblekv.NewNoopLogger(),
 			}))
 
 			Expect(oldDB.Set([]byte("key"), []byte("value"), nil)).To(Succeed())
@@ -85,11 +89,12 @@ var _ = Describe("Migrate", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(requiresMigration).To(BeTrue())
 
-			Expect(pebblekv.Migrate(dbPath)).To(Succeed())
+			Expect(pebblekv.Migrate(dbPath, alamos.Instrumentation{})).To(Succeed())
 
 			newDB := MustSucceed(pebble.Open(dbPath, &pebble.Options{
 				FS:                 vfs.Default,
 				FormatMajorVersion: pebble.FormatNewest,
+				Logger:             pebblekv.NewNoopLogger(),
 			}))
 
 			val, closer := MustSucceed2(newDB.Get([]byte("key")))
@@ -108,10 +113,11 @@ var _ = Describe("Migrate", func() {
 
 			oldDB := MustSucceed(pebblev1.Open(dbPath, &pebblev1.Options{
 				FormatMajorVersion: pebblev1.FormatDefault,
+				Logger:             pebblekv.NewNoopLogger(),
 			}))
 			Expect(oldDB.Close()).To(Succeed())
 
-			Expect(pebblekv.Migrate(dbPath)).To(Succeed())
+			Expect(pebblekv.Migrate(dbPath, alamos.Instrumentation{})).To(Succeed())
 		})
 
 		It("should handle database already at v2 newest format", func() {
@@ -121,6 +127,7 @@ var _ = Describe("Migrate", func() {
 			db := MustSucceed(pebble.Open(dbPath, &pebble.Options{
 				FS:                 vfs.Default,
 				FormatMajorVersion: pebble.FormatNewest,
+				Logger:             pebblekv.NewNoopLogger(),
 			}))
 			Expect(db.Set([]byte("test-key"), []byte("test-value"), nil)).To(Succeed())
 			Expect(db.Close()).To(Succeed())
@@ -130,12 +137,13 @@ var _ = Describe("Migrate", func() {
 			Expect(requiresMigration).To(BeFalse())
 
 			// Migration should still succeed (no-op)
-			Expect(pebblekv.Migrate(dbPath)).To(Succeed())
+			Expect(pebblekv.Migrate(dbPath, alamos.Instrumentation{})).To(Succeed())
 
 			// Verify data is still accessible
 			verifyDB := MustSucceed(pebble.Open(dbPath, &pebble.Options{
 				FS:                 vfs.Default,
 				FormatMajorVersion: pebble.FormatNewest,
+				Logger:             pebblekv.NewNoopLogger(),
 			}))
 			val, closer := MustSucceed2(verifyDB.Get([]byte("test-key")))
 			Expect(string(val)).To(Equal("test-value"))
@@ -151,17 +159,19 @@ var _ = Describe("Migrate", func() {
 			db := MustSucceed(pebble.Open(dbPath, &pebble.Options{
 				FS:                 vfs.Default,
 				FormatMajorVersion: pebble.FormatMinSupported,
+				Logger:             pebblekv.NewNoopLogger(),
 			}))
 			Expect(db.Set([]byte("data-key"), []byte("data-value"), nil)).To(Succeed())
 			Expect(db.Close()).To(Succeed())
 
 			// Migration should succeed and potentially upgrade format
-			Expect(pebblekv.Migrate(dbPath)).To(Succeed())
+			Expect(pebblekv.Migrate(dbPath, alamos.Instrumentation{})).To(Succeed())
 
 			// Verify data is still accessible and database works with newest format
 			verifyDB := MustSucceed(pebble.Open(dbPath, &pebble.Options{
 				FS:                 vfs.Default,
 				FormatMajorVersion: pebble.FormatNewest,
+				Logger:             pebblekv.NewNoopLogger(),
 			}))
 			val, closer := MustSucceed2(verifyDB.Get([]byte("data-key")))
 			Expect(string(val)).To(Equal("data-value"))
@@ -175,6 +185,7 @@ var _ = Describe("Migrate", func() {
 			// Create a database with v1's newest format
 			oldDB := MustSucceed(pebblev1.Open(dbPath, &pebblev1.Options{
 				FormatMajorVersion: pebblev1.FormatNewest,
+				Logger:             pebblekv.NewNoopLogger(),
 			}))
 			Expect(oldDB.Set([]byte("v1-key"), []byte("v1-value"), nil)).To(Succeed())
 			Expect(oldDB.Close()).To(Succeed())
@@ -184,12 +195,13 @@ var _ = Describe("Migrate", func() {
 			Expect(requiresMigration).To(BeTrue())
 
 			// Migration should succeed
-			Expect(pebblekv.Migrate(dbPath)).To(Succeed())
+			Expect(pebblekv.Migrate(dbPath, alamos.Instrumentation{})).To(Succeed())
 
 			// Verify data is accessible with v2
 			verifyDB := MustSucceed(pebble.Open(dbPath, &pebble.Options{
 				FS:                 vfs.Default,
 				FormatMajorVersion: pebble.FormatNewest,
+				Logger:             pebblekv.NewNoopLogger(),
 			}))
 			val, closer := MustSucceed2(verifyDB.Get([]byte("v1-key")))
 			Expect(string(val)).To(Equal("v1-value"))
@@ -207,6 +219,7 @@ var _ = Describe("Migrate", func() {
 			// Create very old format database
 			oldDB := MustSucceed(pebblev1.Open(dbPath, &pebblev1.Options{
 				FormatMajorVersion: pebblev1.FormatMostCompatible, // Very old format
+				Logger:             pebblekv.NewNoopLogger(),
 			}))
 			Expect(oldDB.Close()).To(Succeed())
 
@@ -216,7 +229,7 @@ var _ = Describe("Migrate", func() {
 			Expect(uint64(initialFormat)).To(BeNumerically("<", uint64(pebble.FormatMinSupported)))
 
 			// Migrate
-			Expect(pebblekv.Migrate(dbPath)).To(Succeed())
+			Expect(pebblekv.Migrate(dbPath, alamos.Instrumentation{})).To(Succeed())
 
 			// Verify final format is newest
 			dbDesc = MustSucceed(pebble.Peek(dbPath, vfs.Default))

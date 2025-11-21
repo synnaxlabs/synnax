@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { array, deep, type Destructor, id, type observe } from "@synnaxlabs/x";
+import { array, deep, type destructor, id, type observe } from "@synnaxlabs/x";
 
 import { type aether } from "@/aether/aether";
 import {
@@ -97,7 +97,7 @@ class MemoizedSource<V> extends Memoized<Source<V>> {
     this.wrapped.cleanup?.();
   }
 
-  onChange(handler: observe.Handler<void>): Destructor {
+  onChange(handler: observe.Handler<void>): destructor.Destructor {
     return this.wrapped.onChange(handler);
   }
 }

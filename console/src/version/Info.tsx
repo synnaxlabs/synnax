@@ -32,9 +32,12 @@ export const INFO_LAYOUT: Layout.BaseState = {
 
 const { useRetrieve: useRetrieveUpdateAvailable } = Flux.createRetrieve<
   {},
-  Update | null
+  Update | null,
+  {},
+  true
 >({
   name: "Version",
+  allowDisconnected: true,
   retrieve: async () => {
     if (Runtime.ENGINE !== "tauri") return null;
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -49,52 +52,57 @@ export const statusDetailsSchema = z.object({
 
 interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
 
-const { useUpdate } = Flux.createUpdate<Update, {}, Update, typeof statusDetailsSchema>(
-  {
-    name: "Console",
-    verbs: Flux.UPDATE_VERBS,
-    initialStatusDetails: {
-      total: Size.bytes(0),
-      progress: Size.bytes(0),
-    },
-    update: async ({ data: update, setStatus }) => {
-      await update.downloadAndInstall((prog) => {
-        const updateStatus = (v: (p: StatusDetails) => StatusDetails) =>
-          setStatus((p) => {
-            if (p.variant === "error") return p;
-            return {
-              ...p,
-              variant: "loading",
-              details: v(p.details),
-            };
-          });
-        switch (prog.event) {
-          case "Started":
-            updateStatus((p) => ({
-              ...p,
-              total: Size.bytes(prog.data.contentLength ?? 0),
-            }));
-            break;
-          case "Progress":
-            updateStatus((p) => ({
-              ...p,
-              progress: p.progress.add(Size.bytes(prog.data.chunkLength)),
-            }));
-            break;
-          case "Finished":
-            updateStatus((p) => ({
-              ...p,
-              variant: "success",
-              details: { ...p, progress: p.total },
-            }));
-            break;
-        }
-      });
-      if (Runtime.ENGINE === "tauri") await relaunch();
-      return update;
-    },
+const { useUpdate } = Flux.createUpdate<
+  Update,
+  {},
+  Update,
+  typeof statusDetailsSchema,
+  true
+>({
+  name: "Console",
+  verbs: Flux.UPDATE_VERBS,
+  allowDisconnected: true,
+  initialStatusDetails: {
+    total: Size.bytes(0),
+    progress: Size.bytes(0),
   },
-);
+  update: async ({ data: update, setStatus }) => {
+    await update.downloadAndInstall((prog) => {
+      const updateStatus = (v: (p: StatusDetails) => StatusDetails) =>
+        setStatus((p) => {
+          if (p.variant === "error") return p;
+          return {
+            ...p,
+            variant: "loading",
+            details: v(p.details),
+          };
+        });
+      switch (prog.event) {
+        case "Started":
+          updateStatus((p) => ({
+            ...p,
+            total: Size.bytes(prog.data.contentLength ?? 0),
+          }));
+          break;
+        case "Progress":
+          updateStatus((p) => ({
+            ...p,
+            progress: p.progress.add(Size.bytes(prog.data.chunkLength)),
+          }));
+          break;
+        case "Finished":
+          updateStatus((p) => ({
+            ...p,
+            variant: "success",
+            details: { ...p, progress: p.total },
+          }));
+          break;
+      }
+    });
+    if (Runtime.ENGINE === "tauri") await relaunch();
+    return update;
+  },
+});
 
 export const Info: Layout.Renderer = () => {
   const version = useSelectVersion();

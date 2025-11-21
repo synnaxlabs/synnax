@@ -14,8 +14,8 @@ xerrors::Error rack::Config::load_args(xargs::Parser &args) {
     this->timing.override(args);
     this->remote_info.override(args);
     this->override_integrations(
-        args.optional("enable-integrations", std::vector<std::string>{}),
-        args.optional("disable-integrations", std::vector<std::string>{})
+        args.field("enable-integrations", std::vector<std::string>{}),
+        args.field("disable-integrations", std::vector<std::string>{})
     );
     return xerrors::NIL;
 }

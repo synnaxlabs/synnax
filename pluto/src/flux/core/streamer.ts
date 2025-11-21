@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { framer, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { type AsyncDestructor, DataType, strings, unique } from "@synnaxlabs/x";
+import { DataType, type destructor, strings, unique } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { type ChannelListener, type Store, type StoreConfig } from "@/flux/core/store";
@@ -63,7 +63,7 @@ export const openStreamer = async <ScopedStore extends Store>({
   handleError,
   client,
   store,
-}: StreamerArgs<ScopedStore>): Promise<AsyncDestructor> => {
+}: StreamerArgs<ScopedStore>): Promise<destructor.Async> => {
   const configValues = Object.values(storeConfig);
   const channels = unique.unique(
     configValues.flatMap(({ listeners }) => listeners.map(({ channel }) => channel)),

@@ -7,40 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  bounds,
-  convertRenderV,
-  type direction,
-  type record,
-  type RenderableValue,
-} from "@synnaxlabs/x";
+import { bounds, type direction, type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-export interface TableColumn<K extends record.Key, E extends record.Keyed<K>> {
-  key: keyof E;
+type Entry = record.Keyed<record.Key>;
+
+export interface TableColumn {
+  key: keyof Entry;
   name?: string;
   width?: number;
   type?: "code" | "html";
 }
 
-export interface TableHighlight<K extends record.Key, E extends record.Keyed<K>> {
+export interface TableHighlight {
   key: string;
-  columns?: Array<keyof E>;
+  columns?: Array<keyof Entry>;
   rows?: bounds.Bounds;
   color: string;
 }
 
-export interface TableProps<K extends record.Key, E extends record.Keyed<K>> {
-  columns: Array<TableColumn<K, E>>;
-  data: E[];
-  highlights?: Array<TableHighlight<K, E>>;
+export interface TableProps {
+  columns: TableColumn[];
+  data: Entry[];
+  highlights?: TableHighlight[];
 }
 
-export const Table = <K extends record.Key, E extends record.Keyed<K>>({
-  columns,
-  data,
-  highlights = [],
-}: TableProps<record.Key, E>): ReactElement => (
+export const Table = ({ columns, data, highlights = [] }: TableProps): ReactElement => (
   <div style={{ overflowX: "auto", paddingLeft: 2 }}>
     <table>
       <thead>
@@ -54,7 +46,7 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
       </thead>
       <tbody>
         {data.map((row, i) => (
-          <TableRow<K, E>
+          <TableRow
             key={i}
             columns={columns}
             data={row}
@@ -68,24 +60,24 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
   </div>
 );
 
-interface TableRowProps<K extends record.Key, E extends record.Keyed<K>> {
+interface TableRowProps {
   index: number;
   dataLength: number;
-  columns: Array<TableColumn<K, E>>;
-  data: E;
-  highlights: Array<TableHighlight<K, E>>;
+  columns: TableColumn[];
+  data: Entry;
+  highlights: TableHighlight[];
 }
 
-const TableRow = <K extends record.Key, E extends record.Keyed<K>>({
+const TableRow = ({
   index,
   dataLength,
   columns,
   data,
   highlights,
-}: TableRowProps<K, E>): ReactElement => (
+}: TableRowProps): ReactElement => (
   <tr>
     {columns.map((col) => (
-      <TableCell<K, E>
+      <TableCell
         key={col.key as string}
         index={index}
         dataLength={dataLength}
@@ -97,21 +89,21 @@ const TableRow = <K extends record.Key, E extends record.Keyed<K>>({
   </tr>
 );
 
-interface TableCellProps<K extends record.Key, E extends record.Keyed<K>> {
+interface TableCellProps {
   index: number;
   dataLength: number;
-  highlights: Array<TableHighlight<K, E>>;
-  data: E;
-  column: TableColumn<K, E>;
+  highlights: TableHighlight[];
+  data: Entry;
+  column: TableColumn;
 }
 
-const TableCell = <K extends record.Key, E extends record.Keyed<K>>({
+const TableCell = ({
   index,
   dataLength,
   highlights,
   data,
   column,
-}: TableCellProps<K, E>): ReactElement | null => {
+}: TableCellProps): ReactElement | null => {
   const endings = highlights.filter(({ rows, columns }) => {
     const rowValid = rows != null ? rows.upper === index : index === dataLength - 1;
     const colValid = columns != null ? columns.includes(column.key) : true;
@@ -195,9 +187,7 @@ const TableCell = <K extends record.Key, E extends record.Keyed<K>>({
     );
   }
 
-  let content: ReactElement | string | number | undefined = convertRenderV(
-    data[column.key] as RenderableValue,
-  );
+  let content: ReactElement | string | number | undefined = data[column.key];
   if (column.type === "code") content = <code>{content}</code>;
   if (column.type === "html")
     content = <div dangerouslySetInnerHTML={{ __html: content as string }} />;

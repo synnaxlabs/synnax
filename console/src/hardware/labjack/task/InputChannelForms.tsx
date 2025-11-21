@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Divider, Flex, Form as PForm, Icon, Select } from "@synnaxlabs/pluto";
-import { deep, type Optional, type record } from "@synnaxlabs/x";
+import { deep, type optional, type record } from "@synnaxlabs/x";
 import { type FC, useMemo } from "react";
 
 import { Device } from "@/hardware/labjack/device";
@@ -142,7 +142,7 @@ const TemperatureUnitsField = PForm.buildSelectField<
 interface CJCSourceEntry extends record.KeyedNamed<string> {}
 
 interface SelectCJCSourceFieldProps
-  extends Optional<
+  extends optional.Optional<
     Select.StaticProps<string, CJCSourceEntry>,
     "data" | "resourceName"
   > {

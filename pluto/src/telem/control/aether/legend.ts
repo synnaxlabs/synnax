@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { control, type Destructor } from "@synnaxlabs/x";
+import { control, type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -21,7 +21,7 @@ export const legendStateZ = z.object({
 
 interface InternalState {
   stateProv: StateProvider;
-  disconnectStateProv?: Destructor;
+  disconnectStateProv?: destructor.Destructor;
 }
 
 export class Legend extends aether.Leaf<typeof legendStateZ, InternalState> {

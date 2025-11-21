@@ -17,7 +17,7 @@ import (
 	"github.com/samber/lo"
 	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/types"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 // Sample represents any numeric value that can be stored in a Series.
@@ -117,7 +117,7 @@ func UnmarshalStrings(b []byte) []string {
 func MarshalSlice[T Sample](data []T) []byte {
 	dt := InferDataType[T]()
 	b := make([]byte, dt.Density().Size(int64(len(data))))
-	typedData := xunsafe.CastSlice[byte, T](b)
+	typedData := unsafe.CastSlice[byte, T](b)
 	copy(typedData, data)
 	return b
 }
@@ -125,22 +125,22 @@ func MarshalSlice[T Sample](data []T) []byte {
 // UnmarshalSlice converts a byte slice back into a slice of numeric values according to
 // the specified DataType.
 func UnmarshalSlice[T Sample](b []byte, dt DataType) []T {
-	return xunsafe.CastSlice[byte, T](b)
+	return unsafe.CastSlice[byte, T](b)
 }
 
 // UnmarshalSeries converts a Series' data back into a slice of the original type.
 func UnmarshalSeries[T Sample](series Series) []T {
-	return xunsafe.CastSlice[byte, T](series.Data)
+	return unsafe.CastSlice[byte, T](series.Data)
 }
 
 // ByteOrder is the standard order for encoding/decoding numeric values across
 // the Synnax telemetry ecosystem.
 var ByteOrder = binary.LittleEndian
 
-// Arange creates a new Series containing count values starting from start, with each
-// subsequent value incremented by spacing. For example, Arange(0, 5, 2) produces [0, 2, 4, 6, 8].
-// Panics if count is less than or equal to 0.
-func Arange[T Sample](start T, count int, spacing T) Series {
+// Arrange creates a new Series containing count values starting from start, with each
+// subsequent value incremented by spacing. For example, Arrange(0, 5, 2) produces [0,
+// 2, 4, 6, 8]. Panics if count is less than or equal to 0.
+func Arrange[T Sample](start T, count int, spacing T) Series {
 	data := make([]T, count)
 	for i := range count {
 		data[i] = start + T(i)*spacing
