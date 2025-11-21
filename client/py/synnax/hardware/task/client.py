@@ -406,7 +406,20 @@ class Client:
             self._default_rack = self._racks.retrieve_embedded_rack()
         if pld is not None and pld.key == 0:
             if rack == 0:
-                rack = self._default_rack.key
+                # Try to extract rack from device in task config
+                if self._device_client is not None:
+                    try:
+                        config_dict = json.loads(pld.config)
+                        if "device" in config_dict:
+                            device = self._device_client.retrieve(
+                                key=config_dict["device"]
+                            )
+                            rack = device.rack
+                    except Exception:
+                        pass
+                # Fallback
+                if rack == 0:
+                    rack = self._default_rack.key
             pld.key = (rack << 32) + 0
         return pld
 
