@@ -82,8 +82,8 @@ public:
                 .message = "Running",
                 .details = synnax::TaskStatusDetails{
                     .task = task.key,
-                    .running = true,
                     .cmd = cmd.key,
+                    .running = true,
                 }
             };
             ctx->set_status(status);

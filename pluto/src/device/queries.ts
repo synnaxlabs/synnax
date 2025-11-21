@@ -29,12 +29,9 @@ type ChangeVariant = "payload" | "status";
 export interface FluxStore
   extends Flux.UnaryStore<string, Omit<device.Device, "status">, ChangeVariant> {}
 
-export interface FluxSubStore extends Flux.Store {
+export interface FluxSubStore extends Task.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
-  [Task.FLUX_STORE_KEY]: Task.FluxStore;
   [Rack.FLUX_STORE_KEY]: Rack.FluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
   [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
 
