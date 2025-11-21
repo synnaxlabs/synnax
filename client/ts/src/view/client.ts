@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x/array";
-import z from "zod";
+import { array } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { type ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
