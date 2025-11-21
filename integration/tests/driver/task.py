@@ -17,6 +17,7 @@ Provides common functionality for:
 """
 
 import atexit
+import os
 import subprocess
 import sys
 from abc import abstractmethod
@@ -39,10 +40,14 @@ class TaskCase(TestCase):
     - Implement create_task() factory method
     - Optionally override setup() for custom configuration (e.g., matrix parameters)
     - Optionally override run() for custom test logic
+
+    Environment Variables:
+    - SYNNAX_DRIVER_RACK: Override the driver rack name (default: "Node 1 Embedded Driver")
+      Can be set via command line: --driver "My Custom Rack Name" or -d "My Custom Rack Name"
     """
 
     # Task configuration (must be set by subclasses)
-    RACK_NAME: str = "Node 1 Embedded Driver"
+    RACK_NAME: str = os.environ.get("SYNNAX_DRIVER_RACK", "Node 1 Embedded Driver")
     TASK_NAME: str = ""
     TASK_KEY: str = ""
     CHANNELS: list[ChannelConfig] = []

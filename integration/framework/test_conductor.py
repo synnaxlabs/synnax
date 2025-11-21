@@ -1156,10 +1156,19 @@ def main() -> None:
     parser.add_argument("--secure", default=False, help="Use secure connection")
     parser.add_argument(
         "--sequence",
+        "-s",
         help="Path to test sequence JSON file or comma-separated list of files (optional - will auto-discover *_tests.json if not provided)",
+    )
+    parser.add_argument(
+        "--driver",
+        "-d",
+        help="Driver rack name to use for driver tests (sets SYNNAX_DRIVER_RACK environment variable)",
     )
 
     args = parser.parse_args()
+
+    if args.driver:
+        os.environ["SYNNAX_DRIVER_RACK"] = args.driver
 
     # Create connection object
     connection = SynnaxConnection(
