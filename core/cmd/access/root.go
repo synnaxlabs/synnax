@@ -82,7 +82,6 @@ func ProvisionRootRole(
 ) (uuid.UUID, error) {
 	var pol policy.Policy
 	if err := service.Policy.NewRetrieve().
-		WhereInternal(true).
 		WhereNames(rootPolicy.Name).
 		Exec(ctx, tx); errors.Skip(err, query.NotFound) != nil {
 		return uuid.Nil, err
@@ -95,7 +94,6 @@ func ProvisionRootRole(
 	}
 	var rol role.Role
 	if err := service.Role.NewRetrieve().
-		WhereInternal(true).
 		WhereName(rootRoleName).Exec(ctx, tx); errors.Skip(err, query.NotFound) != nil {
 		return uuid.Nil, err
 	}

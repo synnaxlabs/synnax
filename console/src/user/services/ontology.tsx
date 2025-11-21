@@ -88,4 +88,5 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "user",
   icon: <Icon.User />,
   TreeContextMenu,
+  hasChildren: false,
 };

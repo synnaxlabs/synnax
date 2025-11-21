@@ -133,7 +133,6 @@ func applyHybridMigration(
 				Key:         uuid.New(),
 				Name:        generateRoleName(policyKeys, len(policySetRoles)),
 				Description: fmt.Sprintf("Auto-migrated from %d V0 policies", len(policyKeys)),
-				Internal:    false,
 			}
 			state.Roles = append(state.Roles, newRole)
 			policySetRoles[policyHash] = &newRole

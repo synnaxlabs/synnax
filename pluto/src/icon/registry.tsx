@@ -135,9 +135,11 @@ import {
   MdOutlineVisibilityOff,
   MdOutlineWebAsset,
   MdPause,
+  MdPeople,
   MdPerson,
   MdPictureInPicture,
   MdPlayArrow,
+  MdPolicy,
   MdQuestionMark,
   MdSaveAlt,
   MdSensors,
@@ -321,6 +323,8 @@ export const Selection = wrapSVGIcon(PiSelectionPlusBold, "selection");
 export const Pan = wrapSVGIcon(GrPan, "pan");
 export const Rule = wrapSVGIcon(MdSquareFoot, "rule");
 export const User = wrapSVGIcon(MdPerson, "user");
+export const Role = wrapSVGIcon(MdPeople, "role");
+export const Policy = wrapSVGIcon(MdPolicy, "policy");
 export const Rename = wrapSVGIcon(BiRename, "rename");
 export const Snapshot = wrapSVGIcon(MdPictureInPicture, "snapshot");
 export const Sync = wrapSVGIcon(AiOutlineSync, "sync");
@@ -508,6 +512,8 @@ const icons = {
   Pan,
   Rule,
   User,
+  Role,
+  Policy,
   Rename,
   Snapshot,
   Sync,

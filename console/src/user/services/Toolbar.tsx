@@ -10,6 +10,8 @@
 import { Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { POLICY_CREATE_LAYOUT } from "@/access/policy/Create";
+import { ROLE_CREATE_LAYOUT } from "@/access/role/Create";
 import { Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
@@ -23,7 +25,25 @@ const Content = (): ReactElement => {
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
         <Toolbar.Actions>
-          <Toolbar.Action onClick={() => placeLayout(REGISTER_LAYOUT)}>
+          <Toolbar.Action
+            onClick={() => placeLayout(REGISTER_LAYOUT)}
+            tooltip="Create User"
+          >
+            <Icon.User />
+            <Icon.Add />
+          </Toolbar.Action>
+          <Toolbar.Action
+            onClick={() => placeLayout(ROLE_CREATE_LAYOUT)}
+            tooltip="Create Role"
+          >
+            <Icon.Role />
+            <Icon.Add />
+          </Toolbar.Action>
+          <Toolbar.Action
+            onClick={() => placeLayout(POLICY_CREATE_LAYOUT)}
+            tooltip="Create Policy"
+          >
+            <Icon.Policy />
             <Icon.Add />
           </Toolbar.Action>
         </Toolbar.Actions>

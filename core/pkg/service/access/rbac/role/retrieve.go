@@ -36,14 +36,6 @@ func (r Retrieve) WhereName(name string) Retrieve {
 	return r
 }
 
-// WhereInternal filters roles by whether they are builtin or not.
-func (r Retrieve) WhereInternal(builtin bool) Retrieve {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, role *Role) (bool, error) {
-		return role.Internal == builtin, nil
-	})
-	return r
-}
-
 // Entry sets the target for a single role retrieval.
 func (r Retrieve) Entry(role *Role) Retrieve {
 	r.gorp = r.gorp.Entry(role)

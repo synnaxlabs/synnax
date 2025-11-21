@@ -23,24 +23,12 @@ export interface FluxStore extends Flux.UnaryStore<user.Key, user.User> {}
 export const FLUX_STORE_KEY = "users";
 const RESOURCE_NAME = "User";
 
-const SET_USER_LISTENER: Flux.ChannelListener<FluxSubStore, typeof user.userZ> = {
-  channel: user.SET_CHANNEL_NAME,
-  schema: user.userZ,
-  onChange: ({ store, changed }) => store.users.set(changed.key, changed),
-};
-
-const DELETE_USER_LISTENER: Flux.ChannelListener<FluxSubStore, typeof user.keyZ> = {
-  channel: user.DELETE_CHANNEL_NAME,
-  schema: user.keyZ,
-  onChange: ({ store, changed }) => store.users.delete(changed),
-};
-
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   FluxSubStore,
   user.Key,
   user.User
 > = {
-  listeners: [SET_USER_LISTENER, DELETE_USER_LISTENER],
+  listeners: [],
 };
 
 export interface FluxSubStore extends Flux.Store {
@@ -58,7 +46,6 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
-    rollbacks.push(store.users.delete(keys));
     await client.users.delete(keys);
     return data;
   },
@@ -97,12 +84,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<
       store.resources.set(
         ontology.idToString(id),
         state.skipNull((r) => ({ ...r, username })),
-      ),
-    );
-    rollbacks.push(
-      store.users.set(
-        key,
-        state.skipNull((u) => ({ ...u, username })),
       ),
     );
     return data;
@@ -159,9 +140,8 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSub
     const user = await retrieveSingle({ client, query: { key }, store });
     reset({ ...user, password: "" });
   },
-  update: async ({ client, value, store }) => {
-    const created = await client.users.create(value());
-    store.users.set(created.key, created);
+  update: async ({ client, value }) => {
+    await client.users.create(value());
   },
 });
 
@@ -179,45 +159,12 @@ export const { useRetrieve } = Flux.createRetrieve<
         const res = await client.connectivity.check();
         if (res.error != null) throw res.error;
       }
-      if (client?.auth?.user == null)
+      if (client.auth?.user == null)
         throw new UnexpectedError(
           "Expected user to be available after successfully connecting to cluster",
         );
       return client.auth.user;
     }
     return await retrieveSingle({ client, query: { key }, store });
-  },
-});
-
-export interface ListQuery {
-  keys?: user.Key[];
-}
-
-export const useList = Flux.createList<ListQuery, user.Key, user.User, FluxSubStore>({
-  name: "Users",
-  retrieveCached: ({ query, store }) =>
-    store.users.get((u) => {
-      if (query.keys != null && query.keys.length > 0)
-        return query.keys.includes(u.key);
-      return true;
-    }),
-  retrieve: async ({ client, query, store }) => {
-    const users = await client.users.retrieve({
-      keys: query.keys ?? [],
-    });
-    store.users.set(users);
-    return users;
-  },
-  retrieveByKey: async ({ client, key, store }) =>
-    await retrieveSingle({ client, query: { key }, store }),
-  mountListeners: ({ store, onChange, onDelete, query: { keys } }) => {
-    const keysSet = keys ? new Set(keys) : undefined;
-    return [
-      store.users.onSet((user) => {
-        if (keysSet != null && !keysSet.has(user.key)) return;
-        onChange(user.key, user);
-      }),
-      store.users.onDelete(onDelete),
-    ];
   },
 });

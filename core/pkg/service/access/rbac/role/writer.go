@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -46,14 +45,7 @@ func (w Writer) Create(
 // Delete removes a role from the database. It will fail if the role is builtin
 // or if any users are assigned to the role.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
-	return gorp.NewDelete[uuid.UUID, Role]().
-		WhereKeys(key).
-		Guard(func(_ gorp.Context, r Role) error {
-			if r.Internal {
-				return errors.New("cannot delete builtin role")
-			}
-			return nil
-		}).Exec(ctx, w.tx)
+	return gorp.NewDelete[uuid.UUID, Role]().WhereKeys(key).Exec(ctx, w.tx)
 }
 
 // AssignRole assigns a role to a subject (typically a user) by creating an ontology
