@@ -36,12 +36,6 @@ const Content = (): ReactElement => {
           >
             <PAccess.Role.CreateIcon />
           </Toolbar.Action>
-          <Toolbar.Action
-            onClick={() => placeLayout(Access.Policy.CREATE_LAYOUT)}
-            tooltip="Create Policy"
-          >
-            <PAccess.Policy.CreateIcon />
-          </Toolbar.Action>
         </Toolbar.Actions>
       </Toolbar.Header>
       <Ontology.Tree root={groupID} />
