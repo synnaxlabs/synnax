@@ -37,11 +37,11 @@ struct OutputChan {
     const synnax::ChannelKey cmd_channel;
 
     explicit OutputChan(xjson::Parser &parser):
-        enabled(parser.optional<bool>("enabled", true)),
+        enabled(parser.field<bool>("enabled", true)),
         node(opc::NodeId::parse("node_id", parser)),
         cmd_channel([&parser] {
-            auto ch = parser.optional("cmd_channel", 0);
-            if (ch == 0) ch = parser.optional("channel", 0);
+            auto ch = parser.field<synnax::ChannelKey>("cmd_channel", 0);
+            if (ch == 0) ch = parser.field<synnax::ChannelKey>("channel", 0);
             if (ch == 0) parser.field_err("cmd_channel", "channel must be specified");
             return ch;
         }()) {}

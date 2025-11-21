@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Optional } from "@synnaxlabs/x";
+import { type optional } from "@synnaxlabs/x";
 import { memo, type ReactElement, useMemo } from "react";
 
 import { Flex } from "@/flex";
@@ -19,7 +19,7 @@ import { Entries, type EntryData } from "@/vis/legend/Entries";
 
 export interface LegendProps extends Omit<Core.SimpleProps, "data" | "onEntryChange"> {
   variant?: "floating" | "fixed";
-  onLineChange?: (line: Optional<LineSpec, "legendGroup">) => void;
+  onLineChange?: (line: optional.Optional<LineSpec, "legendGroup">) => void;
 }
 
 export const Legend = ({ variant = "floating", ...rest }: LegendProps): ReactElement =>
@@ -82,8 +82,8 @@ const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
 
 interface FocusedGroupProps {
   name: string;
-  data: Optional<EntryData, "visible">[];
-  onLineChange?: (line: Optional<LineSpec, "legendGroup">) => void;
+  data: optional.Optional<EntryData, "visible">[];
+  onLineChange?: (line: optional.Optional<LineSpec, "legendGroup">) => void;
 }
 
 const FocusedGroup = ({

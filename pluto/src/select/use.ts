@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type Optional, type record, unique } from "@synnaxlabs/x";
+import { array, type optional, type record, unique } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
 import { Dialog } from "@/dialog";
@@ -46,7 +46,7 @@ type UseSingleInternalProps<K extends record.Key> =
   | UseSingleAllowNoneProps<K>
   | UseSingleRequiredProps<K>;
 
-export type UseSingleProps<K extends record.Key> = Optional<
+export type UseSingleProps<K extends record.Key> = optional.Optional<
   UseSingleInternalProps<K>,
   "allowNone"
 > &

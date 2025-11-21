@@ -11,7 +11,7 @@ import { channel, NotFoundError } from "@synnaxlabs/client";
 import {
   bounds,
   DataType,
-  type Destructor,
+  type destructor,
   MultiSeries,
   primitive,
   type Series,
@@ -51,7 +51,7 @@ export class StreamChannelValue
   schema = streamChannelValuePropsZ;
 
   private readonly client: client.Client;
-  private removeStreamHandler: Destructor | null = null;
+  private removeStreamHandler: destructor.Destructor | null = null;
   private leadingBuffer: Series | null = null;
   private valid = false;
   private readonly onStatusChange?: status.Adder;
@@ -244,7 +244,7 @@ export class StreamChannelData
   private readonly onStatusChange?: status.Adder;
 
   private channel: SelectedChannelProperties | null = null;
-  private stopStreaming?: Destructor;
+  private stopStreaming?: destructor.Destructor;
   private valid: boolean = false;
   schema = streamChannelDataPropsZ;
 

@@ -129,7 +129,7 @@ jobs:
       - name: Check Types
         run: pnpm check-types:pluto
 
-      - name: Madge
+      - name: Check Circular Dependencies
         run: pnpm madge:pluto
 
       - name: Lint

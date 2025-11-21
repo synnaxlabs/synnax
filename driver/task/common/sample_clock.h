@@ -40,9 +40,9 @@ struct TimingConfig {
     /// clocks.
     bool correct_skew = true;
 
-    template<typename ParserT>
-    void override(ParserT &p) {
-        this->correct_skew = p.optional("correct_skew", this->correct_skew);
+    template<typename Parser>
+    void override(Parser &p) {
+        this->correct_skew = p.field("correct_skew", this->correct_skew);
     }
 
     friend std::ostream &operator<<(std::ostream &os, const TimingConfig &cfg) {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, type Destructor, dimensions, scale, xy } from "@synnaxlabs/x";
+import { box, type destructor, dimensions, scale, xy } from "@synnaxlabs/x";
 
 import { dimensionsFromMetrics } from "@/text/core/dimensions";
 import { applyOverScan } from "@/vis/render/util";
@@ -698,7 +698,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     this.dpr = x;
   }
 
-  scissor(region: box.Box, overScan: xy.XY = xy.ZERO): Destructor {
+  scissor(region: box.Box, overScan: xy.XY = xy.ZERO): destructor.Destructor {
     const p = new ScaledPath2D(this.scale_);
     region = applyOverScan(region, overScan);
     p.rect(...xy.couple(box.topLeft(region)), ...dimensions.couple(box.dims(region)));

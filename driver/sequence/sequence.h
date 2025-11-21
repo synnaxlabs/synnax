@@ -61,12 +61,12 @@ struct TaskConfig {
 
     explicit TaskConfig(xjson::Parser &parser):
         // this comment keeps the formatter happy
-        rate(telem::Rate(parser.required<float>("rate"))),
-        script(parser.required<std::string>("script")),
-        read(parser.required_vec<synnax::ChannelKey>("read")),
-        write(parser.required_vec<synnax::ChannelKey>("write")),
-        globals(parser.optional<json>("globals", json::object())),
-        authority(parser.optional<telem::Authority>("authority", 150)) {}
+        rate(telem::Rate(parser.field<float>("rate"))),
+        script(parser.field<std::string>("script")),
+        read(parser.field<std::vector<synnax::ChannelKey>>("read")),
+        write(parser.field<std::vector<synnax::ChannelKey>>("write")),
+        globals(parser.field<json>("globals", json::object())),
+        authority(parser.field<telem::Authority>("authority", 150)) {}
 };
 
 /// @brief deleted used to clean up lua unique pointers to ensure resources are

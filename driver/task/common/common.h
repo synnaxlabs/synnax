@@ -29,8 +29,8 @@ struct BaseTaskConfig {
     const BaseTaskConfig &operator=(const BaseTaskConfig &other) = delete;
 
     explicit BaseTaskConfig(xjson::Parser &parser):
-        data_saving(parser.optional<bool>("data_saving", true)),
-        auto_start(parser.optional<bool>("auto_start", false)) {}
+        data_saving(parser.field<bool>("data_saving", true)),
+        auto_start(parser.field<bool>("auto_start", false)) {}
 };
 
 /// @brief a common base configuration result for tasks that is used across various

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type AsyncDestructor, jsonRPC, runtime } from "@synnaxlabs/x";
+import { type destructor, jsonRPC, runtime } from "@synnaxlabs/x";
 import { Command } from "@tauri-apps/plugin-shell";
 import { MonacoLanguageClient } from "monaco-languageclient";
 import { type MessageReader, type MessageWriter } from "vscode-jsonrpc";
@@ -22,7 +22,7 @@ const stringToError = (str: string): Error => new Error(str);
 
 export const LANGUAGE = "lua";
 
-const startLuaLSP = async (): Promise<AsyncDestructor> => {
+const startLuaLSP = async (): Promise<destructor.Async> => {
   if (Runtime.ENGINE !== "tauri") return async () => {};
   const command = Command.create(`lua-language-server-${runtime.getOS()}`);
   const child = await command.spawn();

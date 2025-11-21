@@ -11,7 +11,7 @@ import { ValidationError } from "@synnaxlabs/client";
 import {
   type bounds,
   type color,
-  type Destructor,
+  type destructor,
   type MultiSeries,
   observe,
   type status,
@@ -181,7 +181,7 @@ export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
     return this.transform(this.source.value());
   }
 
-  onChange(handler: () => void): Destructor {
+  onChange(handler: () => void): destructor.Destructor {
     return this.source.onChange(() => {
       if (this.shouldNotify(this.source.value())) handler();
     });

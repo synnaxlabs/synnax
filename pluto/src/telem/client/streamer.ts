@@ -14,9 +14,8 @@ import {
   compare,
   type CrudeTimeSpan,
   debounce,
-  type Destructor,
+  type destructor,
   MultiSeries,
-  type Replace,
   type Series,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -43,12 +42,9 @@ interface StreamerProps {
 const STREAM_DEBOUNCE = TimeSpan.milliseconds(100).milliseconds;
 
 export class Streamer {
-  private readonly props: Replace<
-    Required<StreamerProps>,
-    {
-      streamUpdateDelay: TimeSpan;
-    }
-  >;
+  private readonly props: Omit<Required<StreamerProps>, "streamUpdateDelay"> & {
+    streamUpdateDelay: TimeSpan;
+  };
 
   private readonly mu: Mutex = new Mutex();
   private readonly listeners = new Map<StreamHandler, ListenerEntry>();
@@ -70,7 +66,10 @@ export class Streamer {
   }
 
   /** Implements StreamClient. */
-  async stream(handler: StreamHandler, keys: channel.Keys): Promise<Destructor> {
+  async stream(
+    handler: StreamHandler,
+    keys: channel.Keys,
+  ): Promise<destructor.Destructor> {
     const { cache, instrumentation: ins } = this.props;
     if (this.closed) return () => {};
     // Make sure that the cache has entries for all relevant channels. This will also
