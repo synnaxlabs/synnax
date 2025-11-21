@@ -9,7 +9,7 @@
 
 import "@/haul/Haul.css";
 
-import { type Destructor, type Optional, record, xy } from "@synnaxlabs/x";
+import { type destructor, type optional, record, xy } from "@synnaxlabs/x";
 import React, {
   createContext,
   type DragEvent,
@@ -84,7 +84,7 @@ export interface ContextValue {
   ) => void;
   end: (cursor: xy.XY) => void;
   drop: (props: DropProps) => void;
-  bind: (interceptor: DragEndInterceptor) => Destructor;
+  bind: (interceptor: DragEndInterceptor) => destructor.Destructor;
 }
 
 const Context = createContext<ContextValue | null>(null);
@@ -187,7 +187,7 @@ export interface OnSuccessfulDropProps {
   dropped: Item[];
 }
 
-export interface UseDragProps extends Optional<Item, "key"> {}
+export interface UseDragProps extends optional.Optional<Item, "key"> {}
 
 export interface UseDragReturn {
   startDrag: (
@@ -226,7 +226,7 @@ export interface OnDrop {
 
 export interface OnDragOverProps extends OnDropProps {}
 
-export interface UseDropProps extends Optional<Item, "key"> {
+export interface UseDropProps extends optional.Optional<Item, "key"> {
   canDrop: CanDrop;
   onDrop: OnDrop;
   onDragOver?: (props: OnDragOverProps) => void;
@@ -283,7 +283,7 @@ export const useDrop = ({
 export interface UseDragAndDropProps
   extends Omit<UseDragProps, "source">,
     Omit<UseDropProps, "target">,
-    Optional<Item, "key"> {}
+    optional.Optional<Item, "key"> {}
 
 export interface UseDragAndDropReturn extends UseDragReturn, UseDropReturn {}
 

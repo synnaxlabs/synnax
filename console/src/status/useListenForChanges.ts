@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { Status, useAsyncEffect } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { useCallback, useEffectEvent } from "react";
 import { useDispatch } from "react-redux";
 
 import { filterFavoritesToKeys, removeFavorites } from "@/status/slice";
@@ -18,13 +18,17 @@ export const useListenForChanges = () => {
   const dispatch = useDispatch();
   const addStatus = Status.useAdder();
   const listQuery = Status.useList();
+  const client = Synnax.use();
+  const onVariantChange = useEffectEvent(() => {
+    if (listQuery.variant !== "success") return;
+    dispatch(filterFavoritesToKeys(listQuery.data));
+  });
   useAsyncEffect(
     async (signal) => {
       await listQuery.retrieveAsync({}, { signal });
-      if (listQuery.variant !== "success") return;
-      dispatch(filterFavoritesToKeys(listQuery.data));
+      onVariantChange();
     },
-    [dispatch],
+    [listQuery.retrieveAsync, client?.key],
   );
   Status.useSetSynchronizer(addStatus);
   const handleDelete = useCallback(

@@ -15,12 +15,7 @@ import {
   QueryError,
   type Synnax,
 } from "@synnaxlabs/client";
-import {
-  type AsyncDestructor,
-  type Destructor,
-  MultiSeries,
-  type TimeRange,
-} from "@synnaxlabs/x";
+import { type destructor, MultiSeries, type TimeRange } from "@synnaxlabs/x";
 
 import { cache } from "@/telem/client/cache";
 import { Reader } from "@/telem/client/reader";
@@ -59,7 +54,10 @@ export interface ReadClient {
 
 /** A client that can be used to stream telemetry from the Synnax cluster. */
 export interface StreamClient {
-  stream: (handler: StreamHandler, keys: channel.Keys) => Promise<Destructor>;
+  stream: (
+    handler: StreamHandler,
+    keys: channel.Keys,
+  ) => Promise<destructor.Destructor>;
 }
 
 /**
@@ -88,7 +86,7 @@ export class NoopClient implements Client {
   }
 
   /** Stream implements StreamClient. */
-  async stream(): Promise<AsyncDestructor> {
+  async stream(): Promise<destructor.Async> {
     return async () => {};
   }
 
@@ -144,7 +142,10 @@ export class Core implements Client {
     return await this.reader.read(tr, key);
   }
 
-  async stream(handler: StreamHandler, keys: channel.Keys): Promise<Destructor> {
+  async stream(
+    handler: StreamHandler,
+    keys: channel.Keys,
+  ): Promise<destructor.Destructor> {
     return await this.streamer.stream(handler, keys);
   }
 

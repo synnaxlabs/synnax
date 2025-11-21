@@ -14,15 +14,20 @@ echo Installing Poetry and dependencies on Windows...
 rem Change to the integration directory
 cd integration
 
-rem Install Poetry on Windows
-powershell -Command "(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -"
-if %errorlevel% neq 0 exit /b %errorlevel%
-
 rem Add Poetry to PATH
 set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
 
-rem Install dependencies
-poetry lock
+rem Install Poetry
+where poetry >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Installing Poetry...
+    powershell -Command "(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -"
+    if %errorlevel% neq 0 exit /b %errorlevel%
+)
+
+poetry env use python
+if %errorlevel% neq 0 exit /b %errorlevel%
+
 poetry install
 if %errorlevel% neq 0 exit /b %errorlevel%
 

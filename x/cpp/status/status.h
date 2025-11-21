@@ -69,11 +69,11 @@ struct Status {
     static Status parse(xjson::Parser &parser) {
         auto details = parser.child("details");
         return Status{
-            .key = parser.required<std::string>("key"),
-            .variant = parser.required<std::string>("variant"),
-            .message = parser.required<std::string>("message"),
-            .description = parser.required<std::string>("description"),
-            .time = telem::TimeStamp(parser.required<std::int64_t>("time")),
+            .key = parser.field<std::string>("key"),
+            .variant = parser.field<std::string>("variant"),
+            .message = parser.field<std::string>("message"),
+            .description = parser.field<std::string>("description"),
+            .time = telem::TimeStamp(parser.field<std::int64_t>("time")),
             .details = Details::parse(details),
         };
     }

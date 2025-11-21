@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ValidationError } from "@synnaxlabs/client";
-import { type Destructor } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
@@ -102,7 +102,7 @@ export class SourcePipeline<V>
     return this.outlet.value();
   }
 
-  onChange(handler: () => void): Destructor {
+  onChange(handler: () => void): destructor.Destructor {
     return this.outlet.onChange(handler);
   }
 

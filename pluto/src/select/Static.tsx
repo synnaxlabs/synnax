@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Optional, type record } from "@synnaxlabs/x";
+import { type optional, type record } from "@synnaxlabs/x";
 
 import { Component } from "@/component";
 import { type Icon } from "@/icon";
@@ -22,7 +22,7 @@ export interface StaticEntry<K extends record.Key> extends record.KeyedNamed<K> 
 export interface StaticProps<
   K extends record.Key,
   E extends StaticEntry<K> = StaticEntry<K>,
-> extends Optional<
+> extends optional.Optional<
       Omit<SingleProps<K, E>, "data" | "getItem" | "subscribe">,
       "children"
     >,

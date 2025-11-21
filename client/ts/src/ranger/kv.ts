@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, isObject } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Key, keyZ } from "@/ranger/payload";
@@ -64,13 +64,14 @@ export class KV {
   async set(kv: Record<string, string>): Promise<void>;
   async set(key: string | Record<string, string>, value: string = ""): Promise<void> {
     let pairs: KVPair[];
-    if (isObject(key))
+    if (typeof key == "string") pairs = [{ range: this.rangeKey, key, value }];
+    else
       pairs = Object.entries(key).map(([k, v]) => ({
         range: this.rangeKey,
         key: k,
         value: v,
       }));
-    else pairs = [{ range: this.rangeKey, key, value }];
+
     await sendRequired(
       this.client,
       "/range/kv/set",

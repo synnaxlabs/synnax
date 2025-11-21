@@ -9,7 +9,7 @@
 
 import "@/log/Log.css";
 
-import { box, location, type Optional } from "@synnaxlabs/x";
+import { box, location, type optional } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { type z } from "zod";
 
@@ -24,7 +24,7 @@ import { Status } from "@/status/core";
 import { Canvas } from "@/vis/canvas";
 
 export interface LogProps
-  extends Optional<
+  extends optional.Optional<
       Omit<
         z.input<typeof log.logState>,
         "region" | "scrollPosition" | "scrollback" | "empty" | "scrolling" | "wheelPos"

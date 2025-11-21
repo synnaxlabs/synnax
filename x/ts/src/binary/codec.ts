@@ -10,7 +10,7 @@
 import { type z } from "zod";
 
 import { caseconv } from "@/caseconv";
-import { isObject } from "@/identity";
+import { narrow } from "@/narrow";
 
 /**
  * Codec is an entity that encodes and decodes messages to and from a
@@ -92,7 +92,7 @@ export class CSVCodec implements Codec {
   }
 
   encodeString(payload: unknown): string {
-    if (!Array.isArray(payload) || payload.length === 0 || !isObject(payload[0]))
+    if (!Array.isArray(payload) || payload.length === 0 || !narrow.isObject(payload[0]))
       throw new Error("Payload must be an array of objects");
 
     const keys = Object.keys(payload[0]);

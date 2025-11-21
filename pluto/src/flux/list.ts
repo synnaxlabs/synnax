@@ -10,7 +10,7 @@
 import {
   compare,
   type CrudeTimeSpan,
-  type Destructor,
+  type destructor,
   primitive,
   type record,
   TimeSpan,
@@ -66,7 +66,7 @@ export type UseListReturn<
   ) => Promise<void>;
   data: K[];
   getItem: GetItem<K, E>;
-  subscribe: (callback: () => void, key: K) => Destructor;
+  subscribe: (callback: () => void, key: K) => destructor.Destructor;
 };
 
 export interface RetrieveByKeyParams<
@@ -97,7 +97,7 @@ export interface CreateListParams<
   retrieveCached?: (args: RetrieveCachedParams<Query, Store>) => E[];
   mountListeners?: (
     args: ListMountListenersParams<Query, K, E, Store>,
-  ) => Destructor | Destructor[];
+  ) => destructor.Destructor | destructor.Destructor[];
 }
 
 export interface UseListParams<
