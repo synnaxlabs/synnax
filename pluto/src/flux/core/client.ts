@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type framer, type Synnax } from "@synnaxlabs/client";
-import { type AsyncDestructor } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 
 import {
   createStore,
@@ -30,7 +30,7 @@ interface ClientArgs<ScopedStore extends Store> {
 
 export class Client<ScopedStore extends Store = Store> {
   private readonly store: InternalStore;
-  private readonly streamCloser: Promise<AsyncDestructor> | null = null;
+  private readonly streamCloser: Promise<destructor.Async> | null = null;
   readonly client: Synnax | null;
 
   constructor({

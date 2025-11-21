@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Optional } from "@synnaxlabs/x";
+import { type optional } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { line } from "@/vis/line/aether";
 
 export interface LineProps
-  extends Optional<Omit<line.State, "key">, "strokeWidth">,
+  extends optional.Optional<Omit<line.State, "key">, "strokeWidth">,
     Aether.ComponentProps {}
 
 export const Line = memo(({ aetherKey, ...rest }: LineProps): ReactElement | null => {
