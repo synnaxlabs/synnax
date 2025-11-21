@@ -28,7 +28,7 @@ var _ = Describe("Writer", func() {
 	)
 	BeforeEach(func() {
 		db = gorp.Wrap(memkv.New())
-		svc = MustSucceed(rbac.NewService(rbac.Config{DB: db}))
+		svc = MustSucceed(rbac.OpenService(rbac.Config{DB: db}))
 		writer = svc.NewWriter(nil)
 		retriever = svc.NewRetrieve()
 	})

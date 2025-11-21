@@ -70,10 +70,10 @@ type Service struct {
 	group   group.Group
 }
 
-// NewService instantiates a new symbol service using the provided configurations. Each
+// OpenService instantiates a new symbol service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
 // See the Config struct for information on which fields should be set.
-func NewService(ctx context.Context, configs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err

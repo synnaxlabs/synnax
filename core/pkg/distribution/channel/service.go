@@ -73,11 +73,13 @@ var _ config.Config[Config] = Config{}
 
 func (c Config) Validate() error {
 	v := validate.New("distribution.channel")
-	validate.NotNil(v, "host_provider", c.HostResolver)
+	validate.NotNil(v, "host_resolver", c.HostResolver)
 	validate.NotNil(v, "cluster_db", c.ClusterDB)
 	validate.NotNil(v, "ts_channel", c.TSChannel)
 	validate.NotNil(v, "transport", c.Transport)
 	validate.NotNil(v, "int_overflow_check", c.IntOverflowCheck)
+	validate.NotNil(v, "validate_names", c.ValidateNames)
+	validate.NotNil(v, "force_migration", c.ForceMigration)
 	return v.Error()
 }
 
@@ -94,7 +96,7 @@ func (c Config) Override(other Config) Config {
 
 var DefaultConfig = Config{ValidateNames: config.True(), ForceMigration: config.False()}
 
-func New(ctx context.Context, cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err

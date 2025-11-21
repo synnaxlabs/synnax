@@ -77,10 +77,10 @@ func (cfg ServiceConfig) Validate() error {
 // telemetry from a multi-node Synnax cluster.
 type Service struct{ cfg ServiceConfig }
 
-// NewService creates a new service using the provided configuration(s). Each subsequent
+// OpenService creates a new service using the provided configuration(s). Each subsequent
 // configuration overrides the one in the previous configuration. If the configuration
-// is invalid, NewService returns a nil service and a non-nil error.
-func NewService(cfgs ...ServiceConfig) (*Service, error) {
+// is invalid, OpenService returns a nil service and a non-nil error.
+func OpenService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err

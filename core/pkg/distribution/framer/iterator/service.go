@@ -104,9 +104,9 @@ type Service struct {
 	server *server
 }
 
-// NewService opens a new iterator service using the provided configuration. If the
-// configuration is invalid, NewService returns a nil service and an error.
-func NewService(configs ...ServiceConfig) (*Service, error) {
+// OpenService opens a new iterator service using the provided configuration. If the
+// configuration is invalid, OpenService returns a nil service and an error.
+func OpenService(configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err

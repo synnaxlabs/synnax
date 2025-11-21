@@ -266,7 +266,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 
-	if l.Channel, err = channel.New(ctx, channel.Config{
+	if l.Channel, err = channel.OpenService(ctx, channel.Config{
 		HostResolver: l.Cluster,
 		ClusterDB:    l.DB,
 		TSChannel:    cfg.Storage.TS,
@@ -282,7 +282,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 
-	if l.Framer, err = framer.Open(framer.Config{
+	if l.Framer, err = framer.OpenService(framer.Config{
 		Instrumentation: cfg.Child("framer"),
 		Channel:         l.Channel,
 		TS:              cfg.Storage.TS,

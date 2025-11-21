@@ -92,21 +92,21 @@ func (c Config) Override(other Config) Config {
 
 const freeWritePipelineBuffer = 4000
 
-// Open opens a new service using the provided configuration(s). Fields defined in
-// each subsequent configuration override those in previous configurations. See the
+// OpenService opens a new service using the provided configuration(s). Fields defined
+// in each subsequent configuration override those in previous configurations. See the
 // Config struct for information required fields.
 //
 // Returns the Service and a nil error if opened successfully, and a nil Service and
 // non-nil error if the configuration is invalid or another error occurs.
 //
 // The Service must be closed after use.
-func Open(configs ...Config) (*Service, error) {
+func OpenService(configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{cfg: cfg}
-	s.iterator, err = iterator.NewService(iterator.ServiceConfig{
+	s.iterator, err = iterator.OpenService(iterator.ServiceConfig{
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Iterator(),
