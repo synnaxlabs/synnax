@@ -77,7 +77,7 @@ check_run_built_artifacts() {
 find_cached_run() {
     local current_branch=$(git branch --show-current)
     local workflow_file="${GITHUB_WORKFLOW:-test.integration.yaml}"
-    local runs_json=$(gh run list --workflow="${workflow_file}" --branch="${current_branch}" --status="success" --limit=25 --json="databaseId,headSha")
+    local runs_json=$(gh run list --workflow="${workflow_file}" --branch="${current_branch}" --limit=25 --json="databaseId,headSha")
 
     for row in $(echo "${runs_json}" | jq -r '.[] | @base64'); do
         local run_id=$(echo ${row} | base64 --decode | jq -r '.databaseId')
