@@ -113,10 +113,6 @@ public:
 };
 
 class SynnaxContext final : public Context {
-    std::mutex mu;
-    std::unique_ptr<synnax::Writer> writer;
-    synnax::Channel chan;
-
 public:
     explicit SynnaxContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}

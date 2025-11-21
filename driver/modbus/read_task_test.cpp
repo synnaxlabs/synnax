@@ -237,16 +237,18 @@ TEST(ReadTask, testBasicReadTask) {
     task.start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, "start_cmd");
-    EXPECT_EQ(first_state.variant, "success");
+    EXPECT_EQ(first_state.key, tsk.status_key());
+    EXPECT_EQ(first_state.details.cmd, "start_cmd");
+    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(first_state.details.task, tsk.key);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(factory->writer_opens, 1);
     task.stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, "stop_cmd");
-    EXPECT_EQ(second_state.variant, "success");
+    EXPECT_EQ(second_state.key, tsk.status_key());
+    EXPECT_EQ(second_state.details.cmd, "stop_cmd");
+    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(second_state.details.task, tsk.key);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
 
@@ -630,7 +632,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     bool found_start = false;
     for (const auto &s: ctx->statuses) {
-        if (s.details.running && s.variant == "success") {
+        if (s.details.running && s.variant == status::variant::SUCCESS) {
             found_start = true;
             break;
         }
@@ -696,7 +698,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &initial_state = ctx->statuses[0];
     ASSERT_FALSE(initial_state.details.running);
-    ASSERT_EQ(initial_state.variant, "success");
+    ASSERT_EQ(initial_state.variant, status::variant::SUCCESS);
     ASSERT_EQ(initial_state.message, "Task configured successfully");
 
     // Manually start the task
@@ -707,7 +709,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     bool found_start = false;
     for (const auto &s: ctx->statuses) {
-        if (s.details.running && s.variant == "success") {
+        if (s.details.running && s.variant == status::variant::SUCCESS) {
             found_start = true;
             break;
         }

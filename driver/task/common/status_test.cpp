@@ -22,7 +22,8 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     handler.send_start("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
-    EXPECT_EQ(first.key, "cmd_key");
+    EXPECT_EQ(first.key, task.status_key());
+    EXPECT_EQ(first.details.cmd, "cmd_key");
     EXPECT_EQ(first.name, "task1");
     EXPECT_EQ(first.details.task, task.key);
     EXPECT_EQ(first.variant, status::variant::SUCCESS);
@@ -33,7 +34,8 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     handler.send_start("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
-    EXPECT_EQ(second.key, "cmd_key");
+    EXPECT_EQ(second.key, task.status_key());
+    EXPECT_EQ(second.details.cmd, "cmd_key");
     EXPECT_EQ(second.name, "task1");
     EXPECT_EQ(second.details.task, task.key);
     EXPECT_EQ(second.variant, status::variant::ERR);
@@ -108,7 +110,8 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     handler.send_stop("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
-    EXPECT_EQ(first.key, "cmd_key");
+    EXPECT_EQ(first.key, task.status_key());
+    EXPECT_EQ(first.details.cmd, "cmd_key");
     EXPECT_EQ(first.details.task, task.key);
     EXPECT_EQ(first.variant, status::variant::SUCCESS);
     EXPECT_EQ(first.details.running, false);
@@ -118,7 +121,8 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     handler.send_stop("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
-    EXPECT_EQ(second.key, "cmd_key");
+    EXPECT_EQ(second.key, task.status_key());
+    EXPECT_EQ(second.details.cmd, "cmd_key");
     EXPECT_EQ(second.details.task, task.key);
     EXPECT_EQ(second.variant, status::variant::ERR);
     EXPECT_EQ(second.details.running, false);

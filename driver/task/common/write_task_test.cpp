@@ -98,7 +98,8 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_TRUE(write_task.start(cmd_key));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, cmd_key);
+    EXPECT_EQ(start_state.key, task.status_key());
+    EXPECT_EQ(start_state.details.cmd, cmd_key);
     EXPECT_EQ(start_state.details.task, task.key);
     EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(start_state.message, "Task started successfully");
@@ -123,7 +124,8 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_TRUE(write_task.stop(stop_cmd_key, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, stop_cmd_key);
+    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(stop_state.message, "Task stopped successfully");

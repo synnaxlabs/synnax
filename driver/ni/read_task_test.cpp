@@ -283,7 +283,8 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, "start_cmd");
+    EXPECT_EQ(first_state.details.cmd, "start_cmd");
+    EXPECT_EQ(first_state.key, task.status_key());
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
@@ -291,7 +292,8 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     rt->stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, "stop_cmd");
+    EXPECT_EQ(second_state.details.cmd, "stop_cmd");
+    EXPECT_EQ(second_state.key, task.status_key());
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
@@ -316,7 +318,8 @@ TEST_F(AnalogReadTest, testErrorOnStart) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto state = ctx->statuses[0];
-    EXPECT_EQ(state.key, "start_cmd");
+    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.details.cmd, "start_cmd");
     EXPECT_EQ(state.details.task, task.key);
     EXPECT_EQ(state.variant, status::variant::ERR);
     EXPECT_EQ(state.message, "Failed to start hardware");
@@ -342,7 +345,8 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, "stop_cmd");
+    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, status::variant::ERR);
     EXPECT_EQ(stop_state.message, "Failed to stop hardware");
@@ -372,11 +376,15 @@ TEST_F(AnalogReadTest, testErrorOnRead) {
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto read_err_state = ctx->statuses[1];
+    EXPECT_EQ(read_err_state.key, task.status_key());
+    EXPECT_EQ(read_err_state.details.task, task.key);
     EXPECT_EQ(read_err_state.variant, status::variant::ERR);
     EXPECT_EQ(read_err_state.message, "Failed to read hardware");
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     const auto stop_state = ctx->statuses[2];
+    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, status::variant::ERR);
     EXPECT_EQ(stop_state.message, "Failed to read hardware");
 }
@@ -405,6 +413,8 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
+    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
 
     ASSERT_GE(mock_factory->writes->size(), 1);
@@ -436,7 +446,8 @@ TEST_F(AnalogReadTest, testDoubleStart) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses.size(), 2);
     for (auto &state: ctx->statuses) {
-        EXPECT_EQ(state.key, "start_cmd");
+        EXPECT_EQ(state.key, task.status_key());
+        EXPECT_EQ(state.details.cmd, "start_cmd");
         EXPECT_EQ(state.details.task, task.key);
         EXPECT_EQ(state.variant, status::variant::SUCCESS);
         EXPECT_EQ(state.message, "Task started successfully");
@@ -459,12 +470,14 @@ TEST_F(AnalogReadTest, testDoubleStop) {
     EXPECT_EQ(ctx->statuses.size(), 3);
     // Should only have two state messages (start + stop)
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, "stop_cmd1");
+    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.details.cmd, "stop_cmd1");
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(stop_state.message, "Task stopped successfully");
     const auto stop_state_2 = ctx->statuses[2];
-    EXPECT_EQ(stop_state_2.key, "stop_cmd2");
+    EXPECT_EQ(stop_state_2.key, task.status_key());
+    EXPECT_EQ(stop_state_2.details.cmd, "stop_cmd2");
     EXPECT_EQ(stop_state_2.details.task, task.key);
     EXPECT_EQ(stop_state_2.variant, status::variant::SUCCESS);
     EXPECT_EQ(stop_state_2.message, "Task stopped successfully");
@@ -568,7 +581,8 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, "start_cmd");
+    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
@@ -577,7 +591,8 @@ TEST_F(DigitalReadTest, testBasicDigitalRead) {
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, "stop_cmd");
+    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
@@ -729,7 +744,8 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, "start_cmd");
+    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
@@ -738,7 +754,8 @@ TEST_F(CounterReadTest, testBasicCounterFrequencyRead) {
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, "stop_cmd");
+    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
@@ -767,7 +784,8 @@ TEST_F(CounterReadTest, testCounterErrorOnStart) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto state = ctx->statuses[0];
-    EXPECT_EQ(state.key, "start_cmd");
+    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.details.cmd, "start_cmd");
     EXPECT_EQ(state.details.task, task.key);
     EXPECT_EQ(state.variant, status::variant::ERR);
     EXPECT_EQ(state.message, "Counter failed to start");
@@ -793,7 +811,8 @@ TEST_F(CounterReadTest, testCounterErrorOnStop) {
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, "stop_cmd");
+    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, status::variant::ERR);
     EXPECT_EQ(stop_state.message, "Counter failed to stop");
@@ -816,15 +835,20 @@ TEST_F(CounterReadTest, testCounterErrorOnRead) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
+    EXPECT_EQ(start_state.key, task.status_key());
+    EXPECT_EQ(start_state.details.cmd, "start_cmd");
     EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto read_err_state = ctx->statuses[1];
+    EXPECT_EQ(read_err_state.key, task.status_key());
     EXPECT_EQ(read_err_state.variant, status::variant::ERR);
     EXPECT_EQ(read_err_state.message, "Counter read failed");
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     const auto stop_state = ctx->statuses[2];
+    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.variant, status::variant::ERR);
     EXPECT_EQ(stop_state.message, "Counter read failed");
 }
@@ -847,6 +871,8 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto start_state = ctx->statuses[0];
+    EXPECT_EQ(start_state.key, task.status_key());
+    EXPECT_EQ(start_state.details.cmd, "start_cmd");
     EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
 
     // Wait for multiple writes
@@ -877,6 +903,8 @@ TEST_F(CounterReadTest, testMultipleCounterReadings) {
     rt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto stop_state = ctx->statuses[1];
+    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
 }
 

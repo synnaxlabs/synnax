@@ -60,7 +60,7 @@ class ScanTask final : public task::Task {
             status.variant = "error";
             status.message = err.data;
         } else {
-            status.variant = "success";
+            status.variant = status::variant::SUCCESS;
             status.message = "Connection successful";
         }
     }
