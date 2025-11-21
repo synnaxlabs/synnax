@@ -81,8 +81,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    if (color.isZero(this.state.color))
-      this.internal.textColor = i.theme.colors.gray.l11;
+    if (color.isZero(this.state.color)) this.internal.textColor = i.theme.colors.gray.l11;
     else i.textColor = this.state.color;
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
 
@@ -126,6 +125,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const [_, series] = this.internal.telem.value();
     this.values = series;
 
+    // Make sure to clear the cache
     if (this.values.length < previousLength || this.values.length === 0) {
       this.wrappedCache.clear();
       this.totalVisualLines = 0;
@@ -199,6 +199,36 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     return Math.max(0, this.values.length - logicalLinesNeeded);
   }
 
+  private calculateRenderRange(isScrolling: boolean): { range: Iterable<any>, startLogicalIndex: number } {
+    if (!isScrolling) {
+      const startLogicalIndex = this.calculateAutoScrollStartIndex();
+      return {
+        range: this.values.subIterator(startLogicalIndex, this.values.length),
+        startLogicalIndex,
+      };
+    }
+    const start = this.values.traverseAlignment(
+      this.scrollState.offset,
+      -BigInt(this.visibleLogicalLineCount),
+    );
+    let startLogicalIndex = 0;
+    for (const ser of this.values.series) {
+      if (start < ser.alignment) break;
+      if (start >= ser.alignmentBounds.upper) {
+        startLogicalIndex += ser.length;
+        continue;
+      }
+      startLogicalIndex += Number((start - ser.alignment) / ser.alignmentMultiple);
+      break;
+    }
+    const endLogicalIndex = Math.min(
+      this.values.length, 
+      startLogicalIndex + this.visibleLogicalLineCount
+    );
+    const range = this.values.subIterator(startLogicalIndex, endLogicalIndex);
+    return { range, startLogicalIndex };
+  }  
+
   private shouldRebuildCache(currentWidth: number): boolean {
     if (this.charWidth === 0) return false;
     return (
@@ -214,47 +244,14 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     if (box.areaIsZero(region)) return undefined;
     if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
     const canvas = renderCtx[CANVAS];
-    if (this.charWidth === 0) 
-      this.charWidth = canvas.measureText('M').width;
-    
+    const isScrolling = this.state.scrolling;
+    if (this.charWidth === 0) this.charWidth = canvas.measureText('M').width; // Font monospaced, get width of single char
     const lineMaxWidth = box.width(region) - (PADDING_X * 2) - SCROLLBAR_WIDTH;
-    if (!this.state.scrolling && this.shouldRebuildCache(lineMaxWidth)) {
+    if (!isScrolling && this.shouldRebuildCache(lineMaxWidth)) {
       this.rebuildWrapCache();
       this.cachedDataLength = this.values.length;
     }
-
-    let range: Iterable<any>;
-    let startLogicalIndex: number;
-
-    if (!this.state.scrolling) {
-      startLogicalIndex = this.calculateAutoScrollStartIndex();
-      range = this.values.subIterator(startLogicalIndex, this.values.length);
-    } else {
-      // Calculate the start alignment for the visible window
-      const start = this.values.traverseAlignment(
-        this.scrollState.offset,
-        -BigInt(this.visibleLogicalLineCount),
-      );
-      
-      // Convert alignment to logical index by counting samples from lower bound
-      startLogicalIndex = 0;
-      for (const ser of this.values.series) 
-        if (start < ser.alignment) break;
-        else if (start >= ser.alignmentBounds.upper) startLogicalIndex += ser.length;
-        else if (start >= ser.alignment && start < ser.alignmentBounds.upper) {
-          startLogicalIndex += Number((start - ser.alignment) / ser.alignmentMultiple);
-          break;
-        }
-      
-      
-      // Use regular iterator with the calculated indices
-      const endLogicalIndex = Math.min(
-        this.values.length, 
-        startLogicalIndex + this.visibleLogicalLineCount
-      );
-      range = this.values.subIterator(startLogicalIndex, endLogicalIndex);
-    }
-
+    const {range, startLogicalIndex} = this.calculateRenderRange(isScrolling);
     const reg = this.state.region;
     const draw2d = new Draw2D(canvas, this.internal.theme);
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
@@ -294,11 +291,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     });
   }
 
-  private renderElements(
-    draw2D: Draw2D, 
-    iter: Iterable<TelemValue>,
-    startLogicalIndex: number
-  ): void {
+  private renderElements(draw2D: Draw2D, iter: Iterable<TelemValue>, startLogicalIndex: number): void {
     const reg = this.state.region;
     let visualLineIndex = 0;
     let logicalIndex = startLogicalIndex;
@@ -309,10 +302,10 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         logicalIndex++;
         continue;
       }
-      for (const line of wrappedLines) {
+      wrappedLines.forEach((line) => {
         const position = xy.translate(box.topLeft(reg), {
           x: PADDING_X,
-          y: visualLineIndex * this.lineHeight + PADDING_Y
+          y: visualLineIndex * this.lineHeight + PADDING_Y,
         });
         draw2D.text({
           text: line,
@@ -322,31 +315,28 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
           code: true,
         });
         visualLineIndex++;
-      }
+      });
       logicalIndex++;
     }
   }
 
   private softWrapLog(text: string, maxWidth: number): string[] {
-    const lines: string[] = [];
-    // Collapse exit early if/else
     if (text.length === 0) return [""];
-    if (this.charWidth === 0) return [text];
-    if (text.length * this.charWidth <= maxWidth) return [text];
+    if (this.charWidth === 0 || text.length * this.charWidth <= maxWidth) return [text];
     let currentLine: string = "";
     let currentWidth: number = 0;
     const charsPerLine = Math.floor(maxWidth / this.charWidth);
-    // Hot path: no words, wrap by character
     if (!text.includes(" "))
       return Array.from(
         { length: Math.ceil(text.length / charsPerLine) },
         (_, i) => text.slice(i * charsPerLine, (i + 1) * charsPerLine)
       );
-
+    const lines: string[] = [];
     const words = text.split(" ");
     const spaceWidth = this.charWidth;
     for (const word of words) {
       const wordWidth = word.length * this.charWidth;
+      // Handle words that are too long to fit on a single line
       if (wordWidth > maxWidth) {
         if (currentLine !== "") {
           lines.push(currentLine);
@@ -355,33 +345,31 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         }
         for (let i = 0; i < word.length; i += charsPerLine) {
           const chunk = word.slice(i, i + charsPerLine);
-          if (i + charsPerLine < word.length) 
-            lines.push(chunk);
-           else {
+          if (i + charsPerLine >= word.length){
             currentLine = chunk;
             currentWidth = chunk.length * this.charWidth;
+            continue;
           }
+          lines.push(chunk);
         }
         continue;
       }
       if (currentLine === "") {
         currentLine = word;
         currentWidth = wordWidth;
-      } else {
-        const widthWithWord = currentWidth + spaceWidth + wordWidth;
-        if (widthWithWord <= maxWidth) {
-          currentLine += ` ${  word}`;
-          currentWidth = widthWithWord;
-        } else {
-          lines.push(currentLine);
-          currentLine = word;
-          currentWidth = wordWidth;
-        }
+        continue;
       }
-    }
-    if (currentLine !== "") 
+      const widthWithWord = currentWidth + spaceWidth + wordWidth;
+      if (widthWithWord <= maxWidth) {
+        currentLine += ` ${word}`;
+        currentWidth = widthWithWord;
+        continue;
+      }
       lines.push(currentLine);
-    
+      currentLine = word;
+      currentWidth = wordWidth;
+    }
+    if (currentLine !== "") lines.push(currentLine);
     return lines;
   }
 

@@ -83,7 +83,7 @@ function createLogSeries(count: number, lineLength: "short" | "medium" | "long")
     }
 
     const series = new Series({
-        data: data,
+        data,
         dataType: DataType.STRING,
         timeRange: TimeRange.ZERO,
     });
@@ -92,11 +92,11 @@ function createLogSeries(count: number, lineLength: "short" | "medium" | "long")
 }
 
 describe("softWrapLog benchmarks - your implementation", () => {
-    let log: Log;
+    let log: any;
 
     bench("wrap short line (no wrapping needed)", () => {
         const text = "Log entry 123";
-        log["softWrapLog"](text, 800);
+        log.softWrapLog(text, 800);
     }, {
         time: 1000,
         setup: () => {
@@ -106,7 +106,7 @@ describe("softWrapLog benchmarks - your implementation", () => {
 
     bench("wrap medium line (1-2 wraps)", () => {
         const text = "[2025-01-01T12:00:00.000Z] INFO: Processing request 456 with status code 200 and additional context";
-        log["softWrapLog"](text, 400);
+        log.softWrapLog(text, 400);
     }, {
         time: 1000,
         setup: () => {
@@ -116,7 +116,7 @@ describe("softWrapLog benchmarks - your implementation", () => {
 
     bench("wrap long line (multiple wraps)", () => {
         const text = "[2025-01-01T12:00:00.000Z] ERROR: Failed to connect to database server at 192.168.1.100:5432 after 3 retry attempts. Connection timeout: 30s. Last error: ECONNREFUSED. Request ID: abc123-def456-ghi789. Stack trace: Error at DatabaseConnection.connect (db.ts:45) at retry (retry.ts:12) at async main (index.ts:100)";
-        log["softWrapLog"](text, 400);
+        log.softWrapLog(text, 400);
     }, {
         time: 1000,
         setup: () => {
@@ -126,7 +126,7 @@ describe("softWrapLog benchmarks - your implementation", () => {
 
     bench("wrap very long word (character-level wrapping)", () => {
         const text = "a".repeat(500);
-        log["softWrapLog"](text, 400);
+        log.softWrapLog(text, 400);
     }, {
         time: 1000,
         setup: () => {
@@ -137,7 +137,7 @@ describe("softWrapLog benchmarks - your implementation", () => {
     bench("wrap line with many short words", () => {
         const text = "a b c d e f g h i j k l m n o p q r s t u v w x y z " +
             "a b c d e f g h i j k l m n o p q r s t u v w x y z";
-        log["softWrapLog"](text, 400);
+        log.softWrapLog(text, 400);
     }, {
         time: 1000,
         setup: () => {
@@ -147,7 +147,7 @@ describe("softWrapLog benchmarks - your implementation", () => {
 
     bench("wrap mixed content (words + long token)", () => {
         const text = "Normal words here then AVERYLONGTOKENWITHOUTSPACES and more normal words after";
-        log["softWrapLog"](text, 400);
+        log.softWrapLog(text, 400);
     }, {
         time: 1000,
         setup: () => {
@@ -172,15 +172,15 @@ describe("renderElements benchmarks - with wrapping and caching", () => {
     bench("render 10 short lines (with cache)", () => {
         const { log, series } = this as any;
         const dataArray = Array.from({ length: series.length }, (_, i) => series.at(i));
-        log["renderElements"](mockDraw2D, dataArray);
+        log.renderElements(mockDraw2D, dataArray, 0);
     }, {
         time: 1000,
         setup() {
             textCalls.length = 0;
-            const log = createMockLog();
+            const log: any = createMockLog();
             const series = createLogSeries(10, "short");
             log.values = series;
-            log["rebuildWrapCache"]();
+            log.rebuildWrapCache();
             (this as any).log = log;
             (this as any).series = series;
         },
@@ -189,15 +189,15 @@ describe("renderElements benchmarks - with wrapping and caching", () => {
     bench("render 50 medium lines (with cache)", () => {
         const { log, series } = this as any;
         const dataArray = Array.from({ length: series.length }, (_, i) => series.at(i));
-        log["renderElements"](mockDraw2D, dataArray);
+        log.renderElements(mockDraw2D, dataArray, 0);
     }, {
         time: 1000,
         setup() {
             textCalls.length = 0;
-            const log = createMockLog();
+            const log: any = createMockLog();
             const series = createLogSeries(50, "medium");
             log.values = series;
-            log["rebuildWrapCache"]();
+            log.rebuildWrapCache();
             (this as any).log = log;
             (this as any).series = series;
         },
@@ -206,15 +206,15 @@ describe("renderElements benchmarks - with wrapping and caching", () => {
     bench("render 100 long lines (with cache)", () => {
         const { log, series } = this as any;
         const dataArray = Array.from({ length: series.length }, (_, i) => series.at(i));
-        log["renderElements"](mockDraw2D, dataArray);
+        log.renderElements(mockDraw2D, dataArray, 0);
     }, {
         time: 1000,
         setup() {
             textCalls.length = 0;
-            const log = createMockLog();
+            const log: any = createMockLog();
             const series = createLogSeries(100, "long");
             log.values = series;
-            log["rebuildWrapCache"]();
+            log.rebuildWrapCache();
             (this as any).log = log;
             (this as any).series = series;
         },
@@ -222,7 +222,7 @@ describe("renderElements benchmarks - with wrapping and caching", () => {
 
     bench("cache rebuild - 100 long lines", () => {
         const { log } = this as any;
-        log["rebuildWrapCache"]();
+        log.rebuildWrapCache();
     }, {
         time: 1000,
         setup() {
@@ -235,7 +235,7 @@ describe("renderElements benchmarks - with wrapping and caching", () => {
 
     bench("cache rebuild - 500 long lines", () => {
         const { log } = this as any;
-        log["rebuildWrapCache"]();
+        log.rebuildWrapCache();
     }, {
         time: 1000,
         setup() {

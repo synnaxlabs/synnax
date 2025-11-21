@@ -83,7 +83,7 @@ function createLogSeries(count: number, lineLength: "short" | "medium" | "long")
     }
 
     const series = new Series({
-        data: data,
+        data,
         dataType: DataType.STRING,
         timeRange: TimeRange.ZERO,
     });
@@ -125,22 +125,22 @@ describe("Log Text Wrapping - Comprehensive Memory Analysis", () => {
             console.log("1. CACHE BUILD COST");
             console.log("   (Happens once: on mount or window resize)\n");
 
-            const log = createMockLog();
+            const log: any = createMockLog();
             log.values = series;
 
             if (global.gc) global.gc();
             const cacheBuildBefore = process.memoryUsage();
             const cacheStartTime = performance.now();
 
-            log["rebuildWrapCache"]();
+            log.rebuildWrapCache();
 
             const cacheEndTime = performance.now();
             const cacheBuildAfter = process.memoryUsage();
 
             const cacheBuildTime = cacheEndTime - cacheStartTime;
             const cacheBuildMemory = (cacheBuildAfter.heapUsed - cacheBuildBefore.heapUsed) / 1024 / 1024;
-            const cacheSize = log["wrappedCache"].size;
-            const visualLines = log["totalVisualLines"];
+            const cacheSize = log.wrappedCache.size;
+            const visualLines = log.totalVisualLines;
 
             console.log(`   Build Time:         ${cacheBuildTime.toFixed(2)} ms`);
             console.log(`   Time per line:      ${(cacheBuildTime / test.count).toFixed(3)} ms`);
@@ -154,9 +154,9 @@ describe("Log Text Wrapping - Comprehensive Memory Analysis", () => {
             if (global.gc) global.gc();
             const totalBefore = process.memoryUsage();
 
-            const logWithCache = createMockLog();
+            const logWithCache: any = createMockLog();
             logWithCache.values = series;
-            logWithCache["rebuildWrapCache"]();
+            logWithCache.rebuildWrapCache();
 
             if (global.gc) global.gc();
             const totalAfter = process.memoryUsage();
@@ -168,11 +168,11 @@ describe("Log Text Wrapping - Comprehensive Memory Analysis", () => {
             console.log(`   Per visual line:    ${(totalMemory / visualLines * 1024).toFixed(2)} KB`);
 
             let totalChars = 0;
-            for (const value of series) {
-                if (value != null) {
+            for (const value of series) 
+                if (value != null) 
                     totalChars += value.toString().length;
-                }
-            }
+                
+            
             const avgLineLength = Math.floor(totalChars / test.count);
             const memoryPerChar = (totalMemory * 1024 * 1024) / totalChars;
 
@@ -181,23 +181,23 @@ describe("Log Text Wrapping - Comprehensive Memory Analysis", () => {
             console.log("\n3. RENDER PERFORMANCE");
             console.log("   (Per-frame cost when reading from cache)\n");
             const dataArray: string[] = [];
-            for (const value of series) {
-                if (value != null) {
+            for (const value of series) 
+                if (value != null) 
                     dataArray.push(value.toString());
-                }
-            }
-            const mockDraw2D = { text: (props: any) => { } } as any;
-            logWithCache["renderElements"](mockDraw2D, dataArray);
+                
+            
+            const mockDraw2D = { text: (_props: any) => { } } as any;
+            logWithCache.renderElements(mockDraw2D, dataArray, 0);
             const iterations = 100;
             const renderStart = performance.now();
-            for (let i = 0; i < iterations; i++) {
-                logWithCache["renderElements"](mockDraw2D, dataArray);
-            }
+            for (let i = 0; i < iterations; i++) 
+                logWithCache.renderElements(mockDraw2D, dataArray, 0);
+            
             const renderEnd = performance.now();
             const avgRenderTime = (renderEnd - renderStart) / iterations;
             if (global.gc) global.gc();
             const renderBefore = process.memoryUsage();
-            logWithCache["renderElements"](mockDraw2D, dataArray);
+            logWithCache.renderElements(mockDraw2D, dataArray, 0);
             const renderAfter = process.memoryUsage();
             const renderMemory = (renderAfter.heapUsed - renderBefore.heapUsed) / 1024 / 1024;
 
@@ -268,17 +268,17 @@ it("should clean up cache when logs are cleared", () => {
     console.log("║                  CACHE CLEANUP VERIFICATION                        ║");
     console.log("╚════════════════════════════════════════════════════════════════════╝\n");
 
-    const log = createMockLog();
+    const log: any = createMockLog();
 
     // Step 1: Add 1000 lines
     const series = createLogSeries(1000, "long");
     log.values = series;
-    log["rebuildWrapCache"]();
+    log.rebuildWrapCache();
 
     console.log("After adding 1000 lines:");
-    console.log(`  Cache size: ${log["wrappedCache"].size}`);
-    console.log(`  Total visual lines: ${log["totalVisualLines"]}`);
-    console.log(`  Cached data length: ${log["cachedDataLength"]}`);
+    console.log(`  Cache size: ${log.wrappedCache.size}`);
+    console.log(`  Total visual lines: ${log.totalVisualLines}`);
+    console.log(`  Cached data length: ${log.cachedDataLength}`);
 
     if (global.gc) global.gc();
     const memoryWithCache = process.memoryUsage().heapUsed;
@@ -288,15 +288,15 @@ it("should clean up cache when logs are cleared", () => {
     log.values = new MultiSeries([]);
 
     if (log.values.length < previousLength || log.values.length === 0) {
-        log["wrappedCache"].clear();
-        log["totalVisualLines"] = 0;
-        log["cachedDataLength"] = 0;
+        log.wrappedCache.clear();
+        log.totalVisualLines = 0;
+        log.cachedDataLength = 0;
     }
 
     console.log("\nAfter clearing logs:");
-    console.log(`  Cache size: ${log["wrappedCache"].size}`);
-    console.log(`  Total visual lines: ${log["totalVisualLines"]}`);
-    console.log(`  Cached data length: ${log["cachedDataLength"]}`);
+    console.log(`  Cache size: ${log.wrappedCache.size}`);
+    console.log(`  Total visual lines: ${log.totalVisualLines}`);
+    console.log(`  Cached data length: ${log.cachedDataLength}`);
 
     if (global.gc) global.gc();
     const memoryAfterCleanup = process.memoryUsage().heapUsed;
