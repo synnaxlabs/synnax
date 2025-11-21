@@ -96,6 +96,8 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         offsetRef: off,
         scrollRef: this.state.wheelPos,
       };
+      this.rebuildWrapCache();
+      this.cachedDataLength = this.values.length;
     } else if (scrolling) {
       const { scrollState, values } = this;
       const dist = Math.ceil((wheelPos - this.scrollState.scrollRef) / this.lineHeight);
@@ -212,30 +214,51 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     if (box.areaIsZero(region)) return undefined;
     if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
     const canvas = renderCtx[CANVAS];
-    if (this.charWidth === 0) {
+    if (this.charWidth === 0) 
       this.charWidth = canvas.measureText('M').width;
-    }
+    
     const lineMaxWidth = box.width(region) - (PADDING_X * 2) - SCROLLBAR_WIDTH;
     if (!this.state.scrolling && this.shouldRebuildCache(lineMaxWidth)) {
       this.rebuildWrapCache();
       this.cachedDataLength = this.values.length;
     }
+
     let range: Iterable<any>;
+    let startLogicalIndex: number;
+
     if (!this.state.scrolling) {
-      const startIndex = this.calculateAutoScrollStartIndex();
-      range = this.values.subIterator(startIndex, this.values.length);
+      startLogicalIndex = this.calculateAutoScrollStartIndex();
+      range = this.values.subIterator(startLogicalIndex, this.values.length);
     } else {
+      // Calculate the start alignment for the visible window
       const start = this.values.traverseAlignment(
         this.scrollState.offset,
         -BigInt(this.visibleLogicalLineCount),
       );
-      range = this.values.subAlignmentSpanIterator(start, this.visibleLogicalLineCount);
+      
+      // Convert alignment to logical index by counting samples from lower bound
+      startLogicalIndex = 0;
+      for (const ser of this.values.series) 
+        if (start < ser.alignment) break;
+        else if (start >= ser.alignmentBounds.upper) startLogicalIndex += ser.length;
+        else if (start >= ser.alignment && start < ser.alignmentBounds.upper) {
+          startLogicalIndex += Number((start - ser.alignment) / ser.alignmentMultiple);
+          break;
+        }
+      
+      
+      // Use regular iterator with the calculated indices
+      const endLogicalIndex = Math.min(
+        this.values.length, 
+        startLogicalIndex + this.visibleLogicalLineCount
+      );
+      range = this.values.subIterator(startLogicalIndex, endLogicalIndex);
     }
 
     const reg = this.state.region;
     const draw2d = new Draw2D(canvas, this.internal.theme);
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
-    this.renderElements(draw2d, range);
+    this.renderElements(draw2d, range, startLogicalIndex);
     this.renderScrollbar(draw2d);
     clearScissor();
     const eraseRegion = box.copy(this.state.region);
@@ -271,20 +294,16 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     });
   }
 
-  private renderElements(draw2D: Draw2D, iter: Iterable<TelemValue>): void {
+  private renderElements(
+    draw2D: Draw2D, 
+    iter: Iterable<TelemValue>,
+    startLogicalIndex: number
+  ): void {
     const reg = this.state.region;
     let visualLineIndex = 0;
-    let logicalIndex: number;
-    if (!this.state.scrolling) {
-      logicalIndex = this.calculateAutoScrollStartIndex();
-    } else {
-      const start = this.values.traverseAlignment(
-        this.scrollState.offset,
-        -BigInt(this.visibleLogicalLineCount),
-      );
-      logicalIndex = Number(start - this.values.alignmentBounds.lower);
-    }
-    for (const value of iter) {
+    let logicalIndex = startLogicalIndex;
+
+    for (const _value of iter) {
       const wrappedLines = this.wrappedCache.get(logicalIndex);
       if (!wrappedLines) {
         logicalIndex++;
@@ -336,9 +355,9 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         }
         for (let i = 0; i < word.length; i += charsPerLine) {
           const chunk = word.slice(i, i + charsPerLine);
-          if (i + charsPerLine < word.length) {
+          if (i + charsPerLine < word.length) 
             lines.push(chunk);
-          } else {
+           else {
             currentLine = chunk;
             currentWidth = chunk.length * this.charWidth;
           }
@@ -351,7 +370,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       } else {
         const widthWithWord = currentWidth + spaceWidth + wordWidth;
         if (widthWithWord <= maxWidth) {
-          currentLine += " " + word;
+          currentLine += ` ${  word}`;
           currentWidth = widthWithWord;
         } else {
           lines.push(currentLine);
@@ -360,9 +379,9 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         }
       }
     }
-    if (currentLine !== "") {
+    if (currentLine !== "") 
       lines.push(currentLine);
-    }
+    
     return lines;
   }
 
