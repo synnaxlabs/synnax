@@ -12,6 +12,7 @@ package channel
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/set"
@@ -22,11 +23,12 @@ import (
 // New migrations should be appended to the end of the list.
 func (s *Service) migrate(ctx context.Context) error {
 	return migrate.GorpRunner{
-		Key: "sy_channel_migration_version",
+		Key: "channel_service",
 		Migrations: []migrate.GorpSpec{
-			{Name: "name_validation", Migrate: s.migrateChannelNames},
+			{Name: "migrate_channel_names", Migrate: s.migrateChannelNames},
 		},
-	}.Run(ctx, s.db)
+		Force: *s.cfg.ForceMigration,
+	}.Run(ctx, s.cfg.ClusterDB)
 }
 
 // migrateChannelNames transforms existing channel names to meet validation
@@ -41,32 +43,25 @@ func (s *Service) migrateChannelNames(ctx context.Context, tx gorp.Tx) error {
 	}
 
 	existingNames := make(set.Set[string], len(channels))
-	channelsToUpdate := make([]Channel, 0)
+	channelsToUpdate := map[Key]string{}
 
 	for _, ch := range channels {
-		// Check if name is valid
-		if err := ValidateName(ch.Name); err != nil || existingNames.Contains(ch.Name) {
-			transformedName := TransformName(ch.Name)
-			uniqueName := NewUniqueName(transformedName, existingNames)
-			ch.Name = uniqueName
-			channelsToUpdate = append(channelsToUpdate, ch)
+		if err := ValidateName(ch.Name); err == nil && !existingNames.Contains(ch.Name) {
+			existingNames.Add(ch.Name)
+			continue
 		}
-		// Track the name (either original or transformed)
-		existingNames.Add(ch.Name)
+		transformedName := TransformName(ch.Name)
+		newName := NewUniqueName(transformedName, existingNames)
+		channelsToUpdate[ch.Key()] = newName
+		existingNames.Add(newName)
 	}
 
 	// Update channels with transformed names
-	for _, ch := range channelsToUpdate {
-		if err := gorp.NewUpdate[Key, Channel]().
-			WhereKeys(ch.Key()).
-			Change(func(_ gorp.Context, c Channel) Channel {
-				c.Name = ch.Name
-				return c
-			}).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return gorp.NewUpdate[Key, Channel]().
+		WhereKeys(lo.Keys(channelsToUpdate)...).
+		Change(func(_ gorp.Context, c Channel) Channel {
+			c.Name = channelsToUpdate[c.Key()]
+			return c
+		}).
+		Exec(ctx, tx)
 }

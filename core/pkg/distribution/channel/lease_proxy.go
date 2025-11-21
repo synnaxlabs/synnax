@@ -31,7 +31,7 @@ import (
 )
 
 type leaseProxy struct {
-	ServiceConfig
+	Config
 	createRouter       proxy.BatchFactory[Channel]
 	renameRouter       proxy.BatchFactory[renameBatchEntry]
 	keyRouter          proxy.BatchFactory[Key]
@@ -53,7 +53,7 @@ const (
 
 func newLeaseProxy(
 	ctx context.Context,
-	cfg ServiceConfig,
+	cfg Config,
 	group group.Group,
 ) (*leaseProxy, error) {
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
@@ -74,7 +74,7 @@ func newLeaseProxy(
 	}
 
 	p := &leaseProxy{
-		ServiceConfig: cfg,
+		Config:        cfg,
 		createRouter:  proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
 		keyRouter:     keyRouter,
 		renameRouter:  proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
@@ -125,8 +125,10 @@ func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (typ
 
 func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, opts CreateOptions) error {
 	channels := *_channels
-	if err := lp.validateChannelNames(ctx, tx, &channels, opts); err != nil {
-		return err
+	if *lp.ValidateNames {
+		if err := lp.validateChannelNames(ctx, tx, &channels, opts); err != nil {
+			return err
+		}
 	}
 	for i, ch := range channels {
 		if ch.Leaseholder == 0 {

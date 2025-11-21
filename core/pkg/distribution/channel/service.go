@@ -30,7 +30,8 @@ type CalculationAnalyzer = func(ctx context.Context, expr string) (telem.DataTyp
 // Service is central entity for managing channels within delta's distribution layer. It
 // provides facilities for creating and retrieving channels.
 type Service struct {
-	db *gorp.DB
+	cfg Config
+	db  *gorp.DB
 	Writer
 	proxy *leaseProxy
 	otg   *ontology.Ontology
@@ -52,7 +53,7 @@ func FixedOverflowChecker(limit int) IntOverflowChecker {
 	}
 }
 
-type ServiceConfig struct {
+type Config struct {
 	HostResolver     cluster.HostResolver
 	ClusterDB        *gorp.DB
 	TSChannel        *ts.DB
@@ -60,11 +61,17 @@ type ServiceConfig struct {
 	Ontology         *ontology.Ontology
 	Group            *group.Service
 	IntOverflowCheck IntOverflowChecker
+	// ValidateNames sets whether to validate channel names during creation and
+	// renaming.
+	ValidateNames *bool
+	// ForceMigration will force all migrations to run, regardless of whether they have
+	// already been run.
+	ForceMigration *bool
 }
 
-var _ config.Config[ServiceConfig] = ServiceConfig{}
+var _ config.Config[Config] = Config{}
 
-func (c ServiceConfig) Validate() error {
+func (c Config) Validate() error {
 	v := validate.New("distribution.channel")
 	validate.NotNil(v, "host_provider", c.HostResolver)
 	validate.NotNil(v, "cluster_db", c.ClusterDB)
@@ -74,7 +81,7 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+func (c Config) Override(other Config) Config {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.ClusterDB = override.Nil(c.ClusterDB, other.ClusterDB)
 	c.TSChannel = override.Nil(c.TSChannel, other.TSChannel)
@@ -85,9 +92,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-var DefaultConfig = ServiceConfig{}
+var DefaultConfig = Config{ValidateNames: config.True(), ForceMigration: config.False()}
 
-func New(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func New(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -103,6 +110,7 @@ func New(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{
+		cfg:   cfg,
 		db:    cfg.ClusterDB,
 		proxy: proxy,
 		otg:   cfg.Ontology,
