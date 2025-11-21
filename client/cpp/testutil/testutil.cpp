@@ -27,14 +27,31 @@ std::mt19937 random_generator(const std::string &suite_name) {
 
 synnax::Channel
 create_virtual_channel(const synnax::Synnax &client, const telem::DataType &data_type) {
-    auto [ch, err] = client.channels.create("data", data_type, true);
+    static thread_local std::mt19937 rng(std::random_device{}());
+    auto n = std::uniform_int_distribution<uint64_t>(1, 1000000000)(rng);
+    auto [ch, err] = client.channels.create(
+        "virtual_channel_data_" + std::to_string(n),
+        data_type,
+        true
+    );
     return ch;
 }
 
 std::pair<synnax::Channel, synnax::Channel>
 create_indexed_pair(synnax::Synnax &client) {
-    auto [idx, err_one] = client.channels.create("index", telem::TIMESTAMP_T, 0, true);
-    auto [data, err_two] = client.channels
-                               .create("data", telem::FLOAT32_T, idx.key, false);
+    static thread_local std::mt19937 rng(std::random_device{}());
+    auto n = std::uniform_int_distribution<uint64_t>(1, 1000000000)(rng);
+    auto [idx, err_one] = client.channels.create(
+        "index_" + std::to_string(n),
+        telem::TIMESTAMP_T,
+        0,
+        true
+    );
+    auto [data, err_two] = client.channels.create(
+        "data_" + std::to_string(n),
+        telem::FLOAT32_T,
+        idx.key,
+        false
+    );
     return {idx, data};
 }
