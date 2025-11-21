@@ -211,5 +211,5 @@ class ConsolePage:
 
             return None
 
-        except:
-            raise RuntimeError(f'Could not get value for channel "{channel_name}"')
+        except Exception as e:
+            raise RuntimeError(f'Could not get value for channel "{channel_name}": {e}')
