@@ -13,11 +13,11 @@ import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
-export const POLICY_CREATE_LAYOUT_TYPE = "createPolicy";
+export const CREATE_LAYOUT_TYPE = "create_policy";
 
-export const POLICY_CREATE_LAYOUT: Layout.BaseState = {
-  key: POLICY_CREATE_LAYOUT_TYPE,
-  type: POLICY_CREATE_LAYOUT_TYPE,
+export const CREATE_LAYOUT: Layout.BaseState = {
+  key: CREATE_LAYOUT_TYPE,
+  type: CREATE_LAYOUT_TYPE,
   icon: "Policy",
   location: "modal",
   name: "Policy.Create",

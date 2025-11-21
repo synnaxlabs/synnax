@@ -14,11 +14,11 @@ import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
-export const ROLE_CREATE_LAYOUT_TYPE = "createRole";
+export const CREATE_LAYOUT_TYPE = "create_role";
 
-export const ROLE_CREATE_LAYOUT: Layout.BaseState = {
-  key: ROLE_CREATE_LAYOUT_TYPE,
-  type: ROLE_CREATE_LAYOUT_TYPE,
+export const CREATE_LAYOUT: Layout.BaseState = {
+  key: CREATE_LAYOUT_TYPE,
+  type: CREATE_LAYOUT_TYPE,
   icon: "Role",
   location: "modal",
   name: "Role.Create",
