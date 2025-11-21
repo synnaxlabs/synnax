@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/user/Avatar";
-export * from "@/user/CreateIcon";
-export * from "@/user/queries";
+import { Icon } from "@/icon";
+
+export const CreateIcon = Icon.createComposite(Icon.Policy, { topRight: Icon.Add });

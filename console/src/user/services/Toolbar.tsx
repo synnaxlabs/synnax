@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, User } from "@synnaxlabs/pluto";
+import { Access as PAccess, Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Access } from "@/access";
@@ -28,22 +28,19 @@ const Content = (): ReactElement => {
             onClick={() => placeLayout(REGISTER_LAYOUT)}
             tooltip="Create User"
           >
-            <Icon.User />
-            <Icon.Add />
+            <User.CreateIcon />
           </Toolbar.Action>
           <Toolbar.Action
             onClick={() => placeLayout(Access.Role.CREATE_LAYOUT)}
             tooltip="Create Role"
           >
-            <Icon.Role />
-            <Icon.Add />
+            <PAccess.Role.CreateIcon />
           </Toolbar.Action>
           <Toolbar.Action
             onClick={() => placeLayout(Access.Policy.CREATE_LAYOUT)}
             tooltip="Create Policy"
           >
-            <Icon.Policy />
-            <Icon.Add />
+            <PAccess.Policy.CreateIcon />
           </Toolbar.Action>
         </Toolbar.Actions>
       </Toolbar.Header>

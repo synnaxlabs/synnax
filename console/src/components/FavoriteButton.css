@@ -9,29 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
-<<<<<<<< HEAD:pluto/src/user/Avatar.css
-.pluto-avatar {
-    position: relative;
-    overflow: hidden;
-    z-index: 20;
-    opacity: 0.8;
-    cursor: default;
-    &::after {
-        content: "";
-        position: absolute;
-        border: 1px solid var(--pluto-gray-l10-25);
-        top: 0px;
-        left: 0px;
-        bottom: 0px;
-        right: 0px;
-        border-radius: inherit;
-========
 .console-favorite-button {
     transition: opacity 0.2s ease-in-out;
     will-change: opacity;
 
     &.console--favorite {
         color: goldenrod;
->>>>>>>> 37de8639fa56d9208fe350e4b1b00e0e1a58a0bc:console/src/components/FavoriteButton.css
     }
 }
