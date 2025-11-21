@@ -170,3 +170,136 @@ class TestTaskClient:
         assert copied.name == copy_name
         assert copied.type == original.type
         assert copied.config == original.config
+
+    def test_rack_assignment_from_device(self, client: sy.Synnax):
+        """Should assign task to the same rack as its device."""
+        # Get the embedded rack
+        embedded_rack = client.hardware.racks.retrieve_embedded_rack()
+
+        # Create a device on the embedded rack
+        device = client.hardware.devices.create(
+            key=str(uuid4()),
+            name=str(uuid4()),
+            rack=embedded_rack.key,
+            location="test",
+            model="test_model",
+        )
+
+        # Create a task with device in config
+        task = sy.Task(
+            name=str(uuid4()),
+            type="test",
+            config=f'{{"device": "{device.key}"}}',
+        )
+
+        # Configure the task - should extract rack from device
+        def driver(ev: threading.Event):
+            with client.open_streamer("sy_task_set") as s:
+                with client.open_writer(sy.TimeStamp.now(), "sy_task_status") as w:
+                    ev.set()
+                    f = s.read(timeout=2)
+                    task_key = f["sy_task_set"][0]
+                    w.write(
+                        "sy_task_status",
+                        [
+                            sy.TaskStatus(
+                                variant=SUCCESS_VARIANT,
+                                message="Task configured.",
+                                details=sy.TaskStatusDetails(task=int(task_key)),
+                            ).model_dump(),
+                        ],
+                    )
+
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
+        t.start()
+        ev.wait()
+        configured_task = client.hardware.tasks.configure(task)
+        t.join()
+
+        # Extract rack from task key (upper 32 bits)
+        task_rack_key = configured_task.key >> 32
+        assert task_rack_key == embedded_rack.key
+
+    def test_rack_assignment_fallback_device_not_found(self, client: sy.Synnax):
+        """Should fallback to default rack gracefully when device not found."""
+        # Get the embedded rack
+        embedded_rack = client.hardware.racks.retrieve_embedded_rack()
+
+        # Create a task with non-existent device in config
+        task = sy.Task(
+            name=str(uuid4()),
+            type="test",
+            config='{"device": "non-existent-device-key"}',
+        )
+
+        # Configure the task - should fall back to default rack
+        def driver(ev: threading.Event):
+            with client.open_streamer("sy_task_set") as s:
+                with client.open_writer(sy.TimeStamp.now(), "sy_task_status") as w:
+                    ev.set()
+                    f = s.read(timeout=2)
+                    task_key = f["sy_task_set"][0]
+                    w.write(
+                        "sy_task_status",
+                        [
+                            sy.TaskStatus(
+                                variant=SUCCESS_VARIANT,
+                                message="Task configured.",
+                                details=sy.TaskStatusDetails(task=int(task_key)),
+                            ).model_dump(),
+                        ],
+                    )
+
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
+        t.start()
+        ev.wait()
+        configured_task = client.hardware.tasks.configure(task)
+        t.join()
+
+        # Should still get a valid task key (with default rack)
+        assert configured_task.key != 0
+        task_rack_key = configured_task.key >> 32
+        assert task_rack_key == embedded_rack.key
+
+    def test_rack_assignment_no_device_in_config(self, client: sy.Synnax):
+        """Should use default rack when no device specified in config."""
+        # Get the embedded rack
+        embedded_rack = client.hardware.racks.retrieve_embedded_rack()
+
+        # Create a task with no device in config
+        task = sy.Task(
+            name=str(uuid4()),
+            type="test",
+            config='{"some_other_field": "value"}',
+        )
+
+        # Configure the task - should use default rack
+        def driver(ev: threading.Event):
+            with client.open_streamer("sy_task_set") as s:
+                with client.open_writer(sy.TimeStamp.now(), "sy_task_status") as w:
+                    ev.set()
+                    f = s.read(timeout=2)
+                    task_key = f["sy_task_set"][0]
+                    w.write(
+                        "sy_task_status",
+                        [
+                            sy.TaskStatus(
+                                variant=SUCCESS_VARIANT,
+                                message="Task configured.",
+                                details=sy.TaskStatusDetails(task=int(task_key)),
+                            ).model_dump(),
+                        ],
+                    )
+
+        ev = threading.Event()
+        t = threading.Thread(target=driver, args=(ev,))
+        t.start()
+        ev.wait()
+        configured_task = client.hardware.tasks.configure(task)
+        t.join()
+
+        # Extract rack from task key (upper 32 bits)
+        task_rack_key = configured_task.key >> 32
+        assert task_rack_key == embedded_rack.key
