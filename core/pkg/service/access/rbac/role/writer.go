@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/x/errors"
@@ -20,8 +21,9 @@ import (
 )
 
 type Writer struct {
-	tx  gorp.Tx
-	otg ontology.Writer
+	tx    gorp.Tx
+	otg   ontology.Writer
+	group group.Group
 }
 
 // Create creates a new role in the database.
@@ -35,7 +37,10 @@ func (w Writer) Create(
 	if err := gorp.NewCreate[uuid.UUID, Role]().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DefineResource(ctx, OntologyID(r.Key))
+	if err := w.otg.DefineResource(ctx, OntologyID(r.Key)); err != nil {
+		return err
+	}
+	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, r.OntologyID())
 }
 
 // Delete removes a role from the database. It will fail if the role is builtin

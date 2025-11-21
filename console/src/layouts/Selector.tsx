@@ -8,13 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { uuid } from "@synnaxlabs/x";
-import { useStore } from "react-redux";
 
 import { Arc } from "@/arc";
 import { Hardware } from "@/hardware";
 import { type Layout } from "@/layout";
 import { Selector as CoreSelector } from "@/selector";
-import { type RootState } from "@/store";
 import { Vis } from "@/vis";
 
 export const SELECTOR_LAYOUT_TYPE = "layoutSelector";
@@ -33,18 +31,16 @@ export const createSelectorLayout = (
   key: uuid.create(),
 });
 
-export const Selector: Layout.Renderer = (props) => {
-  const store = useStore<RootState>();
-  const selectables = [
-    ...Vis.getSelectables(store.getState()),
-    ...Hardware.SELECTABLES,
-    ...Arc.SELECTABLES,
-  ];
-  return (
-    <CoreSelector.Selector
-      selectables={selectables}
-      text="Select a Component Type"
-      {...props}
-    />
-  );
-};
+const SELECTABLES: CoreSelector.Selectable[] = [
+  ...Vis.SELECTABLES,
+  ...Hardware.SELECTABLES,
+  ...Arc.SELECTABLES,
+];
+
+export const Selector: Layout.Renderer = (props) => (
+  <CoreSelector.Selector
+    selectables={SELECTABLES}
+    text="Select a Component Type"
+    {...props}
+  />
+);

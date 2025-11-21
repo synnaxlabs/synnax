@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -30,6 +31,7 @@ type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Signals  *signals.Provider
+	Group    *group.Service
 }
 
 var (
@@ -42,6 +44,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Group = override.Nil(c.Group, other.Group)
 	return c
 }
 
@@ -50,6 +53,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("rbac")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "group", c.Group)
 	return v.Error()
 }
 
@@ -100,6 +104,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
 		Signals:  cfg.Signals,
+		Group:    cfg.Group,
 	})
 	if err != nil {
 		return nil, err

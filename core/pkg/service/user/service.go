@@ -66,11 +66,8 @@ func (c Config) Validate() error {
 type Service struct {
 	// Config is the configuration for the service.
 	Config
-	group           group.Group
 	shutdownSignals io.Closer
 }
-
-const groupName = "Users"
 
 // NewService opens a new Service with the given context ctx and configurations configs.
 func NewService(ctx context.Context, configs ...Config) (*Service, error) {
@@ -78,11 +75,8 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
-	if err != nil {
-		return nil, err
-	}
-	s := &Service{Config: cfg, group: g}
+
+	s := &Service{Config: cfg}
 	cfg.Ontology.RegisterService(s)
 
 	if cfg.Signals != nil {

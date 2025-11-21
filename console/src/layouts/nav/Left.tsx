@@ -16,7 +16,6 @@ import { type ReactElement } from "react";
 import { Layout } from "@/layout";
 import { LOGO_LOCATION } from "@/layouts/nav/logo";
 import { Menu } from "@/layouts/nav/Menu";
-import { Settings } from "@/settings";
 
 export const Left = (): ReactElement => (
   <Layout.Nav.Bar location="left" size="8rem">
@@ -30,7 +29,6 @@ export const Left = (): ReactElement => (
     </Nav.Bar.Content>
     <Nav.Bar.End bordered>
       <Menu location="bottom" />
-      <Settings.Button />
     </Nav.Bar.End>
   </Layout.Nav.Bar>
 );

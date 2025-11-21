@@ -17,7 +17,6 @@ const REGISTER_USER_COMMAND: Palette.Command = {
   name: "Register a User",
   key: "register-user",
   onSelect: ({ placeLayout }) => placeLayout(User.REGISTER_LAYOUT),
-  visible: (state) => User.selectHasPermission(state),
 };
 
 export const COMMANDS = [REGISTER_USER_COMMAND];

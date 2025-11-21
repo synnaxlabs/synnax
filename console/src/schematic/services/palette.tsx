@@ -17,7 +17,6 @@ const CREATE_COMMAND: Palette.Command = {
   name: "Create a Schematic",
   icon: <CreateIcon />,
   onSelect: ({ placeLayout }) => placeLayout(Schematic.create()),
-  visible: Schematic.selectHasPermission,
 };
 
 const IMPORT_COMMAND: Palette.Command = {
@@ -26,7 +25,6 @@ const IMPORT_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <ImportIcon />,
   onSelect: import_,
-  visible: Schematic.selectHasPermission,
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

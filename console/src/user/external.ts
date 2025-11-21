@@ -12,7 +12,6 @@ import { Register, REGISTER_LAYOUT_TYPE } from "@/user/Register";
 
 export * from "@/user/Badge";
 export * from "@/user/Register";
-export * from "@/user/selectors";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [REGISTER_LAYOUT_TYPE]: Register,

@@ -42,8 +42,7 @@ type Policy struct {
 	// Actions is the list of actions that the policy applies to
 	Actions []access.Action `json:"actions" msgpack:"actions"`
 	// Version tracks the policy schema version (V1 = role-based)
-	Version  version.Counter `json:"version" msgpack:"version"`
-	Internal bool            `json:"internal" msgpack:"internal"`
+	Version version.Counter `json:"version" msgpack:"version"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Policy{}

@@ -7,24 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type user } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { type Flux, Icon, Menu as PMenu, Text, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Menu } from "@/components";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
-import { useSelectHasPermission } from "@/user/selectors";
-
-const editPermissions = ({
-  placeLayout,
-  selection: { ids },
-  state: { getResource },
-}: Ontology.TreeContextMenuProps) => {
-  const user = getResource(ids[0]).data as user.User;
-  // const layout = Permissions.createEditLayout(user);
-  // placeLayout(layout);
-};
 
 const useDelete = createUseDelete({
   type: "User",
@@ -62,17 +51,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const handleSelect = {
-    permissions: () => editPermissions(props),
     rename,
     delete: handleDelete,
   };
   const singleResource = ids.length === 1;
-  const hasRootUser = ids.some((id) => {
-    const user = getResource(id).data as user.User;
-    return user.rootUser;
-  });
   const isNotCurrentUser = getResource(ids[0]).name !== client.params.username;
-  const canEditOrDelete = useSelectHasPermission();
 
   return (
     <PMenu.Menu onChange={handleSelect} level="small" gap="small">
@@ -85,12 +68,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      {canEditOrDelete && !hasRootUser && (
-        <>
-          <Menu.DeleteItem />
-          <PMenu.Divider />
-        </>
-      )}
+      <>
+        <Menu.DeleteItem />
+        <PMenu.Divider />
+      </>
       {singleResource && (
         <>
           <Ontology.CopyMenuItem {...props} />

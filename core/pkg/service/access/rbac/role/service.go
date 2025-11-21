@@ -14,6 +14,7 @@ import (
 	"io"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
@@ -22,17 +23,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// UserRoleGetter is an interface for getting user roles. This allows the RBAC
-// service to check role-based policies without depending on the full user service.
-type UserRoleGetter interface {
-	GetUserRoles(ctx context.Context, userKey uuid.UUID) ([]uuid.UUID, error)
-}
-
 type Config struct {
-	DB             *gorp.DB
-	Ontology       *ontology.Ontology
-	Signals        *signals.Provider
-	UserRoleGetter UserRoleGetter
+	DB       *gorp.DB
+	Ontology *ontology.Ontology
+	Signals  *signals.Provider
+	Group    *group.Service
 }
 
 var (
@@ -45,6 +40,7 @@ func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Group = override.Nil(c.Group, other.Group)
 	return c
 }
 
@@ -52,12 +48,15 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("policy")
 	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "ontology", c.Ontology)
 	return v.Error()
 }
 
 type Service struct {
 	Config
 	signals io.Closer
+	group   group.Group
 }
 
 func (s *Service) Close() error {
@@ -67,6 +66,8 @@ func (s *Service) Close() error {
 	return nil
 }
 
+const groupName = "Users"
+
 func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
@@ -75,6 +76,10 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	s := &Service{Config: cfg}
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
+	}
+	s.group, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	if err != nil {
+		return nil, err
 	}
 	if cfg.Signals != nil {
 		if s.signals, err = signals.PublishFromGorp[uuid.UUID, Role](
@@ -90,8 +95,9 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:  gorp.OverrideTx(s.DB, tx),
-		otg: s.Ontology.NewWriter(tx),
+		tx:    gorp.OverrideTx(s.DB, tx),
+		otg:   s.Ontology.NewWriter(tx),
+		group: s.group,
 	}
 }
 

@@ -108,10 +108,3 @@ export class Client {
     );
   }
 }
-
-export const ontologyID = (key: Key): ontology.ID => ({ type: "policy", key });
-
-export const ALLOW_ALL_ONTOLOGY_ID: ontology.ID = {
-  type: "allow_all",
-  key: "",
-};

@@ -8,17 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { uuid } from "@synnaxlabs/x";
-import { useStore } from "react-redux";
 
 import { type Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
 import { Selector as CoreSelector } from "@/selector";
-import { type RootState } from "@/store";
 import { Table } from "@/table";
 
-const SELECTABLES: CoreSelector.Selectable[] = [
+export const SELECTABLES: CoreSelector.Selectable[] = [
   ...LinePlot.SELECTABLES,
   ...Schematic.SELECTABLES,
   ...Log.SELECTABLES,
@@ -35,21 +33,10 @@ export const createSelectorLayout = (): Layout.BaseState => ({
   key: uuid.create(),
 });
 
-export const getSelectables = (storeState: RootState): CoreSelector.Selectable[] => {
-  const canCreateSchematic = Schematic.selectHasPermission(storeState);
-  return SELECTABLES.filter((s) =>
-    s.key === Schematic.SELECTABLE.key ? canCreateSchematic : true,
-  );
-};
-
-export const Selector: Layout.Renderer = (props) => {
-  const store = useStore<RootState>();
-  const selectables = getSelectables(store.getState());
-  return (
-    <CoreSelector.Selector
-      selectables={selectables}
-      text="Select a Visualization Type"
-      {...props}
-    />
-  );
-};
+export const Selector: Layout.Renderer = (props) => (
+  <CoreSelector.Selector
+    selectables={SELECTABLES}
+    text="Select a Visualization Type"
+    {...props}
+  />
+);

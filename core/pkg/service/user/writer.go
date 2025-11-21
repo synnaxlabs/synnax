@@ -49,10 +49,7 @@ func (w Writer) Create(ctx context.Context, u *User) error {
 		return err
 	}
 	otgID := OntologyID(u.Key)
-	if err = w.otg.DefineResource(ctx, otgID); err != nil {
-		return err
-	}
-	return w.otg.DefineRelationship(ctx, w.svc.group.OntologyID(), ontology.ParentOf, otgID)
+	return w.otg.DefineResource(ctx, otgID)
 }
 
 // ChangeUsername updates the username of the user with the given key. If a User with

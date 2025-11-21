@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { access, ontology, user } from "@synnaxlabs/client";
+import { uuid } from "@synnaxlabs/x";
 import z from "zod";
 
 import { type access as aetherAccess } from "@/access/aether";
 import { Flux } from "@/flux";
-import { Synnax } from "@/synnax";
 
 export type Action = "create" | "delete" | "retrieve" | "update";
 
@@ -34,12 +34,25 @@ const retrievePoliciesForSubject = async ({
   RetrievePoliciesForSubjectQuery,
   aetherAccess.FluxSubStore
 >): Promise<access.policy.Policy[]> => {
-  const rels = store.relationships.get((r) =>
-    ontology.matchRelationship(r, { from: subject, type: "has_role" }),
+  const roleRels = store.relationships.get((r) =>
+    ontology.matchRelationship(r, {
+      from: { type: "role" },
+      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      to: subject,
+    }),
   );
-  if (rels.length != 0) {
-    const roles = store.roles.get(rels.map((r) => r.to.key));
-    return store.policies.get(roles.flatMap((r) => r.policies));
+  const policyRels = store.relationships.get((r) =>
+    roleRels.some((rr) =>
+      ontology.matchRelationship(r, {
+        from: rr.from,
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        to: { type: "policy" },
+      }),
+    ),
+  );
+  if (policyRels.length > 0) {
+    const policyKeys = policyRels.map((r) => r.to.key);
+    return store.policies.get(policyKeys);
   }
   return await client.access.policies.retrieve({ for: subject });
 };
@@ -69,23 +82,10 @@ export const { useRetrieve: useHasPermission } = Flux.createRetrieve<
   retrieve: hasPermission,
 });
 
-export const useIsAdmin = (): boolean => {
-  const client = Synnax.use();
-  const userKey = client?.auth?.user?.key;
-  const isRootUser = client?.auth?.user?.rootUser;
-  const { data: canManageUsers } = useHasPermission({
-    subject: userKey != null ? user.ontologyID(userKey) : undefined,
-    objects: [user.ontologyID("")],
-    actions: "create",
-  });
-  return (isRootUser ?? false) || (canManageUsers ?? false);
-};
-
 const roleFormSchema = z.object({
   key: z.uuid().optional(),
   name: z.string(),
   description: z.string().optional(),
-  policies: access.policy.newZ.array(),
 });
 
 export interface RetrieveRoleQuery {
@@ -118,7 +118,6 @@ export const useRoleForm = Flux.createForm<
     key: undefined,
     name: "",
     description: "",
-    policies: [],
   },
   retrieve: async ({ client, query, store }) => {
     if (query.key == null) return;
@@ -127,17 +126,9 @@ export const useRoleForm = Flux.createForm<
   },
   update: async ({ client, value, store, set, rollbacks }) => {
     const v = value();
-    const policies = await client.access.policies.create(v.policies);
-    store.policies.set(policies);
-    set("policies", policies);
-    const r = await client.access.roles.create({
-      key: v.key,
-      name: v.name,
-      description: v.description,
-      policies: policies.map((p) => p.key),
-    });
-    store.roles.set(r.key, r);
+    let r: access.role.Role = { key: uuid.create(), ...v };
     rollbacks.push(store.roles.set(r.key, r));
+    r = await client.access.roles.create(r);
     set("key", r.key);
   },
 });

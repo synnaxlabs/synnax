@@ -9,6 +9,7 @@
 
 import { ontology, ranger, schematic, type Synnax } from "@synnaxlabs/client";
 import {
+  Access,
   type Flux,
   Icon,
   Menu as PMenu,
@@ -145,7 +146,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     group: () => group(props),
     link: () => handleLink({ name: first.name, ontologyID: firstID }),
   };
-  const canEditSchematic = Schematic.useSelectHasPermission();
+  const canEditSchematic = Access.useHasPermission({
+    objects: schematic.ontologyID(firstID.key),
+    actions: "create",
+  });
   const isSingle = ids.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" gap="small">

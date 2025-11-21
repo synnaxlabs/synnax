@@ -184,7 +184,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const isEditable = useSelectEditable(layoutKey);
   const hasEditPermission = Access.useHasPermission({
     objects: schematic.ontologyID(layoutKey),
-    action: "create",
+    actions: "create",
   });
   useEffect(() => {
     if (!hasEditPermission && isEditable)
@@ -298,7 +298,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   }, [windowKey, state.editable, syncDispatch]);
 
   const [legendPosition, setLegendPosition] = useState<sticky.XY>(
-    schematic.legend.position,
+    state.legend.position,
   );
 
   const storeLegendPosition = useCallback(
@@ -460,7 +460,7 @@ export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 
 export const create =
   (initial: CreateArg = {}): Layout.Creator =>
-  ({ dispatch, store }) => {
+  ({ dispatch }) => {
     // TODO: Add permission check here.
     const canEditSchematic = true;
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
