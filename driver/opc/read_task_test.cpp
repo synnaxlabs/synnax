@@ -1048,7 +1048,7 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
         client->channels.create("opc_test_index", telem::TIMESTAMP_T, 0, true)
     );
     auto ch = ASSERT_NIL_P(
-        client->channels.create("test_channel", telem::FLOAT32_T, index_ch.key, false)
+        client->channels.create("opc_test_channel", telem::FLOAT32_T, index_ch.key, false)
     );
 
     // Create task config

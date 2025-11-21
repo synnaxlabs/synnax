@@ -224,7 +224,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     ASSERT_NIL(sy->hardware.create_device(dev));
 
     // Create a channel
-    auto ch = ASSERT_NIL_P(sy->channels.create("test_channel", telem::FLOAT64_T, true));
+    auto ch = ASSERT_NIL_P(sy->channels.create("labjack_test_channel_1", telem::FLOAT64_T, true));
 
     // Create a config with an invalid channel type
     auto j = basic_read_task_config();
@@ -259,7 +259,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
         ""
     );
     ASSERT_NIL(sy->hardware.create_device(dev));
-    auto ch = ASSERT_NIL_P(sy->channels.create("test_channel", telem::FLOAT64_T, true));
+    auto ch = ASSERT_NIL_P(sy->channels.create("labjack_test_channel_2", telem::FLOAT64_T, true));
 
     auto j = basic_read_task_config();
     j["data_saving"] = true;

@@ -33,7 +33,7 @@ protected:
         sy = std::make_shared<synnax::Synnax>(new_test_client());
 
         // Create index channel
-        index_channel = synnax::Channel("time_channel", telem::TIMESTAMP_T, 0, true);
+        index_channel = synnax::Channel("modbus_read_time_channel", telem::TIMESTAMP_T, 0, true);
         ASSERT_NIL(sy->channels.create(index_channel));
 
         // Create rack and device
@@ -272,7 +272,7 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
 
     // Create data channel
     auto data_channel = ASSERT_NIL_P(
-        sy->channels.create("discrete_input", telem::UINT8_T, index_channel.key, false)
+        sy->channels.create("modbus_read_discrete_input_data_channel", telem::UINT8_T, index_channel.key, false)
     );
 
     // Create task configuration
