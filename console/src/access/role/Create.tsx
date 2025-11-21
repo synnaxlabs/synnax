@@ -32,9 +32,9 @@ export const ROLE_CREATE_LAYOUT: Layout.BaseState = {
 
 export const Create: Layout.Renderer = ({ onClose }) => {
   const client = Synnax.use();
-  const { form, save, variant } = Access.useRoleForm({
+  const { form, save, variant } = Access.Role.useForm({
     query: {},
-    afterSave: useCallback(() => onClose(), [onClose]),
+    afterSave: onClose,
   });
 
   return (
@@ -45,7 +45,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
         style={{ padding: "1rem 3rem" }}
         grow
       >
-        <Form.Form {...form}>
+        <Form.Form<typeof Access.Role.formSchema> {...form}>
           <Flex.Box y>
             <Form.TextField
               path="name"

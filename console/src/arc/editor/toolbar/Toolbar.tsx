@@ -40,7 +40,7 @@ const NotEditableContent = ({
   name,
 }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
-  const hasEditingPermissions = Access.useHasPermission({
+  const hasEditingPermissions = Access.useGranted({
     objects: arc.ontologyID(layoutKey),
     actions: "create",
   });
@@ -97,7 +97,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [dispatch],
   );
-  const canEdit = Access.useHasPermission({
+  const canEdit = Access.useGranted({
     objects: arc.ontologyID(layoutKey),
     actions: "create",
   });

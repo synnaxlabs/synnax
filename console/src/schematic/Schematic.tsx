@@ -182,7 +182,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   }, [name, prevName, layoutKey, syncDispatch]);
 
   const isEditable = useSelectEditable(layoutKey);
-  const hasEditPermission = Access.useHasPermission({
+  const hasEditPermission = Access.useGranted({
     objects: schematic.ontologyID(layoutKey),
     actions: "create",
   });

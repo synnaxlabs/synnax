@@ -146,7 +146,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     group: () => group(props),
     link: () => handleLink({ name: first.name, ontologyID: firstID }),
   };
-  const canEditSchematic = Access.useHasPermission({
+  const canEditSchematic = Access.useGranted({
     objects: schematic.ontologyID(firstID.key),
     actions: "create",
   });

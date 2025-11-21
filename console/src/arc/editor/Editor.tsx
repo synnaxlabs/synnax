@@ -201,7 +201,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const theme = Theming.use();
   const viewportRef = useSyncedRef(state.graph.viewport);
-  const canEdit = Access.useHasPermission({
+  const canEdit = Access.useGranted({
     objects: arc.ontologyID(layoutKey),
     actions: "create",
   });

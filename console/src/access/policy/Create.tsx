@@ -40,7 +40,7 @@ export const Create: Layout.Renderer = ({ onClose }) => {
         style={{ padding: "1rem 3rem" }}
         grow
       >
-        <Text.Text level="h3" shade={6}>
+        <Text.Text level="h3" color={6}>
           Policy creation form coming soon...
         </Text.Text>
       </Flex.Box>

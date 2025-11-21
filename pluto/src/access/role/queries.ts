@@ -112,15 +112,15 @@ export const { useUpdate: useRename } = Flux.createUpdate<
   },
 });
 
-export const roleFormSchema = access.role.newZ;
+export const formSchema = access.role.newZ;
 
 export const useForm = Flux.createForm<
   Partial<RetrieveQuery>,
-  typeof roleFormSchema,
+  typeof formSchema,
   role.FluxSubStore
 >({
   name: RESOURCE_NAME,
-  schema: roleFormSchema,
+  schema: formSchema,
   initialValues: {
     key: undefined,
     name: "",

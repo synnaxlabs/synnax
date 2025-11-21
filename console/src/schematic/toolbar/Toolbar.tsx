@@ -40,7 +40,7 @@ interface NotEditableContentProps extends ToolbarProps {}
 const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
-  const hasEditingPermissions = Access.useHasPermission({
+  const hasEditingPermissions = Access.useGranted({
     objects: schematic.ontologyID(layoutKey),
     actions: "create",
   });
@@ -94,7 +94,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [dispatch, layoutKey],
   );
-  const canEdit = Access.useHasPermission({
+  const canEdit = Access.useGranted({
     objects: schematic.ontologyID(layoutKey),
     actions: "create",
   });
