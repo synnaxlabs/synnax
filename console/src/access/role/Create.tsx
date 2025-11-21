@@ -9,7 +9,6 @@
 
 import { Access, Button, Flex, Form, Nav, Synnax } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
