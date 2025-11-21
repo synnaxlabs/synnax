@@ -12,30 +12,16 @@ import { type access } from "@synnaxlabs/client";
 import { type flux } from "@/flux/aether";
 import { type Ontology } from "@/ontology";
 
-export const POLICIES_FLUX_STORE_KEY = "policies";
+export const FLUX_STORE_KEY = "policies";
 
-export const ROLES_FLUX_STORE_KEY = "roles";
-
-export interface RoleFluxStore
-  extends flux.UnaryStore<access.role.Key, access.role.Role> {}
-
-export interface PolicyFluxStore
+export interface FluxStore
   extends flux.UnaryStore<access.policy.Key, access.policy.Policy> {}
 
 export interface FluxSubStore extends Ontology.FluxSubStore {
-  [POLICIES_FLUX_STORE_KEY]: PolicyFluxStore;
-  [ROLES_FLUX_STORE_KEY]: RoleFluxStore;
+  [FLUX_STORE_KEY]: FluxStore;
 }
 
-export const ROLES_FLUX_STORE_CONFIG: flux.UnaryStoreConfig<
-  FluxSubStore,
-  access.role.Key,
-  access.role.Role
-> = {
-  listeners: [],
-};
-
-export const POLICIES_FLUX_STORE_CONFIG: flux.UnaryStoreConfig<
+export const FLUX_STORE_CONFIG: flux.UnaryStoreConfig<
   FluxSubStore,
   access.policy.Key,
   access.policy.Policy
