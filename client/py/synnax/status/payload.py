@@ -7,12 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Generic, Literal, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 from uuid import uuid4
 
 from freighter import Payload
 from pydantic import Field
 
+from synnax.ontology import ID
 from synnax.telem import TimeStamp
 
 SUCCESS_VARIANT = "success"
@@ -32,7 +33,21 @@ Variant = Literal[
 ]
 """Represents the variant of a status message."""
 
-D = TypeVar("D", bound=Payload)
+D = TypeVar("D", bound=Payload | None)
+
+STATUS_ONTOLOGY_TYPE = ID(type="status")
+
+
+def ontology_id(key: str) -> ID:
+    """Create an ontology ID for a status.
+
+    Args:
+        key: The status key.
+
+    Returns:
+        An ontology ID dictionary with type "status" and the given key.
+    """
+    return ID(type=STATUS_ONTOLOGY_TYPE.type, key=key)
 
 
 class Status(Payload, Generic[D]):
@@ -40,6 +55,8 @@ class Status(Payload, Generic[D]):
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     """A unique key for the status."""
+    name: str = ""
+    """A human-readable name for the status."""
     variant: Variant
     """The variant of the status."""
     message: str
@@ -48,5 +65,16 @@ class Status(Payload, Generic[D]):
     """The description of the status."""
     time: TimeStamp = Field(default_factory=TimeStamp.now)
     """The time the status was created."""
-    details: D
+    labels: list[Any] | None = None
+    """Optional labels attached to the status (only present in responses)."""
+    details: D = None
     """The details are customizable details for component specific statuses."""
+
+    @property
+    def ontology_id(self) -> ID:
+        """Get the ontology ID for the status.
+
+        Returns:
+            An ontology ID dictionary with type "status" and the status key.
+        """
+        return ontology_id(self.key)
