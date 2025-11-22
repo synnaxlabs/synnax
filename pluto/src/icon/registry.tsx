@@ -82,6 +82,8 @@ import {
   MdAlignVerticalTop,
   MdAreaChart,
   MdArrowOutward,
+  MdHorizontalDistribute,
+  MdVerticalDistribute,
   MdAutoAwesome,
   MdBlurLinear,
   MdBook,
@@ -340,6 +342,10 @@ export const Align = {
   YCenter: wrapSVGIcon(MdAlignVerticalCenter, "align-y-center"),
   Top: wrapSVGIcon(MdAlignVerticalTop, "align-top"),
   Bottom: wrapSVGIcon(MdAlignVerticalBottom, "align-bottom"),
+};
+export const Distribute = {
+  X: wrapSVGIcon(MdHorizontalDistribute, "distribute-x"),
+  Y: wrapSVGIcon(MdVerticalDistribute, "distribute-y"),
 };
 export const TextAlign = {
   Center: wrapSVGIcon(FaAlignCenter, "text-align-center"),
