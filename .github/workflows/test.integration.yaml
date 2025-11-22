@@ -219,11 +219,13 @@ jobs:
             confirm-host: confirm-host-ubuntu-latest
             artifact-name: synnax-core-linux
             binary-suffix: linux
+            executable: ""
             shell: bash
           - os: windows-latest
             confirm-host: confirm-host-windows-latest
             artifact-name: synnax-core-windows
             binary-suffix: windows.exe
+            executable: ".exe"
             shell: cmd
     runs-on: ${{ matrix.os }}
     needs: [setup, confirm-host]
@@ -269,7 +271,7 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         shell: bash
         run: |
-          mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+          mv bazel-bin/driver/driver${{ matrix.executable }} core/pkg/service/driver/assets/driver${{ matrix.executable }}
 
       - name: Set up Go
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
