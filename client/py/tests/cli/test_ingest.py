@@ -13,9 +13,9 @@ from synnax.cli.console import MockConsole
 from synnax.cli.flow import Context
 from synnax.cli.ingest import pure_ingest
 from synnax.synnax import Synnax
+from synnax.util.rand import rand_name
 
 from .data import DATA_DIR
-from synnax.util.rand import rand_name
 
 CHANNELS = ["ingest_valid_idx", "ingest_valid_1", "ingest_valid_2"]
 

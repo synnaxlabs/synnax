@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import random
+
 import numpy as np
 import pytest
 

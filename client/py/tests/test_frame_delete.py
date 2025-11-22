@@ -12,8 +12,8 @@ import pandas as pd
 import pytest
 
 import synnax as sy
-from tests.telem import seconds_linspace
 from synnax.util.rand import rand_name
+from tests.telem import seconds_linspace
 
 
 @pytest.mark.framer

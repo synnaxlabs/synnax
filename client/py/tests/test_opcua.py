@@ -12,9 +12,9 @@ from pydantic import ValidationError
 
 import synnax as sy
 from synnax.hardware.opcua import (
+    Channel,
     ReadChannel,
     ReadTask,
-    Channel,
     WrappedReadTaskConfig,
     WriteChannel,
     WriteTask,

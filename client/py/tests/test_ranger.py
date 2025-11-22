@@ -8,8 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import random
-import time
 import re
+import time
 from uuid import uuid4
 
 import numpy as np

@@ -8,11 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 import json
-from typing_extensions import deprecated
 from typing import Literal
 from uuid import uuid4
 from warnings import warn
+
 from pydantic import BaseModel, Field, field_validator
+from typing_extensions import deprecated
 
 # Security mode constants
 SecurityMode = Literal["None", "Sign", "SignAndEncrypt"]

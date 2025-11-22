@@ -7,11 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import random
+
 import pytest
 from pydantic import ValidationError
 
 import synnax as sy
-import random
 from synnax.hardware.modbus import (
     CoilInputChan,
     CoilOutputChan,
