@@ -36,7 +36,7 @@ on:
       - relic.conf
       - scripts/EnVar.dll
       - turbo.json
-      - vendor
+      - vendor/**
       - x/cpp/**
       - x/go/**
       - x/media/**
@@ -70,7 +70,7 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - turbo.json
-      - vendor
+      - vendor/**
       - x/cpp/**
       - x/go/**
       - x/ts/**

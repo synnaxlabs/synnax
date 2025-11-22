@@ -29,10 +29,6 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const deleteReqZ = z.object({ keys: z.array(keyZ) });
 
-const CREATE_ENDPOINT = "/ontology/create-group";
-const RENAME_ENDPOINT = "/ontology/rename-group";
-const DELETE_ENDPOINT = "/ontology/delete-group";
-
 export interface CreateArgs extends z.infer<typeof createReqZ> {}
 
 export class Client {
@@ -45,7 +41,7 @@ export class Client {
   async create(args: CreateArgs): Promise<Group> {
     const res = await sendRequired(
       this.client,
-      CREATE_ENDPOINT,
+      "/ontology/create-group",
       args,
       createReqZ,
       resZ,
@@ -56,7 +52,7 @@ export class Client {
   async rename(key: Key, name: string): Promise<void> {
     await sendRequired(
       this.client,
-      RENAME_ENDPOINT,
+      "/ontology/rename-group",
       { key, name },
       renameReqZ,
       z.object({}),
@@ -66,7 +62,7 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,
-      DELETE_ENDPOINT,
+      "/ontology/delete-group",
       { keys: array.toArray(keys) },
       deleteReqZ,
       z.object({}),

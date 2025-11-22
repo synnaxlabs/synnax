@@ -55,7 +55,7 @@ export class StaticFactory implements Factory {
 
 export const fixedSeriesPropsZ = z.object({
   data: z.array(typedArrayZ),
-  offsets: z.array(z.number()).optional().default([]),
+  offsets: z.array(z.number()).default([]),
 });
 
 export type FixedArrayProps = z.input<typeof fixedSeriesPropsZ>;
@@ -87,10 +87,10 @@ class FixedSeries extends AbstractSource<typeof fixedSeriesPropsZ> {
 
 export const iterativeSeriesPropsZ = fixedSeriesPropsZ.extend({
   rate: Rate.z,
-  yOffset: z.number().optional().default(0),
-  scroll: z.number().optional().default(0),
-  startPosition: z.number().optional().default(0),
-  scrollBounds: z.boolean().optional().default(false),
+  yOffset: z.number().default(0),
+  scroll: z.number().default(0),
+  startPosition: z.number().default(0),
+  scrollBounds: z.boolean().default(false),
 });
 
 export type IterativeArrayProps = z.input<typeof iterativeSeriesPropsZ>;

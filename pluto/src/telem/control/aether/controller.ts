@@ -22,7 +22,7 @@ import {
   compare,
   control as xcontrol,
   type CrudeSeries,
-  type Destructor,
+  type destructor,
   type status as xstatus,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -45,7 +45,7 @@ export const controllerStateZ = z.object({
   authority: z.number().default(0),
   acquireTrigger: z.number(),
   status: statusZ.optional(),
-  needsControlOf: channel.keyZ.array().optional().default([]),
+  needsControlOf: channel.keyZ.array().default([]),
 });
 
 interface InternalState {
@@ -377,7 +377,7 @@ export class AuthoritySource
   static readonly TYPE = "controlled-status-source";
   private readonly prov: StateProvider;
   private valid = false;
-  private stopListening?: Destructor;
+  private stopListening?: destructor.Destructor;
   private readonly controller: Controller;
   schema = authoritySourceProps;
 

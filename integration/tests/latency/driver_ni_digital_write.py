@@ -105,50 +105,50 @@ class DriverNIDigitalWrite(Latency):
         # Run NI DO Task
         self.log("Running NI DO Task")
         with tsk.run():
-            with client.open_streamer([do_1_state.key, do_state_time.key]) as stream:
-                with client.open_writer(sy.TimeStamp.now(), do_1_cmd.key) as writer:
+            with client.control.acquire(
+                name="NI Digital Write Latency Test",
+                read=[do_1_state.key, do_state_time.key],
+                write=[do_1_cmd.key],
+                write_authorities=sy.Authority.ABSOLUTE,
+            ) as ctrl:
 
-                    start_time = sy.TimeStamp.now()
-                    cmd_state: bool = False
+                start_time = sy.TimeStamp.now()
+                cmd_state: bool = False
 
-                    self.log("Begin latency test")
-                    while (sy.TimeStamp.now() - start_time) < sy.TimeSpan.SECOND * 3:
-                        # Prepare
-                        cmd_state = not cmd_state
-                        val_found = False
+                self.log("Begin latency test")
+                while (sy.TimeStamp.now() - start_time) < sy.TimeSpan.SECOND * 3:
+                    # Prepare
+                    cmd_state = not cmd_state
 
-                        # Write
-                        writer.write(do_1_cmd.key, int(cmd_state))
-                        write_time = sy.TimeStamp.now()
+                    # Write
+                    ctrl[do_1_cmd.key] = int(cmd_state)
+                    write_time = sy.TimeStamp.now()
 
-                        # Read
-                        while not val_found:
-                            frame = stream.read(timeout=1)
-                            if frame is not None:
-                                for i, v in enumerate(frame[do_1_state.key]):
-                                    if v == int(cmd_state):
-                                        state_timestamp_loop = sy.TimeStamp.now()
-                                        state_timestamp_core = sy.TimeStamp(
-                                            frame[do_state_time.key][i]
-                                        )
-                                        val_found = True
+                    # Wait for state to match command
+                    ctrl.wait_until(
+                        lambda c: c[do_1_state.key] == int(cmd_state), timeout=1
+                    )
+                    state_timestamp_loop = sy.TimeStamp.now()
 
-                        # Calculate latency
-                        latency_core = sy.TimeSpan(
-                            state_timestamp_core - write_time
-                        ).milliseconds
-                        latency_loop = sy.TimeSpan(
-                            state_timestamp_loop - write_time
-                        ).milliseconds
+                    # Get the core timestamp from the last received value
+                    state_timestamp_core = sy.TimeStamp(ctrl[do_state_time.key])
 
-                        # Store
-                        time_index.append(write_time)
-                        latencies_core.append(latency_core)
-                        latencies_loop.append(latency_loop)
+                    # Calculate latency
+                    latency_core = sy.TimeSpan(
+                        state_timestamp_core - write_time
+                    ).milliseconds
+                    latency_loop = sy.TimeSpan(
+                        state_timestamp_loop - write_time
+                    ).milliseconds
 
-                    # Set back to 0
-                    writer.write(do_1_cmd.key, int(False))
-                    frame = stream.read(timeout=1)
+                    # Store
+                    time_index.append(write_time)
+                    latencies_core.append(latency_core)
+                    latencies_loop.append(latency_loop)
+
+                # Set back to 0
+                ctrl[do_1_cmd.key] = int(False)
+                ctrl.wait_until(lambda c: c[do_1_state.key] == 0, timeout=1)
 
         self.log(f"Total samples: {len(latencies_core)}")
 
@@ -218,7 +218,7 @@ class DriverNIDigitalWrite(Latency):
         # Write latency data to Synnax
         self.log("Writing latency data to Synnax")
         with client.open_writer(
-            start=sy.TimeStamp.now(),
+            start=time_index[0],
             channels=[latency_time.key, latency_core_ch.key, latency_loop_ch.key],
         ) as writer:
             writer.write(

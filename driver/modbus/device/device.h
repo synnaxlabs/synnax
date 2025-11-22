@@ -140,10 +140,10 @@ struct ConnectionConfig {
 
     /// @brief constructs a ConnectionConfig from a JSON object.
     explicit ConnectionConfig(xjson::Parser parser):
-        host(parser.required<std::string>("host")),
-        port(parser.required<uint16_t>("port")),
-        swap_bytes(parser.required<bool>("swap_bytes")),
-        swap_words(parser.required<bool>("swap_words")) {}
+        host(parser.field<std::string>("host")),
+        port(parser.field<uint16_t>("port")),
+        swap_bytes(parser.field<bool>("swap_bytes")),
+        swap_words(parser.field<bool>("swap_words")) {}
 
     /// @brief returns the JSON representation of the configuration.
     [[nodiscard]] json to_json() const {

@@ -13,6 +13,7 @@ import random
 import synnax as sy
 
 from console.case import ConsoleCase
+from console.task.analog_read import AnalogRead
 
 
 class NoDevice(ConsoleCase):
@@ -28,15 +29,15 @@ class NoDevice(ConsoleCase):
         """
 
         self.log("Creating NI Analog Read Task Page")
-        self.console.ni_ai.new()
-
         rand_int = random.randint(100, 999)
+        ni_ai = AnalogRead(self.client, self.console, f"USB-6000_{rand_int}")
+
         rack_name = f"TestRack_{rand_int}"
         dev_name = f"USB-6000_{rand_int}"
         self.create_rack(rack_name, dev_name)
-        self.initial_assertion()
-        self.configure_without_channels()
-        self.nominal_configuration(rack_name, dev_name)
+        self.initial_assertion(ni_ai)
+        self.configure_without_channels(ni_ai)
+        self.nominal_configuration(ni_ai, rack_name, dev_name)
 
     def create_rack(self, rack_name: str, dev_name: str) -> None:
         self.log(f"Creating {rack_name} and devices")
@@ -57,11 +58,9 @@ class NoDevice(ConsoleCase):
             ]
         )
 
-    def initial_assertion(self) -> None:
+    def initial_assertion(self, ni_ai: AnalogRead) -> None:
         """Initial assertion of task status"""
-        console = self.console
-
-        status = console.ni_ai.status()
+        status = ni_ai.status()
         msg = status["msg"]
         level = status["level"]
 
@@ -75,10 +74,9 @@ class NoDevice(ConsoleCase):
             msg_expected == msg
         ), f"Task status msg <{msg}> should be <{msg_expected}>"
 
-    def configure_without_channels(self) -> None:
+    def configure_without_channels(self, ni_ai: AnalogRead) -> None:
         """Configure without defining channels"""
-        console = self.console
-        console.ni_ai.configure()
+        ni_ai.configure()
 
         # Assert error notification
         notifications = self.console.check_for_notifications()
@@ -90,7 +88,7 @@ class NoDevice(ConsoleCase):
         self.console.close_all_notifications()
 
         # Assert Task error status
-        status = console.ni_ai.status()
+        status = ni_ai.status()
         level = status["level"]
         msg = status["msg"]
         level_expected = "error"
@@ -102,12 +100,12 @@ class NoDevice(ConsoleCase):
             msg_expected == msg
         ), f"Task status msg <{msg}> should be <{msg_expected}>"
 
-    def nominal_configuration(self, rack_name: str, dev_name: str) -> None:
+    def nominal_configuration(
+        self, ni_ai: AnalogRead, rack_name: str, dev_name: str
+    ) -> None:
         """Nominal configuration of task"""
-        console = self.console
-
         # Add channel
-        console.ni_ai.add_channel(
+        ni_ai.add_channel(
             name="new_channel",
             chan_type="Voltage",
             device=dev_name,
@@ -115,18 +113,18 @@ class NoDevice(ConsoleCase):
         )
 
         self.log("Configuring task")
-        console.ni_ai.configure()
+        ni_ai.configure()
         self.log("Running task")
-        console.ni_ai.run()
+        ni_ai.run()
 
         # Status assertions
-        status = console.ni_ai.status()
+        status = ni_ai.status()
         level = status["level"]
         msg = status["msg"]
 
         while level == "loading" and self.should_continue:
             sy.sleep(0.1)
-            status = console.ni_ai.status()
+            status = ni_ai.status()
             level = status["level"]
             msg = status["msg"]
 

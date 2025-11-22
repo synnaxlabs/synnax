@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Legend } from "@synnaxlabs/pluto";
-import { migrate } from "@synnaxlabs/x";
+import { migrate, sticky } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/lineplot/types/v0";
 
 export const VERSION = "1.0.0";
 
-export const legendStateZ = v0.legendStateZ.extend({ position: Legend.stickyXYz });
+export const legendStateZ = v0.legendStateZ.extend({ position: sticky.xy });
 export interface LegendState extends z.infer<typeof legendStateZ> {}
 export const ZERO_LEGEND_STATE: LegendState = {
   ...v0.ZERO_LEGEND_STATE,
