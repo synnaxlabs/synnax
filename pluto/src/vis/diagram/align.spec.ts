@@ -161,4 +161,116 @@ describe("align", () => {
       const outputs = alignNodes(spec.inputs);
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual(spec.outputs);
     });
+
+  describe("align left", () => {
+    it("should align all nodes to the leftmost node's left edge", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 10, y: 0 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n2", box.construct({ x: 50, y: 50 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n3", box.construct({ x: 0, y: 100 }, { width: 100, height: 100 }), []),
+      ];
+      const outputs = alignNodes(inputs, "left");
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 0, y: 0 },
+        { x: 0, y: 50 },
+        { x: 0, y: 100 },
+      ]);
+    });
+
+    it("should handle nodes with different widths", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 20, y: 0 }, { width: 80, height: 100 }), []),
+        new NodeLayout("n2", box.construct({ x: 10, y: 50 }, { width: 120, height: 100 }), []),
+      ];
+      const outputs = alignNodes(inputs, "left");
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 10, y: 0 },
+        { x: 10, y: 50 },
+      ]);
+    });
+  });
+
+  describe("align right", () => {
+    it("should align all nodes to the rightmost node's right edge", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 10, y: 0 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n2", box.construct({ x: 50, y: 50 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n3", box.construct({ x: 0, y: 100 }, { width: 100, height: 100 }), []),
+      ];
+      const outputs = alignNodes(inputs, "right");
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 50, y: 0 },
+        { x: 50, y: 50 },
+        { x: 50, y: 100 },
+      ]);
+    });
+
+    it("should handle nodes with different widths", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 20, y: 0 }, { width: 80, height: 100 }), []),
+        new NodeLayout("n2", box.construct({ x: 10, y: 50 }, { width: 120, height: 100 }), []),
+      ];
+      const outputs = alignNodes(inputs, "right");
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 50, y: 0 },
+        { x: 10, y: 50 },
+      ]);
+    });
+  });
+
+  describe("align top", () => {
+    it("should align all nodes to the topmost node's top edge", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 0, y: 10 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n2", box.construct({ x: 50, y: 50 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n3", box.construct({ x: 100, y: 0 }, { width: 100, height: 100 }), []),
+      ];
+      const outputs = alignNodes(inputs, "top");
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 0, y: 0 },
+        { x: 50, y: 0 },
+        { x: 100, y: 0 },
+      ]);
+    });
+
+    it("should handle nodes with different heights", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 0, y: 20 }, { width: 100, height: 80 }), []),
+        new NodeLayout("n2", box.construct({ x: 50, y: 10 }, { width: 100, height: 120 }), []),
+      ];
+      const outputs = alignNodes(inputs, "top");
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 0, y: 10 },
+        { x: 50, y: 10 },
+      ]);
+    });
+  });
+
+  describe("align bottom", () => {
+    it("should align all nodes to the bottommost node's bottom edge", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 0, y: 10 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n2", box.construct({ x: 50, y: 50 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n3", box.construct({ x: 100, y: 0 }, { width: 100, height: 100 }), []),
+      ];
+      const outputs = alignNodes(inputs, "bottom");
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 0, y: 50 },
+        { x: 50, y: 50 },
+        { x: 100, y: 50 },
+      ]);
+    });
+
+    it("should handle nodes with different heights", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 0, y: 20 }, { width: 100, height: 80 }), []),
+        new NodeLayout("n2", box.construct({ x: 50, y: 10 }, { width: 100, height: 120 }), []),
+      ];
+      const outputs = alignNodes(inputs, "bottom");
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 0, y: 50 },
+        { x: 50, y: 10 },
+      ]);
+    });
+  });
 });
