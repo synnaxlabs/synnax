@@ -23,11 +23,10 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
 )
 
-func baseConfig(n *fmock.Network[pledge.Request, pledge.Response], logger *zap.SugaredLogger) pledge.Config {
-	cfg, _ := baseConfigWithAddr(n, logger)
+func baseConfig(n *fmock.Network[pledge.Request, pledge.Response]) pledge.Config {
+	cfg, _ := baseConfigWithAddr(n)
 	return cfg
 }
 
@@ -35,7 +34,7 @@ func allCandidates(nodes node.Group) func() node.Group {
 	return func() node.Group { return nodes }
 }
 
-func baseConfigWithAddr(n *fmock.Network[pledge.Request, pledge.Response], logger *zap.SugaredLogger) (pledge.Config, address.Address) {
+func baseConfigWithAddr(n *fmock.Network[pledge.Request, pledge.Response]) (pledge.Config, address.Address) {
 	server := n.UnaryServer("")
 	cfg := pledge.Config{
 		TransportServer: server,
@@ -50,7 +49,6 @@ func provisionCandidates(
 	nodes node.Group,
 	candidates func(i int) func() node.Group,
 	nodeState func(i int) node.State,
-	logger *zap.SugaredLogger,
 ) node.Group {
 	if candidates == nil {
 		candidates = func(i int) func() node.Group {
@@ -61,7 +59,7 @@ func provisionCandidates(
 		nodeState = func(i int) node.State { return node.StateHealthy }
 	}
 	for i := range n {
-		cfg, addr := baseConfigWithAddr(net, logger)
+		cfg, addr := baseConfigWithAddr(net)
 		Expect(pledge.Arbitrate(cfg, pledge.Config{
 			Candidates: candidates(i),
 		})).To(Succeed())
@@ -72,14 +70,8 @@ func provisionCandidates(
 }
 
 var _ = Describe("PledgeServer", func() {
-	var (
-		logger *zap.SugaredLogger
-		net    *fmock.Network[pledge.Request, pledge.Response]
-	)
-
+	var net *fmock.Network[pledge.Request, pledge.Response]
 	BeforeEach(func() {
-		//logger = lo.Must(zap.NewDevelopment()).Sugar()
-		logger = zap.NewNop().Sugar()
 		net = fmock.NewNetwork[pledge.Request, pledge.Response]()
 	})
 
@@ -101,7 +93,7 @@ var _ = Describe("PledgeServer", func() {
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 				defer cancel()
-				res, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
+				res, err := pledge.Pledge(ctx, baseConfig(net), pledge.Config{
 					Instrumentation: ins.Child("no-nodes-responding"),
 					Peers:           peers,
 					Candidates:      func() node.Group { return node.Group{} },
@@ -123,11 +115,11 @@ var _ = Describe("PledgeServer", func() {
 					nodes         = make(node.Group)
 					numCandidates = 10
 				)
-				provisionCandidates(numCandidates, net, nodes, nil, nil, logger)
+				provisionCandidates(numCandidates, net, nodes, nil, nil)
 				candidates := allCandidates(nodes)
 				ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
 				defer cancel()
-				res, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
+				res, err := pledge.Pledge(ctx, baseConfig(net), pledge.Config{
 					Instrumentation: ins.Child("cluster-state-synchronized"),
 					Peers:           nodes.Addresses(),
 					Candidates:      candidates,
@@ -151,14 +143,15 @@ var _ = Describe("PledgeServer", func() {
 						}
 					}
 				)
-				nodes = provisionCandidates(10, net, nodes, candidates, nil, logger)
+				nodes = provisionCandidates(10, net, nodes, candidates, nil)
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				defer cancel()
 				res, err := pledge.Pledge(
 					ctx,
-					baseConfig(net, logger),
+					baseConfig(net),
 					pledge.Config{
-						Peers: []address.Address{nodes[0].Address},
+						Candidates: func() node.Group { return nodes },
+						Peers:      []address.Address{nodes[0].Address},
 					},
 					pledge.BlazingFastConfig,
 				)
@@ -180,12 +173,12 @@ var _ = Describe("PledgeServer", func() {
 				)
 				provisionCandidates(10, net, nodes, func(i int) func() node.Group {
 					return lo.Ternary(i%2 == 0, extraCandidates, allCandidates)
-				}, nil, logger)
+				}, nil)
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				defer cancel()
 				res, err := pledge.Pledge(
 					ctx,
-					baseConfig(net, logger),
+					baseConfig(net),
 					pledge.Config{
 						Instrumentation: ins.Child("one-juror-aware-of-new-node"),
 						Peers:           []address.Address{allCandidates()[0].Address},
@@ -205,12 +198,12 @@ var _ = Describe("PledgeServer", func() {
 				)
 				provisionCandidates(numCandidates, net, nodes, nil, func(i int) node.State {
 					return lo.Ternary(i%2 == 0, node.StateHealthy, node.StateDead)
-				}, logger)
+				})
 				ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 				defer cancel()
 				_, err := pledge.Pledge(
 					ctx,
-					baseConfig(net, logger),
+					baseConfig(net),
 					pledge.Config{
 						Peers:      []address.Address{nodes[1].Address},
 						Candidates: allCandidates(nodes),
@@ -226,10 +219,10 @@ var _ = Describe("PledgeServer", func() {
 					numCandidates = 10
 					nodes         = make(node.Group)
 				)
-				provisionCandidates(numCandidates, net, nodes, nil, nil, logger)
+				provisionCandidates(numCandidates, net, nodes, nil, nil)
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
-				res, err := pledge.Pledge(ctx, baseConfig(net, logger), pledge.Config{
+				res, err := pledge.Pledge(ctx, baseConfig(net), pledge.Config{
 					Peers:      nodes.Addresses(),
 					Candidates: allCandidates(nodes),
 				})
@@ -253,7 +246,7 @@ var _ = Describe("PledgeServer", func() {
 					numCandidates = 10
 					numPledges    = 2
 				)
-				provisionCandidates(numCandidates, net, nodes, candidates, nil, logger)
+				provisionCandidates(numCandidates, net, nodes, candidates, nil)
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 				var wg sync.WaitGroup
@@ -263,7 +256,7 @@ var _ = Describe("PledgeServer", func() {
 					go func(i int) {
 						defer GinkgoRecover()
 						defer wg.Done()
-						cfg, addr := baseConfigWithAddr(net, logger)
+						cfg, addr := baseConfigWithAddr(net)
 						res, err := pledge.Pledge(
 							ctx,
 							cfg,
