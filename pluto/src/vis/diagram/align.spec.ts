@@ -358,6 +358,26 @@ describe("distribute", () => {
         { x: 200, y: 0 },   // 100 + 100 (width) + 0 (gap) = 200
       ]);
     });
+
+    it("should sort by vertical position when overlapping (except leftmost stays first)", () => {
+      // Negative overlap: leftmost node stays first, rest sorted by vertical position
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 50, y: 100 }, { width: 100, height: 100 }), []), // Middle horizontally, middle vertically
+        new NodeLayout("n2", box.construct({ x: 0, y: 200 }, { width: 100, height: 100 }), []),  // Leftmost, bottom
+        new NodeLayout("n3", box.construct({ x: 100, y: 0 }, { width: 100, height: 100 }), []),  // Rightmost, top
+      ];
+      const outputs = distributeNodes(inputs, "horizontal");
+      // n2 is leftmost (x=0), so it's positioned first at x=0
+      // Remaining nodes sorted by y: n3 (y=0) at x=100, n1 (y=100) at x=200
+      // Check each node's final position by finding it by key
+      const n1 = outputs.find((o) => o.key === "n1")!;
+      const n2 = outputs.find((o) => o.key === "n2")!;
+      const n3 = outputs.find((o) => o.key === "n3")!;
+
+      expect(box.topLeft(n2.box)).toEqual({ x: 0, y: 200 });    // n2: leftmost, at x=0
+      expect(box.topLeft(n3.box)).toEqual({ x: 100, y: 0 });    // n3: sorted second (top), at x=100
+      expect(box.topLeft(n1.box)).toEqual({ x: 200, y: 100 });  // n1: sorted third (middle), at x=200
+    });
   });
 
   describe("distribute vertical", () => {

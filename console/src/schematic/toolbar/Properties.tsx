@@ -182,20 +182,107 @@ const MultiElementProperties = ({
 
   const store = useStore<RootState>();
 
-  const getLayouts = () => {
+  const getLayoutsForAlignment = () => {
     const viewport = selectViewport(store.getState(), layoutKey);
+
+    // For alignment: use uniform bottom padding so all nodes align at same visual level
+    let maxBottomExtension = 0;
+    elements.forEach((el) => {
+      if (el.type !== "node") return;
+      try {
+        const nodeEl = Diagram.selectNode(el.key);
+        const rect = nodeEl.getBoundingClientRect();
+        const bottomIndicator = nodeEl.querySelector(
+          ".pluto-grid__item.pluto--location-bottom",
+        );
+        if (bottomIndicator) {
+          const indicatorRect = bottomIndicator.getBoundingClientRect();
+          const extensionBelow = Math.max(0, indicatorRect.bottom - rect.bottom);
+          maxBottomExtension = Math.max(maxBottomExtension, extensionBelow / (viewport?.zoom ?? 1));
+        }
+      } catch (e) {
+        // Skip on error
+      }
+    });
+
     return elements
       .map((el) => {
         if (el.type !== "node") return null;
-        // grab all child elements with the class 'react-flow__handle'
         try {
           const nodeEl = Diagram.selectNode(el.key);
-          const nodeBox = box.construct(
-            el.node.position,
-            box.dims(box.construct(nodeEl)),
-          );
-          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
           const nodeElBox = box.construct(nodeEl);
+          const rect = nodeEl.getBoundingClientRect();
+
+          let actualDims = {
+            width: rect.width / (viewport?.zoom ?? 1),
+            height: rect.height / (viewport?.zoom ?? 1),
+          };
+
+          // Add uniform padding for consistent alignment
+          actualDims.height += maxBottomExtension;
+
+          const nodeBox = box.construct(el.node.position, actualDims);
+          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
+          const handles = Array.from(handleEls).map((el) => {
+            const pos = box.center(box.construct(el));
+            const dist = xy.scale(
+              xy.translation(box.topLeft(nodeElBox), pos),
+              1 / (viewport?.zoom ?? 1),
+            );
+            const match = el.className.match(/react-flow__handle-(\w+)/);
+            if (match == null)
+              throw new Error(`[schematic] - cannot find handle orientation`);
+            const orientation = location.construct(match[1]) as location.Outer;
+            return new Diagram.HandleLayout(dist, orientation);
+          });
+          return new Diagram.NodeLayout(el.key, nodeBox, handles);
+        } catch (e) {
+          handleError(e, "failed to calculate schematic node layout");
+        }
+        return null;
+      })
+      .filter((el) => el !== null);
+  };
+
+  // Track top offsets for distribution (to reverse adjustment when setting positions)
+  const topOffsetsForDistribution = new Map<string, number>();
+
+  const getLayoutsForDistribution = () => {
+    const viewport = selectViewport(store.getState(), layoutKey);
+    topOffsetsForDistribution.clear();
+
+    // For distribution: use actual extensions to calculate true visual extents
+    return elements
+      .map((el) => {
+        if (el.type !== "node") return null;
+        try {
+          const nodeEl = Diagram.selectNode(el.key);
+          const nodeElBox = box.construct(nodeEl);
+          const rect = nodeEl.getBoundingClientRect();
+
+          // Calculate union of all child elements (labels, indicators, etc.)
+          const gridItems = nodeEl.querySelectorAll(".pluto-grid__item");
+          let minTop = rect.top;
+          let maxBottom = rect.bottom;
+
+          gridItems.forEach((item) => {
+            const itemRect = item.getBoundingClientRect();
+            minTop = Math.min(minTop, itemRect.top);
+            maxBottom = Math.max(maxBottom, itemRect.bottom);
+          });
+
+          const actualDims = {
+            width: rect.width / (viewport?.zoom ?? 1),
+            height: (maxBottom - minTop) / (viewport?.zoom ?? 1),
+          };
+
+          // Adjust position if there are top extensions
+          const topExtension = (rect.top - minTop) / (viewport?.zoom ?? 1);
+          topOffsetsForDistribution.set(el.key, topExtension);
+          const adjustedPosition = xy.translate(el.node.position, { x: 0, y: -topExtension });
+
+          const nodeBox = box.construct(adjustedPosition, actualDims);
+          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
           const handles = Array.from(handleEls).map((el) => {
             const pos = box.center(box.construct(el));
             const dist = xy.scale(
@@ -237,7 +324,7 @@ const MultiElementProperties = ({
           <Button.Button
             tooltip="Align nodes vertically"
             onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayouts(), "x");
+              const newPositions = Diagram.alignNodes(getLayoutsForAlignment(), "x");
               dispatch(
                 setNodePositions({
                   key: layoutKey,
@@ -253,7 +340,7 @@ const MultiElementProperties = ({
           <Button.Button
             tooltip="Align nodes horizontally"
             onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayouts(), "y");
+              const newPositions = Diagram.alignNodes(getLayoutsForAlignment(), "y");
               dispatch(
                 setNodePositions({
                   key: layoutKey,
@@ -270,7 +357,7 @@ const MultiElementProperties = ({
           <Button.Button
             tooltip="Align nodes left"
             onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayouts(), "left");
+              const newPositions = Diagram.alignNodes(getLayoutsForAlignment(), "left");
               dispatch(
                 setNodePositions({
                   key: layoutKey,
@@ -286,7 +373,7 @@ const MultiElementProperties = ({
           <Button.Button
             tooltip="Align nodes top"
             onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayouts(), "top");
+              const newPositions = Diagram.alignNodes(getLayoutsForAlignment(), "top");
               dispatch(
                 setNodePositions({
                   key: layoutKey,
@@ -302,7 +389,7 @@ const MultiElementProperties = ({
           <Button.Button
             tooltip="Align nodes bottom"
             onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayouts(), "bottom");
+              const newPositions = Diagram.alignNodes(getLayoutsForAlignment(), "bottom");
               dispatch(
                 setNodePositions({
                   key: layoutKey,
@@ -318,7 +405,7 @@ const MultiElementProperties = ({
           <Button.Button
             tooltip="Align nodes right"
             onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayouts(), "right");
+              const newPositions = Diagram.alignNodes(getLayoutsForAlignment(), "right");
               dispatch(
                 setNodePositions({
                   key: layoutKey,
@@ -338,12 +425,16 @@ const MultiElementProperties = ({
           <Button.Button
             tooltip="Distribute nodes horizontally"
             onClick={() => {
-              const newPositions = Diagram.distributeNodes(getLayouts(), "horizontal");
+              const newPositions = Diagram.distributeNodes(getLayoutsForDistribution(), "horizontal");
               dispatch(
                 setNodePositions({
                   key: layoutKey,
                   positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                    newPositions.map((n) => {
+                      const topOffset = topOffsetsForDistribution.get(n.key) ?? 0;
+                      const adjustedPos = box.topLeft(n.box);
+                      return [n.key, xy.translate(adjustedPos, { x: 0, y: topOffset })];
+                    }),
                   ),
                 }),
               );
@@ -354,12 +445,16 @@ const MultiElementProperties = ({
           <Button.Button
             tooltip="Distribute nodes vertically"
             onClick={() => {
-              const newPositions = Diagram.distributeNodes(getLayouts(), "vertical");
+              const newPositions = Diagram.distributeNodes(getLayoutsForDistribution(), "vertical");
               dispatch(
                 setNodePositions({
                   key: layoutKey,
                   positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                    newPositions.map((n) => {
+                      const topOffset = topOffsetsForDistribution.get(n.key) ?? 0;
+                      const adjustedPos = box.topLeft(n.box);
+                      return [n.key, xy.translate(adjustedPos, { x: 0, y: topOffset })];
+                    }),
                   ),
                 }),
               );
@@ -372,3 +467,4 @@ const MultiElementProperties = ({
     </Flex.Box>
   );
 };
+
