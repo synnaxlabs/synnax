@@ -91,6 +91,8 @@ func (c Config) Override(other Config) Config {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.IntOverflowCheck = override.Nil(c.IntOverflowCheck, other.IntOverflowCheck)
+	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
+	c.ForceMigration = override.Nil(c.ForceMigration, other.ForceMigration)
 	return c
 }
 

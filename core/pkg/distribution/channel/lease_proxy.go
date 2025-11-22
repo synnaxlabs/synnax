@@ -704,8 +704,10 @@ func (lp *leaseProxy) rename(
 	if len(keys) != len(names) {
 		return errors.Wrap(validate.Error, "keys and names must be the same length")
 	}
-	if err := lp.validateChannelNames(ctx, tx, keys, names, false); err != nil {
-		return err
+	if *lp.ValidateNames {
+		if err := lp.validateChannelNames(ctx, tx, keys, names, false); err != nil {
+			return err
+		}
 	}
 
 	batch := lp.renameRouter.Batch(newRenameBatch(keys, names))
