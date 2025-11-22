@@ -18,7 +18,6 @@ This pattern is useful for real-time monitoring applications where you need to a
 the most recent data points.
 """
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 import synnax as sy

@@ -11,9 +11,9 @@ import synnax as sy
 
 client = sy.Synnax()
 
-rack = client.hardware.racks.create(name="NI / LabJack Test Rack")
+rack = client.racks.create(name="NI / LabJack Test Rack")
 
-client.hardware.devices.create(
+client.devices.create(
     [
         sy.Device(
             key="130227d9-02aa-47e4-b370-0d590add1bc1",
