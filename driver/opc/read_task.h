@@ -193,6 +193,7 @@ protected:
     opc::connection::Pool::Connection connection;
     opc::ReadRequestBuilder request_builder;
     loop::Timer timer;
+    bool read_connection_checked = false;
 
     BaseReadTaskSource(
         std::shared_ptr<opc::connection::Pool> pool,
@@ -213,12 +214,52 @@ protected:
         auto [c, err] = pool->acquire(cfg.connection, "[opc.read] ");
         if (err) return err;
         connection = std::move(c);
+        read_connection_checked = false;
         return xerrors::NIL;
     }
 
     xerrors::Error stop() override {
         connection = opc::connection::Pool::Connection(nullptr, nullptr, "");
         return xerrors::NIL;
+    }
+
+    /// @brief Checks connection validity on first read and retries if stale.
+    /// Handles case when server is disconnected and restarted between task runs.
+    /// @param ua_res The OPC UA response to check and potentially update
+    /// @param status_err The parsed status error to check and potentially update
+    void
+    check_initial_connection(opc::ReadResponse &ua_res, xerrors::Error &status_err) {
+        if (!this->read_connection_checked) {
+            this->read_connection_checked = true;
+            if (status_err.matches(opc::errors::UNREACHABLE)) {
+                LOG(
+                    WARNING
+                ) << "[opc.read_task] connection error on first read, reconnecting: "
+                  << status_err;
+                this->connection = opc::connection::Pool::Connection(
+                    nullptr,
+                    nullptr,
+                    ""
+                );
+                auto [c, conn_err] = this->pool->acquire(
+                    this->cfg.connection,
+                    "[opc.read] "
+                );
+                if (conn_err) {
+                    status_err = conn_err;
+                    return;
+                }
+                this->connection = std::move(c);
+                // Retry read
+                ua_res = opc::ReadResponse(UA_Client_Service_read(
+                    this->connection.get(),
+                    this->request_builder.build()
+                ));
+                status_err = opc::errors::parse(
+                    ua_res.get().responseHeader.serviceResult
+                );
+            }
+        }
     }
 };
 
@@ -245,9 +286,11 @@ public:
             this->connection.get(),
             this->request_builder.build()
         ));
-        if (res.error = opc::errors::parse(ua_res.get().responseHeader.serviceResult);
-            res.error)
-            return res;
+        auto status_err = opc::errors::parse(ua_res.get().responseHeader.serviceResult);
+
+        this->check_initial_connection(ua_res, status_err);
+        if (res.error = status_err; res.error) return res;
+
         common::initialize_frame(
             fr,
             this->cfg.channels,
@@ -325,11 +368,13 @@ public:
                 this->connection.get(),
                 this->request_builder.build()
             ));
-            if (res.error = opc::errors::parse(
-                    ua_res.get().responseHeader.serviceResult
-                );
-                res.error)
-                return res;
+            auto status_err = opc::errors::parse(
+                ua_res.get().responseHeader.serviceResult
+            );
+
+            this->check_initial_connection(ua_res, status_err);
+            if (res.error = status_err; res.error) return res;
+
             bool skip_sample = false;
             for (std::size_t j = 0; j < ua_res.get().resultsSize; ++j) {
                 UA_DataValue &result = ua_res.get().results[j];
