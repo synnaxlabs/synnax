@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
@@ -27,17 +29,21 @@ protected:
     std::shared_ptr<modbus::device::Manager> devs;
     synnax::Channel coil_ch;
     synnax::Channel reg_ch;
+    std::string unique_suffix;
 
     void setup_task_config() {
         this->sy = std::make_shared<synnax::Synnax>(new_test_client());
         this->devs = std::make_shared<modbus::device::Manager>();
         this->ctx = std::make_shared<task::MockContext>(sy);
-        if (this->coil_ch.name.empty()) this->coil_ch.name = "coil";
+        std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        auto timestamp = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+        unique_suffix = test_name + "_" + timestamp;
+        if (this->coil_ch.name.empty()) this->coil_ch.name = "coil_" + unique_suffix;
         if (this->coil_ch.data_type == telem::UNKNOWN_T)
             this->coil_ch.data_type = telem::UINT8_T;
         this->coil_ch.is_virtual = true;
         ASSERT_NIL(sy->channels.create(this->coil_ch));
-        if (this->reg_ch.name.empty()) this->reg_ch.name = "register";
+        if (this->reg_ch.name.empty()) this->reg_ch.name = "register_" + unique_suffix;
         if (this->reg_ch.data_type == telem::UNKNOWN_T)
             this->reg_ch.data_type = telem::UINT16_T;
         this->reg_ch.is_virtual = true;

@@ -63,7 +63,8 @@ TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
         ""
     );
     ASSERT_NIL(sy->hardware.create_device(dev));
-    auto ch = ASSERT_NIL_P(sy->channels.create("virtual", telem::FLOAT64_T, true));
+    std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    auto ch = ASSERT_NIL_P(sy->channels.create("virtual_" + test_name, telem::FLOAT64_T, true));
 
     auto j = base_analog_config();
     j["channels"][0]["device"] = dev.key;
@@ -78,7 +79,8 @@ TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
 TEST(ReadTaskConfigTest, testNonExistingAnalogReadDevice) {
     auto sy = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(sy->hardware.create_rack("cat"));
-    auto ch = ASSERT_NIL_P(sy->channels.create("virtual", telem::FLOAT64_T, true));
+    std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    auto ch = ASSERT_NIL_P(sy->channels.create("virtual_" + test_name, telem::FLOAT64_T, true));
 
     auto j = base_analog_config();
     j["channels"][0]["device"] = "definitely_not_an_existing_device";
@@ -130,7 +132,8 @@ TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
     auto dev_err = sy->hardware.create_device(dev);
     ASSERT_FALSE(dev_err) << dev_err;
 
-    auto ch = ASSERT_NIL_P(sy->channels.create("virtual", telem::FLOAT64_T, true));
+    std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    auto ch = ASSERT_NIL_P(sy->channels.create("virtual_" + test_name, telem::FLOAT64_T, true));
 
     auto j = base_analog_config();
     j["channels"][0]["device"] = dev.key;
@@ -156,7 +159,8 @@ TEST(ReadTaskConfigTest, testNoEnabledChannels) {
         ""
     );
     ASSERT_NIL(sy->hardware.create_device(dev));
-    auto ch = ASSERT_NIL_P(sy->channels.create("virtual", telem::FLOAT64_T, true));
+    std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    auto ch = ASSERT_NIL_P(sy->channels.create("virtual_" + test_name, telem::FLOAT64_T, true));
 
     auto j = base_analog_config();
     j["channels"][0]["device"] = dev.key;
@@ -182,7 +186,8 @@ TEST(ReadTaskConfigTest, testUnknownChannelType) {
         ""
     );
     ASSERT_NIL(sy->hardware.create_device(dev));
-    auto ch = ASSERT_NIL_P(sy->channels.create("virtual", telem::FLOAT64_T, true));
+    std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    auto ch = ASSERT_NIL_P(sy->channels.create("virtual_" + test_name, telem::FLOAT64_T, true));
 
     auto j = base_analog_config();
     j["channels"][0]["device"] = dev.key;
