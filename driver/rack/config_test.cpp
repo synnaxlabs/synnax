@@ -87,7 +87,7 @@ TEST_F(RackConfigTest, saveConnParamsToPersistedState) {
 
 TEST_F(RackConfigTest, parseRackFromConfigArg) {
     const auto client = new_test_client();
-    auto [rack, r_err] = client.hardware.create_rack("abc rack");
+    auto [rack, r_err] = client.racks.create("abc rack");
     ASSERT_FALSE(r_err) << r_err;
     rack::RemoteInfo remote_info{
         .rack_key = rack.key,
@@ -103,7 +103,7 @@ TEST_F(RackConfigTest, parseRackFromConfigArg) {
 
 TEST_F(RackConfigTest, recreateOnClusterKeyMismatch) {
     const auto client = new_test_client();
-    auto [rack, r_err] = client.hardware.create_rack("abc rack");
+    auto [rack, r_err] = client.racks.create("abc rack");
     ASSERT_FALSE(r_err) << r_err;
     rack::Config::save_remote_info(
         args,

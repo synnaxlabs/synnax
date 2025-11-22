@@ -25,13 +25,13 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	transports = append(transports, newConnectivity(&a))
 	transports = append(transports, newAuth(&a))
 	transports = append(transports, newRanger(&a))
-	transports = append(transports, newHardware(&a))
+	transports = append(transports, newRack(&a))
+	transports = append(transports, newTask(&a))
+	transports = append(transports, newDevice(&a))
+	transports = append(transports, newStatus(&a)...)
 
 	// AUTH
 	a.AuthChangePassword = fnoop.UnaryServer[api.AuthChangePasswordRequest, types.Nil]{}
-
-	// HARDWARE
-	a.HardwareCopyTask = fnoop.UnaryServer[api.HardwareCopyTaskRequest, api.HardwareCopyTaskResponse]{}
 
 	// CHANNEL
 	a.ChannelRename = fnoop.UnaryServer[api.ChannelRenameRequest, types.Nil]{}
@@ -113,11 +113,6 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.AccessCreatePolicy = fnoop.UnaryServer[api.AccessCreatePolicyRequest, api.AccessCreatePolicyResponse]{}
 	a.AccessDeletePolicy = fnoop.UnaryServer[api.AccessDeletePolicyRequest, types.Nil]{}
 	a.AccessRetrievePolicy = fnoop.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse]{}
-
-	// STATUS
-	a.StatusSet = fnoop.UnaryServer[api.StatusSetRequest, api.StatusSetResponse]{}
-	a.StatusRetrieve = fnoop.UnaryServer[api.StatusRetrieveRequest, api.StatusRetrieveResponse]{}
-	a.StatusDelete = fnoop.UnaryServer[api.StatusDeleteRequest, types.Nil]{}
 
 	// arc
 	a.ArcCreate = fnoop.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse]{}

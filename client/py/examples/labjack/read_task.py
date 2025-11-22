@@ -25,7 +25,6 @@ This example reads from two analog input channels at 100 Hz.
 """
 
 import synnax as sy
-from synnax.hardware import labjack
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
@@ -33,7 +32,7 @@ client = sy.Synnax()
 
 # Retrieve the LabJack device from Synnax
 # Update this with the name you gave the device in the Synnax Console
-dev = client.hardware.devices.retrieve(name="My LabJack T7")
+dev = client.devices.retrieve(name="My LabJack T7")
 
 # Create an index channel that will be used to store the timestamps for the data.
 labjack_time = client.channels.create(
@@ -60,7 +59,7 @@ ain1 = client.channels.create(
 
 # Create the LabJack Read Task
 # Reads two analog input channels at 100 Hz
-tsk = labjack.ReadTask(
+tsk = sy.labjack.ReadTask(
     name="LabJack Py - Read Task",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 100,  # Sample at 100 Hz
@@ -68,7 +67,7 @@ tsk = labjack.ReadTask(
     data_saving=True,
     channels=[
         # Analog input channel AIN0 with ±10V range
-        labjack.AIChan(
+        sy.labjack.AIChan(
             port="AIN0",
             channel=ain0.key,
             range=10.0,
@@ -76,7 +75,7 @@ tsk = labjack.ReadTask(
             neg_chan=199,  # 199 = single-ended (GND)
         ),
         # Analog input channel AIN1 with ±10V range
-        labjack.AIChan(
+        sy.labjack.AIChan(
             port="AIN1",
             channel=ain1.key,
             range=10.0,
@@ -88,7 +87,7 @@ tsk = labjack.ReadTask(
 
 # Configure the task with Synnax
 try:
-    client.hardware.tasks.configure(tsk)
+    client.tasks.configure(tsk)
     print("✓ Task configured successfully")
 except Exception as e:
     print(f"✗ Task configuration failed: {e}")

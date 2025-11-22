@@ -1,0 +1,84 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#include "gtest/gtest.h"
+
+#include "client/cpp/synnax.h"
+#include "client/cpp/testutil/testutil.h"
+#include "x/cpp/xtest/xtest.h"
+
+std::mt19937 gen_rand_task = random_generator("Task Tests");
+
+namespace synnax {
+/// @brief it should correctly create a module on the rack.
+TEST(TaskTests, testCreateTask) {
+    auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.racks.create(r));
+    auto m = Task(r.key, "test_module", "mock", "config", false, true);
+    ASSERT_NIL(r.tasks.create(m));
+    ASSERT_EQ(m.name, "test_module");
+    ASSERT_EQ(synnax::rack_key_from_task_key(m.key), r.key);
+    ASSERT_NE(synnax::local_task_key(m.key), 0);
+}
+
+/// @brief it should correctly retrieve a module from the rack.
+TEST(TaskTests, testRetrieveTask) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.racks.create(r));
+    auto t = Task(r.key, "test_module", "mock", "config", false, true);
+    ASSERT_NIL(r.tasks.create(t));
+    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key));
+    ASSERT_EQ(t2.name, "test_module");
+    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
+    ASSERT_EQ(synnax::local_task_key(t2.key), synnax::local_task_key(t.key));
+    ASSERT_TRUE(t2.snapshot);
+}
+
+/// @brief it should retrieve a task by its name
+TEST(TaskTests, testRetrieveTaskByName) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand_name = std::to_string(gen_rand_task());
+    auto t = Task(r.key, rand_name, "mock", "config");
+    ASSERT_NIL(r.tasks.create(t));
+    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name));
+    ASSERT_EQ(t2.name, rand_name);
+    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
+}
+
+/// @brief it should retrieve a task by its type
+TEST(TaskTests, testRetrieveTaskByType) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand_type = std::to_string(gen_rand_task());
+    auto t = Task(r.key, "test_module", rand_type, "config");
+    ASSERT_NIL(r.tasks.create(t));
+    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type(rand_type));
+    ASSERT_EQ(t2.name, "test_module");
+    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
+}
+
+/// @brief it should correctly list the tasks on a rack.
+TEST(TaskTests, testListTasks) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.racks.create(r));
+    auto m = Task(r.key, "test_module", "mock", "config");
+    ASSERT_NIL(r.tasks.create(m));
+    const auto tasks = ASSERT_NIL_P(r.tasks.list());
+    ASSERT_EQ(tasks.size(), 1);
+    ASSERT_EQ(tasks[0].name, "test_module");
+    ASSERT_EQ(synnax::rack_key_from_task_key(tasks[0].key), r.key);
+    ASSERT_NE(synnax::local_task_key(tasks[0].key), 0);
+}
+}

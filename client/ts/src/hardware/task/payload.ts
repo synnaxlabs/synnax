@@ -10,7 +10,7 @@
 import { binary, type observe, record, status } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Key as RackKey } from "@/hardware/rack/payload";
+import { type Key as RackKey } from "@/rack/payload";
 import { decodeJSONString } from "@/util/decodeJSONString";
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 

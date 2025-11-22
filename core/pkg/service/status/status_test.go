@@ -32,7 +32,7 @@ var _ = Describe("Status", Ordered, func() {
 	var (
 		db       *gorp.DB
 		svc      *status.Service
-		w        status.Writer
+		w        status.Writer[any]
 		labelSvc *label.Service
 		otg      *ontology.Ontology
 		tx       gorp.Tx
@@ -76,7 +76,7 @@ var _ = Describe("Status", Ordered, func() {
 	Describe("Writer", func() {
 		Describe("Set", func() {
 			It("Should create a new status", func() {
-				s := &status.Status{
+				s := &status.Status[any]{
 					Name:    "Test Status",
 					Key:     "test-key",
 					Variant: "success",
@@ -87,7 +87,7 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(s.Key).To(Equal("test-key"))
 			})
 			It("Should update an existing status", func() {
-				s := &status.Status{
+				s := &status.Status[any]{
 					Name:    "Test Status",
 					Key:     "update-key",
 					Variant: "info",
@@ -99,14 +99,14 @@ var _ = Describe("Status", Ordered, func() {
 				s.Variant = "warning"
 				Expect(w.Set(ctx, s)).To(Succeed())
 
-				var retrieved status.Status
+				var retrieved status.Status[any]
 				Expect(svc.NewRetrieve().WhereKeys("update-key").Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
 				Expect(retrieved.Message).To(Equal("Updated message"))
 				Expect(retrieved.Variant).To(Equal(xstatus.Variant("warning")))
 			})
 			Context("Parent Management", func() {
 				It("Should set a custom parent for the status", func() {
-					parent := status.Status{
+					parent := status.Status[any]{
 						Name:    "Parent Status",
 						Key:     "parent-key",
 						Variant: "info",
@@ -115,7 +115,7 @@ var _ = Describe("Status", Ordered, func() {
 					}
 					Expect(w.Set(ctx, &parent)).To(Succeed())
 
-					child := status.Status{
+					child := status.Status[any]{
 						Name:    "Child Status",
 						Key:     "child-key",
 						Variant: "info",
@@ -137,7 +137,7 @@ var _ = Describe("Status", Ordered, func() {
 
 		Describe("SetMany", func() {
 			It("Should create multiple statuses", func() {
-				statuses := []status.Status{
+				statuses := []status.Status[any]{
 					{
 						Name:    "Status 1",
 						Key:     "key1",
@@ -155,7 +155,7 @@ var _ = Describe("Status", Ordered, func() {
 				}
 				Expect(w.SetMany(ctx, &statuses)).To(Succeed())
 
-				var retrieved []status.Status
+				var retrieved []status.Status[any]
 				Expect(svc.NewRetrieve().WhereKeys("key1", "key2").Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
 				Expect(retrieved).To(HaveLen(2))
 			})
@@ -163,7 +163,7 @@ var _ = Describe("Status", Ordered, func() {
 
 		Describe("Delete", func() {
 			It("Should delete a status", func() {
-				s := &status.Status{
+				s := &status.Status[any]{
 					Name:    "To Delete",
 					Key:     "delete-key",
 					Variant: "info",
@@ -173,7 +173,7 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(w.Set(ctx, s)).To(Succeed())
 				Expect(w.Delete(ctx, "delete-key")).To(Succeed())
 
-				err := svc.NewRetrieve().WhereKeys("delete-key").Entry(&status.Status{}).Exec(ctx, tx)
+				err := svc.NewRetrieve().WhereKeys("delete-key").Entry(&status.Status[any]{}).Exec(ctx, tx)
 				Expect(err).To(MatchError(query.NotFound))
 			})
 
@@ -184,7 +184,7 @@ var _ = Describe("Status", Ordered, func() {
 
 		Describe("DeleteMany", func() {
 			It("Should delete multiple statuses", func() {
-				statuses := []status.Status{
+				statuses := []status.Status[any]{
 					{
 						Name:    "Del 1",
 						Key:     "del1",
@@ -208,7 +208,7 @@ var _ = Describe("Status", Ordered, func() {
 
 	Describe("Retrieve", func() {
 		BeforeEach(func() {
-			statuses := []status.Status{
+			statuses := []status.Status[any]{
 				{
 					Name:    "Status A",
 					Key:     "retrieve-a",
@@ -239,14 +239,14 @@ var _ = Describe("Status", Ordered, func() {
 
 		Describe("WhereKeys", func() {
 			It("Should retrieve status by key", func() {
-				var s status.Status
+				var s status.Status[any]
 				Expect(svc.NewRetrieve().WhereKeys("retrieve-a").Entry(&s).Exec(ctx, tx)).To(Succeed())
 				Expect(s.Key).To(Equal("retrieve-a"))
 				Expect(s.Name).To(Equal("Status A"))
 			})
 
 			It("Should retrieve multiple statuses by keys", func() {
-				var statuses []status.Status
+				var statuses []status.Status[any]
 				Expect(svc.NewRetrieve().WhereKeys("retrieve-a", "retrieve-b").Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(2))
 			})
@@ -254,13 +254,13 @@ var _ = Describe("Status", Ordered, func() {
 
 		Describe("Limit and Offset", func() {
 			It("Should limit results", func() {
-				var statuses []status.Status
+				var statuses []status.Status[any]
 				Expect(svc.NewRetrieve().Limit(2).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(2))
 			})
 
 			It("Should offset results", func() {
-				var statuses []status.Status
+				var statuses []status.Status[any]
 				Expect(svc.NewRetrieve().Offset(1).Limit(2).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(2))
 			})
@@ -268,7 +268,7 @@ var _ = Describe("Status", Ordered, func() {
 
 		Describe("Search", func() {
 			It("Should search for statuses", func() {
-				var statuses []status.Status
+				var statuses []status.Status[any]
 				Expect(svc.NewRetrieve().Search("Status A").Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(len(statuses)).To(BeNumerically(">", 1))
 				Expect(statuses[0].Key).To(Equal("retrieve-a"))

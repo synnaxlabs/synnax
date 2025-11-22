@@ -46,9 +46,10 @@ class ScanTask final : public task::Task {
         xjson::Parser parser(cmd.args);
         const ScanCommandArgs args(parser);
         synnax::TaskStatus status;
-        status.key = cmd.key;
+        status.key = task.status_key();
         status.details.task = task.key;
         status.details.running = true;
+        status.details.cmd = cmd.key;
         x::defer set_state([&] { this->ctx->set_status(status); });
         if (!parser.ok()) {
             status.details.data = parser.error_json();
@@ -59,7 +60,7 @@ class ScanTask final : public task::Task {
             status.variant = "error";
             status.message = err.data;
         } else {
-            status.variant = "success";
+            status.variant = status::variant::SUCCESS;
             status.message = "Connection successful";
         }
     }
@@ -74,15 +75,18 @@ public:
 
     void exec(task::Command &cmd) override {
         if (cmd.type == common::START_CMD_TYPE) {
-            ctx->set_status(
-                {.key = cmd.key,
-                 .variant = status::variant::SUCCESS,
-                 .message = "Modbus scanner ready",
-                 .details = synnax::TaskStatusDetails{
-                     .task = task.key,
-                     .running = true
-                 }}
-            );
+            synnax::TaskStatus status{
+                .key = this->task.status_key(),
+                .name = this->task.name,
+                .variant = status::variant::SUCCESS,
+                .message = "Running",
+                .details = synnax::TaskStatusDetails{
+                    .task = task.key,
+                    .cmd = cmd.key,
+                    .running = true,
+                }
+            };
+            ctx->set_status(status);
             return;
         }
         if (cmd.type == TEST_CONNECTION_CMD_TYPE) this->test_connection(cmd);
