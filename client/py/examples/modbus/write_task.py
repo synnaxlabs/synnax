@@ -26,7 +26,7 @@ Before running this example:
 import time
 
 import synnax as sy
-from synnax.hardware import modbus
+from synnax import modbus
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
@@ -34,7 +34,7 @@ client = sy.Synnax()
 
 # Retrieve the Modbus device from Synnax
 # Update this with the name you gave the device in the Synnax Console
-dev = client.hardware.devices.retrieve(name="Modbus Server")
+dev = client.devices.retrieve(name="Modbus Server")
 
 # Create an index channel for command timestamps
 modbus_cmd_time = client.channels.create(
@@ -74,26 +74,26 @@ holding_reg_cmd_1 = client.channels.create(
 
 # Create the Modbus Write Task
 # Demonstrates writing to both coils (1-bit digital) and holding registers (16-bit analog)
-tsk = modbus.WriteTask(
+tsk = sy.modbus.WriteTask(
     name="Modbus Py - Write Task",
     device=dev.key,
     channels=[
         # Coil outputs (1-bit digital) - addresses 0-1
-        modbus.CoilOutputChan(
+        sy.modbus.CoilOutputChan(
             channel=coil_cmd_0.key,
             address=0,
         ),
-        modbus.CoilOutputChan(
+        sy.modbus.CoilOutputChan(
             channel=coil_cmd_1.key,
             address=1,
         ),
         # Holding register outputs (16-bit analog) - addresses 2-3
-        modbus.HoldingRegisterOutputChan(
+        sy.modbus.HoldingRegisterOutputChan(
             channel=holding_reg_cmd_0.key,
             address=2,
             data_type="uint8",
         ),
-        modbus.HoldingRegisterOutputChan(
+        sy.modbus.HoldingRegisterOutputChan(
             channel=holding_reg_cmd_1.key,
             address=3,
             data_type="uint8",
@@ -102,7 +102,7 @@ tsk = modbus.WriteTask(
 )
 
 # Configure the task with Synnax
-client.hardware.tasks.configure(tsk)
+client.tasks.configure(tsk)
 print("✓ Task configured successfully")
 
 print("=" * 70)
