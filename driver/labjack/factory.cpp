@@ -89,13 +89,13 @@ bool labjack::Factory::check_health(
     const synnax::Task &task
 ) const {
     if (this->dev_manager != nullptr) return true;
-    ctx->set_status(
-        {.variant = status::variant::ERR,
-         .message = NO_LIBS_MSG,
-         .details = synnax::TaskStatusDetails{
-             .task = task.key,
-         }}
-    );
+    synnax::TaskStatus status{
+        .key = task.status_key(),
+        .variant = status::variant::ERR,
+        .message = NO_LIBS_MSG,
+        .details = synnax::TaskStatusDetails{.task = task.key}
+    };
+    ctx->set_status(status);
     return false;
 }
 
