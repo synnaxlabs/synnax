@@ -1161,7 +1161,6 @@ def main() -> None:
     )
     parser.add_argument(
         "--headed",
-        "-H",
         type=bool,
         default=False,
         help="Run Playwright Console tests in headed mode (sets PLAYWRIGHT_CONSOLE_HEADED environment variable)",
