@@ -94,10 +94,35 @@ var _ = Describe("Validate", func() {
 				Expect(v.Error()).NotTo(HaveOccurred())
 			})
 
-			It("Should catch nil values", func() {
+			It("Should catch pointers", func() {
 				var value *string
 				Expect(validate.NotNil(v, "field", value)).To(BeTrue())
 				Expect(v.Error()).To(HaveOccurred())
+			})
+			It("Should catch functions", func() {
+				var fn func() bool
+				Expect(validate.NotNil(v, "field", fn)).To(BeTrue())
+				Expect(v.Error()).To(MatchError(ContainSubstring("must be non-nil")))
+			})
+			It("should catch maps", func() {
+				var m map[string]string
+				Expect(validate.NotNil(v, "field", m)).To(BeTrue())
+				Expect(v.Error()).To(MatchError(ContainSubstring("must be non-nil")))
+			})
+			It("should catch slices", func() {
+				var s []string
+				Expect(validate.NotNil(v, "field", s)).To(BeTrue())
+				Expect(v.Error()).To(MatchError(ContainSubstring("must be non-nil")))
+			})
+			It("should catch channels", func() {
+				var c chan string
+				Expect(validate.NotNil(v, "field", c)).To(BeTrue())
+				Expect(v.Error()).To(MatchError(ContainSubstring("must be non-nil")))
+			})
+			It("should catch interfaces", func() {
+				var i any
+				Expect(validate.NotNil(v, "field", i)).To(BeTrue())
+				Expect(v.Error()).To(MatchError(ContainSubstring("must be non-nil")))
 			})
 		})
 
