@@ -9,7 +9,7 @@
 
 //go:build driver
 
-package embedded
+package driver
 
 import (
 	"bufio"

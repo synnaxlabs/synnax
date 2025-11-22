@@ -9,7 +9,7 @@
 
 //go:build driver && !windows
 
-package embedded
+package driver
 
 import (
 	"embed"
