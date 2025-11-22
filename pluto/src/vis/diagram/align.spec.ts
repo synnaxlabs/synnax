@@ -10,7 +10,7 @@
 import { box, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { alignNodes } from "@/vis/diagram/align";
+import { alignNodes, distributeNodes } from "@/vis/diagram/align";
 import { HandleLayout, NodeLayout } from "@/vis/diagram/util";
 
 describe("align", () => {
@@ -270,6 +270,157 @@ describe("align", () => {
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 50 },
         { x: 50, y: 10 },
+      ]);
+    });
+  });
+});
+
+describe("distribute", () => {
+  describe("distribute horizontal", () => {
+    it("should distribute three nodes with equal spacing", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n2", box.construct({ x: 150, y: 0 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n3", box.construct({ x: 400, y: 0 }, { width: 100, height: 100 }), []),
+      ];
+      const outputs = distributeNodes(inputs, "horizontal");
+      // Total space: 400 - 100 = 300
+      // Middle width: 100
+      // Gap size: (300 - 100) / 2 = 100
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 0, y: 0 },     // First stays at 0
+        { x: 200, y: 0 },   // Middle: 100 (first right) + 100 (gap) = 200
+        { x: 400, y: 0 },   // Last stays at 400
+      ]);
+    });
+
+    it("should distribute nodes with different widths", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 0, y: 0 }, { width: 50, height: 100 }), []),
+        new NodeLayout("n2", box.construct({ x: 100, y: 0 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n3", box.construct({ x: 300, y: 0 }, { width: 50, height: 100 }), []),
+      ];
+      const outputs = distributeNodes(inputs, "horizontal");
+      // Total space: 300 - 50 = 250
+      // Middle width: 100
+      // Gap size: (250 - 100) / 2 = 75
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 0, y: 0 },     // First stays
+        { x: 125, y: 0 },   // 50 (first right) + 75 (gap) = 125
+        { x: 300, y: 0 },   // Last stays
+      ]);
+    });
+
+    it("should handle four nodes", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n2", box.construct({ x: 150, y: 0 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n3", box.construct({ x: 250, y: 0 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n4", box.construct({ x: 600, y: 0 }, { width: 100, height: 100 }), []),
+      ];
+      const outputs = distributeNodes(inputs, "horizontal");
+      // Total space: 600 - 100 = 500
+      // Middle widths: 100 + 100 = 200
+      // Gap size: (500 - 200) / 3 = 100
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 0, y: 0 },     // First stays
+        { x: 200, y: 0 },   // 100 + 100 = 200
+        { x: 400, y: 0 },   // 200 + 100 + 100 = 400
+        { x: 600, y: 0 },   // Last stays
+      ]);
+    });
+
+    it("should preserve y positions", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 0, y: 50 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n2", box.construct({ x: 150, y: 100 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n3", box.construct({ x: 400, y: 25 }, { width: 100, height: 100 }), []),
+      ];
+      const outputs = distributeNodes(inputs, "horizontal");
+      expect(outputs.map((o) => box.top(o.box))).toEqual([50, 100, 25]);
+    });
+
+    it("should handle overlapping nodes with zero gap", () => {
+      // Nodes that would overlap - should stack with 0 gap instead
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n2", box.construct({ x: 50, y: 0 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n3", box.construct({ x: 100, y: 0 }, { width: 100, height: 100 }), []),
+      ];
+      const outputs = distributeNodes(inputs, "horizontal");
+      // Total space: 100 - 100 = 0
+      // Middle width: 100
+      // Gap would be negative: (0 - 100) / 2 = -50
+      // But Math.max(0, -50) = 0, so nodes touch with no overlap
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 0, y: 0 },     // First stays at 0
+        { x: 100, y: 0 },   // 100 (first right) + 0 (gap) = 100
+        { x: 200, y: 0 },   // 100 + 100 (width) + 0 (gap) = 200
+      ]);
+    });
+  });
+
+  describe("distribute vertical", () => {
+    it("should distribute three nodes with equal spacing", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n2", box.construct({ x: 0, y: 150 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n3", box.construct({ x: 0, y: 400 }, { width: 100, height: 100 }), []),
+      ];
+      const outputs = distributeNodes(inputs, "vertical");
+      // Total space: 400 - 100 = 300
+      // Middle height: 100
+      // Gap size: (300 - 100) / 2 = 100
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 0, y: 0 },     // First stays at 0
+        { x: 0, y: 200 },   // Middle: 100 (first bottom) + 100 (gap) = 200
+        { x: 0, y: 400 },   // Last stays at 400
+      ]);
+    });
+
+    it("should distribute nodes with different heights", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 0, y: 0 }, { width: 100, height: 50 }), []),
+        new NodeLayout("n2", box.construct({ x: 0, y: 100 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n3", box.construct({ x: 0, y: 300 }, { width: 100, height: 50 }), []),
+      ];
+      const outputs = distributeNodes(inputs, "vertical");
+      // Total space: 300 - 50 = 250
+      // Middle height: 100
+      // Gap size: (250 - 100) / 2 = 75
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 0, y: 0 },     // First stays
+        { x: 0, y: 125 },   // 50 (first bottom) + 75 (gap) = 125
+        { x: 0, y: 300 },   // Last stays
+      ]);
+    });
+
+    it("should preserve x positions", () => {
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 50, y: 0 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n2", box.construct({ x: 100, y: 150 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n3", box.construct({ x: 25, y: 400 }, { width: 100, height: 100 }), []),
+      ];
+      const outputs = distributeNodes(inputs, "vertical");
+      expect(outputs.map((o) => box.left(o.box))).toEqual([50, 100, 25]);
+    });
+
+    it("should handle overlapping nodes with zero gap", () => {
+      // Nodes that would overlap - should stack with 0 gap instead
+      const inputs = [
+        new NodeLayout("n1", box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n2", box.construct({ x: 0, y: 50 }, { width: 100, height: 100 }), []),
+        new NodeLayout("n3", box.construct({ x: 0, y: 100 }, { width: 100, height: 100 }), []),
+      ];
+      const outputs = distributeNodes(inputs, "vertical");
+      // Total space: 100 - 100 = 0
+      // Middle height: 100
+      // Gap would be negative: (0 - 100) / 2 = -50
+      // But Math.max(0, -50) = 0, so nodes touch with no overlap
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
+        { x: 0, y: 0 },     // First stays at 0
+        { x: 0, y: 100 },   // 100 (first bottom) + 0 (gap) = 100
+        { x: 0, y: 200 },   // 100 + 100 (height) + 0 (gap) = 200
       ]);
     });
   });

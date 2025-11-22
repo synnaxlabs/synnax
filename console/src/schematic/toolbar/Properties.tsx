@@ -333,6 +333,42 @@ const MultiElementProperties = ({
           </Button.Button>
         </Flex.Box>
       </Input.Item>
+      <Input.Item label="Spacing">
+        <Flex.Box x>
+          <Button.Button
+            tooltip="Distribute nodes horizontally"
+            onClick={() => {
+              const newPositions = Diagram.distributeNodes(getLayouts(), "horizontal");
+              dispatch(
+                setNodePositions({
+                  key: layoutKey,
+                  positions: Object.fromEntries(
+                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                  ),
+                }),
+              );
+            }}
+          >
+            <Icon.Distribute.X />
+          </Button.Button>
+          <Button.Button
+            tooltip="Distribute nodes vertically"
+            onClick={() => {
+              const newPositions = Diagram.distributeNodes(getLayouts(), "vertical");
+              dispatch(
+                setNodePositions({
+                  key: layoutKey,
+                  positions: Object.fromEntries(
+                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                  ),
+                }),
+              );
+            }}
+          >
+            <Icon.Distribute.Y />
+          </Button.Button>
+        </Flex.Box>
+      </Input.Item>
     </Flex.Box>
   );
 };

@@ -83,3 +83,95 @@ export const alignNodes = (
   });
   return layouts;
 };
+
+export const distributeNodes = (
+  layouts: NodeLayout[],
+  dir: "horizontal" | "vertical",
+): NodeLayout[] => {
+  if (layouts.length <= 2) return layouts;
+
+  if (dir === "horizontal") {
+    // Sort by left edge position
+    const sorted = [...layouts].sort((a, b) => box.left(a.box) - box.left(b.box));
+
+    // Keep first node fixed as anchor
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+
+    // Calculate total available space
+    const totalSpace = box.left(last.box) - box.right(first.box);
+
+    // Calculate total width of middle nodes
+    const middleNodes = sorted.slice(1, -1);
+    const totalMiddleWidth = middleNodes.reduce(
+      (sum, node) => sum + box.width(node.box),
+      0,
+    );
+
+    // Calculate gap size
+    const numGaps = sorted.length - 1;
+    const rawGapSize = (totalSpace - totalMiddleWidth) / numGaps;
+
+    if (rawGapSize < 0) {
+      // Not enough space - anchor only the first node and stack with 0 gap
+      let currentX = box.right(first.box);
+      sorted.slice(1).forEach((node) => {
+        const newPos = xy.construct(currentX, box.top(node.box));
+        node.box = box.construct(newPos, box.dims(node.box));
+        currentX += box.width(node.box);
+      });
+    } else {
+      // Enough space - keep first and last fixed, distribute middle nodes
+      let currentX = box.right(first.box) + rawGapSize;
+      middleNodes.forEach((node) => {
+        const newPos = xy.construct(currentX, box.top(node.box));
+        node.box = box.construct(newPos, box.dims(node.box));
+        currentX += box.width(node.box) + rawGapSize;
+      });
+    }
+
+    return layouts;
+  }
+
+  // Vertical distribution
+  // Sort by top edge position
+  const sorted = [...layouts].sort((a, b) => box.top(a.box) - box.top(b.box));
+
+  // Keep first node fixed as anchor
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+
+  // Calculate total available space
+  const totalSpace = box.top(last.box) - box.bottom(first.box);
+
+  // Calculate total height of middle nodes
+  const middleNodes = sorted.slice(1, -1);
+  const totalMiddleHeight = middleNodes.reduce(
+    (sum, node) => sum + box.height(node.box),
+    0,
+  );
+
+  // Calculate gap size
+  const numGaps = sorted.length - 1;
+  const rawGapSize = (totalSpace - totalMiddleHeight) / numGaps;
+
+  if (rawGapSize < 0) {
+    // Not enough space - anchor only the first node and stack with 0 gap
+    let currentY = box.bottom(first.box);
+    sorted.slice(1).forEach((node) => {
+      const newPos = xy.construct(box.left(node.box), currentY);
+      node.box = box.construct(newPos, box.dims(node.box));
+      currentY += box.height(node.box);
+    });
+  } else {
+    // Enough space - keep first and last fixed, distribute middle nodes
+    let currentY = box.bottom(first.box) + rawGapSize;
+    middleNodes.forEach((node) => {
+      const newPos = xy.construct(box.left(node.box), currentY);
+      node.box = box.construct(newPos, box.dims(node.box));
+      currentY += box.height(node.box) + rawGapSize;
+    });
+  }
+
+  return layouts;
+};
