@@ -29,7 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	rstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -54,7 +54,7 @@ type Config struct {
 	// Channel is used for retrieving channel information from the cluster.
 	//
 	// [REQUIRED]
-	Channel channel.Readable
+	Channel *channel.Service
 	// Framer is used for reading from and writing telemetry to the cluster.
 	//
 	// [REQUIRED]
@@ -160,7 +160,7 @@ func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse)
 
 func retrieveChannels(
 	ctx context.Context,
-	channelSvc channel.Readable,
+	channelSvc *channel.Service,
 	keys []channel.Key,
 ) ([]channel.Channel, error) {
 	channels := make([]channel.Channel, 0, len(keys))
@@ -255,7 +255,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	constantFactory := constant.NewFactory()
 	opFactory := op.NewFactory()
 	stableFactory := stable.NewFactory(stable.FactoryConfig{})
-	statusFactory := rstatus.NewFactory(cfg.Status)
+	statusFactory := arcstatus.NewFactory(cfg.Status)
 
 	f := node.MultiFactory{
 		opFactory,

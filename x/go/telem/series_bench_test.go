@@ -17,7 +17,7 @@ import (
 
 // BenchmarkValueAt benchmarks the ValueAt function with the optimized CastSlice implementation.
 func BenchmarkValueAt(b *testing.B) {
-	series := telem.NewSeriesV[float64](1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
+	series := telem.NewSeriesV(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = telem.ValueAt[float64](series, i%10)
@@ -26,10 +26,10 @@ func BenchmarkValueAt(b *testing.B) {
 
 // BenchmarkSetValueAt benchmarks the SetValueAt function with the optimized CastSlice implementation.
 func BenchmarkSetValueAt(b *testing.B) {
-	series := telem.NewSeriesV[float64](1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
+	series := telem.NewSeriesV(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		telem.SetValueAt[float64](series, i%10, float64(i))
+		telem.SetValueAt(series, i%10, float64(i))
 	}
 }
 
@@ -55,6 +55,6 @@ func BenchmarkSetValueAtLargeSlice(b *testing.B) {
 	series := telem.NewSeriesV(data...)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		telem.SetValueAt[float64](series, i%10000, float64(i))
+		telem.SetValueAt(series, i%10000, float64(i))
 	}
 }

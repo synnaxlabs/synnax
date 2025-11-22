@@ -17,10 +17,10 @@ import (
 
 var _ = Describe("Retrieve", func() {
 	It("Should retrieve a Log", func() {
-		s := log.Log{Name: "test", Data: "data"}
-		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+		l := log.Log{Name: "test", Data: "data"}
+		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
 		var res log.Log
-		Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
-		Expect(res).To(Equal(s))
+		Expect(svc.NewRetrieve().WhereKeys(l.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+		Expect(res).To(Equal(l))
 	})
 })

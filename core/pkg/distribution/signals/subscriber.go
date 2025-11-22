@@ -56,7 +56,7 @@ func resolveChannelKey(
 	ctx context.Context,
 	key channel.Key,
 	name string,
-	svc channel.Readable,
+	svc *channel.Service,
 ) (channel.Key, error) {
 	if key != 0 {
 		return key, nil

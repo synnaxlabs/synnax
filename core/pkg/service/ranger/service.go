@@ -44,21 +44,25 @@ type Config struct {
 	// Label is the label service used to attach, remove, and query labels related to
 	// changes.
 	Label *label.Service
+	// ForceMigration will force all migrations to run, regardless of whether they have
+	// already been run.
+	ForceMigration *bool
 }
 
 var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for opening a range service.
-	DefaultConfig = Config{}
+	DefaultConfig = Config{ForceMigration: config.False()}
 )
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
-	v := validate.New("ranger")
-	validate.NotNil(v, "DB", c.DB)
-	validate.NotNil(v, "Ontology", c.Ontology)
-	validate.NotNil(v, "Group", c.Group)
-	validate.NotNil(v, "Label", c.Label)
+	v := validate.New("service.ranger")
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "label", c.Label)
+	validate.NotNil(v, "force_migration", c.ForceMigration)
 	return v.Error()
 }
 
@@ -70,6 +74,7 @@ func (c Config) Override(other Config) Config {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Label = override.Nil(c.Label, other.Label)
+	c.ForceMigration = override.Nil(c.ForceMigration, other.ForceMigration)
 	return c
 }
 

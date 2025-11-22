@@ -43,7 +43,7 @@ type Service struct {
 	Config
 }
 
-func NewService(configs ...Config) (*Service, error) {
+func OpenService(configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err

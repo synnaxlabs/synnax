@@ -69,10 +69,10 @@ type Service struct {
 	Symbol *symbol.Service
 }
 
-// NewService instantiates a new schematic service using the provided configurations. Each
-// configuration will be used as an override for the previous configuration in the list.
-// See the Config struct for information on which fields should be set.
-func NewService(ctx context.Context, configs ...Config) (*Service, error) {
+// OpenService instantiates a new schematic service using the provided configurations.
+// Each configuration will be used as an override for the previous configuration in the
+// list. See the Config struct for information on which fields should be set.
+func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
@@ -80,7 +80,7 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 	s := &Service{Config: cfg}
 	cfg.Ontology.RegisterService(s)
 
-	if s.Symbol, err = symbol.NewService(ctx, symbol.Config{
+	if s.Symbol, err = symbol.OpenService(ctx, symbol.Config{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
 		Group:    cfg.Group,

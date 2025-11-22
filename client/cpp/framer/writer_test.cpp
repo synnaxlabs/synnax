@@ -118,10 +118,11 @@ TEST(WriterTests, testWriteSeriesWithMismatchedDataType) {
 TEST(WriterTests, testWriteErrOnUnauthorized) {
     auto client = new_test_client();
     auto time = ASSERT_NIL_P(
-        client.channels.create("time", telem::TIMESTAMP_T, 0, true)
+        client.channels.create("err_on_unauthorized_time", telem::TIMESTAMP_T, 0, true)
     );
     auto data = ASSERT_NIL_P(
-        client.channels.create("data", telem::UINT8_T, time.key, false)
+        client.channels
+            .create("err_on_unauthorized_data", telem::UINT8_T, time.key, false)
     );
     auto w1 = ASSERT_NIL_P(client.telem.open_writer(
         synnax::WriterConfig{
@@ -149,13 +150,13 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
 TEST(WriterTests, testSetAuthority) {
     auto client = new_test_client();
     auto time = ASSERT_NIL_P(
-        client.channels.create("time", telem::TIMESTAMP_T, 0, true)
+        client.channels.create("set_authority_time", telem::TIMESTAMP_T, 0, true)
     );
     auto data1 = ASSERT_NIL_P(
-        client.channels.create("data1", telem::UINT8_T, time.key, false)
+        client.channels.create("set_authority_data1", telem::UINT8_T, time.key, false)
     );
     auto data2 = ASSERT_NIL_P(
-        client.channels.create("data2", telem::UINT8_T, time.key, false)
+        client.channels.create("set_authority_data2", telem::UINT8_T, time.key, false)
     );
 
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
@@ -189,7 +190,7 @@ TEST(WriterTests, testSetAuthority) {
 }
 
 /// @brief close can be called as many times as desired and should not return an error
-/// when the writer has a nominaly shutdown.
+/// when the writer has a nominal shutdown.
 TEST(WriterTests, testCloseIdempotency) {
     auto client = new_test_client();
     auto [time, data] = create_indexed_pair(client);

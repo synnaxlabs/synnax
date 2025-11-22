@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
@@ -28,12 +30,26 @@ protected:
     synnax::Channel index_channel;
     synnax::Device device;
     synnax::Rack rack;
+    std::string unique_suffix;
 
     void SetUp() override {
         sy = std::make_shared<synnax::Synnax>(new_test_client());
 
-        // Create index channel
-        index_channel = synnax::Channel("time_channel", telem::TIMESTAMP_T, 0, true);
+        // Create unique suffix for all channels in this test
+        std::string
+            test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        auto timestamp = std::to_string(
+            std::chrono::steady_clock::now().time_since_epoch().count()
+        );
+        unique_suffix = test_name + "_" + timestamp;
+
+        // Create index channel with unique name
+        index_channel = synnax::Channel(
+            "modbus_read_time_channel_" + unique_suffix,
+            telem::TIMESTAMP_T,
+            0,
+            true
+        );
         ASSERT_NIL(sy->channels.create(index_channel));
 
         // Create rack and device
@@ -93,7 +109,9 @@ TEST_F(ModbusReadTest, testInvalidDeviceConfig) {
     auto cfg = create_base_config();
     cfg["device"] = "non_existent_device";
 
-    auto ch = ASSERT_NIL_P(sy->channels.create("test", telem::UINT8_T, true));
+    auto ch = ASSERT_NIL_P(
+        sy->channels.create("test_" + unique_suffix, telem::UINT8_T, true)
+    );
     cfg["channels"].push_back(create_channel_config("coil_input", ch, 0));
 
     auto p = xjson::Parser(cfg);
@@ -114,7 +132,11 @@ TEST_F(ModbusReadTest, testInvalidChannelConfig) {
 TEST_F(ModbusReadTest, testInvalidChannelType) {
     auto cfg = create_base_config();
 
-    auto ch = ASSERT_NIL_P(sy->channels.create("test", telem::UINT8_T, true));
+    std::string
+        test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    auto ch = ASSERT_NIL_P(
+        sy->channels.create("test_" + test_name, telem::UINT8_T, true)
+    );
     cfg["channels"].push_back(
         {{"type", "invalid_type"},
          {"enabled", true},
@@ -130,15 +152,21 @@ TEST_F(ModbusReadTest, testInvalidChannelType) {
 TEST_F(ModbusReadTest, testMultiChannelConfig) {
     auto cfg = create_base_config();
 
-    // Create channels for different types
-    auto coil_ch = ASSERT_NIL_P(sy->channels.create("coil", telem::UINT8_T, true));
+    // Create channels for different types with unique names
+    std::string
+        test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    auto coil_ch = ASSERT_NIL_P(
+        sy->channels.create("coil_" + test_name, telem::UINT8_T, true)
+    );
     auto discrete_ch = ASSERT_NIL_P(
-        sy->channels.create("discrete", telem::UINT8_T, true)
+        sy->channels.create("discrete_" + test_name, telem::UINT8_T, true)
     );
     auto holding_ch = ASSERT_NIL_P(
-        sy->channels.create("holding", telem::UINT16_T, true)
+        sy->channels.create("holding_" + test_name, telem::UINT16_T, true)
     );
-    auto input_ch = ASSERT_NIL_P(sy->channels.create("input", telem::UINT16_T, true));
+    auto input_ch = ASSERT_NIL_P(
+        sy->channels.create("input_" + test_name, telem::UINT16_T, true)
+    );
 
     // Add different channel types
     cfg["channels"].push_back(create_channel_config("coil_input", coil_ch, 0));
@@ -271,9 +299,12 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     // Create data channel
-    auto data_channel = ASSERT_NIL_P(
-        sy->channels.create("discrete_input", telem::UINT8_T, index_channel.key, false)
-    );
+    auto data_channel = ASSERT_NIL_P(sy->channels.create(
+        "modbus_read_discrete_input_data_channel",
+        telem::UINT8_T,
+        index_channel.key,
+        false
+    ));
 
     // Create task configuration
     auto cfg = create_base_config();
@@ -373,15 +404,21 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     ASSERT_NIL(slave.start());
     x::defer stop_slave([&slave] { slave.stop(); });
 
-    // Create channels for different types
-    auto coil_ch = ASSERT_NIL_P(sy->channels.create("coil", telem::UINT8_T, true));
+    // Create channels for different types with unique names
+    std::string
+        test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    auto coil_ch = ASSERT_NIL_P(
+        sy->channels.create("coil_" + test_name, telem::UINT8_T, true)
+    );
     auto discrete_ch = ASSERT_NIL_P(
-        sy->channels.create("discrete", telem::UINT8_T, true)
+        sy->channels.create("discrete_" + test_name, telem::UINT8_T, true)
     );
     auto holding_ch = ASSERT_NIL_P(
-        sy->channels.create("holding", telem::UINT16_T, true)
+        sy->channels.create("holding_" + test_name, telem::UINT16_T, true)
     );
-    auto input_ch = ASSERT_NIL_P(sy->channels.create("input", telem::UINT16_T, true));
+    auto input_ch = ASSERT_NIL_P(
+        sy->channels.create("input_" + test_name, telem::UINT16_T, true)
+    );
 
     // Create task configuration with all channel types
     auto cfg = create_base_config();
@@ -429,8 +466,10 @@ TEST_F(ModbusReadTest, testModbusDriverSetsAutoCommitTrue) {
     auto cfg = create_base_config();
     cfg["data_saving"] = true;
 
+    std::string
+        test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
     auto coil_ch = ASSERT_NIL_P(
-        sy->channels.create("coil", telem::UINT8_T, index_channel.key)
+        sy->channels.create("coil_" + test_name, telem::UINT8_T, index_channel.key)
     );
     cfg["channels"].push_back(create_channel_config("coil_input", coil_ch, 0));
 

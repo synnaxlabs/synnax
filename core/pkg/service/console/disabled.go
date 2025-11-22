@@ -28,8 +28,8 @@ type Service struct{}
 
 var _ fhttp.BindableTransport = (*Service)(nil)
 
-// NewService creates a new console UI service.
-func NewService() *Service { return &Service{} }
+// OpenService creates a new console UI service.
+func OpenService() *Service { return &Service{} }
 
 // BindTo binds the console UI service to the provided Fiber app. In the non-ui build,
 // it serves a fallback page indicating the Console is not available.

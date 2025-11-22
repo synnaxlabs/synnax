@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
+import random
 
 import numpy as np
 import pandas as pd
@@ -211,12 +212,12 @@ class TestWriter:
     def test_write_persist_stream_regression(self, client: sy.Synnax):
         """Should work"""
         idx = client.channels.create(
-            name="idx",
+            name=f"idx_{random.randint(0, 100000)}",
             is_index=True,
             data_type="timestamp",
         )
         data = client.channels.create(
-            name="data",
+            name=f"data_{random.randint(0, 100000)}",
             data_type="float64",
             index=idx.key,
         )
@@ -233,12 +234,12 @@ class TestWriter:
         assert len(f) == 1
 
         data_2 = client.channels.create(
-            name="data_2",
+            name=f"data_2_{random.randint(0, 100000)}",
             data_type="float64",
             index=idx.key,
         )
         data_3 = client.channels.create(
-            name="data_3",
+            name=f"data_3_{random.randint(0, 100000)}",
             data_type="float64",
             index=idx.key,
         )

@@ -145,20 +145,20 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		err = cleanup(err)
 	}()
 
-	if l.User, err = user.NewService(ctx, user.Config{
+	if l.User, err = user.OpenService(ctx, user.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.RBAC, err = rbac.NewService(rbac.Config{
+	if l.RBAC, err = rbac.OpenService(rbac.Config{
 		DB: cfg.Distribution.DB,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	l.Auth = &auth.KV{DB: cfg.Distribution.DB}
-	if l.Token, err = token.NewService(token.ServiceConfig{
+	if l.Token, err = token.OpenService(token.ServiceConfig{
 		KeyProvider:      cfg.Security,
 		Expiration:       24 * time.Hour,
 		RefreshThreshold: 1 * time.Hour,
@@ -190,7 +190,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Schematic, err = schematic.NewService(ctx, schematic.Config{
+	if l.Schematic, err = schematic.OpenService(ctx, schematic.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
@@ -198,19 +198,19 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, l.Workspace) {
 		return nil, err
 	}
-	if l.LinePlot, err = lineplot.NewService(ctx, lineplot.Config{
+	if l.LinePlot, err = lineplot.OpenService(lineplot.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Log, err = log.NewService(ctx, log.Config{
+	if l.Log, err = log.OpenService(log.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Table, err = table.NewService(ctx, table.Config{
+	if l.Table, err = table.OpenService(table.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {
@@ -271,7 +271,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	); !ok(err, l.Framer) {
 		return nil, err
 	}
-	l.Console = console.NewService()
+	l.Console = console.OpenService()
 	if l.Metrics, err = metrics.OpenService(
 		ctx,
 		metrics.Config{
