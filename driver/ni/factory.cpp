@@ -43,13 +43,13 @@ bool ni::Factory::check_health(
     const synnax::Task &task
 ) const {
     if (this->check_health()) return true;
-    ctx->set_status({
+    synnax::TaskStatus status{
+        .key = task.status_key(),
         .variant = status::variant::ERR,
         .message = NO_LIBS_MSG,
-        .details = synnax::TaskStatusDetails{
-            .task = task.key,
-        },
-    });
+        .details = synnax::TaskStatusDetails{.task = task.key},
+    };
+    ctx->set_status(status);
     return false;
 }
 

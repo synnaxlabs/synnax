@@ -61,12 +61,12 @@ protected:
         ASSERT_FALSE(cmd_err) << cmd_err;
         cmd_err = sy->channels.create(cmd_ch_2);
 
-        auto [rack, rack_err] = sy->hardware.create_rack("cat");
+        auto [rack, rack_err] = sy->racks.create("cat");
         ASSERT_FALSE(rack_err) << rack_err;
 
         synnax::Device
             dev("abc123", "my_device", rack.key, "dev1", "ni", "PXI-6255", "");
-        auto dev_err = sy->hardware.create_device(dev);
+        auto dev_err = sy->devices.create(dev);
         ASSERT_FALSE(dev_err) << dev_err;
 
         task = synnax::Task(rack.key, "my_task", "ni_analog_write", "");
@@ -142,9 +142,10 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     );
 
     wt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    const auto first_state = ctx->states[0];
-    EXPECT_EQ(first_state.key, "start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto first_state = ctx->statuses[0];
+    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
@@ -153,9 +154,10 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 6);
 
     wt->stop("stop_cmd", true);
-    ASSERT_EQ(ctx->states.size(), 2);
-    const auto second_state = ctx->states[1];
-    EXPECT_EQ(second_state.key, "stop_cmd");
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto second_state = ctx->statuses[1];
+    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
     ASSERT_EQ(second_state.message, "Task stopped successfully");
@@ -181,7 +183,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
 /// and reported
 TEST(WriteTaskConfigTest, testInvalidChannelType) {
     auto sy = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
+    auto rack = ASSERT_NIL_P(sy->racks.create("test_rack"));
 
     // Create a device
     auto dev = synnax::Device(
@@ -193,7 +195,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
         "PXI-6255",
         ""
     );
-    ASSERT_NIL(sy->hardware.create_device(dev));
+    ASSERT_NIL(sy->devices.create(dev));
 
     // Create state and command channels
     auto state_idx_ch = ASSERT_NIL_P(

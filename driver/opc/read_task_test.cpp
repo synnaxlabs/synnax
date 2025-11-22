@@ -84,9 +84,7 @@ protected:
             client->channels
                 .create("double_test", telem::FLOAT64_T, this->index_channel.key, false)
         );
-        auto rack = ASSERT_NIL_P(
-            client->hardware.create_rack("opc_read_task_test_rack")
-        );
+        auto rack = ASSERT_NIL_P(client->racks.create("opc_read_task_test_rack"));
 
         opc::connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://localhost:4840";
@@ -102,7 +100,7 @@ protected:
             "OPC UA Server",
             nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
         );
-        ASSERT_NIL(client->hardware.create_device(dev));
+        ASSERT_NIL(client->devices.create(dev));
 
         // Use the comprehensive default server configuration
         auto server_cfg = mock::ServerConfig::create_default();
@@ -240,17 +238,19 @@ TEST_F(TestReadTask, testBasicReadTask) {
     auto start = telem::TimeStamp::now();
     const auto rt = create_task();
     rt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    const auto first_state = ctx->states[0];
-    EXPECT_EQ(first_state.key, "start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto first_state = ctx->statuses[0];
+    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop_cmd", true);
-    const auto second_state = ctx->states[1];
-    EXPECT_EQ(second_state.key, "stop_cmd");
+    const auto second_state = ctx->statuses[1];
+    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
@@ -320,9 +320,9 @@ TEST_F(TestReadTask, testInvalidNodeId) {
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     rt->stop("stop_cmd", true);
 
-    ASSERT_GE(ctx->states.size(), 1);
+    ASSERT_GE(ctx->statuses.size(), 1);
     bool found_error = false;
-    for (const auto &state: ctx->states) {
+    for (const auto &state: ctx->statuses) {
         if (state.variant == status::variant::ERR) {
             found_error = true;
             break;
@@ -344,7 +344,7 @@ TEST_F(TestReadTask, testServerDisconnectDuringRead) {
     rt->stop("stop_cmd", true);
 
     bool found_error = false;
-    for (const auto &state: ctx->states) {
+    for (const auto &state: ctx->statuses) {
         if (state.variant == status::variant::ERR) {
             found_error = true;
             break;
@@ -399,9 +399,9 @@ TEST_F(TestReadTask, testRapidStartStop) {
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     rt->stop("stop_cmd", true);
 
-    ASSERT_GE(ctx->states.size(), 2);
-    EXPECT_EQ(ctx->states[0].variant, status::variant::SUCCESS);
-    EXPECT_EQ(ctx->states[1].variant, status::variant::SUCCESS);
+    ASSERT_GE(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
 }
 
 TEST_F(TestReadTask, testConnectionPoolReuse) {
@@ -497,7 +497,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
     rt->stop("stop_cmd", true);
 
     // Check that the task started successfully despite potential data errors
-    ASSERT_GE(ctx->states.size(), 1);
+    ASSERT_GE(ctx->statuses.size(), 1);
 }
 
 TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
@@ -512,11 +512,11 @@ TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
     rt->stop("stop_cmd", true);
 
     // Verify task lifecycle worked correctly
-    ASSERT_GE(ctx->states.size(), 2);
-    EXPECT_EQ(ctx->states[0].variant, status::variant::SUCCESS);
-    EXPECT_EQ(ctx->states[0].message, "Task started successfully");
-    EXPECT_EQ(ctx->states[1].variant, status::variant::SUCCESS);
-    EXPECT_EQ(ctx->states[1].message, "Task stopped successfully");
+    ASSERT_GE(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].message, "Task started successfully");
+    EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].message, "Task stopped successfully");
 }
 
 TEST_F(TestReadTask, testEmptyFramesNotWrittenInUnaryMode) {
@@ -685,7 +685,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
     rt->stop("stop_cmd", true);
 
     // Task should handle multiple channels without crashing
-    ASSERT_GE(ctx->states.size(), 1);
+    ASSERT_GE(ctx->statuses.size(), 1);
 }
 
 TEST_F(TestReadTask, testWarningMessagesContainChannelInfo) {
@@ -702,7 +702,7 @@ TEST_F(TestReadTask, testWarningMessagesContainChannelInfo) {
     // If any warnings were generated, they should be informative
     // We can't force an error in this test without a mock server that returns bad data,
     // but we verify the task runs successfully
-    ASSERT_GE(ctx->states.size(), 2);
+    ASSERT_GE(ctx->statuses.size(), 2);
 }
 
 TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
@@ -717,9 +717,9 @@ TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
     rt->stop("stop_cmd", true);
 
     // Verify that task completed successfully
-    ASSERT_GE(ctx->states.size(), 2);
-    EXPECT_EQ(ctx->states[0].variant, status::variant::SUCCESS);
-    EXPECT_EQ(ctx->states[1].variant, status::variant::SUCCESS);
+    ASSERT_GE(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
 }
 
 TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
@@ -761,7 +761,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
     rt->stop("stop_cmd", true);
 
     // Verify task ran successfully
-    ASSERT_GE(ctx->states.size(), 1);
+    ASSERT_GE(ctx->statuses.size(), 1);
 }
 
 TEST_F(TestReadTask, testFrameClearedOnErrorInUnaryMode) {
@@ -792,7 +792,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
 
     // Create a separate rack and device for the invalid data server
     auto invalid_rack = ASSERT_NIL_P(
-        ctx->client->hardware.create_rack("opc_invalid_bool_rack")
+        ctx->client->racks.create("opc_invalid_bool_rack")
     );
 
     opc::connection::Config invalid_conn_cfg;
@@ -809,7 +809,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         "OPC UA Server",
         nlohmann::to_string(json::object({{"connection", invalid_conn_cfg.to_json()}}))
     );
-    ASSERT_NIL(ctx->client->hardware.create_device(invalid_dev));
+    ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     // Create a task that reads from the invalid boolean node
     json invalid_bool_cfg{
@@ -871,7 +871,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
 
     // Create a separate rack and device for the invalid data server
     auto invalid_rack = ASSERT_NIL_P(
-        ctx->client->hardware.create_rack("opc_invalid_float_rack")
+        ctx->client->racks.create("opc_invalid_float_rack")
     );
 
     opc::connection::Config invalid_conn_cfg;
@@ -888,7 +888,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         "OPC UA Server",
         nlohmann::to_string(json::object({{"connection", invalid_conn_cfg.to_json()}}))
     );
-    ASSERT_NIL(ctx->client->hardware.create_device(invalid_dev));
+    ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     json invalid_float_cfg{
         {"data_saving", true},
@@ -949,7 +949,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
 
     // Create a separate rack and device for the invalid data server
     auto invalid_rack = ASSERT_NIL_P(
-        ctx->client->hardware.create_rack("opc_invalid_double_rack")
+        ctx->client->racks.create("opc_invalid_double_rack")
     );
 
     opc::connection::Config invalid_conn_cfg;
@@ -966,7 +966,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         "OPC UA Server",
         nlohmann::to_string(json::object({{"connection", invalid_conn_cfg.to_json()}}))
     );
-    ASSERT_NIL(ctx->client->hardware.create_device(invalid_dev));
+    ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     json invalid_double_cfg{
         {"data_saving", true},
@@ -1025,7 +1025,7 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     // Create rack and device
-    auto rack = ASSERT_NIL_P(client->hardware.create_rack("opc_test_rack"));
+    auto rack = ASSERT_NIL_P(client->racks.create("opc_test_rack"));
 
     opc::connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
@@ -1041,7 +1041,7 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
         "OPC UA Server",
         nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
     );
-    ASSERT_NIL(client->hardware.create_device(dev));
+    ASSERT_NIL(client->devices.create(dev));
 
     // Create index and data channels
     auto index_ch = ASSERT_NIL_P(
