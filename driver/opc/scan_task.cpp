@@ -29,12 +29,13 @@
 namespace opc {
 void ScanTask::exec(task::Command &cmd) {
     if (cmd.type == common::START_CMD_TYPE) {
-        ctx->set_status(
-            {.key = cmd.key,
-             .variant = status::variant::SUCCESS,
-             .message = "OPC scanner ready",
-             .details = synnax::TaskStatusDetails{.task = task.key, .running = true}}
-        );
+        synnax::TaskStatus status{
+            .key = cmd.key,
+            .variant = status::variant::SUCCESS,
+            .message = "OPC scanner ready",
+            .details = synnax::TaskStatusDetails{.task = task.key, .running = true}
+        };
+        ctx->set_status(status);
         return;
     }
     if (cmd.type == SCAN_CMD_TYPE) return scan(cmd);
@@ -100,27 +101,24 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
 void ScanTask::scan(const task::Command &cmd) const {
     xjson::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
-    if (!parser.ok())
-        return ctx->set_status(
-            {.key = cmd.key,
-             .variant = status::variant::ERR,
-             .details = synnax::TaskStatusDetails{
-                 .task = task.key,
-                 .data = parser.error_json()
-             }}
-        );
+    synnax::TaskStatus status{
+        .key = this->task.status_key(),
+        .name = this->task.name,
+        .variant = status::variant::ERR,
+        .details = synnax::TaskStatusDetails{.task = task.key, .cmd = cmd.key}
+    };
+    if (!parser.ok()) {
+        status.message = "Failed to parse scan command";
+        status.details.data = parser.error_json();
+        return ctx->set_status(status);
+    }
 
     auto [connection, err] = conn_pool_->acquire(args.connection, "[opc.scanner] ");
-    if (err)
-        return ctx->set_status({
-            .key = cmd.key,
-            .variant = status::variant::ERR,
-            .message = err.message(),
-            .details = synnax::TaskStatusDetails{
-                .task = task.key,
-            },
-        });
-
+    if (err) {
+        status.variant = status::variant::ERR;
+        status.message = err.message();
+        return ctx->set_status(status);
+    }
     auto scan_ctx = std::make_unique<ScanContext>(ScanContext{
         connection.shared(),
         std::make_shared<std::vector<opc::Node>>(),
@@ -133,42 +131,38 @@ void ScanTask::scan(const task::Command &cmd) const {
         scan_ctx.get()
     );
 
-    ctx->set_status({
-        .key = cmd.key,
-        .variant = status::variant::SUCCESS,
-        .details = synnax::TaskStatusDetails{
-            .task = task.key,
-            .data = opc::device::Properties(args.connection, *scan_ctx->channels)
-                        .to_json(),
-        },
-    });
+    status.message = "Scan successful";
+    status.variant = status::variant::SUCCESS;
+    status.details.data = device::Properties(args.connection, *scan_ctx->channels)
+                              .to_json();
+    ctx->set_status(status);
 }
 
 void ScanTask::test_connection(const task::Command &cmd) const {
     xjson::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
-    if (!parser.ok())
-        return ctx->set_status(
-            {.key = cmd.key,
-             .variant = status::variant::ERR,
-             .details = synnax::TaskStatusDetails{
-                 .task = task.key,
-                 .data = parser.error_json()
-             }}
-        );
+    synnax::TaskStatus status{
+        .key = this->task.status_key(),
+        .name = this->task.name,
+        .variant = status::variant::ERR,
+        .details = synnax::TaskStatusDetails{
+            .task = task.key,
+            .cmd = cmd.key,
+            .running = true,
+        }
+    };
+    if (!parser.ok()) {
+        status.message = "Failed to parse test command";
+        status.details.data = parser.error_json();
+        return ctx->set_status(status);
+    }
     auto [client, err] = connect(args.connection, "[opc.scanner] ");
-    if (err)
-        return ctx->set_status(
-            {.key = cmd.key,
-             .variant = status::variant::ERR,
-             .message = err.data,
-             .details = synnax::TaskStatusDetails{.task = task.key, .running = true}}
-        );
-    return ctx->set_status(
-        {.key = cmd.key,
-         .variant = status::variant::SUCCESS,
-         .message = "Connection successful",
-         .details = synnax::TaskStatusDetails{.task = task.key, .running = true}}
-    );
+    if (err) {
+        status.message = err.data;
+        return ctx->set_status(status);
+    }
+    status.variant = status::variant::SUCCESS;
+    status.message = "Connection successful";
+    return ctx->set_status(status);
 }
 }

@@ -209,7 +209,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties>({
+  const dev = await client.devices.retrieve<Device.Properties>({
     key: config.device,
   });
   Common.Device.checkConfigured(dev);
@@ -304,7 +304,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
       else dev.properties[cmdToCreate.type].channels[port].command = c.key;
     });
   }
-  if (modified) await client.hardware.devices.create(dev);
+  if (modified) await client.devices.create(dev);
   config.channels = config.channels.map((c) => {
     const pair = dev.properties[c.type].channels[c.port];
     return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
