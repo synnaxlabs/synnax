@@ -44,53 +44,77 @@ protected:
     void SetUp() override {
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-        std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
-        auto timestamp = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+        std::string
+            test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        auto timestamp = std::to_string(
+            std::chrono::steady_clock::now().time_since_epoch().count()
+        );
         unique_suffix = test_name + "_" + timestamp;
 
         this->index_channel = ASSERT_NIL_P(
-            client->channels.create("index_" + unique_suffix, telem::TIMESTAMP_T, 0, true)
-        );
-        this->bool_channel = ASSERT_NIL_P(
             client->channels
-                .create("bool_test_" + unique_suffix, telem::UINT8_T, this->index_channel.key, false)
+                .create("index_" + unique_suffix, telem::TIMESTAMP_T, 0, true)
         );
-        this->uint16_channel = ASSERT_NIL_P(
-            client->channels
-                .create("uint16_test_" + unique_suffix, telem::UINT16_T, this->index_channel.key, false)
-        );
-        this->uint32_channel = ASSERT_NIL_P(
-            client->channels
-                .create("uint32_test_" + unique_suffix, telem::UINT32_T, this->index_channel.key, false)
-        );
-        this->uint64_channel = ASSERT_NIL_P(
-            client->channels
-                .create("uint64_test_" + unique_suffix, telem::UINT64_T, this->index_channel.key, false)
-        );
-        this->int8_channel = ASSERT_NIL_P(
-            client->channels
-                .create("int8_test_" + unique_suffix, telem::INT8_T, this->index_channel.key, false)
-        );
-        this->int16_channel = ASSERT_NIL_P(
-            client->channels
-                .create("int16_test_" + unique_suffix, telem::INT16_T, this->index_channel.key, false)
-        );
-        this->int32_channel = ASSERT_NIL_P(
-            client->channels
-                .create("int32_test_" + unique_suffix, telem::INT32_T, this->index_channel.key, false)
-        );
-        this->int64_channel = ASSERT_NIL_P(
-            client->channels
-                .create("int64_test_" + unique_suffix, telem::INT64_T, this->index_channel.key, false)
-        );
-        this->float_channel = ASSERT_NIL_P(
-            client->channels
-                .create("float_test_" + unique_suffix, telem::FLOAT32_T, this->index_channel.key, false)
-        );
-        this->double_channel = ASSERT_NIL_P(
-            client->channels
-                .create("double_test_" + unique_suffix, telem::FLOAT64_T, this->index_channel.key, false)
-        );
+        this->bool_channel = ASSERT_NIL_P(client->channels.create(
+            "bool_test_" + unique_suffix,
+            telem::UINT8_T,
+            this->index_channel.key,
+            false
+        ));
+        this->uint16_channel = ASSERT_NIL_P(client->channels.create(
+            "uint16_test_" + unique_suffix,
+            telem::UINT16_T,
+            this->index_channel.key,
+            false
+        ));
+        this->uint32_channel = ASSERT_NIL_P(client->channels.create(
+            "uint32_test_" + unique_suffix,
+            telem::UINT32_T,
+            this->index_channel.key,
+            false
+        ));
+        this->uint64_channel = ASSERT_NIL_P(client->channels.create(
+            "uint64_test_" + unique_suffix,
+            telem::UINT64_T,
+            this->index_channel.key,
+            false
+        ));
+        this->int8_channel = ASSERT_NIL_P(client->channels.create(
+            "int8_test_" + unique_suffix,
+            telem::INT8_T,
+            this->index_channel.key,
+            false
+        ));
+        this->int16_channel = ASSERT_NIL_P(client->channels.create(
+            "int16_test_" + unique_suffix,
+            telem::INT16_T,
+            this->index_channel.key,
+            false
+        ));
+        this->int32_channel = ASSERT_NIL_P(client->channels.create(
+            "int32_test_" + unique_suffix,
+            telem::INT32_T,
+            this->index_channel.key,
+            false
+        ));
+        this->int64_channel = ASSERT_NIL_P(client->channels.create(
+            "int64_test_" + unique_suffix,
+            telem::INT64_T,
+            this->index_channel.key,
+            false
+        ));
+        this->float_channel = ASSERT_NIL_P(client->channels.create(
+            "float_test_" + unique_suffix,
+            telem::FLOAT32_T,
+            this->index_channel.key,
+            false
+        ));
+        this->double_channel = ASSERT_NIL_P(client->channels.create(
+            "double_test_" + unique_suffix,
+            telem::FLOAT64_T,
+            this->index_channel.key,
+            false
+        ));
         auto rack = ASSERT_NIL_P(
             client->hardware.create_rack("opc_read_task_test_rack")
         );
@@ -1051,14 +1075,18 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     ASSERT_NIL(client->hardware.create_device(dev));
 
     // Create index and data channels with unique names
-    std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    std::string
+        test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
     auto index_ch = ASSERT_NIL_P(
-        client->channels.create("opc_test_index_" + test_name, telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch = ASSERT_NIL_P(
         client->channels
-            .create("opc_test_channel_" + test_name, telem::FLOAT32_T, index_ch.key, false)
+            .create("opc_test_index_" + test_name, telem::TIMESTAMP_T, 0, true)
     );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        "opc_test_channel_" + test_name,
+        telem::FLOAT32_T,
+        index_ch.key,
+        false
+    ));
 
     // Create task config
     json task_cfg{

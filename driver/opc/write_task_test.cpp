@@ -47,23 +47,32 @@ protected:
     void SetUp() override {
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-        std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
-        auto timestamp = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+        std::string
+            test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        auto timestamp = std::to_string(
+            std::chrono::steady_clock::now().time_since_epoch().count()
+        );
         unique_suffix = test_name + "_" + timestamp;
 
         // Create command channels for different OPC UA data types
         this->bool_cmd_channel = ASSERT_NIL_P(
             client->channels.create("bool_cmd_" + unique_suffix, telem::UINT8_T, true)
         );
-        this->uint16_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("uint16_cmd_" + unique_suffix, telem::UINT16_T, true)
-        );
-        this->uint32_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("uint32_cmd_" + unique_suffix, telem::UINT32_T, true)
-        );
-        this->uint64_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("uint64_cmd_" + unique_suffix, telem::UINT64_T, true)
-        );
+        this->uint16_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            "uint16_cmd_" + unique_suffix,
+            telem::UINT16_T,
+            true
+        ));
+        this->uint32_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            "uint32_cmd_" + unique_suffix,
+            telem::UINT32_T,
+            true
+        ));
+        this->uint64_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            "uint64_cmd_" + unique_suffix,
+            telem::UINT64_T,
+            true
+        ));
         this->int8_cmd_channel = ASSERT_NIL_P(
             client->channels.create("int8_cmd_" + unique_suffix, telem::INT8_T, true)
         );
@@ -76,12 +85,16 @@ protected:
         this->int64_cmd_channel = ASSERT_NIL_P(
             client->channels.create("int64_cmd_" + unique_suffix, telem::INT64_T, true)
         );
-        this->float_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("float_cmd_" + unique_suffix, telem::FLOAT32_T, true)
-        );
-        this->double_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("double_cmd_" + unique_suffix, telem::FLOAT64_T, true)
-        );
+        this->float_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            "float_cmd_" + unique_suffix,
+            telem::FLOAT32_T,
+            true
+        ));
+        this->double_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            "double_cmd_" + unique_suffix,
+            telem::FLOAT64_T,
+            true
+        ));
 
         auto rack = ASSERT_NIL_P(client->hardware.create_rack("cat"));
 

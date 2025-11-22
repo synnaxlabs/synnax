@@ -35,8 +35,11 @@ protected:
         this->sy = std::make_shared<synnax::Synnax>(new_test_client());
         this->devs = std::make_shared<modbus::device::Manager>();
         this->ctx = std::make_shared<task::MockContext>(sy);
-        std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
-        auto timestamp = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+        std::string
+            test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        auto timestamp = std::to_string(
+            std::chrono::steady_clock::now().time_since_epoch().count()
+        );
         unique_suffix = test_name + "_" + timestamp;
         if (this->coil_ch.name.empty()) this->coil_ch.name = "coil_" + unique_suffix;
         if (this->coil_ch.data_type == telem::UNKNOWN_T)
