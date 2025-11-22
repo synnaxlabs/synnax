@@ -34,9 +34,9 @@ var _ = Describe("Retrieve", func() {
 			Expect(svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrievedArc).Exec(ctx, tx)).To(Succeed())
 			Expect(retrievedArc).To(Equal(a))
 
-			var s status.Status
+			var s status.Status[any]
 			statusKey := a.Key.String()
-			Expect(gorp.NewRetrieve[string, status.Status]().
+			Expect(gorp.NewRetrieve[string, status.Status[any]]().
 				WhereKeys(statusKey).
 				Entry(&s).
 				Exec(ctx, tx)).To(Succeed())
@@ -63,8 +63,8 @@ var _ = Describe("Retrieve", func() {
 			Expect(retrievedArcs).To(HaveLen(3))
 
 			for _, a := range retrievedArcs {
-				var s status.Status
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				var s status.Status[any]
+				Expect(gorp.NewRetrieve[string, status.Status[any]]().
 					WhereKeys(a.Key.String()).
 					Entry(&s).
 					Exec(ctx, tx)).To(Succeed())
@@ -91,8 +91,8 @@ var _ = Describe("Retrieve", func() {
 			Expect(svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrievedArc).Exec(ctx, newTx)).To(Succeed())
 			Expect(retrievedArc.Name).To(Equal("tx-test-arc"))
 
-			var s status.Status
-			Expect(gorp.NewRetrieve[string, status.Status]().
+			var s status.Status[any]
+			Expect(gorp.NewRetrieve[string, status.Status[any]]().
 				WhereKeys(a.Key.String()).
 				Entry(&s).
 				Exec(ctx, newTx)).To(Succeed())
@@ -116,8 +116,8 @@ var _ = Describe("Retrieve", func() {
 			Expect(svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrievedArc).Exec(ctx, nil)).To(Succeed())
 			Expect(retrievedArc.Name).To(Equal("no-tx-arc"))
 
-			var s status.Status
-			Expect(gorp.NewRetrieve[string, status.Status]().
+			var s status.Status[any]
+			Expect(gorp.NewRetrieve[string, status.Status[any]]().
 				WhereKeys(a.Key.String()).
 				Entry(&s).
 				Exec(ctx, db)).To(Succeed())
@@ -136,8 +136,8 @@ var _ = Describe("Retrieve", func() {
 			var retrievedArc arc.Arc
 			Expect(svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrievedArc).Exec(ctx, tx)).To(Succeed())
 
-			var s status.Status
-			Expect(gorp.NewRetrieve[string, status.Status]().
+			var s status.Status[any]
+			Expect(gorp.NewRetrieve[string, status.Status[any]]().
 				WhereKeys(a.Key.String()).
 				Entry(&s).
 				Exec(ctx, tx)).To(Succeed())

@@ -46,7 +46,7 @@ func (s *Service) handleChange(
 			}
 			if err := s.cfg.Status.NewWriter(nil).SetWithParent(
 				ctx,
-				&status.Status{
+				&status.Status[any]{
 					Name:    existing.arc.Name,
 					Key:     a.Key.String(),
 					Variant: xstatus.DisabledVariant,
@@ -66,7 +66,7 @@ func (s *Service) handleChange(
 		if err != nil {
 			if err := s.cfg.Status.NewWriter(nil).SetWithParent(
 				ctx,
-				&status.Status{
+				&status.Status[any]{
 					Name:        fmt.Sprintf("%s Status", a.Name),
 					Key:         a.Key.String(),
 					Variant:     xstatus.ErrorVariant,
@@ -88,7 +88,7 @@ func (s *Service) handleChange(
 		if err != nil {
 			if err := s.cfg.Status.NewWriter(nil).SetWithParent(
 				ctx,
-				&status.Status{
+				&status.Status[any]{
 					Name:        fmt.Sprintf("%s Status", a.Name),
 					Key:         a.Key.String(),
 					Message:     "Deployment Failed",
@@ -106,7 +106,7 @@ func (s *Service) handleChange(
 		s.mu.entries[e.Key] = &entry{runtime: r, arc: a}
 		if err := s.cfg.Status.NewWriter(nil).SetWithParent(
 			ctx,
-			&status.Status{
+			&status.Status[any]{
 				Name:    fmt.Sprintf("%s Status", a.Name),
 				Key:     a.Key.String(),
 				Message: "Deployment Successful",

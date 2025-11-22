@@ -28,7 +28,7 @@ import (
 type Writer struct {
 	tx     gorp.Tx
 	otg    ontology.Writer
-	status status.Writer
+	status status.Writer[any]
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -59,7 +59,7 @@ func (w Writer) Create(
 		}
 	}
 
-	return w.status.SetWithParent(ctx, &status.Status{
+	return w.status.SetWithParent(ctx, &status.Status[any]{
 		Name:    fmt.Sprintf("%s Status", c.Name),
 		Key:     c.Key.String(),
 		Variant: xstatus.LoadingVariant,
