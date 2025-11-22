@@ -1160,8 +1160,8 @@ def main() -> None:
         help="Path to test sequence JSON file or comma-separated list of files (optional - will auto-discover *_tests.json if not provided)",
     )
     parser.add_argument(
-        "--console-headed",
-        "-ch",
+        "--headed",
+        "-H",
         type=bool,
         default=False,
         help="Run Playwright Console tests in headed mode (sets PLAYWRIGHT_CONSOLE_HEADED environment variable)",
@@ -1169,7 +1169,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.console_headed else "0"
+    os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.headed else "0"
 
     # Create connection object
     connection = SynnaxConnection(
