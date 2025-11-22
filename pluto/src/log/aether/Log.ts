@@ -37,6 +37,10 @@ export const logState = z.object({
   overshoot: xy.xy.default({ x: 0, y: 0 }),
 });
 
+const PADDING_Y = 6;
+const PADDING_X = 6;
+const SCROLLBAR_WIDTH = 6;
+const VIEWPORT_WIDTH_TOLERANCE = 1;
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
 const CANVAS: render.Canvas2DVariant = "lower2d";
 
@@ -66,6 +70,12 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
   schema = Log.z;
   values: MultiSeries = new MultiSeries([]);
   scrollState: ScrollbackState = ZERO_SCROLLBACK;
+  private charWidth: number = 0;
+  private wrappedCache: Map<number, string[]> = new Map();
+  private totalVisualLines: number = 0;
+  private cachedViewportWidth: number = 0;
+  private cachedDataLength: number = 0;
+  private cachedVisibleLogicalLineCount: number = 0;
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
@@ -86,6 +96,8 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         offsetRef: off,
         scrollRef: this.state.wheelPos,
       };
+      this.rebuildWrapCache();
+      this.cachedDataLength = this.values.length;
     } else if (scrolling) {
       const { scrollState, values } = this;
       const dist = Math.ceil((wheelPos - this.scrollState.scrollRef) / this.lineHeight);
@@ -97,7 +109,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       // should stop scrolling.
       if (
         scrollState.offset <
-        values.alignmentBounds.lower + BigInt(this.visibleLineCount)
+        values.alignmentBounds.lower + BigInt(this.visibleLogicalLineCount)
       ) {
         scrollState.offset = values.alignmentBounds.lower;
         // Set the wheel position back to it's previous location so we can scroll back
@@ -110,8 +122,17 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         this.setState((s) => ({ ...s, scrolling: false }));
     }
 
+    const previousLength = this.values.length;
     const [_, series] = this.internal.telem.value();
     this.values = series;
+
+    // Make sure to clear the cache
+    if (this.values.length < previousLength || this.values.length === 0) {
+      this.wrappedCache.clear();
+      this.totalVisualLines = 0;
+      this.cachedDataLength = 0;
+      this.cachedVisibleLogicalLineCount = 0;
+    }
     this.checkEmpty();
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
@@ -154,13 +175,74 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
   }
 
   get totalHeight(): number {
-    return Math.ceil(this.values.length * this.lineHeight);
+    return Math.ceil(this.totalVisualLines * this.lineHeight);
   }
 
   get visibleLineCount(): number {
-    return Math.min(
-      Math.floor((box.height(this.state.region) - 12) / this.lineHeight),
+    return Math.floor((box.height(this.state.region) - 12) / this.lineHeight);
+  }
+
+  get visibleLogicalLineCount(): number {
+    return this.cachedVisibleLogicalLineCount;
+  }
+
+  private calculateAutoScrollStartIndex(): number {
+    let visualLinesShown = 0;
+    let logicalLinesNeeded = 0;
+    const targetVisualLines = this.visibleLineCount - 1;
+    for (
+      let i = this.values.length - 1;
+      i >= 0 && visualLinesShown < targetVisualLines;
+      i--
+    ) {
+      const wrappedLines = this.wrappedCache.get(i);
+      if (wrappedLines) {
+        visualLinesShown += wrappedLines.length;
+        logicalLinesNeeded++;
+      }
+    }
+    return Math.max(0, this.values.length - logicalLinesNeeded);
+  }
+
+  private calculateRenderRange(isScrolling: boolean): {
+    range: Iterable<any>;
+    startLogicalIndex: number;
+  } {
+    if (!isScrolling) {
+      const startLogicalIndex = this.calculateAutoScrollStartIndex();
+      return {
+        range: this.values.subIterator(startLogicalIndex, this.values.length),
+        startLogicalIndex,
+      };
+    }
+    const start = this.values.traverseAlignment(
+      this.scrollState.offset,
+      -BigInt(this.visibleLogicalLineCount),
+    );
+    let startLogicalIndex = 0;
+    for (const ser of this.values.series) {
+      if (start < ser.alignment) break;
+      if (start >= ser.alignmentBounds.upper) {
+        startLogicalIndex += ser.length;
+        continue;
+      }
+      startLogicalIndex += Number((start - ser.alignment) / ser.alignmentMultiple);
+      break;
+    }
+    const endLogicalIndex = Math.min(
       this.values.length,
+      startLogicalIndex + this.visibleLogicalLineCount,
+    );
+    const range = this.values.subIterator(startLogicalIndex, endLogicalIndex);
+    return { range, startLogicalIndex };
+  }
+
+  private shouldRebuildCache(currentWidth: number): boolean {
+    if (this.charWidth === 0) return false;
+    return (
+      this.wrappedCache.size === 0 ||
+      Math.abs(this.cachedViewportWidth - currentWidth) > VIEWPORT_WIDTH_TOLERANCE ||
+      this.cachedDataLength !== this.values.length
     );
   }
 
@@ -169,25 +251,19 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const region = this.state.region;
     if (box.areaIsZero(region)) return undefined;
     if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
-    let range: Iterable<any>;
-    if (!this.state.scrolling)
-      range = this.values.subIterator(
-        this.values.length - this.visibleLineCount,
-        this.values.length,
-      );
-    else {
-      const start = this.values.traverseAlignment(
-        this.scrollState.offset,
-        -BigInt(this.visibleLineCount),
-      );
-      range = this.values.subAlignmentSpanIterator(start, this.visibleLineCount);
-    }
-
-    const reg = this.state.region;
     const canvas = renderCtx[CANVAS];
+    const isScrolling = this.state.scrolling;
+    if (this.charWidth === 0) this.charWidth = canvas.measureText("M").width; // Font monospaced, get width of single char
+    const lineMaxWidth = box.width(region) - PADDING_X * 2 - SCROLLBAR_WIDTH;
+    if (!isScrolling && this.shouldRebuildCache(lineMaxWidth)) {
+      this.rebuildWrapCache();
+      this.cachedDataLength = this.values.length;
+    }
+    const { range, startLogicalIndex } = this.calculateRenderRange(isScrolling);
+    const reg = this.state.region;
     const draw2d = new Draw2D(canvas, this.internal.theme);
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
-    this.renderElements(draw2d, range);
+    this.renderElements(draw2d, range, startLogicalIndex);
     this.renderScrollbar(draw2d);
     clearScissor();
     const eraseRegion = box.copy(this.state.region);
@@ -215,30 +291,137 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
 
     draw2d.container({
       region: box.construct(
-        { x: box.right(reg) - 6, y: scrollbarYPos },
-        { width: 6, height: scrollbarHeight },
+        { x: box.right(reg) - SCROLLBAR_WIDTH, y: scrollbarYPos },
+        { width: SCROLLBAR_WIDTH, height: scrollbarHeight },
       ),
       bordered: false,
       backgroundColor: (t: theming.Theme) => t.colors.gray.l6,
     });
   }
 
-  private renderElements(draw2D: Draw2D, iter: Iterable<TelemValue>): void {
+  private renderElements(
+    draw2D: Draw2D,
+    iter: Iterable<TelemValue>,
+    startLogicalIndex: number,
+  ): void {
     const reg = this.state.region;
-    let i = 0;
-    for (const value of iter) {
-      const text = this.values.dataType.equals(DataType.JSON)
-        ? JSON.stringify(value)
-        : value.toString();
-      draw2D.text({
-        text,
-        level: this.state.font,
-        shade: 11,
-        position: xy.translate(box.topLeft(reg), { x: 6, y: i * this.lineHeight + 6 }),
-        code: true,
+    let visualLineIndex = 0;
+    let logicalIndex = startLogicalIndex;
+
+    for (const _value of iter) {
+      const wrappedLines = this.wrappedCache.get(logicalIndex);
+      if (!wrappedLines) {
+        logicalIndex++;
+        continue;
+      }
+      wrappedLines.forEach((line) => {
+        const position = xy.translate(box.topLeft(reg), {
+          x: PADDING_X,
+          y: visualLineIndex * this.lineHeight + PADDING_Y,
+        });
+        draw2D.text({
+          text: line,
+          level: this.state.font,
+          shade: 11,
+          position,
+          code: true,
+        });
+        visualLineIndex++;
       });
-      i++;
+      logicalIndex++;
     }
+  }
+
+  private softWrapLog(text: string, maxWidth: number): string[] {
+    if (text.length === 0) return [""];
+    if (this.charWidth === 0 || text.length * this.charWidth <= maxWidth) return [text];
+    let currentLine: string = "";
+    let currentWidth: number = 0;
+    const charsPerLine = Math.floor(maxWidth / this.charWidth);
+    if (!text.includes(" "))
+      return Array.from({ length: Math.ceil(text.length / charsPerLine) }, (_, i) =>
+        text.slice(i * charsPerLine, (i + 1) * charsPerLine),
+      );
+    const lines: string[] = [];
+    const words = text.split(" ");
+    const spaceWidth = this.charWidth;
+    for (const word of words) {
+      const wordWidth = word.length * this.charWidth;
+      // Handle words that are too long to fit on a single line
+      if (wordWidth > maxWidth) {
+        if (currentLine !== "") {
+          lines.push(currentLine);
+          currentLine = "";
+          currentWidth = 0;
+        }
+        for (let i = 0; i < word.length; i += charsPerLine) {
+          const chunk = word.slice(i, i + charsPerLine);
+          if (i + charsPerLine >= word.length) {
+            currentLine = chunk;
+            currentWidth = chunk.length * this.charWidth;
+            continue;
+          }
+          lines.push(chunk);
+        }
+        continue;
+      }
+      if (currentLine === "") {
+        currentLine = word;
+        currentWidth = wordWidth;
+        continue;
+      }
+      const widthWithWord = currentWidth + spaceWidth + wordWidth;
+      if (widthWithWord <= maxWidth) {
+        currentLine += ` ${word}`;
+        currentWidth = widthWithWord;
+        continue;
+      }
+      lines.push(currentLine);
+      currentLine = word;
+      currentWidth = wordWidth;
+    }
+    if (currentLine !== "") lines.push(currentLine);
+    return lines;
+  }
+
+  private rebuildWrapCache(): void {
+    const lineMaxWidth = box.width(this.state.region) - PADDING_X * 2 - SCROLLBAR_WIDTH;
+    this.wrappedCache.clear();
+    this.totalVisualLines = 0;
+    if (this.charWidth === 0 || lineMaxWidth <= 0) {
+      this.cachedViewportWidth = lineMaxWidth;
+      this.cachedVisibleLogicalLineCount = 0;
+      return;
+    }
+    const isJson = this.values.dataType.equals(DataType.JSON);
+    let index = 0;
+    for (const value of this.values) {
+      if (value == null) {
+        index++;
+        continue;
+      }
+      const text = isJson ? JSON.stringify(value) : value.toString();
+      const wrappedLines = this.softWrapLog(text, lineMaxWidth);
+      this.wrappedCache.set(index, wrappedLines);
+      this.totalVisualLines += wrappedLines.length;
+      index++;
+    }
+    this.cachedViewportWidth = lineMaxWidth;
+    let visualLinesShown = 0;
+    let logicalLinesNeeded = 0;
+    const targetVisualLines = this.visibleLineCount;
+    for (
+      let i = this.values.length - 1;
+      i >= 0 && visualLinesShown < targetVisualLines;
+      i--
+    ) {
+      const wrappedLines = this.wrappedCache.get(i);
+      if (wrappedLines) {
+        visualLinesShown += wrappedLines.length;
+        logicalLinesNeeded++;
+      }
+    }
+    this.cachedVisibleLogicalLineCount = logicalLinesNeeded;
   }
 }
 
