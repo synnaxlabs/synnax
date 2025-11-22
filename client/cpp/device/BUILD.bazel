@@ -1,26 +1,26 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
 cc_library(
-    name = "channel",
-    srcs = [
-        "channel.cpp",
-    ],
-    hdrs = ["channel.h"],
+    name = "device",
+    srcs = ["device.cpp"],
+    hdrs = ["device.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/errors",
         "//client/cpp/ontology",
-        "//freighter/cpp:freighter",
-        "//freighter/cpp/fgrpc",
         "//core/pkg/api/grpc/v1:api_grpc",
-        "//x/cpp/telem",
-        "@grpc//:grpc++",
+        "//freighter/cpp:freighter",
+        "//x/cpp/status",
+        "//x/cpp/xjson",
+        "//x/cpp/xerrors",
     ],
 )
 
 cc_test(
-    name = "channel_test",
-    srcs = ["channel_test.cpp"],
+    name = "device_test",
+    srcs = ["device_test.cpp"],
     deps = [
-        ":channel",
+        ":device",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/xtest",
