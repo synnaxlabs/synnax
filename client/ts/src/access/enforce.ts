@@ -51,9 +51,9 @@ export const allowRequest = (req: Request, policies: Policy[]): boolean => {
     let allowed = false;
 
     for (const policy of policies) {
-      // Check if any requested action is allowed by this policy
+      // Check if every requested action is allowed by this policy
       const actionAllowed =
-        actions.some((action) => policy.actions.includes(action)) ||
+        actions.every((action) => policy.actions.includes(action)) ||
         policy.actions.includes(ALL_ACTION);
 
       if (!actionAllowed) continue;

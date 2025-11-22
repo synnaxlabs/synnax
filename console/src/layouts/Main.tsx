@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Flex } from "@synnaxlabs/pluto";
+import { Access, Flex } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -51,6 +51,7 @@ const SideEffect = (): null => {
   useEffect(() => {
     dispatch(Layout.maybeCreateGetStartedTab());
   }, []);
+  Access.useLoadPermissions({});
   Version.useLoadTauri();
   Cluster.useSyncClusterKey();
   Hardware.Device.useListenForChanges();

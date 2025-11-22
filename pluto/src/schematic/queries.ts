@@ -10,6 +10,7 @@
 import { type ontology, schematic, type workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 
+import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
@@ -154,3 +155,21 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     return data;
   },
 });
+
+export const useEditAccessGranted = (key: schematic.Key) =>
+  Access.useGranted({
+    objects: schematic.ontologyID(key),
+    actions: ["retrieve", "create", "update"],
+  });
+
+export const useViewAccessGranted = (key: schematic.Key) =>
+  Access.useGranted({
+    objects: schematic.ontologyID(key),
+    actions: ["retrieve"],
+  });
+
+export const useDeleteAccessGranted = (key: schematic.Key) =>
+  Access.useGranted({
+    objects: schematic.ontologyID(key),
+    actions: ["retrieve", "create", "update", "delete"],
+  });

@@ -205,7 +205,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const first = resources[0];
   const handleDeleteAlias = useDeleteAlias(props);
   const handleDelete = useDelete(props);
+
+  const canCreate = PChannel.useCreateAccessGranted();
+  const canDelete = PChannel.useDeleteAccessGranted();
   const handleRename = useRename(props);
+
   const handleLink = Cluster.useCopyLinkToClipboard();
   const openCalculated = useOpenCalculated();
   const handleSelect = {
@@ -223,9 +227,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
-      {singleResource && <Menu.RenameItem />}
+      {singleResource && canCreate && <Menu.RenameItem />}
       <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-      {isCalc && (
+      {isCalc && canCreate && (
         <>
           <PMenu.Divider />
           <PMenu.Item itemKey="openCalculated">
@@ -236,7 +240,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       )}
       {activeRange != null &&
         activeRange.persisted &&
-        (singleResource || showDeleteAlias) && (
+        (singleResource || showDeleteAlias) &&
+        canCreate && (
           <>
             <PMenu.Divider />
             {singleResource && (
@@ -254,13 +259,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
             <PMenu.Divider />
           </>
         )}
-      <PMenu.Item itemKey="delete">
-        <Icon.Delete />
-        Delete
-      </PMenu.Item>
+      {canDelete && (
+        <>
+          <PMenu.Item itemKey="delete">
+            <Icon.Delete />
+            Delete
+          </PMenu.Item>
+          <PMenu.Divider />
+        </>
+      )}
       {singleResource && (
         <>
-          <PMenu.Divider />
           <Link.CopyMenuItem />
           <Ontology.CopyMenuItem {...props} />
         </>

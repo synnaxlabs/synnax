@@ -46,7 +46,7 @@ func ProvisionRootUser(
 				return err
 			}
 		}
-		roleKey, err := access.ProvisionRootRole(ctx, tx, svc.RBAC)
+		roleKey, err := access.Provision(ctx, tx, svc.RBAC)
 		if err != nil {
 			return err
 		}

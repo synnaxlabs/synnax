@@ -59,13 +59,10 @@ export interface RetrieveForSubjectQuery {
   subject: ontology.ID;
 }
 
-export const retrieveForSubject = async ({
-  client,
-  query: { subject },
-  store,
-}: Flux.RetrieveParams<RetrieveForSubjectQuery, policy.FluxSubStore>): Promise<
-  access.policy.Policy[]
-> => {
+export const cachedRetrieveForSubject = (
+  store: policy.FluxSubStore,
+  subject: ontology.ID,
+) => {
   const roleRels = store.relationships.get((r) =>
     ontology.matchRelationship(r, {
       from: { type: "role" },
@@ -82,11 +79,42 @@ export const retrieveForSubject = async ({
       }),
     ),
   );
-  if (policyRels.length > 0) {
-    const policyKeys = policyRels.map((r) => r.to.key);
-    return store.policies.get(policyKeys);
+  const policyKeys = policyRels.map((r) => r.to.key);
+  return store.policies.get(policyKeys);
+};
+
+export const retrieveForSubject = async ({
+  client,
+  query: { subject },
+  store,
+}: Flux.RetrieveParams<RetrieveForSubjectQuery, policy.FluxSubStore>): Promise<
+  access.policy.Policy[]
+> => {
+  let policies = cachedRetrieveForSubject(store, subject);
+  if (policies.length > 0) return policies;
+  policies = await client.access.policies.retrieve({ for: subject });
+  store.policies.set(policies);
+  for (const p of policies) {
+    const roles = await client.ontology.retrieveParents(
+      [access.policy.ontologyID(p.key)],
+      { types: ["role"] },
+    );
+    roles.forEach((r) => {
+      const rel = {
+        from: r.id,
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        to: access.policy.ontologyID(p.key),
+      };
+      store.relationships.set(ontology.relationshipToString(rel), rel);
+      const subjectRel = {
+        from: r.id,
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        to: subject,
+      };
+      store.relationships.set(ontology.relationshipToString(subjectRel), subjectRel);
+    });
   }
-  return await client.access.policies.retrieve({ for: subject });
+  return policies;
 };
 
 export interface ListParams extends List.PagerParams {}

@@ -11,8 +11,10 @@ import { type Synnax as Client } from "@synnaxlabs/client";
 import {
   Component,
   Flex,
+  Flux,
   type Icon,
   List,
+  type Pluto,
   Select,
   Status,
   Synnax,
@@ -84,11 +86,15 @@ const sort: compare.Comparator<Command> = (a, b) => {
 
 export const useCommandList = (): UseListReturn<Command> => {
   const store = useStore<RootState, RootAction>();
+  const client = Synnax.use();
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const { commands } = useCommandContext();
-  const data = commands.filter(({ visible }) => visible?.(store.getState()) ?? true);
+  const data = commands.filter(
+    ({ visible }) =>
+      visible?.({ state: store.getState(), store: fluxStore, client }) ?? true,
+  );
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const confirm = Modals.useConfirm();
   const rename = Modals.useRename();
@@ -126,12 +132,18 @@ export interface CommandSelectionContext {
   extractors: Export.Extractors;
 }
 
+export interface CommandVisibleContext {
+  state: RootState;
+  store: Pluto.FluxStore;
+  client: Client | null;
+}
+
 export interface Command {
   key: string;
   name: ReactElement | string;
   sortOrder?: number;
   icon?: Icon.ReactElement;
-  visible?: (state: RootState) => boolean;
   onSelect: (ctx: CommandSelectionContext) => void;
   endContent?: ReactElement[];
+  visible?: (ctx: CommandVisibleContext) => boolean;
 }

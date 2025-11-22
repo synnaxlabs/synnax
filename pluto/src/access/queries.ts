@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, type ontology, user } from "@synnaxlabs/client";
+import { access, type ontology, type Synnax, user } from "@synnaxlabs/client";
 
 import { Policy } from "@/access/policy";
 import { type policy } from "@/access/policy/aether";
@@ -26,24 +26,73 @@ export interface PermissionsQuery {
 
 export interface FluxSubStore extends role.FluxSubStore, policy.FluxSubStore {}
 
-export interface HasPermissionParams
-  extends Flux.RetrieveParams<PermissionsQuery, FluxSubStore> {}
+const resolveSubject = (
+  client: Synnax,
+  subject?: ontology.ID,
+): ontology.ID | undefined => {
+  if (subject != null) return subject;
+  const userKey = client.auth?.user?.key;
+  if (userKey != null) return user.ontologyID(userKey);
+  return undefined;
+};
 
-const hasPermission = async ({
+export interface IsGrantedParams {
+  store: FluxSubStore;
+  client: Synnax | null;
+  query: PermissionsQuery;
+}
+
+export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query"> {}
+
+export const isGranted = ({
+  store,
   client,
   query: { subject, objects, actions },
+}: IsGrantedParams) => {
+  if (client == null) return false;
+  subject = resolveSubject(client, subject);
+  if (subject == null) return false;
+  const policies = Policy.cachedRetrieveForSubject(store, subject);
+  const req = { subject, objects, actions };
+  return access.allowRequest(req, policies);
+};
+
+const isGrantedBase = async ({
+  client,
+  query: { subject: subjectQuery, objects, actions },
   store,
-}: HasPermissionParams): Promise<boolean> => {
-  const userKey = client.auth?.user?.key;
-  if (subject == null && userKey != null) subject = user.ontologyID(userKey);
+}: Flux.RetrieveParams<PermissionsQuery, FluxSubStore>): Promise<boolean> => {
+  const subject = resolveSubject(client, subjectQuery);
   if (subject == null) return false;
   const req = { subject, objects, actions };
   const policies = await Policy.retrieveForSubject({ client, query: req, store });
   return access.allowRequest(req, policies);
 };
 
-export const { useRetrieve: useGranted } = Flux.createRetrieve<
+const { useRetrieve: useGrantedBase } = Flux.createRetrieve<
   PermissionsQuery,
   boolean,
   FluxSubStore
->({ name: PERMISSION_PLURAL_RESOURCE_NAME, retrieve: hasPermission });
+>({ name: PERMISSION_PLURAL_RESOURCE_NAME, retrieve: isGrantedBase });
+
+export const useGranted = (query: PermissionsQuery) => {
+  const { data } = useGrantedBase(query);
+  return data ?? false;
+};
+
+export interface LoadPermissionsQuery {
+  subject?: ontology.ID;
+}
+
+export const { useRetrieve: useLoadPermissions } = Flux.createRetrieve<
+  LoadPermissionsQuery,
+  access.policy.Policy[],
+  FluxSubStore
+>({
+  name: PERMISSION_PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query, store }) => {
+    const subject = resolveSubject(client, query.subject);
+    if (subject == null) return [];
+    return await Policy.retrieveForSubject({ client, query: { subject }, store });
+  },
+});

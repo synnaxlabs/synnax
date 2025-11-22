@@ -10,6 +10,7 @@
 import { lineplot, type workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 
+import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
@@ -107,3 +108,21 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     return data;
   },
 });
+
+export const useViewAccessGranted = (key: lineplot.Key) =>
+  Access.useGranted({
+    objects: lineplot.ontologyID(key),
+    actions: ["retrieve"],
+  });
+
+export const useEditAccessGranted = (key: lineplot.Key) =>
+  Access.useGranted({
+    objects: lineplot.ontologyID(key),
+    actions: ["retrieve", "create", "update"],
+  });
+
+export const useDeleteAccessGranted = (key: lineplot.Key) =>
+  Access.useGranted({
+    objects: lineplot.ontologyID(key),
+    actions: ["retrieve", "create", "update", "delete"],
+  });

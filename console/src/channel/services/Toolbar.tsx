@@ -17,26 +17,36 @@ import { Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
+const CreateChannelButtons = (): ReactElement | null => {
+  const placeLayout = Layout.usePlacer();
+  const canCreate = Channel.useCreateAccessGranted();
+  if (!canCreate) return null;
+  return (
+    <Toolbar.Actions>
+      <Toolbar.Action
+        onClick={() => placeLayout(CALCULATED_LAYOUT)}
+        tooltip="Create Calculated Channel"
+      >
+        <Channel.CreateCalculatedIcon />
+      </Toolbar.Action>
+      <Toolbar.Action
+        onClick={() => placeLayout(CREATE_LAYOUT)}
+        tooltip="Create Channel"
+      >
+        <Icon.Add />
+      </Toolbar.Action>
+    </Toolbar.Actions>
+  );
+};
+
 const Content = (): ReactElement => {
   const { data: g } = Channel.useRetrieveGroup({});
-  const placeLayout = Layout.usePlacer();
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
         <Toolbar.Actions>
-          <Toolbar.Action
-            onClick={() => placeLayout(CALCULATED_LAYOUT)}
-            tooltip="Create Calculated Channel"
-          >
-            <Channel.CreateCalculatedIcon />
-          </Toolbar.Action>
-          <Toolbar.Action
-            onClick={() => placeLayout(CREATE_LAYOUT)}
-            tooltip="Create Channel"
-          >
-            <Icon.Add />
-          </Toolbar.Action>
+          <CreateChannelButtons />
         </Toolbar.Actions>
       </Toolbar.Header>
       <Ontology.Tree root={g == null ? undefined : group.ontologyID(g.key)} />

@@ -58,7 +58,7 @@ export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
   color?: Color.ProviderProps;
 }
 
-export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
+export interface FluxStore extends Flux.Store {
   [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
   [Label.FLUX_STORE_KEY]: Label.FluxStore;
   [Rack.FLUX_STORE_KEY]: Rack.FluxStore;
@@ -81,7 +81,9 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [User.FLUX_STORE_KEY]: User.FluxStore;
   [access.policy.FLUX_STORE_KEY]: access.policy.FluxStore;
   [access.role.FLUX_STORE_KEY]: access.role.FluxStore;
-}> = {
+}
+
+export const FLUX_STORE_CONFIG: Flux.StoreConfig<FluxStore> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
   [Label.FLUX_STORE_KEY]: Label.FLUX_STORE_CONFIG,
   [Rack.FLUX_STORE_KEY]: Rack.FLUX_STORE_CONFIG,
