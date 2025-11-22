@@ -15,7 +15,7 @@ import type Synnax from "@/client";
 import { createTestClient } from "@/testutil/client";
 import { user } from "@/user";
 
-export const createClientWithPolicy = async (client: Synnax, pol: policy.New) => {
+export const createTestClientWithPolicy = async (client: Synnax, pol: policy.New) => {
   const username = id.create();
   const u = await client.users.create({
     username,

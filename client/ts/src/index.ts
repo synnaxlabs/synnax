@@ -43,6 +43,7 @@ export { ontology } from "@/ontology";
 export { group } from "@/ontology/group";
 export { ranger } from "@/ranger";
 export { status } from "@/status";
+export { createTestClientWithPolicy } from "@/testutil/access";
 export { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil/client";
 export { user } from "@/user";
 export { workspace } from "@/workspace";

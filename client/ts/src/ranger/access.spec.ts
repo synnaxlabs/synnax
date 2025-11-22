@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
 import { ranger } from "@/ranger";
-import { createClientWithPolicy } from "@/testutil/access";
+import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -20,7 +20,7 @@ const client = createTestClient();
 describe("range", () => {
   describe("access control", () => {
     it("should prevent the caller to retrieve ranges with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [],
@@ -37,7 +37,7 @@ describe("range", () => {
     });
 
     it("should allow the caller to retrieve ranges with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [ranger.ontologyID("")],
@@ -54,7 +54,7 @@ describe("range", () => {
     });
 
     it("should allow the caller to create ranges with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [ranger.ontologyID("")],
@@ -68,7 +68,7 @@ describe("range", () => {
     });
 
     it("should prevent the caller to create ranges with the incorrect policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [ranger.ontologyID("")],
@@ -84,7 +84,7 @@ describe("range", () => {
     });
 
     it("should allow the caller to delete ranges with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [ranger.ontologyID("")],
@@ -102,7 +102,7 @@ describe("range", () => {
     });
 
     it("should prevent the caller to delete ranges with the incorrect policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [ranger.ontologyID("")],

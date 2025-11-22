@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { AuthError } from "@/errors";
 import { ontology } from "@/ontology";
 import { group } from "@/ontology/group";
-import { createClientWithPolicy } from "@/testutil/access";
+import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -21,7 +21,7 @@ const client = createTestClient();
 describe("group", () => {
   describe("access control", () => {
     it("should allow the caller to create groups with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [group.ontologyID("")],
@@ -34,7 +34,7 @@ describe("group", () => {
     });
 
     it("should prevent the caller to create groups with the incorrect policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [group.ontologyID("")],
@@ -49,7 +49,7 @@ describe("group", () => {
     });
 
     it("should allow the caller to delete groups with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [group.ontologyID("")],
@@ -63,7 +63,7 @@ describe("group", () => {
     });
 
     it("should prevent the caller to delete groups with the incorrect policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [group.ontologyID("")],

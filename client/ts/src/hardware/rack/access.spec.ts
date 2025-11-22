@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
 import { rack } from "@/hardware/rack";
-import { createClientWithPolicy } from "@/testutil/access";
+import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -19,7 +19,7 @@ const client = createTestClient();
 describe("rack", () => {
   describe("access control", () => {
     it("should prevent the caller to retrieve racks with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [],
@@ -34,7 +34,7 @@ describe("rack", () => {
     });
 
     it("should allow the caller to retrieve racks with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [rack.ontologyID("")],
@@ -51,7 +51,7 @@ describe("rack", () => {
     });
 
     it("should allow the caller to create racks with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [rack.ontologyID("")],
@@ -63,7 +63,7 @@ describe("rack", () => {
     });
 
     it("should prevent the caller to create racks with the incorrect policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [rack.ontologyID("")],
@@ -77,7 +77,7 @@ describe("rack", () => {
     });
 
     it("should allow the caller to delete racks with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [rack.ontologyID("")],
@@ -93,7 +93,7 @@ describe("rack", () => {
     });
 
     it("should prevent the caller to delete racks with the incorrect policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [rack.ontologyID("")],

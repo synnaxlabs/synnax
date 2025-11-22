@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
-import { createClientWithPolicy } from "@/testutil/access";
+import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";
 import { workspace } from "@/workspace";
 
@@ -19,7 +19,7 @@ const client = createTestClient();
 describe("workspace", () => {
   describe("access control", () => {
     it("should prevent the caller to retrieve workspaces with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [],
@@ -35,7 +35,7 @@ describe("workspace", () => {
     });
 
     it("should allow the caller to retrieve workspaces with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [workspace.ontologyID("")],
@@ -51,7 +51,7 @@ describe("workspace", () => {
     });
 
     it("should allow the caller to create workspaces with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [workspace.ontologyID("")],
@@ -64,7 +64,7 @@ describe("workspace", () => {
     });
 
     it("should prevent the caller to create workspaces with the incorrect policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [workspace.ontologyID("")],
@@ -79,7 +79,7 @@ describe("workspace", () => {
     });
 
     it("should allow the caller to delete workspaces with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [workspace.ontologyID("")],
@@ -96,7 +96,7 @@ describe("workspace", () => {
     });
 
     it("should prevent the caller to delete workspaces with the incorrect policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [workspace.ontologyID("")],

@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { AuthError, NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { group } from "@/ontology/group";
-import { createClientWithPolicy } from "@/testutil/access";
+import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";
 import { symbol } from "@/workspace/schematic/symbol";
 
@@ -21,7 +21,7 @@ const client = createTestClient();
 describe("schematic_symbol", () => {
   describe("access control", () => {
     it("should prevent the caller to retrieve symbols with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [],
@@ -47,7 +47,7 @@ describe("schematic_symbol", () => {
     });
 
     it("should allow the caller to retrieve symbols with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [symbol.ontologyID("")],
@@ -75,7 +75,7 @@ describe("schematic_symbol", () => {
     });
 
     it("should allow the caller to create symbols with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [symbol.ontologyID("")],
@@ -98,7 +98,7 @@ describe("schematic_symbol", () => {
     });
 
     it("should prevent the caller to create symbols with the incorrect policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [symbol.ontologyID("")],
@@ -123,7 +123,7 @@ describe("schematic_symbol", () => {
     });
 
     it("should allow the caller to delete symbols with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [symbol.ontologyID("")],
@@ -150,7 +150,7 @@ describe("schematic_symbol", () => {
     });
 
     it("should prevent the caller to delete symbols with the incorrect policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [symbol.ontologyID("")],

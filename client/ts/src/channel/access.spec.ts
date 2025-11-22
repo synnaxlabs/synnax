@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
 import { AuthError, NotFoundError } from "@/errors";
-import { createClientWithPolicy } from "@/testutil/access";
+import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -20,7 +20,7 @@ const client = createTestClient();
 describe("channel", () => {
   describe("access control", () => {
     it("should prevent the caller to retrieve channels with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [],
@@ -37,7 +37,7 @@ describe("channel", () => {
     });
 
     it("should allow the caller to retrieve channels with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [channel.ontologyID(0)],
@@ -55,7 +55,7 @@ describe("channel", () => {
     });
 
     it("should allow the caller to create channels with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [channel.ontologyID(0)],
@@ -69,7 +69,7 @@ describe("channel", () => {
     });
 
     it("should prevent the caller to create channels with the incorrect policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [channel.ontologyID(0)],
@@ -85,7 +85,7 @@ describe("channel", () => {
     });
 
     it("should allow the caller to delete channels with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [channel.ontologyID(0)],
@@ -103,7 +103,7 @@ describe("channel", () => {
     });
 
     it("should prevent the caller to delete channels with the incorrect policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [channel.ontologyID(0)],

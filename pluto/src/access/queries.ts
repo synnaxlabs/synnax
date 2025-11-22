@@ -57,23 +57,27 @@ export const isGranted = ({
   return access.allowRequest(req, policies);
 };
 
-const isGrantedBase = async ({
-  client,
-  query: { subject: subjectQuery, objects, actions },
-  store,
-}: Flux.RetrieveParams<PermissionsQuery, FluxSubStore>): Promise<boolean> => {
-  const subject = resolveSubject(client, subjectQuery);
-  if (subject == null) return false;
-  const req = { subject, objects, actions };
-  const policies = await Policy.retrieveForSubject({ client, query: req, store });
-  return access.allowRequest(req, policies);
-};
-
 const { useRetrieve: useGrantedBase } = Flux.createRetrieve<
   PermissionsQuery,
   boolean,
   FluxSubStore
->({ name: PERMISSION_PLURAL_RESOURCE_NAME, retrieve: isGrantedBase });
+>({
+  name: PERMISSION_PLURAL_RESOURCE_NAME,
+  retrieve: async ({
+    client,
+    query: { subject, objects, actions },
+    store,
+  }: Flux.RetrieveParams<PermissionsQuery, FluxSubStore>): Promise<boolean> => {
+    subject = resolveSubject(client, subject);
+    if (subject == null) return false;
+    const policies = await Policy.retrieveForSubject({
+      client,
+      query: { subject },
+      store,
+    });
+    return access.allowRequest({ subject, objects, actions }, policies);
+  },
+});
 
 export const useGranted = (query: PermissionsQuery) => {
   const { data } = useGrantedBase(query);

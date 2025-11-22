@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
-import { createClientWithPolicy } from "@/testutil/access";
+import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";
 import { user } from "@/user";
 
@@ -20,7 +20,7 @@ const client = createTestClient();
 describe("user", () => {
   describe("access control", () => {
     it("should prevent the caller to retrieve users with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [],
@@ -36,7 +36,7 @@ describe("user", () => {
     });
 
     it("should allow the caller to retrieve users with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [user.ontologyID("")],
@@ -52,7 +52,7 @@ describe("user", () => {
     });
 
     it("should allow the caller to create users with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [user.ontologyID("")],
@@ -65,7 +65,7 @@ describe("user", () => {
     });
 
     it("should prevent the caller to create users with the incorrect policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [user.ontologyID("")],
@@ -80,7 +80,7 @@ describe("user", () => {
     });
 
     it("should allow the caller to delete users with the correct policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
         objects: [user.ontologyID("")],
@@ -97,7 +97,7 @@ describe("user", () => {
     });
 
     it("should prevent the caller to delete users with the incorrect policy", async () => {
-      const userClient = await createClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
         objects: [user.ontologyID("")],
