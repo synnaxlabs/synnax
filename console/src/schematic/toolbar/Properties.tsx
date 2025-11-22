@@ -12,6 +12,7 @@ import {
   Button,
   Color,
   Diagram,
+  Divider,
   Flex,
   Form,
   Icon,
@@ -264,6 +265,71 @@ const MultiElementProperties = ({
             }}
           >
             <Icon.Align.XCenter />
+          </Button.Button>
+          <Divider.Divider direction="y" />
+          <Button.Button
+            tooltip="Align nodes left"
+            onClick={() => {
+              const newPositions = Diagram.alignNodes(getLayouts(), "left");
+              dispatch(
+                setNodePositions({
+                  key: layoutKey,
+                  positions: Object.fromEntries(
+                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                  ),
+                }),
+              );
+            }}
+          >
+            <Icon.Align.Left />
+          </Button.Button>
+          <Button.Button
+            tooltip="Align nodes top"
+            onClick={() => {
+              const newPositions = Diagram.alignNodes(getLayouts(), "top");
+              dispatch(
+                setNodePositions({
+                  key: layoutKey,
+                  positions: Object.fromEntries(
+                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                  ),
+                }),
+              );
+            }}
+          >
+            <Icon.Align.Top />
+          </Button.Button>
+          <Button.Button
+            tooltip="Align nodes bottom"
+            onClick={() => {
+              const newPositions = Diagram.alignNodes(getLayouts(), "bottom");
+              dispatch(
+                setNodePositions({
+                  key: layoutKey,
+                  positions: Object.fromEntries(
+                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                  ),
+                }),
+              );
+            }}
+          >
+            <Icon.Align.Bottom />
+          </Button.Button>
+          <Button.Button
+            tooltip="Align nodes right"
+            onClick={() => {
+              const newPositions = Diagram.alignNodes(getLayouts(), "right");
+              dispatch(
+                setNodePositions({
+                  key: layoutKey,
+                  positions: Object.fromEntries(
+                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                  ),
+                }),
+              );
+            }}
+          >
+            <Icon.Align.Right />
           </Button.Button>
         </Flex.Box>
       </Input.Item>
