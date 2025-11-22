@@ -184,18 +184,48 @@ const MultiElementProperties = ({
 
   const getLayouts = () => {
     const viewport = selectViewport(store.getState(), layoutKey);
+
+    // First pass: find the maximum bottom indicator extension
+    let maxBottomExtension = 0;
+    elements.forEach((el) => {
+      if (el.type !== "node") return;
+      try {
+        const nodeEl = Diagram.selectNode(el.key);
+        const rect = nodeEl.getBoundingClientRect();
+        const bottomIndicator = nodeEl.querySelector(
+          ".pluto-grid__item.pluto--location-bottom",
+        );
+        if (bottomIndicator) {
+          const indicatorRect = bottomIndicator.getBoundingClientRect();
+          const extensionBelow = Math.max(0, indicatorRect.bottom - rect.bottom);
+          maxBottomExtension = Math.max(maxBottomExtension, extensionBelow / (viewport?.zoom ?? 1));
+        }
+      } catch (e) {
+        // Skip on error
+      }
+    });
+
+    // Second pass: create layouts with uniform bottom padding
     return elements
       .map((el) => {
         if (el.type !== "node") return null;
-        // grab all child elements with the class 'react-flow__handle'
         try {
           const nodeEl = Diagram.selectNode(el.key);
-          const nodeBox = box.construct(
-            el.node.position,
-            box.dims(box.construct(nodeEl)),
-          );
-          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
           const nodeElBox = box.construct(nodeEl);
+
+          // Calculate the full bounding box including absolutely positioned children
+          const rect = nodeEl.getBoundingClientRect();
+
+          let actualDims = {
+            width: rect.width / (viewport?.zoom ?? 1),
+            height: rect.height / (viewport?.zoom ?? 1),
+          };
+
+          // Add the maximum bottom extension to all nodes for consistent alignment
+          actualDims.height += maxBottomExtension;
+
+          const nodeBox = box.construct(el.node.position, actualDims);
+          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
           const handles = Array.from(handleEls).map((el) => {
             const pos = box.center(box.construct(el));
             const dist = xy.scale(

@@ -73,7 +73,46 @@ export const alignNodes = (
     const prev = layouts[i - 1];
     const prevRightHandle = prev.handles.find((h) => h.orientation === oppositeLoc);
     const leftHandle = layout.handles.find((h) => h.orientation === loc);
-    if (prevRightHandle == null || leftHandle == null) return;
+
+    // If handles don't exist in the primary direction, fall back to perpendicular handles
+    if (prevRightHandle == null || leftHandle == null) {
+      // For horizontal alignment (x), use midpoint of top/bottom handles if left/right don't exist
+      // For vertical alignment (y), use midpoint of left/right handles if top/bottom don't exist
+      const perpendicularDir = dir === "x" ? "y" : "x";
+      const perpendicularLoc1 = location.construct(perpendicularDir === "x" ? "left" : "top");
+      const perpendicularLoc2 = location.construct(perpendicularDir === "x" ? "right" : "bottom");
+
+      const prevHandles = [
+        prev.handles.find((h) => h.orientation === perpendicularLoc1),
+        prev.handles.find((h) => h.orientation === perpendicularLoc2),
+      ].filter((h) => h != null);
+
+      const currentHandles = [
+        layout.handles.find((h) => h.orientation === perpendicularLoc1),
+        layout.handles.find((h) => h.orientation === perpendicularLoc2),
+      ].filter((h) => h != null);
+
+      if (prevHandles.length === 0 || currentHandles.length === 0) return;
+
+      // Calculate midpoint of perpendicular handles
+      const prevMidpoint = prevHandles.reduce(
+        (sum, h) => xy.translate(sum, h.absolutePosition),
+        { x: 0, y: 0 }
+      );
+      const prevAvg = xy.scale(prevMidpoint, 1 / prevHandles.length);
+
+      const currentMidpoint = currentHandles.reduce(
+        (sum, h) => xy.translate(sum, h.absolutePosition),
+        { x: 0, y: 0 }
+      );
+      const currentAvg = xy.scale(currentMidpoint, 1 / currentHandles.length);
+
+      const dist = xy.set(xy.translation(currentAvg, prevAvg), dir, 0);
+      const newPos = xy.translate(box.topLeft(layout.box), dist);
+      layout.box = box.construct(newPos, box.dims(layout.box));
+      return;
+    }
+
     // We want to align the left handle of the current node with the right handle of the previous node
     const prevHandleAbsPos = prevRightHandle.absolutePosition;
     const leftHandleAbsPos = leftHandle.absolutePosition;
@@ -113,9 +152,13 @@ export const distributeNodes = (
     const rawGapSize = (totalSpace - totalMiddleWidth) / numGaps;
 
     if (rawGapSize < 0) {
-      // Not enough space - anchor only the first node and stack with 0 gap
-      let currentX = box.right(first.box);
-      sorted.slice(1).forEach((node) => {
+      // Not enough space - anchor leftmost node and stack with 0 gap
+      // Keep leftmost node first, then sort remaining nodes by vertical position
+      const remaining = sorted.slice(1).sort((a, b) => box.top(a.box) - box.top(b.box));
+      const reordered = [first, ...remaining];
+      let currentX = box.left(first.box);
+
+      reordered.forEach((node) => {
         const newPos = xy.construct(currentX, box.top(node.box));
         node.box = box.construct(newPos, box.dims(node.box));
         currentX += box.width(node.box);
