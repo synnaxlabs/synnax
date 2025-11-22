@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from synnax.hardware import ni
 
 """
 This example demonstrates how to configure and start a Counter Read Task on a National
@@ -25,7 +24,7 @@ via the NI-MAX software.
 # See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
 client = sy.Synnax()
 
-dev = client.hardware.devices.retrieve(model="NI 9326")
+dev = client.devices.retrieve(model="NI 9326")
 
 # Create an index channel that will be used to store the timestamps
 # for the counter read data.
@@ -57,7 +56,7 @@ ci_1_count = client.channels.create(
 # Instantiate the task. A task is a background process that can be used to acquire data
 # from, or write commands to a device. Tasks are the primary method for interacting with
 # hardware in Synnax.
-tsk = ni.CounterReadTask(
+tsk = sy.ni.CounterReadTask(
     # A name to find and monitor the task via the Synnax Console.
     name="Basic Counter Read",
     # The key of the device to execute the task on.
@@ -74,7 +73,7 @@ tsk = ni.CounterReadTask(
     data_saving=True,
     # The list of counter channels we'd like to acquire data from.
     channels=[
-        ni.CIFrequencyChan(
+        sy.ni.CIFrequencyChan(
             # The key of the Synnax channel we're acquiring data for.
             channel=ci_0_freq.key,
             # The counter port on the device (ctr0, ctr1, etc.)
@@ -94,7 +93,7 @@ tsk = ni.CounterReadTask(
             # Divisor for internal timebase
             divisor=4,
         ),
-        ni.CIEdgeCountChan(
+        sy.ni.CIEdgeCountChan(
             # The key of the Synnax channel we're acquiring data for.
             channel=ci_1_count.key,
             # The counter port on the device
@@ -111,7 +110,7 @@ tsk = ni.CounterReadTask(
 
 # This will create the task in Synnax and wait for the driver to validate that the
 # configuration is correct.
-client.hardware.tasks.configure(tsk)
+client.tasks.configure(tsk)
 
 # Stream 100 reads, which will accumulate a total of 400 samples
 # for each channel over a period of 4 seconds.
@@ -129,7 +128,7 @@ with tsk.run():
             frame.append(streamer.read())
 
 # Clean up by deleting the task
-client.hardware.tasks.delete(tsk.key)
+client.tasks.delete(tsk.key)
 
 # Save the data to a CSV file.
 frame.to_df().to_csv("counter_read_result.csv")

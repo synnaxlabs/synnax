@@ -250,13 +250,17 @@ export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
       const onSetAlias = store.rangeAliases.onSet((alias) => {
         if (alias == null) return;
         onChange(
-          state.skipNull((p) => client.channels.sugar({ ...p, alias: alias.alias })),
+          state.skipUndefined((p) =>
+            client.channels.sugar({ ...p, alias: alias.alias }),
+          ),
         );
       }, aliasKey);
       const onDeleteAlias = store.rangeAliases.onDelete(
         () =>
           onChange(
-            state.skipNull((p) => client.channels.sugar({ ...p, alias: undefined })),
+            state.skipUndefined((p) =>
+              client.channels.sugar({ ...p, alias: undefined }),
+            ),
           ),
         aliasKey,
       );
@@ -294,14 +298,16 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
         if (alias != null) channel.alias = alias.alias;
       }
       onChange(
-        state.skipNull((p) => p.map((ch) => (ch.key === channel.key ? channel : ch))),
+        state.skipUndefined((p) =>
+          p.map((ch) => (ch.key === channel.key ? channel : ch)),
+        ),
       );
     });
     if (rangeKey == null) return ch;
     const onSetAlias = store.rangeAliases.onSet((alias) => {
       if (alias == null) return;
       onChange(
-        state.skipNull((p) =>
+        state.skipUndefined((p) =>
           p.map((ch) =>
             ch.key === alias.channel
               ? client.channels.sugar({ ...ch, alias: alias.alias })
@@ -313,7 +319,7 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
     const onRemoveAlias = store.rangeAliases.onDelete((aliasKey) => {
       const decoded = ranger.decodeDeleteAliasChange(aliasKey);
       onChange(
-        state.skipNull((p) =>
+        state.skipUndefined((p) =>
           p.map((ch) =>
             ch.key === decoded.channel
               ? client.channels.sugar({ ...ch, alias: undefined })
@@ -454,7 +460,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     rollbacks.push(
       store.channels.set(
         key,
-        state.skipNull((p) => client.channels.sugar({ ...p, name })),
+        state.skipUndefined((p) => client.channels.sugar({ ...p, name })),
       ),
     );
     rollbacks.push(Ontology.renameFluxResource(store, channel.ontologyID(key), name));

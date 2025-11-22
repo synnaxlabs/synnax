@@ -34,10 +34,8 @@ Note: The task management API is identical for all hardware types - only the tas
 configuration specifics differ between hardware integrations.
 """
 
-import time
-
 import synnax as sy
-from synnax.hardware import modbus
+from synnax import modbus
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
@@ -45,7 +43,7 @@ client = sy.Synnax()
 
 # Retrieve the Modbus device from Synnax
 # Update this with the name you gave the device in the Synnax Console
-dev = client.hardware.devices.retrieve(name="Modbus Server")
+dev = client.devices.retrieve(name="Modbus Server")
 
 print("=" * 70)
 print("Modbus Task Management Example")
@@ -81,20 +79,24 @@ input_reg_1 = client.channels.create(
 )
 
 # Create the initial Modbus read task
-original_task = modbus.ReadTask(
+original_task = sy.modbus.ReadTask(
     name="Modbus Read Task",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,
     stream_rate=sy.Rate.HZ * 10,
     data_saving=True,
     channels=[
-        modbus.InputRegisterChan(channel=input_reg_0.key, address=0, data_type="uint8"),
-        modbus.InputRegisterChan(channel=input_reg_1.key, address=1, data_type="uint8"),
+        sy.modbus.InputRegisterChan(
+            channel=input_reg_0.key, address=0, data_type="uint8"
+        ),
+        sy.modbus.InputRegisterChan(
+            channel=input_reg_1.key, address=1, data_type="uint8"
+        ),
     ],
 )
 
 # Configure the task with Synnax
-client.hardware.tasks.configure(original_task)
+client.tasks.configure(original_task)
 print(f"✓ Created task: '{original_task.name}'")
 print(f"  Task key: {original_task.key}")
 print(f"  Sample rate: 10 Hz")
@@ -109,18 +111,18 @@ print("\nStep 2: Copying task and modifying configuration")
 print("-" * 70)
 
 # Retrieve the original task by name
-retrieved_task = client.hardware.tasks.retrieve(name="Modbus Read Task")
+retrieved_task = client.tasks.retrieve(name="Modbus Read Task")
 print(f"\nRetrieved task by name: '{retrieved_task.name}' (key: {retrieved_task.key})")
 
 # Copy the original task with a new name
 # This creates a new, independent task with the same configuration
-copied_task_raw = client.hardware.tasks.copy(
+copied_task_raw = client.tasks.copy(
     key=retrieved_task.key,
     name="Modbus Read Task Copy",
 )
 
 # Convert the raw task to a ReadTask object so we can modify the configuration
-copied_task = modbus.ReadTask(internal=copied_task_raw)
+copied_task = sy.modbus.ReadTask(internal=copied_task_raw)
 
 # Modify the stream rate and enable auto-start
 # Convert Rate to int to avoid Pydantic serialization warnings
@@ -129,7 +131,7 @@ copied_task.config.auto_start = True
 
 # Reconfigure the task with the new settings
 # This will also start the task automatically since auto_start is True
-client.hardware.tasks.configure(copied_task)
+client.tasks.configure(copied_task)
 
 print(f"\n✓ Copied and modified task: '{copied_task.name}'")
 print(f"  Original task:")
@@ -151,7 +153,7 @@ print("\nStep 3: Listing all tasks on the rack")
 print("-" * 70)
 
 # List all tasks again to see the original and copy
-all_tasks_updated = client.hardware.tasks.list()
+all_tasks_updated = client.tasks.list()
 print(f"✓ Found {len(all_tasks_updated)} task(s) on the rack:\n")
 
 # Group tasks by type for better visualization
@@ -199,11 +201,11 @@ print("\nStep 4: Deleting the copied task")
 print("-" * 70)
 
 # Delete the copied task by key
-client.hardware.tasks.delete(copied_task.key)
+client.tasks.delete(copied_task.key)
 print(f"✓ Deleted copied task (key: {copied_task.key})")
 
 # Verify deletion by listing tasks again
-remaining_tasks = client.hardware.tasks.list()
+remaining_tasks = client.tasks.list()
 remaining_modbus = [t for t in remaining_tasks if t.type == "modbus_read"]
 print(f"✓ Remaining Modbus tasks: {len(remaining_modbus)}")
 for task in remaining_modbus:
