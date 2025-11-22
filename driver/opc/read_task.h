@@ -236,6 +236,8 @@ protected:
                     WARNING
                 ) << "[opc.read_task] connection error on first read, reconnecting: "
                   << status_err;
+
+                // Clear stale connection and acquire fresh one
                 this->connection = opc::connection::Pool::Connection(
                     nullptr,
                     nullptr,
@@ -250,7 +252,8 @@ protected:
                     return;
                 }
                 this->connection = std::move(c);
-                // Retry read
+
+                // Retry read with fresh connection
                 ua_res = opc::ReadResponse(UA_Client_Service_read(
                     this->connection.get(),
                     this->request_builder.build()
@@ -287,7 +290,6 @@ public:
             this->request_builder.build()
         ));
         auto status_err = opc::errors::parse(ua_res.get().responseHeader.serviceResult);
-
         this->check_initial_connection(ua_res, status_err);
         if (res.error = status_err; res.error) return res;
 
@@ -371,7 +373,6 @@ public:
             auto status_err = opc::errors::parse(
                 ua_res.get().responseHeader.serviceResult
             );
-
             this->check_initial_connection(ua_res, status_err);
             if (res.error = status_err; res.error) return res;
 
