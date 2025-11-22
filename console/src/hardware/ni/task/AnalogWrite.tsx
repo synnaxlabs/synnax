@@ -125,7 +125,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
+  const dev = await client.devices.retrieve<Device.Properties, Device.Make>({
     key: config.device,
   });
   Common.Device.checkConfigured(dev);
@@ -211,7 +211,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
       else dev.properties.analogOutput.channels[key].command = s.key;
     });
   }
-  if (modified) await client.hardware.devices.create(dev);
+  if (modified) await client.devices.create(dev);
   config.channels = config.channels.map((c) => {
     const pair = dev.properties.analogOutput.channels[c.port.toString()];
     return { ...c, cmdChannel: pair.command, stateChannel: pair.state };

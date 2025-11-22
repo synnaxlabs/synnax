@@ -45,6 +45,7 @@ import {
   selectRequired,
   useSelectEditable,
   useSelectHasPermission,
+  useSelectLegendVisible,
   useSelectNodeProps,
   useSelectRequired,
   useSelectRequiredViewportMode,
@@ -159,6 +160,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const schematic = useSelectRequired(layoutKey);
+  const legendVisible = useSelectLegendVisible(layoutKey);
   const dispatch = useDispatch();
   const syncDispatch = useSyncComponent(layoutKey);
   const selector = useCallback(
@@ -421,11 +423,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             </Flex.Box>
           </Diagram.Controls>
         </Core.Schematic>
-        <Control.Legend
-          position={legendPosition}
-          onPositionChange={handleLegendPositionChange}
-          allowVisibleChange={false}
-        />
+        {legendVisible && (
+          <Control.Legend
+            position={legendPosition}
+            onPositionChange={handleLegendPositionChange}
+            allowVisibleChange={false}
+          />
+        )}
       </Control.Controller>
     </div>
   );
