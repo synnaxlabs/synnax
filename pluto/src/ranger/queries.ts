@@ -25,12 +25,12 @@ export interface AliasFluxStore extends Flux.UnaryStore<ranger.Key, ranger.Alias
 export const RANGE_KV_FLUX_STORE_KEY = "rangeKV";
 export const RANGE_ALIASES_FLUX_STORE_KEY = "rangeAliases";
 
-const RESOURCE_NAME = "Range";
-const PLURAL_RESOURCE_NAME = "Ranges";
-const KV_RESOURCE_NAME = "Meta-Data Item";
-const PLURAL_KV_RESOURCE_NAME = "Meta-Data";
-const PLURAL_CHILDREN_RESOURCE_NAME = "Child Ranges";
-const PARENT_RESOURCE_NAME = "Parent Range";
+const RESOURCE_NAME = "range";
+const PLURAL_RESOURCE_NAME = "ranges";
+const KV_RESOURCE_NAME = "metadata";
+const PLURAL_KV_RESOURCE_NAME = "metadata";
+const PLURAL_CHILDREN_RESOURCE_NAME = "child ranges";
+const PARENT_RESOURCE_NAME = "parent range";
 
 export interface FluxSubStore extends Label.FluxSubStore, Ontology.FluxSubStore {
   [aetherRanger.FLUX_STORE_KEY]: aetherRanger.FluxStore;

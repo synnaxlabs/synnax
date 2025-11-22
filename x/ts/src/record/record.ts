@@ -45,10 +45,7 @@ export interface KeyedNamed<K extends Key = string> {
  * Zod schema for validating unknown records.
  * Accepts objects with string, number, or symbol keys and unknown values.
  */
-export const unknownZ = z.record(
-  z.union([z.number(), z.string(), z.symbol()]),
-  z.unknown(),
-);
+export const unknownZ = z.record(z.union([z.number(), z.string()]), z.unknown());
 
 /**
  * Type representing the entries of a record as an array of key-value tuples.

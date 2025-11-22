@@ -168,6 +168,10 @@ type Transport struct {
 	ArcDelete   freighter.UnaryServer[ArcDeleteRequest, types.Nil]
 	ArcRetrieve freighter.UnaryServer[ArcRetrieveRequest, ArcRetrieveResponse]
 	ArcLSP      freighter.StreamServer[ArcLSPMessage, ArcLSPMessage]
+	// VIEW
+	ViewCreate   freighter.UnaryServer[ViewCreateRequest, ViewCreateResponse]
+	ViewRetrieve freighter.UnaryServer[ViewRetrieveRequest, ViewRetrieveResponse]
+	ViewDelete   freighter.UnaryServer[ViewDeleteRequest, types.Nil]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
@@ -191,8 +195,9 @@ type Layer struct {
 	Label        *LabelService
 	Hardware     *HardwareService
 	Access       *AccessService
-	Arc          *ArcService
 	Status       *StatusService
+	View         *ViewService
+	Arc          *ArcService
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
@@ -336,6 +341,11 @@ func (a *Layer) BindTo(t Transport) {
 		t.StatusRetrieve,
 		t.StatusDelete,
 
+		// VIEW
+		t.ViewCreate,
+		t.ViewRetrieve,
+		t.ViewDelete,
+
 		// ARC
 		t.ArcCreate,
 		t.ArcDelete,
@@ -464,6 +474,11 @@ func (a *Layer) BindTo(t Transport) {
 	t.StatusRetrieve.BindHandler(a.Status.Retrieve)
 	t.StatusDelete.BindHandler(a.Status.Delete)
 
+	// VIEW
+	t.ViewCreate.BindHandler(a.View.Create)
+	t.ViewRetrieve.BindHandler(a.View.Retrieve)
+	t.ViewDelete.BindHandler(a.View.Delete)
+
 	// Arc
 	t.ArcCreate.BindHandler(a.Arc.Create)
 	t.ArcDelete.BindHandler(a.Arc.Delete)
@@ -500,5 +515,6 @@ func New(cfgs ...Config) (*Layer, error) {
 		Table:        NewTableService(provider),
 		Status:       NewStatusService(provider),
 		Arc:          NewArcService(provider),
+		View:         NewViewService(provider),
 	}, nil
 }

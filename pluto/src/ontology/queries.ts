@@ -14,9 +14,9 @@ import { Flux } from "@/flux";
 import { type List } from "@/list";
 import { type FluxSubStore } from "@/ontology/aether/queries";
 
-const RESOURCE_RESOURCE_NAME = "Resource";
-const PLURAL_RESOURCE_RESOURCE_NAME = "Resources";
-const PLURAL_CHILDREN_RESOURCE_NAME = "Children";
+const RESOURCE_RESOURCE_NAME = "resource";
+const PLURAL_RESOURCE_RESOURCE_NAME = "resources";
+const PLURAL_CHILDREN_RESOURCE_NAME = "children";
 
 export const useResourceSetSynchronizer = (
   onSet: (resource: ontology.Resource) => void,
