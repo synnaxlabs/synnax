@@ -11,13 +11,12 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+import random
 from synnax.hardware.modbus import (
     CoilInputChan,
     CoilOutputChan,
-    DiscreteInputChan,
     HoldingRegisterInputChan,
     HoldingRegisterOutputChan,
-    InputRegisterChan,
     ReadTask,
     ReadTaskConfig,
     WriteTask,
@@ -507,20 +506,21 @@ class TestModbusDevicePropertyUpdates:
         device = client.hardware.devices.create(device)
 
         # Create channels
+        rand_int = random.randint(0, 100000)
         time_ch = client.channels.create(
-            name="modbus_time",
+            name=f"modbus_time_{rand_int}",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
 
         ch1 = client.channels.create(
-            name="register_0",
+            name=f"register_0_{rand_int}",
             data_type=sy.DataType.UINT8,
             index=time_ch.key,
         )
 
         ch2 = client.channels.create(
-            name="register_1",
+            name=f"register_1_{rand_int}",
             data_type=sy.DataType.UINT16,
             index=time_ch.key,
         )
@@ -593,20 +593,21 @@ class TestModbusDevicePropertyUpdates:
         device = client.hardware.devices.create(device)
 
         # Create command channels
+        random_id = random.randint(0, 100000)
         cmd_time = client.channels.create(
-            name="cmd_time",
+            name=f"cmd_time_{random_id}",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
 
         coil_cmd = client.channels.create(
-            name="coil_command",
+            name=f"coil_command_{random_id}",
             data_type=sy.DataType.UINT8,
             index=cmd_time.key,
         )
 
         holding_cmd = client.channels.create(
-            name="holding_command",
+            name=f"holding_command_{random_id}",
             data_type=sy.DataType.FLOAT32,
             index=cmd_time.key,
         )

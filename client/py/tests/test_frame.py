@@ -77,7 +77,7 @@ class TestWriteFrameAdapter:
     @pytest.fixture(scope="class")
     def adapter(self, client: sy.Synnax) -> [WriteFrameAdapter, sy.Channel]:
         ch = client.channels.create(
-            name=f"test-{random.randint(0, 100000)}",
+            name=f"test_{random.randint(0, 100000)}",
             leaseholder=1,
             virtual=True,
             data_type=sy.DataType.FLOAT64,
@@ -175,7 +175,7 @@ class TestWriteFrameAdapter:
         """It should correctly adapt a dict of channel names to timestamps."""
         ch = client.channels.create(
             sy.Channel(
-                name=f"test-{random.randint(0, 100000)}",
+                name=f"test_{random.randint(0, 100000)}",
                 virtual=True,
                 data_type=sy.DataType.TIMESTAMP,
             )
@@ -285,7 +285,7 @@ class TestWriteFrameAdapter:
     def test_adapt_single_string(self, client):
         """Should correctly adapt a single string into a string based series"""
         ch = client.channels.create(
-            name=f"test-{random.randint(0, 100000)}",
+            name=f"test_{random.randint(0, 100000)}",
             virtual=True,
             data_type=sy.DataType.STRING,
         )
@@ -296,7 +296,7 @@ class TestWriteFrameAdapter:
 
     def test_adapt_single_string_name_value_pair(self, client):
         ch = client.channels.create(
-            name=f"test-{random.randint(0, 100000)}",
+            name=f"test_{random.randint(0, 100000)}",
             virtual=True,
             data_type=sy.DataType.STRING,
         )

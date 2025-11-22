@@ -22,7 +22,7 @@ class TestCalculatedChannelStreaming:
     def test_basic_calculated_channel_stream(self, client: sy.Synnax):
         """Should correctly create and read from a basic calculated channel using streaming"""
         timestamp_channel = client.channels.create(
-            name="test_timestamp",
+            name=rand_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
@@ -41,7 +41,7 @@ class TestCalculatedChannelStreaming:
             ]
         )
         calc_channel = client.channels.create(
-            name="test_calc",
+            name=rand_name(),
             expression=f"return {src_channels[0].name} + {src_channels[1].name}",
         )
         start = sy.TimeStamp.now()
@@ -83,7 +83,7 @@ class TestCalculatedChannelStreaming:
             virtual=True,
         )
         calc = client.channels.create(
-            name="calc_channel",
+            name=rand_name(),
             expression=f"return {virt.name} * 2",
         )
         start = sy.TimeStamp.now()
@@ -110,7 +110,7 @@ class TestCalculatedChannelStreaming:
             virtual=True,
         )
         calc = client.channels.create(
-            name="calc_channel",
+            name=rand_name(),
             expression=f"return {virt.name} * 2",
         )
         start = sy.TimeStamp.now()
@@ -137,7 +137,7 @@ class TestCalculatedChannelIteration:
     def test_basic_calculated_channel_iterate(self, client: sy.Synnax):
         """Should correctly create and read from a basic calculated channel using iteration"""
         timestamp_channel = client.channels.create(
-            name="test_timestamp_iter",
+            name=rand_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
@@ -149,7 +149,7 @@ class TestCalculatedChannelIteration:
             ),
         )
         calc_channel = client.channels.create(
-            name="test_calc_iter",
+            name=rand_name(),
             expression=f"return {src_channel.name}",
         )
         idx_data_1 = [
@@ -239,7 +239,7 @@ class TestCalculatedChannelIteration:
     def test_conditional_calculated_channel(self, client: sy.Synnax):
         """Should correctly create and read from a basic calculated channel using iteration"""
         timestamp_channel = client.channels.create(
-            name="test_timestamp_iter",
+            name=rand_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
@@ -251,7 +251,7 @@ class TestCalculatedChannelIteration:
             ),
         )
         calc_channel = client.channels.create(
-            name="test_calc_iter",
+            name=rand_name(),
             expression=f"""
             if ({src_channel.name} > 15) {{
                 return 4
@@ -293,7 +293,7 @@ class TestCalculatedChannelIteration:
     def test_calculation_deleted_channel(self, client: sy.Synnax):
         """Should correctly create and read from a basic calculated channel using iteration"""
         timestamp_channel = client.channels.create(
-            name="test_timestamp_iter",
+            name=rand_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
@@ -305,7 +305,7 @@ class TestCalculatedChannelIteration:
             ),
         )
         calc_channel = client.channels.create(
-            name="test_calc_iter",
+            name=rand_name(),
             expression=f"""
               if ({src_channel.name} > 15) {{
                   return 4
@@ -356,7 +356,7 @@ class TestCalculatedChannelIteration:
         """Should correctly handle 2-level nested calculated channels (C → B → A)"""
         # Create index and base concrete channel
         timestamp_channel = client.channels.create(
-            name="test_timestamp_nested",
+            name=rand_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
@@ -370,13 +370,13 @@ class TestCalculatedChannelIteration:
 
         # Create B: calculated channel that depends on concrete channel A (sensor_1)
         calc_b = client.channels.create(
-            name="calc_b_2level",
+            name=rand_name(),
             expression=f"return {sensor_1.name} * 2",
         )
 
         # Create C: calculated channel that depends on calculated channel B
         calc_c = client.channels.create(
-            name="calc_c_2level",
+            name=rand_name(),
             expression=f"return {calc_b.name} + 10",
         )
 
@@ -424,7 +424,7 @@ class TestCalculatedChannelIteration:
         """Should correctly handle 3-level nested calculated channels (D → C → B → A)"""
         # Create index and base concrete channel
         timestamp_channel = client.channels.create(
-            name="test_timestamp_nested_3",
+            name=rand_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
@@ -438,19 +438,19 @@ class TestCalculatedChannelIteration:
 
         # Create B: depends on sensor_1 (concrete)
         calc_b = client.channels.create(
-            name="calc_b_3level",
+            name=rand_name(),
             expression=f"return {sensor_1.name} * 2",
         )
 
         # Create C: depends on B (calculated)
         calc_c = client.channels.create(
-            name="calc_c_3level",
+            name=rand_name(),
             expression=f"return {calc_b.name} + 5",
         )
 
         # Create D: depends on C (calculated)
         calc_d = client.channels.create(
-            name="calc_d_3level",
+            name=rand_name(),
             expression=f"return {calc_c.name} * 3",
         )
 
@@ -497,7 +497,7 @@ class TestCalculatedChannelIteration:
         """Should correctly handle diamond dependency pattern (E → C & D → A)"""
         # Create index and base concrete channel
         timestamp_channel = client.channels.create(
-            name="test_timestamp_diamond",
+            name=rand_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
@@ -511,19 +511,19 @@ class TestCalculatedChannelIteration:
 
         # Create C: depends on sensor_1 (concrete)
         calc_c = client.channels.create(
-            name="calc_c_diamond",
+            name=rand_name(),
             expression=f"return {sensor_1.name} + 10",
         )
 
         # Create D: also depends on sensor_1 (concrete)
         calc_d = client.channels.create(
-            name="calc_d_diamond",
+            name=rand_name(),
             expression=f"return {sensor_1.name} * 5",
         )
 
         # Create E: depends on both C and D (calculated)
         calc_e = client.channels.create(
-            name="calc_e_diamond",
+            name=rand_name(),
             expression=f"return {calc_c.name} + {calc_d.name}",
         )
 
@@ -583,7 +583,7 @@ class TestCalculatedChannelIteration:
         """Should correctly handle requesting both calculated and concrete channels together"""
         # Create index and base concrete channels
         timestamp_channel = client.channels.create(
-            name="test_timestamp_mixed",
+            name=rand_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
@@ -604,13 +604,13 @@ class TestCalculatedChannelIteration:
 
         # Create calculated channel that depends on both sensors
         calc_mixed = client.channels.create(
-            name="calc_mixed",
+            name=rand_name(),
             expression=f"return {sensor_1.name} + {sensor_2.name}",
         )
 
         # Create nested calculated channel
         calc_mixed_nested = client.channels.create(
-            name="calc_mixed_nested",
+            name=rand_name(),
             expression=f"return {calc_mixed.name} * 2",
         )
 

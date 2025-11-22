@@ -15,8 +15,9 @@ from synnax.cli.ingest import pure_ingest
 from synnax.synnax import Synnax
 
 from .data import DATA_DIR
+from synnax.util.rand import rand_name
 
-CHANNELS = ["ingest-valid-idx", "ingest-valid-1", "ingest-valid-2"]
+CHANNELS = ["ingest_valid_idx", "ingest_valid_1", "ingest_valid_2"]
 
 
 @pytest.mark.cli
@@ -28,12 +29,12 @@ class TestIngest:
                     True,  # Ingest all channels?
                     True,  # Channels not found, create them?
                     True,  # Are any channels indexed?
-                    "ingest-valid-idx",  # Index channel
+                    "ingest_valid_idx",  # Index channel
                     True,  # Do all non-indexed channels have the same data rate?
-                    "ingest-valid-idx",  # Enter the name of the data rate or index?,
+                    "ingest_valid_idx",  # Enter the name of the data rate or index?,
                     0,  # Guess data types from file.
                     True,  # Is the starting timestamp correct?
-                    "Random Range",
+                    rand_name(),
                 ]
             )
             pure_ingest(
