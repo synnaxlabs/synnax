@@ -356,7 +356,7 @@ inline void eventually_nil(
 /// @param line The source line number
 /// @return The first element of the pair (the result value) if successful
 template<typename Pair>
-auto assert_nil_p_helper(Pair &&pair_result, const char *file, int line) ->
+auto assert_nil_p(Pair &&pair_result, const char *file, const int line) ->
     typename std::remove_reference<decltype(pair_result.first)>::type {
     if (pair_result.second) {
         ADD_FAILURE_AT(file, line)
