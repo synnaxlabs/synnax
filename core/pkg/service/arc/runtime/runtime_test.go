@@ -184,7 +184,7 @@ var _ = Describe("Runtime", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				var stat status.Status
+				var stat status.Status[any]
 				g.Expect(statusSvc.NewRetrieve().WhereKeys("ox_alarm").Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
 			}).To(Succeed())

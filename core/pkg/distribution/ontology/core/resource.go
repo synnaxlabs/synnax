@@ -72,7 +72,7 @@ func (id ID) IsType() bool { return id.Type != "" && id.Key == "" }
 
 // ParseID parses the given string into an ID.
 func ParseID(s string) (ID, error) {
-	split := strings.Split(s, ":")
+	split := strings.SplitN(s, ":", 2)
 	if len(split) != 2 {
 		return ID{}, errors.Wrapf(validate.Error, "[ontology] - failed to parse id: %s", s)
 	}
