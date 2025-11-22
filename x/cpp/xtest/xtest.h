@@ -350,17 +350,14 @@ inline void eventually_nil(
     )
 
 /// @brief Helper function for ASSERT_NIL_P macro that works with MSVC
-/// @tparam T The type of the value component in the pair
+/// @tparam Pair The pair type (automatically deduced)
 /// @param pair_result The pair to check
 /// @param file The source file name
 /// @param line The source line number
 /// @return The first element of the pair (the result value) if successful
-template<typename T>
-T assert_nil_p_helper(
-    std::pair<T, xerrors::Error> &&pair_result,
-    const char *file,
-    int line
-) {
+template<typename Pair>
+auto assert_nil_p_helper(Pair &&pair_result, const char *file, int line) ->
+    typename std::remove_reference<decltype(pair_result.first)>::type {
     if (pair_result.second) {
         ADD_FAILURE_AT(file, line)
             << "Expected operation to succeed, but got error: " << pair_result.second;
