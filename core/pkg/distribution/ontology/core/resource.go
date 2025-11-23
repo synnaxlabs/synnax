@@ -95,6 +95,24 @@ func ParseIDs(s []string) ([]ID, error) {
 	return ids, nil
 }
 
+// IDs extracts the IDs from a slice of Resources.
+func IDs(resources []Resource) []ID {
+	ids := make([]ID, 0, len(resources))
+	for _, r := range resources {
+		ids = append(ids, r.ID)
+	}
+	return ids
+}
+
+// IDsToString converts a slice of IDs to a slice of their string representations.
+func IDsToString(ids []ID) []string {
+	strings := make([]string, 0, len(ids))
+	for _, id := range ids {
+		strings = append(strings, id.String())
+	}
+	return strings
+}
+
 // Resource represents an instance matching a [Schema] (think class and object in OOP).
 type Resource struct {
 	ID ID `json:"id" msgpack:"id"`
