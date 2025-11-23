@@ -192,6 +192,7 @@ func start(cmd *cobra.Command) {
 			Instrumentation: ins.Child("service"),
 			Distribution:    distributionLayer,
 			Security:        securityProvider,
+			DataPath:        dataPath,
 		}); !ok(err, serviceLayer) {
 			return err
 		}

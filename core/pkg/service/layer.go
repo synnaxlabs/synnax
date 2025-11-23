@@ -55,6 +55,10 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Security security.Provider
+	// DataPath is the path to the storage directory for metrics monitoring.
+	//
+	// [OPTIONAL] - Defaults to "" (will use "/" in metrics)
+	DataPath string
 }
 
 var (
@@ -70,6 +74,7 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Distribution = override.Nil(c.Distribution, other.Distribution)
 	c.Security = override.Nil(c.Security, other.Security)
+	c.DataPath = override.String(c.DataPath, other.DataPath)
 	return c
 }
 
@@ -279,6 +284,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Framer:          l.Framer,
 			Channel:         cfg.Distribution.Channel,
 			HostProvider:    cfg.Distribution.Cluster,
+			DataPath:        cfg.DataPath,
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}

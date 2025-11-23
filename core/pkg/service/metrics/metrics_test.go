@@ -76,6 +76,7 @@ var _ = Describe("Metrics", Ordered, func() {
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
 				CollectionInterval: 5 * time.Second,
+				DataPath:           "/tmp",
 			}))
 			Expect(svc).ToNot(BeNil())
 			Expect(svc.Close()).To(Succeed())
@@ -106,6 +107,17 @@ var _ = Describe("Metrics", Ordered, func() {
 			})
 			Expect(cfg.CollectionInterval).To(Equal(2 * time.Second))
 		})
+		It("Should create a service in memory mode (empty DataPath)", func() {
+			svc := MustSucceed(metrics.OpenService(ctx, metrics.Config{
+				Channel:            dist.Channel,
+				Framer:             svcFramer,
+				HostProvider:       dist.Cluster,
+				CollectionInterval: 5 * time.Second,
+				DataPath:           "",
+			}))
+			Expect(svc).ToNot(BeNil())
+			Expect(svc.Close()).To(Succeed())
+		})
 	})
 	Describe("Channel Creation", func() {
 		var svc *metrics.Service
@@ -115,6 +127,7 @@ var _ = Describe("Metrics", Ordered, func() {
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
 				CollectionInterval: 100 * time.Millisecond,
+				DataPath:           "/tmp",
 			}))
 		})
 		JustAfterEach(func() {
@@ -167,12 +180,27 @@ var _ = Describe("Metrics", Ordered, func() {
 				g.Expect(ch.LocalIndex).ToNot(BeZero())
 			}).Should(Succeed())
 		})
+		It("Should create disk metric channel", func() {
+			hostKey := dist.Cluster.HostKey()
+			expectedName := "sy_node_" + hostKey.String() + "_metrics_disk_usage_mb"
+			Eventually(func(g Gomega) {
+				var ch channel.Channel
+				g.Expect(dist.Channel.NewRetrieve().
+					WhereNames(expectedName).
+					Entry(&ch).
+					Exec(ctx, nil),
+				).To(Succeed())
+				g.Expect(ch.DataType).To(Equal(telem.Float32T))
+				g.Expect(ch.LocalIndex).ToNot(BeZero())
+			}).Should(Succeed())
+		})
 		It("Should reuse existing channels", func() {
 			svc2 := MustSucceed(metrics.OpenService(ctx, metrics.Config{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
 				CollectionInterval: 100 * time.Millisecond,
+				DataPath:           "/tmp",
 			}))
 			hostKey := dist.Cluster.HostKey()
 			var channels []channel.Channel
@@ -183,11 +211,12 @@ var _ = Describe("Metrics", Ordered, func() {
 					"sy_node_"+hostKey.String()+"_metrics_time",
 					"sy_node_"+hostKey.String()+"_metrics_cpu_percentage",
 					"sy_node_"+hostKey.String()+"_metrics_mem_percentage",
+					"sy_node_"+hostKey.String()+"_metrics_disk_usage_mb",
 				).
 				Entries(&channels).
 				Exec(ctx, nil),
 			).To(Succeed())
-			Expect(channels).To(HaveLen(3))
+			Expect(channels).To(HaveLen(4))
 			Expect(svc2.Close()).To(Succeed())
 		})
 	})
@@ -204,6 +233,7 @@ var _ = Describe("Metrics", Ordered, func() {
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
 				CollectionInterval: 50 * time.Millisecond,
+				DataPath:           "/tmp",
 			}))
 			channels := []channel.Channel{}
 			hostKey := dist.Cluster.HostKey()
@@ -213,6 +243,7 @@ var _ = Describe("Metrics", Ordered, func() {
 						"sy_node_"+hostKey.String()+"_metrics_time",
 						"sy_node_"+hostKey.String()+"_metrics_cpu_percentage",
 						"sy_node_"+hostKey.String()+"_metrics_mem_percentage",
+						"sy_node_"+hostKey.String()+"_metrics_disk_usage_mb",
 					).
 					Entries(&channels).
 					Exec(ctx, nil),
@@ -233,7 +264,7 @@ var _ = Describe("Metrics", Ordered, func() {
 		It("Should write metrics at configured interval", func() {
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			Expect(res.Frame.Count()).To(Equal(3))
+			Expect(res.Frame.Count()).To(Equal(4))
 
 			timeSeries := res.Frame.SeriesAt(0)
 			Expect(timeSeries.DataType).To(Equal(telem.TimeStampT))
@@ -254,13 +285,60 @@ var _ = Describe("Metrics", Ordered, func() {
 			Expect(memVal).To(BeNumerically(">=", 0))
 			Expect(memVal).To(BeNumerically("<=", 100))
 
+			diskSeries := res.Frame.SeriesAt(3)
+			Expect(diskSeries.DataType).To(Equal(telem.Float32T))
+			Expect(diskSeries.Len()).To(Equal(int64(1)))
+			diskVal := telem.ValueAt[float32](diskSeries, 0)
+			Expect(diskVal).To(BeNumerically(">=", 0))
+
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			Expect(res.Frame.Count()).To(Equal(3))
+			Expect(res.Frame.Count()).To(Equal(4))
 			timeSeries = res.Frame.SeriesAt(0)
 			Expect(timeSeries.DataType).To(Equal(telem.TimeStampT))
 			Expect(timeSeries.Len()).To(Equal(int64(1)))
 			nextTime := telem.ValueAt[telem.TimeStamp](res.Frame.SeriesAt(0), -1)
 			Expect(nextTime).To(BeNumerically(">", latestTime))
+		})
+		It("Should write zero for disk usage in memory mode", func() {
+			// Create a service with empty DataPath (memory mode)
+			memorySvc := MustSucceed(metrics.OpenService(ctx, metrics.Config{
+				Channel:            dist.Channel,
+				Framer:             svcFramer,
+				HostProvider:       dist.Cluster,
+				CollectionInterval: 50 * time.Millisecond,
+				DataPath:           "",
+			}))
+			defer memorySvc.Close()
+
+			// Get the disk channel
+			hostKey := dist.Cluster.HostKey()
+			diskChannelName := "sy_node_" + hostKey.String() + "_metrics_disk_usage_mb"
+			var diskChannel channel.Channel
+			Eventually(func(g Gomega) {
+				g.Expect(dist.Channel.NewRetrieve().
+					WhereNames(diskChannelName).
+					Entry(&diskChannel).
+					Exec(ctx, nil),
+				).To(Succeed())
+			}).Should(Succeed())
+
+			// Stream the disk channel and verify it returns 0
+			memoryStreamer := MustSucceed(svcFramer.NewStreamer(ctx, framer.StreamerConfig{
+				Keys: []channel.Key{diskChannel.Key()},
+			}))
+			sCtx := signal.Wrap(ctx)
+			memoryRequests, memoryResponses := confluence.Attach(memoryStreamer)
+			memoryStreamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+			var res framer.StreamerResponse
+			Eventually(memoryResponses.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.Count()).To(Equal(1))
+			diskSeries := res.Frame.SeriesAt(0)
+			diskVal := telem.ValueAt[float32](diskSeries, 0)
+			Expect(diskVal).To(Equal(float32(0)))
+
+			memoryRequests.Close()
+			Eventually(memoryResponses.Outlet()).Should(BeClosed())
 		})
 	})
 })

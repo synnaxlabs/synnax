@@ -10,6 +10,9 @@
 package metrics
 
 import (
+	"io/fs"
+	"path/filepath"
+
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -22,34 +25,72 @@ type metric struct {
 	collect func() (float32, error)
 }
 
-var all = []metric{
-	{
-		ch: channel.Channel{
-			Name:     "mem_percentage",
-			DataType: telem.Float32T,
+func allMetrics(dataPath string) []metric {
+	return []metric{
+		{
+			ch: channel.Channel{
+				Name:     "mem_percentage",
+				DataType: telem.Float32T,
+			},
+			collect: func() (float32, error) {
+				vm, err := mem.VirtualMemory()
+				if err != nil {
+					return 0, err
+				}
+				return float32(vm.UsedPercent), err
+			},
 		},
-		collect: func() (float32, error) {
-			vm, err := mem.VirtualMemory()
+		{
+			ch: channel.Channel{
+				Name:     "cpu_percentage",
+				DataType: telem.Float32T,
+			},
+			collect: func() (float32, error) {
+				cpuUsage, err := cpu.Percent(0, false)
+				if err != nil {
+					return 0, err
+				}
+				if len(cpuUsage) < 1 {
+					return 0, errors.New("no cpu usage metric found")
+				}
+				return float32(cpuUsage[0]), err
+			},
+		},
+		{
+			ch: channel.Channel{
+				Name:     "disk_usage_mb",
+				DataType: telem.Float32T,
+			},
+			collect: func() (float32, error) {
+				// In memory mode, dataPath is empty so return 0
+				if dataPath == "" {
+					return 0, nil
+				}
+				size, err := calculateDirectorySize(dataPath)
+				if err != nil {
+					return 0, err
+				}
+				// Convert bytes to megabytes
+				return float32(size) / (1024 * 1024), nil
+			},
+		},
+	}
+}
+
+func calculateDirectorySize(path string) (int64, error) {
+	var size int64
+	err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			info, err := d.Info()
 			if err != nil {
-				return 0, err
+				return err
 			}
-			return float32(vm.UsedPercent), err
-		},
-	},
-	{
-		ch: channel.Channel{
-			Name:     "cpu_percentage",
-			DataType: telem.Float32T,
-		},
-		collect: func() (float32, error) {
-			cpuUsage, err := cpu.Percent(0, false)
-			if err != nil {
-				return 0, err
-			}
-			if len(cpuUsage) < 1 {
-				return 0, errors.New("no cpu usage metric found")
-			}
-			return float32(cpuUsage[0]), err
-		},
-	},
+			size += info.Size()
+		}
+		return nil
+	})
+	return size, err
 }

@@ -50,6 +50,10 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to 2s
 	CollectionInterval time.Duration
+	// DataPath is the path to the storage directory for monitoring disk usage.
+	//
+	// [OPTIONAL] - Defaults to "/" (root filesystem)
+	DataPath string
 }
 
 var (
@@ -67,6 +71,7 @@ func (c Config) Override(other Config) Config {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.CollectionInterval = override.Numeric(c.CollectionInterval, other.CollectionInterval)
+	c.DataPath = override.String(c.DataPath, other.DataPath)
 	return c
 }
 
@@ -105,6 +110,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	s := &Service{stopCollector: make(chan struct{})}
 	nameBase := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostProvider.HostKey())
+	all := allMetrics(cfg.DataPath)
 	c := &collector{
 		ins:      cfg.Child("collector"),
 		interval: cfg.CollectionInterval,
