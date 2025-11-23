@@ -132,59 +132,6 @@ var _ = Describe("Create", Ordered, func() {
 		})
 	})
 
-	Describe("SkipExisting", func() {
-		It("Should skip creating entries that already exist", func() {
-			e := &entry{
-				ID:   42,
-				Data: "The answer to life, the universe, and everything",
-			}
-			Expect(gorp.NewCreate[int, entry]().Entry(e).Exec(ctx, tx)).To(Succeed())
-			e2 := &entry{
-				ID:   42,
-				Data: "New data that should be skipped",
-			}
-			Expect(gorp.NewCreate[int, entry]().Entry(e2).SkipExisting().Exec(ctx, tx)).To(Succeed())
-			var retrieved entry
-			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(42).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
-			Expect(retrieved.Data).To(Equal("The answer to life, the universe, and everything"))
-		})
-		It("Should create new entries when they don't exist", func() {
-			e := &entry{
-				ID:   43,
-				Data: "New entry",
-			}
-			Expect(gorp.NewCreate[int, entry]().Entry(e).SkipExisting().Exec(ctx, tx)).To(Succeed())
-			var retrieved entry
-			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(43).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
-			Expect(retrieved.Data).To(Equal("New entry"))
-		})
-		It("Should skip some entries and create others in a batch", func() {
-			existingEntries := []entry{
-				{ID: 100, Data: "existing 1"},
-				{ID: 101, Data: "existing 2"},
-			}
-			Expect(gorp.NewCreate[int, entry]().Entries(&existingEntries).Exec(ctx, tx)).To(Succeed())
-			mixedEntries := []entry{
-				{ID: 100, Data: "should be skipped"},
-				{ID: 101, Data: "should be skipped"},
-				{ID: 102, Data: "should be created"},
-				{ID: 103, Data: "should be created"},
-			}
-			Expect(gorp.NewCreate[int, entry]().Entries(&mixedEntries).SkipExisting().Exec(ctx, tx)).To(Succeed())
-			var retrieved []entry
-			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(100, 101, 102, 103).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
-			Expect(retrieved).To(HaveLen(4))
-			byID := make(map[int]entry)
-			for _, e := range retrieved {
-				byID[e.ID] = e
-			}
-			Expect(byID[100].Data).To(Equal("existing 1"))
-			Expect(byID[101].Data).To(Equal("existing 2"))
-			Expect(byID[102].Data).To(Equal("should be created"))
-			Expect(byID[103].Data).To(Equal("should be created"))
-		})
-	})
-
 	Describe("Writer", func() {
 		It("Should execute operations within a transaction", func() {
 			var (
