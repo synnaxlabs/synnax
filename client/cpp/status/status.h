@@ -72,7 +72,7 @@ public:
         status.to_proto(req.add_statuses());
         auto [res, err] = this->set_client->send(internal::SET_ENDPOINT, req);
         if (err) return err;
-        if (res.statuses_size() == 0) return unexpected_missing("status");
+        if (res.statuses_size() == 0) return unexpected_missing_error("status");
         auto [decoded, decode_err] = status::Status<Details>::from_proto(
             res.statuses(0)
         );
@@ -120,13 +120,7 @@ public:
         auto [statuses, err] = this->retrieve<Details>(std::vector{key});
         if (err) return {status::Status<Details>{}, err};
         if (statuses.empty()) {
-            return {
-                status::Status<Details>(),
-                xerrors::Error(
-                    xerrors::NOT_FOUND,
-                    "no statuses found matching key" + key
-                )
-            };
+            return {status::Status<Details>(), not_found_error("status", "key " + key)};
         }
         return {statuses[0], xerrors::NIL};
     }

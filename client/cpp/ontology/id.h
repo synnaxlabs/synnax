@@ -49,10 +49,6 @@ struct ID {
     /// the error will have ok() == false.
     [[nodiscard]] static std::pair<ID, xerrors::Error> parse(const std::string &s);
 
-    /// @brief Validates the ID, ensuring type and key are non-empty.
-    /// @returns An error where ok() is false if validation fails.
-    [[nodiscard]] xerrors::Error validate() const;
-
     /// @brief Equality operator.
     bool operator==(const ID &other) const;
 
@@ -61,17 +57,7 @@ struct ID {
 };
 
 /// @brief The root ID used as the top-level parent in the ontology hierarchy.
-const ID ROOT_ID{"builtin", "root"};
-
-/// @brief Converts an ID to JSON format {"type": "...", "key": "..."}.
-/// @param j The JSON object to populate.
-/// @param id The ID to serialize.
-void to_json(json &j, const ID &id);
-
-/// @brief Parses an ID from JSON format {"type": "...", "key": "..."}.
-/// @param j The JSON object to parse.
-/// @param id The ID to populate.
-void from_json(const json &j, ID &id);
+const ID ROOT_ID("builtin", "root");
 
 /// @brief Parses a vector of strings into a vector of IDs.
 /// @param strs The strings to parse, each in "type:key" format.

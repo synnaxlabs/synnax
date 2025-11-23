@@ -34,10 +34,7 @@ DeviceClient::retrieve(const std::string &key, bool ignore_not_found) const {
     if (err) return {Device(), err};
     if (res.devices_size() == 0) {
         if (ignore_not_found) return {Device(), xerrors::Error()};
-        return {
-            Device(),
-            xerrors::Error(xerrors::NOT_FOUND, "Device matching" + key + " not found")
-        };
+        return {Device(), not_found_error("device", "key " + key)};
     }
     return {Device(res.devices(0)), err};
 }
@@ -69,7 +66,7 @@ xerrors::Error DeviceClient::create(Device &device) const {
     device.to_proto(req.add_devices());
     auto [res, err] = device_create_client->send(CREATE_DEVICE_ENDPOINT, req);
     if (err) return err;
-    if (res.devices_size() == 0) return unexpected_missing("device");
+    if (res.devices_size() == 0) return unexpected_missing_error("device");
     device.key = res.devices().at(0).key();
     return err;
 }

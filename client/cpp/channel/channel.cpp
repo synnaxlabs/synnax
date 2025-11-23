@@ -58,7 +58,7 @@ xerrors::Error ChannelClient::create(synnax::Channel &channel) const {
     channel.to_proto(req.add_channels());
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
     if (err) return err;
-    if (res.channels_size() == 0) return unexpected_missing("channel");
+    if (res.channels_size() == 0) return unexpected_missing_error("channel");
     const auto first = res.channels(0);
     channel.key = first.key();
     channel.name = first.name();
@@ -108,13 +108,7 @@ std::pair<Channel, xerrors::Error> ChannelClient::retrieve(const ChannelKey key)
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {Channel(), err};
     if (res.channels_size() == 0)
-        return {
-            Channel(),
-            xerrors::Error(
-                xerrors::NOT_FOUND,
-                "no channels found matching key " + std::to_string(key)
-            )
-        };
+        return {Channel(), not_found_error("channel", "key " + std::to_string(key))};
     return {Channel(res.channels(0)), err};
 }
 
@@ -125,21 +119,9 @@ ChannelClient::retrieve(const std::string &name) const {
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, payload);
     if (err) return {Channel(), err};
     if (res.channels_size() == 0)
-        return {
-            Channel(),
-            xerrors::Error(
-                xerrors::NOT_FOUND,
-                "no channels found matching name " + name
-            )
-        };
+        return {Channel(), not_found_error("channel", "name " + name)};
     if (res.channels_size() > 1)
-        return {
-            Channel(),
-            xerrors::Error(
-                xerrors::QUERY,
-                "multiple channels found matching name " + name
-            )
-        };
+        return {Channel(), multiple_found_error("channels", "name " + name)};
     return {Channel(res.channels(0)), err};
 }
 

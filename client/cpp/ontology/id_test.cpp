@@ -78,29 +78,6 @@ TEST(OntologyID, testStringRoundTrip) {
     EXPECT_EQ(parsed, original);
 }
 
-/// @brief it should validate that type is required.
-TEST(OntologyID, testValidateEmptyType) {
-    const ID id("", "42");
-    const auto err = id.validate();
-    EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(xerrors::VALIDATION));
-}
-
-/// @brief it should validate that key is required.
-TEST(OntologyID, testValidateEmptyKey) {
-    const ID id("channel", "");
-    const auto err = id.validate();
-    EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(xerrors::VALIDATION));
-}
-
-/// @brief it should validate a valid ID.
-TEST(OntologyID, testValidateValid) {
-    const ID id("channel", "42");
-    const auto err = id.validate();
-    EXPECT_FALSE(err) << err.message();
-}
-
 /// @brief it should compare two IDs for equality.
 TEST(OntologyID, testEqualityOperator) {
     const ID id1("channel", "42");
@@ -121,30 +98,6 @@ TEST(OntologyID, testInequalityOperator) {
 
     EXPECT_FALSE(id1 != id2);
     EXPECT_TRUE(id1 != id3);
-}
-
-/// @brief it should serialize an ID to JSON.
-TEST(OntologyID, testToJSON) {
-    const ID id("channel", "42");
-    json j = id;
-    EXPECT_EQ(j["type"], "channel");
-    EXPECT_EQ(j["key"], "42");
-}
-
-/// @brief it should deserialize an ID from JSON.
-TEST(OntologyID, testFromJSON) {
-    json j = {{"type", "channel"}, {"key", "42"}};
-    const ID id = j.get<ID>();
-    EXPECT_EQ(id.type, "channel");
-    EXPECT_EQ(id.key, "42");
-}
-
-/// @brief it should round-trip JSON serialization.
-TEST(OntologyID, testJSONRoundTrip) {
-    const ID original("group", "748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
-    json j = original;
-    const ID parsed = j.get<ID>();
-    EXPECT_EQ(parsed, original);
 }
 
 /// @brief it should parse a vector of ID strings.

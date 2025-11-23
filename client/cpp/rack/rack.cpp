@@ -49,13 +49,7 @@ std::pair<Rack, xerrors::Error> RackClient::retrieve(const RackKey key) const {
     auto [res, err] = rack_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
     if (err) return {Rack(), err};
     if (res.racks_size() == 0)
-        return {
-            Rack(),
-            xerrors::Error(
-                xerrors::NOT_FOUND,
-                "Rack matching" + std::to_string(key) + " not found"
-            )
-        };
+        return {Rack(), not_found_error("Rack", "key" + std::to_string(key))};
     auto rack = Rack(res.racks(0));
     rack.tasks = TaskClient(
         rack.key,
@@ -71,19 +65,9 @@ std::pair<Rack, xerrors::Error> RackClient::retrieve(const std::string &name) co
     req.add_names(name);
     auto [res, err] = rack_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
     if (err) return {Rack(), err};
-    if (res.racks_size() == 0)
-        return {
-            Rack(),
-            xerrors::Error(xerrors::NOT_FOUND, "Rack matching" + name + " not found")
-        };
+    if (res.racks_size() == 0) return {Rack(), not_found_error("Rack", "name " + name)};
     if (res.racks_size() > 1)
-        return {
-            Rack(),
-            xerrors::Error(
-                xerrors::MULTIPLE_RESULTS,
-                "Multiple racks matching" + name + " found"
-            )
-        };
+        return {Rack(), multiple_found_error("racks", "name " + name)};
     auto rack = Rack(res.racks(0));
     rack.tasks = TaskClient(
         rack.key,
@@ -99,7 +83,7 @@ xerrors::Error RackClient::create(Rack &rack) const {
     rack.to_proto(req.add_racks());
     auto [res, err] = rack_create_client->send(CREATE_RACK_ENDPOINT, req);
     if (err) return err;
-    if (res.racks_size() == 0) return unexpected_missing("rack");
+    if (res.racks_size() == 0) return unexpected_missing_error("rack");
     rack.key = res.racks().at(0).key();
     rack.tasks = TaskClient(
         rack.key,

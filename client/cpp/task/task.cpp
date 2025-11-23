@@ -84,13 +84,7 @@ std::pair<Task, xerrors::Error> TaskClient::retrieve(const TaskKey key) const {
     auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
     if (err) return {Task(), err};
     if (res.tasks_size() == 0)
-        return {
-            Task(),
-            xerrors::Error(
-                xerrors::NOT_FOUND,
-                "Task matching" + std::to_string(key) + " not found"
-            )
-        };
+        return {Task(), not_found_error("task", "key " + std::to_string(key))};
     return {Task(res.tasks(0)), err};
 }
 
@@ -100,11 +94,7 @@ std::pair<Task, xerrors::Error> TaskClient::retrieve(const std::string &name) co
     req.add_names(name);
     auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
     if (err) return {Task(), err};
-    if (res.tasks_size() == 0)
-        return {
-            Task(),
-            xerrors::Error(xerrors::NOT_FOUND, "Task matching" + name + " not found")
-        };
+    if (res.tasks_size() == 0) return {Task(), not_found_error("task", "name " + name)};
     return {Task(res.tasks(0)), err};
 }
 
@@ -126,11 +116,7 @@ TaskClient::retrieve_by_type(const std::string &type) const {
     req.add_types(type);
     auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
     if (err) return {Task(), err};
-    if (res.tasks_size() == 0)
-        return {
-            Task(),
-            xerrors::Error(xerrors::NOT_FOUND, "Task matching" + type + " not found")
-        };
+    if (res.tasks_size() == 0) return {Task(), not_found_error("task", "type " + type)};
     return {Task(res.tasks(0)), err};
 }
 
@@ -150,7 +136,7 @@ xerrors::Error TaskClient::create(Task &task) const {
     task.to_proto(req.add_tasks());
     auto [res, err] = task_create_client->send(CREATE_TASK_ENDPOINT, req);
     if (err) return err;
-    if (res.tasks_size() == 0) return unexpected_missing("task");
+    if (res.tasks_size() == 0) return unexpected_missing_error("task");
     task.key = res.tasks().at(0).key();
     return err;
 }

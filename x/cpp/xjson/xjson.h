@@ -360,7 +360,7 @@ public:
     }
 
     [[nodiscard]] xerrors::Error error() const {
-        if (this->errors->empty()) return xerrors::Error{};
+        if (this->errors->empty()) return xerrors::NIL;
         if (this->errors->size() == 1) {
             const auto &err = this->errors->at(0);
             if (err["path"].get<std::string>().empty())

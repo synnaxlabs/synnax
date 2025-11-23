@@ -42,10 +42,7 @@ RangeClient::retrieve_by_key(const std::string &key) const {
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {Range(), err};
     if (res.ranges_size() == 0)
-        return {
-            Range(),
-            xerrors::Error(xerrors::NOT_FOUND, "no ranges found matching " + key)
-        };
+        return {Range(), not_found_error("range", "key " + key)};
     auto rng = Range(res.ranges(0));
     rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
     return {rng, err};
@@ -58,18 +55,9 @@ RangeClient::retrieve_by_name(const std::string &name) const {
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {Range(), err};
     if (res.ranges_size() == 0)
-        return {
-            Range(),
-            xerrors::Error(xerrors::NOT_FOUND, "no ranges found matching " + name)
-        };
+        return {Range(), not_found_error("range", "name " + name)};
     if (res.ranges_size() > 1)
-        return {
-            Range(),
-            xerrors::Error(
-                xerrors::MULTIPLE_RESULTS,
-                "multiple ranges found matching " + name
-            )
-        };
+        return {Range(), multiple_found_error("ranges", "name " + name)};
     auto rng = Range(res.ranges(0));
     rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
     return {rng, err};
@@ -125,7 +113,7 @@ xerrors::Error RangeClient::create(Range &range) const {
     range.to_proto(req.add_ranges());
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
     if (err) return err;
-    if (res.ranges_size() == 0) return unexpected_missing("range");
+    if (res.ranges_size() == 0) return unexpected_missing_error("range");
     const auto rng = res.ranges(0);
     range.key = rng.key();
     range.kv = RangeKV(rng.key(), kv_get_client, kv_set_client, kv_delete_client);
@@ -146,7 +134,7 @@ std::pair<std::string, xerrors::Error> RangeKV::get(const std::string &key) cons
     auto [res, err] = kv_get_client->send("/range/kv/get", req);
     if (err) return {"", err};
     if (res.pairs_size() == 0)
-        return {"", xerrors::Error(xerrors::NOT_FOUND, "key not found")};
+        return {"", not_found_error("range key-value pair", "key " + key)};
     return {res.pairs().at(0).value(), err};
 }
 
