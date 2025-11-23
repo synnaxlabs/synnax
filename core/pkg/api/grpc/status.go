@@ -13,6 +13,7 @@ import (
 	"context"
 	"go/types"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
@@ -61,6 +62,9 @@ func translateStatusesForward(s []api.Status) ([]*xstatus.PBStatus, error) {
 	out := make([]*xstatus.PBStatus, len(s))
 	for i, stat := range s {
 		out[i], err = xstatus.TranslateForward[any](xstatus.Status[any](stat.Status))
+		if err != nil {
+			return nil, err
+		}
 	}
 	return out, err
 }
@@ -151,11 +155,22 @@ func (t statusRetrieveRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.StatusRetrieveRequest,
 ) (api.StatusRetrieveRequest, error) {
+	var (
+		err          error
+		hasLabelKeys = make([]uuid.UUID, len(msg.HasLabels))
+	)
+	for i, label := range msg.HasLabels {
+		hasLabelKeys[i], err = uuid.Parse(label)
+		if err != nil {
+			return api.StatusRetrieveRequest{}, err
+		}
+	}
 	return api.StatusRetrieveRequest{
 		Keys:          msg.Keys,
 		SearchTerm:    msg.SearchTerm,
 		Offset:        int(msg.Offset),
 		Limit:         int(msg.Limit),
+		HasLabels:     hasLabelKeys,
 		IncludeLabels: msg.IncludeLabels,
 	}, nil
 }
