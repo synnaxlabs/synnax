@@ -16,13 +16,18 @@
 
 const synnax::Config test_client_config = {"localhost", 9090, "synnax", "seldon"};
 
-/// @brief instantiates a new client for testing purposes. The cluster
-/// is expected to be running on localhost:9090 in insecure mode.
+/// @brief instantiates a new client for testing purposes. The cluster is expected to be
+/// running on localhost:9090 in insecure mode.
 extern synnax::Synnax new_test_client();
 
-/// @brief creates a new random generator for a test suite, and
-/// outputs the seed to stdout for reproducibility.
+/// @brief creates a new random generator for a test suite, and outputs the seed to
+/// stdout for reproducibility.
 extern std::mt19937 random_generator(const std::string &suite_name);
+
+/// @brief creates a new unique channel name for a test.
+/// @param base_name the base name of the channel.
+/// @return a unique channel name.
+extern std::string make_unique_channel_name(const std::string& base_name);
 
 synnax::Channel create_virtual_channel(
     const synnax::Synnax &client,
