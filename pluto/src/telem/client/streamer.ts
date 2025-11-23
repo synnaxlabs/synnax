@@ -16,6 +16,7 @@ import {
   debounce,
   type destructor,
   MultiSeries,
+  Rate,
   type Series,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -40,6 +41,8 @@ interface StreamerProps {
 // Introduce a slight debounce into stream start requests so that rapid streaming
 // request don't slam the socket with lots of updates.
 const STREAM_DEBOUNCE = TimeSpan.milliseconds(100).milliseconds;
+
+const THROTTLE_RATE = Rate.hz(60);
 
 export class Streamer {
   private readonly props: Omit<Required<StreamerProps>, "streamUpdateDelay"> & {
@@ -144,7 +147,10 @@ export class Streamer {
       // Update or create the streamer.
       if (this.streamer == null) {
         ins.L.info("creating new streamer", { keys: arrKeys });
-        this.streamer = await this.props.openStreamer({ channels: arrKeys });
+        this.streamer = await this.props.openStreamer({
+          channels: arrKeys,
+          throttleRate: THROTTLE_RATE.valueOf(),
+        });
         this.streamerRunLoop = this.runStreamer(this.streamer);
       }
 

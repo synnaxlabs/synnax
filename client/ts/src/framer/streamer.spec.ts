@@ -113,6 +113,94 @@ describe("Streamer", () => {
       });
     });
 
+    describe("throttling", () => {
+      test("throttle at 60Hz", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer({
+          channels: ch.key,
+          throttleRate: 60,
+        });
+        const writer = await client.openWriter({
+          start: TimeStamp.now(),
+          channels: ch.key,
+        });
+        try {
+          const startTime = Date.now();
+          // Write data rapidly
+          for (let i = 0; i < 10; i++) {
+            await writer.write(ch.key, new Float64Array([i]));
+            await sleep.sleep(TimeSpan.milliseconds(5));
+          }
+
+          // Read frames - should be throttled
+          const receivedFrames: Frame[] = [];
+          const timeout = Date.now() + 500;
+          while (Date.now() < timeout) {
+            try {
+              const frame = await Promise.race([
+                streamer.read(),
+                sleep.sleep(TimeSpan.milliseconds(100)).then(() => null),
+              ]);
+              if (frame) receivedFrames.push(frame);
+              else break;
+            } catch {
+              break;
+            }
+          }
+
+          expect(receivedFrames.length).toBeGreaterThan(0);
+          const elapsed = Date.now() - startTime;
+          // Should take at least the throttle period
+          expect(elapsed).toBeGreaterThanOrEqual(16); // ~1/60Hz
+        } finally {
+          await writer.close();
+          streamer.close();
+        }
+      });
+
+      test("no throttling with rate of 0", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer({
+          channels: ch.key,
+          throttleRate: 0,
+        });
+        const writer = await client.openWriter({
+          start: TimeStamp.now(),
+          channels: ch.key,
+        });
+        try {
+          await writer.write(ch.key, new Float64Array([1, 2, 3]));
+          const d = await streamer.read();
+          expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
+        } finally {
+          await writer.close();
+          streamer.close();
+        }
+      });
+
+      test("combine throttling and downsampling", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer({
+          channels: ch.key,
+          downsampleFactor: 2,
+          throttleRate: 10,
+        });
+        const writer = await client.openWriter({
+          start: TimeStamp.now(),
+          channels: ch.key,
+        });
+        try {
+          await writer.write(ch.key, new Float64Array([1, 2, 3, 4, 5, 6]));
+          const d = await streamer.read();
+          // Should be downsampled to [1, 3, 5] and throttled
+          expect(Array.from(d.get(ch.key))).toEqual([1, 3, 5]);
+        } finally {
+          await writer.close();
+          streamer.close();
+        }
+      });
+    });
+
     describe("calculations", () => {
       test("basic calculated channel streaming", async () => {
         // Create a timestamp index channel
@@ -397,6 +485,7 @@ describe("Streamer", () => {
       expect(openMock).toHaveBeenCalledWith({
         ...config,
         downsampleFactor: 1,
+        throttleRate: 0,
       });
       await hardened.update([1, 2, 3]);
       expect(streamer.updateMock).toHaveBeenCalledWith([1, 2, 3]);

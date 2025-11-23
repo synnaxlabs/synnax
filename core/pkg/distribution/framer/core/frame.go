@@ -77,6 +77,13 @@ func (f Frame) SplitByHost(host cluster.NodeKey) (local Frame, remote Frame, fre
 	return local, remote, free
 }
 
+func (f Frame) Extend(frames ...Frame) Frame {
+	for _, frame := range frames {
+		f.Frame = f.Frame.Extend(frame.Frame)
+	}
+	return f
+}
+
 // ToStorage converts the frame to the storage layer frame format.
 // This is used when persisting the frame to storage.
 func (f Frame) ToStorage() ts.Frame {

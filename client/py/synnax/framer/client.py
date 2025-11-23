@@ -305,6 +305,7 @@ class Client:
         self,
         channels: ChannelParams,
         downsample_factor: int = 1,
+        throttle_rate: float = 0,
         use_experimental_codec: bool = True,
     ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
@@ -314,6 +315,7 @@ class Client:
         a list of channel names, a single channel key, or a list of channel keys.
 
         :param downsample_factor: The downsample factor to use for the streamer.
+        :param throttle_rate: The throttle rate in Hz to limit the rate of frames sent to the client. Defaults to 0 (no throttling).
         """
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
@@ -321,11 +323,12 @@ class Client:
             adapter=adapter,
             client=self.__stream_client,
             downsample_factor=downsample_factor,
+            throttle_rate=throttle_rate,
             use_experimental_codec=use_experimental_codec,
         )
 
     async def open_async_streamer(
-        self, channels: ChannelParams, downsample_factor: int = 1
+        self, channels: ChannelParams, downsample_factor: int = 1, throttle_rate: float = 0
     ) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
@@ -333,6 +336,7 @@ class Client:
             adapter=adapter,
             client=self.__async_client,
             downsample_factor=downsample_factor,
+            throttle_rate=throttle_rate,
         )
         await s._open()
         return s
