@@ -79,8 +79,12 @@ export const alignNodes = (
       // For horizontal alignment (x), use midpoint of top/bottom handles if left/right don't exist
       // For vertical alignment (y), use midpoint of left/right handles if top/bottom don't exist
       const perpendicularDir = dir === "x" ? "y" : "x";
-      const perpendicularLoc1 = location.construct(perpendicularDir === "x" ? "left" : "top");
-      const perpendicularLoc2 = location.construct(perpendicularDir === "x" ? "right" : "bottom");
+      const perpendicularLoc1 = location.construct(
+        perpendicularDir === "x" ? "left" : "top",
+      );
+      const perpendicularLoc2 = location.construct(
+        perpendicularDir === "x" ? "right" : "bottom",
+      );
 
       const prevHandles = [
         prev.handles.find((h) => h.orientation === perpendicularLoc1),
@@ -97,13 +101,13 @@ export const alignNodes = (
       // Calculate midpoint of perpendicular handles
       const prevMidpoint = prevHandles.reduce(
         (sum, h) => xy.translate(sum, h.absolutePosition),
-        { x: 0, y: 0 }
+        { x: 0, y: 0 },
       );
       const prevAvg = xy.scale(prevMidpoint, 1 / prevHandles.length);
 
       const currentMidpoint = currentHandles.reduce(
         (sum, h) => xy.translate(sum, h.absolutePosition),
-        { x: 0, y: 0 }
+        { x: 0, y: 0 },
       );
       const currentAvg = xy.scale(currentMidpoint, 1 / currentHandles.length);
 

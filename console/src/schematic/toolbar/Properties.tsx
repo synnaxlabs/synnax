@@ -198,7 +198,10 @@ const MultiElementProperties = ({
         if (bottomIndicator) {
           const indicatorRect = bottomIndicator.getBoundingClientRect();
           const extensionBelow = Math.max(0, indicatorRect.bottom - rect.bottom);
-          maxBottomExtension = Math.max(maxBottomExtension, extensionBelow / (viewport?.zoom ?? 1));
+          maxBottomExtension = Math.max(
+            maxBottomExtension,
+            extensionBelow / (viewport?.zoom ?? 1),
+          );
         }
       } catch (e) {
         // Skip on error
@@ -279,7 +282,10 @@ const MultiElementProperties = ({
           // Adjust position if there are top extensions
           const topExtension = (rect.top - minTop) / (viewport?.zoom ?? 1);
           topOffsetsForDistribution.set(el.key, topExtension);
-          const adjustedPosition = xy.translate(el.node.position, { x: 0, y: -topExtension });
+          const adjustedPosition = xy.translate(el.node.position, {
+            x: 0,
+            y: -topExtension,
+          });
 
           const nodeBox = box.construct(adjustedPosition, actualDims);
           const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
@@ -389,7 +395,10 @@ const MultiElementProperties = ({
           <Button.Button
             tooltip="Align nodes bottom"
             onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayoutsForAlignment(), "bottom");
+              const newPositions = Diagram.alignNodes(
+                getLayoutsForAlignment(),
+                "bottom",
+              );
               dispatch(
                 setNodePositions({
                   key: layoutKey,
@@ -405,7 +414,10 @@ const MultiElementProperties = ({
           <Button.Button
             tooltip="Align nodes right"
             onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayoutsForAlignment(), "right");
+              const newPositions = Diagram.alignNodes(
+                getLayoutsForAlignment(),
+                "right",
+              );
               dispatch(
                 setNodePositions({
                   key: layoutKey,
@@ -425,7 +437,10 @@ const MultiElementProperties = ({
           <Button.Button
             tooltip="Distribute nodes horizontally"
             onClick={() => {
-              const newPositions = Diagram.distributeNodes(getLayoutsForDistribution(), "horizontal");
+              const newPositions = Diagram.distributeNodes(
+                getLayoutsForDistribution(),
+                "horizontal",
+              );
               dispatch(
                 setNodePositions({
                   key: layoutKey,
@@ -445,7 +460,10 @@ const MultiElementProperties = ({
           <Button.Button
             tooltip="Distribute nodes vertically"
             onClick={() => {
-              const newPositions = Diagram.distributeNodes(getLayoutsForDistribution(), "vertical");
+              const newPositions = Diagram.distributeNodes(
+                getLayoutsForDistribution(),
+                "vertical",
+              );
               dispatch(
                 setNodePositions({
                   key: layoutKey,
@@ -467,4 +485,3 @@ const MultiElementProperties = ({
     </Flex.Box>
   );
 };
-

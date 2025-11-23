@@ -7,30 +7,28 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import platform
 from abc import ABC, abstractmethod
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from playwright.sync_api import Locator, Page
 
-if TYPE_CHECKING:
-    from ..console import Console
+from ..console import Console
 
 
 class Symbol(ABC):
     """Base class for all schematic symbols"""
 
     page: Page
-    console: "Console"
+    console: Console
     symbol: Locator
     symbol_id: str
     channel_name: str
     label: str
 
-    def __init__(
-        self, page: Page, console: "Console", symbol_id: str, channel_name: str
-    ):
+    def __init__(self, page: Page, console: Console, symbol_id: str, channel_name: str):
         if channel_name.strip() == "":
             raise ValueError("Channel name cannot be empty")
 
@@ -44,7 +42,7 @@ class Symbol(ABC):
         self.set_label(channel_name)
 
     @contextmanager
-    def bring_to_front(self, element: "Locator") -> Generator["Locator", None, None]:
+    def bring_to_front(self, element: Locator) -> Generator[Locator, None, None]:
         original_z_index = element.evaluate("element => element.style.zIndex || 'auto'")
         element.evaluate("element => element.style.zIndex = '9999'")
         try:
@@ -61,6 +59,16 @@ class Symbol(ABC):
         with self.bring_to_front(self.symbol) as s:
             s.click(force=True)
         self.console.page.wait_for_timeout(100)
+
+    def meta_click(self) -> None:
+        """Click the symbol with the platform-appropriate modifier key (Cmd/Ctrl) held down."""
+
+        modifier = "Meta" if platform.system() == "Darwin" else "Control"
+        self.page.keyboard.down(modifier)
+        with self.bring_to_front(self.symbol) as s:
+            s.click(force=True)
+        self.console.page.wait_for_timeout(100)
+        self.page.keyboard.up(modifier)
 
     def set_label(self, label: str) -> None:
         self._click_symbol()
@@ -93,15 +101,9 @@ class Symbol(ABC):
 
     def move(self, delta_x: int, delta_y: int) -> None:
         """Move the symbol by the specified number of pixels using drag"""
-        box = self.symbol.bounding_box()
-        if not box:
-            raise RuntimeError(
-                f"Could not get bounding box for symbol {self.symbol_id}"
-            )
-
-        # Calculate target position
-        start_x = box["x"] + box["width"] / 2
-        start_y = box["y"] + box["height"] / 2
+        pos = self.get_position()
+        start_x = pos["x"]
+        start_y = pos["y"]
         target_x = start_x + delta_x
         target_y = start_y + delta_y
 
@@ -110,6 +112,42 @@ class Symbol(ABC):
         self.page.mouse.down()
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
+
+    def get_position(self) -> dict[str, float]:
+        """
+        Get the symbol's position information for alignment checks.
+
+        Returns:
+            Dictionary with keys:
+                - 'left': x coordinate of the left edge
+                - 'right': x coordinate of the right edge
+                - 'top': y coordinate of the top edge
+                - 'bottom': y coordinate of the bottom edge
+                - 'x': x coordinate of the center (for horizontal alignment)
+                - 'y': y coordinate of the center (for vertical alignment)
+
+        Note: Edge alignments (left/right/top/bottom) use bounding box edges.
+              Center alignments (x/y) use the box center as a proxy for handle positions.
+
+        Raises:
+            RuntimeError: If the symbol's bounding box cannot be retrieved
+        """
+        box = self.symbol.bounding_box()
+        if not box:
+            raise RuntimeError(
+                f"Could not get bounding box for symbol {self.symbol_id}"
+            )
+
+        x, y, w, h = box["x"], box["y"], box["width"], box["height"]
+
+        return {
+            "left": x,
+            "right": x + w,
+            "top": y,
+            "bottom": y + h,
+            "x": x + w / 2,
+            "y": y + h / 2,
+        }
 
     def delete(self) -> None:
         self._click_symbol()

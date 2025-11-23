@@ -22,6 +22,20 @@ from .valve import Valve
 
 PropertyDict = dict[str, float | str | bool]
 
+AlignmentType = Literal[
+    "vertical",
+    "horizontal",
+    "left",
+    "right",
+    "top",
+    "bottom",
+]
+
+DistributionType = Literal[
+    "horizontal",
+    "vertical",
+]
+
 
 class Schematic(ConsolePage):
     """Schematic page management interface"""
@@ -146,6 +160,96 @@ class Schematic(ConsolePage):
         )
 
         return value
+
+    def align(
+        self,
+        symbols: list[Symbol],
+        alignment: AlignmentType,
+        tolerance: float = 3.0,
+    ) -> None:
+        """
+        Align multiple symbols using the schematic alignment controls.
+
+        Args:
+            symbols: List of symbols to align (must have at least 2 symbols)
+            alignment: The alignment type to apply
+            tolerance: Maximum allowed difference in pixels for assertion (default: 3.0)
+
+        Raises:
+            ValueError: If fewer than 2 symbols are provided
+            AssertionError: If symbols are not properly aligned within tolerance after alignment
+        """
+        if len(symbols) < 2:
+            raise ValueError("At least 2 symbols are required for alignment")
+
+        alignment_icon_map = {
+            "vertical": "pluto-icon--align-y-center",
+            "horizontal": "pluto-icon--align-x-center",
+            "left": "pluto-icon--align-left",
+            "right": "pluto-icon--align-right",
+            "top": "pluto-icon--align-top",
+            "bottom": "pluto-icon--align-bottom",
+        }
+
+        icon_label = alignment_icon_map[alignment]
+
+        symbols[0]._click_symbol()
+        for symbol in symbols[1:]:
+            symbol.meta_click()
+
+        alignment_button = self.page.locator(f"button svg[aria-label='{icon_label}']")
+        alignment_button.wait_for(state="visible", timeout=2000)
+        alignment_button.locator("..").click()
+
+        # Deselect all symbols
+        for symbol in symbols:
+            symbol.meta_click()
+
+        self.assert_alignment(symbols, alignment, tolerance)
+
+    def distribute(
+        self,
+        symbols: list[Symbol],
+        distribution: DistributionType,
+        tolerance: float | None = None,
+    ) -> None:
+        """
+        Distribute multiple symbols evenly using the schematic distribution controls.
+
+        Args:
+            symbols: List of symbols to distribute (must have at least 3 symbols)
+            distribution: The distribution type to apply ('horizontal' or 'vertical')
+            tolerance: Maximum allowed difference in spacing for assertion (default: 3.0 for horizontal, 20.0 for vertical)
+
+        Raises:
+            ValueError: If fewer than 3 symbols are provided
+            AssertionError: If symbols are not evenly distributed within tolerance after distribution
+        """
+        if len(symbols) < 3:
+            raise ValueError("At least 3 symbols are required for distribution")
+
+        # Map distribution names to icon aria-labels
+        distribution_icon_map = {
+            "horizontal": "pluto-icon--distribute-x",
+            "vertical": "pluto-icon--distribute-y",
+        }
+
+        icon_label = distribution_icon_map[distribution]
+
+        symbols[0]._click_symbol()
+        for symbol in symbols[1:]:
+            symbol.meta_click()
+
+        # Click the distribution button
+        distribution_button = self.page.locator(
+            f"button svg[aria-label='{icon_label}']"
+        )
+        distribution_button.wait_for(state="visible", timeout=2000)
+        distribution_button.locator("..").click()
+        for symbol in symbols:
+            symbol.meta_click()
+
+        self.assert_distribution(symbols, distribution, tolerance)
 
     def connect_symbols(
         self,
@@ -401,3 +505,134 @@ class Schematic(ConsolePage):
         assert actual == expected, (
             f"Edit status mismatch!\n" f"Actual: {actual}\n" f"Expected: {expected}"
         )
+
+    def assert_alignment(
+        self,
+        symbols: list[Symbol],
+        alignment: AlignmentType,
+        tolerance: float = 3.0,
+    ) -> None:
+        """
+        Assert that all symbols are aligned along the specified axis.
+
+        Args:
+            symbols: List of symbols to check for alignment
+            alignment: The alignment axis to check
+                - 'left', 'right', 'top', 'bottom': edge alignment
+                - 'horizontal': horizontal center alignment
+                - 'vertical': vertical center alignment
+            tolerance: Maximum allowed difference in pixels (default: 3.0)
+
+        Raises:
+            AssertionError: If symbols are not properly aligned within tolerance
+        """
+        if len(symbols) < 2:
+            raise ValueError("At least 2 symbols are required for alignment assertion")
+
+        positions = [symbol.get_position() for symbol in symbols]
+
+        # Map horizontal/vertical to x/y for position lookup
+        position_key = (
+            "x"
+            if alignment == "horizontal"
+            else "y" if alignment == "vertical" else alignment
+        )
+
+        # Get the alignment coordinate from the first symbol
+        first_coord = positions[0][position_key]
+
+        # Check that all symbols are aligned within tolerance
+        for i, pos in enumerate(positions):
+            coord = pos[position_key]
+            diff = abs(coord - first_coord)
+            assert diff <= tolerance, (
+                f"Symbol {i} ('{symbols[i].label}') is not aligned on {alignment}!\n"
+                f"Expected: {first_coord} (±{tolerance})\n"
+                f"Actual: {coord}\n"
+                f"Difference: {diff}\n"
+                f"All symbols: {[s.label for s in symbols]}"
+            )
+
+    def assert_distribution(
+        self,
+        symbols: list[Symbol],
+        distribution: DistributionType,
+        tolerance: float | None = None,
+    ) -> None:
+        """
+        Assert that symbols are evenly distributed along the specified axis.
+
+        Args:
+            symbols: List of symbols to check for distribution (must have at least 3 symbols)
+            distribution: The distribution axis to check ('horizontal' or 'vertical')
+            tolerance: Maximum allowed difference in spacing (default: 3.0 for horizontal, 20.0 for vertical)
+
+        Raises:
+            ValueError: If fewer than 3 symbols are provided
+            AssertionError: If symbols are not evenly distributed within tolerance
+        """
+        if len(symbols) < 3:
+            raise ValueError(
+                "At least 3 symbols are required for distribution assertion"
+            )
+
+        # Use different default tolerances for horizontal vs vertical
+        # Vertical needs higher tolerance due to varying symbol decorations (labels, control chips)
+        if tolerance is None:
+            tolerance = 3.0 if distribution == "horizontal" else 20.0
+
+        positions = [symbol.get_position() for symbol in symbols]
+
+        if distribution == "horizontal":
+            # Sort by left edge position
+            sorted_data = sorted(zip(symbols, positions), key=lambda x: x[1]["left"])
+            sorted_symbols = [item[0] for item in sorted_data]
+            sorted_positions = [item[1] for item in sorted_data]
+
+            # Calculate gaps between consecutive symbols (right edge to left edge)
+            gaps = []
+            for i in range(len(sorted_positions) - 1):
+                current_right = sorted_positions[i]["right"]
+                next_left = sorted_positions[i + 1]["left"]
+                gap = next_left - current_right
+                gaps.append(gap)
+
+            # Check that all gaps are equal within tolerance
+            first_gap = gaps[0]
+            for i, gap in enumerate(gaps):
+                diff = abs(gap - first_gap)
+                assert diff <= tolerance, (
+                    f"Horizontal gap {i} is not equal to first gap!\n"
+                    f"Expected gap: {first_gap} (±{tolerance})\n"
+                    f"Actual gap: {gap}\n"
+                    f"Difference: {diff}\n"
+                    f"Gap between '{sorted_symbols[i].label}' and '{sorted_symbols[i + 1].label}'\n"
+                    f"All symbols (left to right): {[s.label for s in sorted_symbols]}"
+                )
+
+        else:  # vertical
+            # Sort by top edge position
+            sorted_data = sorted(zip(symbols, positions), key=lambda x: x[1]["top"])
+            sorted_symbols = [item[0] for item in sorted_data]
+            sorted_positions = [item[1] for item in sorted_data]
+
+            # Calculate gaps between consecutive symbols (bottom edge to top edge)
+            gaps = []
+            for i in range(len(sorted_positions) - 1):
+                current_bottom = sorted_positions[i]["bottom"]
+                next_top = sorted_positions[i + 1]["top"]
+                gap = next_top - current_bottom
+                gaps.append(gap)
+
+            # Check that all gaps are equal within tolerance
+            first_gap = gaps[0]
+            for i, gap in enumerate(gaps):
+                diff = abs(gap - first_gap)
+                assert diff <= tolerance, (
+                    f"Vertical gap {i} is not equal to first gap!\n"
+                    f"Expected gap: {first_gap} (±{tolerance})\n"
+                    f"Actual gap: {gap}\n"
+                    f"Difference: {diff}\n"
+                    f"Gap between '{sorted_symbols[i].label}' and '{sorted_symbols[i + 1].label}'\n"
+                    f"All symbols (top to bottom): {[s.label for s in sorted_symbols]}"
+                )

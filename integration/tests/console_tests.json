@@ -5,6 +5,9 @@
       "sequence_name": "Console_Tests",
       "tests": [
         {
+          "case": "console/schematic/alignment"
+        },
+        {
           "case": "console/channel_lifecycle"
         },
         {
