@@ -308,7 +308,7 @@ var _ = Describe("Metrics", Ordered, func() {
 				CollectionInterval: 50 * time.Millisecond,
 				DataPath:           "",
 			}))
-			defer memorySvc.Close()
+			defer func() { _ = memorySvc.Close() }()
 
 			// Get the disk channel
 			hostKey := dist.Cluster.HostKey()
