@@ -56,21 +56,9 @@ func ParseID(s string) (ID, error) { return core.ParseID(s) }
 
 func ParseIDs(s []string) ([]ID, error) { return core.ParseIDs(s) }
 
-func IDs(resources []Resource) []ID {
-	ids := make([]ID, 0, len(resources))
-	for _, r := range resources {
-		ids = append(ids, r.ID)
-	}
-	return ids
-}
+func IDs(resources []Resource) []ID { return core.IDs(resources) }
 
-func IDsToString(ids []ID) []string {
-	strings := make([]string, 0, len(ids))
-	for _, id := range ids {
-		strings = append(strings, id.String())
-	}
-	return strings
-}
+func IDsToString(ids []ID) []string { return core.IDsToString(ids) }
 
 // NewResource creates a new entity with the given schema and name and an empty set of
 // field data. NewResource panics if the provided data value does not fit the ontology

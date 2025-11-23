@@ -26,7 +26,7 @@ protected:
     std::string special_chars_file;
 
     void SetUp() override {
-        test_dir = std::filesystem::temp_directory_path() / "fs_test";
+        test_dir = (std::filesystem::temp_directory_path() / "fs_test").string();
         std::filesystem::create_directories(test_dir);
         test_file = test_dir + "/test.txt";
         empty_file = test_dir + "/empty.txt";

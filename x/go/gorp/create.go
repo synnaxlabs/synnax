@@ -72,8 +72,6 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	return w.Set(ctx, toWrite...)
 }
 
-const skipExistingKey = "skipExisting"
-
 const mergeExistingKey = "mergeExisting"
 
 type MergeExistingFunc[K Key, E Entry[K]] = func(ctx Context, creating, existing E) (E, error)

@@ -247,8 +247,9 @@ core/pkg/service/hardware/embedded/assets/**
 *.sw?
 ./driver/.vs
 
-# |||| EMBEDDED CONSOLE ||||
+#  |||| EMBEDDED CONSOLE ||||
 assets
+!core/pkg/service/driver/assets
 
 # |||| OTHER ||||
 .obsidian
