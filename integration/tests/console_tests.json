@@ -3,6 +3,8 @@
   "sequences": [
     {
       "sequence_name": "Console_Tests",
+      "sequence_order": "asynchronous",
+      "pool_size": 2,
       "tests": [
         {
           "case": "console/schematic/alignment"
