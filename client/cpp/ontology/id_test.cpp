@@ -10,80 +10,78 @@
 #include <gtest/gtest.h>
 
 #include "client/cpp/ontology/id.h"
+#include "x/cpp/xtest/xtest.h"
 
-using namespace synnax::ontology;
-
-/// @brief it should construct an ID with type and key.
+/// @brief it should construct an synnax::ontology::ID with type and key.
 TEST(OntologyID, testConstruction) {
-    const ID id("channel", "42");
+    const synnax::ontology::ID id("channel", "42");
     EXPECT_EQ(id.type, "channel");
     EXPECT_EQ(id.key, "42");
 }
 
-/// @brief it should convert an ID to string format "type:key".
+/// @brief it should convert an synnax::ontology::ID to string format "type:key".
 TEST(OntologyID, testStringConversion) {
-    const ID id("channel", "42");
+    const synnax::ontology::ID id("channel", "42");
     EXPECT_EQ(id.string(), "channel:42");
 }
 
-/// @brief it should parse a valid ID string "channel:42".
+/// @brief it should parse a valid synnax::ontology::ID string "channel:42".
 TEST(OntologyID, testParseValidID) {
-    auto [id, err] = ID::parse("channel:42");
-    EXPECT_FALSE(err) << err.message();
+    const auto id = ASSERT_NIL_P(synnax::ontology::ID::parse("channel:42"));
     EXPECT_EQ(id.type, "channel");
     EXPECT_EQ(id.key, "42");
 }
 
-/// @brief it should parse a valid ID with UUID key.
+/// @brief it should parse a valid synnax::ontology::ID with UUID key.
 TEST(OntologyID, testParseValidIDWithUUID) {
-    auto [id, err] = ID::parse("group:748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
-    EXPECT_FALSE(err) << err.message();
+    const auto id = ASSERT_NIL_P(
+        synnax::ontology::ID::parse("group:748d31e2-5732-4cb5-8bc9-64d4ad51efe8")
+    );
     EXPECT_EQ(id.type, "group");
     EXPECT_EQ(id.key, "748d31e2-5732-4cb5-8bc9-64d4ad51efe8");
 }
 
-/// @brief it should fail to parse an ID without a colon separator.
+/// @brief it should fail to parse an synnax::ontology::ID without a colon separator.
 TEST(OntologyID, testParseMalformed) {
-    auto [id, err] = ID::parse("malformed");
+    auto [id, err] = synnax::ontology::ID::parse("malformed");
     EXPECT_TRUE(err);
     EXPECT_TRUE(err.matches(xerrors::VALIDATION));
 }
 
-/// @brief it should fail to parse an ID with only a colon.
+/// @brief it should fail to parse an synnax::ontology::ID with only a colon.
 TEST(OntologyID, testParseOnlyColon) {
-    auto [id, err] = ID::parse(":");
+    auto [id, err] = synnax::ontology::ID::parse(":");
     EXPECT_TRUE(err);
     EXPECT_TRUE(err.matches(xerrors::VALIDATION));
 }
 
-/// @brief it should fail to parse an ID with empty type.
+/// @brief it should fail to parse an synnax::ontology::ID with empty type.
 TEST(OntologyID, testParseEmptyType) {
-    auto [id, err] = ID::parse(":42");
+    auto [id, err] = synnax::ontology::ID::parse(":42");
     EXPECT_TRUE(err);
     EXPECT_TRUE(err.matches(xerrors::VALIDATION));
 }
 
-/// @brief it should fail to parse an ID with empty key.
+/// @brief it should fail to parse an synnax::ontology::ID with empty key.
 TEST(OntologyID, testParseEmptyKey) {
-    auto [id, err] = ID::parse("channel:");
+    auto [id, err] = synnax::ontology::ID::parse("channel:");
     EXPECT_TRUE(err);
     EXPECT_TRUE(err.matches(xerrors::VALIDATION));
 }
 
 /// @brief it should support round-trip string conversion: parse(id.string()) == id.
 TEST(OntologyID, testStringRoundTrip) {
-    const ID original("channel", "42");
-    auto [parsed, err] = ID::parse(original.string());
-    EXPECT_FALSE(err) << err.message();
+    const synnax::ontology::ID original("channel", "42");
+    const auto parsed = ASSERT_NIL_P(synnax::ontology::ID::parse(original.string()));
     EXPECT_EQ(parsed, original);
 }
 
 /// @brief it should compare two IDs for equality.
 TEST(OntologyID, testEqualityOperator) {
-    const ID id1("channel", "42");
-    const ID id2("channel", "42");
-    const ID id3("channel", "43");
-    const ID id4("group", "42");
+    const synnax::ontology::ID id1("channel", "42");
+    const synnax::ontology::ID id2("channel", "42");
+    const synnax::ontology::ID id3("channel", "43");
+    const synnax::ontology::ID id4("group", "42");
 
     EXPECT_TRUE(id1 == id2);
     EXPECT_FALSE(id1 == id3);
@@ -92,23 +90,22 @@ TEST(OntologyID, testEqualityOperator) {
 
 /// @brief it should compare two IDs for inequality.
 TEST(OntologyID, testInequalityOperator) {
-    const ID id1("channel", "42");
-    const ID id2("channel", "42");
-    const ID id3("channel", "43");
+    const synnax::ontology::ID id1("channel", "42");
+    const synnax::ontology::ID id2("channel", "42");
+    const synnax::ontology::ID id3("channel", "43");
 
     EXPECT_FALSE(id1 != id2);
     EXPECT_TRUE(id1 != id3);
 }
 
-/// @brief it should parse a vector of ID strings.
+/// @brief it should parse a vector of synnax::ontology::ID strings.
 TEST(OntologyID, testParseIDs) {
     const std::vector<std::string> strs = {
         "channel:42",
         "group:748d31e2-5732-4cb5-8bc9-64d4ad51efe8",
         "user:admin"
     };
-    auto [ids, err] = parse_ids(strs);
-    EXPECT_FALSE(err) << err.message();
+    auto ids = ASSERT_NIL_P(parse_ids(strs));
     EXPECT_EQ(ids.size(), 3);
     EXPECT_EQ(ids[0].type, "channel");
     EXPECT_EQ(ids[0].key, "42");
@@ -118,20 +115,20 @@ TEST(OntologyID, testParseIDs) {
     EXPECT_EQ(ids[2].key, "admin");
 }
 
-/// @brief it should fail to parse a vector with an invalid ID.
+/// @brief it should fail to parse a vector with an invalid synnax::ontology::ID.
 TEST(OntologyID, testParseIDsWithInvalid) {
     const std::vector<std::string> strs = {"channel:42", "malformed", "user:admin"};
-    auto [ids, err] = parse_ids(strs);
+    auto [ids, err] = synnax::ontology::parse_ids(strs);
     EXPECT_TRUE(err);
     EXPECT_TRUE(err.matches(xerrors::VALIDATION));
 }
 
 /// @brief it should convert a vector of IDs to strings.
 TEST(OntologyID, testIDsToStrings) {
-    const std::vector<ID> ids = {
-        ID("channel", "42"),
-        ID("group", "748d31e2-5732-4cb5-8bc9-64d4ad51efe8"),
-        ID("user", "admin")
+    const std::vector<synnax::ontology::ID> ids = {
+        synnax::ontology::ID("channel", "42"),
+        synnax::ontology::ID("group", "748d31e2-5732-4cb5-8bc9-64d4ad51efe8"),
+        synnax::ontology::ID("user", "admin")
     };
     const auto strs = ids_to_strings(ids);
     EXPECT_EQ(strs.size(), 3);
@@ -142,7 +139,7 @@ TEST(OntologyID, testIDsToStrings) {
 
 /// @brief it should verify ROOT_ID constant.
 TEST(OntologyID, testRootIDConstant) {
-    EXPECT_EQ(ROOT_ID.type, "builtin");
-    EXPECT_EQ(ROOT_ID.key, "root");
-    EXPECT_EQ(ROOT_ID.string(), "builtin:root");
+    EXPECT_EQ(synnax::ontology::ROOT_ID.type, "builtin");
+    EXPECT_EQ(synnax::ontology::ROOT_ID.key, "root");
+    EXPECT_EQ(synnax::ontology::ROOT_ID.string(), "builtin:root");
 }

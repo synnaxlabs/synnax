@@ -12,10 +12,6 @@
 #include "x/cpp/xerrors/errors.h"
 
 namespace synnax {
-const std::string RETRIEVE_DEVICE_ENDPOINT = "/device/retrieve";
-const std::string CREATE_DEVICE_ENDPOINT = "/device/create";
-const std::string DELETE_DEVICE_ENDPOINT = "/device/delete";
-
 DeviceClient::DeviceClient(
     std::unique_ptr<DeviceCreateClient> device_create_client,
     std::unique_ptr<DeviceRetrieveClient> device_retrieve_client,
@@ -30,7 +26,7 @@ DeviceClient::retrieve(const std::string &key, bool ignore_not_found) const {
     auto req = api::v1::DeviceRetrieveRequest();
     req.add_keys(key);
     req.set_ignore_not_found(ignore_not_found);
-    auto [res, err] = device_retrieve_client->send(RETRIEVE_DEVICE_ENDPOINT, req);
+    auto [res, err] = device_retrieve_client->send("/device/retrieve", req);
     if (err) return {Device(), err};
     if (res.devices_size() == 0) {
         if (ignore_not_found) return {Device(), xerrors::Error()};
@@ -46,7 +42,7 @@ std::pair<std::vector<Device>, xerrors::Error> DeviceClient::retrieve(
     auto req = api::v1::DeviceRetrieveRequest();
     req.mutable_keys()->Add(keys.begin(), keys.end());
     req.set_ignore_not_found(ignore_not_found);
-    auto [res, err] = device_retrieve_client->send(RETRIEVE_DEVICE_ENDPOINT, req);
+    auto [res, err] = device_retrieve_client->send("/device/retrieve", req);
     std::vector<Device> devices = {res.devices().begin(), res.devices().end()};
     return {devices, err};
 }
@@ -55,7 +51,7 @@ std::pair<std::vector<Device>, xerrors::Error>
 DeviceClient::retrieve(DeviceRetrieveRequest &req) const {
     auto api_req = api::v1::DeviceRetrieveRequest();
     req.to_proto(api_req);
-    auto [res, err] = device_retrieve_client->send(RETRIEVE_DEVICE_ENDPOINT, api_req);
+    auto [res, err] = device_retrieve_client->send("/device/retrieve", api_req);
     if (err) return {std::vector<Device>(), err};
     std::vector<Device> devices = {res.devices().begin(), res.devices().end()};
     return {devices, err};
@@ -64,7 +60,7 @@ DeviceClient::retrieve(DeviceRetrieveRequest &req) const {
 xerrors::Error DeviceClient::create(Device &device) const {
     auto req = api::v1::DeviceCreateRequest();
     device.to_proto(req.add_devices());
-    auto [res, err] = device_create_client->send(CREATE_DEVICE_ENDPOINT, req);
+    auto [res, err] = device_create_client->send("/device/create", req);
     if (err) return err;
     if (res.devices_size() == 0) return unexpected_missing_error("device");
     device.key = res.devices().at(0).key();
@@ -76,21 +72,21 @@ xerrors::Error DeviceClient::create(const std::vector<Device> &devs) const {
     req.mutable_devices()->Reserve(static_cast<int>(devs.size()));
     for (auto &device: devs)
         device.to_proto(req.add_devices());
-    auto [res, err] = device_create_client->send(CREATE_DEVICE_ENDPOINT, req);
+    auto [res, err] = device_create_client->send("/device/create", req);
     return err;
 }
 
 xerrors::Error DeviceClient::del(const std::string &key) const {
     auto req = api::v1::DeviceDeleteRequest();
     req.add_keys(key);
-    auto [res, err] = device_delete_client->send(DELETE_DEVICE_ENDPOINT, req);
+    auto [res, err] = device_delete_client->send("/device/delete", req);
     return err;
 }
 
 xerrors::Error DeviceClient::del(const std::vector<std::string> &keys) const {
     auto req = api::v1::DeviceDeleteRequest();
     req.mutable_keys()->Add(keys.begin(), keys.end());
-    auto [res, err] = device_delete_client->send(DELETE_DEVICE_ENDPOINT, req);
+    auto [res, err] = device_delete_client->send("/device/delete", req);
     return err;
 }
 

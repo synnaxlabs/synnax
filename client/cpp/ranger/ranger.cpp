@@ -32,14 +32,11 @@ void Range::to_proto(api::v1::Range *rng) const {
     rng->mutable_time_range()->set_end(time_range.end.nanoseconds());
 }
 
-const std::string RETRIEVE_ENDPOINT = "/range/retrieve";
-const std::string CREATE_ENDPOINT = "/range/create";
-
 std::pair<Range, xerrors::Error>
 RangeClient::retrieve_by_key(const std::string &key) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_keys(key);
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
+    auto [res, err] = retrieve_client->send("/range/retrieve", req);
     if (err) return {Range(), err};
     if (res.ranges_size() == 0)
         return {Range(), not_found_error("range", "key " + key)};
@@ -52,7 +49,7 @@ std::pair<Range, xerrors::Error>
 RangeClient::retrieve_by_name(const std::string &name) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
+    auto [res, err] = retrieve_client->send("/range/retrieve", req);
     if (err) return {Range(), err};
     if (res.ranges_size() == 0)
         return {Range(), not_found_error("range", "name " + name)};
@@ -65,7 +62,7 @@ RangeClient::retrieve_by_name(const std::string &name) const {
 
 std::pair<std::vector<Range>, xerrors::Error>
 RangeClient::retrieve_many(api::v1::RangeRetrieveRequest &req) const {
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
+    auto [res, err] = retrieve_client->send("/range/retrieve", req);
     if (err) return {std::vector<Range>(), err};
     std::vector<Range> ranges = {res.ranges().begin(), res.ranges().end()};
     for (auto &r: ranges)
@@ -94,7 +91,7 @@ xerrors::Error RangeClient::create(std::vector<Range> &ranges) const {
     req.mutable_ranges()->Reserve(ranges.size());
     for (const auto &range: ranges)
         range.to_proto(req.add_ranges());
-    auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
+    auto [res, err] = create_client->send("/range/create", req);
     if (err) return err;
     for (auto i = 0; i < res.ranges_size(); i++) {
         ranges[i].key = res.ranges(i).key();
@@ -111,7 +108,7 @@ xerrors::Error RangeClient::create(std::vector<Range> &ranges) const {
 xerrors::Error RangeClient::create(Range &range) const {
     auto req = api::v1::RangeCreateRequest();
     range.to_proto(req.add_ranges());
-    auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
+    auto [res, err] = create_client->send("/range/create", req);
     if (err) return err;
     if (res.ranges_size() == 0) return unexpected_missing_error("range");
     const auto rng = res.ranges(0);

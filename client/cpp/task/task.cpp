@@ -73,15 +73,11 @@ void Task::to_proto(api::v1::Task *task) const {
     task->set_snapshot(snapshot);
 }
 
-const std::string RETRIEVE_TASK_ENDPOINT = "/task/retrieve";
-const std::string CREATE_TASK_ENDPOINT = "/task/create";
-const std::string DELETE_TASK_ENDPOINT = "/task/delete";
-
 std::pair<Task, xerrors::Error> TaskClient::retrieve(const TaskKey key) const {
     auto req = api::v1::TaskRetrieveRequest();
     req.set_rack(rack);
     req.add_keys(key);
-    auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
+    auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {Task(), err};
     if (res.tasks_size() == 0)
         return {Task(), not_found_error("task", "key " + std::to_string(key))};
@@ -92,7 +88,7 @@ std::pair<Task, xerrors::Error> TaskClient::retrieve(const std::string &name) co
     auto req = api::v1::TaskRetrieveRequest();
     req.set_rack(rack);
     req.add_names(name);
-    auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
+    auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {Task(), err};
     if (res.tasks_size() == 0) return {Task(), not_found_error("task", "name " + name)};
     return {Task(res.tasks(0)), err};
@@ -103,7 +99,7 @@ TaskClient::retrieve(const std::vector<std::string> &names) const {
     auto req = api::v1::TaskRetrieveRequest();
     req.set_rack(rack);
     req.mutable_names()->Add(names.begin(), names.end());
-    auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
+    auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {std::vector<Task>(), err};
     std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
     return {tasks, err};
@@ -114,7 +110,7 @@ TaskClient::retrieve_by_type(const std::string &type) const {
     auto req = api::v1::TaskRetrieveRequest();
     req.set_rack(rack);
     req.add_types(type);
-    auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
+    auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {Task(), err};
     if (res.tasks_size() == 0) return {Task(), not_found_error("task", "type " + type)};
     return {Task(res.tasks(0)), err};
@@ -125,7 +121,7 @@ TaskClient::retrieve_by_type(const std::vector<std::string> &types) const {
     auto req = api::v1::TaskRetrieveRequest();
     req.set_rack(rack);
     req.mutable_types()->Add(types.begin(), types.end());
-    auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
+    auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {std::vector<Task>(), err};
     std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
     return {tasks, err};
@@ -134,7 +130,7 @@ TaskClient::retrieve_by_type(const std::vector<std::string> &types) const {
 xerrors::Error TaskClient::create(Task &task) const {
     auto req = api::v1::TaskCreateRequest();
     task.to_proto(req.add_tasks());
-    auto [res, err] = task_create_client->send(CREATE_TASK_ENDPOINT, req);
+    auto [res, err] = task_create_client->send("/task/create", req);
     if (err) return err;
     if (res.tasks_size() == 0) return unexpected_missing_error("task");
     task.key = res.tasks().at(0).key();
@@ -144,14 +140,14 @@ xerrors::Error TaskClient::create(Task &task) const {
 xerrors::Error TaskClient::del(const TaskKey key) const {
     auto req = api::v1::TaskDeleteRequest();
     req.add_keys(key);
-    auto [res, err] = task_delete_client->send(DELETE_TASK_ENDPOINT, req);
+    auto [res, err] = task_delete_client->send("/task/delete", req);
     return err;
 }
 
 std::pair<std::vector<Task>, xerrors::Error> TaskClient::list() const {
     auto req = api::v1::TaskRetrieveRequest();
     req.set_rack(rack);
-    auto [res, err] = task_retrieve_client->send(RETRIEVE_TASK_ENDPOINT, req);
+    auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {std::vector<Task>(), err};
     std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
     return {tasks, err};

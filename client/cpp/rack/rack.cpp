@@ -39,14 +39,10 @@ RackClient::RackClient(
     task_retrieve_client(std::move(task_retrieve_client)),
     task_delete_client(std::move(task_delete_client)) {}
 
-const std::string RETRIEVE_RACK_ENDPOINT = "/rack/retrieve";
-const std::string CREATE_RACK_ENDPOINT = "/rack/create";
-const std::string DELETE_RACK_ENDPOINT = "/rack/delete";
-
 std::pair<Rack, xerrors::Error> RackClient::retrieve(const RackKey key) const {
     auto req = api::v1::RackRetrieveRequest();
     req.add_keys(key);
-    auto [res, err] = rack_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
+    auto [res, err] = rack_retrieve_client->send("/rack/retrieve", req);
     if (err) return {Rack(), err};
     if (res.racks_size() == 0)
         return {Rack(), not_found_error("Rack", "key" + std::to_string(key))};
@@ -63,7 +59,7 @@ std::pair<Rack, xerrors::Error> RackClient::retrieve(const RackKey key) const {
 std::pair<Rack, xerrors::Error> RackClient::retrieve(const std::string &name) const {
     auto req = api::v1::RackRetrieveRequest();
     req.add_names(name);
-    auto [res, err] = rack_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
+    auto [res, err] = rack_retrieve_client->send("/rack/retrieve", req);
     if (err) return {Rack(), err};
     if (res.racks_size() == 0) return {Rack(), not_found_error("Rack", "name " + name)};
     if (res.racks_size() > 1)
@@ -81,7 +77,7 @@ std::pair<Rack, xerrors::Error> RackClient::retrieve(const std::string &name) co
 xerrors::Error RackClient::create(Rack &rack) const {
     auto req = api::v1::RackCreateRequest();
     rack.to_proto(req.add_racks());
-    auto [res, err] = rack_create_client->send(CREATE_RACK_ENDPOINT, req);
+    auto [res, err] = rack_create_client->send("/rack/create", req);
     if (err) return err;
     if (res.racks_size() == 0) return unexpected_missing_error("rack");
     rack.key = res.racks().at(0).key();
@@ -103,7 +99,7 @@ std::pair<Rack, xerrors::Error> RackClient::create(const std::string &name) cons
 xerrors::Error RackClient::del(const RackKey key) const {
     auto req = api::v1::RackDeleteRequest();
     req.add_keys(key);
-    auto [res, err] = rack_delete_client->send(DELETE_RACK_ENDPOINT, req);
+    auto [res, err] = rack_delete_client->send("/rack/delete", req);
     return err;
 }
 }
