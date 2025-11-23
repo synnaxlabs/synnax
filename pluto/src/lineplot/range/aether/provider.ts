@@ -83,8 +83,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.removeListener?.();
     const removeOnSet = store.ranges.onSet((changed) => {
       if (i.client == null) return;
-      if (color.isCrude(changed.color))
-        i.ranges.set(changed.key, i.client.ranges.sugarOne(changed));
+      i.ranges.set(changed.key, i.client.ranges.sugarOne(changed));
       this.setState((s) => ({ ...s, count: i.ranges.size }));
       i.requestRender("tool");
     });

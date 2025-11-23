@@ -94,6 +94,8 @@ COLORS: list[str] = [
     "#FF0080",  # Rose (330°)
 ]
 
+CONDUCTOR_COLOR = "AAAAAA"
+
 
 class TestConductor:
     """Manages execution of test sequences with timeout monitoring and result collection."""
@@ -143,6 +145,7 @@ class TestConductor:
             self.range = self.client.ranges.create(
                 name=self.name,
                 time_range=sy.TimeRange(start=sy.TimeStamp.now(), end=sy.TimeStamp.MAX),
+                color=CONDUCTOR_COLOR,
             )
         except Exception as e:
             raise RuntimeError(f"Failed to create range: {e}")
@@ -839,6 +842,7 @@ class TestConductor:
                     start=test_range.time_range.start,
                     end=sy.TimeStamp.now(),
                 ),
+                color=test_range.color,
             )
         except Exception as e:
             self.logger.error(f"Error: Failed to finalize range: {e}")
@@ -1234,6 +1238,7 @@ def main() -> None:
                         start=conductor.range.time_range.start,
                         end=sy.TimeStamp.now(),
                     ),
+                    color=CONDUCTOR_COLOR,
                 )
             except Exception as e:
                 conductor.log_message(
