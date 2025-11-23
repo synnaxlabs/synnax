@@ -82,8 +82,6 @@ import {
   MdAlignVerticalTop,
   MdAreaChart,
   MdArrowOutward,
-  MdHorizontalDistribute,
-  MdVerticalDistribute,
   MdAutoAwesome,
   MdBlurLinear,
   MdBook,
@@ -102,6 +100,7 @@ import {
   MdFilterCenterFocus,
   MdHardware,
   MdHive,
+  MdHorizontalDistribute,
   MdInsights,
   MdKeyboardAlt,
   MdKeyboardArrowDown,
@@ -147,6 +146,7 @@ import {
   MdSquareFoot,
   MdTextFields,
   MdTypeSpecimen,
+  MdVerticalDistribute,
   MdWorkspacesFilled,
 } from "react-icons/md";
 import {

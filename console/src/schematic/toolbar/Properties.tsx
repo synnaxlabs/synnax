@@ -203,7 +203,7 @@ const MultiElementProperties = ({
             extensionBelow / (viewport?.zoom ?? 1),
           );
         }
-      } catch (e) {
+      } catch (_e) {
         // Skip on error
       }
     });
@@ -216,7 +216,7 @@ const MultiElementProperties = ({
           const nodeElBox = box.construct(nodeEl);
           const rect = nodeEl.getBoundingClientRect();
 
-          let actualDims = {
+          const actualDims = {
             width: rect.width / (viewport?.zoom ?? 1),
             height: rect.height / (viewport?.zoom ?? 1),
           };
