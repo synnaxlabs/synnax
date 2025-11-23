@@ -86,8 +86,9 @@ const parseRowCalArgs = <L extends location.Outer | undefined>(
 
 export const useSyncComponent = Workspace.createSyncComponent(
   "Table",
-  async ({ key, workspace, store, client }) => {
+  async ({ key, workspace, store, fluxStore, client }) => {
     const storeState = store.getState();
+    if (!Core.editAccessGranted({ key, store: fluxStore, client })) return;
     const data = select(storeState, key);
     if (data == null) return;
     const layout = Layout.selectRequired(storeState, key);

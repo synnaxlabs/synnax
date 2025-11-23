@@ -10,6 +10,7 @@
 import { log, type workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 
+import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
@@ -106,3 +107,51 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     return data;
   },
 });
+
+const editAccessQuery = (
+  key: log.Key | log.Key[] = "",
+): Access.PermissionsQuery => ({
+  objects: log.ontologyID(key),
+  actions: ["retrieve", "create", "update"],
+});
+
+export const useEditAccessGranted = (key: log.Key | log.Key[]) =>
+  Access.useGranted(editAccessQuery(key));
+
+export const editAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: log.Key | log.Key[] }) =>
+  Access.isGranted({ ...rest, query: editAccessQuery(key) });
+
+const viewAccessQuery = (
+  key: log.Key | log.Key[] = "",
+): Access.PermissionsQuery => ({
+  objects: log.ontologyID(key),
+  actions: ["retrieve"],
+});
+
+export const viewAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: log.Key | log.Key[] }) =>
+  Access.isGranted({ ...rest, query: viewAccessQuery(key) });
+
+export const useViewAccessGranted = (key: log.Key | log.Key[]) =>
+  Access.useGranted(viewAccessQuery(key ?? ""));
+
+const deleteAccessQuery = (
+  key: log.Key | log.Key[] = "",
+): Access.PermissionsQuery => ({
+  objects: log.ontologyID(key),
+  actions: ["retrieve", "create", "update", "delete"],
+});
+
+export const useDeleteAccessGranted = (key: log.Key | log.Key[]) =>
+  Access.useGranted(deleteAccessQuery(key));
+
+export const deleteAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: log.Key }) =>
+  Access.isGranted({ ...rest, query: deleteAccessQuery(key) });

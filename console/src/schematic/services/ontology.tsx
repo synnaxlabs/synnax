@@ -9,7 +9,6 @@
 
 import { ontology, ranger, schematic, type Synnax } from "@synnaxlabs/client";
 import {
-  Access,
   type Flux,
   Icon,
   Menu as PMenu,
@@ -19,7 +18,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -127,7 +126,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource, shape },
   } = props;
   const activeRange = Range.useSelect();
+  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
+  const canDelete = Core.useDeleteAccessGranted(keys);
   const handleDelete = useDelete(props);
+  const canEdit = Core.useEditAccessGranted(keys);
   const handleCopy = useCopy(props);
   const snapshot = useRangeSnapshot();
   const handleExport = Schematic.useExport();
@@ -146,39 +148,31 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     group: () => group(props),
     link: () => handleLink({ name: first.name, ontologyID: firstID }),
   };
-  const canEditSchematic = Access.useGranted({
-    objects: schematic.ontologyID(firstID.key),
-    actions: "create",
-  });
-  const isSingle = ids.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" gap="small">
-      {canEditSchematic && (
+      {canDelete && <Menu.DeleteItem />}
+      {canEdit && (
         <>
           <Menu.RenameItem />
-          <Menu.DeleteItem />
           <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
           <PMenu.Divider />
         </>
       )}
-      {resources.every((r) => r.data?.snapshot === false) && (
+      {resources.every((r) => r.data?.snapshot === false) && canEdit && (
         <>
           <Range.SnapshotMenuItem range={activeRange} />
-          <PMenu.Item itemKey="copy">
-            <Icon.Copy />
-            Copy
-          </PMenu.Item>
+          {canEdit && (
+            <PMenu.Item itemKey="copy">
+              <Icon.Copy />
+              Copy
+            </PMenu.Item>
+          )}
           <PMenu.Divider />
         </>
       )}
-      {isSingle && (
-        <>
-          <Export.MenuItem />
-          <Link.CopyMenuItem />
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
-        </>
-      )}
+      <Export.MenuItem />
+      <Link.CopyMenuItem />
+      <Ontology.CopyMenuItem {...props} />
       <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );

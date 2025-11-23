@@ -58,12 +58,21 @@ export type ID = z.infer<typeof idZ>;
 
 export const ROOT_ID: ID = { type: "builtin", key: "root" };
 
-export const createIDFactory =
-  <K extends record.Key>(type: ResourceType) =>
-  (key: K): ID => ({
-    type,
-    key: primitive.isZero(key) ? "" : key.toString(),
-  });
+export interface CreateID<K extends record.Key> {
+  (key: K): ID;
+  (keys: K[]): ID[];
+  (keys: K | K[]): ID | ID[];
+}
+
+export const createIDFactory = <K extends record.Key>(
+  type: ResourceType,
+): CreateID<K> => {
+  const id = (key: K) => ({ type, key: primitive.isZero(key) ? "" : key.toString() });
+  return ((key: K | K[]) => {
+    if (Array.isArray(key)) return key.map(id);
+    return id(key);
+  }) as CreateID<K>;
+};
 
 export interface IDToString {
   (id: ID | string): string;

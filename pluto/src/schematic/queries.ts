@@ -156,21 +156,25 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   },
 });
 
-const editAccessQuery = (key: schematic.Key = ""): Access.PermissionsQuery => ({
+const editAccessQuery = (
+  key: schematic.Key | schematic.Key[] = "",
+): Access.PermissionsQuery => ({
   objects: schematic.ontologyID(key),
   actions: ["retrieve", "create", "update"],
 });
 
-export const useEditAccessGranted = (key: schematic.Key) =>
+export const useEditAccessGranted = (key: schematic.Key | schematic.Key[]) =>
   Access.useGranted(editAccessQuery(key));
 
 export const editAccessGranted = ({
   key,
   ...rest
-}: Access.IsGrantedExtensionParams & { key?: schematic.Key }) =>
+}: Access.IsGrantedExtensionParams & { key?: schematic.Key | schematic.Key[] }) =>
   Access.isGranted({ ...rest, query: editAccessQuery(key) });
 
-export const viewAccessQuery = (key: schematic.Key = ""): Access.PermissionsQuery => ({
+export const viewAccessQuery = (
+  key: schematic.Key | schematic.Key[] = "",
+): Access.PermissionsQuery => ({
   objects: schematic.ontologyID(key),
   actions: ["retrieve"],
 });
@@ -178,20 +182,20 @@ export const viewAccessQuery = (key: schematic.Key = ""): Access.PermissionsQuer
 export const viewAccessGranted = ({
   key,
   ...rest
-}: Access.IsGrantedExtensionParams & { key?: schematic.Key }) =>
+}: Access.IsGrantedExtensionParams & { key?: schematic.Key | schematic.Key[] }) =>
   Access.isGranted({ ...rest, query: viewAccessQuery(key) });
 
-export const useViewAccessGranted = (key: schematic.Key) =>
-  Access.useGranted(viewAccessQuery(key));
+export const useViewAccessGranted = (key: schematic.Key | schematic.Key[]) =>
+  Access.useGranted(viewAccessQuery(key ?? ""));
 
 export const deleteAccessQuery = (
-  key: schematic.Key = "",
+  key: schematic.Key | schematic.Key[] = "",
 ): Access.PermissionsQuery => ({
   objects: schematic.ontologyID(key),
   actions: ["retrieve", "create", "update", "delete"],
 });
 
-export const useDeleteAccessGranted = (key: schematic.Key) =>
+export const useDeleteAccessGranted = (key: schematic.Key | schematic.Key[]) =>
   Access.useGranted(deleteAccessQuery(key));
 
 export const deleteAccessGranted = ({

@@ -26,8 +26,9 @@ export type LayoutType = typeof LAYOUT_TYPE;
 
 export const useSyncComponent = Workspace.createSyncComponent(
   "Log",
-  async ({ key, workspace, store, client }) => {
+  async ({ key, workspace, store, fluxStore, client }) => {
     const storeState = store.getState();
+    if (!Core.editAccessGranted({ key, store: fluxStore, client })) return;
     const data = select(storeState, key);
     if (data == null) return;
     const layout = Layout.selectRequired(storeState, key);

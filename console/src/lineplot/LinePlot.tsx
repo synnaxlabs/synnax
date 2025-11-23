@@ -16,6 +16,7 @@ import {
   Channel,
   Icon,
   LinePlot as Core,
+  LinePlot as PLinePlot,
   Menu as PMenu,
   Ranger,
   Status,
@@ -98,8 +99,9 @@ import { Workspace } from "@/workspace";
 
 const useSyncComponent = Workspace.createSyncComponent(
   "Line Plot",
-  async ({ key, workspace, store, client }) => {
+  async ({ key, workspace, store, fluxStore, client }) => {
     const s = store.getState();
+    if (!PLinePlot.editAccessGranted({ key, store: fluxStore, client })) return;
     const data = select(s, key);
     if (data == null) return;
     const la = Layout.selectRequired(s, key);
@@ -163,6 +165,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
+  const hasEditPermission = PLinePlot.useEditAccessGranted(layoutKey);
 
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
@@ -461,29 +464,29 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           lines={propsLines}
           rules={vis.rules}
           clearOverScan={{ x: 5, y: 5 }}
-          onTitleChange={handleTitleChange}
+          onTitleChange={hasEditPermission ? handleTitleChange : undefined}
           visible={visible}
           titleLevel={vis.title.level}
           showTitle={vis.title.visible}
           showLegend={vis.legend.visible}
-          onLineChange={handleLineChange}
-          onRuleChange={handleRuleChange}
-          onAxisChannelDrop={handleChannelAxisDrop}
-          onAxisChange={handleAxisChange}
+          onLineChange={hasEditPermission ? handleLineChange : undefined}
+          onRuleChange={hasEditPermission ? handleRuleChange : undefined}
+          onAxisChannelDrop={hasEditPermission ? handleChannelAxisDrop : undefined}
+          onAxisChange={hasEditPermission ? handleAxisChange : undefined}
           onViewportChange={handleViewportChange}
           initialViewport={initialViewport}
-          onLegendPositionChange={handleLegendPositionChange}
+          onLegendPositionChange={hasEditPermission ? handleLegendPositionChange : undefined}
           legendPosition={legendPosition}
           viewportTriggers={triggers}
           enableTooltip={enableTooltip}
           legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
-          onSelectRule={handleSelectRule}
+          onSelectRule={hasEditPermission ? handleSelectRule : undefined}
           onHold={handleHold}
           rangeProviderProps={rangeProviderProps}
           measureMode={vis.measure.mode}
-          onMeasureModeChange={handleMeasureModeChange}
+          onMeasureModeChange={hasEditPermission ? handleMeasureModeChange : undefined}
         >
           {!focused && <NavControls layoutKey={layoutKey} />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />

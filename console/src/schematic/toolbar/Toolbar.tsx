@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Access, Breadcrumb, Flex, Icon, Schematic, Tabs } from "@synnaxlabs/pluto";
+import {
+  Breadcrumb,
+  Flex,
+  Icon,
+  Schematic as PSchematic,
+  Schematic,
+  Tabs,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -93,10 +100,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [dispatch, layoutKey],
   );
-  const canEdit = Access.useGranted({
-    objects: schematic.ontologyID(layoutKey),
-    actions: "create",
-  });
+  const canEdit = PSchematic.useEditAccessGranted(layoutKey);
   const value = useMemo(
     () => ({
       tabs: TABS,

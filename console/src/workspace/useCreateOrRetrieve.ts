@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, type Synnax as Client } from "@synnaxlabs/client";
-import { Status, Synnax } from "@synnaxlabs/pluto";
+import { Flux, type Pluto, Status, Synnax, Workspace } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -20,12 +20,13 @@ export const useCreateOrRetrieve = () => {
   const handleError = Status.useErrorHandler();
   const dispatch = useDispatch();
   const prevClient = Synnax.use();
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const layout = Layout.useSelectSliceState();
   const activeWS = useSelectActive();
   return (client: Client) => {
     if (activeWS == null) return;
     const purgedLayout = purgeExcludedLayouts(layout);
-    if (prevClient != null)
+    if (prevClient != null && Workspace.editAccessGranted({ key: activeWS.key, store: fluxStore, client: prevClient }))
       handleError(
         async () => await prevClient.workspaces.setLayout(activeWS.key, purgedLayout),
         `Failed to save workspace ${activeWS.name} to ${prevClient.params.name ?? "previous Core"}`,
@@ -34,7 +35,8 @@ export const useCreateOrRetrieve = () => {
       async () => {
         try {
           await client.workspaces.retrieve(activeWS.key);
-          await client.workspaces.setLayout(activeWS.key, purgedLayout);
+          if (Workspace.editAccessGranted({ key: activeWS.key, store: fluxStore, client }))
+            await client.workspaces.setLayout(activeWS.key, purgedLayout);
           dispatch(setActive(activeWS));
         } catch (e) {
           if (!NotFoundError.matches(e)) throw e;

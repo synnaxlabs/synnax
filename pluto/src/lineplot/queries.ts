@@ -109,20 +109,50 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   },
 });
 
-export const useViewAccessGranted = (key: lineplot.Key) =>
-  Access.useGranted({
-    objects: lineplot.ontologyID(key),
-    actions: ["retrieve"],
-  });
+const editAccessQuery = (
+  key: lineplot.Key | lineplot.Key[] = "",
+): Access.PermissionsQuery => ({
+  objects: lineplot.ontologyID(key),
+  actions: ["retrieve", "create", "update"],
+});
 
-export const useEditAccessGranted = (key: lineplot.Key) =>
-  Access.useGranted({
-    objects: lineplot.ontologyID(key),
-    actions: ["retrieve", "create", "update"],
-  });
+export const useEditAccessGranted = (key: lineplot.Key | lineplot.Key[]) =>
+  Access.useGranted(editAccessQuery(key));
 
-export const useDeleteAccessGranted = (key: lineplot.Key) =>
-  Access.useGranted({
-    objects: lineplot.ontologyID(key),
-    actions: ["retrieve", "create", "update", "delete"],
-  });
+export const editAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: lineplot.Key | lineplot.Key[] }) =>
+  Access.isGranted({ ...rest, query: editAccessQuery(key) });
+
+const viewAccessQuery = (
+  key: lineplot.Key | lineplot.Key[] = "",
+): Access.PermissionsQuery => ({
+  objects: lineplot.ontologyID(key),
+  actions: ["retrieve"],
+});
+
+export const viewAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: lineplot.Key | lineplot.Key[] }) =>
+  Access.isGranted({ ...rest, query: viewAccessQuery(key) });
+
+export const useViewAccessGranted = (key: lineplot.Key | lineplot.Key[]) =>
+  Access.useGranted(viewAccessQuery(key ?? ""));
+
+const deleteAccessQuery = (
+  key: lineplot.Key | lineplot.Key[] = "",
+): Access.PermissionsQuery => ({
+  objects: lineplot.ontologyID(key),
+  actions: ["retrieve", "create", "update", "delete"],
+});
+
+export const useDeleteAccessGranted = (key: lineplot.Key | lineplot.Key[]) =>
+  Access.useGranted(deleteAccessQuery(key));
+
+export const deleteAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: lineplot.Key }) =>
+  Access.isGranted({ ...rest, query: deleteAccessQuery(key) });
