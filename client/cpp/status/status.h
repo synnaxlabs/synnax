@@ -64,7 +64,7 @@ public:
     [[nodiscard]] xerrors::Error set(status::Status<Details> &status) const {
         api::v1::StatusSetRequest req;
         status.to_proto(req.add_statuses());
-        auto [res, err] = this->set_client->send("/api/v1/status/set", req);
+        auto [res, err] = this->set_client->send("/status/set", req);
         if (err) return err;
         if (res.statuses_size() == 0) return unexpected_missing_error("status");
         auto [decoded, decode_err] = status::Status<Details>::from_proto(
@@ -89,7 +89,7 @@ public:
         req.mutable_statuses()->Reserve(static_cast<int>(statuses.size()));
         for (const auto &status: statuses)
             status.to_proto(req.add_statuses());
-        auto [res, err] = this->set_client->send("/api/v1/status/set", req);
+        auto [res, err] = this->set_client->send("/status/set", req);
         if (err) return err;
         for (int i = 0; i < res.statuses_size(); i++) {
             auto [decoded, decode_err] = status::Status<Details>::from_proto(
@@ -130,7 +130,7 @@ public:
     retrieve(const std::vector<std::string> &keys) const {
         api::v1::StatusRetrieveRequest req;
         req.mutable_keys()->Add(keys.begin(), keys.end());
-        auto [res, err] = this->retrieve_client->send("/api/v1//status/retrieve", req);
+        auto [res, err] = this->retrieve_client->send("/status/retrieve", req);
         if (err) return {std::vector<status::Status<Details>>(), err};
         std::vector<status::Status<Details>> statuses;
         statuses.reserve(res.statuses_size());
@@ -161,7 +161,7 @@ public:
     [[nodiscard]] xerrors::Error del(const std::vector<std::string> &keys) const {
         api::v1::StatusDeleteRequest req;
         req.mutable_keys()->Add(keys.begin(), keys.end());
-        return this->delete_client->send("/api/v1/status/delete", req).second;
+        return this->delete_client->send("/status/delete", req).second;
     }
 
 private:
