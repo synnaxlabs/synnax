@@ -89,6 +89,54 @@ export const TagShowcase = () => (
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
+
+      <SubcategorySection
+        title="Text Overflow"
+        description="Tags with long text content showing overflow and truncation behavior"
+      >
+        <Flex.Box y gap="small">
+          <Text.Text level="small" weight={500}>
+            Overflow Handling
+          </Text.Text>
+          <Flex.Box y gap="medium">
+            <Tag.Tag size="huge">
+              This is a very long tag name that should demonstrate overflow behavior
+            </Tag.Tag>
+            <Tag.Tag size="large">
+              This is a very long tag name that should demonstrate overflow behavior
+            </Tag.Tag>
+            <Tag.Tag size="medium">
+              This is a very long tag name that should demonstrate overflow behavior
+            </Tag.Tag>
+            <Tag.Tag size="small">
+              This is a very long tag name that should demonstrate overflow behavior
+            </Tag.Tag>
+            <Tag.Tag size="tiny">
+              This is a very long tag name that should demonstrate overflow behavior
+            </Tag.Tag>
+          </Flex.Box>
+          <Text.Text level="small" weight={500}>
+            Overflow with Close Button
+          </Text.Text>
+          <Flex.Box y gap="medium">
+            <Tag.Tag size="huge" onClose={console.log}>
+              This is a very long tag name that should demonstrate overflow behavior
+            </Tag.Tag>
+            <Tag.Tag size="large" onClose={console.log}>
+              This is a very long tag name that should demonstrate overflow behavior
+            </Tag.Tag>
+            <Tag.Tag size="medium" onClose={console.log}>
+              This is a very long tag name that should demonstrate overflow behavior
+            </Tag.Tag>
+            <Tag.Tag size="small" onClose={console.log}>
+              This is a very long tag name that should demonstrate overflow behavior
+            </Tag.Tag>
+            <Tag.Tag size="tiny" onClose={console.log}>
+              This is a very long tag name that should demonstrate overflow behavior
+            </Tag.Tag>
+          </Flex.Box>
+        </Flex.Box>
+      </SubcategorySection>
     </Flex.Box>
   </Flex.Box>
 );

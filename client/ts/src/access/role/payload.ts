@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 
 export const keyZ = z.uuid();
 
@@ -27,4 +27,4 @@ export const newZ = roleZ.partial({ key: true });
 
 export type New = z.infer<typeof newZ>;
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "role", key });
+export const ontologyID = ontology.createIDFactory("role");

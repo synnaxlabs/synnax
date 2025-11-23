@@ -37,4 +37,4 @@ export const newZ = z.object({
 });
 export interface New extends z.input<typeof newZ> {}
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "policy", key });
+export const ontologyID = ontology.createIDFactory("policy");

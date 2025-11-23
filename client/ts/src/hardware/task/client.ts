@@ -32,7 +32,7 @@ import {
   statusZ,
   taskZ,
 } from "@/hardware/task/payload";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { type ranger } from "@/ranger";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -514,7 +514,7 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "task", key });
+export const ontologyID = ontology.createIDFactory("task");
 
 interface ExecuteCommandInternalParams {
   frameClient: framer.Client | null;

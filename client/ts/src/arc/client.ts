@@ -16,17 +16,8 @@ import {
 import { array } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import {
-  type Arc,
-  arcZ,
-  type Key,
-  keyZ,
-  type New,
-  newZ,
-  ONTOLOGY_TYPE,
-  type Params,
-} from "@/arc/payload";
-import { type ontology } from "@/ontology";
+import { type Arc, arcZ, keyZ, type New, newZ, type Params } from "@/arc/payload";
+import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_arc_set";
@@ -134,4 +125,4 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });
+export const ontologyID = ontology.createIDFactory("arc");

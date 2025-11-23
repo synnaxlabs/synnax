@@ -156,20 +156,46 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   },
 });
 
+const editAccessQuery = (key: schematic.Key = ""): Access.PermissionsQuery => ({
+  objects: schematic.ontologyID(key),
+  actions: ["retrieve", "create", "update"],
+});
+
 export const useEditAccessGranted = (key: schematic.Key) =>
-  Access.useGranted({
-    objects: schematic.ontologyID(key),
-    actions: ["retrieve", "create", "update"],
-  });
+  Access.useGranted(editAccessQuery(key));
+
+export const editAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: schematic.Key }) =>
+  Access.isGranted({ ...rest, query: editAccessQuery(key) });
+
+export const viewAccessQuery = (key: schematic.Key = ""): Access.PermissionsQuery => ({
+  objects: schematic.ontologyID(key),
+  actions: ["retrieve"],
+});
+
+export const viewAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: schematic.Key }) =>
+  Access.isGranted({ ...rest, query: viewAccessQuery(key) });
 
 export const useViewAccessGranted = (key: schematic.Key) =>
-  Access.useGranted({
-    objects: schematic.ontologyID(key),
-    actions: ["retrieve"],
-  });
+  Access.useGranted(viewAccessQuery(key));
+
+export const deleteAccessQuery = (
+  key: schematic.Key = "",
+): Access.PermissionsQuery => ({
+  objects: schematic.ontologyID(key),
+  actions: ["retrieve", "create", "update", "delete"],
+});
 
 export const useDeleteAccessGranted = (key: schematic.Key) =>
-  Access.useGranted({
-    objects: schematic.ontologyID(key),
-    actions: ["retrieve", "create", "update", "delete"],
-  });
+  Access.useGranted(deleteAccessQuery(key));
+
+export const deleteAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: schematic.Key }) =>
+  Access.isGranted({ ...rest, query: deleteAccessQuery(key) });

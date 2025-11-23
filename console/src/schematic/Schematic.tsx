@@ -11,7 +11,6 @@ import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
-  Access,
   Button,
   Control,
   Diagram,
@@ -20,6 +19,7 @@ import {
   Icon,
   Menu as PMenu,
   Schematic as Core,
+  Schematic as PSchematic,
   Text,
   Theming,
   usePrevious,
@@ -44,6 +44,7 @@ import {
   selectOptional,
   selectRequired,
   useSelectEditable,
+  useSelectLegendVisible,
   useSelectNodeProps,
   useSelectRequired,
   useSelectRequiredViewportMode,
@@ -78,10 +79,9 @@ export const HAUL_TYPE = "schematic-element";
 
 const useSyncComponent = Workspace.createSyncComponent(
   "Schematic",
-  async ({ key, workspace, store, client }) => {
+  async ({ key, workspace, store, fluxStore, client }) => {
     const storeState = store.getState();
-    // TODO: Add permission check here.
-    // if (!selectHasPermission(storeState)) return;
+    if (!PSchematic.editAccessGranted({ key, store: fluxStore, client })) return;
     const data = selectOptional(storeState, key);
     if (data == null) return;
     const layout = Layout.selectRequired(storeState, key);
@@ -159,6 +159,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelectRequired(layoutKey);
+  const legendVisible = useSelectLegendVisible(layoutKey);
   const dispatch = useDispatch();
   const syncDispatch = useSyncComponent(layoutKey);
   const selector = useCallback(
@@ -182,10 +183,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   }, [name, prevName, layoutKey, syncDispatch]);
 
   const isEditable = useSelectEditable(layoutKey);
-  const hasEditPermission = Access.useGranted({
-    objects: schematic.ontologyID(layoutKey),
-    actions: "create",
-  });
+  const hasEditPermission = PSchematic.useEditAccessGranted(layoutKey);
   useEffect(() => {
     if (!hasEditPermission && isEditable)
       syncDispatch(setEditable({ key: layoutKey, editable: false }));
@@ -423,11 +421,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             </Flex.Box>
           </Diagram.Controls>
         </Core.Schematic>
-        <Control.Legend
-          position={legendPosition}
-          onPositionChange={handleLegendPositionChange}
-          allowVisibleChange={false}
-        />
+        {legendVisible && (
+          <Control.Legend
+            position={legendPosition}
+            onPositionChange={handleLegendPositionChange}
+            allowVisibleChange={false}
+          />
+        )}
       </Control.Controller>
     </div>
   );

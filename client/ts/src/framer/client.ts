@@ -23,12 +23,9 @@ import { Frame } from "@/framer/frame";
 import { AUTO_SPAN, Iterator, type IteratorConfig } from "@/framer/iterator";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 
-export const ontologyID = (key: channel.Key): ontology.ID => ({
-  type: "framer",
-  key: key.toString(),
-});
+export const ontologyID = ontology.createIDFactory("framer");
 
 export class Client {
   private readonly streamClient: WebSocketClient;

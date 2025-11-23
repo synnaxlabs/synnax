@@ -129,7 +129,4 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({
-  type: "schematic_symbol",
-  key,
-});
+export const ontologyID = ontology.createIDFactory("schematic_symbol");

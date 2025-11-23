@@ -12,7 +12,7 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/payload";
 
 const retrieveRequestZ = z.object({
@@ -153,4 +153,4 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "user", key });
+export const ontologyID = ontology.createIDFactory<Key>("user");

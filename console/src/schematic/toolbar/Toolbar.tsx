@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Access, Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import { Access, Breadcrumb, Flex, Icon, Schematic, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -40,10 +40,7 @@ interface NotEditableContentProps extends ToolbarProps {}
 const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
-  const hasEditingPermissions = Access.useGranted({
-    objects: schematic.ontologyID(layoutKey),
-    actions: "create",
-  });
+  const hasEditingPermissions = Schematic.useEditAccessGranted(layoutKey);
   const isSnapshot = useSelectIsSnapshot(layoutKey);
   const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
@@ -52,9 +49,11 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
       x
       message={`${name} is not editable.${isEditable ? " To make changes," : ""}`}
       action={
-        controlState === "acquired"
-          ? "release control and enable editing."
-          : "enable editing."
+        isEditable
+          ? controlState === "acquired"
+            ? "release control and enable editing."
+            : "enable editing."
+          : undefined
       }
       onClick={() => {
         dispatch(setEditable({ key: layoutKey, editable: true }));
