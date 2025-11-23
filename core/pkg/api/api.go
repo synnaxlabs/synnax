@@ -56,9 +56,6 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-type RackTransport struct {
-}
-
 type Transport struct {
 	// AUTH
 	AuthLogin          freighter.UnaryServer[AuthLoginRequest, AuthLoginResponse]

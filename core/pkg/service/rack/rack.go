@@ -22,7 +22,7 @@ import (
 // Key is a unique identifier for a rack. Each rack is leased to a particular
 // node in the cluster. Why this over a UUID?
 //
-// The reason comes down to task configuration and communication mechanisms. Create
+// The reason comes down to task configuration and communication mechanisms. Task
 // configuration signals are passed down through gossip operations, which are much
 // slower than regular channel communication. This means that gossip propagation
 // through a large cluster means that it can take 15s+ for a task to be received and
