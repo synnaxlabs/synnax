@@ -50,8 +50,8 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []string) {
 }
 
 // OntologyIDsFromStatuses converts a slice of statuses to a slice of ontology IDs.
-func OntologyIDsFromStatuses[D any](statuses []Status[any]) (ids []ontology.ID) {
-	return lo.Map(statuses, func(s Status[any], _ int) ontology.ID {
+func OntologyIDsFromStatuses[D any](statuses []Status[D]) (ids []ontology.ID) {
+	return lo.Map(statuses, func(s Status[D], _ int) ontology.ID {
 		return OntologyID(s.Key)
 	})
 }
