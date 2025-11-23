@@ -257,9 +257,11 @@ var _ = Describe("Metrics", Ordered, func() {
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		})
 		AfterEach(func() {
-			requests.Close()
-			Eventually(responses.Outlet()).Should(BeClosed())
-			Expect(svc.Close()).To(Succeed())
+			if svc != nil {
+				requests.Close()
+				Eventually(responses.Outlet()).Should(BeClosed())
+				Expect(svc.Close()).To(Succeed())
+			}
 		})
 		It("Should write metrics at configured interval", func() {
 			var res framer.StreamerResponse
@@ -300,7 +302,13 @@ var _ = Describe("Metrics", Ordered, func() {
 			Expect(nextTime).To(BeNumerically(">", latestTime))
 		})
 		It("Should write zero for disk usage in memory mode", func() {
-			// Create a service with empty DataPath (memory mode)
+			// Close the existing service first to avoid channel conflicts
+			requests.Close()
+			Eventually(responses.Outlet()).Should(BeClosed())
+			Expect(svc.Close()).To(Succeed())
+			svc = nil // Mark as closed so AfterEach doesn't try to close it again
+
+			// Create a new service with empty DataPath (memory mode)
 			memorySvc := MustSucceed(metrics.OpenService(ctx, metrics.Config{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,

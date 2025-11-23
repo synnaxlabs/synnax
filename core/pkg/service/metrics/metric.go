@@ -10,8 +10,10 @@
 package metrics
 
 import (
+	"context"
 	"io/fs"
 	"path/filepath"
+	"time"
 
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
@@ -77,20 +79,64 @@ func allMetrics(dataPath string) []metric {
 	}
 }
 
+type sizeResult struct {
+	size int64
+	err  error
+}
+
 func calculateDirectorySize(path string) (int64, error) {
-	var size int64
-	err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !d.IsDir() {
-			info, err := d.Info()
-			if err != nil {
-				return err
+	// Create a context with timeout to prevent hanging on large directories
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	done := make(chan sizeResult, 1)
+
+	go func() {
+		defer func() {
+			// Ensure we always send a result to prevent goroutine leaks
+			select {
+			case done <- sizeResult{}:
+			default:
 			}
-			size += info.Size()
+		}()
+
+		var size int64
+		err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, walkErr error) error {
+			// Check if context is done to interrupt the walk
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
+			if walkErr != nil {
+				return walkErr
+			}
+			if !d.IsDir() {
+				info, err := d.Info()
+				if err != nil {
+					return err
+				}
+				size += info.Size()
+			}
+			return nil
+		})
+		// Send result
+		select {
+		case done <- sizeResult{size: size, err: err}:
+		case <-ctx.Done():
 		}
-		return nil
-	})
-	return size, err
+	}()
+
+	select {
+	case <-ctx.Done():
+		// Timeout - wait for goroutine
+		<-done
+		return 0, nil
+	case result := <-done:
+		if result.err == context.DeadlineExceeded {
+			return 0, nil
+		}
+		return result.size, result.err
+	}
 }
