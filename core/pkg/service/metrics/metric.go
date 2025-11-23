@@ -28,6 +28,9 @@ type metric struct {
 }
 
 func allMetrics(dataPath string) []metric {
+	// Create a cached disk size collector to avoid blocking metrics collection
+	diskCollector := newCachedDiskCollector(dataPath)
+
 	return []metric{
 		{
 			ch: channel.Channel{
@@ -63,20 +66,69 @@ func allMetrics(dataPath string) []metric {
 				Name:     "disk_usage_mb",
 				DataType: telem.Float32T,
 			},
-			collect: func() (float32, error) {
-				// In memory mode, dataPath is empty so return 0
-				if dataPath == "" {
-					return 0, nil
-				}
-				size, err := calculateDirectorySize(dataPath)
-				if err != nil {
-					return 0, err
-				}
-				// Convert bytes to megabytes
-				return float32(size) / (1024 * 1024), nil
-			},
+			collect: diskCollector.collect,
 		},
 	}
+}
+
+// cachedDiskCollector calculates disk usage in the background to avoid blocking metrics collection
+type cachedDiskCollector struct {
+	dataPath string
+	cached   float32
+	done     chan struct{}
+}
+
+func newCachedDiskCollector(dataPath string) *cachedDiskCollector {
+	c := &cachedDiskCollector{
+		dataPath: dataPath,
+		cached:   0,
+		done:     make(chan struct{}),
+	}
+
+	// Start background updater
+	go c.updateLoop()
+
+	return c
+}
+
+func (c *cachedDiskCollector) collect() (float32, error) {
+	// Return cached value immediately, never block
+	return c.cached, nil
+}
+
+func (c *cachedDiskCollector) updateLoop() {
+	// Update disk usage every 5 seconds
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	// Calculate initial value
+	c.updateDiskSize()
+
+	for {
+		select {
+		case <-c.done:
+			return
+		case <-ticker.C:
+			c.updateDiskSize()
+		}
+	}
+}
+
+func (c *cachedDiskCollector) updateDiskSize() {
+	// In memory mode, dataPath is empty so keep 0
+	if c.dataPath == "" {
+		c.cached = 0
+		return
+	}
+
+	size, err := calculateDirectorySize(c.dataPath)
+	if err != nil {
+		// On error, keep previous value
+		return
+	}
+
+	// Convert bytes to megabytes and update cache
+	c.cached = float32(size) / (1024 * 1024)
 }
 
 type sizeResult struct {
