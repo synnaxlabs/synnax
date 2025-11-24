@@ -144,9 +144,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   },
 });
 
-const editAccessQuery = (
-  key: rack.Key | rack.Key[] = 0,
-): Access.PermissionsQuery => ({
+const editAccessQuery = (key: rack.Key | rack.Key[] = 0): Access.PermissionsQuery => ({
   objects: rack.ontologyID(key),
   actions: ["retrieve", "create", "update"],
 });
@@ -160,9 +158,7 @@ export const editAccessGranted = ({
 }: Access.IsGrantedExtensionParams & { key?: rack.Key | rack.Key[] }) =>
   Access.isGranted({ ...rest, query: editAccessQuery(key) });
 
-const viewAccessQuery = (
-  key: rack.Key | rack.Key[] = 0,
-): Access.PermissionsQuery => ({
+const viewAccessQuery = (key: rack.Key | rack.Key[] = 0): Access.PermissionsQuery => ({
   objects: rack.ontologyID(key),
   actions: ["retrieve"],
 });

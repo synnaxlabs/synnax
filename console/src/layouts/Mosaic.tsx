@@ -51,22 +51,26 @@ import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
-const EmptyContent = (): ReactElement => (
-  <Eraser.Eraser>
-    <Flex.Box gap={5} center>
-      <Logo className="synnax-logo-watermark" />
-      <Flex.Box x gap="small">
-        <Text.Text level="h5" weight={450} color={9}>
-          New Component
-        </Text.Text>
-        <Flex.Box x empty>
-          <Triggers.Text level="h5" trigger={["Control", "T"]} />
-        </Flex.Box>
+const EmptyContent = (): ReactElement => {
+  const createComponentEnabled = useSelectorVisible();
+  return (
+    <Eraser.Eraser>
+      <Flex.Box gap={5} center>
+        <Logo className="synnax-logo-watermark" />
+        {createComponentEnabled && (
+          <Flex.Box x gap="small">
+            <Text.Text level="h5" weight={450} color={9}>
+              New Component
+            </Text.Text>
+            <Flex.Box x empty>
+              <Triggers.Text level="h5" trigger={["Control", "T"]} />
+            </Flex.Box>
+          </Flex.Box>
+        )}
       </Flex.Box>
-    </Flex.Box>
-  </Eraser.Eraser>
-);
-
+    </Eraser.Eraser>
+  );
+};
 export const MOSAIC_LAYOUT_TYPE = "mosaic";
 
 const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
