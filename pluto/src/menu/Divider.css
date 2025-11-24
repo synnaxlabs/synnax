@@ -10,12 +10,10 @@
  */
 
 .pluto-menu__divider {
-    /* Hide dividers that are the first or last child of the menu. */
+    /* Hide dividers that are the first or last child of the menu, 
+     or dividers that have nothing in-between them. */
     &:first-child,
-    &:last-child {
-        display: none;
-    }
-    /* Hide consecutive dividers. */
+    &:last-child,
     & + & {
         display: none;
     }
