@@ -10,6 +10,9 @@
 import time
 
 from console.case import ConsoleCase
+from console.log import Log
+from console.plot import Plot
+from console.schematic.schematic import Schematic
 
 
 class SnapToGrid(ConsoleCase):
@@ -22,12 +25,12 @@ class SnapToGrid(ConsoleCase):
         Snap pages and take a screenshot
         """
         console = self.console
-        console.schematic.new()
-        console.plot.new()
-        console.log.new()
+        schematic = Schematic(self.client, self.console, "schematic")
+        plot = Plot(self.client, self.console, "plot")
+        log = Log(self.client, self.console, "log")
 
-        console.log.move("top")
-        console.plot.move("right")
-        console.schematic.move("bottom")
+        log.move("top")
+        plot.move("right")
+        schematic.move("bottom")
 
         console.screenshot()
