@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { box, xy } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { alignNodes, distributeNodes } from "@/vis/diagram/align";
+import { alignNodes, distributeNodes, rotateNodes } from "@/vis/diagram/align";
 import { HandleLayout, NodeLayout } from "@/vis/diagram/util";
 
 describe("align", () => {
@@ -646,6 +646,170 @@ describe("distribute", () => {
         { x: 0, y: 100 }, // 100 (first bottom) + 0 (gap) = 100
         { x: 0, y: 200 }, // 100 + 100 (height) + 0 (gap) = 200
       ]);
+    });
+  });
+});
+
+describe("rotate", () => {
+  beforeEach(() => {
+    // Clear the DOM before each test
+    document.body.innerHTML = "";
+    // Clear all mocks
+    vi.clearAllMocks();
+  });
+
+  describe("rotate clockwise", () => {
+    it("should click the rotate button once for nodes with rotate capability", () => {
+      // Setup DOM with a node that has a rotate button
+      const nodeDiv = document.createElement("div");
+      nodeDiv.setAttribute("data-id", "n1");
+      const rotateButton = document.createElement("button");
+      rotateButton.className = "pluto-grid__rotate";
+      const clickSpy = vi.fn();
+      rotateButton.onclick = clickSpy;
+      nodeDiv.appendChild(rotateButton);
+      document.body.appendChild(nodeDiv);
+
+      const inputs = [
+        new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), []),
+      ];
+
+      rotateNodes(inputs, "clockwise");
+
+      // Wait for setTimeout to execute
+      setTimeout(() => {
+        expect(clickSpy).toHaveBeenCalledTimes(1);
+      }, 10);
+    });
+
+    it("should handle multiple nodes with rotate buttons", () => {
+      // Setup DOM with multiple nodes that have rotate buttons
+      const node1 = document.createElement("div");
+      node1.setAttribute("data-id", "n1");
+      const button1 = document.createElement("button");
+      button1.className = "pluto-grid__rotate";
+      const click1 = vi.fn();
+      button1.onclick = click1;
+      node1.appendChild(button1);
+      document.body.appendChild(node1);
+
+      const node2 = document.createElement("div");
+      node2.setAttribute("data-id", "n2");
+      const button2 = document.createElement("button");
+      button2.className = "pluto-grid__rotate";
+      const click2 = vi.fn();
+      button2.onclick = click2;
+      node2.appendChild(button2);
+      document.body.appendChild(node2);
+
+      const inputs = [
+        new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), []),
+        new NodeLayout(
+          "n2",
+          box.construct({ x: 150, y: 0 }, { width: 100, height: 100 }),
+          [],
+        ),
+      ];
+
+      rotateNodes(inputs, "clockwise");
+
+      // Wait for setTimeout to execute
+      setTimeout(() => {
+        expect(click1).toHaveBeenCalledTimes(1);
+        expect(click2).toHaveBeenCalledTimes(1);
+      }, 10);
+    });
+
+    it("should skip nodes without rotate buttons", () => {
+      // Setup DOM with a node that doesn't have a rotate button
+      const nodeDiv = document.createElement("div");
+      nodeDiv.setAttribute("data-id", "n1");
+      document.body.appendChild(nodeDiv);
+
+      const inputs = [
+        new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), []),
+      ];
+
+      // Should not throw error
+      expect(() => rotateNodes(inputs, "clockwise")).not.toThrow();
+    });
+
+    it("should skip nodes that don't exist in DOM", () => {
+      const inputs = [
+        new NodeLayout(
+          "nonexistent",
+          box.construct(xy.ZERO, { width: 100, height: 100 }),
+          [],
+        ),
+      ];
+
+      // Should not throw error
+      expect(() => rotateNodes(inputs, "clockwise")).not.toThrow();
+    });
+  });
+
+  describe("rotate counter-clockwise", () => {
+    it("should click the rotate button three times for counter-clockwise rotation", () => {
+      // Setup DOM with a node that has a rotate button
+      const nodeDiv = document.createElement("div");
+      nodeDiv.setAttribute("data-id", "n1");
+      const rotateButton = document.createElement("button");
+      rotateButton.className = "pluto-grid__rotate";
+      const clickSpy = vi.fn();
+      rotateButton.onclick = clickSpy;
+      nodeDiv.appendChild(rotateButton);
+      document.body.appendChild(nodeDiv);
+
+      const inputs = [
+        new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), []),
+      ];
+
+      rotateNodes(inputs, "counterclockwise");
+
+      // Wait for all setTimeout calls to execute (3 clicks with 5ms delays)
+      setTimeout(() => {
+        expect(clickSpy).toHaveBeenCalledTimes(3);
+      }, 20);
+    });
+
+    it("should handle mixed nodes with and without rotate capability", () => {
+      // Setup DOM with one node that has a rotate button and one without
+      const node1 = document.createElement("div");
+      node1.setAttribute("data-id", "n1");
+      const button1 = document.createElement("button");
+      button1.className = "pluto-grid__rotate";
+      const click1 = vi.fn();
+      button1.onclick = click1;
+      node1.appendChild(button1);
+      document.body.appendChild(node1);
+
+      const node2 = document.createElement("div");
+      node2.setAttribute("data-id", "n2");
+      // No rotate button for node2
+      document.body.appendChild(node2);
+
+      const inputs = [
+        new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), []),
+        new NodeLayout(
+          "n2",
+          box.construct({ x: 150, y: 0 }, { width: 100, height: 100 }),
+          [],
+        ),
+      ];
+
+      rotateNodes(inputs, "counterclockwise");
+
+      // Wait for setTimeout to execute
+      setTimeout(() => {
+        expect(click1).toHaveBeenCalledTimes(3);
+      }, 20);
+    });
+  });
+
+  describe("empty input", () => {
+    it("should return empty array for empty input", () => {
+      const result = rotateNodes([], "clockwise");
+      expect(result).toEqual([]);
     });
   });
 });

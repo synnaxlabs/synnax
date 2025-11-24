@@ -140,6 +140,9 @@ import {
   MdPictureInPicture,
   MdPlayArrow,
   MdQuestionMark,
+  MdRotate90DegreesCcw,
+  MdRotateLeft,
+  MdRotateRight,
   MdSaveAlt,
   MdSensors,
   MdShield,
@@ -384,6 +387,10 @@ export const Snooze = wrapSVGIcon(IoNotificationsOff, "snooze");
 export const Log = wrapSVGIcon(FaStream, "log");
 export const Tare = wrapSVGIcon(FaCreativeCommonsZero, "tare");
 export const Rotate = wrapSVGIcon(GrRotateRight, "rotate");
+export const RotateGroup = {
+  CW: wrapSVGIcon(MdRotateRight, "rotate-group-cw"),
+  CCW: wrapSVGIcon(MdRotateLeft, "rotate-group-ccw"),
+};
 export const Text = wrapSVGIcon(MdTextFields, "text");
 export const Value = wrapSVGIcon(GoNumber, "value");
 export const Calendar = wrapSVGIcon(MdCalendarToday, "calendar");

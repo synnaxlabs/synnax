@@ -222,3 +222,32 @@ export const distributeNodes = (
 
   return layouts;
 };
+
+export const rotateNodes = (
+  layouts: NodeLayout[],
+  dir: "clockwise" | "counterclockwise",
+): NodeLayout[] => {
+  if (layouts.length === 0) return [];
+
+  layouts.forEach((layout) => {
+    try {
+      const nodeElement = document.querySelector(`[data-id="${layout.key}"]`);
+      if (!nodeElement) return;
+
+      const rotateButton = nodeElement.querySelector(".pluto-grid__rotate");
+      if (!rotateButton) return; // Skip nodes without rotate capability
+
+      const clickCount = dir === "clockwise" ? 1 : 3;
+
+      for (let i = 0; i < clickCount; i++) {
+        setTimeout(() => {
+          (rotateButton as HTMLElement).click();
+        }, i * 5); // 5ms delay between clicks
+      }
+    } catch (e) {
+      console.warn(`Failed to rotate node ${layout.key}:`, e);
+    }
+  });
+
+  return layouts;
+};

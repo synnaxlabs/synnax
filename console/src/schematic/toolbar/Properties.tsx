@@ -482,6 +482,44 @@ const MultiElementProperties = ({
           </Button.Button>
         </Flex.Box>
       </Input.Item>
+      <Input.Item label="Rotate">
+        <Flex.Box x>
+          <Button.Button
+            tooltip="Rotate nodes clockwise"
+            onClick={() => {
+              const layouts = getLayoutsForAlignment();
+              const newPositions = Diagram.rotateNodes(layouts, "clockwise");
+              dispatch(
+                setNodePositions({
+                  key: layoutKey,
+                  positions: Object.fromEntries(
+                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                  ),
+                }),
+              );
+            }}
+          >
+            <Icon.RotateGroup.CW />
+          </Button.Button>
+          <Button.Button
+            tooltip="Rotate nodes counter-clockwise"
+            onClick={() => {
+              const layouts = getLayoutsForAlignment();
+              const newPositions = Diagram.rotateNodes(layouts, "counterclockwise");
+              dispatch(
+                setNodePositions({
+                  key: layoutKey,
+                  positions: Object.fromEntries(
+                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                  ),
+                }),
+              );
+            }}
+          >
+            <Icon.RotateGroup.CCW />
+          </Button.Button>
+        </Flex.Box>
+      </Input.Item>
     </Flex.Box>
   );
 };
