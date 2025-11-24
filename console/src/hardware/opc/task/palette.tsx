@@ -7,18 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { Icon, Task } from "@synnaxlabs/pluto";
 
 import { importRead, importWrite } from "@/hardware/opc/task/import";
 import { READ_LAYOUT } from "@/hardware/opc/task/Read";
 import { WRITE_LAYOUT } from "@/hardware/opc/task/Write";
 import { type Palette } from "@/palette";
 
+const visibleFilter = ({ store, client }: Palette.CommandVisibleContext) =>
+  Task.editAccessGranted({ key: "", store, client });
+
 const CREATE_READ_COMMAND: Palette.Command = {
   key: "opc-ua-create-read-task",
   name: "Create an OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
   onSelect: ({ placeLayout }) => placeLayout(READ_LAYOUT),
+  visible: visibleFilter,
 };
 
 const CREATE_WRITE_COMMAND: Palette.Command = {
@@ -26,6 +30,7 @@ const CREATE_WRITE_COMMAND: Palette.Command = {
   name: "Create an OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
   onSelect: ({ placeLayout }) => placeLayout(WRITE_LAYOUT),
+  visible: visibleFilter,
 };
 
 const IMPORT_READ_COMMAND: Palette.Command = {
@@ -34,6 +39,7 @@ const IMPORT_READ_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Logo.OPC />,
   onSelect: importRead,
+  visible: visibleFilter,
 };
 
 const IMPORT_WRITE_COMMAND: Palette.Command = {
@@ -42,6 +48,7 @@ const IMPORT_WRITE_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Logo.OPC />,
   onSelect: importWrite,
+  visible: visibleFilter,
 };
 
 export const COMMANDS = [

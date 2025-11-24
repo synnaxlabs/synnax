@@ -7,12 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Schematic } from "@synnaxlabs/pluto";
+
 import { Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/schematic/Schematic";
 import { anyStateZ } from "@/schematic/slice";
 
-export const ingest: Import.FileIngestor = (data, { layout, placeLayout }) => {
+export const ingest: Import.FileIngestor = (
+  data,
+  { layout, placeLayout, store, client },
+) => {
   const state = anyStateZ.parse(data);
+  if (!Schematic.editAccessGranted({ key: "", store, client }))
+    throw new Error("You do not have permission to import schematics");
   // create with an undefined key so we do not have to worry about the key that was from
   // the imported data overwriting existing schematics in the cluster
   placeLayout(create({ ...state, key: layout?.key, ...layout, type: LAYOUT_TYPE }));

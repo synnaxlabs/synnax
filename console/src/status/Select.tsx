@@ -25,17 +25,20 @@ export const useCreate = (): (() => void) => {
 
 export const SelectEmptyContent = (): ReactElement => {
   const add = useCreate();
+  const canEdit = Status.useEditAccessGranted();
   return (
     <EmptyAction
       message="Non statuses created."
-      action="Create a Status"
-      onClick={add}
+      action={canEdit ? "Create a Status" : undefined}
+      onClick={canEdit ? add : undefined}
     />
   );
 };
 
 export const CreateButton = () => {
   const add = useCreate();
+  const canEdit = Status.useEditAccessGranted();
+  if (!canEdit) return null;
   return (
     <Button.Button onClick={add} title="Create a Status">
       <Icon.Add />

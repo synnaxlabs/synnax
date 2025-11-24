@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { Device, Icon } from "@synnaxlabs/pluto";
 
 import { CONNECT_LAYOUT } from "@/hardware/modbus/device/Connect";
 import { type Palette } from "@/palette";
@@ -17,6 +17,7 @@ const CONNECT_SERVER_COMMAND: Palette.Command = {
   name: "Connect a Modbus Server",
   icon: <Icon.Logo.Modbus />,
   onSelect: ({ placeLayout }) => placeLayout(CONNECT_LAYOUT),
+  visible: ({ store, client }) => Device.editAccessGranted({ key: "", store, client }),
 };
 
 export const COMMANDS: Palette.Command[] = [CONNECT_SERVER_COMMAND];

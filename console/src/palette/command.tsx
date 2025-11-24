@@ -112,6 +112,7 @@ export const useCommandList = (): UseListReturn<Command> => {
         placeLayout,
         rename,
         store,
+        fluxStore,
       });
     },
     [addStatus, client, confirm, handleError, placeLayout, rename, store],
@@ -122,6 +123,7 @@ export const useCommandList = (): UseListReturn<Command> => {
 
 export interface CommandSelectionContext {
   store: RootStore;
+  fluxStore: Pluto.FluxStore;
   client: Client | null;
   placeLayout: Layout.Placer;
   confirm: Modals.PromptConfirm;

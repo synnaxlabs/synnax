@@ -17,6 +17,7 @@ import {
   List as PList,
   Select,
   type state,
+  Status,
 } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
@@ -41,11 +42,12 @@ const componentRenderProp = Component.renderProp(Item);
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
+  const canEdit = Status.useEditAccessGranted();
   return (
     <EmptyAction
       message="No statuses found."
-      action="Create a status"
-      onClick={() => placeLayout(CREATE_LAYOUT)}
+      action={canEdit ? "Create a status" : undefined}
+      onClick={canEdit ? () => placeLayout(CREATE_LAYOUT) : undefined}
     />
   );
 };

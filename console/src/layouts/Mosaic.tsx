@@ -18,11 +18,13 @@ import {
   Dialog,
   Eraser,
   Flex,
+  Flux,
   Icon,
   Menu as PMenu,
   Mosaic as Core,
   Nav as PNav,
   OS,
+  type Pluto,
   Portal,
   Status,
   Synnax,
@@ -196,7 +198,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const dispatch = useDispatch();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location, index?: number): void => {
       if (windowKey == null) return;
@@ -275,6 +277,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
               layout: { tab: { mosaicKey: nodeKey, location: loc } },
               placeLayout,
               store,
+              fluxStore,
             });
           } catch (e) {
             handleError(e, `Failed to read ${item.getAsFile()?.name ?? "file"}`);
@@ -282,7 +285,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         }),
       );
     },
-    [client, placeLayout, store],
+    [client, placeLayout, store, fluxStore],
   );
 
   // Creates a wrapper around the general purpose layout content to create a set of
