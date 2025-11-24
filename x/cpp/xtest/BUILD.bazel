@@ -11,6 +11,7 @@ cc_library(
 cc_test(
     name = "xtest_test",
     srcs = ["xtest_test.cpp"],
+    tags = ["no-asan"],  # Tests ASSERT_EVENTUALLY_* macros with timeouts - timing-sensitive
     deps = [
         "//x/cpp/xerrors",
         "//x/cpp/xtest",
