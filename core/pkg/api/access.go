@@ -285,7 +285,7 @@ func (s *AccessService) AssignRole(
 	ctx context.Context,
 	req AccessAssignRoleRequest,
 ) (types.Nil, error) {
-	return types.Nil{}, s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: getSubject(ctx),
 			Objects: []ontology.ID{req.User},
