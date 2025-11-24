@@ -26,12 +26,18 @@ const listItemRenderProp = Component.renderProp(
     if (item == null) return null;
     const { name, description } = item;
     return (
-      <Core.ListItem itemKey={itemKey} y gap="small" {...rest}>
+      <Core.ListItem
+        itemKey={itemKey}
+        y
+        gap="small"
+        {...rest}
+        style={{ overflow: "hidden", maxWidth: "100%" }}
+      >
         <Text.Text level="p" weight={400}>
           {name}
         </Text.Text>
         {item?.description != null && (
-          <Text.Text level="small" color={9}>
+          <Text.Text level="small" color={9} overflow="wrap">
             {description}
           </Text.Text>
         )}
@@ -67,7 +73,7 @@ export const Select = ({
       onSearch={search}
       status={status}
       resourceName="role"
-      itemHeight={56}
+      virtual={false}
     >
       {listItemRenderProp}
     </Core.Single>

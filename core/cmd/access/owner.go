@@ -19,7 +19,7 @@ var (
 	ownerRoleName = "Owner"
 	ownerRole     = role.Role{
 		Name:        ownerRoleName,
-		Description: "Full control of deployment, including user registration and security",
+		Description: "Full control of deployment, including user registration and security.",
 	}
 	ownerPolicy = policy.Policy{
 		Name:    ownerRoleName,

@@ -37,7 +37,8 @@ import (
 var (
 	engineerRoleName = "Engineer"
 	engineerRole     = role.Role{
-		Name: engineerRoleName,
+		Name:        engineerRoleName,
+		Description: "Full access to system configuration, except for user management.",
 	}
 	engineerPolicies = []policy.Policy{
 		{

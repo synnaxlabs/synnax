@@ -19,7 +19,7 @@ var (
 	viewerRoleName = "Viewer"
 	viewerRole     = role.Role{
 		Name:        viewerRoleName,
-		Description: "View access to all Synnax resources",
+		Description: "View access to all resources.",
 	}
 	viewerPolicy = policy.Policy{
 		Name:    viewerRoleName,

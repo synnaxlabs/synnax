@@ -21,7 +21,8 @@ import (
 var (
 	operatorRoleName = "Operator"
 	operatorRole     = role.Role{
-		Name: operatorRoleName,
+		Name:        operatorRoleName,
+		Description: "Can view workspaces and visualizations, control hardware and data acquisition tasks. Cannot modify system configuration.",
 	}
 	operatorPolicies = []policy.Policy{
 		{
