@@ -1019,6 +1019,55 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     invalid_server->stop();
 }
 
+// First task.run() should automatically retry if server
+// was restarted between tasks, causing a stale connection in the pool
+TEST_F(TestReadTask, testServerRestartBetweenTaskRuns) {
+
+    const std::string endpoint = "opc.tcp://localhost:4840";
+
+    {
+        const auto rt1 = create_task();
+        rt1->start("start1");
+        ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
+        rt1->stop("stop1", true);
+    }
+
+    EXPECT_EQ(conn_pool->size(), 1);
+    EXPECT_EQ(conn_pool->available_count(endpoint), 1);
+
+    server->stop();
+    server.reset();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    auto new_server_cfg = mock::ServerConfig::create_default();
+    server = std::make_unique<mock::Server>(new_server_cfg);
+    server->start();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+    mock_factory->writes->clear();
+
+    // Second task run - should detect stale connection on first read and retry
+    {
+        const auto rt2 = create_task();
+        rt2->start("start2");
+
+        // Should succeed after automatic retry on first read
+        ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
+
+        rt2->stop("stop2", true);
+    }
+
+    bool found_success = false;
+    for (const auto &state: ctx->states) {
+        if (state.key == "start2" && state.variant == status::variant::SUCCESS) {
+            found_success = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_success);
+}
+
 /// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
 /// This prevents data from being written but not committed, making it unavailable for
 /// reads.
