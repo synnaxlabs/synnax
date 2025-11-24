@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Arc } from "@synnaxlabs/pluto";
+
 import { Editor } from "@/arc/editor";
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/arc/Explorer";
 import { type Layout } from "@/layout";
@@ -26,4 +28,10 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [Editor.LAYOUT_TYPE]: Editor.Editor,
 };
 
-export const SELECTABLES: Selector.Selectable[] = [Editor.SELECTABLE];
+const arcVisibleFilter: Selector.Selectable["visible"] = ({ store, client }) =>
+  Arc.editAccessGranted({ key: "", store, client });
+
+export const SELECTABLES: Selector.Selectable[] = [Editor.SELECTABLE].map((selectable) => ({
+  ...selectable,
+  visible: arcVisibleFilter,
+}));

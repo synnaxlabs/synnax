@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Task } from "@synnaxlabs/pluto";
+
 import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
@@ -15,13 +17,19 @@ import { Sequence } from "@/hardware/task/sequence";
 import { type Layout } from "@/layout";
 import { Selector as CoreSelector } from "@/selector";
 
+const taskVisibleFilter: CoreSelector.Selectable["visible"] = ({ store, client }) =>
+  Task.editAccessGranted({ key: "", store, client });
+
 export const SELECTABLES: CoreSelector.Selectable[] = [
   ...LabJack.Task.SELECTABLES,
   ...Modbus.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,
   ...OPC.Task.SELECTABLES,
   ...Sequence.SELECTABLES,
-];
+].map((selectable) => ({
+  ...selectable,
+  visible: taskVisibleFilter,
+}));
 
 export const SELECTOR_LAYOUT_TYPE = "taskSelector";
 

@@ -44,6 +44,8 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const ranges = getItem(keys);
   const isNotEmpty = ranges.length !== 0;
   const isSingle = ranges.length === 1;
+  const canEditAccess = Ranger.useEditAccessGranted(keys);
+  const canDeleteAccess = Ranger.useDeleteAccessGranted(keys);
   const placeLayout = Layout.usePlacer();
   const favoriteKeys = useSelectKeys();
   const someAreFavorites = ranges.some((r) => favoriteKeys.includes(r.key));
@@ -107,8 +109,12 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
       {isSingle && (
         <>
           {viewDetailsMenuItem}
-          <Menu.RenameItem />
-          {createChildRangeMenuItem}
+          {canEditAccess && (
+            <>
+              <Menu.RenameItem />
+              {createChildRangeMenuItem}
+            </>
+          )}
           <Divider.Divider x />
         </>
       )}
@@ -125,7 +131,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
         </PMenu.Item>
       )}
       {(someAreFavorites || someAreNotFavorites) && <Divider.Divider x />}
-      {isNotEmpty && (
+      {canDeleteAccess && isNotEmpty && (
         <>
           {deleteMenuItem}
           <Divider.Divider x />

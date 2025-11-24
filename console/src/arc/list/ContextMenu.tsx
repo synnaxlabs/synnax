@@ -22,6 +22,8 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const arcs = getItem(keys);
   const isEmpty = arcs.length === 0;
   const isSingle = arcs.length === 1;
+  const canDeleteAccess = Arc.useDeleteAccessGranted(keys);
+  const canEditAccess = Arc.useEditAccessGranted(keys);
   const ctx = Form.useContext();
   const rename = Modals.useRename();
   const confirm = useConfirmDelete({
@@ -50,8 +52,8 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
 
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleSelect}>
-      {isSingle && <Menu.RenameItem />}
-      {!isEmpty && (
+      {canEditAccess && isSingle && <Menu.RenameItem />}
+      {canDeleteAccess && !isEmpty && (
         <PMenu.Item itemKey="delete">
           <Icon.Delete />
           Delete

@@ -11,6 +11,7 @@ import { arc } from "@synnaxlabs/client";
 import { primitive } from "@synnaxlabs/x";
 import z from "zod";
 
+import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { type List } from "@/list";
 import { state } from "@/state";
@@ -219,3 +220,51 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     return { key, name };
   },
 });
+
+const editAccessQuery = (
+  key: arc.Key | arc.Key[] = "",
+): Access.PermissionsQuery => ({
+  objects: arc.ontologyID(key),
+  actions: ["retrieve", "create", "update"],
+});
+
+export const useEditAccessGranted = (key: arc.Key | arc.Key[]) =>
+  Access.useGranted(editAccessQuery(key));
+
+export const editAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: arc.Key | arc.Key[] }) =>
+  Access.isGranted({ ...rest, query: editAccessQuery(key) });
+
+const viewAccessQuery = (
+  key: arc.Key | arc.Key[] = "",
+): Access.PermissionsQuery => ({
+  objects: arc.ontologyID(key),
+  actions: ["retrieve"],
+});
+
+export const viewAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: arc.Key | arc.Key[] }) =>
+  Access.isGranted({ ...rest, query: viewAccessQuery(key) });
+
+export const useViewAccessGranted = (key: arc.Key | arc.Key[]) =>
+  Access.useGranted(viewAccessQuery(key ?? ""));
+
+const deleteAccessQuery = (
+  key: arc.Key | arc.Key[] = "",
+): Access.PermissionsQuery => ({
+  objects: arc.ontologyID(key),
+  actions: ["retrieve", "create", "update", "delete"],
+});
+
+export const useDeleteAccessGranted = (key: arc.Key | arc.Key[]) =>
+  Access.useGranted(deleteAccessQuery(key));
+
+export const deleteAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: arc.Key }) =>
+  Access.isGranted({ ...rest, query: deleteAccessQuery(key) });

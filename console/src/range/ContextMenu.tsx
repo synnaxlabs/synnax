@@ -12,6 +12,7 @@ import { ranger, type Synnax as Client } from "@synnaxlabs/client";
 import {
   type Flux,
   Icon,
+  LinePlot,
   Menu as PMenu,
   Ranger,
   Status,
@@ -96,24 +97,31 @@ const AddToNewPlotIcon = Icon.createComposite(Icon.LinePlot, {
   topRight: Icon.Add,
 });
 
-export const addToNewPlotMenuItem = (
-  <PMenu.Item itemKey="addToNewPlot">
-    <AddToNewPlotIcon key="plot" />
-    Add to new plot
-  </PMenu.Item>
-);
+export const AddToNewPlotMenuItem = () => {
+  const canAddToNewPlot = LinePlot.useEditAccessGranted("");
+  if (!canAddToNewPlot) return null;
+  return (
+    <PMenu.Item itemKey="addToNewPlot">
+      <AddToNewPlotIcon key="plot" />
+      Add to new plot
+    </PMenu.Item>
+  );
+};
 
 const AddToActivePlotIcon = Icon.createComposite(Icon.LinePlot, {
   topRight: Icon.Range,
 });
 
-export const addToActivePlotMenuItem = (
-  <PMenu.Item itemKey="addToActivePlot">
-    <AddToActivePlotIcon key="plot" />
-    Add to active plot
-  </PMenu.Item>
-);
-
+export const AddToActivePlotMenuItem = () => {
+  const canAddToActivePlot = LinePlot.useEditAccessGranted("");
+  if (!canAddToActivePlot) return null;
+  return (
+    <PMenu.Item itemKey="addToActivePlot">
+      <AddToActivePlotIcon key="plot" />
+      Add to active plot
+    </PMenu.Item>
+  );
+};
 export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
   topRight: Icon.Add,
 });
@@ -189,6 +197,8 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   const dispatch = useDispatch();
   const client = Synnax.use();
   const ranges = useSelectMultiple();
+  const canEditAccess = Ranger.useEditAccessGranted(key ?? "");
+  const canDeleteAccess = Ranger.useDeleteAccessGranted(key ?? "");
   const handleCreate = (key?: string): void => {
     placeLayout(createCreateLayout({ key }));
   };
@@ -237,21 +247,26 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   };
   return (
     <PMenu.Menu onChange={handleSelect} level="small" gap="small">
-      <PMenu.Item itemKey="create">
-        <Icon.Add />
-        Create new
-      </PMenu.Item>
+      {canEditAccess && (
+        <PMenu.Item itemKey="create">
+          <Icon.Add />
+          Create new
+        </PMenu.Item>
+      )}
       {rangeExists && (
         <>
-          <PMenu.Divider />
           {rng.key !== activeRange?.key ? setAsActiveMenuItem : clearActiveMenuItem}
           {rng.persisted && viewDetailsMenuItem}
+          {canEditAccess && (
+            <>
+              <PMenu.Divider />
+              <Menu.RenameItem />
+              {rng.persisted && createChildRangeMenuItem}
+            </>
+          )}
           <PMenu.Divider />
-          <Menu.RenameItem />
-          {rng.persisted && createChildRangeMenuItem}
-          <PMenu.Divider />
-          {activeLayout?.type === LINE_PLOT_LAYOUT_TYPE && addToActivePlotMenuItem}
-          {addToNewPlotMenuItem}
+          {activeLayout?.type === LINE_PLOT_LAYOUT_TYPE && <AddToActivePlotMenuItem />}
+          <AddToNewPlotMenuItem />
           <PMenu.Divider />
           <PMenu.Item itemKey="remove">
             <Icon.Close />
@@ -259,11 +274,12 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
           </PMenu.Item>
           {rng.persisted ? (
             <>
-              {deleteMenuItem}
+              {canDeleteAccess && deleteMenuItem}
               <PMenu.Divider />
               <Link.CopyMenuItem />
             </>
           ) : (
+            canEditAccess &&
             client != null && (
               <>
                 <PMenu.Divider />

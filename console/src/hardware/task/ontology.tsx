@@ -9,6 +9,7 @@
 
 import { ontology, task } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Mosaic, Task as Core } from "@synnaxlabs/pluto";
+import { useMemo } from "react";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -86,6 +87,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const range = Range.useSelect();
   const group = Group.useCreateFromSelection();
   const rename = useRename(props);
+  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
+  const canDelete = Core.useDeleteAccessGranted(keys);
+  const canEdit = Core.useEditAccessGranted(keys);
   const onSelect = {
     delete: handleDelete,
     edit: () =>
@@ -110,30 +114,43 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
   return (
     <PMenu.Menu level="small" gap="small" onChange={onSelect}>
-      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-      {hasNoSnapshots && range?.persisted === true && (
+      {canEdit && (
         <>
-          <Range.SnapshotMenuItem key="snapshot" range={range} />
-          <PMenu.Divider />
+          <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
+          {hasNoSnapshots && range?.persisted === true && (
+            <>
+              <Range.SnapshotMenuItem key="snapshot" range={range} />
+              <PMenu.Divider />
+            </>
+          )}
+          {singleResource && (
+            <>
+              <PMenu.Item itemKey="edit">
+                <Icon.Edit />
+                {`${resources[0].data?.snapshot ? "View" : "Edit"} configuration`}
+              </PMenu.Item>
+              <Menu.RenameItem />
+              <PMenu.Divider />
+            </>
+          )}
         </>
       )}
       {singleResource && (
         <>
-          <PMenu.Item itemKey="edit">
-            <Icon.Edit />
-            {`${resources[0].data?.snapshot ? "View" : "Edit"} configuration`}
-          </PMenu.Item>
-          <Menu.RenameItem />
           <Link.CopyMenuItem />
           <Export.MenuItem />
           <PMenu.Divider />
         </>
       )}
-      <PMenu.Item itemKey="delete">
-        <Icon.Delete />
-        Delete
-      </PMenu.Item>
-      <PMenu.Divider />
+      {canDelete && (
+        <>
+          <PMenu.Item itemKey="delete">
+            <Icon.Delete />
+            Delete
+          </PMenu.Item>
+          <PMenu.Divider />
+        </>
+      )}
       <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );

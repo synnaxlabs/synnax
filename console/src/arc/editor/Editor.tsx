@@ -11,7 +11,6 @@ import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import { arc } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
-  Access,
   Arc,
   Arc as Core,
   Button,
@@ -26,7 +25,7 @@ import {
   Viewport,
 } from "@synnaxlabs/pluto";
 import { box, deep, id, uuid, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -201,12 +200,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const theme = Theming.use();
   const viewportRef = useSyncedRef(state.graph.viewport);
-  const canEdit = Access.useGranted({
-    objects: arc.ontologyID(layoutKey),
-    actions: "create",
-  });
-  if (!canEdit && state.graph.editable)
-    dispatch(setEditable({ key: layoutKey, editable: false }));
+  const hasEditPermission = Core.useEditAccessGranted(layoutKey);
+
+  useEffect(() => {
+    if (!hasEditPermission && state.graph.editable)
+      dispatch(setEditable({ key: layoutKey, editable: false }));
+  }, [hasEditPermission, state.graph.editable, layoutKey, dispatch]);
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
@@ -379,7 +378,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
         <Diagram.Background />
         <Diagram.Controls>
-          {canEdit && <Diagram.ToggleEditControl />}
+          {hasEditPermission && <Diagram.ToggleEditControl />}
           <Diagram.FitViewControl />
         </Diagram.Controls>
       </Core.Arc>

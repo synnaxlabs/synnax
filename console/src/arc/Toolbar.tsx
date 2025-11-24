@@ -38,10 +38,11 @@ import { Modals } from "@/modals";
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick = () => placeLayout(Editor.create());
+  const canCreateArc = Arc.useEditAccessGranted("");
   return (
     <EmptyAction
       message="No existing Arcs."
-      action="Create an arc"
+      action={canCreateArc ? "Create an arc" : undefined}
       onClick={handleClick}
     />
   );
@@ -55,6 +56,7 @@ const Content = () => {
   const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
+  const canCreateArc = Arc.useEditAccessGranted("");
 
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
@@ -156,11 +158,13 @@ const Content = () => {
       <Toolbar.Content className={CSS(CSS.B("arc-toolbar"), menuProps.className)}>
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Arc />}>Arcs</Toolbar.Title>
-          <Toolbar.Actions>
-            <Toolbar.Action onClick={handleCreate}>
-              <Icon.Add />
-            </Toolbar.Action>
-          </Toolbar.Actions>
+          {canCreateArc && (
+            <Toolbar.Actions>
+              <Toolbar.Action onClick={handleCreate}>
+                <Icon.Add />
+              </Toolbar.Action>
+            </Toolbar.Actions>
+          )}
         </Toolbar.Header>
         <Select.Frame
           multiple
@@ -212,6 +216,7 @@ interface ArcListItemProps extends List.ItemProps<arc.Key> {
 const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arc = List.useItem<arc.Key, arc.Arc>(itemKey);
+  const hasEditPermission = Arc.useEditAccessGranted(itemKey);
 
   const variant = arc?.status?.variant;
   const isLoading = variant === "loading";
@@ -229,7 +234,7 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
           <Text.MaybeEditable
             id={`text-${itemKey}`}
             value={arc?.name ?? ""}
-            onChange={onRename}
+            onChange={hasEditPermission ? onRename : undefined}
             allowDoubleClick={false}
             overflow="ellipsis"
             weight={500}
@@ -239,15 +244,17 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
           {arc?.status?.message ?? (isDeployed ? "Started" : "Stopped")}
         </Text.Text>
       </Flex.Box>
-      <Button.Button
-        variant="outlined"
-        status={isLoading ? "loading" : undefined}
-        onClick={onToggleDeploy}
-        onDoubleClick={stopPropagation}
-        tooltip={`${isDeployed ? "Stop" : "Start"} ${arc?.name ?? ""}`}
-      >
-        {isRunning ? <Icon.Pause /> : <Icon.Play />}
-      </Button.Button>
+      {hasEditPermission && (
+        <Button.Button
+          variant="outlined"
+          status={isLoading ? "loading" : undefined}
+          onClick={onToggleDeploy}
+          onDoubleClick={stopPropagation}
+          tooltip={`${isDeployed ? "Stop" : "Start"} ${arc?.name ?? ""}`}
+        >
+          {isRunning ? <Icon.Pause /> : <Icon.Play />}
+        </Button.Button>
+      )}
     </Select.ListItem>
   );
 };
@@ -267,6 +274,8 @@ const ContextMenu = ({
   onEdit,
   onToggleDeploy,
 }: ContextMenuProps) => {
+  const canDeleteAccess = Arc.useDeleteAccessGranted(keys);
+  const canEditAccess = Arc.useEditAccessGranted(keys);
   const canDeploy = arcs.some((arc) => arc.deploy === false);
   const canStop = arcs.some((arc) => arc.deploy === true);
   const someSelected = arcs.length > 0;
@@ -291,31 +300,35 @@ const ContextMenu = ({
 
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleChange}>
-      {canDeploy && (
-        <PMenu.Item itemKey="start">
-          <Icon.Play />
-          Start
-        </PMenu.Item>
-      )}
-      {canStop && (
-        <PMenu.Item itemKey="stop">
-          <Icon.Pause />
-          Stop
-        </PMenu.Item>
-      )}
-      {(canDeploy || canStop) && <PMenu.Divider />}
-      {isSingle && (
+      {canEditAccess && (
         <>
-          <PMenu.Item itemKey="edit">
-            <Icon.Edit />
-            Edit automation
-          </PMenu.Item>
-          <PMenu.Divider />
-          <Menu.RenameItem />
-          <PMenu.Divider />
+          {canDeploy && (
+            <PMenu.Item itemKey="start">
+              <Icon.Play />
+              Start
+            </PMenu.Item>
+          )}
+          {canStop && (
+            <PMenu.Item itemKey="stop">
+              <Icon.Pause />
+              Stop
+            </PMenu.Item>
+          )}
+          {(canDeploy || canStop) && <PMenu.Divider />}
+          {isSingle && (
+            <>
+              <PMenu.Item itemKey="edit">
+                <Icon.Edit />
+                Edit automation
+              </PMenu.Item>
+              <PMenu.Divider />
+              <Menu.RenameItem />
+              <PMenu.Divider />
+            </>
+          )}
         </>
       )}
-      {someSelected && (
+      {canDeleteAccess && someSelected && (
         <>
           <PMenu.Item itemKey="delete">
             <Icon.Delete />

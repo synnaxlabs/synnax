@@ -453,6 +453,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Schematic",
   icon: <Icon.Schematic />,
+  visible: Core.editAccessGranted,
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 

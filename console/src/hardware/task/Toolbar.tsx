@@ -45,10 +45,11 @@ import { Range } from "@/range";
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
+  const canCreateTask = Task.useEditAccessGranted("");
   return (
     <EmptyAction
       message="No existing tasks."
-      action="Create a task"
+      action={canCreateTask ? "Create a task" : undefined}
       onClick={handleClick}
     />
   );
@@ -69,6 +70,7 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
+  const canCreateTask = Task.useEditAccessGranted("");
   const { data, getItem, subscribe, retrieve } = Task.useList({
     initialQuery: INITIAL_QUERY,
     filter,
@@ -184,11 +186,13 @@ const Content = () => {
       <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
-          <Toolbar.Actions>
-            <Toolbar.Action onClick={() => placeLayout(SELECTOR_LAYOUT)}>
-              <Icon.Add />
-            </Toolbar.Action>
-          </Toolbar.Actions>
+          {canCreateTask && (
+            <Toolbar.Actions>
+              <Toolbar.Action onClick={() => placeLayout(SELECTOR_LAYOUT)}>
+                <Icon.Add />
+              </Toolbar.Action>
+            </Toolbar.Actions>
+          )}
         </Toolbar.Header>
         <Select.Frame
           multiple
@@ -240,6 +244,7 @@ interface TaskListItemProps extends List.ItemProps<task.Key> {
 const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => {
   const { itemKey } = rest;
   const task = List.useItem<task.Key, task.Task>(itemKey);
+  const hasEditPermission = Task.useEditAccessGranted(itemKey);
   const details = task?.status?.details;
   let variant = task?.status?.variant;
   const icon = getIcon(task?.type ?? "");
@@ -263,7 +268,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
             <Text.MaybeEditable
               id={`text-${itemKey}`}
               value={task?.name ?? ""}
-              onChange={onRename}
+              onChange={hasEditPermission ? onRename : undefined}
               allowDoubleClick={false}
               overflow="ellipsis"
               weight={500}
@@ -274,15 +279,17 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
           {parseType(task?.type ?? "")}
         </Text.Text>
       </Flex.Box>
-      <Button.Button
-        variant="outlined"
-        status={isLoading ? "loading" : undefined}
-        onClick={handleStartStopClick}
-        onDoubleClick={stopPropagation}
-        tooltip={`${isRunning ? "Stop" : "Start"} ${task?.name ?? ""}`}
-      >
-        {isRunning ? <Icon.Pause /> : <Icon.Play />}
-      </Button.Button>
+      {hasEditPermission && (
+        <Button.Button
+          variant="outlined"
+          status={isLoading ? "loading" : undefined}
+          onClick={handleStartStopClick}
+          onDoubleClick={stopPropagation}
+          tooltip={`${isRunning ? "Stop" : "Start"} ${task?.name ?? ""}`}
+        >
+          {isRunning ? <Icon.Pause /> : <Icon.Play />}
+        </Button.Button>
+      )}
     </Select.ListItem>
   );
 };
@@ -306,6 +313,8 @@ const ContextMenu = ({
 }: ContextMenuProps) => {
   const activeRange = Range.useSelect();
   const snapshotToActiveRange = useRangeSnapshot();
+  const canDeleteAccess = Task.useDeleteAccessGranted(keys);
+  const canEditAccess = Task.useEditAccessGranted(keys);
 
   const canStart = selectedTasks.some(
     ({ status }) => status?.details.running === false,
@@ -360,39 +369,48 @@ const ContextMenu = ({
     activeRange?.persisted === true && selectedTasks.length > 0;
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleChange}>
-      {canStart && (
-        <PMenu.Item itemKey="start">
-          <Icon.Play />
-          Start
-        </PMenu.Item>
+      {canEditAccess && (
+        <>
+          {canStart && (
+            <PMenu.Item itemKey="start">
+              <Icon.Play />
+              Start
+            </PMenu.Item>
+          )}
+          {canStop && (
+            <PMenu.Item itemKey="stop">
+              <Icon.Pause />
+              Stop
+            </PMenu.Item>
+          )}
+          {(canStart || canStop) && <PMenu.Divider />}
+          {isSingle && (
+            <>
+              <PMenu.Item itemKey="edit">
+                <Icon.Edit />
+                Edit configuration
+              </PMenu.Item>
+              <PMenu.Divider />
+              <Menu.RenameItem />
+              <PMenu.Divider />
+            </>
+          )}
+          {showSnapshotToActiveRange && (
+            <>
+              <Range.SnapshotMenuItem range={activeRange} key="snapshot" />
+              <PMenu.Divider />
+            </>
+          )}
+        </>
       )}
-      {canStop && (
-        <PMenu.Item itemKey="stop">
-          <Icon.Pause />
-          Stop
-        </PMenu.Item>
-      )}
-      {(canStart || canStop) && <PMenu.Divider />}
       {isSingle && (
         <>
-          <PMenu.Item itemKey="edit">
-            <Icon.Edit />
-            Edit configuration
-          </PMenu.Item>
-          <PMenu.Divider />
-          <Menu.RenameItem />
           <Export.MenuItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>
       )}
-      {showSnapshotToActiveRange && (
-        <>
-          <Range.SnapshotMenuItem range={activeRange} key="snapshot" />
-          <PMenu.Divider />
-        </>
-      )}
-      {someSelected && (
+      {canDeleteAccess && someSelected && (
         <>
           <PMenu.Item itemKey="delete">
             <Icon.Delete />

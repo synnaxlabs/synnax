@@ -17,6 +17,7 @@ import {
   Icon,
   Input,
   List as PList,
+  Ranger,
   Select,
   type state,
 } from "@synnaxlabs/pluto";
@@ -43,10 +44,11 @@ export interface ListProps
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
+  const canCreateRange = Ranger.useEditAccessGranted("");
   return (
     <EmptyAction
       message="No ranges found."
-      action="Create a range"
+      action={canCreateRange ? "Create a range" : undefined}
       onClick={() => placeLayout(CREATE_LAYOUT)}
     />
   );
@@ -158,8 +160,10 @@ export const List = ({
   );
 };
 
-const AddButton = (): ReactElement => {
+const AddButton = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
+  const canCreateRange = Ranger.useEditAccessGranted("");
+  if (!canCreateRange) return null;
   return (
     <Button.Button tooltip="Create Range" onClick={() => placeLayout(CREATE_LAYOUT)}>
       <Icon.Add />

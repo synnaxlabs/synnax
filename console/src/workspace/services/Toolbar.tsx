@@ -15,17 +15,28 @@ import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { CREATE_LAYOUT } from "@/workspace/Create";
 
+const CreateButton = (): ReactElement | null => {
+  const placeLayout = Layout.usePlacer();
+  const canCreateWorkspace = Workspace.useEditAccessGranted("");
+  if (!canCreateWorkspace) return null;
+  return (
+    <Toolbar.Action
+      onClick={() => placeLayout(CREATE_LAYOUT)}
+      tooltip="Create Workspace"
+    >
+      <Icon.Add />
+    </Toolbar.Action>
+  );
+};
+
 const Content = (): ReactElement => {
   const { data: groupID } = Workspace.useRetrieveGroupID({});
-  const placeLayout = Layout.usePlacer();
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Workspace />}>Workspaces</Toolbar.Title>
         <Toolbar.Actions>
-          <Toolbar.Action onClick={() => placeLayout(CREATE_LAYOUT)}>
-            <Icon.Add />
-          </Toolbar.Action>
+          <CreateButton />
         </Toolbar.Actions>
       </Toolbar.Header>
       <Ontology.Tree root={groupID} emptyContent={<EmptyContent />} />
@@ -35,11 +46,12 @@ const Content = (): ReactElement => {
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
+  const canCreateWorkspace = Workspace.useEditAccessGranted("");
   const handleClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction
       message="No workspaces found."
-      action="Create a workspace"
+      action={canCreateWorkspace ? "Create a workspace" : undefined}
       onClick={handleClick}
     />
   );
