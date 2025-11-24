@@ -167,3 +167,11 @@ export const selectSelectedSymbolGroup = (state: StoreState, key: string): strin
 
 export const useSelectSelectedSymbolGroup = (key: string): string =>
   useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);
+
+export const selectLegendVisible = (
+  state: StoreState,
+  key: string,
+): boolean | undefined => selectOptional(state, key)?.legend.visible;
+
+export const useSelectLegendVisible = (key: string): boolean | undefined =>
+  useMemoSelect((state: StoreState) => selectLegendVisible(state, key), [key]);

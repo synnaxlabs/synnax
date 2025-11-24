@@ -107,7 +107,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         </Core.Schematic>
         <Control.Legend
           position={legendPosition}
-          onPositionChange={setLegendPosition}
+          onPositionChange={handleLegendPositionChange}
           allowVisibleChange={false}
         />
       </Control.Controller>

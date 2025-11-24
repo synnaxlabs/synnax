@@ -13,6 +13,7 @@ import random
 import synnax as sy
 
 from console.case import ConsoleCase
+from console.task.analog_write import AnalogWrite
 
 
 class NIAnalogWriteForms(ConsoleCase):
@@ -33,10 +34,10 @@ class NIAnalogWriteForms(ConsoleCase):
         device_name = "E203"
 
         self.log("Creating NI Analog Write Task")
-        console.ni_ao.new()
+        ni_ao = AnalogWrite(self.client, console, "AO_Test_task")
 
         # Check simple functionality
-        console.ni_ao.set_parameters(
+        ni_ao.set_parameters(
             task_name="AO_Test_task",
             state_update_rate=10,
             data_saving=True,
@@ -44,16 +45,16 @@ class NIAnalogWriteForms(ConsoleCase):
         )
 
         self.create_test_rack(rack_name, device_name)
-        self.verify_voltage_inputs(device_name)
-        self.verify_current_inputs(device_name)
+        self.verify_voltage_inputs(ni_ao, device_name)
+        self.verify_current_inputs(ni_ao, device_name)
 
         # Assert the set values with form state
-        ch_names = console.ni_ao.channels_by_name.copy()
+        ch_names = ni_ao.channels_by_name.copy()
         random.shuffle(ch_names)
         total = len(ch_names)
         self.log(f"Asserting {total} channel forms in random order")
         for ch in ch_names:
-            console.ni_ao.assert_channel(ch)
+            ni_ao.assert_channel(ch)
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
         rack = self.client.hardware.racks.create(name=rack_name)
@@ -72,17 +73,17 @@ class NIAnalogWriteForms(ConsoleCase):
         )
         sy.sleep(1)
 
-    def verify_voltage_inputs(self, device_name: str) -> None:
+    def verify_voltage_inputs(self, ni_ao: AnalogWrite, device_name: str) -> None:
         """Validate voltage inputs"""
         self.log("Configuring channels of type Voltage")
         console = self.console
 
-        console.ni_ao.add_channel(
+        ni_ao.add_channel(
             name="v0",
             chan_type="Voltage",
             device=device_name,
         )
-        console.ni_ao.add_channel(
+        ni_ao.add_channel(
             name="v1",
             chan_type="Voltage",
             device=device_name,
@@ -90,17 +91,17 @@ class NIAnalogWriteForms(ConsoleCase):
             max_val=6.5,
         )
 
-    def verify_current_inputs(self, device_name: str) -> None:
+    def verify_current_inputs(self, ni_ao: AnalogWrite, device_name: str) -> None:
         """Validate Bridge inputs"""
         self.log("Configuring channels of type Current")
         console = self.console
 
-        console.ni_ao.add_channel(
+        ni_ao.add_channel(
             name="Current_1",
             chan_type="Current",
             device=device_name,
         )
-        console.ni_ao.add_channel(
+        ni_ao.add_channel(
             name="Current_2",
             chan_type="Current",
             device=device_name,

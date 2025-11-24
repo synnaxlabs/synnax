@@ -64,13 +64,8 @@ ANALOG_READ_CHANNEL_TYPES: dict[str, type[Analog]] = {
 class AnalogRead(NITask):
     """NI Analog Read/Input Task automation interface."""
 
-    def __init__(self, page: Page, console: "Console") -> None:
-        super().__init__(page, console)
-        self.page_type = "NI Analog Read Task"
-
-    def new(self) -> str:
-        """Create a new NI AI task page."""
-        return super().new()
+    page_type: str = "NI Analog Read Task"
+    pluto_label: str = ".pluto-ni-analog-read-task"
 
     def add_channel(
         self,
