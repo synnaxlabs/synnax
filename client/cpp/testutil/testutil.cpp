@@ -25,7 +25,7 @@ std::mt19937 random_generator(const std::string &suite_name) {
     return mt;
 }
 
-std::string make_unique_channel_name(const std::string& base_name) {
+std::string make_unique_channel_name(const std::string &base_name) {
     static std::random_device rd;
     static std::mt19937 gen(rd());
     static std::uniform_int_distribution<> dis(1, 99999999);
@@ -34,11 +34,8 @@ std::string make_unique_channel_name(const std::string& base_name) {
 
 synnax::Channel
 create_virtual_channel(const synnax::Synnax &client, const telem::DataType &data_type) {
-    auto [ch, err] = client.channels.create(
-        make_unique_channel_name("virtual"),
-        data_type,
-        true
-    );
+    auto [ch, err] = client.channels
+                         .create(make_unique_channel_name("virtual"), data_type, true);
     return ch;
 }
 

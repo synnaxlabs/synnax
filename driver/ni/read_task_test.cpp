@@ -20,7 +20,6 @@
 #include "driver/ni/read_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
-
 /// @brief it should correctly parse a basic analog read task.
 namespace {
 json base_analog_config() {
@@ -220,8 +219,12 @@ protected:
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
-    synnax::Channel
-        index_channel = synnax::Channel(make_unique_channel_name("time_channel"), telem::TIMESTAMP_T, 0, true);
+    synnax::Channel index_channel = synnax::Channel(
+        make_unique_channel_name("time_channel"),
+        telem::TIMESTAMP_T,
+        0,
+        true
+    );
     synnax::Channel data_channel = synnax::Channel(
         make_unique_channel_name("data_channel"),
         telem::FLOAT64_T,
@@ -496,8 +499,12 @@ protected:
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
-    synnax::Channel
-        index_channel = synnax::Channel(make_unique_channel_name("time_channel"), telem::TIMESTAMP_T, 0, true);
+    synnax::Channel index_channel = synnax::Channel(
+        make_unique_channel_name("time_channel"),
+        telem::TIMESTAMP_T,
+        0,
+        true
+    );
     synnax::Channel data_channel = synnax::Channel(
         make_unique_channel_name("digital_channel"),
         telem::UINT8_T, // Digital data is typically boolean/uint8
@@ -649,8 +656,12 @@ protected:
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
-    synnax::Channel
-        index_channel = synnax::Channel(make_unique_channel_name("time_channel"), telem::TIMESTAMP_T, 0, true);
+    synnax::Channel index_channel = synnax::Channel(
+        make_unique_channel_name("time_channel"),
+        telem::TIMESTAMP_T,
+        0,
+        true
+    );
     synnax::Channel data_channel = synnax::Channel(
         make_unique_channel_name("counter_channel"),
         telem::FLOAT64_T, // Counter frequency data
@@ -1009,8 +1020,12 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
         dev2 = synnax::Device("d2", "dev2", rack.key, "cDAQ1Mod2", "ni", "NI 9205", "");
     ASSERT_NIL(sy->hardware.create_device(dev2));
 
-    auto ch1 = ASSERT_NIL_P(sy->channels.create(make_unique_channel_name("ch1"), telem::FLOAT64_T, true));
-    auto ch2 = ASSERT_NIL_P(sy->channels.create(make_unique_channel_name("ch2"), telem::FLOAT64_T, true));
+    auto ch1 = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("ch1"), telem::FLOAT64_T, true)
+    );
+    auto ch2 = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("ch2"), telem::FLOAT64_T, true)
+    );
 
     json j{
         {"data_saving", false},
@@ -1100,7 +1115,11 @@ TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
         ""
     );
     ASSERT_NIL(sy->hardware.create_device(dev));
-    auto ch = ASSERT_NIL_P(sy->channels.create(make_unique_channel_name("test_channel"), telem::FLOAT64_T, true));
+    auto ch = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("test_channel"),
+        telem::FLOAT64_T,
+        true
+    ));
 
     auto j = base_analog_config();
     j["data_saving"] = true;

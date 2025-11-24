@@ -20,7 +20,6 @@
 #include "driver/ni/write_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
-
 class SingleChannelAnalogWriteTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> sy;
@@ -29,22 +28,34 @@ protected:
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_writer_factory;
     std::shared_ptr<pipeline::mock::StreamerFactory> mock_streamer_factory;
-    synnax::Channel
-        state_idx_ch = synnax::Channel(make_unique_channel_name("state_idx_ch"), telem::TIMESTAMP_T, 0, true);
+    synnax::Channel state_idx_ch = synnax::Channel(
+        make_unique_channel_name("state_idx_ch"),
+        telem::TIMESTAMP_T,
+        0,
+        true
+    );
     synnax::Channel state_ch_1 = synnax::Channel(
         make_unique_channel_name("state_ch_1"),
         telem::FLOAT64_T,
         state_idx_ch.key,
         false
     );
-    synnax::Channel cmd_ch_1 = synnax::Channel(make_unique_channel_name("cmd_ch_1"), telem::FLOAT64_T, true);
+    synnax::Channel cmd_ch_1 = synnax::Channel(
+        make_unique_channel_name("cmd_ch_1"),
+        telem::FLOAT64_T,
+        true
+    );
     synnax::Channel state_ch_2 = synnax::Channel(
         make_unique_channel_name("state_ch_2"),
         telem::FLOAT64_T,
         state_idx_ch.key,
         false
     );
-    synnax::Channel cmd_ch_2 = synnax::Channel(make_unique_channel_name("cmd_ch_2"), telem::FLOAT64_T, true);
+    synnax::Channel cmd_ch_2 = synnax::Channel(
+        make_unique_channel_name("cmd_ch_2"),
+        telem::FLOAT64_T,
+        true
+    );
 
     void parse_config() {
         sy = std::make_shared<synnax::Synnax>(new_test_client());
@@ -198,12 +209,18 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
 
     // Create state and command channels
     auto state_idx_ch = ASSERT_NIL_P(
-        sy->channels.create(make_unique_channel_name("state_idx"), telem::TIMESTAMP_T, 0, true)
+        sy->channels
+            .create(make_unique_channel_name("state_idx"), telem::TIMESTAMP_T, 0, true)
     );
-    auto state_ch = ASSERT_NIL_P(
-        sy->channels.create(make_unique_channel_name("state_ch"), telem::FLOAT64_T, state_idx_ch.key, false)
+    auto state_ch = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("state_ch"),
+        telem::FLOAT64_T,
+        state_idx_ch.key,
+        false
+    ));
+    auto cmd_ch = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("cmd_ch"), telem::FLOAT64_T, true)
     );
-    auto cmd_ch = ASSERT_NIL_P(sy->channels.create(make_unique_channel_name("cmd_ch"), telem::FLOAT64_T, true));
 
     // Create a configuration with an invalid channel type
     json j{

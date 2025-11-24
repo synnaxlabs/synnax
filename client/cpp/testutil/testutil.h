@@ -27,7 +27,7 @@ extern std::mt19937 random_generator(const std::string &suite_name);
 /// @brief creates a new unique channel name for a test.
 /// @param base_name the base name of the channel.
 /// @return a unique channel name.
-extern std::string make_unique_channel_name(const std::string& base_name);
+extern std::string make_unique_channel_name(const std::string &base_name);
 
 synnax::Channel create_virtual_channel(
     const synnax::Synnax &client,
