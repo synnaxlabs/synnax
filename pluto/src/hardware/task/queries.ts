@@ -452,14 +452,12 @@ export const { useUpdate: useCommand } = Flux.createUpdate<
   },
 });
 
-const editAccessQuery = (
-  key: task.Key | task.Key[] = "",
-): Access.PermissionsQuery => ({
+const editAccessQuery = (key: task.Key | task.Key[] = ""): Access.PermissionsQuery => ({
   objects: task.ontologyID(key),
   actions: ["retrieve", "create", "update"],
 });
 
-export const useEditAccessGranted = (key: task.Key | task.Key[]) =>
+export const useEditAccessGranted = (key?: task.Key | task.Key[]) =>
   Access.useGranted(editAccessQuery(key));
 
 export const editAccessGranted = ({
@@ -468,9 +466,7 @@ export const editAccessGranted = ({
 }: Access.IsGrantedExtensionParams & { key?: task.Key | task.Key[] }) =>
   Access.isGranted({ ...rest, query: editAccessQuery(key) });
 
-const viewAccessQuery = (
-  key: task.Key | task.Key[] = "",
-): Access.PermissionsQuery => ({
+const viewAccessQuery = (key: task.Key | task.Key[] = ""): Access.PermissionsQuery => ({
   objects: task.ontologyID(key),
   actions: ["retrieve"],
 });
@@ -481,8 +477,8 @@ export const viewAccessGranted = ({
 }: Access.IsGrantedExtensionParams & { key?: task.Key | task.Key[] }) =>
   Access.isGranted({ ...rest, query: viewAccessQuery(key) });
 
-export const useViewAccessGranted = (key: task.Key | task.Key[]) =>
-  Access.useGranted(viewAccessQuery(key ?? ""));
+export const useViewAccessGranted = (key?: task.Key | task.Key[]) =>
+  Access.useGranted(viewAccessQuery(key));
 
 const deleteAccessQuery = (
   key: task.Key | task.Key[] = "",
@@ -491,7 +487,7 @@ const deleteAccessQuery = (
   actions: ["retrieve", "create", "update", "delete"],
 });
 
-export const useDeleteAccessGranted = (key: task.Key | task.Key[]) =>
+export const useDeleteAccessGranted = (key?: task.Key | task.Key[]) =>
   Access.useGranted(deleteAccessQuery(key));
 
 export const deleteAccessGranted = ({

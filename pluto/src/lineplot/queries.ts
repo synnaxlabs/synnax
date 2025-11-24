@@ -116,7 +116,7 @@ const editAccessQuery = (
   actions: ["retrieve", "create", "update"],
 });
 
-export const useEditAccessGranted = (key: lineplot.Key | lineplot.Key[]) =>
+export const useEditAccessGranted = (key?: lineplot.Key | lineplot.Key[]) =>
   Access.useGranted(editAccessQuery(key));
 
 export const editAccessGranted = ({

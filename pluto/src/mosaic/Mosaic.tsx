@@ -288,7 +288,7 @@ const TabLeaf = memo(
         selected={node.selected}
         selectedAltColor={activeTab === node.selected}
         onDragStart={handleDragStart}
-        onCreate={handleTabCreate}
+        onCreate={onCreate ? handleTabCreate : undefined}
         addTooltip={addTooltip}
         {...haulProps}
         {...rest}

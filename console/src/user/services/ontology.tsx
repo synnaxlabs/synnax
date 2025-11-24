@@ -9,7 +9,7 @@
 
 import { ontology } from "@synnaxlabs/client";
 import { type Flux, Icon, Menu as PMenu, Text, User } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { Menu } from "@/components";
 import { Ontology } from "@/ontology";
@@ -48,6 +48,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource },
     selection: { ids },
   } = props;
+  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
+  const canEdit = User.useEditAccessGranted(keys);
+  const canDelete = User.useDeleteAccessGranted(keys);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const handleSelect = {
@@ -59,7 +62,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
   return (
     <PMenu.Menu onChange={handleSelect} level="small" gap="small">
-      {singleResource && isNotCurrentUser && (
+      {canEdit && singleResource && isNotCurrentUser && (
         <>
           <PMenu.Item itemKey="rename">
             <Icon.Rename />
@@ -68,10 +71,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <>
-        <Menu.DeleteItem />
-        <PMenu.Divider />
-      </>
+      {canDelete && (
+        <>
+          <Menu.DeleteItem />
+          <PMenu.Divider />
+        </>
+      )}
       {singleResource && (
         <>
           <Ontology.CopyMenuItem {...props} />

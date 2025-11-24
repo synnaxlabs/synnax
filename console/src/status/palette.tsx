@@ -18,6 +18,7 @@ export const CREATE_COMMAND: Palette.Command = {
   name: "Create a Status",
   icon: <Status.CreateIcon />,
   onSelect: ({ placeLayout }) => placeLayout(CREATE_LAYOUT),
+  visible: ({ store, client }) => Status.editAccessGranted({ key: "", store, client }),
 };
 
 export const OPEN_EXPLORER_COMMAND: Palette.Command = {
@@ -25,6 +26,7 @@ export const OPEN_EXPLORER_COMMAND: Palette.Command = {
   name: "Open Status Explorer",
   icon: <Icon.Explore />,
   onSelect: ({ placeLayout }) => placeLayout(EXPLORER_LAYOUT),
+  visible: ({ store, client }) => Status.viewAccessGranted({ key: "", store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];

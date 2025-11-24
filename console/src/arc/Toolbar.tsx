@@ -206,6 +206,7 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 225,
   maxSize: 400,
+  useVisible: Arc.useViewAccessGranted,
 };
 
 interface ArcListItemProps extends List.ItemProps<arc.Key> {

@@ -26,7 +26,14 @@ export const useCreateOrRetrieve = () => {
   return (client: Client) => {
     if (activeWS == null) return;
     const purgedLayout = purgeExcludedLayouts(layout);
-    if (prevClient != null && Workspace.editAccessGranted({ key: activeWS.key, store: fluxStore, client: prevClient }))
+    if (
+      prevClient != null &&
+      Workspace.editAccessGranted({
+        key: activeWS.key,
+        store: fluxStore,
+        client: prevClient,
+      })
+    )
       handleError(
         async () => await prevClient.workspaces.setLayout(activeWS.key, purgedLayout),
         `Failed to save workspace ${activeWS.name} to ${prevClient.params.name ?? "previous Core"}`,
@@ -35,7 +42,9 @@ export const useCreateOrRetrieve = () => {
       async () => {
         try {
           await client.workspaces.retrieve(activeWS.key);
-          if (Workspace.editAccessGranted({ key: activeWS.key, store: fluxStore, client }))
+          if (
+            Workspace.editAccessGranted({ key: activeWS.key, store: fluxStore, client })
+          )
             await client.workspaces.setLayout(activeWS.key, purgedLayout);
           dispatch(setActive(activeWS));
         } catch (e) {

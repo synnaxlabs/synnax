@@ -9,6 +9,7 @@
 
 import { rack } from "@synnaxlabs/client";
 import { Icon, Menu as PMenu, Rack, Status, Text, Tree } from "@synnaxlabs/pluto";
+import { useMemo } from "react";
 
 import { Menu } from "@/components";
 import { Group } from "@/group";
@@ -71,6 +72,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { shape },
   } = props;
   const { ids, rootID } = selection;
+  const keys = useMemo(() => ids.map((id) => Number(id.key)), [ids]);
+  const canEdit = Rack.useEditAccessGranted(keys);
+  const canDelete = Rack.useDeleteAccessGranted(keys);
   const handleDelete = useDelete(props);
   const placeLayout = Layout.usePlacer();
   const openRenameModal = Modals.useRename();
@@ -99,7 +103,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu level="small" gap="small" onChange={onSelect}>
       <Group.MenuItem ids={ids} rootID={rootID} shape={shape} showBottomDivider />
-      {isSingle && (
+      {canEdit && isSingle && (
         <>
           <Menu.RenameItem />
           <PMenu.Item itemKey="createSequence">
@@ -109,7 +113,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Menu.DeleteItem />
+      {canDelete && <Menu.DeleteItem />}
       <PMenu.Divider />
       {isSingle && (
         <>

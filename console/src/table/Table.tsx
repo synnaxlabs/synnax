@@ -385,7 +385,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Table",
   icon: <Icon.Table />,
-  visible: Core.editAccessGranted,
+  useVisible: Core.useEditAccessGranted,
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 

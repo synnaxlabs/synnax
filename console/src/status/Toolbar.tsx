@@ -118,17 +118,20 @@ const listItem = Component.renderProp(ListItem);
 
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
+  const canEdit = Status.useEditAccessGranted();
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
         <Toolbar.Actions>
-          <Toolbar.Action
-            tooltip="Create status"
-            onClick={() => placeLayout(CREATE_LAYOUT)}
-          >
-            <Icon.Add />
-          </Toolbar.Action>
+          {canEdit && (
+            <Toolbar.Action
+              tooltip="Create status"
+              onClick={() => placeLayout(CREATE_LAYOUT)}
+            >
+              <Icon.Add />
+            </Toolbar.Action>
+          )}
           <Toolbar.Action
             tooltip="Open Status Explorer"
             onClick={() => placeLayout(EXPLORER_LAYOUT)}
@@ -152,4 +155,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
+  useVisible: Status.useViewAccessGranted,
 };

@@ -42,7 +42,7 @@ import { FILE_INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { Controls } from "@/layout/Controls";
 import { Nav } from "@/layouts/nav";
-import { createSelectorLayout } from "@/layouts/Selector";
+import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
 import { Runtime } from "@/runtime";
@@ -304,6 +304,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     ),
     [],
   );
+  const selectorVisible = useSelectorVisible();
 
   return (
     <>
@@ -321,7 +322,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         onResize={handleResize}
         emptyContent={<EmptyContent />}
         onRename={handleRename}
-        onCreate={handleCreate}
+        onCreate={selectorVisible ? handleCreate : undefined}
         activeTab={activeTab.layoutKey ?? undefined}
         onFileDrop={handleFileDrop}
         addTooltip="Create Component"

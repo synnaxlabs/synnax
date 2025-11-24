@@ -119,7 +119,7 @@ const editAccessQuery = (
   actions: ["retrieve", "create", "update"],
 });
 
-export const useEditAccessGranted = (key: table.Key | table.Key[]) =>
+export const useEditAccessGranted = (key?: table.Key | table.Key[]) =>
   Access.useGranted(editAccessQuery(key));
 
 export const editAccessGranted = ({
@@ -141,8 +141,8 @@ export const viewAccessGranted = ({
 }: Access.IsGrantedExtensionParams & { key?: table.Key | table.Key[] }) =>
   Access.isGranted({ ...rest, query: viewAccessQuery(key) });
 
-export const useViewAccessGranted = (key: table.Key | table.Key[]) =>
-  Access.useGranted(viewAccessQuery(key ?? ""));
+export const useViewAccessGranted = (key?: table.Key | table.Key[]) =>
+  Access.useGranted(viewAccessQuery(key));
 
 const deleteAccessQuery = (
   key: table.Key | table.Key[] = "",
@@ -151,7 +151,7 @@ const deleteAccessQuery = (
   actions: ["retrieve", "create", "update", "delete"],
 });
 
-export const useDeleteAccessGranted = (key: table.Key | table.Key[]) =>
+export const useDeleteAccessGranted = (key?: table.Key | table.Key[]) =>
   Access.useGranted(deleteAccessQuery(key));
 
 export const deleteAccessGranted = ({

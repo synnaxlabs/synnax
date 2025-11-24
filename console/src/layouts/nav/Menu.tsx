@@ -17,59 +17,86 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
 
+interface MenuItemProps {
+  item: Layout.NavMenuItem;
+  isActive: boolean;
+  onStartHover: (key: string) => void;
+  onStopHover: () => void;
+}
+
+const MenuItem = ({
+  item,
+  isActive,
+  onStartHover,
+  onStopHover,
+}: MenuItemProps): ReactElement | null => {
+  const positionRef = useRef<xy.XY>({ ...xy.ZERO });
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const isVisible = item.useVisible?.() ?? true;
+  if (!isVisible) return null;
+
+  const { key, icon, trigger } = item;
+
+  return (
+    <PMenu.Item
+      className={CSS(CSS.BE("main-nav", "item"), PCSS.selected(isActive))}
+      onClick={() => {
+        if (timeoutRef.current != null) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+      }}
+      onMouseEnter={(e) => {
+        timeoutRef.current = setTimeout(() => {
+          timeoutRef.current = null;
+          onStartHover(key);
+          positionRef.current = xy.construct(e);
+          const lis = (e: MouseEvent) => {
+            const delta = xy.translation(xy.construct(e), positionRef.current);
+            if (Math.abs(delta.y) > 75 && Math.abs(delta.x) < 30) {
+              onStopHover();
+              window.removeEventListener("mousemove", lis);
+            }
+          };
+          window.addEventListener("mousemove", lis);
+        }, 350);
+      }}
+      onMouseLeave={() => {
+        if (timeoutRef.current != null) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+      }}
+      key={key}
+      itemKey={key}
+      size="large"
+      contrast={2}
+      triggerIndicator={trigger}
+    >
+      {icon}
+    </PMenu.Item>
+  );
+};
+
 export interface MenuProps extends Omit<PMenu.MenuProps, "children" | "onChange"> {
   location: Layout.NavDrawerLocation;
 }
 
 export const Menu = ({ location, ...rest }: MenuProps): ReactElement => {
-  const positionRef = useRef<xy.XY>({ ...xy.ZERO });
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { onSelect, menuItems, activeItem, onStartHover, onStopHover } =
     Layout.useNavDrawer(location, DRAWER_ITEMS);
 
   return (
     <PMenu.Menu {...rest} onChange={onSelect}>
-      {menuItems.map(({ key, icon, trigger }) => (
-        <PMenu.Item
-          className={CSS(
-            CSS.BE("main-nav", "item"),
-            PCSS.selected(activeItem?.key === key),
-          )}
-          onClick={() => {
-            if (timeoutRef.current != null) {
-              clearTimeout(timeoutRef.current);
-              timeoutRef.current = null;
-            }
-          }}
-          onMouseEnter={(e) => {
-            timeoutRef.current = setTimeout(() => {
-              timeoutRef.current = null;
-              onStartHover(key);
-              positionRef.current = xy.construct(e);
-              const lis = (e: MouseEvent) => {
-                const delta = xy.translation(xy.construct(e), positionRef.current);
-                if (Math.abs(delta.y) > 75 && Math.abs(delta.x) < 30) {
-                  onStopHover();
-                  window.removeEventListener("mousemove", lis);
-                }
-              };
-              window.addEventListener("mousemove", lis);
-            }, 350);
-          }}
-          onMouseLeave={() => {
-            if (timeoutRef.current != null) {
-              clearTimeout(timeoutRef.current);
-              timeoutRef.current = null;
-            }
-          }}
-          key={key}
-          itemKey={key}
-          size="large"
-          contrast={2}
-          triggerIndicator={trigger}
-        >
-          {icon}
-        </PMenu.Item>
+      {menuItems.map((item) => (
+        <MenuItem
+          key={item.key}
+          item={item}
+          isActive={activeItem?.key === item.key}
+          onStartHover={onStartHover}
+          onStopHover={onStopHover}
+        />
       ))}
     </PMenu.Menu>
   );

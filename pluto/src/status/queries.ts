@@ -12,6 +12,7 @@ import { array, primitive, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import type z from "zod";
 
+import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { DELETE_VERBS, SET_VERBS } from "@/flux/external";
 import { useStore } from "@/flux/Provider";
@@ -367,3 +368,51 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     return data;
   },
 });
+
+const editAccessQuery = (
+  key: status.Key | status.Key[] = "",
+): Access.PermissionsQuery => ({
+  objects: status.ontologyID(key),
+  actions: ["retrieve", "create", "update"],
+});
+
+export const useEditAccessGranted = (key?: status.Key | status.Key[]) =>
+  Access.useGranted(editAccessQuery(key));
+
+export const editAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: status.Key | status.Key[] }) =>
+  Access.isGranted({ ...rest, query: editAccessQuery(key) });
+
+const viewAccessQuery = (
+  key: status.Key | status.Key[] = "",
+): Access.PermissionsQuery => ({
+  objects: status.ontologyID(key),
+  actions: ["retrieve"],
+});
+
+export const viewAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: status.Key | status.Key[] }) =>
+  Access.isGranted({ ...rest, query: viewAccessQuery(key) });
+
+export const useViewAccessGranted = (key?: status.Key | status.Key[]) =>
+  Access.useGranted(viewAccessQuery(key ?? ""));
+
+const deleteAccessQuery = (
+  key: status.Key | status.Key[] = "",
+): Access.PermissionsQuery => ({
+  objects: status.ontologyID(key),
+  actions: ["retrieve", "create", "update", "delete"],
+});
+
+export const useDeleteAccessGranted = (key?: status.Key | status.Key[]) =>
+  Access.useGranted(deleteAccessQuery(key));
+
+export const deleteAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: status.Key }) =>
+  Access.isGranted({ ...rest, query: deleteAccessQuery(key) });

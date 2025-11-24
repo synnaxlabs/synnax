@@ -163,7 +163,7 @@ const editAccessQuery = (
   actions: ["retrieve", "create", "update"],
 });
 
-export const useEditAccessGranted = (key: schematic.Key | schematic.Key[]) =>
+export const useEditAccessGranted = (key?: schematic.Key | schematic.Key[]) =>
   Access.useGranted(editAccessQuery(key));
 
 export const editAccessGranted = ({
@@ -185,8 +185,8 @@ export const viewAccessGranted = ({
 }: Access.IsGrantedExtensionParams & { key?: schematic.Key | schematic.Key[] }) =>
   Access.isGranted({ ...rest, query: viewAccessQuery(key) });
 
-export const useViewAccessGranted = (key: schematic.Key | schematic.Key[]) =>
-  Access.useGranted(viewAccessQuery(key ?? ""));
+export const useViewAccessGranted = (key?: schematic.Key | schematic.Key[]) =>
+  Access.useGranted(viewAccessQuery(key));
 
 export const deleteAccessQuery = (
   key: schematic.Key | schematic.Key[] = "",
@@ -195,7 +195,7 @@ export const deleteAccessQuery = (
   actions: ["retrieve", "create", "update", "delete"],
 });
 
-export const useDeleteAccessGranted = (key: schematic.Key | schematic.Key[]) =>
+export const useDeleteAccessGranted = (key?: schematic.Key | schematic.Key[]) =>
   Access.useGranted(deleteAccessQuery(key));
 
 export const deleteAccessGranted = ({

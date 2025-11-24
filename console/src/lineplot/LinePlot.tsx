@@ -475,7 +475,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           onAxisChange={hasEditPermission ? handleAxisChange : undefined}
           onViewportChange={handleViewportChange}
           initialViewport={initialViewport}
-          onLegendPositionChange={hasEditPermission ? handleLegendPositionChange : undefined}
+          onLegendPositionChange={
+            hasEditPermission ? handleLegendPositionChange : undefined
+          }
           legendPosition={legendPosition}
           viewportTriggers={triggers}
           enableTooltip={enableTooltip}

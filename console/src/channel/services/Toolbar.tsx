@@ -63,4 +63,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
+  useVisible: Channel.useViewAccessGranted,
 };

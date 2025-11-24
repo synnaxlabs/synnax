@@ -142,7 +142,9 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
           id={`text-${key}`}
           level="p"
           value={name}
-          onChange={hasEditPermission ? (name) => onRename.update({ key, name }) : undefined}
+          onChange={
+            hasEditPermission ? (name) => onRename.update({ key, name }) : undefined
+          }
           allowDoubleClick={false}
         />
       </Flex.Box>
@@ -204,4 +206,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
+  useVisible: Ranger.useViewAccessGranted,
 };

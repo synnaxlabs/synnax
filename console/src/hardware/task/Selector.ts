@@ -17,9 +17,6 @@ import { Sequence } from "@/hardware/task/sequence";
 import { type Layout } from "@/layout";
 import { Selector as CoreSelector } from "@/selector";
 
-const taskVisibleFilter: CoreSelector.Selectable["visible"] = ({ store, client }) =>
-  Task.editAccessGranted({ key: "", store, client });
-
 export const SELECTABLES: CoreSelector.Selectable[] = [
   ...LabJack.Task.SELECTABLES,
   ...Modbus.Task.SELECTABLES,
@@ -28,7 +25,7 @@ export const SELECTABLES: CoreSelector.Selectable[] = [
   ...Sequence.SELECTABLES,
 ].map((selectable) => ({
   ...selectable,
-  visible: taskVisibleFilter,
+  useVisible: Task.useEditAccessGranted,
 }));
 
 export const SELECTOR_LAYOUT_TYPE = "taskSelector";

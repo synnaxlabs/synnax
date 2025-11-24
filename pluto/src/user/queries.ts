@@ -11,6 +11,7 @@ import { access, ontology, UnexpectedError, user } from "@synnaxlabs/client";
 import { array, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { type RetrieveParams } from "@/flux/retrieve";
 import { Ontology } from "@/ontology";
@@ -178,3 +179,47 @@ export const { useRetrieve } = Flux.createRetrieve<
     return await retrieveSingle({ client, query: { key }, store });
   },
 });
+
+const editAccessQuery = (key: user.Key | user.Key[] = ""): Access.PermissionsQuery => ({
+  objects: user.ontologyID(key),
+  actions: ["retrieve", "create", "update"],
+});
+
+export const useEditAccessGranted = (key?: user.Key | user.Key[]) =>
+  Access.useGranted(editAccessQuery(key));
+
+export const editAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: user.Key | user.Key[] }) =>
+  Access.isGranted({ ...rest, query: editAccessQuery(key) });
+
+const viewAccessQuery = (key: user.Key | user.Key[] = ""): Access.PermissionsQuery => ({
+  objects: user.ontologyID(key),
+  actions: ["retrieve"],
+});
+
+export const viewAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: user.Key | user.Key[] }) =>
+  Access.isGranted({ ...rest, query: viewAccessQuery(key) });
+
+export const useViewAccessGranted = (key: user.Key | user.Key[]) =>
+  Access.useGranted(viewAccessQuery(key ?? ""));
+
+const deleteAccessQuery = (
+  key: user.Key | user.Key[] = "",
+): Access.PermissionsQuery => ({
+  objects: user.ontologyID(key),
+  actions: ["retrieve", "create", "update", "delete"],
+});
+
+export const useDeleteAccessGranted = (key: user.Key | user.Key[]) =>
+  Access.useGranted(deleteAccessQuery(key));
+
+export const deleteAccessGranted = ({
+  key,
+  ...rest
+}: Access.IsGrantedExtensionParams & { key?: user.Key }) =>
+  Access.isGranted({ ...rest, query: deleteAccessQuery(key) });

@@ -866,8 +866,8 @@ export const viewAccessGranted = ({
 }: Access.IsGrantedExtensionParams & { key?: ranger.Key | ranger.Key[] }) =>
   Access.isGranted({ ...rest, query: viewAccessQuery(key) });
 
-export const useViewAccessGranted = (key: ranger.Key | ranger.Key[]) =>
-  Access.useGranted(viewAccessQuery(key ?? ""));
+export const useViewAccessGranted = (key?: ranger.Key | ranger.Key[]) =>
+  Access.useGranted(viewAccessQuery(key));
 
 const deleteAccessQuery = (
   key: ranger.Key | ranger.Key[] = "",

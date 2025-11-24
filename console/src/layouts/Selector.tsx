@@ -15,6 +15,13 @@ import { type Layout } from "@/layout";
 import { Selector as CoreSelector } from "@/selector";
 import { Vis } from "@/vis";
 
+// It's OK to call this in a map as SELECTABLES is a global constant. All hooks are
+// always called and always in the same order.
+export const useSelectorVisible = () => {
+  const visible = SELECTABLES.map(({ useVisible }) => useVisible?.() ?? true);
+  return visible.some((v) => v);
+};
+
 export const SELECTOR_LAYOUT_TYPE = "layoutSelector";
 
 export interface CreateSelectorLayoutArgs

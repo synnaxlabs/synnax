@@ -23,6 +23,8 @@ export const ContextMenu = ({ keys }: ContextMenuProps) => {
   const q = Status.useRetrieveMultiple({ keys });
   const dispatch = useDispatch();
   const favoriteSet = useSelectFavoriteSet();
+  const canEdit = Status.useEditAccessGranted(keys);
+  const canDelete = Status.useDeleteAccessGranted(keys);
 
   const confirm = useConfirmDelete({
     type: "Status",
@@ -91,8 +93,8 @@ export const ContextMenu = ({ keys }: ContextMenuProps) => {
         </PMenu.Item>
       )}
       {(anyFavorited || anyNotFavorited) && <PMenu.Divider />}
-      {!isEmpty && <Menu.DeleteItem />}
-      {isSingle && <Menu.RenameItem />}
+      {canDelete && !isEmpty && <Menu.DeleteItem />}
+      {canEdit && isSingle && <Menu.RenameItem />}
     </PMenu.Menu>
   );
 };

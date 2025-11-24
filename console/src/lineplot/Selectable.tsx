@@ -16,6 +16,6 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Line Plot",
   icon: <Icon.LinePlot />,
-  visible: LinePlot.editAccessGranted,
+  useVisible: LinePlot.useEditAccessGranted,
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };

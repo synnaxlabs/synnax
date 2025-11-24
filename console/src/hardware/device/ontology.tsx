@@ -12,6 +12,7 @@ import "@/hardware/device/ontology.css";
 import { device, type ontology } from "@synnaxlabs/client";
 import { Device, Flex, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
+import { useMemo } from "react";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
@@ -98,6 +99,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
+  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
+  const canEdit = Device.useEditAccessGranted(keys);
+  const canDelete = Device.useDeleteAccessGranted(keys);
   const singleResource = ids.length === 1;
   const first = getResource(ids[0]);
   const handleDelete = useDelete(props);
@@ -122,7 +126,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu onChange={handleSelect} level="small" gap="small">
       <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-      {singleResource && (
+      {canEdit && singleResource && (
         <>
           <Menu.RenameItem />
           {(showConfigure || showChangeIdentifier) && <PMenu.Divider />}
@@ -140,11 +144,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           )}
         </>
       )}
-      <PMenu.Divider />
-      <PMenu.Item itemKey="delete">
-        <Icon.Delete />
-        Delete
-      </PMenu.Item>
+      {canEdit && <PMenu.Divider />}
+      {canDelete && (
+        <PMenu.Item itemKey="delete">
+          <Icon.Delete />
+          Delete
+        </PMenu.Item>
+      )}
       {customMenuItems != null && (
         <>
           <PMenu.Divider />

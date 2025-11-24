@@ -220,7 +220,7 @@ const editAccessQuery = (
   actions: ["retrieve", "create", "update"],
 });
 
-export const useEditAccessGranted = (key: workspace.Key | workspace.Key[]) =>
+export const useEditAccessGranted = (key?: workspace.Key | workspace.Key[]) =>
   Access.useGranted(editAccessQuery(key));
 
 export const editAccessGranted = ({
@@ -242,8 +242,8 @@ export const viewAccessGranted = ({
 }: Access.IsGrantedExtensionParams & { key?: workspace.Key | workspace.Key[] }) =>
   Access.isGranted({ ...rest, query: viewAccessQuery(key) });
 
-export const useViewAccessGranted = (key: workspace.Key | workspace.Key[]) =>
-  Access.useGranted(viewAccessQuery(key ?? ""));
+export const useViewAccessGranted = (key?: workspace.Key | workspace.Key[]) =>
+  Access.useGranted(viewAccessQuery(key));
 
 const deleteAccessQuery = (
   key: workspace.Key | workspace.Key[] = "",
@@ -252,7 +252,7 @@ const deleteAccessQuery = (
   actions: ["retrieve", "create", "update", "delete"],
 });
 
-export const useDeleteAccessGranted = (key: workspace.Key | workspace.Key[]) =>
+export const useDeleteAccessGranted = (key?: workspace.Key | workspace.Key[]) =>
   Access.useGranted(deleteAccessQuery(key));
 
 export const deleteAccessGranted = ({

@@ -19,23 +19,29 @@ import { REGISTER_LAYOUT } from "@/user/Register";
 const Content = (): ReactElement => {
   const { data: groupID } = User.useRetrieveGroupID({});
   const placeLayout = Layout.usePlacer();
+  const canEditUser = User.useEditAccessGranted("");
+  const canEditRole = PAccess.Role.useEditAccessGranted("");
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
         <Toolbar.Actions>
-          <Toolbar.Action
-            onClick={() => placeLayout(REGISTER_LAYOUT)}
-            tooltip="Create User"
-          >
-            <User.CreateIcon />
-          </Toolbar.Action>
-          <Toolbar.Action
-            onClick={() => placeLayout(Access.Role.CREATE_LAYOUT)}
-            tooltip="Create Role"
-          >
-            <PAccess.Role.CreateIcon />
-          </Toolbar.Action>
+          {canEditUser && (
+            <Toolbar.Action
+              onClick={() => placeLayout(REGISTER_LAYOUT)}
+              tooltip="Create User"
+            >
+              <User.CreateIcon />
+            </Toolbar.Action>
+          )}
+          {canEditRole && (
+            <Toolbar.Action
+              onClick={() => placeLayout(Access.Role.CREATE_LAYOUT)}
+              tooltip="Create Role"
+            >
+              <PAccess.Role.CreateIcon />
+            </Toolbar.Action>
+          )}
         </Toolbar.Actions>
       </Toolbar.Header>
       <Ontology.Tree root={groupID} />
@@ -52,4 +58,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   minSize: 175,
   maxSize: 400,
   trigger: ["U"],
+  useVisible: User.useEditAccessGranted,
 };

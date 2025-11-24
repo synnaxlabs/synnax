@@ -412,9 +412,7 @@ describe("Access Queries", () => {
         (r) => r.from.type === "role" && r.to.type === "policy",
       );
       expect(relationships.length).toBeGreaterThan(0);
-      const roleToPolicyRel = relationships.find((r) =>
-        r.to.key === policies[0].key,
-      );
+      const roleToPolicyRel = relationships.find((r) => r.to.key === policies[0].key);
       expect(roleToPolicyRel).toBeDefined();
       expect(roleToPolicyRel!.to).toEqual(policyID);
     });

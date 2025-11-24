@@ -9,42 +9,23 @@
 
 import "@/selector/Selector.css";
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import {
-  Button,
-  Eraser,
-  Flex,
-  Flux,
-  type Icon,
-  type Pluto,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button, Eraser, Flex, type Icon, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
-import { useStore } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { type RootAction, type RootState } from "@/store";
 
 export interface SelectableCreateArgs {
   layoutKey: string;
   rename: Modals.PromptRename;
 }
 
-interface SelectableVisibleContext {
-  state: RootState;
-  store: Pluto.FluxStore;
-  client: Client | null;
-}
-
 export interface Selectable {
   key: string;
   title: string;
   icon: Icon.ReactElement;
-  visible?: (ctx: SelectableVisibleContext) => boolean;
+  useVisible?: () => boolean;
   create: (props: SelectableCreateArgs) => Promise<Layout.PlacerArgs | null>;
 }
 
@@ -52,6 +33,44 @@ export interface SelectorProps extends Layout.RendererProps {
   text: string;
   selectables: Selectable[];
 }
+
+interface SelectableItemProps {
+  item: Selectable;
+  layoutKey: string;
+  rename: Modals.PromptRename;
+  onPlace: (args: Layout.PlacerArgs) => void;
+  onError: (err: unknown, message: string) => void;
+}
+
+const SelectableItem = ({
+  item,
+  layoutKey,
+  rename,
+  onPlace,
+  onError,
+}: SelectableItemProps): ReactElement | null => {
+  const isVisible = item.useVisible?.() ?? true;
+  if (!isVisible) return null;
+
+  const { key, title, icon, create } = item;
+
+  return (
+    <Button.Button
+      key={key}
+      variant="outlined"
+      onClick={() =>
+        onError(async () => {
+          const layout = await create({ layoutKey, rename });
+          if (layout != null) onPlace(layout);
+        }, `Failed to create ${title}`)
+      }
+      style={{ flexBasis: "185px" }}
+    >
+      {icon}
+      {title}
+    </Button.Button>
+  );
+};
 
 export const Selector = ({
   layoutKey,
@@ -61,9 +80,6 @@ export const Selector = ({
   const place = Layout.usePlacer();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
-  const client = Synnax.use();
-  const store = useStore<RootState, RootAction>();
-  const fluxStore = Flux.useStore<Pluto.FluxStore>();
   return (
     <Eraser.Eraser>
       <Flex.Box className={CSS.B("vis-layout-selector")} gap="large" wrap center>
@@ -78,26 +94,16 @@ export const Selector = ({
           justify="center"
           gap={2.5}
         >
-          {selectables.map(
-            ({ key, title, icon, create, visible }) =>
-              (visible?.({ state: store.getState(), store: fluxStore, client }) ??
-                true) && (
-                <Button.Button
-                  key={key}
-                  variant="outlined"
-                  onClick={() =>
-                    handleError(async () => {
-                      const layout = await create({ layoutKey, rename });
-                      if (layout != null) place(layout);
-                    }, `Failed to create ${title}`)
-                  }
-                  style={{ flexBasis: "185px" }}
-                >
-                  {icon}
-                  {title}
-                </Button.Button>
-              ),
-          )}
+          {selectables.map((item) => (
+            <SelectableItem
+              key={item.key}
+              item={item}
+              layoutKey={layoutKey}
+              rename={rename}
+              onPlace={place}
+              onError={handleError}
+            />
+          ))}
         </Flex.Box>
       </Flex.Box>
     </Eraser.Eraser>
