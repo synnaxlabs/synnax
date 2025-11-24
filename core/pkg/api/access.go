@@ -43,7 +43,7 @@ func (s *AccessService) CreatePolicy(
 	req AccessCreatePolicyRequest,
 ) (AccessCreatePolicyResponse, error) {
 	results := make([]policy.Policy, len(req.Policies))
-	if err := s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: getSubject(ctx),
 			Objects: policy.OntologyIDsFromPolicies(req.Policies),
@@ -155,7 +155,7 @@ type AccessDeletePolicyRequest struct {
 }
 
 func (s *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicyRequest) (types.Nil, error) {
-	return types.Nil{}, s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: getSubject(ctx),
 			Objects: policy.OntologyIDs(req.Keys),
@@ -184,7 +184,7 @@ func (s *AccessService) CreateRole(
 	req AccessCreateRoleRequest,
 ) (AccessCreateRoleResponse, error) {
 	results := make([]role.Role, len(req.Roles))
-	if err := s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: getSubject(ctx),
 			Objects: []ontology.ID{role.OntologyID(uuid.Nil)},
@@ -254,7 +254,7 @@ type AccessDeleteRoleRequest struct {
 }
 
 func (s *AccessService) DeleteRole(ctx context.Context, req AccessDeleteRoleRequest) (types.Nil, error) {
-	return types.Nil{}, s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		roleIDs := make([]ontology.ID, len(req.Keys))
 		for i, key := range req.Keys {
 			roleIDs[i] = role.OntologyID(key)
@@ -303,7 +303,7 @@ type AccessUnassignRoleRequest struct {
 }
 
 func (s *AccessService) UnassignRole(ctx context.Context, req AccessUnassignRoleRequest) (types.Nil, error) {
-	return types.Nil{}, s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: getSubject(ctx),
 			Objects: []ontology.ID{req.User},

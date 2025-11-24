@@ -49,7 +49,7 @@ class MsgPackCodec(Codec):
         return "application/msgpack"
 
     def encode(self, payload: Payload) -> bytes:
-        return msgpack.packb(payload.model_dump(by_alias=True))
+        return msgpack.packb(payload.model_dump(by_alias=True))  # type: ignore[return-value]
 
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         return pld_t.model_validate(msgpack.unpackb(data))
