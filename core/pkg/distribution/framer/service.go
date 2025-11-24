@@ -100,8 +100,8 @@ const freeWritePipelineBuffer = 4000
 // non-nil error if the configuration is invalid or another error occurs.
 //
 // The Service must be closed after use.
-func OpenService(configs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func OpenService(cfgs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

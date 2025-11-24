@@ -70,5 +70,5 @@ func OpenService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 func (s *Service) New() Deleter {
-	return Deleter{proxy: s.proxy, channels: s.channel}
+	return Deleter{proxy: s.proxy, channel: s.channel}
 }

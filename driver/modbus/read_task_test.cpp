@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <chrono>
-
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
@@ -141,7 +139,7 @@ TEST_F(ModbusReadTest, testInvalidChannelType) {
 TEST_F(ModbusReadTest, testMultiChannelConfig) {
     auto cfg = create_base_config();
 
-    // Create channels for different types with unique names
+    // Create channels for different types
     auto coil_ch = ASSERT_NIL_P(
         sy->channels.create(make_unique_channel_name("coil"), telem::UINT8_T, true)
     );
@@ -292,7 +290,7 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
 
     // Create data channel
     auto data_channel = ASSERT_NIL_P(sy->channels.create(
-        make_unique_channel_name("discrete_input_data_channel"),
+        make_unique_channel_name("discrete_input"),
         telem::UINT8_T,
         index_channel.key,
         false
