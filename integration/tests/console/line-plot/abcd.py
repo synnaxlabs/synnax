@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from console.case import ConsoleCase
+from console.plot import Plot
 
 
 class PlotAbcd(ConsoleCase):
@@ -28,13 +29,14 @@ class PlotAbcd(ConsoleCase):
 
     def run(self) -> None:
         console = self.console
-        console.plot.new()
+        client = self.client
+        plot = Plot(client, console, "abcd_plot")
 
-        console.plot.add_channels("Y1", ["d_ab", "d_bc", "d_cd", "d_da"])
-        console.plot.add_channels("Y2", ["t_a", "t_b", "t_c", "t_d"])
-        console.plot.add_ranges(["30s"])
+        plot.add_channels("Y1", ["d_ab", "d_bc", "d_cd", "d_da"])
+        plot.add_channels("Y2", ["t_a", "t_b", "t_c", "t_d"])
+        plot.add_ranges(["30s"])
 
-        console.plot.set_axis(
+        plot.set_axis(
             "Y1",
             {
                 "Lower Bound": -0.005,
@@ -42,7 +44,7 @@ class PlotAbcd(ConsoleCase):
                 "Tick Spacing": 50,
             },
         )
-        console.plot.set_axis(
+        plot.set_axis(
             "Y2",
             {
                 "Tick Spacing": 100,
@@ -51,7 +53,7 @@ class PlotAbcd(ConsoleCase):
         self.wait_for_tlm_stale()
 
         # Reset after auto adjust
-        console.plot.set_axis(
+        plot.set_axis(
             "Y1",
             {
                 "Lower Bound": -0.05,
@@ -59,10 +61,10 @@ class PlotAbcd(ConsoleCase):
                 "Tick Spacing": 50,
             },
         )
-        console.plot.set_axis(
+        plot.set_axis(
             "Y2",
             {
                 "Tick Spacing": 100,
             },
         )
-        console.plot.screenshot()
+        plot.screenshot()
