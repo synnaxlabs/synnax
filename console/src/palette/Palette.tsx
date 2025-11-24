@@ -83,9 +83,7 @@ export const Palette = ({
           full="x"
         >
           <Icon.Search />
-          <Text.Text el="span" color={9}>
-            Search and Command
-          </Text.Text>
+          Search and Command
         </Button.Button>
         <Dialog.Dialog
           className={CSS.BE("palette", "content")}

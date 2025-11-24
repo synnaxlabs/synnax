@@ -7,8 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/context-menu/Divider.css";
+
+import { type ReactElement } from "react";
+
+import { CSS } from "@/css";
 import { Divider as CoreDivider } from "@/divider";
 
-export const Divider = (props: CoreDivider.DividerProps) => (
-  <CoreDivider.Divider x padded {...props} />
+export const Divider = ({
+  className,
+  ...rest
+}: CoreDivider.DividerProps): ReactElement => (
+  <CoreDivider.Divider
+    x
+    padded
+    className={CSS(CSS.BE("menu", "divider"), className)}
+    {...rest}
+  />
 );

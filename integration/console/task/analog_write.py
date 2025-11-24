@@ -29,13 +29,8 @@ AO_CHANNEL_TYPES: dict[str, type[Analog]] = {
 class AnalogWrite(NITask):
     """NI Analog Write/Output Task automation interface."""
 
-    def __init__(self, page: Page, console: "Console") -> None:
-        super().__init__(page, console)
-        self.page_type = "NI Analog Write Task"
-
-    def new(self) -> str:
-        """Create a new NI AO task page."""
-        return super().new()
+    page_type: str = "NI Analog Write Task"
+    pluto_label: str = ".pluto-ni-analog-write-task"
 
     def add_channel(
         self,
