@@ -12,11 +12,6 @@
 .pluto-divider {
     align-self: stretch;
 
-    /* Hide consecutive dividers */
-    & + & {
-        display: none;
-    }
-
     &.pluto--direction-x {
         height: 0;
         border-top: var(--pluto-border);
