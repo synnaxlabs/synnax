@@ -17,11 +17,6 @@ import synnax as sy
 from playwright.sync_api import Locator, Page
 
 from .channels import ChannelClient
-from .log import Log
-from .page import ConsolePage
-from .plot import Plot
-from .schematic import Schematic
-from .task import AnalogRead, AnalogWrite, CounterRead
 
 # Define literal types for page creation
 PageType = Literal[
@@ -48,8 +43,6 @@ class Console:
     Parallel to synnax client structure.
     """
 
-    # SY-3078
-    console_pages: list[ConsolePage]
     channels: ChannelClient
     page: Page
 
@@ -57,12 +50,6 @@ class Console:
         # Playwright
         self.page = page
         self.channels = ChannelClient(page, self)
-        self.schematic = Schematic(page, self)
-        self.plot = Plot(page, self)
-        self.log = Log(page, self)
-        self.ni_ai = AnalogRead(page, self)
-        self.ni_ao = AnalogWrite(page, self)
-        self.ni_ci = CounterRead(page, self)
 
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""
@@ -428,10 +415,8 @@ class Console:
 
     def click(self, selector: str, timeout: int | None = 5000) -> None:
         """Wait for and click a selector (by text)"""
-        self.page.wait_for_selector(f"text={selector}", timeout=timeout)
         element = self.page.get_by_text(selector, exact=True).first
-        element.wait_for(state="attached", timeout=300)
-        element.click()
+        element.click(timeout=timeout)
 
     def check_for_modal(self) -> bool:
         """Check for a modal"""

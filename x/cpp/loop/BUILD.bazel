@@ -15,6 +15,7 @@ cc_test(
     srcs = [
         "loop_test.cpp",
     ],
+    tags = ["no-asan"],  # Timing-sensitive tests that fail under ASan overhead
     deps = [
         "//x/cpp/loop",
         "@googletest//:gtest_main",

@@ -50,13 +50,8 @@ COUNTER_READ_CHANNEL_TYPES: dict[str, Type[Counter]] = {
 class CounterRead(NITask):
     """NI Counter Read Task automation interface."""
 
-    def __init__(self, page: Page, console: "Console") -> None:
-        super().__init__(page, console)
-        self.page_type = "NI Counter Read Task"
-
-    def new(self) -> str:
-        """Create a new NI CI task page."""
-        return super().new()
+    page_type: str = "NI Counter Read Task"
+    pluto_label: str = ".pluto-ni-counter-read-task"
 
     def add_channel(
         self,

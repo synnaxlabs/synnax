@@ -17,7 +17,6 @@ import {
 } from "react";
 
 import { type Component } from "@/component";
-import { Divider as CoreDivider } from "@/divider";
 import { type Text } from "@/text";
 import { type Theming } from "@/theming";
 
@@ -77,5 +76,3 @@ export const Menu = ({
   );
   return <Context value={ctxValue}>{children}</Context>;
 };
-
-export const Divider = (): ReactElement => <CoreDivider.Divider x padded />;
