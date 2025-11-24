@@ -448,12 +448,6 @@ func Uint32() NumberZ { return Number().Uint32() }
 // Uint64 is a schema that validates uint64 numbers.
 func Uint64() NumberZ { return Number().Uint64() }
 
-// Float64 is a schema that validates float64 numbers.
-func Float64() NumberZ { return Number().Float64() }
-
-// Int is a schema that validates integer numbers.
-func Int() NumberZ { return Number().Int() }
-
 // Int64 is a schema that validates int64 numbers.
 func Int64() NumberZ { return Number().Int64() }
 

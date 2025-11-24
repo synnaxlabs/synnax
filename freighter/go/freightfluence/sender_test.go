@@ -24,16 +24,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func clientStreamsToSlice(
-	clients map[address.Address]freighter.StreamSenderCloser[int],
-) []freighter.StreamSenderCloser[int] {
-	slice := make([]freighter.StreamSenderCloser[int], 0, len(clients))
-	for _, client := range clients {
-		slice = append(slice, client)
-	}
-	return slice
-}
-
 var _ = Describe("Sender", func() {
 	var net *fmock.Network[int, int]
 	BeforeEach(func() {
