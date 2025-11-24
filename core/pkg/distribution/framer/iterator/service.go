@@ -106,8 +106,8 @@ type Service struct {
 
 // OpenService opens a new iterator service using the provided configuration. If the
 // configuration is invalid, OpenService returns a nil service and an error.
-func OpenService(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+func OpenService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

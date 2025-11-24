@@ -17,8 +17,6 @@ from synnax.util.rand import rand_name
 
 from .data import DATA_DIR
 
-CHANNELS = ["ingest_valid_idx", "ingest_valid_1", "ingest_valid_2"]
-
 
 @pytest.mark.cli
 class TestIngest:
@@ -43,4 +41,6 @@ class TestIngest:
                 ctx=Context(console=c),
             )
         finally:
-            client.channels.delete(CHANNELS)
+            client.channels.delete(
+                ["ingest_valid_idx", "ingest_valid_1", "ingest_valid_2"]
+            )

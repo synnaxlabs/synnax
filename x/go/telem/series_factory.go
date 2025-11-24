@@ -141,7 +141,7 @@ var ByteOrder = binary.LittleEndian
 // 2, 4, 6, 8]. Panics if count is less than or equal to 0.
 func Arrange[T Sample](start T, count int, spacing T) Series {
 	data := make([]T, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		data[i] = start + T(i)*spacing
 	}
 	return NewSeries(data)

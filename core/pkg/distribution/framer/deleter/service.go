@@ -52,8 +52,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultConfig = ServiceConfig{}
 
-func New(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func OpenService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -70,5 +70,5 @@ func New(configs ...ServiceConfig) (*Service, error) {
 }
 
 func (s *Service) New() Deleter {
-	return Deleter{proxy: s.proxy, channelSvc: s.channel}
+	return Deleter{proxy: s.proxy, channels: s.channel}
 }

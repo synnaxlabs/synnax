@@ -112,6 +112,8 @@ var _ = Describe("Migrate", func() {
 		Expect(gSvc.NewRetrieve().WhereNames("Subgroup").Entry(&g).Exec(ctx, nil)).
 			To(MatchError(query.NotFound))
 
+		// There should be a new parent range named "Subgroup" whose time range is the
+		// union of r1 and r2
 		var parentRange ranger.Range
 		Expect(svc.NewRetrieve().WhereNames("Subgroup").
 			Entry(&parentRange).Exec(ctx, nil)).To(Succeed())

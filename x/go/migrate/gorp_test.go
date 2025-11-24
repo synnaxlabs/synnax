@@ -211,7 +211,7 @@ var _ = Describe("Gorp", func() {
 				}
 
 				Expect(runner.Run(ctx, db)).Error().
-					To(MatchError(ContainSubstring("migration count is greater than the maximum of 255")))
+					To(MatchError(migrate.ErrMigrationCountExceeded))
 			})
 
 			It("Should stop at first failing migration", func() {

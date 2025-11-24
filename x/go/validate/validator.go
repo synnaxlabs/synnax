@@ -43,25 +43,12 @@ func (v *Validator) Ternaryf(field string, cond bool, format string, args ...any
 	return v.Error() != nil
 }
 
-func (v *Validator) New(msg string) error {
-	return errors.Wrapf(Error, "[%s] - "+msg, v.scope)
-}
-
-func (v *Validator) Newf(format string, args ...any) error {
-	return errors.Wrapf(Error, "[%s] - "+format, append([]any{v.scope}, args...)...)
-}
-
-func (v *Validator) Func(f func() bool, msg string) bool {
-	v.Exec(func() error { return lo.Ternary(f(), v.New(msg), nil) })
-	return v.Error() != nil
-}
-
+// NotNil returns true and attaches an error to v if the value is nil.
 func NotNil(v *Validator, field string, value any) bool {
 	isNil := value == nil
 	if !isNil {
 		rv := reflect.ValueOf(value)
-		kind := rv.Kind()
-		switch kind {
+		switch rv.Kind() {
 		case reflect.Chan, reflect.Func, reflect.Interface,
 			reflect.Map, reflect.Pointer, reflect.Slice:
 			isNil = rv.IsNil()

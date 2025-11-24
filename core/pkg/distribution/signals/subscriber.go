@@ -56,7 +56,7 @@ func resolveChannelKey(
 	ctx context.Context,
 	key channel.Key,
 	name string,
-	svc *channel.Service,
+	channelSvc *channel.Service,
 ) (channel.Key, error) {
 	if key != 0 {
 		return key, nil
@@ -65,7 +65,7 @@ func resolveChannelKey(
 		return 0, nil
 	}
 	var ch channel.Channel
-	err := svc.NewRetrieve().WhereNames(name).Entry(&ch).Exec(ctx, nil)
+	err := channelSvc.NewRetrieve().WhereNames(name).Entry(&ch).Exec(ctx, nil)
 	return ch.Key(), err
 }
 

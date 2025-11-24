@@ -351,7 +351,7 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 	gapi.RegisterFrameStreamerServiceServer(reg, f)
 }
 
-func newFramer(a *api.Transport, channels *channel.Service) fgrpc.BindableTransport {
+func newFramer(a *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport {
 	var (
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{
@@ -360,7 +360,7 @@ func newFramer(a *api.Transport, channels *channel.Service) fgrpc.BindableTransp
 					fgrpc.Translator[api.FrameWriterRequest, *gapi.FrameWriterRequest],
 					fgrpc.Translator[api.FrameWriterResponse, *gapi.FrameWriterResponse],
 				) {
-					codec := codec.NewDynamic(channels)
+					codec := codec.NewDynamic(channelSvc)
 					return frameWriterRequestTranslator{codec: codec}, frameWriterResponseTranslator{}
 				},
 				ServiceDesc: &gapi.FrameWriterService_ServiceDesc,
@@ -376,7 +376,7 @@ func newFramer(a *api.Transport, channels *channel.Service) fgrpc.BindableTransp
 		ss = &streamerServer{
 			frameStreamerServerCore: &frameStreamerServerCore{
 				CreateTranslators: func() (fgrpc.Translator[api.FrameStreamerRequest, *gapi.FrameStreamerRequest], fgrpc.Translator[api.FrameStreamerResponse, *gapi.FrameStreamerResponse]) {
-					codec := codec.NewDynamic(channels)
+					codec := codec.NewDynamic(channelSvc)
 					return frameStreamerRequestTranslator{codec: codec}, frameStreamerResponseTranslator{codec: codec}
 				},
 				ServiceDesc: &gapi.FrameStreamerService_ServiceDesc,

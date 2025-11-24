@@ -34,7 +34,9 @@ func allCandidates(nodes node.Group) func() node.Group {
 	return func() node.Group { return nodes }
 }
 
-func baseConfigWithAddr(n *fmock.Network[pledge.Request, pledge.Response]) (pledge.Config, address.Address) {
+func baseConfigWithAddr(
+	n *fmock.Network[pledge.Request, pledge.Response],
+) (pledge.Config, address.Address) {
 	server := n.UnaryServer("")
 	cfg := pledge.Config{
 		TransportServer: server,

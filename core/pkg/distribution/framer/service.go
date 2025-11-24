@@ -139,7 +139,7 @@ func OpenService(configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.deleter, err = deleter.New(deleter.ServiceConfig{
+	s.deleter, err = deleter.OpenService(deleter.ServiceConfig{
 		HostResolver: cfg.HostResolver,
 		Channel:      cfg.Channel,
 		TSChannel:    cfg.TS,

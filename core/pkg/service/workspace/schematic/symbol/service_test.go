@@ -168,7 +168,7 @@ var _ = Describe("Service", func() {
 			// Writer goroutine
 			go func() {
 				defer GinkgoRecover()
-				for i := 0; i < 10; i++ {
+				for range 10 {
 					sym := symbol.Symbol{
 						Name: "concurrent-write",
 						Data: map[string]any{"svg": "<svg>...</svg>"},
@@ -182,7 +182,7 @@ var _ = Describe("Service", func() {
 			// Reader goroutine 1
 			go func() {
 				defer GinkgoRecover()
-				for i := 0; i < 10; i++ {
+				for range 10 {
 					var symbols []symbol.Symbol
 					_ = svc.NewRetrieve().Entries(&symbols).Exec(context.Background(), nil)
 				}
@@ -192,7 +192,7 @@ var _ = Describe("Service", func() {
 			// Reader goroutine 2
 			go func() {
 				defer GinkgoRecover()
-				for i := 0; i < 10; i++ {
+				for range 10 {
 					var symbols []symbol.Symbol
 					_ = svc.NewRetrieve().Entries(&symbols).Exec(context.Background(), nil)
 				}

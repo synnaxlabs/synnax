@@ -17,8 +17,8 @@ import (
 )
 
 type Deleter struct {
-	proxy      *leaseProxy
-	channelSvc *channel.Service
+	proxy    *leaseProxy
+	channels *channel.Service
 }
 
 // DeleteTimeRange deletes a time range in the specified channel. It is idempotent:
@@ -74,5 +74,5 @@ func (d Deleter) DeleteTimeRangeManyByNames(
 	names []string,
 	tr telem.TimeRange,
 ) error {
-	return d.proxy.deleteTimeRangeByName(ctx, d.channelSvc, names, tr)
+	return d.proxy.deleteTimeRangeByName(ctx, d.channels, names, tr)
 }

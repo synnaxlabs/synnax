@@ -17,6 +17,10 @@ import (
 	"github.com/synnaxlabs/x/kv"
 )
 
+var ErrMigrationCountExceeded = errors.Newf(
+	"migration count is greater than the maximum of 255",
+)
+
 // GorpSpec defines a single migration that should be run with a Gorp transaction.
 type GorpSpec struct {
 	// Name is a unique identifier for this migration (e.g., "name_validation")
@@ -58,7 +62,8 @@ func (r GorpRunner) Run(ctx context.Context, db *gorp.DB) error {
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
 		migrationCount := len(r.Migrations)
 		if migrationCount > 255 {
-			return errors.Newf(
+			return errors.Wrapf(
+				ErrMigrationCountExceeded,
 				"migration count is greater than the maximum of 255: %d",
 				migrationCount,
 			)

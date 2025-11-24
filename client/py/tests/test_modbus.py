@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import random
+from random import randint
 
 import pytest
 from pydantic import ValidationError
@@ -507,21 +507,21 @@ class TestModbusDevicePropertyUpdates:
         device = client.hardware.devices.create(device)
 
         # Create channels
-        rand_int = random.randint(0, 100000)
+        suffix = randint(0, 100000)
         time_ch = client.channels.create(
-            name=f"modbus_time_{rand_int}",
+            name=f"modbus_time_{suffix}",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
 
         ch1 = client.channels.create(
-            name=f"register_0_{rand_int}",
+            name=f"register_0_{suffix}",
             data_type=sy.DataType.UINT8,
             index=time_ch.key,
         )
 
         ch2 = client.channels.create(
-            name=f"register_1_{rand_int}",
+            name=f"register_1_{suffix}",
             data_type=sy.DataType.UINT16,
             index=time_ch.key,
         )
@@ -594,7 +594,7 @@ class TestModbusDevicePropertyUpdates:
         device = client.hardware.devices.create(device)
 
         # Create command channels
-        random_id = random.randint(0, 100000)
+        random_id = randint(0, 100000)
         cmd_time = client.channels.create(
             name=f"cmd_time_{random_id}",
             data_type=sy.DataType.TIMESTAMP,
