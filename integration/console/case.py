@@ -7,9 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import os
 import random
 from typing import cast
 
+import synnax as sy
 from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
 
 from console.console import Console
@@ -19,6 +21,10 @@ from framework.test_case import TestCase
 class ConsoleCase(TestCase):
     """
     Console TestCase implementation using Playwright
+
+    Environment Variables:
+    - PLAYWRIGHT_CONSOLE_HEADED: Run in headed mode (default: False)
+      Can be set via command line: --console-headed or -ch
     """
 
     browser: Browser
@@ -29,7 +35,8 @@ class ConsoleCase(TestCase):
     console: Console
 
     def setup(self) -> None:
-        headed = self.params.get("headed", False)
+        env_headed = os.environ.get("PLAYWRIGHT_CONSOLE_HEADED", "0") == "1"
+        headed = self.params.get("headed", env_headed)
         slow_mo = self.params.get("slow_mo", 0)
         default_timeout = self.params.get("default_timeout", 15000)  # 15s
         default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
@@ -59,18 +66,23 @@ class ConsoleCase(TestCase):
         # Wait for and fill login form
         username = self.synnax_connection.username
         password = self.synnax_connection.password
-        self.page.wait_for_selector("input", timeout=10000)
-        self.page.locator("input").first.fill(f"{username}")
-        self.page.locator('input[type="password"]').fill(f"{password}")
-        self.page.get_by_role("button", name="Log In").click()
+
+        self.page.wait_for_selector(".pluto-field__username", timeout=5000)
+        username_input = self.page.locator(".pluto-field__username input").first
+        username_input.fill(username)
+
+        password_input = self.page.locator(".pluto-field__password input").first
+        password_input.fill(password)
+
+        login_button = self.page.get_by_role("button", name="Log In")
+        login_button.wait_for(state="attached", timeout=2000)
+        login_button.click()
+
         self.page.wait_for_load_state("networkidle")
 
         # Initialize Console interface
         self.console = Console(self.page)
-
-        # Toggle theme
-        self.page.wait_for_timeout(3000)  # <- Change with wait_for
-        self.console.command_palette("Toggle Color Theme")
+        self.page.wait_for_selector("text=Get Started", timeout=5000)
 
     def teardown(self) -> None:
         self.browser.close()

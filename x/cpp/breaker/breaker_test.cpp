@@ -89,7 +89,7 @@ TEST(BreakerTests, testInfiniteRetries) {
             if (retry_count >= 100) break; // Safety break to prevent infinite test
         }
     });
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
     EXPECT_TRUE(b.stop());
     EXPECT_FALSE(b.running());
     t.join();
