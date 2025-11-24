@@ -16,6 +16,7 @@ import { Button } from "@/button";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
+import { Text } from "@/text";
 
 export interface TagProps
   extends optional.Optional<
@@ -71,7 +72,9 @@ export const Tag = ({
     >
       {icon}
       {closeIcon}
-      {children}
+      <Text.Text el="span" overflow="ellipsis">
+        {children}
+      </Text.Text>
     </Button.Button>
   );
 };
