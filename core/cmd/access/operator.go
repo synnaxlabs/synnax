@@ -10,8 +10,12 @@
 package access
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 )
 
 var (
@@ -19,8 +23,21 @@ var (
 	operatorRole     = role.Role{
 		Name: operatorRoleName,
 	}
-	operatorPolicy = policy.Policy{
-		Name:   operatorRoleName,
-		Effect: policy.EffectAllow,
+	operatorPolicies = []policy.Policy{
+		{
+			Name:   "Operator Edit Access",
+			Effect: policy.EffectAllow,
+			Objects: []ontology.ID{
+				{Type: framer.OntologyType},
+				{Type: ranger.OntologyType},
+			},
+			Actions: []access.Action{access.ActionAll},
+		},
+		{
+			Name:    "Operator View Access",
+			Effect:  policy.EffectAllow,
+			Objects: allObjects,
+			Actions: []access.Action{access.ActionRetrieve},
+		},
 	}
 )

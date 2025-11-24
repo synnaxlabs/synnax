@@ -201,7 +201,6 @@ export const { useUpdate: useSaveLayout } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const { key, layout } = data;
-    if (!editAccessGranted({ key, store, client })) return data;
     rollbacks.push(
       store.workspaces.set(
         key,

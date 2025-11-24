@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/config"
@@ -109,19 +108,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-
 	s := &Service{
 		Policy: policyService,
 		Role:   roleService,
 		cfg:    cfg,
 	}
-
-	// Run policy migration from V0 (subject-based) to V1 (role-based)
-	// This is idempotent and safe to run on every startup
-	if err := migrate.MigratePolicies(ctx, cfg.DB, cfg.Ontology); err != nil {
-		return nil, errors.Wrap(err, "failed to migrate policies to role-based model")
-	}
-
 	return s, nil
 }
 

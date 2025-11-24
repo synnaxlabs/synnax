@@ -71,29 +71,45 @@ func Provision(
 	tx gorp.Tx,
 	service *rbac.Service,
 ) (uuid.UUID, error) {
-	if _, err := provisionRole(ctx, viewerRole, viewerPolicy, tx, service); err != nil {
+	if _, err := provisionRole(ctx, viewerRole, []policy.Policy{viewerPolicy}, tx, service); err != nil {
 		return uuid.Nil, err
 	}
-	return provisionRole(ctx, ownerRole, ownerPolicy, tx, service)
+	if _, err := provisionRole(ctx, operatorRole, operatorPolicies, tx, service); err != nil {
+		return uuid.Nil, err
+	}
+	if _, err := provisionRole(ctx, engineerRole, engineerPolicies, tx, service); err != nil {
+		return uuid.Nil, err
+	}
+	return provisionRole(ctx, ownerRole, []policy.Policy{ownerPolicy}, tx, service)
 }
 
 func provisionRole(
 	ctx context.Context,
 	rol role.Role,
-	pol policy.Policy,
+	policies []policy.Policy,
 	tx gorp.Tx,
 	service *rbac.Service,
 ) (uuid.UUID, error) {
-	if err := service.Policy.NewRetrieve().
-		WhereNames(pol.Name).
-		Exec(ctx, tx); errors.Skip(err, query.NotFound) != nil {
-		return uuid.Nil, err
-	}
-	if pol.Key == uuid.Nil {
-		if err := service.Policy.NewWriter(tx).Create(ctx, &pol); err != nil {
+	policyKeys := make([]uuid.UUID, 0, len(policies))
+
+	// Create or retrieve all policies
+	for i := range policies {
+		pol := &policies[i]
+		if err := service.Policy.NewRetrieve().
+			WhereNames(pol.Name).
+			Entry(pol).
+			Exec(ctx, tx); errors.Skip(err, query.NotFound) != nil {
 			return uuid.Nil, err
 		}
+		if pol.Key == uuid.Nil {
+			if err := service.Policy.NewWriter(tx).Create(ctx, pol); err != nil {
+				return uuid.Nil, err
+			}
+		}
+		policyKeys = append(policyKeys, pol.Key)
 	}
+
+	// Create or retrieve the role
 	if err := service.Role.NewRetrieve().
 		WhereName(rol.Name).
 		Entry(&rol).
@@ -105,7 +121,8 @@ func provisionRole(
 		if err := w.Create(ctx, &rol); err != nil {
 			return uuid.Nil, err
 		}
-		if err := w.SetPolicies(ctx, rol.Key, pol.Key); err != nil {
+		// Associate all policies with the role
+		if err := w.SetPolicies(ctx, rol.Key, policyKeys...); err != nil {
 			return uuid.Nil, err
 		}
 	}

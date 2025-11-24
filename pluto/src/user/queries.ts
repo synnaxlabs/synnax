@@ -184,10 +184,8 @@ export const { useRetrieve } = Flux.createRetrieve<
   name: RESOURCE_NAME,
   retrieve: async ({ client, query, store }) => {
     const { key } = query;
-    if (key == null) {
-      const user = await retrieveCurrent(client);
-      return user;
-    }
+    if (key == null) return await retrieveCurrent(client);
+
     return await retrieveSingle({ client, query: { key }, store });
   },
 });
