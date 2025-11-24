@@ -29,8 +29,8 @@ struct BaseTaskConfig {
     const BaseTaskConfig &operator=(const BaseTaskConfig &other) = delete;
 
     explicit BaseTaskConfig(xjson::Parser &parser):
-        data_saving(parser.optional<bool>("data_saving", true)),
-        auto_start(parser.optional<bool>("auto_start", false)) {}
+        data_saving(parser.field<bool>("data_saving", true)),
+        auto_start(parser.field<bool>("auto_start", false)) {}
 };
 
 /// @brief a common base configuration result for tasks that is used across various
@@ -41,9 +41,6 @@ struct ConfigureResult {
     std::unique_ptr<task::Task> task;
     /// @brief whether to auto-start the task if no error occurred.
     bool auto_start = false;
-    /// @brief the error that occurred during configuration. If no error occurred, this
-    /// field should be set to xerrors::NIL.
-    xerrors::Error error = xerrors::NIL;
 };
 
 /// @brief converts a data_saving boolean to the appropriate WriterMode.

@@ -125,14 +125,14 @@ TEST_F(XEnvTest, ParserWithPrefix) {
 
     // Test with prefix without underscore
     xenv::Parser parser("app");
-    EXPECT_EQ(parser.optional("test_string", std::string("default")), "prefixed");
-    EXPECT_EQ(parser.optional("test_int", 0), 123);
-    EXPECT_EQ(parser.optional("nonexistent", std::string("default")), "default");
+    EXPECT_EQ(parser.field("test_string", std::string("default")), "prefixed");
+    EXPECT_EQ(parser.field("test_int", 0), 123);
+    EXPECT_EQ(parser.field("nonexistent", std::string("default")), "default");
 
     // Test with prefix with underscore
     xenv::Parser parser2("app_");
-    EXPECT_EQ(parser2.optional("test_string", std::string("default")), "prefixed");
-    EXPECT_EQ(parser2.optional("test_int", 0), 123);
+    EXPECT_EQ(parser2.field("test_string", std::string("default")), "prefixed");
+    EXPECT_EQ(parser2.field("test_int", 0), 123);
 
     xenv::unset("APP_TEST_STRING");
     xenv::unset("APP_TEST_INT");
@@ -146,18 +146,9 @@ TEST_F(XEnvTest, ParserWithMixedCasePrefix) {
     xenv::Parser parser2("MY_APP");
     xenv::Parser parser3("My_App");
 
-    EXPECT_EQ(
-        parser1.optional("test_value", std::string("default")),
-        "mixed_case_prefix"
-    );
-    EXPECT_EQ(
-        parser2.optional("test_value", std::string("default")),
-        "mixed_case_prefix"
-    );
-    EXPECT_EQ(
-        parser3.optional("test_value", std::string("default")),
-        "mixed_case_prefix"
-    );
+    EXPECT_EQ(parser1.field("test_value", std::string("default")), "mixed_case_prefix");
+    EXPECT_EQ(parser2.field("test_value", std::string("default")), "mixed_case_prefix");
+    EXPECT_EQ(parser3.field("test_value", std::string("default")), "mixed_case_prefix");
 
     xenv::unset("MY_APP_TEST_VALUE");
 }
@@ -165,9 +156,9 @@ TEST_F(XEnvTest, ParserWithMixedCasePrefix) {
 TEST_F(XEnvTest, EmptyPrefix) {
     // Ensure empty prefix works the same as the global load function
     xenv::Parser parser("");
-    EXPECT_EQ(parser.optional("TEST_STRING", std::string("default")), "hello");
-    EXPECT_EQ(parser.optional("TEST_INT", 0), 42);
-    EXPECT_EQ(parser.optional("NONEXISTENT_VAR", std::string("default")), "default");
+    EXPECT_EQ(parser.field("TEST_STRING", std::string("default")), "hello");
+    EXPECT_EQ(parser.field("TEST_INT", 0), 42);
+    EXPECT_EQ(parser.field("NONEXISTENT_VAR", std::string("default")), "default");
 }
 
 TEST_F(XEnvTest, MultipleParserInstances) {
@@ -177,8 +168,8 @@ TEST_F(XEnvTest, MultipleParserInstances) {
     xenv::Parser parser1("app1");
     xenv::Parser parser2("app2");
 
-    EXPECT_EQ(parser1.optional("value", std::string("default")), "first");
-    EXPECT_EQ(parser2.optional("value", std::string("default")), "second");
+    EXPECT_EQ(parser1.field("value", std::string("default")), "first");
+    EXPECT_EQ(parser2.field("value", std::string("default")), "second");
 
     xenv::unset("APP1_VALUE");
     xenv::unset("APP2_VALUE");

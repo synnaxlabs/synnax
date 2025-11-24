@@ -34,6 +34,11 @@ export const NI_NAV: PageNavNode = {
       name: "Analog Write Task",
     },
     {
+      key: "/reference/driver/ni/counter-read-task",
+      href: "/reference/driver/ni/counter-read-task",
+      name: "Counter Read Task",
+    },
+    {
       key: "/reference/driver/ni/digital-read-task",
       href: "/reference/driver/ni/digital-read-task",
       name: "Digital Read Task",

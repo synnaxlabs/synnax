@@ -159,8 +159,6 @@ To open the writer, we use the `open_writer` method on the client and provide a 
 timestamp for the first sample and a list of channels we'd like to write to:
 
 ```python
-import time
-
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["timestamps", "my_precise_tc"],
@@ -170,7 +168,7 @@ with client.open_writer(
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
         })
-        time.sleep(0.1)
+        sy.sleep(0.1)
     writer.commit()
 ```
 
@@ -258,7 +256,7 @@ with client.open_writer(
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
         })
-        time.sleep(0.1)
+        sy.sleep(0.1)
 ```
 
 #### Opening a writer with different authorities on each channel
@@ -278,7 +276,7 @@ with client.open_writer(
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
         })
-        time.sleep(0.1)
+        sy.sleep(0.1)
 ```
 
 #### Adjusting write authorities after open
@@ -319,7 +317,7 @@ with client.open_writer(
             "timestamps": sy.TimeStamp.now(),
             "my_precise_tc": i,
         })
-        time.sleep(0.1)
+        sy.sleep(0.1)
 ```
 
 <Divider.Divider x />

@@ -11,7 +11,7 @@ import { type Instrumentation } from "@synnaxlabs/alamos";
 import {
   box,
   color,
-  type Destructor,
+  type destructor,
   dimensions,
   type runtime,
   scale,
@@ -232,8 +232,8 @@ export class Context {
     region: box.Box,
     overScan: xy.XY = xy.ZERO,
     canvases: CanvasVariant[],
-  ): Destructor {
-    const destructor: Destructor[] = [];
+  ): destructor.Destructor {
+    const destructor: destructor.Destructor[] = [];
     if (canvases.includes("upper2d"))
       destructor.push(this.upper2d.scissor(region, overScan));
     if (canvases.includes("lower2d"))
@@ -242,7 +242,7 @@ export class Context {
     return () => destructor.forEach((d) => d());
   }
 
-  private scissorGL(region: box.Box, overscan: xy.XY = xy.ZERO): Destructor {
+  private scissorGL(region: box.Box, overscan: xy.XY = xy.ZERO): destructor.Destructor {
     this.gl.enable(this.gl.SCISSOR_TEST);
     region = applyOverScan(region, overscan);
     this.gl.scissor(

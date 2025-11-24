@@ -349,17 +349,28 @@ inline void eventually_nil(
         (timeout)                                                                      \
     )
 
+/// @brief Helper function for ASSERT_NIL_P macro that works with MSVC
+/// @tparam Pair The pair type (automatically deduced)
+/// @param pair_result The pair to check
+/// @param file The source file name
+/// @param line The source line number
+/// @return The first element of the pair (the result value) if successful
+template<typename Pair>
+auto assert_nil_p(Pair &&pair_result, const char *file, const int line) ->
+    typename std::remove_reference<decltype(pair_result.first)>::type {
+    if (pair_result.second) {
+        ADD_FAILURE_AT(file, line)
+            << "Expected operation to succeed, but got error: " << pair_result.second;
+    }
+    return std::move(pair_result.first);
+}
+
 /// @brief macro for asserting that an operation returning a pair<T, xerrors::Error>
 /// succeeded and returning the result value
 /// @param pair_expr The expression returning the pair to evaluate
 /// @return The first element of the pair (the result value) if successful
 #define ASSERT_NIL_P(pair_expr)                                                        \
-    ({                                                                                 \
-        auto __result = (pair_expr);                                                   \
-        ASSERT_FALSE(__result.second)                                                  \
-            << "Expected operation to succeed, but got error: " << __result.second;    \
-        std::move(__result.first);                                                     \
-    })
+    xtest::assert_nil_p((pair_expr), __FILE__, __LINE__)
 
 /// @brief macro asserting that the provided xerrors::Error is NIL.
 #define ASSERT_NIL(expr) ASSERT_FALSE(expr) << expr;

@@ -1,0 +1,73 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "OPC UA | Get Started"
+heading: "OPC UA Device Driver"
+description: "Learn how to acquire data from and control OPC UA servers using Synnax."
+next: "Connect to a Server"
+nextURL: "/reference/driver/opc-ua/connect-server"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Text.Text level="p">
+  The <Icon.Logo.OPC /> [OPC UA](https://opcfoundation.org) (Open Platform
+  Communications Unified Architecture) protocol allows the Synnax Driver to connect to a
+  wide range of industrial devices, PLCs, and SCADA systems that support OPC UA
+  communication.
+</Text.Text>
+
+<Divider.Divider x />
+
+## Supported Protocol
+
+**The Synnax Driver supports OPC UA**, which is a platform-independent, service-oriented
+architecture for industrial automation. OPC UA is widely supported and is commonly used
+for:
+
+- Programmable logic controllers (PLCs)
+- SCADA systems and HMIs
+- Industrial sensors and actuators
+- Distributed control systems (DCS)
+- Manufacturing execution systems (MES)
+- Building automation systems
+- Process control systems
+
+<Note.Note variant="info" className="compact">
+  The Synnax OPC UA driver supports both secure and non-secure connections, including
+  anonymous, username/password, and certificate-based authentication.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Supported Operating Systems
+
+| Platform                            | Status      |
+| ----------------------------------- | ----------- |
+| <Icon.Logo.Windows /> Windows       | ✓ Supported |
+| <Icon.Logo.Linux /> Linux           | ✓ Supported |
+| <Icon.Logo.NI /> NI Linux Real-Time | ✓ Supported |
+| <Icon.Logo.Apple /> macOS           | ✓ Supported |
+| <Icon.Logo.Docker /> Docker         | ✓ Supported |
+
+<Note.Note variant="info" className="compact">
+  When running in a Docker container, ensure [the container has network
+  access](https://docs.docker.com/get-started/docker-concepts/running-containers/publishing-ports/)
+  to the OPC UA server(s).
+</Note.Note>
+
+<Divider.Divider x />
+
+## Common OPC UA Servers
+
+The Synnax OPC UA driver is compatible with all OPC UA servers, including:
+
+| Server                                                                                                                            | Description                                |
+| --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| [open62541](https://open62541.org/)                                                                                               | Open-source OPC UA stack                   |
+| [Beckhoff TwinCAT](https://infosys.beckhoff.com/english.php?content=../content/1033/tf6100_tc3_opcua_client/15427857035.html&id=) | PLC and automation platform                |
+| [FactoryTalk](https://www.rockwellautomation.com/en-us/docs/factorytalk-optix/1-00/contents-ditamap/getting-started.html)         | Allen-Bradley FactoryTalk with OPC UA      |
+| [Ignition](https://inductiveautomation.com/ignition/modules/ignition-opc-ua)                                                      | SCADA platform with built-in OPC UA server |
+| [Siemens S7](https://www.siemens.com/global/en/products/automation/industrial-communication/opc-ua.html)                          | PLCs with OPC UA support                   |
+| [Prosys OPC UA Simulation Server](https://prosysopc.com/products/opc-ua-simulation-server/)                                       | For testing and development                |

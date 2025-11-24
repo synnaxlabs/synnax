@@ -41,10 +41,10 @@ namespace xargs {
 ///     xargs::Parser parser(argc, argv);
 ///
 ///     // Required argument
-///     auto name = parser.required<std::string>("name");
+///     auto name = parser.field<std::string>("name");
 ///
 ///     // Optional argument with default
-///     auto count = parser.optional<int>("count", 10);
+///     auto count = parser.field<int>("count", 10);
 ///
 ///     // Flag
 ///     auto verbose = parser.flag("verbose", "v");
@@ -237,7 +237,7 @@ public:
     /// @return The parsed value of type T
     /// @throws Adds an error if the argument is missing or invalid
     template<typename T>
-    T required(const std::string &name) {
+    T field(const std::string &name) {
         return handle_required<T>(name, "Invalid value");
     }
 
@@ -248,7 +248,7 @@ public:
     /// provided
     /// @return The parsed value or the default value
     template<typename T>
-    T optional(const std::string &name, const T &default_value) {
+    T field(const std::string &name, const T &default_value) {
         const auto [value, found] = find_arg(name);
         if (!found) return default_value;
         return parse_value<T>(value, name, "Invalid value");
@@ -259,8 +259,8 @@ public:
     /// @param name The name of the optional argument
     /// @param default_value The default string value
     /// @return The parsed string or the default value
-    std::string optional(const std::string &name, const char *default_value) {
-        return optional<std::string>(name, default_value);
+    std::string field(const std::string &name, const char *default_value) {
+        return field<std::string>(name, default_value);
     }
 
     /// @brief Checks if a flag is present in the command line arguments

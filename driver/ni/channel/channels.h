@@ -21,7 +21,7 @@
 
 namespace channel {
 static int32_t parse_terminal_config(xjson::Parser &p) {
-    const auto s = p.required<std::string>("terminal_config");
+    const auto s = p.field<std::string>("terminal_config");
     if (s == "PseudoDiff") return DAQmx_Val_PseudoDiff;
     if (s == "Diff") return DAQmx_Val_Diff;
     if (s == "NRSE") return DAQmx_Val_NRSE;
@@ -30,7 +30,7 @@ static int32_t parse_terminal_config(xjson::Parser &p) {
 }
 
 static int32_t parse_bridge_config(xjson::Parser &p) {
-    const auto s = p.required<std::string>("bridge_config");
+    const auto s = p.field<std::string>("bridge_config");
     if (s == "FullBridge") return DAQmx_Val_FullBridge;
     if (s == "HalfBridge") return DAQmx_Val_HalfBridge;
     if (s == "QuarterBridge") return DAQmx_Val_QuarterBridge;
@@ -38,7 +38,7 @@ static int32_t parse_bridge_config(xjson::Parser &p) {
 }
 
 static int32_t parse_resistance_config(xjson::Parser &p) {
-    const auto s = p.required<std::string>("resistance_config");
+    const auto s = p.field<std::string>("resistance_config");
     if (s == "2Wire") return DAQmx_Val_2Wire;
     if (s == "3Wire") return DAQmx_Val_3Wire;
     if (s == "4Wire") return DAQmx_Val_4Wire;
@@ -127,11 +127,11 @@ struct ExcitationConfig {
     const bool32 use_excit_for_scaling; // optional
 
     explicit ExcitationConfig(xjson::Parser &cfg, const std::string &prefix):
-        source(get_excitation_src(cfg.required<std::string>(prefix + "_excit_source"))),
-        val(cfg.required<double>(prefix + "_excit_val")),
-        min_val_for_excitation(cfg.optional<double>("min_val_for_excitation", 0)),
-        max_val_for_excitation(cfg.optional<double>("max_val_for_excitation", 0)),
-        use_excit_for_scaling(cfg.optional<bool32>("use_excit_for_scaling", 0)) {}
+        source(get_excitation_src(cfg.field<std::string>(prefix + "_excit_source"))),
+        val(cfg.field<double>(prefix + "_excit_val")),
+        min_val_for_excitation(cfg.field<double>("min_val_for_excitation", 0)),
+        max_val_for_excitation(cfg.field<double>("max_val_for_excitation", 0)),
+        use_excit_for_scaling(cfg.field<bool32>("use_excit_for_scaling", 0)) {}
 };
 
 const std::string CURR_EXCIT_PREFIX = "current";
@@ -146,10 +146,10 @@ struct BridgeConfig {
     explicit BridgeConfig(xjson::Parser &cfg):
         ni_bridge_config(parse_bridge_config(cfg)),
         voltage_excit_source(
-            get_excitation_src(cfg.required<std::string>("voltage_excit_source"))
+            get_excitation_src(cfg.field<std::string>("voltage_excit_source"))
         ),
-        voltage_excit_val(cfg.required<double>("voltage_excit_val")),
-        nominal_bridge_resistance(cfg.required<double>("nominal_bridge_resistance")) {}
+        voltage_excit_val(cfg.field<double>("voltage_excit_val")),
+        nominal_bridge_resistance(cfg.field<double>("nominal_bridge_resistance")) {}
 };
 
 struct PolynomialConfig {
@@ -161,10 +161,10 @@ struct PolynomialConfig {
     int32_t physical_units;
 
     explicit PolynomialConfig(xjson::Parser &cfg):
-        num_forward_coeffs(cfg.required<uint32_t>("num_forward_coeffs")),
-        num_reverse_coeffs(cfg.required<uint32_t>("num_reverse_coeffs")) {
-        const auto eu = cfg.required<std::string>("electrical_units");
-        const auto pu = cfg.required<std::string>("physical_units");
+        num_forward_coeffs(cfg.field<uint32_t>("num_forward_coeffs")),
+        num_reverse_coeffs(cfg.field<uint32_t>("num_reverse_coeffs")) {
+        const auto eu = cfg.field<std::string>("electrical_units");
+        const auto pu = cfg.field<std::string>("physical_units");
 
         const auto ni_eu = channel::UNITS_MAP.find(eu);
         if (ni_eu == channel::UNITS_MAP.end())
@@ -179,7 +179,7 @@ struct PolynomialConfig {
             physical_units = channel::UNITS_MAP.at(pu);
         forward_coeffs = new double[num_forward_coeffs];
         reverse_coeffs = new double[num_reverse_coeffs];
-        const auto f = cfg.required_vec<double>("forward_coeffs");
+        const auto f = cfg.field<std::vector<double>>("forward_coeffs");
         for (uint32_t i = 0; i < num_forward_coeffs; i++)
             forward_coeffs[i] = f[i];
     }
@@ -201,21 +201,21 @@ struct TableConfig {
     TableConfig() = default;
 
     explicit TableConfig(xjson::Parser &cfg) {
-        const auto eu = cfg.required<std::string>("electrical_units");
-        const auto pu = cfg.required<std::string>("physical_units");
+        const auto eu = cfg.field<std::string>("electrical_units");
+        const auto pu = cfg.field<std::string>("physical_units");
 
         electrical_units = channel::UNITS_MAP.at(eu);
         physical_units = channel::UNITS_MAP.at(pu);
 
         // TODO: figure out why using vector and .data() throws exception when
         // passed to NI function
-        const auto ev = cfg.required_vec<double>("electrical_vals");
+        const auto ev = cfg.field<std::vector<double>>("electrical_vals");
         num_electrical_vals = ev.size();
         electrical_vals = new double[num_electrical_vals];
         for (uint32_t i = 0; i < num_electrical_vals; i++)
             electrical_vals[i] = ev[i];
 
-        const auto pv = cfg.required_vec<double>("physical_vals");
+        const auto pv = cfg.field<std::vector<double>>("physical_vals");
         num_physical_vals = pv.size();
         physical_vals = new double[num_physical_vals];
         for (uint32_t i = 0; i < num_physical_vals; i++)
@@ -239,13 +239,13 @@ struct TwoPointLinConfig {
     TwoPointLinConfig() = default;
 
     explicit TwoPointLinConfig(xjson::Parser &cfg):
-        first_electrical_val(cfg.required<double>("first_electrical_val")),
-        second_electrical_val(cfg.required<double>("second_electrical_val")),
-        electrical_units(UNITS_MAP.at(cfg.required<std::string>("electrical_units"))),
-        first_physical_val(cfg.required<double>("first_physical_val")),
-        second_physical_val(cfg.required<double>("second_physical_val")),
-        physical_units(UNITS_MAP.at(cfg.required<std::string>("physical_units"))) {
-        const auto eu = cfg.required<std::string>("electrical_units");
+        first_electrical_val(cfg.field<double>("first_electrical_val")),
+        second_electrical_val(cfg.field<double>("second_electrical_val")),
+        electrical_units(UNITS_MAP.at(cfg.field<std::string>("electrical_units"))),
+        first_physical_val(cfg.field<double>("first_physical_val")),
+        second_physical_val(cfg.field<double>("second_physical_val")),
+        physical_units(UNITS_MAP.at(cfg.field<std::string>("physical_units"))) {
+        const auto eu = cfg.field<std::string>("electrical_units");
     }
 };
 
@@ -282,8 +282,8 @@ struct Base {
     virtual ~Base() = default;
 
     explicit Base(xjson::Parser &cfg):
-        enabled(cfg.optional<bool>("enabled", true)),
-        dev_key(cfg.optional<std::string>("device", "")),
+        enabled(cfg.field<bool>("enabled", true)),
+        dev_key(cfg.field<std::string>("device", "")),
         cfg_path(format_cfg_path(cfg.path_prefix)) {}
 
     /// @brief applies the channel configuration to the DAQmx task.
@@ -303,7 +303,7 @@ struct Input : virtual Base {
     synnax::Channel ch;
 
     explicit Input(xjson::Parser &cfg):
-        Base(cfg), synnax_key(cfg.required<synnax::ChannelKey>("channel")) {}
+        Base(cfg), synnax_key(cfg.field<synnax::ChannelKey>("channel")) {}
 
     /// @brief binds remotely fetched information to the channel.
     void bind_remote_info(const synnax::Channel &ch, const std::string &dev_loc) {
@@ -326,8 +326,8 @@ struct Output : virtual Base {
 
     explicit Output(xjson::Parser &cfg):
         Base(cfg),
-        cmd_ch_key(cfg.required<synnax::ChannelKey>("cmd_channel")),
-        state_ch_key(cfg.required<synnax::ChannelKey>("state_channel")) {}
+        cmd_ch_key(cfg.field<synnax::ChannelKey>("cmd_channel")),
+        state_ch_key(cfg.field<synnax::ChannelKey>("state_channel")) {}
 
     /// @brief binds remotely fetched information to the channel.
     void bind_remote_info(const synnax::Channel &state_ch, const std::string &dev_loc) {
@@ -342,7 +342,7 @@ struct Digital : virtual Base {
     const int line;
 
     explicit Digital(xjson::Parser &cfg):
-        port(cfg.required<int>("port")), line(cfg.required<int>("line")) {}
+        port(cfg.field<int>("port")), line(cfg.field<int>("line")) {}
 
     [[nodiscard]] std::string loc() const {
         return this->dev_loc + "/port" + std::to_string(this->port) + "/line" +
@@ -392,9 +392,9 @@ struct Analog : virtual Base {
     int32_t units;
 
     explicit Analog(xjson::Parser &cfg):
-        port(cfg.required<int>("port")),
-        min_val(cfg.optional<double>("min_val", 0)),
-        max_val(cfg.optional<double>("max_val", 0)),
+        port(cfg.field<int>("port")),
+        min_val(cfg.field<double>("min_val", 0)),
+        max_val(cfg.field<double>("max_val", 0)),
         units(parse_units(cfg, "units")) {}
 };
 
@@ -460,9 +460,9 @@ struct Counter : virtual Base {
     int32_t units;
 
     explicit Counter(xjson::Parser &cfg):
-        port(cfg.required<int>("port")),
-        min_val(cfg.optional<double>("min_val", 0)),
-        max_val(cfg.optional<double>("max_val", 0)),
+        port(cfg.field<int>("port")),
+        min_val(cfg.field<double>("min_val", 0)),
+        max_val(cfg.field<double>("max_val", 0)),
         units(parse_units(cfg, "units")) {}
 
     [[nodiscard]] std::string loc() const {
@@ -608,9 +608,9 @@ struct AICurrent : AICustomScale {
         Analog(cfg),
         AICustomScale(cfg),
         shunt_resistor_loc(
-            get_shunt_resistor_loc(cfg.required<std::string>("shunt_resistor_loc"))
+            get_shunt_resistor_loc(cfg.field<std::string>("shunt_resistor_loc"))
         ),
-        ext_shunt_resistor_val(cfg.required<double>("ext_shunt_resistor_val")),
+        ext_shunt_resistor_val(cfg.field<double>("ext_shunt_resistor_val")),
         terminal_config(parse_terminal_config(cfg)) {}
 
     using Base::apply;
@@ -679,10 +679,10 @@ struct AIRTD final : AI {
         Base(cfg),
         Analog(cfg),
         AI(cfg),
-        rtd_type(get_rtd_type(cfg.required<std::string>("rtd_type"))),
+        rtd_type(get_rtd_type(cfg.field<std::string>("rtd_type"))),
         resistance_config(parse_resistance_config(cfg)),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
-        r0(cfg.required<double>("r0")) {}
+        r0(cfg.field<double>("r0")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -711,7 +711,7 @@ struct AIThermocouple final : AI {
     std::string cjc_port;
 
     [[nodiscard]] int32_t static parse_type(xjson::Parser &cfg) {
-        const auto type = cfg.required<std::string>("thermocouple_type");
+        const auto type = cfg.field<std::string>("thermocouple_type");
         if (type == "J") return DAQmx_Val_J_Type_TC;
         if (type == "K") return DAQmx_Val_K_Type_TC;
         if (type == "N") return DAQmx_Val_N_Type_TC;
@@ -725,7 +725,7 @@ struct AIThermocouple final : AI {
     }
 
     [[nodiscard]] int32_t static parse_cjc_source(xjson::Parser &cfg) {
-        const auto source = cfg.required<std::string>("cjc_source");
+        const auto source = cfg.field<std::string>("cjc_source");
         if (source == "BuiltIn") return DAQmx_Val_BuiltIn;
         if (source == "ConstVal") return DAQmx_Val_ConstVal;
         if (source == "Chan") return DAQmx_Val_Chan;
@@ -739,13 +739,11 @@ struct AIThermocouple final : AI {
         AI(cfg),
         thermocouple_type(parse_type(cfg)),
         cjc_source(parse_cjc_source(cfg)),
-        cjc_val(cfg.optional<double>("cjc_val", 0)),
-        cjc_port(
-            format_cjc_port(this->cfg_path, cfg.optional<int32_t>("cjc_port", 0))
-        ) {
+        cjc_val(cfg.field<double>("cjc_val", 0)),
+        cjc_port(format_cjc_port(this->cfg_path, cfg.field<int32_t>("cjc_port", 0))) {
         this->cjc_port = format_cjc_port(
             this->cfg_path,
-            cfg.optional<int32_t>("cjc_port", 0)
+            cfg.field<int32_t>("cjc_port", 0)
         );
     }
 
@@ -798,9 +796,9 @@ struct AIThermistorIEX final : AI {
         AI(cfg),
         resistance_config(parse_resistance_config(cfg)),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
-        a(cfg.required<double>("a")),
-        b(cfg.required<double>("b")),
-        c(cfg.required<double>("c")) {}
+        a(cfg.field<double>("a")),
+        b(cfg.field<double>("b")),
+        c(cfg.field<double>("c")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -837,10 +835,10 @@ struct AIThermistorVex final : AI {
         AI(cfg),
         resistance_config(parse_resistance_config(cfg)),
         excitation_config(cfg, VOLT_EXCIT_PREFIX),
-        a(cfg.required<double>("a")),
-        b(cfg.required<double>("b")),
-        c(cfg.required<double>("c")),
-        r1(cfg.required<double>("r1")) {}
+        a(cfg.field<double>("a")),
+        b(cfg.field<double>("b")),
+        c(cfg.field<double>("c")),
+        r1(cfg.field<double>("r1")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -874,9 +872,9 @@ struct AIAccel : AICustomScale {
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
-        sensitivity(cfg.required<double>("sensitivity")),
+        sensitivity(cfg.field<double>("sensitivity")),
         sensitivity_units(
-            UNITS_MAP.at(cfg.optional<std::string>("sensitivity_units", "mVoltsPerG"))
+            UNITS_MAP.at(cfg.field<std::string>("sensitivity_units", "mVoltsPerG"))
         ),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
         terminal_config(parse_terminal_config(cfg)) {}
@@ -941,8 +939,8 @@ struct AIAccelCharge final : AICustomScale {
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
-        sensitivity(cfg.required<double>("sensitivity")),
-        sensitivity_units(UNITS_MAP.at(cfg.required<std::string>("sensitivity_units"))),
+        sensitivity(cfg.field<double>("sensitivity")),
+        sensitivity_units(UNITS_MAP.at(cfg.field<std::string>("sensitivity_units"))),
         terminal_config(parse_terminal_config(cfg)) {}
 
     using Base::apply;
@@ -1042,13 +1040,13 @@ struct AIStrainGauge final : AICustomScale {
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
-        strain_config(get_strain_config(cfg.required<std::string>("strain_config"))),
+        strain_config(get_strain_config(cfg.field<std::string>("strain_config"))),
         excitation_config(cfg, VOLT_EXCIT_PREFIX),
-        gage_factor(cfg.required<double>("gage_factor")),
-        initial_bridge_voltage(cfg.required<double>("initial_bridge_voltage")),
-        nominal_gage_resistance(cfg.required<double>("nominal_gage_resistance")),
-        poisson_ratio(cfg.required<double>("poisson_ratio")),
-        lead_wire_resistance(cfg.required<double>("lead_wire_resistance")) {}
+        gage_factor(cfg.field<double>("gage_factor")),
+        initial_bridge_voltage(cfg.field<double>("initial_bridge_voltage")),
+        nominal_gage_resistance(cfg.field<double>("nominal_gage_resistance")),
+        poisson_ratio(cfg.field<double>("poisson_ratio")),
+        lead_wire_resistance(cfg.field<double>("lead_wire_resistance")) {}
 
     using Base::apply;
 
@@ -1092,17 +1090,17 @@ struct AIRosetteStrainGauge final : AI {
         Base(cfg),
         Analog(cfg),
         AI(cfg),
-        rosette_type(get_rosette_type(cfg.required<std::string>("rosette_type"))),
-        gage_orientation(cfg.required<double>("gage_orientation")),
+        rosette_type(get_rosette_type(cfg.field<std::string>("rosette_type"))),
+        gage_orientation(cfg.field<double>("gage_orientation")),
         rosette_meas_type(
-            get_rosette_meas_type(cfg.required<std::string>("rosette_meas_type"))
+            get_rosette_meas_type(cfg.field<std::string>("rosette_meas_type"))
         ),
-        strain_config(get_strain_config(cfg.required<std::string>("strain_config"))),
+        strain_config(get_strain_config(cfg.field<std::string>("strain_config"))),
         excitation_config(cfg, VOLT_EXCIT_PREFIX),
-        gage_factor(cfg.required<double>("gage_factor")),
-        nominal_gage_resistance(cfg.required<double>("nominal_gage_resistance")),
-        poisson_ratio(cfg.required<double>("poisson_ratio")),
-        lead_wire_resistance(cfg.required<double>("lead_wire_resistance")) {}
+        gage_factor(cfg.field<double>("gage_factor")),
+        nominal_gage_resistance(cfg.field<double>("nominal_gage_resistance")),
+        poisson_ratio(cfg.field<double>("poisson_ratio")),
+        lead_wire_resistance(cfg.field<double>("lead_wire_resistance")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1139,8 +1137,8 @@ struct AIMicrophone final : AICustomScale {
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
-        mic_sensitivity(cfg.required<double>("mic_sensitivity")),
-        max_snd_press_level(cfg.required<double>("max_snd_press_level")),
+        mic_sensitivity(cfg.field<double>("mic_sensitivity")),
+        max_snd_press_level(cfg.field<double>("max_snd_press_level")),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
         terminal_config(parse_terminal_config(cfg)) {}
 
@@ -1174,8 +1172,8 @@ struct AIFrequencyVoltage final : AICustomScale {
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
-        threshold_level(cfg.required<double>("threshold_level")),
-        hysteresis(cfg.required<double>("hysteresis")) {}
+        threshold_level(cfg.field<double>("threshold_level")),
+        hysteresis(cfg.field<double>("hysteresis")) {}
 
     using Base::apply;
 
@@ -1213,11 +1211,11 @@ struct CIFrequency final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        edge(get_ci_edge(cfg.required<std::string>("edge"))),
-        meas_method(get_ci_meas_method(cfg.required<std::string>("meas_method"))),
-        meas_time(cfg.optional<double>("meas_time", 0.001)),
-        divisor(cfg.optional<uint32_t>("divisor", 4)),
-        terminal(cfg.optional<std::string>("terminal", "")) {}
+        edge(get_ci_edge(cfg.field<std::string>("edge"))),
+        meas_method(get_ci_meas_method(cfg.field<std::string>("meas_method"))),
+        meas_time(cfg.field<double>("meas_time", 0.001)),
+        divisor(cfg.field<uint32_t>("divisor", 4)),
+        terminal(cfg.field<std::string>("terminal", "")) {}
 
     using Base::apply;
 
@@ -1268,12 +1266,12 @@ struct CIEdgeCount final : CI {
         Base(cfg),
         Counter(cfg),
         CI(cfg),
-        edge(get_ci_edge(cfg.required<std::string>("active_edge"))),
+        edge(get_ci_edge(cfg.field<std::string>("active_edge"))),
         count_direction(
-            get_ci_count_direction(cfg.required<std::string>("count_direction"))
+            get_ci_count_direction(cfg.field<std::string>("count_direction"))
         ),
-        initial_count(cfg.optional<uint32_t>("initial_count", 0)),
-        terminal(cfg.optional<std::string>("terminal", "")) {}
+        initial_count(cfg.field<uint32_t>("initial_count", 0)),
+        terminal(cfg.field<std::string>("terminal", "")) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1317,11 +1315,11 @@ struct CIPeriod final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        edge(get_ci_edge(cfg.required<std::string>("starting_edge"))),
-        meas_method(get_ci_meas_method(cfg.required<std::string>("meas_method"))),
-        meas_time(cfg.optional<double>("meas_time", 0.001)),
-        divisor(cfg.optional<uint32_t>("divisor", 4)),
-        terminal(cfg.optional<std::string>("terminal", "")) {}
+        edge(get_ci_edge(cfg.field<std::string>("starting_edge"))),
+        meas_method(get_ci_meas_method(cfg.field<std::string>("meas_method"))),
+        meas_time(cfg.field<double>("meas_time", 0.001)),
+        divisor(cfg.field<uint32_t>("divisor", 4)),
+        terminal(cfg.field<std::string>("terminal", "")) {}
 
     using Base::apply;
 
@@ -1369,8 +1367,8 @@ struct CIPulseWidth final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        edge(get_ci_edge(cfg.required<std::string>("starting_edge"))),
-        terminal(cfg.optional<std::string>("terminal", "")) {}
+        edge(get_ci_edge(cfg.field<std::string>("starting_edge"))),
+        terminal(cfg.field<std::string>("terminal", "")) {}
 
     using Base::apply;
 
@@ -1414,7 +1412,7 @@ struct CISemiPeriod final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        terminal(cfg.optional<std::string>("terminal", "")) {}
+        terminal(cfg.field<std::string>("terminal", "")) {}
 
     using Base::apply;
 
@@ -1461,10 +1459,10 @@ struct CITwoEdgeSep final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        first_edge(get_ci_edge(cfg.required<std::string>("first_edge"))),
-        second_edge(get_ci_edge(cfg.required<std::string>("second_edge"))),
-        first_terminal(cfg.optional<std::string>("first_terminal", "")),
-        second_terminal(cfg.optional<std::string>("second_terminal", "")) {}
+        first_edge(get_ci_edge(cfg.field<std::string>("first_edge"))),
+        second_edge(get_ci_edge(cfg.field<std::string>("second_edge"))),
+        first_terminal(cfg.field<std::string>("first_terminal", "")),
+        second_terminal(cfg.field<std::string>("second_terminal", "")) {}
 
     using Base::apply;
 
@@ -1524,10 +1522,10 @@ struct CILinearVelocity final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
-        dist_per_pulse(cfg.required<double>("dist_per_pulse")),
-        terminal_a(cfg.optional<std::string>("terminalA", "")),
-        terminal_b(cfg.optional<std::string>("terminalB", "")) {}
+        decoding_type(get_ci_decoding_type(cfg.field<std::string>("decoding_type"))),
+        dist_per_pulse(cfg.field<double>("dist_per_pulse")),
+        terminal_a(cfg.field<std::string>("terminalA", "")),
+        terminal_b(cfg.field<std::string>("terminalB", "")) {}
 
     using Base::apply;
 
@@ -1587,10 +1585,10 @@ struct CIAngularVelocity final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
-        pulses_per_rev(cfg.required<uint32_t>("pulses_per_rev")),
-        terminal_a(cfg.optional<std::string>("terminalA", "")),
-        terminal_b(cfg.optional<std::string>("terminalB", "")) {}
+        decoding_type(get_ci_decoding_type(cfg.field<std::string>("decoding_type"))),
+        pulses_per_rev(cfg.field<uint32_t>("pulses_per_rev")),
+        terminal_a(cfg.field<std::string>("terminalA", "")),
+        terminal_b(cfg.field<std::string>("terminalB", "")) {}
 
     using Base::apply;
 
@@ -1655,17 +1653,17 @@ struct CILinearPosition final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
-        dist_per_pulse(cfg.required<double>("dist_per_pulse")),
-        initial_pos(cfg.optional<double>("initial_pos", 0.0)),
-        z_index_enable(cfg.optional<bool>("z_index_enable", false)),
-        z_index_val(cfg.optional<double>("z_index_val", 0.0)),
-        z_index_phase(get_ci_z_index_phase(
-            cfg.optional<std::string>("z_index_phase", "AHighBHigh")
-        )),
-        terminal_a(cfg.optional<std::string>("terminalA", "")),
-        terminal_b(cfg.optional<std::string>("terminalB", "")),
-        terminal_z(cfg.optional<std::string>("terminalZ", "")) {}
+        decoding_type(get_ci_decoding_type(cfg.field<std::string>("decoding_type"))),
+        dist_per_pulse(cfg.field<double>("dist_per_pulse")),
+        initial_pos(cfg.field<double>("initial_pos", 0.0)),
+        z_index_enable(cfg.field<bool>("z_index_enable", false)),
+        z_index_val(cfg.field<double>("z_index_val", 0.0)),
+        z_index_phase(
+            get_ci_z_index_phase(cfg.field<std::string>("z_index_phase", "AHighBHigh"))
+        ),
+        terminal_a(cfg.field<std::string>("terminalA", "")),
+        terminal_b(cfg.field<std::string>("terminalB", "")),
+        terminal_z(cfg.field<std::string>("terminalZ", "")) {}
 
     using Base::apply;
 
@@ -1743,17 +1741,17 @@ struct CIAngularPosition final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        decoding_type(get_ci_decoding_type(cfg.required<std::string>("decoding_type"))),
-        pulses_per_rev(cfg.required<uint32_t>("pulses_per_rev")),
-        initial_angle(cfg.optional<double>("initial_angle", 0.0)),
-        z_index_enable(cfg.optional<bool>("z_index_enable", false)),
-        z_index_val(cfg.optional<double>("z_index_val", 0.0)),
-        z_index_phase(get_ci_z_index_phase(
-            cfg.optional<std::string>("z_index_phase", "AHighBHigh")
-        )),
-        terminal_a(cfg.optional<std::string>("terminalA", "")),
-        terminal_b(cfg.optional<std::string>("terminalB", "")),
-        terminal_z(cfg.optional<std::string>("terminalZ", "")) {}
+        decoding_type(get_ci_decoding_type(cfg.field<std::string>("decoding_type"))),
+        pulses_per_rev(cfg.field<uint32_t>("pulses_per_rev")),
+        initial_angle(cfg.field<double>("initial_angle", 0.0)),
+        z_index_enable(cfg.field<bool>("z_index_enable", false)),
+        z_index_val(cfg.field<double>("z_index_val", 0.0)),
+        z_index_phase(
+            get_ci_z_index_phase(cfg.field<std::string>("z_index_phase", "AHighBHigh"))
+        ),
+        terminal_a(cfg.field<std::string>("terminalA", "")),
+        terminal_b(cfg.field<std::string>("terminalB", "")),
+        terminal_z(cfg.field<std::string>("terminalZ", "")) {}
 
     using Base::apply;
 
@@ -1823,8 +1821,8 @@ struct CIDutyCycle final : CICustomScale {
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
-        edge(get_ci_edge(cfg.required<std::string>("activeEdge"))),
-        terminal(cfg.optional<std::string>("terminal", "")) {}
+        edge(get_ci_edge(cfg.field<std::string>("activeEdge"))),
+        terminal(cfg.field<std::string>("terminal", "")) {}
 
     using Base::apply;
 
@@ -2109,7 +2107,7 @@ struct AIVelocityIEPE final : AICustomScale {
         Analog(cfg),
         AICustomScale(cfg),
         sensitivity_units(parse_units(cfg, "sensitivity_units")),
-        sensitivity(cfg.required<double>("sensitivity")),
+        sensitivity(cfg.field<double>("sensitivity")),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
         terminal_config(parse_terminal_config(cfg)) {}
 
@@ -2268,7 +2266,7 @@ struct AIForceIEPE final : AICustomScale {
         Analog(cfg),
         AICustomScale(cfg),
         sensitivity_units(parse_units(cfg, "sensitivity_units")),
-        sensitivity(cfg.required<double>("sensitivity")),
+        sensitivity(cfg.field<double>("sensitivity")),
         excitation_config(cfg, CURR_EXCIT_PREFIX),
         terminal_config(parse_terminal_config(cfg)) {}
 
@@ -2390,10 +2388,10 @@ struct AOFunctionGenerator final : AO {
         Base(cfg),
         Analog(cfg),
         AO(cfg),
-        frequency(cfg.required<double>("frequency")),
-        amplitude(cfg.required<double>("amplitude")),
-        offset(cfg.required<double>("offset")),
-        wave_type(get_type(cfg.required<std::string>("wave_type"), cfg)) {}
+        frequency(cfg.field<double>("frequency")),
+        amplitude(cfg.field<double>("amplitude")),
+        offset(cfg.field<double>("offset")),
+        wave_type(get_type(cfg.field<std::string>("wave_type"), cfg)) {}
 
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -2464,7 +2462,7 @@ static const std::map<std::string, Factory<Input>> INPUTS = {
 };
 
 inline std::unique_ptr<Input> parse_input(xjson::Parser &cfg) {
-    const auto type = cfg.required<std::string>("type");
+    const auto type = cfg.field<std::string>("type");
     const auto input = INPUTS.find(type);
     if (input != INPUTS.end()) return input->second(cfg);
     cfg.field_err("type", "unknown channel type: " + type);
@@ -2472,7 +2470,7 @@ inline std::unique_ptr<Input> parse_input(xjson::Parser &cfg) {
 }
 
 inline std::unique_ptr<Output> parse_output(xjson::Parser &cfg) {
-    const auto type = cfg.required<std::string>("type");
+    const auto type = cfg.field<std::string>("type");
     const auto output = OUTPUTS.find(type);
     if (output != OUTPUTS.end()) return output->second(cfg);
     return nullptr;

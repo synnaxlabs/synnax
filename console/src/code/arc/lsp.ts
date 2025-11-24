@@ -9,7 +9,7 @@
 
 import { type arc, type Synnax } from "@synnaxlabs/client";
 import { type Stream } from "@synnaxlabs/freighter";
-import { type AsyncDestructor } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import { MonacoLanguageClient } from "monaco-languageclient";
 import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
 import { CloseAction, ErrorAction } from "vscode-languageclient/browser";
@@ -140,7 +140,7 @@ export const setSynnaxClient = (client: Synnax) => {
   synnaxClient = client;
 };
 
-const startArcLSP = async (): Promise<AsyncDestructor> => {
+const startArcLSP = async (): Promise<destructor.Async> => {
   if (synnaxClient == null) {
     console.warn("Synnax client not set, Arc LSP will not start");
     return async () => {};
@@ -178,7 +178,7 @@ const startArcLSP = async (): Promise<AsyncDestructor> => {
   }
 };
 
-const registerArcLanguage = async (): Promise<AsyncDestructor> => {
+const registerArcLanguage = async (): Promise<destructor.Async> => {
   const monaco = await import("monaco-editor");
 
   // Register the language ID but skip Monarch tokenization

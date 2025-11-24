@@ -16,9 +16,9 @@ import { render } from "@/vis/render";
 
 export const tableStateZ = z.object({
   region: box.box,
-  clearOverScan: xy.crudeZ.optional().default(0),
-  visible: z.boolean().optional().default(true),
-  autoRenderInterval: z.number().optional().default(1000),
+  clearOverScan: xy.crudeZ.default(0),
+  visible: z.boolean().default(true),
+  autoRenderInterval: z.number().default(1000),
 });
 
 interface CellProps {
