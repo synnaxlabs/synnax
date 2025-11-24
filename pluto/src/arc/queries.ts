@@ -191,6 +191,42 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   },
 });
 
+export interface RetrieveMultipleParams {
+  keys: arc.Key[];
+}
+
+export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
+  RetrieveMultipleParams,
+  arc.Arc[],
+  FluxSubStore
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query: { keys }, store }) => {
+    const cached = store.arcs.get(keys);
+    const missing = keys.filter((k) => !store.arcs.has(k));
+    if (missing.length === 0) return cached;
+    const retrieved = await client.arcs.retrieve({ keys: missing });
+    store.arcs.set(retrieved);
+    return [...cached, ...retrieved];
+  },
+  mountListeners: ({ store, onChange, query: { keys } }) => {
+    const keysSet = new Set(keys);
+    return [
+      store.arcs.onSet(async (arc) => {
+        if (!keysSet.has(arc.key)) return;
+        onChange((prev) => {
+          if (prev == null) return [arc];
+          return [...prev.filter((a) => a.key !== arc.key), arc];
+        });
+      }),
+      store.arcs.onDelete(async (key) => {
+        keysSet.delete(key);
+        onChange(state.skipNull((prev) => prev.filter((a) => a.key !== key)));
+      }),
+    ];
+  },
+});
+
 export const { useUpdate: useToggleDeploy } = Flux.createUpdate<arc.Key, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.UPDATE_VERBS,

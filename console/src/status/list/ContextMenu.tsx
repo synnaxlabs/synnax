@@ -93,6 +93,8 @@ export const ContextMenu = ({ keys }: ContextMenuProps) => {
       {(anyFavorited || anyNotFavorited) && <PMenu.Divider />}
       {!isEmpty && <Menu.DeleteItem />}
       {isSingle && <Menu.RenameItem />}
+      {(!isEmpty || isSingle) && <PMenu.Divider />}
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 };

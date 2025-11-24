@@ -23,14 +23,14 @@ import {
   stopPropagation,
   Text,
 } from "@synnaxlabs/pluto";
-import { array } from "@synnaxlabs/x";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Editor } from "@/arc/editor";
-import { remove } from "@/arc/slice";
+import { EXPLORER_LAYOUT } from "@/arc/Explorer";
+import { contextMenuRenderProp } from "@/arc/list/ContextMenu";
 import { translateGraphToConsole } from "@/arc/types/translate";
-import { EmptyAction, Menu, Toolbar } from "@/components";
+import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -58,33 +58,6 @@ const Content = () => {
 
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
-
-  const { update: handleDelete } = Arc.useDelete({
-    beforeUpdate: useCallback(
-      async ({
-        data: keys,
-        rollbacks,
-      }: Flux.BeforeUpdateParams<arc.Key | arc.Key[]>) => {
-        setSelected([]);
-        const keyArray = array.toArray(keys);
-        if (keyArray.length === 0) return false;
-        const confirmed = await confirm({
-          message: `Are you sure you want to delete ${keyArray.length} automation(s)?`,
-          description: "This action cannot be undone.",
-          cancel: { label: "Cancel" },
-          confirm: { label: "Delete", variant: "error" },
-        });
-        dispatch(Layout.remove({ keys: keyArray }));
-        rollbacks.push(() => dispatch(Layout.remove({ keys: keyArray })));
-        dispatch(remove({ keys: keyArray }));
-        rollbacks.push(() => dispatch(remove({ keys: keyArray })));
-        if (!confirmed) return false;
-        return keys;
-      },
-      [confirm],
-    ),
-    afterFailure: ({ status }) => addStatus(status),
-  });
 
   const handleEdit = useCallback(
     (key: arc.Key) => {
@@ -117,6 +90,7 @@ const Content = () => {
   const { update: handleRename } = Arc.useRename({
     beforeUpdate: useCallback(
       async ({ data, rollbacks }: Flux.BeforeUpdateParams<Arc.RenameParams>) => {
+        console.log("handleRename", data);
         const { key, name } = data;
         const arc = getItem(key);
         if (arc == null) throw new UnexpectedError(`Arc with key ${key} not found`);
@@ -138,27 +112,21 @@ const Content = () => {
     ),
   });
 
-  const contextMenu = useCallback<NonNullable<PMenu.ContextMenuProps["menu"]>>(
-    ({ keys }) => (
-      <ContextMenu
-        keys={keys}
-        arcs={getItem(keys)}
-        onDelete={handleDelete}
-        onEdit={handleEdit}
-        onToggleDeploy={(key) => handleToggleDeploy(key)}
-      />
-    ),
-    [handleDelete, handleEdit, handleToggleDeploy, handleRename, getItem],
-  );
-
   return (
-    <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
+    <PMenu.ContextMenu menu={contextMenuRenderProp} {...menuProps}>
       <Toolbar.Content className={CSS(CSS.B("arc-toolbar"), menuProps.className)}>
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Arc />}>Arcs</Toolbar.Title>
           <Toolbar.Actions>
-            <Toolbar.Action onClick={handleCreate}>
+            <Toolbar.Action onClick={handleCreate} tooltip="Create Arc">
               <Icon.Add />
+            </Toolbar.Action>
+            <Toolbar.Action
+              onClick={() => placeLayout(EXPLORER_LAYOUT)}
+              tooltip="Open Arc Explorer"
+              variant="filled"
+            >
+              <Icon.Explore />
             </Toolbar.Action>
           </Toolbar.Actions>
         </Toolbar.Header>
@@ -249,82 +217,5 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
         {isRunning ? <Icon.Pause /> : <Icon.Play />}
       </Button.Button>
     </Select.ListItem>
-  );
-};
-
-interface ContextMenuProps {
-  keys: arc.Key[];
-  arcs: arc.Arc[];
-  onDelete: (keys: arc.Key | arc.Key[]) => void;
-  onEdit: (key: arc.Key) => void;
-  onToggleDeploy: (key: arc.Key) => void;
-}
-
-const ContextMenu = ({
-  keys,
-  arcs,
-  onDelete,
-  onEdit,
-  onToggleDeploy,
-}: ContextMenuProps) => {
-  const canDeploy = arcs.some((arc) => arc.deploy === false);
-  const canStop = arcs.some((arc) => arc.deploy === true);
-  const someSelected = arcs.length > 0;
-  const isSingle = arcs.length === 1;
-
-  const handleChange = useMemo<PMenu.MenuProps["onChange"]>(
-    () => ({
-      start: () =>
-        arcs.forEach((arc) => {
-          if (!arc.deploy) onToggleDeploy(arc.key);
-        }),
-      stop: () =>
-        arcs.forEach((arc) => {
-          if (arc.deploy) onToggleDeploy(arc.key);
-        }),
-      edit: () => isSingle && onEdit(arcs[0].key),
-      rename: () => isSingle && Text.edit(`text-${arcs[0].key}`),
-      delete: () => onDelete(keys),
-    }),
-    [arcs, onToggleDeploy, onEdit, onDelete, isSingle, keys],
-  );
-
-  return (
-    <PMenu.Menu level="small" gap="small" onChange={handleChange}>
-      {canDeploy && (
-        <PMenu.Item itemKey="start">
-          <Icon.Play />
-          Start
-        </PMenu.Item>
-      )}
-      {canStop && (
-        <PMenu.Item itemKey="stop">
-          <Icon.Pause />
-          Stop
-        </PMenu.Item>
-      )}
-      {(canDeploy || canStop) && <PMenu.Divider />}
-      {isSingle && (
-        <>
-          <PMenu.Item itemKey="edit">
-            <Icon.Edit />
-            Edit automation
-          </PMenu.Item>
-          <PMenu.Divider />
-          <Menu.RenameItem />
-          <PMenu.Divider />
-        </>
-      )}
-      {someSelected && (
-        <>
-          <PMenu.Item itemKey="delete">
-            <Icon.Delete />
-            Delete
-          </PMenu.Item>
-          <PMenu.Divider />
-        </>
-      )}
-      <Menu.ReloadConsoleItem />
-    </PMenu.Menu>
   );
 };

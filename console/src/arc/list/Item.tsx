@@ -10,12 +10,15 @@
 import { type arc } from "@synnaxlabs/client";
 import {
   Arc,
+  Button,
   Flex,
   Form,
+  Icon,
   Input,
   List,
   Menu,
   Select,
+  Status,
   stopPropagation,
   Text,
 } from "@synnaxlabs/pluto";
@@ -23,14 +26,13 @@ import { useMemo } from "react";
 
 import { ContextMenu } from "@/arc/list/ContextMenu";
 
-export interface ItemProps extends List.ItemProps<arc.Key> {
-  showStatus?: boolean;
-}
+export interface ItemProps extends List.ItemProps<arc.Key> {}
 
-export const Item = ({ showStatus: _, ...props }: ItemProps) => {
+export const Item = (props: ItemProps) => {
   const { itemKey } = props;
   const { getItem } = List.useUtilContext<arc.Key, arc.Arc>();
   if (getItem == null) throw new Error("getItem is null");
+  const { update: handleToggleDeploy } = Arc.useToggleDeploy();
   const arc = List.useItem<arc.Key, arc.Arc>(itemKey);
   const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
   const initialValues = useMemo(() => {
@@ -70,7 +72,7 @@ export const Item = ({ showStatus: _, ...props }: ItemProps) => {
     >
       <Form.Form<typeof Arc.formSchema> {...form}>
         <Menu.ContextMenu
-          menu={(p) => <ContextMenu {...p} getItem={getItem} />}
+          menu={(p) => <ContextMenu {...p} />}
           onClick={stopPropagation}
           {...menuProps}
         />
@@ -80,8 +82,16 @@ export const Item = ({ showStatus: _, ...props }: ItemProps) => {
             onChange={onSelect}
             onClick={stopPropagation}
           />
+          <Status.Indicator variant={arc.status?.variant} />
           <Text.Text level="p">{name}</Text.Text>
         </Flex.Box>
+        <Button.Button
+          variant="outlined"
+          onClick={() => handleToggleDeploy(arc.key)}
+          tooltip={`${arc.deploy ? "Stop" : "Start"} ${name}`}
+        >
+          {arc.deploy ? <Icon.Pause /> : <Icon.Play />}
+        </Button.Button>
       </Form.Form>
     </List.Item>
   );
