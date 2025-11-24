@@ -59,7 +59,7 @@ export default class Synnax extends framer.Client {
   readonly params: ParsedSynnaxParams;
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
-  readonly auth: auth.Client | undefined;
+  readonly auth: auth.Client;
   readonly users: user.Client;
   readonly access: access.Client;
   readonly roles: access.role.Client;
@@ -111,19 +111,15 @@ export default class Synnax extends framer.Client {
       secure,
     );
     transport.use(errorsMiddleware);
-    let auth_: auth.Client | undefined;
-    if (username != null && password != null) {
-      auth_ = new auth.Client(transport.unary, { username, password });
-      transport.use(auth_.middleware());
-    }
     const chRetriever = new channel.CacheRetriever(
       new channel.ClusterRetriever(transport.unary),
     );
-    const chCreator = new channel.Writer(transport.unary, chRetriever);
     super(transport.stream, transport.unary, chRetriever);
+    this.auth = new auth.Client(transport.unary, { username, password });
+    transport.use(this.auth.middleware());
+    const chCreator = new channel.Writer(transport.unary, chRetriever);
     this.createdAt = TimeStamp.now();
     this.params = parsedParams;
-    this.auth = auth_;
     this.transport = transport;
     this.channels = new channel.Client(this, chRetriever, transport.unary, chCreator);
     this.connectivity = new connection.Checker(

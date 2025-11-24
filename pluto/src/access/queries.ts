@@ -15,8 +15,7 @@ import {
   user,
 } from "@synnaxlabs/client";
 
-import { Policy } from "@/access/policy";
-import { type policy } from "@/access/policy/aether";
+import { policy } from "@/access/policy/aether";
 import { type role } from "@/access/role/aether";
 import { Flux } from "@/flux";
 
@@ -75,7 +74,7 @@ export const isGranted = ({
 }: IsGrantedParams): boolean => {
   if (client == null) return false;
   const sub = resolveSubject(client, subject);
-  const policies = Policy.cachedRetrieveForSubject(store, sub);
+  const policies = policy.cachedRetrieveForSubject(store, sub);
   return access.allowRequest({ subject: sub, objects, actions }, policies);
 };
 
@@ -94,11 +93,7 @@ const { useRetrieve: useGrantedBase } = Flux.createRetrieve<
   }: Flux.RetrieveParams<PermissionsQuery, FluxSubStore>): Promise<boolean> => {
     subject = await resolveSubjectAsync(client, subject);
     if (subject == null) return false;
-    const policies = await Policy.retrieveForSubject({
-      client,
-      query: { subject },
-      store,
-    });
+    const policies = await policy.retrieveForSubject({ client, subject, store });
     return access.allowRequest({ subject, objects, actions }, policies);
   },
 });
@@ -121,6 +116,6 @@ export const { useRetrieve: useLoadPermissions } = Flux.createRetrieve<
   retrieve: async ({ client, query, store }) => {
     const subject = await resolveSubjectAsync(client, query.subject);
     if (subject == null) return [];
-    return await Policy.retrieveForSubject({ client, query: { subject }, store });
+    return await policy.retrieveForSubject({ client, subject, store });
   },
 });

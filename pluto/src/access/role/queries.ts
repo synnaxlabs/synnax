@@ -10,7 +10,12 @@
 import { access, ontology } from "@synnaxlabs/client";
 import { array, uuid } from "@synnaxlabs/x";
 
-import { Access } from "@/access";
+import {
+  isGranted,
+  type IsGrantedExtensionParams,
+  type PermissionsQuery,
+  useGranted,
+} from "@/access/queries";
 import { type role } from "@/access/role/aether";
 import { Flux } from "@/flux";
 import { type List } from "@/list";
@@ -170,24 +175,24 @@ export const useForm = Flux.createForm<
 
 const editAccessQuery = (
   key: access.role.Key | access.role.Key[] = "",
-): Access.PermissionsQuery => ({
+): PermissionsQuery => ({
   objects: access.role.ontologyID(key),
   actions: ["retrieve", "create", "update"],
 });
 
 export const useEditAccessGranted = (key: access.role.Key | access.role.Key[]) =>
-  Access.useGranted(editAccessQuery(key));
+  useGranted(editAccessQuery(key));
 
 export const editAccessGranted = ({
   key,
   ...rest
-}: Access.IsGrantedExtensionParams & {
+}: IsGrantedExtensionParams & {
   key?: access.role.Key | access.role.Key[];
-}) => Access.isGranted({ ...rest, query: editAccessQuery(key) });
+}) => isGranted({ ...rest, query: editAccessQuery(key) });
 
 const viewAccessQuery = (
   key: access.role.Key | access.role.Key[] = "",
-): Access.PermissionsQuery => ({
+): PermissionsQuery => ({
   objects: access.role.ontologyID(key),
   actions: ["retrieve"],
 });
@@ -195,25 +200,25 @@ const viewAccessQuery = (
 export const viewAccessGranted = ({
   key,
   ...rest
-}: Access.IsGrantedExtensionParams & {
+}: IsGrantedExtensionParams & {
   key?: access.role.Key | access.role.Key[];
-}) => Access.isGranted({ ...rest, query: viewAccessQuery(key) });
+}) => isGranted({ ...rest, query: viewAccessQuery(key) });
 
 export const useViewAccessGranted = (key: access.role.Key | access.role.Key[]) =>
-  Access.useGranted(viewAccessQuery(key ?? ""));
+  useGranted(viewAccessQuery(key ?? ""));
 
 const deleteAccessQuery = (
   key: access.role.Key | access.role.Key[] = "",
-): Access.PermissionsQuery => ({
+): PermissionsQuery => ({
   objects: access.role.ontologyID(key),
   actions: ["retrieve", "create", "update", "delete"],
 });
 
 export const useDeleteAccessGranted = (key: access.role.Key | access.role.Key[]) =>
-  Access.useGranted(deleteAccessQuery(key));
+  useGranted(deleteAccessQuery(key));
 
 export const deleteAccessGranted = ({
   key,
   ...rest
-}: Access.IsGrantedExtensionParams & { key?: access.role.Key }) =>
-  Access.isGranted({ ...rest, query: deleteAccessQuery(key) });
+}: IsGrantedExtensionParams & { key?: access.role.Key }) =>
+  isGranted({ ...rest, query: deleteAccessQuery(key) });

@@ -47,6 +47,12 @@ export class Client {
     this.retryCount = 0;
   }
 
+  async retrieveUser(): Promise<user.User> {
+    if (this.authenticated) return this.user as user.User;
+    await this.authenticating;
+    return this.user as user.User;
+  }
+
   async changePassword(newPassword: string): Promise<void> {
     if (!this.authenticated) throw new Error("Not authenticated");
     await sendRequired<typeof changePasswordReqZ, typeof changePasswordResZ>(
