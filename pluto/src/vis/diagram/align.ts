@@ -239,15 +239,66 @@ export const rotateNodes = (
 
       const clickCount = dir === "clockwise" ? 1 : 3;
 
-      for (let i = 0; i < clickCount; i++) {
+      for (let i = 0; i < clickCount; i++) 
         setTimeout(() => {
           (rotateButton as HTMLElement).click();
-        }, i * 5); // 5ms delay between clicks
-      }
+        }, i * 7); // 7ms debounce
+      
     } catch (e) {
       console.warn(`Failed to rotate node ${layout.key}:`, e);
     }
   });
+
+  return layouts;
+};
+
+export const rotateNodesAroundCenter = (
+  layouts: NodeLayout[],
+  dir: "clockwise" | "counterclockwise",
+): NodeLayout[] => {
+  if (layouts.length === 0) return [];
+
+  // Calculate the bounding box of all selected nodes
+  const minX = Math.min(...layouts.map((l) => box.left(l.box)));
+  const maxX = Math.max(...layouts.map((l) => box.right(l.box)));
+  const minY = Math.min(...layouts.map((l) => box.top(l.box)));
+  const maxY = Math.max(...layouts.map((l) => box.bottom(l.box)));
+
+  // Find the center point of the selection
+  const center = {
+    x: (minX + maxX) / 2,
+    y: (minY + maxY) / 2,
+  };
+
+  // Rotation angle: 90 degrees clockwise or counter-clockwise
+  const angle = dir === "clockwise" ? Math.PI / 2 : -Math.PI / 2;
+
+  layouts.forEach((layout) => {
+    const nodeCenter = box.center(layout.box);
+
+    const relativeX = nodeCenter.x - center.x;
+    const relativeY = nodeCenter.y - center.y;
+
+    const rotatedX = relativeX * Math.cos(angle) - relativeY * Math.sin(angle);
+    const rotatedY = relativeX * Math.sin(angle) + relativeY * Math.cos(angle);
+
+    const newCenter = {
+      x: rotatedX + center.x,
+      y: rotatedY + center.y,
+    };
+
+    const dims = box.dims(layout.box);
+    const newPos = {
+      x: newCenter.x - dims.width / 2,
+      y: newCenter.y - dims.height / 2,
+    };
+
+    // Update layout box with new position
+    layout.box = box.construct(newPos, dims);
+  });
+
+  // Rotate individual nodes after repositioning
+  rotateNodes(layouts, dir);
 
   return layouts;
 };

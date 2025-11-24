@@ -141,6 +141,7 @@ import {
   MdPlayArrow,
   MdQuestionMark,
   MdRotate90DegreesCcw,
+  MdRotate90DegreesCw,
   MdRotateLeft,
   MdRotateRight,
   MdSaveAlt,
@@ -390,6 +391,10 @@ export const Rotate = wrapSVGIcon(GrRotateRight, "rotate");
 export const RotateGroup = {
   CW: wrapSVGIcon(MdRotateRight, "rotate-group-cw"),
   CCW: wrapSVGIcon(MdRotateLeft, "rotate-group-ccw"),
+};
+export const RotateAroundCenter = {
+  CW: wrapSVGIcon(MdRotate90DegreesCw, "rotate-around-center-cw"),
+  CCW: wrapSVGIcon(MdRotate90DegreesCcw, "rotate-around-center-ccw"),
 };
 export const Text = wrapSVGIcon(MdTextFields, "text");
 export const Value = wrapSVGIcon(GoNumber, "value");

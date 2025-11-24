@@ -485,7 +485,7 @@ const MultiElementProperties = ({
       <Input.Item label="Rotate">
         <Flex.Box x>
           <Button.Button
-            tooltip="Rotate nodes clockwise"
+            tooltip="Rotate nodes CW"
             onClick={() => {
               const layouts = getLayoutsForAlignment();
               const newPositions = Diagram.rotateNodes(layouts, "clockwise");
@@ -502,7 +502,7 @@ const MultiElementProperties = ({
             <Icon.RotateGroup.CW />
           </Button.Button>
           <Button.Button
-            tooltip="Rotate nodes counter-clockwise"
+            tooltip="Rotate nodes CCW"
             onClick={() => {
               const layouts = getLayoutsForAlignment();
               const newPositions = Diagram.rotateNodes(layouts, "counterclockwise");
@@ -517,6 +517,50 @@ const MultiElementProperties = ({
             }}
           >
             <Icon.RotateGroup.CCW />
+          </Button.Button>
+        </Flex.Box>
+      </Input.Item>
+      <Input.Item label="Rotate Group">
+        <Flex.Box x>
+          <Button.Button
+            tooltip="Rotate group CW"
+            onClick={() => {
+              const layouts = getLayoutsForAlignment();
+              const newPositions = Diagram.rotateNodesAroundCenter(
+                layouts,
+                "clockwise",
+              );
+              dispatch(
+                setNodePositions({
+                  key: layoutKey,
+                  positions: Object.fromEntries(
+                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                  ),
+                }),
+              );
+            }}
+          >
+            <Icon.RotateAroundCenter.CW />
+          </Button.Button>
+          <Button.Button
+            tooltip="Rotate group nodes CCW"
+            onClick={() => {
+              const layouts = getLayoutsForAlignment();
+              const newPositions = Diagram.rotateNodesAroundCenter(
+                layouts,
+                "counterclockwise",
+              );
+              dispatch(
+                setNodePositions({
+                  key: layoutKey,
+                  positions: Object.fromEntries(
+                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                  ),
+                }),
+              );
+            }}
+          >
+            <Icon.RotateAroundCenter.CCW />
           </Button.Button>
         </Flex.Box>
       </Input.Item>

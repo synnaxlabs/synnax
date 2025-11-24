@@ -10,7 +10,12 @@
 import { box, xy } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { alignNodes, distributeNodes, rotateNodes } from "@/vis/diagram/align";
+import {
+  alignNodes,
+  distributeNodes,
+  rotateNodes,
+  rotateNodesAroundCenter,
+} from "@/vis/diagram/align";
 import { HandleLayout, NodeLayout } from "@/vis/diagram/util";
 
 describe("align", () => {
@@ -811,5 +816,130 @@ describe("rotate", () => {
       const result = rotateNodes([], "clockwise");
       expect(result).toEqual([]);
     });
+  });
+});
+
+describe("rotateNodesAroundCenter", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("should return empty array for empty input", () => {
+    const result = rotateNodesAroundCenter([], "clockwise");
+    expect(result).toEqual([]);
+  });
+
+  it("should rotate a single node around itself (stays in place)", () => {
+    const inputs = [
+      new NodeLayout(
+        "n1",
+        box.construct({ x: 100, y: 100 }, { width: 50, height: 50 }),
+        [],
+      ),
+    ];
+    const outputs = rotateNodesAroundCenter(inputs, "clockwise");
+
+    // Single node's center is the group center, so it stays at same position
+    expect(box.topLeft(outputs[0].box)).toEqual({ x: 100, y: 100 });
+  });
+
+  it("should rotate two nodes 90 degrees clockwise around their center", () => {
+    const inputs = [
+      new NodeLayout(
+        "n1",
+        box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
+        [],
+      ),
+      new NodeLayout(
+        "n2",
+        box.construct({ x: 200, y: 0 }, { width: 100, height: 100 }),
+        [],
+      ),
+    ];
+    const outputs = rotateNodesAroundCenter(inputs, "clockwise");
+
+    // Group center: x=(0+300)/2=150, y=(0+100)/2=50
+    // n1 center (50,50) relative to group center: (-100, 0)
+    // After 90° CW: (0, -100) absolute: (150, -50), top-left: (100, -100)
+    expect(box.topLeft(outputs[0].box)).toEqual({ x: 100, y: -100 });
+
+    // n2 center (250,50) relative to group center: (100, 0)
+    // After 90° CW: (0, 100) absolute: (150, 150), top-left: (100, 100)
+    expect(box.topLeft(outputs[1].box)).toEqual({ x: 100, y: 100 });
+  });
+
+  it("should rotate two nodes 90 degrees counter-clockwise around their center", () => {
+    const inputs = [
+      new NodeLayout(
+        "n1",
+        box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
+        [],
+      ),
+      new NodeLayout(
+        "n2",
+        box.construct({ x: 200, y: 0 }, { width: 100, height: 100 }),
+        [],
+      ),
+    ];
+    const outputs = rotateNodesAroundCenter(inputs, "counterclockwise");
+
+    // Group center: x=150, y=50
+    // n1 center (50,50) relative to group center: (-100, 0)
+    // After 90° CCW: (0, 100) absolute: (150, 150), top-left: (100, 100)
+    expect(box.topLeft(outputs[0].box)).toEqual({ x: 100, y: 100 });
+
+    // n2 center (250,50) relative to group center: (100, 0)
+    // After 90° CCW: (0, -100) absolute: (150, -50), top-left: (100, -100)
+    expect(box.topLeft(outputs[1].box)).toEqual({ x: 100, y: -100 });
+  });
+
+  it("should preserve node dimensions after rotation", () => {
+    const inputs = [
+      new NodeLayout(
+        "n1",
+        box.construct({ x: 0, y: 0 }, { width: 150, height: 80 }),
+        [],
+      ),
+      new NodeLayout(
+        "n2",
+        box.construct({ x: 200, y: 0 }, { width: 100, height: 120 }),
+        [],
+      ),
+    ];
+    const outputs = rotateNodesAroundCenter(inputs, "clockwise");
+
+    expect(box.dims(outputs[0].box)).toEqual({ width: 150, height: 80 });
+    expect(box.dims(outputs[1].box)).toEqual({ width: 100, height: 120 });
+  });
+
+  it("should handle three nodes in L-shape", () => {
+    const inputs = [
+      new NodeLayout(
+        "n1",
+        box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
+        [],
+      ),
+      new NodeLayout(
+        "n2",
+        box.construct({ x: 100, y: 0 }, { width: 100, height: 100 }),
+        [],
+      ),
+      new NodeLayout(
+        "n3",
+        box.construct({ x: 0, y: 100 }, { width: 100, height: 100 }),
+        [],
+      ),
+    ];
+    const outputs = rotateNodesAroundCenter(inputs, "clockwise");
+
+    // Verify all nodes have moved to new positions
+    expect(outputs).toHaveLength(3);
+    const positions = outputs.map((r) => box.topLeft(r.box));
+
+    // After rotation, positions should be different from original
+    expect(positions[0]).not.toEqual({ x: 0, y: 0 });
+    expect(positions[1]).not.toEqual({ x: 100, y: 0 });
+    expect(positions[2]).not.toEqual({ x: 0, y: 100 });
   });
 });
