@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, type ontology, type Synnax, user } from "@synnaxlabs/client";
+import {
+  access,
+  type ontology,
+  type Synnax,
+  UnexpectedError,
+  user,
+} from "@synnaxlabs/client";
 
 import { Policy } from "@/access/policy";
 import { type policy } from "@/access/policy/aether";
@@ -26,14 +32,34 @@ export interface PermissionsQuery {
 
 export interface FluxSubStore extends role.FluxSubStore, policy.FluxSubStore {}
 
-const resolveSubject = (
+const retrieveCurrent = async (client: Synnax): Promise<user.User> => {
+  const user = client.auth?.user;
+  if (user == null) {
+    const res = await client.connectivity.check();
+    if (res.error != null) throw res.error;
+    if (client.auth?.user == null)
+      throw new UnexpectedError(
+        "Expected user to be available after successfully connecting to cluster",
+      );
+    return client.auth.user;
+  }
+  return user;
+};
+
+const resolveSubjectAsync = async (
   client: Synnax,
   subject?: ontology.ID,
-): ontology.ID | undefined => {
+): Promise<ontology.ID | undefined> => {
   if (subject != null) return subject;
-  const userKey = client.auth?.user?.key;
-  if (userKey != null) return user.ontologyID(userKey);
-  return undefined;
+  const u = await retrieveCurrent(client);
+  return user.ontologyID(u.key);
+};
+
+const resolveSubject = (client: Synnax, subject?: ontology.ID): ontology.ID => {
+  if (subject != null) return subject;
+  const u = client?.auth?.user;
+  if (u == null) throw new UnexpectedError("User not found");
+  return user.ontologyID(u.key);
 };
 
 export interface IsGrantedParams {
@@ -42,20 +68,18 @@ export interface IsGrantedParams {
   query: PermissionsQuery;
 }
 
-export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query"> {}
-
 export const isGranted = ({
   store,
   client,
   query: { subject, objects, actions },
-}: IsGrantedParams) => {
+}: IsGrantedParams): boolean => {
   if (client == null) return false;
-  subject = resolveSubject(client, subject);
-  if (subject == null) return false;
-  const policies = Policy.cachedRetrieveForSubject(store, subject);
-  const req = { subject, objects, actions };
-  return access.allowRequest(req, policies);
+  const sub = resolveSubject(client, subject);
+  const policies = Policy.cachedRetrieveForSubject(store, sub);
+  return access.allowRequest({ subject: sub, objects, actions }, policies);
 };
+
+export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query"> {}
 
 const { useRetrieve: useGrantedBase } = Flux.createRetrieve<
   PermissionsQuery,
@@ -68,7 +92,7 @@ const { useRetrieve: useGrantedBase } = Flux.createRetrieve<
     query: { subject, objects, actions },
     store,
   }: Flux.RetrieveParams<PermissionsQuery, FluxSubStore>): Promise<boolean> => {
-    subject = resolveSubject(client, subject);
+    subject = await resolveSubjectAsync(client, subject);
     if (subject == null) return false;
     const policies = await Policy.retrieveForSubject({
       client,
@@ -95,7 +119,7 @@ export const { useRetrieve: useLoadPermissions } = Flux.createRetrieve<
 >({
   name: PERMISSION_PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query, store }) => {
-    const subject = resolveSubject(client, query.subject);
+    const subject = await resolveSubjectAsync(client, query.subject);
     if (subject == null) return [];
     return await Policy.retrieveForSubject({ client, query: { subject }, store });
   },

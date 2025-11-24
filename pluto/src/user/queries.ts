@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, ontology, UnexpectedError, user } from "@synnaxlabs/client";
+import {
+  access,
+  ontology,
+  type Synnax,
+  UnexpectedError,
+  user,
+} from "@synnaxlabs/client";
 import { array, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -156,6 +162,20 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSub
   },
 });
 
+export const retrieveCurrent = async (client: Synnax): Promise<user.User> => {
+  const user = client.auth?.user;
+  if (user == null) {
+    const res = await client.connectivity.check();
+    if (res.error != null) throw res.error;
+    if (client.auth?.user == null)
+      throw new UnexpectedError(
+        "Expected user to be available after successfully connecting to cluster",
+      );
+    return client.auth.user;
+  }
+  return user;
+};
+
 export const { useRetrieve } = Flux.createRetrieve<
   Partial<RetrieveQuery>,
   user.User,
@@ -165,16 +185,8 @@ export const { useRetrieve } = Flux.createRetrieve<
   retrieve: async ({ client, query, store }) => {
     const { key } = query;
     if (key == null) {
-      const user = client.auth?.user;
-      if (user == null) {
-        const res = await client.connectivity.check();
-        if (res.error != null) throw res.error;
-      }
-      if (client.auth?.user == null)
-        throw new UnexpectedError(
-          "Expected user to be available after successfully connecting to cluster",
-        );
-      return client.auth.user;
+      const user = await retrieveCurrent(client);
+      return user;
     }
     return await retrieveSingle({ client, query: { key }, store });
   },

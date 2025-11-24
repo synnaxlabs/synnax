@@ -16,6 +16,7 @@ const CREATE_COMMAND: Palette.Command = {
   key: "define-range",
   name: "Create a Range",
   icon: <Ranger.CreateIcon />,
+  visible: Ranger.editAccessGranted,
   onSelect: ({ placeLayout }) => placeLayout(Range.CREATE_LAYOUT),
 };
 
@@ -24,6 +25,7 @@ const OPEN_EXPLORER_COMMAND: Palette.Command = {
   name: "Open Range Explorer",
   icon: <Icon.Explore />,
   onSelect: ({ placeLayout }) => placeLayout(Range.EXPLORER_LAYOUT),
+  visible: Ranger.viewAccessGranted,
 };
 
 export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];
