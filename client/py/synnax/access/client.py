@@ -56,15 +56,6 @@ class PolicyClient:
     @overload
     def create(
         self,
-        *,
-        subjects: list[ID] = [],
-        objects: list[ID] = [],
-        actions: list[str] = [],
-    ) -> Policy: ...
-
-    @overload
-    def create(
-        self,
         policies: Policy,
     ) -> Policy: ...
 
@@ -76,19 +67,9 @@ class PolicyClient:
 
     def create(
         self,
-        policies: Policy | list[Policy] | None = None,
-        *,
-        subjects: list[ID] = [],
-        objects: list[ID] = [],
-        actions: list[str] = [],
+        policies: Policy | list[Policy],
     ) -> Policy | list[Policy]:
         is_single = not isinstance(policies, list)
-        if policies is None:
-            policies = Policy(
-                subjects=subjects,
-                objects=objects,
-                actions=actions,
-            )
         req = _CreateRequest(policies=normalize(policies))
         res = send_required(self._client, "/access/policy/create", req, _CreateResponse)
         return res.policies[0] if is_single else res.policies

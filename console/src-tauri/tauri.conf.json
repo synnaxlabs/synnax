@@ -54,7 +54,7 @@
         "width": 1080,
         "minWidth": 625,
         "minHeight": 425,
-        "visible": true,
+        "visible": false,
         "acceptFirstMouse": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,

@@ -209,7 +209,6 @@ describe("Ontology", () => {
         group.ontologyID(g2.key),
       );
 
-      console.log("HERE");
       const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
       expect(children.length).toEqual(1);
       const newRootLength = (await client.ontology.retrieveChildren(ontology.ROOT_ID))

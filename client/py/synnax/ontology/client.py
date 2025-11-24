@@ -40,7 +40,7 @@ class RemoveChildrenReq(Payload):
 
 
 class MoveChildrenReq(Payload):
-    from_: ID = Field(alias="from")
+    from_: ID = Field(alias="from", serialization_alias="from")
     to: ID
     children: list[ID]
 
@@ -126,6 +126,7 @@ class Client:
         )
 
     def move_children(self, from_: CrudeID, to: CrudeID, *children: CrudeID) -> None:
+
         send_required(
             self._client,
             "/ontology/move-children",

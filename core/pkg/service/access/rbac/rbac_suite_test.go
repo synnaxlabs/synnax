@@ -15,9 +15,46 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 )
 
-var ctx = context.Background()
+var (
+	ctx     = context.Background()
+	db      *gorp.DB
+	otg     *ontology.Ontology
+	g       *group.Service
+	svc     *rbac.Service
+	userSvc *user.Service
+)
+
+var _ = BeforeSuite(func() {
+	db = gorp.Wrap(memkv.New())
+	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+	g = MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+	userSvc = MustSucceed(user.NewService(ctx, user.Config{
+		DB:       db,
+		Ontology: otg,
+		Group:    g,
+	}))
+	svc = MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    g,
+	}))
+})
+
+var _ = AfterSuite(func() {
+	Expect(svc.Close()).To(Succeed())
+	Expect(g.Close()).To(Succeed())
+	Expect(otg.Close()).To(Succeed())
+	Expect(db.Close()).To(Succeed())
+})
 
 func TestRBAC(t *testing.T) {
 	RegisterFailHandler(Fail)

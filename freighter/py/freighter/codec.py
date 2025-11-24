@@ -49,7 +49,7 @@ class MsgPackCodec(Codec):
         return "application/msgpack"
 
     def encode(self, payload: Payload) -> bytes:
-        return msgpack.packb(payload.model_dump())  # type: ignore[return-value]
+        return msgpack.packb(payload.model_dump(by_alias=True))  
 
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         return pld_t.model_validate(msgpack.unpackb(data))
@@ -64,7 +64,7 @@ class JSONCodec(Codec):
         return "application/json"
 
     def encode(self, payload: Payload) -> bytes:
-        return payload.model_dump_json().encode()
+        return payload.model_dump_json(by_alias=True).encode()
 
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         return pld_t.model_validate(json.loads(data.decode(JSONCodec.STRING_ENCODING)))

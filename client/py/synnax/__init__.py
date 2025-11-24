@@ -10,6 +10,7 @@
 __version__ = "0.3.0"
 
 from synnax.access import Policy, PolicyClient
+from synnax.access.role import Role, RoleClient
 from synnax.channel import Channel
 from synnax.exceptions import (
     AuthError,
@@ -105,6 +106,8 @@ __all__ = [
     "Rack",
     "Range",
     "Rate",
+    "Role",
+    "RoleClient",
     "RouteError",
     "Series",
     "Size",

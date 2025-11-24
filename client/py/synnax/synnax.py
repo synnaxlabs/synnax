@@ -11,6 +11,7 @@ from alamos import NOOP, Instrumentation
 from freighter import URL
 
 from synnax import PolicyClient
+from synnax.access.role import RoleClient
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
 from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriever
@@ -58,6 +59,7 @@ class Synnax(Client):
 
     channels: ChannelClient
     access: PolicyClient
+    roles: RoleClient
     user: UserClient
     ranges: RangeClient
     control: ControlClient
@@ -159,6 +161,7 @@ class Synnax(Client):
 
         self.hardware = HardwareClient(tasks=tasks, devices=devices, racks=racks)
         self.access = PolicyClient(self._transport.unary, instrumentation)
+        self.roles = RoleClient(self._transport.unary, instrumentation)
         self.user = UserClient(self._transport.unary)
 
     def close(self):

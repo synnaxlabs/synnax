@@ -8,6 +8,25 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.access.client import PolicyClient
+from synnax.access.enforce import (
+    ALL_ACTION,
+    CREATE_ACTION,
+    DELETE_ACTION,
+    RETRIEVE_ACTION,
+    UPDATE_ACTION,
+    Request,
+    allow_request,
+)
 from synnax.access.payload import Policy
 
-__all__ = ["Policy", "PolicyClient"]
+__all__ = [
+    "Policy",
+    "PolicyClient",
+    "Request",
+    "allow_request",
+    "ALL_ACTION",
+    "CREATE_ACTION",
+    "DELETE_ACTION",
+    "RETRIEVE_ACTION",
+    "UPDATE_ACTION",
+]

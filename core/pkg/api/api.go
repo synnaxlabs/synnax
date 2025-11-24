@@ -163,6 +163,7 @@ type Transport struct {
 	AccessDeleteRole     freighter.UnaryServer[AccessDeleteRoleRequest, types.Nil]
 	AccessRetrieveRole   freighter.UnaryServer[AccessRetrieveRoleRequest, AccessRetrieveRoleResponse]
 	AccessAssignRole     freighter.UnaryServer[AccessAssignRoleRequest, types.Nil]
+	AccessUnassignRole   freighter.UnaryServer[AccessUnassignRoleRequest, types.Nil]
 	// STATUS
 	StatusSet      freighter.UnaryServer[StatusSetRequest, StatusSetResponse]
 	StatusRetrieve freighter.UnaryServer[StatusRetrieveRequest, StatusRetrieveResponse]
@@ -338,6 +339,7 @@ func (a *Layer) BindTo(t Transport) {
 		t.AccessDeleteRole,
 		t.AccessRetrieveRole,
 		t.AccessAssignRole,
+		t.AccessUnassignRole,
 
 		// STATUS
 		t.StatusSet,
@@ -470,6 +472,7 @@ func (a *Layer) BindTo(t Transport) {
 	t.AccessDeleteRole.BindHandler(a.Access.DeleteRole)
 	t.AccessRetrieveRole.BindHandler(a.Access.RetrieveRole)
 	t.AccessAssignRole.BindHandler(a.Access.AssignRole)
+	t.AccessUnassignRole.BindHandler(a.Access.UnassignRole)
 
 	// STATUS
 	t.StatusSet.BindHandler(a.Status.Set)

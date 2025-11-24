@@ -141,6 +141,7 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transpo
 		AccessDeleteRole:     fhttp.UnaryServer[api.AccessDeleteRoleRequest, types.Nil](router, "/api/v1/access/role/delete"),
 		AccessRetrieveRole:   fhttp.UnaryServer[api.AccessRetrieveRoleRequest, api.AccessRetrieveRoleResponse](router, "/api/v1/access/role/retrieve"),
 		AccessAssignRole:     fhttp.UnaryServer[api.AccessAssignRoleRequest, types.Nil](router, "/api/v1/access/role/assign"),
+		AccessUnassignRole:   fhttp.UnaryServer[api.AccessUnassignRoleRequest, types.Nil](router, "/api/v1/access/role/unassign"),
 
 		// ARC
 		ArcCreate:   fhttp.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse](router, "/api/v1/arc/create"),
