@@ -117,13 +117,18 @@ TEST(WriterTests, testWriteSeriesWithMismatchedDataType) {
 /// are already being written to and err_on_unauthorized is true.
 TEST(WriterTests, testWriteErrOnUnauthorized) {
     auto client = new_test_client();
-    auto time = ASSERT_NIL_P(
-        client.channels.create("err_on_unauthorized_time", telem::TIMESTAMP_T, 0, true)
-    );
-    auto data = ASSERT_NIL_P(
-        client.channels
-            .create("err_on_unauthorized_data", telem::UINT8_T, time.key, false)
-    );
+    auto time = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("err_on_unauthorized_time"),
+        telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto data = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("err_on_unauthorized_data"),
+        telem::UINT8_T,
+        time.key,
+        false
+    ));
     auto w1 = ASSERT_NIL_P(client.telem.open_writer(
         synnax::WriterConfig{
             .channels = std::vector{time.key, data.key},
@@ -149,15 +154,24 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
 /// @brief it should correctly change the authority of a writer.
 TEST(WriterTests, testSetAuthority) {
     auto client = new_test_client();
-    auto time = ASSERT_NIL_P(
-        client.channels.create("set_authority_time", telem::TIMESTAMP_T, 0, true)
-    );
-    auto data1 = ASSERT_NIL_P(
-        client.channels.create("set_authority_data1", telem::UINT8_T, time.key, false)
-    );
-    auto data2 = ASSERT_NIL_P(
-        client.channels.create("set_authority_data2", telem::UINT8_T, time.key, false)
-    );
+    auto time = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("set_authority_time"),
+        telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto data1 = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("set_authority_data1"),
+        telem::UINT8_T,
+        time.key,
+        false
+    ));
+    auto data2 = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("set_authority_data2"),
+        telem::UINT8_T,
+        time.key,
+        false
+    ));
 
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::WriterConfig{

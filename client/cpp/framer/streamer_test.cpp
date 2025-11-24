@@ -145,9 +145,11 @@ TEST(StreamerTests, TestStreamDownsampleNegative) {
 /// @brief it should correctly stream data from a variable density channel.
 TEST(StreamerTests, TestStreamVariableChannel) {
     auto client = new_test_client();
-    auto data = ASSERT_NIL_P(
-        client.channels.create("stream_variable_channel_data", telem::STRING_T, true)
-    );
+    auto data = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("stream_variable_channel_data"),
+        telem::STRING_T,
+        true
+    ));
     auto now = telem::TimeStamp::now();
     std::vector channels = {data.key};
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
@@ -220,7 +222,11 @@ void test_downsample_string(
 ) {
     auto client = new_test_client();
 
-    synnax::Channel virtual_channel("virtual_string_channel", telem::STRING_T, true);
+    synnax::Channel virtual_channel(
+        make_unique_channel_name("virtual_string_channel"),
+        telem::STRING_T,
+        true
+    );
     ASSERT_NIL(client.channels.create(virtual_channel));
 
     auto now = telem::TimeStamp::now();

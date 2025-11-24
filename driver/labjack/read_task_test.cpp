@@ -157,19 +157,22 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     );
     ASSERT_NIL(sy->hardware.create_device(dev));
 
-    std::string
-        test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
-
     // Create channels for each input type
-    auto tc_ch = ASSERT_NIL_P(
-        sy->channels.create("tc_channel_" + test_name, telem::FLOAT64_T, true)
-    );
-    auto di_ch = ASSERT_NIL_P(
-        sy->channels.create("di_channel_" + test_name, telem::UINT8_T, true)
-    );
-    auto ai_ch = ASSERT_NIL_P(
-        sy->channels.create("ai_channel_" + test_name, telem::FLOAT64_T, true)
-    );
+    auto tc_ch = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("tc_channel"),
+        telem::FLOAT64_T,
+        true
+    ));
+    auto di_ch = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("di_channel"),
+        telem::UINT8_T,
+        true
+    ));
+    auto ai_ch = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("ai_channel"),
+        telem::FLOAT64_T,
+        true
+    ));
 
     auto j = basic_read_task_config();
     j["channels"][0]["channel"] = tc_ch.key;
@@ -228,12 +231,9 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     );
     ASSERT_NIL(sy->hardware.create_device(dev));
 
-    std::string
-        test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
-
     // Create a channel
     auto ch = ASSERT_NIL_P(sy->channels.create(
-        "labjack_test_channel_1_" + test_name,
+        make_unique_channel_name("test_channel"),
         telem::FLOAT64_T,
         true
     ));
@@ -271,10 +271,8 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
         ""
     );
     ASSERT_NIL(sy->hardware.create_device(dev));
-    std::string
-        test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
     auto ch = ASSERT_NIL_P(sy->channels.create(
-        "labjack_test_channel_2_" + test_name,
+        make_unique_channel_name("test_channel"),
         telem::FLOAT64_T,
         true
     ));
