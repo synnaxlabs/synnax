@@ -15,7 +15,7 @@ that require simulated hardware (Modbus, OPC UA).
 """
 
 import atexit
-from multiprocessing import Process
+from multiprocessing.context import ForkProcess
 from typing import Any
 
 import synnax as sy
@@ -40,7 +40,7 @@ class SimulatorTaskCase(TaskCase):
     """
 
     # Set in start_simulator()
-    simulator_process: Process | None = None
+    simulator_process: ForkProcess | None = None
 
     def __init__(
         self,
@@ -114,6 +114,8 @@ class SimulatorTaskCase(TaskCase):
                 self.log(f"Error terminating simulator: {e}")
         finally:
             self.simulator_process = None
+            # Give the OS time to release the port
+            sy.sleep(0.5)
 
     def teardown(self) -> None:
         """Cleanup after test."""

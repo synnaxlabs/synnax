@@ -15,10 +15,7 @@ Homepage = "https://synnaxlabs.com"
 Repository = "https://github.com/synnaxlabs/synnax"
 
 [tool.poetry]
-packages = [
-    { include = "synnax" },
-    { include = "examples" }
-]
+packages = [{ include = "synnax" }, { include = "examples" }]
 
 [tool.poetry.dependencies]
 alamos = { path = "../../alamos/py", develop = true }

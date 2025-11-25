@@ -190,11 +190,18 @@ class ModbusReadMixed(ModbusTaskCase):
 
     def create_channels(self, *, device: sy.Device) -> list[object]:
         """Create mixed channel types."""
+        index_c = self.client.channels.create(
+            name="modbus_mixed_index",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+            retrieve_if_name_exists=True,
+        )
         return [
             modbus.InputRegisterChan(
                 channel=self.client.channels.create(
                     name="input_register_0",
                     data_type=sy.DataType.UINT8,
+                    index=index_c.key,
                     retrieve_if_name_exists=True,
                 ).key,
                 address=0,
@@ -204,6 +211,7 @@ class ModbusReadMixed(ModbusTaskCase):
                 channel=self.client.channels.create(
                     name="input_register_1",
                     data_type=sy.DataType.UINT8,
+                    index=index_c.key,
                     retrieve_if_name_exists=True,
                 ).key,
                 address=1,
@@ -213,6 +221,7 @@ class ModbusReadMixed(ModbusTaskCase):
                 channel=self.client.channels.create(
                     name="discrete_input_0",
                     data_type=sy.DataType.UINT8,
+                    index=index_c.key,
                     retrieve_if_name_exists=True,
                 ).key,
                 address=0,
@@ -221,6 +230,7 @@ class ModbusReadMixed(ModbusTaskCase):
                 channel=self.client.channels.create(
                     name="discrete_input_1",
                     data_type=sy.DataType.UINT8,
+                    index=index_c.key,
                     retrieve_if_name_exists=True,
                 ).key,
                 address=1,

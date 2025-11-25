@@ -16,27 +16,32 @@ This module provides:
 """
 
 import asyncio
+import os
 import signal
 import sys
-import os
+from collections.abc import Coroutine
 from dataclasses import dataclass
 from multiprocessing import get_context
 from multiprocessing.context import ForkProcess
-from typing import Callable
+from typing import Any, Callable
 
-from examples.modbus import run_server as run_modbus_server
-from examples.opcua import run_server as run_opcua_server
+# isort: off
+from examples.modbus import run_server as run_modbus_server  # type: ignore[import-untyped]
+from examples.opcua import run_server as run_opcua_server  # type: ignore[import-untyped]
+
+# isort: on
 from synnax.hardware import modbus, opcua
 from synnax.hardware.device import Device as SynnaxDevice
 
 # Use fork method for multiprocessing to support lambdas
 mp_ctx = get_context("fork")
 
-def _run_server(server_func: Callable[[], None]) -> None:
+
+def _run_server(server_func: Callable[[], Coroutine[Any, Any, None]]) -> None:
     """Run a server in a subprocess, with default signal handling."""
 
     # Suppress stdout
-    sys.stdout = open(os.devnull, 'w')
+    sys.stdout = open(os.devnull, "w")
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     signal.signal(signal.SIGTERM, signal.SIG_DFL)
@@ -88,20 +93,16 @@ class SimulatorConfig:
     device_name: str
 
 
-def start_modbus_server():
+def start_modbus_server() -> ForkProcess:
     """Start the Modbus TCP simulator server in a separate process."""
-    process = mp_ctx.Process(
-        target=lambda: _run_server(run_modbus_server), daemon=True
-    )
+    process = mp_ctx.Process(target=lambda: _run_server(run_modbus_server), daemon=True)
     process.start()
     return process
 
 
-def start_opcua_server():
+def start_opcua_server() -> ForkProcess:
     """Start the OPC UA simulator server in a separate process."""
-    process = mp_ctx.Process(
-        target=lambda: _run_server(run_opcua_server), daemon=True
-    )
+    process = mp_ctx.Process(target=lambda: _run_server(run_opcua_server), daemon=True)
     process.start()
     return process
 

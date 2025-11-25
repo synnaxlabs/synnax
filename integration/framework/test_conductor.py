@@ -21,6 +21,7 @@ import string
 import sys
 import threading
 import traceback
+from abc import ABC
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -780,6 +781,7 @@ class TestConductor:
                         and issubclass(obj, TestCase)
                         and obj is not TestCase
                         and obj.__module__ == module.__name__
+                        and ABC not in obj.__bases__  # Exclude abstract base classes
                     )
                 except (AttributeError, TypeError):
                     return False

@@ -11,31 +11,14 @@
 Driver test utilities.
 
 Provides stateless helper functions for driver integration tests including
-channel creation, device management, and assertion utilities.
+device management and assertion utilities.
 """
 
 import sys
-from typing import Callable, TypedDict
+from typing import Callable
 
 import synnax as sy
 from synnax.hardware.device import Device as SynnaxDevice
-
-
-class ChannelConfig(TypedDict, total=False):
-    """Channel configuration with protocol-specific fields."""
-
-    # Common fields (required)
-    name: str
-    data_type: sy.DataType
-
-    # Modbus-specific fields
-    address: int
-    modbus_data_type: str
-    modbus_channel_type: str
-
-    # OPC UA-specific fields
-    node_id: str
-    opcua_data_type: str
 
 
 class Driver:
@@ -43,55 +26,8 @@ class Driver:
     Driver test helper class.
 
     Provides stateless utilities for driver integration tests including
-    channel creation and device management.
+    device management and assertion utilities.
     """
-
-    @staticmethod
-    def create_channels(
-        client: sy.Synnax,
-        *,
-        device_name: str,
-        task_key: str,
-        channel_configs: list[ChannelConfig],
-    ) -> tuple[sy.Device, list[sy.Channel], list[str]]:
-        """
-        Create Synnax channels for a task.
-
-        Args:
-            client: Synnax client instance
-            device_name: Name of the hardware device
-            task_key: Task identifier (used for index channel naming)
-            channel_configs: List of channel configurations
-
-        Returns:
-            Tuple of (device, created channels, channel names)
-        """
-        # Retrieve the device
-        device = client.hardware.devices.retrieve(name=device_name)
-
-        # Auto-generate index channel name from task key
-        index_channel_name = f"{task_key}_index"
-        index_ch = client.channels.create(
-            name=index_channel_name,
-            is_index=True,
-            data_type=sy.DataType.TIMESTAMP,
-            retrieve_if_name_exists=True,
-        )
-
-        # Create data channels from config
-        channels = []
-        channel_names = []
-        for ch_config in channel_configs:
-            ch = client.channels.create(
-                name=ch_config["name"],
-                index=index_ch.key,
-                data_type=ch_config["data_type"],
-                retrieve_if_name_exists=True,
-            )
-            channels.append(ch)
-            channel_names.append(ch_config["name"])
-
-        return device, channels, channel_names
 
     @staticmethod
     def assert_channel_names(
@@ -175,7 +111,11 @@ class Driver:
 
     @staticmethod
     def assert_sample_count(
-        client: sy.Synnax, *, task: sy.Task, duration: sy.TimeSpan = 1, strict: bool = True
+        client: sy.Synnax,
+        *,
+        task: sy.Task,
+        duration: sy.TimeSpan = 1,
+        strict: bool = True,
     ) -> None:
         """Assert that the task has the expected number of samples.
 

@@ -27,15 +27,17 @@ The base class provides the run() method that tests:
 5. Task operation after simulator restart
 """
 
+from abc import ABC
+
 import synnax as sy
 
 from driver.driver import Driver
 from tests.driver.simulator_task import SimulatorTaskCase
 
 
-class DisconnectTask(SimulatorTaskCase):
+class DisconnectTask(SimulatorTaskCase, ABC):
     """
-    Base class providing disconnect/reconnect test behavior.
+    Abstract base class providing disconnect/reconnect test behavior.
 
     Inherits from SimulatorTaskCase to access simulator management and common test utilities.
     Overrides the run() method to execute a disconnect/reconnect test sequence.
@@ -98,3 +100,25 @@ class DisconnectTask(SimulatorTaskCase):
         Driver.assert_task_deleted(client, task_key=tsk.key)
         client.hardware.devices.delete([reconnected_device.key])
         Driver.assert_device_deleted(client, device_key=reconnected_device.key)
+
+
+from tests.driver.opcua_read import OPCUAReadMixed
+
+
+class DisconnectOpcua(DisconnectTask, OPCUAReadMixed):
+    """
+    OPC UA disconnect/reconnect test.
+    """
+
+    pass
+
+
+from tests.driver.modbus_read import ModbusReadMixed
+
+
+class DisconnectModbus(DisconnectTask, ModbusReadMixed):
+    """
+    Modbus TCP disconnect/reconnect test.
+    """
+
+    pass
