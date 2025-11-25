@@ -42,13 +42,13 @@ class SimplePressValves(ConsoleCase):
         schematic = Schematic(self.client, self.console, "simple_press_valves")
         schematic.move("left")
 
-        end_test_cmd = schematic.create_button(END_CMD)
+        end_test_cmd = schematic.create.button(END_CMD)
         end_test_cmd.move(0, -90)
 
-        press_valve = schematic.create_valve("press_vlv")
+        press_valve = schematic.create.valve("press_vlv")
         press_valve.move(-200, 0)
 
-        vent_valve = schematic.create_valve("vent_vlv")
+        vent_valve = schematic.create.valve("vent_vlv")
         schematic.connect_symbols(press_valve, "right", vent_valve, "left")
 
         self.log("Starting test")

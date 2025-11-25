@@ -11,11 +11,27 @@ import platform
 from abc import ABC, abstractmethod
 from collections.abc import Generator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any
 
+import synnax as sy
 from playwright.sync_api import Locator, Page
 
 from ..console import Console
+
+
+@dataclass
+class Position:
+    """Position and bounding box information for a symbol."""
+
+    left: float
+    right: float
+    top: float
+    bottom: float
+    x: float  # center x
+    y: float  # center y
+    width: float
+    height: float
 
 
 class Symbol(ABC):
@@ -27,6 +43,7 @@ class Symbol(ABC):
     symbol_id: str
     channel_name: str
     label: str
+    rotatable: bool = False
 
     def __init__(self, page: Page, console: Console, symbol_id: str, channel_name: str):
         if channel_name.strip() == "":
@@ -99,11 +116,15 @@ class Symbol(ABC):
             self.console.click_btn(input_field)
             self.console.select_from_dropdown(channel_name, "Search")
 
+    def set_value(self, value: float) -> None:
+        """Set the symbol's value if applicable. Default implementation does nothing."""
+        pass
+
     def move(self, delta_x: int, delta_y: int) -> None:
         """Move the symbol by the specified number of pixels using drag"""
-        pos = self.get_position()
-        start_x = pos["x"]
-        start_y = pos["y"]
+        pos = self.position
+        start_x = pos.x
+        start_y = pos.y
         target_x = start_x + delta_x
         target_y = start_y + delta_y
 
@@ -112,19 +133,23 @@ class Symbol(ABC):
         self.page.mouse.down()
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
+        sy.sleep(0.1)  # CI flakiness
 
-    def get_position(self) -> dict[str, float]:
+    @property
+    def position(self) -> Position:
         """
         Get the symbol's position information for alignment checks.
 
         Returns:
-            Dictionary with keys:
-                - 'left': x coordinate of the left edge
-                - 'right': x coordinate of the right edge
-                - 'top': y coordinate of the top edge
-                - 'bottom': y coordinate of the bottom edge
-                - 'x': x coordinate of the center (for horizontal alignment)
-                - 'y': y coordinate of the center (for vertical alignment)
+            Position dataclass with:
+                - left: x coordinate of the left edge
+                - right: x coordinate of the right edge
+                - top: y coordinate of the top edge
+                - bottom: y coordinate of the bottom edge
+                - x: x coordinate of the center (for horizontal alignment)
+                - y: y coordinate of the center (for vertical alignment)
+                - width: width of the bounding box
+                - height: height of the bounding box
 
         Note: Edge alignments (left/right/top/bottom) use bounding box edges.
               Center alignments (x/y) use the box center as a proxy for handle positions.
@@ -140,14 +165,16 @@ class Symbol(ABC):
 
         x, y, w, h = box["x"], box["y"], box["width"], box["height"]
 
-        return {
-            "left": x,
-            "right": x + w,
-            "top": y,
-            "bottom": y + h,
-            "x": x + w / 2,
-            "y": y + h / 2,
-        }
+        return Position(
+            left=x,
+            right=x + w,
+            top=y,
+            bottom=y + h,
+            x=x + w / 2,
+            y=y + h / 2,
+            width=w,
+            height=h,
+        )
 
     def delete(self) -> None:
         self._click_symbol()

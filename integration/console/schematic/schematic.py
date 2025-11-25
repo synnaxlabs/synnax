@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import math
 from typing import Literal
 
 import synnax as sy
@@ -14,11 +15,8 @@ import synnax as sy
 from console.console import Console
 
 from ..page import ConsolePage
-from .button import Button
-from .setpoint import Setpoint
-from .symbol import Symbol
-from .value import Value
-from .valve import Valve
+from .factory import SchematicSymbolFactory
+from .symbol import Position, Symbol
 
 PropertyDict = dict[str, float | str | bool]
 
@@ -36,6 +34,11 @@ DistributionType = Literal[
     "vertical",
 ]
 
+RotationType = Literal[
+    "cw",
+    "ccw",
+]
+
 
 class Schematic(ConsolePage):
     """Schematic page management interface"""
@@ -43,129 +46,16 @@ class Schematic(ConsolePage):
     page_type: str = "Schematic"
     pluto_label: str = ".react-flow__pane"
 
-    def _add_symbol(self, symbol_type: str) -> str:
-        """Add a symbol to the schematic and return its ID."""
-        self._dblclick_canvas()
-        self._open_symbols_tab()
-
-        initial_count = self._count_symbols()
-        self._select_symbol_type(symbol_type)
-        self._wait_for_new_symbol(initial_count)
-
-        return self._get_newest_symbol_id()
-
-    def _open_symbols_tab(self) -> None:
-        """Open the Symbols tab."""
-        self.console.click("Symbols")
-
-    def _count_symbols(self) -> int:
-        """Count number of symbols on the schematic."""
-        return len(self.page.locator("[data-testid^='rf__node-']").all())
-
-    def _select_symbol_type(self, symbol_type: str) -> None:
-        """Select a symbol type from the symbols panel."""
-
-        if symbol_type == "Valve":
-            self.console.click("Valves")
-            self.console.click("Generic")
-        else:
-            self.console.click("General")
-            self.console.click(symbol_type)
-
-    def _wait_for_new_symbol(self, initial_count: int) -> None:
-        """Wait for a new symbol to appear."""
-        self.page.wait_for_function(
-            f"document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > {initial_count}"
-        )
-
-    def _get_newest_symbol_id(self) -> str:
-        """Get the ID of the newest symbol."""
-        all_symbols = self.page.locator("[data-testid^='rf__node-']").all()
-        return all_symbols[-1].get_attribute("data-testid") or "unknown"
-
-    def create_setpoint(self, channel_name: str) -> Setpoint:
-        """Create a setpoint symbol on the schematic."""
-        setpoint_id = self._add_symbol("Setpoint")
-        setpoint = Setpoint(self.page, self.console, setpoint_id, channel_name)
-        setpoint.edit_properties(channel_name=channel_name)
-        return setpoint
-
-    def create_button(
-        self,
-        channel_name: str,
-        activation_delay: float | None = None,
-        show_control_chip: bool | None = None,
-        mode: (
-            Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"] | None
-        ) = None,
-    ) -> Button:
-        """Create a button symbol on the schematic."""
-        button_id = self._add_symbol("Button")
-        button = Button(self.page, self.console, button_id, channel_name)
-        button.edit_properties(
-            channel_name=channel_name,
-            activation_delay=activation_delay,
-            show_control_chip=show_control_chip,
-            mode=mode,
-        )
-        return button
-
-    def create_valve(
-        self,
-        channel_name: str,
-        show_control_chip: bool | None = None,
-        no_state_channel: bool = False,
-    ) -> Valve:
-        """Create a button symbol on the schematic.
-        channel_name will be used for _state and _cmd channels.
-        show_control_chip is whether to show the control chip.
-        """
-
-        if not no_state_channel:
-            ch_state = f"{channel_name}_state"
-            ch_cmd = f"{channel_name}_cmd"
-        else:
-            ch_state = channel_name
-            ch_cmd = channel_name
-
-        valve_id = self._add_symbol("Valve")
-        valve = Valve(self.page, self.console, valve_id, channel_name)
-        valve.edit_properties(
-            state_channel=ch_state,
-            command_channel=ch_cmd,
-            show_control_chip=show_control_chip,
-        )
-        return valve
-
-    def create_value(
-        self,
-        channel_name: str,
-        notation: str | None = None,
-        precision: int | None = None,
-        averaging_window: int | None = None,
-        stale_color: str | None = None,
-        stale_timeout: int | None = None,
-    ) -> Value:
-        """Create a value symbol on the schematic."""
-        value_id = self._add_symbol("Value")
-        value = Value(self.page, self.console, value_id, channel_name)
-
-        value.edit_properties(
-            channel_name=channel_name,
-            notation=notation,
-            precision=precision,
-            averaging_window=averaging_window,
-            stale_color=stale_color,
-            stale_timeout=stale_timeout,
-        )
-
-        return value
+    def __init__(self, client: sy.Synnax, console: Console, page_name: str):
+        """Initialize a Schematic page with symbol creation API."""
+        super().__init__(client, console, page_name)
+        self.create = SchematicSymbolFactory(self.page, self.console)
 
     def align(
         self,
         symbols: list[Symbol],
         alignment: AlignmentType,
-        tolerance: float = 3.0,
+        tolerance: float | None = None,
     ) -> None:
         """
         Align multiple symbols using the schematic alignment controls.
@@ -173,7 +63,9 @@ class Schematic(ConsolePage):
         Args:
             symbols: List of symbols to align (must have at least 2 symbols)
             alignment: The alignment type to apply
-            tolerance: Maximum allowed difference in pixels for assertion (default: 3.0)
+            tolerance: Maximum allowed difference in pixels for assertion
+                - Default: 3.0 for edge alignments (left/right/top/bottom)
+                - Default: 15.0 for center alignments (horizontal/vertical)
 
         Raises:
             ValueError: If fewer than 2 symbols are provided
@@ -250,6 +142,65 @@ class Schematic(ConsolePage):
             symbol.meta_click()
 
         self.assert_distribution(symbols, distribution, tolerance)
+
+    def rotate(
+        self,
+        symbols: list[Symbol],
+        direction: RotationType,
+        group: bool = False,
+        tolerance: float = 5.0,
+    ) -> None:
+        """
+        Rotate multiple symbols using the schematic rotation controls.
+
+        Args:
+            symbols: List of symbols to rotate (must have at least 1 symbol)
+            direction: The rotation direction ('cw' for clockwise, 'ccw' for counter-clockwise)
+            group: If True, rotate symbols around their group center. If False, rotate each individually.
+            tolerance: Maximum allowed difference in pixels for assertion (default: 10.0)
+
+        Raises:
+            ValueError: If no symbols are provided
+            AssertionError: If rotation was not applied correctly
+        """
+        if len(symbols) < 1:
+            raise ValueError("At least 1 symbol is required for rotation")
+
+        # Capture initial positions before rotation
+        initial_positions = [symbol.position for symbol in symbols]
+
+        # Map direction names to icon aria-labels
+        if group:
+            rotation_icon_map = {
+                "cw": "pluto-icon--rotate-around-center-cw",
+                "ccw": "pluto-icon--rotate-around-center-ccw",
+            }
+        else:
+            rotation_icon_map = {
+                "cw": "pluto-icon--rotate-group-cw",
+                "ccw": "pluto-icon--rotate-group-ccw",
+            }
+
+        icon_label = rotation_icon_map[direction]
+
+        # Select all symbols
+        symbols[0]._click_symbol()
+        for symbol in symbols[1:]:
+            symbol.meta_click()
+
+        # Click the rotation button
+        rotation_button = self.page.locator(f"button svg[aria-label='{icon_label}']")
+        rotation_button.wait_for(state="visible", timeout=2000)
+        rotation_button.locator("..").click()
+
+        # Wait for rotation animation/processing
+        self.page.wait_for_timeout(100)
+
+        # Deselect all symbols
+        for symbol in symbols:
+            symbol.meta_click()
+
+        self.assert_rotation(symbols, initial_positions, direction, group, tolerance)
 
     def connect_symbols(
         self,
@@ -359,6 +310,7 @@ class Schematic(ConsolePage):
                 self.page.wait_for_selector(
                     ".pluto-diagram__controls button.pluto-btn--filled", timeout=2000
                 )
+            sy.sleep(0.1)  # CI flakiness
 
     def release_control(self) -> None:
         """Release control of the schematic if currently acquired."""
@@ -373,6 +325,7 @@ class Schematic(ConsolePage):
                 self.page.wait_for_selector(
                     ".pluto-diagram__controls button.pluto-btn--outlined", timeout=1000
                 )
+            sy.sleep(0.1)  # CI flakiness
 
     def get_edit_status(self) -> bool:
         """Get whether edit is currently enabled for this schematic."""
@@ -409,6 +362,7 @@ class Schematic(ConsolePage):
                 self.page.wait_for_selector(
                     ".pluto-diagram__controls button.pluto-btn--filled", timeout=2000
                 )
+        sy.sleep(0.1)  # CI flakiness
 
     def disable_edit(self) -> None:
         """Disable edit for the schematic if currently enabled."""
@@ -423,9 +377,10 @@ class Schematic(ConsolePage):
                 self.page.wait_for_selector(
                     ".pluto-diagram__controls button.pluto-btn--outlined", timeout=2000
                 )
+        sy.sleep(0.1)  # CI flakiness
 
     def assert_setpoint(
-        self, setpoint_symbol: Setpoint, channel_name: str, value: float
+        self, setpoint_symbol: Symbol, channel_name: str, value: float
     ) -> None:
         """Assert that setting the setpoint value results in the expected value in the Core."""
         setpoint_symbol.set_value(value)
@@ -510,18 +465,25 @@ class Schematic(ConsolePage):
         self,
         symbols: list[Symbol],
         alignment: AlignmentType,
-        tolerance: float = 3.0,
+        tolerance: float | None = None,
     ) -> None:
         """
         Assert that all symbols are aligned along the specified axis.
 
+        The TypeScript alignment logic uses handle-based alignment for center alignments
+        (horizontal/vertical), which may not perfectly align bounding box centers when
+        symbols have different shapes or handle configurations. Edge alignments (left/right/
+        top/bottom) align bounding box edges directly.
+
         Args:
             symbols: List of symbols to check for alignment
             alignment: The alignment axis to check
-                - 'left', 'right', 'top', 'bottom': edge alignment
-                - 'horizontal': horizontal center alignment
-                - 'vertical': vertical center alignment
-            tolerance: Maximum allowed difference in pixels (default: 3.0)
+                - 'left', 'right', 'top', 'bottom': edge alignment (uses bounding box edges)
+                - 'horizontal': horizontal center alignment (uses handle midpoints)
+                - 'vertical': vertical center alignment (uses handle midpoints)
+            tolerance: Maximum allowed difference in pixels
+                - Default: 3.0 for edge alignments (left/right/top/bottom)
+                - Default: 15.0 for center alignments (horizontal/vertical) due to handle-based logic
 
         Raises:
             AssertionError: If symbols are not properly aligned within tolerance
@@ -529,7 +491,13 @@ class Schematic(ConsolePage):
         if len(symbols) < 2:
             raise ValueError("At least 2 symbols are required for alignment assertion")
 
-        positions = [symbol.get_position() for symbol in symbols]
+        positions = [symbol.position for symbol in symbols]
+
+        if tolerance is None:
+            if alignment in ["horizontal", "vertical"]:
+                tolerance = 15.0  # Larger tolerance for handle-based center alignment
+            else:
+                tolerance = 3.0  # Strict tolerance for edge alignment
 
         # Map horizontal/vertical to x/y for position lookup
         position_key = (
@@ -539,11 +507,11 @@ class Schematic(ConsolePage):
         )
 
         # Get the alignment coordinate from the first symbol
-        first_coord = positions[0][position_key]
+        first_coord = getattr(positions[0], position_key)
 
         # Check that all symbols are aligned within tolerance
         for i, pos in enumerate(positions):
-            coord = pos[position_key]
+            coord = getattr(pos, position_key)
             diff = abs(coord - first_coord)
             assert diff <= tolerance, (
                 f"Symbol {i} ('{symbols[i].label}') is not aligned on {alignment}!\n"
@@ -581,19 +549,19 @@ class Schematic(ConsolePage):
         if tolerance is None:
             tolerance = 3.0 if distribution == "horizontal" else 20.0
 
-        positions = [symbol.get_position() for symbol in symbols]
+        positions = [symbol.position for symbol in symbols]
 
         if distribution == "horizontal":
             # Sort by left edge position
-            sorted_data = sorted(zip(symbols, positions), key=lambda x: x[1]["left"])
+            sorted_data = sorted(zip(symbols, positions), key=lambda x: x[1].left)
             sorted_symbols = [item[0] for item in sorted_data]
             sorted_positions = [item[1] for item in sorted_data]
 
             # Calculate gaps between consecutive symbols (right edge to left edge)
             gaps = []
             for i in range(len(sorted_positions) - 1):
-                current_right = sorted_positions[i]["right"]
-                next_left = sorted_positions[i + 1]["left"]
+                current_right = sorted_positions[i].right
+                next_left = sorted_positions[i + 1].left
                 gap = next_left - current_right
                 gaps.append(gap)
 
@@ -612,15 +580,15 @@ class Schematic(ConsolePage):
 
         else:  # vertical
             # Sort by top edge position
-            sorted_data = sorted(zip(symbols, positions), key=lambda x: x[1]["top"])
+            sorted_data = sorted(zip(symbols, positions), key=lambda x: x[1].top)
             sorted_symbols = [item[0] for item in sorted_data]
             sorted_positions = [item[1] for item in sorted_data]
 
             # Calculate gaps between consecutive symbols (bottom edge to top edge)
             gaps = []
             for i in range(len(sorted_positions) - 1):
-                current_bottom = sorted_positions[i]["bottom"]
-                next_top = sorted_positions[i + 1]["top"]
+                current_bottom = sorted_positions[i].bottom
+                next_top = sorted_positions[i + 1].top
                 gap = next_top - current_bottom
                 gaps.append(gap)
 
@@ -636,3 +604,214 @@ class Schematic(ConsolePage):
                     f"Gap between '{sorted_symbols[i].label}' and '{sorted_symbols[i + 1].label}'\n"
                     f"All symbols (top to bottom): {[s.label for s in sorted_symbols]}"
                 )
+
+    def assert_rotation(
+        self,
+        symbols: list[Symbol],
+        initial_positions: list[Position],
+        direction: RotationType,
+        group: bool = False,
+        tolerance: float = 3.0,
+    ) -> None:
+        """
+        Assert that symbols have been rotated correctly.
+
+        For individual rotation (group=False):
+            - Verifies that symbol dimensions have changed (rotation affects visual appearance)
+            - For symbols with rotation capability, the visual rotation should be apparent
+
+        For group rotation (group=True):
+            - Verifies that symbols have moved to new positions around the group center
+            - Checks that the spatial arrangement has changed according to 90-degree rotation
+
+        Args:
+            symbols: List of symbols that were rotated
+            initial_positions: List of Position objects before rotation (from symbol.position)
+            direction: The rotation direction ('cw' or 'ccw')
+            group: If True, expects group rotation. If False, expects individual rotation.
+            tolerance: Maximum allowed difference in pixels for position comparisons (default: 3.0)
+
+        Raises:
+            ValueError: If the number of symbols doesn't match initial_positions
+            AssertionError: If rotation was not applied correctly
+        """
+        if len(symbols) != len(initial_positions):
+            raise ValueError(
+                f"Number of symbols ({len(symbols)}) must match "
+                f"number of initial positions ({len(initial_positions)})"
+            )
+
+        current_positions = [symbol.position for symbol in symbols]
+
+        self._assert_individual_rotation_dimensions(
+            symbols, initial_positions, current_positions, tolerance
+        )
+
+        if group:
+            self._assert_group_rotation_transform(
+                symbols, initial_positions, current_positions, direction, tolerance
+            )
+        else:
+            self._assert_individual_rotation_ordering(
+                symbols, initial_positions, current_positions
+            )
+
+    def _assert_individual_rotation_dimensions(
+        self,
+        symbols: list[Symbol],
+        initial_positions: list[Position],
+        current_positions: list[Position],
+        tolerance: float,
+    ) -> None:
+        """Assert that symbol dimensions changed correctly after individual rotation.
+
+        For rotatable symbols: width and height should be swapped.
+        For non-rotatable symbols: dimensions should remain unchanged.
+        """
+        for i, symbol in enumerate(symbols):
+            initial_pos = initial_positions[i]
+            current_pos = current_positions[i]
+
+            if symbol.rotatable:
+                # For rotatable symbols, dimensions should be swapped
+                width_diff = abs(current_pos.width - initial_pos.height)
+                height_diff = abs(current_pos.height - initial_pos.width)
+
+                assert width_diff <= tolerance and height_diff <= tolerance, (
+                    f"Symbol {i} ({type(symbol).__name__}) dimensions not swapped after rotation!\n"
+                    f"Initial: width={initial_pos.width:.1f}, height={initial_pos.height:.1f}\n"
+                    f"Current: width={current_pos.width:.1f}, height={current_pos.height:.1f}\n"
+                    f"Expected: width={initial_pos.height:.1f}, height={initial_pos.width:.1f}\n"
+                    f"Difference: width_diff={width_diff:.1f}, height_diff={height_diff:.1f}\n"
+                    f"Tolerance: {tolerance}px"
+                )
+            else:
+                # For non-rotatable symbols, dimensions should remain the same
+                width_diff = abs(current_pos.width - initial_pos.width)
+                height_diff = abs(current_pos.height - initial_pos.height)
+
+                assert width_diff <= tolerance and height_diff <= tolerance, (
+                    f"Symbol {i} ({type(symbol).__name__}) dimensions changed after rotation attempt!\n"
+                    f"This symbol type cannot be rotated.\n"
+                    f"Initial: width={initial_pos.width:.1f}, height={initial_pos.height:.1f}\n"
+                    f"Current: width={current_pos.width:.1f}, height={current_pos.height:.1f}\n"
+                    f"Expected: width={initial_pos.width:.1f}, height={initial_pos.height:.1f}\n"
+                    f"Difference: width_diff={width_diff:.1f}, height_diff={height_diff:.1f}\n"
+                    f"Tolerance: {tolerance}px"
+                )
+
+    def _assert_individual_rotation_ordering(
+        self,
+        symbols: list[Symbol],
+        initial_positions: list[Position],
+        current_positions: list[Position],
+    ) -> None:
+        """Assert that relative ordering is preserved after individual rotation.
+
+        Only checks ordering for symbols that are clearly separated (>15px).
+        Symbols close together are allowed to swap due to center position shifts during rotation.
+        """
+        ordering_separation_threshold = 15.0  # pixels
+
+        def check_axis_ordering(key: str, axis_name: str) -> None:
+            violations: list[dict[str, int | float]] = []
+            for i in range(len(symbols)):
+                for j in range(i + 1, len(symbols)):
+                    initial_i_val = getattr(initial_positions[i], key)
+                    initial_j_val = getattr(initial_positions[j], key)
+                    current_i_val = getattr(current_positions[i], key)
+                    current_j_val = getattr(current_positions[j], key)
+
+                    initial_diff = initial_j_val - initial_i_val
+                    current_diff = current_j_val - current_i_val
+
+                    if abs(initial_diff) > ordering_separation_threshold:
+                        if (initial_diff > 0 and current_diff < 0) or (
+                            initial_diff < 0 and current_diff > 0
+                        ):
+                            violations.append(
+                                {
+                                    "i": i,
+                                    "j": j,
+                                    "initial_i": initial_i_val,
+                                    "initial_j": initial_j_val,
+                                    "current_i": current_i_val,
+                                    "current_j": current_j_val,
+                                }
+                            )
+
+            if violations:
+                msg = f"{axis_name} ordering changed for well-separated symbols!\n"
+                for v in violations:
+                    i_idx = int(v["i"])
+                    j_idx = int(v["j"])
+                    msg += f"  Symbols {i_idx} ({type(symbols[i_idx]).__name__}) and {j_idx} ({type(symbols[j_idx]).__name__}) swapped:\n"
+                    msg += f"    Initial: {v['initial_i']:.1f} vs {v['initial_j']:.1f} (diff: {abs(float(v['initial_j']) - float(v['initial_i'])):.1f}px)\n"
+                    msg += f"    Current: {v['current_i']:.1f} vs {v['current_j']:.1f} (diff: {abs(float(v['current_j']) - float(v['current_i'])):.1f}px)\n"
+                raise AssertionError(msg)
+
+        check_axis_ordering("x", "Horizontal")
+        check_axis_ordering("y", "Vertical")
+
+    def _assert_group_rotation_transform(
+        self,
+        symbols: list[Symbol],
+        initial_positions: list[Position],
+        current_positions: list[Position],
+        direction: RotationType,
+        tolerance: float,
+    ) -> None:
+        """Assert that group rotation correctly transformed symbol positions.
+
+        Uses angular displacement to verify rotation. Each symbol should have
+        rotated by approximately ±90 degrees around the group center.
+        """
+        # Calculate initial center
+        initial_center_x = sum(pos.x for pos in initial_positions) / len(
+            initial_positions
+        )
+        initial_center_y = sum(pos.y for pos in initial_positions) / len(
+            initial_positions
+        )
+
+        # Calculate current center
+        current_center_x = sum(pos.x for pos in current_positions) / len(
+            current_positions
+        )
+        current_center_y = sum(pos.y for pos in current_positions) / len(
+            current_positions
+        )
+
+        expected_angle = 90.0 if direction == "cw" else -90.0
+        angular_tolerance = 15.0
+
+        for i in range(len(symbols)):
+
+            init_x = initial_positions[i].x - initial_center_x
+            init_y = initial_positions[i].y - initial_center_y
+
+            curr_x = current_positions[i].x - current_center_x
+            curr_y = current_positions[i].y - current_center_y
+
+            initial_angle = math.degrees(math.atan2(init_y, init_x))
+            current_angle = math.degrees(math.atan2(curr_y, curr_x))
+
+            angular_displacement = current_angle - initial_angle
+            if angular_displacement > 180:
+                angular_displacement -= 360
+            elif angular_displacement < -180:
+                angular_displacement += 360
+
+            angle_diff = abs(angular_displacement - expected_angle)
+
+            assert angle_diff <= angular_tolerance, (
+                f"Symbol {i} ({type(symbols[i]).__name__}) not rotated correctly in group!\n"
+                f"Direction: {direction}\n"
+                f"Initial angle: {initial_angle:.1f}°\n"
+                f"Current angle: {current_angle:.1f}°\n"
+                f"Angular displacement: {angular_displacement:.1f}°\n"
+                f"Expected: {expected_angle:.1f}° ± {angular_tolerance:.1f}°\n"
+                f"Difference: {angle_diff:.1f}°\n"
+                f"Initial center: ({initial_center_x:.1f}, {initial_center_y:.1f})\n"
+                f"Current center: ({current_center_x:.1f}, {current_center_y:.1f})"
+            )

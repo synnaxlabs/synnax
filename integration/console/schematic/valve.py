@@ -17,6 +17,8 @@ from .symbol import Symbol
 class Valve(Symbol):
     """Schematic valve symbol"""
 
+    rotatable: bool = True
+
     def edit_properties(
         self,
         channel_name: str | None = None,

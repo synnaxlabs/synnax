@@ -21,16 +21,16 @@ class Alignment(ConsoleCase):
     Test the alignment of symbols in the schematic
     """
 
-    def run(self) -> None:
-        console = self.console
-        client = self.client
+    def setup(self) -> None:
 
-        index_ch = client.channels.create(
+        super().setup()
+
+        index_ch = self.client.channels.create(
             name=INDEX_NAME,
             is_index=True,
             retrieve_if_name_exists=True,
         )
-        cmd_ch = client.channels.create(
+        cmd_ch = self.client.channels.create(
             name=CHANNEL_NAME,
             data_type=sy.DataType.FLOAT64,
             is_index=False,
@@ -38,19 +38,26 @@ class Alignment(ConsoleCase):
             retrieve_if_name_exists=True,
         )
 
+    def run(self) -> None:
+        console = self.console
+        client = self.client
+
         schematic = Schematic(client, console, "set_output_schematic")
 
-        # Set up symbols
-        setpoint_symbol = schematic.create_setpoint(CHANNEL_NAME)
-        setpoint_symbol.move(-150, 0)
-        value_symbol = schematic.create_value(CHANNEL_NAME)
-        value_symbol.move(150, 20)
-        button_symbol = schematic.create_button(CHANNEL_NAME)
-        button_symbol.move(0, -20)
-        valve_symbol = schematic.create_valve(CHANNEL_NAME, no_state_channel=True)
-        valve_symbol.move(0, 30)
+        # Set up Symbols
+        valve_threeway = schematic.create.valve_threeway(CHANNEL_NAME)
+        valve_threeway.move(-150, 0)
 
-        symbols = [setpoint_symbol, value_symbol, button_symbol, valve_symbol]
+        valve_threeway_ball = schematic.create.valve_threeway_ball(CHANNEL_NAME)
+        valve_threeway_ball.move(150, -20)
+
+        valve = schematic.create.valve(CHANNEL_NAME)
+        valve.move(0, 50)
+
+        setpoint = schematic.create.setpoint(CHANNEL_NAME)
+        setpoint.move(-210, 0)
+
+        symbols = [setpoint, valve_threeway, valve_threeway_ball, valve]
 
         self.log("Align Vertical")
         schematic.align(symbols, "vertical")
@@ -59,8 +66,8 @@ class Alignment(ConsoleCase):
         schematic.distribute(symbols, "horizontal")
 
         self.log("Align Horizontal")
-        button_symbol.move(0, -100)
-        setpoint_symbol.move(0, 100)
+        valve_threeway.move(0, -100)
+        valve_threeway_ball.move(0, 100)
         schematic.align(symbols, "horizontal")
 
         self.log("Distribute Vertical")
@@ -73,14 +80,26 @@ class Alignment(ConsoleCase):
         schematic.align(symbols, "right")
 
         self.log("Align Top")
-        setpoint_symbol.move(-150, 0)
-        value_symbol.move(150, 0)
+        valve_threeway.move(-150, 0)
+        valve_threeway_ball.move(150, 0)
         schematic.align(symbols, "top")
         schematic.distribute(symbols, "horizontal")
 
         self.log("Align Bottom")
-        button_symbol.move(0, -20)
-        setpoint_symbol.move(0, 30)
+        valve.move(0, -20)
+        valve_threeway.move(0, 30)
         schematic.align(symbols, "bottom")
+
+        self.log("Rotate Individual Clockwise")
+        schematic.rotate(symbols, "cw", group=False)
+
+        self.log("Rotate Individual Counter-Clockwise")
+        schematic.rotate(symbols, "ccw", group=False)
+
+        self.log("Rotate Group Clockwise")
+        schematic.rotate(symbols, "cw", group=True)
+
+        self.log("Rotate Group Counter-Clockwise")
+        schematic.rotate(symbols, "ccw", group=True)
 
         schematic.screenshot()
