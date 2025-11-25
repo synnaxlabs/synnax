@@ -55,11 +55,6 @@
                     },
                     "minItems": 2
                   }
-                },
-                "expect": {
-                  "type": "string",
-                  "enum": ["TIMEOUT", "FAILED", "PASSED"],
-                  "description": "Expected test outcome"
                 }
               },
               "required": ["case"],

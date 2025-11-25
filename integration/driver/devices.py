@@ -13,6 +13,7 @@ Device and simulator configurations for driver integration tests.
 This module provides:
 - KnownDevices: Registry of all test device configurations
 - Simulator: Class with available simulator server configurations
+- connect_device: Utility function to get or create hardware devices
 """
 
 import asyncio
@@ -30,6 +31,7 @@ from examples.modbus import run_server as run_modbus_server  # type: ignore[impo
 from examples.opcua import run_server as run_opcua_server  # type: ignore[import-untyped]
 
 # isort: on
+import synnax as sy
 from synnax.hardware import modbus, opcua
 from synnax.hardware.device import Device as SynnaxDevice
 
@@ -42,6 +44,7 @@ def _run_server(server_func: Callable[[], Coroutine[Any, Any, None]]) -> None:
 
     # Suppress stdout
     sys.stdout = open(os.devnull, "w")
+    sys.stderr = open(os.devnull, "w")
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     signal.signal(signal.SIGTERM, signal.SIG_DFL)
@@ -123,3 +126,47 @@ class Simulator:
         device_factory=KnownDevices.opcua_sim,
         device_name="OPC UA Test Server",
     )
+
+
+def connect_device(
+    client: sy.Synnax,
+    *,
+    rack_name: str,
+    device_factory: Callable[[int], SynnaxDevice],
+) -> sy.Device:
+    """
+    Get or create a hardware device using a factory from KnownDevices.
+
+    This function can be called for any device, whether or not a simulator is
+    running. This enables tests to connect to multiple devices or to hardware
+    devices without simulators.
+
+    Args:
+        client: Synnax client instance
+        rack_name: Name of the rack to connect the device to
+        device_factory: A factory function from KnownDevices (e.g., KnownDevices.modbus_sim)
+
+    Returns:
+        The created or retrieved Synnax device
+
+    Example:
+        device = connect_device(
+            client,
+            rack_name="Node 1 Embedded Driver",
+            device_factory=KnownDevices.modbus_sim
+        )
+    """
+    rack = client.hardware.racks.retrieve(name=rack_name)
+
+    # Create device instance to get its name
+    device_instance = device_factory(rack.key)
+    device_name = device_instance.name
+
+    try:
+        device = client.hardware.devices.retrieve(name=device_name)
+    except sy.NotFoundError:
+        device = client.hardware.devices.create(device_instance)
+    except Exception as e:
+        raise AssertionError(f"Unexpected error creating device: {e}")
+
+    return device

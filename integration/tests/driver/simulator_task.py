@@ -20,8 +20,7 @@ from typing import Any
 
 import synnax as sy
 
-from driver.devices import SimulatorConfig
-from driver.driver import Driver
+from driver.devices import SimulatorConfig, connect_device
 from tests.driver.task import TaskCase
 
 
@@ -66,7 +65,7 @@ class SimulatorTaskCase(TaskCase):
 
         self.start_simulator()
 
-        Driver.connect_device(
+        connect_device(
             client=self.client,
             rack_name=self.RACK_NAME,
             device_factory=self.simulator.device_factory,

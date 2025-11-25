@@ -31,7 +31,6 @@ from abc import ABC
 
 import synnax as sy
 
-from driver.driver import Driver
 from tests.driver.simulator_task import SimulatorTaskCase
 
 
@@ -46,10 +45,10 @@ class DisconnectTask(SimulatorTaskCase, ABC):
         class DisconnectModbus(DisconnectTask, ModbusRead):
             pass
 
-    The class uses these methods from TaskCase and Driver:
-    - Driver.assert_sample_count(): Verify task operation
-    - Driver.assert_device_deleted(): Verify device deletion
-    - Driver.assert_device_exists(): Verify device existence
+    The class uses these methods from TaskCase:
+    - self.assert_sample_count(): Verify task operation
+    - self.assert_device_deleted(): Verify device deletion
+    - self.assert_device_exists(): Verify device existence
     - self.fail(): Fail the test with a message
     - self.log(): Log test progress
     - self.cleanup_simulator(): Kill simulator process
@@ -73,14 +72,14 @@ class DisconnectTask(SimulatorTaskCase, ABC):
 
         self.log("Test 1 - Delete Device")
         client.hardware.devices.delete([device.key])
-        Driver.assert_device_deleted(client, device_key=device.key)
+        self.assert_device_deleted(device_key=device.key)
 
         self.log("Test 2 - Reconnect Device")
         reconnected_device = client.hardware.devices.create(device)
-        Driver.assert_device_exists(client, device_key=reconnected_device.key)
+        self.assert_device_exists(device_key=reconnected_device.key)
 
         self.log("Test 3 - Run Task After Device Reconnection")
-        Driver.assert_sample_count(client, task=tsk, strict=False)
+        self.assert_sample_count(task=tsk, strict=False)
 
         self.log("Test 4 - Kill Simulator")
         if self.simulator_process is None:
@@ -93,13 +92,13 @@ class DisconnectTask(SimulatorTaskCase, ABC):
 
         self.log("Test 6 - Run Task")
         client.hardware.tasks.configure(tsk)
-        Driver.assert_sample_count(client, task=tsk, strict=False)
+        self.assert_sample_count(task=tsk, strict=False)
 
         # Shutdown
         client.hardware.tasks.delete(tsk.key)
-        Driver.assert_task_deleted(client, task_key=tsk.key)
+        self.assert_task_deleted(task_key=tsk.key)
         client.hardware.devices.delete([reconnected_device.key])
-        Driver.assert_device_deleted(client, device_key=reconnected_device.key)
+        self.assert_device_deleted(device_key=reconnected_device.key)
 
 
 from tests.driver.opcua_read import OPCUAReadMixed

@@ -15,13 +15,13 @@ pattern for testing driver tasks.
 """
 
 import os
+import sys
 from abc import abstractmethod
 from typing import Any
 
 import synnax as sy
 
-from driver.driver import Driver
-from framework.test_case import SynnaxConnection, TestCase
+from framework.test_case import TestCase
 
 
 class TaskCase(TestCase):
@@ -142,16 +142,16 @@ class TaskCase(TestCase):
         tsk = self.tsk
 
         self.log("Test 0 - Verify Task Exists")
-        Driver.assert_task_exists(client, task_key=tsk.key)
+        self.assert_task_exists(task_key=tsk.key)
 
         # Get channel names from task
         channel_keys = [ch.channel for ch in tsk.config.channels]
         channels = client.channels.retrieve(channel_keys)
         expected_names = [ch.name for ch in channels]
-        Driver.assert_channel_names(client, task=tsk, expected_names=expected_names)
+        self.assert_channel_names(task=tsk, expected_names=expected_names)
 
         self.log("Test 1 - Start and Stop")
-        Driver.assert_sample_count(client, task=tsk, duration=self.TASK_DURATION)
+        self.assert_sample_count(task=tsk, duration=self.TASK_DURATION)
 
         # SY-3310: OPC Read Array - rapid restart race condition
         sy.sleep(0.2)
@@ -160,7 +160,173 @@ class TaskCase(TestCase):
         new_rate = int(self.SAMPLE_RATE * 2)
         tsk.config.sample_rate = new_rate
         client.hardware.tasks.configure(tsk)
-        Driver.assert_sample_count(client, task=tsk, duration=self.TASK_DURATION)
+        self.assert_sample_count(task=tsk, duration=self.TASK_DURATION)
+
+    def assert_channel_names(
+        self, *, task: sy.Task, expected_names: list[str]
+    ) -> list[str]:
+        """Assert that the task's channels match the expected channel names.
+
+        Args:
+            task: The task to check channel names for
+            expected_names: List of expected channel names in any order
+
+        Raises:
+            AssertionError: If channel names don't match
+
+        Returns:
+            List of channel names in task
+        """
+        # Retrieve all channel names from the task
+        actual_names = []
+        for channel_config in task.config.channels:
+            ch = self.client.channels.retrieve(channel_config.channel)
+            actual_names.append(ch.name)
+
+        # Sort both lists for comparison (order doesn't matter)
+        expected_sorted = sorted(expected_names)
+        actual_sorted = sorted(actual_names)
+
+        if actual_sorted != expected_sorted:
+            raise AssertionError(
+                f"Channel names mismatch. Expected: {expected_sorted}, "
+                f"Actual: {actual_sorted}"
+            )
+        return actual_names
+
+    def assert_device_deleted(self, *, device_key: str) -> None:
+        """Assert that a device has been deleted from Synnax.
+
+        Args:
+            device_key: The key of the device that should be deleted
+
+        Raises:
+            AssertionError: If the device still exists
+        """
+        try:
+            device = self.client.hardware.devices.retrieve(key=device_key)
+            raise AssertionError(f"Device '{device.name}' still exists after deletion")
+        except sy.NotFoundError:
+            return
+        except Exception as e:
+            raise AssertionError(f"Unexpected error asserting device deletion: {e}")
+
+    def assert_device_exists(self, *, device_key: str) -> sy.Device:
+        """Assert that a device exists in Synnax.
+
+        Args:
+            device_key: The key of the device to check
+
+        Raises:
+            AssertionError: If the device does not exist
+
+        Returns:
+            The retrieved device if it exists
+        """
+        try:
+            device = self.client.hardware.devices.retrieve(key=device_key)
+            if device is None:
+                raise AssertionError(f"Device {device_key} does not exist (None)")
+        except sy.NotFoundError:
+            raise AssertionError(f"Device {device_key} does not exist (NotFoundError)")
+        except Exception as e:
+            raise AssertionError(f"Device {device_key} does not exist (Exception): {e}")
+        return device
+
+    def assert_sample_count(
+        self,
+        *,
+        task: sy.Task,
+        duration: sy.TimeSpan = 1,
+        strict: bool = True,
+    ) -> None:
+        """Assert that the task has the expected number of samples.
+
+        Args:
+            task: The task to assert the sample count of
+            duration: Duration (s) to run the task for
+            strict: Sample count within 20% tolerance if True, else no check
+
+        Raises:
+            AssertionError: If sample counts are incorrect or inconsistent
+        """
+        start_time = sy.TimeStamp.now()
+        with task.run():
+            sy.sleep(duration)
+        end_time = sy.TimeStamp.now()
+
+        sample_rate = task.config.sample_rate
+        time_range = sy.TimeRange(start_time, end_time)
+        duration_seconds = time_range.end.span(time_range.start).seconds
+
+        # Allow 20% tolerance for CI environments with timing variance
+        expected_samples = int(sample_rate * duration_seconds)
+        min_samples = int(expected_samples * 0.8) if strict else 1
+        max_samples = int(expected_samples * 1.2) if strict else sys.maxsize
+
+        sample_counts = []
+        for channel_config in task.config.channels:
+            ch = self.client.channels.retrieve(channel_config.channel)
+            num_samples = len(ch.read(time_range))
+            sample_counts.append(num_samples)
+
+            if num_samples < min_samples or num_samples > max_samples:
+                if strict:
+                    raise AssertionError(
+                        f"Channel '{ch.name}' has {num_samples} samples, "
+                        f"expected {expected_samples} ±20% ({min_samples}-{max_samples})"
+                    )
+                else:
+                    raise AssertionError(
+                        f"Channel '{ch.name}' has {num_samples} samples, "
+                        f"expected at least {min_samples} sample(s)"
+                    )
+
+        if len(set(sample_counts)) > 1:
+            raise AssertionError(
+                f"Channels have different sample counts: {sample_counts}"
+            )
+
+        return
+
+    def assert_task_deleted(self, *, task_key: str) -> None:
+        """Assert that a task has been deleted from Synnax.
+
+        Args:
+            task_key: The key of the task that should be deleted
+
+        Raises:
+            AssertionError: If the task still exists
+        """
+        try:
+            self.client.hardware.tasks.retrieve(task_key)
+            raise AssertionError(f"Task {task_key} still exists after deletion")
+        except sy.NotFoundError:
+            return  # Win condition
+        except Exception as e:
+            raise AssertionError(f"Unexpected error asserting task deletion: {e}")
+
+    def assert_task_exists(self, *, task_key: int) -> sy.Task:
+        """Assert that a task exists in Synnax.
+
+        Args:
+            task_key: The key of the task to check
+
+        Raises:
+            AssertionError: If the task does not exist
+
+        Returns:
+            The retrieved task if it exists
+        """
+        try:
+            task = self.client.hardware.tasks.retrieve(task_key)
+            if task is None:
+                raise AssertionError(f"Task {task_key} does not exist (None)")
+        except sy.NotFoundError:
+            raise AssertionError(f"Task {task_key} does not exist (NotFoundError)")
+        except Exception as e:
+            raise AssertionError(f"Task {task_key} does not exist (Exception): {e}")
+        return task
 
     def cleanup(self) -> None:
         """Cleanup task after test."""
