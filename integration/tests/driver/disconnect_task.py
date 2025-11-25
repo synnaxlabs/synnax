@@ -30,14 +30,14 @@ The base class provides the run() method that tests:
 import synnax as sy
 
 from driver.driver import Driver
-from tests.driver.task import TaskCase
+from tests.driver.simulator_task import SimulatorTaskCase
 
 
-class DisconnectTask(TaskCase):
+class DisconnectTask(SimulatorTaskCase):
     """
     Base class providing disconnect/reconnect test behavior.
 
-    Inherits from TaskCase to access common test utilities and infrastructure.
+    Inherits from SimulatorTaskCase to access simulator management and common test utilities.
     Overrides the run() method to execute a disconnect/reconnect test sequence.
 
     Usage:
@@ -50,8 +50,8 @@ class DisconnectTask(TaskCase):
     - Driver.assert_device_exists(): Verify device existence
     - self.fail(): Fail the test with a message
     - self.log(): Log test progress
-    - self._cleanup_simulator(): Kill simulator process
-    - self._start_simulator(): Start simulator process
+    - self.cleanup_simulator(): Kill simulator process
+    - self.start_simulator(): Start simulator process
 
     The class expects these attributes from the task-specific class (e.g., ModbusRead):
     - self.tsk: Configured task instance
@@ -71,24 +71,30 @@ class DisconnectTask(TaskCase):
 
         self.log("Test 1 - Delete Device")
         client.hardware.devices.delete([device.key])
-        Driver.assert_device_deleted(client, device.key)
+        Driver.assert_device_deleted(client, device_key=device.key)
 
         self.log("Test 2 - Reconnect Device")
         reconnected_device = client.hardware.devices.create(device)
-        Driver.assert_device_exists(client, reconnected_device.key)
+        Driver.assert_device_exists(client, device_key=reconnected_device.key)
 
         self.log("Test 3 - Run Task After Device Reconnection")
-        Driver.assert_sample_count(client, tsk, strict=False)
+        Driver.assert_sample_count(client, task=tsk, strict=False)
 
         self.log("Test 4 - Kill Simulator")
         if self.simulator_process is None:
             self.fail("Simulator process not found")
             return
-        self._cleanup_simulator()
+        self.cleanup_simulator()
 
         self.log("Test 5 - Restart Simulator")
-        self._start_simulator()
+        self.start_simulator()
 
         self.log("Test 6 - Run Task")
         client.hardware.tasks.configure(tsk)
-        Driver.assert_sample_count(client, tsk, strict=False)
+        Driver.assert_sample_count(client, task=tsk, strict=False)
+
+        # Shutdown
+        client.hardware.tasks.delete(tsk.key)
+        Driver.assert_task_deleted(client, task_key=tsk.key)
+        client.hardware.devices.delete([reconnected_device.key])
+        Driver.assert_device_deleted(client, device_key=reconnected_device.key)

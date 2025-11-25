@@ -107,23 +107,12 @@ class TestCase(ABC):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection,
+        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        *,
         name: str,
-        expect: str = "PASSED",
         **params: Any,
     ) -> None:
         self.synnax_connection = synnax_connection
-
-        if expect in ["FAILED", "TIMEOUT", "KILLED"]:
-            # Use this wisely!
-            if expect == "FAILED":
-                self.expected_outcome = STATUS.FAILED
-            elif expect == "TIMEOUT":
-                self.expected_outcome = STATUS.TIMEOUT
-            elif expect == "KILLED":
-                self.expected_outcome = STATUS.KILLED
-        else:
-            self.expected_outcome = STATUS.PASSED
 
         """Initialize test case with Synnax server connection."""
         self.params = params
@@ -388,28 +377,16 @@ class TestCase(ABC):
             self.writer_thread.join(timeout=timeout)
 
     def _check_expectation(self) -> None:
-        """Check if test met expected outcome and handle failures gracefully."""
+        """Check final test status and log outcome."""
         # Convert PENDING to PASSED if no final status set
         if self._status == STATUS.PENDING:
             self.STATUS = STATUS.PASSED
 
         status_symbol = SYMBOLS.get_symbol(self._status)
-        expected_symbol = SYMBOLS.get_symbol(self.expected_outcome)
 
-        # Handle expected outcome logic
+        # Log outcome based on status
         if self._status == STATUS.PASSED:
-            if self.expected_outcome == STATUS.PASSED:
-                self.log(f"PASSED ({status_symbol})")
-            else:
-                self.STATUS = STATUS.FAILED
-                self.log(
-                    f"FAILED (❌): Expected {expected_symbol}, got {status_symbol}"
-                )
-
-        elif self._status == self.expected_outcome:
-            self.log(f"PASSED (✅): Expected outcome achieved ({status_symbol})")
-            # Set _status directly. Setter protects against lower-value statuses. (PASSED)
-            self._status = STATUS.PASSED
+            self.log(f"PASSED ({status_symbol})")
         elif self._status == STATUS.FAILED:
             self.log(f"FAILED ({status_symbol})")
         elif self._status == STATUS.TIMEOUT:

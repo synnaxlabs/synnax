@@ -49,6 +49,7 @@ class Driver:
     @staticmethod
     def create_channels(
         client: sy.Synnax,
+        *,
         device_name: str,
         task_key: str,
         channel_configs: list[ChannelConfig],
@@ -94,7 +95,7 @@ class Driver:
 
     @staticmethod
     def assert_channel_names(
-        client: sy.Synnax, task: sy.Task, expected_names: list[str]
+        client: sy.Synnax, *, task: sy.Task, expected_names: list[str]
     ) -> list[str]:
         """Assert that the task's channels match the expected channel names.
 
@@ -127,7 +128,7 @@ class Driver:
         return actual_names
 
     @staticmethod
-    def assert_device_deleted(client: sy.Synnax, device_key: str) -> None:
+    def assert_device_deleted(client: sy.Synnax, *, device_key: str) -> None:
         """Assert that a device has been deleted from Synnax.
 
         Args:
@@ -148,7 +149,7 @@ class Driver:
             )
 
     @staticmethod
-    def assert_device_exists(client: sy.Synnax, device_key: str) -> sy.Device:
+    def assert_device_exists(client: sy.Synnax, *, device_key: str) -> sy.Device:
         """
         Assert that a device exists in Synnax.
 
@@ -174,7 +175,7 @@ class Driver:
 
     @staticmethod
     def assert_sample_count(
-        client: sy.Synnax, task: sy.Task, duration: sy.TimeSpan = 1, strict: bool = True
+        client: sy.Synnax, *, task: sy.Task, duration: sy.TimeSpan = 1, strict: bool = True
     ) -> None:
         """Assert that the task has the expected number of samples.
 
@@ -227,7 +228,7 @@ class Driver:
         return
 
     @staticmethod
-    def assert_task_deleted(client: sy.Synnax, task_key: str) -> None:
+    def assert_task_deleted(client: sy.Synnax, *, task_key: str) -> None:
         """Assert that a task has been deleted from Synnax.
 
         Args:
@@ -246,7 +247,7 @@ class Driver:
             raise AssertionError(f"Unexpected error asserting task deletion: {e}")
 
     @staticmethod
-    def assert_task_exists(client: sy.Synnax, task_key: int) -> sy.Task:
+    def assert_task_exists(client: sy.Synnax, *, task_key: int) -> sy.Task:
         """
         Assert that a task exists in Synnax.
 
@@ -273,6 +274,7 @@ class Driver:
     @staticmethod
     def connect_device(
         client: sy.Synnax,
+        *,
         rack_name: str,
         device_factory: Callable[[int], SynnaxDevice],
     ) -> sy.Device:

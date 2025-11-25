@@ -9,22 +9,17 @@
 
 
 from tests.driver.disconnect_task import DisconnectTask
-from tests.driver.opcua_read import OpcuaRead
+from tests.driver.opcua_read import OPCUAReadMixed
 
 
-class DisconnectOpcua(DisconnectTask, OpcuaRead):
+class DisconnectOpcua(DisconnectTask, OPCUAReadMixed):
     """
     OPC UA disconnect/reconnect test.
 
     Tests device and simulator disconnection/reconnection scenarios for
-    OPC UA read tasks. Inherits configuration from OpcuaRead (including
-    matrix parameter support for task types) and test behavior from
-    DisconnectTask.
-
-    Supported task types (via matrix parameter):
-    - "float": Float32 scalar channels
-    - "bool": Boolean channels
-    - "array": Float32 array channels
+    OPC UA read tasks with mixed channel types. Inherits configuration
+    from OpcuaReadMixed (including matrix parameter support for task types)
+    and test behavior from DisconnectTask.
 
     The test sequence:
     1. Deletes the device while task exists

@@ -15,12 +15,32 @@ This module provides:
 - Simulator: Class with available simulator server configurations
 """
 
+import asyncio
+import signal
+import sys
+import os
 from dataclasses import dataclass
-from pathlib import Path
+from multiprocessing import get_context
+from multiprocessing.context import ForkProcess
 from typing import Callable
 
+from examples.modbus import run_server as run_modbus_server
+from examples.opcua import run_server as run_opcua_server
 from synnax.hardware import modbus, opcua
 from synnax.hardware.device import Device as SynnaxDevice
+
+# Use fork method for multiprocessing to support lambdas
+mp_ctx = get_context("fork")
+
+def _run_server(server_func: Callable[[], None]) -> None:
+    """Run a server in a subprocess, with default signal handling."""
+
+    # Suppress stdout
+    sys.stdout = open(os.devnull, 'w')
+
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    asyncio.run(server_func())
 
 
 class KnownDevices:
@@ -59,30 +79,45 @@ class KnownDevices:
 class SimulatorConfig:
     """
     Configuration for a simulator server.
-
-    Combines server startup details with a reference to a device from KnownDevices.
-    This allows simulators to reference device configurations without duplicating them.
+    Combines server startup callback with a reference to a device from KnownDevices.
     """
 
-    server_script: Path
+    server_setup: Callable[[], ForkProcess]
     startup_delay_seconds: float
     device_factory: Callable[[int], SynnaxDevice]
     device_name: str
-    """The name of the device (for easy retrieval without calling the factory)."""
+
+
+def start_modbus_server():
+    """Start the Modbus TCP simulator server in a separate process."""
+    process = mp_ctx.Process(
+        target=lambda: _run_server(run_modbus_server), daemon=True
+    )
+    process.start()
+    return process
+
+
+def start_opcua_server():
+    """Start the OPC UA simulator server in a separate process."""
+    process = mp_ctx.Process(
+        target=lambda: _run_server(run_opcua_server), daemon=True
+    )
+    process.start()
+    return process
 
 
 class Simulator:
     """Available simulator servers for driver testing."""
 
     MODBUS = SimulatorConfig(
-        server_script=Path("client/py/examples/modbus/server.py"),
+        server_setup=start_modbus_server,
         startup_delay_seconds=2.0,
         device_factory=KnownDevices.modbus_sim,
         device_name="Modbus TCP Test Server",
     )
 
     OPCUA = SimulatorConfig(
-        server_script=Path("client/py/examples/opcua/server.py"),
+        server_setup=start_opcua_server,
         startup_delay_seconds=2.0,
         device_factory=KnownDevices.opcua_sim,
         device_name="OPC UA Test Server",

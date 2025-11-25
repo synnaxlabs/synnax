@@ -9,16 +9,16 @@
 
 
 from tests.driver.disconnect_task import DisconnectTask
-from tests.driver.modbus_read import ModbusRead
+from tests.driver.modbus_read import ModbusReadMixed
 
 
-class DisconnectModbus(DisconnectTask, ModbusRead):
+class DisconnectModbus(DisconnectTask, ModbusReadMixed):
     """
     Modbus TCP disconnect/reconnect test.
 
     Tests device and simulator disconnection/reconnection scenarios for
-    Modbus TCP read tasks. Inherits configuration from ModbusRead and
-    test behavior from DisconnectTask.
+    Modbus TCP read tasks with mixed channel types. Inherits configuration
+    from ModbusReadMixed and test behavior from DisconnectTask.
 
     The test sequence:
     1. Deletes the device while task exists

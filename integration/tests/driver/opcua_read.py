@@ -8,217 +8,208 @@
 #  included in the file licenses/APL.txt.
 
 
-from typing import TypedDict
-
 import synnax as sy
 from synnax.hardware import opcua
 
-from driver.devices import Simulator
-from driver.driver import ChannelConfig
-from tests.driver.task import TaskCase
+from tests.driver.opcua_task import OpcuaTaskCase
 
 
-class TaskTypeConfig(TypedDict, total=False):
+class OPCUAReadFloat(OpcuaTaskCase):
     """
-    Configuration for a specific OPC UA task type.
+    OPC UA read task test for float32 channels.
 
-    Attributes:
-        task_name: Human-readable name for the task
-        task_key: Unique identifier for the task (used for index channel naming)
-        channels: List of channel configurations with OPC UA-specific metadata
-        array_mode: Whether to read array data (True) or scalar values (False)
-        array_size: Number of elements per array when array_mode is True
+    Tests scalar float32 channels (NodeIds NS=2;I=8, NS=2;I=9).
     """
 
-    task_name: str
-    task_key: str
-    channels: list[ChannelConfig]
-    array_mode: bool
-    array_size: int
+    def __init__(self, **kwargs: object) -> None:
+        super().__init__(task_name="OPCUA Read Float", **kwargs)
 
-
-class OpcuaRead(TaskCase):
-    """
-    OPC UA read task lifecycle test.
-
-    This test configures and validates OPC UA read tasks with different channel types.
-    The task type is selected via the 'task' matrix parameter.
-
-    Supported task types:
-    - "float": Standard float32 channels
-    - "bool": Boolean channels (UINT8)
-    - "array": Array mode float32 channels
-    - "mixed": Scalar mode with both float32 and boolean channels
-    """
-
-    # Simulator configuration
-    simulator = Simulator.OPCUA
-
-    # OPC specific params
-    array_mode: bool = False
-    array_size: int = 5
-
-    # Task configurations for different types
-    TASK_CONFIGS: dict[str, TaskTypeConfig] = {
-        "float": {
-            "task_name": "OPC UA Py - Read Float",
-            "task_key": "opcua_read_float",
-            "channels": [
-                {
-                    "name": "my_float_0",
-                    "data_type": sy.DataType.FLOAT32,
-                    "node_id": "NS=2;I=8",
-                    "opcua_data_type": "float32",
-                },
-                {
-                    "name": "my_float_1",
-                    "data_type": sy.DataType.FLOAT32,
-                    "node_id": "NS=2;I=9",
-                    "opcua_data_type": "float32",
-                },
-            ],
-        },
-        "bool": {
-            "task_name": "OPC UA Py - Read Bool",
-            "task_key": "opcua_read_bool",
-            "channels": [
-                {
-                    "name": "my_bool_0",
-                    "data_type": sy.DataType.UINT8,
-                    "node_id": "NS=2;I=13",
-                    "opcua_data_type": "bool",
-                },
-                {
-                    "name": "my_bool_1",
-                    "data_type": sy.DataType.UINT8,
-                    "node_id": "NS=2;I=14",
-                    "opcua_data_type": "bool",
-                },
-            ],
-        },
-        "array": {
-            "task_name": "OPC UA Py - Read Array",
-            "task_key": "opcua_read_array",
-            "array_mode": True,
-            "array_size": 5,
-            "channels": [
-                {
-                    "name": "my_array_0",
-                    "data_type": sy.DataType.FLOAT32,
-                    "node_id": "NS=2;I=2",
-                    "opcua_data_type": "float32",
-                },
-                {
-                    "name": "my_array_1",
-                    "data_type": sy.DataType.FLOAT32,
-                    "node_id": "NS=2;I=3",
-                    "opcua_data_type": "float32",
-                },
-            ],
-        },
-        "mixed": {
-            "task_name": "OPC UA Py - Read Mixed",
-            "task_key": "opcua_read_mixed",
-            "channels": [
-                {
-                    "name": "my_float_0",
-                    "data_type": sy.DataType.FLOAT32,
-                    "node_id": "NS=2;I=8",
-                    "opcua_data_type": "float32",
-                },
-                {
-                    "name": "my_float_1",
-                    "data_type": sy.DataType.FLOAT32,
-                    "node_id": "NS=2;I=9",
-                    "opcua_data_type": "float32",
-                },
-                {
-                    "name": "my_bool_0",
-                    "data_type": sy.DataType.UINT8,
-                    "node_id": "NS=2;I=13",
-                    "opcua_data_type": "bool",
-                },
-                {
-                    "name": "my_bool_1",
-                    "data_type": sy.DataType.UINT8,
-                    "node_id": "NS=2;I=14",
-                    "opcua_data_type": "bool",
-                },
-            ],
-        },
-    }
-
-    def setup(self) -> None:
-        """
-        Select task configuration based on matrix parameter and setup task.
-
-        Matrix Parameters:
-            task (str): Task type selector. Valid values:
-                - "float": Read scalar float32 channels (NodeIds NS=2;I=8, NS=2;I=9)
-                - "bool": Read scalar boolean channels (NodeIds NS=2;I=13, NS=2;I=14)
-                - "array": Read array float32 channels (NodeIds NS=2;I=2, NS=2;I=3)
-                - "mixed": Read scalar mixed channels (floats + bools)
-
-        Example JSON configurations:
-            {"case": "driver/opcua_read", "task": "float"}
-            {"case": "driver/opcua_read", "task": "bool"}
-            {"case": "driver/opcua_read", "task": "array"}
-            {"case": "driver/opcua_read", "task": "mixed"}
-        """
-        # Select task configuration
-        task_type = self.params.get("task", "mixed")
-        if task_type not in self.TASK_CONFIGS:
-            self.fail(f"Unknown task_type: {task_type}")
-            return
-
-        config = self.TASK_CONFIGS[task_type]
-        self.TASK_NAME = config["task_name"]
-        self.TASK_KEY = config["task_key"]
-        self.CHANNELS = config["channels"]
-        self.array_mode = config.get("array_mode", False)
-        self.array_size = config.get("array_size", 5)
-
-        super().setup()
-
-    def create_task(
-        self,
-        device: sy.Device,
-        channels: list[sy.Channel],
-        channel_metadata: list[ChannelConfig],
-        task_name: str,
-        sample_rate: sy.Rate,
-        stream_rate: sy.Rate,
-    ) -> opcua.ReadTask:
-        """
-        Create an OPC UA read task from channel metadata.
-
-        Args:
-            device: Synnax device to read from
-            channels: Created Synnax channels
-            channel_metadata: List of dicts with protocol-specific config
-            task_name: Name for the task
-            sample_rate: Sampling rate for the task
-            stream_rate: Streaming rate for the task
-
-        Returns:
-            Configured OPC UA read task
-        """
-        task_channels = [
+    def create_channels(self, *, device: sy.Device) -> list[opcua.ReadChannel]:
+        """Create float32 channels."""
+        index_c = self.client.channels.create(
+            name="opcua_float_index",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+            retrieve_if_name_exists=True,
+        )
+        return [
             opcua.ReadChannel(
-                channel=ch.key,
-                node_id=meta["node_id"],
-                data_type=meta["opcua_data_type"],
-            )
-            for ch, meta in zip(channels, channel_metadata)
+                channel=self.client.channels.create(
+                    name="my_float_0",
+                    data_type=sy.DataType.FLOAT32,
+                    index=index_c.key,
+                    retrieve_if_name_exists=True,
+                ).key,
+                node_id="NS=2;I=8",
+                data_type="float32",
+            ),
+            opcua.ReadChannel(
+                channel=self.client.channels.create(
+                    name="my_float_1",
+                    data_type=sy.DataType.FLOAT32,
+                    index=index_c.key,
+                    retrieve_if_name_exists=True,
+                ).key,
+                node_id="NS=2;I=9",
+                data_type="float32",
+            ),
         ]
 
-        return opcua.ReadTask(
-            name=task_name,
-            device=device.key,
-            sample_rate=sample_rate,
-            stream_rate=stream_rate,
-            data_saving=True,
-            array_mode=self.array_mode,
-            array_size=self.array_size,
-            channels=task_channels,
+
+class OPCUAReadBool(OpcuaTaskCase):
+    """
+    OPC UA read task test for boolean channels.
+
+    Tests scalar boolean channels (UINT8, NodeIds NS=2;I=13, NS=2;I=14).
+    """
+
+    def __init__(self, **kwargs: object) -> None:
+        super().__init__(task_name="OPCUA Read Bool", **kwargs)
+
+    def create_channels(self, *, device: sy.Device) -> list[opcua.ReadChannel]:
+        """Create boolean channels."""
+        index_c = self.client.channels.create(
+            name="opcua_bool_index",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+            retrieve_if_name_exists=True,
         )
+        return [
+            opcua.ReadChannel(
+                channel=self.client.channels.create(
+                    name="my_bool_0",
+                    data_type=sy.DataType.UINT8,
+                    index=index_c.key,
+                    retrieve_if_name_exists=True,
+                ).key,
+                node_id="NS=2;I=13",
+                data_type="bool",
+            ),
+            opcua.ReadChannel(
+                channel=self.client.channels.create(
+                    name="my_bool_1",
+                    data_type=sy.DataType.UINT8,
+                    index=index_c.key,
+                    retrieve_if_name_exists=True,
+                ).key,
+                node_id="NS=2;I=14",
+                data_type="bool",
+            ),
+        ]
+
+
+class OPCUAReadArray(OpcuaTaskCase):
+    """
+    OPC UA read task test for array mode.
+
+    Tests array mode float32 channels (NodeIds NS=2;I=2, NS=2;I=3).
+    """
+
+
+    def __init__(
+        self, 
+        *,
+        array_mode: bool = True,
+        array_size: int = 5,
+        **kwargs: object) -> None:
+
+        super().__init__(
+            task_name="OPCUA Read Array",
+            array_mode=array_mode,
+            array_size=array_size,
+            **kwargs,
+        )
+
+    def create_channels(self, *, device: sy.Device) -> list[opcua.ReadChannel]:
+        """Create array channels."""
+
+        index_c = self.client.channels.create(
+            name="opcua_array_index",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+            retrieve_if_name_exists=True,
+        )
+        return [
+            opcua.ReadChannel(
+                channel=self.client.channels.create(
+                    name="my_array_0",
+                    data_type=sy.DataType.FLOAT32,
+                    index=index_c.key,
+                    retrieve_if_name_exists=True,
+                ).key,
+                node_id="NS=2;I=2",
+                data_type="float32",
+            ),
+            opcua.ReadChannel(
+                channel=self.client.channels.create(
+                    name="my_array_1",
+                    data_type=sy.DataType.FLOAT32,
+                    index=index_c.key,
+                    retrieve_if_name_exists=True,
+                ).key,
+                node_id="NS=2;I=3",
+                data_type="float32",
+            ),
+        ]
+
+
+class OPCUAReadMixed(OpcuaTaskCase):
+    """
+    OPC UA read task test with mixed channel types.
+
+    Tests scalar mode with both float32 and boolean channels.
+    """
+
+    def __init__(self, **kwargs: object) -> None:
+        super().__init__(task_name="OPCUA Read Mixed", **kwargs)
+
+    def create_channels(self, *, device: sy.Device) -> list[opcua.ReadChannel]:
+        """Create mixed channel types."""
+        index_c = self.client.channels.create(
+            name="opcua_mixed_index",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+            retrieve_if_name_exists=True,
+        )
+        return [
+            opcua.ReadChannel(
+                channel=self.client.channels.create(
+                    name="my_float_0",
+                    data_type=sy.DataType.FLOAT32,
+                    index=index_c.key,
+                    retrieve_if_name_exists=True,
+                ).key,
+                node_id="NS=2;I=8",
+                data_type="float32",
+            ),
+            opcua.ReadChannel(
+                channel=self.client.channels.create(
+                    name="my_float_1",
+                    data_type=sy.DataType.FLOAT32,
+                    index=index_c.key,
+                    retrieve_if_name_exists=True,
+                ).key,
+                node_id="NS=2;I=9",
+                data_type="float32",
+            ),
+            opcua.ReadChannel(
+                channel=self.client.channels.create(
+                    name="my_bool_0",
+                    data_type=sy.DataType.UINT8,
+                    index=index_c.key,
+                    retrieve_if_name_exists=True,
+                ).key,
+                node_id="NS=2;I=13",
+                data_type="bool",
+            ),
+            opcua.ReadChannel(
+                channel=self.client.channels.create(
+                    name="my_bool_1",
+                    data_type=sy.DataType.UINT8,
+                    index=index_c.key,
+                    retrieve_if_name_exists=True,
+                ).key,
+                node_id="NS=2;I=14",
+                data_type="bool",
+            ),
+        ]
