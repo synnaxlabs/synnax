@@ -239,11 +239,10 @@ export const rotateNodes = (
 
       const clickCount = dir === "clockwise" ? 1 : 3;
 
-      for (let i = 0; i < clickCount; i++) 
+      for (let i = 0; i < clickCount; i++)
         setTimeout(() => {
           (rotateButton as HTMLElement).click();
         }, i * 7); // 7ms debounce
-      
     } catch (e) {
       console.warn(`Failed to rotate node ${layout.key}:`, e);
     }
