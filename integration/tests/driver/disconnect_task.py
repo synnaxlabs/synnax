@@ -29,8 +29,8 @@ The base class provides the run() method that tests:
 
 from abc import ABC
 
-import synnax as sy
-
+from tests.driver.modbus_read import ModbusReadMixed
+from tests.driver.opcua_read import OPCUAReadMixed
 from tests.driver.simulator_task import SimulatorTaskCase
 
 
@@ -101,18 +101,12 @@ class DisconnectTask(SimulatorTaskCase, ABC):
         self.assert_device_deleted(device_key=reconnected_device.key)
 
 
-from tests.driver.opcua_read import OPCUAReadMixed
-
-
 class DisconnectOpcua(DisconnectTask, OPCUAReadMixed):
     """
     OPC UA disconnect/reconnect test.
     """
 
     pass
-
-
-from tests.driver.modbus_read import ModbusReadMixed
 
 
 class DisconnectModbus(DisconnectTask, ModbusReadMixed):
