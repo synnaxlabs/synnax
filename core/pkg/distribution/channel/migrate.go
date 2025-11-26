@@ -12,7 +12,6 @@ package channel
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/set"
@@ -31,36 +30,15 @@ func (s *Service) migrate(ctx context.Context) error {
 	}.Run(ctx, s.cfg.ClusterDB)
 }
 
-// migrateChannelNames transforms existing channel names to meet validation
-// requirements.
+// migrateChannelNames transforms existing channel names to remove invalid characters
+// like spaces and ensure that the name is unique.
 func (s *Service) migrateChannelNames(ctx context.Context, tx gorp.Tx) error {
-	// Retrieve all channels
-	var channels []Channel
-	if err := gorp.NewRetrieve[Key, Channel]().
-		Entries(&channels).
-		Exec(ctx, tx); err != nil {
-		return err
-	}
-
-	existingNames := make(set.Set[string], len(channels))
-	channelsToUpdate := map[Key]string{}
-
-	for _, ch := range channels {
-		if err := ValidateName(ch.Name); err == nil && !existingNames.Contains(ch.Name) {
-			existingNames.Add(ch.Name)
-			continue
-		}
-		transformedName := TransformName(ch.Name)
-		newName := NewUniqueName(transformedName, existingNames)
-		channelsToUpdate[ch.Key()] = newName
-		existingNames.Add(newName)
-	}
-
-	// Update channels with transformed names
+	existingNames := set.Set[string]{}
 	return gorp.NewUpdate[Key, Channel]().
-		WhereKeys(lo.Keys(channelsToUpdate)...).
 		Change(func(_ gorp.Context, c Channel) Channel {
-			c.Name = channelsToUpdate[c.Key()]
+			transformedName := TransformName(c.Name)
+			c.Name = NewUniqueName(transformedName, existingNames)
+			existingNames.Add(c.Name)
 			return c
 		}).
 		Exec(ctx, tx)
