@@ -11,6 +11,7 @@ package status
 
 import (
 	"context"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -49,7 +50,9 @@ func (r Retrieve[D]) Entries(s *[]Status[D]) Retrieve[D] { r.gorp.Entries(s); re
 func (r Retrieve[D]) WhereKeys(keys ...string) Retrieve[D] { r.gorp.WhereKeys(keys...); return r }
 
 func (r Retrieve[D]) WhereKeyPrefix(prefix string) Retrieve[D] {
-	r.gorp = r.gorp.WherePrefix([]byte(prefix))
+	r.gorp.Where(func(_ gorp.Context, s *Status[D]) (bool, error) {
+		return strings.HasPrefix(s.Key, prefix), nil
+	})
 	return r
 }
 

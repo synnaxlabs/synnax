@@ -138,24 +138,62 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 	})
 	Describe("WherePrefix", func() {
-		It("Should retrieve the entry by a prefix", func() {
-			r := prefixEntry{
-				ID:   123,
-				Data: "data",
-			}
-			r2 := prefixEntry{
-				ID:   456,
-				Data: "data",
-			}
-			Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r).Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r2).Exec(ctx, tx)).To(Succeed())
-			var res []prefixEntry
-			Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
-				WherePrefix([]byte("prefix-123")).
-				Entries(&res).
-				Exec(ctx, tx),
-			).To(Succeed())
-			Expect(res).To(Equal([]prefixEntry{r}))
+		Context("With byte-slice keys", func() {
+			It("Should retrieve a single entry by exact prefix", func() {
+				r := prefixEntry{ID: 123, Data: "data"}
+				r2 := prefixEntry{ID: 456, Data: "data"}
+				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r2).Exec(ctx, tx)).To(Succeed())
+				var res []prefixEntry
+				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
+					WherePrefix([]byte("prefix-123")).
+					Entries(&res).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res).To(Equal([]prefixEntry{r}))
+			})
+
+			It("Should retrieve multiple entries matching a common prefix", func() {
+				r1 := prefixEntry{ID: 100, Data: "first"}
+				r2 := prefixEntry{ID: 101, Data: "second"}
+				r3 := prefixEntry{ID: 200, Data: "third"}
+				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r1).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r2).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r3).Exec(ctx, tx)).To(Succeed())
+				var res []prefixEntry
+				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
+					WherePrefix([]byte("prefix-10")).
+					Entries(&res).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res).To(HaveLen(2))
+			})
+
+			It("Should return empty results when prefix doesn't match any entries", func() {
+				r := prefixEntry{ID: 123, Data: "data"}
+				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r).Exec(ctx, tx)).To(Succeed())
+				var res []prefixEntry
+				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
+					WherePrefix([]byte("nonexistent-")).
+					Entries(&res).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res).To(BeEmpty())
+			})
+
+			It("Should retrieve all entries with common base prefix", func() {
+				r1 := prefixEntry{ID: 1, Data: "one"}
+				r2 := prefixEntry{ID: 2, Data: "two"}
+				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r1).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r2).Exec(ctx, tx)).To(Succeed())
+				var res []prefixEntry
+				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
+					WherePrefix([]byte("prefix-")).
+					Entries(&res).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res).To(HaveLen(2))
+			})
 		})
 
 	})
