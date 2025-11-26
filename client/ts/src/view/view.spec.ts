@@ -10,6 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil/client";
 
 describe("View", () => {
@@ -42,7 +43,9 @@ describe("View", () => {
       ]);
       expect(views).toHaveLength(2);
       expect(views[0].name).toEqual("View 1");
+      expect(views[0].query).toEqual({ channels: ["ch-1"] });
       expect(views[1].name).toEqual("View 2");
+      expect(views[1].query).toEqual({ channels: ["ch-2"] });
     });
   });
 
@@ -57,6 +60,7 @@ describe("View", () => {
       const retrieved = await client.views.retrieve({ key: created.key });
       expect(retrieved.key).toEqual(created.key);
       expect(retrieved.name).toEqual("Retrieve Test");
+      expect(retrieved.query).toEqual({ channels: ["test"] });
     });
 
     it("should retrieve multiple views", async () => {
@@ -76,6 +80,10 @@ describe("View", () => {
       const keys = created.map((v) => v.key);
       const retrieved = await client.views.retrieve({ keys });
       expect(retrieved).toHaveLength(2);
+      expect(retrieved[0].name).toEqual("Multi 1");
+      expect(retrieved[0].query).toEqual({ channels: ["ch-1"] });
+      expect(retrieved[1].name).toEqual("Multi 2");
+      expect(retrieved[1].query).toEqual({ channels: ["ch-2"] });
     });
 
     it("should retrieve views by type", async () => {
@@ -96,6 +104,10 @@ describe("View", () => {
       const retrieved = await client.views.retrieve({ types: [type] });
       expect(retrieved).toHaveLength(2);
       retrieved.forEach((v) => expect(v.type).toEqual(type));
+      expect(retrieved[0].name).toEqual("Type 1");
+      expect(retrieved[0].query).toEqual({ channels: ["ch-1"] });
+      expect(retrieved[1].name).toEqual("Type 2");
+      expect(retrieved[1].query).toEqual({ channels: ["ch-2"] });
     });
 
     it("should search for views by name", async () => {
@@ -108,6 +120,7 @@ describe("View", () => {
       const results = await client.views.retrieve({ searchTerm: "Searchable" });
       expect(results.length).toBeGreaterThan(0);
       expect(results[0].name).toContain("Searchable");
+      expect(results[0].query).toEqual({ channels: ["search"] });
     });
   });
 
@@ -120,7 +133,9 @@ describe("View", () => {
         query: { channels: ["delete"] },
       });
       await client.views.delete(v.key);
-      await expect(client.views.retrieve({ key: v.key })).rejects.toThrow();
+      await expect(client.views.retrieve({ key: v.key })).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should delete multiple views", async () => {
@@ -139,7 +154,7 @@ describe("View", () => {
       ]);
       const keys = views.map((v) => v.key);
       await client.views.delete(keys);
-      await expect(client.views.retrieve({ keys })).rejects.toThrow();
+      await expect(client.views.retrieve({ keys })).rejects.toThrow(NotFoundError);
     });
   });
 });

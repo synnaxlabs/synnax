@@ -163,7 +163,7 @@ type Transport struct {
 	StatusSet      freighter.UnaryServer[StatusSetRequest, StatusSetResponse]
 	StatusRetrieve freighter.UnaryServer[StatusRetrieveRequest, StatusRetrieveResponse]
 	StatusDelete   freighter.UnaryServer[StatusDeleteRequest, types.Nil]
-	// Arc
+	// ARC
 	ArcCreate   freighter.UnaryServer[ArcCreateRequest, ArcCreateResponse]
 	ArcDelete   freighter.UnaryServer[ArcDeleteRequest, types.Nil]
 	ArcRetrieve freighter.UnaryServer[ArcRetrieveRequest, ArcRetrieveResponse]
@@ -479,7 +479,7 @@ func (a *Layer) BindTo(t Transport) {
 	t.ViewRetrieve.BindHandler(a.View.Retrieve)
 	t.ViewDelete.BindHandler(a.View.Delete)
 
-	// Arc
+	// ARC
 	t.ArcCreate.BindHandler(a.Arc.Create)
 	t.ArcDelete.BindHandler(a.Arc.Delete)
 	t.ArcRetrieve.BindHandler(a.Arc.Retrieve)
