@@ -41,8 +41,10 @@ const SUB_POSITIONS: Record<location.CornerXYString, { x: number; y: number }> =
   bottomRight: { x: BASE_SIZE - SUB_SIZE, y: BASE_SIZE - SUB_SIZE },
 };
 
-const createSubIcon = (key: location.CornerXYString, Icon: FC): ReactElement | null => {
-  // TODO: fix
+const createSubIcon = (
+  key: location.CornerXYString,
+  Icon: FC | undefined,
+): ReactElement | null => {
   if (Icon == null) return null;
 
   return (
@@ -94,7 +96,7 @@ export const wrapSVGIcon = (
 
 export const createComposite = (
   Base: FC,
-  { topRight, topLeft, bottomLeft, bottomRight }: Record<string, FC>,
+  { topRight, topLeft, bottomLeft, bottomRight }: Record<string, FC | undefined>,
 ): FC => {
   if (topRight == null && topLeft == null && bottomLeft == null && bottomRight == null)
     return Base;

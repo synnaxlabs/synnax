@@ -195,9 +195,9 @@ type Layer struct {
 	Label        *LabelService
 	Hardware     *HardwareService
 	Access       *AccessService
+	Arc          *ArcService
 	Status       *StatusService
 	View         *ViewService
-	Arc          *ArcService
 }
 
 // BindTo binds the API layer to the provided Transport implementation.

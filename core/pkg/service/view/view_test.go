@@ -42,7 +42,7 @@ var _ = Describe("View", func() {
 			EnableSearch: config.True(),
 		}))
 		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		svc = MustSucceed(view.OpenService(ctx, view.ServiceConfig{
+		svc = MustSucceed(view.OpenService(ctx, view.Config{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,

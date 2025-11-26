@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type ServiceConfig struct {
+type Config struct {
 	alamos.Instrumentation
 	// DB is the underlying database that the service will use to store Views.
 	DB *gorp.DB
@@ -40,12 +40,12 @@ type ServiceConfig struct {
 }
 
 var (
-	_             config.Config[ServiceConfig] = (*ServiceConfig)(nil)
-	DefaultConfig                              = ServiceConfig{}
+	_             config.Config[Config] = (*Config)(nil)
+	DefaultConfig                       = Config{}
 )
 
 // Override implements config.Config.
-func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -54,11 +54,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 }
 
 // Validate implements config.Config
-func (c ServiceConfig) Validate() error {
-	v := validate.New("view.service")
-	validate.NotNil(v, "DB", c.DB)
-	validate.NotNil(v, "Ontology", c.Ontology)
-	validate.NotNil(v, "Group", c.Group)
+func (c Config) Validate() error {
+	v := validate.New("service.view")
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "group", c.Group)
 	return v.Error()
 }
 
@@ -66,15 +66,15 @@ func (c ServiceConfig) Validate() error {
 // mechanisms for creating, retrieving, updating, and deleting views. It also provides
 // mechanisms for listening to changes in views.
 type Service struct {
-	cfg             ServiceConfig
+	cfg             Config
 	group           group.Group
 	shutdownSignals io.Closer
 }
 
-// OpenService opens a new view.Service with the provided configuration. If error is
+// OpenService opens a new Service with the provided configuration. If error is
 // nil, the service is ready for use and must be closed by calling Close to prevent
 // resource leaks.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	s := &Service{}
 	var err error
 	if s.cfg, err = config.New(DefaultConfig, cfgs...); err != nil {
@@ -100,7 +100,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 }
 
 // Close closes the service and releases any resources that it may have acquired. Close
-// is not safe to call concurrently with any other Service methods (including Writer(s)
+// is not safe to call concurrently with any other service methods (including Writer(s)
 // and Retrieve(s)).
 func (s *Service) Close() error {
 	if s.shutdownSignals != nil {
