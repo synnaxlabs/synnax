@@ -198,7 +198,7 @@ var _ = Describe("Status", func() {
 	})
 
 	Describe("Protocol Buffer Translation", func() {
-		Describe("TranslateForward", func() {
+		Describe("TranslateToPB", func() {
 			It("Should translate a status with basic fields", func() {
 				s := status.Status[any]{
 					Key:         "test-key",
@@ -208,7 +208,7 @@ var _ = Describe("Status", func() {
 					Description: "Test description",
 					Time:        telem.TimeStamp(1609459200000000000),
 				}
-				pb, err := status.TranslateForward(s)
+				pb, err := status.TranslateToPB(s)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pb.Key).To(Equal("test-key"))
 				Expect(pb.Name).To(Equal("Test Status"))
@@ -225,7 +225,7 @@ var _ = Describe("Status", func() {
 					Variant: status.ErrorVariant,
 					Details: CustomDetails{Code: 500, Context: "server error"},
 				}
-				pb, err := status.TranslateForward(s)
+				pb, err := status.TranslateToPB(s)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pb.Details).To(Equal(`{"Code":500,"Context":"server error"}`))
 			})
@@ -236,13 +236,13 @@ var _ = Describe("Status", func() {
 					Variant: status.InfoVariant,
 					Details: 42,
 				}
-				pb, err := status.TranslateForward(s)
+				pb, err := status.TranslateToPB(s)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pb.Details).To(Equal("42"))
 			})
 		})
 
-		Describe("TranslateBackward", func() {
+		Describe("TranslateFromPB", func() {
 			It("Should translate a protobuf status back to Status", func() {
 				pb := &status.PBStatus{
 					Key:         "pb-key",
@@ -253,7 +253,7 @@ var _ = Describe("Status", func() {
 					Time:        1609459200000000000,
 					Details:     "null",
 				}
-				s, err := status.TranslateBackward[any](pb)
+				s, err := status.TranslateFromPB[any](pb)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(s.Key).To(Equal("pb-key"))
 				Expect(s.Name).To(Equal("PB Status"))
@@ -269,7 +269,7 @@ var _ = Describe("Status", func() {
 					Variant: "error",
 					Details: `{"Code":404,"Context":"not found"}`,
 				}
-				s, err := status.TranslateBackward[CustomDetails](pb)
+				s, err := status.TranslateFromPB[CustomDetails](pb)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(s.Details.Code).To(Equal(404))
 				Expect(s.Details.Context).To(Equal("not found"))
@@ -281,7 +281,7 @@ var _ = Describe("Status", func() {
 					Variant: "info",
 					Details: "123",
 				}
-				s, err := status.TranslateBackward[int](pb)
+				s, err := status.TranslateFromPB[int](pb)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(s.Details).To(Equal(123))
 			})
@@ -292,7 +292,7 @@ var _ = Describe("Status", func() {
 					Variant: "error",
 					Details: "invalid json {",
 				}
-				_, err := status.TranslateBackward[CustomDetails](pb)
+				_, err := status.TranslateFromPB[CustomDetails](pb)
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -308,10 +308,10 @@ var _ = Describe("Status", func() {
 					Time:        telem.TimeStamp(1609459200000000000),
 					Details:     CustomDetails{Code: 200, Context: "ok"},
 				}
-				pb, err := status.TranslateForward(original)
+				pb, err := status.TranslateToPB(original)
 				Expect(err).ToNot(HaveOccurred())
 
-				result, err := status.TranslateBackward[CustomDetails](pb)
+				result, err := status.TranslateFromPB[CustomDetails](pb)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Key).To(Equal(original.Key))
 				Expect(result.Name).To(Equal(original.Name))

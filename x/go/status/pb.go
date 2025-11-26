@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-func TranslateForward[D any](status Status[D]) (*PBStatus, error) {
+func TranslateToPB[D any](status Status[D]) (*PBStatus, error) {
 	encodedDetails, err := json.Marshal(status.Details)
 	if err != nil {
 		return nil, err
@@ -32,7 +32,7 @@ func TranslateForward[D any](status Status[D]) (*PBStatus, error) {
 
 }
 
-func TranslateBackward[D any](pbStatus *PBStatus) (Status[D], error) {
+func TranslateFromPB[D any](pbStatus *PBStatus) (Status[D], error) {
 	var details D
 	if err := json.Unmarshal([]byte(pbStatus.Details), &details); err != nil {
 		return Status[D]{}, err
