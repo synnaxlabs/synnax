@@ -20,26 +20,6 @@ iterators to efficiently process large amounts of data.
 
 ## Reading from a Channel
 
-The simplest way to read data from Synnax is to use the `read` method on a `Channel`
-object:
-
-```typescript
-const channel = await client.channels.retrieve("temperature");
-const start = new Date("2023-02-12T12:30:00Z");
-const end = new Date("2022-02-12T14:30:00Z");
-
-const series = await channel.read(start, end);
-```
-
-The returned data is a
-[`MultiSeries`](/reference/typescript-client/series-and-frames#series), which maintains
-a very similar interface to a JavaScript typed array (e.g. `Float32Array`, `Int32Array`,
-etc.). We can convert the returned data to a JavaScript array easily:
-
-```typescript
-const data = Array.from(series);
-```
-
 <Divider.Divider x />
 
 ## Reading from Multiple Channels

@@ -25,65 +25,6 @@ practices for writing data to Synnax. The
 
 ## Writing to a Channel
 
-Writing to a channel requires us to write timestamps to its index channel before we
-write the data. We'll create the following channels to use as examples:
-
-```python
-import synnax as sy
-
-# Create the index
-timestamps = client.channels.create(
-    name="timestamps",
-    data_type=sy.DataType.TIMESTAMP,
-    is_index=True
-)
-
-# Create the temperature channel
-my_precise_tc = client.channels.create(
-    name="my_precise_tc",
-    data_type=sy.DataType.FLOAT32,
-    index=timestamps.key
-)
-
-# Create the pressure channel
-my_precise_tc = client.channels.create(
-    name="my_precise_pt",
-    data_type=sy.DataType.FLOAT32,
-    index=timestamps.key
-)
-```
-
-We'll make sure to write timestamps to the index before we write to the data channel:
-
-```python
-from datetime import datetime
-
-# Our temperature data.
-temperatures = [55, 55.1, 55.7, 57.2, 58.1]
-start = sy.TimeStamp.now()
-times = [
-    start,
-    start + 1 * sy.TimeSpan.HOUR,
-    start + 2 * sy.TimeSpan.HOUR,
-    start + 3 * sy.TimeSpan.HOUR,
-    start + 4 * sy.TimeSpan.HOUR,
-]
-
-# Write the timestamps to the index
-timestamps.write(start, times)
-
-# Write the data to the channel
-my_precise_tc.write(start, temperatures)
-```
-
-Notice how we align the two arrays using the common `start` timestamp. This tells Synnax
-that the first sample in the `temperatures` array is associated with the first timestamp
-in the `timestamps` array.
-
-Synnax will raise a `ValidationError` if the index channel does not contain a
-corresponding timestamp for every sample in the data channel. After all, it wouldn't
-make sense to have a temperature reading without an associated timestamp.
-
 <Divider.Divider x />
 
 ## Writing to a Range

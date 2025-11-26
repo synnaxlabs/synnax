@@ -25,57 +25,6 @@ important.
 
 ## Writing to a Channel
 
-Writing to a channel requires us to write timestamps to its index channel before we
-write the data. We'll create the following channels to use as examples:
-
-```typescript
-import { DataType } from "@synnaxlabs/client";
-
-const timeChannel = await client.channels.create({
-  name: "time",
-  dataType: DataType.TIMESTAMP,
-  isIndex: true,
-});
-
-const temperatureChannel = await client.channels.create({
-  name: "temperature",
-  dataType: DataType.FLOAT32,
-  index: timeChannel.key,
-});
-```
-
-We can then write data to `timeChannel` and `temperatureChannel`. We need to write to
-the index channel before writing to the regular channel, so we will write to
-`timeChannel` first. Writing data via the channel's `write` method requires a typed
-array:
-
-```typescript
-import { TimeStamp, TimeSpan } from "@synnaxlabs/client";
-
-const start = TimeStamp.now();
-const timestamps = new BigInt64Array([
-  start.valueOf(), // valueOf() converts a TimeSpan to a bigint.
-  start.add(TimeSpan.seconds(1)).valueOf(),
-  start.add(TimeSpan.seconds(2)).valueOf(),
-  start.add(TimeSpan.seconds(3)).valueOf(),
-  start.add(TimeSpan.seconds(4)).valueOf(),
-]);
-const temperatures = new Float32Array([20.0, 20.1, 20.2, 20.3, 20.4]);
-
-// Write the timestamps to the index first
-await timeChannel.write(start, timestamps);
-// Then write the data
-await temperatureChannel.write(start, temperatures);
-```
-
-Notice how we align the two arrays by using the common `start` timestamp. This tells
-Synnax that the first sample in the `temperatures` array is associated with the first
-timestamp in the `timestamps` array, and so on.
-
-Synnax will raise a `ValidationError` if the index does not contain a corresponding
-timestamp for every sample in the data array. After all, it wouldn't make sense to have
-a temperature reading without an associated timestamp.
-
 <Divider.Divider x />
 
 ## Using a Writer

@@ -21,42 +21,6 @@ read data in Synnax, check out the [reads](/reference/concepts/reads) page.
 
 ## Reading from a Channel
 
-The simplest way to read data from Synnax is to use the `read` method on the `Channel`
-class:
-
-```python
-from datetime import datetime
-
-channel = client.channels.retrieve("my_precise_tc")
-
-time_format = "%Y-%m-%d %H:%M:%S"
-
-start = datetime.strptime("2023-2-12 12:30:00", time_format)
-end = datetime.strptime("2023-2-12 14:30:00", time_format)
-
-data = channel.read(start, end)
-```
-
-The returned data is an instance of the `Series` class, but for all intents and purposes
-can be treated exactly like a `numpy.ndarray`. For example, we can perform vectorized
-operations on the data:
-
-```python
-data = data - 273.15
-```
-
-The `Series` class does give us some additional functionality. Most notably, we can get
-the time range occupied by the data:
-
-```python
-tr = data.time_range
-print(tr)
-# 2023-02-12 12:30:00 - 2023-02-12 14:30:00
-```
-
-This method is important, as it's not always the case that data exists for the entire
-time range queried.
-
 <Divider.Divider x />
 
 ## Reading from Multiple Channels

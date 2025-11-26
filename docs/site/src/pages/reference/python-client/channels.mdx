@@ -22,16 +22,6 @@ If you're unfamiliar with what channels are and how they work, check out the
 
 ## Creating Channels
 
-We can create channels using the `channels.create` method on the client. The method can
-be called in three different ways: a set of arguments for creating a channel, a single
-channel that has already been created locally, or a list of channels that have already
-been created locally.
-
-### Creating a Data Channel and its Index
-
-Creating a data channel first requires us to create an index channel to store its
-timestamps:
-
 ```python
 # Create a time channel to store the timestamps of our data channel
 time_index_channel = client.channels.create(

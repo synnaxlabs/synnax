@@ -22,39 +22,6 @@ If you're unfamiliar with what channels are and how they work, check out the of
 
 ## Creating Channels
 
-We can create channels using the `channels.create` method on the client.
-
-### Creating a Data Channel and its Index
-
-Creating a data channel first requires us to create an index channel to store its
-timestamps:
-
-```typescript
-import { DataType } from "@synnaxlabs/client";
-
-// This channel is a special 'index' channel that is used to store timestamps for
-// other channels.
-const timeIndexChannel = await client.channels.create({
-  name: "time",
-  // Index channels must have a data type of TIMESTAMP and isIndex set to true
-  dataType: DataType.TIMESTAMP,
-  isIndex: true,
-});
-
-// This channel is used to store our actual data.
-const tempChannel = await client.channels.create({
-  name: "my_temp_sensor",
-  dataType: DataType.FLOAT32,
-  // Pass the key of the index channel here
-  index: timeIndexChannel.key,
-});
-```
-
-Notice how we set the `isIndex` property to `true` on `timeIndexChannel`. This tells
-Synnax that this channel will be used to store timestamps for other channels. We then
-pass the `index` property to the `tempChannel` so it uses `timeIndexChannel` as its
-index.
-
 ### Creating Multiple Channels
 
 We can also create multiple channels efficiently by providing a list of channels to the

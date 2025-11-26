@@ -96,6 +96,11 @@ export const CLIENT_NAV: PageNavNode = {
       name: "Resources",
       children: [
         {
+          key: "/reference/client/resources/examples",
+          href: "/reference/client/resources/examples",
+          name: "Examples",
+        },
+        {
           key: "/reference/client/resources/build-device-driver",
           href: "/reference/client/resources/build-device-driver",
           name: "Build a Device Driver",

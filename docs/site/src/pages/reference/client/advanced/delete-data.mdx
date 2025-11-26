@@ -1,7 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Delete Data"
-description: "Safe data deletion with idempotency guarantees and rollback considerations."
+description:
+  "Safe data deletion with idempotency guarantees and rollback considerations."
 next: "Timestamps"
 nextURL: "/reference/client/advanced/timestamps"
 prev: "Writers"
@@ -14,9 +15,11 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This guide covers deleting data from channels with safety guarantees and rollback considerations.
+This guide covers deleting data from channels with safety guarantees and rollback
+considerations.
 
-**Important**: Data deletion is permanent and cannot be undone. Use with caution in production environments.
+**Important**: Data deletion is permanent and cannot be undone. Use with caution in
+production environments.
 
 <Divider.Divider x />
 
@@ -26,12 +29,14 @@ This guide covers deleting data from channels with safety guarantees and rollbac
   <Fragment slot="console">
   </Fragment>
 
-  <Fragment slot="python">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/python-client/delete-data#deleting-data-from-a-channel">Python Delete Data - Deleting Data</a>
-    </Note.Note>
-  </Fragment>
+<Fragment slot="python">
+  <Note.Note variant="info">
+    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
+    <a href="/reference/python-client/delete-data#deleting-data-from-a-channel">
+      Python Delete Data - Deleting Data
+    </a>
+  </Note.Note>
+</Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
@@ -49,11 +54,14 @@ This guide covers deleting data from channels with safety guarantees and rollbac
   <Fragment slot="console">
   </Fragment>
 
-  <Fragment slot="python">
-    <Note.Note variant="warning">
-      <span style={{ color: "red" }}>No corresponding section - will be created from Deleting Data From a Channel examples</span>{" "}
-    </Note.Note>
-  </Fragment>
+<Fragment slot="python">
+  <Note.Note variant="warning">
+    <span style={{ color: "red" }}>
+      No corresponding section - will be created from Deleting Data From a Channel
+      examples
+    </span>{" "}
+  </Note.Note>
+</Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="warning">
@@ -70,11 +78,13 @@ This guide covers deleting data from channels with safety guarantees and rollbac
   <Fragment slot="console">
   </Fragment>
 
-  <Fragment slot="python">
-    <Note.Note variant="warning">
-      <span style={{ color: "red" }}>No corresponding section - will be created from Limitations of Deletions content</span>{" "}
-    </Note.Note>
-  </Fragment>
+<Fragment slot="python">
+  <Note.Note variant="warning">
+    <span style={{ color: "red" }}>
+      No corresponding section - will be created from Limitations of Deletions content
+    </span>{" "}
+  </Note.Note>
+</Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="warning">
@@ -91,11 +101,13 @@ This guide covers deleting data from channels with safety guarantees and rollbac
   <Fragment slot="console">
   </Fragment>
 
-  <Fragment slot="python">
-    <Note.Note variant="warning">
-      <span style={{ color: "red" }}>No corresponding section - new content will be created</span>{" "}
-    </Note.Note>
-  </Fragment>
+<Fragment slot="python">
+  <Note.Note variant="warning">
+    <span style={{ color: "red" }}>
+      No corresponding section - new content will be created
+    </span>{" "}
+  </Note.Note>
+</Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="warning">
@@ -105,5 +117,6 @@ This guide covers deleting data from channels with safety guarantees and rollbac
 </Client.Tabs>
 
 <Note.Note variant="info">
-  **Planned content**: When to use delete operations, rollback strategies, backup recommendations, and production safety practices.
+  **Planned content**: When to use delete operations, rollback strategies, backup
+  recommendations, and production safety practices.
 </Note.Note>

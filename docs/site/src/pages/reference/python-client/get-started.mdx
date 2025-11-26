@@ -25,20 +25,6 @@ In this section, we'll cover how to install the client and authenticate with a C
 
 ## Installation
 
-The `synnax` library requires Python 3.11 or higher, and is available on
-[PyPI](https://pypi.org/project/synnax/). Install it directly using `pip` or define it
-as a requirement in your virtual environment of choice:
-
-```bash
-pip install synnax
-```
-
-<Note.Note variant="info">
-  Python can be difficult to get installed and running correctly, so we've put together
-  a [troubleshooting guide](/reference/python-client/troubleshooting) that you can
-  reference.
-</Note.Note>
-
 <Divider.Divider x />
 
 ## Authenticating with a Core
@@ -99,38 +85,3 @@ client = sy.Synnax()
 ```
 
 ### Passing Credentials Directly
-
-Passing authentication parameters directly is ideal in scenarios where you'd like to use
-configuration files or environment variables to store your credentials. We recommend
-this approach when connecting to Synnax in custom applications or automated analysis
-servers.
-
-To authenticate directly, simply pass your connection parameters to the `Synnax`
-constructor:
-
-```python
-import synnax as sy
-
-client = sy.Synnax(
-    host="demo.synnaxlabs.com",
-    port=9090,
-    username="synnax",
-    password="seldon",
-    secure=True
-)
-```
-
-Here's an example with environment variables:
-
-```python
-import os
-import synnax as sy
-
-client = sy.Synnax(
-    host=os.environ["SYNNAX_HOST"],
-    port=int(os.environ["SYNNAX_PORT"]),
-    username=os.environ["SYNNAX_USERNAME"],
-    password=os.environ["SYNNAX_PASSWORD"],
-    secure=bool(os.environ["SYNNAX_SECURE"])
-)
-```

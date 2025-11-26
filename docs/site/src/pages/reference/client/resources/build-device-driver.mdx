@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "Build a Device Driver"
 description: "Creating custom hardware integrations with Python device drivers."
-prev: "Timestamps"
-prevURL: "/reference/client/advanced/timestamps"
+prev: "Examples"
+prevURL: "/reference/client/resources/examples"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -12,9 +12,12 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This guide covers building custom device drivers in Python to integrate hardware that isn't natively supported by Synnax's built-in drivers. This is useful for prototyping or integrating specialized hardware.
+This guide covers building custom device drivers in Python to integrate hardware that
+isn't natively supported by Synnax's built-in drivers. This is useful for prototyping or
+integrating specialized hardware.
 
-**Python-specific feature**: Device driver development is currently only supported in Python. For production-grade drivers, see the C++ Driver documentation.
+**Python-specific feature**: Device driver development is currently only supported in
+Python. For production-grade drivers, see the C++ Driver documentation.
 
 <Divider.Divider x />
 
@@ -77,7 +80,8 @@ This guide covers building custom device drivers in Python to integrate hardware
 </Client.Tabs>
 
 <Note.Note variant="info">
-  **Example**: This section demonstrates reading sensor data from an Arduino and streaming it to Synnax in real-time.
+  **Example**: This section demonstrates reading sensor data from an Arduino and
+  streaming it to Synnax in real-time.
 </Note.Note>
 
 <Divider.Divider x />
@@ -97,7 +101,8 @@ This guide covers building custom device drivers in Python to integrate hardware
 </Client.Tabs>
 
 <Note.Note variant="info">
-  **Example**: This section demonstrates sending control commands from Synnax to an Arduino.
+  **Example**: This section demonstrates sending control commands from Synnax to an
+  Arduino.
 </Note.Note>
 
 <Divider.Divider x />
@@ -117,7 +122,8 @@ This guide covers building custom device drivers in Python to integrate hardware
 </Client.Tabs>
 
 <Note.Note variant="info">
-  **Example**: This section demonstrates bidirectional communication - reading sensor data AND sending control commands simultaneously.
+  **Example**: This section demonstrates bidirectional communication - reading sensor
+  data AND sending control commands simultaneously.
 </Note.Note>
 
 <Divider.Divider x />
@@ -131,5 +137,7 @@ This guide covers building custom device drivers in Python to integrate hardware
   - **OPC UA** servers
   - **Modbus TCP/IP** devices
 
-  C++ drivers offer better performance, built-in device pooling, cross-platform support, and integration with the Synnax task system.
+C++ drivers offer better performance, built-in device pooling, cross-platform support,
+and integration with the Synnax task system.
+
 </Note.Note>
