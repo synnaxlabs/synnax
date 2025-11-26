@@ -12,7 +12,7 @@ import pandas as pd
 import pytest
 
 import synnax as sy
-from synnax.util.rand import rand_name
+from synnax.util.random import random_name
 from tests.telem import seconds_linspace
 
 
@@ -96,11 +96,13 @@ class TestDeleter:
 
     def test_delete_index_alone(self, client: sy.Synnax):
         ch1 = client.channels.create(
-            sy.Channel(name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True)
+            sy.Channel(
+                name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+            )
         )
 
         ch2 = sy.Channel(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=ch1.key,
         )

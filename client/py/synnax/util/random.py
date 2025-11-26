@@ -11,5 +11,5 @@ import random
 import string
 
 
-def rand_name() -> str:
+def random_name() -> str:
     return "".join(random.choice(string.ascii_letters) for _ in range(10))

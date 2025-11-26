@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 import synnax as sy
-from synnax.util.rand import rand_name
+from synnax.util.random import random_name
 
 
 @pytest.mark.framer
@@ -22,26 +22,26 @@ class TestCalculatedChannelStreaming:
     def test_basic_calculated_channel_stream(self, client: sy.Synnax):
         """Should correctly create and read from a basic calculated channel using streaming"""
         timestamp_channel = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
         src_channels = client.channels.create(
             [
                 sy.Channel(
-                    name=rand_name(),
+                    name=random_name(),
                     index=timestamp_channel.key,
                     data_type=sy.DataType.FLOAT32,
                 ),
                 sy.Channel(
-                    name=rand_name(),
+                    name=random_name(),
                     index=timestamp_channel.key,
                     data_type=sy.DataType.FLOAT32,
                 ),
             ]
         )
         calc_channel = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"return {src_channels[0].name} + {src_channels[1].name}",
         )
         start = sy.TimeStamp.now()
@@ -78,12 +78,12 @@ class TestCalculatedChannelStreaming:
 
     def test_stream_passthrough_virtual_channel(self, client: sy.Synnax):
         virt = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             virtual=True,
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"return {virt.name} * 2",
         )
         start = sy.TimeStamp.now()
@@ -105,12 +105,12 @@ class TestCalculatedChannelStreaming:
 
     def test_stream_passthrough_virtual_u8_channel(self, client: sy.Synnax):
         virt = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.UINT8,
             virtual=True,
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"return {virt.name} * 2",
         )
         start = sy.TimeStamp.now()
@@ -137,19 +137,19 @@ class TestCalculatedChannelIteration:
     def test_basic_calculated_channel_iterate(self, client: sy.Synnax):
         """Should correctly create and read from a basic calculated channel using iteration"""
         timestamp_channel = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
         src_channel = client.channels.create(
             sy.Channel(
-                name=rand_name(),
+                name=random_name(),
                 index=timestamp_channel.key,
                 data_type=sy.DataType.FLOAT32,
             ),
         )
         calc_channel = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"return {src_channel.name}",
         )
         idx_data_1 = [
@@ -239,19 +239,19 @@ class TestCalculatedChannelIteration:
     def test_conditional_calculated_channel(self, client: sy.Synnax):
         """Should correctly create and read from a basic calculated channel using iteration"""
         timestamp_channel = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
         src_channel = client.channels.create(
             sy.Channel(
-                name=rand_name(),
+                name=random_name(),
                 index=timestamp_channel.key,
                 data_type=sy.DataType.FLOAT32,
             ),
         )
         calc_channel = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"""
             if ({src_channel.name} > 15) {{
                 return 4
@@ -293,19 +293,19 @@ class TestCalculatedChannelIteration:
     def test_calculation_deleted_channel(self, client: sy.Synnax):
         """Should correctly create and read from a basic calculated channel using iteration"""
         timestamp_channel = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
         src_channel = client.channels.create(
             sy.Channel(
-                name=rand_name(),
+                name=random_name(),
                 index=timestamp_channel.key,
                 data_type=sy.DataType.FLOAT32,
             ),
         )
         calc_channel = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"""
               if ({src_channel.name} > 15) {{
                   return 4
@@ -356,13 +356,13 @@ class TestCalculatedChannelIteration:
         """Should correctly handle 2-level nested calculated channels (C → B → A)"""
         # Create index and base concrete channel
         timestamp_channel = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
         sensor_1 = client.channels.create(
             sy.Channel(
-                name=rand_name(),
+                name=random_name(),
                 index=timestamp_channel.key,
                 data_type=sy.DataType.FLOAT32,
             ),
@@ -370,13 +370,13 @@ class TestCalculatedChannelIteration:
 
         # Create B: calculated channel that depends on concrete channel A (sensor_1)
         calc_b = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"return {sensor_1.name} * 2",
         )
 
         # Create C: calculated channel that depends on calculated channel B
         calc_c = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"return {calc_b.name} + 10",
         )
 
@@ -424,13 +424,13 @@ class TestCalculatedChannelIteration:
         """Should correctly handle 3-level nested calculated channels (D → C → B → A)"""
         # Create index and base concrete channel
         timestamp_channel = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
         sensor_1 = client.channels.create(
             sy.Channel(
-                name=rand_name(),
+                name=random_name(),
                 index=timestamp_channel.key,
                 data_type=sy.DataType.FLOAT32,
             ),
@@ -438,19 +438,19 @@ class TestCalculatedChannelIteration:
 
         # Create B: depends on sensor_1 (concrete)
         calc_b = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"return {sensor_1.name} * 2",
         )
 
         # Create C: depends on B (calculated)
         calc_c = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"return {calc_b.name} + 5",
         )
 
         # Create D: depends on C (calculated)
         calc_d = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"return {calc_c.name} * 3",
         )
 
@@ -497,13 +497,13 @@ class TestCalculatedChannelIteration:
         """Should correctly handle diamond dependency pattern (E → C & D → A)"""
         # Create index and base concrete channel
         timestamp_channel = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
         sensor_1 = client.channels.create(
             sy.Channel(
-                name=rand_name(),
+                name=random_name(),
                 index=timestamp_channel.key,
                 data_type=sy.DataType.FLOAT32,
             ),
@@ -511,19 +511,19 @@ class TestCalculatedChannelIteration:
 
         # Create C: depends on sensor_1 (concrete)
         calc_c = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"return {sensor_1.name} + 10",
         )
 
         # Create D: also depends on sensor_1 (concrete)
         calc_d = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"return {sensor_1.name} * 5",
         )
 
         # Create E: depends on both C and D (calculated)
         calc_e = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"return {calc_c.name} + {calc_d.name}",
         )
 
@@ -583,20 +583,20 @@ class TestCalculatedChannelIteration:
         """Should correctly handle requesting both calculated and concrete channels together"""
         # Create index and base concrete channels
         timestamp_channel = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
         sensor_1 = client.channels.create(
             sy.Channel(
-                name=rand_name(),
+                name=random_name(),
                 index=timestamp_channel.key,
                 data_type=sy.DataType.FLOAT32,
             ),
         )
         sensor_2 = client.channels.create(
             sy.Channel(
-                name=rand_name(),
+                name=random_name(),
                 index=timestamp_channel.key,
                 data_type=sy.DataType.FLOAT32,
             ),
@@ -604,13 +604,13 @@ class TestCalculatedChannelIteration:
 
         # Create calculated channel that depends on both sensors
         calc_mixed = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"return {sensor_1.name} + {sensor_2.name}",
         )
 
         # Create nested calculated channel
         calc_mixed_nested = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             expression=f"return {calc_mixed.name} * 2",
         )
 
@@ -670,13 +670,13 @@ class TestCalculatedChannelIteration:
 class TestCalculationOperations:
     def test_avg_operation_accumulates_across_batches(self, client: sy.Synnax):
         idx = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         data = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="avg")],
@@ -720,13 +720,13 @@ class TestCalculationOperations:
 
     def test_avg_duration_reset_triggers_on_boundary(self, client: sy.Synnax):
         idx = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         data = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[
@@ -772,13 +772,13 @@ class TestCalculationOperations:
 
     def test_min_operation_duration_reset(self, client: sy.Synnax):
         idx = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         data = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[
@@ -824,13 +824,13 @@ class TestCalculationOperations:
 
     def test_max_operation_duration_reset(self, client: sy.Synnax):
         idx = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         data = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[
@@ -876,16 +876,16 @@ class TestCalculationOperations:
 
     def test_avg_signal_reset_triggers_on_channel(self, client: sy.Synnax):
         idx = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         data = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         reset = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.UINT8, virtual=True
+            name=random_name(), data_type=sy.DataType.UINT8, virtual=True
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="avg", reset_channel=reset.key)],
@@ -931,16 +931,16 @@ class TestCalculationOperations:
 
     def test_min_signal_reset_clears_state(self, client: sy.Synnax):
         idx = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         data = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         reset = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.UINT8, virtual=True
+            name=random_name(), data_type=sy.DataType.UINT8, virtual=True
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="min", reset_channel=reset.key)],
@@ -986,16 +986,16 @@ class TestCalculationOperations:
 
     def test_max_signal_reset_clears_state(self, client: sy.Synnax):
         idx = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         data = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         reset = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.UINT8, virtual=True
+            name=random_name(), data_type=sy.DataType.UINT8, virtual=True
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="max", reset_channel=reset.key)],
@@ -1041,25 +1041,25 @@ class TestCalculationOperations:
 
     def test_operations_with_single_sample(self, client: sy.Synnax):
         idx = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         data = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         calc_min = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="min")],
         )
         calc_max = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="max")],
         )
         calc_avg = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="avg")],
@@ -1085,13 +1085,13 @@ class TestCalculationOperations:
 
     def test_avg_multiple_duration_resets(self, client: sy.Synnax):
         idx = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         data = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[
@@ -1137,16 +1137,16 @@ class TestCalculationOperations:
 
     def test_avg_combined_duration_and_signal_reset(self, client: sy.Synnax):
         idx = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         data = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         reset = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.UINT8, virtual=True
+            name=random_name(), data_type=sy.DataType.UINT8, virtual=True
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[
@@ -1203,25 +1203,25 @@ class TestCalculationOperations:
 
     def test_operations_with_identical_values(self, client: sy.Synnax):
         idx = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         data = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         calc_min = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="min")],
         )
         calc_max = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="max")],
         )
         calc_avg = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="avg")],
@@ -1253,16 +1253,16 @@ class TestCalculationOperations:
 
     def test_avg_signal_reset_fast_pulse(self, client: sy.Synnax):
         idx = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         data = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.FLOAT32, index=idx.key
+            name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         reset = client.channels.create(
-            name=rand_name(), data_type=sy.DataType.UINT8, virtual=True
+            name=random_name(), data_type=sy.DataType.UINT8, virtual=True
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name}",
             operations=[sy.channel.Operation(type="avg", reset_channel=reset.key)],

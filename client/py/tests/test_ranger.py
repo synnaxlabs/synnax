@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import random
 import re
 import time
 from uuid import uuid4
@@ -17,7 +16,7 @@ import pytest
 
 import synnax as sy
 from synnax.util.params import RequiresNamedParams
-from synnax.util.rand import rand_name
+from synnax.util.random import random_name
 
 
 @pytest.mark.ranger
@@ -160,7 +159,7 @@ class TestRangeClient:
     class TestRangeKV:
         def test_set_get_delete_single(self, client: sy.Synnax):
             rng = client.ranges.create(
-                name=rand_name(),
+                name=random_name(),
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
             rng.meta_data.set("test", "test")
@@ -171,7 +170,7 @@ class TestRangeClient:
 
         def test_set_get_delete_multiple(self, client: sy.Synnax):
             rng = client.ranges.create(
-                name=rand_name(),
+                name=random_name(),
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
             rng.meta_data.set({"test": "test", "test2": "test2"})
@@ -216,10 +215,10 @@ class TestRangeClient:
     class TestRangeAlias:
         def test_basic_alias(self, client: sy.Synnax):
             ch = client.channels.create(
-                name=rand_name(), data_type=sy.DataType.INT8, virtual=True
+                name=random_name(), data_type=sy.DataType.INT8, virtual=True
             )
             rng = client.ranges.create(
-                name=rand_name(),
+                name=random_name(),
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
             rng.set_alias(ch.key, "alt_test")
@@ -285,14 +284,13 @@ class TestRangeClient:
 class TestRangeData:
     def test_basic_read(self, client: sy.Synnax):
         """It should correctly read data from a channel on a range"""
-        name = f"test_{random.randint(0, 100000)}"
         idx_ch = client.channels.create(
-            name=f"{name}_idx",
+            name=random_name(),
             data_type="timestamp",
             is_index=True,
         )
         data_ch = client.channels.create(
-            name=f"{name}_data",
+            name=random_name(),
             data_type="float32",
             index=idx_ch.key,
         )
@@ -309,7 +307,7 @@ class TestRangeData:
         )
         data_ch.write(start, [1.0, 2.0, 3.0, 4.0])
         rng = client.ranges.create(
-            name=name,
+            name=random_name(),
             time_range=start.span_range(4 * sy.TimeSpan.SECOND),
         )
         assert len(rng[data_ch.name]) == 4
@@ -320,21 +318,20 @@ class TestRangeData:
 
     def test_basic_write(self, client: sy.Synnax):
         """It should correctly write data to the range"""
-        name = f"test_{random.randint(0, 100000)}"
         idx_ch = client.channels.create(
-            name=f"{name}_idx",
+            name=random_name(),
             data_type="timestamp",
             is_index=True,
         )
         data_ch = client.channels.create(
-            name=f"{name}_data",
+            name=random_name(),
             data_type="float32",
             index=idx_ch.key,
         )
         start = sy.TimeStamp.now()
         end = start + 3 * sy.TimeSpan.SECOND
         rng = client.ranges.create(
-            name=name,
+            name=random_name(),
             time_range=start.span_range(4 * sy.TimeSpan.SECOND),
         )
         rng.write(

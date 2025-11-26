@@ -13,7 +13,7 @@ from synnax.cli.console import MockConsole
 from synnax.cli.flow import Context
 from synnax.cli.ingest import pure_ingest
 from synnax.synnax import Synnax
-from synnax.util.rand import rand_name
+from synnax.util.random import random_name
 
 from .data import DATA_DIR
 
@@ -32,7 +32,7 @@ class TestIngest:
                     "ingest_valid_idx",  # Enter the name of the data rate or index?,
                     0,  # Guess data types from file.
                     True,  # Is the starting timestamp correct?
-                    rand_name(),
+                    random_name(),
                 ]
             )
             pure_ingest(
