@@ -537,7 +537,7 @@ export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
   group.Group,
   FluxSubStore
 >({
-  name: RESOURCE_NAME,
+  name: "Channel Group",
   retrieve: async ({ client, store }) => {
     const g = await client.channels.retrieveGroup();
     store.groups.set(g.key, g);

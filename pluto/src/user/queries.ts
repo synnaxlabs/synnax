@@ -97,7 +97,7 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   ontology.ID | undefined,
   FluxSubStore
 >({
-  name: "Users Group",
+  name: "User Group",
   retrieve: async ({ client, store }) => {
     const rels = store.relationships.get((rel) =>
       ontology.matchRelationship(rel, {

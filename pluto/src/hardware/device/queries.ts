@@ -104,7 +104,7 @@ export const createRetrieve = <
     device.Device<Properties, Make, Model>,
     FluxSubStore
   >({
-    name: "device",
+    name: RESOURCE_NAME,
     retrieve: retrieveSingle<Properties, Make, Model>,
     mountListeners: ({ store, onChange, query: { key } }) => [
       store.devices.onSet(
@@ -204,7 +204,7 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   ontology.ID | undefined,
   FluxSubStore
 >({
-  name: "Devices Group",
+  name: "Device Group",
   retrieve: async ({ client, store }) => {
     const rels = store.relationships.get((rel) =>
       ontology.matchRelationship(rel, {
