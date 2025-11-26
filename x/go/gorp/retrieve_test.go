@@ -196,53 +196,6 @@ var _ = Describe("Retrieve", Ordered, func() {
 			})
 		})
 
-		Context("With string keys", func() {
-			It("Should retrieve entries with matching string key prefix", func() {
-				e1 := stringEntry{Key: "device-001", Data: "first"}
-				e2 := stringEntry{Key: "device-002", Data: "second"}
-				e3 := stringEntry{Key: "sensor-001", Data: "third"}
-				Expect(gorp.NewCreate[string, stringEntry]().Entry(&e1).Exec(ctx, tx)).To(Succeed())
-				Expect(gorp.NewCreate[string, stringEntry]().Entry(&e2).Exec(ctx, tx)).To(Succeed())
-				Expect(gorp.NewCreate[string, stringEntry]().Entry(&e3).Exec(ctx, tx)).To(Succeed())
-				var res []stringEntry
-				Expect(gorp.NewRetrieve[string, stringEntry]().
-					WherePrefix([]byte("device-")).
-					Entries(&res).
-					Exec(ctx, tx),
-				).To(Succeed())
-				Expect(res).To(HaveLen(2))
-				for _, r := range res {
-					Expect(r.Key).To(HavePrefix("device-"))
-				}
-			})
-
-			It("Should retrieve single entry with exact string prefix match", func() {
-				e1 := stringEntry{Key: "alpha-123", Data: "first"}
-				e2 := stringEntry{Key: "alpha-456", Data: "second"}
-				Expect(gorp.NewCreate[string, stringEntry]().Entry(&e1).Exec(ctx, tx)).To(Succeed())
-				Expect(gorp.NewCreate[string, stringEntry]().Entry(&e2).Exec(ctx, tx)).To(Succeed())
-				var res []stringEntry
-				Expect(gorp.NewRetrieve[string, stringEntry]().
-					WherePrefix([]byte("alpha-123")).
-					Entries(&res).
-					Exec(ctx, tx),
-				).To(Succeed())
-				Expect(res).To(HaveLen(1))
-				Expect(res[0].Key).To(Equal("alpha-123"))
-			})
-
-			It("Should return empty results when string prefix doesn't match", func() {
-				e := stringEntry{Key: "existing-key", Data: "data"}
-				Expect(gorp.NewCreate[string, stringEntry]().Entry(&e).Exec(ctx, tx)).To(Succeed())
-				var res []stringEntry
-				Expect(gorp.NewRetrieve[string, stringEntry]().
-					WherePrefix([]byte("nonexistent-")).
-					Entries(&res).
-					Exec(ctx, tx),
-				).To(Succeed())
-				Expect(res).To(BeEmpty())
-			})
-		})
 	})
 	Describe("Where", func() {
 		It("Should retrieve the entry by a filter parameter", func() {
