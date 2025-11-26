@@ -48,7 +48,7 @@ overlap.
 ### 1.1.0 - Lack of Efficient Query Mechanisms for Meta-Data Structures
 
 The initial implementation of gorp was designed around simplicity and minimum
-viability: *create a wrapper around a key-value store to provided access and rudimentary
+viability: *create a wrapper around a key-value store to provide access and rudimentary
 query mechanisms for go data structures*.
 
 Gorp's implementation has evolved very little over the course of several years in
@@ -107,3 +107,13 @@ It also makes supporting real-time collaboration nearly impossible.
 ### 1.1.7 - Over Reliance on Runtime Validation + General Lack of Type Safety
 
 ### 1.1.8 - Multiple Sources of Truth in Client-Side State
+
+## Research on Migrations
+
+Generally speaking, there are two classes of migration engines:
+
+1. Model as truth - The current state of the data structure is the source of truth.
+Migrations are created via code generation in order to evolve the model from its first
+structure to the current structure. This is more declarative. Data shape yields migrations.
+2. Migrations as truth - An imperative approach, where the chain of functions that perform
+the migration are the source of truth. Migrations yield data shape.
