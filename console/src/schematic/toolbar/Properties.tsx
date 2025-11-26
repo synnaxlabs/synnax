@@ -21,7 +21,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { box, color, deep, location, xy } from "@synnaxlabs/x";
+import { box, color, deep, direction, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, type ReactNode } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -182,6 +182,8 @@ const MultiElementProperties = ({
 
   const store = useStore<RootState>();
 
+  const topOffsetsForDistribution = new Map<string, number>();
+
   const getLayoutsForAlignment = () => {
     const viewport = selectViewport(store.getState(), layoutKey);
 
@@ -203,8 +205,8 @@ const MultiElementProperties = ({
             extensionBelow / (viewport?.zoom ?? 1),
           );
         }
-      } catch (_e) {
-        // Skip on error
+      } catch (e) {
+        console.error("Failed to calculate bottom extension for node", el.key, e);
       }
     });
 
@@ -246,9 +248,6 @@ const MultiElementProperties = ({
       })
       .filter((el) => el !== null);
   };
-
-  // Track top offsets for distribution (to reverse adjustment when setting positions)
-  const topOffsetsForDistribution = new Map<string, number>();
 
   const getLayoutsForDistribution = () => {
     const viewport = selectViewport(store.getState(), layoutKey);
@@ -310,6 +309,50 @@ const MultiElementProperties = ({
       .filter((el) => el !== null);
   };
 
+  const applyNodePositions = (
+    layouts: Diagram.NodeLayout[],
+    adjustPosition?: (key: string, pos: xy.XY) => xy.XY,
+  ): void => {
+    dispatch(
+      setNodePositions({
+        key: layoutKey,
+        positions: Object.fromEntries(
+          layouts.map((n) => {
+            const pos = box.topLeft(n.box);
+            return [n.key, adjustPosition ? adjustPosition(n.key, pos) : pos];
+          }),
+        ),
+      }),
+    );
+  };
+
+  const handleAlign = (dir: direction.Crude): void => {
+    applyNodePositions(Diagram.alignNodes(getLayoutsForAlignment(), dir));
+  };
+
+  const handleDistribute = (dir: direction.Direction): void => {
+    applyNodePositions(Diagram.distributeNodes(getLayoutsForDistribution(), dir), (key, pos) => {
+      const topOffset = topOffsetsForDistribution.get(key) ?? 0;
+      return xy.translate(pos, { x: 0, y: topOffset });
+    });
+  };
+
+  const handleRotateIndividual = (dir: direction.Angular): void => {
+    elements.forEach((el) => {
+      if (el.type !== "node") return;
+      const orientation = el.props.orientation as location.Location | undefined;
+      if (orientation == null) return;
+      onChange(el.key, { orientation: location.rotate(orientation, dir) });
+    });
+  };
+
+  const handleRotateGroup = (dir: direction.Angular): void => {
+    applyNodePositions(
+      Diagram.rotateNodesAroundCenter(getLayoutsForAlignment(), dir),
+    );
+    handleRotateIndividual(dir);
+  };
+
   return (
     <Flex.Box align="start" x style={{ padding: "2rem" }} gap="large">
       <Input.Item label="Selection Colors" align="start">
@@ -329,104 +372,32 @@ const MultiElementProperties = ({
         <Flex.Box x>
           <Button.Button
             tooltip="Align nodes vertically"
-            onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayoutsForAlignment(), "x");
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                  ),
-                }),
-              );
-            }}
+            onClick={() => handleAlign("x")}
           >
             <Icon.Align.YCenter />
           </Button.Button>
           <Button.Button
             tooltip="Align nodes horizontally"
-            onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayoutsForAlignment(), "y");
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                  ),
-                }),
-              );
-            }}
+            onClick={() => handleAlign("y")}
           >
             <Icon.Align.XCenter />
           </Button.Button>
           <Divider.Divider direction="y" />
-          <Button.Button
-            tooltip="Align nodes left"
-            onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayoutsForAlignment(), "left");
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                  ),
-                }),
-              );
-            }}
-          >
+          <Button.Button tooltip="Align nodes left" onClick={() => handleAlign("left")}>
             <Icon.Align.Left />
           </Button.Button>
-          <Button.Button
-            tooltip="Align nodes top"
-            onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayoutsForAlignment(), "top");
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                  ),
-                }),
-              );
-            }}
-          >
+          <Button.Button tooltip="Align nodes top" onClick={() => handleAlign("top")}>
             <Icon.Align.Top />
           </Button.Button>
           <Button.Button
             tooltip="Align nodes bottom"
-            onClick={() => {
-              const newPositions = Diagram.alignNodes(
-                getLayoutsForAlignment(),
-                "bottom",
-              );
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                  ),
-                }),
-              );
-            }}
+            onClick={() => handleAlign("bottom")}
           >
             <Icon.Align.Bottom />
           </Button.Button>
           <Button.Button
             tooltip="Align nodes right"
-            onClick={() => {
-              const newPositions = Diagram.alignNodes(
-                getLayoutsForAlignment(),
-                "right",
-              );
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                  ),
-                }),
-              );
-            }}
+            onClick={() => handleAlign("right")}
           >
             <Icon.Align.Right />
           </Button.Button>
@@ -436,47 +407,13 @@ const MultiElementProperties = ({
         <Flex.Box x>
           <Button.Button
             tooltip="Distribute nodes horizontally"
-            onClick={() => {
-              const newPositions = Diagram.distributeNodes(
-                getLayoutsForDistribution(),
-                "horizontal",
-              );
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => {
-                      const topOffset = topOffsetsForDistribution.get(n.key) ?? 0;
-                      const adjustedPos = box.topLeft(n.box);
-                      return [n.key, xy.translate(adjustedPos, { x: 0, y: topOffset })];
-                    }),
-                  ),
-                }),
-              );
-            }}
+            onClick={() => handleDistribute("x")}
           >
             <Icon.Distribute.X />
           </Button.Button>
           <Button.Button
             tooltip="Distribute nodes vertically"
-            onClick={() => {
-              const newPositions = Diagram.distributeNodes(
-                getLayoutsForDistribution(),
-                "vertical",
-              );
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => {
-                      const topOffset = topOffsetsForDistribution.get(n.key) ?? 0;
-                      const adjustedPos = box.topLeft(n.box);
-                      return [n.key, xy.translate(adjustedPos, { x: 0, y: topOffset })];
-                    }),
-                  ),
-                }),
-              );
-            }}
+            onClick={() => handleDistribute("y")}
           >
             <Icon.Distribute.Y />
           </Button.Button>
@@ -485,36 +422,14 @@ const MultiElementProperties = ({
       <Input.Item label="Rotate">
         <Flex.Box x>
           <Button.Button
-            tooltip="Rotate nodes CW"
-            onClick={() => {
-              const layouts = getLayoutsForAlignment();
-              const newPositions = Diagram.rotateNodes(layouts, "clockwise");
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                  ),
-                }),
-              );
-            }}
+            tooltip="Rotate nodes clockwise"
+            onClick={() => handleRotateIndividual("clockwise")}
           >
             <Icon.RotateGroup.CW />
           </Button.Button>
           <Button.Button
-            tooltip="Rotate nodes CCW"
-            onClick={() => {
-              const layouts = getLayoutsForAlignment();
-              const newPositions = Diagram.rotateNodes(layouts, "counterclockwise");
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                  ),
-                }),
-              );
-            }}
+            tooltip="Rotate nodes counter-clockwise"
+            onClick={() => handleRotateIndividual("counterclockwise")}
           >
             <Icon.RotateGroup.CCW />
           </Button.Button>
@@ -523,42 +438,14 @@ const MultiElementProperties = ({
       <Input.Item label="Rotate Group">
         <Flex.Box x>
           <Button.Button
-            tooltip="Rotate group CW"
-            onClick={() => {
-              const layouts = getLayoutsForAlignment();
-              const newPositions = Diagram.rotateNodesAroundCenter(
-                layouts,
-                "clockwise",
-              );
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                  ),
-                }),
-              );
-            }}
+            tooltip="Rotate group clockwise"
+            onClick={() => handleRotateGroup("clockwise")}
           >
             <Icon.RotateAroundCenter.CW />
           </Button.Button>
           <Button.Button
-            tooltip="Rotate group nodes CCW"
-            onClick={() => {
-              const layouts = getLayoutsForAlignment();
-              const newPositions = Diagram.rotateNodesAroundCenter(
-                layouts,
-                "counterclockwise",
-              );
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                  ),
-                }),
-              );
-            }}
+            tooltip="Rotate group counter-clockwise"
+            onClick={() => handleRotateGroup("counterclockwise")}
           >
             <Icon.RotateAroundCenter.CCW />
           </Button.Button>

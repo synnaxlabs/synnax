@@ -8,6 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import {
+  ANGULAR_DIRECTIONS,
+  type AngularDirection,
+  type CrudeAngularDirection,
   type CrudeDirection,
   crudeDirection,
   type CrudeXDirection,
@@ -22,13 +25,15 @@ import {
   type YLocation,
 } from "@/spatial/base";
 
-export { Direction, direction, DIRECTIONS };
+export { Direction, direction, DIRECTIONS, ANGULAR_DIRECTIONS };
 
 export const crude = crudeDirection;
 
 export type Crude = CrudeDirection;
 export type CrudeX = CrudeXDirection;
 export type CrudeY = CrudeYDirection;
+export type Angular = AngularDirection;
+export type CrudeAngular = CrudeAngularDirection;
 
 export const construct = (c: Crude): Direction => {
   if (DIRECTIONS.includes(c as Direction)) return c as Direction;
@@ -57,3 +62,20 @@ export const isX = (direction: CrudeDirection): direction is CrudeXDirection => 
 
 export const isY = (direction: CrudeDirection): direction is CrudeYDirection =>
   construct(direction) === "y";
+
+export interface XY {
+  x: number;
+  y: number;
+}
+
+export const rotate = (point: XY, center: XY, dir: Angular): XY => {
+  const angle = dir === "clockwise" ? Math.PI / 2 : -Math.PI / 2;
+  const relativeX = point.x - center.x;
+  const relativeY = point.y - center.y;
+  const rotatedX = relativeX * Math.cos(angle) - relativeY * Math.sin(angle);
+  const rotatedY = relativeX * Math.sin(angle) + relativeY * Math.cos(angle);
+  return {
+    x: rotatedX + center.x,
+    y: rotatedY + center.y,
+  };
+};

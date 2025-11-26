@@ -35,8 +35,8 @@ DistributionType = Literal[
 ]
 
 RotationType = Literal[
-    "cw",
-    "ccw",
+    "clockwise",
+    "counterclockwise",
 ]
 
 
@@ -155,7 +155,7 @@ class Schematic(ConsolePage):
 
         Args:
             symbols: List of symbols to rotate (must have at least 1 symbol)
-            direction: The rotation direction ('cw' for clockwise, 'ccw' for counter-clockwise)
+            direction: The rotation direction ('clockwise' or 'counterclockwise')
             group: If True, rotate symbols around their group center. If False, rotate each individually.
             tolerance: Maximum allowed difference in pixels for assertion (default: 10.0)
 
@@ -172,13 +172,13 @@ class Schematic(ConsolePage):
         # Map direction names to icon aria-labels
         if group:
             rotation_icon_map = {
-                "cw": "pluto-icon--rotate-around-center-cw",
-                "ccw": "pluto-icon--rotate-around-center-ccw",
+                "clockwise": "pluto-icon--rotate-around-center-cw",
+                "counterclockwise": "pluto-icon--rotate-around-center-ccw",
             }
         else:
             rotation_icon_map = {
-                "cw": "pluto-icon--rotate-group-cw",
-                "ccw": "pluto-icon--rotate-group-ccw",
+                "clockwise": "pluto-icon--rotate-group-cw",
+                "counterclockwise": "pluto-icon--rotate-group-ccw",
             }
 
         icon_label = rotation_icon_map[direction]
@@ -627,7 +627,7 @@ class Schematic(ConsolePage):
         Args:
             symbols: List of symbols that were rotated
             initial_positions: List of Position objects before rotation (from symbol.position)
-            direction: The rotation direction ('cw' or 'ccw')
+            direction: The rotation direction ('clockwise' or 'counterclockwise')
             group: If True, expects group rotation. If False, expects individual rotation.
             tolerance: Maximum allowed difference in pixels for position comparisons (default: 3.0)
 
@@ -782,7 +782,7 @@ class Schematic(ConsolePage):
             current_positions
         )
 
-        expected_angle = 90.0 if direction == "cw" else -90.0
+        expected_angle = 90.0 if direction == "clockwise" else -90.0
         angular_tolerance = 15.0
 
         for i in range(len(symbols)):
