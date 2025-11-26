@@ -21,6 +21,12 @@ ALLOW_ALL = ID(type="allow_all", key="")
 
 Effect = Literal["allow", "deny"]
 
+ALL_ACTION = "*"
+CREATE_ACTION = "create"
+DELETE_ACTION = "delete"
+RETRIEVE_ACTION = "retrieve"
+UPDATE_ACTION = "update"
+
 
 class Policy(Payload):
     key: UUID | None = None
@@ -29,3 +35,7 @@ class Policy(Payload):
     objects: list[ID] = []
     actions: list[str] = []
     internal: bool = False
+
+
+def ontology_id(key: UUID | None = None) -> ID:
+    return ID(type="policy", key=key if key is None else str(key))

@@ -24,3 +24,7 @@ class Role(Payload):
     name: str
     description: str = ""
     internal: bool = False
+
+
+def ontology_id(key: UUID | None = None) -> ID:
+    return ID(type="role", key=key if key is None else str(key))

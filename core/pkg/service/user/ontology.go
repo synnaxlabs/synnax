@@ -65,7 +65,6 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"username":   zyn.String(),
 	"first_name": zyn.String(),
 	"last_name":  zyn.String(),
-	"root_user":  zyn.Bool(),
 })
 
 func (s *Service) Type() ontology.Type { return OntologyType }

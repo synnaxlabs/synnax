@@ -9,6 +9,6 @@
 
 
 from synnax.access.role.client import RoleClient
-from synnax.access.role.payload import ONTOLOGY_TYPE, Role
+from synnax.access.role.payload import ONTOLOGY_TYPE, Role, ontology_id
 
-__all__ = ["Role", "RoleClient", "ONTOLOGY_TYPE"]
+__all__ = ["Role", "RoleClient", "ONTOLOGY_TYPE", "ontology_id"]

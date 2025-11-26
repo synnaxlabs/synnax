@@ -10,8 +10,9 @@
 from alamos import NOOP, Instrumentation
 from freighter import URL
 
-from synnax import PolicyClient
-from synnax.access.role import RoleClient
+from synnax.access import Client as AccessClient
+from synnax.access.policy.client import PolicyClient
+from synnax.access.role.client import RoleClient
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
 from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriever
@@ -58,8 +59,7 @@ class Synnax(Client):
     """
 
     channels: ChannelClient
-    access: PolicyClient
-    roles: RoleClient
+    access: AccessClient
     user: UserClient
     ranges: RangeClient
     control: ControlClient
@@ -158,11 +158,12 @@ class Synnax(Client):
             tasks=tasks,
         )
         self.control = ControlClient(self, ch_retriever)
-
-        self.hardware = HardwareClient(tasks=tasks, devices=devices, racks=racks)
-        self.access = PolicyClient(self._transport.unary, instrumentation)
-        self.roles = RoleClient(self._transport.unary, instrumentation)
         self.user = UserClient(self._transport.unary)
+        self.hardware = HardwareClient(tasks=tasks, devices=devices, racks=racks)
+        self.access = AccessClient(
+            roles=RoleClient(self._transport.unary, instrumentation),
+            policies=PolicyClient(self._transport.unary, instrumentation),
+        )
 
     def close(self):
         """Shuts down the client and closes all connections. All open iterators or
