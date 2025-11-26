@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import warnings
+
 from alamos import NOOP, Instrumentation
 from freighter import URL
 
@@ -162,6 +164,17 @@ class Synnax(Client):
         self.access = PolicyClient(self._transport.unary, instrumentation)
         self.user = UserClient(self._transport.unary)
         self.statuses = StatusClient(self._transport.unary)
+
+    @property
+    def hardware(self) -> "Synnax":
+        """Deprecated: Use client.devices, client.tasks, client.racks directly."""
+        warnings.warn(
+            "client.hardware is deprecated and will be removed in a future version. "
+            "Use client.devices, client.tasks, client.racks directly instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self
 
     def close(self):
         """Shuts down the client and closes all connections. All open iterators or
