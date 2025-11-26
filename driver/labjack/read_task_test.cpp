@@ -145,7 +145,7 @@ json basic_read_task_config() {
 
 TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     auto sy = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("cat"));
+    auto rack = ASSERT_NIL_P(sy->racks.create("cat"));
     auto dev = synnax::Device(
         "230227d9-02aa-47e4-b370-0d590add1bc1",
         "my_device",
@@ -155,7 +155,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
         "T7",
         ""
     );
-    ASSERT_NIL(sy->hardware.create_device(dev));
+    ASSERT_NIL(sy->devices.create(dev));
 
     // Create channels for each input type
     auto tc_ch = ASSERT_NIL_P(
@@ -211,7 +211,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
 
 TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     auto sy = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("cat"));
+    auto rack = ASSERT_NIL_P(sy->racks.create("cat"));
     auto dev = synnax::Device(
         "230227d9-02aa-47e4-b370-0d590add1bc1",
         "my_device",
@@ -221,7 +221,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
         "T7",
         ""
     );
-    ASSERT_NIL(sy->hardware.create_device(dev));
+    ASSERT_NIL(sy->devices.create(dev));
 
     // Create a channel
     auto ch = ASSERT_NIL_P(sy->channels.create("test_channel", telem::FLOAT64_T, true));
@@ -248,7 +248,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
 /// reads.
 TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     auto sy = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
+    auto rack = ASSERT_NIL_P(sy->racks.create("test_rack"));
     auto dev = synnax::Device(
         "230227d9-02aa-47e4-b370-0d590add1bc1",
         "test_device",
@@ -258,7 +258,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
         "T7",
         ""
     );
-    ASSERT_NIL(sy->hardware.create_device(dev));
+    ASSERT_NIL(sy->devices.create(dev));
     auto ch = ASSERT_NIL_P(sy->channels.create("test_channel", telem::FLOAT64_T, true));
 
     auto j = basic_read_task_config();

@@ -148,7 +148,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError,
 }) =>
   handleError(async () => {
-    const task = await client.hardware.tasks.retrieve({ key: id.key });
+    const task = await client.tasks.retrieve({ key: id.key });
     const layout = createLayout(task);
     placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });
   }, "Failed to load task layout");
