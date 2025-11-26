@@ -40,7 +40,6 @@ var _ = Describe("Name Validation", func() {
 			Entry("name starting with digits", "1sensor", "cannot start with a digit"),
 			Entry("name with spaces", "my channel", "contains invalid characters"),
 			Entry("name with special characters", "sensor!", "contains invalid characters"),
-			Entry("name with reserved keywords", "func", "is an Arc keyword and cannot be used"),
 		)
 	})
 	DescribeTable("TransformName", func(name string, expected string) {
@@ -57,7 +56,6 @@ var _ = Describe("Name Validation", func() {
 		Entry("name starting with digits", "1sensor", "_1sensor"),
 		Entry("name with spaces", "my channel", "my_channel"),
 		Entry("name with special characters", "sensor!", "sensor_"),
-		Entry("name with reserved keywords", "func", "func_channel"),
 		Entry("name with only invalid characters", "!!!", "channel"),
 		Entry("leading whitespace", "  temperature", "temperature"),
 		Entry("trailing whitespace", "temperature  ", "temperature"),

@@ -58,12 +58,6 @@ var _ = Describe("Migrate", func() {
 				DataType:    telem.TimeStampT,
 				Virtual:     true,
 			},
-			{
-				Name:        "return",
-				Leaseholder: 1,
-				DataType:    telem.TimeStampT,
-				Virtual:     true,
-			},
 		}
 		Expect(svc.CreateMany(ctx, &originalChannels)).To(Succeed())
 		svc = MustSucceed(channel.NewService(ctx, cfg, channel.Config{
@@ -81,8 +75,6 @@ var _ = Describe("Migrate", func() {
 			resChannels,
 			func(ch channel.Channel, _ int) string { return ch.Name },
 		)
-		Expect(resultingNames).To(ConsistOf(
-			"test", "name_with_spaces", "test_1", "return_channel",
-		))
+		Expect(resultingNames).To(ConsistOf("test", "name_with_spaces", "test_1"))
 	})
 })

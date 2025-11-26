@@ -23,33 +23,6 @@ import (
 
 var ErrInvalidName = errors.Wrap(validate.Error, "invalid channel name")
 
-var arcReservedKeywords = set.New(
-	"func",
-	"if",
-	"else",
-	"return",
-	"now",
-	"len",
-	"chan",
-	"and",
-	"or",
-	"not",
-	"series",
-	"timestamp",
-	"timespan",
-	"str",
-	"f32",
-	"f64",
-	"i8",
-	"i16",
-	"i32",
-	"i64",
-	"u8",
-	"u16",
-	"u32",
-	"u64",
-)
-
 // validNamePattern matches valid channel names: letters, digits, and underscores only
 var validNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
@@ -66,13 +39,6 @@ func ValidateName(name string) error {
 		return errors.Wrapf(
 			ErrInvalidName,
 			"channel name '%s' contains invalid characters. Only letters, digits, and underscores are allowed, and it cannot start with a digit",
-			name,
-		)
-	}
-	if arcReservedKeywords.Contains(name) {
-		return errors.Wrapf(
-			ErrInvalidName,
-			"channel name '%s' is an Arc keyword and cannot be used",
 			name,
 		)
 	}
@@ -115,13 +81,7 @@ func TransformName(name string) string {
 		return "channel"
 	}
 
-	transformed := result.String()
-	// Handle reserved keywords by appending suffix
-	if arcReservedKeywords.Contains(transformed) {
-		transformed = transformed + "_channel"
-	}
-
-	return transformed
+	return result.String()
 }
 
 // NewUniqueName generates a unique channel name by appending a numeric suffix if the
