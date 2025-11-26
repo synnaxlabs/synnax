@@ -42,6 +42,7 @@ class TestClusterAuth:
                 username=username,
             )
 
+
 @pytest.mark.auth
 class TestAuthRetry:
     @pytest.fixture(scope="function")
