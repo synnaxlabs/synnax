@@ -13,6 +13,8 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xtest/xtest.h"
 
+std::mt19937 gen_rand_device = random_generator("Device Tests");
+
 namespace synnax {
 /// @brief it should correctly create a device.
 TEST(DeviceTests, testCreateDevice) {
@@ -339,16 +341,9 @@ TEST(DeviceTests, testRetrieveDeviceIgnoreNotFound) {
     const auto client = new_test_client();
     auto r = Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
-
-    // Test retrieving non-existent device with ignore_not_found=true
-    const auto [device1, err1] = client.devices.retrieve(
-        "nonexistent_key",
-        true // ignore_not_found
-    );
+    const auto [device1, err1] = client.devices.retrieve("nonexistent_key", true);
     ASSERT_FALSE(err1);
     ASSERT_TRUE(device1.key.empty());
-
-    // Test retrieving multiple devices with some not found
     auto d1 = Device(
         "device1_key",
         "test_device_1",
@@ -359,14 +354,119 @@ TEST(DeviceTests, testRetrieveDeviceIgnoreNotFound) {
         "properties_1"
     );
     ASSERT_NIL(client.devices.create(d1));
-
     std::vector<std::string> keys = {d1.key, "nonexistent_key"};
-    const auto [devices, err2] = client.devices.retrieve(
-        keys,
-        true // ignore_not_found
-    );
+    const auto [devices, err2] = client.devices.retrieve(keys, true);
     ASSERT_FALSE(err2);
     ASSERT_EQ(devices.size(), 1);
     ASSERT_EQ(devices[0].key, d1.key);
+}
+/// @brief it should retrieve devices using a DeviceRetrieveRequest with keys and names.
+TEST(DeviceTests, testRetrieveWithRequest) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+    auto d1 = Device(
+        "req_d1_" + rand,
+        "req_dev_1_" + rand,
+        r.key,
+        "loc_a",
+        "make_a",
+        "model_a",
+        "p1"
+    );
+    auto d2 = Device(
+        "req_d2_" + rand,
+        "req_dev_2_" + rand,
+        r.key,
+        "loc_b",
+        "make_b",
+        "model_b",
+        "p2"
+    );
+    auto d3 = Device(
+        "req_d3_" + rand,
+        "req_dev_3_" + rand,
+        r.key,
+        "loc_c",
+        "make_c",
+        "model_c",
+        "p3"
+    );
+    ASSERT_NIL(client.devices.create(d1));
+    ASSERT_NIL(client.devices.create(d2));
+    ASSERT_NIL(client.devices.create(d3));
+    DeviceRetrieveRequest req_keys{};
+    req_keys.keys = {d1.key, d3.key};
+    const auto devices_keys = ASSERT_NIL_P(client.devices.retrieve(req_keys));
+    ASSERT_EQ(devices_keys.size(), 2);
+    auto dm = map_device_keys(devices_keys);
+    ASSERT_TRUE(dm.find(d1.key) != dm.end());
+    ASSERT_TRUE(dm.find(d3.key) != dm.end());
+    DeviceRetrieveRequest req_names{};
+    req_names.names = {d1.name, d2.name};
+    const auto devices_names = ASSERT_NIL_P(client.devices.retrieve(req_names));
+    ASSERT_EQ(devices_names.size(), 2);
+}
+/// @brief it should retrieve devices with limit and offset pagination.
+TEST(DeviceTests, testRetrieveWithLimitOffset) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+    const auto make = "limit_make_" + rand;
+    std::vector<Device> devices;
+    for (int i = 0; i < 5; ++i) {
+        auto d = Device(
+            "limit_d_" + rand + "_" + std::to_string(i),
+            "limit_dev_" + rand + "_" + std::to_string(i),
+            r.key,
+            "loc",
+            make,
+            "model",
+            "props"
+        );
+        ASSERT_NIL(client.devices.create(d));
+        devices.push_back(d);
+    }
+    DeviceRetrieveRequest req_limit;
+    req_limit.makes = {make};
+    req_limit.limit = 2;
+    const auto devices_limited = ASSERT_NIL_P(client.devices.retrieve(req_limit));
+    ASSERT_EQ(devices_limited.size(), 2);
+    DeviceRetrieveRequest req_offset;
+    req_offset.makes = {make};
+    req_offset.limit = 2;
+    req_offset.offset = 2;
+    const auto devices_offset = ASSERT_NIL_P(client.devices.retrieve(req_offset));
+    ASSERT_EQ(devices_offset.size(), 2);
+    bool different = true;
+    for (const auto &da: devices_limited)
+        for (const auto &db: devices_offset)
+            if (da.key == db.key) different = false;
+    ASSERT_TRUE(different);
+}
+/// @brief it should handle ignore_not_found in DeviceRetrieveRequest.
+TEST(DeviceTests, testRetrieveRequestIgnoreNotFound) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+    auto d = Device(
+        "ignore_nf_" + rand,
+        "ignore_nf_dev_" + rand,
+        r.key,
+        "loc",
+        "make",
+        "model",
+        "props"
+    );
+    ASSERT_NIL(client.devices.create(d));
+    DeviceRetrieveRequest req;
+    req.keys = {d.key, "nonexistent_" + rand};
+    req.ignore_not_found = true;
+    const auto devices = ASSERT_NIL_P(client.devices.retrieve(req));
+    ASSERT_EQ(devices.size(), 1);
+    ASSERT_EQ(devices[0].key, d.key);
 }
 }

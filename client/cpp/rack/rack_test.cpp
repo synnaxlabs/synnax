@@ -40,4 +40,13 @@ TEST(RackTests, testDeleteRack) {
     ASSERT_NIL(client.racks.del(r.key));
     ASSERT_OCCURRED_AS_P(client.racks.retrieve(r.key), xerrors::QUERY);
 }
+/// @brief it should retrieve a rack by its name.
+TEST(RackTests, testRetrieveRackByName) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack_by_name_unique");
+    ASSERT_NIL(client.racks.create(r));
+    const auto r2 = ASSERT_NIL_P(client.racks.retrieve("test_rack_by_name_unique"));
+    ASSERT_EQ(r2.name, "test_rack_by_name_unique");
+    ASSERT_EQ(r.key, r2.key);
+}
 }

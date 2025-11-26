@@ -122,4 +122,48 @@ TEST(TaskTests, testTaskOntologyIdsEmpty) {
     const auto ids = synnax::task_ontology_ids(keys);
     ASSERT_TRUE(ids.empty());
 }
+/// @brief it should retrieve multiple tasks by their names.
+TEST(TaskTests, testRetrieveTasksByNames) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand1 = std::to_string(gen_rand_task());
+    const auto rand2 = std::to_string(gen_rand_task());
+    auto t1 = Task(r.key, rand1, "mock", "config1");
+    auto t2 = Task(r.key, rand2, "mock", "config2");
+    ASSERT_NIL(r.tasks.create(t1));
+    ASSERT_NIL(r.tasks.create(t2));
+    const std::vector<std::string> names = {rand1, rand2};
+    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve(names));
+    ASSERT_EQ(tasks.size(), 2);
+    bool found1 = false, found2 = false;
+    for (const auto &t: tasks) {
+        if (t.name == rand1) found1 = true;
+        if (t.name == rand2) found2 = true;
+    }
+    ASSERT_TRUE(found1);
+    ASSERT_TRUE(found2);
+}
+/// @brief it should retrieve multiple tasks by their types.
+TEST(TaskTests, testRetrieveTasksByTypes) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.racks.create(r));
+    const auto type1 = std::to_string(gen_rand_task());
+    const auto type2 = std::to_string(gen_rand_task());
+    auto t1 = Task(r.key, "task_by_type_1", type1, "config1");
+    auto t2 = Task(r.key, "task_by_type_2", type2, "config2");
+    ASSERT_NIL(r.tasks.create(t1));
+    ASSERT_NIL(r.tasks.create(t2));
+    const std::vector<std::string> types = {type1, type2};
+    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve_by_type(types));
+    ASSERT_EQ(tasks.size(), 2);
+    bool found1 = false, found2 = false;
+    for (const auto &t: tasks) {
+        if (t.type == type1) found1 = true;
+        if (t.type == type2) found2 = true;
+    }
+    ASSERT_TRUE(found1);
+    ASSERT_TRUE(found2);
+}
 }

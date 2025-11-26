@@ -161,8 +161,8 @@ struct DeviceRetrieveRequest {
     std::vector<std::string> locations;
     std::vector<RackKey> racks;
     std::string search;
-    std::uint32_t limit;
-    std::uint32_t offset;
+    std::uint32_t limit = 0;
+    std::uint32_t offset = 0;
     bool ignore_not_found = false;
 
     void to_proto(api::v1::DeviceRetrieveRequest &request) const {
