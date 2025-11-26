@@ -66,21 +66,35 @@ var allObjects = []ontology.ID{
 	{Type: ontology.BuiltInType},
 }
 
+// ProvisionResult contains the keys of all provisioned built-in roles.
+type ProvisionResult struct {
+	OwnerKey    uuid.UUID
+	EngineerKey uuid.UUID
+	OperatorKey uuid.UUID
+	ViewerKey   uuid.UUID
+}
+
 func Provision(
 	ctx context.Context,
 	tx gorp.Tx,
 	service *rbac.Service,
-) (uuid.UUID, error) {
-	if _, err := provisionRole(ctx, viewerRole, []policy.Policy{viewerPolicy}, tx, service); err != nil {
-		return uuid.Nil, err
+) (ProvisionResult, error) {
+	var result ProvisionResult
+	var err error
+
+	if result.ViewerKey, err = provisionRole(ctx, viewerRole, []policy.Policy{viewerPolicy}, tx, service); err != nil {
+		return ProvisionResult{}, err
 	}
-	if _, err := provisionRole(ctx, operatorRole, operatorPolicies, tx, service); err != nil {
-		return uuid.Nil, err
+	if result.OperatorKey, err = provisionRole(ctx, operatorRole, operatorPolicies, tx, service); err != nil {
+		return ProvisionResult{}, err
 	}
-	if _, err := provisionRole(ctx, engineerRole, engineerPolicies, tx, service); err != nil {
-		return uuid.Nil, err
+	if result.EngineerKey, err = provisionRole(ctx, engineerRole, engineerPolicies, tx, service); err != nil {
+		return ProvisionResult{}, err
 	}
-	return provisionRole(ctx, ownerRole, []policy.Policy{ownerPolicy}, tx, service)
+	if result.OwnerKey, err = provisionRole(ctx, ownerRole, []policy.Policy{ownerPolicy}, tx, service); err != nil {
+		return ProvisionResult{}, err
+	}
+	return result, nil
 }
 
 func provisionRole(
