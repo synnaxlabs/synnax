@@ -43,6 +43,8 @@ type Policy struct {
 	Actions []access.Action `json:"actions" msgpack:"actions"`
 	// Version tracks the policy schema version (V1 = role-based)
 	Version version.Counter `json:"version" msgpack:"version"`
+	// Internal indicates whether the policy is built-in to the system.
+	Internal bool `json:"internal" msgpack:"internal"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Policy{}

@@ -28,7 +28,7 @@ var _ = Describe("Writer", func() {
 	)
 	BeforeEach(func() {
 		tx = db.OpenTx()
-		w = svc.NewWriter(tx)
+		w = svc.NewWriter(tx, true)
 	})
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
@@ -85,6 +85,28 @@ var _ = Describe("Writer", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(parents).ToNot(BeEmpty())
 		})
+
+		It("Should create an internal role when allowInternal is true", func() {
+			r := &role.Role{
+				Name:        "builtin-role",
+				Description: "A builtin role",
+				Internal:    true,
+			}
+			Expect(w.Create(ctx, r)).To(Succeed())
+			Expect(r.Key).ToNot(Equal(uuid.Nil))
+		})
+
+		It("Should fail to create an internal role when allowInternal is false", func() {
+			restrictedWriter := svc.NewWriter(tx, false)
+			r := &role.Role{
+				Name:        "builtin-role",
+				Description: "A builtin role",
+				Internal:    true,
+			}
+			err := restrictedWriter.Create(ctx, r)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("cannot create internal role"))
+		})
 	})
 
 	Describe("Delete", func() {
@@ -105,6 +127,34 @@ var _ = Describe("Writer", func() {
 			var r role.Role
 			err := svc.NewRetrieve().WhereKeys(roles[0].Key).Entry(&r).Exec(ctx, tx)
 			Expect(err).To(MatchError(query.NotFound))
+		})
+
+		It("Should delete an internal role when allowInternal is true", func() {
+			r := &role.Role{
+				Name:        "internal-to-delete",
+				Description: "Internal role to delete",
+				Internal:    true,
+			}
+			Expect(w.Create(ctx, r)).To(Succeed())
+			Expect(w.Delete(ctx, r.Key)).To(Succeed())
+
+			var retrieved role.Role
+			err := svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieved).Exec(ctx, tx)
+			Expect(err).To(MatchError(query.NotFound))
+		})
+
+		It("Should fail to delete an internal role when allowInternal is false", func() {
+			r := &role.Role{
+				Name:        "internal-protected",
+				Description: "Internal role that cannot be deleted",
+				Internal:    true,
+			}
+			Expect(w.Create(ctx, r)).To(Succeed())
+
+			restrictedWriter := svc.NewWriter(tx, false)
+			err := restrictedWriter.Delete(ctx, r.Key)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("cannot delete builtin role"))
 		})
 	})
 
@@ -212,7 +262,7 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
 
-			pw := policySvc.NewWriter(tx)
+			pw := policySvc.NewWriter(tx, true)
 			policies = []policy.Policy{
 				{
 					Name:    "policy-1",
@@ -270,7 +320,7 @@ var _ = Describe("Retrieve", func() {
 	)
 	BeforeEach(func() {
 		tx = db.OpenTx()
-		w = svc.NewWriter(tx)
+		w = svc.NewWriter(tx, true)
 		roles = []role.Role{
 			{Name: "admin", Description: "Administrator"},
 			{Name: "engineer", Description: "Engineer"},
@@ -361,6 +411,48 @@ var _ = Describe("Retrieve", func() {
 			Expect(rs).To(BeEmpty())
 		})
 	})
+
+	Describe("WhereInternal", func() {
+		var internalRole, regularRole role.Role
+		BeforeEach(func() {
+			internalRole = role.Role{
+				Name:        "internal-role",
+				Description: "An internal role",
+				Internal:    true,
+			}
+			regularRole = role.Role{
+				Name:        "regular-role",
+				Description: "A regular role",
+				Internal:    false,
+			}
+			Expect(w.Create(ctx, &internalRole)).To(Succeed())
+			Expect(w.Create(ctx, &regularRole)).To(Succeed())
+		})
+
+		It("Should retrieve only internal roles", func() {
+			var rs []role.Role
+			Expect(svc.NewRetrieve().
+				WhereInternal(true).
+				Entries(&rs).
+				Exec(ctx, tx)).To(Succeed())
+			for _, r := range rs {
+				Expect(r.Internal).To(BeTrue())
+			}
+			Expect(rs).To(ContainElement(HaveField("Key", internalRole.Key)))
+		})
+
+		It("Should retrieve only non-internal roles", func() {
+			var rs []role.Role
+			Expect(svc.NewRetrieve().
+				WhereInternal(false).
+				Entries(&rs).
+				Exec(ctx, tx)).To(Succeed())
+			for _, r := range rs {
+				Expect(r.Internal).To(BeFalse())
+			}
+			Expect(rs).To(ContainElement(HaveField("Key", regularRole.Key)))
+		})
+	})
 })
 
 var _ = Describe("Ontology Integration", func() {
@@ -383,7 +475,7 @@ var _ = Describe("Ontology Integration", func() {
 
 	Describe("RetrieveResource", func() {
 		It("Should retrieve a role as an ontology resource", func() {
-			w := svc.NewWriter(tx)
+			w := svc.NewWriter(tx, true)
 			r := &role.Role{
 				Name:        "resource-test",
 				Description: "Resource test role",
@@ -409,7 +501,7 @@ var _ = Describe("Ontology Integration", func() {
 
 	Describe("OpenNexter", func() {
 		It("Should iterate over all roles", func() {
-			w := svc.NewWriter(tx)
+			w := svc.NewWriter(tx, true)
 			for i := 0; i < 3; i++ {
 				r := &role.Role{
 					Name:        "nexter-test",

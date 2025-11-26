@@ -20,11 +20,13 @@ var (
 	viewerRole     = role.Role{
 		Name:        viewerRoleName,
 		Description: "View access to all resources.",
+		Internal:    true,
 	}
 	viewerPolicy = policy.Policy{
-		Name:    viewerRoleName,
-		Effect:  policy.EffectAllow,
-		Objects: allObjects,
-		Actions: []access.Action{access.ActionRetrieve},
+		Name:     viewerRoleName,
+		Effect:   policy.EffectAllow,
+		Objects:  allObjects,
+		Actions:  []access.Action{access.ActionRetrieve},
+		Internal: true,
 	}
 )

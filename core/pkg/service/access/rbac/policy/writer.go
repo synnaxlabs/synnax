@@ -14,12 +14,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
-	tx  gorp.Tx
-	otg ontology.Writer
+	tx            gorp.Tx
+	otg           ontology.Writer
+	allowInternal bool
 }
 
 // Create creates a new policy in the database.
@@ -29,6 +32,9 @@ func (w Writer) Create(
 ) error {
 	if p.Key == uuid.Nil {
 		p.Key = uuid.New()
+	}
+	if p.Internal && !w.allowInternal {
+		return errors.Wrap(validate.Error, "cannot create internal policy")
 	}
 	if err := gorp.NewCreate[uuid.UUID, Policy]().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err

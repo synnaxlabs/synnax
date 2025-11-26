@@ -31,6 +31,8 @@ func NewAccessService(p Provider) *AccessService {
 	return &AccessService{internal: p.Service.RBAC, dbProvider: p.db}
 }
 
+const allowInternal = false
+
 type (
 	AccessCreatePolicyRequest struct {
 		Policies []policy.Policy `json:"policies" msgpack:"policies"`
@@ -51,7 +53,7 @@ func (s *AccessService) CreatePolicy(
 		}); err != nil {
 			return err
 		}
-		w := s.internal.Policy.NewWriter(tx)
+		w := s.internal.Policy.NewWriter(tx, allowInternal)
 		for i, p := range req.Policies {
 			if p.Key == uuid.Nil {
 				p.Key = uuid.New()
@@ -73,6 +75,7 @@ type AccessRetrievePolicyRequest struct {
 	Keys     []uuid.UUID   `json:"keys" msgpack:"keys"`
 	Limit    int           `json:"limit" msgpack:"limit"`
 	Offset   int           `json:"offset" msgpack:"offset"`
+	Internal *bool         `json:"internal" msgpack:"internal"`
 }
 
 type AccessRetrievePolicyResponse struct {
@@ -122,6 +125,9 @@ func (s *AccessService) RetrievePolicy(
 		if req.Offset > 0 {
 			q = q.Offset(req.Offset)
 		}
+		if req.Internal != nil {
+			q = q.WhereInternal(*req.Internal)
+		}
 		if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
 			return AccessRetrievePolicyResponse{}, err
 		}
@@ -133,6 +139,9 @@ func (s *AccessService) RetrievePolicy(
 		}
 		if req.Offset > 0 {
 			q = q.Offset(req.Offset)
+		}
+		if req.Internal != nil {
+			q = q.WhereInternal(*req.Internal)
 		}
 		if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
 			return AccessRetrievePolicyResponse{}, err
@@ -163,12 +172,10 @@ func (s *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicy
 		}); err != nil {
 			return err
 		}
-		return s.internal.Policy.NewWriter(tx).Delete(ctx, req.Keys...)
+		return s.internal.Policy.NewWriter(tx, allowInternal).Delete(ctx, req.Keys...)
 	})
 
 }
-
-// Role API endpoints
 
 type (
 	AccessCreateRoleRequest struct {
@@ -192,7 +199,7 @@ func (s *AccessService) CreateRole(
 		}); err != nil {
 			return err
 		}
-		w := s.internal.Role.NewWriter(tx)
+		w := s.internal.Role.NewWriter(tx, allowInternal)
 		for i, r := range req.Roles {
 			if r.Key == uuid.Nil {
 				r.Key = uuid.New()
@@ -211,9 +218,10 @@ func (s *AccessService) CreateRole(
 
 type (
 	AccessRetrieveRoleRequest struct {
-		Keys   []uuid.UUID `json:"keys" msgpack:"keys"`
-		Limit  int         `json:"limit" msgpack:"limit"`
-		Offset int         `json:"offset" msgpack:"offset"`
+		Keys     []uuid.UUID `json:"keys" msgpack:"keys"`
+		Limit    int         `json:"limit" msgpack:"limit"`
+		Offset   int         `json:"offset" msgpack:"offset"`
+		Internal *bool       `json:"internal" msgpack:"internal"`
 	}
 	AccessRetrieveRoleResponse struct {
 		Roles []role.Role `json:"roles" msgpack:"roles"`
@@ -234,6 +242,9 @@ func (s *AccessService) RetrieveRole(
 	}
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
+	}
+	if req.Internal != nil {
+		q = q.WhereInternal(*req.Internal)
 	}
 	if err := q.Entries(&res.Roles).Exec(ctx, nil); err != nil {
 		return AccessRetrieveRoleResponse{}, err
@@ -266,7 +277,7 @@ func (s *AccessService) DeleteRole(ctx context.Context, req AccessDeleteRoleRequ
 		}); err != nil {
 			return err
 		}
-		w := s.internal.Role.NewWriter(tx)
+		w := s.internal.Role.NewWriter(tx, allowInternal)
 		for _, key := range req.Keys {
 			if err := w.Delete(ctx, key); err != nil {
 				return err
@@ -293,7 +304,7 @@ func (s *AccessService) AssignRole(
 		}); err != nil {
 			return err
 		}
-		return s.internal.Role.NewWriter(tx).AssignRole(ctx, req.User, req.Role)
+		return s.internal.Role.NewWriter(tx, allowInternal).AssignRole(ctx, req.User, req.Role)
 	})
 }
 
@@ -311,6 +322,6 @@ func (s *AccessService) UnassignRole(ctx context.Context, req AccessUnassignRole
 		}); err != nil {
 			return err
 		}
-		return s.internal.Role.NewWriter(tx).UnassignRole(ctx, req.User, req.Role)
+		return s.internal.Role.NewWriter(tx, true).UnassignRole(ctx, req.User, req.Role)
 	})
 }

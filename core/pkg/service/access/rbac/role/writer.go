@@ -16,13 +16,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	group group.Group
+	tx            gorp.Tx
+	otg           ontology.Writer
+	group         group.Group
+	allowInternal bool
 }
 
 // Create creates a new role in the database.
@@ -32,6 +35,9 @@ func (w Writer) Create(
 ) error {
 	if r.Key == uuid.Nil {
 		r.Key = uuid.New()
+	}
+	if r.Internal && !w.allowInternal {
+		return errors.Wrap(validate.Error, "cannot create internal role")
 	}
 	if err := gorp.NewCreate[uuid.UUID, Role]().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
@@ -45,7 +51,12 @@ func (w Writer) Create(
 // Delete removes a role from the database. It will fail if the role is builtin
 // or if any users are assigned to the role.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
-	return gorp.NewDelete[uuid.UUID, Role]().WhereKeys(key).Exec(ctx, w.tx)
+	return gorp.NewDelete[uuid.UUID, Role]().WhereKeys(key).Guard(func(_ gorp.Context, r Role) error {
+		if r.Internal && !w.allowInternal {
+			return errors.Wrap(validate.Error, "cannot delete builtin role")
+		}
+		return nil
+	}).Exec(ctx, w.tx)
 }
 
 // AssignRole assigns a role to a subject (typically a user) by creating an ontology

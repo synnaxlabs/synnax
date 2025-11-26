@@ -39,6 +39,7 @@ var (
 	engineerRole     = role.Role{
 		Name:        engineerRoleName,
 		Description: "Full access to system configuration, except for user management.",
+		Internal:    true,
 	}
 	engineerPolicies = []policy.Policy{
 		{
@@ -65,7 +66,8 @@ var (
 				{Type: symbol.OntologyType},
 				{Type: status.OntologyType},
 			},
-			Actions: []access.Action{access.ActionAll},
+			Actions:  []access.Action{access.ActionAll},
+			Internal: true,
 		},
 		{
 			Name:   "Engineer View Access",
@@ -75,7 +77,8 @@ var (
 				{Type: role.OntologyType},
 				{Type: policy.OntologyType},
 			},
-			Actions: []access.Action{access.ActionRetrieve},
+			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
 		},
 	}
 )

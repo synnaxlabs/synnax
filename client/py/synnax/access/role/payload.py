@@ -23,3 +23,4 @@ class Role(Payload):
     key: UUID | None = None
     name: str
     description: str = ""
+    internal: bool = False

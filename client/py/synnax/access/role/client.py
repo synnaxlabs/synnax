@@ -29,6 +29,7 @@ class _RetrieveRequest(Payload):
     keys: list[UUID] | None = None
     limit: int | None = None
     offset: int | None = None
+    internal: bool | None = None
 
 
 class _RetrieveResponse(Payload):
@@ -91,6 +92,7 @@ class RoleClient:
         keys: list[UUID] | None = None,
         limit: int | None = None,
         offset: int | None = None,
+        internal: bool | None = None,
     ) -> list[Role]: ...
 
     def retrieve(
@@ -99,11 +101,12 @@ class RoleClient:
         keys: list[UUID] | None = None,
         limit: int | None = None,
         offset: int | None = None,
+        internal: bool | None = None,
     ) -> Role | list[Role]:
         is_single = key is not None
         if is_single:
             keys = [key]
-        req = _RetrieveRequest(keys=keys, limit=limit, offset=offset)
+        req = _RetrieveRequest(keys=keys, limit=limit, offset=offset, internal=internal)
         res = send_required(
             self._client, "/access/role/retrieve", req, _RetrieveResponse
         )

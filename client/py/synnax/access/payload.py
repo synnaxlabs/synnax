@@ -28,3 +28,4 @@ class Policy(Payload):
     effect: Effect = "allow"
     objects: list[ID] = []
     actions: list[str] = []
+    internal: bool = False

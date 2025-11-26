@@ -20,11 +20,13 @@ var (
 	ownerRole     = role.Role{
 		Name:        ownerRoleName,
 		Description: "Full control of deployment, including user registration and security.",
+		Internal:    true,
 	}
 	ownerPolicy = policy.Policy{
-		Name:    ownerRoleName,
-		Effect:  policy.EffectAllow,
-		Objects: allObjects,
-		Actions: []access.Action{access.ActionAll},
+		Name:     ownerRoleName,
+		Effect:   policy.EffectAllow,
+		Objects:  allObjects,
+		Actions:  []access.Action{access.ActionAll},
+		Internal: true,
 	}
 )

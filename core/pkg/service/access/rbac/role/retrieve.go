@@ -28,6 +28,14 @@ func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve {
 	return r
 }
 
+// WhereInternal filters roles by their internal flag.
+func (r Retrieve) WhereInternal(internal bool) Retrieve {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, role *Role) (bool, error) {
+		return role.Internal == internal, nil
+	})
+	return r
+}
+
 // WhereName filters roles by their name.
 func (r Retrieve) WhereName(name string) Retrieve {
 	r.gorp = r.gorp.Where(func(_ gorp.Context, role *Role) (bool, error) {

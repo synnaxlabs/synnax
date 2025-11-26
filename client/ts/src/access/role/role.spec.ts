@@ -40,6 +40,25 @@ describe("role", () => {
       expect(retrieved.name).toBe(created.name);
       expect(retrieved.description).toBe(created.description);
     });
+
+    it("should filter by internal flag when retrieving roles", async () => {
+      // Create a non-internal role
+      const created = await client.access.roles.create({
+        name: "test-non-internal",
+        description: "test",
+      });
+
+      // Retrieve only internal roles (built-in system roles)
+      const internalRoles = await client.access.roles.retrieve({ internal: true });
+      expect(internalRoles.length).toBeGreaterThan(0);
+      expect(internalRoles.every((r) => r.internal === true)).toBe(true);
+      expect(internalRoles.find((r) => r.key === created.key)).toBeUndefined();
+
+      // Retrieve only non-internal roles
+      const nonInternalRoles = await client.access.roles.retrieve({ internal: false });
+      expect(nonInternalRoles.every((r) => r.internal !== true)).toBe(true);
+      expect(nonInternalRoles.find((r) => r.key === created.key)).toBeDefined();
+    });
   });
 
   describe("delete", () => {

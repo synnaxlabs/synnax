@@ -34,6 +34,13 @@ func (r Retriever) WhereNames(names ...string) Retriever {
 	return r
 }
 
+func (r Retriever) WhereInternal(internal bool) Retriever {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, p *Policy) (bool, error) {
+		return p.Internal == internal, nil
+	})
+	return r
+}
+
 func (r Retriever) Limit(limit int) Retriever {
 	r.gorp = r.gorp.Limit(limit)
 	return r

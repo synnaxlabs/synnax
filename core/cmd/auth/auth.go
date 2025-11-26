@@ -50,6 +50,6 @@ func ProvisionRootUser(
 		if err != nil {
 			return err
 		}
-		return svc.RBAC.Role.NewWriter(tx).AssignRole(ctx, user.OntologyID(rootUser.Key), roleKey)
+		return svc.RBAC.Role.NewWriter(tx, true).AssignRole(ctx, user.OntologyID(rootUser.Key), roleKey)
 	})
 }

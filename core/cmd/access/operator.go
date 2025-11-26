@@ -23,6 +23,7 @@ var (
 	operatorRole     = role.Role{
 		Name:        operatorRoleName,
 		Description: "Can view workspaces and visualizations, control hardware and data acquisition tasks. Cannot modify system configuration.",
+		Internal:    true,
 	}
 	operatorPolicies = []policy.Policy{
 		{
@@ -32,13 +33,15 @@ var (
 				{Type: framer.OntologyType},
 				{Type: ranger.OntologyType},
 			},
-			Actions: []access.Action{access.ActionAll},
+			Actions:  []access.Action{access.ActionAll},
+			Internal: true,
 		},
 		{
-			Name:    "Operator View Access",
-			Effect:  policy.EffectAllow,
-			Objects: allObjects,
-			Actions: []access.Action{access.ActionRetrieve},
+			Name:     "Operator View Access",
+			Effect:   policy.EffectAllow,
+			Objects:  allObjects,
+			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
 		},
 	}
 )

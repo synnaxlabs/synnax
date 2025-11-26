@@ -29,6 +29,7 @@ const retrieveRequestZ = z.object({
   subjects: ontology.idZ.array().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
+  internal: z.boolean().optional(),
 });
 
 const keyRetrieveRequestZ = z

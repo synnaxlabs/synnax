@@ -30,6 +30,7 @@ const useRename = createUseRename({
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection: { ids },
+    state,
   } = props;
   const handleDelete = useDelete(props);
   const handleRename = useRename(props);
@@ -38,16 +39,22 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     delete: handleDelete,
   };
   const singleResource = ids.length === 1;
+  const resources = state.getResource(ids);
+  const hasInternal = resources.some((r) => r.data?.internal === true);
   return (
     <PMenu.Menu onChange={handleSelect} level="small" gap="small">
-      {singleResource && (
+      {singleResource && !hasInternal && (
         <>
           <Menu.RenameItem />
           <PMenu.Divider />
         </>
       )}
-      <Menu.DeleteItem />
-      <PMenu.Divider />
+      {!hasInternal && (
+        <>
+          <Menu.DeleteItem />
+          <PMenu.Divider />
+        </>
+      )}
       {singleResource && (
         <>
           <Ontology.CopyMenuItem {...props} />

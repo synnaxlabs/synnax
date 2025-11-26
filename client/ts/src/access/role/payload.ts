@@ -19,6 +19,7 @@ export const roleZ = z.object({
   key: keyZ,
   name: z.string(),
   description: z.string().optional(),
+  internal: z.boolean().optional(),
 });
 
 export type Role = z.infer<typeof roleZ>;

@@ -17,6 +17,33 @@ import { createTestClient } from "@/testutil/client";
 const client = createTestClient();
 
 describe("policy", () => {
+  describe("retrieve", () => {
+    it("should filter by internal flag when retrieving policies", async () => {
+      // Create a non-internal policy
+      const created = await client.access.policies.create({
+        name: "test-non-internal",
+        effect: "allow",
+        objects: [],
+        actions: ["retrieve"],
+      });
+
+      // Retrieve only internal policies (built-in system policies)
+      const internalPolicies = await client.access.policies.retrieve({
+        internal: true,
+      });
+      expect(internalPolicies.length).toBeGreaterThan(0);
+      expect(internalPolicies.every((p) => p.internal === true)).toBe(true);
+      expect(internalPolicies.find((p) => p.key === created.key)).toBeUndefined();
+
+      // Retrieve only non-internal policies
+      const nonInternalPolicies = await client.access.policies.retrieve({
+        internal: false,
+      });
+      expect(nonInternalPolicies.every((p) => p.internal !== true)).toBe(true);
+      expect(nonInternalPolicies.find((p) => p.key === created.key)).toBeDefined();
+    });
+  });
+
   describe("access control", () => {
     it("should prevent the caller to retrieve policies with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {

@@ -80,11 +80,12 @@ func (s *Service) Close() error {
 	return s.signals.Close()
 }
 
-func (s *Service) NewWriter(tx gorp.Tx) Writer {
+func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:  tx,
-		otg: s.cfg.Ontology.NewWriter(tx),
+		tx:            tx,
+		otg:           s.cfg.Ontology.NewWriter(tx),
+		allowInternal: allowInternal,
 	}
 }
 

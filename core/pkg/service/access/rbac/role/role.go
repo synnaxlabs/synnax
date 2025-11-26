@@ -25,6 +25,8 @@ type Role struct {
 	Name string `json:"name" msgpack:"name"`
 	// Description explains what permissions this role provides.
 	Description string `json:"description" msgpack:"description"`
+	// Internal indicates whether the role is built-in to the system.
+	Internal bool `json:"internal" msgpack:"internal"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Role{}

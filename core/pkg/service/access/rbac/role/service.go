@@ -93,11 +93,12 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	return s, nil
 }
 
-func (s *Service) NewWriter(tx gorp.Tx) Writer {
+func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 	return Writer{
-		tx:    gorp.OverrideTx(s.DB, tx),
-		otg:   s.Ontology.NewWriter(tx),
-		group: s.group,
+		tx:            gorp.OverrideTx(s.DB, tx),
+		otg:           s.Ontology.NewWriter(tx),
+		group:         s.group,
+		allowInternal: allowInternal,
 	}
 }
 

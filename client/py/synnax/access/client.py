@@ -28,6 +28,7 @@ _CreateResponse = _CreateRequest
 class _RetrieveRequest(Payload):
     keys: list[UUID] | None
     subjects: list[ID] | None
+    internal: bool | None = None
 
 
 class _RetrieveResponse(Payload):
@@ -75,12 +76,15 @@ class PolicyClient:
         return res.policies[0] if is_single else res.policies
 
     def retrieve(
-        self, keys: list[UUID] | None = None, subjects: list[ID] | None = None
+        self,
+        keys: list[UUID] | None = None,
+        subjects: list[ID] | None = None,
+        internal: bool | None = None,
     ) -> list[Policy]:
         res = send_required(
             self._client,
             "/access/policy/retrieve",
-            _RetrieveRequest(keys=keys, subjects=subjects),
+            _RetrieveRequest(keys=keys, subjects=subjects, internal=internal),
             _RetrieveResponse,
         )
         return [] if res.policies is None else res.policies

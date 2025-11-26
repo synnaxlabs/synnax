@@ -88,6 +88,30 @@ class TestAccessClient:
         with pytest.raises(sy.NotFoundError):
             client.access.retrieve(keys=[key])
 
+    def test_retrieve_by_internal_flag(self, client: sy.Synnax) -> None:
+        """Should filter policies by internal flag."""
+        # Create a non-internal policy
+        created = client.access.create(
+            sy.Policy(
+                name="Test Non-Internal Policy",
+                effect="allow",
+                objects=[ID(type="channel", key=str(uuid.uuid4()))],
+                actions=["retrieve"],
+            )
+        )
+        assert created.key is not None
+
+        # Retrieve only internal policies (built-in system policies)
+        internal_policies = client.access.retrieve(internal=True)
+        assert len(internal_policies) > 0
+        assert all(p.internal is True for p in internal_policies)
+        assert not any(p.key == created.key for p in internal_policies)
+
+        # Retrieve only non-internal policies
+        non_internal_policies = client.access.retrieve(internal=False)
+        assert all(p.internal is not True for p in non_internal_policies)
+        assert any(p.key == created.key for p in non_internal_policies)
+
 
 @pytest.mark.access
 @pytest.mark.role
@@ -155,6 +179,25 @@ class TestRoleClient:
         # Verify by retrieving policies for the user (via role)
         # Note: This requires the policies to be attached to the role via ontology
         # For now, we just verify the call doesn't error
+
+    def test_retrieve_by_internal_flag(self, client: sy.Synnax) -> None:
+        """Should filter roles by internal flag."""
+        # Create a non-internal role
+        created = client.roles.create(
+            sy.Role(name="Test Non-Internal Role", description="Test role")
+        )
+        assert created.key is not None
+
+        # Retrieve only internal roles (built-in system roles)
+        internal_roles = client.roles.retrieve(internal=True)
+        assert len(internal_roles) > 0
+        assert all(r.internal is True for r in internal_roles)
+        assert not any(r.key == created.key for r in internal_roles)
+
+        # Retrieve only non-internal roles
+        non_internal_roles = client.roles.retrieve(internal=False)
+        assert all(r.internal is not True for r in non_internal_roles)
+        assert any(r.key == created.key for r in non_internal_roles)
 
 
 @pytest.mark.access

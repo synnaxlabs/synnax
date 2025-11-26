@@ -54,8 +54,9 @@ func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
-	"key":  zyn.UUID(),
-	"name": zyn.String(),
+	"key":      zyn.UUID(),
+	"name":     zyn.String(),
+	"internal": zyn.Bool(),
 })
 
 func newResource(l Role) ontology.Resource {
