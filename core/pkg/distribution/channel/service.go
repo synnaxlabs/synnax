@@ -27,8 +27,8 @@ import (
 
 type CalculationAnalyzer = func(ctx context.Context, expr string) (telem.DataType, error)
 
-// Service is central entity for managing channels within delta's distribution layer. It
-// provides facilities for creating and retrieving channels.
+// Service is the central entity for managing channels within Synnax's distribution
+// layer. It provides facilities for creating and retrieving channels.
 type Service struct {
 	cfg Config
 	db  *gorp.DB
@@ -38,8 +38,8 @@ type Service struct {
 	group group.Group
 }
 
-func (s *Service) SetCalculationAnalyzer(calc CalculationAnalyzer) {
-	s.proxy.analyzeCalculation = calc
+func (s *Service) SetCalculationAnalyzer(analyzer CalculationAnalyzer) {
+	s.proxy.analyzeCalculation = analyzer
 }
 
 type IntOverflowChecker = func(types.Uint20) error
