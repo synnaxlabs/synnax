@@ -12,12 +12,12 @@ import math
 import time
 
 from pymodbus import ModbusDeviceIdentification
-from pysy.modbus.datastore import (
+from pymodbus.datastore import (
     ModbusDeviceContext,
     ModbusSequentialDataBlock,
     ModbusServerContext,
 )
-from pysy.modbus.server import StartAsyncTcpServer
+from pymodbus.server import StartAsyncTcpServer
 
 
 async def updating_writer(context):
