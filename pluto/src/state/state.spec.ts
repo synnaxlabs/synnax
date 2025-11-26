@@ -10,10 +10,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  executeSetter,
   executeInitialSetter,
-  isSetter,
+  executeSetter,
   isInitialSetter,
+  isSetter,
   skipNull,
   skipUndefined,
 } from "@/state/state";
