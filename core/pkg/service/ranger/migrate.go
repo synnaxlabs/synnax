@@ -18,15 +18,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
 func (s *Service) migrate(ctx context.Context) error {
-	return migrate.GorpRunner{
+	return gorp.Migrator{
 		Key: "sy_ranger_migration_performed",
-		Migrations: []migrate.GorpSpec{
+		Migrations: []gorp.MigrationSpec{
 			{Name: "range_groups", Migrate: s.migrateRangeGroups},
 		},
 		Force: *s.ForceMigration,

@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -21,9 +20,9 @@ import (
 // Migrations run sequentially and are tracked with an incrementing version number.
 // New migrations should be appended to the end of the list.
 func (s *Service) migrate(ctx context.Context) error {
-	return migrate.GorpRunner{
+	return gorp.Migrator{
 		Key: "channel_service",
-		Migrations: []migrate.GorpSpec{
+		Migrations: []gorp.MigrationSpec{
 			{Name: "migrate_channel_names", Migrate: s.migrateChannelNames},
 		},
 		Force: *s.cfg.ForceMigration,

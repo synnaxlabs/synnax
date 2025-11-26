@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package migrate_test
+package gorp_test
 
 import (
 	"context"
@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -30,9 +29,9 @@ var _ = Describe("Gorp", func() {
 		Describe("Basic migration execution", func() {
 			It("Should run a single migration successfully", func() {
 				executed := false
-				runner := migrate.GorpRunner{
+				runner := gorp.Migrator{
 					Key: "test_migration_version",
-					Migrations: []migrate.GorpSpec{
+					Migrations: []gorp.MigrationSpec{
 						{
 							Name: "first_migration",
 							Migrate: func(context.Context, gorp.Tx) error {
@@ -52,9 +51,9 @@ var _ = Describe("Gorp", func() {
 			})
 			It("Should run multiple migrations in order", func() {
 				var executionOrder []int
-				runner := migrate.GorpRunner{
+				runner := gorp.Migrator{
 					Key: "test_migration_version_2",
-					Migrations: []migrate.GorpSpec{
+					Migrations: []gorp.MigrationSpec{
 						{
 							Name: "first_migration",
 							Migrate: func(context.Context, gorp.Tx) error {
@@ -90,9 +89,9 @@ var _ = Describe("Gorp", func() {
 			It("Should not run migrations that are already completed", func() {
 				// Run first migration
 				executionCount := 0
-				runner := migrate.GorpRunner{
+				runner := gorp.Migrator{
 					Key: "test_migration_version_3",
-					Migrations: []migrate.GorpSpec{
+					Migrations: []gorp.MigrationSpec{
 						{
 							Name: "first_migration",
 							Migrate: func(context.Context, gorp.Tx) error {
@@ -114,9 +113,9 @@ var _ = Describe("Gorp", func() {
 			It("Should only run new migrations after partial completion", func() {
 				// First run with 2 migrations
 				var executed []string
-				runner := migrate.GorpRunner{
+				runner := gorp.Migrator{
 					Key: "test_migration_version_4",
-					Migrations: []migrate.GorpSpec{
+					Migrations: []gorp.MigrationSpec{
 						{
 							Name: "first_migration",
 							Migrate: func(context.Context, gorp.Tx) error {
@@ -138,7 +137,7 @@ var _ = Describe("Gorp", func() {
 				Expect(executed).To(Equal([]string{"first", "second"}))
 
 				// Second run with additional migration
-				runner.Migrations = append(runner.Migrations, migrate.GorpSpec{
+				runner.Migrations = append(runner.Migrations, gorp.MigrationSpec{
 					Name: "third_migration",
 					Migrate: func(context.Context, gorp.Tx) error {
 						executed = append(executed, "third")
@@ -158,9 +157,9 @@ var _ = Describe("Gorp", func() {
 			})
 
 			It("Should handle empty migration list", func() {
-				runner := migrate.GorpRunner{
+				runner := gorp.Migrator{
 					Key:        "test_migration_version_5",
-					Migrations: []migrate.GorpSpec{},
+					Migrations: []gorp.MigrationSpec{},
 				}
 
 				Expect(runner.Run(ctx, db)).To(Succeed())
@@ -173,9 +172,9 @@ var _ = Describe("Gorp", func() {
 
 		Describe("Error handling", func() {
 			It("Should return error when migration fails", func() {
-				runner := migrate.GorpRunner{
+				runner := gorp.Migrator{
 					Key: "test_migration_version_6",
-					Migrations: []migrate.GorpSpec{
+					Migrations: []gorp.MigrationSpec{
 						{
 							Name: "failing_migration",
 							Migrate: func(context.Context, gorp.Tx) error {
@@ -197,28 +196,28 @@ var _ = Describe("Gorp", func() {
 
 			It("Should fail when migration count exceeds 255", func() {
 				// Create 256 migrations
-				migrations := make([]migrate.GorpSpec, 256)
+				migrations := make([]gorp.MigrationSpec, 256)
 				for i := range migrations {
-					migrations[i] = migrate.GorpSpec{
+					migrations[i] = gorp.MigrationSpec{
 						Name:    "migration",
 						Migrate: func(context.Context, gorp.Tx) error { return nil },
 					}
 				}
 
-				runner := migrate.GorpRunner{
+				runner := gorp.Migrator{
 					Key:        "test_migration_version_7",
 					Migrations: migrations,
 				}
 
 				Expect(runner.Run(ctx, db)).Error().
-					To(MatchError(migrate.ErrMigrationCountExceeded))
+					To(MatchError(gorp.ErrMigrationCountExceeded))
 			})
 
 			It("Should stop at first failing migration", func() {
 				var executed []string
-				runner := migrate.GorpRunner{
+				runner := gorp.Migrator{
 					Key: "test_migration_version_8",
-					Migrations: []migrate.GorpSpec{
+					Migrations: []gorp.MigrationSpec{
 						{
 							Name: "first_migration",
 							Migrate: func(context.Context, gorp.Tx) error {
@@ -258,9 +257,9 @@ var _ = Describe("Gorp", func() {
 			It("Should rerun all migrations when Force is true", func() {
 				// First run
 				executionCount := 0
-				runner := migrate.GorpRunner{
+				runner := gorp.Migrator{
 					Key: "test_migration_version_9",
-					Migrations: []migrate.GorpSpec{
+					Migrations: []gorp.MigrationSpec{
 						{
 							Name: "first_migration",
 							Migrate: func(context.Context, gorp.Tx) error {
@@ -297,9 +296,9 @@ var _ = Describe("Gorp", func() {
 			It("Should run all migrations with Force even if some completed", func() {
 				// Run first migration normally
 				var executed []string
-				runner := migrate.GorpRunner{
+				runner := gorp.Migrator{
 					Key: "test_migration_version_10",
-					Migrations: []migrate.GorpSpec{
+					Migrations: []gorp.MigrationSpec{
 						{
 							Name: "first_migration",
 							Migrate: func(context.Context, gorp.Tx) error {
@@ -314,7 +313,7 @@ var _ = Describe("Gorp", func() {
 				Expect(executed).To(Equal([]string{"first"}))
 
 				// Add second migration and run with Force
-				runner.Migrations = append(runner.Migrations, migrate.GorpSpec{
+				runner.Migrations = append(runner.Migrations, gorp.MigrationSpec{
 					Name: "second_migration",
 					Migrate: func(context.Context, gorp.Tx) error {
 						executed = append(executed, "second")
@@ -330,9 +329,9 @@ var _ = Describe("Gorp", func() {
 
 		Describe("Version tracking", func() {
 			It("Should increment version after each successful migration", func() {
-				runner := migrate.GorpRunner{
+				runner := gorp.Migrator{
 					Key: "test_migration_version_12",
-					Migrations: []migrate.GorpSpec{
+					Migrations: []gorp.MigrationSpec{
 						{
 							Name: "first_migration",
 							Migrate: func(ctx context.Context, tx gorp.Tx) error {
@@ -382,9 +381,9 @@ var _ = Describe("Gorp", func() {
 
 		Describe("Transaction behavior", func() {
 			It("Should rollback all changes when a migration fails", func() {
-				runner := migrate.GorpRunner{
+				runner := gorp.Migrator{
 					Key: "test_migration_version_13",
-					Migrations: []migrate.GorpSpec{
+					Migrations: []gorp.MigrationSpec{
 						{
 							Name: "first_migration",
 							Migrate: func(ctx context.Context, tx gorp.Tx) error {
@@ -413,9 +412,9 @@ var _ = Describe("Gorp", func() {
 			})
 
 			It("Should commit all changes when all migrations succeed", func() {
-				runner := migrate.GorpRunner{
+				runner := gorp.Migrator{
 					Key: "test_migration_version_14",
-					Migrations: []migrate.GorpSpec{
+					Migrations: []gorp.MigrationSpec{
 						{
 							Name: "first_migration",
 							Migrate: func(ctx context.Context, tx gorp.Tx) error {

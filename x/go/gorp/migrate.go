@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package migrate
+package gorp
 
 import (
 	"context"
 
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 )
 
@@ -21,24 +20,24 @@ var ErrMigrationCountExceeded = errors.Newf(
 	"migration count is greater than the maximum of 255",
 )
 
-// GorpSpec defines a single migration that should be run with a Gorp transaction.
-type GorpSpec struct {
+// MigrationSpec defines a single migration that should be run with a transaction.
+type MigrationSpec struct {
 	// Name is a unique identifier for this migration (e.g., "name_validation")
 	Name string
 	// Migrate is the migration function to execute
-	Migrate func(context.Context, gorp.Tx) error
+	Migrate func(context.Context, Tx) error
 }
 
-// GorpRunner executes a series of migrations in order, tracking progress with
+// Migrator executes a series of migrations in order, tracking progress with
 // incrementing versions. Migrations are run sequentially from current_version + 1 up to
 // the latest version. The version starts at 0 (no migrations) and increments to
 // len(Migrations).
-type GorpRunner struct {
+type Migrator struct {
 	// Key is the KV store key used to track migration version (e.g.,
 	// "sy_channel_migration_version").
 	Key string
 	// Migrations is the ordered list of migrations to run.
-	Migrations []GorpSpec
+	Migrations []MigrationSpec
 	// Force, when true, will run all migrations, regardless of whether they have been
 	// completed or not. This is useful for testing or debugging.
 	Force bool
@@ -50,16 +49,16 @@ type GorpRunner struct {
 // Example:
 //
 //	func (s *Service) migrate(ctx context.Context) error {
-//	    return migrate.GorpRunner{
+//	    return gorp.Migrator{
 //	        Key: "sy_channel_migration_version",
-//	        Migrations: []migrate.GorpSpec{
+//	        Migrations: []gorp.MigrationSpec{
 //	            {Name: "name_validation", Migrate: s.migrateChannelNames},
 //	            {Name: "future_migration", Migrate: s.migrateSomethingElse},
 //	        },
 //	    }.Run(ctx, s.DB)
 //	}
-func (r GorpRunner) Run(ctx context.Context, db *gorp.DB) error {
-	return db.WithTx(ctx, func(tx gorp.Tx) error {
+func (r Migrator) Run(ctx context.Context, db *DB) error {
+	return db.WithTx(ctx, func(tx Tx) error {
 		migrationCount := len(r.Migrations)
 		if migrationCount > 255 {
 			return errors.Wrapf(
