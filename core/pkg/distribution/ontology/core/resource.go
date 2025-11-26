@@ -79,6 +79,9 @@ func ParseID(s string) (ID, error) {
 	if len(split) != 2 {
 		return ID{}, errors.Wrapf(validate.Error, "[ontology] - failed to parse id: %s", s)
 	}
+	if split[0] == "" {
+		return ID{}, errors.Wrapf(validate.Error, "[ontology] - failed to parse id: %s (empty type)", s)
+	}
 	return ID{Type: Type(split[0]), Key: split[1]}, nil
 }
 

@@ -11,6 +11,7 @@ package task
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -34,7 +35,7 @@ func newUnknownTaskStatus(key Key, name string) *Status {
 		Key:     OntologyID(key).String(),
 		Time:    telem.Now(),
 		Name:    name,
-		Message: "Status unknown",
+		Message: fmt.Sprintf("%s status unknown", name),
 		Variant: xstatus.WarningVariant,
 		Details: StatusDetails{Task: key},
 	}

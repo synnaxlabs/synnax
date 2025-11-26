@@ -22,7 +22,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
+	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -33,6 +36,7 @@ var _ = Describe("Device", func() {
 		groupSvc *group.Service
 		rackSvc  *rack.Service
 		svc      *device.Service
+		stat     *status.Service
 		tx       gorp.Tx
 		w        device.Writer
 	)
@@ -47,7 +51,7 @@ var _ = Describe("Device", func() {
 			Ontology: otg,
 			Group:    groupSvc,
 		}))
-		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		stat = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    groupSvc,
@@ -74,6 +78,7 @@ var _ = Describe("Device", func() {
 		Expect(tx.Close()).To(Succeed())
 		Expect(svc.Close()).To(Succeed())
 		Expect(rackSvc.Close()).To(Succeed())
+		Expect(stat.Close()).To(Succeed())
 		Expect(groupSvc.Close()).To(Succeed())
 		Expect(otg.Close()).To(Succeed())
 	})
@@ -184,6 +189,26 @@ var _ = Describe("Device", func() {
 				Entry(&nRes).
 				Exec(ctx, tx),
 			).To(MatchError(query.NotFound))
+		})
+		It("Should update the status name when renaming a device", func() {
+			d := device.Device{
+				Key:      "rename-device",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "loc",
+				Name:     "Original Name",
+			}
+			Expect(w.Create(ctx, d)).To(Succeed())
+
+			d.Name = "New Name"
+			Expect(w.Create(ctx, d)).To(Succeed())
+
+			var deviceStatus device.Status
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				WhereKeys(device.OntologyID(d.Key).String()).
+				Entry(&deviceStatus).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(deviceStatus.Name).To(Equal("New Name"))
+			Expect(deviceStatus.Message).To(ContainSubstring("New Name"))
 		})
 	})
 	Describe("Retrieve", func() {
@@ -315,6 +340,72 @@ var _ = Describe("Device", func() {
 			Expect(
 				otg.NewRetrieve().WhereIDs(d.OntologyID()).Entry(&res).Exec(ctx, tx),
 			).To(MatchError(query.NotFound))
+		})
+	})
+	Describe("Suspect Rack", func() {
+		It("Should propagate rack warning status to devices on that rack", func() {
+			ctx := context.Background()
+			db := gorp.Wrap(memkv.New())
+			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+			groupSvc := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+			}))
+			stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+				Ontology: otg,
+				DB:       db,
+				Group:    groupSvc,
+				Label:    labelSvc,
+			}))
+			rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
+				DB:                  db,
+				Ontology:            otg,
+				Group:               groupSvc,
+				HostProvider:        mock.StaticHostKeyProvider(1),
+				Status:              stat,
+				HealthCheckInterval: 10 * telem.Millisecond,
+			}))
+			svc := MustSucceed(device.OpenService(ctx, device.Config{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				Status:   stat,
+				Rack:     rackSvc,
+			}))
+			DeferCleanup(func() {
+				Expect(svc.Close()).To(Succeed())
+				Expect(rackSvc.Close()).To(Succeed())
+				Expect(stat.Close()).To(Succeed())
+				Expect(labelSvc.Close()).To(Succeed())
+				Expect(groupSvc.Close()).To(Succeed())
+				Expect(otg.Close()).To(Succeed())
+				Expect(db.Close()).To(Succeed())
+			})
+
+			r := rack.Rack{Name: "suspect rack"}
+			Expect(rackSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+
+			d := device.Device{
+				Key:      "suspect-device",
+				Rack:     r.Key,
+				Location: "loc1",
+				Name:     "Test Device",
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, d)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				var deviceStatus device.Status
+				g.Expect(status.NewRetrieve[device.StatusDetails](stat).
+					WhereKeys(device.OntologyID(d.Key).String()).
+					Entry(&deviceStatus).
+					Exec(ctx, nil)).To(Succeed())
+				g.Expect(deviceStatus.Variant).To(Equal(xstatus.WarningVariant))
+				g.Expect(deviceStatus.Message).To(ContainSubstring("not running"))
+				g.Expect(deviceStatus.Details.Device).To(Equal(d.Key))
+				g.Expect(deviceStatus.Details.Rack).To(Equal(r.Key))
+			}).Should(Succeed())
 		})
 	})
 })

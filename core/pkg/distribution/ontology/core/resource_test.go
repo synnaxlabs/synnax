@@ -83,19 +83,23 @@ var _ = Describe("Resource", func() {
 				})
 
 				It("Should return an error if the ID has an invalid structure", func() {
-					_, err := core.ParseID("foo")
-					Expect(err).To(HaveOccurredAs(validate.Error))
+					Expect(core.ParseID("foo")).Error().To(HaveOccurredAs(validate.Error))
 				})
 
 				It("Should return an error if the ID is an empty string", func() {
-					_, err := core.ParseID("")
-					Expect(err).To(HaveOccurredAs(validate.Error))
+					Expect(core.ParseID("")).Error().To(HaveOccurredAs(validate.Error))
 				})
 
-				It("Should parse an ID with empty type (leading colon)", func() {
-					id := MustSucceed(core.ParseID(":bar"))
-					Expect(id.Type).To(Equal(core.Type("")))
-					Expect(id.Key).To(Equal("bar"))
+				It("Should return an error if the ID has an empty type (leading colon)", func() {
+					Expect(core.ParseID(":bar")).Error().To(HaveOccurredAs(validate.Error))
+				})
+
+				It("Should return an error if the ID has an empty type with colons in key", func() {
+					Expect(core.ParseID(":word1:word2")).Error().To(HaveOccurredAs(validate.Error))
+				})
+
+				It("Should return an error if the ID has an empty type and key starts with colon", func() {
+					Expect(core.ParseID("::word1")).Error().To(HaveOccurredAs(validate.Error))
 				})
 
 				It("Should parse an ID with empty key (trailing colon)", func() {

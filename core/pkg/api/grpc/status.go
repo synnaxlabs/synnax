@@ -61,7 +61,7 @@ func translateStatusesForward(s []api.Status) ([]*xstatus.PBStatus, error) {
 	var err error
 	out := make([]*xstatus.PBStatus, len(s))
 	for i, stat := range s {
-		out[i], err = xstatus.TranslateForward[any](xstatus.Status[any](stat.Status))
+		out[i], err = xstatus.TranslateToPB[any](xstatus.Status[any](stat.Status))
 		if err != nil {
 			return nil, err
 		}
@@ -72,7 +72,7 @@ func translateStatusesForward(s []api.Status) ([]*xstatus.PBStatus, error) {
 func translateStatusesBackward(s []*xstatus.PBStatus) ([]api.Status, error) {
 	out := make([]api.Status, len(s))
 	for i, stat := range s {
-		os, err := xstatus.TranslateBackward[any](stat)
+		os, err := xstatus.TranslateFromPB[any](stat)
 		if err != nil {
 			return nil, err
 		}

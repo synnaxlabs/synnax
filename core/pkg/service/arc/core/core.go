@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/menu/ContextMenu";
-export * from "@/menu/Divider";
-export * from "@/menu/Item";
-export * from "@/menu/Menu";
-export * from "@/menu/types";
+package core
+
+type StatusDetails struct {
+	Running bool
+}

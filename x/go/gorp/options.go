@@ -29,7 +29,7 @@ type options struct {
 
 var _ Tools = options{}
 
-var defaultOptions = options{Codec: &binary.JSONCodec{}}
+var defaultOptions = options{Codec: &binary.MsgPackCodec{}}
 
 func newOptions(opts []Option) options {
 	o := defaultOptions

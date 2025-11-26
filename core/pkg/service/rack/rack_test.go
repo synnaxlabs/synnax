@@ -209,6 +209,34 @@ var _ = Describe("Rack", Ordered, func() {
 				g.Expect(s.Description).To(ContainSubstring("Driver was last alive"))
 			}).Should(Succeed())
 		})
+
+		It("Should not mark a rack as dead when the status is actively updated", func() {
+			r := rack.Rack{Name: "active test rack"}
+			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+
+			statusWriter := status.NewWriter[rack.StatusDetails](stat, nil)
+
+			// Wait longer than the health check interval and verify the status
+			// is still what we set (not overwritten with "not running") as long
+			// as we keep actively updating it
+			Consistently(func(g Gomega) {
+				// Actively update the status to simulate a running driver
+				activeStatus := &rack.Status{
+					Key:     rack.OntologyID(r.Key).String(),
+					Name:    r.Name,
+					Time:    telem.Now(),
+					Variant: xstatus.SuccessVariant,
+					Message: "Running",
+					Details: rack.StatusDetails{Rack: r.Key},
+				}
+				g.Expect(statusWriter.Set(ctx, activeStatus)).To(Succeed())
+
+				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
+				g.Expect(s.Message).To(Equal("Running"))
+				g.Expect(s.Variant).To(Equal(xstatus.SuccessVariant))
+				g.Expect(s.Description).ToNot(ContainSubstring("Driver was last alive"))
+			}, 50*telem.Millisecond.Duration(), 5*telem.Millisecond.Duration()).Should(Succeed())
+		})
 	})
 })
 
