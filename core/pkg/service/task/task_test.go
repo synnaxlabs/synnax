@@ -10,8 +10,6 @@
 package task_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -32,13 +30,14 @@ import (
 
 var _ = Describe("Task", Ordered, func() {
 	var (
-		db    *gorp.DB
-		svc   *task.Service
-		otg   *ontology.Ontology
-		w     task.Writer
-		tx    gorp.Tx
-		rack_ *rack.Rack
-		stat  *status.Service
+		db          *gorp.DB
+		svc         *task.Service
+		otg         *ontology.Ontology
+		w           task.Writer
+		tx          gorp.Tx
+		rackService *rack.Service
+		testRack    *rack.Rack
+		stat        *status.Service
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
@@ -55,22 +54,23 @@ var _ = Describe("Task", Ordered, func() {
 			Group:    g,
 			Label:    labelSvc,
 		}))
-		rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
-			DB:           db,
-			Ontology:     otg,
-			Group:        g,
-			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       stat,
+		rackService = MustSucceed(rack.OpenService(ctx, rack.Config{
+			DB:                  db,
+			Ontology:            otg,
+			Group:               g,
+			HostProvider:        mock.StaticHostKeyProvider(1),
+			Status:              stat,
+			HealthCheckInterval: 10 * telem.Millisecond,
 		}))
 		svc = MustSucceed(task.OpenService(ctx, task.Config{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-			Rack:     rackSvc,
+			Rack:     rackService,
 			Status:   stat,
 		}))
-		rack_ = &rack.Rack{Name: "Test Rack"}
-		Expect(rackSvc.NewWriter(db).Create(ctx, rack_)).To(Succeed())
+		testRack = &rack.Rack{Name: "Test Rack"}
+		Expect(rackService.NewWriter(db).Create(ctx, testRack)).To(Succeed())
 	})
 	BeforeEach(func() {
 		tx = db.OpenTx()
@@ -96,27 +96,27 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Create", func() {
 		It("Should correctly create a task and assign it a unique key", func() {
 			m := &task.Task{
-				Key:  task.NewKey(rack_.Key, 0),
+				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 1)))
+			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 1)))
 			Expect(m.Name).To(Equal("Test Task"))
 		})
 		It("Should correctly increment the task count", func() {
 			m := &task.Task{
-				Key:  task.NewKey(rack_.Key, 0),
+				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 2)))
+			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 2)))
 			Expect(m.Name).To(Equal("Test Task"))
 			m = &task.Task{
-				Key:  task.NewKey(rack_.Key, 0),
+				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 3)))
+			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 3)))
 			Expect(m.Name).To(Equal("Test Task"))
 		})
 	})
@@ -125,28 +125,28 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should copy a task", func() {
 			m := &task.Task{
-				Key:  task.NewKey(rack_.Key, 0),
+				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 4)))
+			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 4)))
 			Expect(m.Name).To(Equal("Test Task"))
 			t, err := w.Copy(ctx, m.Key, "Copied Task", false)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(t.Key).To(Equal(task.NewKey(rack_.Key, 5)))
+			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 5)))
 		})
 
 		It("Should create a snapshot of an existing task", func() {
 			m := &task.Task{
-				Key:  task.NewKey(rack_.Key, 0),
+				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 6)))
+			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 6)))
 			Expect(m.Name).To(Equal("Test Task"))
 			t, err := w.Copy(ctx, m.Key, "Snapshotted Task", true)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(t.Key).To(Equal(task.NewKey(rack_.Key, 7)))
+			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 7)))
 			Expect(t.Snapshot).To(BeTrue())
 		})
 
@@ -155,11 +155,11 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a task", func() {
 			m := &task.Task{
-				Key:  task.NewKey(rack_.Key, 0),
+				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 8)))
+			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 8)))
 			Expect(m.Name).To(Equal("Test Task"))
 			var res task.Task
 			Expect(svc.NewRetrieve().WhereKeys(m.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
@@ -168,12 +168,12 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should filter tasks by snapshot status", func() {
 			regular := &task.Task{
-				Key:  task.NewKey(rack_.Key, 0),
+				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Regular Task",
 			}
 			Expect(w.Create(ctx, regular)).To(Succeed())
 			snapshot := &task.Task{
-				Key:      task.NewKey(rack_.Key, 0),
+				Key:      task.NewKey(testRack.Key, 0),
 				Name:     "Snapshot Task",
 				Snapshot: true,
 			}
@@ -193,13 +193,13 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should combine WhereSnapshot with other filters", func() {
 			snapshot1 := &task.Task{
-				Key:      task.NewKey(rack_.Key, 0),
+				Key:      task.NewKey(testRack.Key, 0),
 				Name:     "Snapshot Task 1",
 				Snapshot: true,
 			}
 			Expect(w.Create(ctx, snapshot1)).To(Succeed())
 			snapshot2 := &task.Task{
-				Key:      task.NewKey(rack_.Key, 0),
+				Key:      task.NewKey(testRack.Key, 0),
 				Name:     "Snapshot Task 2",
 				Snapshot: true,
 			}
@@ -212,12 +212,12 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should filter tasks by internal status", func() {
 			regular := &task.Task{
-				Key:  task.NewKey(rack_.Key, 0),
+				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Regular Task 2",
 			}
 			Expect(w.Create(ctx, regular)).To(Succeed())
 			internal := &task.Task{
-				Key:      task.NewKey(rack_.Key, 0),
+				Key:      task.NewKey(testRack.Key, 0),
 				Name:     "Internal Task",
 				Internal: true,
 			}
@@ -237,13 +237,13 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should combine WhereInternal with other filters", func() {
 			internal1 := &task.Task{
-				Key:      task.NewKey(rack_.Key, 0),
+				Key:      task.NewKey(testRack.Key, 0),
 				Name:     "Internal Task 1",
 				Internal: true,
 			}
 			Expect(w.Create(ctx, internal1)).To(Succeed())
 			internal2 := &task.Task{
-				Key:      task.NewKey(rack_.Key, 0),
+				Key:      task.NewKey(testRack.Key, 0),
 				Name:     "Internal Task 2",
 				Internal: true,
 			}
@@ -258,11 +258,11 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Delete", func() {
 		It("Should correctly delete a task", func() {
 			m := &task.Task{
-				Key:  task.NewKey(rack_.Key, 0),
+				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(rack_.Key, 17)))
+			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 17)))
 			Expect(m.Name).To(Equal("Test Task"))
 			Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
 			Expect(svc.NewRetrieve().WhereKeys(m.Key).Exec(ctx, tx)).To(MatchError(query.NotFound))
@@ -272,7 +272,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Status", func() {
 		It("Should create an unknown status when creating a task", func() {
 			m := &task.Task{
-				Key:  task.NewKey(rack_.Key, 0),
+				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Status Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
@@ -288,7 +288,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 		It("Should create an unknown status when copying a task", func() {
 			m := &task.Task{
-				Key:  task.NewKey(rack_.Key, 0),
+				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Original Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
@@ -309,58 +309,15 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("Suspect Rack", func() {
 		It("Should propagate rack warning status to tasks on that rack", func() {
-			ctx := context.Background()
-			db := gorp.Wrap(memkv.New())
-			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-			groupSvc := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
-				DB:       db,
-				Ontology: otg,
-				Group:    groupSvc,
-			}))
-			stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
-				Ontology: otg,
-				DB:       db,
-				Group:    groupSvc,
-				Label:    labelSvc,
-			}))
-			rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
-				DB:                  db,
-				Ontology:            otg,
-				Group:               groupSvc,
-				HostProvider:        mock.StaticHostKeyProvider(1),
-				Status:              stat,
-				HealthCheckInterval: 10 * telem.Millisecond,
-			}))
-			taskSvc := MustSucceed(task.OpenService(ctx, task.Config{
-				DB:       db,
-				Ontology: otg,
-				Group:    groupSvc,
-				Rack:     rackSvc,
-				Status:   stat,
-			}))
-			DeferCleanup(func() {
-				Expect(taskSvc.Close()).To(Succeed())
-				Expect(rackSvc.Close()).To(Succeed())
-				Expect(stat.Close()).To(Succeed())
-				Expect(labelSvc.Close()).To(Succeed())
-				Expect(groupSvc.Close()).To(Succeed())
-				Expect(otg.Close()).To(Succeed())
-				Expect(db.Close()).To(Succeed())
-			})
-
-			// Create a rack and a task on that rack
 			r := rack.Rack{Name: "suspect rack"}
-			Expect(rackSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 
 			t := &task.Task{
 				Key:  task.NewKey(r.Key, 0),
 				Name: "Test Task",
 			}
-			Expect(taskSvc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
 
-			// Wait for the rack to become suspect (not receiving status updates)
-			// and verify the task status is updated to reflect the rack's warning status
 			Eventually(func(g Gomega) {
 				var taskStatus task.Status
 				g.Expect(status.NewRetrieve[task.StatusDetails](stat).

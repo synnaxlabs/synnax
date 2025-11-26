@@ -199,11 +199,9 @@ var _ = Describe("Device", func() {
 			}
 			Expect(w.Create(ctx, d)).To(Succeed())
 
-			// Rename the device
 			d.Name = "New Name"
 			Expect(w.Create(ctx, d)).To(Succeed())
 
-			// Verify the status name was updated
 			var deviceStatus device.Status
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
 				WhereKeys(device.OntologyID(d.Key).String()).
@@ -386,7 +384,6 @@ var _ = Describe("Device", func() {
 				Expect(db.Close()).To(Succeed())
 			})
 
-			// Create a rack and a device on that rack
 			r := rack.Rack{Name: "suspect rack"}
 			Expect(rackSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 
@@ -398,8 +395,6 @@ var _ = Describe("Device", func() {
 			}
 			Expect(svc.NewWriter(nil).Create(ctx, d)).To(Succeed())
 
-			// Wait for the rack to become suspect (not receiving status updates)
-			// and verify the device status is updated to reflect the rack's warning status
 			Eventually(func(g Gomega) {
 				var deviceStatus device.Status
 				g.Expect(status.NewRetrieve[device.StatusDetails](stat).

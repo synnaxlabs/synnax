@@ -83,13 +83,11 @@ var _ = Describe("Resource", func() {
 				})
 
 				It("Should return an error if the ID has an invalid structure", func() {
-					_, err := core.ParseID("foo")
-					Expect(err).To(HaveOccurredAs(validate.Error))
+					Expect(core.ParseID("foo")).Error().To(HaveOccurredAs(validate.Error))
 				})
 
 				It("Should return an error if the ID is an empty string", func() {
-					_, err := core.ParseID("")
-					Expect(err).To(HaveOccurredAs(validate.Error))
+					Expect(core.ParseID("")).Error().To(HaveOccurredAs(validate.Error))
 				})
 
 				It("Should return an error if the ID has an empty type (leading colon)", func() {
