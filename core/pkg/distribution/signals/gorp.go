@@ -107,17 +107,21 @@ func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpPublisher
 	}
 }
 
+func marshalNumericKey[K types.Numeric](dt telem.DataType) func(K) ([]byte, error) {
+	return func(k K) (b []byte, err error) {
+		b = make([]byte, dt.Density())
+		data := xunsafe.CastSlice[byte, K](b)
+		data[0] = k
+		return b, nil
+	}
+}
+
 func GorpPublisherConfigPureNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpPublisherConfig[K, E] {
 	return GorpPublisherConfig[K, E]{
 		DB:             db,
 		DeleteDataType: dt,
 		SetDataType:    dt,
-		MarshalDelete: func(k K) (b []byte, err error) {
-			b = make([]byte, dt.Density())
-			data := xunsafe.CastSlice[byte, K](b)
-			data[0] = k
-			return b, nil
-		},
+		MarshalDelete:  marshalNumericKey[K](dt),
 		MarshalSet: func(e E) (b []byte, err error) {
 			b = make([]byte, dt.Density())
 			data := xunsafe.CastSlice[byte, K](b)
@@ -132,13 +136,8 @@ func GorpPublisherConfigNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, d
 		DB:             db,
 		DeleteDataType: dt,
 		SetDataType:    telem.JSONT,
-		MarshalDelete: func(k K) (b []byte, err error) {
-			b = make([]byte, dt.Density())
-			data := xunsafe.CastSlice[byte, K](b)
-			data[0] = k
-			return b, nil
-		},
-		MarshalSet: MarshalJSON[K, E],
+		MarshalDelete:  marshalNumericKey[K](dt),
+		MarshalSet:     MarshalJSON[K, E],
 	}
 }
 

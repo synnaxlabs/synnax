@@ -230,6 +230,27 @@ var _ = Describe("Status", Ordered, func() {
 					Message: "Status C message",
 					Time:    telem.Now(),
 				},
+				{
+					Name:    "Device 1 Status",
+					Key:     "device-001-status",
+					Variant: "info",
+					Message: "Device 1 OK",
+					Time:    telem.Now(),
+				},
+				{
+					Name:    "Device 2 Status",
+					Key:     "device-002-status",
+					Variant: "warning",
+					Message: "Device 2 Warning",
+					Time:    telem.Now(),
+				},
+				{
+					Name:    "Sensor Status",
+					Key:     "sensor-001-status",
+					Variant: "info",
+					Message: "Sensor OK",
+					Time:    telem.Now(),
+				},
 			}
 			Expect(w.SetMany(ctx, &statuses)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
@@ -272,6 +293,35 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(svc.NewRetrieve().Search("Status A").Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(len(statuses)).To(BeNumerically(">", 1))
 				Expect(statuses[0].Key).To(Equal("retrieve-a"))
+			})
+		})
+
+		Describe("WhereKeyPrefix", func() {
+			It("Should retrieve statuses with matching key prefix", func() {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().WhereKeyPrefix("device-").Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveLen(2))
+				for _, s := range statuses {
+					Expect(s.Key).To(HavePrefix("device-"))
+				}
+			})
+
+			It("Should retrieve statuses with different prefix", func() {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().WhereKeyPrefix("sensor-").Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveLen(1))
+				Expect(statuses[0].Key).To(Equal("sensor-001-status"))
+			})
+
+			It("Should return empty when no statuses match prefix", func() {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().WhereKeyPrefix("nonexistent-").Entries(&statuses).Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+			})
+
+			It("Should retrieve statuses with retrieve- prefix", func() {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().WhereKeyPrefix("retrieve-").Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveLen(3))
 			})
 		})
 	})
