@@ -51,7 +51,7 @@ type Config struct {
 	// [OPTIONAL]
 	Signals *signals.Provider
 	// Rack is used to retrieve and manage racks.
-	// [OPTIONAL]
+	// [REQUIRED]
 	Rack *rack.Service
 }
 

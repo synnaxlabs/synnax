@@ -10,6 +10,8 @@
 package task_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -23,6 +25,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
+	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -34,6 +38,7 @@ var _ = Describe("Task", Ordered, func() {
 		w     task.Writer
 		tx    gorp.Tx
 		rack_ *rack.Rack
+		stat  *status.Service
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
@@ -44,7 +49,7 @@ var _ = Describe("Task", Ordered, func() {
 			Ontology: otg,
 			Group:    g,
 		}))
-		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		stat = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    g,
@@ -261,6 +266,111 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(m.Name).To(Equal("Test Task"))
 			Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
 			Expect(svc.NewRetrieve().WhereKeys(m.Key).Exec(ctx, tx)).To(MatchError(query.NotFound))
+		})
+	})
+
+	Describe("Status", func() {
+		It("Should create an unknown status when creating a task", func() {
+			m := &task.Task{
+				Key:  task.NewKey(rack_.Key, 0),
+				Name: "Status Test Task",
+			}
+			Expect(w.Create(ctx, m)).To(Succeed())
+
+			var taskStatus task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				WhereKeys(task.OntologyID(m.Key).String()).
+				Entry(&taskStatus).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(taskStatus.Variant).To(Equal(xstatus.WarningVariant))
+			Expect(taskStatus.Message).To(Equal("Status Test Task status unknown"))
+			Expect(taskStatus.Details.Task).To(Equal(m.Key))
+		})
+		It("Should create an unknown status when copying a task", func() {
+			m := &task.Task{
+				Key:  task.NewKey(rack_.Key, 0),
+				Name: "Original Task",
+			}
+			Expect(w.Create(ctx, m)).To(Succeed())
+
+			copied, err := w.Copy(ctx, m.Key, "Copied Task", false)
+			Expect(err).ToNot(HaveOccurred())
+
+			var copiedStatus task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				WhereKeys(task.OntologyID(copied.Key).String()).
+				Entry(&copiedStatus).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(copiedStatus.Variant).To(Equal(xstatus.WarningVariant))
+			Expect(copiedStatus.Message).To(Equal("Copied Task status unknown"))
+			Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
+		})
+	})
+
+	Describe("Suspect Rack", func() {
+		It("Should propagate rack warning status to tasks on that rack", func() {
+			ctx := context.Background()
+			db := gorp.Wrap(memkv.New())
+			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+			groupSvc := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+			}))
+			stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+				Ontology: otg,
+				DB:       db,
+				Group:    groupSvc,
+				Label:    labelSvc,
+			}))
+			rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
+				DB:                  db,
+				Ontology:            otg,
+				Group:               groupSvc,
+				HostProvider:        mock.StaticHostKeyProvider(1),
+				Status:              stat,
+				HealthCheckInterval: 10 * telem.Millisecond,
+			}))
+			taskSvc := MustSucceed(task.OpenService(ctx, task.Config{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				Rack:     rackSvc,
+				Status:   stat,
+			}))
+			DeferCleanup(func() {
+				Expect(taskSvc.Close()).To(Succeed())
+				Expect(rackSvc.Close()).To(Succeed())
+				Expect(stat.Close()).To(Succeed())
+				Expect(labelSvc.Close()).To(Succeed())
+				Expect(groupSvc.Close()).To(Succeed())
+				Expect(otg.Close()).To(Succeed())
+				Expect(db.Close()).To(Succeed())
+			})
+
+			// Create a rack and a task on that rack
+			r := rack.Rack{Name: "suspect rack"}
+			Expect(rackSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+
+			t := &task.Task{
+				Key:  task.NewKey(r.Key, 0),
+				Name: "Test Task",
+			}
+			Expect(taskSvc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+
+			// Wait for the rack to become suspect (not receiving status updates)
+			// and verify the task status is updated to reflect the rack's warning status
+			Eventually(func(g Gomega) {
+				var taskStatus task.Status
+				g.Expect(status.NewRetrieve[task.StatusDetails](stat).
+					WhereKeys(task.OntologyID(t.Key).String()).
+					Entry(&taskStatus).
+					Exec(ctx, nil)).To(Succeed())
+				g.Expect(taskStatus.Variant).To(Equal(xstatus.WarningVariant))
+				g.Expect(taskStatus.Message).To(ContainSubstring("not running"))
+				g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
+			}).Should(Succeed())
 		})
 	})
 })

@@ -11,6 +11,7 @@ package device
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -40,7 +41,7 @@ func newUnknownStatus(devKey string, rackKey rack.Key, name string) *Status {
 		Name:    name,
 		Time:    telem.Now(),
 		Variant: xstatus.WarningVariant,
-		Message: "Device state unknown",
+		Message: fmt.Sprintf("%s state unknown", name),
 		Details: StatusDetails{Rack: rackKey, Device: devKey},
 	}
 }
@@ -71,6 +72,10 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 	// If the device already exists, don't redefine the resource and relationship in the
 	// ontology, as to not mess with existing groups or relationships.
 	if exists && device.Rack == existing.Rack {
+		// If the device is being renamed, update the status name.
+		if device.Name != existing.Name {
+			return w.status.Set(ctx, newUnknownStatus(device.Key, device.Rack, device.Name))
+		}
 		return nil
 	}
 	if err = w.status.Set(ctx, newUnknownStatus(device.Key, device.Rack, device.Name)); err != nil {
