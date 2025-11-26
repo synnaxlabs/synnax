@@ -10,4 +10,3 @@
 export * from "@/status/core/external";
 export * from "@/status/queries";
 export * from "@/status/Select";
-export * from "@/status/SelectVariant";
