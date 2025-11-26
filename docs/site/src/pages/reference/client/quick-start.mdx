@@ -4,20 +4,23 @@ title: "Quick Start"
 description:
   "Get started with the Synnax client in 5 minutes - from installation to reading and
   writing data."
-next: "Complete Setup"
-nextURL: "/reference/client/complete-setup"
+next: "Authentication"
+nextURL: "/reference/client/authentication"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import ExampleDetails from "@/components/details/ExampleDetails.astro";
 export const components = mdxOverrides;
 
-This guide will get you from zero to reading and writing data in 5 minutes. We'll
-install the client, connect to a Core, create channels, write some data, and read it
-back.
+Synnax provides first-class Python support and Typescript support. Our client delivers
+many capabilities, including
+
+- Direct integration with [pandas](https://pandas.pydata.org/) and
+  [numpy](https://numpy.org/doc/stable/index.html).
+- Tooling to implement automated control of your hardware.
+- Change data capture (CDC) infrastructure to build automated analysis pipelines.
 
 <Divider.Divider x />
 
@@ -34,12 +37,6 @@ back.
     ```bash
     pip install synnax
     ```
-
-    <Note.Note variant="info" className="compact">
-      Python can be difficult to get installed and running correctly, so we've put together
-      a [troubleshooting guide](/reference/python-client/troubleshooting) that you can
-      reference.
-    </Note.Note>
 
   </Fragment>
 
@@ -63,26 +60,13 @@ back.
 To authenticate with a Synnax Core, simply instantiate a new client with your connection
 parameters and credentials.
 
-<ExampleDetails>
-<Text.Text slot="summary" level="p"><Icon.Table /> Connection Parameters </Text.Text>
-
-| Parameter  | Description                        |
-| ---------- | ---------------------------------- |
-| `host`     | The hostname of the Synnax Core    |
-| `port`     | The port of the Synnax Core        |
-| `username` | The username to authenticate with  |
-| `password` | The password to authenticate with. |
-| `secure`   | Whether to use TLS encryption.     |
-
-</ExampleDetails>
-
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
     ```python
-    # Method 1: Direct instantiation
+    import os
     import synnax as sy
-
+  
     client = sy.Synnax(
         host="demo.synnaxlabs.com",
         port=9090,
@@ -90,29 +74,13 @@ parameters and credentials.
         password="seldon",
         secure=True
     )
-
-    # Method 2: Using environment variables
-    import os
-    import synnax as sy
-
-    client = sy.Synnax(
-        host=os.environ["SYNNAX_HOST"],
-        port=int(os.environ["SYNNAX_PORT"]),
-        username=os.environ["SYNNAX_USERNAME"],
-        password=os.environ["SYNNAX_PASSWORD"],
-        secure=bool(os.environ["SYNNAX_SECURE"])
-    )
-
-````
-
+    ```
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-
     ```typescript
-    // Method 1: Direct instantiation
     import { Synnax } from "@synnaxlabs/client";
 
     const client = new Synnax({
@@ -123,32 +91,25 @@ parameters and credentials.
       secure: true,
     });
 
-    // Method 2: Using environment variables
-    import { Synnax } from "@synnaxlabs/client";
-
-    const client = new Synnax({
-      host: process.env.SYNNAX_HOST,
-      port: parseInt(process.env.SYNNAX_PORT ?? "9090"),
-      username: process.env.SYNNAX_USERNAME,
-      password: process.env.SYNNAX_PASSWORD,
-      secure: process.env.SYNNAX_SECURE === "true",
-    });
     ```
 
   </Fragment>
 </Client.Tabs>
 
 <Note.Note variant="info" className="compact">
-  CLI login method, environment variables, and detailed authentication options are covered in <a href="/reference/client/complete-setup#authentication-methods">Complete Setup - Authentication Methods</a>.
+  The CLI and environment variable authentication are covered in [Authentication
+  Methods](/reference/client/authentication#authentication-methods)
 </Note.Note>
 
 <Divider.Divider x />
 
 ## Create Your First Channel
 
-We can create a channel using the `channels.create` client method. You must first create an "index" channel to [store timestamps for your data channel](/reference/concepts/channels#index-channels).
+We can create a channel using the `channels.create` client method. You must first create
+an "index" channel to
+[store timestamps for your data channel](/reference/concepts/channels#index-channels).
 
-<Client.Tabs client:load exclude={["Console", "cpp"]}>
+<Client.Tabs client:load exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
     ```python
@@ -166,6 +127,7 @@ We can create a channel using the `channels.create` client method. You must firs
         index=time_index_channel.key,
     )
     ```
+
   </Fragment>
 
   <Fragment slot="typescript">
@@ -186,18 +148,22 @@ We can create a channel using the `channels.create` client method. You must firs
       index: timeIndexChannel.key,
     });
     ```
+
   </Fragment>
 </Client.Tabs>
 
 <Note.Note variant="info" className="compact">
-  Creating multiple channels, conditional creation, and detailed channel options are covered in <a href="/reference/client/fundamentals/channels#creating-channels">Fundamentals - Channels</a>.
+  Creating multiple channels, conditional creation, and detailed channel options are
+  covered in [Fundamentals -
+  Channels](/reference/client/fundamentals/channels#creating-channels)
 </Note.Note>
 
 <Divider.Divider x />
 
 ## Write Data
-We can then write data to `timeChannel` and `tempChannel`. First, we must write to
-the index channel before writing to the data channel.
+
+We can then write data to `timeChannel` and `tempChannel`. First, we must write to the
+index channel before writing to the data channel.
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
@@ -219,12 +185,11 @@ the index channel before writing to the data channel.
       # Write the data to the channel
       temp_channel.write(start, temperatures)
       ```
+
   </Fragment>
 
   <Fragment slot="typescript">
     ```typescript
-    import { TimeStamp, TimeSpan } from "@synnaxlabs/client";
-
     const start = TimeStamp.now();
     const timestamps = new BigInt64Array([
       start.valueOf(),
@@ -237,13 +202,13 @@ the index channel before writing to the data channel.
 
     // Write the timestamps to the index first
     await timeChannel.write(start, timestamps);
+
     // Then write the data
     await temperatureChannel.write(start, temperatures);
     ```
 
   </Fragment>
 </Client.Tabs>
-
 
 Notice how we align the two arrays using the common `start` timestamp. This tells Synnax
 that the first sample in the `temperatures` array is associated with the first timestamp
@@ -254,12 +219,14 @@ corresponding timestamp for every sample in the data channel. After all, it woul
 make sense to have a temperature reading without an associated timestamp.
 
 <Note.Note variant="info" className="compact">
-  Writers, transactions, authorities, and advanced writing patterns are covered in <a href="/reference/client/advanced/writers">Advanced Topics - Writers</a>.
+  Writers, transactions, authorities, and advanced writing patterns are covered in{" "}
+  <a href="/reference/client/advanced/writers">Advanced Topics - Writers</a>.
 </Note.Note>
 
 <Divider.Divider x />
 
 ## Read Data
+
 The simplest way to read data from Synnax is to use the `read` method on a `Channel`
 object:
 
@@ -293,13 +260,14 @@ object:
 
     ```
     The returned data is a
-[`Series`](/reference/client/working-with-data/series-and-frames#series), which maintains
-a very similar interface to a JavaScript typed array (e.g. `Float32Array`, `Int32Array`,
-etc.). We can convert the returned data to a JavaScript array easily.
+
+[`Series`](/reference/client/working-with-data/series-and-frames#series), which
+maintains a very similar interface to a JavaScript typed array (e.g. `Float32Array`,
+`Int32Array`, etc.). We can convert the returned data to a JavaScript array easily.
 
 ```typescript
 const data = Array.from(series);
-````
+```
 
   </Fragment>
 </Client.Tabs>

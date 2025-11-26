@@ -1,0 +1,134 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Authentication"
+description: "Comprehensive guide for authenticating Synnax clients."
+next: "Fundamentals - Channels"
+nextURL: "/reference/client/fundamentals/channels"
+prev: "Quick Start"
+prevURL: "/reference/client/quick-start"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This guide covers all authentication methods and connection parameters for the Synnax
+clients. If you're looking for a quick start, check out the
+[Quick Start](/reference/client/quick-start) guide instead.
+
+<Divider.Divider x />
+
+## Authentication Methods
+
+There are three ways to authenticate with a Synnax Core: using the CLI to permanently
+store your credentials, passing your credentials directly to the client, or configuring
+environment variables..
+
+- For instructions on direct authentication, see
+  [Create a Client](/reference/client/quick-start#create-a-client).
+- CLI authentication is only supported in the Python client.
+
+<Text.Text slot="summary" level="p">
+  <Icon.Table /> Connection Parameters{" "}
+</Text.Text>
+
+| Parameter  | Description                        |
+| ---------- | ---------------------------------- |
+| `host`     | The hostname of the Synnax Core    |
+| `port`     | The port of the Synnax Core        |
+| `username` | The username to authenticate with  |
+| `password` | The password to authenticate with. |
+| `secure`   | Whether to use TLS encryption.     |
+
+### CLI Authentication
+
+The easiest way to authenticate with a Core is with the `login` command. This will
+permanently store your credentials in the operating system's keychain.
+
+**We highly recommend this method**, as it makes it easy share scripts without
+accidentally revealing your credentials.
+
+<Client.Tabs client:load exclude={["console", "cpp", "typescript"]}>
+
+  <Fragment slot="python">
+      Run the following command:
+      ```bash
+      sy login
+      ```
+
+      <Note.Note variant="error">
+        TODO: UPDATE THIS REFERENCE!!!!!!!
+
+        If you get the error `command not found`, you might not have Python in your
+        `PATH` variable. See our [troubleshooting
+        guide](/reference/python-client/troubleshooting) for more information.
+      </Note.Note>
+
+      You wil be prompted for additional information:
+
+      ```
+      Enter your Synnax connection parameters:
+      Host (localhost): # YOUR HOST
+      Port (9090): # YOUR PORT
+      Username (synnax): # YOUR USERNAME
+      Password: # YOUR PASSWORD
+      Secure connection? (y/n) (n):
+      ```
+
+      You should then see the following message:
+
+      ```
+      Saved credentials. You can now use the Synnax Client
+      without having to log in. To connect to the Core in a Python shell, use the following:
+
+      from synnax import Synnax
+      client = Synnax()
+      ```
+
+  </Fragment>
+</Client.Tabs>
+
+### Environment Variables
+
+      <Note.Note variant="error">
+        TODO: UPDATE EXAMPLES WITH INSTRUCTIONS FOR SETTING ENV VARS
+
+      </Note.Note>
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+    ```python
+    import os
+    import synnax as sy
+
+    client = sy.Synnax(
+        host=os.environ["SYNNAX_HOST"],
+        port=int(os.environ["SYNNAX_PORT"]),
+        username=os.environ["SYNNAX_USERNAME"],
+        password=os.environ["SYNNAX_PASSWORD"],
+        secure=bool(os.environ["SYNNAX_SECURE"])
+    )
+
+    ```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+    ```typescript
+    import { Synnax } from "@synnaxlabs/client";
+
+    const client = new Synnax({
+      host: process.env.SYNNAX_HOST,
+      port: parseInt(process.env.SYNNAX_PORT ?? "9090"),
+      username: process.env.SYNNAX_USERNAME,
+      password: process.env.SYNNAX_PASSWORD,
+      secure: process.env.SYNNAX_SECURE === "true",
+    });
+    ```
+
+  </Fragment>
+  </Client.Tabs>

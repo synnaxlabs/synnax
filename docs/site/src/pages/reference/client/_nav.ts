@@ -19,9 +19,9 @@ export const CLIENT_NAV: PageNavNode = {
       name: "Quick Start",
     },
     {
-      key: "/reference/client/complete-setup",
-      href: "/reference/client/complete-setup",
-      name: "Complete Setup",
+      key: "/reference/client/authentication",
+      href: "/reference/client/authentication",
+      name: "Authentication",
     },
     {
       key: "fundamentals",
