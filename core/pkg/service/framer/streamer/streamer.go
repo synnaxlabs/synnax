@@ -94,7 +94,7 @@ type Service struct {
 	cfg ServiceConfig
 }
 
-func OpenService(cfgs ...ServiceConfig) (*Service, error) {
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err

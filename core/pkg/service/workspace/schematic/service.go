@@ -92,6 +92,10 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	return s, nil
 }
 
+// Close closes the schematic service and releases any resources that it may have
+// acquired.
+func (s *Service) Close() error { return s.Symbol.Close() }
+
 // NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer
 // will execute the operations directly on the underlying gorp.DB.

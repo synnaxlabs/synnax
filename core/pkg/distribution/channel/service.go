@@ -98,7 +98,7 @@ func (c Config) Override(other Config) Config {
 
 var DefaultConfig = Config{ValidateNames: config.True(), ForceMigration: config.False()}
 
-func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
+func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err

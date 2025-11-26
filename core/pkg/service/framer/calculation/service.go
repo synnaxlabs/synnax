@@ -365,6 +365,9 @@ func (s *Service) Close() error {
 	for _, g := range s.mu.groups {
 		c.Exec(g.Close)
 	}
+	if s.legacy != nil {
+		c.Exec(s.legacy.Close)
+	}
 	return c.Error()
 }
 

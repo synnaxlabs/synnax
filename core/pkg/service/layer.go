@@ -145,20 +145,20 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		err = cleanup(err)
 	}()
 
-	if l.User, err = user.OpenService(ctx, user.Config{
+	if l.User, err = user.NewService(ctx, user.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.RBAC, err = rbac.OpenService(rbac.Config{
+	if l.RBAC, err = rbac.NewService(rbac.Config{
 		DB: cfg.Distribution.DB,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	l.Auth = &auth.KV{DB: cfg.Distribution.DB}
-	if l.Token, err = token.OpenService(token.ServiceConfig{
+	if l.Token, err = token.NewService(token.ServiceConfig{
 		KeyProvider:      cfg.Security,
 		Expiration:       24 * time.Hour,
 		RefreshThreshold: 1 * time.Hour,
@@ -187,7 +187,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
-	}); !ok(err, nil) {
+	}); !ok(err, l.Workspace) {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.Config{
@@ -195,28 +195,27 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
-	}); !ok(err, l.Workspace) {
+	}); !ok(err, l.Schematic) {
 		return nil, err
 	}
-	if l.LinePlot, err = lineplot.OpenService(lineplot.Config{
+	if l.LinePlot, err = lineplot.NewService(lineplot.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Log, err = log.OpenService(log.Config{
+	if l.Log, err = log.NewService(log.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Table, err = table.OpenService(table.Config{
+	if l.Table, err = table.NewService(table.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-
 	if l.Hardware, err = hardware.OpenService(ctx, hardware.Config{
 		Instrumentation: cfg.Child("hardware"),
 		DB:              cfg.Distribution.DB,
@@ -271,7 +270,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	); !ok(err, l.Framer) {
 		return nil, err
 	}
-	l.Console = console.OpenService()
+	l.Console = console.NewService()
 	if l.Metrics, err = metrics.OpenService(
 		ctx,
 		metrics.Config{

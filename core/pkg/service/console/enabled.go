@@ -34,8 +34,8 @@ type Service struct{ fs fs.FS }
 
 var _ fhttp.BindableTransport = (*Service)(nil)
 
-// OpenService creates a new console UI service with embedded assets.
-func OpenService() *Service {
+// NewService creates a new console UI service with embedded assets.
+func NewService() *Service {
 	subFS, err := fs.Sub(embeddedAssets, "dist")
 	if err != nil {
 		zap.S().DPanic("Failed to load embedded assets", zap.Error(err))

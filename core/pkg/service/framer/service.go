@@ -141,7 +141,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	streamerSvc, err := streamer.OpenService(streamer.ServiceConfig{
+	streamerSvc, err := streamer.NewService(streamer.ServiceConfig{
 		Instrumentation: cfg.Child("streamer"),
 		DistFramer:      cfg.Framer,
 		Channel:         cfg.Channel,
@@ -150,7 +150,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	iteratorSvc, err := iterator.OpenService(iterator.ServiceConfig{
+	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
 		DistFramer: cfg.Framer,
 		Channel:    cfg.Channel,
 		Arc:        cfg.Arc,

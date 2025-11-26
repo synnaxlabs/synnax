@@ -255,17 +255,20 @@ type Service struct {
 	freeWriteAlignments *freeWriteAlignments
 }
 
-// OpenService opens the writer service using the given configuration. Also binds a server
-// to the given transport for receiving writes from other nodes in the cluster.
-func OpenService(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+// NewService opens the writer service using the given configuration. Also binds a
+// server to the given transport for receiving writes from other nodes in the cluster.
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		ServiceConfig: cfg,
 		server:        startServer(cfg),
 		freeWriteAlignments: &freeWriteAlignments{
 			alignments: make(map[channel.Key]*atomic.Uint32),
 		},
-	}, err
+	}, nil
 }
 
 const (

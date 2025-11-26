@@ -36,7 +36,7 @@ var _ = Describe("Migrate", func() {
 			IntOverflowCheck: channel.FixedOverflowChecker(100),
 			Transport:        channelNet.New(address.Rand()),
 		}
-		svc := MustSucceed(channel.OpenService(ctx, cfg, channel.Config{
+		svc := MustSucceed(channel.NewService(ctx, cfg, channel.Config{
 			ValidateNames: config.False(),
 		}))
 		originalChannels := []channel.Channel{
@@ -66,7 +66,7 @@ var _ = Describe("Migrate", func() {
 			},
 		}
 		Expect(svc.CreateMany(ctx, &originalChannels)).To(Succeed())
-		svc = MustSucceed(channel.OpenService(ctx, cfg, channel.Config{
+		svc = MustSucceed(channel.NewService(ctx, cfg, channel.Config{
 			ForceMigration: config.True(),
 		}))
 		var resChannels []channel.Channel

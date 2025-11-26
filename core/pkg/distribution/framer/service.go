@@ -106,7 +106,7 @@ func OpenService(cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg}
-	s.iterator, err = iterator.OpenService(iterator.ServiceConfig{
+	s.iterator, err = iterator.NewService(iterator.ServiceConfig{
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Iterator(),
@@ -128,7 +128,7 @@ func OpenService(cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.writer, err = writer.OpenService(writer.ServiceConfig{
+	s.writer, err = writer.NewService(writer.ServiceConfig{
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Writer(),
@@ -139,7 +139,7 @@ func OpenService(cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.deleter, err = deleter.OpenService(deleter.ServiceConfig{
+	s.deleter, err = deleter.NewService(deleter.ServiceConfig{
 		HostResolver: cfg.HostResolver,
 		Channel:      cfg.Channel,
 		TSChannel:    cfg.TS,

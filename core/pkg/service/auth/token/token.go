@@ -88,10 +88,10 @@ var (
 // Service is a service for generating and validating tokens with UUID issuers.
 type Service struct{ cfg ServiceConfig }
 
-// OpenService creates a new token service with the provided configuration. Returns a
+// NewService creates a new token service with the provided configuration. Returns a
 // validate.Error if the configuration is invalid. See token.ServiceConfig for
 // configuration details.
-func OpenService(cfgs ...ServiceConfig) (*Service, error) {
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err

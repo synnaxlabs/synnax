@@ -40,7 +40,7 @@ var _ = Describe("token", func() {
 		k, err := rsa.GenerateKey(rand.Reader, 1024)
 		Expect(err).ToNot(HaveOccurred())
 		cfg.KeyProvider = &mockKeyService{key: k}
-		svc = MustSucceed(token.OpenService(cfg))
+		svc = MustSucceed(token.NewService(cfg))
 	})
 	Describe("Nominal", func() {
 		BeforeEach(func() { cfg.Now = time.Now })
