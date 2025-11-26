@@ -81,4 +81,45 @@ TEST(TaskTests, testListTasks) {
     ASSERT_EQ(synnax::rack_key_from_task_key(tasks[0].key), r.key);
     ASSERT_NE(synnax::local_task_key(tasks[0].key), 0);
 }
+
+/// @brief it should correctly delete a task from the rack.
+TEST(TaskTests, testDeleteTask) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.racks.create(r));
+    auto t = Task(r.key, "test_module", "mock", "config");
+    ASSERT_NIL(r.tasks.create(t));
+    ASSERT_NIL(r.tasks.del(t.key));
+    auto [retrieved, err] = r.tasks.retrieve(t.key);
+    ASSERT_TRUE(err);
+    ASSERT_TRUE(err.matches(xerrors::NOT_FOUND));
+}
+
+/// @brief it should convert a task key to an ontology ID
+TEST(TaskTests, testTaskOntologyId) {
+    const synnax::TaskKey key = 12345678901234;
+    const auto id = synnax::task_ontology_id(key);
+    ASSERT_EQ(id.type, "task");
+    ASSERT_EQ(id.key, "12345678901234");
+}
+
+/// @brief it should convert multiple task keys to ontology IDs
+TEST(TaskTests, testTaskOntologyIds) {
+    const std::vector<synnax::TaskKey> keys = {100, 200, 300};
+    const auto ids = synnax::task_ontology_ids(keys);
+    ASSERT_EQ(ids.size(), 3);
+    ASSERT_EQ(ids[0].type, "task");
+    ASSERT_EQ(ids[0].key, "100");
+    ASSERT_EQ(ids[1].type, "task");
+    ASSERT_EQ(ids[1].key, "200");
+    ASSERT_EQ(ids[2].type, "task");
+    ASSERT_EQ(ids[2].key, "300");
+}
+
+/// @brief it should return empty vector for empty input
+TEST(TaskTests, testTaskOntologyIdsEmpty) {
+    const std::vector<synnax::TaskKey> keys;
+    const auto ids = synnax::task_ontology_ids(keys);
+    ASSERT_TRUE(ids.empty());
+}
 }

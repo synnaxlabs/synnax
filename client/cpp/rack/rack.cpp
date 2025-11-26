@@ -45,7 +45,7 @@ std::pair<Rack, xerrors::Error> RackClient::retrieve(const RackKey key) const {
     auto [res, err] = rack_retrieve_client->send("/rack/retrieve", req);
     if (err) return {Rack(), err};
     if (res.racks_size() == 0)
-        return {Rack(), not_found_error("Rack", "key" + std::to_string(key))};
+        return {Rack(), not_found_error("Rack", "key " + std::to_string(key))};
     auto rack = Rack(res.racks(0));
     rack.tasks = TaskClient(
         rack.key,
