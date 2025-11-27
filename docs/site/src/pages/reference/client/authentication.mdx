@@ -6,11 +6,13 @@ next: "Fundamentals - Channels"
 nextURL: "/reference/client/fundamentals/channels"
 prev: "Quick Start"
 prevURL: "/reference/client/quick-start"
+platforms: ["Linux", "macOS", "Windows"]
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Platform } from "@/components/platform";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -38,7 +40,7 @@ environment variables..
 | `password` | The password to authenticate with. |
 | `secure`   | Whether to use TLS encryption.     |
 
-### CLI Authentication
+### CLI Authentication (Python Only)
 
 The easiest way to authenticate with a Core is with the `login` command. This will
 permanently store your credentials in the operating system's keychain.
@@ -46,55 +48,107 @@ permanently store your credentials in the operating system's keychain.
 **We highly recommend this method**, as it makes it easy share scripts without
 accidentally revealing your credentials.
 
-<Client.Tabs client:load exclude={["console", "cpp", "typescript"]}>
+In the terminal, run the following command:
 
-  <Fragment slot="python">
-      Run the following command:
-      ```bash
-      sy login
-      ```
+```bash
+sy login
+```
 
-      <Note.Note variant="error">
-        TODO: UPDATE THIS REFERENCE!!!!!!!
+  <Note.Note variant="error">
+    TODO: UPDATE THIS REFERENCE!!!!!!!
 
-        If you get the error `command not found`, you might not have Python in your
-        `PATH` variable. See our [troubleshooting
-        guide](/reference/python-client/troubleshooting) for more information.
-      </Note.Note>
+    If you get the error `command not found`, you might not have Python in your
+    `PATH` variable. See our [troubleshooting
+    guide](/reference/python-client/troubleshooting) for more information.
 
-      You wil be prompted for additional information:
+  </Note.Note>
 
-      ```
-      Enter your Synnax connection parameters:
-      Host (localhost): # YOUR HOST
-      Port (9090): # YOUR PORT
-      Username (synnax): # YOUR USERNAME
-      Password: # YOUR PASSWORD
-      Secure connection? (y/n) (n):
-      ```
+You wil be prompted for additional information:
 
-      You should then see the following message:
+```
+Enter your Synnax connection parameters:
+Host (localhost): # YOUR HOST
+Port (9090): # YOUR PORT
+Username (synnax): # YOUR USERNAME
+Password: # YOUR PASSWORD
+Secure connection? (y/n) (n):
+```
 
-      ```
-      Saved credentials. You can now use the Synnax Client
-      without having to log in. To connect to the Core in a Python shell, use the following:
+You should then see the following message:
 
-      from synnax import Synnax
-      client = Synnax()
-      ```
+```
+Saved credentials. You can now use the Synnax Client
+without having to log in. To connect to the Core in a Python shell, use the following:
 
-  </Fragment>
-</Client.Tabs>
+from synnax import Synnax
+client = Synnax()
+```
 
 ### Environment Variables
 
-      <Note.Note variant="error">
-        TODO: UPDATE EXAMPLES WITH INSTRUCTIONS FOR SETTING ENV VARS
+You can store your connection parameters as environment variables to keep them out of
+your code. This is useful for production deployments or when working with multiple
+environments.
 
-      </Note.Note>
+#### Setting Environment Variables
+
+Select your operating system below to see how to set environment variables:
+
+<Platform.Tabs client:only="react" exclude={["Docker"]}>
+
+<Fragment slot="Linux">
+
+```bash
+export SYNNAX_HOST="localhost"
+export SYNNAX_PORT="9090"
+export SYNNAX_USERNAME="synnax"
+export SYNNAX_PASSWORD="seldon"
+export SYNNAX_SECURE="false"
+```
+
+</Fragment>
+
+<Fragment slot="macOS">
+
+```bash
+export SYNNAX_HOST="localhost"
+export SYNNAX_PORT="9090"
+export SYNNAX_USERNAME="synnax"
+export SYNNAX_PASSWORD="seldon"
+export SYNNAX_SECURE="false"
+```
+
+</Fragment>
+
+<Fragment slot="Windows">
+
+**PowerShell:**
+
+```powershell
+$env:SYNNAX_HOST="localhost"
+$env:SYNNAX_PORT="9090"
+$env:SYNNAX_USERNAME="synnax"
+$env:SYNNAX_PASSWORD="seldon"
+$env:SYNNAX_SECURE="false"
+```
+
+**Command Prompt:**
+
+```cmd
+set SYNNAX_HOST=localhost
+set SYNNAX_PORT=9090
+set SYNNAX_USERNAME=synnax
+set SYNNAX_PASSWORD=seldon
+set SYNNAX_SECURE=false
+```
+
+</Fragment>
+
+</Platform.Tabs>
+
+#### Using Environment Variables in Code
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
-
   <Fragment slot="python">
     ```python
     import os
@@ -105,26 +159,24 @@ accidentally revealing your credentials.
         port=int(os.environ["SYNNAX_PORT"]),
         username=os.environ["SYNNAX_USERNAME"],
         password=os.environ["SYNNAX_PASSWORD"],
-        secure=bool(os.environ["SYNNAX_SECURE"])
+        secure=os.environ.get("SYNNAX_SECURE", "false").lower() == "true"
     )
-
     ```
 
   </Fragment>
 
   <Fragment slot="typescript">
-
     ```typescript
     import { Synnax } from "@synnaxlabs/client";
 
     const client = new Synnax({
-      host: process.env.SYNNAX_HOST,
+      host: process.env.SYNNAX_HOST!,
       port: parseInt(process.env.SYNNAX_PORT ?? "9090"),
-      username: process.env.SYNNAX_USERNAME,
-      password: process.env.SYNNAX_PASSWORD,
+      username: process.env.SYNNAX_USERNAME!,
+      password: process.env.SYNNAX_PASSWORD!,
       secure: process.env.SYNNAX_SECURE === "true",
     });
     ```
 
   </Fragment>
-  </Client.Tabs>
+</Client.Tabs>

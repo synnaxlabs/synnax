@@ -22,91 +22,73 @@ If you'd like a conceptual overview of how writes work in Synnax, check out the
 [rules of writes](/reference/concepts/writes#rules-of-writes) are especially important
 to understand.
 
+<Note.Note variant="info">
+  Using writers, transactions, authorities, auto-commit, and streaming modes are covered
+  in [Advanced Topics - Writers](/reference/client/advanced/writers).
+</Note.Note>
+
 <Divider.Divider x />
 
 ## Writing to a Channel
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+      ```python
+      start = sy.TimeStamp.now()
+      times = [
+          start,
+          start + 1 * sy.TimeSpan.MINUTE,
+          start + 2 * sy.TimeSpan.MINUTE,
+          start + 3 * sy.TimeSpan.MINUTE,
+          start + 4 * sy.TimeSpan.MINUTE,
+      ]
+      temperatures = [55, 55.1, 55.7, 57.2, 58.1]
+
+      # Write the timestamps to the index
+      time_channel.write(start, times)
+
+      # Write the data to the channel
+      temp_channel.write(start, temperatures)
+      ```
+
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/write-data#writing-to-a-channel">
-      Python Write Data - Writing to a Channel
-    </a>
-  </Note.Note>
-</Fragment>
-
   <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/write-data#writing-to-a-channel">TypeScript Write Data - Writing to a Channel</a>
-    </Note.Note>
+    ```typescript
+    const start = TimeStamp.now();
+    const timestamps = new BigInt64Array([
+      start.valueOf(),
+      start.add(TimeSpan.seconds(1)).valueOf(),
+      start.add(TimeSpan.seconds(2)).valueOf(),
+      start.add(TimeSpan.seconds(3)).valueOf(),
+      start.add(TimeSpan.seconds(4)).valueOf(),
+    ]);
+    const temperatures = new Float32Array([20.0, 20.1, 20.2, 20.3, 20.4]);
+
+    // Write the timestamps to the index first
+    await timeChannel.write(start, timestamps);
+
+    // Then write the data
+    await temperatureChannel.write(start, temperatures);
+    ```
+
   </Fragment>
 </Client.Tabs>
 
 ### Index and Data Alignment
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
+Notice how we align the two arrays using the common `start` timestamp. This tells Synnax
+that the first sample in the `temperatures` array is associated with the first timestamp
+in the `timestamps` array.
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/write-data#writing-to-a-channel">
-      Python Write Data - Writing to a Channel (alignment explanation)
-    </a>
-  </Note.Note>
-</Fragment>
+Synnax will raise a `ValidationError` if the index channel does not contain a
+corresponding timestamp for every sample in the data channel. After all, it wouldn't
+make sense to have a temperature reading without an associated timestamp.
 
-  <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/write-data#writing-to-a-channel">TypeScript Write Data - Writing to a Channel (alignment explanation)</a>
-    </Note.Note>
-  </Fragment>
-</Client.Tabs>
+<Note.Note variant="info" className="compact">
+  Writers, transactions, authorities, and advanced writing patterns are covered in{" "}
+  <a href="/reference/client/advanced/writers">Advanced Topics - Writers</a>.
+</Note.Note>
 
 <Divider.Divider x />
-
-## Common Mistakes
-
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
-
-<Fragment slot="python">
-  <Note.Note variant="warning">
-    <span style={{ color: "red" }}>
-      No corresponding section - will be extracted from{" "}
-      <a href="/reference/python-client/write-data#common-pitfalls">
-        Python Write Data - Common Pitfalls
-      </a>
-    </span>{" "}
-  </Note.Note>
-</Fragment>
-
-  <Fragment slot="typescript">
-    <Note.Note variant="warning">
-      <span style={{ color: "red" }}>No corresponding section - will be extracted from <a href="/reference/typescript-client/write-data#common-pitfalls">TypeScript Write Data - Common Pitfalls</a></span>{" "}
-    </Note.Note>
-  </Fragment>
-</Client.Tabs>
-
-<Note.Note variant="info">
-  **Excluded from this section**: Writing to ranges is covered in{" "}
-  <a href="/reference/client/working-with-data/ranges#writing-to-ranges">
-    Working with Data - Ranges
-  </a>
-  . Using writers, transactions, authorities, and streaming modes are covered in{" "}
-  <a href="/reference/client/advanced/writers">Advanced Topics - Writers</a>, including
-  subsections on Auto-Commit, Write Authorities, and Persistence/Streaming Mode. The
-  complete Common Pitfalls section is also covered in{" "}
-  <a href="/reference/client/advanced/writers#common-pitfalls">
-    Advanced Topics - Writers
-  </a>
-  .
-</Note.Note>
