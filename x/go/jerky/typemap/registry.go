@@ -166,9 +166,9 @@ func DefaultRegistry() *Registry {
 		GoType:       "uuid.UUID",
 		ProtoType:    "string",
 		ForwardExpr:  "{{.Field}}.String()",
-		BackwardExpr: "uuid.MustParse({{.Field}})",
+		BackwardExpr: "uuid.Parse({{.Field}})",
 		NeedsImport:  []string{"github.com/google/uuid"},
-		CanFail:      false,
+		CanFail:      true,
 	})
 	r.Register(Mapping{
 		GoType:       "time.Time",

@@ -4,7 +4,7 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        (unknown)
-// source: v1.proto
+// source: user_v1.proto
 
 package types
 
@@ -35,13 +35,16 @@ type UserV1 struct {
 	CreatedAt     int64                  `protobuf:"varint,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	LastSeen      int64                  `protobuf:"varint,9,opt,name=last_seen,json=lastSeen,proto3" json:"last_seen,omitempty"`
 	Tags          []string               `protobuf:"bytes,10,rep,name=tags,proto3" json:"tags,omitempty"`
+	Role          string                 `protobuf:"bytes,11,opt,name=role,proto3" json:"role,omitempty"`
+	Verified      bool                   `protobuf:"varint,12,opt,name=verified,proto3" json:"verified,omitempty"`
+	Score         int64                  `protobuf:"varint,13,opt,name=score,proto3" json:"score,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UserV1) Reset() {
 	*x = UserV1{}
-	mi := &file_v1_proto_msgTypes[0]
+	mi := &file_user_v1_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -53,7 +56,7 @@ func (x *UserV1) String() string {
 func (*UserV1) ProtoMessage() {}
 
 func (x *UserV1) ProtoReflect() protoreflect.Message {
-	mi := &file_v1_proto_msgTypes[0]
+	mi := &file_user_v1_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -66,7 +69,7 @@ func (x *UserV1) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserV1.ProtoReflect.Descriptor instead.
 func (*UserV1) Descriptor() ([]byte, []int) {
-	return file_v1_proto_rawDescGZIP(), []int{0}
+	return file_user_v1_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *UserV1) GetKey() string {
@@ -139,11 +142,32 @@ func (x *UserV1) GetTags() []string {
 	return nil
 }
 
-var File_v1_proto protoreflect.FileDescriptor
+func (x *UserV1) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
 
-const file_v1_proto_rawDesc = "" +
+func (x *UserV1) GetVerified() bool {
+	if x != nil {
+		return x.Verified
+	}
+	return false
+}
+
+func (x *UserV1) GetScore() int64 {
+	if x != nil {
+		return x.Score
+	}
+	return 0
+}
+
+var File_user_v1_proto protoreflect.FileDescriptor
+
+const file_user_v1_proto_rawDesc = "" +
 	"\n" +
-	"\bv1.proto\x12\rexample.types\"\xe9\x01\n" +
+	"\ruser_v1.proto\x12\rexample.types\"\xaf\x02\n" +
 	"\x06UserV1\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x0f\n" +
 	"\x03i_d\x18\x02 \x01(\rR\x02iD\x12\x12\n" +
@@ -156,25 +180,28 @@ const file_v1_proto_rawDesc = "" +
 	"created_at\x18\b \x01(\x03R\tcreatedAt\x12\x1b\n" +
 	"\tlast_seen\x18\t \x01(\x03R\blastSeen\x12\x12\n" +
 	"\x04tags\x18\n" +
-	" \x03(\tR\x04tagsB-Z+github.com/synnaxlabs/x/jerky/example/typesb\x06proto3"
+	" \x03(\tR\x04tags\x12\x12\n" +
+	"\x04role\x18\v \x01(\tR\x04role\x12\x1a\n" +
+	"\bverified\x18\f \x01(\bR\bverified\x12\x14\n" +
+	"\x05score\x18\r \x01(\x03R\x05scoreB-Z+github.com/synnaxlabs/x/jerky/example/typesb\x06proto3"
 
 var (
-	file_v1_proto_rawDescOnce sync.Once
-	file_v1_proto_rawDescData []byte
+	file_user_v1_proto_rawDescOnce sync.Once
+	file_user_v1_proto_rawDescData []byte
 )
 
-func file_v1_proto_rawDescGZIP() []byte {
-	file_v1_proto_rawDescOnce.Do(func() {
-		file_v1_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_v1_proto_rawDesc), len(file_v1_proto_rawDesc)))
+func file_user_v1_proto_rawDescGZIP() []byte {
+	file_user_v1_proto_rawDescOnce.Do(func() {
+		file_user_v1_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_user_v1_proto_rawDesc), len(file_user_v1_proto_rawDesc)))
 	})
-	return file_v1_proto_rawDescData
+	return file_user_v1_proto_rawDescData
 }
 
-var file_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_v1_proto_goTypes = []any{
+var file_user_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_user_v1_proto_goTypes = []any{
 	(*UserV1)(nil), // 0: example.types.UserV1
 }
-var file_v1_proto_depIdxs = []int32{
+var file_user_v1_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
 	0, // [0:0] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -182,26 +209,26 @@ var file_v1_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_v1_proto_init() }
-func file_v1_proto_init() {
-	if File_v1_proto != nil {
+func init() { file_user_v1_proto_init() }
+func file_user_v1_proto_init() {
+	if File_user_v1_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_v1_proto_rawDesc), len(file_v1_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_v1_proto_rawDesc), len(file_user_v1_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_v1_proto_goTypes,
-		DependencyIndexes: file_v1_proto_depIdxs,
-		MessageInfos:      file_v1_proto_msgTypes,
+		GoTypes:           file_user_v1_proto_goTypes,
+		DependencyIndexes: file_user_v1_proto_depIdxs,
+		MessageInfos:      file_user_v1_proto_msgTypes,
 	}.Build()
-	File_v1_proto = out.File
-	file_v1_proto_goTypes = nil
-	file_v1_proto_depIdxs = nil
+	File_user_v1_proto = out.File
+	file_user_v1_proto_goTypes = nil
+	file_user_v1_proto_depIdxs = nil
 }

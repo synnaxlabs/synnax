@@ -100,3 +100,42 @@ func (p ParsedStruct) FieldNames() []string {
 	}
 	return names
 }
+
+// JerkyDependencies returns fully qualified names of jerky-managed types this struct depends on.
+// Only includes types where IsJerky is true on the GoType.
+func (p ParsedStruct) JerkyDependencies() []string {
+	seen := make(map[string]bool)
+	var deps []string
+
+	var collectDeps func(t GoType)
+	collectDeps = func(t GoType) {
+		if t.IsJerky && t.PackagePath != "" {
+			key := t.PackagePath + "." + typeName(t.Name)
+			if !seen[key] {
+				seen[key] = true
+				deps = append(deps, key)
+			}
+		}
+		if t.Elem != nil {
+			collectDeps(*t.Elem)
+		}
+		if t.Key != nil {
+			collectDeps(*t.Key)
+		}
+	}
+
+	for _, f := range p.Fields {
+		collectDeps(f.GoType)
+	}
+	return deps
+}
+
+// typeName extracts just the type name from a potentially qualified name.
+func typeName(name string) string {
+	for i := len(name) - 1; i >= 0; i-- {
+		if name[i] == '.' {
+			return name[i+1:]
+		}
+	}
+	return name
+}

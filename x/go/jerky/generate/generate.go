@@ -20,6 +20,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/synnaxlabs/x/jerky/deps"
 	"github.com/synnaxlabs/x/jerky/detect"
 	"github.com/synnaxlabs/x/jerky/parse"
 	"github.com/synnaxlabs/x/jerky/state"
@@ -29,13 +30,19 @@ import (
 
 // Generator generates all jerky artifacts for a parsed struct.
 type Generator struct {
-	templates *template.Template
-	registry  *typemap.Registry
-	outputDir string
+	templates   *template.Template
+	registry    *typemap.Registry
+	depRegistry *deps.Registry
+	outputDir   string
 }
 
 // NewGenerator creates a new Generator.
 func NewGenerator(outputDir string, registry *typemap.Registry) (*Generator, error) {
+	return NewGeneratorWithDeps(outputDir, registry, nil)
+}
+
+// NewGeneratorWithDeps creates a new Generator with dependency tracking.
+func NewGeneratorWithDeps(outputDir string, registry *typemap.Registry, depRegistry *deps.Registry) (*Generator, error) {
 	tmpl, err := templates.Load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load templates: %w", err)
@@ -45,10 +52,15 @@ func NewGenerator(outputDir string, registry *typemap.Registry) (*Generator, err
 		registry = typemap.DefaultRegistry()
 	}
 
+	if depRegistry == nil {
+		depRegistry = deps.NewRegistry()
+	}
+
 	return &Generator{
-		templates: tmpl,
-		registry:  registry,
-		outputDir: outputDir,
+		templates:   tmpl,
+		registry:    registry,
+		depRegistry: depRegistry,
+		outputDir:   outputDir,
 	}, nil
 }
 
@@ -71,15 +83,43 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 	version := 1
 	migrationType := "bootstrap"
 
+	// Pre-compute dependency hashes for version detection
+	preDepHashes := make(map[string]string)
+	jerkyDeps := parsed.JerkyDependencies()
+	for _, dep := range jerkyDeps {
+		if info, ok := g.depRegistry.Get(dep); ok {
+			preDepHashes[dep] = fmt.Sprintf("v%d:%s", info.CurrentVersion, info.CompositeHash)
+		}
+	}
+
 	if exists {
 		// Check if struct changed
 		currentHash := detect.ComputeStructHash(parsed)
 		latestVersion := typeState.LatestVersion()
 
 		if latestVersion != nil && latestVersion.StructHash == currentHash {
-			// No changes, regenerate current version only
-			version = typeState.CurrentVersion
-			migrationType = ""
+			// Struct didn't change, but check if dependencies changed
+			depsChanged := false
+			if len(preDepHashes) != len(latestVersion.DependencyHashes) {
+				depsChanged = true
+			} else {
+				for k, v := range preDepHashes {
+					if latestVersion.DependencyHashes[k] != v {
+						depsChanged = true
+						break
+					}
+				}
+			}
+
+			if depsChanged {
+				// Dependencies changed, increment version
+				version = typeState.CurrentVersion + 1
+				migrationType = "dependency"
+			} else {
+				// No changes, regenerate current version only
+				version = typeState.CurrentVersion
+				migrationType = ""
+			}
 		} else {
 			// Struct changed, increment version
 			version = typeState.CurrentVersion + 1
@@ -87,23 +127,28 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 		}
 	}
 
-	// Build field info map for state
+	// Assign stable field numbers using state tracking
+	// Field numbers are preserved across versions - once assigned, never changed
 	fields := make(map[string]state.FieldInfo)
 	fieldOrder := make([]string, 0, len(parsed.Fields))
-	for _, f := range parsed.Fields {
-		fields[f.Name] = state.FieldInfo{
-			Type: f.GoType.String(),
+	for i := range parsed.Fields {
+		fieldNum := typeState.GetFieldNumber(parsed.Fields[i].Name)
+		// Update the parsed field with the stable field number
+		parsed.Fields[i].FieldNumber = fieldNum
+		fields[parsed.Fields[i].Name] = state.FieldInfo{
+			Type:        parsed.Fields[i].GoType.String(),
+			FieldNumber: fieldNum,
 			Tags: map[string]string{
-				"json":    f.Tags.JSON,
-				"msgpack": f.Tags.Msgpack,
+				"json":    parsed.Fields[i].Tags.JSON,
+				"msgpack": parsed.Fields[i].Tags.Msgpack,
 			},
 		}
-		fieldOrder = append(fieldOrder, f.Name)
+		fieldOrder = append(fieldOrder, parsed.Fields[i].Name)
 	}
 
-	// Compute hash
+	// Compute hash including dependencies (use preDepHashes computed earlier)
 	structHash := detect.ComputeStructHash(parsed)
-	compositeHash := detect.ComputeCompositeHash(structHash, nil)
+	compositeHash := detect.ComputeCompositeHash(structHash, preDepHashes)
 
 	// Update state
 	if !exists || migrationType != "" {
@@ -113,18 +158,25 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 			Version:          version,
 			CreatedAt:        time.Now(),
 			StructHash:       structHash,
-			DependencyHashes: nil,
+			DependencyHashes: preDepHashes,
 			CompositeHash:    compositeHash,
 			MigrationType:    migrationType,
 			Fields:           fields,
 		})
-		stateFile.SetTypeState(parsed.Name, typeState)
 	}
+	// Always update field numbers in state (in case new fields added)
+	stateFile.SetTypeState(parsed.Name, typeState)
 
 	// Generate proto file
 	if err := g.generateProto(parsed, version, typesDir); err != nil {
 		return fmt.Errorf("failed to generate proto: %w", err)
 	}
+
+	// Note: Version snapshot generation is disabled for now.
+	// The proto types (v1.pb.go, v2.pb.go) serve as the versioned types,
+	// and migrations work directly with those proto types.
+	// If native Go snapshots are needed in the future for complex migrations,
+	// re-enable: g.generateVersionSnapshot(parsed, version, typesDir)
 
 	// Generate current.go aliases
 	if err := g.generateCurrent(parsed, version, typesDir); err != nil {
@@ -190,7 +242,7 @@ func (g *Generator) generateProto(parsed parse.ParsedStruct, version int, typesD
 		return err
 	}
 
-	filename := filepath.Join(typesDir, fmt.Sprintf("v%d.proto", version))
+	filename := filepath.Join(typesDir, fmt.Sprintf("%s_v%d.proto", toSnakeCase(parsed.Name), version))
 	return os.WriteFile(filename, buf.Bytes(), 0644)
 }
 
@@ -211,7 +263,7 @@ func (g *Generator) generateCurrent(parsed parse.ParsedStruct, version int, type
 		return err
 	}
 
-	filename := filepath.Join(typesDir, "current.go")
+	filename := filepath.Join(typesDir, fmt.Sprintf("%s_current.go", toSnakeCase(parsed.Name)))
 	return os.WriteFile(filename, buf.Bytes(), 0644)
 }
 
@@ -230,6 +282,7 @@ type GorpFieldData struct {
 	ProtoName    string
 	ForwardExpr  string
 	BackwardExpr string
+	CanFail      bool // True if backward translation can return an error
 }
 
 func (g *Generator) generateGorp(parsed parse.ParsedStruct, outputDir string) error {
@@ -242,7 +295,7 @@ func (g *Generator) generateGorp(parsed parse.ParsedStruct, outputDir string) er
 	}
 
 	for _, f := range parsed.Fields {
-		forwardExpr, backwardExpr, fieldImports := g.getTranslationExprs(f, parsed.PackageName, parsed.PackagePath)
+		forwardExpr, backwardExpr, canFail, fieldImports := g.getTranslationExprs(f, parsed.PackageName, parsed.PackagePath)
 
 		for _, imp := range fieldImports {
 			imports[imp] = true
@@ -256,6 +309,7 @@ func (g *Generator) generateGorp(parsed parse.ParsedStruct, outputDir string) er
 			ProtoName:    protoName,
 			ForwardExpr:  forwardExpr,
 			BackwardExpr: backwardExpr,
+			CanFail:      canFail,
 		})
 	}
 
@@ -331,7 +385,7 @@ func (g *Generator) generateMigrations(parsed parse.ParsedStruct, version int, t
 		return err
 	}
 
-	filename := filepath.Join(typesDir, "migrations.go")
+	filename := filepath.Join(typesDir, fmt.Sprintf("%s_migrations.go", toSnakeCase(parsed.Name)))
 	if err := os.WriteFile(filename, buf.Bytes(), 0644); err != nil {
 		return err
 	}
@@ -341,7 +395,7 @@ func (g *Generator) generateMigrations(parsed parse.ParsedStruct, version int, t
 		if migration.FromVersion == 0 {
 			continue // V0 bootstrap doesn't need a hook
 		}
-		hookFilename := filepath.Join(typesDir, fmt.Sprintf("v%d_to_v%d.go", migration.FromVersion, migration.ToVersion))
+		hookFilename := filepath.Join(typesDir, fmt.Sprintf("%s_v%d_to_v%d.go", toSnakeCase(parsed.Name), migration.FromVersion, migration.ToVersion))
 		if _, err := os.Stat(hookFilename); os.IsNotExist(err) {
 			var hookBuf bytes.Buffer
 			if err := g.templates.ExecuteTemplate(&hookBuf, "migrate_hook.go.tmpl", migration); err != nil {
@@ -403,7 +457,8 @@ func (g *Generator) getProtoType(goType parse.GoType) (string, bool) {
 
 // getTranslationExprs returns forward and backward translation expressions for a field.
 // For gorp: forward uses m.Field (domain), backward uses pb.Field (proto).
-func (g *Generator) getTranslationExprs(f parse.ParsedField, parentPkg string, parentPath string) (forward, backward string, imports []string) {
+// canFail indicates if the backward translation can return an error.
+func (g *Generator) getTranslationExprs(f parse.ParsedField, parentPkg string, parentPath string) (forward, backward string, canFail bool, imports []string) {
 	fieldRef := "m." + f.Name
 	pbFieldRef := "pb." + f.Name
 
@@ -411,7 +466,7 @@ func (g *Generator) getTranslationExprs(f parse.ParsedField, parentPkg string, p
 	if mapping, ok := g.registry.Get(f.GoType.Name); ok {
 		forward = strings.ReplaceAll(mapping.ForwardExpr, "{{.Field}}", fieldRef)
 		backward = strings.ReplaceAll(mapping.BackwardExpr, "{{.Field}}", pbFieldRef)
-		return forward, backward, mapping.NeedsImport
+		return forward, backward, mapping.CanFail, mapping.NeedsImport
 	}
 
 	// Check underlying type for named types (e.g., type Key uint32)
@@ -440,12 +495,12 @@ func (g *Generator) getTranslationExprs(f parse.ParsedField, parentPkg string, p
 				imports = append(imports, pkgPath)
 				imports = append(imports, mapping.NeedsImport...)
 			}
-			return forward, backward, imports
+			return forward, backward, mapping.CanFail, imports
 		}
 	}
 
 	// Default: direct copy
-	return fieldRef, pbFieldRef, nil
+	return fieldRef, pbFieldRef, false, nil
 }
 
 // toSnakeCase converts PascalCase to snake_case.

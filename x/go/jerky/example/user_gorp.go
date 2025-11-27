@@ -27,6 +27,7 @@ func (m User) MarshalGorp() ([]byte, error) {
 		Role: m.Role,
 		Verified: m.Verified,
 		Score: m.Score,
+		Department: m.Department,
 	})
 }
 
@@ -34,7 +35,11 @@ func (m User) MarshalGorp() ([]byte, error) {
 func (m *User) UnmarshalGorp(data []byte) error {
 	var pb types.User
 	if err := proto.Unmarshal(data, &pb); err == nil {
-		m.Key = uuid.MustParse(pb.Key)
+		var err error
+		m.Key, err = uuid.Parse(pb.Key)
+		if err != nil {
+			return err
+		}
 		m.ID = UserID(pb.ID)
 		m.Name = pb.Name
 		m.Email = pb.Email
@@ -47,6 +52,7 @@ func (m *User) UnmarshalGorp(data []byte) error {
 		m.Role = pb.Role
 		m.Verified = pb.Verified
 		m.Score = pb.Score
+		m.Department = pb.Department
 		return nil
 	}
 	// Fall back to msgpack (legacy format)

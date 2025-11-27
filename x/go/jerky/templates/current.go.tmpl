@@ -7,5 +7,5 @@ package types
 // {{ .TypeName }} is the current version proto type.
 type {{ .TypeName }} = {{ .TypeName }}V{{ .Version }}
 
-// CurrentVersion is the latest schema version.
-const CurrentVersion = {{ .Version }}
+// {{ .TypeName }}CurrentVersion is the latest schema version for {{ .TypeName }}.
+const {{ .TypeName }}CurrentVersion = {{ .Version }}

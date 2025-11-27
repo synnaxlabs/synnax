@@ -6,7 +6,7 @@ package example.types;
 
 option go_package = "github.com/synnaxlabs/x/jerky/example/types";
 
-message UserV3 {
+message UserV1 {
     string key = 1;
     uint32 i_d = 2;
     string name = 3;

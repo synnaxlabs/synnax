@@ -26,8 +26,9 @@ const (
 
 // FieldInfo represents information about a struct field at a specific version.
 type FieldInfo struct {
-	Type string            `json:"type"`
-	Tags map[string]string `json:"tags,omitempty"`
+	Type        string            `json:"type"`
+	Tags        map[string]string `json:"tags,omitempty"`
+	FieldNumber int               `json:"field_number"`
 }
 
 // VersionDiff represents changes between two versions.
@@ -55,6 +56,12 @@ type TypeState struct {
 	CurrentVersion int              `json:"current_version"`
 	FieldOrder     []string         `json:"field_order"`
 	History        []VersionHistory `json:"history"`
+	// FieldNumbers tracks proto field numbers across all versions.
+	// Once a field name is assigned a number, it keeps that number forever.
+	// Removed fields have their numbers reserved (never reused).
+	FieldNumbers map[string]int `json:"field_numbers"`
+	// NextFieldNumber is the next available field number for new fields.
+	NextFieldNumber int `json:"next_field_number"`
 }
 
 // StateMetadata contains metadata about the state file.
@@ -140,4 +147,34 @@ func (ts *TypeState) LatestVersion() *VersionHistory {
 func (ts *TypeState) AddVersion(vh VersionHistory) {
 	ts.History = append(ts.History, vh)
 	ts.CurrentVersion = vh.Version
+}
+
+// GetFieldNumber returns the proto field number for a field name.
+// If the field doesn't have a number yet, it assigns one and returns it.
+// Field numbers are stable across versions - once assigned, never changed.
+func (ts *TypeState) GetFieldNumber(fieldName string) int {
+	if ts.FieldNumbers == nil {
+		ts.FieldNumbers = make(map[string]int)
+	}
+	if num, ok := ts.FieldNumbers[fieldName]; ok {
+		return num
+	}
+	// Assign new field number
+	if ts.NextFieldNumber == 0 {
+		ts.NextFieldNumber = 1
+	}
+	num := ts.NextFieldNumber
+	ts.NextFieldNumber++
+	ts.FieldNumbers[fieldName] = num
+	return num
+}
+
+// GetVersion returns the version history entry for a specific version number.
+func (ts *TypeState) GetVersion(version int) *VersionHistory {
+	for i := range ts.History {
+		if ts.History[i].Version == version {
+			return &ts.History[i]
+		}
+	}
+	return nil
 }

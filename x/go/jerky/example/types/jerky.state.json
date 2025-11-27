@@ -1,9 +1,69 @@
 {
   "$schema": "jerky-state-v1",
   "types": {
+    "Group": {
+      "package": "github.com/synnaxlabs/x/jerky/example",
+      "current_version": 1,
+      "field_order": [
+        "Key",
+        "Name",
+        "Description",
+        "MemberCount"
+      ],
+      "history": [
+        {
+          "version": 1,
+          "created_at": "2025-11-26T20:39:23.72946-07:00",
+          "struct_hash": "bb346156c708",
+          "composite_hash": "3589bedc49d0",
+          "migration_type": "bootstrap",
+          "fields": {
+            "Description": {
+              "type": "string",
+              "tags": {
+                "json": "description",
+                "msgpack": ""
+              },
+              "field_number": 3
+            },
+            "Key": {
+              "type": "uuid.UUID",
+              "tags": {
+                "json": "key",
+                "msgpack": ""
+              },
+              "field_number": 1
+            },
+            "MemberCount": {
+              "type": "int32",
+              "tags": {
+                "json": "member_count",
+                "msgpack": ""
+              },
+              "field_number": 4
+            },
+            "Name": {
+              "type": "string",
+              "tags": {
+                "json": "name",
+                "msgpack": ""
+              },
+              "field_number": 2
+            }
+          }
+        }
+      ],
+      "field_numbers": {
+        "Description": 3,
+        "Key": 1,
+        "MemberCount": 4,
+        "Name": 2
+      },
+      "next_field_number": 5
+    },
     "User": {
       "package": "github.com/synnaxlabs/x/jerky/example",
-      "current_version": 3,
+      "current_version": 2,
       "field_order": [
         "Key",
         "ID",
@@ -17,14 +77,15 @@
         "Tags",
         "Role",
         "Verified",
-        "Score"
+        "Score",
+        "Department"
       ],
       "history": [
         {
           "version": 1,
-          "created_at": "2025-11-26T19:50:10.334777-07:00",
-          "struct_hash": "72c99ef3493a",
-          "composite_hash": "cfe6548047b8",
+          "created_at": "2025-11-26T20:38:12.001564-07:00",
+          "struct_hash": "8a43261ed1ef",
+          "composite_hash": "81608bce1a5c",
           "migration_type": "bootstrap",
           "fields": {
             "Active": {
@@ -32,264 +93,250 @@
               "tags": {
                 "json": "active",
                 "msgpack": ""
-              }
+              },
+              "field_number": 6
             },
             "Age": {
               "type": "int32",
               "tags": {
                 "json": "age",
                 "msgpack": ""
-              }
+              },
+              "field_number": 5
             },
             "Balance": {
               "type": "float64",
               "tags": {
                 "json": "balance",
                 "msgpack": ""
-              }
+              },
+              "field_number": 7
             },
             "CreatedAt": {
               "type": "time.Time",
               "tags": {
                 "json": "created_at",
                 "msgpack": ""
-              }
+              },
+              "field_number": 8
             },
             "Email": {
               "type": "string",
               "tags": {
                 "json": "email",
                 "msgpack": ""
-              }
+              },
+              "field_number": 4
             },
             "ID": {
               "type": "example.UserID",
               "tags": {
                 "json": "id",
                 "msgpack": ""
-              }
+              },
+              "field_number": 2
             },
             "Key": {
               "type": "uuid.UUID",
               "tags": {
                 "json": "key",
                 "msgpack": ""
-              }
+              },
+              "field_number": 1
             },
             "LastSeen": {
               "type": "telem.TimeStamp",
               "tags": {
                 "json": "last_seen",
                 "msgpack": ""
-              }
+              },
+              "field_number": 9
             },
             "Name": {
               "type": "string",
               "tags": {
                 "json": "name",
                 "msgpack": ""
-              }
-            },
-            "Tags": {
-              "type": "[]string",
-              "tags": {
-                "json": "tags",
-                "msgpack": ""
-              }
-            }
-          }
-        },
-        {
-          "version": 2,
-          "created_at": "2025-11-26T19:51:07.269635-07:00",
-          "struct_hash": "3714787469bc",
-          "composite_hash": "e928e2975bae",
-          "migration_type": "auto",
-          "fields": {
-            "Active": {
-              "type": "bool",
-              "tags": {
-                "json": "active",
-                "msgpack": ""
-              }
-            },
-            "Age": {
-              "type": "int32",
-              "tags": {
-                "json": "age",
-                "msgpack": ""
-              }
-            },
-            "Balance": {
-              "type": "float64",
-              "tags": {
-                "json": "balance",
-                "msgpack": ""
-              }
-            },
-            "CreatedAt": {
-              "type": "time.Time",
-              "tags": {
-                "json": "created_at",
-                "msgpack": ""
-              }
-            },
-            "Email": {
-              "type": "string",
-              "tags": {
-                "json": "email",
-                "msgpack": ""
-              }
-            },
-            "ID": {
-              "type": "example.UserID",
-              "tags": {
-                "json": "id",
-                "msgpack": ""
-              }
-            },
-            "Key": {
-              "type": "uuid.UUID",
-              "tags": {
-                "json": "key",
-                "msgpack": ""
-              }
-            },
-            "LastSeen": {
-              "type": "telem.TimeStamp",
-              "tags": {
-                "json": "last_seen",
-                "msgpack": ""
-              }
-            },
-            "Name": {
-              "type": "string",
-              "tags": {
-                "json": "name",
-                "msgpack": ""
-              }
+              },
+              "field_number": 3
             },
             "Role": {
               "type": "string",
               "tags": {
                 "json": "role",
                 "msgpack": ""
-              }
-            },
-            "Tags": {
-              "type": "[]string",
-              "tags": {
-                "json": "tags",
-                "msgpack": ""
-              }
-            }
-          }
-        },
-        {
-          "version": 3,
-          "created_at": "2025-11-26T19:51:50.034822-07:00",
-          "struct_hash": "8a43261ed1ef",
-          "composite_hash": "81608bce1a5c",
-          "migration_type": "auto",
-          "fields": {
-            "Active": {
-              "type": "bool",
-              "tags": {
-                "json": "active",
-                "msgpack": ""
-              }
-            },
-            "Age": {
-              "type": "int32",
-              "tags": {
-                "json": "age",
-                "msgpack": ""
-              }
-            },
-            "Balance": {
-              "type": "float64",
-              "tags": {
-                "json": "balance",
-                "msgpack": ""
-              }
-            },
-            "CreatedAt": {
-              "type": "time.Time",
-              "tags": {
-                "json": "created_at",
-                "msgpack": ""
-              }
-            },
-            "Email": {
-              "type": "string",
-              "tags": {
-                "json": "email",
-                "msgpack": ""
-              }
-            },
-            "ID": {
-              "type": "example.UserID",
-              "tags": {
-                "json": "id",
-                "msgpack": ""
-              }
-            },
-            "Key": {
-              "type": "uuid.UUID",
-              "tags": {
-                "json": "key",
-                "msgpack": ""
-              }
-            },
-            "LastSeen": {
-              "type": "telem.TimeStamp",
-              "tags": {
-                "json": "last_seen",
-                "msgpack": ""
-              }
-            },
-            "Name": {
-              "type": "string",
-              "tags": {
-                "json": "name",
-                "msgpack": ""
-              }
-            },
-            "Role": {
-              "type": "string",
-              "tags": {
-                "json": "role",
-                "msgpack": ""
-              }
+              },
+              "field_number": 11
             },
             "Score": {
               "type": "int64",
               "tags": {
                 "json": "score",
                 "msgpack": ""
-              }
+              },
+              "field_number": 13
             },
             "Tags": {
               "type": "[]string",
               "tags": {
                 "json": "tags",
                 "msgpack": ""
-              }
+              },
+              "field_number": 10
             },
             "Verified": {
               "type": "bool",
               "tags": {
                 "json": "verified",
                 "msgpack": ""
-              }
+              },
+              "field_number": 12
+            }
+          }
+        },
+        {
+          "version": 2,
+          "created_at": "2025-11-26T20:40:34.206711-07:00",
+          "struct_hash": "8cbd3dad1b7f",
+          "composite_hash": "cdd73f4f10cc",
+          "migration_type": "auto",
+          "fields": {
+            "Active": {
+              "type": "bool",
+              "tags": {
+                "json": "active",
+                "msgpack": ""
+              },
+              "field_number": 6
+            },
+            "Age": {
+              "type": "int32",
+              "tags": {
+                "json": "age",
+                "msgpack": ""
+              },
+              "field_number": 5
+            },
+            "Balance": {
+              "type": "float64",
+              "tags": {
+                "json": "balance",
+                "msgpack": ""
+              },
+              "field_number": 7
+            },
+            "CreatedAt": {
+              "type": "time.Time",
+              "tags": {
+                "json": "created_at",
+                "msgpack": ""
+              },
+              "field_number": 8
+            },
+            "Department": {
+              "type": "string",
+              "tags": {
+                "json": "department",
+                "msgpack": ""
+              },
+              "field_number": 14
+            },
+            "Email": {
+              "type": "string",
+              "tags": {
+                "json": "email",
+                "msgpack": ""
+              },
+              "field_number": 4
+            },
+            "ID": {
+              "type": "example.UserID",
+              "tags": {
+                "json": "id",
+                "msgpack": ""
+              },
+              "field_number": 2
+            },
+            "Key": {
+              "type": "uuid.UUID",
+              "tags": {
+                "json": "key",
+                "msgpack": ""
+              },
+              "field_number": 1
+            },
+            "LastSeen": {
+              "type": "telem.TimeStamp",
+              "tags": {
+                "json": "last_seen",
+                "msgpack": ""
+              },
+              "field_number": 9
+            },
+            "Name": {
+              "type": "string",
+              "tags": {
+                "json": "name",
+                "msgpack": ""
+              },
+              "field_number": 3
+            },
+            "Role": {
+              "type": "string",
+              "tags": {
+                "json": "role",
+                "msgpack": ""
+              },
+              "field_number": 11
+            },
+            "Score": {
+              "type": "int64",
+              "tags": {
+                "json": "score",
+                "msgpack": ""
+              },
+              "field_number": 13
+            },
+            "Tags": {
+              "type": "[]string",
+              "tags": {
+                "json": "tags",
+                "msgpack": ""
+              },
+              "field_number": 10
+            },
+            "Verified": {
+              "type": "bool",
+              "tags": {
+                "json": "verified",
+                "msgpack": ""
+              },
+              "field_number": 12
             }
           }
         }
-      ]
+      ],
+      "field_numbers": {
+        "Active": 6,
+        "Age": 5,
+        "Balance": 7,
+        "CreatedAt": 8,
+        "Department": 14,
+        "Email": 4,
+        "ID": 2,
+        "Key": 1,
+        "LastSeen": 9,
+        "Name": 3,
+        "Role": 11,
+        "Score": 13,
+        "Tags": 10,
+        "Verified": 12
+      },
+      "next_field_number": 15
     }
   },
   "metadata": {
     "jerky_version": "1.0.0",
-    "last_generated": "2025-11-26T19:51:50.034822-07:00"
+    "last_generated": "2025-11-26T20:40:34.206711-07:00"
   }
 }

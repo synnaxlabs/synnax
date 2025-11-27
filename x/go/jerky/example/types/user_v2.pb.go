@@ -4,7 +4,7 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        (unknown)
-// source: v3.proto
+// source: user_v2.proto
 
 package types
 
@@ -23,7 +23,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type UserV3 struct {
+type UserV2 struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	ID            uint32                 `protobuf:"varint,2,opt,name=i_d,json=iD,proto3" json:"i_d,omitempty"`
@@ -38,25 +38,26 @@ type UserV3 struct {
 	Role          string                 `protobuf:"bytes,11,opt,name=role,proto3" json:"role,omitempty"`
 	Verified      bool                   `protobuf:"varint,12,opt,name=verified,proto3" json:"verified,omitempty"`
 	Score         int64                  `protobuf:"varint,13,opt,name=score,proto3" json:"score,omitempty"`
+	Department    string                 `protobuf:"bytes,14,opt,name=department,proto3" json:"department,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UserV3) Reset() {
-	*x = UserV3{}
-	mi := &file_v3_proto_msgTypes[0]
+func (x *UserV2) Reset() {
+	*x = UserV2{}
+	mi := &file_user_v2_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UserV3) String() string {
+func (x *UserV2) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UserV3) ProtoMessage() {}
+func (*UserV2) ProtoMessage() {}
 
-func (x *UserV3) ProtoReflect() protoreflect.Message {
-	mi := &file_v3_proto_msgTypes[0]
+func (x *UserV2) ProtoReflect() protoreflect.Message {
+	mi := &file_user_v2_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -67,108 +68,115 @@ func (x *UserV3) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UserV3.ProtoReflect.Descriptor instead.
-func (*UserV3) Descriptor() ([]byte, []int) {
-	return file_v3_proto_rawDescGZIP(), []int{0}
+// Deprecated: Use UserV2.ProtoReflect.Descriptor instead.
+func (*UserV2) Descriptor() ([]byte, []int) {
+	return file_user_v2_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *UserV3) GetKey() string {
+func (x *UserV2) GetKey() string {
 	if x != nil {
 		return x.Key
 	}
 	return ""
 }
 
-func (x *UserV3) GetID() uint32 {
+func (x *UserV2) GetID() uint32 {
 	if x != nil {
 		return x.ID
 	}
 	return 0
 }
 
-func (x *UserV3) GetName() string {
+func (x *UserV2) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *UserV3) GetEmail() string {
+func (x *UserV2) GetEmail() string {
 	if x != nil {
 		return x.Email
 	}
 	return ""
 }
 
-func (x *UserV3) GetAge() int32 {
+func (x *UserV2) GetAge() int32 {
 	if x != nil {
 		return x.Age
 	}
 	return 0
 }
 
-func (x *UserV3) GetActive() bool {
+func (x *UserV2) GetActive() bool {
 	if x != nil {
 		return x.Active
 	}
 	return false
 }
 
-func (x *UserV3) GetBalance() float64 {
+func (x *UserV2) GetBalance() float64 {
 	if x != nil {
 		return x.Balance
 	}
 	return 0
 }
 
-func (x *UserV3) GetCreatedAt() int64 {
+func (x *UserV2) GetCreatedAt() int64 {
 	if x != nil {
 		return x.CreatedAt
 	}
 	return 0
 }
 
-func (x *UserV3) GetLastSeen() int64 {
+func (x *UserV2) GetLastSeen() int64 {
 	if x != nil {
 		return x.LastSeen
 	}
 	return 0
 }
 
-func (x *UserV3) GetTags() []string {
+func (x *UserV2) GetTags() []string {
 	if x != nil {
 		return x.Tags
 	}
 	return nil
 }
 
-func (x *UserV3) GetRole() string {
+func (x *UserV2) GetRole() string {
 	if x != nil {
 		return x.Role
 	}
 	return ""
 }
 
-func (x *UserV3) GetVerified() bool {
+func (x *UserV2) GetVerified() bool {
 	if x != nil {
 		return x.Verified
 	}
 	return false
 }
 
-func (x *UserV3) GetScore() int64 {
+func (x *UserV2) GetScore() int64 {
 	if x != nil {
 		return x.Score
 	}
 	return 0
 }
 
-var File_v3_proto protoreflect.FileDescriptor
+func (x *UserV2) GetDepartment() string {
+	if x != nil {
+		return x.Department
+	}
+	return ""
+}
 
-const file_v3_proto_rawDesc = "" +
+var File_user_v2_proto protoreflect.FileDescriptor
+
+const file_user_v2_proto_rawDesc = "" +
 	"\n" +
-	"\bv3.proto\x12\rexample.types\"\xaf\x02\n" +
-	"\x06UserV3\x12\x10\n" +
+	"\ruser_v2.proto\x12\rexample.types\"\xcf\x02\n" +
+	"\x06UserV2\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x0f\n" +
 	"\x03i_d\x18\x02 \x01(\rR\x02iD\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x14\n" +
@@ -183,25 +191,28 @@ const file_v3_proto_rawDesc = "" +
 	" \x03(\tR\x04tags\x12\x12\n" +
 	"\x04role\x18\v \x01(\tR\x04role\x12\x1a\n" +
 	"\bverified\x18\f \x01(\bR\bverified\x12\x14\n" +
-	"\x05score\x18\r \x01(\x03R\x05scoreB-Z+github.com/synnaxlabs/x/jerky/example/typesb\x06proto3"
+	"\x05score\x18\r \x01(\x03R\x05score\x12\x1e\n" +
+	"\n" +
+	"department\x18\x0e \x01(\tR\n" +
+	"departmentB-Z+github.com/synnaxlabs/x/jerky/example/typesb\x06proto3"
 
 var (
-	file_v3_proto_rawDescOnce sync.Once
-	file_v3_proto_rawDescData []byte
+	file_user_v2_proto_rawDescOnce sync.Once
+	file_user_v2_proto_rawDescData []byte
 )
 
-func file_v3_proto_rawDescGZIP() []byte {
-	file_v3_proto_rawDescOnce.Do(func() {
-		file_v3_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_v3_proto_rawDesc), len(file_v3_proto_rawDesc)))
+func file_user_v2_proto_rawDescGZIP() []byte {
+	file_user_v2_proto_rawDescOnce.Do(func() {
+		file_user_v2_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_user_v2_proto_rawDesc), len(file_user_v2_proto_rawDesc)))
 	})
-	return file_v3_proto_rawDescData
+	return file_user_v2_proto_rawDescData
 }
 
-var file_v3_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_v3_proto_goTypes = []any{
-	(*UserV3)(nil), // 0: example.types.UserV3
+var file_user_v2_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_user_v2_proto_goTypes = []any{
+	(*UserV2)(nil), // 0: example.types.UserV2
 }
-var file_v3_proto_depIdxs = []int32{
+var file_user_v2_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
 	0, // [0:0] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -209,26 +220,26 @@ var file_v3_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_v3_proto_init() }
-func file_v3_proto_init() {
-	if File_v3_proto != nil {
+func init() { file_user_v2_proto_init() }
+func file_user_v2_proto_init() {
+	if File_user_v2_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_v3_proto_rawDesc), len(file_v3_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_v2_proto_rawDesc), len(file_user_v2_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_v3_proto_goTypes,
-		DependencyIndexes: file_v3_proto_depIdxs,
-		MessageInfos:      file_v3_proto_msgTypes,
+		GoTypes:           file_user_v2_proto_goTypes,
+		DependencyIndexes: file_user_v2_proto_depIdxs,
+		MessageInfos:      file_user_v2_proto_msgTypes,
 	}.Build()
-	File_v3_proto = out.File
-	file_v3_proto_goTypes = nil
-	file_v3_proto_depIdxs = nil
+	File_user_v2_proto = out.File
+	file_user_v2_proto_goTypes = nil
+	file_user_v2_proto_depIdxs = nil
 }

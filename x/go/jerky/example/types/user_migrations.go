@@ -10,11 +10,10 @@ import (
 // UserMigrations is the migration registry.
 var UserMigrations = &migrate.Registry{
 	TypeName:       "User",
-	CurrentVersion: 3,
+	CurrentVersion: 2,
 	Migrations: []migrate.Migration{
 		{FromVersion: 0, ToVersion: 1, Migrate: migrateUserV0ToV1},
 		{FromVersion: 1, ToVersion: 2, Migrate: migrateUserV1ToV2},
-		{FromVersion: 2, ToVersion: 3, Migrate: migrateUserV2ToV3},
 	},
 }
 
@@ -35,40 +34,20 @@ func migrateUserV1ToV2(data []byte) ([]byte, error) {
 	}
 	new := UserV2{
 		Email: old.Email,
-		ID: old.ID,
-		Key: old.Key,
-		Tags: old.Tags,
 		Age: old.Age,
-		Name: old.Name,
 		Balance: old.Balance,
 		Active: old.Active,
 		CreatedAt: old.CreatedAt,
+		Tags: old.Tags,
+		Role: old.Role,
+		Score: old.Score,
+		ID: old.ID,
+		Name: old.Name,
 		LastSeen: old.LastSeen,
+		Verified: old.Verified,
+		Key: old.Key,
 	}
 	// Hook for custom field mappings (implement in migrations_custom.go)
 	MigrateUserV1ToV2Hook(&old, &new)
-	return proto.Marshal(&new)
-}
-
-func migrateUserV2ToV3(data []byte) ([]byte, error) {
-	var old UserV2
-	if err := proto.Unmarshal(data, &old); err != nil {
-		return nil, err
-	}
-	new := UserV3{
-		Balance: old.Balance,
-		ID: old.ID,
-		Name: old.Name,
-		Age: old.Age,
-		CreatedAt: old.CreatedAt,
-		LastSeen: old.LastSeen,
-		Tags: old.Tags,
-		Key: old.Key,
-		Email: old.Email,
-		Active: old.Active,
-		Role: old.Role,
-	}
-	// Hook for custom field mappings (implement in migrations_custom.go)
-	MigrateUserV2ToV3Hook(&old, &new)
 	return proto.Marshal(&new)
 }

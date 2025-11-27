@@ -25,7 +25,15 @@ func (m *{{ .TypeName }}) UnmarshalGorp(data []byte) error {
 	var pb types.{{ .TypeName }}
 	if err := proto.Unmarshal(data, &pb); err == nil {
 {{- range .Fields }}
+{{- if .CanFail }}
+		var err error
+		m.{{ .Name }}, err = {{ .BackwardExpr }}
+		if err != nil {
+			return err
+		}
+{{- else }}
 		m.{{ .Name }} = {{ .BackwardExpr }}
+{{- end }}
 {{- end }}
 		return nil
 	}

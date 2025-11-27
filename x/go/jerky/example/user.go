@@ -49,6 +49,8 @@ type User struct {
 	Verified bool `json:"verified"`
 	// Score is the user's reputation score (new in V3).
 	Score int64 `json:"score"`
+	// Department is the user's department (new field for testing).
+	Department string `json:"department"`
 }
 
 var _ gorp.Entry[uuid.UUID] = User{}
