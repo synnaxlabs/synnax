@@ -16,7 +16,7 @@ from console.console import Console
 
 from ..page import ConsolePage
 from .factory import SchematicSymbolFactory
-from .symbol import Position, Symbol
+from .symbol import Box, Symbol
 
 PropertyDict = dict[str, float | str | bool]
 
@@ -120,13 +120,11 @@ class Schematic(ConsolePage):
         if len(symbols) < 3:
             raise ValueError("At least 3 symbols are required for distribution")
 
-        # Map distribution names to icon aria-labels
-        distribution_icon_map = {
-            "horizontal": "pluto-icon--distribute-x",
-            "vertical": "pluto-icon--distribute-y",
-        }
-
-        icon_label = distribution_icon_map[distribution]
+        icon_label = (
+            "pluto-icon--distribute-x"
+            if distribution == "horizontal"
+            else "pluto-icon--distribute-y"
+        )
 
         symbols[0]._click_symbol()
         for symbol in symbols[1:]:
@@ -499,11 +497,11 @@ class Schematic(ConsolePage):
             else:
                 tolerance = 3.0  # Strict tolerance for edge alignment
 
-        # Map horizontal/vertical to x/y for position lookup
+        # Map horizontal/vertical to center_x/center_y for position lookup
         position_key = (
-            "x"
+            "center_x"
             if alignment == "horizontal"
-            else "y" if alignment == "vertical" else alignment
+            else "center_y" if alignment == "vertical" else alignment
         )
 
         # Get the alignment coordinate from the first symbol
@@ -608,7 +606,7 @@ class Schematic(ConsolePage):
     def assert_rotation(
         self,
         symbols: list[Symbol],
-        initial_positions: list[Position],
+        initial_positions: list[Box],
         direction: RotationType,
         group: bool = False,
         tolerance: float = 3.0,
@@ -626,7 +624,7 @@ class Schematic(ConsolePage):
 
         Args:
             symbols: List of symbols that were rotated
-            initial_positions: List of Position objects before rotation (from symbol.position)
+            initial_positions: List of Box objects before rotation (from symbol.position)
             direction: The rotation direction ('clockwise' or 'counterclockwise')
             group: If True, expects group rotation. If False, expects individual rotation.
             tolerance: Maximum allowed difference in pixels for position comparisons (default: 3.0)
@@ -659,8 +657,8 @@ class Schematic(ConsolePage):
     def _assert_individual_rotation_dimensions(
         self,
         symbols: list[Symbol],
-        initial_positions: list[Position],
-        current_positions: list[Position],
+        initial_positions: list[Box],
+        current_positions: list[Box],
         tolerance: float,
     ) -> None:
         """Assert that symbol dimensions changed correctly after individual rotation.
@@ -703,8 +701,8 @@ class Schematic(ConsolePage):
     def _assert_individual_rotation_ordering(
         self,
         symbols: list[Symbol],
-        initial_positions: list[Position],
-        current_positions: list[Position],
+        initial_positions: list[Box],
+        current_positions: list[Box],
     ) -> None:
         """Assert that relative ordering is preserved after individual rotation.
 
@@ -750,14 +748,14 @@ class Schematic(ConsolePage):
                     msg += f"    Current: {v['current_i']:.1f} vs {v['current_j']:.1f} (diff: {abs(float(v['current_j']) - float(v['current_i'])):.1f}px)\n"
                 raise AssertionError(msg)
 
-        check_axis_ordering("x", "Horizontal")
-        check_axis_ordering("y", "Vertical")
+        check_axis_ordering("center_x", "Horizontal")
+        check_axis_ordering("center_y", "Vertical")
 
     def _assert_group_rotation_transform(
         self,
         symbols: list[Symbol],
-        initial_positions: list[Position],
-        current_positions: list[Position],
+        initial_positions: list[Box],
+        current_positions: list[Box],
         direction: RotationType,
         tolerance: float,
     ) -> None:
@@ -767,18 +765,18 @@ class Schematic(ConsolePage):
         rotated by approximately ±90 degrees around the group center.
         """
         # Calculate initial center
-        initial_center_x = sum(pos.x for pos in initial_positions) / len(
+        initial_center_x = sum(pos.center_x for pos in initial_positions) / len(
             initial_positions
         )
-        initial_center_y = sum(pos.y for pos in initial_positions) / len(
+        initial_center_y = sum(pos.center_y for pos in initial_positions) / len(
             initial_positions
         )
 
         # Calculate current center
-        current_center_x = sum(pos.x for pos in current_positions) / len(
+        current_center_x = sum(pos.center_x for pos in current_positions) / len(
             current_positions
         )
-        current_center_y = sum(pos.y for pos in current_positions) / len(
+        current_center_y = sum(pos.center_y for pos in current_positions) / len(
             current_positions
         )
 
@@ -787,11 +785,11 @@ class Schematic(ConsolePage):
 
         for i in range(len(symbols)):
 
-            init_x = initial_positions[i].x - initial_center_x
-            init_y = initial_positions[i].y - initial_center_y
+            init_x = initial_positions[i].center_x - initial_center_x
+            init_y = initial_positions[i].center_y - initial_center_y
 
-            curr_x = current_positions[i].x - current_center_x
-            curr_y = current_positions[i].y - current_center_y
+            curr_x = current_positions[i].center_x - current_center_x
+            curr_y = current_positions[i].center_y - current_center_y
 
             initial_angle = math.degrees(math.atan2(init_y, init_x))
             current_angle = math.degrees(math.atan2(curr_y, curr_x))

@@ -21,17 +21,43 @@ from ..console import Console
 
 
 @dataclass
-class Position:
-    """Position and bounding box information for a symbol."""
+class Box:
+    """Bounding box with computed properties for position and dimensions."""
 
-    left: float
-    right: float
-    top: float
-    bottom: float
-    x: float  # center x
-    y: float  # center y
+    x: float  # left edge
+    y: float  # top edge
     width: float
     height: float
+
+    @property
+    def left(self) -> float:
+        """Left edge x-coordinate."""
+        return self.x
+
+    @property
+    def right(self) -> float:
+        """Right edge x-coordinate."""
+        return self.x + self.width
+
+    @property
+    def top(self) -> float:
+        """Top edge y-coordinate."""
+        return self.y
+
+    @property
+    def bottom(self) -> float:
+        """Bottom edge y-coordinate."""
+        return self.y + self.height
+
+    @property
+    def center_x(self) -> float:
+        """Center x-coordinate."""
+        return self.x + self.width / 2
+
+    @property
+    def center_y(self) -> float:
+        """Center y-coordinate."""
+        return self.y + self.height / 2
 
 
 class Symbol(ABC):
@@ -43,9 +69,16 @@ class Symbol(ABC):
     symbol_id: str
     channel_name: str
     label: str
-    rotatable: bool = False
+    rotatable: bool
 
-    def __init__(self, page: Page, console: Console, symbol_id: str, channel_name: str):
+    def __init__(
+        self,
+        page: Page,
+        console: Console,
+        symbol_id: str,
+        channel_name: str,
+        rotatable: bool = False,
+    ):
         if channel_name.strip() == "":
             raise ValueError("Channel name cannot be empty")
 
@@ -54,6 +87,7 @@ class Symbol(ABC):
         self.console = console
         self.symbol_id = symbol_id
         self.label = channel_name
+        self.rotatable = rotatable
 
         self.symbol = self.page.get_by_test_id(self.symbol_id)
         self.set_label(channel_name)
@@ -123,8 +157,8 @@ class Symbol(ABC):
     def move(self, delta_x: int, delta_y: int) -> None:
         """Move the symbol by the specified number of pixels using drag"""
         pos = self.position
-        start_x = pos.x
-        start_y = pos.y
+        start_x = pos.center_x
+        start_y = pos.center_y
         target_x = start_x + delta_x
         target_y = start_y + delta_y
 
@@ -136,23 +170,27 @@ class Symbol(ABC):
         sy.sleep(0.1)  # CI flakiness
 
     @property
-    def position(self) -> Position:
+    def position(self) -> Box:
         """
-        Get the symbol's position information for alignment checks.
+        Get the symbol's bounding box information for alignment checks.
 
         Returns:
-            Position dataclass with:
-                - left: x coordinate of the left edge
-                - right: x coordinate of the right edge
-                - top: y coordinate of the top edge
-                - bottom: y coordinate of the bottom edge
-                - x: x coordinate of the center (for horizontal alignment)
-                - y: y coordinate of the center (for vertical alignment)
+            Box dataclass with:
+                - x: x coordinate of the left edge
+                - y: y coordinate of the top edge
                 - width: width of the bounding box
                 - height: height of the bounding box
 
+            Computed properties available:
+                - left: x coordinate of the left edge (same as x)
+                - right: x coordinate of the right edge
+                - top: y coordinate of the top edge (same as y)
+                - bottom: y coordinate of the bottom edge
+                - center_x: x coordinate of the center (for horizontal alignment)
+                - center_y: y coordinate of the center (for vertical alignment)
+
         Note: Edge alignments (left/right/top/bottom) use bounding box edges.
-              Center alignments (x/y) use the box center as a proxy for handle positions.
+              Center alignments (center_x/center_y) use the box center as a proxy for handle positions.
 
         Raises:
             RuntimeError: If the symbol's bounding box cannot be retrieved
@@ -163,17 +201,11 @@ class Symbol(ABC):
                 f"Could not get bounding box for symbol {self.symbol_id}"
             )
 
-        x, y, w, h = box["x"], box["y"], box["width"], box["height"]
-
-        return Position(
-            left=x,
-            right=x + w,
-            top=y,
-            bottom=y + h,
-            x=x + w / 2,
-            y=y + h / 2,
-            width=w,
-            height=h,
+        return Box(
+            x=box["x"],
+            y=box["y"],
+            width=box["width"],
+            height=box["height"],
         )
 
     def delete(self) -> None:

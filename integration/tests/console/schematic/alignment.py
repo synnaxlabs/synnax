@@ -45,16 +45,32 @@ class Alignment(ConsoleCase):
         schematic = Schematic(client, console, "set_output_schematic")
 
         # Set up Symbols
-        valve_threeway = schematic.create.valve_threeway(CHANNEL_NAME)
+        valve_threeway = schematic.create.valve(
+            label=CHANNEL_NAME,
+            state_channel=CHANNEL_NAME,
+            command_channel=CHANNEL_NAME,
+            variant="threeway",
+        )
         valve_threeway.move(-150, 0)
 
-        valve_threeway_ball = schematic.create.valve_threeway_ball(CHANNEL_NAME)
+        valve_threeway_ball = schematic.create.valve(
+            label=CHANNEL_NAME,
+            state_channel=CHANNEL_NAME,
+            command_channel=CHANNEL_NAME,
+            variant="threeway_ball",
+        )
         valve_threeway_ball.move(150, -20)
 
-        valve = schematic.create.valve(CHANNEL_NAME)
+        valve = schematic.create.valve(
+            label=CHANNEL_NAME,
+            state_channel=CHANNEL_NAME,
+            command_channel=CHANNEL_NAME,
+        )
         valve.move(0, 50)
 
-        setpoint = schematic.create.setpoint(CHANNEL_NAME)
+        setpoint = schematic.create.setpoint(
+            label=CHANNEL_NAME, channel_name=CHANNEL_NAME
+        )
         setpoint.move(-210, 0)
 
         symbols = [setpoint, valve_threeway, valve_threeway_ball, valve]

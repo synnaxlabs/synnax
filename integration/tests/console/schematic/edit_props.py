@@ -58,7 +58,7 @@ class EditProps(ConsoleCase):
         schematic.assert_properties(control_authority=128, show_control_legend=True)
 
         self.log("0.2 Acquire Control")
-        button = schematic.create.button(channel_name=CHANNEL_NAME)
+        button = schematic.create.button(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
         schematic.acquire_control()
         schematic.assert_control_status(True)
         schematic.assert_control_legend_visible(True)
@@ -81,7 +81,9 @@ class EditProps(ConsoleCase):
         self.log("Test 1: Value Properties")
 
         self.log("1.1 Default")
-        value = schematic.create.value(f"{self.name}_uptime")
+        value = schematic.create.value(
+            label=f"{self.name}_uptime", channel_name=f"{self.name}_uptime"
+        )
         default_props: PropertyDict = {
             "channel": f"{self.name}_uptime",
             "notation": "standard",
@@ -122,7 +124,8 @@ class EditProps(ConsoleCase):
             "stale_timeout": 15,
         }
         non_default_value = schematic.create.value(
-            f"{self.name}_state",
+            label=f"{self.name}_state",
+            channel_name=f"{self.name}_state",
             notation="engineering",
             precision=7,
             averaging_window=3,
@@ -136,7 +139,7 @@ class EditProps(ConsoleCase):
         self.log("Test 2: Button Properties")
 
         self.log("2.1 Default")
-        button = schematic.create.button(channel_name=CHANNEL_NAME)
+        button = schematic.create.button(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
 
         expected_default_props: PropertyDict = {
             "channel": CHANNEL_NAME,
@@ -170,6 +173,7 @@ class EditProps(ConsoleCase):
             "mode": "pulse",
         }
         non_default_button = schematic.create.button(
+            label=CHANNEL_NAME,
             channel_name=CHANNEL_NAME,
             activation_delay=2.3,
             show_control_chip=True,

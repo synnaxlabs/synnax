@@ -17,7 +17,8 @@ from .symbol import Symbol
 class Valve(Symbol):
     """Schematic valve symbol"""
 
-    rotatable: bool = True
+    def __init__(self, page, console, symbol_id: str, label: str, rotatable: bool = True):
+        super().__init__(page, console, symbol_id, label, rotatable=rotatable)
 
     def edit_properties(
         self,

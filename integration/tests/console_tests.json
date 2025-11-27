@@ -8,6 +8,24 @@
       "tests": [
         {
           "case": "console/schematic/alignment"
+        },
+        {
+          "case": "console/channel_lifecycle"
+        },
+        {
+          "case": "console/pages/snap_to_grid"
+        },
+        {
+          "case": "console/schematic/set_output"
+        },
+        {
+          "case": "console/schematic/edit_props"
+        },
+        {
+          "case": "console/line-plot/download_csv"
+        },
+        {
+          "case": "console/pages/open_close"
         }
       ]
     }

@@ -42,10 +42,14 @@ class SetOutput(ConsoleCase):
         self.log("Creating schematic symbols")
         schematic = Schematic(client, console, "set_output_schematic")
 
-        setpoint_symbol = schematic.create.setpoint(CHANNEL_NAME)
+        setpoint_symbol = schematic.create.setpoint(
+            label=CHANNEL_NAME, channel_name=CHANNEL_NAME
+        )
         setpoint_symbol.move(-200, 0)
 
-        value_symbol = schematic.create.value(CHANNEL_NAME)
+        value_symbol = schematic.create.value(
+            label=CHANNEL_NAME, channel_name=CHANNEL_NAME
+        )
         value_symbol.move(200, 0)
 
         schematic.connect_symbols(setpoint_symbol, "right", value_symbol, "left")

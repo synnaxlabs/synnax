@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, TypeVar
+from typing import Literal
 
 from playwright.sync_api import Page
 
@@ -15,20 +15,25 @@ from console.console import Console
 
 from .button import Button
 from .setpoint import Setpoint
+from .symbol import Symbol
 from .value import Value
 from .valve import Valve
 from .valve_threeway import ValveThreeWay
 from .valve_threeway_ball import ValveThreeWayBall
 
-ValveT = TypeVar("ValveT", bound=Valve)
-
 
 class SchematicSymbolFactory:
     """Factory for creating and configuring schematic symbols.
 
-    Handles both UI manipulation (adding symbols to schematic) and
-    symbol instantiation/configuration. This eliminates the need for
-    a separate coordinator layer.
+    Provides methods to create different symbol types with their specific parameters.
+
+    Example:
+        valve = schematic.valve(
+            label="Pressure Valve",
+            state_channel="press_vlv_state",
+            command_channel="press_vlv_cmd"
+        )
+        valve.move(-90, -100)
     """
 
     def __init__(self, page: Page, console: Console):
@@ -89,22 +94,62 @@ class SchematicSymbolFactory:
         all_symbols = self._page.locator("[data-testid^='rf__node-']").all()
         return all_symbols[-1].get_attribute("data-testid") or "unknown"
 
-    def setpoint(self, channel_name: str) -> Setpoint:
-        """Create and configure a setpoint symbol.
+    def valve(
+        self,
+        label: str,
+        state_channel: str,
+        command_channel: str,
+        show_control_chip: bool | None = None,
+        variant: Literal["valve", "threeway", "threeway_ball"] = "valve",
+    ) -> Valve:
+        """Create a valve symbol.
 
         Args:
+            label: Display label for the symbol
+            state_channel: Channel name for valve state
+            command_channel: Channel name for valve commands
+            show_control_chip: Whether to show the control chip (optional)
+            variant: Type of valve ("valve", "threeway", "threeway_ball")
+
+        Returns:
+            Configured valve symbol instance
+        """
+        # Map variant to symbol type and class
+        variant_map = {
+            "valve": ("Valve", Valve),
+            "threeway": ("Three Way", ValveThreeWay),
+            "threeway_ball": ("Three-Way Ball", ValveThreeWayBall),
+        }
+
+        symbol_type, valve_class = variant_map[variant]
+        symbol_id = self._add_symbol(symbol_type)
+
+        valve = valve_class(self._page, self._console, symbol_id, label)
+        valve.edit_properties(
+            state_channel=state_channel,
+            command_channel=command_channel,
+            show_control_chip=show_control_chip,
+        )
+        return valve
+
+    def setpoint(self, label: str, channel_name: str) -> Setpoint:
+        """Create a setpoint symbol.
+
+        Args:
+            label: Display label for the symbol
             channel_name: Channel name for the setpoint
 
         Returns:
-            Configured Setpoint instance
+            Configured setpoint symbol instance
         """
         symbol_id = self._add_symbol("Setpoint")
-        setpoint = Setpoint(self._page, self._console, symbol_id, channel_name)
+        setpoint = Setpoint(self._page, self._console, symbol_id, label)
         setpoint.edit_properties(channel_name=channel_name)
         return setpoint
 
     def button(
         self,
+        label: str,
         channel_name: str,
         activation_delay: float | None = None,
         show_control_chip: bool | None = None,
@@ -112,19 +157,20 @@ class SchematicSymbolFactory:
             Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"] | None
         ) = None,
     ) -> Button:
-        """Create and configure a button symbol.
+        """Create a button symbol.
 
         Args:
+            label: Display label for the symbol
             channel_name: Channel name for the button
-            activation_delay: Delay before activation in seconds
-            show_control_chip: Whether to show the control chip
-            mode: Button mode (fire, momentary, or pulse)
+            activation_delay: Delay before activation in seconds (optional)
+            show_control_chip: Whether to show the control chip (optional)
+            mode: Button mode - "fire", "momentary", or "pulse" (optional)
 
         Returns:
-            Configured Button instance
+            Configured button symbol instance
         """
         symbol_id = self._add_symbol("Button")
-        button = Button(self._page, self._console, symbol_id, channel_name)
+        button = Button(self._page, self._console, symbol_id, label)
         button.edit_properties(
             channel_name=channel_name,
             activation_delay=activation_delay,
@@ -133,116 +179,9 @@ class SchematicSymbolFactory:
         )
         return button
 
-    def _create_valve_generic(
-        self,
-        symbol_type: str,
-        valve_class: type[ValveT],
-        channel_name: str,
-        show_control_chip: bool | None = None,
-        no_state_channel: bool = True,
-    ) -> ValveT:
-        """Generic valve creation logic shared by all valve types.
-
-        Args:
-            symbol_type: Symbol type string for _add_symbol() (e.g., "Valve", "Three Way")
-            valve_class: Class to instantiate (Valve, ValveThreeWay, or ValveThreeWayBall)
-            channel_name: Base channel name. Will be used for _state and _cmd channels unless no_state_channel=True.
-            show_control_chip: Whether to show the control chip
-            no_state_channel: If True, uses channel_name directly. If False, creates _state and _cmd channels.
-
-        Returns:
-            Configured valve instance
-        """
-        if not no_state_channel:
-            ch_state = f"{channel_name}_state"
-            ch_cmd = f"{channel_name}_cmd"
-        else:
-            ch_state = channel_name
-            ch_cmd = channel_name
-
-        symbol_id = self._add_symbol(symbol_type)
-        valve = valve_class(self._page, self._console, symbol_id, channel_name)
-        valve.edit_properties(
-            state_channel=ch_state,
-            command_channel=ch_cmd,
-            show_control_chip=show_control_chip,
-        )
-        return valve
-
-    def valve(
-        self,
-        channel_name: str,
-        show_control_chip: bool | None = None,
-        no_state_channel: bool = True,
-    ) -> Valve:
-        """Create and configure a generic valve symbol.
-
-        Args:
-            channel_name: Base channel name. Will be used for _state and _cmd channels unless no_state_channel=True.
-            show_control_chip: Whether to show the control chip
-            no_state_channel: If True, uses channel_name directly. If False, creates _state and _cmd channels.
-
-        Returns:
-            Configured Valve instance
-        """
-        return self._create_valve_generic(
-            "Valve",
-            Valve,
-            channel_name,
-            show_control_chip,
-            no_state_channel,
-        )
-
-    def valve_threeway(
-        self,
-        channel_name: str,
-        show_control_chip: bool | None = None,
-        no_state_channel: bool = True,
-    ) -> ValveThreeWay:
-        """Create and configure a three-way valve symbol.
-
-        Args:
-            channel_name: Base channel name. Will be used for _state and _cmd channels unless no_state_channel=True.
-            show_control_chip: Whether to show the control chip
-            no_state_channel: If True, uses channel_name directly. If False, creates _state and _cmd channels.
-
-        Returns:
-            Configured ValveThreeWay instance
-        """
-        return self._create_valve_generic(
-            "Three Way",
-            ValveThreeWay,
-            channel_name,
-            show_control_chip,
-            no_state_channel,
-        )
-
-    def valve_threeway_ball(
-        self,
-        channel_name: str,
-        show_control_chip: bool | None = None,
-        no_state_channel: bool = True,
-    ) -> ValveThreeWayBall:
-        """Create and configure a three-way ball valve symbol.
-
-        Args:
-            channel_name: Base channel name. Will be used for _state and _cmd channels unless no_state_channel=True.
-            show_control_chip: Whether to show the control chip
-            no_state_channel: If True, uses channel_name directly. If False, creates _state and _cmd channels.
-
-        Returns:
-            Configured ValveThreeWayBall instance
-        """
-        return self._create_valve_generic(
-            "Three-Way Ball",
-            ValveThreeWayBall,
-            channel_name,
-            show_control_chip,
-            no_state_channel,
-        )
-
     def value(
         self,
+        label: str,
         channel_name: str,
         notation: str | None = None,
         precision: int | None = None,
@@ -250,22 +189,22 @@ class SchematicSymbolFactory:
         stale_color: str | None = None,
         stale_timeout: int | None = None,
     ) -> Value:
-        """Create and configure a value symbol.
+        """Create a value display symbol.
 
         Args:
+            label: Display label for the symbol
             channel_name: Channel name for the value display
-            notation: Number notation format
-            precision: Decimal precision
-            averaging_window: Averaging window size
-            stale_color: Color for stale data
-            stale_timeout: Timeout for stale data in milliseconds
+            notation: Number notation format (optional)
+            precision: Decimal precision (optional)
+            averaging_window: Averaging window size (optional)
+            stale_color: Color for stale data (optional)
+            stale_timeout: Timeout for stale data in milliseconds (optional)
 
         Returns:
-            Configured Value instance
+            Configured value symbol instance
         """
         symbol_id = self._add_symbol("Value")
-        value = Value(self._page, self._console, symbol_id, channel_name)
-
+        value = Value(self._page, self._console, symbol_id, label)
         value.edit_properties(
             channel_name=channel_name,
             notation=notation,
@@ -274,5 +213,4 @@ class SchematicSymbolFactory:
             stale_color=stale_color,
             stale_timeout=stale_timeout,
         )
-
         return value
