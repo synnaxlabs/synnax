@@ -17,10 +17,37 @@ from .symbol import Symbol
 class Valve(Symbol):
     """Schematic valve symbol"""
 
-    def __init__(self, page, console, symbol_id: str, label: str, rotatable: bool = True):
-        super().__init__(page, console, symbol_id, label, rotatable=rotatable)
+    _symbol_type = "Valve"
 
-    def edit_properties(
+    def __init__(
+        self,
+        label: str,
+        state_channel: str,
+        command_channel: str,
+        show_control_chip: bool | None = None,
+    ):
+        """Initialize a valve symbol with configuration.
+
+        Args:
+            label: Display label for the symbol
+            state_channel: Channel name for valve state
+            command_channel: Channel name for valve commands
+            show_control_chip: Whether to show the control chip (optional)
+        """
+        super().__init__(label, rotatable=True)
+        self.state_channel = state_channel
+        self.command_channel = command_channel
+        self.show_control_chip = show_control_chip
+
+    def _apply_properties(self) -> None:
+        """Apply valve configuration after being added to schematic."""
+        self.set_properties(
+            state_channel=self.state_channel,
+            command_channel=self.command_channel,
+            show_control_chip=self.show_control_chip,
+        )
+
+    def set_properties(
         self,
         channel_name: str | None = None,
         state_channel: str | None = None,
@@ -28,8 +55,8 @@ class Valve(Symbol):
         show_control_chip: bool | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Edit Setpoint properties including channel settings."""
-        self._click_symbol()
+        """Set Valve properties including channel settings."""
+        self.click()
 
         applied_properties: dict[str, Any] = {}
 
@@ -98,7 +125,7 @@ class Valve(Symbol):
     def press(self) -> None:
         """Press button"""
         self._disable_edit_mode()
-        self._click_symbol()
+        self.click()
 
     def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
         """Click and hold the button for the specified duration."""

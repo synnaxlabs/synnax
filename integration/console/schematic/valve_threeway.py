@@ -13,4 +13,4 @@ from .valve import Valve
 class ValveThreeWay(Valve):
     """Schematic three-way valve symbol"""
 
-    pass
+    _symbol_type = "Three Way"

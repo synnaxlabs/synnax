@@ -10,7 +10,13 @@
 import synnax as sy
 
 from console.case import ConsoleCase
-from console.schematic.schematic import Schematic
+from console.schematic import (
+    Schematic,
+    Setpoint,
+    Valve,
+    ValveThreeWay,
+    ValveThreeWayBall,
+)
 
 CHANNEL_NAME = "command_channel"
 INDEX_NAME = "idx_channel"
@@ -45,31 +51,35 @@ class Alignment(ConsoleCase):
         schematic = Schematic(client, console, "set_output_schematic")
 
         # Set up Symbols
-        valve_threeway = schematic.create.valve(
-            label=CHANNEL_NAME,
-            state_channel=CHANNEL_NAME,
-            command_channel=CHANNEL_NAME,
-            variant="threeway",
+        valve_threeway = schematic.create_symbol(
+            ValveThreeWay(
+                label=CHANNEL_NAME,
+                state_channel=CHANNEL_NAME,
+                command_channel=CHANNEL_NAME,
+            )
         )
         valve_threeway.move(-150, 0)
 
-        valve_threeway_ball = schematic.create.valve(
-            label=CHANNEL_NAME,
-            state_channel=CHANNEL_NAME,
-            command_channel=CHANNEL_NAME,
-            variant="threeway_ball",
+        valve_threeway_ball = schematic.create_symbol(
+            ValveThreeWayBall(
+                label=CHANNEL_NAME,
+                state_channel=CHANNEL_NAME,
+                command_channel=CHANNEL_NAME,
+            )
         )
         valve_threeway_ball.move(150, -20)
 
-        valve = schematic.create.valve(
-            label=CHANNEL_NAME,
-            state_channel=CHANNEL_NAME,
-            command_channel=CHANNEL_NAME,
+        valve = schematic.create_symbol(
+            Valve(
+                label=CHANNEL_NAME,
+                state_channel=CHANNEL_NAME,
+                command_channel=CHANNEL_NAME,
+            )
         )
         valve.move(0, 50)
 
-        setpoint = schematic.create.setpoint(
-            label=CHANNEL_NAME, channel_name=CHANNEL_NAME
+        setpoint = schematic.create_symbol(
+            Setpoint(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
         )
         setpoint.move(-210, 0)
 

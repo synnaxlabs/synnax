@@ -7,14 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from .button import Button
 from .schematic import Schematic
 from .setpoint import Setpoint
 from .symbol import Symbol
 from .value import Value
+from .valve import Valve
+from .valve_threeway import ValveThreeWay
+from .valve_threeway_ball import ValveThreeWayBall
 
 __all__ = [
+    "Button",
     "Schematic",
     "Setpoint",
     "Symbol",
+    "Valve",
+    "ValveThreeWay",
+    "ValveThreeWayBall",
     "Value",
 ]

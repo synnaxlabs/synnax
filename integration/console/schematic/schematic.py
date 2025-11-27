@@ -15,7 +15,6 @@ import synnax as sy
 from console.console import Console
 
 from ..page import ConsolePage
-from .factory import SchematicSymbolFactory
 from .symbol import Box, Symbol
 
 PropertyDict = dict[str, float | str | bool]
@@ -47,9 +46,30 @@ class Schematic(ConsolePage):
     pluto_label: str = ".react-flow__pane"
 
     def __init__(self, client: sy.Synnax, console: Console, page_name: str):
-        """Initialize a Schematic page with symbol creation API."""
+        """Initialize a Schematic page."""
         super().__init__(client, console, page_name)
-        self.create = SchematicSymbolFactory(self.page, self.console)
+
+    def create_symbol(self, symbol: Symbol) -> Symbol:
+        """Add a symbol to the schematic and configure it.
+
+        Args:
+            symbol: Symbol instance to add to the schematic
+
+        Returns:
+            The configured symbol instance
+
+        Example:
+            valve = Valve(
+                label="Pressure Valve",
+                state_channel="press_vlv_state",
+                command_channel="press_vlv_cmd"
+            )
+            configured_valve = schematic.create_symbol(valve)
+            configured_valve.move(-90, -100)
+        """
+        # Inject page and console into the symbol
+        symbol._attach_to_schematic(self.page, self.console)
+        return symbol
 
     def align(
         self,
@@ -85,7 +105,7 @@ class Schematic(ConsolePage):
 
         icon_label = alignment_icon_map[alignment]
 
-        symbols[0]._click_symbol()
+        symbols[0].click()
         for symbol in symbols[1:]:
             symbol.meta_click()
 
@@ -126,7 +146,7 @@ class Schematic(ConsolePage):
             else "pluto-icon--distribute-y"
         )
 
-        symbols[0]._click_symbol()
+        symbols[0].click()
         for symbol in symbols[1:]:
             symbol.meta_click()
 
@@ -182,7 +202,7 @@ class Schematic(ConsolePage):
         icon_label = rotation_icon_map[direction]
 
         # Select all symbols
-        symbols[0]._click_symbol()
+        symbols[0].click()
         for symbol in symbols[1:]:
             symbol.meta_click()
 
@@ -218,7 +238,7 @@ class Schematic(ConsolePage):
 
     def find_symbol_handle(self, symbol: Symbol, handle: str) -> tuple[float, float]:
         """Calculate the coordinates of a symbol's connection handle."""
-        symbol_box = symbol.symbol.bounding_box()
+        symbol_box = symbol.locator.bounding_box()
         if not symbol_box:
             raise RuntimeError(f"Could not get bounding box for symbol {symbol.label}")
 
@@ -253,12 +273,12 @@ class Schematic(ConsolePage):
         self.console.click("Control")
         self.console.fill_input_field("Control Authority", str(authority))
 
-    def edit_properties(
+    def set_properties(
         self,
         control_authority: int | None = None,
         show_control_legend: bool | None = None,
     ) -> None:
-        """Edit schematic properties."""
+        """Set schematic properties."""
         self.console.click("Control")
 
         if control_authority is not None:
@@ -308,7 +328,7 @@ class Schematic(ConsolePage):
                 self.page.wait_for_selector(
                     ".pluto-diagram__controls button.pluto-btn--filled", timeout=2000
                 )
-            sy.sleep(0.1)  # CI flakiness
+            sy.sleep(0.1)  # Wait for Core update
 
     def release_control(self) -> None:
         """Release control of the schematic if currently acquired."""
@@ -323,7 +343,7 @@ class Schematic(ConsolePage):
                 self.page.wait_for_selector(
                     ".pluto-diagram__controls button.pluto-btn--outlined", timeout=1000
                 )
-            sy.sleep(0.1)  # CI flakiness
+            sy.sleep(0.1)  # Wait for Core update
 
     def get_edit_status(self) -> bool:
         """Get whether edit is currently enabled for this schematic."""
@@ -360,7 +380,7 @@ class Schematic(ConsolePage):
                 self.page.wait_for_selector(
                     ".pluto-diagram__controls button.pluto-btn--filled", timeout=2000
                 )
-        sy.sleep(0.1)  # CI flakiness
+        sy.sleep(0.1)
 
     def disable_edit(self) -> None:
         """Disable edit for the schematic if currently enabled."""
@@ -375,7 +395,7 @@ class Schematic(ConsolePage):
                 self.page.wait_for_selector(
                     ".pluto-diagram__controls button.pluto-btn--outlined", timeout=2000
                 )
-        sy.sleep(0.1)  # CI flakiness
+        sy.sleep(0.1)
 
     def assert_setpoint(
         self, setpoint_symbol: Symbol, channel_name: str, value: float

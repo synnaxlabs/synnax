@@ -15,13 +15,29 @@ from .symbol import Symbol
 class Setpoint(Symbol):
     """Schematic setpoint/control symbol"""
 
-    def edit_properties(
+    _symbol_type = "Setpoint"
+
+    def __init__(self, label: str, channel_name: str):
+        """Initialize a setpoint symbol with configuration.
+
+        Args:
+            label: Display label for the symbol
+            channel_name: Channel name for the setpoint
+        """
+        super().__init__(label, rotatable=False)
+        self.channel_name = channel_name
+
+    def _apply_properties(self) -> None:
+        """Apply setpoint configuration after being added to schematic."""
+        self.set_properties(channel_name=self.channel_name)
+
+    def set_properties(
         self,
         channel_name: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Edit Setpoint properties including channel settings."""
-        self._click_symbol()
+        """Set Setpoint properties including channel settings."""
+        self.click()
 
         applied_properties: dict[str, Any] = {}
         if channel_name is not None:
@@ -37,10 +53,10 @@ class Setpoint(Symbol):
 
     def set_value(self, value: float) -> None:
         self._disable_edit_mode()
-        self._click_symbol()
+        self.click()
 
         # Fill the input and set the value
-        value_input = self.symbol.locator("input[type='number'], input").first
+        value_input = self.locator.locator("input[type='number'], input").first
         value_input.fill(str(value))
-        set_button = self.symbol.locator("button").filter(has_text="Set")
+        set_button = self.locator.locator("button").filter(has_text="Set")
         set_button.click()

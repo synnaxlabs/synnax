@@ -17,7 +17,43 @@ from .symbol import Symbol
 class Button(Symbol):
     """Schematic button symbol"""
 
-    def edit_properties(
+    _symbol_type = "Button"
+
+    def __init__(
+        self,
+        label: str,
+        channel_name: str,
+        activation_delay: float | None = None,
+        show_control_chip: bool | None = None,
+        mode: (
+            Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"] | None
+        ) = None,
+    ):
+        """Initialize a button symbol with configuration.
+
+        Args:
+            label: Display label for the symbol
+            channel_name: Channel name for the button
+            activation_delay: Delay before activation in seconds (optional)
+            show_control_chip: Whether to show the control chip (optional)
+            mode: Button mode - "fire", "momentary", or "pulse" (optional)
+        """
+        super().__init__(label, rotatable=False)
+        self.channel_name = channel_name
+        self.activation_delay = activation_delay
+        self.show_control_chip = show_control_chip
+        self.mode = mode
+
+    def _apply_properties(self) -> None:
+        """Apply button configuration after being added to schematic."""
+        self.set_properties(
+            channel_name=self.channel_name,
+            activation_delay=self.activation_delay,
+            show_control_chip=self.show_control_chip,
+            mode=self.mode,
+        )
+
+    def set_properties(
         self,
         channel_name: str | None = None,
         activation_delay: float | None = None,
@@ -27,8 +63,8 @@ class Button(Symbol):
         ) = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Edit Setpoint properties including channel settings."""
-        self._click_symbol()
+        """Set Button properties including channel settings."""
+        self.click()
 
         applied_properties: dict[str, Any] = {}
         if channel_name is not None:
@@ -116,7 +152,7 @@ class Button(Symbol):
     def press(self) -> None:
         """Press button"""
         self._disable_edit_mode()
-        self._click_symbol()
+        self.click()
 
     def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
         """Click and hold the button for the specified duration."""
