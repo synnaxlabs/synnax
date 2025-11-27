@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 
 	"github.com/synnaxlabs/x/jerky"
+	"github.com/synnaxlabs/x/jerky/deps"
 	"github.com/synnaxlabs/x/jerky/generate"
 	"github.com/synnaxlabs/x/jerky/parse"
 )
@@ -94,8 +95,16 @@ func run() error {
 
 	fmt.Printf("jerky: parsing %s\n", sourceFile)
 
-	// Parse the source file
-	parser := parse.NewParser()
+	// Discover existing jerky-managed types for dependency tracking
+	depRegistry := deps.NewRegistry()
+	if moduleRoot := findModuleRoot(wd); moduleRoot != "" {
+		if err := depRegistry.DiscoverJerkyTypes(moduleRoot); err != nil {
+			fmt.Printf("jerky: warning: failed to discover jerky types: %v\n", err)
+		}
+	}
+
+	// Parse the source file with dependency awareness
+	parser := parse.NewParserWithDeps(depRegistry)
 	structs, err := parser.ParseFile(sourcePath)
 	if err != nil {
 		return fmt.Errorf("failed to parse %s: %w", sourceFile, err)
@@ -105,8 +114,8 @@ func run() error {
 		return fmt.Errorf("no jerky-annotated structs found in %s", sourceFile)
 	}
 
-	// Generate code for each struct
-	gen, err := generate.NewGenerator(wd, nil)
+	// Generate code for each struct with dependency registry
+	gen, err := generate.NewGeneratorWithDeps(wd, nil, depRegistry)
 	if err != nil {
 		return fmt.Errorf("failed to create generator: %w", err)
 	}
@@ -143,4 +152,19 @@ func runBufGenerate(typesDir string) error {
 	cmd.Stderr = os.Stderr
 
 	return cmd.Run()
+}
+
+// findModuleRoot walks up the directory tree to find the go.mod file.
+func findModuleRoot(start string) string {
+	dir := start
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
 }

@@ -5,10 +5,11 @@ syntax = "proto3";
 package {{ .ProtoPackage }};
 
 option go_package = "{{ .GoPackage }}";
+{{ if .Imports }}
 {{- range .Imports }}
 import "{{ . }}";
 {{- end }}
-
+{{ end }}
 message {{ .TypeName }}V{{ .Version }} {
 {{- range .Fields }}
     {{ .ProtoType }} {{ .ProtoName }} = {{ .FieldNumber }};

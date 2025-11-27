@@ -188,6 +188,11 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 		return fmt.Errorf("failed to generate gorp methods: %w", err)
 	}
 
+	// Generate migrator in parent package
+	if err := g.generateMigrator(parsed, version, g.outputDir); err != nil {
+		return fmt.Errorf("failed to generate migrator: %w", err)
+	}
+
 	// Generate migrations.go
 	if err := g.generateMigrations(parsed, version, typesDir, typeState); err != nil {
 		return fmt.Errorf("failed to generate migrations: %w", err)
@@ -226,6 +231,13 @@ func (g *Generator) generateProto(parsed parse.ParsedStruct, version int, typesD
 		Version:      version,
 	}
 
+	// Collect proto imports from jerky dependencies
+	protoImports := make(map[string]bool)
+	g.collectJerkyImports(parsed.Fields, protoImports)
+	for imp := range protoImports {
+		data.Imports = append(data.Imports, imp)
+	}
+
 	for _, f := range parsed.Fields {
 		protoType, _ := g.getProtoType(f.GoType)
 		protoName := toSnakeCase(f.Name)
@@ -244,6 +256,32 @@ func (g *Generator) generateProto(parsed parse.ParsedStruct, version int, typesD
 
 	filename := filepath.Join(typesDir, fmt.Sprintf("%s_v%d.proto", toSnakeCase(parsed.Name), version))
 	return os.WriteFile(filename, buf.Bytes(), 0644)
+}
+
+// collectJerkyImports recursively collects proto imports for jerky-managed field types.
+func (g *Generator) collectJerkyImports(fields []parse.ParsedField, imports map[string]bool) {
+	var collectFromType func(t parse.GoType)
+	collectFromType = func(t parse.GoType) {
+		if t.IsJerky && t.PackagePath != "" {
+			tName := typeName(t.Name)
+			if info, ok := g.depRegistry.GetByPackageAndType(t.PackagePath, tName); ok {
+				// Generate proto import path: package/types/typename_vN.proto
+				protoImport := fmt.Sprintf("%s/types/%s_v%d.proto",
+					info.PackagePath, toSnakeCase(info.TypeName), info.CurrentVersion)
+				imports[protoImport] = true
+			}
+		}
+		if t.Elem != nil {
+			collectFromType(*t.Elem)
+		}
+		if t.Key != nil {
+			collectFromType(*t.Key)
+		}
+	}
+
+	for _, f := range fields {
+		collectFromType(f.GoType)
+	}
 }
 
 // CurrentTemplateData contains data for current.go template rendering.
@@ -324,6 +362,32 @@ func (g *Generator) generateGorp(parsed parse.ParsedStruct, outputDir string) er
 	}
 
 	filename := filepath.Join(outputDir, fmt.Sprintf("%s_gorp.go", toSnakeCase(parsed.Name)))
+	return os.WriteFile(filename, buf.Bytes(), 0644)
+}
+
+// MigratorTemplateData contains data for migrator.go template rendering.
+type MigratorTemplateData struct {
+	PackageName    string
+	TypesImport    string
+	TypeName       string
+	CurrentVersion int
+	Imports        []string
+}
+
+func (g *Generator) generateMigrator(parsed parse.ParsedStruct, version int, outputDir string) error {
+	data := MigratorTemplateData{
+		PackageName:    parsed.PackageName,
+		TypesImport:    parsed.PackagePath + "/types",
+		TypeName:       parsed.Name,
+		CurrentVersion: version,
+	}
+
+	var buf bytes.Buffer
+	if err := g.templates.ExecuteTemplate(&buf, "migrator.go.tmpl", data); err != nil {
+		return err
+	}
+
+	filename := filepath.Join(outputDir, fmt.Sprintf("%s_migrator.go", toSnakeCase(parsed.Name)))
 	return os.WriteFile(filename, buf.Bytes(), 0644)
 }
 
@@ -426,6 +490,15 @@ func getVersionFields(typeState state.TypeState, version int) map[string]bool {
 
 // getProtoType returns the proto type for a Go type.
 func (g *Generator) getProtoType(goType parse.GoType) (string, bool) {
+	// Check if this is a jerky-managed type
+	if goType.IsJerky && goType.PackagePath != "" {
+		tName := typeName(goType.Name)
+		if info, ok := g.depRegistry.GetByPackageAndType(goType.PackagePath, tName); ok {
+			// Return fully qualified proto type: package.types.TypeNameVN
+			return fmt.Sprintf("%s.types.%sV%d", info.PackageName, info.TypeName, info.CurrentVersion), false
+		}
+	}
+
 	// Check if there's a direct mapping
 	if mapping, ok := g.registry.Get(goType.Name); ok {
 		return mapping.ProtoType, mapping.CanFail

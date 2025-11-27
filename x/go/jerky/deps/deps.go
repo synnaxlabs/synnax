@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/synnaxlabs/x/jerky/state"
 )
@@ -28,6 +29,8 @@ type Registry struct {
 type TypeInfo struct {
 	// PackagePath is the Go import path
 	PackagePath string
+	// PackageName is the short package name (last segment of PackagePath)
+	PackageName string
 	// TypeName is the struct name
 	TypeName string
 	// StateDir is the directory containing the jerky.state.json file
@@ -75,8 +78,14 @@ func (r *Registry) LoadFromStateFile(stateDir string) error {
 		if latest == nil {
 			continue
 		}
+		// Extract package name from path (last segment)
+		pkgName := typeState.Package
+		if idx := strings.LastIndex(pkgName, "/"); idx >= 0 {
+			pkgName = pkgName[idx+1:]
+		}
 		r.Register(TypeInfo{
 			PackagePath:    typeState.Package,
+			PackageName:    pkgName,
 			TypeName:       typeName,
 			StateDir:       stateDir,
 			CurrentVersion: typeState.CurrentVersion,

@@ -17,6 +17,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/synnaxlabs/x/jerky/deps"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -27,13 +28,21 @@ const (
 
 // Parser parses Go source files to extract jerky-annotated structs.
 type Parser struct {
-	// fset is the file set for source locations.
+	// pkg is the loaded package.
 	pkg *packages.Package
+	// depRegistry is used to detect jerky-managed types in field types.
+	depRegistry *deps.Registry
 }
 
 // NewParser creates a new Parser.
 func NewParser() *Parser {
 	return &Parser{}
+}
+
+// NewParserWithDeps creates a parser with dependency tracking.
+// This enables detection of jerky-managed types in field types.
+func NewParserWithDeps(depRegistry *deps.Registry) *Parser {
+	return &Parser{depRegistry: depRegistry}
 }
 
 // ParseFile parses a Go source file and returns all jerky-annotated structs.
@@ -233,6 +242,13 @@ func (p *Parser) typeFromTypesType(t types.Type) GoType {
 			gt.Underlying = &GoType{
 				Kind: KindPrimitive,
 				Name: underlying.(*types.Basic).Name(),
+			}
+		}
+
+		// Check if this type is jerky-managed
+		if p.depRegistry != nil && pkgPath != "" {
+			if _, ok := p.depRegistry.GetByPackageAndType(pkgPath, obj.Name()); ok {
+				gt.IsJerky = true
 			}
 		}
 

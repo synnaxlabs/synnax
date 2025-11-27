@@ -34,18 +34,18 @@ func migrateUserV1ToV2(data []byte) ([]byte, error) {
 	}
 	new := UserV2{
 		Email: old.Email,
-		Age: old.Age,
-		Balance: old.Balance,
-		Active: old.Active,
-		CreatedAt: old.CreatedAt,
+		Name: old.Name,
 		Tags: old.Tags,
+		Verified: old.Verified,
+		Balance: old.Balance,
 		Role: old.Role,
 		Score: old.Score,
-		ID: old.ID,
-		Name: old.Name,
-		LastSeen: old.LastSeen,
-		Verified: old.Verified,
+		CreatedAt: old.CreatedAt,
 		Key: old.Key,
+		Active: old.Active,
+		Age: old.Age,
+		ID: old.ID,
+		LastSeen: old.LastSeen,
 	}
 	// Hook for custom field mappings (implement in migrations_custom.go)
 	MigrateUserV1ToV2Hook(&old, &new)

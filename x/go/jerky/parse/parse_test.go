@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/jerky/deps"
 	"github.com/synnaxlabs/x/jerky/parse"
 )
 
@@ -245,6 +246,110 @@ type Group struct {
 				Expect(structs[0].Name).To(Equal("User"))
 				Expect(structs[1].Name).To(Equal("Group"))
 			})
+		})
+	})
+
+	Describe("NewParserWithDeps", func() {
+		It("should create a parser with dependency registry", func() {
+			depRegistry := deps.NewRegistry()
+			parserWithDeps := parse.NewParserWithDeps(depRegistry)
+			Expect(parserWithDeps).ToNot(BeNil())
+		})
+
+		It("should work like regular parser for basic parsing", func() {
+			depRegistry := deps.NewRegistry()
+			parserWithDeps := parse.NewParserWithDeps(depRegistry)
+
+			source := `package test
+
+//go:generate jerky
+type User struct {
+	Name string
+	Age  int
+}
+`
+			file := writeTestFile(tempDir, "user.go", source)
+			structs, err := parserWithDeps.ParseFile(file)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(structs).To(HaveLen(1))
+			Expect(structs[0].Name).To(Equal("User"))
+		})
+
+		It("should not mark standard library types as IsJerky", func() {
+			depRegistry := deps.NewRegistry()
+			parserWithDeps := parse.NewParserWithDeps(depRegistry)
+
+			source := `package test
+
+import "time"
+
+//go:generate jerky
+type Event struct {
+	Name      string
+	Timestamp time.Time
+}
+`
+			file := writeTestFile(tempDir, "event.go", source)
+			structs, err := parserWithDeps.ParseFile(file)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(structs).To(HaveLen(1))
+
+			// Find the Timestamp field
+			var timestampField *parse.ParsedField
+			for i := range structs[0].Fields {
+				if structs[0].Fields[i].Name == "Timestamp" {
+					timestampField = &structs[0].Fields[i]
+					break
+				}
+			}
+
+			Expect(timestampField).ToNot(BeNil())
+			Expect(timestampField.GoType.IsJerky).To(BeFalse())
+		})
+
+		It("should mark types as IsJerky when found in registry (same package)", func() {
+			depRegistry := deps.NewRegistry()
+			// Register a type from the test package itself
+			depRegistry.Register(deps.TypeInfo{
+				PackagePath:    "testmod",
+				PackageName:    "test",
+				TypeName:       "Address",
+				CurrentVersion: 2,
+			})
+			parserWithDeps := parse.NewParserWithDeps(depRegistry)
+
+			// Define both types in the same package
+			source := `package test
+
+type Address struct {
+	Street string
+	City   string
+}
+
+//go:generate jerky
+type Person struct {
+	Name    string
+	Home    Address
+}
+`
+			file := writeTestFile(tempDir, "person.go", source)
+			structs, err := parserWithDeps.ParseFile(file)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(structs).To(HaveLen(1))
+
+			// Find the Home field
+			var homeField *parse.ParsedField
+			for i := range structs[0].Fields {
+				if structs[0].Fields[i].Name == "Home" {
+					homeField = &structs[0].Fields[i]
+					break
+				}
+			}
+
+			Expect(homeField).ToNot(BeNil())
+			// Type name includes package prefix for same-package types
+			Expect(homeField.GoType.Name).To(ContainSubstring("Address"))
+			Expect(homeField.GoType.IsJerky).To(BeTrue())
 		})
 	})
 })

@@ -32,6 +32,8 @@ func (m User) MarshalGorp() ([]byte, error) {
 }
 
 // UnmarshalGorp deserializes bytes into a User.
+// It expects data to be in the current proto format. Older versions should be
+// migrated at startup using UserMigrator before normal operation.
 func (m *User) UnmarshalGorp(data []byte) error {
 	var pb types.User
 	if err := proto.Unmarshal(data, &pb); err == nil {
@@ -55,6 +57,8 @@ func (m *User) UnmarshalGorp(data []byte) error {
 		m.Department = pb.Department
 		return nil
 	}
-	// Fall back to msgpack (legacy format)
+	// Fall back to msgpack for pre-jerky (legacy) format.
+	// Note: This only handles pre-jerky data, not older proto versions.
+	// Run migrations at startup to convert old proto versions.
 	return msgpack.Unmarshal(data, m)
 }
