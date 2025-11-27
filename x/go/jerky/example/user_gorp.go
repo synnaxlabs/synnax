@@ -3,7 +3,8 @@
 package example
 
 import (
-	"github.com/synnaxlabs/x/jerky/example/types"
+	user "github.com/synnaxlabs/x/jerky/example/types/user"
+	address "github.com/synnaxlabs/x/jerky/example/types/address"
 	"github.com/google/uuid"
 	"time"
 	"github.com/synnaxlabs/x/telem"
@@ -12,7 +13,7 @@ import (
 
 // MarshalGorp serializes a User to bytes using protobuf.
 func (m User) MarshalGorp() ([]byte, error) {
-	return proto.Marshal(&types.User{
+	return proto.Marshal(&user.Current{
 		Key: m.Key.String(),
 		ID: uint32(m.ID),
 		Name: m.Name,
@@ -28,7 +29,7 @@ func (m User) MarshalGorp() ([]byte, error) {
 		Score: m.Score,
 		Department: m.Department,
 		Address: AddressToProto(m.Address),
-		Addresses: func() []*types.Address { result := make([]*types.Address, len(m.Addresses)); for i, v := range m.Addresses { result[i] = AddressToProto(v) }; return result }(),
+		Addresses: func() []*address.Current { result := make([]*address.Current, len(m.Addresses)); for i, v := range m.Addresses { result[i] = AddressToProto(v) }; return result }(),
 	})
 }
 
@@ -36,7 +37,7 @@ func (m User) MarshalGorp() ([]byte, error) {
 // It expects data to be in the current proto format. Run migrations at startup
 // using UserMigrator to convert legacy data before normal operation.
 func (m *User) UnmarshalGorp(data []byte) error {
-	var pb types.User
+	var pb user.Current
 	if err := proto.Unmarshal(data, &pb); err != nil {
 		return err
 	}

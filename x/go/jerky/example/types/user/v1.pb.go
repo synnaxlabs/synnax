@@ -4,11 +4,12 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        (unknown)
-// source: x/go/jerky/example/types/user_v1.proto
+// source: x/go/jerky/example/types/user/v1.proto
 
-package types
+package user
 
 import (
+	address "github.com/synnaxlabs/x/jerky/example/types/address"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -23,7 +24,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type UserV1 struct {
+type V1 struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	ID            uint32                 `protobuf:"varint,2,opt,name=i_d,json=iD,proto3" json:"i_d,omitempty"`
@@ -39,26 +40,26 @@ type UserV1 struct {
 	Verified      bool                   `protobuf:"varint,12,opt,name=verified,proto3" json:"verified,omitempty"`
 	Score         int64                  `protobuf:"varint,13,opt,name=score,proto3" json:"score,omitempty"`
 	Department    string                 `protobuf:"bytes,14,opt,name=department,proto3" json:"department,omitempty"`
-	Address       *AddressV1             `protobuf:"bytes,15,opt,name=address,proto3" json:"address,omitempty"`
-	Addresses     []*AddressV1           `protobuf:"bytes,16,rep,name=addresses,proto3" json:"addresses,omitempty"`
+	Address       *address.V1            `protobuf:"bytes,15,opt,name=address,proto3" json:"address,omitempty"`
+	Addresses     []*address.V1          `protobuf:"bytes,16,rep,name=addresses,proto3" json:"addresses,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UserV1) Reset() {
-	*x = UserV1{}
+func (x *V1) Reset() {
+	*x = V1{}
 	mi := &file_x_go_jerky_example_types_user_v1_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UserV1) String() string {
+func (x *V1) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UserV1) ProtoMessage() {}
+func (*V1) ProtoMessage() {}
 
-func (x *UserV1) ProtoReflect() protoreflect.Message {
+func (x *V1) ProtoReflect() protoreflect.Message {
 	mi := &file_x_go_jerky_example_types_user_v1_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -70,117 +71,117 @@ func (x *UserV1) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UserV1.ProtoReflect.Descriptor instead.
-func (*UserV1) Descriptor() ([]byte, []int) {
+// Deprecated: Use V1.ProtoReflect.Descriptor instead.
+func (*V1) Descriptor() ([]byte, []int) {
 	return file_x_go_jerky_example_types_user_v1_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *UserV1) GetKey() string {
+func (x *V1) GetKey() string {
 	if x != nil {
 		return x.Key
 	}
 	return ""
 }
 
-func (x *UserV1) GetID() uint32 {
+func (x *V1) GetID() uint32 {
 	if x != nil {
 		return x.ID
 	}
 	return 0
 }
 
-func (x *UserV1) GetName() string {
+func (x *V1) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *UserV1) GetEmail() string {
+func (x *V1) GetEmail() string {
 	if x != nil {
 		return x.Email
 	}
 	return ""
 }
 
-func (x *UserV1) GetAge() int32 {
+func (x *V1) GetAge() int32 {
 	if x != nil {
 		return x.Age
 	}
 	return 0
 }
 
-func (x *UserV1) GetActive() bool {
+func (x *V1) GetActive() bool {
 	if x != nil {
 		return x.Active
 	}
 	return false
 }
 
-func (x *UserV1) GetBalance() float64 {
+func (x *V1) GetBalance() float64 {
 	if x != nil {
 		return x.Balance
 	}
 	return 0
 }
 
-func (x *UserV1) GetCreatedAt() int64 {
+func (x *V1) GetCreatedAt() int64 {
 	if x != nil {
 		return x.CreatedAt
 	}
 	return 0
 }
 
-func (x *UserV1) GetLastSeen() int64 {
+func (x *V1) GetLastSeen() int64 {
 	if x != nil {
 		return x.LastSeen
 	}
 	return 0
 }
 
-func (x *UserV1) GetTags() []string {
+func (x *V1) GetTags() []string {
 	if x != nil {
 		return x.Tags
 	}
 	return nil
 }
 
-func (x *UserV1) GetRole() string {
+func (x *V1) GetRole() string {
 	if x != nil {
 		return x.Role
 	}
 	return ""
 }
 
-func (x *UserV1) GetVerified() bool {
+func (x *V1) GetVerified() bool {
 	if x != nil {
 		return x.Verified
 	}
 	return false
 }
 
-func (x *UserV1) GetScore() int64 {
+func (x *V1) GetScore() int64 {
 	if x != nil {
 		return x.Score
 	}
 	return 0
 }
 
-func (x *UserV1) GetDepartment() string {
+func (x *V1) GetDepartment() string {
 	if x != nil {
 		return x.Department
 	}
 	return ""
 }
 
-func (x *UserV1) GetAddress() *AddressV1 {
+func (x *V1) GetAddress() *address.V1 {
 	if x != nil {
 		return x.Address
 	}
 	return nil
 }
 
-func (x *UserV1) GetAddresses() []*AddressV1 {
+func (x *V1) GetAddresses() []*address.V1 {
 	if x != nil {
 		return x.Addresses
 	}
@@ -191,8 +192,8 @@ var File_x_go_jerky_example_types_user_v1_proto protoreflect.FileDescriptor
 
 const file_x_go_jerky_example_types_user_v1_proto_rawDesc = "" +
 	"\n" +
-	"&x/go/jerky/example/types/user_v1.proto\x12\rexample.types\x1a)x/go/jerky/example/types/address_v1.proto\"\xbb\x03\n" +
-	"\x06UserV1\x12\x10\n" +
+	"&x/go/jerky/example/types/user/v1.proto\x12\x12example.types.user\x1a)x/go/jerky/example/types/address/v1.proto\"\xb9\x03\n" +
+	"\x02V1\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x0f\n" +
 	"\x03i_d\x18\x02 \x01(\rR\x02iD\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x14\n" +
@@ -210,10 +211,10 @@ const file_x_go_jerky_example_types_user_v1_proto_rawDesc = "" +
 	"\x05score\x18\r \x01(\x03R\x05score\x12\x1e\n" +
 	"\n" +
 	"department\x18\x0e \x01(\tR\n" +
-	"department\x122\n" +
-	"\aaddress\x18\x0f \x01(\v2\x18.example.types.AddressV1R\aaddress\x126\n" +
-	"\taddresses\x18\x10 \x03(\v2\x18.example.types.AddressV1R\taddressesB\xa2\x01\n" +
-	"\x11com.example.typesB\vUserV1ProtoP\x01Z+github.com/synnaxlabs/x/jerky/example/types\xa2\x02\x03ETX\xaa\x02\rExample.Types\xca\x02\rExample\\Types\xe2\x02\x19Example\\Types\\GPBMetadata\xea\x02\x0eExample::Typesb\x06proto3"
+	"department\x123\n" +
+	"\aaddress\x18\x0f \x01(\v2\x19.example.types.address.V1R\aaddress\x127\n" +
+	"\taddresses\x18\x10 \x03(\v2\x19.example.types.address.V1R\taddressesB\xbd\x01\n" +
+	"\x16com.example.types.userB\aV1ProtoP\x01Z0github.com/synnaxlabs/x/jerky/example/types/user\xa2\x02\x03ETU\xaa\x02\x12Example.Types.User\xca\x02\x12Example\\Types\\User\xe2\x02\x1eExample\\Types\\User\\GPBMetadata\xea\x02\x14Example::Types::Userb\x06proto3"
 
 var (
 	file_x_go_jerky_example_types_user_v1_proto_rawDescOnce sync.Once
@@ -229,12 +230,12 @@ func file_x_go_jerky_example_types_user_v1_proto_rawDescGZIP() []byte {
 
 var file_x_go_jerky_example_types_user_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_x_go_jerky_example_types_user_v1_proto_goTypes = []any{
-	(*UserV1)(nil),    // 0: example.types.UserV1
-	(*AddressV1)(nil), // 1: example.types.AddressV1
+	(*V1)(nil),         // 0: example.types.user.V1
+	(*address.V1)(nil), // 1: example.types.address.V1
 }
 var file_x_go_jerky_example_types_user_v1_proto_depIdxs = []int32{
-	1, // 0: example.types.UserV1.address:type_name -> example.types.AddressV1
-	1, // 1: example.types.UserV1.addresses:type_name -> example.types.AddressV1
+	1, // 0: example.types.user.V1.address:type_name -> example.types.address.V1
+	1, // 1: example.types.user.V1.addresses:type_name -> example.types.address.V1
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
@@ -247,7 +248,6 @@ func file_x_go_jerky_example_types_user_v1_proto_init() {
 	if File_x_go_jerky_example_types_user_v1_proto != nil {
 		return
 	}
-	file_x_go_jerky_example_types_address_v1_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/jerky"
@@ -131,23 +132,37 @@ func run() error {
 		return errors.Newf("failed to create generator: %w", err)
 	}
 
+	// Track type directories for buf generate
+	var typeDirs []string
+
 	for i := range structs {
 		structs[i].IsEmbedded = isEmbedded
 		fmt.Printf("jerky: generating code for %s\n", structs[i].Name)
 		if err := gen.Generate(structs[i]); err != nil {
 			return errors.Newf("failed to generate code for %s: %w", structs[i].Name, err)
 		}
+		// Track the type-specific directory for buf generate
+		typePkgName := strings.ToLower(structs[i].Name)
+		typeDirs = append(typeDirs, filepath.Join(wd, "types", typePkgName))
 	}
 
-	// Run buf generate for proto compilation
-	typesDir := filepath.Join(wd, "types")
+	// Run buf generate for each type subdirectory
 	repoRoot := findBufRoot(wd)
 	if repoRoot == "" {
 		repoRoot = wd // Fallback to working directory
 	}
-	if err := runBufGenerate(repoRoot, typesDir); err != nil {
-		fmt.Printf("jerky: warning: buf generate failed: %v\n", err)
-		fmt.Println("jerky: please run 'buf generate --path <types_dir>' from the repo root")
+	for _, typeDir := range typeDirs {
+		if err := runBufGenerate(repoRoot, typeDir); err != nil {
+			fmt.Printf("jerky: warning: buf generate failed for %s: %v\n", typeDir, err)
+			fmt.Println("jerky: please run 'buf generate --path <type_dir>' from the repo root")
+		}
+	}
+
+	// Generate types/types.go re-export file
+	typesDir := filepath.Join(wd, "types")
+	packagePath := structs[0].PackagePath // Use package path from first struct
+	if err := gen.GenerateTypesExport(typesDir, packagePath); err != nil {
+		fmt.Printf("jerky: warning: failed to generate types export: %v\n", err)
 	}
 
 	fmt.Printf("jerky: generated code for %d struct(s)\n", len(structs))

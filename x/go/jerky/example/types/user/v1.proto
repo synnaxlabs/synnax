@@ -2,13 +2,13 @@
 
 syntax = "proto3";
 
-package example.types;
+package example.types.user;
 
-option go_package = "github.com/synnaxlabs/x/jerky/example/types";
+option go_package = "github.com/synnaxlabs/x/jerky/example/types/user";
 
-import "x/go/jerky/example/types/address_v1.proto";
+import "x/go/jerky/example/types/address/v1.proto";
 
-message UserV1 {
+message V1 {
     string key = 1;
     uint32 i_d = 2;
     string name = 3;
@@ -23,6 +23,6 @@ message UserV1 {
     bool verified = 12;
     int64 score = 13;
     string department = 14;
-    example.types.AddressV1 address = 15;
-    repeated example.types.AddressV1 addresses = 16;
+    example.types.address.V1 address = 15;
+    repeated example.types.address.V1 addresses = 16;
 }

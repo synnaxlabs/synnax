@@ -3,12 +3,12 @@
 package example
 
 import (
-	"github.com/synnaxlabs/x/jerky/example/types"
+	address "github.com/synnaxlabs/x/jerky/example/types/address"
 )
 
 // AddressToProto converts a Address domain struct to its protobuf representation.
-func AddressToProto(m Address) *types.Address {
-	return &types.Address{
+func AddressToProto(m Address) *address.Current {
+	return &address.Current{
 		Street: m.Street,
 		City: m.City,
 		State: m.State,
@@ -19,7 +19,7 @@ func AddressToProto(m Address) *types.Address {
 }
 
 // AddressFromProto converts a protobuf Address to its domain struct representation.
-func AddressFromProto(pb *types.Address) Address {
+func AddressFromProto(pb *address.Current) Address {
 	return Address{
 		Street: pb.Street,
 		City: pb.City,

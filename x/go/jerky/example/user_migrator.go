@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/synnaxlabs/x/jerky/example/types"
+	user "github.com/synnaxlabs/x/jerky/example/types/user"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
@@ -20,7 +20,7 @@ type UserMigrator struct{}
 func (UserMigrator) TypeName() string { return "User" }
 
 // CurrentVersion returns the current schema version.
-func (UserMigrator) CurrentVersion() int { return 2 }
+func (UserMigrator) CurrentVersion() int { return 1 }
 
 // MigrateAll migrates all User records from the given version to current.
 func (m UserMigrator) MigrateAll(ctx context.Context, db *gorp.DB, fromVersion int) error {
@@ -46,7 +46,7 @@ func (m UserMigrator) MigrateAll(ctx context.Context, db *gorp.DB, fromVersion i
 		copy(data, iter.Value())
 
 		// Run migrations sequentially from fromVersion to current
-		migratedData, err := types.UserMigrations.MigrateToLatest(data, fromVersion)
+		migratedData, err := user.Migrations.MigrateToLatest(data, fromVersion)
 		if err != nil {
 			return errors.Newf("failed to migrate key %x: %w", key, err)
 		}

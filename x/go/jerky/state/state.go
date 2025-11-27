@@ -19,9 +19,9 @@ import (
 
 const (
 	// SchemaVersion is the current state file schema version.
-	SchemaVersion = "jerky-state-v1"
-	// StateFileName is the name of the state file.
-	StateFileName = "jerky.state.json"
+	SchemaVersion = "jerky-state-v2"
+	// StateFileName is the name of the state file (per-type in sub-packages).
+	StateFileName = "state.json"
 )
 
 // FieldInfo represents information about a struct field at a specific version.
@@ -64,6 +64,8 @@ type VersionHistory struct {
 
 // TypeState represents the state of a single jerky-managed type.
 type TypeState struct {
+	// TypeName is the name of the type (for self-identification in per-type state files).
+	TypeName       string           `json:"type_name,omitempty"`
 	Package        string           `json:"package"`
 	CurrentVersion int              `json:"current_version"`
 	FieldOrder     []string         `json:"field_order"`

@@ -10,7 +10,7 @@ option go_package = "{{ .GoPackage }}";
 import "{{ . }}";
 {{- end }}
 {{ end }}
-message {{ .TypeName }}V{{ .Version }} {
+message V{{ .Version }} {
 {{- range .Fields }}
     {{ .ProtoType }} {{ .ProtoName }} = {{ .FieldNumber }};
 {{- end }}

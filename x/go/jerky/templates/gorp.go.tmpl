@@ -3,7 +3,10 @@
 package {{ .PackageName }}
 
 import (
-	"{{ .TypesImport }}"
+	{{ .TypeAlias }} "{{ .TypesImport }}"
+{{- range .AliasedImports }}
+	{{ .Alias }} "{{ .Path }}"
+{{- end }}
 {{- range .Imports }}
 	"{{ . }}"
 {{- end }}
@@ -12,7 +15,7 @@ import (
 
 // MarshalGorp serializes a {{ .TypeName }} to bytes using protobuf.
 func (m {{ .TypeName }}) MarshalGorp() ([]byte, error) {
-	return proto.Marshal(&types.{{ .TypeName }}{
+	return proto.Marshal(&{{ .TypeAlias }}.Current{
 {{- range .Fields }}
 		{{ .ProtoName }}: {{ .ForwardExpr }},
 {{- end }}
@@ -23,7 +26,7 @@ func (m {{ .TypeName }}) MarshalGorp() ([]byte, error) {
 // It expects data to be in the current proto format. Run migrations at startup
 // using {{ .TypeName }}Migrator to convert legacy data before normal operation.
 func (m *{{ .TypeName }}) UnmarshalGorp(data []byte) error {
-	var pb types.{{ .TypeName }}
+	var pb {{ .TypeAlias }}.Current
 	if err := proto.Unmarshal(data, &pb); err != nil {
 		return err
 	}

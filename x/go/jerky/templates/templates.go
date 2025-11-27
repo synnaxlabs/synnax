@@ -12,6 +12,7 @@ package templates
 
 import (
 	"embed"
+	"strings"
 	"text/template"
 )
 
@@ -20,8 +21,9 @@ var FS embed.FS
 
 // funcMap provides custom functions for templates.
 var funcMap = template.FuncMap{
-	"add": func(a, b int) int { return a + b },
-	"sub": func(a, b int) int { return a - b },
+	"add":   func(a, b int) int { return a + b },
+	"sub":   func(a, b int) int { return a - b },
+	"lower": strings.ToLower,
 }
 
 // Load loads all embedded templates.

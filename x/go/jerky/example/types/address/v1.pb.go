@@ -4,9 +4,9 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        (unknown)
-// source: x/go/jerky/example/types/address_v1.proto
+// source: x/go/jerky/example/types/address/v1.proto
 
-package types
+package address
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -23,31 +23,32 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type AddressV1 struct {
+type V1 struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Street        string                 `protobuf:"bytes,1,opt,name=street,proto3" json:"street,omitempty"`
 	City          string                 `protobuf:"bytes,2,opt,name=city,proto3" json:"city,omitempty"`
 	State         string                 `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"`
 	ZipCode       string                 `protobuf:"bytes,4,opt,name=zip_code,json=zipCode,proto3" json:"zip_code,omitempty"`
 	Country       string                 `protobuf:"bytes,5,opt,name=country,proto3" json:"country,omitempty"`
+	County        string                 `protobuf:"bytes,6,opt,name=county,proto3" json:"county,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AddressV1) Reset() {
-	*x = AddressV1{}
+func (x *V1) Reset() {
+	*x = V1{}
 	mi := &file_x_go_jerky_example_types_address_v1_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AddressV1) String() string {
+func (x *V1) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AddressV1) ProtoMessage() {}
+func (*V1) ProtoMessage() {}
 
-func (x *AddressV1) ProtoReflect() protoreflect.Message {
+func (x *V1) ProtoReflect() protoreflect.Message {
 	mi := &file_x_go_jerky_example_types_address_v1_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -59,42 +60,49 @@ func (x *AddressV1) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AddressV1.ProtoReflect.Descriptor instead.
-func (*AddressV1) Descriptor() ([]byte, []int) {
+// Deprecated: Use V1.ProtoReflect.Descriptor instead.
+func (*V1) Descriptor() ([]byte, []int) {
 	return file_x_go_jerky_example_types_address_v1_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *AddressV1) GetStreet() string {
+func (x *V1) GetStreet() string {
 	if x != nil {
 		return x.Street
 	}
 	return ""
 }
 
-func (x *AddressV1) GetCity() string {
+func (x *V1) GetCity() string {
 	if x != nil {
 		return x.City
 	}
 	return ""
 }
 
-func (x *AddressV1) GetState() string {
+func (x *V1) GetState() string {
 	if x != nil {
 		return x.State
 	}
 	return ""
 }
 
-func (x *AddressV1) GetZipCode() string {
+func (x *V1) GetZipCode() string {
 	if x != nil {
 		return x.ZipCode
 	}
 	return ""
 }
 
-func (x *AddressV1) GetCountry() string {
+func (x *V1) GetCountry() string {
 	if x != nil {
 		return x.Country
+	}
+	return ""
+}
+
+func (x *V1) GetCounty() string {
+	if x != nil {
+		return x.County
 	}
 	return ""
 }
@@ -103,14 +111,15 @@ var File_x_go_jerky_example_types_address_v1_proto protoreflect.FileDescriptor
 
 const file_x_go_jerky_example_types_address_v1_proto_rawDesc = "" +
 	"\n" +
-	")x/go/jerky/example/types/address_v1.proto\x12\rexample.types\"\x82\x01\n" +
-	"\tAddressV1\x12\x16\n" +
+	")x/go/jerky/example/types/address/v1.proto\x12\x15example.types.address\"\x93\x01\n" +
+	"\x02V1\x12\x16\n" +
 	"\x06street\x18\x01 \x01(\tR\x06street\x12\x12\n" +
 	"\x04city\x18\x02 \x01(\tR\x04city\x12\x14\n" +
 	"\x05state\x18\x03 \x01(\tR\x05state\x12\x19\n" +
 	"\bzip_code\x18\x04 \x01(\tR\azipCode\x12\x18\n" +
-	"\acountry\x18\x05 \x01(\tR\acountryB\xa5\x01\n" +
-	"\x11com.example.typesB\x0eAddressV1ProtoP\x01Z+github.com/synnaxlabs/x/jerky/example/types\xa2\x02\x03ETX\xaa\x02\rExample.Types\xca\x02\rExample\\Types\xe2\x02\x19Example\\Types\\GPBMetadata\xea\x02\x0eExample::Typesb\x06proto3"
+	"\acountry\x18\x05 \x01(\tR\acountry\x12\x16\n" +
+	"\x06county\x18\x06 \x01(\tR\x06countyB\xcf\x01\n" +
+	"\x19com.example.types.addressB\aV1ProtoP\x01Z3github.com/synnaxlabs/x/jerky/example/types/address\xa2\x02\x03ETA\xaa\x02\x15Example.Types.Address\xca\x02\x15Example\\Types\\Address\xe2\x02!Example\\Types\\Address\\GPBMetadata\xea\x02\x17Example::Types::Addressb\x06proto3"
 
 var (
 	file_x_go_jerky_example_types_address_v1_proto_rawDescOnce sync.Once
@@ -126,7 +135,7 @@ func file_x_go_jerky_example_types_address_v1_proto_rawDescGZIP() []byte {
 
 var file_x_go_jerky_example_types_address_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_x_go_jerky_example_types_address_v1_proto_goTypes = []any{
-	(*AddressV1)(nil), // 0: example.types.AddressV1
+	(*V1)(nil), // 0: example.types.address.V1
 }
 var file_x_go_jerky_example_types_address_v1_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type

@@ -67,14 +67,15 @@ func NewGeneratorWithDeps(outputDir string, registry *typemap.Registry, depRegis
 
 // Generate generates all artifacts for a parsed struct.
 func (g *Generator) Generate(parsed parse.ParsedStruct) error {
-	// Create types directory
-	typesDir := filepath.Join(g.outputDir, "types")
-	if err := os.MkdirAll(typesDir, 0755); err != nil {
-		return errors.Newf("failed to create types directory: %w", err)
+	// Create type-specific subdirectory: types/{typename}/
+	typePkgName := strings.ToLower(parsed.Name)
+	typeDir := filepath.Join(g.outputDir, "types", typePkgName)
+	if err := os.MkdirAll(typeDir, 0755); err != nil {
+		return errors.Newf("failed to create type directory: %w", err)
 	}
 
-	// Load or create state file
-	stateFile, err := state.Load(typesDir)
+	// Load or create state file from type-specific directory
+	stateFile, err := state.Load(typeDir)
 	if err != nil {
 		return errors.Newf("failed to load state file: %w", err)
 	}
@@ -172,16 +173,17 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 	}
 	// Always update field numbers and embedded status in state
 	typeState.IsEmbedded = parsed.IsEmbedded
+	typeState.TypeName = parsed.Name // Set type name for per-type state files
 	stateFile.SetTypeState(parsed.Name, typeState)
 
 	// Generate proto file
-	if err := g.generateProto(parsed, version, typesDir); err != nil {
+	if err := g.generateProto(parsed, version, typeDir); err != nil {
 		return errors.Newf("failed to generate proto: %w", err)
 	}
 
 	// Generate v0 struct for bootstrap migration (only on first run)
 	if migrationType == "bootstrap" {
-		if err := g.generateV0(parsed, typesDir); err != nil {
+		if err := g.generateV0(parsed, typeDir); err != nil {
 			return errors.Newf("failed to generate v0 struct: %w", err)
 		}
 	}
@@ -193,7 +195,7 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 	// re-enable: g.generateVersionSnapshot(parsed, version, typesDir)
 
 	// Generate current.go aliases
-	if err := g.generateCurrent(parsed, version, typesDir); err != nil {
+	if err := g.generateCurrent(parsed, version, typeDir); err != nil {
 		return errors.Newf("failed to generate current aliases: %w", err)
 	}
 
@@ -218,17 +220,17 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 	// - Storage types: migrations.go (byte-to-byte for data on disk)
 	// - Embedded types: struct_migrate.go (struct-to-struct for nested types)
 	if parsed.IsEmbedded {
-		if err := g.generateStructMigrate(parsed, version, typesDir, typeState); err != nil {
+		if err := g.generateStructMigrate(parsed, version, typeDir, typeState); err != nil {
 			return errors.Newf("failed to generate struct migrations: %w", err)
 		}
 	} else {
-		if err := g.generateMigrations(parsed, version, typesDir, typeState); err != nil {
+		if err := g.generateMigrations(parsed, version, typeDir, typeState); err != nil {
 			return errors.Newf("failed to generate migrations: %w", err)
 		}
 	}
 
 	// Save state file
-	if err := stateFile.Save(typesDir); err != nil {
+	if err := stateFile.Save(typeDir); err != nil {
 		return errors.Newf("failed to save state file: %w", err)
 	}
 
@@ -237,12 +239,13 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 
 // ProtoTemplateData contains data for proto template rendering.
 type ProtoTemplateData struct {
-	ProtoPackage string
-	GoPackage    string
-	Imports      []string
-	TypeName     string
-	Version      int
-	Fields       []ProtoFieldData
+	ProtoPackage   string
+	GoPackage      string
+	Imports        []string
+	TypeName       string
+	Version        int
+	Fields         []ProtoFieldData
+	SubPackageName string // lowercase type name for package declaration
 }
 
 // ProtoFieldData contains data for a single proto field.
@@ -252,12 +255,15 @@ type ProtoFieldData struct {
 	FieldNumber int
 }
 
-func (g *Generator) generateProto(parsed parse.ParsedStruct, version int, typesDir string) error {
+func (g *Generator) generateProto(parsed parse.ParsedStruct, version int, typeDir string) error {
+	// Sub-package structure: types/{typename}/v{N}.proto
+	typePkgName := strings.ToLower(parsed.Name)
 	data := ProtoTemplateData{
-		ProtoPackage: parsed.PackageName + ".types",
-		GoPackage:    parsed.PackagePath + "/types",
-		TypeName:     parsed.Name,
-		Version:      version,
+		ProtoPackage:   parsed.PackageName + ".types." + typePkgName,
+		GoPackage:      parsed.PackagePath + "/types/" + typePkgName,
+		TypeName:       parsed.Name,
+		Version:        version,
+		SubPackageName: typePkgName,
 	}
 
 	// Collect proto imports from jerky dependencies
@@ -283,7 +289,8 @@ func (g *Generator) generateProto(parsed parse.ParsedStruct, version int, typesD
 		return err
 	}
 
-	filename := filepath.Join(typesDir, fmt.Sprintf("%s_v%d.proto", toSnakeCase(parsed.Name), version))
+	// New filename pattern: v{N}.proto (not {type}_v{N}.proto)
+	filename := filepath.Join(typeDir, fmt.Sprintf("v%d.proto", version))
 	return os.WriteFile(filename, buf.Bytes(), 0644)
 }
 
@@ -316,6 +323,8 @@ func (g *Generator) collectJerkyImports(fields []parse.ParsedField, imports map[
 
 // computeProtoImportPath computes the proto import path from the state directory path.
 // It finds the repository root and returns the relative path.
+// In sub-package mode, state files are at types/{typename}/state.json,
+// so stateDir is already the type-specific directory (e.g., types/address/).
 func computeProtoImportPath(stateDir, typeName string, version int) string {
 	// Find the repository root by looking for buf.yaml
 	repoRoot := findRepoRoot(stateDir)
@@ -324,13 +333,14 @@ func computeProtoImportPath(stateDir, typeName string, version int) string {
 	}
 
 	// Compute relative path from repo root to the proto file
+	// stateDir is types/{typename}/, proto file is v{N}.proto
 	relPath, err := filepath.Rel(repoRoot, stateDir)
 	if err != nil {
 		return ""
 	}
 
-	// Construct the proto import path
-	return filepath.ToSlash(filepath.Join(relPath, fmt.Sprintf("%s_v%d.proto", toSnakeCase(typeName), version)))
+	// Construct the proto import path: {rel_path}/v{N}.proto
+	return filepath.ToSlash(filepath.Join(relPath, fmt.Sprintf("v%d.proto", version)))
 }
 
 // findRepoRoot walks up the directory tree to find the repository root (buf.yaml location).
@@ -350,14 +360,17 @@ func findRepoRoot(start string) string {
 
 // CurrentTemplateData contains data for current.go template rendering.
 type CurrentTemplateData struct {
-	TypeName string
-	Version  int
+	TypeName       string
+	Version        int
+	SubPackageName string // lowercase type name for package declaration
 }
 
 // V0TemplateData contains data for v0.go template rendering.
 type V0TemplateData struct {
-	TypeName string
-	Fields   []V0FieldData
+	TypeName       string
+	Fields         []V0FieldData
+	SubPackageName string          // lowercase type name for package declaration
+	AliasedImports []AliasedImport // Imports for jerky types
 }
 
 // V0FieldData contains data for a single v0 field.
@@ -367,10 +380,12 @@ type V0FieldData struct {
 	MsgpackTag string // Msgpack tag value
 }
 
-func (g *Generator) generateCurrent(parsed parse.ParsedStruct, version int, typesDir string) error {
+func (g *Generator) generateCurrent(parsed parse.ParsedStruct, version int, typeDir string) error {
+	typePkgName := strings.ToLower(parsed.Name)
 	data := CurrentTemplateData{
-		TypeName: parsed.Name,
-		Version:  version,
+		TypeName:       parsed.Name,
+		Version:        version,
+		SubPackageName: typePkgName,
 	}
 
 	var buf bytes.Buffer
@@ -378,20 +393,28 @@ func (g *Generator) generateCurrent(parsed parse.ParsedStruct, version int, type
 		return err
 	}
 
-	filename := filepath.Join(typesDir, fmt.Sprintf("%s_current.go", toSnakeCase(parsed.Name)))
+	// New filename pattern: current.go (not {type}_current.go)
+	filename := filepath.Join(typeDir, "current.go")
 	return os.WriteFile(filename, buf.Bytes(), 0644)
 }
 
 // generateV0 generates the v0 struct for msgpack bootstrap migration.
 // This is only generated once during the initial jerky adoption (bootstrap).
-func (g *Generator) generateV0(parsed parse.ParsedStruct, typesDir string) error {
+func (g *Generator) generateV0(parsed parse.ParsedStruct, typeDir string) error {
+	typePkgName := strings.ToLower(parsed.Name)
+	aliasedImportsMap := make(map[string]AliasedImport) // key is alias to dedupe
 	data := V0TemplateData{
-		TypeName: parsed.Name,
+		TypeName:       parsed.Name,
+		SubPackageName: typePkgName,
 	}
 
 	for _, f := range parsed.Fields {
-		// Get the proto-compatible Go type
-		goType := g.getV0GoType(f.GoType)
+		// Get the proto-compatible Go type and collect imports
+		goType, fieldAliasedImports := g.getV0GoTypeWithImports(f.GoType, parsed.PackagePath)
+
+		for _, ai := range fieldAliasedImports {
+			aliasedImportsMap[ai.Alias] = ai
+		}
 
 		// Get msgpack tag (use json tag as fallback, which is typical for msgpack)
 		msgpackTag := f.Tags.Msgpack
@@ -413,46 +436,69 @@ func (g *Generator) generateV0(parsed parse.ParsedStruct, typesDir string) error
 		})
 	}
 
+	// Convert aliased imports map to slice
+	for _, ai := range aliasedImportsMap {
+		data.AliasedImports = append(data.AliasedImports, ai)
+	}
+
 	var buf bytes.Buffer
 	if err := g.templates.ExecuteTemplate(&buf, "v0.go.tmpl", data); err != nil {
 		return err
 	}
 
-	filename := filepath.Join(typesDir, fmt.Sprintf("%s_v0.go", toSnakeCase(parsed.Name)))
+	// New filename pattern: v0.go (not {type}_v0.go)
+	filename := filepath.Join(typeDir, "v0.go")
 	return os.WriteFile(filename, buf.Bytes(), 0644)
 }
 
 // getV0GoType returns the proto-compatible Go type for use in v0 struct.
 // This matches what proto uses, allowing direct field copying in migrations.
 func (g *Generator) getV0GoType(goType parse.GoType) string {
+	result, _ := g.getV0GoTypeWithImports(goType, "")
+	return result
+}
+
+// getV0GoTypeWithImports returns the proto-compatible Go type and any required aliased imports.
+func (g *Generator) getV0GoTypeWithImports(goType parse.GoType, parentPath string) (string, []AliasedImport) {
+	var aliasedImports []AliasedImport
+
 	// Check if this is a jerky-managed type
 	if goType.IsJerky && goType.PackagePath != "" {
 		tName := typeName(goType.Name)
 		if info, ok := g.depRegistry.GetByPackageAndType(goType.PackagePath, tName); ok {
-			return fmt.Sprintf("*%sV%d", info.TypeName, info.CurrentVersion)
+			// Return sub-package qualified type: *typename.VN
+			typePkgName := strings.ToLower(info.TypeName)
+			// Add the import for this jerky type's sub-package
+			importPath := goType.PackagePath + "/types/" + typePkgName
+			aliasedImports = append(aliasedImports, AliasedImport{
+				Alias: typePkgName,
+				Path:  importPath,
+			})
+			return fmt.Sprintf("*%s.V%d", typePkgName, info.CurrentVersion), aliasedImports
 		}
 	}
 
 	// Check if there's a direct mapping
 	if mapping, ok := g.registry.Get(goType.Name); ok {
-		return protoToGoType(mapping.ProtoType)
+		return protoToGoType(mapping.ProtoType), aliasedImports
 	}
 
 	// Check underlying type for named types
 	if goType.Underlying != nil {
 		if mapping, ok := g.registry.Get(goType.Underlying.Name); ok {
-			return protoToGoType(mapping.ProtoType)
+			return protoToGoType(mapping.ProtoType), aliasedImports
 		}
 	}
 
 	// Handle slices
 	if goType.Kind == parse.KindSlice && goType.Elem != nil {
-		elemType := g.getV0GoType(*goType.Elem)
-		return "[]" + elemType
+		elemType, elemImports := g.getV0GoTypeWithImports(*goType.Elem, parentPath)
+		aliasedImports = append(aliasedImports, elemImports...)
+		return "[]" + elemType, aliasedImports
 	}
 
 	// Default to string for unknown types
-	return "string"
+	return "string", aliasedImports
 }
 
 // protoToGoType converts a proto type to its Go equivalent.
@@ -481,13 +527,21 @@ func protoToGoType(protoType string) string {
 	}
 }
 
+// AliasedImport represents an import with an alias.
+type AliasedImport struct {
+	Alias string // Import alias (e.g., "address")
+	Path  string // Import path (e.g., "pkg/types/address")
+}
+
 // GorpTemplateData contains data for gorp.go template rendering.
 type GorpTemplateData struct {
-	PackageName string
-	TypesImport string
-	TypeName    string
-	Imports     []string
-	Fields      []GorpFieldData
+	PackageName    string
+	TypesImport    string // Full import path for the type's sub-package (e.g., "pkg/types/user")
+	TypeAlias      string // Import alias (e.g., "user")
+	TypeName       string
+	Imports        []string        // Regular imports (path only)
+	AliasedImports []AliasedImport // Aliased imports (alias + path)
+	Fields         []GorpFieldData
 }
 
 // GorpFieldData contains data for a single field's gorp conversion.
@@ -501,18 +555,25 @@ type GorpFieldData struct {
 
 func (g *Generator) generateGorp(parsed parse.ParsedStruct, outputDir string) error {
 	imports := make(map[string]bool)
+	aliasedImportsMap := make(map[string]AliasedImport) // key is alias to dedupe
+	typePkgName := strings.ToLower(parsed.Name)
 
 	data := GorpTemplateData{
 		PackageName: parsed.PackageName,
-		TypesImport: parsed.PackagePath + "/types",
+		TypesImport: parsed.PackagePath + "/types/" + typePkgName,
+		TypeAlias:   typePkgName,
 		TypeName:    parsed.Name,
 	}
 
 	for _, f := range parsed.Fields {
-		forwardExpr, backwardExpr, canFail, fieldImports := g.getTranslationExprs(f, parsed.PackageName, parsed.PackagePath)
+		forwardExpr, backwardExpr, canFail, fieldImports, fieldAliasedImports := g.getTranslationExprs(f, parsed.PackageName, parsed.PackagePath)
 
 		for _, imp := range fieldImports {
 			imports[imp] = true
+		}
+
+		for _, ai := range fieldAliasedImports {
+			aliasedImportsMap[ai.Alias] = ai
 		}
 
 		// Convert Go field name to proto field name (PascalCase for generated Go proto code)
@@ -532,6 +593,11 @@ func (g *Generator) generateGorp(parsed parse.ParsedStruct, outputDir string) er
 		data.Imports = append(data.Imports, imp)
 	}
 
+	// Convert aliased imports map to slice
+	for _, ai := range aliasedImportsMap {
+		data.AliasedImports = append(data.AliasedImports, ai)
+	}
+
 	var buf bytes.Buffer
 	if err := g.templates.ExecuteTemplate(&buf, "gorp.go.tmpl", data); err != nil {
 		return err
@@ -543,12 +609,14 @@ func (g *Generator) generateGorp(parsed parse.ParsedStruct, outputDir string) er
 
 // TranslateTemplateData contains data for translate.go template rendering.
 type TranslateTemplateData struct {
-	PackageName string
-	TypesImport string
-	TypeName    string
-	Imports     []string
-	Fields      []TranslateFieldData
-	HasErrors   bool // True if any backward translation can fail
+	PackageName    string
+	TypesImport    string // Full import path for the type's sub-package (e.g., "pkg/types/address")
+	TypeAlias      string // Import alias (e.g., "address")
+	TypeName       string
+	Imports        []string        // Regular imports (path only)
+	AliasedImports []AliasedImport // Aliased imports (alias + path)
+	Fields         []TranslateFieldData
+	HasErrors      bool // True if any backward translation can fail
 }
 
 // TranslateFieldData contains data for a single field's translation.
@@ -562,19 +630,26 @@ type TranslateFieldData struct {
 
 func (g *Generator) generateTranslate(parsed parse.ParsedStruct, outputDir string) error {
 	imports := make(map[string]bool)
+	aliasedImportsMap := make(map[string]AliasedImport) // key is alias to dedupe
 	hasErrors := false
+	typePkgName := strings.ToLower(parsed.Name)
 
 	data := TranslateTemplateData{
 		PackageName: parsed.PackageName,
-		TypesImport: parsed.PackagePath + "/types",
+		TypesImport: parsed.PackagePath + "/types/" + typePkgName,
+		TypeAlias:   typePkgName,
 		TypeName:    parsed.Name,
 	}
 
 	for _, f := range parsed.Fields {
-		forwardExpr, backwardExpr, canFail, fieldImports := g.getTranslationExprs(f, parsed.PackageName, parsed.PackagePath)
+		forwardExpr, backwardExpr, canFail, fieldImports, fieldAliasedImports := g.getTranslationExprs(f, parsed.PackageName, parsed.PackagePath)
 
 		for _, imp := range fieldImports {
 			imports[imp] = true
+		}
+
+		for _, ai := range fieldAliasedImports {
+			aliasedImportsMap[ai.Alias] = ai
 		}
 
 		if canFail {
@@ -597,6 +672,11 @@ func (g *Generator) generateTranslate(parsed parse.ParsedStruct, outputDir strin
 		data.Imports = append(data.Imports, imp)
 	}
 
+	// Convert aliased imports map to slice
+	for _, ai := range aliasedImportsMap {
+		data.AliasedImports = append(data.AliasedImports, ai)
+	}
+
 	var buf bytes.Buffer
 	if err := g.templates.ExecuteTemplate(&buf, "translate.go.tmpl", data); err != nil {
 		return err
@@ -609,16 +689,19 @@ func (g *Generator) generateTranslate(parsed parse.ParsedStruct, outputDir strin
 // MigratorTemplateData contains data for migrator.go template rendering.
 type MigratorTemplateData struct {
 	PackageName    string
-	TypesImport    string
+	TypesImport    string // Full import path for the type's sub-package (e.g., "pkg/types/user")
+	TypeAlias      string // Import alias (e.g., "user")
 	TypeName       string
 	CurrentVersion int
 	Imports        []string
 }
 
 func (g *Generator) generateMigrator(parsed parse.ParsedStruct, version int, outputDir string) error {
+	typePkgName := strings.ToLower(parsed.Name)
 	data := MigratorTemplateData{
 		PackageName:    parsed.PackageName,
-		TypesImport:    parsed.PackagePath + "/types",
+		TypesImport:    parsed.PackagePath + "/types/" + typePkgName,
+		TypeAlias:      typePkgName,
 		TypeName:       parsed.Name,
 		CurrentVersion: version,
 	}
@@ -637,6 +720,7 @@ type MigrationsTemplateData struct {
 	TypeName       string
 	CurrentVersion int
 	Migrations     []MigrationData
+	SubPackageName string // lowercase type name for package declaration
 	// Parent package info for v0 bootstrap migration (no longer used but kept for compatibility)
 	ParentPkg     string // Package name (e.g., "example")
 	ParentPkgPath string // Full import path
@@ -644,12 +728,13 @@ type MigrationsTemplateData struct {
 
 // MigrationData contains data for a single migration.
 type MigrationData struct {
-	TypeName      string
-	FromVersion   int
-	ToVersion     int
-	CommonFields  []string // Fields present in both versions (for backward compat)
-	AddedFields   []string // Fields added in ToVersion
-	RemovedFields []string // Fields removed from FromVersion
+	TypeName       string
+	SubPackageName string // lowercase type name for package declaration
+	FromVersion    int
+	ToVersion      int
+	CommonFields   []string // Fields present in both versions (for backward compat)
+	AddedFields    []string // Fields added in ToVersion
+	RemovedFields  []string // Fields removed from FromVersion
 	// V1Fields contains field translations for v0→v1 bootstrap migration
 	V1Fields []BootstrapFieldData
 	// Fields contains per-field migration info for non-bootstrap migrations
@@ -679,22 +764,26 @@ type StructMigrateTemplateData struct {
 	TypeName       string
 	CurrentVersion int
 	Migrations     []StructMigrationData
+	SubPackageName string // lowercase type name for package declaration
 }
 
 // StructMigrationData contains data for a single struct migration.
 type StructMigrationData struct {
-	TypeName      string
-	FromVersion   int
-	ToVersion     int
-	CommonFields  []string
-	AddedFields   []string
-	RemovedFields []string
+	TypeName       string
+	SubPackageName string // lowercase type name for package declaration
+	FromVersion    int
+	ToVersion      int
+	CommonFields   []string
+	AddedFields    []string
+	RemovedFields  []string
 }
 
-func (g *Generator) generateMigrations(parsed parse.ParsedStruct, version int, typesDir string, typeState state.TypeState) error {
+func (g *Generator) generateMigrations(parsed parse.ParsedStruct, version int, typeDir string, typeState state.TypeState) error {
+	typePkgName := strings.ToLower(parsed.Name)
 	data := MigrationsTemplateData{
 		TypeName:       parsed.Name,
 		CurrentVersion: version,
+		SubPackageName: typePkgName,
 		ParentPkg:      parsed.PackageName,
 		ParentPkgPath:  parsed.PackagePath,
 	}
@@ -702,9 +791,10 @@ func (g *Generator) generateMigrations(parsed parse.ParsedStruct, version int, t
 	// Add migrations for each version transition
 	for i := 0; i < version; i++ {
 		migration := MigrationData{
-			TypeName:    parsed.Name,
-			FromVersion: i,
-			ToVersion:   i + 1,
+			TypeName:       parsed.Name,
+			SubPackageName: typePkgName,
+			FromVersion:    i,
+			ToVersion:      i + 1,
 		}
 
 		// For v0→v1 bootstrap migration, collect field names
@@ -755,7 +845,8 @@ func (g *Generator) generateMigrations(parsed parse.ParsedStruct, version int, t
 		return err
 	}
 
-	filename := filepath.Join(typesDir, fmt.Sprintf("%s_migrations.go", toSnakeCase(parsed.Name)))
+	// New filename pattern: migrations.go (not {type}_migrations.go)
+	filename := filepath.Join(typeDir, "migrations.go")
 	if err := os.WriteFile(filename, buf.Bytes(), 0644); err != nil {
 		return err
 	}
@@ -765,7 +856,8 @@ func (g *Generator) generateMigrations(parsed parse.ParsedStruct, version int, t
 		if migration.FromVersion == 0 {
 			continue // V0 bootstrap doesn't need a hook
 		}
-		hookFilename := filepath.Join(typesDir, fmt.Sprintf("%s_v%d_to_v%d.go", toSnakeCase(parsed.Name), migration.FromVersion, migration.ToVersion))
+		// New filename pattern: v{N}_to_v{M}.go (not {type}_v{N}_to_v{M}.go)
+		hookFilename := filepath.Join(typeDir, fmt.Sprintf("v%d_to_v%d.go", migration.FromVersion, migration.ToVersion))
 		if _, err := os.Stat(hookFilename); os.IsNotExist(err) {
 			var hookBuf bytes.Buffer
 			if err := g.templates.ExecuteTemplate(&hookBuf, "migrate_hook.go.tmpl", migration); err != nil {
@@ -781,10 +873,12 @@ func (g *Generator) generateMigrations(parsed parse.ParsedStruct, version int, t
 }
 
 // generateStructMigrate generates struct-to-struct migration functions for embedded types.
-func (g *Generator) generateStructMigrate(parsed parse.ParsedStruct, version int, typesDir string, typeState state.TypeState) error {
+func (g *Generator) generateStructMigrate(parsed parse.ParsedStruct, version int, typeDir string, typeState state.TypeState) error {
+	typePkgName := strings.ToLower(parsed.Name)
 	data := StructMigrateTemplateData{
 		TypeName:       parsed.Name,
 		CurrentVersion: version,
+		SubPackageName: typePkgName,
 	}
 
 	// Build migration data for each version transition (excluding v0 bootstrap)
@@ -815,29 +909,31 @@ func (g *Generator) generateStructMigrate(parsed parse.ParsedStruct, version int
 		}
 
 		data.Migrations = append(data.Migrations, StructMigrationData{
-			TypeName:      parsed.Name,
-			FromVersion:   i,
-			ToVersion:     i + 1,
-			CommonFields:  commonFields,
-			AddedFields:   addedFields,
-			RemovedFields: removedFields,
+			TypeName:       parsed.Name,
+			SubPackageName: typePkgName,
+			FromVersion:    i,
+			ToVersion:      i + 1,
+			CommonFields:   commonFields,
+			AddedFields:    addedFields,
+			RemovedFields:  removedFields,
 		})
 	}
 
-	// Generate struct_migrate.go
+	// Generate struct_migrate.go (new filename pattern)
 	var buf bytes.Buffer
 	if err := g.templates.ExecuteTemplate(&buf, "struct_migrate.go.tmpl", data); err != nil {
 		return err
 	}
-	filename := filepath.Join(typesDir, fmt.Sprintf("%s_struct_migrate.go", toSnakeCase(parsed.Name)))
+	filename := filepath.Join(typeDir, "struct_migrate.go")
 	if err := os.WriteFile(filename, buf.Bytes(), 0644); err != nil {
 		return err
 	}
 
 	// Generate hook files for each migration (if they don't exist)
+	// New filename pattern: v{N}_to_v{M}.go (not {type}_v{N}_to_v{M}.go)
 	for _, migration := range data.Migrations {
-		hookFilename := filepath.Join(typesDir, fmt.Sprintf("%s_v%d_to_v%d.go",
-			toSnakeCase(parsed.Name), migration.FromVersion, migration.ToVersion))
+		hookFilename := filepath.Join(typeDir, fmt.Sprintf("v%d_to_v%d.go",
+			migration.FromVersion, migration.ToVersion))
 		if _, err := os.Stat(hookFilename); os.IsNotExist(err) {
 			var hookBuf bytes.Buffer
 			if err := g.templates.ExecuteTemplate(&hookBuf, "migrate_hook.go.tmpl", migration); err != nil {
@@ -950,8 +1046,9 @@ func (g *Generator) getProtoType(goType parse.GoType) (string, bool) {
 	if goType.IsJerky && goType.PackagePath != "" {
 		tName := typeName(goType.Name)
 		if info, ok := g.depRegistry.GetByPackageAndType(goType.PackagePath, tName); ok {
-			// Return fully qualified proto type: package.types.TypeNameVN
-			return fmt.Sprintf("%s.types.%sV%d", info.PackageName, info.TypeName, info.CurrentVersion), false
+			// Return fully qualified proto type for sub-package: package.types.typename.VN
+			typePkgName := strings.ToLower(info.TypeName)
+			return fmt.Sprintf("%s.types.%s.V%d", info.PackageName, typePkgName, info.CurrentVersion), false
 		}
 	}
 
@@ -987,7 +1084,7 @@ func (g *Generator) getProtoType(goType parse.GoType) (string, bool) {
 // getTranslationExprs returns forward and backward translation expressions for a field.
 // For gorp: forward uses m.Field (domain), backward uses pb.Field (proto).
 // canFail indicates if the backward translation can return an error.
-func (g *Generator) getTranslationExprs(f parse.ParsedField, parentPkg string, parentPath string) (forward, backward string, canFail bool, imports []string) {
+func (g *Generator) getTranslationExprs(f parse.ParsedField, parentPkg string, parentPath string) (forward, backward string, canFail bool, imports []string, aliasedImports []AliasedImport) {
 	fieldRef := "m." + f.Name
 	pbFieldRef := "pb." + f.Name
 
@@ -995,7 +1092,7 @@ func (g *Generator) getTranslationExprs(f parse.ParsedField, parentPkg string, p
 	if mapping, ok := g.registry.Get(f.GoType.Name); ok {
 		forward = strings.ReplaceAll(mapping.ForwardExpr, "{{.Field}}", fieldRef)
 		backward = strings.ReplaceAll(mapping.BackwardExpr, "{{.Field}}", pbFieldRef)
-		return forward, backward, mapping.CanFail, mapping.NeedsImport
+		return forward, backward, mapping.CanFail, mapping.NeedsImport, nil
 	}
 
 	// Check underlying type for named types (e.g., type Key uint32)
@@ -1024,13 +1121,14 @@ func (g *Generator) getTranslationExprs(f parse.ParsedField, parentPkg string, p
 				imports = append(imports, pkgPath)
 				imports = append(imports, mapping.NeedsImport...)
 			}
-			return forward, backward, mapping.CanFail, imports
+			return forward, backward, mapping.CanFail, imports, nil
 		}
 	}
 
 	// Check if this is a jerky-managed type (direct field)
 	if f.GoType.IsJerky {
-		return g.getJerkyTranslationExprs(f.GoType, fieldRef, pbFieldRef, parentPath)
+		fwd, bwd, fail, imps := g.getJerkyTranslationExprs(f.GoType, fieldRef, pbFieldRef, parentPath)
+		return fwd, bwd, fail, imps, nil
 	}
 
 	// Handle slices that may contain jerky types
@@ -1048,7 +1146,7 @@ func (g *Generator) getTranslationExprs(f parse.ParsedField, parentPkg string, p
 	}
 
 	// Default: direct copy
-	return fieldRef, pbFieldRef, false, nil
+	return fieldRef, pbFieldRef, false, nil, nil
 }
 
 // getJerkyTranslationExprs returns translation expressions for a jerky-managed type field.
@@ -1081,38 +1179,47 @@ func (g *Generator) getJerkyTranslationExprs(goType parse.GoType, fieldRef, pbFi
 }
 
 // getJerkySliceTranslationExprs returns translation expressions for a slice of jerky-managed types.
-func (g *Generator) getJerkySliceTranslationExprs(elemType *parse.GoType, fieldRef, pbFieldRef, parentPath string) (forward, backward string, canFail bool, imports []string) {
+func (g *Generator) getJerkySliceTranslationExprs(elemType *parse.GoType, fieldRef, pbFieldRef, parentPath string) (forward, backward string, canFail bool, imports []string, aliasedImports []AliasedImport) {
 	tName := typeName(elemType.Name)
+	typePkgName := strings.ToLower(tName) // Sub-package name
 
 	// Determine if this is a local or external type
-	pkgPrefix := elemType.PackageName
 	pkgPath := elemType.PackagePath
 
-	var toProtoFunc, fromProtoFunc string
-	if pkgPrefix == "" || pkgPath == "" || pkgPath == parentPath {
+	var toProtoFunc, fromProtoFunc, protoTypePkg, importPath string
+	if pkgPath == "" || pkgPath == parentPath {
+		// Local type - call translation functions directly
 		toProtoFunc = fmt.Sprintf("%sToProto", tName)
 		fromProtoFunc = fmt.Sprintf("%sFromProto", tName)
+		protoTypePkg = typePkgName // Use local sub-package alias
+		importPath = parentPath + "/types/" + typePkgName
 	} else {
-		toProtoFunc = fmt.Sprintf("%s.%sToProto", pkgPrefix, tName)
-		fromProtoFunc = fmt.Sprintf("%s.%sFromProto", pkgPrefix, tName)
-		imports = append(imports, pkgPath)
+		// External type - need package prefix
+		toProtoFunc = fmt.Sprintf("%sToProto", tName)
+		fromProtoFunc = fmt.Sprintf("%sFromProto", tName)
+		protoTypePkg = typePkgName
+		importPath = pkgPath + "/types/" + typePkgName
 	}
 
-	// Generate slice conversion using functional approach
-	// Forward: convert []Domain to []*types.Proto
-	forward = fmt.Sprintf("func() []*types.%s { result := make([]*types.%s, len(%s)); for i, v := range %s { result[i] = %s(v) }; return result }()",
-		tName, tName, fieldRef, fieldRef, toProtoFunc)
+	// Add import for the jerky type's sub-package with alias
+	aliasedImports = append(aliasedImports, AliasedImport{Alias: typePkgName, Path: importPath})
 
-	// Backward: convert []*types.Proto to []Domain
+	// Generate slice conversion using functional approach
+	// Forward: convert []Domain to []*typename.Current
+	forward = fmt.Sprintf("func() []*%s.Current { result := make([]*%s.Current, len(%s)); for i, v := range %s { result[i] = %s(v) }; return result }()",
+		protoTypePkg, protoTypePkg, fieldRef, fieldRef, toProtoFunc)
+
+	// Backward: convert []*typename.Current to []Domain
 	backward = fmt.Sprintf("func() []%s { result := make([]%s, len(%s)); for i, v := range %s { result[i] = %s(v) }; return result }()",
 		tName, tName, pbFieldRef, pbFieldRef, fromProtoFunc)
 
-	return forward, backward, false, imports
+	return forward, backward, false, imports, aliasedImports
 }
 
 // getJerkyMapTranslationExprs returns translation expressions for a map with jerky-managed values.
-func (g *Generator) getJerkyMapTranslationExprs(keyType, valueType *parse.GoType, fieldRef, pbFieldRef, parentPath string) (forward, backward string, canFail bool, imports []string) {
+func (g *Generator) getJerkyMapTranslationExprs(keyType, valueType *parse.GoType, fieldRef, pbFieldRef, parentPath string) (forward, backward string, canFail bool, imports []string, aliasedImports []AliasedImport) {
 	tName := typeName(valueType.Name)
+	typePkgName := strings.ToLower(tName) // Sub-package name
 
 	// Get key type for the map
 	keyTypeName := "string" // default
@@ -1121,29 +1228,36 @@ func (g *Generator) getJerkyMapTranslationExprs(keyType, valueType *parse.GoType
 	}
 
 	// Determine if this is a local or external type
-	pkgPrefix := valueType.PackageName
 	pkgPath := valueType.PackagePath
 
-	var toProtoFunc, fromProtoFunc string
-	if pkgPrefix == "" || pkgPath == "" || pkgPath == parentPath {
+	var toProtoFunc, fromProtoFunc, protoTypePkg, importPath string
+	if pkgPath == "" || pkgPath == parentPath {
+		// Local type - call translation functions directly
 		toProtoFunc = fmt.Sprintf("%sToProto", tName)
 		fromProtoFunc = fmt.Sprintf("%sFromProto", tName)
+		protoTypePkg = typePkgName // Use local sub-package alias
+		importPath = parentPath + "/types/" + typePkgName
 	} else {
-		toProtoFunc = fmt.Sprintf("%s.%sToProto", pkgPrefix, tName)
-		fromProtoFunc = fmt.Sprintf("%s.%sFromProto", pkgPrefix, tName)
-		imports = append(imports, pkgPath)
+		// External type - need package prefix
+		toProtoFunc = fmt.Sprintf("%sToProto", tName)
+		fromProtoFunc = fmt.Sprintf("%sFromProto", tName)
+		protoTypePkg = typePkgName
+		importPath = pkgPath + "/types/" + typePkgName
 	}
 
-	// Generate map conversion using functional approach
-	// Forward: convert map[K]Domain to map[K]*types.Proto
-	forward = fmt.Sprintf("func() map[%s]*types.%s { result := make(map[%s]*types.%s, len(%s)); for k, v := range %s { result[k] = %s(v) }; return result }()",
-		keyTypeName, tName, keyTypeName, tName, fieldRef, fieldRef, toProtoFunc)
+	// Add import for the jerky type's sub-package with alias
+	aliasedImports = append(aliasedImports, AliasedImport{Alias: typePkgName, Path: importPath})
 
-	// Backward: convert map[K]*types.Proto to map[K]Domain
+	// Generate map conversion using functional approach
+	// Forward: convert map[K]Domain to map[K]*typename.Current
+	forward = fmt.Sprintf("func() map[%s]*%s.Current { result := make(map[%s]*%s.Current, len(%s)); for k, v := range %s { result[k] = %s(v) }; return result }()",
+		keyTypeName, protoTypePkg, keyTypeName, protoTypePkg, fieldRef, fieldRef, toProtoFunc)
+
+	// Backward: convert map[K]*typename.Current to map[K]Domain
 	backward = fmt.Sprintf("func() map[%s]%s { result := make(map[%s]%s, len(%s)); for k, v := range %s { result[k] = %s(v) }; return result }()",
 		keyTypeName, tName, keyTypeName, tName, pbFieldRef, pbFieldRef, fromProtoFunc)
 
-	return forward, backward, false, imports
+	return forward, backward, false, imports, aliasedImports
 }
 
 // toSnakeCase converts PascalCase to snake_case.
@@ -1162,4 +1276,78 @@ func toSnakeCase(s string) string {
 func typeName(fullName string) string {
 	parts := strings.Split(fullName, ".")
 	return parts[len(parts)-1]
+}
+
+// TypesExportData contains data for types_export.go.tmpl rendering.
+type TypesExportData struct {
+	Types []TypeExportInfo
+}
+
+// TypeExportInfo contains info about a single type for re-export.
+type TypeExportInfo struct {
+	TypeName   string   // e.g., "User"
+	PkgAlias   string   // e.g., "user"
+	ImportPath string   // e.g., "pkg/types/user"
+	Versions   []int    // e.g., [1, 2, 3]
+	IsStorage  bool     // true for storage types (have Migrations), false for embedded
+}
+
+// GenerateTypesExport generates the types/types.go re-export file by scanning
+// all type subdirectories in the given types directory.
+func (g *Generator) GenerateTypesExport(typesDir, packagePath string) error {
+	data := TypesExportData{}
+
+	// Scan for type subdirectories containing state.json files
+	entries, err := os.ReadDir(typesDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // No types directory yet
+		}
+		return errors.Newf("failed to read types directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		typeDir := filepath.Join(typesDir, entry.Name())
+		stateFile, err := state.Load(typeDir)
+		if err != nil {
+			continue // Skip if no state file
+		}
+
+		// Get the type info from the state file
+		for _, ts := range stateFile.Types {
+			typePkgName := strings.ToLower(ts.TypeName)
+			versions := make([]int, 0, len(ts.History))
+			for _, vh := range ts.History {
+				versions = append(versions, vh.Version)
+			}
+
+			data.Types = append(data.Types, TypeExportInfo{
+				TypeName:   ts.TypeName,
+				PkgAlias:   typePkgName,
+				ImportPath: packagePath + "/types/" + typePkgName,
+				Versions:   versions,
+				IsStorage:  !ts.IsEmbedded,
+			})
+		}
+	}
+
+	if len(data.Types) == 0 {
+		return nil // No types to export
+	}
+
+	var buf bytes.Buffer
+	if err := g.templates.ExecuteTemplate(&buf, "types_export.go.tmpl", data); err != nil {
+		return errors.Newf("failed to execute types export template: %w", err)
+	}
+
+	filename := filepath.Join(typesDir, "types.go")
+	if err := os.WriteFile(filename, buf.Bytes(), 0644); err != nil {
+		return errors.Newf("failed to write types export file: %w", err)
+	}
+
+	return nil
 }

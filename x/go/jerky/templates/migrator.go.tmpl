@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"{{ .TypesImport }}"
+	{{ .TypeAlias }} "{{ .TypesImport }}"
 {{- range .Imports }}
 	"{{ . }}"
 {{- end }}
@@ -49,7 +49,7 @@ func (m {{ .TypeName }}Migrator) MigrateAll(ctx context.Context, db *gorp.DB, fr
 		copy(data, iter.Value())
 
 		// Run migrations sequentially from fromVersion to current
-		migratedData, err := types.{{ .TypeName }}Migrations.MigrateToLatest(data, fromVersion)
+		migratedData, err := {{ .TypeAlias }}.Migrations.MigrateToLatest(data, fromVersion)
 		if err != nil {
 			return errors.Newf("failed to migrate key %x: %w", key, err)
 		}

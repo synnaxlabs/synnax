@@ -34,7 +34,7 @@ type TypeInfo struct {
 	PackageName string
 	// TypeName is the struct name
 	TypeName string
-	// StateDir is the directory containing the jerky.state.json file
+	// StateDir is the directory containing the state.json file (types/{typename}/)
 	StateDir string
 	// CurrentVersion is the current version of this type
 	CurrentVersion int
@@ -70,16 +70,22 @@ func (r *Registry) GetByPackageAndType(packagePath, typeName string) (TypeInfo, 
 }
 
 // LoadFromStateFile loads type info from a state file directory.
+// In sub-package mode, each type has its own state.json in types/{typename}/.
 func (r *Registry) LoadFromStateFile(stateDir string) error {
 	stateFile, err := state.Load(stateDir)
 	if err != nil {
 		return err
 	}
 
-	for typeName, typeState := range stateFile.Types {
+	for mapKey, typeState := range stateFile.Types {
 		latest := typeState.LatestVersion()
 		if latest == nil {
 			continue
+		}
+		// Use TypeName from state if available, otherwise fall back to map key
+		typeName := typeState.TypeName
+		if typeName == "" {
+			typeName = mapKey
 		}
 		// Extract package name from path (last segment)
 		pkgName := typeState.Package
@@ -124,6 +130,7 @@ func (r *Registry) ResolveDependencies(deps []string) ([]Dependency, error) {
 }
 
 // DiscoverJerkyTypes scans a directory tree for jerky state files and registers all types.
+// In sub-package mode, state files are located at types/{typename}/state.json.
 func (r *Registry) DiscoverJerkyTypes(rootDir string) error {
 	return filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
