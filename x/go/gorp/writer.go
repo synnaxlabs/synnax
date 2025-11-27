@@ -49,10 +49,19 @@ func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
 }
 
 func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
-	data, err := w.Encode(ctx, entry)
+	var data []byte
+	var err error
+
+	// Check for custom marshaler (e.g., jerky-generated types)
+	if marshaler, ok := any(entry).(GorpMarshaler); ok {
+		data, err = marshaler.MarshalGorp()
+	} else {
+		data, err = w.Encode(ctx, entry)
+	}
 	if err != nil {
 		return err
 	}
+
 	prefixedKey, err := encodeKey[K](ctx, w, w.prefix(ctx), entry.GorpKey())
 	if err != nil {
 		return err

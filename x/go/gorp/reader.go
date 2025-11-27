@@ -62,7 +62,13 @@ func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
 	if err != nil {
 		return e, lo.Ternary(errors.Is(err, kv.NotFound), query.NotFound, err)
 	}
-	err = r.Decode(ctx, b, &e)
+
+	// Check for custom unmarshaler (e.g., jerky-generated types)
+	if unmarshaler, ok := any(&e).(GorpUnmarshaler); ok {
+		err = unmarshaler.UnmarshalGorp(b)
+	} else {
+		err = r.Decode(ctx, b, &e)
+	}
 	return e, errors.Combine(err, closer.Close())
 }
 

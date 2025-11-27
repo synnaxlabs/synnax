@@ -1,0 +1,50 @@
+{
+  "$schema": "jerky-state-v1",
+  "types": {
+    "Medication": {
+      "package": "github.com/synnaxlabs/synnax/pkg/service/medication",
+      "current_version": 1,
+      "field_order": [
+        "Key",
+        "Name",
+        "Duration"
+      ],
+      "history": [
+        {
+          "version": 1,
+          "created_at": "2025-11-26T19:15:17.161955-07:00",
+          "struct_hash": "346677a8d3ca",
+          "composite_hash": "51764fa702a9",
+          "migration_type": "bootstrap",
+          "fields": {
+            "Duration": {
+              "type": "int",
+              "tags": {
+                "json": "duration",
+                "msgpack": ""
+              }
+            },
+            "Key": {
+              "type": "uuid.UUID",
+              "tags": {
+                "json": "key",
+                "msgpack": ""
+              }
+            },
+            "Name": {
+              "type": "string",
+              "tags": {
+                "json": "name",
+                "msgpack": ""
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "jerky_version": "1.0.0",
+    "last_generated": "2025-11-26T19:15:17.161956-07:00"
+  }
+}

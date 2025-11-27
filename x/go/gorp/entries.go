@@ -33,6 +33,22 @@ type Entry[K Key] interface {
 	SetOptions() []any
 }
 
+// GorpMarshaler is implemented by types that provide custom serialization.
+// When an Entry implements this interface, gorp will use MarshalGorp instead
+// of the default codec for serialization. This is used by jerky-generated types
+// to enable protobuf encoding with migration support.
+type GorpMarshaler interface {
+	MarshalGorp() ([]byte, error)
+}
+
+// GorpUnmarshaler is implemented by types that provide custom deserialization.
+// When an Entry implements this interface, gorp will use UnmarshalGorp instead
+// of the default codec for deserialization. This is used by jerky-generated types
+// to enable protobuf decoding with migration support.
+type GorpUnmarshaler interface {
+	UnmarshalGorp([]byte) error
+}
+
 func entryKeys[K Key, E Entry[K]](entries []E) []K {
 	keys := make([]K, len(entries))
 	for i, entry := range entries {
