@@ -253,7 +253,7 @@ func analyzeFunctionNode(
 	}
 	fnType := sym.Type
 	if fnType.Kind != types.KindFunction {
-		ctx.Diagnostics.AddError(fmt.Errorf("expected function type, got %s", fnType), nil)
+		ctx.Diagnostics.AddError(errors.Newf("expected function type, got %s", fnType), nil)
 		return ir.Node{}, ir.Handle{}, false
 	}
 	n := ir.Node{

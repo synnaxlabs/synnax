@@ -20,4 +20,5 @@ message UserV1 {
     string role = 11;
     bool verified = 12;
     int64 score = 13;
+    string department = 14;
 }

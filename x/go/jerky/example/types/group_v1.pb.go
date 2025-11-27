@@ -4,7 +4,7 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        (unknown)
-// source: group_v1.proto
+// source: x/go/jerky/example/types/group_v1.proto
 
 package types
 
@@ -35,7 +35,7 @@ type GroupV1 struct {
 
 func (x *GroupV1) Reset() {
 	*x = GroupV1{}
-	mi := &file_group_v1_proto_msgTypes[0]
+	mi := &file_x_go_jerky_example_types_group_v1_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -47,7 +47,7 @@ func (x *GroupV1) String() string {
 func (*GroupV1) ProtoMessage() {}
 
 func (x *GroupV1) ProtoReflect() protoreflect.Message {
-	mi := &file_group_v1_proto_msgTypes[0]
+	mi := &file_x_go_jerky_example_types_group_v1_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,7 +60,7 @@ func (x *GroupV1) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GroupV1.ProtoReflect.Descriptor instead.
 func (*GroupV1) Descriptor() ([]byte, []int) {
-	return file_group_v1_proto_rawDescGZIP(), []int{0}
+	return file_x_go_jerky_example_types_group_v1_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GroupV1) GetKey() string {
@@ -91,34 +91,35 @@ func (x *GroupV1) GetMemberCount() int32 {
 	return 0
 }
 
-var File_group_v1_proto protoreflect.FileDescriptor
+var File_x_go_jerky_example_types_group_v1_proto protoreflect.FileDescriptor
 
-const file_group_v1_proto_rawDesc = "" +
+const file_x_go_jerky_example_types_group_v1_proto_rawDesc = "" +
 	"\n" +
-	"\x0egroup_v1.proto\x12\rexample.types\"t\n" +
+	"'x/go/jerky/example/types/group_v1.proto\x12\rexample.types\"t\n" +
 	"\aGroupV1\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12!\n" +
-	"\fmember_count\x18\x04 \x01(\x05R\vmemberCountB-Z+github.com/synnaxlabs/x/jerky/example/typesb\x06proto3"
+	"\fmember_count\x18\x04 \x01(\x05R\vmemberCountB\xa3\x01\n" +
+	"\x11com.example.typesB\fGroupV1ProtoP\x01Z+github.com/synnaxlabs/x/jerky/example/types\xa2\x02\x03ETX\xaa\x02\rExample.Types\xca\x02\rExample\\Types\xe2\x02\x19Example\\Types\\GPBMetadata\xea\x02\x0eExample::Typesb\x06proto3"
 
 var (
-	file_group_v1_proto_rawDescOnce sync.Once
-	file_group_v1_proto_rawDescData []byte
+	file_x_go_jerky_example_types_group_v1_proto_rawDescOnce sync.Once
+	file_x_go_jerky_example_types_group_v1_proto_rawDescData []byte
 )
 
-func file_group_v1_proto_rawDescGZIP() []byte {
-	file_group_v1_proto_rawDescOnce.Do(func() {
-		file_group_v1_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_group_v1_proto_rawDesc), len(file_group_v1_proto_rawDesc)))
+func file_x_go_jerky_example_types_group_v1_proto_rawDescGZIP() []byte {
+	file_x_go_jerky_example_types_group_v1_proto_rawDescOnce.Do(func() {
+		file_x_go_jerky_example_types_group_v1_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_x_go_jerky_example_types_group_v1_proto_rawDesc), len(file_x_go_jerky_example_types_group_v1_proto_rawDesc)))
 	})
-	return file_group_v1_proto_rawDescData
+	return file_x_go_jerky_example_types_group_v1_proto_rawDescData
 }
 
-var file_group_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_group_v1_proto_goTypes = []any{
+var file_x_go_jerky_example_types_group_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_x_go_jerky_example_types_group_v1_proto_goTypes = []any{
 	(*GroupV1)(nil), // 0: example.types.GroupV1
 }
-var file_group_v1_proto_depIdxs = []int32{
+var file_x_go_jerky_example_types_group_v1_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
 	0, // [0:0] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -126,26 +127,26 @@ var file_group_v1_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_group_v1_proto_init() }
-func file_group_v1_proto_init() {
-	if File_group_v1_proto != nil {
+func init() { file_x_go_jerky_example_types_group_v1_proto_init() }
+func file_x_go_jerky_example_types_group_v1_proto_init() {
+	if File_x_go_jerky_example_types_group_v1_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_group_v1_proto_rawDesc), len(file_group_v1_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_x_go_jerky_example_types_group_v1_proto_rawDesc), len(file_x_go_jerky_example_types_group_v1_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_group_v1_proto_goTypes,
-		DependencyIndexes: file_group_v1_proto_depIdxs,
-		MessageInfos:      file_group_v1_proto_msgTypes,
+		GoTypes:           file_x_go_jerky_example_types_group_v1_proto_goTypes,
+		DependencyIndexes: file_x_go_jerky_example_types_group_v1_proto_depIdxs,
+		MessageInfos:      file_x_go_jerky_example_types_group_v1_proto_msgTypes,
 	}.Build()
-	File_group_v1_proto = out.File
-	file_group_v1_proto_goTypes = nil
-	file_group_v1_proto_depIdxs = nil
+	File_x_go_jerky_example_types_group_v1_proto = out.File
+	file_x_go_jerky_example_types_group_v1_proto_goTypes = nil
+	file_x_go_jerky_example_types_group_v1_proto_depIdxs = nil
 }

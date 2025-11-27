@@ -4,50 +4,48 @@ package types
 
 import (
 	"github.com/synnaxlabs/x/jerky/migrate"
+	"github.com/vmihailenco/msgpack/v5"
 	"google.golang.org/protobuf/proto"
 )
 
 // UserMigrations is the migration registry.
 var UserMigrations = &migrate.Registry{
 	TypeName:       "User",
-	CurrentVersion: 2,
+	CurrentVersion: 1,
 	Migrations: []migrate.Migration{
 		{FromVersion: 0, ToVersion: 1, Migrate: migrateUserV0ToV1},
-		{FromVersion: 1, ToVersion: 2, Migrate: migrateUserV1ToV2},
 	},
 }
 
 func migrateUserV0ToV1(data []byte) ([]byte, error) {
-	// V0 = msgpack, handled by gorp layer fallback
-	// If we get here, data should already be proto
+	// Try proto first - data may already be migrated
 	var pb UserV1
-	if err := proto.Unmarshal(data, &pb); err != nil {
-		return nil, err
+	if err := proto.Unmarshal(data, &pb); err == nil {
+		return data, nil
 	}
-	return data, nil
-}
 
-func migrateUserV1ToV2(data []byte) ([]byte, error) {
-	var old UserV1
-	if err := proto.Unmarshal(data, &old); err != nil {
+	// V0 = msgpack (pre-jerky legacy format)
+	var v0 UserV0
+	if err := msgpack.Unmarshal(data, &v0); err != nil {
 		return nil, err
 	}
-	new := UserV2{
-		Email: old.Email,
-		Name: old.Name,
-		Tags: old.Tags,
-		Verified: old.Verified,
-		Balance: old.Balance,
-		Role: old.Role,
-		Score: old.Score,
-		CreatedAt: old.CreatedAt,
-		Key: old.Key,
-		Active: old.Active,
-		Age: old.Age,
-		ID: old.ID,
-		LastSeen: old.LastSeen,
+
+	// Copy fields from v0 to v1 (types are identical)
+	v1 := UserV1{
+		Key: v0.Key,
+		ID: v0.ID,
+		Name: v0.Name,
+		Email: v0.Email,
+		Age: v0.Age,
+		Active: v0.Active,
+		Balance: v0.Balance,
+		CreatedAt: v0.CreatedAt,
+		LastSeen: v0.LastSeen,
+		Tags: v0.Tags,
+		Role: v0.Role,
+		Verified: v0.Verified,
+		Score: v0.Score,
+		Department: v0.Department,
 	}
-	// Hook for custom field mappings (implement in migrations_custom.go)
-	MigrateUserV1ToV2Hook(&old, &new)
-	return proto.Marshal(&new)
+	return proto.Marshal(&v1)
 }

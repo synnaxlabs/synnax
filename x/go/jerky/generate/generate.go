@@ -45,7 +45,7 @@ func NewGenerator(outputDir string, registry *typemap.Registry) (*Generator, err
 func NewGeneratorWithDeps(outputDir string, registry *typemap.Registry, depRegistry *deps.Registry) (*Generator, error) {
 	tmpl, err := templates.Load()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load templates: %w", err)
+		return nil, errors.Newf("failed to load templates: %w", err)
 	}
 
 	if registry == nil {
@@ -69,13 +69,13 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 	// Create types directory
 	typesDir := filepath.Join(g.outputDir, "types")
 	if err := os.MkdirAll(typesDir, 0755); err != nil {
-		return fmt.Errorf("failed to create types directory: %w", err)
+		return errors.Newf("failed to create types directory: %w", err)
 	}
 
 	// Load or create state file
 	stateFile, err := state.Load(typesDir)
 	if err != nil {
-		return fmt.Errorf("failed to load state file: %w", err)
+		return errors.Newf("failed to load state file: %w", err)
 	}
 
 	// Determine version
@@ -169,7 +169,14 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 
 	// Generate proto file
 	if err := g.generateProto(parsed, version, typesDir); err != nil {
-		return fmt.Errorf("failed to generate proto: %w", err)
+		return errors.Newf("failed to generate proto: %w", err)
+	}
+
+	// Generate v0 struct for bootstrap migration (only on first run)
+	if migrationType == "bootstrap" {
+		if err := g.generateV0(parsed, typesDir); err != nil {
+			return errors.Newf("failed to generate v0 struct: %w", err)
+		}
 	}
 
 	// Note: Version snapshot generation is disabled for now.
@@ -180,27 +187,27 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 
 	// Generate current.go aliases
 	if err := g.generateCurrent(parsed, version, typesDir); err != nil {
-		return fmt.Errorf("failed to generate current aliases: %w", err)
+		return errors.Newf("failed to generate current aliases: %w", err)
 	}
 
 	// Generate gorp methods in parent package
 	if err := g.generateGorp(parsed, g.outputDir); err != nil {
-		return fmt.Errorf("failed to generate gorp methods: %w", err)
+		return errors.Newf("failed to generate gorp methods: %w", err)
 	}
 
 	// Generate migrator in parent package
 	if err := g.generateMigrator(parsed, version, g.outputDir); err != nil {
-		return fmt.Errorf("failed to generate migrator: %w", err)
+		return errors.Newf("failed to generate migrator: %w", err)
 	}
 
 	// Generate migrations.go
 	if err := g.generateMigrations(parsed, version, typesDir, typeState); err != nil {
-		return fmt.Errorf("failed to generate migrations: %w", err)
+		return errors.Newf("failed to generate migrations: %w", err)
 	}
 
 	// Save state file
 	if err := stateFile.Save(typesDir); err != nil {
-		return fmt.Errorf("failed to save state file: %w", err)
+		return errors.Newf("failed to save state file: %w", err)
 	}
 
 	return nil
@@ -290,6 +297,19 @@ type CurrentTemplateData struct {
 	Version  int
 }
 
+// V0TemplateData contains data for v0.go template rendering.
+type V0TemplateData struct {
+	TypeName string
+	Fields   []V0FieldData
+}
+
+// V0FieldData contains data for a single v0 field.
+type V0FieldData struct {
+	Name       string // Go field name
+	GoType     string // Proto-compatible Go type (string, int64, etc.)
+	MsgpackTag string // Msgpack tag value
+}
+
 func (g *Generator) generateCurrent(parsed parse.ParsedStruct, version int, typesDir string) error {
 	data := CurrentTemplateData{
 		TypeName: parsed.Name,
@@ -303,6 +323,97 @@ func (g *Generator) generateCurrent(parsed parse.ParsedStruct, version int, type
 
 	filename := filepath.Join(typesDir, fmt.Sprintf("%s_current.go", toSnakeCase(parsed.Name)))
 	return os.WriteFile(filename, buf.Bytes(), 0644)
+}
+
+// generateV0 generates the v0 struct for msgpack bootstrap migration.
+// This is only generated once during the initial jerky adoption (bootstrap).
+func (g *Generator) generateV0(parsed parse.ParsedStruct, typesDir string) error {
+	data := V0TemplateData{
+		TypeName: parsed.Name,
+	}
+
+	for _, f := range parsed.Fields {
+		// Get the proto-compatible Go type
+		goType := g.getV0GoType(f.GoType)
+
+		// Get msgpack tag (use json tag as fallback, which is typical for msgpack)
+		msgpackTag := f.Tags.Msgpack
+		if msgpackTag == "" {
+			msgpackTag = f.Tags.JSON
+		}
+		if msgpackTag == "" {
+			msgpackTag = toSnakeCase(f.Name)
+		}
+		// Strip options like omitempty
+		if idx := strings.Index(msgpackTag, ","); idx != -1 {
+			msgpackTag = msgpackTag[:idx]
+		}
+
+		data.Fields = append(data.Fields, V0FieldData{
+			Name:       f.Name,
+			GoType:     goType,
+			MsgpackTag: msgpackTag,
+		})
+	}
+
+	var buf bytes.Buffer
+	if err := g.templates.ExecuteTemplate(&buf, "v0.go.tmpl", data); err != nil {
+		return err
+	}
+
+	filename := filepath.Join(typesDir, fmt.Sprintf("%s_v0.go", toSnakeCase(parsed.Name)))
+	return os.WriteFile(filename, buf.Bytes(), 0644)
+}
+
+// getV0GoType returns the proto-compatible Go type for use in v0 struct.
+// This matches what proto uses, allowing direct field copying in migrations.
+func (g *Generator) getV0GoType(goType parse.GoType) string {
+	// Check if there's a direct mapping
+	if mapping, ok := g.registry.Get(goType.Name); ok {
+		return protoToGoType(mapping.ProtoType)
+	}
+
+	// Check underlying type for named types
+	if goType.Underlying != nil {
+		if mapping, ok := g.registry.Get(goType.Underlying.Name); ok {
+			return protoToGoType(mapping.ProtoType)
+		}
+	}
+
+	// Handle slices
+	if goType.Kind == parse.KindSlice && goType.Elem != nil {
+		elemType := g.getV0GoType(*goType.Elem)
+		return "[]" + elemType
+	}
+
+	// Default to string for unknown types
+	return "string"
+}
+
+// protoToGoType converts a proto type to its Go equivalent.
+func protoToGoType(protoType string) string {
+	switch protoType {
+	case "string":
+		return "string"
+	case "int32", "sint32", "sfixed32":
+		return "int32"
+	case "int64", "sint64", "sfixed64":
+		return "int64"
+	case "uint32", "fixed32":
+		return "uint32"
+	case "uint64", "fixed64":
+		return "uint64"
+	case "double":
+		return "float64"
+	case "float":
+		return "float32"
+	case "bool":
+		return "bool"
+	case "bytes":
+		return "[]byte"
+	default:
+		return "string"
+	}
 }
 
 // GorpTemplateData contains data for gorp.go template rendering.
@@ -396,6 +507,9 @@ type MigrationsTemplateData struct {
 	TypeName       string
 	CurrentVersion int
 	Migrations     []MigrationData
+	// Parent package info for v0 bootstrap migration (no longer used but kept for compatibility)
+	ParentPkg     string // Package name (e.g., "example")
+	ParentPkgPath string // Full import path
 }
 
 // MigrationData contains data for a single migration.
@@ -406,12 +520,21 @@ type MigrationData struct {
 	CommonFields  []string // Fields present in both versions
 	AddedFields   []string // Fields added in ToVersion
 	RemovedFields []string // Fields removed from FromVersion
+	// V1Fields contains field translations for v0→v1 bootstrap migration
+	V1Fields []BootstrapFieldData
+}
+
+// BootstrapFieldData contains data for v0→v1 field translation.
+type BootstrapFieldData struct {
+	Name string // Field name (e.g., "Key")
 }
 
 func (g *Generator) generateMigrations(parsed parse.ParsedStruct, version int, typesDir string, typeState state.TypeState) error {
 	data := MigrationsTemplateData{
 		TypeName:       parsed.Name,
 		CurrentVersion: version,
+		ParentPkg:      parsed.PackageName,
+		ParentPkgPath:  parsed.PackagePath,
 	}
 
 	// Add migrations for each version transition
@@ -420,6 +543,20 @@ func (g *Generator) generateMigrations(parsed parse.ParsedStruct, version int, t
 			TypeName:    parsed.Name,
 			FromVersion: i,
 			ToVersion:   i + 1,
+		}
+
+		// For v0→v1 bootstrap migration, collect field names
+		if i == 0 {
+			v1Fields := typeState.GetVersion(1)
+			if v1Fields != nil {
+				for _, fieldName := range typeState.FieldOrder {
+					if _, exists := v1Fields.Fields[fieldName]; exists {
+						migration.V1Fields = append(migration.V1Fields, BootstrapFieldData{
+							Name: fieldName,
+						})
+					}
+				}
+			}
 		}
 
 		// Compute field differences for non-bootstrap migrations

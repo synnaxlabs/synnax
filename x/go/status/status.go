@@ -29,6 +29,7 @@ const (
 )
 
 // Status is a standardized payload used across Synnax.
+//go:generate jerky
 type Status[D any] struct {
 	// Key is a unique key for the status.
 	Key string `json:"key" msgpack:"key"`

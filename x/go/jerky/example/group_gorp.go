@@ -5,7 +5,6 @@ package example
 import (
 	"github.com/synnaxlabs/x/jerky/example/types"
 	"github.com/google/uuid"
-	"github.com/vmihailenco/msgpack/v5"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -20,23 +19,20 @@ func (m Group) MarshalGorp() ([]byte, error) {
 }
 
 // UnmarshalGorp deserializes bytes into a Group.
-// It expects data to be in the current proto format. Older versions should be
-// migrated at startup using GroupMigrator before normal operation.
+// It expects data to be in the current proto format. Run migrations at startup
+// using GroupMigrator to convert legacy data before normal operation.
 func (m *Group) UnmarshalGorp(data []byte) error {
 	var pb types.Group
-	if err := proto.Unmarshal(data, &pb); err == nil {
-		var err error
-		m.Key, err = uuid.Parse(pb.Key)
-		if err != nil {
-			return err
-		}
-		m.Name = pb.Name
-		m.Description = pb.Description
-		m.MemberCount = pb.MemberCount
-		return nil
+	if err := proto.Unmarshal(data, &pb); err != nil {
+		return err
 	}
-	// Fall back to msgpack for pre-jerky (legacy) format.
-	// Note: This only handles pre-jerky data, not older proto versions.
-	// Run migrations at startup to convert old proto versions.
-	return msgpack.Unmarshal(data, m)
+	var err error
+	m.Key, err = uuid.Parse(pb.Key)
+	if err != nil {
+		return err
+	}
+	m.Name = pb.Name
+	m.Description = pb.Description
+	m.MemberCount = pb.MemberCount
+	return nil
 }

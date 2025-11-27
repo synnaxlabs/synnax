@@ -70,13 +70,13 @@ func (r *Registry) MigrateToLatest(data []byte, fromVersion int) ([]byte, error)
 	for version := fromVersion; version < r.CurrentVersion; version++ {
 		migration := r.GetMigration(version, version+1)
 		if migration == nil {
-			return nil, fmt.Errorf("no migration found for %s v%d -> v%d", r.TypeName, version, version+1)
+			return nil, errors.Newf("no migration found for %s v%d -> v%d", r.TypeName, version, version+1)
 		}
 
 		var err error
 		data, err = migration.Migrate(data)
 		if err != nil {
-			return nil, fmt.Errorf("migration %d -> %d failed: %w", version, version+1, err)
+			return nil, errors.Newf("migration %d -> %d failed: %w", version, version+1, err)
 		}
 	}
 	return data, nil

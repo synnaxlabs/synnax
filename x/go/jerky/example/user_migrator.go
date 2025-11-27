@@ -19,7 +19,7 @@ type UserMigrator struct{}
 func (UserMigrator) TypeName() string { return "User" }
 
 // CurrentVersion returns the current schema version.
-func (UserMigrator) CurrentVersion() int { return 2 }
+func (UserMigrator) CurrentVersion() int { return 1 }
 
 // MigrateAll migrates all User records from the given version to current.
 func (m UserMigrator) MigrateAll(ctx context.Context, db *gorp.DB, fromVersion int) error {
@@ -27,12 +27,12 @@ func (m UserMigrator) MigrateAll(ctx context.Context, db *gorp.DB, fromVersion i
 	// gorp stores entries with a prefix of the encoded type name.
 	prefix, err := db.Encode(ctx, xtypes.Name[User]())
 	if err != nil {
-		return fmt.Errorf("failed to compute prefix: %w", err)
+		return errors.Newf("failed to compute prefix: %w", err)
 	}
 
 	iter, err := db.OpenIterator(kv.IterPrefix(prefix))
 	if err != nil {
-		return fmt.Errorf("failed to open iterator: %w", err)
+		return errors.Newf("failed to open iterator: %w", err)
 	}
 	defer iter.Close()
 
@@ -47,19 +47,19 @@ func (m UserMigrator) MigrateAll(ctx context.Context, db *gorp.DB, fromVersion i
 		// Run migrations sequentially from fromVersion to current
 		migratedData, err := types.UserMigrations.MigrateToLatest(data, fromVersion)
 		if err != nil {
-			return fmt.Errorf("failed to migrate key %x: %w", key, err)
+			return errors.Newf("failed to migrate key %x: %w", key, err)
 		}
 
 		// Write back to the database
 		if err := db.Set(ctx, key, migratedData); err != nil {
-			return fmt.Errorf("failed to write key %x: %w", key, err)
+			return errors.Newf("failed to write key %x: %w", key, err)
 		}
 
 		count++
 	}
 
 	if err := iter.Error(); err != nil {
-		return fmt.Errorf("iterator error: %w", err)
+		return errors.Newf("iterator error: %w", err)
 	}
 
 	fmt.Printf("jerky: migrated %d User records\n", count)

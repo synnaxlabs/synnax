@@ -13,7 +13,7 @@
       "history": [
         {
           "version": 1,
-          "created_at": "2025-11-26T20:39:23.72946-07:00",
+          "created_at": "2025-11-27T10:35:36.305514-07:00",
           "struct_hash": "bb346156c708",
           "composite_hash": "3589bedc49d0",
           "migration_type": "bootstrap",
@@ -63,7 +63,7 @@
     },
     "User": {
       "package": "github.com/synnaxlabs/x/jerky/example",
-      "current_version": 2,
+      "current_version": 1,
       "field_order": [
         "Key",
         "ID",
@@ -83,123 +83,10 @@
       "history": [
         {
           "version": 1,
-          "created_at": "2025-11-26T20:38:12.001564-07:00",
-          "struct_hash": "8a43261ed1ef",
-          "composite_hash": "81608bce1a5c",
-          "migration_type": "bootstrap",
-          "fields": {
-            "Active": {
-              "type": "bool",
-              "tags": {
-                "json": "active",
-                "msgpack": ""
-              },
-              "field_number": 6
-            },
-            "Age": {
-              "type": "int32",
-              "tags": {
-                "json": "age",
-                "msgpack": ""
-              },
-              "field_number": 5
-            },
-            "Balance": {
-              "type": "float64",
-              "tags": {
-                "json": "balance",
-                "msgpack": ""
-              },
-              "field_number": 7
-            },
-            "CreatedAt": {
-              "type": "time.Time",
-              "tags": {
-                "json": "created_at",
-                "msgpack": ""
-              },
-              "field_number": 8
-            },
-            "Email": {
-              "type": "string",
-              "tags": {
-                "json": "email",
-                "msgpack": ""
-              },
-              "field_number": 4
-            },
-            "ID": {
-              "type": "example.UserID",
-              "tags": {
-                "json": "id",
-                "msgpack": ""
-              },
-              "field_number": 2
-            },
-            "Key": {
-              "type": "uuid.UUID",
-              "tags": {
-                "json": "key",
-                "msgpack": ""
-              },
-              "field_number": 1
-            },
-            "LastSeen": {
-              "type": "telem.TimeStamp",
-              "tags": {
-                "json": "last_seen",
-                "msgpack": ""
-              },
-              "field_number": 9
-            },
-            "Name": {
-              "type": "string",
-              "tags": {
-                "json": "name",
-                "msgpack": ""
-              },
-              "field_number": 3
-            },
-            "Role": {
-              "type": "string",
-              "tags": {
-                "json": "role",
-                "msgpack": ""
-              },
-              "field_number": 11
-            },
-            "Score": {
-              "type": "int64",
-              "tags": {
-                "json": "score",
-                "msgpack": ""
-              },
-              "field_number": 13
-            },
-            "Tags": {
-              "type": "[]string",
-              "tags": {
-                "json": "tags",
-                "msgpack": ""
-              },
-              "field_number": 10
-            },
-            "Verified": {
-              "type": "bool",
-              "tags": {
-                "json": "verified",
-                "msgpack": ""
-              },
-              "field_number": 12
-            }
-          }
-        },
-        {
-          "version": 2,
-          "created_at": "2025-11-26T20:40:34.206711-07:00",
+          "created_at": "2025-11-27T10:35:36.768782-07:00",
           "struct_hash": "8cbd3dad1b7f",
           "composite_hash": "cdd73f4f10cc",
-          "migration_type": "auto",
+          "migration_type": "bootstrap",
           "fields": {
             "Active": {
               "type": "bool",
@@ -337,6 +224,6 @@
   },
   "metadata": {
     "jerky_version": "1.0.0",
-    "last_generated": "2025-11-26T21:30:43.859482-07:00"
+    "last_generated": "2025-11-27T10:35:36.768783-07:00"
   }
 }

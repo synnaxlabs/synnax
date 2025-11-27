@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 )
@@ -54,7 +55,7 @@ func NewCoordinator(db *gorp.DB, kvDB kv.DB, migrators ...TypedMigrator) *Coordi
 func (c *Coordinator) Run(ctx context.Context) error {
 	for typeName, migrator := range c.migrators {
 		if err := c.migrateType(ctx, typeName, migrator); err != nil {
-			return fmt.Errorf("migration failed for %s: %w", typeName, err)
+			return errors.Newf("migration failed for %s: %w", typeName, err)
 		}
 	}
 	return nil
@@ -93,15 +94,17 @@ func (c *Coordinator) readMetadata(ctx context.Context, typeName string) (*Metad
 	key := []byte(MetadataPrefix + typeName)
 	data, closer, err := c.kvDB.Get(ctx, key)
 	if err != nil {
-		if err == kv.NotFound {
+		if errors.Is(err, kv.NotFound) {
 			return &Metadata{Version: 0}, nil
 		}
 		return nil, err
 	}
-	defer closer.Close()
+	defer func() {
+		err = errors.Combine(err, closer.Close())
+	}()
 
 	var meta Metadata
-	if err := json.Unmarshal(data, &meta); err != nil {
+	if err = json.Unmarshal(data, &meta); err != nil {
 		return nil, err
 	}
 

@@ -4,6 +4,7 @@ package types
 
 import (
 	"github.com/synnaxlabs/x/jerky/migrate"
+	"github.com/vmihailenco/msgpack/v5"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -17,11 +18,24 @@ var GroupMigrations = &migrate.Registry{
 }
 
 func migrateGroupV0ToV1(data []byte) ([]byte, error) {
-	// V0 = msgpack, handled by gorp layer fallback
-	// If we get here, data should already be proto
+	// Try proto first - data may already be migrated
 	var pb GroupV1
-	if err := proto.Unmarshal(data, &pb); err != nil {
+	if err := proto.Unmarshal(data, &pb); err == nil {
+		return data, nil
+	}
+
+	// V0 = msgpack (pre-jerky legacy format)
+	var v0 GroupV0
+	if err := msgpack.Unmarshal(data, &v0); err != nil {
 		return nil, err
 	}
-	return data, nil
+
+	// Copy fields from v0 to v1 (types are identical)
+	v1 := GroupV1{
+		Key: v0.Key,
+		Name: v0.Name,
+		Description: v0.Description,
+		MemberCount: v0.MemberCount,
+	}
+	return proto.Marshal(&v1)
 }

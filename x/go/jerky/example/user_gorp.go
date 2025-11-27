@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 	"time"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/vmihailenco/msgpack/v5"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -32,33 +31,30 @@ func (m User) MarshalGorp() ([]byte, error) {
 }
 
 // UnmarshalGorp deserializes bytes into a User.
-// It expects data to be in the current proto format. Older versions should be
-// migrated at startup using UserMigrator before normal operation.
+// It expects data to be in the current proto format. Run migrations at startup
+// using UserMigrator to convert legacy data before normal operation.
 func (m *User) UnmarshalGorp(data []byte) error {
 	var pb types.User
-	if err := proto.Unmarshal(data, &pb); err == nil {
-		var err error
-		m.Key, err = uuid.Parse(pb.Key)
-		if err != nil {
-			return err
-		}
-		m.ID = UserID(pb.ID)
-		m.Name = pb.Name
-		m.Email = pb.Email
-		m.Age = pb.Age
-		m.Active = pb.Active
-		m.Balance = pb.Balance
-		m.CreatedAt = time.Unix(0, pb.CreatedAt)
-		m.LastSeen = telem.TimeStamp(pb.LastSeen)
-		m.Tags = pb.Tags
-		m.Role = pb.Role
-		m.Verified = pb.Verified
-		m.Score = pb.Score
-		m.Department = pb.Department
-		return nil
+	if err := proto.Unmarshal(data, &pb); err != nil {
+		return err
 	}
-	// Fall back to msgpack for pre-jerky (legacy) format.
-	// Note: This only handles pre-jerky data, not older proto versions.
-	// Run migrations at startup to convert old proto versions.
-	return msgpack.Unmarshal(data, m)
+	var err error
+	m.Key, err = uuid.Parse(pb.Key)
+	if err != nil {
+		return err
+	}
+	m.ID = UserID(pb.ID)
+	m.Name = pb.Name
+	m.Email = pb.Email
+	m.Age = pb.Age
+	m.Active = pb.Active
+	m.Balance = pb.Balance
+	m.CreatedAt = time.Unix(0, pb.CreatedAt)
+	m.LastSeen = telem.TimeStamp(pb.LastSeen)
+	m.Tags = pb.Tags
+	m.Role = pb.Role
+	m.Verified = pb.Verified
+	m.Score = pb.Score
+	m.Department = pb.Department
+	return nil
 }

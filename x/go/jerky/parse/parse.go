@@ -10,12 +10,13 @@
 package parse
 
 import (
-	"fmt"
 	"go/ast"
 	"go/types"
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/synnaxlabs/x/errors"
 
 	"github.com/synnaxlabs/x/jerky/deps"
 	"golang.org/x/tools/go/packages"
@@ -49,7 +50,7 @@ func NewParserWithDeps(depRegistry *deps.Registry) *Parser {
 func (p *Parser) ParseFile(sourceFile string) ([]ParsedStruct, error) {
 	absPath, err := filepath.Abs(sourceFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get absolute path: %w", err)
+		return nil, errors.Wrap(err, "failed to get absolute path")
 	}
 
 	dir := filepath.Dir(absPath)
@@ -67,11 +68,11 @@ func (p *Parser) ParseFile(sourceFile string) ([]ParsedStruct, error) {
 
 	pkgs, err := packages.Load(cfg, ".")
 	if err != nil {
-		return nil, fmt.Errorf("failed to load package: %w", err)
+		return nil, errors.Wrap(err, "failed to load package")
 	}
 
 	if len(pkgs) == 0 {
-		return nil, fmt.Errorf("no packages found in %s", dir)
+		return nil, errors.Newf("no packages found in %s", dir)
 	}
 
 	if len(pkgs[0].Errors) > 0 {
@@ -79,7 +80,7 @@ func (p *Parser) ParseFile(sourceFile string) ([]ParsedStruct, error) {
 		for _, e := range pkgs[0].Errors {
 			errs = append(errs, e.Error())
 		}
-		return nil, fmt.Errorf("package errors: %s", strings.Join(errs, "; "))
+		return nil, errors.Newf("package errors: %s", strings.Join(errs, "; "))
 	}
 
 	pkg := pkgs[0]
@@ -95,7 +96,7 @@ func (p *Parser) ParseFile(sourceFile string) ([]ParsedStruct, error) {
 	}
 
 	if targetFile == nil {
-		return nil, fmt.Errorf("file %s not found in package", sourceFile)
+		return nil, errors.Newf("file %s not found in package", sourceFile)
 	}
 
 	// Find all jerky-annotated structs

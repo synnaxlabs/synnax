@@ -82,13 +82,13 @@ func run() error {
 	// Get source file from GOFILE env var (set by go generate)
 	sourceFile := os.Getenv("GOFILE")
 	if sourceFile == "" {
-		return fmt.Errorf("GOFILE environment variable not set (run via go generate)")
+		return errors.Newf("GOFILE environment variable not set (run via go generate)")
 	}
 
 	// Get working directory
 	wd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return errors.Newf("failed to get working directory: %w", err)
 	}
 
 	sourcePath := filepath.Join(wd, sourceFile)
@@ -107,51 +107,76 @@ func run() error {
 	parser := parse.NewParserWithDeps(depRegistry)
 	structs, err := parser.ParseFile(sourcePath)
 	if err != nil {
-		return fmt.Errorf("failed to parse %s: %w", sourceFile, err)
+		return errors.Newf("failed to parse %s: %w", sourceFile, err)
 	}
 
 	if len(structs) == 0 {
-		return fmt.Errorf("no jerky-annotated structs found in %s", sourceFile)
+		return errors.Newf("no jerky-annotated structs found in %s", sourceFile)
 	}
 
 	// Generate code for each struct with dependency registry
 	gen, err := generate.NewGeneratorWithDeps(wd, nil, depRegistry)
 	if err != nil {
-		return fmt.Errorf("failed to create generator: %w", err)
+		return errors.Newf("failed to create generator: %w", err)
 	}
 
 	for _, s := range structs {
 		fmt.Printf("jerky: generating code for %s\n", s.Name)
 		if err := gen.Generate(s); err != nil {
-			return fmt.Errorf("failed to generate code for %s: %w", s.Name, err)
+			return errors.Newf("failed to generate code for %s: %w", s.Name, err)
 		}
 	}
 
 	// Run buf generate for proto compilation
 	typesDir := filepath.Join(wd, "types")
-	if err := runBufGenerate(typesDir); err != nil {
+	repoRoot := findBufRoot(wd)
+	if repoRoot == "" {
+		repoRoot = wd // Fallback to working directory
+	}
+	if err := runBufGenerate(repoRoot, typesDir); err != nil {
 		fmt.Printf("jerky: warning: buf generate failed: %v\n", err)
-		fmt.Println("jerky: please run 'buf generate' manually in the types directory")
+		fmt.Println("jerky: please run 'buf generate --path <types_dir>' from the repo root")
 	}
 
 	fmt.Printf("jerky: generated code for %d struct(s)\n", len(structs))
 	return nil
 }
 
-func runBufGenerate(typesDir string) error {
+func runBufGenerate(repoRoot, typesDir string) error {
 	// Check if buf is available
 	_, err := exec.LookPath("buf")
 	if err != nil {
-		return fmt.Errorf("buf not found in PATH")
+		return errors.Newf("buf not found in PATH")
 	}
 
-	// Run buf generate from the types directory
-	cmd := exec.Command("buf", "generate")
-	cmd.Dir = typesDir
+	// Compute relative path from repo root to types directory
+	relPath, err := filepath.Rel(repoRoot, typesDir)
+	if err != nil {
+		return errors.Newf("failed to compute relative path: %w", err)
+	}
+
+	// Run buf generate from the repo root with --path targeting the types directory
+	cmd := exec.Command("buf", "generate", "--path", relPath)
+	cmd.Dir = repoRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	return cmd.Run()
+}
+
+// findBufRoot walks up the directory tree to find buf.yaml (the repo root for buf).
+func findBufRoot(start string) string {
+	dir := start
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "buf.yaml")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
 }
 
 // findModuleRoot walks up the directory tree to find the go.mod file.

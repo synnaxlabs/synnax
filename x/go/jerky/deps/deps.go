@@ -146,7 +146,7 @@ func (r *Registry) CheckForCycles(startType string, getDeps func(string) []strin
 			for i, p := range path {
 				if p == typeName {
 					cyclePath := append(path[i:], typeName)
-					return fmt.Errorf("circular dependency detected: %v", cyclePath)
+					return errors.Newf("circular dependency detected: %v", cyclePath)
 				}
 			}
 			return nil
