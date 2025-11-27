@@ -12,63 +12,13 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The TypeScript client supports several different methods for reading data from a Synnax
-Core. We can read directly from a channel, read from multiple channels at once, or use
-iterators to efficiently process large amounts of data.
-
 <Divider.Divider x />
 
 ## Reading from a Channel
 
-<Divider.Divider x />
-
 ## Reading from Multiple Channels
 
-We can also read from multiple channels at once by calling the `read` method on the
-client. This method takes a list of channel names/keys and a time range:
-
-```typescript
-import { TimeStamp } from "@synnaxlabs/pluto";
-
-const start = TimeStamp.now();
-const end = start.add(TimeStamp.seconds(10));
-const frame = await client.read({ start, end }, ["temperature", "humidity"]);
-```
-
-The returned data is a [`Frame`](/reference/typescript-client/series-and-frames#series)
-object, which contains a `MultiSeries` for each channel. To access the data for a
-specific channel, we can use the `get` method:
-
-```typescript
-const temperature = frame.get("temperature");
-const humidity = frame.get("humidity");
-```
-
-<Divider.Divider x />
-
 ## Reading the Latest Data
-
-Sometimes you need to read the most recent data from a channel without knowing the exact
-timestamp. The `readLatest` method allows you to read the latest N samples from one or
-more channels:
-
-```typescript
-// Read the latest single sample from a channel
-const latestValue = await client.readLatest("temperature", 1);
-
-// Read the latest 10 samples from a channel
-const latestSamples = await client.readLatest("temperature", 10);
-
-// Read the latest 5 samples from multiple channels
-const frame = await client.readLatest(["temperature", "humidity", "pressure"], 5);
-
-// Access the data from the frame
-const temperatureData = frame.get("temperature");
-const humidityData = frame.get("humidity");
-```
-
-The returned data follows the same conventions as regular reads - a `MultiSeries` for
-single channels or a `Frame` for multiple channels.
 
 <Divider.Divider x />
 

@@ -25,6 +25,15 @@ If you're unfamiliar with what channels are and how they work, check out the
 
 ## Creating Channels
 
+| Parameter (Python / TypeScript) | Type               | Default  | Description                                                                                                                           |
+| ------------------------------- | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                          | `str` / `string`   | Required | A human-readable name for the channel. This name is not guaranteed to be unique.                                                      |
+| `data_type` / `dataType`        | `DataType`         | Required | The data type of the samples stored in the channel (e.g., `DataType.FLOAT32`, `DataType.TIMESTAMP`).                                  |
+| `is_index` / `isIndex`          | `bool` / `boolean` | `false`  | Set to `true` if the channel is an index channel, `false` otherwise. Index channels must have a data type of `DataType.TIMESTAMP`.    |
+| `index`                         | `int` / `number`   | `0`      | The key of the index channel that this channel is associated with. Not required for index channels.                                   |
+| `virtual`                       | `bool` / `boolean` | `false`  | Set to `true` if the channel is virtual. Virtual channels do not store data in the database and are used for streaming purposes only. |
+| `retrieve_if_name_exists`       | `bool` / `boolean` | `false`  | If `true`, retrieves the channel if one with the same name already exists instead of creating a duplicate.                            |
+
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
 <Fragment slot="python">
@@ -69,7 +78,7 @@ flag.
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
-    ```python
+    ``` python
     time_index_channel = client.channels.create(
       name="time",
       data_type=sy.DataType.TIMESTAMP,
@@ -306,7 +315,12 @@ the missing channel will simply be omitted from the list of results.
 <Client.Tabs client:load exclude={["console", "cpp", "typescript"]}>
 
 <Fragment slot="python">
-  ```python sensor_channels = client.channels.retrieve(["^sensor"]) ```
+
+```python
+# Returns list[sy.Channel]
+sensor_channels = client.channels.retrieve(["^sensor"])
+```
+
 </Fragment>
 
 </Client.Tabs>

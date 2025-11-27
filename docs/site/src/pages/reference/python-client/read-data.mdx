@@ -12,40 +12,9 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Python client supports several different ways of reading data from a Core. We can
-read directly from a channel, fetch a range and access its data, or leverage server-side
-iterators for processing large queries. If you'd like a conceptual overview of how to
-read data in Synnax, check out the [reads](/reference/concepts/reads) page.
-
-<Divider.Divider x />
-
 ## Reading from a Channel
 
-<Divider.Divider x />
-
 ## Reading from Multiple Channels
-
-We can also read from multiple channels at once by calling the `read` method on the
-`client`. This method takes a list of channel names/keys and a time range:
-
-```python
-frame = client.read(start, end, ["my_precise_tc", "time"])
-```
-
-The returned data is an instance of the `Frame` class. We can access `Series` on the
-class by using the `[]` operator:
-
-```python
-data = frame["my_precise_tc"]
-```
-
-We can also convert the `Frame` to a `pandas.DataFrame` by calling the `to_df` method:
-
-```python
-df = frame.to_df()
-```
-
-<Divider.Divider x />
 
 ## Reading Channel Data from a Range
 
@@ -84,24 +53,6 @@ plt.plot(rng.time, rng.my_precise_tc)
 <Divider.Divider x />
 
 ## Reading the Latest Data
-
-Sometimes you need to read the most recent data from a channel without knowing the exact
-timestamp. The `read_latest` method allows you to read the latest N samples from one or
-more channels:
-
-```python
-# Read the latest single sample from a channel
-latest_value = client.read_latest("my_precise_tc")
-
-# Read the latest 10 samples from a channel
-latest_samples = client.read_latest("my_precise_tc", n=10)
-
-# Read the latest 5 samples from multiple channels
-frame = client.read_latest(["my_precise_tc", "time", "pressure"], n=5)
-```
-
-The returned data follows the same conventions as regular reads - a `Series` for single
-channels or a `Frame` for multiple channels.
 
 <Divider.Divider x />
 
