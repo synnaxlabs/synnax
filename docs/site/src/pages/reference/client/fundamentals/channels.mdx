@@ -16,7 +16,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 Channels are the fundamental building blocks for storing and organizing data in Synnax.
-This guide covers all the basic CRUD operations you need to work with channels.
+This guide covers all the basic CRUD operations you need to work with Synnax channels.
 
 If you're unfamiliar with what channels are and how they work, check out the
 [channels concepts guide](/reference/concepts/channels).
@@ -25,92 +25,181 @@ If you're unfamiliar with what channels are and how they work, check out the
 
 ## Creating Channels
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
+<Client.Tabs client:load exclude={["console", "cpp"]}>
 
 <Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/channels#creating-channels">
-      Python Channels - Creating Channels
-    </a>
-  </Note.Note>
+  ```python
+  time_index_channel = client.channels.create(
+    name="time",
+    data_type=sy.DataType.TIMESTAMP,
+    is_index=True,
+  )
+
+my_sensor = client.channels.create( name="my_sensor", data_type=sy.DataType.FLOAT32,
+index=time_index_channel.key, )
+
+````
 </Fragment>
 
-  <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/channels#creating-channels">TypeScript Channels - Creating Channels</a>
-    </Note.Note>
-  </Fragment>
-</Client.Tabs>
+<Fragment slot="typescript">
+```typescript
+const timeIndexChannel = await client.channels.create({
+  name: "time",
+  dataType: DataType.TIMESTAMP,
+  isIndex: true,
+});
 
-### Creating a Data Channel and its Index
+const tempChannel = await client.channels.create({
+  name: "my_temp_sensor",
+  dataType: DataType.FLOAT32,
+  index: timeIndexChannel.key,
+});
+````
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
-
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/channels#creating-a-data-channel-and-its-index">
-      Python Channels - Creating a Data Channel and its Index
-    </a>
-  </Note.Note>
 </Fragment>
 
-  <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/channels#creating-a-data-channel-and-its-index">TypeScript Channels - Creating a Data Channel and its Index</a>
-    </Note.Note>
-  </Fragment>
 </Client.Tabs>
+
+### Only Create if Channel Does Not Exist
+
+There are situations where you want to ensure a channel with a particular name exists,
+but don't want it duplicated. To accomplish this, use the `retrieve_if_name_exists`
+flag.
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+    ```python
+    time_index_channel = client.channels.create(
+      name="time",
+      data_type=sy.DataType.TIMESTAMP,
+      is_index=True,
+      retrieve_if_name_exists=True,
+    )
+
+    my_sensor = client.channels.create(
+      name="my_sensor",
+      data_type=sy.DataType.FLOAT32,
+      index=time_index_channel.key,
+      retrieve_if_name_exists=True,
+    )
+
+    ```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+      ```typescript
+      const timeIndexChannel = await client.channels.create({
+        name: "time",
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+        retrieve_if_name_exists: true,
+      });
+
+      const tempChannel = await client.channels.create({
+        name: "my_temp_sensor",
+        dataType: DataType.FLOAT32,
+        index: timeIndexChannel.key,
+        retrieve_if_name_exists: true,
+    });
+
+````
+</Fragment>
+</Client.Tabs>
+
+
 
 ### Creating Multiple Channels
+Mutliple channels can be created in a single call using the `create` method. This is
+more efficient than creating channels individually, and provides the atomic guarantee that
+either all or no channels will be created.
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
+Keep in mind that the index channel(s) must be still be creeated first.
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
 
 <Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/channels#creating-multiple-channels">
-      Python Channels - Creating Multiple Channels
-    </a>
-  </Note.Note>
+
+```python
+import numpy as np
+import synnax as sy
+
+time_index = client.channels.create(
+    name="time",
+    data_type=sy.DataType.TIMESTAMP,
+    is_index=True,
+)
+
+sensor_one = sy.Channel(
+    name="sensor_one",
+    data_type=sy.DataType.FLOAT32, # Use Synnax datatypes
+
+    index=time_index.key,
+)
+
+sensor_two = sy.Channel(
+    name="sensor_two",
+    data_type=np.float32, # Or numpy
+    index=time_index.key,
+)
+
+sensor_three = sy.Channel(
+    name="sensor_three",
+    data_type="float32", # Or strings
+    index=time_index.key,
+)
+
+data_channels = client.channels.create(
+  [
+    sensor_one,
+    sensor_two,
+    sensor_three,
+  ],
+  retrieve_if_name_exists=True, # Optional
+)
+````
+
 </Fragment>
 
   <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/channels#creating-multiple-channels">TypeScript Channels - Creating Multiple Channels</a>
-    </Note.Note>
-  </Fragment>
-</Client.Tabs>
+    ```typescript
+    import { Channel } from "@synnaxlabs/client";
 
-### Only Create a Channel if it Doesn't Exist
+    const timeIndexChannel = await client.channels.create({
+      name: "time",
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
+    const sensorOne = new Channel({
+      name: "sensor_one",
+      dataType: DataType.FLOAT32,
+      index: timeIndexChannel.key,
+    });
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/channels#only-create-a-channel-if-it-doesnt-exist">
-      Python Channels - Only Create a Channel if it Doesn't Exist
-    </a>
-  </Note.Note>
-</Fragment>
+    const sensorTwo = new Channel({
+      name: "sensor_two",
+      dataType: DataType.FLOAT32,
+      index: timeIndexChannel.key,
+    });
 
-  <Fragment slot="typescript">
-    <Note.Note variant="warning">
-      <span style={{ color: "red" }}>No corresponding section - feature may not exist in TypeScript</span>{" "}
-    </Note.Note>
+    const sensorThree = new Channel({
+      name: "sensor_three",
+      dataType: DataType.FLOAT32,
+      index: timeIndexChannel.key,
+    });
+
+    const sensors = await client.channels.create({
+      [
+        sensorOne,
+        sensorTwo,
+        sensorThree
+      ],
+      retrieve_if_name_exists:True,  // Optional
+    });
+    ```
+
   </Fragment>
 </Client.Tabs>
 
@@ -118,100 +207,135 @@ If you're unfamiliar with what channels are and how they work, check out the
 
 ## Retrieving Channels
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
+To retrieve channel(s), pass the channel name(s) or key(s) to the `retrieve` method.
+Retrieving by key is faster than retrieving by name, and is recommended whenever
+possible.
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/channels#retrieving-channels">
-      Python Channels - Retrieving Channels
-    </a>
-  </Note.Note>
-</Fragment>
-
-  <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/channels#retrieving-channels">TypeScript Channels - Retrieving Channels</a>
-    </Note.Note>
-  </Fragment>
-</Client.Tabs>
+<Note.Note variant="info" className="compact">
+  To retrieve channels using ranges see, [Ranges - Working with
+  Channels](/reference/client/working-with-data/ranges#working-with-channels).
+</Note.Note>
 
 ### Retrieving a Single Channel
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
+<Client.Tabs client:load exclude={["console", "cpp"]}>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/channels#retrieving-a-single-channel">
-      Python Channels - Retrieving a Single Channel
-    </a>
-  </Note.Note>
-</Fragment>
+  <Fragment slot="python">
+    ```python
+    # Method 1: By key
+    my_sensor = client.channels.retrieve(my_sensor.key)
+
+    # Method 2: By name
+    my_sensor = client.channels.retrieve("my_sensor")
+    ```
+
+  </Fragment>
 
   <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/channels#retrieving-a-single-channel">TypeScript Channels - Retrieving a Single Channel</a>
-    </Note.Note>
+    ```typescript
+    // Method 1: By key
+    const tempChannel = await client.channels.retrieve(tempChannel.key);
+
+    // Method 2: By name
+    const tempChannel = await client.channels.retrieve("my_temp_sensor");
+    ```
+
   </Fragment>
 </Client.Tabs>
+
+The client will raise a `NotFoundError` if no channels match the query, and a
+`MultipleFoundError` if more than one channel matches the query. To accept no results or
+multiple results, provide a list to the `retrieve` method as shown in the next section.
 
 ### Retrieving Multiple Channels
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+    ```python
+    # Method 1: By key
+    my_channels = client.channels.retrieve([
+      sensor_one.key,
+      sensor_two.key,
+    ])
+
+    # Method 2: By name
+    my_channels = client.channels.retrieve([
+      "sensor_one",
+      "sensor_two",
+    ])
+
+    # This won't work!
+    my_channels = client.channels.retrieve([
+      "sensor_one",
+      sensor_two.key
+    ])
+    ```
+
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/channels#retrieving-multiple-channels">
-      Python Channels - Retrieving Multiple Channels
-    </a>
-  </Note.Note>
-</Fragment>
-
   <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/channels#retrieving-multiple-channels">TypeScript Channels - Retrieving Multiple Channels</a>
-    </Note.Note>
+    ```typescript
+    // Method 1: By key
+    const channels = await client.channels.retrieve([
+      sensor_one.key,
+      sensors_two.key,
+    ]);
+
+    // Method 2: By name
+    const channels = await client.channels.retrieve([
+      "sensor_one",
+      "sensor_two"
+    ]);
+
+    // This won't work!
+    const channels = await client.channels.retrieve([
+      "sensor_one",
+      sensor_two.key,
+    ]);
+    ```
+
   </Fragment>
 </Client.Tabs>
 
-<Note.Note variant="info">
-  **Excluded from this section**: Retrieving channels using ranges is covered in{" "}
-  <a href="/reference/client/working-with-data/ranges#working-with-channels">
-    Working with Data - Ranges - Working with Channels
-  </a>
-  . Retrieving channels using regular expressions (Python only) is covered in{" "}
-  <a href="/reference/python-client/channels#retrieving-channels-using-regular-expressions">
-    Python Channels - Retrieving Channels Using Regular Expressions
-  </a>
-  .
-</Note.Note>
+Synnax will not raise a `NotFoundError` if one or more channels are not found. Instead,
+the missing channel will simply be omitted from the list of results.
+
+### Retrieving Channels with Regular Expressions (Python Only)
+
+<Client.Tabs client:load exclude={["console", "cpp", "typescript"]}>
+
+<Fragment slot="python">
+  ```python sensor_channels = client.channels.retrieve(["^sensor"]) ```
+</Fragment>
+
+</Client.Tabs>
+
+Please note that if expecting multiple channels to match the pattern, you must pass in a
+list to the `retrieve` method, otherwise the client will raise a `MultipleFoundError`.
 
 <Divider.Divider x />
 
 ## Renaming Channels
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
+Renam channels using the `channels.rename` method. Currently, renaming must be done by
+key from the client or by calling the rename on an existing channel object.
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
 
 <Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/channels#renaming-channels">
-      Python Channels - Renaming Channels
-    </a>
-  </Note.Note>
+
+```python
+# Rename an already existing channel
+data_channel.rename("new_name")
+
+# Renaming single channel
+client.channels.rename(data_channel.key, "new_name")
+
+# Renaming multiple channels
+client.channels.rename([channel_one.key, channel_two.key], ["name_one", "name_two"])
+```
+
 </Fragment>
 
   <Fragment slot="typescript">
@@ -225,23 +349,51 @@ If you're unfamiliar with what channels are and how they work, check out the
 
 ## Deleting Channels
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
+To delete a channel, we use the `channels.delete` method.
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/channels#deleting-channels">
-      Python Channels - Deleting Channels
-    </a>
-  </Note.Note>
-</Fragment>
+<Note.Note variant="warning" className="compact">
+  Deleting a channel will also delete all of the data stored for that channel in a
+  Synnax Core. This is a permanent operation that cannot be undone. Be careful!
+</Note.Note>
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+    ```python
+    # Delete by name
+    client.channels.delete("my_sensor")
+
+    # Delete multiple by name
+    client.channels.delete(["sensor_one", "sensor_two"])
+
+    # Delete by key
+    client.channels.delete(sensor_three.key)
+
+    # Delete multiple by key
+    client.channels.delete([sensor_one.key, sensor_two.key, sensor_three.key])
+    ```
+
+  </Fragment>
 
   <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/channels#deleting-channels">TypeScript Channels - Deleting Channels</a>
-    </Note.Note>
+    ```typescript
+    // Delete by name
+    await client.channels.delete("my_sensor");
+  
+    // Delete multiple by name
+    await client.channels.delete(["sensor_one", "sensor_two"]);
+  
+    // Delete by key
+    await client.channels.delete(sensor_three.key);
+  
+    // Delete multiple by key
+    await client.channels.delete([sensor_one.key, sensor_two.key, sensor_three.key]);
+    ```
   </Fragment>
 </Client.Tabs>
+
+Unlike with retrieving channels, Synnax will not raise an error if it cannot find a
+channel matching the key or name. This means that `delete` is an idempotent operation,
+and is safe to call even if the channel has already been deleted.
+
+Deleting a channel by name will delete **all** channels with that name.
