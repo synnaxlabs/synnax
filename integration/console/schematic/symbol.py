@@ -60,15 +60,15 @@ class Box:
 class Symbol(ABC):
     """Base class for all schematic symbols"""
 
-    page: Page | None
-    console: Console | None
-    locator: Locator | None
+    page: Page
+    console: Console
+    locator: Locator
     symbol_id: str | None
     label: str
     rotatable: bool
     _symbol_type: str
 
-    def __init__(self, label: str, rotatable: bool = False):
+    def __init__(self, label: str, symbol_type: str, rotatable: bool = False):
         """Initialize a symbol with configuration parameters.
 
         The symbol is not yet attached to a schematic. Call schematic.create_symbol(symbol)
@@ -76,19 +76,18 @@ class Symbol(ABC):
 
         Args:
             label: Display label for the symbol
+            symbol_type: The type of symbol (e.g., "Valve", "Button", "Three Way")
             rotatable: Whether the symbol can be rotated (default: False)
         """
         if label.strip() == "":
             raise ValueError("Label cannot be empty")
 
         self.label = label
+        self._symbol_type = symbol_type
         self.rotatable = rotatable
-        self.page = None
-        self.console = None
-        self.locator = None
         self.symbol_id = None
 
-    def _attach_to_schematic(self, page: Page, console: Console) -> None:
+    def create(self, page: Page, console: Console) -> None:
         """Attach this symbol to a schematic (called by Schematic.create_symbol).
 
         This method adds the symbol to the schematic UI and configures it.
@@ -162,13 +161,24 @@ class Symbol(ABC):
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
 
-    def click(self) -> None:
-        """Click the symbol to select it."""
-        self.console.click(self.locator, timeout=100)
+    def click(self, sleep: int = 100) -> None:
+        """Click the symbol to select it.
 
-    def meta_click(self) -> None:
-        """Click the symbol with the platform-appropriate modifier key (Cmd/Ctrl) held down."""
-        self.console.meta_click(self.locator)
+        Args:
+            sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
+        """
+
+        self.console.click(self.locator, sleep=sleep)
+
+    def meta_click(self, sleep: int = 0) -> None:
+        """
+        Click the symbol with the platform-appropriate modifier key (Cmd/Ctrl) held down.
+
+        Args:
+            sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
+        """
+
+        self.console.meta_click(self.locator, sleep=sleep)
 
     def set_label(self, label: str) -> None:
         self.click()
@@ -201,6 +211,14 @@ class Symbol(ABC):
 
     def set_value(self, value: float) -> None:
         """Set the symbol's value if applicable. Default implementation does nothing."""
+        pass
+
+    def press(self, sleep: int = 100) -> None:
+        """Press/activate the symbol if applicable. Default implementation does nothing.
+
+        Args:
+            sleep: Time in milliseconds to wait after pressing. Buffer for network delays and slow animations.
+        """
         pass
 
     def move(self, delta_x: int, delta_y: int) -> None:

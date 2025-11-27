@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import os
+import platform
 import random
 import re
 import time
@@ -216,17 +217,17 @@ class Console:
             sy.sleep(0.2)
 
     def check_for_notifications(
-        self, timeout: sy.CrudeTimeSpan = 1.0
+        self, timeout: sy.CrudeTimeSpan = 0.2
     ) -> list[dict[str, Any]]:
         """
         Check for notifications in the bottom right corner.
         Polls every 100ms until notifications are found or timeout is reached.
 
-        :param timeout: Maximum time to wait for notifications in seconds (default: 1.0)
+        :param timeout: Maximum time to wait for notifications in seconds (default: 0.2)
         :returns: List of notification dictionaries with details
         """
         start_time = time.time()
-        poll_interval = 100  # ms
+        poll_interval = 50  # ms
 
         while time.time() - start_time < timeout:
             notifications = []
@@ -350,7 +351,7 @@ class Console:
             .first
         )
         button.wait_for(state="attached", timeout=300)
-        button.click(force=True)
+        button.click()
 
     def get_toggle(self, toggle_label: str) -> bool:
         """Get the value of a toggle by label."""
@@ -418,7 +419,9 @@ class Console:
 
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
-    def click(self, selector: str | Locator, timeout: int = 100) -> None:
+    def click(
+        self, selector: str | Locator, timeout: int = 500, sleep: int = 100
+    ) -> None:
         """
         Click an element by text selector or Locator.
 
@@ -426,17 +429,21 @@ class Console:
 
         Args:
             selector: Either a text string to search for, or a Playwright Locator
-            timeout: For text selectors, click timeout in ms. For Locators, wait timeout after click.
+            timeout: Maximum time in milliseconds to wait for actionability.
+            sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
         """
         if isinstance(selector, str):
             element = self.page.get_by_text(selector, exact=True).first
             element.click(timeout=timeout)
         else:
             with self.bring_to_front(selector) as el:
-                el.click(force=True)
-            self.page.wait_for_timeout(timeout)
+                el.click(timeout=timeout)
 
-    def meta_click(self, selector: str | Locator, timeout: int = 100) -> None:
+        sy.sleep(sleep / 1000)
+
+    def meta_click(
+        self, selector: str | Locator, timeout: int = 500, sleep: int = 100
+    ) -> None:
         """
         Click an element with platform-appropriate modifier key (Cmd on Mac, Ctrl elsewhere) held.
 
@@ -444,25 +451,24 @@ class Console:
 
         Args:
             selector: Either a text string to search for, or a Playwright Locator
-            timeout: Optional timeout. For text selectors: click timeout in ms. For Locators: wait timeout after click.
-                     If None, no wait is performed for Locators (maintains backward compatibility).
+            timeout: Maximum time in milliseconds to wait for actionability.
+            sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
         """
-        import platform
 
         modifier = "Meta" if platform.system() == "Darwin" else "Control"
 
         if isinstance(selector, str):
             element = self.page.get_by_text(selector, exact=True).first
             self.page.keyboard.down(modifier)
-            element.click(timeout=timeout, force=True)
+            element.click(timeout=timeout)
             self.page.keyboard.up(modifier)
         else:
             with self.bring_to_front(selector) as el:
                 self.page.keyboard.down(modifier)
-                el.click(force=True)
+                el.click(timeout=timeout)
                 self.page.keyboard.up(modifier)
 
-            self.page.wait_for_timeout(timeout)
+        sy.sleep(sleep / 1000)
 
     def check_for_modal(self) -> bool:
         """Check for a modal"""
@@ -489,7 +495,7 @@ class Console:
 
         Example:
             with console.bring_to_front(element) as el:
-                el.click(force=True)
+                el.click(timeout=500)
         """
         original_z_index = element.evaluate("element => element.style.zIndex || 'auto'")
         element.evaluate("element => element.style.zIndex = '9999'")

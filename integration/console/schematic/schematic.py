@@ -67,8 +67,8 @@ class Schematic(ConsolePage):
             configured_valve = schematic.create_symbol(valve)
             configured_valve.move(-90, -100)
         """
-        # Inject page and console into the symbol
-        symbol._attach_to_schematic(self.page, self.console)
+
+        symbol.create(self.page, self.console)
         return symbol
 
     def align(

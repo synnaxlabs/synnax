@@ -15,16 +15,15 @@ from .symbol import Symbol
 class Setpoint(Symbol):
     """Schematic setpoint/control symbol"""
 
-    _symbol_type = "Setpoint"
-
-    def __init__(self, label: str, channel_name: str):
+    def __init__(self, label: str, channel_name: str, symbol_type: str = "Setpoint"):
         """Initialize a setpoint symbol with configuration.
 
         Args:
             label: Display label for the symbol
             channel_name: Channel name for the setpoint
+            symbol_type: The type of symbol (default: "Setpoint")
         """
-        super().__init__(label, rotatable=False)
+        super().__init__(label, symbol_type=symbol_type, rotatable=False)
         self.channel_name = channel_name
 
     def _apply_properties(self) -> None:

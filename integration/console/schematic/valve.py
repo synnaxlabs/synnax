@@ -17,14 +17,14 @@ from .symbol import Symbol
 class Valve(Symbol):
     """Schematic valve symbol"""
 
-    _symbol_type = "Valve"
-
     def __init__(
         self,
         label: str,
         state_channel: str,
         command_channel: str,
-        show_control_chip: bool | None = None,
+        show_control_chip: bool = True,
+        symbol_type: str = "Valve",
+        rotatable: bool = True,
     ):
         """Initialize a valve symbol with configuration.
 
@@ -33,8 +33,10 @@ class Valve(Symbol):
             state_channel: Channel name for valve state
             command_channel: Channel name for valve commands
             show_control_chip: Whether to show the control chip (optional)
+            symbol_type: The type of symbol (default: "Valve")
+            rotatable: Whether the symbol can be rotated (default: True)
         """
-        super().__init__(label, rotatable=True)
+        super().__init__(label, symbol_type=symbol_type, rotatable=rotatable)
         self.state_channel = state_channel
         self.command_channel = command_channel
         self.show_control_chip = show_control_chip
@@ -122,10 +124,15 @@ class Valve(Symbol):
 
         return props
 
-    def press(self) -> None:
-        """Press button"""
+    def press(self, sleep: int = 100) -> None:
+        """Press button
+
+        Args:
+            sleep: Time in milliseconds to wait after pressing. Buffer for network delays and slow animations.
+        """
+
         self._disable_edit_mode()
-        self.click()
+        self.click(sleep=sleep)
 
     def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
         """Click and hold the button for the specified duration."""

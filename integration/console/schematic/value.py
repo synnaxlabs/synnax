@@ -16,8 +16,6 @@ from .symbol import Symbol
 class Value(Symbol):
     """Schematic value/telemetry symbol"""
 
-    _symbol_type = "Value"
-
     def __init__(
         self,
         label: str,
@@ -27,6 +25,7 @@ class Value(Symbol):
         averaging_window: int | None = None,
         stale_color: str | None = None,
         stale_timeout: int | None = None,
+        symbol_type: str = "Value",
     ):
         """Initialize a value symbol with configuration.
 
@@ -38,8 +37,9 @@ class Value(Symbol):
             averaging_window: Averaging window size (optional)
             stale_color: Color for stale data (optional)
             stale_timeout: Timeout for stale data in milliseconds (optional)
+            symbol_type: The type of symbol (default: "Value")
         """
-        super().__init__(label, rotatable=False)
+        super().__init__(label, symbol_type=symbol_type, rotatable=False)
         self.channel_name = channel_name
         self.notation = notation
         self.precision = precision

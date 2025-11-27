@@ -13,11 +13,11 @@ import synnax as sy
 
 from .symbol import Symbol
 
+button_modes = Literal["fire", "momentary", "pulse"]
+
 
 class Button(Symbol):
     """Schematic button symbol"""
-
-    _symbol_type = "Button"
 
     def __init__(
         self,
@@ -25,9 +25,8 @@ class Button(Symbol):
         channel_name: str,
         activation_delay: float | None = None,
         show_control_chip: bool | None = None,
-        mode: (
-            Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"] | None
-        ) = None,
+        mode: button_modes = "fire",
+        symbol_type: str = "Button",
     ):
         """Initialize a button symbol with configuration.
 
@@ -37,8 +36,9 @@ class Button(Symbol):
             activation_delay: Delay before activation in seconds (optional)
             show_control_chip: Whether to show the control chip (optional)
             mode: Button mode - "fire", "momentary", or "pulse" (optional)
+            symbol_type: The type of symbol (default: "Button")
         """
-        super().__init__(label, rotatable=False)
+        super().__init__(label, symbol_type=symbol_type, rotatable=False)
         self.channel_name = channel_name
         self.activation_delay = activation_delay
         self.show_control_chip = show_control_chip
@@ -58,9 +58,7 @@ class Button(Symbol):
         channel_name: str | None = None,
         activation_delay: float | None = None,
         show_control_chip: bool | None = None,
-        mode: (
-            Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"] | None
-        ) = None,
+        mode: button_modes = "fire",
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Set Button properties including channel settings."""
@@ -149,10 +147,15 @@ class Button(Symbol):
 
         return props
 
-    def press(self) -> None:
-        """Press button"""
+    def press(self, sleep: int = 100) -> None:
+        """Press button
+
+        Args:
+            sleep: Time in milliseconds to wait after pressing. Buffer for network delays and slow animations.
+        """
+
         self._disable_edit_mode()
-        self.click()
+        self.click(sleep=sleep)
 
     def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
         """Click and hold the button for the specified duration."""
