@@ -25,7 +25,7 @@ import {
   type YLocation,
 } from "@/spatial/base";
 
-export { Direction, direction, DIRECTIONS, ANGULAR_DIRECTIONS };
+export { ANGULAR_DIRECTIONS, Direction, direction, DIRECTIONS };
 
 export const crude = crudeDirection;
 

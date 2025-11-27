@@ -21,7 +21,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { box, color, deep, direction, location, xy } from "@synnaxlabs/x";
+import { box, color, deep, type direction, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, type ReactNode } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -331,10 +331,13 @@ const MultiElementProperties = ({
   };
 
   const handleDistribute = (dir: direction.Direction): void => {
-    applyNodePositions(Diagram.distributeNodes(getLayoutsForDistribution(), dir), (key, pos) => {
-      const topOffset = topOffsetsForDistribution.get(key) ?? 0;
-      return xy.translate(pos, { x: 0, y: topOffset });
-    });
+    applyNodePositions(
+      Diagram.distributeNodes(getLayoutsForDistribution(), dir),
+      (key, pos) => {
+        const topOffset = topOffsetsForDistribution.get(key) ?? 0;
+        return xy.translate(pos, { x: 0, y: topOffset });
+      },
+    );
   };
 
   const handleRotateIndividual = (dir: direction.Angular): void => {
@@ -347,9 +350,7 @@ const MultiElementProperties = ({
   };
 
   const handleRotateGroup = (dir: direction.Angular): void => {
-    applyNodePositions(
-      Diagram.rotateNodesAroundCenter(getLayoutsForAlignment(), dir),
-    );
+    applyNodePositions(Diagram.rotateNodesAroundCenter(getLayoutsForAlignment(), dir));
     handleRotateIndividual(dir);
   };
 

@@ -29,8 +29,9 @@ export const alignNodes = (
 
     layouts.forEach((layout) => {
       const offset = target - box.loc(layout.box, loc);
-      const newPos = xy.translate(box.topLeft(layout.box),
-        alignDir === "x" ? { x: offset, y: 0 } : { x: 0, y: offset }
+      const newPos = xy.translate(
+        box.topLeft(layout.box),
+        alignDir === "x" ? { x: offset, y: 0 } : { x: 0, y: offset },
       );
       layout.box = box.construct(newPos, box.dims(layout.box));
     });
@@ -45,11 +46,11 @@ export const alignNodes = (
     if (i === 0) return;
     const prev = layouts[i - 1];
 
-    const prevHandlesInDir = prev.handles.filter((h) =>
-      h.orientation === loc || h.orientation === oppositeLoc
+    const prevHandlesInDir = prev.handles.filter(
+      (h) => h.orientation === loc || h.orientation === oppositeLoc,
     );
-    const currentHandlesInDir = layout.handles.filter((h) =>
-      h.orientation === loc || h.orientation === oppositeLoc
+    const currentHandlesInDir = layout.handles.filter(
+      (h) => h.orientation === loc || h.orientation === oppositeLoc,
     );
 
     if (prevHandlesInDir.length === 0 || currentHandlesInDir.length === 0) {
@@ -61,15 +62,16 @@ export const alignNodes = (
       return;
     }
 
-    const prevHandle = prevHandlesInDir.find((h) => h.orientation === oppositeLoc) ??
-                       prevHandlesInDir[prevHandlesInDir.length - 1];
-    const currentHandle = currentHandlesInDir.find((h) => h.orientation === loc) ??
-                          currentHandlesInDir[0];
+    const prevHandle =
+      prevHandlesInDir.find((h) => h.orientation === oppositeLoc) ??
+      prevHandlesInDir[prevHandlesInDir.length - 1];
+    const currentHandle =
+      currentHandlesInDir.find((h) => h.orientation === loc) ?? currentHandlesInDir[0];
 
     const dist = xy.set(
       xy.translation(currentHandle.absolutePosition, prevHandle.absolutePosition),
       alignDir,
-      0
+      0,
     );
     const newPos = xy.translate(box.topLeft(layout.box), dist);
     layout.box = box.construct(newPos, box.dims(layout.box));
@@ -87,16 +89,13 @@ export const distributeNodes = (
   const oppositeLoc = location.swap(loc);
   const oppositeDir = direction.swap(dir);
 
-  const sorted = [...layouts].sort(
-    (a, b) => box.loc(a.box, loc) - box.loc(b.box, loc),
-  );
+  const sorted = [...layouts].sort((a, b) => box.loc(a.box, loc) - box.loc(b.box, loc));
 
   const first = sorted[0];
   const last = sorted[sorted.length - 1];
   const middleNodes = sorted.slice(1, -1);
 
-  const totalSpace =
-    box.loc(last.box, loc) - box.loc(first.box, oppositeLoc);
+  const totalSpace = box.loc(last.box, loc) - box.loc(first.box, oppositeLoc);
 
   const totalMiddleSize = middleNodes.reduce(
     (sum, node) => sum + box.dim(node.box, dir),
