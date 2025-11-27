@@ -1,69 +1,139 @@
 {
   "$schema": "jerky-state-v1",
   "types": {
-    "Group": {
+    "Address": {
       "package": "github.com/synnaxlabs/x/jerky/example",
-      "current_version": 1,
+      "current_version": 2,
       "field_order": [
-        "Key",
-        "Name",
-        "Description",
-        "MemberCount"
+        "Street",
+        "City",
+        "State",
+        "ZipCode",
+        "Country",
+        "County"
       ],
       "history": [
         {
           "version": 1,
-          "created_at": "2025-11-27T10:35:36.305514-07:00",
-          "struct_hash": "bb346156c708",
-          "composite_hash": "3589bedc49d0",
+          "created_at": "2025-11-27T12:22:55.599429-07:00",
+          "struct_hash": "797e1f5d9792",
+          "composite_hash": "2bb225784ce3",
           "migration_type": "bootstrap",
           "fields": {
-            "Description": {
+            "City": {
               "type": "string",
               "tags": {
-                "json": "description",
+                "json": "city",
+                "msgpack": ""
+              },
+              "field_number": 2
+            },
+            "Country": {
+              "type": "string",
+              "tags": {
+                "json": "country",
+                "msgpack": ""
+              },
+              "field_number": 5
+            },
+            "State": {
+              "type": "string",
+              "tags": {
+                "json": "state",
                 "msgpack": ""
               },
               "field_number": 3
             },
-            "Key": {
-              "type": "uuid.UUID",
+            "Street": {
+              "type": "string",
               "tags": {
-                "json": "key",
+                "json": "street",
                 "msgpack": ""
               },
               "field_number": 1
             },
-            "MemberCount": {
-              "type": "int32",
+            "ZipCode": {
+              "type": "string",
               "tags": {
-                "json": "member_count",
+                "json": "zip_code",
                 "msgpack": ""
               },
               "field_number": 4
-            },
-            "Name": {
+            }
+          }
+        },
+        {
+          "version": 2,
+          "created_at": "2025-11-27T12:23:20.301226-07:00",
+          "struct_hash": "a71a2b517e4b",
+          "composite_hash": "e679d0dfb025",
+          "migration_type": "auto",
+          "fields": {
+            "City": {
               "type": "string",
               "tags": {
-                "json": "name",
+                "json": "city",
                 "msgpack": ""
               },
               "field_number": 2
+            },
+            "Country": {
+              "type": "string",
+              "tags": {
+                "json": "country",
+                "msgpack": ""
+              },
+              "field_number": 5
+            },
+            "County": {
+              "type": "string",
+              "tags": {
+                "json": "county",
+                "msgpack": ""
+              },
+              "field_number": 6
+            },
+            "State": {
+              "type": "string",
+              "tags": {
+                "json": "state",
+                "msgpack": ""
+              },
+              "field_number": 3
+            },
+            "Street": {
+              "type": "string",
+              "tags": {
+                "json": "street",
+                "msgpack": ""
+              },
+              "field_number": 1
+            },
+            "ZipCode": {
+              "type": "string",
+              "tags": {
+                "json": "zip_code",
+                "msgpack": ""
+              },
+              "field_number": 4
             }
           }
         }
       ],
       "field_numbers": {
-        "Description": 3,
-        "Key": 1,
-        "MemberCount": 4,
-        "Name": 2
+        "City": 2,
+        "Country": 5,
+        "County": 6,
+        "State": 3,
+        "Street": 1,
+        "ZipCode": 4
       },
-      "next_field_number": 5
+      "next_field_number": 7,
+      "is_embedded": true
     },
     "User": {
       "package": "github.com/synnaxlabs/x/jerky/example",
-      "current_version": 1,
+      "current_version": 2,
       "field_order": [
         "Key",
         "ID",
@@ -78,14 +148,19 @@
         "Role",
         "Verified",
         "Score",
-        "Department"
+        "Department",
+        "Address",
+        "Addresses"
       ],
       "history": [
         {
           "version": 1,
-          "created_at": "2025-11-27T10:35:36.768782-07:00",
-          "struct_hash": "8cbd3dad1b7f",
-          "composite_hash": "cdd73f4f10cc",
+          "created_at": "2025-11-27T12:22:56.040013-07:00",
+          "struct_hash": "a2acf58afd7c",
+          "dependency_hashes": {
+            "github.com/synnaxlabs/x/jerky/example.Address": "v1:2bb225784ce3"
+          },
+          "composite_hash": "a248309f6e56",
           "migration_type": "bootstrap",
           "fields": {
             "Active": {
@@ -95,6 +170,22 @@
                 "msgpack": ""
               },
               "field_number": 6
+            },
+            "Address": {
+              "type": "example.Address",
+              "tags": {
+                "json": "address",
+                "msgpack": ""
+              },
+              "field_number": 15
+            },
+            "Addresses": {
+              "type": "[]example.Address",
+              "tags": {
+                "json": "addresses",
+                "msgpack": ""
+              },
+              "field_number": 16
             },
             "Age": {
               "type": "int32",
@@ -200,11 +291,175 @@
               },
               "field_number": 12
             }
+          },
+          "nested_type_versions": {
+            "Address": {
+              "type_name": "Address",
+              "version": 1
+            },
+            "Addresses": {
+              "type_name": "Address",
+              "version": 1,
+              "is_slice": true
+            }
+          }
+        },
+        {
+          "version": 2,
+          "created_at": "2025-11-27T12:23:20.778988-07:00",
+          "struct_hash": "a2acf58afd7c",
+          "dependency_hashes": {
+            "github.com/synnaxlabs/x/jerky/example.Address": "v2:e679d0dfb025"
+          },
+          "composite_hash": "3e6156121f4d",
+          "migration_type": "dependency",
+          "fields": {
+            "Active": {
+              "type": "bool",
+              "tags": {
+                "json": "active",
+                "msgpack": ""
+              },
+              "field_number": 6
+            },
+            "Address": {
+              "type": "example.Address",
+              "tags": {
+                "json": "address",
+                "msgpack": ""
+              },
+              "field_number": 15
+            },
+            "Addresses": {
+              "type": "[]example.Address",
+              "tags": {
+                "json": "addresses",
+                "msgpack": ""
+              },
+              "field_number": 16
+            },
+            "Age": {
+              "type": "int32",
+              "tags": {
+                "json": "age",
+                "msgpack": ""
+              },
+              "field_number": 5
+            },
+            "Balance": {
+              "type": "float64",
+              "tags": {
+                "json": "balance",
+                "msgpack": ""
+              },
+              "field_number": 7
+            },
+            "CreatedAt": {
+              "type": "time.Time",
+              "tags": {
+                "json": "created_at",
+                "msgpack": ""
+              },
+              "field_number": 8
+            },
+            "Department": {
+              "type": "string",
+              "tags": {
+                "json": "department",
+                "msgpack": ""
+              },
+              "field_number": 14
+            },
+            "Email": {
+              "type": "string",
+              "tags": {
+                "json": "email",
+                "msgpack": ""
+              },
+              "field_number": 4
+            },
+            "ID": {
+              "type": "example.UserID",
+              "tags": {
+                "json": "id",
+                "msgpack": ""
+              },
+              "field_number": 2
+            },
+            "Key": {
+              "type": "uuid.UUID",
+              "tags": {
+                "json": "key",
+                "msgpack": ""
+              },
+              "field_number": 1
+            },
+            "LastSeen": {
+              "type": "telem.TimeStamp",
+              "tags": {
+                "json": "last_seen",
+                "msgpack": ""
+              },
+              "field_number": 9
+            },
+            "Name": {
+              "type": "string",
+              "tags": {
+                "json": "name",
+                "msgpack": ""
+              },
+              "field_number": 3
+            },
+            "Role": {
+              "type": "string",
+              "tags": {
+                "json": "role",
+                "msgpack": ""
+              },
+              "field_number": 11
+            },
+            "Score": {
+              "type": "int64",
+              "tags": {
+                "json": "score",
+                "msgpack": ""
+              },
+              "field_number": 13
+            },
+            "Tags": {
+              "type": "[]string",
+              "tags": {
+                "json": "tags",
+                "msgpack": ""
+              },
+              "field_number": 10
+            },
+            "Verified": {
+              "type": "bool",
+              "tags": {
+                "json": "verified",
+                "msgpack": ""
+              },
+              "field_number": 12
+            }
+          },
+          "nested_type_versions": {
+            "Address": {
+              "type_name": "Address",
+              "version": 2
+            },
+            "Addresses": {
+              "type_name": "Address",
+              "version": 2,
+              "is_slice": true
+            }
           }
         }
       ],
       "field_numbers": {
         "Active": 6,
+        "Address": 15,
+        "Addresses": 16,
         "Age": 5,
         "Balance": 7,
         "CreatedAt": 8,
@@ -219,11 +474,11 @@
         "Tags": 10,
         "Verified": 12
       },
-      "next_field_number": 15
+      "next_field_number": 17
     }
   },
   "metadata": {
     "jerky_version": "1.0.0",
-    "last_generated": "2025-11-27T10:35:36.768783-07:00"
+    "last_generated": "2025-11-27T12:23:20.778988-07:00"
   }
 }

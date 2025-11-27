@@ -47,8 +47,18 @@ func migrate{{ $.TypeName }}V{{ .FromVersion }}ToV{{ .ToVersion }}(data []byte) 
 		return nil, err
 	}
 	new := {{ $.TypeName }}V{{ .ToVersion }}{
-{{- range .CommonFields }}
-		{{ . }}: old.{{ . }},
+{{- range .Fields }}
+{{- if not .IsJerky }}
+		{{ .Name }}: old.{{ .Name }},
+{{- else if not .VersionChanged }}
+		{{ .Name }}: old.{{ .Name }},
+{{- else if .IsSlice }}
+		{{ .Name }}: Migrate{{ .JerkyTypeName }}V{{ .FromJerkyVersion }}ToV{{ .ToJerkyVersion }}Slice(old.{{ .Name }}),
+{{- else if .IsMap }}
+		{{ .Name }}: Migrate{{ .JerkyTypeName }}V{{ .FromJerkyVersion }}ToV{{ .ToJerkyVersion }}Map(old.{{ .Name }}),
+{{- else }}
+		{{ .Name }}: Migrate{{ .JerkyTypeName }}V{{ .FromJerkyVersion }}ToV{{ .ToJerkyVersion }}(old.{{ .Name }}),
+{{- end }}
 {{- end }}
 	}
 	// Hook for custom field mappings (implement in migrations_custom.go)

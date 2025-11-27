@@ -39,6 +39,8 @@ type UserV1 struct {
 	Verified      bool                   `protobuf:"varint,12,opt,name=verified,proto3" json:"verified,omitempty"`
 	Score         int64                  `protobuf:"varint,13,opt,name=score,proto3" json:"score,omitempty"`
 	Department    string                 `protobuf:"bytes,14,opt,name=department,proto3" json:"department,omitempty"`
+	Address       *AddressV1             `protobuf:"bytes,15,opt,name=address,proto3" json:"address,omitempty"`
+	Addresses     []*AddressV1           `protobuf:"bytes,16,rep,name=addresses,proto3" json:"addresses,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -171,11 +173,25 @@ func (x *UserV1) GetDepartment() string {
 	return ""
 }
 
+func (x *UserV1) GetAddress() *AddressV1 {
+	if x != nil {
+		return x.Address
+	}
+	return nil
+}
+
+func (x *UserV1) GetAddresses() []*AddressV1 {
+	if x != nil {
+		return x.Addresses
+	}
+	return nil
+}
+
 var File_x_go_jerky_example_types_user_v1_proto protoreflect.FileDescriptor
 
 const file_x_go_jerky_example_types_user_v1_proto_rawDesc = "" +
 	"\n" +
-	"&x/go/jerky/example/types/user_v1.proto\x12\rexample.types\"\xcf\x02\n" +
+	"&x/go/jerky/example/types/user_v1.proto\x12\rexample.types\x1a)x/go/jerky/example/types/address_v1.proto\"\xbb\x03\n" +
 	"\x06UserV1\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x0f\n" +
 	"\x03i_d\x18\x02 \x01(\rR\x02iD\x12\x12\n" +
@@ -194,7 +210,9 @@ const file_x_go_jerky_example_types_user_v1_proto_rawDesc = "" +
 	"\x05score\x18\r \x01(\x03R\x05score\x12\x1e\n" +
 	"\n" +
 	"department\x18\x0e \x01(\tR\n" +
-	"departmentB\xa2\x01\n" +
+	"department\x122\n" +
+	"\aaddress\x18\x0f \x01(\v2\x18.example.types.AddressV1R\aaddress\x126\n" +
+	"\taddresses\x18\x10 \x03(\v2\x18.example.types.AddressV1R\taddressesB\xa2\x01\n" +
 	"\x11com.example.typesB\vUserV1ProtoP\x01Z+github.com/synnaxlabs/x/jerky/example/types\xa2\x02\x03ETX\xaa\x02\rExample.Types\xca\x02\rExample\\Types\xe2\x02\x19Example\\Types\\GPBMetadata\xea\x02\x0eExample::Typesb\x06proto3"
 
 var (
@@ -211,14 +229,17 @@ func file_x_go_jerky_example_types_user_v1_proto_rawDescGZIP() []byte {
 
 var file_x_go_jerky_example_types_user_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_x_go_jerky_example_types_user_v1_proto_goTypes = []any{
-	(*UserV1)(nil), // 0: example.types.UserV1
+	(*UserV1)(nil),    // 0: example.types.UserV1
+	(*AddressV1)(nil), // 1: example.types.AddressV1
 }
 var file_x_go_jerky_example_types_user_v1_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: example.types.UserV1.address:type_name -> example.types.AddressV1
+	1, // 1: example.types.UserV1.addresses:type_name -> example.types.AddressV1
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_x_go_jerky_example_types_user_v1_proto_init() }
@@ -226,6 +247,7 @@ func file_x_go_jerky_example_types_user_v1_proto_init() {
 	if File_x_go_jerky_example_types_user_v1_proto != nil {
 		return
 	}
+	file_x_go_jerky_example_types_address_v1_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

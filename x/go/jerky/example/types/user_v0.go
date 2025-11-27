@@ -19,4 +19,6 @@ type UserV0 struct {
 	Verified bool `msgpack:"verified"`
 	Score int64 `msgpack:"score"`
 	Department string `msgpack:"department"`
+	Address *AddressV1 `msgpack:"address"`
+	Addresses []*AddressV1 `msgpack:"addresses"`
 }

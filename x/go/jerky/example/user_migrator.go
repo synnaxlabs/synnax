@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/x/jerky/example/types"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	xtypes "github.com/synnaxlabs/x/types"
@@ -19,7 +20,7 @@ type UserMigrator struct{}
 func (UserMigrator) TypeName() string { return "User" }
 
 // CurrentVersion returns the current schema version.
-func (UserMigrator) CurrentVersion() int { return 1 }
+func (UserMigrator) CurrentVersion() int { return 2 }
 
 // MigrateAll migrates all User records from the given version to current.
 func (m UserMigrator) MigrateAll(ctx context.Context, db *gorp.DB, fromVersion int) error {

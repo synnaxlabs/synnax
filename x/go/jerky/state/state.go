@@ -38,6 +38,15 @@ type VersionDiff struct {
 	Changed []string `json:"changed,omitempty"`
 }
 
+// NestedTypeInfo tracks a jerky-managed field's type version at a specific parent version.
+type NestedTypeInfo struct {
+	TypeName   string `json:"type_name"`
+	Version    int    `json:"version"`
+	IsSlice    bool   `json:"is_slice,omitempty"`
+	IsMap      bool   `json:"is_map,omitempty"`
+	MapKeyType string `json:"map_key_type,omitempty"`
+}
+
 // VersionHistory represents the history of a single version.
 type VersionHistory struct {
 	Version           int                 `json:"version"`
@@ -48,6 +57,9 @@ type VersionHistory struct {
 	MigrationType     string              `json:"migration_type"`
 	Fields            map[string]FieldInfo `json:"fields"`
 	Diff              *VersionDiff        `json:"diff,omitempty"`
+	// NestedTypeVersions maps field name to jerky type info at this version.
+	// Only populated for fields that reference jerky-managed types.
+	NestedTypeVersions map[string]NestedTypeInfo `json:"nested_type_versions,omitempty"`
 }
 
 // TypeState represents the state of a single jerky-managed type.
@@ -62,6 +74,8 @@ type TypeState struct {
 	FieldNumbers map[string]int `json:"field_numbers"`
 	// NextFieldNumber is the next available field number for new fields.
 	NextFieldNumber int `json:"next_field_number"`
+	// IsEmbedded indicates if this is an embedded-only type (no gorp methods).
+	IsEmbedded bool `json:"is_embedded,omitempty"`
 }
 
 // StateMetadata contains metadata about the state file.

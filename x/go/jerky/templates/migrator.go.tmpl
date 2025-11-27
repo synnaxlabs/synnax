@@ -10,6 +10,7 @@ import (
 {{- range .Imports }}
 	"{{ . }}"
 {{- end }}
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	xtypes "github.com/synnaxlabs/x/types"

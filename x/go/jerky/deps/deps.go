@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/jerky/state"
 )
 
@@ -39,6 +40,8 @@ type TypeInfo struct {
 	CurrentVersion int
 	// CompositeHash is the hash including dependencies
 	CompositeHash string
+	// IsEmbedded indicates if this is an embedded-only type (no gorp)
+	IsEmbedded bool
 }
 
 // NewRegistry creates a new dependency registry.
@@ -90,6 +93,7 @@ func (r *Registry) LoadFromStateFile(stateDir string) error {
 			StateDir:       stateDir,
 			CurrentVersion: typeState.CurrentVersion,
 			CompositeHash:  latest.CompositeHash,
+			IsEmbedded:     typeState.IsEmbedded,
 		})
 	}
 	return nil

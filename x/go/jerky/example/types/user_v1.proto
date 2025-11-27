@@ -6,6 +6,8 @@ package example.types;
 
 option go_package = "github.com/synnaxlabs/x/jerky/example/types";
 
+import "x/go/jerky/example/types/address_v1.proto";
+
 message UserV1 {
     string key = 1;
     uint32 i_d = 2;
@@ -21,4 +23,6 @@ message UserV1 {
     bool verified = 12;
     int64 score = 13;
     string department = 14;
+    example.types.AddressV1 address = 15;
+    repeated example.types.AddressV1 addresses = 16;
 }

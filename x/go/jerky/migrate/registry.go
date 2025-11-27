@@ -12,8 +12,8 @@ package migrate
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 

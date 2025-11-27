@@ -51,6 +51,10 @@ type User struct {
 	Score int64 `json:"score"`
 	// Department is the user's department (new field for testing).
 	Department string `json:"department"`
+	// Address is the user's primary address (jerky embedded type).
+	Address Address `json:"address"`
+	// Addresses is a list of user addresses (slice of jerky embedded type).
+	Addresses []Address `json:"addresses"`
 }
 
 var _ gorp.Entry[uuid.UUID] = User{}

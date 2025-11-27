@@ -48,6 +48,9 @@ type GoType struct {
 	Key *GoType
 	// IsJerky indicates if this type is managed by jerky.
 	IsJerky bool
+	// IsJerkyEmbedded indicates if this jerky type is embedded-only (no gorp).
+	// Only meaningful when IsJerky is true.
+	IsJerkyEmbedded bool
 }
 
 // String returns a string representation of the type.
@@ -90,6 +93,9 @@ type ParsedStruct struct {
 	Fields []ParsedField
 	// Position is the source location of the struct for error reporting.
 	Position token.Position
+	// IsEmbedded indicates this is an embedded-only type (no gorp methods or migrator).
+	// Set via //go:generate jerky embedded directive.
+	IsEmbedded bool
 }
 
 // FieldNames returns a slice of all field names.

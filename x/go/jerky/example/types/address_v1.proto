@@ -6,9 +6,10 @@ package example.types;
 
 option go_package = "github.com/synnaxlabs/x/jerky/example/types";
 
-message GroupV1 {
-    string key = 1;
-    string name = 2;
-    string description = 3;
-    int32 member_count = 4;
+message AddressV1 {
+    string street = 1;
+    string city = 2;
+    string state = 3;
+    string zip_code = 4;
+    string country = 5;
 }

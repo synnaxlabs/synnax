@@ -20,6 +20,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/jerky/deps"
 	"github.com/synnaxlabs/x/jerky/detect"
 	"github.com/synnaxlabs/x/jerky/parse"
@@ -150,21 +151,27 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 	structHash := detect.ComputeStructHash(parsed)
 	compositeHash := detect.ComputeCompositeHash(structHash, preDepHashes)
 
+	// Collect nested type version info for this version
+	nestedVersions := g.collectNestedTypeVersions(parsed)
+
 	// Update state
 	if !exists || migrationType != "" {
 		typeState.Package = parsed.PackagePath
 		typeState.FieldOrder = fieldOrder
+		typeState.IsEmbedded = parsed.IsEmbedded
 		typeState.AddVersion(state.VersionHistory{
-			Version:          version,
-			CreatedAt:        time.Now(),
-			StructHash:       structHash,
-			DependencyHashes: preDepHashes,
-			CompositeHash:    compositeHash,
-			MigrationType:    migrationType,
-			Fields:           fields,
+			Version:            version,
+			CreatedAt:          time.Now(),
+			StructHash:         structHash,
+			DependencyHashes:   preDepHashes,
+			CompositeHash:      compositeHash,
+			MigrationType:      migrationType,
+			Fields:             fields,
+			NestedTypeVersions: nestedVersions,
 		})
 	}
-	// Always update field numbers in state (in case new fields added)
+	// Always update field numbers and embedded status in state
+	typeState.IsEmbedded = parsed.IsEmbedded
 	stateFile.SetTypeState(parsed.Name, typeState)
 
 	// Generate proto file
@@ -190,19 +197,34 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 		return errors.Newf("failed to generate current aliases: %w", err)
 	}
 
-	// Generate gorp methods in parent package
-	if err := g.generateGorp(parsed, g.outputDir); err != nil {
-		return errors.Newf("failed to generate gorp methods: %w", err)
+	if parsed.IsEmbedded {
+		// Embedded types: generate translation functions in parent package
+		// (not types/ to avoid circular imports)
+		if err := g.generateTranslate(parsed, g.outputDir); err != nil {
+			return errors.Newf("failed to generate translate functions: %w", err)
+		}
+	} else {
+		// Storage types: generate gorp methods and migrator in parent package
+		if err := g.generateGorp(parsed, g.outputDir); err != nil {
+			return errors.Newf("failed to generate gorp methods: %w", err)
+		}
+
+		if err := g.generateMigrator(parsed, version, g.outputDir); err != nil {
+			return errors.Newf("failed to generate migrator: %w", err)
+		}
 	}
 
-	// Generate migrator in parent package
-	if err := g.generateMigrator(parsed, version, g.outputDir); err != nil {
-		return errors.Newf("failed to generate migrator: %w", err)
-	}
-
-	// Generate migrations.go
-	if err := g.generateMigrations(parsed, version, typesDir, typeState); err != nil {
-		return errors.Newf("failed to generate migrations: %w", err)
+	// Generate migration files based on type:
+	// - Storage types: migrations.go (byte-to-byte for data on disk)
+	// - Embedded types: struct_migrate.go (struct-to-struct for nested types)
+	if parsed.IsEmbedded {
+		if err := g.generateStructMigrate(parsed, version, typesDir, typeState); err != nil {
+			return errors.Newf("failed to generate struct migrations: %w", err)
+		}
+	} else {
+		if err := g.generateMigrations(parsed, version, typesDir, typeState); err != nil {
+			return errors.Newf("failed to generate migrations: %w", err)
+		}
 	}
 
 	// Save state file
@@ -272,10 +294,11 @@ func (g *Generator) collectJerkyImports(fields []parse.ParsedField, imports map[
 		if t.IsJerky && t.PackagePath != "" {
 			tName := typeName(t.Name)
 			if info, ok := g.depRegistry.GetByPackageAndType(t.PackagePath, tName); ok {
-				// Generate proto import path: package/types/typename_vN.proto
-				protoImport := fmt.Sprintf("%s/types/%s_v%d.proto",
-					info.PackagePath, toSnakeCase(info.TypeName), info.CurrentVersion)
-				imports[protoImport] = true
+				// Generate proto import path using the StateDir (file system path)
+				protoPath := computeProtoImportPath(info.StateDir, info.TypeName, info.CurrentVersion)
+				if protoPath != "" {
+					imports[protoPath] = true
+				}
 			}
 		}
 		if t.Elem != nil {
@@ -288,6 +311,40 @@ func (g *Generator) collectJerkyImports(fields []parse.ParsedField, imports map[
 
 	for _, f := range fields {
 		collectFromType(f.GoType)
+	}
+}
+
+// computeProtoImportPath computes the proto import path from the state directory path.
+// It finds the repository root and returns the relative path.
+func computeProtoImportPath(stateDir, typeName string, version int) string {
+	// Find the repository root by looking for buf.yaml
+	repoRoot := findRepoRoot(stateDir)
+	if repoRoot == "" {
+		return ""
+	}
+
+	// Compute relative path from repo root to the proto file
+	relPath, err := filepath.Rel(repoRoot, stateDir)
+	if err != nil {
+		return ""
+	}
+
+	// Construct the proto import path
+	return filepath.ToSlash(filepath.Join(relPath, fmt.Sprintf("%s_v%d.proto", toSnakeCase(typeName), version)))
+}
+
+// findRepoRoot walks up the directory tree to find the repository root (buf.yaml location).
+func findRepoRoot(start string) string {
+	dir := start
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "buf.yaml")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
 	}
 }
 
@@ -368,6 +425,14 @@ func (g *Generator) generateV0(parsed parse.ParsedStruct, typesDir string) error
 // getV0GoType returns the proto-compatible Go type for use in v0 struct.
 // This matches what proto uses, allowing direct field copying in migrations.
 func (g *Generator) getV0GoType(goType parse.GoType) string {
+	// Check if this is a jerky-managed type
+	if goType.IsJerky && goType.PackagePath != "" {
+		tName := typeName(goType.Name)
+		if info, ok := g.depRegistry.GetByPackageAndType(goType.PackagePath, tName); ok {
+			return fmt.Sprintf("*%sV%d", info.TypeName, info.CurrentVersion)
+		}
+	}
+
 	// Check if there's a direct mapping
 	if mapping, ok := g.registry.Get(goType.Name); ok {
 		return protoToGoType(mapping.ProtoType)
@@ -476,6 +541,71 @@ func (g *Generator) generateGorp(parsed parse.ParsedStruct, outputDir string) er
 	return os.WriteFile(filename, buf.Bytes(), 0644)
 }
 
+// TranslateTemplateData contains data for translate.go template rendering.
+type TranslateTemplateData struct {
+	PackageName string
+	TypesImport string
+	TypeName    string
+	Imports     []string
+	Fields      []TranslateFieldData
+	HasErrors   bool // True if any backward translation can fail
+}
+
+// TranslateFieldData contains data for a single field's translation.
+type TranslateFieldData struct {
+	Name         string
+	ProtoName    string
+	ForwardExpr  string
+	BackwardExpr string
+	CanFail      bool
+}
+
+func (g *Generator) generateTranslate(parsed parse.ParsedStruct, outputDir string) error {
+	imports := make(map[string]bool)
+	hasErrors := false
+
+	data := TranslateTemplateData{
+		PackageName: parsed.PackageName,
+		TypesImport: parsed.PackagePath + "/types",
+		TypeName:    parsed.Name,
+	}
+
+	for _, f := range parsed.Fields {
+		forwardExpr, backwardExpr, canFail, fieldImports := g.getTranslationExprs(f, parsed.PackageName, parsed.PackagePath)
+
+		for _, imp := range fieldImports {
+			imports[imp] = true
+		}
+
+		if canFail {
+			hasErrors = true
+		}
+
+		data.Fields = append(data.Fields, TranslateFieldData{
+			Name:         f.Name,
+			ProtoName:    f.Name,
+			ForwardExpr:  forwardExpr,
+			BackwardExpr: backwardExpr,
+			CanFail:      canFail,
+		})
+	}
+
+	data.HasErrors = hasErrors
+
+	// Convert imports map to slice
+	for imp := range imports {
+		data.Imports = append(data.Imports, imp)
+	}
+
+	var buf bytes.Buffer
+	if err := g.templates.ExecuteTemplate(&buf, "translate.go.tmpl", data); err != nil {
+		return err
+	}
+
+	filename := filepath.Join(outputDir, fmt.Sprintf("%s_translate.go", toSnakeCase(parsed.Name)))
+	return os.WriteFile(filename, buf.Bytes(), 0644)
+}
+
 // MigratorTemplateData contains data for migrator.go template rendering.
 type MigratorTemplateData struct {
 	PackageName    string
@@ -517,16 +647,48 @@ type MigrationData struct {
 	TypeName      string
 	FromVersion   int
 	ToVersion     int
-	CommonFields  []string // Fields present in both versions
+	CommonFields  []string // Fields present in both versions (for backward compat)
 	AddedFields   []string // Fields added in ToVersion
 	RemovedFields []string // Fields removed from FromVersion
 	// V1Fields contains field translations for v0→v1 bootstrap migration
 	V1Fields []BootstrapFieldData
+	// Fields contains per-field migration info for non-bootstrap migrations
+	Fields []MigrationFieldData
 }
 
 // BootstrapFieldData contains data for v0→v1 field translation.
 type BootstrapFieldData struct {
 	Name string // Field name (e.g., "Key")
+}
+
+// MigrationFieldData contains per-field migration info for template rendering.
+type MigrationFieldData struct {
+	Name             string // Field name
+	IsJerky          bool   // True if this is a jerky-managed type
+	JerkyTypeName    string // e.g., "Address"
+	FromJerkyVersion int    // Nested type version in FromVersion
+	ToJerkyVersion   int    // Nested type version in ToVersion
+	VersionChanged   bool   // True if nested type version changed
+	IsSlice          bool   // True for []JerkyType
+	IsMap            bool   // True for map[K]JerkyType
+	MapKeyType       string // Key type for maps (e.g., "string")
+}
+
+// StructMigrateTemplateData contains data for struct_migrate.go.tmpl rendering.
+type StructMigrateTemplateData struct {
+	TypeName       string
+	CurrentVersion int
+	Migrations     []StructMigrationData
+}
+
+// StructMigrationData contains data for a single struct migration.
+type StructMigrationData struct {
+	TypeName      string
+	FromVersion   int
+	ToVersion     int
+	CommonFields  []string
+	AddedFields   []string
+	RemovedFields []string
 }
 
 func (g *Generator) generateMigrations(parsed parse.ParsedStruct, version int, typesDir string, typeState state.TypeState) error {
@@ -561,6 +723,8 @@ func (g *Generator) generateMigrations(parsed parse.ParsedStruct, version int, t
 
 		// Compute field differences for non-bootstrap migrations
 		if i > 0 {
+			fromVH := typeState.GetVersion(i)
+			toVH := typeState.GetVersion(i + 1)
 			fromFields := getVersionFields(typeState, i)
 			toFields := getVersionFields(typeState, i+1)
 
@@ -575,6 +739,11 @@ func (g *Generator) generateMigrations(parsed parse.ParsedStruct, version int, t
 				if _, exists := toFields[field]; !exists {
 					migration.RemovedFields = append(migration.RemovedFields, field)
 				}
+			}
+
+			// Compute per-field migration info (including jerky nested type info)
+			if fromVH != nil && toVH != nil {
+				migration.Fields = g.computeMigrationFields(typeState, fromVH, toVH)
 			}
 		}
 
@@ -611,6 +780,78 @@ func (g *Generator) generateMigrations(parsed parse.ParsedStruct, version int, t
 	return nil
 }
 
+// generateStructMigrate generates struct-to-struct migration functions for embedded types.
+func (g *Generator) generateStructMigrate(parsed parse.ParsedStruct, version int, typesDir string, typeState state.TypeState) error {
+	data := StructMigrateTemplateData{
+		TypeName:       parsed.Name,
+		CurrentVersion: version,
+	}
+
+	// Build migration data for each version transition (excluding v0 bootstrap)
+	for i := 1; i < version; i++ {
+		fromVH := typeState.GetVersion(i)
+		toVH := typeState.GetVersion(i + 1)
+
+		if fromVH == nil || toVH == nil {
+			continue
+		}
+
+		// Get field differences
+		fromFields := getVersionFields(typeState, i)
+		toFields := getVersionFields(typeState, i+1)
+
+		var commonFields, addedFields, removedFields []string
+		for field := range toFields {
+			if fromFields[field] {
+				commonFields = append(commonFields, field)
+			} else {
+				addedFields = append(addedFields, field)
+			}
+		}
+		for field := range fromFields {
+			if !toFields[field] {
+				removedFields = append(removedFields, field)
+			}
+		}
+
+		data.Migrations = append(data.Migrations, StructMigrationData{
+			TypeName:      parsed.Name,
+			FromVersion:   i,
+			ToVersion:     i + 1,
+			CommonFields:  commonFields,
+			AddedFields:   addedFields,
+			RemovedFields: removedFields,
+		})
+	}
+
+	// Generate struct_migrate.go
+	var buf bytes.Buffer
+	if err := g.templates.ExecuteTemplate(&buf, "struct_migrate.go.tmpl", data); err != nil {
+		return err
+	}
+	filename := filepath.Join(typesDir, fmt.Sprintf("%s_struct_migrate.go", toSnakeCase(parsed.Name)))
+	if err := os.WriteFile(filename, buf.Bytes(), 0644); err != nil {
+		return err
+	}
+
+	// Generate hook files for each migration (if they don't exist)
+	for _, migration := range data.Migrations {
+		hookFilename := filepath.Join(typesDir, fmt.Sprintf("%s_v%d_to_v%d.go",
+			toSnakeCase(parsed.Name), migration.FromVersion, migration.ToVersion))
+		if _, err := os.Stat(hookFilename); os.IsNotExist(err) {
+			var hookBuf bytes.Buffer
+			if err := g.templates.ExecuteTemplate(&hookBuf, "migrate_hook.go.tmpl", migration); err != nil {
+				return err
+			}
+			if err := os.WriteFile(hookFilename, hookBuf.Bytes(), 0644); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // getVersionFields returns a map of field names for a specific version.
 func getVersionFields(typeState state.TypeState, version int) map[string]bool {
 	fields := make(map[string]bool)
@@ -621,6 +862,84 @@ func getVersionFields(typeState state.TypeState, version int) map[string]bool {
 			}
 			break
 		}
+	}
+	return fields
+}
+
+// collectNestedTypeVersions collects nested type version info for all jerky-managed fields.
+func (g *Generator) collectNestedTypeVersions(parsed parse.ParsedStruct) map[string]state.NestedTypeInfo {
+	nestedVersions := make(map[string]state.NestedTypeInfo)
+	for _, f := range parsed.Fields {
+		// Direct jerky field (e.g., Address Address)
+		if f.GoType.IsJerky {
+			tName := typeName(f.GoType.Name)
+			if info, ok := g.depRegistry.GetByPackageAndType(f.GoType.PackagePath, tName); ok {
+				nestedVersions[f.Name] = state.NestedTypeInfo{
+					TypeName: info.TypeName,
+					Version:  info.CurrentVersion,
+				}
+			}
+		}
+		// Slice of jerky type (e.g., Addresses []Address)
+		if f.GoType.Kind == parse.KindSlice && f.GoType.Elem != nil && f.GoType.Elem.IsJerky {
+			tName := typeName(f.GoType.Elem.Name)
+			if info, ok := g.depRegistry.GetByPackageAndType(f.GoType.Elem.PackagePath, tName); ok {
+				nestedVersions[f.Name] = state.NestedTypeInfo{
+					TypeName: info.TypeName,
+					Version:  info.CurrentVersion,
+					IsSlice:  true,
+				}
+			}
+		}
+		// Map with jerky value type (e.g., AddressesByName map[string]Address)
+		if f.GoType.Kind == parse.KindMap && f.GoType.Elem != nil && f.GoType.Elem.IsJerky {
+			tName := typeName(f.GoType.Elem.Name)
+			if info, ok := g.depRegistry.GetByPackageAndType(f.GoType.Elem.PackagePath, tName); ok {
+				keyType := "string"
+				if f.GoType.Key != nil {
+					keyType = f.GoType.Key.Name
+				}
+				nestedVersions[f.Name] = state.NestedTypeInfo{
+					TypeName:   info.TypeName,
+					Version:    info.CurrentVersion,
+					IsMap:      true,
+					MapKeyType: keyType,
+				}
+			}
+		}
+	}
+	return nestedVersions
+}
+
+// computeMigrationFields computes per-field migration info for a version transition.
+func (g *Generator) computeMigrationFields(typeState state.TypeState, fromVH, toVH *state.VersionHistory) []MigrationFieldData {
+	var fields []MigrationFieldData
+	for _, fieldName := range typeState.FieldOrder {
+		_, inFrom := fromVH.Fields[fieldName]
+		_, inTo := toVH.Fields[fieldName]
+		// Only include fields that exist in both versions (common fields)
+		if !inFrom || !inTo {
+			continue
+		}
+		fieldData := MigrationFieldData{Name: fieldName}
+		// Check for jerky nested type
+		fromNested := fromVH.NestedTypeVersions[fieldName]
+		toNested := toVH.NestedTypeVersions[fieldName]
+		if fromNested.TypeName != "" && toNested.TypeName != "" {
+			fieldData.IsJerky = true
+			fieldData.JerkyTypeName = fromNested.TypeName
+			fieldData.FromJerkyVersion = fromNested.Version
+			fieldData.ToJerkyVersion = toNested.Version
+			fieldData.VersionChanged = fromNested.Version != toNested.Version
+			fieldData.IsSlice = fromNested.IsSlice || toNested.IsSlice
+			fieldData.IsMap = fromNested.IsMap || toNested.IsMap
+			if fromNested.MapKeyType != "" {
+				fieldData.MapKeyType = fromNested.MapKeyType
+			} else {
+				fieldData.MapKeyType = toNested.MapKeyType
+			}
+		}
+		fields = append(fields, fieldData)
 	}
 	return fields
 }
@@ -709,8 +1028,122 @@ func (g *Generator) getTranslationExprs(f parse.ParsedField, parentPkg string, p
 		}
 	}
 
+	// Check if this is a jerky-managed type (direct field)
+	if f.GoType.IsJerky {
+		return g.getJerkyTranslationExprs(f.GoType, fieldRef, pbFieldRef, parentPath)
+	}
+
+	// Handle slices that may contain jerky types
+	if f.GoType.Kind == parse.KindSlice && f.GoType.Elem != nil {
+		if f.GoType.Elem.IsJerky {
+			return g.getJerkySliceTranslationExprs(f.GoType.Elem, fieldRef, pbFieldRef, parentPath)
+		}
+	}
+
+	// Handle maps that may contain jerky types as values
+	if f.GoType.Kind == parse.KindMap && f.GoType.Elem != nil {
+		if f.GoType.Elem.IsJerky {
+			return g.getJerkyMapTranslationExprs(f.GoType.Key, f.GoType.Elem, fieldRef, pbFieldRef, parentPath)
+		}
+	}
+
 	// Default: direct copy
 	return fieldRef, pbFieldRef, false, nil
+}
+
+// getJerkyTranslationExprs returns translation expressions for a jerky-managed type field.
+func (g *Generator) getJerkyTranslationExprs(goType parse.GoType, fieldRef, pbFieldRef, parentPath string) (forward, backward string, canFail bool, imports []string) {
+	tName := typeName(goType.Name)
+
+	// Determine if this is a local or external type
+	pkgPrefix := goType.PackageName
+	pkgPath := goType.PackagePath
+
+	if pkgPrefix == "" || pkgPath == "" || pkgPath == parentPath {
+		// Local type - call translation functions directly
+		forward = fmt.Sprintf("%sToProto(%s)", tName, fieldRef)
+		backward = fmt.Sprintf("%sFromProto(%s)", tName, pbFieldRef)
+	} else {
+		// External type - need package prefix and import
+		forward = fmt.Sprintf("%s.%sToProto(%s)", pkgPrefix, tName, fieldRef)
+		backward = fmt.Sprintf("%s.%sFromProto(%s)", pkgPrefix, tName, pbFieldRef)
+		imports = append(imports, pkgPath)
+	}
+
+	// Jerky translation functions may return errors (FromProto variant)
+	// For now, we'll assume they don't fail - this can be enhanced based on the type's info
+	// from the dependency registry
+	if info, ok := g.depRegistry.GetByPackageAndType(pkgPath, tName); ok {
+		_ = info // Could check if the type has error-prone conversions
+	}
+
+	return forward, backward, false, imports
+}
+
+// getJerkySliceTranslationExprs returns translation expressions for a slice of jerky-managed types.
+func (g *Generator) getJerkySliceTranslationExprs(elemType *parse.GoType, fieldRef, pbFieldRef, parentPath string) (forward, backward string, canFail bool, imports []string) {
+	tName := typeName(elemType.Name)
+
+	// Determine if this is a local or external type
+	pkgPrefix := elemType.PackageName
+	pkgPath := elemType.PackagePath
+
+	var toProtoFunc, fromProtoFunc string
+	if pkgPrefix == "" || pkgPath == "" || pkgPath == parentPath {
+		toProtoFunc = fmt.Sprintf("%sToProto", tName)
+		fromProtoFunc = fmt.Sprintf("%sFromProto", tName)
+	} else {
+		toProtoFunc = fmt.Sprintf("%s.%sToProto", pkgPrefix, tName)
+		fromProtoFunc = fmt.Sprintf("%s.%sFromProto", pkgPrefix, tName)
+		imports = append(imports, pkgPath)
+	}
+
+	// Generate slice conversion using functional approach
+	// Forward: convert []Domain to []*types.Proto
+	forward = fmt.Sprintf("func() []*types.%s { result := make([]*types.%s, len(%s)); for i, v := range %s { result[i] = %s(v) }; return result }()",
+		tName, tName, fieldRef, fieldRef, toProtoFunc)
+
+	// Backward: convert []*types.Proto to []Domain
+	backward = fmt.Sprintf("func() []%s { result := make([]%s, len(%s)); for i, v := range %s { result[i] = %s(v) }; return result }()",
+		tName, tName, pbFieldRef, pbFieldRef, fromProtoFunc)
+
+	return forward, backward, false, imports
+}
+
+// getJerkyMapTranslationExprs returns translation expressions for a map with jerky-managed values.
+func (g *Generator) getJerkyMapTranslationExprs(keyType, valueType *parse.GoType, fieldRef, pbFieldRef, parentPath string) (forward, backward string, canFail bool, imports []string) {
+	tName := typeName(valueType.Name)
+
+	// Get key type for the map
+	keyTypeName := "string" // default
+	if keyType != nil {
+		keyTypeName = keyType.Name
+	}
+
+	// Determine if this is a local or external type
+	pkgPrefix := valueType.PackageName
+	pkgPath := valueType.PackagePath
+
+	var toProtoFunc, fromProtoFunc string
+	if pkgPrefix == "" || pkgPath == "" || pkgPath == parentPath {
+		toProtoFunc = fmt.Sprintf("%sToProto", tName)
+		fromProtoFunc = fmt.Sprintf("%sFromProto", tName)
+	} else {
+		toProtoFunc = fmt.Sprintf("%s.%sToProto", pkgPrefix, tName)
+		fromProtoFunc = fmt.Sprintf("%s.%sFromProto", pkgPrefix, tName)
+		imports = append(imports, pkgPath)
+	}
+
+	// Generate map conversion using functional approach
+	// Forward: convert map[K]Domain to map[K]*types.Proto
+	forward = fmt.Sprintf("func() map[%s]*types.%s { result := make(map[%s]*types.%s, len(%s)); for k, v := range %s { result[k] = %s(v) }; return result }()",
+		keyTypeName, tName, keyTypeName, tName, fieldRef, fieldRef, toProtoFunc)
+
+	// Backward: convert map[K]*types.Proto to map[K]Domain
+	backward = fmt.Sprintf("func() map[%s]%s { result := make(map[%s]%s, len(%s)); for k, v := range %s { result[k] = %s(v) }; return result }()",
+		keyTypeName, tName, keyTypeName, tName, pbFieldRef, pbFieldRef, fromProtoFunc)
+
+	return forward, backward, false, imports
 }
 
 // toSnakeCase converts PascalCase to snake_case.

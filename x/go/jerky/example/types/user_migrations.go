@@ -11,9 +11,10 @@ import (
 // UserMigrations is the migration registry.
 var UserMigrations = &migrate.Registry{
 	TypeName:       "User",
-	CurrentVersion: 1,
+	CurrentVersion: 2,
 	Migrations: []migrate.Migration{
 		{FromVersion: 0, ToVersion: 1, Migrate: migrateUserV0ToV1},
+		{FromVersion: 1, ToVersion: 2, Migrate: migrateUserV1ToV2},
 	},
 }
 
@@ -46,6 +47,36 @@ func migrateUserV0ToV1(data []byte) ([]byte, error) {
 		Verified: v0.Verified,
 		Score: v0.Score,
 		Department: v0.Department,
+		Address: v0.Address,
+		Addresses: v0.Addresses,
 	}
 	return proto.Marshal(&v1)
+}
+
+func migrateUserV1ToV2(data []byte) ([]byte, error) {
+	var old UserV1
+	if err := proto.Unmarshal(data, &old); err != nil {
+		return nil, err
+	}
+	new := UserV2{
+		Key: old.Key,
+		ID: old.ID,
+		Name: old.Name,
+		Email: old.Email,
+		Age: old.Age,
+		Active: old.Active,
+		Balance: old.Balance,
+		CreatedAt: old.CreatedAt,
+		LastSeen: old.LastSeen,
+		Tags: old.Tags,
+		Role: old.Role,
+		Verified: old.Verified,
+		Score: old.Score,
+		Department: old.Department,
+		Address: MigrateAddressV1ToV2(old.Address),
+		Addresses: MigrateAddressV1ToV2Slice(old.Addresses),
+	}
+	// Hook for custom field mappings (implement in migrations_custom.go)
+	MigrateUserV1ToV2Hook(&old, &new)
+	return proto.Marshal(&new)
 }

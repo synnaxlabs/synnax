@@ -2,10 +2,10 @@
 
 package types
 
-// Current version: 1
+// Current version: 2
 
 // User is the current version proto type.
-type User = UserV1
+type User = UserV2
 
 // UserCurrentVersion is the latest schema version for User.
-const UserCurrentVersion = 1
+const UserCurrentVersion = 2

@@ -27,6 +27,8 @@ func (m User) MarshalGorp() ([]byte, error) {
 		Verified: m.Verified,
 		Score: m.Score,
 		Department: m.Department,
+		Address: AddressToProto(m.Address),
+		Addresses: func() []*types.Address { result := make([]*types.Address, len(m.Addresses)); for i, v := range m.Addresses { result[i] = AddressToProto(v) }; return result }(),
 	})
 }
 
@@ -56,5 +58,7 @@ func (m *User) UnmarshalGorp(data []byte) error {
 	m.Verified = pb.Verified
 	m.Score = pb.Score
 	m.Department = pb.Department
+	m.Address = AddressFromProto(pb.Address)
+	m.Addresses = func() []Address { result := make([]Address, len(pb.Addresses)); for i, v := range pb.Addresses { result[i] = AddressFromProto(v) }; return result }()
 	return nil
 }

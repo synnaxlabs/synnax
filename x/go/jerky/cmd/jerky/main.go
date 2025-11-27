@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/jerky"
 	"github.com/synnaxlabs/x/jerky/deps"
 	"github.com/synnaxlabs/x/jerky/generate"
@@ -58,7 +59,10 @@ func printUsage() {
 	fmt.Println(`jerky - Generate protobuf definitions and translation functions from Go structs
 
 Usage:
-  jerky [flags]
+  jerky [flags] [embedded]
+
+Arguments:
+  embedded    Generate as embedded-only type (no gorp methods or migrator)
 
 Flags:
   -help       Print this help message
@@ -67,18 +71,21 @@ Flags:
 Environment Variables:
   GOFILE      Source file (set automatically by go generate)
 
-Example:
+Examples:
   //go:generate jerky
-  type MyStruct struct {
-      Key      uuid.UUID ` + "`json:\"key\"`" + `
-      Name     string    ` + "`json:\"name\"`" + `
-      Duration int       ` + "`json:\"duration\"`" + `
-  }
+  type User struct { ... }     // Storage type: generates gorp + migrator
+
+  //go:generate jerky embedded
+  type Address struct { ... }  // Embedded type: translation functions only
 
 Then run: go generate ./...`)
 }
 
 func run() error {
+	// Check for "embedded" argument
+	args := flag.Args()
+	isEmbedded := len(args) > 0 && args[0] == "embedded"
+
 	// Get source file from GOFILE env var (set by go generate)
 	sourceFile := os.Getenv("GOFILE")
 	if sourceFile == "" {
@@ -93,7 +100,11 @@ func run() error {
 
 	sourcePath := filepath.Join(wd, sourceFile)
 
-	fmt.Printf("jerky: parsing %s\n", sourceFile)
+	typeKind := "storage"
+	if isEmbedded {
+		typeKind = "embedded"
+	}
+	fmt.Printf("jerky: parsing %s (%s type)\n", sourceFile, typeKind)
 
 	// Discover existing jerky-managed types for dependency tracking
 	depRegistry := deps.NewRegistry()
@@ -120,10 +131,11 @@ func run() error {
 		return errors.Newf("failed to create generator: %w", err)
 	}
 
-	for _, s := range structs {
-		fmt.Printf("jerky: generating code for %s\n", s.Name)
-		if err := gen.Generate(s); err != nil {
-			return errors.Newf("failed to generate code for %s: %w", s.Name, err)
+	for i := range structs {
+		structs[i].IsEmbedded = isEmbedded
+		fmt.Printf("jerky: generating code for %s\n", structs[i].Name)
+		if err := gen.Generate(structs[i]); err != nil {
+			return errors.Newf("failed to generate code for %s: %w", structs[i].Name, err)
 		}
 	}
 
