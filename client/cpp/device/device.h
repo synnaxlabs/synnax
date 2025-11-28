@@ -132,7 +132,8 @@ struct Device {
 
     /// @brief Constructs a device from its protobuf representation.
     /// @param device The protobuf representation of the device.
-    explicit Device(const api::v1::Device &device);
+    /// @returns A pair containing the device and an error if one occurred.
+    static std::pair<Device, xerrors::Error> from_proto(const api::v1::Device &device);
 
 private:
     void to_proto(api::v1::Device *device) const;

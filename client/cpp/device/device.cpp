@@ -29,10 +29,10 @@ DeviceClient::retrieve(const std::string &key, bool ignore_not_found) const {
     auto [res, err] = device_retrieve_client->send("/device/retrieve", req);
     if (err) return {Device(), err};
     if (res.devices_size() == 0) {
-        if (ignore_not_found) return {Device(), xerrors::Error()};
+        if (ignore_not_found) return {Device(), xerrors::NIL};
         return {Device(), not_found_error("device", "key " + key)};
     }
-    return {Device(res.devices(0)), err};
+    return Device::from_proto(res.devices(0));
 }
 
 std::pair<std::vector<Device>, xerrors::Error> DeviceClient::retrieve(
@@ -43,8 +43,15 @@ std::pair<std::vector<Device>, xerrors::Error> DeviceClient::retrieve(
     req.mutable_keys()->Add(keys.begin(), keys.end());
     req.set_ignore_not_found(ignore_not_found);
     auto [res, err] = device_retrieve_client->send("/device/retrieve", req);
-    std::vector<Device> devices = {res.devices().begin(), res.devices().end()};
-    return {devices, err};
+    if (err) return {std::vector<Device>(), err};
+    std::vector<Device> devices;
+    devices.reserve(res.devices_size());
+    for (const auto &d: res.devices()) {
+        auto [device, proto_err] = Device::from_proto(d);
+        if (proto_err) return {std::vector<Device>(), proto_err};
+        devices.push_back(std::move(device));
+    }
+    return {devices, xerrors::NIL};
 }
 
 std::pair<std::vector<Device>, xerrors::Error>
@@ -53,8 +60,14 @@ DeviceClient::retrieve(DeviceRetrieveRequest &req) const {
     req.to_proto(api_req);
     auto [res, err] = device_retrieve_client->send("/device/retrieve", api_req);
     if (err) return {std::vector<Device>(), err};
-    std::vector<Device> devices = {res.devices().begin(), res.devices().end()};
-    return {devices, err};
+    std::vector<Device> devices;
+    devices.reserve(res.devices_size());
+    for (const auto &d: res.devices()) {
+        auto [device, proto_err] = Device::from_proto(d);
+        if (proto_err) return {std::vector<Device>(), proto_err};
+        devices.push_back(std::move(device));
+    }
+    return {devices, xerrors::NIL};
 }
 
 xerrors::Error DeviceClient::create(Device &device) const {
@@ -90,19 +103,22 @@ xerrors::Error DeviceClient::del(const std::vector<std::string> &keys) const {
     return err;
 }
 
-Device::Device(const api::v1::Device &device):
-    key(device.key()),
-    name(device.name()),
-    rack(device.rack()),
-    location(device.location()),
-    make(device.make()),
-    model(device.model()),
-    properties(device.properties()),
-    configured(device.configured()) {
+std::pair<Device, xerrors::Error> Device::from_proto(const api::v1::Device &device) {
+    Device d;
+    d.key = device.key();
+    d.name = device.name();
+    d.rack = device.rack();
+    d.location = device.location();
+    d.make = device.make();
+    d.model = device.model();
+    d.properties = device.properties();
+    d.configured = device.configured();
     if (device.has_status()) {
         auto [s, err] = DeviceStatus::from_proto(device.status());
-        if (!err) status = s;
+        if (err) return {d, err};
+        d.status = s;
     }
+    return {d, xerrors::NIL};
 }
 
 Device::Device(

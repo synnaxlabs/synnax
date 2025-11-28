@@ -120,7 +120,8 @@ public:
 
     /// @brief Constructs a rack from its protobuf representation.
     /// @param rack The protobuf representation of the rack.
-    explicit Rack(const api::v1::Rack &rack);
+    /// @returns A pair containing the rack and an error if one occurred.
+    static std::pair<Rack, xerrors::Error> from_proto(const api::v1::Rack &rack);
 
     /// @brief Equality operator for racks.
     /// @param rack The rack to compare with.

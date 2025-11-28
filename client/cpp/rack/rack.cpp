@@ -17,11 +17,16 @@ Rack::Rack(const RackKey key, std::string name): key(key), name(std::move(name))
 
 Rack::Rack(std::string name): name(std::move(name)) {}
 
-Rack::Rack(const api::v1::Rack &rack): key(rack.key()), name(rack.name()) {
+std::pair<Rack, xerrors::Error> Rack::from_proto(const api::v1::Rack &rack) {
+    Rack r;
+    r.key = rack.key();
+    r.name = rack.name();
     if (rack.has_status()) {
         auto [s, err] = RackStatus::from_proto(rack.status());
-        if (!err) status = s;
+        if (err) return {r, err};
+        r.status = s;
     }
+    return {r, xerrors::NIL};
 }
 
 void Rack::to_proto(api::v1::Rack *rack) const {
@@ -52,14 +57,15 @@ std::pair<Rack, xerrors::Error> RackClient::retrieve(const RackKey key) const {
     if (err) return {Rack(), err};
     if (res.racks_size() == 0)
         return {Rack(), not_found_error("Rack", "key " + std::to_string(key))};
-    auto rack = Rack(res.racks(0));
+    auto [rack, proto_err] = Rack::from_proto(res.racks(0));
+    if (proto_err) return {Rack(), proto_err};
     rack.tasks = TaskClient(
         rack.key,
         task_create_client,
         task_retrieve_client,
         task_delete_client
     );
-    return {rack, err};
+    return {rack, xerrors::NIL};
 }
 
 std::pair<Rack, xerrors::Error> RackClient::retrieve(const std::string &name) const {
@@ -70,14 +76,15 @@ std::pair<Rack, xerrors::Error> RackClient::retrieve(const std::string &name) co
     if (res.racks_size() == 0) return {Rack(), not_found_error("Rack", "name " + name)};
     if (res.racks_size() > 1)
         return {Rack(), multiple_found_error("racks", "name " + name)};
-    auto rack = Rack(res.racks(0));
+    auto [rack, proto_err] = Rack::from_proto(res.racks(0));
+    if (proto_err) return {Rack(), proto_err};
     rack.tasks = TaskClient(
         rack.key,
         task_create_client,
         task_retrieve_client,
         task_delete_client
     );
-    return {rack, err};
+    return {rack, xerrors::NIL};
 }
 
 xerrors::Error RackClient::create(Rack &rack) const {

@@ -186,7 +186,8 @@ public:
 
     /// @brief Constructs a task from its protobuf representation.
     /// @param task The protobuf representation of the task.
-    explicit Task(const api::v1::Task &task);
+    /// @returns A pair containing the task and an error if one occurred.
+    static std::pair<Task, xerrors::Error> from_proto(const api::v1::Task &task);
 
     /// @brief Default constructor for an empty task.
     Task() = default;

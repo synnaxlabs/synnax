@@ -56,17 +56,20 @@ Task::Task(
     internal(internal),
     snapshot(snapshot) {}
 
-Task::Task(const api::v1::Task &task):
-    key(task.key()),
-    name(task.name()),
-    type(task.type()),
-    config(task.config()),
-    internal(task.internal()),
-    snapshot(task.snapshot()) {
+std::pair<Task, xerrors::Error> Task::from_proto(const api::v1::Task &task) {
+    Task t;
+    t.key = task.key();
+    t.name = task.name();
+    t.type = task.type();
+    t.config = task.config();
+    t.internal = task.internal();
+    t.snapshot = task.snapshot();
     if (task.has_status()) {
         auto [s, err] = TaskStatus::from_proto(task.status());
-        if (!err) status = s;
+        if (err) return {t, err};
+        t.status = s;
     }
+    return {t, xerrors::NIL};
 }
 
 void Task::to_proto(api::v1::Task *task) const {
@@ -87,7 +90,7 @@ std::pair<Task, xerrors::Error> TaskClient::retrieve(const TaskKey key) const {
     if (err) return {Task(), err};
     if (res.tasks_size() == 0)
         return {Task(), not_found_error("task", "key " + std::to_string(key))};
-    return {Task(res.tasks(0)), err};
+    return Task::from_proto(res.tasks(0));
 }
 
 std::pair<Task, xerrors::Error> TaskClient::retrieve(const std::string &name) const {
@@ -97,7 +100,7 @@ std::pair<Task, xerrors::Error> TaskClient::retrieve(const std::string &name) co
     auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {Task(), err};
     if (res.tasks_size() == 0) return {Task(), not_found_error("task", "name " + name)};
-    return {Task(res.tasks(0)), err};
+    return Task::from_proto(res.tasks(0));
 }
 
 std::pair<std::vector<Task>, xerrors::Error>
@@ -107,8 +110,14 @@ TaskClient::retrieve(const std::vector<std::string> &names) const {
     req.mutable_names()->Add(names.begin(), names.end());
     auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {std::vector<Task>(), err};
-    std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
-    return {tasks, err};
+    std::vector<Task> tasks;
+    tasks.reserve(res.tasks_size());
+    for (const auto &t: res.tasks()) {
+        auto [task, proto_err] = Task::from_proto(t);
+        if (proto_err) return {std::vector<Task>(), proto_err};
+        tasks.push_back(std::move(task));
+    }
+    return {tasks, xerrors::NIL};
 }
 
 std::pair<Task, xerrors::Error>
@@ -119,7 +128,7 @@ TaskClient::retrieve_by_type(const std::string &type) const {
     auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {Task(), err};
     if (res.tasks_size() == 0) return {Task(), not_found_error("task", "type " + type)};
-    return {Task(res.tasks(0)), err};
+    return Task::from_proto(res.tasks(0));
 }
 
 std::pair<std::vector<Task>, xerrors::Error>
@@ -129,8 +138,14 @@ TaskClient::retrieve_by_type(const std::vector<std::string> &types) const {
     req.mutable_types()->Add(types.begin(), types.end());
     auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {std::vector<Task>(), err};
-    std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
-    return {tasks, err};
+    std::vector<Task> tasks;
+    tasks.reserve(res.tasks_size());
+    for (const auto &t: res.tasks()) {
+        auto [task, proto_err] = Task::from_proto(t);
+        if (proto_err) return {std::vector<Task>(), proto_err};
+        tasks.push_back(std::move(task));
+    }
+    return {tasks, xerrors::NIL};
 }
 
 xerrors::Error TaskClient::create(Task &task) const {
@@ -155,7 +170,13 @@ std::pair<std::vector<Task>, xerrors::Error> TaskClient::list() const {
     req.set_rack(rack);
     auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {std::vector<Task>(), err};
-    std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
-    return {tasks, err};
+    std::vector<Task> tasks;
+    tasks.reserve(res.tasks_size());
+    for (const auto &t: res.tasks()) {
+        auto [task, proto_err] = Task::from_proto(t);
+        if (proto_err) return {std::vector<Task>(), proto_err};
+        tasks.push_back(std::move(task));
+    }
+    return {tasks, xerrors::NIL};
 }
 }
