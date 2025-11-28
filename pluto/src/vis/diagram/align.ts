@@ -19,9 +19,8 @@ export const alignNodes = (
 
   if (dir === "left" || dir === "right" || dir === "top" || dir === "bottom") {
     const loc = location.construct(dir);
-    const oppositeLoc = location.swap(loc);
     const alignDir = location.direction(loc);
-    const isMin = loc === oppositeLoc ? false : dir === "left" || dir === "top";
+    const isMin = dir === "left" || dir === "top";
 
     const target = isMin
       ? Math.min(...layouts.map((l) => box.loc(l.box, loc)))
