@@ -26,6 +26,7 @@ sequence::Task::Task(
     seq(std::move(seq)),
     status(
         synnax::TaskStatus{
+            .key = task.status_key(),
             .variant = status::variant::SUCCESS,
             .details = synnax::TaskStatusDetails{
                 .task = task.key,
