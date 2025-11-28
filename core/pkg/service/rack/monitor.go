@@ -87,7 +87,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 			Name:        r.Name,
 			Variant:     xstatus.WarningVariant,
 			Time:        lastUpdated,
-			Message:     fmt.Sprintf("Synnax driver on %s not running", r.Name),
+			Message:     fmt.Sprintf("Synnax Driver on %s not running", r.Name),
 			Description: fmt.Sprintf("Driver was last alive %s seconds ago", timeSinceAlive),
 			Details:     StatusDetails{Rack: r.Key},
 		}
