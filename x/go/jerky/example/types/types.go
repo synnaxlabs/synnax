@@ -24,6 +24,3 @@ type UserV1 = user.V1
 
 // UserCurrentVersion is the current version number for User.
 const UserCurrentVersion = user.CurrentVersion
-
-// UserMigrations is the migration registry for User (re-exported from user.Migrations).
-var UserMigrations = user.Migrations

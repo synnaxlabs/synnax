@@ -194,11 +194,12 @@
         "Tags": 10,
         "Verified": 12
       },
-      "next_field_number": 17
+      "next_field_number": 17,
+      "is_embedded": true
     }
   },
   "metadata": {
     "jerky_version": "1.0.0",
-    "last_generated": "2025-11-27T13:16:09.182899-07:00"
+    "last_generated": "2025-11-27T14:09:50.622579-07:00"
   }
 }

@@ -71,13 +71,13 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 	typePkgName := strings.ToLower(parsed.Name)
 	typeDir := filepath.Join(g.outputDir, "types", typePkgName)
 	if err := os.MkdirAll(typeDir, 0755); err != nil {
-		return errors.Newf("failed to create type directory: %w", err)
+		return errors.Wrap(err, "failed to create type directory")
 	}
 
 	// Load or create state file from type-specific directory
 	stateFile, err := state.Load(typeDir)
 	if err != nil {
-		return errors.Newf("failed to load state file: %w", err)
+		return errors.Wrap(err, "failed to load state file")
 	}
 
 	// Determine version
@@ -178,13 +178,13 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 
 	// Generate proto file
 	if err := g.generateProto(parsed, version, typeDir); err != nil {
-		return errors.Newf("failed to generate proto: %w", err)
+		return errors.Wrap(err, "failed to generate proto")
 	}
 
 	// Generate v0 struct for bootstrap migration (only on first run)
 	if migrationType == "bootstrap" {
 		if err := g.generateV0(parsed, typeDir); err != nil {
-			return errors.Newf("failed to generate v0 struct: %w", err)
+			return errors.Wrap(err, "failed to generate v0 struct")
 		}
 	}
 
@@ -196,23 +196,23 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 
 	// Generate current.go aliases
 	if err := g.generateCurrent(parsed, version, typeDir); err != nil {
-		return errors.Newf("failed to generate current aliases: %w", err)
+		return errors.Wrap(err, "failed to generate current aliases")
 	}
 
 	if parsed.IsEmbedded {
 		// Embedded types: generate translation functions in parent package
 		// (not types/ to avoid circular imports)
 		if err := g.generateTranslate(parsed, g.outputDir); err != nil {
-			return errors.Newf("failed to generate translate functions: %w", err)
+			return errors.Wrap(err, "failed to generate translate functions")
 		}
 	} else {
 		// Storage types: generate gorp methods and migrator in parent package
 		if err := g.generateGorp(parsed, g.outputDir); err != nil {
-			return errors.Newf("failed to generate gorp methods: %w", err)
+			return errors.Wrap(err, "failed to generate gorp methods")
 		}
 
 		if err := g.generateMigrator(parsed, version, g.outputDir); err != nil {
-			return errors.Newf("failed to generate migrator: %w", err)
+			return errors.Wrap(err, "failed to generate migrator")
 		}
 	}
 
@@ -221,17 +221,17 @@ func (g *Generator) Generate(parsed parse.ParsedStruct) error {
 	// - Embedded types: struct_migrate.go (struct-to-struct for nested types)
 	if parsed.IsEmbedded {
 		if err := g.generateStructMigrate(parsed, version, typeDir, typeState); err != nil {
-			return errors.Newf("failed to generate struct migrations: %w", err)
+			return errors.Wrap(err, "failed to generate struct migrations")
 		}
 	} else {
 		if err := g.generateMigrations(parsed, version, typeDir, typeState); err != nil {
-			return errors.Newf("failed to generate migrations: %w", err)
+			return errors.Wrap(err, "failed to generate migrations")
 		}
 	}
 
 	// Save state file
 	if err := stateFile.Save(typeDir); err != nil {
-		return errors.Newf("failed to save state file: %w", err)
+		return errors.Wrap(err, "failed to save state file")
 	}
 
 	return nil
@@ -1092,7 +1092,21 @@ func (g *Generator) getTranslationExprs(f parse.ParsedField, parentPkg string, p
 	if mapping, ok := g.registry.Get(f.GoType.Name); ok {
 		forward = strings.ReplaceAll(mapping.ForwardExpr, "{{.Field}}", fieldRef)
 		backward = strings.ReplaceAll(mapping.BackwardExpr, "{{.Field}}", pbFieldRef)
-		return forward, backward, mapping.CanFail, mapping.NeedsImport, nil
+
+		// Filter out self-imports and strip package qualifiers for same-package types
+		var filteredImports []string
+		for _, imp := range mapping.NeedsImport {
+			if imp == parentPath {
+				// This is a self-import - strip the package qualifier from backward expr
+				// e.g., "telem.TimeStamp(...)" -> "TimeStamp(...)"
+				parts := strings.Split(imp, "/")
+				pkgName := parts[len(parts)-1]
+				backward = strings.ReplaceAll(backward, pkgName+".", "")
+			} else {
+				filteredImports = append(filteredImports, imp)
+			}
+		}
+		return forward, backward, mapping.CanFail, filteredImports, nil
 	}
 
 	// Check underlying type for named types (e.g., type Key uint32)
@@ -1112,7 +1126,12 @@ func (g *Generator) getTranslationExprs(f parse.ParsedField, parentPkg string, p
 				backward = fmt.Sprintf("%s(%s)",
 					typeName(f.GoType.Name),
 					strings.ReplaceAll(mapping.BackwardExpr, "{{.Field}}", pbFieldRef))
-				imports = append(imports, mapping.NeedsImport...)
+				// Filter out self-imports from mapping.NeedsImport
+				for _, imp := range mapping.NeedsImport {
+					if imp != parentPath {
+						imports = append(imports, imp)
+					}
+				}
 			} else {
 				// External type - need package prefix and import
 				backward = fmt.Sprintf("%s.%s(%s)",
@@ -1285,11 +1304,11 @@ type TypesExportData struct {
 
 // TypeExportInfo contains info about a single type for re-export.
 type TypeExportInfo struct {
-	TypeName   string   // e.g., "User"
-	PkgAlias   string   // e.g., "user"
-	ImportPath string   // e.g., "pkg/types/user"
-	Versions   []int    // e.g., [1, 2, 3]
-	IsStorage  bool     // true for storage types (have Migrations), false for embedded
+	TypeName   string // e.g., "User"
+	PkgAlias   string // e.g., "user"
+	ImportPath string // e.g., "pkg/types/user"
+	Versions   []int  // e.g., [1, 2, 3]
+	IsStorage  bool   // true for storage types (have Migrations), false for embedded
 }
 
 // GenerateTypesExport generates the types/types.go re-export file by scanning
@@ -1303,7 +1322,7 @@ func (g *Generator) GenerateTypesExport(typesDir, packagePath string) error {
 		if os.IsNotExist(err) {
 			return nil // No types directory yet
 		}
-		return errors.Newf("failed to read types directory: %w", err)
+		return errors.Wrap(err, "failed to read types directory")
 	}
 
 	for _, entry := range entries {
@@ -1341,12 +1360,12 @@ func (g *Generator) GenerateTypesExport(typesDir, packagePath string) error {
 
 	var buf bytes.Buffer
 	if err := g.templates.ExecuteTemplate(&buf, "types_export.go.tmpl", data); err != nil {
-		return errors.Newf("failed to execute types export template: %w", err)
+		return errors.Wrap(err, "failed to execute types export template")
 	}
 
 	filename := filepath.Join(typesDir, "types.go")
 	if err := os.WriteFile(filename, buf.Bytes(), 0644); err != nil {
-		return errors.Newf("failed to write types export file: %w", err)
+		return errors.Wrap(err, "failed to write types export file")
 	}
 
 	return nil

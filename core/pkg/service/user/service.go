@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/jerky/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -68,6 +69,9 @@ const groupName = "Users"
 func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 	cfg, err := config.New(defaultConfig, configs...)
 	if err != nil {
+		return nil, err
+	}
+	if err = migrate.NewCoordinator(cfg.DB, cfg.DB.KV(), &UserMigrator{}).Run(ctx); err != nil {
 		return nil, err
 	}
 	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)

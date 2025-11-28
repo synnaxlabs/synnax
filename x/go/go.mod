@@ -10,6 +10,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
 	github.com/samber/lo v1.52.0
+	github.com/spf13/cobra v1.10.1
 	github.com/uptrace/uptrace-go v1.38.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yuin/gopher-lua v1.1.1

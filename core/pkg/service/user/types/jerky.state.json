@@ -1,0 +1,119 @@
+{
+  "$schema": "jerky-state-v1",
+  "types": {
+    "User": {
+      "package": "github.com/synnaxlabs/synnax/pkg/service/user",
+      "current_version": 2,
+      "field_order": [
+        "Key",
+        "Username",
+        "FirstName",
+        "LastName"
+      ],
+      "history": [
+        {
+          "version": 1,
+          "created_at": "2025-11-27T14:03:40.073323-07:00",
+          "struct_hash": "142c443ede96",
+          "composite_hash": "c5711e4a61ec",
+          "migration_type": "bootstrap",
+          "fields": {
+            "FirstName": {
+              "type": "string",
+              "tags": {
+                "json": "first_name",
+                "msgpack": "first_name"
+              },
+              "field_number": 3
+            },
+            "Key": {
+              "type": "uuid.UUID",
+              "tags": {
+                "json": "key",
+                "msgpack": ""
+              },
+              "field_number": 1
+            },
+            "LastName": {
+              "type": "string",
+              "tags": {
+                "json": "last_name",
+                "msgpack": "last_name"
+              },
+              "field_number": 4
+            },
+            "RootUser": {
+              "type": "bool",
+              "tags": {
+                "json": "root_user",
+                "msgpack": "root_user"
+              },
+              "field_number": 5
+            },
+            "Username": {
+              "type": "string",
+              "tags": {
+                "json": "username",
+                "msgpack": ""
+              },
+              "field_number": 2
+            }
+          }
+        },
+        {
+          "version": 2,
+          "created_at": "2025-11-27T14:04:12.802345-07:00",
+          "struct_hash": "e1c2a9006dcd",
+          "composite_hash": "0ee6ae6f6dae",
+          "migration_type": "auto",
+          "fields": {
+            "FirstName": {
+              "type": "string",
+              "tags": {
+                "json": "first_name",
+                "msgpack": "first_name"
+              },
+              "field_number": 3
+            },
+            "Key": {
+              "type": "uuid.UUID",
+              "tags": {
+                "json": "key",
+                "msgpack": ""
+              },
+              "field_number": 1
+            },
+            "LastName": {
+              "type": "string",
+              "tags": {
+                "json": "last_name",
+                "msgpack": "last_name"
+              },
+              "field_number": 4
+            },
+            "Username": {
+              "type": "string",
+              "tags": {
+                "json": "username",
+                "msgpack": ""
+              },
+              "field_number": 2
+            }
+          }
+        }
+      ],
+      "field_numbers": {
+        "FirstName": 3,
+        "Key": 1,
+        "LastName": 4,
+        "RootUser": 5,
+        "Username": 2
+      },
+      "next_field_number": 6
+    }
+  },
+  "metadata": {
+    "jerky_version": "1.0.0",
+    "last_generated": "2025-11-27T14:04:12.802345-07:00"
+  }
+}

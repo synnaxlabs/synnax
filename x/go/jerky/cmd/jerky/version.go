@@ -7,16 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package main provides the jerky CLI for code generation.
-//
-// Usage:
-//
-//	//go:generate jerky
-//	type MyStruct struct { ... }
-//
-// Then run: go generate ./...
 package main
 
-func main() {
-	Execute()
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+	"github.com/synnaxlabs/x/jerky"
+)
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print jerky version",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("jerky version %s\n", jerky.Version)
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(versionCmd)
 }
