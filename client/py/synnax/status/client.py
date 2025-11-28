@@ -13,13 +13,14 @@ from uuid import UUID
 from freighter import Empty, Payload, UnaryClient, send_required
 
 from synnax.exceptions import NotFoundError
+from synnax.ontology import ID
 from synnax.status.payload import Status
 from synnax.util.normalize import normalize
 from synnax.util.params import require_named_params
 
 
 class _SetRequest(Payload):
-    parent: dict[str, str] | None = None
+    parent: ID | None = None
     statuses: list[Status]
 
 
@@ -72,7 +73,7 @@ class Client:
         self,
         status: Status,
         *,
-        parent: dict[str, str] | None = None,
+        parent: ID | None = None,
     ) -> Status: ...
 
     @overload
@@ -80,14 +81,14 @@ class Client:
         self,
         statuses: list[Status],
         *,
-        parent: dict[str, str] | None = None,
+        parent: ID | None = None,
     ) -> list[Status]: ...
 
     def set(
         self,
         status: Status | list[Status] | None = None,
         *,
-        parent: dict[str, str] | None = None,
+        parent: ID | None = None,
     ) -> Status | list[Status]:
         """Create or update a status.
 

@@ -12,6 +12,7 @@ from typing import overload
 from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
 
+from synnax.exceptions import NotFoundError
 from synnax.rack.payload import Rack
 from synnax.util.normalize import check_for_none, override
 
@@ -119,7 +120,11 @@ class Client:
             ),
             _RetrieveResponse,
         )
-        return res.racks[0] if is_single else res.racks
+        if is_single:
+            if res.racks is not None and len(res.racks) > 0:
+                return res.racks[0]
+            raise NotFoundError("Rack not found")
+        return res.racks if res.racks is not None else []
 
     def retrieve_embedded_rack(self) -> Rack:
         if self._embedded_rack is None:
