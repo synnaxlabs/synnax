@@ -129,12 +129,8 @@ struct Status {
 
     /// @brief returns true if the status is at its zero/default value.
     [[nodiscard]] bool is_zero() const {
-        return key.empty() &&
-               name.empty() &&
-               variant.empty() &&
-               message.empty() &&
-               description.empty() &&
-               time.nanoseconds() == 0;
+        return key.empty() && name.empty() && variant.empty() && message.empty() &&
+               description.empty() && time.nanoseconds() == 0;
     }
 };
 }

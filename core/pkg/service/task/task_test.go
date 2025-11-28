@@ -292,6 +292,7 @@ var _ = Describe("Task", Ordered, func() {
 				Variant:     xstatus.SuccessVariant,
 				Message:     "Custom task status",
 				Description: "Task is running",
+				Time:        telem.Now(),
 				Details: task.StatusDetails{
 					Running: true,
 				},
