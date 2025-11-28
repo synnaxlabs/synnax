@@ -436,5 +436,17 @@ var _ = Describe("Status", Ordered, func() {
 			Expect(retrieved.Details.FieldC).To(Equal(float64(0)))
 			Expect(retrieved.Details.FieldD).To(BeFalse())
 		})
+		It("should not work when details are not a struct", func() {
+			type DetailsA int
+			type DetailsB string
+			writerB := status.NewWriter[DetailsB](svc, tx)
+			Expect(writerB.Set(ctx, &status.Status[DetailsB]{
+				Key: "details-b", Name: "Details B", Variant: "info",
+				Details: DetailsB("hello"), Time: telem.Now(),
+			})).To(Succeed())
+			var retrieved status.Status[DetailsA]
+			retrieveA := status.NewRetrieve[DetailsA](svc)
+			Expect(retrieveA.Entry(&retrieved).Exec(ctx, tx)).To(Not(Succeed()))
+		})
 	})
 })
