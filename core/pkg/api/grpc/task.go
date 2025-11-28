@@ -136,19 +136,21 @@ func (taskCreateResponseTranslator) Backward(_ context.Context, res *gapi.TaskCr
 
 func (taskRetrieveRequestTranslator) Forward(_ context.Context, req api.TaskRetrieveRequest) (*gapi.TaskRetrieveRequest, error) {
 	return &gapi.TaskRetrieveRequest{
-		Rack:  uint32(req.Rack),
-		Keys:  unsafe.ReinterpretSlice[task.Key, uint64](req.Keys),
-		Names: req.Names,
-		Types: req.Types,
+		Rack:          uint32(req.Rack),
+		Keys:          unsafe.ReinterpretSlice[task.Key, uint64](req.Keys),
+		Names:         req.Names,
+		Types:         req.Types,
+		IncludeStatus: req.IncludeStatus,
 	}, nil
 }
 
 func (taskRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.TaskRetrieveRequest) (api.TaskRetrieveRequest, error) {
 	return api.TaskRetrieveRequest{
-		Rack:  rack.Key(req.Rack),
-		Keys:  unsafe.ReinterpretSlice[uint64, task.Key](req.Keys),
-		Names: req.Names,
-		Types: req.Types,
+		Rack:          rack.Key(req.Rack),
+		Keys:          unsafe.ReinterpretSlice[uint64, task.Key](req.Keys),
+		Names:         req.Names,
+		Types:         req.Types,
+		IncludeStatus: req.IncludeStatus,
 	}, nil
 }
 

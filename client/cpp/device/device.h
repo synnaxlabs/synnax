@@ -153,6 +153,12 @@ map_device_keys(const std::vector<Device> &devices) {
     return map;
 }
 
+/// @brief Options for retrieving devices.
+struct DeviceRetrieveOptions {
+    /// @brief Whether to include status information in the retrieved devices.
+    bool include_status = false;
+};
+
 /// @brief Request structure for retrieving devices with various filter options.
 struct DeviceRetrieveRequest {
     std::vector<std::string> keys;
@@ -165,6 +171,7 @@ struct DeviceRetrieveRequest {
     std::uint32_t limit = 0;
     std::uint32_t offset = 0;
     bool ignore_not_found = false;
+    bool include_status = false;
 
     void to_proto(api::v1::DeviceRetrieveRequest &request) const {
         request.set_ignore_not_found(ignore_not_found);
@@ -177,6 +184,7 @@ struct DeviceRetrieveRequest {
         request.mutable_locations()->Add(locations.begin(), locations.end());
         request.mutable_racks()->Add(racks.begin(), racks.end());
         request.set_search(search);
+        request.set_include_status(include_status);
     }
 };
 
@@ -203,6 +211,15 @@ public:
     std::pair<Device, xerrors::Error>
     retrieve(const std::string &key, bool ignore_not_found = false) const;
 
+    /// @brief Retrieves a device by its key with options.
+    /// @param key The key of the device to retrieve.
+    /// @param options Options for the retrieval.
+    /// @returns A pair containing the retrieved device and an error if one
+    /// occurred.
+    [[nodiscard]]
+    std::pair<Device, xerrors::Error>
+    retrieve(const std::string &key, const DeviceRetrieveOptions &options) const;
+
     /// @brief Retrieves multiple devices by their keys.
     /// @param keys The keys of the devices to retrieve.
     /// @param ignore_not_found If true, skips non-existent devices without error.
@@ -211,6 +228,17 @@ public:
     [[nodiscard]]
     std::pair<std::vector<Device>, xerrors::Error>
     retrieve(const std::vector<std::string> &keys, bool ignore_not_found = false) const;
+
+    /// @brief Retrieves multiple devices by their keys with options.
+    /// @param keys The keys of the devices to retrieve.
+    /// @param options Options for the retrieval.
+    /// @returns A pair containing the retrieved devices and an error if one
+    /// occurred.
+    [[nodiscard]]
+    std::pair<std::vector<Device>, xerrors::Error> retrieve(
+        const std::vector<std::string> &keys,
+        const DeviceRetrieveOptions &options
+    ) const;
 
     /// @brief Retrieves devices using a custom retrieve request.
     /// @param req The retrieve request with filter criteria.

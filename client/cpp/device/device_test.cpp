@@ -469,4 +469,81 @@ TEST(DeviceTests, testRetrieveRequestIgnoreNotFound) {
     ASSERT_EQ(devices.size(), 1);
     ASSERT_EQ(devices[0].key, d.key);
 }
+
+/// @brief it should correctly create and retrieve a device with a status.
+TEST(DeviceTests, testCreateDeviceWithStatus) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+    auto d = Device(
+        "status_dev_" + rand,
+        "device_with_status",
+        r.key,
+        "location",
+        "make",
+        "model",
+        "properties"
+    );
+    d.status.variant = status::variant::SUCCESS;
+    d.status.message = "Device is connected";
+    d.status.time = telem::TimeStamp::now();
+    d.status.details.rack = r.key;
+    d.status.details.device = d.key;
+    ASSERT_NIL(client.devices.create(d));
+    const auto d2 = ASSERT_NIL_P(
+        client.devices.retrieve(d.key, {.include_status = true})
+    );
+    ASSERT_EQ(d2.name, "device_with_status");
+    ASSERT_FALSE(d2.status.is_zero());
+    ASSERT_EQ(d2.status.variant, status::variant::SUCCESS);
+    ASSERT_EQ(d2.status.message, "Device is connected");
+    ASSERT_EQ(d2.status.details.rack, r.key);
+}
+
+/// @brief it should correctly retrieve multiple devices with statuses.
+TEST(DeviceTests, testRetrieveDevicesWithStatus) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack");
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+    auto d1 = Device(
+        "status_d1_" + rand,
+        "device_1_status",
+        r.key,
+        "loc1",
+        "make1",
+        "model1",
+        "props1"
+    );
+    d1.status.variant = status::variant::SUCCESS;
+    d1.status.message = "Device 1 OK";
+    d1.status.time = telem::TimeStamp::now();
+    auto d2 = Device(
+        "status_d2_" + rand,
+        "device_2_status",
+        r.key,
+        "loc2",
+        "make2",
+        "model2",
+        "props2"
+    );
+    d2.status.variant = status::variant::WARNING;
+    d2.status.message = "Device 2 warning";
+    d2.status.time = telem::TimeStamp::now();
+    ASSERT_NIL(client.devices.create(d1));
+    ASSERT_NIL(client.devices.create(d2));
+    const std::vector<std::string> keys = {d1.key, d2.key};
+    const auto devices = ASSERT_NIL_P(
+        client.devices.retrieve(keys, {.include_status = true})
+    );
+    ASSERT_EQ(devices.size(), 2);
+    auto dm = map_device_keys(devices);
+    ASSERT_FALSE(dm[d1.key].status.is_zero());
+    ASSERT_EQ(dm[d1.key].status.variant, status::variant::SUCCESS);
+    ASSERT_EQ(dm[d1.key].status.message, "Device 1 OK");
+    ASSERT_FALSE(dm[d2.key].status.is_zero());
+    ASSERT_EQ(dm[d2.key].status.variant, status::variant::WARNING);
+    ASSERT_EQ(dm[d2.key].status.message, "Device 2 warning");
+}
 }

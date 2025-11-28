@@ -83,9 +83,15 @@ void Task::to_proto(api::v1::Task *task) const {
 }
 
 std::pair<Task, xerrors::Error> TaskClient::retrieve(const TaskKey key) const {
+    return retrieve(key, TaskRetrieveOptions{});
+}
+
+std::pair<Task, xerrors::Error>
+TaskClient::retrieve(const TaskKey key, const TaskRetrieveOptions &options) const {
     auto req = api::v1::TaskRetrieveRequest();
     req.set_rack(rack);
     req.add_keys(key);
+    req.set_include_status(options.include_status);
     auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {Task(), err};
     if (res.tasks_size() == 0)
@@ -94,9 +100,17 @@ std::pair<Task, xerrors::Error> TaskClient::retrieve(const TaskKey key) const {
 }
 
 std::pair<Task, xerrors::Error> TaskClient::retrieve(const std::string &name) const {
+    return retrieve(name, TaskRetrieveOptions{});
+}
+
+std::pair<Task, xerrors::Error> TaskClient::retrieve(
+    const std::string &name,
+    const TaskRetrieveOptions &options
+) const {
     auto req = api::v1::TaskRetrieveRequest();
     req.set_rack(rack);
     req.add_names(name);
+    req.set_include_status(options.include_status);
     auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {Task(), err};
     if (res.tasks_size() == 0) return {Task(), not_found_error("task", "name " + name)};
@@ -105,9 +119,17 @@ std::pair<Task, xerrors::Error> TaskClient::retrieve(const std::string &name) co
 
 std::pair<std::vector<Task>, xerrors::Error>
 TaskClient::retrieve(const std::vector<std::string> &names) const {
+    return retrieve(names, TaskRetrieveOptions{});
+}
+
+std::pair<std::vector<Task>, xerrors::Error> TaskClient::retrieve(
+    const std::vector<std::string> &names,
+    const TaskRetrieveOptions &options
+) const {
     auto req = api::v1::TaskRetrieveRequest();
     req.set_rack(rack);
     req.mutable_names()->Add(names.begin(), names.end());
+    req.set_include_status(options.include_status);
     auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {std::vector<Task>(), err};
     std::vector<Task> tasks;
@@ -122,9 +144,17 @@ TaskClient::retrieve(const std::vector<std::string> &names) const {
 
 std::pair<Task, xerrors::Error>
 TaskClient::retrieve_by_type(const std::string &type) const {
+    return retrieve_by_type(type, TaskRetrieveOptions{});
+}
+
+std::pair<Task, xerrors::Error> TaskClient::retrieve_by_type(
+    const std::string &type,
+    const TaskRetrieveOptions &options
+) const {
     auto req = api::v1::TaskRetrieveRequest();
     req.set_rack(rack);
     req.add_types(type);
+    req.set_include_status(options.include_status);
     auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {Task(), err};
     if (res.tasks_size() == 0) return {Task(), not_found_error("task", "type " + type)};
@@ -133,9 +163,17 @@ TaskClient::retrieve_by_type(const std::string &type) const {
 
 std::pair<std::vector<Task>, xerrors::Error>
 TaskClient::retrieve_by_type(const std::vector<std::string> &types) const {
+    return retrieve_by_type(types, TaskRetrieveOptions{});
+}
+
+std::pair<std::vector<Task>, xerrors::Error> TaskClient::retrieve_by_type(
+    const std::vector<std::string> &types,
+    const TaskRetrieveOptions &options
+) const {
     auto req = api::v1::TaskRetrieveRequest();
     req.set_rack(rack);
     req.mutable_types()->Add(types.begin(), types.end());
+    req.set_include_status(options.include_status);
     auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {std::vector<Task>(), err};
     std::vector<Task> tasks;
@@ -166,8 +204,14 @@ xerrors::Error TaskClient::del(const TaskKey key) const {
 }
 
 std::pair<std::vector<Task>, xerrors::Error> TaskClient::list() const {
+    return list(TaskRetrieveOptions{});
+}
+
+std::pair<std::vector<Task>, xerrors::Error>
+TaskClient::list(const TaskRetrieveOptions &options) const {
     auto req = api::v1::TaskRetrieveRequest();
     req.set_rack(rack);
+    req.set_include_status(options.include_status);
     auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {std::vector<Task>(), err};
     std::vector<Task> tasks;

@@ -240,6 +240,7 @@ type DeviceRetrieveRequest struct {
 	Limit          uint32                 `protobuf:"varint,8,opt,name=limit,proto3" json:"limit,omitempty"`
 	Offset         uint32                 `protobuf:"varint,9,opt,name=offset,proto3" json:"offset,omitempty"`
 	IgnoreNotFound bool                   `protobuf:"varint,10,opt,name=ignore_not_found,json=ignoreNotFound,proto3" json:"ignore_not_found,omitempty"`
+	IncludeStatus  bool                   `protobuf:"varint,11,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -340,6 +341,13 @@ func (x *DeviceRetrieveRequest) GetOffset() uint32 {
 func (x *DeviceRetrieveRequest) GetIgnoreNotFound() bool {
 	if x != nil {
 		return x.IgnoreNotFound
+	}
+	return false
+}
+
+func (x *DeviceRetrieveRequest) GetIncludeStatus() bool {
+	if x != nil {
+		return x.IncludeStatus
 	}
 	return false
 }
@@ -455,7 +463,7 @@ const file_core_pkg_api_grpc_v1_device_proto_rawDesc = "" +
 	"\x13DeviceCreateRequest\x12(\n" +
 	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"@\n" +
 	"\x14DeviceCreateResponse\x12(\n" +
-	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"\x93\x02\n" +
+	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"\xba\x02\n" +
 	"\x15DeviceRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12\x14\n" +
@@ -467,7 +475,8 @@ const file_core_pkg_api_grpc_v1_device_proto_rawDesc = "" +
 	"\x05limit\x18\b \x01(\rR\x05limit\x12\x16\n" +
 	"\x06offset\x18\t \x01(\rR\x06offset\x12(\n" +
 	"\x10ignore_not_found\x18\n" +
-	" \x01(\bR\x0eignoreNotFound\"B\n" +
+	" \x01(\bR\x0eignoreNotFound\x12%\n" +
+	"\x0einclude_status\x18\v \x01(\bR\rincludeStatus\"B\n" +
 	"\x16DeviceRetrieveResponse\x12(\n" +
 	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\")\n" +
 	"\x13DeviceDeleteRequest\x12\x12\n" +

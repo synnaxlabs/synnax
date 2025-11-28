@@ -140,6 +140,7 @@ func (deviceRetrieveRequestTranslator) Forward(_ context.Context, req api.Device
 		Limit:          uint32(req.Limit),
 		Offset:         uint32(req.Offset),
 		IgnoreNotFound: req.IgnoreNotFound,
+		IncludeStatus:  req.IncludeStatus,
 	}, nil
 }
 
@@ -155,6 +156,7 @@ func (deviceRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.Dev
 		Racks:          unsafe.ReinterpretSlice[uint32, rack.Key](req.Racks),
 		Offset:         int(req.Offset),
 		IgnoreNotFound: req.IgnoreNotFound,
+		IncludeStatus:  req.IncludeStatus,
 	}, nil
 }
 

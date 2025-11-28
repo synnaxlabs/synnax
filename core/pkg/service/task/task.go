@@ -66,7 +66,9 @@ func (t Task) String() string {
 
 type StatusDetails struct {
 	// Task is the key of the task that the state update is for.
-	Task    Key            `json:"task" msgpack:"task"`
+	Task Key `json:"task" msgpack:"task"`
+	// Cmd is a non-empty string if the status is an explicit response to a command.
+	Cmd     string         `json:"cmd" msgpack:"cmd"`
 	Running bool           `json:"running" msgpack:"running"`
 	Data    map[string]any `json:"data" msgpack:"data"`
 }

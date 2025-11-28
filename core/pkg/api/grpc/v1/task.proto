@@ -46,6 +46,7 @@ message TaskRetrieveRequest {
   repeated uint64 keys = 2;
   repeated string names = 3;
   repeated string types = 4;
+  bool include_status = 5;
 }
 
 message TaskRetrieveResponse {

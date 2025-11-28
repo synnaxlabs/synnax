@@ -218,6 +218,7 @@ type TaskRetrieveRequest struct {
 	Keys          []uint64               `protobuf:"varint,2,rep,packed,name=keys,proto3" json:"keys,omitempty"`
 	Names         []string               `protobuf:"bytes,3,rep,name=names,proto3" json:"names,omitempty"`
 	Types         []string               `protobuf:"bytes,4,rep,name=types,proto3" json:"types,omitempty"`
+	IncludeStatus bool                   `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -278,6 +279,13 @@ func (x *TaskRetrieveRequest) GetTypes() []string {
 		return x.Types
 	}
 	return nil
+}
+
+func (x *TaskRetrieveRequest) GetIncludeStatus() bool {
+	if x != nil {
+		return x.IncludeStatus
+	}
+	return false
 }
 
 type TaskRetrieveResponse struct {
@@ -488,12 +496,13 @@ const file_core_pkg_api_grpc_v1_task_proto_rawDesc = "" +
 	"\x11TaskCreateRequest\x12\"\n" +
 	"\x05tasks\x18\x01 \x03(\v2\f.api.v1.TaskR\x05tasks\"8\n" +
 	"\x12TaskCreateResponse\x12\"\n" +
-	"\x05tasks\x18\x01 \x03(\v2\f.api.v1.TaskR\x05tasks\"i\n" +
+	"\x05tasks\x18\x01 \x03(\v2\f.api.v1.TaskR\x05tasks\"\x90\x01\n" +
 	"\x13TaskRetrieveRequest\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x12\n" +
 	"\x04keys\x18\x02 \x03(\x04R\x04keys\x12\x14\n" +
 	"\x05names\x18\x03 \x03(\tR\x05names\x12\x14\n" +
-	"\x05types\x18\x04 \x03(\tR\x05types\":\n" +
+	"\x05types\x18\x04 \x03(\tR\x05types\x12%\n" +
+	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatus\":\n" +
 	"\x14TaskRetrieveResponse\x12\"\n" +
 	"\x05tasks\x18\x01 \x03(\v2\f.api.v1.TaskR\x05tasks\"'\n" +
 	"\x11TaskDeleteRequest\x12\x12\n" +

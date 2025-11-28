@@ -49,4 +49,22 @@ TEST(RackTests, testRetrieveRackByName) {
     ASSERT_EQ(r2.name, "test_rack_by_name_unique");
     ASSERT_EQ(r.key, r2.key);
 }
+
+/// @brief it should correctly create and retrieve a rack with a status.
+TEST(RackTests, testCreateRackWithStatus) {
+    const auto client = new_test_client();
+    auto r = Rack("test_rack_with_status");
+    r.status.key = "rack-status-key";
+    r.status.variant = status::variant::SUCCESS;
+    r.status.message = "Rack is healthy";
+    r.status.time = telem::TimeStamp::now();
+    r.status.details.rack = 123;
+    ASSERT_NIL(client.racks.create(r));
+    const auto r2 = ASSERT_NIL_P(client.racks.retrieve(r.key));
+    ASSERT_EQ(r2.name, "test_rack_with_status");
+    ASSERT_FALSE(r2.status.is_zero());
+    ASSERT_EQ(r2.status.key, "rack-status-key");
+    ASSERT_EQ(r2.status.variant, status::variant::SUCCESS);
+    ASSERT_EQ(r2.status.message, "Rack is healthy");
+}
 }

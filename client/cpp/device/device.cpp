@@ -35,23 +35,38 @@ DeviceClient::retrieve(const std::string &key, bool ignore_not_found) const {
     return Device::from_proto(res.devices(0));
 }
 
+std::pair<Device, xerrors::Error> DeviceClient::retrieve(
+    const std::string &key,
+    const DeviceRetrieveOptions &options
+) const {
+    auto req = api::v1::DeviceRetrieveRequest();
+    req.add_keys(key);
+    req.set_include_status(options.include_status);
+    auto [res, err] = device_retrieve_client->send("/device/retrieve", req);
+    if (err) return {Device(), err};
+    if (res.devices_size() == 0)
+        return {Device(), not_found_error("device", "key " + key)};
+    return Device::from_proto(res.devices(0));
+}
+
 std::pair<std::vector<Device>, xerrors::Error> DeviceClient::retrieve(
     const std::vector<std::string> &keys,
     bool ignore_not_found
 ) const {
-    auto req = api::v1::DeviceRetrieveRequest();
-    req.mutable_keys()->Add(keys.begin(), keys.end());
-    req.set_ignore_not_found(ignore_not_found);
-    auto [res, err] = device_retrieve_client->send("/device/retrieve", req);
-    if (err) return {std::vector<Device>(), err};
-    std::vector<Device> devices;
-    devices.reserve(res.devices_size());
-    for (const auto &d: res.devices()) {
-        auto [device, proto_err] = Device::from_proto(d);
-        if (proto_err) return {std::vector<Device>(), proto_err};
-        devices.push_back(std::move(device));
-    }
-    return {devices, xerrors::NIL};
+    DeviceRetrieveRequest req;
+    req.keys = keys;
+    req.ignore_not_found = ignore_not_found;
+    return retrieve(req);
+}
+
+std::pair<std::vector<Device>, xerrors::Error> DeviceClient::retrieve(
+    const std::vector<std::string> &keys,
+    const DeviceRetrieveOptions &options
+) const {
+    DeviceRetrieveRequest req;
+    req.keys = keys;
+    req.include_status = options.include_status;
+    return retrieve(req);
 }
 
 std::pair<std::vector<Device>, xerrors::Error>

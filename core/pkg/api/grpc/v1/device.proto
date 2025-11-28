@@ -50,6 +50,7 @@ message DeviceRetrieveRequest {
   uint32 limit = 8;
   uint32 offset = 9;
   bool ignore_not_found = 10;
+  bool include_status = 11;
 }
 
 message DeviceRetrieveResponse {

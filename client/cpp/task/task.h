@@ -97,7 +97,7 @@ struct TaskStatusDetails {
     static TaskStatusDetails parse(xjson::Parser parser) {
         return TaskStatusDetails{
             .task = parser.field<TaskKey>("task"),
-            .cmd = parser.field<std::string>("cmd"),
+            .cmd = parser.field<std::string>("cmd", ""),
             .running = parser.field<bool>("running"),
             .data = parser.field<json>("data"),
         };
@@ -116,6 +116,12 @@ struct TaskStatusDetails {
 
 /// @brief status information for a task.
 using TaskStatus = status::Status<TaskStatusDetails>;
+
+/// @brief Options for retrieving tasks.
+struct TaskRetrieveOptions {
+    /// @brief Whether to include status information in the retrieved tasks.
+    bool include_status = false;
+};
 
 /// @brief A Task is a data structure used to configure and execute operations on a
 /// hardware device. Tasks are associated with a specific rack and can be created,
@@ -235,7 +241,15 @@ public:
     /// @param key The key of the task to retrieve.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
-    std::pair<Task, xerrors::Error> retrieve(std::uint64_t key) const;
+    std::pair<Task, xerrors::Error> retrieve(TaskKey key) const;
+
+    /// @brief Retrieves a task by its key with options.
+    /// @param key The key of the task to retrieve.
+    /// @param options Options for the retrieval.
+    /// @returns A pair containing the retrieved task and an error if one occurred.
+    [[nodiscard]]
+    std::pair<Task, xerrors::Error>
+    retrieve(TaskKey key, const TaskRetrieveOptions &options) const;
 
     /// @brief Retrieves a task by its type.
     /// @param type The type of the task to retrieve.
@@ -243,11 +257,27 @@ public:
     [[nodiscard]]
     std::pair<Task, xerrors::Error> retrieve_by_type(const std::string &type) const;
 
+    /// @brief Retrieves a task by its type with options.
+    /// @param type The type of the task to retrieve.
+    /// @param options Options for the retrieval.
+    /// @returns A pair containing the retrieved task and an error if one occurred.
+    [[nodiscard]]
+    std::pair<Task, xerrors::Error>
+    retrieve_by_type(const std::string &type, const TaskRetrieveOptions &options) const;
+
     /// @brief Retrieves a task by its name.
     /// @param name The name of the task to retrieve.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
     std::pair<Task, xerrors::Error> retrieve(const std::string &name) const;
+
+    /// @brief Retrieves a task by its name with options.
+    /// @param name The name of the task to retrieve.
+    /// @param options Options for the retrieval.
+    /// @returns A pair containing the retrieved task and an error if one occurred.
+    [[nodiscard]]
+    std::pair<Task, xerrors::Error>
+    retrieve(const std::string &name, const TaskRetrieveOptions &options) const;
 
     /// @brief Retrieves multiple tasks by their names.
     /// @param names The names of the tasks to retrieve.
@@ -256,6 +286,16 @@ public:
     std::pair<std::vector<Task>, xerrors::Error>
     retrieve(const std::vector<std::string> &names) const;
 
+    /// @brief Retrieves multiple tasks by their names with options.
+    /// @param names The names of the tasks to retrieve.
+    /// @param options Options for the retrieval.
+    /// @returns A pair containing the retrieved tasks and an error if one occurred.
+    [[nodiscard]]
+    std::pair<std::vector<Task>, xerrors::Error> retrieve(
+        const std::vector<std::string> &names,
+        const TaskRetrieveOptions &options
+    ) const;
+
     /// @brief Retrieves multiple tasks by their types.
     /// @param types The types of the tasks to retrieve.
     /// @returns A pair containing the retrieved tasks and an error if one occurred.
@@ -263,16 +303,33 @@ public:
     std::pair<std::vector<Task>, xerrors::Error>
     retrieve_by_type(const std::vector<std::string> &types) const;
 
+    /// @brief Retrieves multiple tasks by their types with options.
+    /// @param types The types of the tasks to retrieve.
+    /// @param options Options for the retrieval.
+    /// @returns A pair containing the retrieved tasks and an error if one occurred.
+    [[nodiscard]]
+    std::pair<std::vector<Task>, xerrors::Error> retrieve_by_type(
+        const std::vector<std::string> &types,
+        const TaskRetrieveOptions &options
+    ) const;
+
     /// @brief Deletes a task by its key.
     /// @param key The key of the task to delete.
     /// @returns An error if the deletion failed.
     [[nodiscard]]
-    xerrors::Error del(std::uint64_t key) const;
+    xerrors::Error del(TaskKey key) const;
 
     /// @brief Lists all tasks on the rack.
     /// @returns A pair containing the list of tasks and an error if one occurred.
     [[nodiscard]]
     std::pair<std::vector<Task>, xerrors::Error> list() const;
+
+    /// @brief Lists all tasks on the rack with options.
+    /// @param options Options for the retrieval.
+    /// @returns A pair containing the list of tasks and an error if one occurred.
+    [[nodiscard]]
+    std::pair<std::vector<Task>, xerrors::Error>
+    list(const TaskRetrieveOptions &options) const;
 
 private:
     /// @brief Key of rack that this client belongs to.
