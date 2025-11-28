@@ -166,7 +166,7 @@ export const wrapForm = <
         }
         form.set("rackKey", rackKey);
         form.set("config", newConfig);
-        const status: task.NewStatus<StatusData> = {
+        const status: task.NewStatus = {
           name,
           time: TimeStamp.now(),
           variant: "loading",

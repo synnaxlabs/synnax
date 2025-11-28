@@ -301,7 +301,7 @@ export const createForm = <
             name: value.name,
             type: value.type,
             config: value.config,
-            status: value.status,
+            status: value.status as task.NewStatus<StatusData>,
           },
           schemas,
         );

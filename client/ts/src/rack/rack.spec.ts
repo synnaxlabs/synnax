@@ -36,7 +36,10 @@ describe("Rack", () => {
         time: TimeStamp.now(),
         details: { rack: 0 },
       };
-      const r = await client.racks.create({ name: "rack-with-status", status: customStatus });
+      const r = await client.racks.create({
+        name: "rack-with-status",
+        status: customStatus,
+      });
       expect(r.key).toBeGreaterThan(0n);
       const retrieved = await client.racks.retrieve({
         key: r.key,

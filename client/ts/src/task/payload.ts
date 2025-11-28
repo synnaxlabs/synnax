@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, type observe, record, status, TimeStamp } from "@synnaxlabs/x";
+import { binary, type observe, record, status } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Key as RackKey } from "@/rack/payload";
@@ -29,53 +29,25 @@ export const statusDetailsZ = <DataSchema extends z.ZodType>(data: DataSchema) =
     cmd: z.string().optional(),
   });
 
-const newStatusDetailsZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
-  z.object({
-    task: keyZ.optional(),
-    running: z.boolean(),
-    data,
-    cmd: z.string().optional(),
-  });
+export type StatusDetails<DataSchema extends z.ZodType> = z.infer<
+  ReturnType<typeof statusDetailsZ<DataSchema>>
+>;
 
 export const statusZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
   status.statusZ(statusDetailsZ(data));
 
-const newStatusZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
+export type Status<StatusData extends z.ZodType = z.ZodUnknown> = z.infer<
+  ReturnType<typeof statusZ<StatusData>>
+>;
+
+const newStatusDetailsZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
+  statusDetailsZ(data).partial({ task: true });
+
+export const newStatusZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
   status.statusZ(newStatusDetailsZ(data)).partial({ key: true, name: true });
 
-export interface StatusDetails<DataSchema extends z.ZodType = z.ZodUnknown> {
-  task: Key;
-  running: boolean;
-  data: z.infer<DataSchema>;
-  cmd?: string;
-}
-
-export interface NewStatusDetails<DataSchema extends z.ZodType = z.ZodUnknown> {
-  task?: Key;
-  running: boolean;
-  data: z.infer<DataSchema>;
-  cmd?: string;
-}
-
-export interface Status<DataSchema extends z.ZodType = z.ZodUnknown> {
-  key: string;
-  name: string;
-  variant: status.Variant;
-  message: string;
-  description?: string;
-  time: TimeStamp;
-  details: StatusDetails<DataSchema>;
-}
-
-export interface NewStatus<DataSchema extends z.ZodType = z.ZodUnknown> {
-  key?: string;
-  name?: string;
-  variant: status.Variant;
-  message: string;
-  description?: string;
-  time: TimeStamp;
-  details: NewStatusDetails<DataSchema>;
-}
+export interface NewStatus<DataSchema extends z.ZodType = z.ZodUnknown>
+  extends z.infer<ReturnType<typeof newStatusZ<DataSchema>>> {}
 
 export const taskZ = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -130,11 +102,11 @@ export const newZ = <
   schemas?: Schemas<Type, Config, StatusData>,
 ) =>
   taskZ(schemas)
-    .omit({ key: true })
+    .omit({ key: true, status: true })
     .extend({
       key: keyZ.transform((k) => k.toString()).optional(),
       config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
-      status: newStatusZ(schemas?.statusDataSchema ?? z.unknown()),
+      status: newStatusZ(schemas?.statusDataSchema ?? z.unknown()).optional(),
     });
 
 export type New<
@@ -146,7 +118,7 @@ export type New<
   name: string;
   type: z.infer<Type>;
   config: z.infer<Config>;
-  status?: Status<StatusData> | NewStatus<StatusData>;
+  status?: NewStatus<StatusData>;
 };
 
 export const commandZ = z.object({
