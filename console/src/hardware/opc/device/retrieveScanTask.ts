@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax } from "@synnaxlabs/client";
-import { type Device, Task } from "@synnaxlabs/pluto";
+import { Task } from "@synnaxlabs/pluto";
 
 import { SCAN_SCHEMAS, SCAN_TYPE } from "@/hardware/opc/task/types";
 
 export const retrieveScanTask = async (
   client: Synnax,
-  store: Device.FluxSubStore,
+  store: Task.FluxSubStore,
   rack: number,
 ) =>
   await Task.retrieveSingle({

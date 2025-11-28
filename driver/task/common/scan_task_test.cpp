@@ -63,7 +63,7 @@ class MockClusterAPI : public common::ClusterAPI {
 public:
     std::shared_ptr<std::vector<synnax::Device>> remote;
     std::shared_ptr<std::vector<synnax::Device>> created;
-    std::vector<telem::Series> propagated_states;
+    std::vector<std::vector<synnax::DeviceStatus>> propagated_statuses;
 
     MockClusterAPI(
         const std::shared_ptr<std::vector<synnax::Device>> &remote_,
@@ -81,8 +81,9 @@ public:
         return xerrors::NIL;
     }
 
-    xerrors::Error propagate_state(telem::Series &states) override {
-        propagated_states.push_back(std::move(states));
+    xerrors::Error
+    update_statuses(std::vector<synnax::DeviceStatus> statuses) override {
+        propagated_statuses.push_back(statuses);
         return xerrors::NIL;
     }
 };
@@ -314,39 +315,38 @@ TEST(TestScanTask, TestStatePropagation) {
 
     // First scan - both devices should be available
     ASSERT_NIL(scan_task.scan());
-    ASSERT_EQ(cluster_api_ptr->propagated_states.size(), 1);
+    ASSERT_EQ(cluster_api_ptr->propagated_statuses.size(), 1);
 
-    auto &first_states = cluster_api_ptr->propagated_states[0];
+    auto &first_states = cluster_api_ptr->propagated_statuses[0];
     ASSERT_EQ(first_states.size(), 2);
 
-    json state;
     for (size_t i = 0; i < first_states.size(); i++) {
-        first_states.at(0, state);
-        if (state["key"] == "device1") {
-            ASSERT_EQ(state["variant"], status::variant::SUCCESS);
-            ASSERT_EQ(state["details"]["rack"], 1);
-        } else if (state["key"] == "device2") {
-            ASSERT_EQ(state["variant"], status::variant::WARNING);
-            ASSERT_EQ(state["details"]["rack"], 2);
+        auto status = first_states.at(i);
+        if (status.key == "device1") {
+            ASSERT_EQ(status.variant, status::variant::SUCCESS);
+            ASSERT_EQ(status.details.rack, 1);
+        } else if (status.key == "device2") {
+            ASSERT_EQ(status.variant, status::variant::WARNING);
+            ASSERT_EQ(status.details.rack, 2);
         } else
-            FAIL() << "Unexpected device key: " << state["key"];
+            FAIL() << "Unexpected device key: " << status.key;
     }
 
     ASSERT_NIL(scan_task.scan());
-    ASSERT_EQ(cluster_api_ptr->propagated_states.size(), 2);
-    auto &second_states = cluster_api_ptr->propagated_states[1];
+    ASSERT_EQ(cluster_api_ptr->propagated_statuses.size(), 2);
+    auto &second_states = cluster_api_ptr->propagated_statuses[1];
     ASSERT_EQ(second_states.size(), 2);
 
     for (size_t i = 0; i < second_states.size(); i++) {
-        second_states.at(0, state);
-        if (state["key"] == "device1") {
-            ASSERT_EQ(state["variant"], status::variant::SUCCESS);
-            ASSERT_EQ(state["details"]["rack"], 1);
-        } else if (state["key"] == "device2") {
-            ASSERT_EQ(state["variant"], status::variant::WARNING);
-            ASSERT_EQ(state["details"]["rack"], 2);
-            ASSERT_EQ(state["message"], "Device disconnected");
+        auto status = second_states.at(i);
+        if (status.key == "device1") {
+            ASSERT_EQ(status.variant, status::variant::SUCCESS);
+            ASSERT_EQ(status.details.rack, 1);
+        } else if (status.key == "device2") {
+            ASSERT_EQ(status.variant, status::variant::WARNING);
+            ASSERT_EQ(status.details.rack, 2);
+            ASSERT_EQ(status.message, "Device disconnected");
         } else
-            FAIL() << "Unexpected device key: " << state["key"];
+            FAIL() << "Unexpected device key: " << status.key;
     }
 }

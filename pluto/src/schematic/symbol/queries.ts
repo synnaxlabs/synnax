@@ -233,7 +233,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     rollbacks.push(
       store.schematicSymbols.set(
         key,
-        state.skipNull((p) => ({ ...p, name })),
+        state.skipUndefined((p) => ({ ...p, name })),
       ),
     );
     return data;

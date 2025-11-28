@@ -31,7 +31,7 @@ protected:
         ctx = std::make_shared<task::MockContext>(client);
         conn_pool = std::make_shared<opc::connection::Pool>();
 
-        rack = ASSERT_NIL_P(client->hardware.create_rack("opc_scan_task_test_rack"));
+        rack = ASSERT_NIL_P(client->racks.create("opc_scan_task_test_rack"));
 
         task = synnax::Task(rack.key, "OPC UA Scan Task Test", "opc_scan", "");
 
@@ -70,9 +70,10 @@ TEST_F(TestScanTask, testBasicScan) {
 
     scan_task->exec(cmd);
 
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    const auto &state = ctx->states[0];
-    EXPECT_EQ(state.key, "scan_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.details.cmd, "scan_cmd");
     EXPECT_EQ(state.variant, status::variant::SUCCESS);
 
     auto data = state.details.data;
@@ -134,15 +135,15 @@ TEST_F(TestScanTask, testConnectionPooling) {
     cmd1.key = "scan_cmd_1";
 
     scan_task->exec(cmd1);
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    EXPECT_EQ(ctx->states[0].variant, status::variant::SUCCESS);
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
 
     task::Command cmd2(task.key, opc::SCAN_CMD_TYPE, scan_cmd);
     cmd2.key = "scan_cmd_2";
 
     scan_task->exec(cmd2);
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
-    EXPECT_EQ(ctx->states[1].variant, status::variant::SUCCESS);
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
 }
 
 TEST_F(TestScanTask, testTestConnection) {
@@ -162,9 +163,10 @@ TEST_F(TestScanTask, testTestConnection) {
 
     scan_task->exec(cmd);
 
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    const auto &state = ctx->states[0];
-    EXPECT_EQ(state.key, "test_conn_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.details.cmd, "test_conn_cmd");
     EXPECT_EQ(state.variant, status::variant::SUCCESS);
     EXPECT_EQ(state.message, "Connection successful");
 }
@@ -186,8 +188,9 @@ TEST_F(TestScanTask, testInvalidConnection) {
 
     scan_task->exec(cmd);
 
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    const auto &state = ctx->states[0];
-    EXPECT_EQ(state.key, "invalid_scan_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.details.cmd, "invalid_scan_cmd");
     EXPECT_EQ(state.variant, status::variant::ERR);
 }

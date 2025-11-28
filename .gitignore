@@ -247,7 +247,8 @@ core/pkg/service/hardware/embedded/assets/**
 *.sw?
 ./driver/.vs
 
-#  |||| EMBEDDED CONSOLE ||||
+# |||| EMBEDDED CONSOLE ||||
+# Allow driver service assets to be tracked
 assets
 !core/pkg/service/driver/assets
 
