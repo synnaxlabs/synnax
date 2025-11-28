@@ -246,7 +246,9 @@ synnax-data/**
 ./driver/.vs
 
 # |||| EMBEDDED CONSOLE ||||
+# Allow driver service assets to be tracked
 assets
+!core/pkg/service/driver/assets
 
 # |||| OTHER ||||
 .obsidian
