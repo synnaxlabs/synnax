@@ -15,7 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/spf13/viper"
-	"github.com/synnaxlabs/synnax/pkg/service/hardware/embedded"
+	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/x/address"
 )
 
@@ -128,7 +128,7 @@ func parseIntegrationsFlag() []string {
 	if len(enabled) > 0 {
 		return enabled
 	}
-	return lo.Filter(embedded.AllIntegrations, func(integration string, _ int) bool {
+	return lo.Filter(driver.AllIntegrations, func(integration string, _ int) bool {
 		return !lo.Contains(disabled, integration)
 	})
 }
