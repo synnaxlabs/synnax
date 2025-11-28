@@ -3,6 +3,7 @@ syntax = "proto3";
 package api.v1;
 
 import "google/protobuf/empty.proto";
+import "x/go/status/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1";
 
@@ -29,6 +30,7 @@ message Task {
   string config = 4;
   bool internal = 5;
   bool snapshot = 6;
+  status.PBStatus status = 7;
 }
 
 message TaskCreateRequest {

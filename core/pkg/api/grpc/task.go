@@ -18,6 +18,7 @@ import (
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -70,7 +71,7 @@ var (
 )
 
 func translateTaskForward(m *api.Task) *gapi.Task {
-	return &gapi.Task{
+	gt := &gapi.Task{
 		Key:      uint64(m.Key),
 		Name:     m.Name,
 		Type:     m.Type,
@@ -78,10 +79,14 @@ func translateTaskForward(m *api.Task) *gapi.Task {
 		Internal: m.Internal,
 		Snapshot: m.Snapshot,
 	}
+	if m.Status != nil {
+		gt.Status, _ = status.TranslateToPB[task.StatusDetails](status.Status[task.StatusDetails](*m.Status))
+	}
+	return gt
 }
 
 func translateTaskBackward(m *gapi.Task) *api.Task {
-	return &api.Task{
+	at := &api.Task{
 		Key:      task.Key(m.Key),
 		Name:     m.Name,
 		Type:     m.Type,
@@ -89,6 +94,12 @@ func translateTaskBackward(m *gapi.Task) *api.Task {
 		Internal: m.Internal,
 		Snapshot: m.Snapshot,
 	}
+	if m.Status != nil {
+		s, _ := status.TranslateFromPB[task.StatusDetails](m.Status)
+		ts := task.Status(s)
+		at.Status = &ts
+	}
+	return at
 }
 
 func translateTasksForward(ms []api.Task) []*gapi.Task {

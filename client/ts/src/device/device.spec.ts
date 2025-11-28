@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, unique } from "@synnaxlabs/x";
+import { id, TimeStamp, unique } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { type device } from "@/device";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -31,6 +32,38 @@ describe("Device", async () => {
       expect(d.key).toEqual(key);
       expect(d.name).toBe("test");
       expect(d.make).toBe("ni");
+    });
+    it("should create a device with a custom status", async () => {
+      const key = id.create();
+      const customStatus: device.Status = {
+        key: "",
+        name: "",
+        variant: "success",
+        message: "Custom device status",
+        description: "Device is connected",
+        time: TimeStamp.now(),
+        details: { rack: 0, device: "" },
+      };
+      const d = await client.devices.create({
+        rack: testRack.key,
+        location: "Dev1",
+        key,
+        name: "device-with-status",
+        make: "ni",
+        model: "dog",
+        properties: { cat: "dog" },
+        status: customStatus,
+      });
+      expect(d.key).toEqual(key);
+      const retrieved = await client.devices.retrieve({
+        key: d.key,
+        includeStatus: true,
+      });
+      expect(retrieved.status).toBeDefined();
+      expect(retrieved.status?.variant).toBe("success");
+      expect(retrieved.status?.message).toBe("Custom device status");
+      expect(retrieved.status?.description).toBe("Device is connected");
+      expect(retrieved.status?.details?.device).toBe(d.key);
     });
   });
 

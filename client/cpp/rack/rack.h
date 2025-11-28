@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -98,6 +99,9 @@ public:
 
     /// @brief A human-readable name for the rack.
     std::string name;
+
+    /// @brief Optional status information for the rack.
+    std::optional<RackStatus> status;
 
     /// @brief Client for managing tasks on this rack.
     /// Note: This will be initialized after construction by RackClient.

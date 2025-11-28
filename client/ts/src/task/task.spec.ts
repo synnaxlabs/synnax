@@ -45,6 +45,34 @@ describe("Task", async () => {
       });
       expect(m.config).toStrictEqual(config);
     });
+    it("should create a task with a custom status", async () => {
+      const customStatus: task.Status = {
+        key: "",
+        name: "",
+        variant: "success",
+        message: "Custom task status",
+        description: "Task is running",
+        time: TimeStamp.now(),
+        details: { task: "0", running: true, data: { customData: true } },
+      };
+      const m = await testRack.createTask({
+        name: "task-with-status",
+        config: { test: true },
+        type: "ni",
+        status: customStatus,
+      });
+      expect(m.key).not.toHaveLength(0);
+      const retrieved = await client.tasks.retrieve({
+        key: m.key,
+        includeStatus: true,
+      });
+      expect(retrieved.status).toBeDefined();
+      expect(retrieved.status?.variant).toBe("success");
+      expect(retrieved.status?.message).toBe("Custom task status");
+      expect(retrieved.status?.description).toBe("Task is running");
+      expect(retrieved.status?.details?.task).toBe(m.key);
+      expect(retrieved.status?.details?.running).toBe(true);
+    });
   });
   describe("update", () => {
     it("should update a task if the key is provided", async () => {

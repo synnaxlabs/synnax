@@ -26,6 +26,28 @@ describe("Rack", () => {
       // @ts-expect-error - Testing for error
       await expect(client.racks.create({})).rejects.toThrow(ZodError);
     });
+    it("should create a rack with a custom status", async () => {
+      const customStatus: rack.Status = {
+        key: "",
+        name: "",
+        variant: "success",
+        message: "Custom rack status",
+        description: "Rack is running",
+        time: TimeStamp.now(),
+        details: { rack: 0 },
+      };
+      const r = await client.racks.create({ name: "rack-with-status", status: customStatus });
+      expect(r.key).toBeGreaterThan(0n);
+      const retrieved = await client.racks.retrieve({
+        key: r.key,
+        includeStatus: true,
+      });
+      expect(retrieved.status).toBeDefined();
+      expect(retrieved.status?.variant).toBe("success");
+      expect(retrieved.status?.message).toBe("Custom rack status");
+      expect(retrieved.status?.description).toBe("Rack is running");
+      expect(retrieved.status?.details?.rack).toBe(r.key);
+    });
   });
   describe("update", () => {
     it("should update a rack if the key is provided", async () => {

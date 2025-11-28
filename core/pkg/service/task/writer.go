@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
@@ -41,6 +42,32 @@ func newUnknownTaskStatus(key Key, name string) *Status {
 	}
 }
 
+func (w Writer) resolveStatus(t *Task, provided *Status) (*Status, error) {
+	if provided == nil {
+		return newUnknownTaskStatus(t.Key, t.Name), nil
+	}
+	v := validate.New("status")
+	validate.NotEmptyString(v, "Variant", string(provided.Variant))
+	if err := v.Error(); err != nil {
+		return nil, err
+	}
+	// Always override key to match ontology
+	provided.Key = OntologyID(t.Key).String()
+	// Auto-fill missing fields
+	if provided.Time.IsZero() {
+		provided.Time = telem.Now()
+	}
+	if provided.Name == "" {
+		provided.Name = t.Name
+	}
+	if provided.Details.Task == 0 {
+		provided.Details.Task = t.Key
+	}
+	return provided, nil
+}
+
+// Create creates or updates a task. If a status is provided on the task,
+// it will be used instead of the default "unknown" status.
 func (w Writer) Create(ctx context.Context, t *Task) error {
 	if !t.Key.IsValid() {
 		localKey, err := w.rack.NewTaskKey(ctx, t.Rack())
@@ -49,7 +76,8 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		}
 		t.Key = NewKey(t.Rack(), localKey)
 	}
-	t.Status = nil
+	providedStatus := t.Status // Preserve before clearing for gorp
+	t.Status = nil             // Status stored separately, not in gorp
 	if err := gorp.NewCreate[Key, Task]().
 		MergeExisting(func(_ gorp.Context, creating, existing Task) (Task, error) {
 			if existing.Snapshot {
@@ -61,7 +89,11 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.status.Set(ctx, newUnknownTaskStatus(t.Key, t.Name)); err != nil {
+	status, err := w.resolveStatus(t, providedStatus)
+	if err != nil {
+		return err
+	}
+	if err := w.status.Set(ctx, status); err != nil {
 		return err
 	}
 	// We don't create ontology resources for internal tasks.

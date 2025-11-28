@@ -16,7 +16,9 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -59,7 +61,7 @@ var (
 )
 
 func translateDeviceForward(d *api.Device) *gapi.Device {
-	return &gapi.Device{
+	gd := &gapi.Device{
 		Key:        d.Key,
 		Name:       d.Name,
 		Location:   d.Location,
@@ -69,10 +71,14 @@ func translateDeviceForward(d *api.Device) *gapi.Device {
 		Properties: d.Properties,
 		Configured: d.Configured,
 	}
+	if d.Status != nil {
+		gd.Status, _ = status.TranslateToPB[device.StatusDetails](status.Status[device.StatusDetails](*d.Status))
+	}
+	return gd
 }
 
 func translateDeviceBackward(d *gapi.Device) *api.Device {
-	return &api.Device{
+	ad := &api.Device{
 		Key:        d.Key,
 		Name:       d.Name,
 		Rack:       rack.Key(d.Rack),
@@ -82,6 +88,12 @@ func translateDeviceBackward(d *gapi.Device) *api.Device {
 		Properties: d.Properties,
 		Configured: d.Configured,
 	}
+	if d.Status != nil {
+		s, _ := status.TranslateFromPB[device.StatusDetails](d.Status)
+		ds := device.Status(s)
+		ad.Status = &ds
+	}
+	return ad
 }
 
 func translateDevicesForward(ds []api.Device) []*gapi.Device {

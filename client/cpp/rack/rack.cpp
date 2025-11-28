@@ -17,11 +17,17 @@ Rack::Rack(const RackKey key, std::string name): key(key), name(std::move(name))
 
 Rack::Rack(std::string name): name(std::move(name)) {}
 
-Rack::Rack(const api::v1::Rack &rack): key(rack.key()), name(rack.name()) {}
+Rack::Rack(const api::v1::Rack &rack): key(rack.key()), name(rack.name()) {
+    if (rack.has_status()) {
+        auto [s, err] = RackStatus::from_proto(rack.status());
+        if (!err) status = s;
+    }
+}
 
 void Rack::to_proto(api::v1::Rack *rack) const {
     rack->set_key(key);
     rack->set_name(name);
+    if (status.has_value()) status->to_proto(rack->mutable_status());
 }
 
 RackClient::RackClient(

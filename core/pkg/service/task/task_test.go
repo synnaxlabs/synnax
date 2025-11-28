@@ -286,6 +286,54 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(taskStatus.Message).To(Equal("Status Test Task status unknown"))
 			Expect(taskStatus.Details.Task).To(Equal(m.Key))
 		})
+
+		It("Should use the provided status when creating a task", func() {
+			providedStatus := &task.Status{
+				Variant:     xstatus.SuccessVariant,
+				Message:     "Custom task status",
+				Description: "Task is running",
+				Details: task.StatusDetails{
+					Running: true,
+				},
+			}
+			m := &task.Task{
+				Key:    task.NewKey(testRack.Key, 0),
+				Name:   "Task with custom status",
+				Status: providedStatus,
+			}
+			Expect(w.Create(ctx, m)).To(Succeed())
+
+			var taskStatus task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				WhereKeys(task.OntologyID(m.Key).String()).
+				Entry(&taskStatus).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(taskStatus.Variant).To(Equal(xstatus.SuccessVariant))
+			Expect(taskStatus.Message).To(Equal("Custom task status"))
+			Expect(taskStatus.Description).To(Equal("Task is running"))
+			// Key should be auto-assigned
+			Expect(taskStatus.Key).To(Equal(task.OntologyID(m.Key).String()))
+			// Name should be auto-filled
+			Expect(taskStatus.Name).To(Equal(m.Name))
+			// Details.Task should be auto-filled
+			Expect(taskStatus.Details.Task).To(Equal(m.Key))
+			// Provided details should be preserved
+			Expect(taskStatus.Details.Running).To(BeTrue())
+		})
+
+		It("Should return a validation error if provided status has empty variant", func() {
+			providedStatus := &task.Status{
+				Message: "Status with no variant",
+			}
+			m := &task.Task{
+				Key:    task.NewKey(testRack.Key, 0),
+				Name:   "Task with invalid status",
+				Status: providedStatus,
+			}
+			err := w.Create(ctx, m)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("variant"))
+		})
 		It("Should create an unknown status when copying a task", func() {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),

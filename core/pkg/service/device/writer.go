@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete devices within Synnax. The writer
@@ -46,12 +47,42 @@ func newUnknownStatus(devKey string, rackKey rack.Key, name string) *Status {
 	}
 }
 
+func (w Writer) resolveStatus(d *Device, provided *Status) (*Status, error) {
+	if provided == nil {
+		return newUnknownStatus(d.Key, d.Rack, d.Name), nil
+	}
+	v := validate.New("status")
+	validate.NotEmptyString(v, "Variant", string(provided.Variant))
+	if err := v.Error(); err != nil {
+		return nil, err
+	}
+	// Always override key to match ontology
+	provided.Key = OntologyID(d.Key).String()
+	// Auto-fill missing fields
+	if provided.Time.IsZero() {
+		provided.Time = telem.Now()
+	}
+	if provided.Name == "" {
+		provided.Name = d.Name
+	}
+	if provided.Details.Device == "" {
+		provided.Details.Device = d.Key
+	}
+	if provided.Details.Rack == 0 {
+		provided.Details.Rack = d.Rack
+	}
+	return provided, nil
+}
+
 // Create creates or updates the given device. Create will redefine ontology
-// relationships in the ontology if the device has moved racks.
+// relationships in the ontology if the device has moved racks. If a status is
+// provided on the device, it will be used instead of the default "unknown" status.
 func (w Writer) Create(ctx context.Context, device Device) error {
 	if err := device.Validate(); err != nil {
 		return err
 	}
+	providedStatus := device.Status // Preserve before clearing for gorp
+	device.Status = nil             // Status stored separately, not in gorp
 	var existing Device
 	err := gorp.
 		NewRetrieve[string, Device]().
@@ -74,11 +105,19 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 	if exists && device.Rack == existing.Rack {
 		// If the device is being renamed, update the status name.
 		if device.Name != existing.Name {
-			return w.status.Set(ctx, newUnknownStatus(device.Key, device.Rack, device.Name))
+			status, err := w.resolveStatus(&device, providedStatus)
+			if err != nil {
+				return err
+			}
+			return w.status.Set(ctx, status)
 		}
 		return nil
 	}
-	if err = w.status.Set(ctx, newUnknownStatus(device.Key, device.Rack, device.Name)); err != nil {
+	status, err := w.resolveStatus(&device, providedStatus)
+	if err != nil {
+		return err
+	}
+	if err = w.status.Set(ctx, status); err != nil {
 		return err
 	}
 	otgID := OntologyID(device.Key)

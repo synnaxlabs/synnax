@@ -210,6 +210,54 @@ var _ = Describe("Device", func() {
 			Expect(deviceStatus.Name).To(Equal("New Name"))
 			Expect(deviceStatus.Message).To(ContainSubstring("New Name"))
 		})
+
+		It("Should use the provided status when creating a device", func() {
+			providedStatus := &device.Status{
+				Variant:     xstatus.SuccessVariant,
+				Message:     "Device is connected",
+				Description: "Custom device description",
+			}
+			d := device.Device{
+				Key:      "device-with-status",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "loc-status",
+				Name:     "Device with custom status",
+				Status:   providedStatus,
+			}
+			Expect(w.Create(ctx, d)).To(Succeed())
+
+			var deviceStatus device.Status
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				WhereKeys(device.OntologyID(d.Key).String()).
+				Entry(&deviceStatus).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(deviceStatus.Variant).To(Equal(xstatus.SuccessVariant))
+			Expect(deviceStatus.Message).To(Equal("Device is connected"))
+			Expect(deviceStatus.Description).To(Equal("Custom device description"))
+			// Key should be auto-assigned
+			Expect(deviceStatus.Key).To(Equal(device.OntologyID(d.Key).String()))
+			// Name should be auto-filled
+			Expect(deviceStatus.Name).To(Equal(d.Name))
+			// Details should be auto-filled
+			Expect(deviceStatus.Details.Device).To(Equal(d.Key))
+			Expect(deviceStatus.Details.Rack).To(Equal(d.Rack))
+		})
+
+		It("Should return a validation error if provided status has empty variant", func() {
+			providedStatus := &device.Status{
+				Message: "Status with no variant",
+			}
+			d := device.Device{
+				Key:      "device-invalid-status",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "loc-invalid",
+				Name:     "Device with invalid status",
+				Status:   providedStatus,
+			}
+			err := w.Create(ctx, d)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("variant"))
+		})
 	})
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a device", func() {

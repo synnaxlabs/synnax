@@ -16,6 +16,7 @@
 package v1
 
 import (
+	status "github.com/synnaxlabs/x/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -35,6 +36,7 @@ type Rack struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           uint32                 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Status        *status.PBStatus       `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -81,6 +83,13 @@ func (x *Rack) GetName() string {
 		return x.Name
 	}
 	return ""
+}
+
+func (x *Rack) GetStatus() *status.PBStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
 }
 
 type RackCreateRequest struct {
@@ -315,10 +324,11 @@ var File_core_pkg_api_grpc_v1_rack_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_v1_rack_proto_rawDesc = "" +
 	"\n" +
-	"\x1fcore/pkg/api/grpc/v1/rack.proto\x12\x06api.v1\x1a\x1bgoogle/protobuf/empty.proto\",\n" +
+	"\x1fcore/pkg/api/grpc/v1/rack.proto\x12\x06api.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18x/go/status/status.proto\"V\n" +
 	"\x04Rack\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"7\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12(\n" +
+	"\x06status\x18\x03 \x01(\v2\x10.status.PBStatusR\x06status\"7\n" +
 	"\x11RackCreateRequest\x12\"\n" +
 	"\x05racks\x18\x01 \x03(\v2\f.api.v1.RackR\x05racks\"8\n" +
 	"\x12RackCreateResponse\x12\"\n" +
@@ -359,23 +369,25 @@ var file_core_pkg_api_grpc_v1_rack_proto_goTypes = []any{
 	(*RackRetrieveRequest)(nil),  // 3: api.v1.RackRetrieveRequest
 	(*RackRetrieveResponse)(nil), // 4: api.v1.RackRetrieveResponse
 	(*RackDeleteRequest)(nil),    // 5: api.v1.RackDeleteRequest
-	(*emptypb.Empty)(nil),        // 6: google.protobuf.Empty
+	(*status.PBStatus)(nil),      // 6: status.PBStatus
+	(*emptypb.Empty)(nil),        // 7: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_v1_rack_proto_depIdxs = []int32{
-	0, // 0: api.v1.RackCreateRequest.racks:type_name -> api.v1.Rack
-	0, // 1: api.v1.RackCreateResponse.racks:type_name -> api.v1.Rack
-	0, // 2: api.v1.RackRetrieveResponse.racks:type_name -> api.v1.Rack
-	1, // 3: api.v1.RackCreateService.Exec:input_type -> api.v1.RackCreateRequest
-	3, // 4: api.v1.RackRetrieveService.Exec:input_type -> api.v1.RackRetrieveRequest
-	5, // 5: api.v1.RackDeleteService.Exec:input_type -> api.v1.RackDeleteRequest
-	2, // 6: api.v1.RackCreateService.Exec:output_type -> api.v1.RackCreateResponse
-	4, // 7: api.v1.RackRetrieveService.Exec:output_type -> api.v1.RackRetrieveResponse
-	6, // 8: api.v1.RackDeleteService.Exec:output_type -> google.protobuf.Empty
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	6, // 0: api.v1.Rack.status:type_name -> status.PBStatus
+	0, // 1: api.v1.RackCreateRequest.racks:type_name -> api.v1.Rack
+	0, // 2: api.v1.RackCreateResponse.racks:type_name -> api.v1.Rack
+	0, // 3: api.v1.RackRetrieveResponse.racks:type_name -> api.v1.Rack
+	1, // 4: api.v1.RackCreateService.Exec:input_type -> api.v1.RackCreateRequest
+	3, // 5: api.v1.RackRetrieveService.Exec:input_type -> api.v1.RackRetrieveRequest
+	5, // 6: api.v1.RackDeleteService.Exec:input_type -> api.v1.RackDeleteRequest
+	2, // 7: api.v1.RackCreateService.Exec:output_type -> api.v1.RackCreateResponse
+	4, // 8: api.v1.RackRetrieveService.Exec:output_type -> api.v1.RackRetrieveResponse
+	7, // 9: api.v1.RackDeleteService.Exec:output_type -> google.protobuf.Empty
+	7, // [7:10] is the sub-list for method output_type
+	4, // [4:7] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_api_grpc_v1_rack_proto_init() }

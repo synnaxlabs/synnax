@@ -16,6 +16,7 @@
 package v1
 
 import (
+	status "github.com/synnaxlabs/x/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -41,6 +42,7 @@ type Device struct {
 	Model         string                 `protobuf:"bytes,7,opt,name=model,proto3" json:"model,omitempty"`
 	Properties    string                 `protobuf:"bytes,8,opt,name=properties,proto3" json:"properties,omitempty"`
 	Configured    bool                   `protobuf:"varint,9,opt,name=configured,proto3" json:"configured,omitempty"`
+	Status        *status.PBStatus       `protobuf:"bytes,10,opt,name=status,proto3" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -129,6 +131,13 @@ func (x *Device) GetConfigured() bool {
 		return x.Configured
 	}
 	return false
+}
+
+func (x *Device) GetStatus() *status.PBStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
 }
 
 type DeviceCreateRequest struct {
@@ -427,7 +436,7 @@ var File_core_pkg_api_grpc_v1_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_v1_device_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/api/grpc/v1/device.proto\x12\x06api.v1\x1a\x1bgoogle/protobuf/empty.proto\"\xc8\x01\n" +
+	"!core/pkg/api/grpc/v1/device.proto\x12\x06api.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18x/go/status/status.proto\"\xf2\x01\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -440,7 +449,9 @@ const file_core_pkg_api_grpc_v1_device_proto_rawDesc = "" +
 	"properties\x12\x1e\n" +
 	"\n" +
 	"configured\x18\t \x01(\bR\n" +
-	"configured\"?\n" +
+	"configured\x12(\n" +
+	"\x06status\x18\n" +
+	" \x01(\v2\x10.status.PBStatusR\x06status\"?\n" +
 	"\x13DeviceCreateRequest\x12(\n" +
 	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"@\n" +
 	"\x14DeviceCreateResponse\x12(\n" +
@@ -490,23 +501,25 @@ var file_core_pkg_api_grpc_v1_device_proto_goTypes = []any{
 	(*DeviceRetrieveRequest)(nil),  // 3: api.v1.DeviceRetrieveRequest
 	(*DeviceRetrieveResponse)(nil), // 4: api.v1.DeviceRetrieveResponse
 	(*DeviceDeleteRequest)(nil),    // 5: api.v1.DeviceDeleteRequest
-	(*emptypb.Empty)(nil),          // 6: google.protobuf.Empty
+	(*status.PBStatus)(nil),        // 6: status.PBStatus
+	(*emptypb.Empty)(nil),          // 7: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_v1_device_proto_depIdxs = []int32{
-	0, // 0: api.v1.DeviceCreateRequest.devices:type_name -> api.v1.Device
-	0, // 1: api.v1.DeviceCreateResponse.devices:type_name -> api.v1.Device
-	0, // 2: api.v1.DeviceRetrieveResponse.devices:type_name -> api.v1.Device
-	1, // 3: api.v1.DeviceCreateService.Exec:input_type -> api.v1.DeviceCreateRequest
-	3, // 4: api.v1.DeviceRetrieveService.Exec:input_type -> api.v1.DeviceRetrieveRequest
-	5, // 5: api.v1.DeviceDeleteService.Exec:input_type -> api.v1.DeviceDeleteRequest
-	2, // 6: api.v1.DeviceCreateService.Exec:output_type -> api.v1.DeviceCreateResponse
-	4, // 7: api.v1.DeviceRetrieveService.Exec:output_type -> api.v1.DeviceRetrieveResponse
-	6, // 8: api.v1.DeviceDeleteService.Exec:output_type -> google.protobuf.Empty
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	6, // 0: api.v1.Device.status:type_name -> status.PBStatus
+	0, // 1: api.v1.DeviceCreateRequest.devices:type_name -> api.v1.Device
+	0, // 2: api.v1.DeviceCreateResponse.devices:type_name -> api.v1.Device
+	0, // 3: api.v1.DeviceRetrieveResponse.devices:type_name -> api.v1.Device
+	1, // 4: api.v1.DeviceCreateService.Exec:input_type -> api.v1.DeviceCreateRequest
+	3, // 5: api.v1.DeviceRetrieveService.Exec:input_type -> api.v1.DeviceRetrieveRequest
+	5, // 6: api.v1.DeviceDeleteService.Exec:input_type -> api.v1.DeviceDeleteRequest
+	2, // 7: api.v1.DeviceCreateService.Exec:output_type -> api.v1.DeviceCreateResponse
+	4, // 8: api.v1.DeviceRetrieveService.Exec:output_type -> api.v1.DeviceRetrieveResponse
+	7, // 9: api.v1.DeviceDeleteService.Exec:output_type -> google.protobuf.Empty
+	7, // [7:10] is the sub-list for method output_type
+	4, // [4:7] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_api_grpc_v1_device_proto_init() }

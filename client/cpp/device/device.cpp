@@ -98,7 +98,12 @@ Device::Device(const api::v1::Device &device):
     make(device.make()),
     model(device.model()),
     properties(device.properties()),
-    configured(device.configured()) {}
+    configured(device.configured()) {
+    if (device.has_status()) {
+        auto [s, err] = DeviceStatus::from_proto(device.status());
+        if (!err) status = s;
+    }
+}
 
 Device::Device(
     std::string key,
@@ -126,5 +131,6 @@ void Device::to_proto(api::v1::Device *device) const {
     device->set_model(model);
     device->set_properties(properties);
     device->set_configured(configured);
+    if (status.has_value()) status->to_proto(device->mutable_status());
 }
 }

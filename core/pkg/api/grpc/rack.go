@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -59,11 +60,21 @@ var (
 )
 
 func translateRackForward(r *api.Rack) *gapi.Rack {
-	return &gapi.Rack{Key: uint32(r.Key), Name: r.Name}
+	gr := &gapi.Rack{Key: uint32(r.Key), Name: r.Name}
+	if r.Status != nil {
+		gr.Status, _ = status.TranslateToPB[rack.StatusDetails](status.Status[rack.StatusDetails](*r.Status))
+	}
+	return gr
 }
 
 func translateRackBackward(r *gapi.Rack) *api.Rack {
-	return &api.Rack{Key: rack.Key(r.Key), Name: r.Name}
+	ar := &api.Rack{Key: rack.Key(r.Key), Name: r.Name}
+	if r.Status != nil {
+		s, _ := status.TranslateFromPB[rack.StatusDetails](r.Status)
+		rs := rack.Status(s)
+		ar.Status = &rs
+	}
+	return ar
 }
 
 func translateRacksForward(rs []api.Rack) []*gapi.Rack {

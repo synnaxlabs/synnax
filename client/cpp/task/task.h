@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -82,6 +83,41 @@ inline std::uint32_t local_task_key(const TaskKey key) {
     return key & 0xFFFFFFFF;
 }
 
+/// @brief specific status details for tasks.
+struct TaskStatusDetails {
+    /// @brief The key of the task that this status is for.
+    TaskKey task;
+    /// @brief Is a non-empty string if the status is an explicit response to a command.
+    std::string cmd;
+    /// @brief whether the task is currently running.
+    bool running;
+    /// @brief additional data associated with the task.
+    json data;
+
+    /// @brief parses the task status details from a JSON parser.
+    static TaskStatusDetails parse(xjson::Parser parser) {
+        return TaskStatusDetails{
+            .task = parser.field<TaskKey>("task"),
+            .cmd = parser.field<std::string>("cmd"),
+            .running = parser.field<bool>("running"),
+            .data = parser.field<json>("data"),
+        };
+    }
+
+    /// @brief converts the task status details to JSON.
+    [[nodiscard]] json to_json() const {
+        json j;
+        j["task"] = this->task;
+        j["running"] = this->running;
+        j["data"] = this->data;
+        j["cmd"] = this->cmd;
+        return j;
+    }
+};
+
+/// @brief status information for a task.
+using TaskStatus = status::Status<TaskStatusDetails>;
+
 /// @brief A Task is a data structure used to configure and execute operations on a
 /// hardware device. Tasks are associated with a specific rack and can be created,
 /// retrieved, and deleted.
@@ -99,6 +135,9 @@ public:
     bool internal = false;
     /// @brief Whether the task is a snapshot.
     bool snapshot = false;
+
+    /// @brief Optional status information for the task.
+    std::optional<TaskStatus> status;
 
     /// @brief Constructs a new task with the given properties.
     /// @param name A human-readable name for the task.
@@ -245,40 +284,5 @@ private:
     /// @brief Task deletion transport.
     std::shared_ptr<TaskDeleteClient> task_delete_client;
 };
-
-/// @brief specific status details for tasks.
-struct TaskStatusDetails {
-    /// @brief The key of the task that this status is for.
-    TaskKey task;
-    /// @brief Is a non-empty string if the status is an explicit response to a command.
-    std::string cmd;
-    /// @brief whether the task is currently running.
-    bool running;
-    /// @brief additional data associated with the task.
-    json data;
-
-    /// @brief parses the task status details from a JSON parser.
-    static TaskStatusDetails parse(xjson::Parser parser) {
-        return TaskStatusDetails{
-            .task = parser.field<TaskKey>("task"),
-            .cmd = parser.field<std::string>("cmd"),
-            .running = parser.field<bool>("running"),
-            .data = parser.field<json>("data"),
-        };
-    }
-
-    /// @brief converts the task status details to JSON.
-    [[nodiscard]] json to_json() const {
-        json j;
-        j["task"] = this->task;
-        j["running"] = this->running;
-        j["data"] = this->data;
-        j["cmd"] = this->cmd;
-        return j;
-    }
-};
-
-/// @brief status information for a task.
-using TaskStatus = status::Status<TaskStatusDetails>;
 
 }

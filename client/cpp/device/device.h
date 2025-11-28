@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -106,8 +107,8 @@ struct Device {
     std::string properties;
     /// @brief whether the device has been configured.
     bool configured = false;
-    /// @brief The state of the device.
-    DeviceStatus status;
+    /// @brief Optional status information about the device.
+    std::optional<DeviceStatus> status;
 
     /// @brief Constructs a new device with the given properties.
     /// @param key The unique identifier for the device.

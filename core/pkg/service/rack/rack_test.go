@@ -195,13 +195,45 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(s.Details.Rack).To(Equal(r.Key))
 		})
 
+		It("Should use the provided status when creating a rack", func() {
+			providedStatus := &rack.Status{
+				Variant:     xstatus.SuccessVariant,
+				Message:     "Custom status message",
+				Description: "Custom description",
+			}
+			r := rack.Rack{Name: "rack with custom status", Status: providedStatus}
+			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
+			Expect(s.Message).To(Equal("Custom status message"))
+			Expect(s.Description).To(Equal("Custom description"))
+			Expect(s.Variant).To(Equal(xstatus.SuccessVariant))
+			// Key should be auto-assigned to match ontology ID
+			Expect(s.Key).To(Equal(rack.OntologyID(r.Key).String()))
+			// Time should be auto-filled
+			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
+			// Name should be auto-filled from rack name
+			Expect(s.Name).To(Equal(r.Name))
+			// Details.Rack should be auto-filled
+			Expect(s.Details.Rack).To(Equal(r.Key))
+		})
+
+		It("Should return a validation error if provided status has empty variant", func() {
+			providedStatus := &rack.Status{
+				Message: "Status with no variant",
+			}
+			r := rack.Rack{Name: "rack with invalid status", Status: providedStatus}
+			err := svc.NewWriter(nil).Create(ctx, &r)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("variant"))
+		})
+
 		It("Should mark a rack as dead when it doesn't receive a status within the health check interval", func() {
 			r := rack.Rack{Name: "dead test rack"}
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
-				g.Expect(s.Message).To(Equal("Synnax driver on dead test rack not running"))
+				g.Expect(s.Message).To(Equal("Synnax Driver on dead test rack not running"))
 				g.Expect(s.Variant).To(Equal(xstatus.WarningVariant))
 				g.Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 				g.Expect(s.Key).To(ContainSubstring(string(rack.OntologyType)))

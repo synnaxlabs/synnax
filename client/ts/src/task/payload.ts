@@ -102,11 +102,13 @@ export const newZ = <
 export type New<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodUnknown,
 > = {
   key?: Key;
   name: string;
   type: z.infer<Type>;
   config: z.infer<Config>;
+  status?: Status<StatusData>;
 };
 
 export const commandZ = z.object({

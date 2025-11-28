@@ -62,7 +62,12 @@ Task::Task(const api::v1::Task &task):
     type(task.type()),
     config(task.config()),
     internal(task.internal()),
-    snapshot(task.snapshot()) {}
+    snapshot(task.snapshot()) {
+    if (task.has_status()) {
+        auto [s, err] = TaskStatus::from_proto(task.status());
+        if (!err) status = s;
+    }
+}
 
 void Task::to_proto(api::v1::Task *task) const {
     task->set_key(key);
@@ -71,6 +76,7 @@ void Task::to_proto(api::v1::Task *task) const {
     task->set_config(config);
     task->set_internal(internal);
     task->set_snapshot(snapshot);
+    if (status.has_value()) status->to_proto(task->mutable_status());
 }
 
 std::pair<Task, xerrors::Error> TaskClient::retrieve(const TaskKey key) const {

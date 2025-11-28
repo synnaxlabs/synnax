@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete racks within a Synnax cluster.
@@ -49,8 +50,33 @@ func unknownRackStatus(key Key, name string) *Status {
 	}
 }
 
+func (w Writer) resolveStatus(r *Rack) (*Status, error) {
+	if r.Status == nil {
+		return unknownRackStatus(r.Key, r.Name), nil
+	}
+	v := validate.New("status")
+	validate.NotEmptyString(v, "Variant", string(r.Status.Variant))
+	if err := v.Error(); err != nil {
+		return nil, err
+	}
+	// Always override key to match ontology
+	r.Status.Key = OntologyID(r.Key).String()
+	// Auto-fill missing fields
+	if r.Status.Time.IsZero() {
+		r.Status.Time = telem.Now()
+	}
+	if r.Status.Name == "" {
+		r.Status.Name = r.Name
+	}
+	if r.Status.Details.Rack == 0 {
+		r.Status.Details.Rack = r.Key
+	}
+	return r.Status, nil
+}
+
 // Create creates or updates a rack. If the rack key is zero or a rack with the key
-// does not exist, a new rack will be created.
+// does not exist, a new rack will be created. If a status is provided on the rack,
+// it will be used instead of the default "unknown" status.
 func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 	if r.Key.IsZero() {
 		r.Key, err = w.newKey()
@@ -68,7 +94,11 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 	if err = w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	if err = w.status.Set(ctx, unknownRackStatus(r.Key, r.Name)); err != nil {
+	status, err := w.resolveStatus(r)
+	if err != nil {
+		return err
+	}
+	if err = w.status.Set(ctx, status); err != nil {
 		return err
 	}
 	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
