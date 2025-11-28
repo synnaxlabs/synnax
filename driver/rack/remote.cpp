@@ -26,7 +26,7 @@ xerrors::Error rack::Config::load_remote(breaker::Breaker &breaker) {
         // if the rack key is non-zero, it means that persisted state or
         // configuration believes there's an existing rack in the cluster, and
         // we should use it as our task manager's rack.
-        res = client.hardware.retrieve_rack(this->remote_info.rack_key);
+        res = client.racks.retrieve(this->remote_info.rack_key);
         // If we tried to retrieve the rack and it doesn't exist, then we assume
         // that:
         //     1. Someone deleted the rack.
@@ -43,7 +43,7 @@ xerrors::Error rack::Config::load_remote(breaker::Breaker &breaker) {
     } else {
         /// If the rack key is zero, we should create a new rack to use.
         const auto [host_name, ok] = xos::get_hostname();
-        res = client.hardware.create_rack(host_name);
+        res = client.racks.create(host_name);
     }
     const xerrors::Error err = res.second;
     // If we can't reach the cluster, keep trying according to the breaker retry logic.

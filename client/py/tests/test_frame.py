@@ -15,7 +15,7 @@ import pytest
 
 import synnax as sy
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
-from synnax.framer.frame import Frame, FramePayload
+from synnax.framer.frame import FramePayload
 
 
 @pytest.mark.framer
@@ -91,7 +91,7 @@ class TestWriteFrameAdapter:
         """It should correctly adapt of a Frame keyed by channel key."""
         adapter, ch = adapter
         o = adapter.adapt(
-            Frame([ch.key], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)])
+            sy.Frame([ch.key], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)])
         )
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
@@ -100,7 +100,7 @@ class TestWriteFrameAdapter:
         """It should correctly adapt of a Frame keyed by channel name."""
         adapter, ch = adapter
         o = adapter.adapt(
-            Frame([ch.name], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)])
+            sy.Frame([ch.name], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)])
         )
         assert len(o.channels) == 1
         assert len(o.series) == 1
@@ -265,7 +265,7 @@ class TestWriteFrameAdapter:
         adapter, ch = adapter
         with pytest.raises(sy.ValidationError):
             adapter.adapt(
-                Frame(
+                sy.Frame(
                     ["caramela"], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)]
                 )
             )
@@ -374,7 +374,7 @@ class TestReadFrameAdapter:
         adapter.update([ch1.key, ch2.key])
 
         # Create a frame with keys
-        original_frame = Frame(
+        original_frame = sy.Frame(
             [ch1.key, ch2.key],
             [
                 sy.Series([1.0, 2.0, 3.0], data_type=sy.DataType.FLOAT64),
@@ -399,7 +399,7 @@ class TestReadFrameAdapter:
         adapter.update([ch1.name, ch2.name])
 
         # Create a frame with keys (as would come from server)
-        frame_with_keys = Frame(
+        frame_with_keys = sy.Frame(
             [ch1.key, ch2.key],
             [
                 sy.Series([1.0, 2.0, 3.0], data_type=sy.DataType.FLOAT64),
@@ -425,7 +425,7 @@ class TestReadFrameAdapter:
         adapter.update([ch1.name, ch2.name])
 
         # Create frame with all three channels
-        frame_with_extra = Frame(
+        frame_with_extra = sy.Frame(
             [ch1.key, ch2.key, ch3.key],
             [
                 sy.Series([1.0, 2.0], data_type=sy.DataType.FLOAT64),
@@ -455,7 +455,7 @@ class TestReadFrameAdapter:
         adapter.update([ch1.name, ch2.name])
 
         # Create empty frame
-        empty_frame = Frame([], [])
+        empty_frame = sy.Frame([], [])
 
         adapted_frame = adapter.adapt(empty_frame)
 
@@ -472,7 +472,7 @@ class TestReadFrameAdapter:
         adapter.update([ch1.name, ch2.name])
 
         # Create frame with only ch3 (not in adapter)
-        frame_no_match = Frame(
+        frame_no_match = sy.Frame(
             [ch3.key],
             [sy.Series([1.0, 2.0, 3.0], data_type=sy.DataType.FLOAT32)],
         )
@@ -492,7 +492,7 @@ class TestReadFrameAdapter:
         adapter.update([ch1.name, ch3.name])  # Register ch1 and ch3
 
         # Frame contains ch1, ch2, ch3 but adapter only has ch1 and ch3
-        frame_partial = Frame(
+        frame_partial = sy.Frame(
             [ch1.key, ch2.key, ch3.key],
             [
                 sy.Series([1.0, 2.0], data_type=sy.DataType.FLOAT64),
@@ -520,7 +520,7 @@ class TestReadFrameAdapter:
         adapter = ReadFrameAdapter(client.channels._retriever)
         adapter.update([ch1.name, ch2.name])
 
-        frame = Frame(
+        frame = sy.Frame(
             [ch1.key, ch2.key],
             [
                 sy.Series([1.0, 2.0, 3.0], data_type=sy.DataType.FLOAT64),
@@ -544,7 +544,7 @@ class TestReadFrameAdapter:
 
         # Frame with mix of key and name (ch1 as key, ch2 as name)
         # This tests the isinstance(k, ChannelKey) check in adapt method
-        frame_mixed = Frame(
+        frame_mixed = sy.Frame(
             [ch1.key, ch2.name],
             [
                 sy.Series([1.0, 2.0], data_type=sy.DataType.FLOAT64),
@@ -567,7 +567,7 @@ class TestReadFrameAdapter:
         adapter = ReadFrameAdapter(client.channels._retriever)
         adapter.update([ch1.name, ch2.name, ch3.name])
 
-        frame = Frame(
+        frame = sy.Frame(
             [ch1.key, ch2.key, ch3.key],
             [
                 sy.Series([1.0, 2.0], data_type=sy.DataType.FLOAT64),
@@ -619,7 +619,7 @@ class TestReadFrameAdapter:
         assert adapter.keys == [ch3.key]
 
         # Adapt should now only work for ch3
-        frame = Frame(
+        frame = sy.Frame(
             [ch1.key, ch2.key, ch3.key],
             [
                 sy.Series([1.0], data_type=sy.DataType.FLOAT64),
@@ -641,7 +641,7 @@ class TestReadFrameAdapter:
 
         # Start with names
         adapter.update([ch1.name, ch2.name])
-        frame_names = Frame(
+        frame_names = sy.Frame(
             [ch1.key, ch2.key],
             [
                 sy.Series([1.0, 2.0], data_type=sy.DataType.FLOAT64),
@@ -653,7 +653,7 @@ class TestReadFrameAdapter:
 
         # Switch to keys
         adapter.update([ch1.key, ch2.key])
-        frame_keys = Frame(
+        frame_keys = sy.Frame(
             [ch1.key, ch2.key],
             [
                 sy.Series([3.0, 4.0], data_type=sy.DataType.FLOAT64),

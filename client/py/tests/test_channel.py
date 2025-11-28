@@ -231,7 +231,7 @@ class TestChannel:
             client.channels.retrieve(fake_keys)
 
     def test_retrieve_numeric_string(
-        self, client: sy.Synnax, indexed_pair: list[sy.channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         names = [ch.name for ch in indexed_pair]
         channels = client.channels.retrieve(
