@@ -51,17 +51,10 @@ func (w Writer) resolveStatus(t *Task, provided *Status) (*Status, error) {
 	if err := v.Error(); err != nil {
 		return nil, err
 	}
-	// Always override key to match ontology
 	provided.Key = OntologyID(t.Key).String()
-	// Auto-fill missing fields
-	if provided.Time.IsZero() {
-		provided.Time = telem.Now()
-	}
+	provided.Details.Task = t.Key
 	if provided.Name == "" {
 		provided.Name = t.Name
-	}
-	if provided.Details.Task == 0 {
-		provided.Details.Task = t.Key
 	}
 	return provided, nil
 }
@@ -89,11 +82,11 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	status, err := w.resolveStatus(t, providedStatus)
+	stat, err := w.resolveStatus(t, providedStatus)
 	if err != nil {
 		return err
 	}
-	if err := w.status.Set(ctx, status); err != nil {
+	if err = w.status.Set(ctx, stat); err != nil {
 		return err
 	}
 	// We don't create ontology resources for internal tasks.

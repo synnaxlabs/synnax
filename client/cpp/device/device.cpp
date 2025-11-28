@@ -131,6 +131,6 @@ void Device::to_proto(api::v1::Device *device) const {
     device->set_model(model);
     device->set_properties(properties);
     device->set_configured(configured);
-    if (status.has_value()) status->to_proto(device->mutable_status());
+    if (!status.is_zero()) status.to_proto(device->mutable_status());
 }
 }

@@ -59,18 +59,9 @@ func (w Writer) resolveStatus(r *Rack) (*Status, error) {
 	if err := v.Error(); err != nil {
 		return nil, err
 	}
-	// Always override key to match ontology
 	r.Status.Key = OntologyID(r.Key).String()
-	// Auto-fill missing fields
-	if r.Status.Time.IsZero() {
-		r.Status.Time = telem.Now()
-	}
-	if r.Status.Name == "" {
-		r.Status.Name = r.Name
-	}
-	if r.Status.Details.Rack == 0 {
-		r.Status.Details.Rack = r.Key
-	}
+	r.Status.Details.Rack = r.Key
+	r.Status.Name = r.Name
 	return r.Status, nil
 }
 

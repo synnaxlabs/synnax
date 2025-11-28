@@ -153,7 +153,7 @@ export class Rack {
     Config extends z.ZodType = z.ZodType,
     StatusData extends z.ZodType = z.ZodType,
   >(
-    task: task.New<Type, Config>,
+    task: task.New<Type, Config, StatusData>,
     schemas: task.Schemas<Type, Config, StatusData>,
   ): Promise<task.Task<Type, Config, StatusData>>;
 
@@ -162,7 +162,7 @@ export class Rack {
     Config extends z.ZodType = z.ZodType,
     StatusData extends z.ZodType = z.ZodType,
   >(
-    task: task.New<Type, Config>,
+    task: task.New<Type, Config, StatusData>,
     schemas?: task.Schemas<Type, Config, StatusData>,
   ): Promise<task.Task<Type, Config, StatusData>> {
     task.key = (

@@ -223,6 +223,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
 };
 
 export const AnalogRead = Common.Task.wrapForm({
+  initialStatusData: null,
   Properties,
   Form,
   schemas: ANALOG_READ_SCHEMAS,

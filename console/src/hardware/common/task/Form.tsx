@@ -11,7 +11,7 @@ import "@/hardware/common/task/Form.css";
 
 import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import { Device, Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { primitive, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 import { type z } from "zod";
@@ -83,6 +83,7 @@ export interface WrapFormArgs<
   onConfigure: OnConfigure<Config>;
   schemas: task.Schemas<Type, Config, StatusData>;
   getInitialValues: GetInitialValues<Type, Config, StatusData>;
+  initialStatusData: z.infer<StatusData>;
   showHeader?: boolean;
   showControls?: boolean;
 }
@@ -124,6 +125,7 @@ export const wrapForm = <
   type,
   getInitialValues,
   onConfigure,
+  initialStatusData,
   showHeader = true,
   showControls = true,
 }: WrapFormArgs<Type, Config, StatusData>): Layout.Renderer => {
@@ -164,6 +166,14 @@ export const wrapForm = <
         }
         form.set("rackKey", rackKey);
         form.set("config", newConfig);
+        const status: task.NewStatus = {
+          name,
+          time: TimeStamp.now(),
+          variant: "loading",
+          message: "Configuring task",
+          details: { running: true, data: initialStatusData },
+        };
+        form.set("status", status);
         return true;
       },
       afterSave: ({ client, ...form }) => {

@@ -19,8 +19,16 @@ std::string ID::string() const {
 }
 
 std::pair<ID, xerrors::Error> ID::parse(const std::string &s) {
+    if (s.empty())
+        return {
+            ID{},
+            xerrors::Error(
+                xerrors::VALIDATION,
+                "[ontology] - cannot parse empty id"
+            )
+        };
     const auto colon_pos = s.find(':');
-    if (colon_pos == std::string::npos) {
+    if (colon_pos == std::string::npos)
         return {
             ID{},
             xerrors::Error(
@@ -29,7 +37,14 @@ std::pair<ID, xerrors::Error> ID::parse(const std::string &s) {
                     "': expected format 'type:key'"
             )
         };
-    }
+    if (colon_pos == 0)
+        return {
+            ID{},
+            xerrors::Error(
+                xerrors::VALIDATION,
+                "[ontology] - failed to parse id '" + s + "': type is empty"
+            )
+        };
     const auto type = s.substr(0, colon_pos);
     const auto key = s.substr(colon_pos + 1);
     ID id{type, key};

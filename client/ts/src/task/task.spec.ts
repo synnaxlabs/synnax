@@ -46,20 +46,17 @@ describe("Task", async () => {
       expect(m.config).toStrictEqual(config);
     });
     it("should create a task with a custom status", async () => {
-      const customStatus: task.Status = {
-        key: "",
-        name: "",
-        variant: "success",
-        message: "Custom task status",
-        description: "Task is running",
-        time: TimeStamp.now(),
-        details: { task: "0", running: true, data: { customData: true } },
-      };
       const m = await testRack.createTask({
         name: "task-with-status",
         config: { test: true },
         type: "ni",
-        status: customStatus,
+        status: {
+          variant: "success",
+          message: "Custom task status",
+          description: "Task is running",
+          time: TimeStamp.now(),
+          details: { running: true, data: { customData: true } },
+        },
       });
       expect(m.key).not.toHaveLength(0);
       const retrieved = await client.tasks.retrieve({

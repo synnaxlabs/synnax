@@ -74,21 +74,6 @@ public:
         ctx(context), task(std::move(task)), devices(devices) {}
 
     void exec(task::Command &cmd) override {
-        if (cmd.type == common::START_CMD_TYPE) {
-            synnax::TaskStatus status{
-                .key = this->task.status_key(),
-                .name = this->task.name,
-                .variant = status::variant::SUCCESS,
-                .message = "Running",
-                .details = synnax::TaskStatusDetails{
-                    .task = task.key,
-                    .cmd = cmd.key,
-                    .running = true,
-                }
-            };
-            ctx->set_status(status);
-            return;
-        }
         if (cmd.type == TEST_CONNECTION_CMD_TYPE) this->test_connection(cmd);
     }
 

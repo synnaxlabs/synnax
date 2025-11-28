@@ -225,7 +225,7 @@ export type FormSchema<
   type: z.infer<Type>;
   snapshot: boolean;
   config: z.infer<Config>;
-  status?: z.infer<ReturnType<typeof task.statusZ<StatusData>>>;
+  status?: task.Status<StatusData>;
 }>;
 
 export interface CreateFormParams<
@@ -295,16 +295,18 @@ export const createForm = <
       update: async ({ client, store, ...form }) => {
         const value = form.value();
         const rack = await client.racks.retrieve({ key: value.rackKey });
-        const task = await rack.createTask({
-          key: value.key,
-          name: value.name,
-          type: value.type,
-          config: value.config,
-        });
-        store.tasks.set(task);
-        const updatedValues = taskToFormValues<Type, Config, StatusData>(
-          task.payload as task.Payload<Type, Config, StatusData>,
+        const task = await rack.createTask<Type, Config, StatusData>(
+          {
+            key: value.key,
+            name: value.name,
+            type: value.type,
+            config: value.config,
+            status: value.status,
+          },
+          schemas,
         );
+        store.tasks.set(task as unknown as task.Task);
+        const updatedValues = taskToFormValues<Type, Config, StatusData>(task.payload);
         form.set("key", updatedValues.key);
         form.set("name", updatedValues.name);
         form.set("rackKey", updatedValues.rackKey);

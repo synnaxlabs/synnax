@@ -306,7 +306,7 @@ export class Client {
     Config extends z.ZodType = z.ZodType,
     StatusData extends z.ZodType = z.ZodType,
   >(
-    task: New<Type, Config>,
+    task: New<Type, Config, StatusData>,
     schemas: Schemas<Type, Config, StatusData>,
   ): Promise<Task<Type, Config, StatusData>>;
   async create<
@@ -314,7 +314,7 @@ export class Client {
     Config extends z.ZodType = z.ZodType,
     StatusData extends z.ZodType = z.ZodType,
   >(
-    tasks: New<Type, Config>[],
+    tasks: New<Type, Config, StatusData>[],
     schemas: Schemas<Type, Config, StatusData>,
   ): Promise<Task<Type, Config, StatusData>[]>;
 
@@ -323,7 +323,7 @@ export class Client {
     Config extends z.ZodType = z.ZodType,
     StatusData extends z.ZodType = z.ZodType,
   >(
-    task: New<Type, Config> | Array<New<Type, Config>>,
+    task: New<Type, Config, StatusData> | Array<New<Type, Config, StatusData>>,
     schemas?: Schemas<Type, Config, StatusData>,
   ): Promise<Task<Type, Config, StatusData> | Array<Task<Type, Config, StatusData>>> {
     const isSingle = !Array.isArray(task);

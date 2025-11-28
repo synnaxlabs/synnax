@@ -11,7 +11,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -136,8 +135,8 @@ public:
     /// @brief Whether the task is a snapshot.
     bool snapshot = false;
 
-    /// @brief Optional status information for the task.
-    std::optional<TaskStatus> status;
+    /// @brief Status information for the task.
+    TaskStatus status;
 
     /// @brief Constructs a new task with the given properties.
     /// @param name A human-readable name for the task.

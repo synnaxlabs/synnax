@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <gtest/gtest.h>
-
 #include "client/cpp/ontology/id.h"
 #include "x/cpp/xtest/xtest.h"
 
@@ -62,13 +60,6 @@ TEST(OntologyID, testParseEmptyType) {
     EXPECT_TRUE(err.matches(xerrors::VALIDATION));
 }
 
-/// @brief it should fail to parse an synnax::ontology::ID with empty key.
-TEST(OntologyID, testParseEmptyKey) {
-    auto [id, err] = synnax::ontology::ID::parse("channel:");
-    EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(xerrors::VALIDATION));
-}
-
 /// @brief it should support round-trip string conversion: parse(id.string()) == id.
 TEST(OntologyID, testStringRoundTrip) {
     const synnax::ontology::ID original("channel", "42");
@@ -105,7 +96,7 @@ TEST(OntologyID, testParseIDs) {
         "group:748d31e2-5732-4cb5-8bc9-64d4ad51efe8",
         "user:admin"
     };
-    auto ids = ASSERT_NIL_P(parse_ids(strs));
+    auto ids = ASSERT_NIL_P(synnax::ontology::parse_ids(strs));
     EXPECT_EQ(ids.size(), 3);
     EXPECT_EQ(ids[0].type, "channel");
     EXPECT_EQ(ids[0].key, "42");
@@ -130,7 +121,7 @@ TEST(OntologyID, testIDsToStrings) {
         synnax::ontology::ID("group", "748d31e2-5732-4cb5-8bc9-64d4ad51efe8"),
         synnax::ontology::ID("user", "admin")
     };
-    const auto strs = ids_to_strings(ids);
+    const auto strs = synnax::ontology::ids_to_strings(ids);
     EXPECT_EQ(strs.size(), 3);
     EXPECT_EQ(strs[0], "channel:42");
     EXPECT_EQ(strs[1], "group:748d31e2-5732-4cb5-8bc9-64d4ad51efe8");

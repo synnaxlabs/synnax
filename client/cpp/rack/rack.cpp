@@ -27,7 +27,7 @@ Rack::Rack(const api::v1::Rack &rack): key(rack.key()), name(rack.name()) {
 void Rack::to_proto(api::v1::Rack *rack) const {
     rack->set_key(key);
     rack->set_name(name);
-    if (status.has_value()) status->to_proto(rack->mutable_status());
+    if (!status.is_zero()) status.to_proto(rack->mutable_status());
 }
 
 RackClient::RackClient(

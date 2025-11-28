@@ -36,6 +36,17 @@ export type StatusDetails<DataSchema extends z.ZodType> = z.infer<
 export const statusZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
   status.statusZ(statusDetailsZ(data));
 
+const newStatusZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
+  status.statusZ(statusDetailsZ(data).partial({ task: true })).partial({
+    key: true,
+    details: true,
+    name: true,
+  });
+
+export type NewStatus<DataSchema extends z.ZodType = z.ZodUnknown> = z.infer<
+  ReturnType<typeof newStatusZ<DataSchema>>
+>;
+
 export type Status<StatusData extends z.ZodType = z.ZodUnknown> = z.infer<
   ReturnType<typeof statusZ<StatusData>>
 >;
@@ -97,6 +108,7 @@ export const newZ = <
     .extend({
       key: keyZ.transform((k) => k.toString()).optional(),
       config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
+      status: newStatusZ(schemas?.statusDataSchema ?? z.unknown()),
     });
 
 export type New<
@@ -108,7 +120,7 @@ export type New<
   name: string;
   type: z.infer<Type>;
   config: z.infer<Config>;
-  status?: Status<StatusData>;
+  status?: Status<StatusData> | NewStatus<StatusData>;
 };
 
 export const commandZ = z.object({

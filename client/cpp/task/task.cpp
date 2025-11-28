@@ -76,7 +76,7 @@ void Task::to_proto(api::v1::Task *task) const {
     task->set_config(config);
     task->set_internal(internal);
     task->set_snapshot(snapshot);
-    if (status.has_value()) status->to_proto(task->mutable_status());
+    if (!status.is_zero()) status.to_proto(task->mutable_status());
 }
 
 std::pair<Task, xerrors::Error> TaskClient::retrieve(const TaskKey key) const {

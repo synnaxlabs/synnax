@@ -272,6 +272,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
 };
 
 export const Read = Common.Task.wrapForm({
+  initialStatusData: null,
   type: READ_TYPE,
   Properties,
   Form: TaskForm,

@@ -126,5 +126,15 @@ struct Status {
         pb->set_time(time.nanoseconds());
         pb->set_details(details.to_json().dump());
     }
+
+    /// @brief returns true if the status is at its zero/default value.
+    [[nodiscard]] bool is_zero() const {
+        return key.empty() &&
+               name.empty() &&
+               variant.empty() &&
+               message.empty() &&
+               description.empty() &&
+               time.nanoseconds() == 0;
+    }
 };
 }
