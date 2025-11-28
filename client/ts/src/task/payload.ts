@@ -106,7 +106,9 @@ export const newZ = <
     .extend({
       key: keyZ.transform((k) => k.toString()).optional(),
       config: z.unknown().transform((c) => binary.JSON_CODEC.encodeString(c)),
-      status: newStatusZ(schemas?.statusDataSchema ?? z.unknown()).optional(),
+      status: newStatusZ(schemas?.statusDataSchema ?? z.unknown())
+        .optional()
+        .nullable(),
     });
 
 export type New<
