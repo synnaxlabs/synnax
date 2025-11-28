@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { view } from "@synnaxlabs/client";
+import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
+import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "views";
 export const RESOURCE_NAME = "view";
@@ -51,7 +53,11 @@ export const useList = Flux.createList<ListQuery, view.Key, view.View, FluxSubSt
       return true;
     });
   },
-  retrieve: async ({ client, query }) => await client.views.retrieve(query),
+  retrieve: async ({ client, query, store }) => {
+    const views = await client.views.retrieve(query);
+    store.views.set(views);
+    return views;
+  },
   retrieveByKey: async ({ client, key }) => await client.views.retrieve({ key }),
   mountListeners: ({ store, onChange, onDelete, query: { keys, types } }) => {
     const keysSet = keys ? new Set(keys) : undefined;
@@ -85,7 +91,13 @@ export type DeleteParams = view.Key | view.Key[];
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data }) => {
+  update: async ({ client, data, store, rollbacks }) => {
+    const keys = array.toArray(data);
+    const ids = keys.map((key) => view.ontologyID(key));
+    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
+    rollbacks.push(store.relationships.delete(relFilter));
+    rollbacks.push(store.views.delete(keys));
+    rollbacks.push(store.resources.delete(keys));
     await client.views.delete(data);
     return data;
   },
