@@ -124,9 +124,6 @@ func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
-	if err := s.migrate(ctx); err != nil {
-		return nil, err
-	}
 	return s, nil
 }
 

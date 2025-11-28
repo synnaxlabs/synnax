@@ -23,20 +23,6 @@ var _ = Describe("Set", func() {
 		s = make(set.Set[int])
 	})
 
-	Describe("New", func() {
-		It("should create a new set with the provided entries", func() {
-			s = set.New(1, 2, 3)
-			Expect(len(s)).To(Equal(3))
-			Expect(s.Contains(1)).To(BeTrue())
-			Expect(s.Contains(2)).To(BeTrue())
-			Expect(s.Contains(3)).To(BeTrue())
-		})
-		It("should work with no entries", func() {
-			s = set.New[int]()
-			Expect(len(s)).To(Equal(0))
-		})
-	})
-
 	Describe("Add", func() {
 		It("should add elements to the set", func() {
 			s.Add(1, 2, 3)

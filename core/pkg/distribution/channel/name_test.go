@@ -42,52 +42,6 @@ var _ = Describe("Name Validation", func() {
 			Entry("name with special characters", "sensor!", "contains invalid characters"),
 		)
 	})
-	DescribeTable("TransformName", func(name string, expected string) {
-		Expect(channel.TransformName(name)).To(Equal(expected))
-	},
-		Entry("empty name", "", "channel"),
-		Entry("valid name", "temperature", "temperature"),
-		Entry("valid name with digits", "sensor1", "sensor1"),
-		Entry("valid name with underscores", "sensor_temp", "sensor_temp"),
-		Entry("valid name with mixed case", "Pressure", "Pressure"),
-		Entry("valid name with mixed case and digits", "temp123", "temp123"),
-		Entry("valid name with mixed case and underscores", "Sensor_temp", "Sensor_temp"),
-		Entry("valid name with mixed case and digits and underscores", "temp123_sensor_temp", "temp123_sensor_temp"),
-		Entry("name starting with digits", "1sensor", "_1sensor"),
-		Entry("name with spaces", "my channel", "my_channel"),
-		Entry("name with special characters", "sensor!", "sensor_"),
-		Entry("name with only invalid characters", "!!!", "channel"),
-		Entry("leading whitespace", "  temperature", "temperature"),
-		Entry("trailing whitespace", "temperature  ", "temperature"),
-		Entry("leading and trailing whitespace", "  temperature  ", "temperature"),
-	)
-	Describe("NewUniqueName", func() {
-		It("Should return base name if it doesn't exist", func() {
-			Expect(channel.NewUniqueName("temperature", set.New("sensor1", "sensor2"))).
-				To(Equal("temperature"))
-		})
-
-		It("Should append number if base name exists", func() {
-			existingNames := set.Set[string]{"temperature": struct{}{}}
-			Expect(channel.NewUniqueName("temperature", existingNames)).
-				To(Equal("temperature_1"))
-		})
-
-		It("Should increment number until unique name is found", func() {
-			existingNames := set.Set[string]{
-				"temperature":   struct{}{},
-				"temperature_1": struct{}{},
-				"temperature_2": struct{}{},
-			}
-			Expect(channel.NewUniqueName("temperature", existingNames)).
-				To(Equal("temperature_3"))
-		})
-		It("Should work with empty existing names set", func() {
-			existingNames := set.Set[string]{}
-			Expect(channel.NewUniqueName("temperature", existingNames)).
-				To(Equal("temperature"))
-		})
-	})
 	Describe("NewRandomName", func() {
 		It("Should generate a random channel name that should be unique", func() {
 			count := 100

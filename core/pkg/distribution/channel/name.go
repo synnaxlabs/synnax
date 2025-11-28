@@ -13,11 +13,8 @@ import (
 	"fmt"
 	"math/rand"
 	"regexp"
-	"strings"
-	"unicode"
 
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -43,57 +40,6 @@ func ValidateName(name string) error {
 		)
 	}
 	return nil
-}
-
-// TransformName converts an invalid channel name into a valid one for migration purposes.
-// It replaces invalid characters with underscores and handles reserved keywords by
-// appending a suffix.
-func TransformName(name string) string {
-	if name == "" {
-		return "channel"
-	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return "channel"
-	}
-
-	var (
-		result           strings.Builder
-		hasLetterOrDigit bool
-	)
-	for i, r := range name {
-		switch {
-		case unicode.IsLetter(r):
-			result.WriteRune(r)
-			hasLetterOrDigit = true
-		case unicode.IsDigit(r):
-			if i == 0 {
-				// If starts with digit, prepend underscore
-				result.WriteRune('_')
-			}
-			result.WriteRune(r)
-			hasLetterOrDigit = true
-		default:
-			result.WriteRune('_')
-		}
-	}
-	if !hasLetterOrDigit {
-		return "channel"
-	}
-
-	return result.String()
-}
-
-// NewUniqueName generates a unique channel name by appending a numeric suffix if the
-// name already exists in the provided name set.
-func NewUniqueName(baseName string, existingNames set.Set[string]) string {
-	name := baseName
-	counter := 1
-	for existingNames.Contains(name) {
-		name = fmt.Sprintf("%s_%d", baseName, counter)
-		counter++
-	}
-	return name
 }
 
 // NewRandomName generates a random channel name that should be unique.

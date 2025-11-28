@@ -26,9 +26,6 @@ type Mapped[T comparable, V any] map[T]V
 // memory usage.
 type Set[T comparable] = Mapped[T, struct{}]
 
-// New creates a new Set containing the provided entries.
-func New[T comparable](entries ...T) Set[T] { return FromSlice(entries) }
-
 // FromSlice creates a new Set containing all elements from the provided slice.
 // Duplicate elements in the input slice will only appear once in the resulting set.
 func FromSlice[T comparable](entries []T) Set[T] {
