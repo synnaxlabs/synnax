@@ -9,11 +9,15 @@
 
 #include "glog/logging.h"
 
+#include "x/cpp/breaker/breaker.h"
+#include "x/cpp/xjson/xjson.h"
+
 #include "driver/opc/opc.h"
 #include "driver/opc/read_task.h"
 #include "driver/opc/scan_task.h"
 #include "driver/opc/write_task.h"
 #include "driver/task/common/factory.h"
+#include "driver/task/common/scan_task.h"
 
 std::pair<common::ConfigureResult, xerrors::Error> configure_read(
     const std::shared_ptr<task::Context> &ctx,
@@ -62,8 +66,17 @@ std::pair<common::ConfigureResult, xerrors::Error> configure_scan(
     const std::shared_ptr<opc::connection::Pool> &pool
 ) {
     common::ConfigureResult result;
-    result.task = std::make_unique<opc::ScanTask>(ctx, task, pool);
-    result.auto_start = true;
+    auto parser = xjson::Parser(task.config);
+    auto cfg = opc::ScannerConfig(parser);
+    if (parser.error()) return {std::move(result), parser.error()};
+    result.task = std::make_unique<common::ScanTask>(
+        std::make_unique<opc::Scanner>(ctx, task, pool, cfg),
+        ctx,
+        task,
+        breaker::default_config(task.name),
+        cfg.health_check_rate
+    );
+    result.auto_start = cfg.enabled;
     return {std::move(result), xerrors::NIL};
 }
 

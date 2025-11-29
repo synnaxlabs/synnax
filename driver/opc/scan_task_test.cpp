@@ -11,11 +11,13 @@
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/breaker/breaker.h"
 #include "x/cpp/xtest/xtest.h"
 
 #include "driver/opc/mock/server.h"
 #include "driver/opc/opc.h"
 #include "driver/opc/scan_task.h"
+#include "driver/task/common/scan_task.h"
 
 class TestScanTask : public ::testing::Test {
 protected:
@@ -54,7 +56,13 @@ protected:
 };
 
 TEST_F(TestScanTask, testBasicScan) {
-    auto scan_task = std::make_unique<opc::ScanTask>(ctx, task, conn_pool);
+    auto scan_task = std::make_unique<common::ScanTask>(
+        std::make_unique<opc::Scanner>(ctx, task, conn_pool, opc::ScannerConfig{}),
+        ctx,
+        task,
+        breaker::default_config(task.name),
+        telem::Rate(0.2)
+    );
 
     opc::connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
@@ -120,7 +128,13 @@ TEST_F(TestScanTask, testBasicScan) {
 }
 
 TEST_F(TestScanTask, testConnectionPooling) {
-    auto scan_task = std::make_unique<opc::ScanTask>(ctx, task, conn_pool);
+    auto scan_task = std::make_unique<common::ScanTask>(
+        std::make_unique<opc::Scanner>(ctx, task, conn_pool, opc::ScannerConfig{}),
+        ctx,
+        task,
+        breaker::default_config(task.name),
+        telem::Rate(0.2)
+    );
 
     opc::connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
@@ -147,7 +161,13 @@ TEST_F(TestScanTask, testConnectionPooling) {
 }
 
 TEST_F(TestScanTask, testTestConnection) {
-    auto scan_task = std::make_unique<opc::ScanTask>(ctx, task, conn_pool);
+    auto scan_task = std::make_unique<common::ScanTask>(
+        std::make_unique<opc::Scanner>(ctx, task, conn_pool, opc::ScannerConfig{}),
+        ctx,
+        task,
+        breaker::default_config(task.name),
+        telem::Rate(0.2)
+    );
 
     opc::connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
@@ -172,7 +192,13 @@ TEST_F(TestScanTask, testTestConnection) {
 }
 
 TEST_F(TestScanTask, testInvalidConnection) {
-    auto scan_task = std::make_unique<opc::ScanTask>(ctx, task, conn_pool);
+    auto scan_task = std::make_unique<common::ScanTask>(
+        std::make_unique<opc::Scanner>(ctx, task, conn_pool, opc::ScannerConfig{}),
+        ctx,
+        task,
+        breaker::default_config(task.name),
+        telem::Rate(0.2)
+    );
 
     opc::connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:9999";

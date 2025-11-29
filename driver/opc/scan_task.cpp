@@ -27,25 +27,137 @@
 #include "driver/task/common/status.h"
 
 namespace opc {
-void ScanTask::exec(task::Command &cmd) {
-    if (cmd.type == common::START_CMD_TYPE) {
-        synnax::TaskStatus status{
-            .key = this->task.status_key(),
-            .name = this->task.name,
-            .variant = status::variant::SUCCESS,
-            .message = "OPC scanner ready",
-            .details = synnax::TaskStatusDetails{
-                .task = task.key,
-                .cmd = cmd.key,
-                .running = true,
-            }
-        };
-        ctx->set_status(status);
-        return;
+Scanner::Scanner(
+    std::shared_ptr<task::Context> ctx,
+    synnax::Task task,
+    std::shared_ptr<opc::connection::Pool> conn_pool,
+    ScannerConfig cfg
+):
+    ctx(std::move(ctx)),
+    task(std::move(task)),
+    conn_pool_(std::move(conn_pool)),
+    cfg(cfg) {}
+
+common::ScannerConfig Scanner::config() const {
+    return common::ScannerConfig{
+        .make = INTEGRATION_NAME,
+        .enable_device_signals = true
+    };
+}
+
+xerrors::Error Scanner::start() {
+    // Load initial OPC devices for this rack
+    auto rack_key = synnax::rack_key_from_task_key(this->task.key);
+    synnax::DeviceRetrieveRequest req;
+    req.makes = {INTEGRATION_NAME};
+    req.racks = {rack_key};
+    auto [devs, err] = this->ctx->client->devices.retrieve(req);
+    if (err && !err.matches(xerrors::NOT_FOUND)) return err;
+
+    std::lock_guard lock(this->mu);
+    for (auto &dev: devs)
+        this->tracked_devices[dev.key] = dev;
+
+    LOG(INFO) << "[opc.scanner] loaded " << this->tracked_devices.size()
+              << " initial devices";
+    return xerrors::NIL;
+}
+
+xerrors::Error Scanner::stop() {
+    std::lock_guard lock(this->mu);
+    this->tracked_devices.clear();
+    return xerrors::NIL;
+}
+
+std::pair<std::vector<synnax::Device>, xerrors::Error>
+Scanner::scan(const common::ScannerContext &) {
+    std::vector<synnax::Device> devices;
+
+    std::lock_guard lock(this->mu);
+    for (auto &[key, dev]: this->tracked_devices) {
+        if (const auto err = this->check_device_health(dev)) {
+            LOG(WARNING) << "[opc.scanner] health check failed for "
+                         << dev.name << ": " << err;
+        }
+        // Return all tracked devices with updated status
+        devices.push_back(dev);
     }
-    if (cmd.type == SCAN_CMD_TYPE) return scan(cmd);
-    if (cmd.type == TEST_CONNECTION_CMD_TYPE) return test_connection(cmd);
-    LOG(ERROR) << "[opc] Scanner received unknown command type: " << cmd.type;
+
+    return {devices, xerrors::NIL};
+}
+
+bool Scanner::exec(
+    task::Command &cmd,
+    const synnax::Task &,
+    const std::shared_ptr<task::Context> &
+) {
+    if (cmd.type == SCAN_CMD_TYPE) {
+        this->browse_nodes(cmd);
+        return true;
+    }
+    if (cmd.type == TEST_CONNECTION_CMD_TYPE) {
+        this->test_connection(cmd);
+        return true;
+    }
+    return false;  // Not handled
+}
+
+void Scanner::on_device_set(const synnax::Device &dev) {
+    std::lock_guard lock(this->mu);
+    this->tracked_devices[dev.key] = dev;
+    LOG(INFO) << "[opc.scanner] tracking device: " << dev.name;
+}
+
+void Scanner::on_device_delete(const std::string &key) {
+    std::lock_guard lock(this->mu);
+    if (this->tracked_devices.erase(key) > 0)
+        LOG(INFO) << "[opc.scanner] stopped tracking device: " << key;
+}
+
+xerrors::Error Scanner::check_device_health(synnax::Device &dev) {
+    auto rack_key = synnax::rack_key_from_task_key(this->task.key);
+
+    // Parse connection config from device properties
+    auto parser = xjson::Parser(dev.properties);
+    auto props = device::Properties(parser);
+    if (parser.error()) {
+        dev.status = synnax::DeviceStatus{
+            .key = dev.status_key(),
+            .name = dev.name,
+            .variant = status::variant::WARNING,
+            .message = "Invalid device properties",
+            .time = ::telem::TimeStamp::now(),
+            .details = {.rack = rack_key, .device = dev.key},
+        };
+        return parser.error();
+    }
+
+    // Try to acquire connection (checks session state)
+    auto [conn, conn_err] = this->conn_pool_->acquire(
+        props.connection, "[opc.scanner] "
+    );
+
+    if (conn_err) {
+        dev.status = synnax::DeviceStatus{
+            .key = dev.status_key(),
+            .name = dev.name,
+            .variant = status::variant::WARNING,
+            .message = conn_err.message(),
+            .time = ::telem::TimeStamp::now(),
+            .details = {.rack = rack_key, .device = dev.key},
+        };
+    } else {
+        dev.status = synnax::DeviceStatus{
+            .key = dev.status_key(),
+            .name = dev.name,
+            .variant = status::variant::SUCCESS,
+            .message = "Server connected",
+            .time = ::telem::TimeStamp::now(),
+            .details = {.rack = rack_key, .device = dev.key},
+        };
+    }
+
+    return xerrors::NIL;
 }
 
 struct ScanContext {
@@ -103,7 +215,7 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
     return status;
 }
 
-void ScanTask::scan(const task::Command &cmd) const {
+void Scanner::browse_nodes(const task::Command &cmd) const {
     xjson::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::TaskStatus status{
@@ -143,7 +255,7 @@ void ScanTask::scan(const task::Command &cmd) const {
     ctx->set_status(status);
 }
 
-void ScanTask::test_connection(const task::Command &cmd) const {
+void Scanner::test_connection(const task::Command &cmd) const {
     xjson::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::TaskStatus status{

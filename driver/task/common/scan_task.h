@@ -9,6 +9,10 @@
 
 #pragma once
 
+#include <atomic>
+#include <mutex>
+#include <thread>
+
 #include "glog/logging.h"
 
 #include "x/cpp/breaker/breaker.h"
@@ -19,19 +23,53 @@
 #include "driver/task/task.h"
 
 namespace common {
+/// @brief Channel name for device set signals.
+const std::string DEVICE_SET_CHANNEL = "sy_device_set";
+/// @brief Channel name for device delete signals.
+const std::string DEVICE_DELETE_CHANNEL = "sy_device_delete";
+
 struct ScannerContext {
     std::size_t count = 0;
+};
+
+/// @brief Configuration for a scanner, defining its make and signal monitoring behavior.
+struct ScannerConfig {
+    /// @brief The make/integration name for device filtering (e.g., "opc", "ni").
+    std::string make;
+    /// @brief Enable signal channel monitoring for real-time device changes.
+    bool enable_device_signals = false;
 };
 
 struct Scanner {
     virtual ~Scanner() = default;
 
+    /// @brief Returns the scanner configuration.
+    virtual ScannerConfig config() const { return ScannerConfig{}; }
+
+    /// @brief Lifecycle method called when the scan task starts.
     virtual xerrors::Error start() { return xerrors::NIL; }
 
+    /// @brief Lifecycle method called when the scan task stops.
     virtual xerrors::Error stop() { return xerrors::NIL; }
 
+    /// @brief Periodic scan method to discover/update devices.
     virtual std::pair<std::vector<synnax::Device>, xerrors::Error>
     scan(const ScannerContext &ctx) = 0;
+
+    /// @brief Optional: Handle custom commands. Return true if handled.
+    virtual bool exec(
+        task::Command &cmd,
+        const synnax::Task &task,
+        const std::shared_ptr<task::Context> &ctx
+    ) {
+        return false;
+    }
+
+    /// @brief Optional: Called when a device matching make/rack is created/updated.
+    virtual void on_device_set(const synnax::Device &dev) {}
+
+    /// @brief Optional: Called when a device is deleted.
+    virtual void on_device_delete(const std::string &key) {}
 };
 
 struct ClusterAPI {
@@ -89,6 +127,13 @@ class ScanTask final : public task::Task, public pipeline::Base {
     synnax::Channel state_channel;
     std::unique_ptr<synnax::Writer> state_writer;
 
+    // Signal monitoring infrastructure
+    synnax::Channel device_set_channel;
+    synnax::Channel device_delete_channel;
+    std::unique_ptr<synnax::Streamer> signal_streamer;
+    std::thread signal_thread;
+    std::atomic<bool> signal_running{false};
+
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
         auto last_updated = telem::TimeStamp(0);
         if (const auto dev_state = this->dev_states.find(dev_key);
@@ -97,6 +142,81 @@ class ScanTask final : public task::Task, public pipeline::Base {
         }
         const auto delta = telem::TimeStamp::now() - last_updated;
         return delta > telem::SECOND * 30;
+    }
+
+    /// @brief Starts signal monitoring thread for device set/delete events.
+    xerrors::Error start_signal_monitoring() {
+        auto [channels, err] = this->ctx->client->channels.retrieve(
+            {DEVICE_SET_CHANNEL, DEVICE_DELETE_CHANNEL}
+        );
+        if (err) return err;
+
+        for (const auto &ch: channels) {
+            if (ch.name == DEVICE_SET_CHANNEL)
+                this->device_set_channel = ch;
+            else if (ch.name == DEVICE_DELETE_CHANNEL)
+                this->device_delete_channel = ch;
+        }
+
+        auto [s, open_err] = this->ctx->client->telem.open_streamer(
+            synnax::StreamerConfig{
+                .channels = {device_set_channel.key, device_delete_channel.key}
+            }
+        );
+        if (open_err) return open_err;
+        this->signal_streamer = std::make_unique<synnax::Streamer>(std::move(s));
+
+        this->signal_running = true;
+        this->signal_thread = std::thread([this]() { this->signal_thread_run(); });
+
+        LOG(INFO) << "[scan_task] started signal monitoring for make="
+                  << this->scanner->config().make;
+        return xerrors::NIL;
+    }
+
+    /// @brief Stops signal monitoring thread.
+    void stop_signal_monitoring() {
+        if (!this->signal_running) return;
+
+        this->signal_running = false;
+        if (this->signal_streamer)
+            this->signal_streamer->close_send();
+        if (this->signal_thread.joinable())
+            this->signal_thread.join();
+        if (this->signal_streamer) {
+            const auto err = this->signal_streamer->close();
+            if (err) LOG(WARNING) << "[scan_task] error closing signal streamer: " << err;
+            this->signal_streamer = nullptr;
+        }
+    }
+
+    /// @brief Signal thread run loop - processes device set/delete events.
+    void signal_thread_run() {
+        const auto rack_key = synnax::rack_key_from_task_key(this->key);
+        const auto make = this->scanner->config().make;
+
+        while (this->signal_running) {
+            auto [frame, read_err] = this->signal_streamer->read();
+            if (read_err) break;  // close_send() was called
+
+            for (size_t i = 0; i < frame.size(); i++) {
+                const auto &ch_key = frame.channels->at(i);
+                const auto &series = frame.series->at(i);
+
+                if (ch_key == this->device_set_channel.key) {
+                    for (const auto &dev_key: series.strings()) {
+                        auto [dev, err] = this->ctx->client->devices.retrieve(dev_key);
+                        if (err) continue;
+                        // Filter by make and rack
+                        if (dev.make != make || dev.rack != rack_key) continue;
+                        this->scanner->on_device_set(dev);
+                    }
+                } else if (ch_key == this->device_delete_channel.key) {
+                    for (const auto &dev_key: series.strings())
+                        this->scanner->on_device_delete(dev_key);
+                }
+            }
+        }
     }
 
 public:
@@ -143,6 +263,15 @@ public:
             this->ctx->set_status(this->status);
             return;
         }
+
+        // Start signal monitoring if enabled in scanner config
+        if (this->scanner->config().enable_device_signals) {
+            if (const auto err = this->start_signal_monitoring()) {
+                LOG(WARNING) << "[scan_task] failed to start signal monitoring: " << err;
+                // Continue without signal monitoring - periodic scan still works
+            }
+        }
+
         this->status.variant = status::variant::SUCCESS;
         this->status.message = "Scan task started";
         this->ctx->set_status(this->status);
@@ -155,6 +284,10 @@ public:
             }
             this->timer.wait(this->breaker);
         }
+
+        // Stop signal monitoring thread
+        this->stop_signal_monitoring();
+
         if (const auto err = this->scanner->stop()) {
             this->status.variant = status::variant::ERR;
             this->status.message = err.message();
@@ -168,14 +301,20 @@ public:
     void exec(task::Command &cmd) override {
         this->status.details.cmd = cmd.key;
         if (cmd.type == common::STOP_CMD_TYPE) return this->stop(false);
-        if (cmd.type == common::START_CMD_TYPE)
+        if (cmd.type == common::START_CMD_TYPE) {
             this->start();
-        else if (cmd.type == common::SCAN_CMD_TYPE) {
-            const auto err = this->scan();
-            this->status.variant = status::variant::ERR;
-            this->status.message = err.message();
-            this->ctx->set_status(this->status);
+            return;
         }
+        if (cmd.type == common::SCAN_CMD_TYPE) {
+            const auto err = this->scan();
+            this->status.variant = err ? status::variant::ERR : status::variant::SUCCESS;
+            this->status.message = err ? err.message() : "Scan complete";
+            this->ctx->set_status(this->status);
+            return;
+        }
+        // Delegate unknown commands to scanner
+        if (this->scanner->exec(cmd, this->task, this->ctx)) return;
+        LOG(ERROR) << "[scan_task] unknown command type: " << cmd.type;
     }
 
     xerrors::Error scan() {
