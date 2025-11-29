@@ -32,7 +32,8 @@ struct ScannerContext {
     std::size_t count = 0;
 };
 
-/// @brief Configuration for a scanner, defining its make and signal monitoring behavior.
+/// @brief Configuration for a scanner, defining its make and signal monitoring
+/// behavior.
 struct ScannerConfig {
     /// @brief The make/integration name for device filtering (e.g., "opc", "ni").
     std::string make;
@@ -179,13 +180,12 @@ class ScanTask final : public task::Task, public pipeline::Base {
         if (!this->signal_running) return;
 
         this->signal_running = false;
-        if (this->signal_streamer)
-            this->signal_streamer->close_send();
-        if (this->signal_thread.joinable())
-            this->signal_thread.join();
+        if (this->signal_streamer) this->signal_streamer->close_send();
+        if (this->signal_thread.joinable()) this->signal_thread.join();
         if (this->signal_streamer) {
             const auto err = this->signal_streamer->close();
-            if (err) LOG(WARNING) << "[scan_task] error closing signal streamer: " << err;
+            if (err)
+                LOG(WARNING) << "[scan_task] error closing signal streamer: " << err;
             this->signal_streamer = nullptr;
         }
     }
@@ -197,7 +197,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
 
         while (this->signal_running) {
             auto [frame, read_err] = this->signal_streamer->read();
-            if (read_err) break;  // close_send() was called
+            if (read_err) break; // close_send() was called
 
             for (size_t i = 0; i < frame.size(); i++) {
                 const auto &ch_key = frame.channels->at(i);
@@ -267,7 +267,8 @@ public:
         // Start signal monitoring if enabled in scanner config
         if (this->scanner->config().enable_device_signals) {
             if (const auto err = this->start_signal_monitoring()) {
-                LOG(WARNING) << "[scan_task] failed to start signal monitoring: " << err;
+                LOG(WARNING) << "[scan_task] failed to start signal monitoring: "
+                             << err;
                 // Continue without signal monitoring - periodic scan still works
             }
         }
@@ -307,7 +308,8 @@ public:
         }
         if (cmd.type == common::SCAN_CMD_TYPE) {
             const auto err = this->scan();
-            this->status.variant = err ? status::variant::ERR : status::variant::SUCCESS;
+            this->status.variant = err ? status::variant::ERR
+                                       : status::variant::SUCCESS;
             this->status.message = err ? err.message() : "Scan complete";
             this->ctx->set_status(this->status);
             return;

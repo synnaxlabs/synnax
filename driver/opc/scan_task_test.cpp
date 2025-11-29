@@ -220,3 +220,203 @@ TEST_F(TestScanTask, testInvalidConnection) {
     EXPECT_EQ(state.details.cmd, "invalid_scan_cmd");
     EXPECT_EQ(state.variant, status::variant::ERR);
 }
+
+/// @brief Tests that opc::Scanner::config() returns correct values.
+TEST_F(TestScanTask, testConfigReturnsCorrectValues) {
+    opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
+    auto cfg = scanner.config();
+    EXPECT_EQ(cfg.make, "opc");
+    EXPECT_TRUE(cfg.enable_device_signals);
+}
+
+/// @brief Tests that on_device_set() adds device to tracked_devices.
+TEST_F(TestScanTask, testOnDeviceSetAddsDevice) {
+    opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
+    ASSERT_NIL(scanner.start());
+
+    synnax::Device dev;
+    dev.key = "new-opc-device";
+    dev.name = "New OPC Device";
+    dev.make = "opc";
+    scanner.on_device_set(dev);
+
+    auto [devices, err] = scanner.scan({});
+    ASSERT_NIL(err);
+    EXPECT_EQ(devices.size(), 1);
+    EXPECT_EQ(devices[0].key, "new-opc-device");
+}
+
+/// @brief Tests that on_device_delete() removes device from tracked_devices.
+TEST_F(TestScanTask, testOnDeviceDeleteRemovesDevice) {
+    opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
+    ASSERT_NIL(scanner.start());
+
+    synnax::Device dev;
+    dev.key = "device-to-delete";
+    dev.name = "Device to Delete";
+    dev.make = "opc";
+    scanner.on_device_set(dev);
+
+    // Verify device is tracked
+    auto [devices_before, err1] = scanner.scan({});
+    ASSERT_NIL(err1);
+    EXPECT_EQ(devices_before.size(), 1);
+
+    // Delete the device
+    scanner.on_device_delete("device-to-delete");
+
+    // Verify device is no longer tracked
+    auto [devices_after, err2] = scanner.scan({});
+    ASSERT_NIL(err2);
+    EXPECT_EQ(devices_after.size(), 0);
+}
+
+/// @brief Tests that stop() clears tracked devices.
+TEST_F(TestScanTask, testStopClearsDevices) {
+    opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
+    ASSERT_NIL(scanner.start());
+
+    // Add a device
+    synnax::Device dev;
+    dev.key = "tracked-device";
+    dev.name = "Tracked Device";
+    dev.make = "opc";
+    scanner.on_device_set(dev);
+
+    // Verify device is tracked
+    auto [devices_before, err1] = scanner.scan({});
+    ASSERT_NIL(err1);
+    EXPECT_EQ(devices_before.size(), 1);
+
+    // Stop the scanner
+    ASSERT_NIL(scanner.stop());
+
+    // Verify devices are cleared
+    auto [devices_after, err2] = scanner.scan({});
+    ASSERT_NIL(err2);
+    EXPECT_EQ(devices_after.size(), 0);
+}
+
+/// @brief Tests that exec() returns false for unknown commands.
+TEST_F(TestScanTask, testExecReturnsFalseForUnknownCommand) {
+    opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
+
+    task::Command cmd(task.key, "unknown_command", json{});
+    bool handled = scanner.exec(cmd, task, ctx);
+    EXPECT_FALSE(handled);
+}
+
+/// @brief Tests that scan() checks device health and updates status.
+TEST_F(TestScanTask, testScanChecksDeviceHealth) {
+    opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
+    ASSERT_NIL(scanner.start());
+
+    // Create device with valid OPC connection properties (including required channels
+    // field)
+    synnax::Device dev;
+    dev.key = "health-test-device";
+    dev.name = "Health Test Device";
+    dev.make = "opc";
+    dev.rack = rack.key;
+    dev.properties = json{
+        {"connection",
+         {{"endpoint", "opc.tcp://localhost:4840"},
+          {"security_mode", "None"},
+          {"security_policy", "None"}}},
+        {"channels", json::array()}
+    }.dump();
+
+    scanner.on_device_set(dev);
+
+    auto [devices, err] = scanner.scan({});
+    ASSERT_NIL(err);
+    ASSERT_EQ(devices.size(), 1);
+    EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
+    EXPECT_EQ(devices[0].status.message, "Server connected");
+}
+
+/// @brief Tests that health check detects connection state changes (server up/down/up).
+TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
+    // Use a fresh connection pool to avoid cached connections
+    auto fresh_conn_pool = std::make_shared<opc::connection::Pool>();
+    opc::Scanner scanner(ctx, task, fresh_conn_pool, opc::ScannerConfig{});
+    ASSERT_NIL(scanner.start());
+
+    // Create device with connection properties
+    synnax::Device dev;
+    dev.key = "connection-state-device";
+    dev.name = "Connection State Test Device";
+    dev.make = "opc";
+    dev.rack = rack.key;
+    dev.properties = json{
+        {"connection",
+         {{"endpoint", "opc.tcp://localhost:4840"},
+          {"security_mode", "None"},
+          {"security_policy", "None"}}},
+        {"channels", json::array()}
+    }.dump();
+
+    scanner.on_device_set(dev);
+
+    // Step 1: Server is running (started in SetUp) - health should be good
+    {
+        auto [devices, err] = scanner.scan({});
+        ASSERT_NIL(err);
+        ASSERT_EQ(devices.size(), 1);
+        EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
+        EXPECT_EQ(devices[0].status.message, "Server connected");
+    }
+
+    // Step 2: Stop the server - health should be bad
+    server->stop();
+    // Clear the connection pool to force new connection attempts
+    fresh_conn_pool = std::make_shared<opc::connection::Pool>();
+    // Recreate scanner with fresh pool
+    opc::Scanner scanner2(ctx, task, fresh_conn_pool, opc::ScannerConfig{});
+    ASSERT_NIL(scanner2.start());
+    scanner2.on_device_set(dev);
+
+    {
+        auto [devices, err] = scanner2.scan({});
+        ASSERT_NIL(err);
+        ASSERT_EQ(devices.size(), 1);
+        // When server is down, health check should return WARNING with connection error
+        EXPECT_EQ(devices[0].status.variant, status::variant::WARNING);
+        // The message should indicate a connection failure (not empty)
+        EXPECT_FALSE(devices[0].status.message.empty());
+        EXPECT_NE(devices[0].status.message, "Server connected");
+        LOG(INFO) << "[test] Server down - status: " << devices[0].status.variant
+                  << ", message: " << devices[0].status.message;
+    }
+
+    // Step 3: Restart the server - health should be good again
+    auto server_cfg = mock::ServerConfig::create_default();
+    server = std::make_unique<mock::Server>(server_cfg);
+    server->start();
+
+    // Wait for server to be ready
+    opc::connection::Config test_conn_cfg;
+    test_conn_cfg.endpoint = "opc.tcp://localhost:4840";
+    test_conn_cfg.security_mode = "None";
+    test_conn_cfg.security_policy = "None";
+    auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
+        opc::connection::connect(test_conn_cfg, "test"),
+        (5 * telem::SECOND).chrono(),
+        (250 * telem::MILLISECOND).chrono()
+    );
+    UA_Client_disconnect(test_client.get());
+
+    // Use fresh connection pool again
+    fresh_conn_pool = std::make_shared<opc::connection::Pool>();
+    opc::Scanner scanner3(ctx, task, fresh_conn_pool, opc::ScannerConfig{});
+    ASSERT_NIL(scanner3.start());
+    scanner3.on_device_set(dev);
+
+    {
+        auto [devices, err] = scanner3.scan({});
+        ASSERT_NIL(err);
+        ASSERT_EQ(devices.size(), 1);
+        EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
+        EXPECT_EQ(devices[0].status.message, "Server connected");
+    }
+}

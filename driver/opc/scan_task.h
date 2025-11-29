@@ -35,7 +35,7 @@ namespace opc {
 /// @brief Configuration for the OPC UA scanner.
 struct ScannerConfig {
     /// @brief Rate at which to check device health.
-    ::telem::Rate health_check_rate = ::telem::Rate(0.2);  // 5 seconds
+    ::telem::Rate health_check_rate = ::telem::Rate(0.2); // 5 seconds
     /// @brief Whether scanning is enabled.
     bool enabled = true;
 
@@ -49,7 +49,7 @@ struct ScannerConfig {
 ///@brief The parameters for connecting to and iterating through nodes in the OPC UA
 /// server.
 struct ScanCommandArgs {
-    opc::connection::Config connection;
+    connection::Config connection;
     std::string node_id;
     opc::NodeId node;
 
@@ -57,9 +57,9 @@ struct ScanCommandArgs {
         connection(opc::connection::Config(parser.child("connection"))),
         node_id(parser.field<std::string>("node_id", "")) {
         if (node_id.empty())
-            node = opc::NodeId(UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER));
+            node = NodeId(UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER));
         else
-            node = opc::NodeId::parse("node_id", parser);
+            node = NodeId::parse("node_id", parser);
     }
 };
 
@@ -73,7 +73,7 @@ public:
     Scanner(
         std::shared_ptr<task::Context> ctx,
         synnax::Task task,
-        std::shared_ptr<opc::connection::Pool> conn_pool,
+        std::shared_ptr<connection::Pool> conn_pool,
         ScannerConfig cfg
     );
 
@@ -106,7 +106,7 @@ public:
 private:
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
-    std::shared_ptr<opc::connection::Pool> conn_pool_;
+    std::shared_ptr<connection::Pool> conn_pool;
     ScannerConfig cfg;
 
     // Device registry - populated by signals and start(), used by scan()
@@ -120,6 +120,6 @@ private:
     void test_connection(const task::Command &cmd) const;
 
     /// @brief Check health of a single device by testing its connection.
-    xerrors::Error check_device_health(synnax::Device &dev);
+    xerrors::Error check_device_health(synnax::Device &dev)const;
 };
 }

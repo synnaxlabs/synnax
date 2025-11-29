@@ -30,12 +30,12 @@ namespace opc {
 Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
     synnax::Task task,
-    std::shared_ptr<opc::connection::Pool> conn_pool,
-    ScannerConfig cfg
+    std::shared_ptr<connection::Pool> conn_pool,
+    const ScannerConfig cfg
 ):
     ctx(std::move(ctx)),
     task(std::move(task)),
-    conn_pool_(std::move(conn_pool)),
+    conn_pool(std::move(conn_pool)),
     cfg(cfg) {}
 
 common::ScannerConfig Scanner::config() const {
@@ -75,11 +75,9 @@ Scanner::scan(const common::ScannerContext &) {
 
     std::lock_guard lock(this->mu);
     for (auto &[key, dev]: this->tracked_devices) {
-        if (const auto err = this->check_device_health(dev)) {
-            LOG(WARNING) << "[opc.scanner] health check failed for "
-                         << dev.name << ": " << err;
-        }
-        // Return all tracked devices with updated status
+        if (const auto err = this->check_device_health(dev))
+            LOG(WARNING) << "[opc.scanner] health check failed for " << dev.name << ": "
+                         << err;
         devices.push_back(dev);
     }
 
@@ -99,7 +97,7 @@ bool Scanner::exec(
         this->test_connection(cmd);
         return true;
     }
-    return false;  // Not handled
+    return false; // Not handled
 }
 
 void Scanner::on_device_set(const synnax::Device &dev) {
@@ -114,12 +112,10 @@ void Scanner::on_device_delete(const std::string &key) {
         LOG(INFO) << "[opc.scanner] stopped tracking device: " << key;
 }
 
-xerrors::Error Scanner::check_device_health(synnax::Device &dev) {
-    auto rack_key = synnax::rack_key_from_task_key(this->task.key);
-
-    // Parse connection config from device properties
-    auto parser = xjson::Parser(dev.properties);
-    auto props = device::Properties(parser);
+xerrors::Error Scanner::check_device_health(synnax::Device &dev)const {
+    const auto rack_key = synnax::rack_key_from_task_key(this->task.key);
+    const auto parser = xjson::Parser(dev.properties);
+    const auto props = device::Properties(parser);
     if (parser.error()) {
         dev.status = synnax::DeviceStatus{
             .key = dev.status_key(),
@@ -132,11 +128,10 @@ xerrors::Error Scanner::check_device_health(synnax::Device &dev) {
         return parser.error();
     }
 
-    // Try to acquire connection (checks session state)
-    auto [conn, conn_err] = this->conn_pool_->acquire(
-        props.connection, "[opc.scanner] "
+    auto [conn, conn_err] = this->conn_pool->acquire(
+        props.connection,
+        "[opc.scanner] "
     );
-
     if (conn_err) {
         dev.status = synnax::DeviceStatus{
             .key = dev.status_key(),
@@ -156,13 +151,12 @@ xerrors::Error Scanner::check_device_health(synnax::Device &dev) {
             .details = {.rack = rack_key, .device = dev.key},
         };
     }
-
     return xerrors::NIL;
 }
 
 struct ScanContext {
     std::shared_ptr<UA_Client> client;
-    std::shared_ptr<std::vector<opc::Node>> channels;
+    std::shared_ptr<std::vector<Node>> channels;
 };
 
 static UA_StatusCode
@@ -187,7 +181,7 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
     req.nodesToRead = ids;
     req.nodesToReadSize = 3;
 
-    opc::ReadResponse res(UA_Client_Service_read(ua_client, req));
+    ReadResponse res(UA_Client_Service_read(ua_client, req));
     UA_StatusCode status = res.get().responseHeader.serviceResult;
     if (status != UA_STATUSCODE_GOOD) { return status; }
     if (!res.get().results[0].hasValue) { return res.get().results[0].status; }
@@ -201,15 +195,15 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
     bool is_array = false;
     if (cls == UA_NODECLASS_VARIABLE && res.get().results[2].hasValue) {
         const auto &value = res.get().results[2].value;
-        data_type = opc::telem::ua_to_data_type(value.type);
+        data_type = telem::ua_to_data_type(value.type);
         is_array = !UA_Variant_isScalar(&value);
     } else if (cls == UA_NODECLASS_VARIABLE)
         LOG(ERROR) << "[opc.scanner] No value for " << name;
     ctx->channels->emplace_back(
         data_type,
         name,
-        opc::NodeId::to_string(child_id),
-        opc::node_class_to_string(cls),
+        NodeId::to_string(child_id),
+        node_class_to_string(cls),
         is_array
     );
     return status;
@@ -230,15 +224,15 @@ void Scanner::browse_nodes(const task::Command &cmd) const {
         return ctx->set_status(status);
     }
 
-    auto [connection, err] = conn_pool_->acquire(args.connection, "[opc.scanner] ");
+    auto [connection, err] = conn_pool->acquire(args.connection, "[opc.scanner] ");
     if (err) {
         status.variant = status::variant::ERR;
         status.message = err.message();
         return ctx->set_status(status);
     }
-    auto scan_ctx = std::make_unique<ScanContext>(ScanContext{
+    const auto scan_ctx = std::make_unique<ScanContext>(ScanContext{
         connection.shared(),
-        std::make_shared<std::vector<opc::Node>>(),
+        std::make_shared<std::vector<Node>>(),
     });
 
     UA_Client_forEachChildNodeCall(

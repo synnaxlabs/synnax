@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <thread>
+
 #include "gtest/gtest.h"
 
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xtest/xtest.h"
 
 #include "driver/task/common/scan_task.h"
@@ -85,6 +88,66 @@ public:
     update_statuses(std::vector<synnax::DeviceStatus> statuses) override {
         propagated_statuses.push_back(statuses);
         return xerrors::NIL;
+    }
+};
+
+/// @brief Enhanced mock scanner that supports signal monitoring testing.
+class MockScannerWithSignals final : public common::Scanner {
+public:
+    common::ScannerConfig scanner_config;
+    std::vector<synnax::Device> devices_set;
+    std::vector<std::string> devices_deleted;
+    std::vector<task::Command> exec_commands;
+    bool exec_return_value = false;
+    std::mutex mu;
+
+    size_t scan_count = 0;
+    std::vector<std::vector<synnax::Device>> devices;
+    std::vector<xerrors::Error> scan_errors;
+
+    explicit MockScannerWithSignals(
+        const common::ScannerConfig &config,
+        const std::vector<std::vector<synnax::Device>> &devices_ = {},
+        const std::vector<xerrors::Error> &scan_errors_ = {}
+    ):
+        scanner_config(config), devices(devices_), scan_errors(scan_errors_) {}
+
+    common::ScannerConfig config() const override { return scanner_config; }
+
+    xerrors::Error start() override { return xerrors::NIL; }
+
+    xerrors::Error stop() override { return xerrors::NIL; }
+
+    std::pair<std::vector<synnax::Device>, xerrors::Error>
+    scan(const common::ScannerContext &) override {
+        std::vector<synnax::Device> devs = {};
+        auto err = xerrors::NIL;
+        if (this->scan_count < this->devices.size())
+            devs = this->devices[this->scan_count];
+        if (this->scan_count < this->scan_errors.size())
+            err = this->scan_errors[this->scan_count];
+        this->scan_count++;
+        return {devs, err};
+    }
+
+    bool exec(
+        task::Command &cmd,
+        const synnax::Task &,
+        const std::shared_ptr<task::Context> &
+    ) override {
+        std::lock_guard lock(mu);
+        exec_commands.push_back(cmd);
+        return exec_return_value;
+    }
+
+    void on_device_set(const synnax::Device &dev) override {
+        std::lock_guard lock(mu);
+        devices_set.push_back(dev);
+    }
+
+    void on_device_delete(const std::string &key) override {
+        std::lock_guard lock(mu);
+        devices_deleted.push_back(key);
     }
 };
 
@@ -349,4 +412,85 @@ TEST(TestScanTask, TestStatePropagation) {
         } else
             FAIL() << "Unexpected device key: " << status.key;
     }
+}
+
+/// @brief Tests that unknown commands are delegated to scanner->exec().
+TEST(TestScanTask, testCustomCommandDelegation) {
+    common::ScannerConfig cfg{.make = "test", .enable_device_signals = false};
+    auto scanner = std::make_unique<MockScannerWithSignals>(cfg);
+    auto scanner_ptr = scanner.get();
+    scanner_ptr->exec_return_value = true;
+
+    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::Task task;
+    task.key = 12345;
+    task.name = "Test Scan Task";
+
+    breaker::Config breaker_config;
+    telem::Rate scan_rate = telem::HERTZ * 1;
+
+    common::ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        breaker_config,
+        scan_rate,
+        std::move(cluster_api)
+    );
+
+    // Execute a custom command that should be delegated to the scanner
+    task::Command cmd(task.key, "custom_command", nlohmann::json{{"arg", "value"}});
+    cmd.key = "test_cmd";
+    scan_task.exec(cmd);
+
+    // Verify the scanner received the command
+    ASSERT_EQ(scanner_ptr->exec_commands.size(), 1);
+    EXPECT_EQ(scanner_ptr->exec_commands[0].type, "custom_command");
+    EXPECT_EQ(scanner_ptr->exec_commands[0].key, "test_cmd");
+}
+
+/// @brief Tests that config() returns the expected values from MockScannerWithSignals.
+TEST(TestScanTask, testScannerConfigReturnsExpectedValues) {
+    common::ScannerConfig cfg{.make = "test_make", .enable_device_signals = true};
+    MockScannerWithSignals scanner(cfg);
+
+    auto returned_cfg = scanner.config();
+    EXPECT_EQ(returned_cfg.make, "test_make");
+    EXPECT_TRUE(returned_cfg.enable_device_signals);
+}
+
+/// @brief Tests that on_device_set() tracks devices correctly.
+TEST(TestScanTask, testOnDeviceSetTracksDevice) {
+    common::ScannerConfig cfg{.make = "test", .enable_device_signals = false};
+    MockScannerWithSignals scanner(cfg);
+
+    synnax::Device dev;
+    dev.key = "test-device";
+    dev.name = "Test Device";
+    dev.make = "test";
+
+    scanner.on_device_set(dev);
+
+    ASSERT_EQ(scanner.devices_set.size(), 1);
+    EXPECT_EQ(scanner.devices_set[0].key, "test-device");
+    EXPECT_EQ(scanner.devices_set[0].make, "test");
+}
+
+/// @brief Tests that on_device_delete() tracks deletions correctly.
+TEST(TestScanTask, testOnDeviceDeleteTracksKey) {
+    common::ScannerConfig cfg{.make = "test", .enable_device_signals = false};
+    MockScannerWithSignals scanner(cfg);
+
+    scanner.on_device_delete("device-to-delete");
+
+    ASSERT_EQ(scanner.devices_deleted.size(), 1);
+    EXPECT_EQ(scanner.devices_deleted[0], "device-to-delete");
 }

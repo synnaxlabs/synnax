@@ -105,9 +105,7 @@ TEST(ConnectionTest, disconnectAndReconnect) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err1] = opc::connection::connect(cfg, "test");
-    ASSERT_FALSE(err1);
-    ASSERT_NE(client, nullptr);
+    auto client = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
 
     UA_SessionState session_state;
     UA_SecureChannelState channel_state;
@@ -119,8 +117,7 @@ TEST(ConnectionTest, disconnectAndReconnect) {
     UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
     EXPECT_NE(session_state, UA_SESSIONSTATE_ACTIVATED);
 
-    auto err2 = opc::connection::reconnect(client, cfg.endpoint);
-    ASSERT_FALSE(err2);
+    ASSERT_NIL(opc::connection::reconnect(client, cfg.endpoint));
 
     UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
     EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED);
@@ -140,16 +137,13 @@ TEST(ConnectionTest, serverStopDuringConnection) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err1] = opc::connection::connect(cfg, "test");
-    ASSERT_FALSE(err1);
-    ASSERT_NE(client, nullptr);
+    auto client = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
 
     server->stop();
     server.reset();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    auto [node_id, parse_err] = opc::NodeId::parse("NS=1;S=TestFloat");
-    ASSERT_FALSE(parse_err);
+    auto node_id = ASSERT_NIL_P(opc::NodeId::parse("NS=1;S=TestFloat"));
 
     UA_ReadValueId ids[1];
     UA_ReadValueId_init(&ids[0]);
@@ -179,9 +173,7 @@ TEST(ConnectionTest, connectionAfterServerRestart) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client1, err1] = opc::connection::connect(cfg, "test");
-    ASSERT_FALSE(err1);
-    ASSERT_NE(client1, nullptr);
+    auto client1 = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
 
     server->stop();
     server.reset();
@@ -191,9 +183,7 @@ TEST(ConnectionTest, connectionAfterServerRestart) {
     server->start();
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-    auto [client2, err2] = opc::connection::connect(cfg, "test");
-    ASSERT_FALSE(err2);
-    ASSERT_NE(client2, nullptr);
+    auto client2 = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
 
     server->stop();
 }
@@ -210,11 +200,9 @@ TEST(ConnectionTest, readAfterDisconnect) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    ASSERT_FALSE(err);
+    auto client = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
 
-    auto [ser1, read_err1] = opc::testutil::simple_read(client, "NS=1;S=TestFloat");
-    ASSERT_FALSE(read_err1);
+    auto ser1 = ASSERT_NIL_P(opc::testutil::simple_read(client, "NS=1;S=TestFloat"));
 
     UA_Client_disconnect(client.get());
 
@@ -238,8 +226,7 @@ TEST(ConnectionTest, multipleDisconnects) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    ASSERT_FALSE(err);
+    auto client = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
 
     UA_Client_disconnect(client.get());
     UA_Client_disconnect(client.get());
