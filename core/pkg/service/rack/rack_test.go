@@ -198,6 +198,7 @@ var _ = Describe("Rack", Ordered, func() {
 		It("Should use the provided status when creating a rack", func() {
 			providedStatus := &rack.Status{
 				Variant:     xstatus.SuccessVariant,
+				Time:        telem.Now(),
 				Message:     "Custom status message",
 				Description: "Custom description",
 			}
