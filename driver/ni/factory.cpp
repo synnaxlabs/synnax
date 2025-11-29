@@ -45,6 +45,7 @@ bool ni::Factory::check_health(
     if (this->check_health()) return true;
     synnax::TaskStatus status{
         .key = task.status_key(),
+        .name = task.name,
         .variant = status::variant::ERR,
         .message = NO_LIBS_MSG,
         .details = synnax::TaskStatusDetails{.task = task.key},

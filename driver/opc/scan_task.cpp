@@ -29,17 +29,18 @@
 namespace opc {
 void ScanTask::exec(task::Command &cmd) {
     if (cmd.type == common::START_CMD_TYPE) {
-        // synnax::TaskStatus status{
-        //     .key = this->task.status_key(),
-        //     .variant = status::variant::SUCCESS,
-        //     .message = "OPC scanner ready",
-        //     .details = synnax::TaskStatusDetails{
-        //         .task = task.key,
-        //         .running = true,
-        //         .cmd = cmd.key,
-        //     }
-        // };
-        // ctx->set_status(status);
+        synnax::TaskStatus status{
+            .key = this->task.status_key(),
+            .name = this->task.name,
+            .variant = status::variant::SUCCESS,
+            .message = "OPC scanner ready",
+            .details = synnax::TaskStatusDetails{
+                .task = task.key,
+                .cmd = cmd.key,
+                .running = true,
+            }
+        };
+        ctx->set_status(status);
         return;
     }
     if (cmd.type == SCAN_CMD_TYPE) return scan(cmd);
