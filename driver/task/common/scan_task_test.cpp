@@ -266,7 +266,7 @@ TEST(TestScanTask, TestStatePropagation) {
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
-    dev1.status.key = "device1";
+    dev1.status.key = dev1.status_key();
     dev1.status.variant = status::variant::SUCCESS;
     dev1.status.details.rack = 1;
 
@@ -274,7 +274,7 @@ TEST(TestScanTask, TestStatePropagation) {
     dev2.key = "device2";
     dev2.name = "Device 2";
     dev2.rack = 2;
-    dev2.status.key = "device2";
+    dev2.status.key = dev2.status_key();
     dev2.status.variant = status::variant::WARNING;
     dev2.status.details.rack = 2;
 
@@ -322,10 +322,10 @@ TEST(TestScanTask, TestStatePropagation) {
 
     for (size_t i = 0; i < first_states.size(); i++) {
         auto status = first_states.at(i);
-        if (status.key == "device1") {
+        if (status.key == "device:device1") {
             ASSERT_EQ(status.variant, status::variant::SUCCESS);
             ASSERT_EQ(status.details.rack, 1);
-        } else if (status.key == "device2") {
+        } else if (status.key == "device:device2") {
             ASSERT_EQ(status.variant, status::variant::WARNING);
             ASSERT_EQ(status.details.rack, 2);
         } else
@@ -339,10 +339,10 @@ TEST(TestScanTask, TestStatePropagation) {
 
     for (size_t i = 0; i < second_states.size(); i++) {
         auto status = second_states.at(i);
-        if (status.key == "device1") {
+        if (status.key == "device:device1") {
             ASSERT_EQ(status.variant, status::variant::SUCCESS);
             ASSERT_EQ(status.details.rack, 1);
-        } else if (status.key == "device2") {
+        } else if (status.key == "device:device2") {
             ASSERT_EQ(status.variant, status::variant::WARNING);
             ASSERT_EQ(status.details.rack, 2);
             ASSERT_EQ(status.message, "Device disconnected");
