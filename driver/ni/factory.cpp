@@ -48,10 +48,7 @@ bool ni::Factory::check_health(
         .name = task.name,
         .variant = status::variant::ERR,
         .message = NO_LIBS_MSG,
-        .details = synnax::TaskStatusDetails{
-            .task = task.key,
-            .running = false
-        },
+        .details = synnax::TaskStatusDetails{.task = task.key, .running = false},
     };
     ctx->set_status(status);
     return false;
@@ -118,7 +115,6 @@ ni::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
-    if (!this->check_health()) return {};
     return common::configure_initial_factory_tasks(
         this,
         ctx,

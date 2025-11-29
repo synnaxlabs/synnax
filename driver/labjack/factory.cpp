@@ -130,7 +130,6 @@ labjack::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
-    if (!this->check_health(ctx, synnax::Task())) return {};
     return common::configure_initial_factory_tasks(
         this,
         ctx,
