@@ -130,6 +130,11 @@ struct Device {
     /// @brief Default constructor for an empty device.
     Device() = default;
 
+    /// @brief returns the key used for creating statuses associated with the task.
+    [[nodiscard]] std::string status_key() const {
+        return device_ontology_id(this->key).string();
+    }
+
     /// @brief Constructs a device from its protobuf representation.
     /// @param device The protobuf representation of the device.
     /// @returns A pair containing the device and an error if one occurred.

@@ -228,7 +228,8 @@ public:
         for (auto &[key, dev]: this->dev_states) {
             if (present.find(key) != present.end()) continue;
             this->dev_states[key].dev.status = synnax::DeviceStatus{
-                .key = dev.dev.key,
+                .key = dev.dev.status_key(),
+                .name = dev.dev.name,
                 .variant = status::variant::WARNING,
                 .message = "Device disconnected",
                 .time = dev.last_available,

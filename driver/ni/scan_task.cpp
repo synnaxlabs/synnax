@@ -36,32 +36,34 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         ))
         return {dev, err};
     dev.is_simulated = is_simulated;
-    VLOG(1) << "Processing device resource: " << resource;
-    VLOG(1) << "Device Rack: " << dev.rack;
+    VLOG(1) << "[ni.scan_task] processing device resource: " << resource;
+    VLOG(1) << "[ni.scan_task] device rack: " << dev.rack;
 
     if (!is_simulated) {
-        VLOG(1) << "Physical device detected";
+        VLOG(1) << "[ni.scan_task] physical device detected";
         if (const auto err = this->syscfg->GetResourceProperty(
                 resource,
                 NISysCfgResourcePropertySerialNumber,
                 property_value_buf
             )) {
-            LOG(WARNING) << "Physical device missing serial number, skipping: "
-                         << err.message();
+            LOG(
+                WARNING
+            ) << "[ni.scan_task] physical device missing serial number, skipping: "
+              << err.message();
             return {Device(), SKIP_DEVICE_ERR};
         }
         dev.key = property_value_buf;
-        VLOG(1) << "Physical device serial number: " << dev.key;
-    } else {
-        VLOG(1) << "Simulated device detected";
-    }
+        VLOG(1) << "[ni.scan_task] physical device serial number: " << dev.key;
+    } else
+        VLOG(1) << "[ni.scan_task] Simulated device detected";
 
     if (const auto err = this->syscfg->GetResourceProperty(
             resource,
             NISysCfgResourcePropertyProductName,
             property_value_buf
         )) {
-        LOG(WARNING) << "Device missing product name, skipping: " << err.message();
+        LOG(WARNING) << "[ni.scan_task] device missing product name, skipping: "
+                     << err.message();
         return {Device(), SKIP_DEVICE_ERR};
     }
     dev.model = property_value_buf;
@@ -74,8 +76,10 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
             0,
             property_value_buf
         )) {
-        LOG(WARNING) << "Device missing user alias, using empty location: "
-                     << err.message();
+        LOG(
+            WARNING
+        ) << "[ni.scan_task] device missing user alias, using empty location: "
+          << err.message();
         return {Device(), SKIP_DEVICE_ERR};
     }
     dev.location = property_value_buf;
@@ -86,17 +90,19 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
             0,
             property_value_buf
         )) {
-        LOG(WARNING) << "Device missing resource name, skipping: " << err.message();
+        LOG(WARNING) << "[ni.scan_task] device missing resource name, skipping: "
+                     << err.message();
         return {Device(), SKIP_DEVICE_ERR};
     }
-    VLOG(1) << "Resource name: " << property_value_buf;
+    VLOG(1) << "[ni.scan_task] resource name: " << property_value_buf;
     dev.resource_name = property_value_buf;
     if (dev.resource_name.size() > 2)
         dev.resource_name = dev.resource_name.substr(1, dev.resource_name.size() - 2);
     if (is_simulated) dev.key = dev.resource_name;
 
     dev.status = synnax::DeviceStatus{
-        .key = dev.key,
+        .key = dev.status_key(),
+        .name = dev.name,
         .variant = status::variant::SUCCESS,
         .message = "Device present",
         .time = telem::TimeStamp::now(),

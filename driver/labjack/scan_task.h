@@ -96,7 +96,8 @@ class Scanner final : public common::Scanner {
                 "" // Properties will be set in Device constructor
             );
             sy_dev.status = synnax::DeviceStatus{
-                .key = sy_dev.key,
+                .key = sy_dev.status_key(),
+                .name = name,
                 .variant = status::variant::SUCCESS,
                 .message = "Device present",
                 .details = synnax::DeviceStatusDetails{

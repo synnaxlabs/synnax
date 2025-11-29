@@ -202,7 +202,10 @@ public:
         return os << task.name << " (" << task.key << ")";
     }
 
-    std::string status_key() const { return task_ontology_id(this->key).string(); }
+    /// @brief returns the key used for creating statuses associated with the task.
+    [[nodiscard]] std::string status_key() const {
+        return task_ontology_id(this->key).string();
+    }
 
 private:
     /// @brief Converts the task to its protobuf representation.
