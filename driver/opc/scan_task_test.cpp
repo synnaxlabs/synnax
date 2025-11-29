@@ -73,7 +73,7 @@ TEST_F(TestScanTask, testBasicScan) {
         {"connection", conn_cfg.to_json()},
     };
 
-    task::Command cmd(task.key, opc::SCAN_CMD_TYPE, scan_cmd);
+    task::Command cmd(task.key, opc::BROWSE_CMD_TYPE, scan_cmd);
     cmd.key = "scan_cmd";
 
     scan_task->exec(cmd);
@@ -145,14 +145,14 @@ TEST_F(TestScanTask, testConnectionPooling) {
         {"connection", conn_cfg.to_json()},
     };
 
-    task::Command cmd1(task.key, opc::SCAN_CMD_TYPE, scan_cmd);
+    task::Command cmd1(task.key, opc::BROWSE_CMD_TYPE, scan_cmd);
     cmd1.key = "scan_cmd_1";
 
     scan_task->exec(cmd1);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
 
-    task::Command cmd2(task.key, opc::SCAN_CMD_TYPE, scan_cmd);
+    task::Command cmd2(task.key, opc::BROWSE_CMD_TYPE, scan_cmd);
     cmd2.key = "scan_cmd_2";
 
     scan_task->exec(cmd2);
@@ -209,7 +209,7 @@ TEST_F(TestScanTask, testInvalidConnection) {
         {"connection", conn_cfg.to_json()},
     };
 
-    task::Command cmd(task.key, opc::SCAN_CMD_TYPE, scan_cmd);
+    task::Command cmd(task.key, opc::BROWSE_CMD_TYPE, scan_cmd);
     cmd.key = "invalid_scan_cmd";
 
     scan_task->exec(cmd);

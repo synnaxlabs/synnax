@@ -21,7 +21,7 @@ cc_library(
     ],
 )
 
-c_test(
+cc_test(
     name = "conn_test",
     srcs = [
         "connection_test.cpp",

@@ -91,7 +91,7 @@ bool Scanner::exec(
     const synnax::Task &,
     const std::shared_ptr<task::Context> &
 ) {
-    if (cmd.type == SCAN_CMD_TYPE) {
+    if (cmd.type == BROWSE_CMD_TYPE) {
         this->browse_nodes(cmd);
         return true;
     }

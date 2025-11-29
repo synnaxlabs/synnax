@@ -63,7 +63,7 @@ struct ScanCommandArgs {
     }
 };
 
-const std::string SCAN_CMD_TYPE = "scan";
+const std::string BROWSE_CMD_TYPE = "browse";
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
 /// @brief OPC UA scanner implementing the common::Scanner interface.
