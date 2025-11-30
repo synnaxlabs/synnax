@@ -257,25 +257,15 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
     // Delete the first device
     ASSERT_NIL(client.devices.del(d1.key));
 
-    // Try to retrieve both devices
-    std::vector<std::string> keys;
-    keys.push_back(d1.key);
-    keys.push_back(d2.key);
-    auto devices = ASSERT_NIL_P(client.devices.retrieve(keys, true));
+    // Verify deleted device returns NOT_FOUND
+    auto [_, err] = client.devices.retrieve(d1.key);
+    ASSERT_TRUE(err);
+    ASSERT_MATCHES(err, xerrors::NOT_FOUND);
 
-    // Assert that we got at least one device back (the non-deleted one)
-    ASSERT_GE(devices.size(), 1);
-
-    // Verify that the remaining device is the second one
-    bool found = false;
-    for (const Device &device: devices) {
-        if (device.key == d2.key) {
-            ASSERT_EQ(device.name, "test_device_2");
-            found = true;
-            break;
-        }
-    }
-    ASSERT_TRUE(found);
+    // Verify remaining device can still be retrieved
+    const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(d2.key));
+    ASSERT_EQ(retrieved.key, d2.key);
+    ASSERT_EQ(retrieved.name, "test_device_2");
 }
 
 /// @brief it should correctly delete a device.
@@ -336,30 +326,6 @@ TEST(DeviceTests, testDeleteDevices) {
     ASSERT_OCCURRED_AS_P(client.devices.retrieve(keys), xerrors::NOT_FOUND);
 }
 
-/// @brief it should correctly handle ignore_not_found flag.
-TEST(DeviceTests, testRetrieveDeviceIgnoreNotFound) {
-    const auto client = new_test_client();
-    auto r = Rack("test_rack");
-    ASSERT_NIL(client.racks.create(r));
-    const auto [device1, err1] = client.devices.retrieve("nonexistent_key", true);
-    ASSERT_FALSE(err1);
-    ASSERT_TRUE(device1.key.empty());
-    auto d1 = Device(
-        "device1_key",
-        "test_device_1",
-        r.key,
-        "location_1",
-        "make_1",
-        "model_1",
-        "properties_1"
-    );
-    ASSERT_NIL(client.devices.create(d1));
-    std::vector<std::string> keys = {d1.key, "nonexistent_key"};
-    const auto [devices, err2] = client.devices.retrieve(keys, true);
-    ASSERT_FALSE(err2);
-    ASSERT_EQ(devices.size(), 1);
-    ASSERT_EQ(devices[0].key, d1.key);
-}
 /// @brief it should retrieve devices using a DeviceRetrieveRequest with keys and names.
 TEST(DeviceTests, testRetrieveWithRequest) {
     const auto client = new_test_client();
@@ -446,30 +412,6 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
             if (da.key == db.key) different = false;
     ASSERT_TRUE(different);
 }
-/// @brief it should handle ignore_not_found in DeviceRetrieveRequest.
-TEST(DeviceTests, testRetrieveRequestIgnoreNotFound) {
-    const auto client = new_test_client();
-    auto r = Rack("test_rack");
-    ASSERT_NIL(client.racks.create(r));
-    const auto rand = std::to_string(gen_rand_device());
-    auto d = Device(
-        "ignore_nf_" + rand,
-        "ignore_nf_dev_" + rand,
-        r.key,
-        "loc",
-        "make",
-        "model",
-        "props"
-    );
-    ASSERT_NIL(client.devices.create(d));
-    DeviceRetrieveRequest req;
-    req.keys = {d.key, "nonexistent_" + rand};
-    req.ignore_not_found = true;
-    const auto devices = ASSERT_NIL_P(client.devices.retrieve(req));
-    ASSERT_EQ(devices.size(), 1);
-    ASSERT_EQ(devices[0].key, d.key);
-}
-
 /// @brief it should correctly create and retrieve a device with a status.
 TEST(DeviceTests, testCreateDeviceWithStatus) {
     const auto client = new_test_client();

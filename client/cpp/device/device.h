@@ -216,13 +216,10 @@ public:
 
     /// @brief Retrieves a device by its key.
     /// @param key The key of the device to retrieve.
-    /// @param ignore_not_found If true, returns an empty device without error when
-    /// not found.
     /// @returns A pair containing the retrieved device and an error if one
     /// occurred.
     [[nodiscard]]
-    std::pair<Device, xerrors::Error>
-    retrieve(const std::string &key, bool ignore_not_found = false) const;
+    std::pair<Device, xerrors::Error> retrieve(const std::string &key) const;
 
     /// @brief Retrieves a device by its key with options.
     /// @param key The key of the device to retrieve.
@@ -235,12 +232,11 @@ public:
 
     /// @brief Retrieves multiple devices by their keys.
     /// @param keys The keys of the devices to retrieve.
-    /// @param ignore_not_found If true, skips non-existent devices without error.
     /// @returns A pair containing the retrieved devices and an error if one
     /// occurred.
     [[nodiscard]]
     std::pair<std::vector<Device>, xerrors::Error>
-    retrieve(const std::vector<std::string> &keys, bool ignore_not_found = false) const;
+    retrieve(const std::vector<std::string> &keys) const;
 
     /// @brief Retrieves multiple devices by their keys with options.
     /// @param keys The keys of the devices to retrieve.
