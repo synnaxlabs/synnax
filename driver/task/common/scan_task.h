@@ -39,7 +39,7 @@ struct Scanner {
     virtual ~Scanner() = default;
 
     /// @brief Returns the scanner configuration.
-    virtual ScannerConfig config() const { return ScannerConfig{}; }
+    virtual ScannerConfig config() const = 0;
 
     /// @brief Lifecycle method called when the scan task starts.
     virtual xerrors::Error start() { return xerrors::NIL; }
@@ -107,7 +107,12 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
     std::pair<synnax::Device, xerrors::Error>
     retrieve_device(const std::string &key) override {
-        return this->client->devices.retrieve(key);
+        return this->client->devices.retrieve(
+            key,
+            synnax::DeviceRetrieveOptions{
+                .include_status = true,
+            }
+        );
     }
 
     xerrors::Error create_devices(std::vector<synnax::Device> &devs) override {
@@ -225,13 +230,13 @@ class ScanTask final : public task::Task, public pipeline::Base {
                                 << err;
                             continue;
                         }
+                        if (dev.make != make || dev.rack != rack_key) continue;
                         {
                             std::lock_guard lock(this->dev_states_mu);
                             if (this->dev_states.find(dev.key) ==
                                 this->dev_states.end())
                                 this->dev_states[dev.key] = dev;
                         }
-                        if (dev.make != make || dev.rack != rack_key) continue;
                         this->scanner->on_device_set(dev);
                     }
                 } else if (ch_key == this->device_delete_channel.key)

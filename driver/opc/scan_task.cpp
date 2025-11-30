@@ -43,18 +43,15 @@ common::ScannerConfig Scanner::config() const {
 }
 
 xerrors::Error Scanner::start() {
-    // Load initial OPC devices for this rack
     auto rack_key = synnax::rack_key_from_task_key(this->task.key);
     synnax::DeviceRetrieveRequest req;
     req.makes = {INTEGRATION_NAME};
     req.racks = {rack_key};
     auto [devs, err] = this->ctx->client->devices.retrieve(req);
     if (err && !err.matches(xerrors::NOT_FOUND)) return err;
-
     std::lock_guard lock(this->mu);
     for (auto &dev: devs)
         this->tracked_devices[dev.key] = dev;
-
     LOG(INFO) << "[opc.scanner] loaded " << this->tracked_devices.size()
               << " initial devices";
     return xerrors::NIL;
@@ -72,12 +69,11 @@ Scanner::scan(const common::ScannerContext &) {
 
     std::lock_guard lock(this->mu);
     for (auto &[key, dev]: this->tracked_devices) {
-        if (const auto err = this->check_device_health(dev))
+        if (const auto err = this->check_device_health(dev); err)
             LOG(WARNING) << "[opc.scanner] health check failed for " << dev.name << ": "
                          << err;
         devices.push_back(dev);
     }
-
     return {devices, xerrors::NIL};
 }
 

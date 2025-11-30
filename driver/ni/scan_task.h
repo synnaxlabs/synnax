@@ -135,6 +135,10 @@ class Scanner final : public common::Scanner {
     std::pair<ni::Device, xerrors::Error>
     parse_device(NISysCfgResourceHandle resource) const;
 
+    common::ScannerConfig config() const override {
+        return common::ScannerConfig{.make = MAKE};
+    }
+
 public:
     explicit Scanner(
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,

@@ -51,6 +51,10 @@ class Scanner final : public common::Scanner {
     /// @brief the device manager for handling LabJack connections
     std::shared_ptr<device::Manager> device_manager;
 
+    common::ScannerConfig config() const override {
+        return common::ScannerConfig{.make = MAKE};
+    }
+
     /// @brief scans for devices with the given type and connection
     xerrors::Error
     scan_for(int connection_type, std::vector<synnax::Device> &devices) const {
