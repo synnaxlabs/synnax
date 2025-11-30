@@ -124,9 +124,9 @@ type Codec struct {
 	// encodeSorter is used to sort source frames that are being encoded. Used instead
 	// of sorting the frame directly in order to avoid excess heap allocations
 	encodeSorter sorter
-	// mergeBuf is a reusable buffer for merging contiguous series data, avoiding
+	// mergedSeriesResult is a reusable slice for storing merged series info, avoiding
 	// allocations on each encode operation
-	mergeBuf []byte
+	mergedSeriesResult []mergedSeriesInfo
 	// enableAlignmentCompression controls whether to merge contiguous series with
 	// the same channel key during encoding. When enabled, reduces bandwidth at the
 	// cost of some CPU overhead during encoding.
@@ -313,11 +313,17 @@ func newFlags() flags {
 	}
 }
 
-// Encode encodes the given frame into bytes.
+// Encode encodes the given frame into bytes. The returned byte slice is a copy
+// and safe to retain after subsequent Encode calls.
 func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
-	w := bytes.NewBuffer([]byte{})
-	err := c.EncodeStream(ctx, w, src)
-	return w.Bytes(), err
+	err := c.encodeInternal(ctx, src)
+	if err != nil {
+		return nil, err
+	}
+	// Return a copy of the internal buffer to avoid aliasing issues
+	result := make([]byte, len(c.buf.Bytes()))
+	copy(result, c.buf.Bytes())
+	return result, nil
 }
 
 func (c *Codec) panicIfNotUpdated(opName string) {
@@ -341,23 +347,29 @@ type mergedSeriesInfo struct {
 }
 
 // mergeContiguousSeries processes sorted series and merges those with the same key
-// and contiguous alignments. Returns the merged series info and updates the codec's
-// merge buffer.
+// and contiguous alignments. Returns the merged series info using the codec's reusable
+// result slice. NOTE: The returned slice is reused across calls, so callers must not
+// hold references to it beyond the current encode operation.
 func (c *Codec) mergeContiguousSeries(
 	sortedKeys []channel.Key,
 	sortedIndices []int,
 	src framer.Frame,
 	count int,
 ) []mergedSeriesInfo {
+	// Reuse the result slice, growing capacity only if needed
+	if cap(c.mergedSeriesResult) < count {
+		c.mergedSeriesResult = make([]mergedSeriesInfo, 0, count)
+	}
+	c.mergedSeriesResult = c.mergedSeriesResult[:0]
+
 	if count == 0 {
-		return nil
+		return c.mergedSeriesResult
 	}
 
 	// Slice arrays to actual size to avoid reading old data
 	sortedKeys = sortedKeys[:count]
 	sortedIndices = sortedIndices[:count]
 
-	result := make([]mergedSeriesInfo, 0, count)
 	i := 0
 
 	for i < count {
@@ -394,12 +406,13 @@ func (c *Codec) mergeContiguousSeries(
 			// If only one series in this run, append it directly
 			if runEnd-runStart == 1 {
 				rawIdx := sortedIndices[runStart]
-				result = append(result, mergedSeriesInfo{
+				c.mergedSeriesResult = append(c.mergedSeriesResult, mergedSeriesInfo{
 					series: src.RawSeriesAt(rawIdx),
 					key:    key,
 				})
 			} else {
 				// Multiple contiguous series - merge them
+				// First pass: calculate total size
 				totalSize := 0
 				for k := runStart; k < runEnd; k++ {
 					rawIdx := sortedIndices[k]
@@ -407,15 +420,13 @@ func (c *Codec) mergeContiguousSeries(
 					totalSize += len(s.Data)
 				}
 
-				// Ensure merge buffer is large enough
-				if cap(c.mergeBuf) < totalSize {
-					c.mergeBuf = make([]byte, totalSize)
-				}
-				c.mergeBuf = c.mergeBuf[:totalSize]
-
-				// Copy all series data into merge buffer
-				offset := 0
-				var mergedSeries telem.Series
+				// Allocate merged data buffer directly (no intermediate buffer)
+				var (
+					mergedData = make([]byte, totalSize)
+					// Copy all series data directly into final buffer
+					offset       = 0
+					mergedSeries telem.Series
+				)
 				for k := runStart; k < runEnd; k++ {
 					rawIdx := sortedIndices[k]
 					s := src.RawSeriesAt(rawIdx)
@@ -437,17 +448,13 @@ func (c *Codec) mergeContiguousSeries(
 						}
 					}
 
-					copy(c.mergeBuf[offset:], s.Data)
+					copy(mergedData[offset:], s.Data)
 					offset += len(s.Data)
 				}
 
-				// Create a copy of the merged data for the series
-				// (we can't use mergeBuf directly as it will be reused)
-				mergedData := make([]byte, totalSize)
-				copy(mergedData, c.mergeBuf[:totalSize])
 				mergedSeries.Data = mergedData
 
-				result = append(result, mergedSeriesInfo{
+				c.mergedSeriesResult = append(c.mergedSeriesResult, mergedSeriesInfo{
 					series: mergedSeries,
 					key:    key,
 				})
@@ -459,7 +466,7 @@ func (c *Codec) mergeContiguousSeries(
 		i = groupEnd
 	}
 
-	return result
+	return c.mergedSeriesResult
 }
 
 const (
@@ -470,6 +477,16 @@ const (
 // EncodeStream encodes the given frame into the provided io writer, returning any
 // encoding errors encountered.
 func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame) (err error) {
+	if err = c.encodeInternal(ctx, src); err != nil {
+		return err
+	}
+	_, err = w.Write(c.buf.Bytes())
+	return err
+}
+
+// encodeInternal encodes the frame into c.buf. After calling this method,
+// c.buf.Bytes() contains the encoded data.
+func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) (err error) {
 	c.encodeSorter.reset(src.Count())
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
@@ -504,7 +521,8 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 	// Sort by (key, alignment, rawIndex) using pre-extracted data for cache efficiency
 	c.encodeSorter.sort()
 
-	// Merge contiguous series with the same key if enabled
+	// Merge contiguous series with the same key if enabled, otherwise just
+	// create series info directly. In both cases, we reuse c.mergedSeriesResult.
 	var mergedSeries []mergedSeriesInfo
 	if c.enableAlignmentCompression {
 		mergedSeries = c.mergeContiguousSeries(
@@ -514,15 +532,20 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 			c.encodeSorter.offset,
 		)
 	} else {
-		// No merging - create series info directly from sorted data
-		mergedSeries = make([]mergedSeriesInfo, 0, c.encodeSorter.offset)
-		for i := 0; i < c.encodeSorter.offset; i++ {
+		// No merging - create series info directly from sorted data using reusable slice
+		count := c.encodeSorter.offset
+		if cap(c.mergedSeriesResult) < count {
+			c.mergedSeriesResult = make([]mergedSeriesInfo, 0, count)
+		}
+		c.mergedSeriesResult = c.mergedSeriesResult[:0]
+		for i := 0; i < count; i++ {
 			rawIdx := c.encodeSorter.rawIndices[i]
-			mergedSeries = append(mergedSeries, mergedSeriesInfo{
+			c.mergedSeriesResult = append(c.mergedSeriesResult, mergedSeriesInfo{
 				series: src.RawSeriesAt(rawIdx),
 				key:    c.encodeSorter.keys[i],
 			})
 		}
+		mergedSeries = c.mergedSeriesResult
 	}
 
 	// Calculate flags and byte size based on merged series
@@ -628,8 +651,7 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 		}
 	}
 
-	_, err = w.Write(c.buf.Bytes())
-	return err
+	return nil
 }
 
 // Decode decodes a frame from the given src bytes.
