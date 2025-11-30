@@ -93,9 +93,7 @@ class Streamer:
             _Request(
                 keys=self._adapter.keys,
                 downsample_factor=self._downsample_factor,
-                throttle_rate_hz=(
-                    self._throttle_rate if self._throttle_rate > 0 else None
-                ),
+                throttle_rate_hz=self._throttle_rate,
             )
         )
         _, exc = self._stream.receive()
@@ -158,9 +156,7 @@ class Streamer:
             _Request(
                 keys=self._adapter.keys,
                 downsample_factor=self._downsample_factor,
-                throttle_rate_hz=(
-                    self._throttle_rate if self._throttle_rate > 0 else None
-                ),
+                throttle_rate_hz=self._throttle_rate,
             )
         )
 
@@ -247,9 +243,7 @@ class AsyncStreamer:
             _Request(
                 keys=self._adapter.keys,
                 downsample_factor=self._downsample_factor,
-                throttle_rate_hz=(
-                    self._throttle_rate if self._throttle_rate > 0 else None
-                ),
+                throttle_rate_hz=self._throttle_rate,
             )
         )
         _, exc = await self._stream.receive()
