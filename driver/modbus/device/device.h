@@ -160,7 +160,7 @@ struct ConnectionConfig {
 /// @brief controls access and caches connections to Modbus servers.
 class Manager {
     /// @brief mutex to protect access to the devices map.
-    mutable std::mutex mu;
+    std::mutex mu;
     /// @brief the current set of open Modbus servers.
     std::unordered_map<std::string, std::weak_ptr<Device>> devices;
 
