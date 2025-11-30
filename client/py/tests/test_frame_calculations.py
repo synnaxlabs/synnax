@@ -1400,12 +1400,8 @@ class TestCalculationsAcrossDomains:
         )
 
         # Verify calc and index alignments match within each domain
-        assert (
-            calc_multi.series[0].alignment == idx_multi.series[0].alignment
-        )
-        assert (
-            calc_multi.series[1].alignment == idx_multi.series[1].alignment
-        )
+        assert calc_multi.series[0].alignment == idx_multi.series[0].alignment
+        assert calc_multi.series[1].alignment == idx_multi.series[1].alignment
 
     def test_nested_calculation_2_level_across_domains(self, client: sy.Synnax):
         """Should correctly handle 2-level nested calculations across domains
@@ -1946,9 +1942,7 @@ class TestCalculationsAcrossDomains:
         # Verify domain 0
         assert calc_multi.series[0].alignment.domain_index == 0
         assert calc_multi.series[0].alignment.sample_index == 0
-        assert np.allclose(
-            calc_multi.series[0], np.array([2.0, 4.0], dtype=np.float32)
-        )
+        assert np.allclose(calc_multi.series[0], np.array([2.0, 4.0], dtype=np.float32))
 
         # Verify domain 1
         assert calc_multi.series[1].alignment.domain_index == 1
@@ -2229,19 +2223,13 @@ class TestCalculationsAcrossDomains:
         assert calc_multi.series[2].alignment.domain_index == 2
 
         # Domain 0: [3, 4] -> [0, 0]
-        assert np.allclose(
-            calc_multi.series[0], np.array([0.0, 0.0], dtype=np.float32)
-        )
+        assert np.allclose(calc_multi.series[0], np.array([0.0, 0.0], dtype=np.float32))
 
         # Domain 1: [6, 7] -> [1, 1]
-        assert np.allclose(
-            calc_multi.series[1], np.array([1.0, 1.0], dtype=np.float32)
-        )
+        assert np.allclose(calc_multi.series[1], np.array([1.0, 1.0], dtype=np.float32))
 
         # Domain 2: [2, 10] -> [0, 1]
-        assert np.allclose(
-            calc_multi.series[2], np.array([0.0, 1.0], dtype=np.float32)
-        )
+        assert np.allclose(calc_multi.series[2], np.array([0.0, 1.0], dtype=np.float32))
 
         # Verify calc and index alignments match
         for i in range(3):

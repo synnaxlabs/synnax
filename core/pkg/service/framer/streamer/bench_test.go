@@ -175,7 +175,11 @@ func BenchmarkStreamerCalc_Throughput(b *testing.B) {
 	if err != nil {
 		b.Fatalf("failed to open writer: %v", err)
 	}
-	defer w.Close()
+	defer func() {
+		if err := w.Close(); err != nil {
+			b.Errorf("failed to close writer: %v", err)
+		}
+	}()
 
 	s, err := env.streamerSvc.New(env.ctx, streamer.Config{
 		Keys:        keys,
@@ -227,7 +231,11 @@ func BenchmarkStreamerCalc_WithDownsample(b *testing.B) {
 			if err != nil {
 				b.Fatalf("failed to open writer: %v", err)
 			}
-			defer w.Close()
+			defer func() {
+				if err := w.Close(); err != nil {
+					b.Errorf("failed to close writer: %v", err)
+				}
+			}()
 
 			s, err := env.streamerSvc.New(env.ctx, streamer.Config{
 				Keys:             keys,
@@ -281,7 +289,11 @@ func BenchmarkStreamerCalc_WithCalculation(b *testing.B) {
 	if err != nil {
 		b.Fatalf("failed to open writer: %v", err)
 	}
-	defer w.Close()
+	defer func() {
+		if err := w.Close(); err != nil {
+			b.Errorf("failed to close writer: %v", err)
+		}
+	}()
 
 	s, err := env.streamerSvc.New(env.ctx, streamer.Config{
 		Keys:        []channel.Key{calc.Key()},
@@ -347,7 +359,11 @@ func BenchmarkStreamerCalc_FrameSize(b *testing.B) {
 			if err != nil {
 				b.Fatalf("failed to open writer: %v", err)
 			}
-			defer w.Close()
+			defer func() {
+				if err := w.Close(); err != nil {
+					b.Errorf("failed to close writer: %v", err)
+				}
+			}()
 
 			s, err := env.streamerSvc.New(env.ctx, streamer.Config{
 				Keys:        keys,
@@ -410,7 +426,11 @@ func BenchmarkStreamerCalc_CalculationChain(b *testing.B) {
 			if err != nil {
 				b.Fatalf("failed to open writer: %v", err)
 			}
-			defer w.Close()
+			defer func() {
+				if err := w.Close(); err != nil {
+					b.Errorf("failed to close writer: %v", err)
+				}
+			}()
 
 			s, err := env.streamerSvc.New(env.ctx, streamer.Config{
 				Keys:        []channel.Key{finalCalc.Key()},

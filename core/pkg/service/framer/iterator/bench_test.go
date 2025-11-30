@@ -196,7 +196,11 @@ func BenchmarkIteratorCalc_SingleResponse(b *testing.B) {
 	if err != nil {
 		b.Fatalf("failed to open iterator: %v", err)
 	}
-	defer iter.Close()
+	defer func() {
+		if err := iter.Close(); err != nil {
+			b.Errorf("failed to close iterator: %v", err)
+		}
+	}()
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -231,7 +235,11 @@ func BenchmarkIteratorCalc_ManyChannels(b *testing.B) {
 			if err != nil {
 				b.Fatalf("failed to open iterator: %v", err)
 			}
-			defer iter.Close()
+			defer func() {
+				if err := iter.Close(); err != nil {
+					b.Errorf("failed to close iterator: %v", err)
+				}
+			}()
 
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -268,7 +276,11 @@ func BenchmarkIteratorCalc_LargeFrames(b *testing.B) {
 			if err != nil {
 				b.Fatalf("failed to open iterator: %v", err)
 			}
-			defer iter.Close()
+			defer func() {
+				if err := iter.Close(); err != nil {
+					b.Errorf("failed to close iterator: %v", err)
+				}
+			}()
 
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -312,7 +324,11 @@ func BenchmarkIteratorCalc_CalculatorChain(b *testing.B) {
 			if err != nil {
 				b.Fatalf("failed to open iterator: %v", err)
 			}
-			defer iter.Close()
+			defer func() {
+				if err := iter.Close(); err != nil {
+					b.Errorf("failed to close iterator: %v", err)
+				}
+			}()
 
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -392,7 +408,11 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 			if err != nil {
 				b.Fatalf("failed to open iterator: %v", err)
 			}
-			defer iter.Close()
+			defer func() {
+				if err := iter.Close(); err != nil {
+					b.Errorf("failed to close iterator: %v", err)
+				}
+			}()
 
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -426,7 +446,11 @@ func BenchmarkIteratorCalc_TwoInputAdd(b *testing.B) {
 	if err != nil {
 		b.Fatalf("failed to open iterator: %v", err)
 	}
-	defer iter.Close()
+	defer func() {
+		if err := iter.Close(); err != nil {
+			b.Errorf("failed to close iterator: %v", err)
+		}
+	}()
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -464,7 +488,11 @@ func BenchmarkIteratorCalc_MixedConcreteAndCalc(b *testing.B) {
 	if err != nil {
 		b.Fatalf("failed to open iterator: %v", err)
 	}
-	defer iter.Close()
+	defer func() {
+		if err := iter.Close(); err != nil {
+			b.Errorf("failed to close iterator: %v", err)
+		}
+	}()
 
 	b.ReportAllocs()
 	b.ResetTimer()
