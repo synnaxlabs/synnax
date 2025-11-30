@@ -328,7 +328,10 @@ class Client:
         )
 
     async def open_async_streamer(
-        self, channels: ChannelParams, downsample_factor: int = 1, throttle_rate: float = 0
+        self,
+        channels: ChannelParams,
+        downsample_factor: int = 1,
+        throttle_rate: float = 0,
     ) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)

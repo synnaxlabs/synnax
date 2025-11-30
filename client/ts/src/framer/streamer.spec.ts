@@ -135,7 +135,7 @@ describe("Streamer", () => {
           // Read frames - should be throttled
           const receivedFrames: Frame[] = [];
           const timeout = Date.now() + 500;
-          while (Date.now() < timeout) {
+          while (Date.now() < timeout)
             try {
               const frame = await Promise.race([
                 streamer.read(),
@@ -146,7 +146,6 @@ describe("Streamer", () => {
             } catch {
               break;
             }
-          }
 
           expect(receivedFrames.length).toBeGreaterThan(0);
           const elapsed = Date.now() - startTime;
