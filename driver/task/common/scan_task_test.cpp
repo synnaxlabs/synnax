@@ -29,7 +29,9 @@ public:
     size_t stop_count = 0;
     std::vector<xerrors::Error> stop_errors;
 
-    common::ScannerConfig config() const override { return common::ScannerConfig{}; }
+    common::ScannerConfig config() const override {
+        return common::ScannerConfig{.make = "", .log_prefix = "[mock] "};
+    }
 
     MockScanner(
         const std::vector<std::vector<synnax::Device>> &devices_,
@@ -433,7 +435,7 @@ TEST(TestScanTask, TestStatePropagation) {
 
 /// @brief Tests that unknown commands are delegated to scanner->exec().
 TEST(TestScanTask, testCustomCommandDelegation) {
-    common::ScannerConfig cfg{.make = "test"};
+    common::ScannerConfig cfg{.make = "test", .log_prefix = "[test] "};
     auto scanner = std::make_unique<MockScannerWithSignals>(cfg);
     auto scanner_ptr = scanner.get();
     scanner_ptr->exec_return_value = true;
@@ -566,7 +568,7 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     cluster_api->streamer_factory = streamer_factory;
     cluster_api->signal_channels = {device_set_ch, device_delete_ch};
 
-    common::ScannerConfig cfg{.make = "test_make"};
+    common::ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 
@@ -639,7 +641,7 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     cluster_api->streamer_factory = streamer_factory;
     cluster_api->signal_channels = {device_set_ch, device_delete_ch};
 
-    common::ScannerConfig cfg{.make = "test_make"};
+    common::ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 
@@ -708,7 +710,7 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     cluster_api->signal_channels = {device_set_ch, device_delete_ch};
 
     // Scanner expects "test_make" but device has "other_make"
-    common::ScannerConfig cfg{.make = "test_make"};
+    common::ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 
