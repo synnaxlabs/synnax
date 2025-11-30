@@ -37,6 +37,8 @@ struct ScannerContext {
 struct ScannerConfig {
     /// @brief The make/integration name for device filtering (e.g., "opc", "ni").
     std::string make;
+    /// @brief Log prefix for this scanner (e.g., "ni.scan_task", "opc.scan_task").
+    std::string log_prefix = "scan_task";
 };
 
 struct Scanner {
@@ -144,6 +146,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, synnax::Device> dev_states;
+    std::string log_prefix;
 
     // Signal monitoring infrastructure
     synnax::Channel device_set_channel;
@@ -184,8 +187,9 @@ class ScanTask final : public task::Task, public pipeline::Base {
         if (open_err) return open_err;
         this->signal_streamer = std::move(s);
         this->signal_thread = std::thread([this]() { this->signal_thread_run(); });
-        LOG(INFO) << "[scan_task] started signal monitoring for devices with make: "
-                  << this->scanner->config().make;
+        VLOG(1) << this->log_prefix
+                << "started signal monitoring for devices with make: "
+                << this->scanner->config().make;
         return xerrors::NIL;
     }
 
@@ -216,15 +220,15 @@ class ScanTask final : public task::Task, public pipeline::Base {
                         auto parser = xjson::Parser(dev_json);
                         auto parsed_dev = synnax::Device::parse(parser);
                         if (parser.error()) {
-                            LOG(WARNING) << "[scan_task] failed to parse device JSON: "
-                                         << parser.error();
+                            LOG(WARNING)
+                                << this->log_prefix
+                                << "failed to parse device JSON: " << parser.error();
                             continue;
                         }
                         auto [dev, err] = this->client->retrieve_device(parsed_dev.key);
                         if (err) {
-                            LOG(WARNING)
-                                << "[scan_task] failed to retrieve device JSON: "
-                                << err;
+                            LOG(WARNING) << this->log_prefix
+                                         << "failed to retrieve device JSON: " << err;
                             continue;
                         }
                         if (dev.make != make || dev.rack != rack_key) continue;
@@ -241,7 +245,8 @@ class ScanTask final : public task::Task, public pipeline::Base {
         } while (true);
         std::lock_guard lock(this->mu);
         if (auto err = this->signal_streamer->close())
-            LOG(ERROR) << "[scan_task] failed to close signal streamer: " << err;
+            LOG(ERROR) << this->log_prefix
+                       << "failed to close signal streamer: " << err;
         this->signal_streamer = nullptr;
     }
 
@@ -259,7 +264,8 @@ public:
         timer(scan_rate),
         scanner(std::move(scanner)),
         ctx(ctx),
-        client(std::move(client)) {
+        client(std::move(client)),
+        log_prefix("[" + this->scanner->config().log_prefix + "] ") {
         this->key = task.key;
         this->status.key = task.status_key();
         this->status.name = task.name;
@@ -311,7 +317,8 @@ public:
         }
 
         if (const auto err = this->start_signal_monitoring())
-            LOG(WARNING) << "[scan_task] failed to start signal monitoring: " << err;
+            LOG(WARNING) << this->log_prefix
+                         << "failed to start signal monitoring: " << err;
 
         this->status.variant = status::variant::SUCCESS;
         this->status.message = "Scan task started";
@@ -321,7 +328,8 @@ public:
                 this->status.variant = status::variant::WARNING;
                 this->status.message = err.message();
                 this->ctx->set_status(this->status);
-                LOG(WARNING) << "[scan_task] failed to scan for devices: " << err;
+                LOG(WARNING) << this->log_prefix
+                             << "failed to scan for devices: " << err;
             }
             this->timer.wait(this->breaker);
         }
@@ -354,7 +362,7 @@ public:
         }
         // Delegate unknown commands to scanner
         if (this->scanner->exec(cmd, this->task, this->ctx)) return;
-        LOG(ERROR) << "[scan_task] unknown command type: " << cmd.type;
+        LOG(ERROR) << this->log_prefix << "unknown command type: " << cmd.type;
     }
 
     xerrors::Error scan() {
@@ -386,7 +394,7 @@ public:
                 const auto remote_dev = iter->second;
                 if (scanned_dev.rack != remote_dev.rack &&
                     this->update_threshold_exceeded(scanned_dev.key)) {
-                    LOG(INFO) << "[scan_task] taking ownership over device";
+                    LOG(INFO) << this->log_prefix << "taking ownership over device";
                     scanned_dev.properties = remote_dev.properties;
                     scanned_dev.name = remote_dev.name;
                     scanned_dev.configured = remote_dev.configured;
@@ -408,7 +416,8 @@ public:
         }
 
         if (const auto state_err = this->client->update_statuses(statuses))
-            LOG(ERROR) << "[scan_task] failed to propagate statuses: " << state_err;
+            LOG(ERROR) << this->log_prefix
+                       << "failed to propagate statuses: " << state_err;
 
         if (to_create.empty()) return xerrors::NIL;
 
@@ -416,11 +425,12 @@ public:
         for (auto &device: to_create) {
             std::vector single_device = {device};
             if (const auto create_err = this->client->create_devices(single_device)) {
-                LOG(WARNING) << "[scan_task] failed to create device " << device.key
-                             << ": " << create_err;
+                LOG(WARNING) << this->log_prefix << "failed to create device "
+                             << device.key << ": " << create_err;
                 last_err = create_err;
             } else
-                LOG(INFO) << "[scan_task] successfully created device " << device.key;
+                LOG(INFO) << this->log_prefix << "successfully created device "
+                          << device.key;
         }
         return last_err;
     }

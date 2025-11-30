@@ -52,7 +52,7 @@ class Scanner final : public common::Scanner {
     std::shared_ptr<device::Manager> device_manager;
 
     common::ScannerConfig config() const override {
-        return common::ScannerConfig{.make = MAKE};
+        return common::ScannerConfig{.make = MAKE, .log_prefix = "labjack.scan_task"};
     }
 
     /// @brief scans for devices with the given type and connection

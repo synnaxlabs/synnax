@@ -20,6 +20,7 @@ ni::Scanner::Scanner(
     cfg(std::move(cfg)), task(std::move(task)), syscfg(syscfg) {}
 
 const auto SKIP_DEVICE_ERR = xerrors::Error("ni.skip_device", "");
+const std::string SCAN_LOG_PREFIX = "[ni.scan_task] ";
 
 std::pair<ni::Device, xerrors::Error>
 ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
@@ -36,34 +37,33 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         ))
         return {dev, err};
     dev.is_simulated = is_simulated;
-    VLOG(1) << "[ni.scan_task] processing device resource: " << resource;
-    VLOG(1) << "[ni.scan_task] device rack: " << dev.rack;
+    VLOG(1) << SCAN_LOG_PREFIX << "processing device resource: " << resource;
+    VLOG(1) << SCAN_LOG_PREFIX << "device rack: " << dev.rack;
 
     if (!is_simulated) {
-        VLOG(1) << "[ni.scan_task] physical device detected";
+        VLOG(1) << SCAN_LOG_PREFIX << "physical device detected";
         if (const auto err = this->syscfg->GetResourceProperty(
                 resource,
                 NISysCfgResourcePropertySerialNumber,
                 property_value_buf
             )) {
-            LOG(
-                WARNING
-            ) << "[ni.scan_task] physical device missing serial number, skipping: "
-              << err.message();
+            LOG(WARNING) << SCAN_LOG_PREFIX
+                         << "physical device missing serial number, skipping: "
+                         << err.message();
             return {Device(), SKIP_DEVICE_ERR};
         }
         dev.key = property_value_buf;
-        VLOG(1) << "[ni.scan_task] physical device serial number: " << dev.key;
+        VLOG(1) << SCAN_LOG_PREFIX << "physical device serial number: " << dev.key;
     } else
-        VLOG(1) << "[ni.scan_task] Simulated device detected";
+        VLOG(1) << SCAN_LOG_PREFIX << "simulated device detected";
 
     if (const auto err = this->syscfg->GetResourceProperty(
             resource,
             NISysCfgResourcePropertyProductName,
             property_value_buf
         )) {
-        LOG(WARNING) << "[ni.scan_task] device missing product name, skipping: "
-                     << err.message();
+        LOG(WARNING) << SCAN_LOG_PREFIX
+                     << "device missing product name, skipping: " << err.message();
         return {Device(), SKIP_DEVICE_ERR};
     }
     dev.model = property_value_buf;
@@ -76,10 +76,9 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
             0,
             property_value_buf
         )) {
-        LOG(
-            WARNING
-        ) << "[ni.scan_task] device missing user alias, using empty location: "
-          << err.message();
+        LOG(WARNING) << SCAN_LOG_PREFIX
+                     << "device missing user alias, using empty location: "
+                     << err.message();
         return {Device(), SKIP_DEVICE_ERR};
     }
     dev.location = property_value_buf;
@@ -90,11 +89,11 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
             0,
             property_value_buf
         )) {
-        LOG(WARNING) << "[ni.scan_task] device missing resource name, skipping: "
-                     << err.message();
+        LOG(WARNING) << SCAN_LOG_PREFIX
+                     << "device missing resource name, skipping: " << err.message();
         return {Device(), SKIP_DEVICE_ERR};
     }
-    VLOG(1) << "[ni.scan_task] resource name: " << property_value_buf;
+    VLOG(1) << SCAN_LOG_PREFIX << "resource name: " << property_value_buf;
     dev.resource_name = property_value_buf;
     if (dev.resource_name.size() > 2)
         dev.resource_name = dev.resource_name.substr(1, dev.resource_name.size() - 2);
@@ -114,11 +113,11 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
 
     auto err = xerrors::NIL;
     if (this->cfg.should_ignore(dev.model)) {
-        LOG(WARNING) << "Device ignored by filter: " << dev.key
+        LOG(WARNING) << SCAN_LOG_PREFIX << "device ignored by filter: " << dev.key
                      << " (model: " << dev.model << ")";
         err = SKIP_DEVICE_ERR;
     } else {
-        VLOG(1) << "Device validated successfully: " << dev.key
+        VLOG(1) << SCAN_LOG_PREFIX << "device validated successfully: " << dev.key
                 << " (model: " << dev.model << ")";
     }
     return {dev, err};

@@ -131,52 +131,84 @@ protected:
     }
 };
 
+/// @brief Helper to wait for a task status matching specific criteria.
+synnax::TaskStatus wait_for_task_status(
+    synnax::Streamer &streamer,
+    const synnax::Task &task,
+    const std::function<bool(const synnax::TaskStatus &)> &predicate,
+    const std::chrono::milliseconds timeout = std::chrono::seconds(5)
+) {
+    synnax::TaskStatus result;
+    xtest::eventually(
+        [&]() {
+            auto [frame, err] = streamer.read();
+            if (err) return false;
+            auto json_values = frame.series->at(0).json_values();
+            for (const auto &j: json_values) {
+                auto p = xjson::Parser(j);
+                auto s = synnax::TaskStatus::parse(p);
+                if (s.details.task == task.key && predicate(s)) {
+                    result = s;
+                    return true;
+                }
+            }
+            return false;
+        },
+        [&]() { return "Timed out waiting for task status"; },
+        timeout
+    );
+    return result;
+}
+
 /// @brief it should correctly configure an echo task.
 TEST_F(TaskManagerTestFixture, testEchoTask) {
     auto echo_task = synnax::Task(rack.key, "echo_task", "echo", "");
     ASSERT_NIL(rack.tasks.create(echo_task));
 
-    auto f_1 = ASSERT_NIL_P(this->status_streamer.read());
-    ASSERT_EQ(f_1.size(), 1);
-
-    auto f = ASSERT_NIL_P(this->status_streamer.read());
-    ASSERT_EQ(f.size(), 1);
-    auto state_str = f.at<std::string>(this->status_chan.key, 0);
-    auto parser = xjson::Parser(state_str);
-    auto status = synnax::TaskStatus::parse(parser);
+    // Wait for the successful configuration status
+    auto status = wait_for_task_status(
+        this->status_streamer,
+        echo_task,
+        [](const synnax::TaskStatus &s) {
+            return s.variant == status::variant::SUCCESS &&
+                   s.message == "task configured successfully";
+        }
+    );
     ASSERT_EQ(status.details.task, echo_task.key);
     ASSERT_EQ(status.variant, status::variant::SUCCESS);
     ASSERT_EQ(status.message, "task configured successfully");
-    ASSERT_NIL(this->status_streamer.close());
 }
 
 /// @brief it should stop and remove the task.
 TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
-    auto streamer = ASSERT_NIL_P(client->telem.open_streamer(
-        synnax::StreamerConfig{.channels = {this->status_chan.key}}
-    ));
-
     auto echo_task = synnax::Task(rack.key, "echo_task", "echo", "");
     ASSERT_NIL(rack.tasks.create(echo_task));
 
     // Wait for task to be configured
-    auto f1 = ASSERT_NIL_P(streamer.read());
-    auto f2 = ASSERT_NIL_P(streamer.read());
+    wait_for_task_status(
+        this->status_streamer,
+        echo_task,
+        [](const synnax::TaskStatus &s) {
+            return s.variant == status::variant::SUCCESS &&
+                   s.message == "task configured successfully";
+        }
+    );
 
     // Delete the task
     ASSERT_NIL(rack.tasks.del(echo_task.key));
 
-    // Read the stop state
-    auto f3 = ASSERT_NIL_P(streamer.read());
-    ASSERT_EQ(f3.size(), 1);
-    auto state_str = f3.at<std::string>(this->status_chan.key, 0);
-    auto parser = xjson::Parser(state_str);
-    auto state = synnax::TaskStatus::parse(parser);
+    // Wait for the stop status
+    auto state = wait_for_task_status(
+        this->status_streamer,
+        echo_task,
+        [](const synnax::TaskStatus &s) {
+            return s.variant == status::variant::SUCCESS &&
+                   s.message == "task stopped successfully";
+        }
+    );
     ASSERT_EQ(state.details.task, echo_task.key);
     ASSERT_EQ(state.variant, status::variant::SUCCESS);
     ASSERT_EQ(state.message, "task stopped successfully");
-    auto close_err = streamer.close();
-    ASSERT_FALSE(close_err) << close_err;
 }
 
 /// @brief it should execute an echo command on the task.
@@ -192,8 +224,14 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     ASSERT_NIL(rack.tasks.create(echo_task));
 
     // Wait for task to be configured
-    auto f1 = ASSERT_NIL_P(this->status_streamer.read());
-    auto f2 = ASSERT_NIL_P(this->status_streamer.read());
+    wait_for_task_status(
+        this->status_streamer,
+        echo_task,
+        [](const synnax::TaskStatus &s) {
+            return s.variant == status::variant::SUCCESS &&
+                   s.message == "task configured successfully";
+        }
+    );
 
     // Create and send a command
     auto cmd = task::Command(
@@ -207,12 +245,12 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     );
     ASSERT_NIL(writer.close());
 
-    // Read the command execution state
-    auto f3 = ASSERT_NIL_P(this->status_streamer.read());
-    ASSERT_EQ(f2.size(), 1);
-    auto state_str = f3.at<std::string>(this->status_chan.key, 0);
-    auto parser = xjson::Parser(state_str);
-    auto status = synnax::TaskStatus::parse(parser);
+    // Wait for command execution status
+    auto status = wait_for_task_status(
+        this->status_streamer,
+        echo_task,
+        [&cmd](const synnax::TaskStatus &s) { return s.details.cmd == cmd.key; }
+    );
     ASSERT_EQ(status.details.task, echo_task.key);
     ASSERT_EQ(status.key, echo_task.status_key());
     ASSERT_EQ(status.details.cmd, cmd.key);
@@ -258,21 +296,28 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
     ASSERT_NIL(rack.tasks.create(echo_task));
 
     // Wait for task to be configured
-    auto f1 = ASSERT_NIL_P(this->status_streamer.read());
-    auto f2 = ASSERT_NIL_P(this->status_streamer.read());
+    wait_for_task_status(
+        this->status_streamer,
+        echo_task,
+        [](const synnax::TaskStatus &s) {
+            return s.variant == status::variant::SUCCESS &&
+                   s.message == "task configured successfully";
+        }
+    );
 
     // Stop the task manager
     task_manager->stop();
     task_thread.join();
 
-    // Verify that the task was stopped
-    auto f3 = ASSERT_NIL_P(this->status_streamer.read());
-    ASSERT_EQ(f2.size(), 1);
-
-    auto state_str = f3.at<std::string>(this->status_chan.key, 0);
-    auto parser = xjson::Parser(state_str);
-    auto state = synnax::TaskStatus::parse(parser);
-
+    // Wait for the stop status
+    auto state = wait_for_task_status(
+        this->status_streamer,
+        echo_task,
+        [](const synnax::TaskStatus &s) {
+            return s.variant == status::variant::SUCCESS &&
+                   s.message == "task stopped successfully";
+        }
+    );
     ASSERT_EQ(state.details.task, echo_task.key);
     ASSERT_EQ(state.variant, status::variant::SUCCESS);
     ASSERT_EQ(state.message, "task stopped successfully");

@@ -136,7 +136,7 @@ class Scanner final : public common::Scanner {
     parse_device(NISysCfgResourceHandle resource) const;
 
     common::ScannerConfig config() const override {
-        return common::ScannerConfig{.make = MAKE};
+        return common::ScannerConfig{.make = MAKE, .log_prefix = "ni.scan_task"};
     }
 
 public:

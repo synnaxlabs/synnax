@@ -27,6 +27,7 @@
 #include "driver/task/common/status.h"
 
 namespace opc {
+const std::string SCAN_LOG_PREFIX = "[opc.scan_task] ";
 Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
     synnax::Task task,
@@ -39,7 +40,10 @@ Scanner::Scanner(
     cfg(cfg) {}
 
 common::ScannerConfig Scanner::config() const {
-    return common::ScannerConfig{.make = INTEGRATION_NAME};
+    return common::ScannerConfig{
+        .make = INTEGRATION_NAME,
+        .log_prefix = "opc.scan_task"
+    };
 }
 
 std::pair<std::vector<synnax::Device>, xerrors::Error>
@@ -48,8 +52,8 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     if (scan_ctx.devices == nullptr) return {devices, xerrors::NIL};
     for (auto [key, dev]: *scan_ctx.devices) {
         if (const auto err = this->check_device_health(dev); err)
-            LOG(WARNING) << "[opc.scanner] health check failed for " << dev.name << ": "
-                         << err;
+            LOG(WARNING) << SCAN_LOG_PREFIX << "health check failed for " << dev.name
+                         << ": " << err;
         devices.push_back(dev);
     }
     return {devices, xerrors::NIL};
@@ -88,10 +92,7 @@ xerrors::Error Scanner::check_device_health(synnax::Device &dev) const {
         return parser.error();
     }
 
-    auto [conn, conn_err] = this->conn_pool->acquire(
-        props.connection,
-        "[opc.scanner] "
-    );
+    auto [conn, conn_err] = this->conn_pool->acquire(props.connection, SCAN_LOG_PREFIX);
     if (conn_err)
         dev.status = synnax::DeviceStatus{
             .key = dev.status_key(),
@@ -158,7 +159,7 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
         data_type = telem::ua_to_data_type(value.type);
         is_array = !UA_Variant_isScalar(&value);
     } else if (cls == UA_NODECLASS_VARIABLE)
-        LOG(ERROR) << "[opc.scanner] No value for " << name;
+        LOG(ERROR) << "[opc.scan_task] no value for " << name;
     ctx->channels->emplace_back(
         data_type,
         name,
@@ -184,7 +185,7 @@ void Scanner::browse_nodes(const task::Command &cmd) const {
         return ctx->set_status(status);
     }
 
-    auto [connection, err] = conn_pool->acquire(args.connection, "[opc.scanner] ");
+    auto [connection, err] = conn_pool->acquire(args.connection, SCAN_LOG_PREFIX);
     if (err) {
         status.variant = status::variant::ERR;
         status.message = err.message();
@@ -227,7 +228,7 @@ void Scanner::test_connection(const task::Command &cmd) const {
         status.details.data = parser.error_json();
         return ctx->set_status(status);
     }
-    auto [client, err] = connect(args.connection, "[opc.scanner] ");
+    auto [client, err] = connect(args.connection, SCAN_LOG_PREFIX);
     if (err) {
         status.message = err.data;
         return ctx->set_status(status);
