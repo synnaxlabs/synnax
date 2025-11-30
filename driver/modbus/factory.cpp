@@ -7,12 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "x/cpp/breaker/breaker.h"
+#include "x/cpp/xjson/xjson.h"
+
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/modbus.h"
 #include "driver/modbus/read_task.h"
 #include "driver/modbus/scan_task.h"
 #include "driver/modbus/write_task.h"
 #include "driver/task/common/factory.h"
+#include "driver/task/common/scan_task.h"
 
 namespace modbus {
 const std::string READ_TASK_TYPE = INTEGRATION_NAME + "_read";
@@ -45,8 +49,17 @@ std::pair<common::ConfigureResult, xerrors::Error> configure_scan(
     const synnax::Task &task
 ) {
     common::ConfigureResult result;
-    result.task = std::make_unique<ScanTask>(ctx, task, devs);
-    result.auto_start = true;
+    auto parser = xjson::Parser(task.config);
+    auto cfg = ScannerConfig(parser);
+    if (parser.error()) return {std::move(result), parser.error()};
+    result.task = std::make_unique<common::ScanTask>(
+        std::make_unique<Scanner>(ctx, task, devs, cfg),
+        ctx,
+        task,
+        breaker::default_config(task.name),
+        cfg.health_check_rate
+    );
+    result.auto_start = cfg.enabled;
     return {std::move(result), xerrors::NIL};
 }
 

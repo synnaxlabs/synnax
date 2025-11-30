@@ -12,9 +12,10 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/xtest/xtest.h"
+
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/mock/slave.h"
-#include "x/cpp/xtest/xtest.h"
 
 /// @brief Tests that the Manager correctly reuses cached connections.
 /// This test verifies that acquiring the same connection twice returns
@@ -23,7 +24,7 @@ TEST(ManagerTest, ConnectionCacheReusesConnections) {
     // Start a mock slave to connect to
     modbus::mock::SlaveConfig slave_config;
     slave_config.host = "127.0.0.1";
-    slave_config.port = 1520;  // Use unique port to avoid conflicts
+    slave_config.port = 1520; // Use unique port to avoid conflicts
     modbus::mock::Slave slave(slave_config);
     ASSERT_NIL(slave.start());
 
@@ -56,13 +57,13 @@ TEST(ManagerTest, DifferentPortsGetDifferentConnections) {
     // Start two mock slaves on different ports
     modbus::mock::SlaveConfig slave_config1;
     slave_config1.host = "127.0.0.1";
-    slave_config1.port = 1530;  // Use unique port to avoid conflicts
+    slave_config1.port = 1530; // Use unique port to avoid conflicts
     modbus::mock::Slave slave1(slave_config1);
     ASSERT_NIL(slave1.start());
 
     modbus::mock::SlaveConfig slave_config2;
     slave_config2.host = "127.0.0.1";
-    slave_config2.port = 1531;  // Use unique port to avoid conflicts
+    slave_config2.port = 1531; // Use unique port to avoid conflicts
     modbus::mock::Slave slave2(slave_config2);
     ASSERT_NIL(slave2.start());
 
@@ -130,7 +131,7 @@ TEST(ManagerTest, ConcurrentAcquireIsThreadSafe) {
     }
 
     // Wait for all threads to complete
-    for (auto &t : threads) {
+    for (auto &t: threads) {
         t.join();
     }
 
@@ -138,7 +139,7 @@ TEST(ManagerTest, ConcurrentAcquireIsThreadSafe) {
     EXPECT_EQ(error_count.load(), 0) << "Some acquisitions failed";
     EXPECT_EQ(success_count.load(), 20) << "Not all acquisitions succeeded";
 
-    for (auto &slave : slaves) {
+    for (auto &slave: slaves) {
         slave->stop();
     }
 }
