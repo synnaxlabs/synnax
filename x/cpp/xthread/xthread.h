@@ -16,6 +16,9 @@
 #endif
 
 namespace xthread {
+/// @brief max length for thread names on POSIX systems.
+constexpr size_t MAX_NAME_LEN = 16;
+
 /// @brief sets the name of the current thread. This name will be visible in debuggers
 /// (CLion, Visual Studio, lldb, gdb) and system tools. Thread names are limited to
 /// 15-16 characters on most platforms.
@@ -29,6 +32,24 @@ inline void set_name(const char *name) {
     pthread_setname_np(name);
 #else
     pthread_setname_np(pthread_self(), name);
+#endif
+}
+
+/// @brief gets the name of the current thread.
+/// @param buf buffer to store the thread name.
+/// @param len length of the buffer.
+/// @return true if the name was retrieved successfully, false otherwise.
+inline bool get_name(char *buf, size_t len) {
+#ifdef _WIN32
+    PWSTR wname = nullptr;
+    if (SUCCEEDED(GetThreadDescription(GetCurrentThread(), &wname))) {
+        wcstombs(buf, wname, len);
+        LocalFree(wname);
+        return true;
+    }
+    return false;
+#else
+    return pthread_getname_np(pthread_self(), buf, len) == 0;
 #endif
 }
 }
