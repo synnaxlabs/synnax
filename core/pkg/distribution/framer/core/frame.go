@@ -77,11 +77,8 @@ func (f Frame) SplitByHost(host cluster.NodeKey) (local Frame, remote Frame, fre
 	return local, remote, free
 }
 
-func (f Frame) Extend(frames ...Frame) Frame {
-	for _, frame := range frames {
-		f.Frame = f.Frame.Extend(frame.Frame)
-	}
-	return f
+func (f Frame) Extend(frame Frame) Frame {
+	return Frame{f.Frame.Extend(frame.Frame)}
 }
 
 // ToStorage converts the frame to the storage layer frame format.
@@ -107,20 +104,13 @@ func (f Frame) ShallowCopy() Frame {
 }
 
 // MergeFrames combines multiple frames into a single frame.
-// If the input slice is empty, returns an empty frame.
-// If the input slice contains only one frame, returns that frame.
-// Otherwise, merges all frames by appending their entries.
 func MergeFrames(frames []Frame) (f Frame) {
 	if len(frames) == 0 {
 		return f
 	}
-	if len(frames) == 1 {
-		return frames[0]
-	}
-	for _, frame := range frames {
-		for key, series := range frame.Entries() {
-			f = f.Append(key, series)
-		}
+	f = frames[0]
+	for _, frame := range frames[1:] {
+		f = f.Extend(frame)
 	}
 	return f
 }

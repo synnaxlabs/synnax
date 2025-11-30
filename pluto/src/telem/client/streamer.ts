@@ -149,7 +149,7 @@ export class Streamer {
         ins.L.info("creating new streamer", { keys: arrKeys });
         this.streamer = await this.props.openStreamer({
           channels: arrKeys,
-          throttleRate: THROTTLE_RATE.valueOf(),
+          throttleRate: THROTTLE_RATE,
         });
         this.streamerRunLoop = this.runStreamer(this.streamer);
       }

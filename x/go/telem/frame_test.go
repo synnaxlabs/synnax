@@ -3874,6 +3874,94 @@ var _ = Describe("Frame", func() {
 			Expect(series.Series[0]).To(Equal(telem.NewSeriesV[int32](4, 5, 6)))
 			Expect(series.Series[1]).To(Equal(telem.NewSeriesV[int32](7, 8, 9)))
 		})
+		It("Should return the same frame when extending with no frames", func() {
+			frame := telem.MultiFrame(
+				[]int{1, 2},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+				})
+			extended := frame.Extend()
+			Expect(extended.KeysSlice()).To(Equal([]int{1, 2}))
+			Expect(extended.SeriesSlice()).To(Equal([]telem.Series{
+				telem.NewSeriesV[int32](1, 2, 3),
+				telem.NewSeriesV[int32](4, 5, 6),
+			}))
+		})
+		It("Should extend with multiple frames at once", func() {
+			frame1 := telem.MultiFrame([]int{1}, []telem.Series{telem.NewSeriesV[int32](1)})
+			frame2 := telem.MultiFrame([]int{2}, []telem.Series{telem.NewSeriesV[int32](2)})
+			frame3 := telem.MultiFrame([]int{3}, []telem.Series{telem.NewSeriesV[int32](3)})
+			frame4 := telem.MultiFrame([]int{4}, []telem.Series{telem.NewSeriesV[int32](4)})
+			extended := frame1.Extend(frame2, frame3, frame4)
+			Expect(extended.KeysSlice()).To(Equal([]int{1, 2, 3, 4}))
+			Expect(extended.SeriesSlice()).To(Equal([]telem.Series{
+				telem.NewSeriesV[int32](1),
+				telem.NewSeriesV[int32](2),
+				telem.NewSeriesV[int32](3),
+				telem.NewSeriesV[int32](4),
+			}))
+		})
+		It("Should handle mixed masked and unmasked frames", func() {
+			frame1 := telem.MultiFrame(
+				[]int{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1),
+					telem.NewSeriesV[int32](2),
+					telem.NewSeriesV[int32](3),
+				}).KeepKeys([]int{1, 3})
+			frame2 := telem.MultiFrame(
+				[]int{4, 5},
+				[]telem.Series{
+					telem.NewSeriesV[int32](4),
+					telem.NewSeriesV[int32](5),
+				})
+			frame3 := telem.MultiFrame(
+				[]int{6, 7, 8},
+				[]telem.Series{
+					telem.NewSeriesV[int32](6),
+					telem.NewSeriesV[int32](7),
+					telem.NewSeriesV[int32](8),
+				}).ExcludeKeys([]int{7})
+			extended := frame1.Extend(frame2, frame3)
+			Expect(extended.KeysSlice()).To(Equal([]int{1, 3, 4, 5, 6, 8}))
+		})
+		It("Should work with pre-allocated frames", func() {
+			frame := telem.AllocFrame[int](10)
+			frame = frame.Append(1, telem.NewSeriesV[int32](1))
+			frame2 := telem.MultiFrame([]int{2, 3}, []telem.Series{
+				telem.NewSeriesV[int32](2),
+				telem.NewSeriesV[int32](3),
+			})
+			extended := frame.Extend(frame2)
+			Expect(extended.KeysSlice()).To(Equal([]int{1, 2, 3}))
+			Expect(extended.Count()).To(Equal(3))
+		})
+		It("Should not mutate the source frame's mask", func() {
+			frame1 := telem.MultiFrame([]int{1, 2}, []telem.Series{
+				telem.NewSeriesV[int32](1),
+				telem.NewSeriesV[int32](2),
+			})
+			frame2 := telem.MultiFrame([]int{3, 4, 5}, []telem.Series{
+				telem.NewSeriesV[int32](3),
+				telem.NewSeriesV[int32](4),
+				telem.NewSeriesV[int32](5),
+			}).KeepKeys([]int{3, 5})
+			_ = frame1.Extend(frame2)
+			Expect(frame2.KeysSlice()).To(Equal([]int{3, 5}))
+			Expect(frame2.Count()).To(Equal(2))
+		})
+		It("Should extend an empty frame with a masked frame", func() {
+			empty := telem.Frame[int]{}
+			masked := telem.MultiFrame([]int{1, 2, 3}, []telem.Series{
+				telem.NewSeriesV[int32](1),
+				telem.NewSeriesV[int32](2),
+				telem.NewSeriesV[int32](3),
+			}).KeepKeys([]int{1, 3})
+			extended := empty.Extend(masked)
+			Expect(extended.KeysSlice()).To(Equal([]int{1, 3}))
+			Expect(extended.Count()).To(Equal(2))
+		})
 	})
 
 	Describe("SeriesI", func() {
