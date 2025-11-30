@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, Unreachable } from "@synnaxlabs/freighter";
-import { DataType, id, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { DataType, id, Rate, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";
@@ -484,7 +484,7 @@ describe("Streamer", () => {
       expect(openMock).toHaveBeenCalledWith({
         ...config,
         downsampleFactor: 1,
-        throttleRate: 0,
+        throttleRate: new Rate(0),
       });
       await hardened.update([1, 2, 3]);
       expect(streamer.updateMock).toHaveBeenCalledWith([1, 2, 3]);
