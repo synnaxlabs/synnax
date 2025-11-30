@@ -77,6 +77,7 @@ func (f Frame) SplitByHost(host cluster.NodeKey) (local Frame, remote Frame, fre
 	return local, remote, free
 }
 
+// Extend appends the keys and series from another frame to this frame.
 func (f Frame) Extend(frame Frame) Frame {
 	return Frame{f.Frame.Extend(frame.Frame)}
 }
