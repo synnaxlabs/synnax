@@ -30,6 +30,7 @@
 using json = nlohmann::json;
 
 namespace opc {
+const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
 /// @brief Configuration for the OPC UA scanner.
 struct ScannerConfig {
     /// @brief Rate at which to check device health.

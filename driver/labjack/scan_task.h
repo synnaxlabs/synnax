@@ -21,6 +21,7 @@
 #include "ljm/LJM_Utilities.h"
 
 namespace labjack {
+const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
 /// @brief the default rate for scanning devices
 const auto DEFAULT_SCAN_RATE = telem::Rate(0.5);
 
@@ -52,7 +53,7 @@ class Scanner final : public common::Scanner {
     std::shared_ptr<device::Manager> device_manager;
 
     common::ScannerConfig config() const override {
-        return common::ScannerConfig{.make = MAKE, .log_prefix = "labjack.scan_task"};
+        return common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
     }
 
     /// @brief scans for devices with the given type and connection

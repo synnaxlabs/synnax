@@ -16,10 +16,12 @@
 #include "x/cpp/xjson/xjson.h"
 
 #include "driver/modbus/device/device.h"
+#include "driver/modbus/modbus.h"
 #include "driver/task/common/status.h"
 #include "driver/task/task.h"
 
 namespace modbus {
+const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
 /// @brief arguments for scanning a Modbus server on the network.
