@@ -29,6 +29,8 @@ public:
     size_t stop_count = 0;
     std::vector<xerrors::Error> stop_errors;
 
+    common::ScannerConfig config() const override { return common::ScannerConfig{}; }
+
     MockScanner(
         const std::vector<std::vector<synnax::Device>> &devices_,
         const std::vector<xerrors::Error> &scan_errors_,

@@ -123,7 +123,7 @@ public:
                 status
             );
             err)
-            LOG(ERROR) << "[task.context] failed to write task state update" << err;
+            LOG(ERROR) << "[task.context] failed to write task status update: " << err;
     }
 };
 

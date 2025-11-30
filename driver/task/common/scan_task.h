@@ -155,6 +155,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
     synnax::Channel device_set_channel;
     synnax::Channel device_delete_channel;
     std::unique_ptr<pipeline::Streamer> signal_streamer;
+    std::mutex signal_streamer_mu;
     std::thread signal_thread;
 
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
@@ -196,8 +197,10 @@ class ScanTask final : public task::Task, public pipeline::Base {
 
     /// @brief Stops signal monitoring thread.
     void stop_signal_monitoring() {
-        if (this->signal_streamer == nullptr) return;
-        this->signal_streamer->close_send();
+        {
+            std::lock_guard lock(this->signal_streamer_mu);
+            if (this->signal_streamer != nullptr) this->signal_streamer->close_send();
+        }
         if (this->signal_thread.joinable()) this->signal_thread.join();
     }
 
@@ -247,8 +250,9 @@ class ScanTask final : public task::Task, public pipeline::Base {
                     }
             }
         } while (true);
-        if (const auto err = this->signal_streamer->close())
-            LOG(WARNING) << "[scan_task] error closing signal streamer: " << err;
+        std::lock_guard lock(this->signal_streamer_mu);
+        if (auto err = this->signal_streamer->close())
+            LOG(ERROR) << "[scan_task] failed to close signal streamer: " << err;
         this->signal_streamer = nullptr;
     }
 
