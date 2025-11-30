@@ -98,7 +98,7 @@ TEST(ConnectionTest, disconnectAndReconnect) {
     server_cfg.port = 4841;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4841";
@@ -130,7 +130,7 @@ TEST(ConnectionTest, serverStopDuringConnection) {
     server_cfg.port = 4842;
     auto server = std::make_unique<mock::Server>(server_cfg);
     server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server->wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4842";
@@ -166,7 +166,7 @@ TEST(ConnectionTest, connectionAfterServerRestart) {
 
     auto server = std::make_unique<mock::Server>(server_cfg);
     server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server->wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4844";
@@ -177,11 +177,10 @@ TEST(ConnectionTest, connectionAfterServerRestart) {
 
     server->stop();
     server.reset();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     server = std::make_unique<mock::Server>(server_cfg);
     server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server->wait_until_ready());
 
     auto client2 = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
 
@@ -193,7 +192,7 @@ TEST(ConnectionTest, readAfterDisconnect) {
     server_cfg.port = 4845;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4845";
@@ -219,7 +218,7 @@ TEST(ConnectionTest, multipleDisconnects) {
     server_cfg.port = 4846;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4846";
@@ -240,7 +239,7 @@ TEST(ConnectionTest, invalidUsernamePassword) {
     server_cfg.port = 4847;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4847";
@@ -260,7 +259,7 @@ TEST(ConnectionTest, signModeWithNoEncryptionServer) {
     server_cfg.port = 4848;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4848";
@@ -280,7 +279,7 @@ TEST(ConnectionTest, signAndEncryptModeWithNoEncryptionServer) {
     server_cfg.port = 4849;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4849";
@@ -300,7 +299,7 @@ TEST(ConnectionTest, missingClientCertificate) {
     server_cfg.port = 4850;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4850";
@@ -320,7 +319,7 @@ TEST(ConnectionTest, emptyUsernameWithPassword) {
     server_cfg.port = 4851;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4851";
@@ -340,7 +339,7 @@ TEST(ConnectionTest, usernameWithEmptyPassword) {
     server_cfg.port = 4852;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4852";
@@ -360,7 +359,7 @@ TEST(ConnectionTest, invalidSecurityPolicy) {
     server_cfg.port = 4853;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4853";

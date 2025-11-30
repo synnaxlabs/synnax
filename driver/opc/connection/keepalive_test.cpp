@@ -27,7 +27,7 @@ protected:
         server_cfg_.port = 4847;
         server_ = std::make_unique<mock::Server>(server_cfg_);
         server_->start();
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        ASSERT_TRUE(server_->wait_until_ready());
 
         conn_cfg_.endpoint = "opc.tcp://localhost:4847";
         conn_cfg_.security_mode = "None";
