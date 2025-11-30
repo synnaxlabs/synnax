@@ -228,74 +228,6 @@ TEST_F(TestScanTask, testConfigReturnsCorrectValues) {
     EXPECT_EQ(cfg.make, "opc");
 }
 
-/// @brief Tests that on_device_set() adds device to tracked_devices.
-TEST_F(TestScanTask, testOnDeviceSetAddsDevice) {
-    opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
-    ASSERT_NIL(scanner.start());
-
-    synnax::Device dev;
-    dev.key = "new-opc-device";
-    dev.name = "New OPC Device";
-    dev.make = "opc";
-    scanner.on_device_set(dev);
-
-    auto [devices, err] = scanner.scan({});
-    ASSERT_NIL(err);
-    EXPECT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].key, "new-opc-device");
-}
-
-/// @brief Tests that on_device_delete() removes device from tracked_devices.
-TEST_F(TestScanTask, testOnDeviceDeleteRemovesDevice) {
-    opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
-    ASSERT_NIL(scanner.start());
-
-    synnax::Device dev;
-    dev.key = "device-to-delete";
-    dev.name = "Device to Delete";
-    dev.make = "opc";
-    scanner.on_device_set(dev);
-
-    // Verify device is tracked
-    auto [devices_before, err1] = scanner.scan({});
-    ASSERT_NIL(err1);
-    EXPECT_EQ(devices_before.size(), 1);
-
-    // Delete the device
-    scanner.on_device_delete("device-to-delete");
-
-    // Verify device is no longer tracked
-    auto [devices_after, err2] = scanner.scan({});
-    ASSERT_NIL(err2);
-    EXPECT_EQ(devices_after.size(), 0);
-}
-
-/// @brief Tests that stop() clears tracked devices.
-TEST_F(TestScanTask, testStopClearsDevices) {
-    opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
-    ASSERT_NIL(scanner.start());
-
-    // Add a device
-    synnax::Device dev;
-    dev.key = "tracked-device";
-    dev.name = "Tracked Device";
-    dev.make = "opc";
-    scanner.on_device_set(dev);
-
-    // Verify device is tracked
-    auto [devices_before, err1] = scanner.scan({});
-    ASSERT_NIL(err1);
-    EXPECT_EQ(devices_before.size(), 1);
-
-    // Stop the scanner
-    ASSERT_NIL(scanner.stop());
-
-    // Verify devices are cleared
-    auto [devices_after, err2] = scanner.scan({});
-    ASSERT_NIL(err2);
-    EXPECT_EQ(devices_after.size(), 0);
-}
-
 /// @brief Tests that exec() returns false for unknown commands.
 TEST_F(TestScanTask, testExecReturnsFalseForUnknownCommand) {
     opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
@@ -308,10 +240,8 @@ TEST_F(TestScanTask, testExecReturnsFalseForUnknownCommand) {
 /// @brief Tests that scan() checks device health and updates status.
 TEST_F(TestScanTask, testScanChecksDeviceHealth) {
     opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
-    ASSERT_NIL(scanner.start());
 
-    // Create device with valid OPC connection properties (including required channels
-    // field)
+    // Create device with valid OPC connection properties
     synnax::Device dev;
     dev.key = "health-test-device";
     dev.name = "Health Test Device";
@@ -325,9 +255,13 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
         {"channels", json::array()}
     }.dump();
 
-    scanner.on_device_set(dev);
+    // Pass devices via ScannerContext
+    std::unordered_map<std::string, synnax::Device> devices_map;
+    devices_map[dev.key] = dev;
+    common::ScannerContext scan_ctx;
+    scan_ctx.devices = &devices_map;
 
-    auto [devices, err] = scanner.scan({});
+    auto [devices, err] = scanner.scan(scan_ctx);
     ASSERT_NIL(err);
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
@@ -336,11 +270,6 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
 
 /// @brief Tests that health check detects connection state changes (server up/down/up).
 TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
-    // Use a fresh connection pool to avoid cached connections
-    auto fresh_conn_pool = std::make_shared<opc::connection::Pool>();
-    opc::Scanner scanner(ctx, task, fresh_conn_pool, opc::ScannerConfig{});
-    ASSERT_NIL(scanner.start());
-
     // Create device with connection properties
     synnax::Device dev;
     dev.key = "connection-state-device";
@@ -355,11 +284,18 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
         {"channels", json::array()}
     }.dump();
 
-    scanner.on_device_set(dev);
+    std::unordered_map<std::string, synnax::Device> devices_map;
+    devices_map[dev.key] = dev;
+    common::ScannerContext scan_ctx;
+    scan_ctx.devices = &devices_map;
+
+    // Use a fresh connection pool to avoid cached connections
+    auto fresh_conn_pool = std::make_shared<opc::connection::Pool>();
+    opc::Scanner scanner(ctx, task, fresh_conn_pool, opc::ScannerConfig{});
 
     // Step 1: Server is running (started in SetUp) - health should be good
     {
-        auto [devices, err] = scanner.scan({});
+        auto [devices, err] = scanner.scan(scan_ctx);
         ASSERT_NIL(err);
         ASSERT_EQ(devices.size(), 1);
         EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
@@ -372,11 +308,9 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     fresh_conn_pool = std::make_shared<opc::connection::Pool>();
     // Recreate scanner with fresh pool
     opc::Scanner scanner2(ctx, task, fresh_conn_pool, opc::ScannerConfig{});
-    ASSERT_NIL(scanner2.start());
-    scanner2.on_device_set(dev);
 
     {
-        auto [devices, err] = scanner2.scan({});
+        auto [devices, err] = scanner2.scan(scan_ctx);
         ASSERT_NIL(err);
         ASSERT_EQ(devices.size(), 1);
         // When server is down, health check should return WARNING with connection error
@@ -408,11 +342,9 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     // Use fresh connection pool again
     fresh_conn_pool = std::make_shared<opc::connection::Pool>();
     opc::Scanner scanner3(ctx, task, fresh_conn_pool, opc::ScannerConfig{});
-    ASSERT_NIL(scanner3.start());
-    scanner3.on_device_set(dev);
 
     {
-        auto [devices, err] = scanner3.scan({});
+        auto [devices, err] = scanner3.scan(scan_ctx);
         ASSERT_NIL(err);
         ASSERT_EQ(devices.size(), 1);
         EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);

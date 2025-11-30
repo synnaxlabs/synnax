@@ -26,6 +26,10 @@
 namespace common {
 struct ScannerContext {
     std::size_t count = 0;
+    /// @brief Devices currently tracked by the scan task. The scanner can use this
+    /// to check health or perform other device-specific operations without maintaining
+    /// its own device registry.
+    const std::unordered_map<std::string, synnax::Device> *devices = nullptr;
 };
 
 /// @brief Configuration for a scanner, defining its make and signal monitoring
@@ -59,12 +63,6 @@ struct Scanner {
     ) {
         return false;
     }
-
-    /// @brief Optional: Called when a device matching make/rack is created/updated.
-    virtual void on_device_set(const synnax::Device &dev) {}
-
-    /// @brief Optional: Called when a device is deleted.
-    virtual void on_device_delete(const std::string &key) {}
 };
 
 struct ClusterAPI {
@@ -146,17 +144,13 @@ class ScanTask final : public task::Task, public pipeline::Base {
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, synnax::Device> dev_states;
-    std::mutex dev_states_mu;
-
-    synnax::Channel state_channel;
-    std::unique_ptr<synnax::Writer> state_writer;
 
     // Signal monitoring infrastructure
     synnax::Channel device_set_channel;
     synnax::Channel device_delete_channel;
     std::unique_ptr<pipeline::Streamer> signal_streamer;
-    std::mutex signal_streamer_mu;
     std::thread signal_thread;
+    std::mutex mu;
 
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
         auto last_updated = telem::TimeStamp(0);
@@ -198,7 +192,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
     /// @brief Stops signal monitoring thread.
     void stop_signal_monitoring() {
         {
-            std::lock_guard lock(this->signal_streamer_mu);
+            std::lock_guard lock(this->mu);
             if (this->signal_streamer != nullptr) this->signal_streamer->close_send();
         }
         if (this->signal_thread.joinable()) this->signal_thread.join();
@@ -211,7 +205,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
 
         do {
             auto [frame, read_err] = this->signal_streamer->read();
-            if (read_err) break; // close_send() was called
+            if (read_err) break; // close_send() was called or stream closed.
 
             for (size_t i = 0; i < frame.size(); i++) {
                 const auto &ch_key = frame.channels->at(i);
@@ -234,23 +228,18 @@ class ScanTask final : public task::Task, public pipeline::Base {
                             continue;
                         }
                         if (dev.make != make || dev.rack != rack_key) continue;
-                        {
-                            std::lock_guard lock(this->dev_states_mu);
-                            if (this->dev_states.find(dev.key) ==
-                                this->dev_states.end())
-                                this->dev_states[dev.key] = dev;
-                        }
-                        this->scanner->on_device_set(dev);
+                        std::lock_guard lock(this->mu);
+                        if (this->dev_states.find(dev.key) == this->dev_states.end())
+                            this->dev_states[dev.key] = dev;
                     }
                 } else if (ch_key == this->device_delete_channel.key)
                     for (const auto &dev_key: series.strings()) {
-                        this->scanner->on_device_delete(dev_key);
-                        std::lock_guard lock(this->dev_states_mu);
+                        std::lock_guard lock(this->mu);
                         this->dev_states.erase(dev_key);
                     }
             }
         } while (true);
-        std::lock_guard lock(this->signal_streamer_mu);
+        std::lock_guard lock(this->mu);
         if (auto err = this->signal_streamer->close())
             LOG(ERROR) << "[scan_task] failed to close signal streamer: " << err;
         this->signal_streamer = nullptr;
@@ -369,17 +358,18 @@ public:
     }
 
     xerrors::Error scan() {
-        // Step 1: Scanner produces list of devices.
-        auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);
-        if (err) return err;
-        this->scanner_ctx.count++;
-
-        // Step 2: Track which devices are present that need to be created, and
-        // track currently present devices.
         std::vector<synnax::Device> to_create;
         std::vector<synnax::DeviceStatus> statuses;
         {
-            std::lock_guard lock(this->dev_states_mu);
+            std::lock_guard lock(this->mu);
+
+            // Step 1: Scanner produces list of devices.
+            this->scanner_ctx.devices = &this->dev_states;
+            auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);
+            if (err) return err;
+            this->scanner_ctx.count++;
+
+            // Step 2: Track which devices are present that need to be created.
             std::set<std::string> present;
             auto last_available = telem::TimeStamp::now();
             for (auto &scanned_dev: scanned_devs) {
@@ -418,7 +408,7 @@ public:
         }
 
         if (const auto state_err = this->client->update_statuses(statuses))
-            LOG(ERROR) << "[scan_task] failed to propagate state: " << state_err;
+            LOG(ERROR) << "[scan_task] failed to propagate statuses: " << state_err;
 
         if (to_create.empty()) return xerrors::NIL;
 

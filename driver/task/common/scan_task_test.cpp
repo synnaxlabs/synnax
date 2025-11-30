@@ -81,7 +81,11 @@ public:
 
     std::pair<std::vector<synnax::Device>, xerrors::Error>
     retrieve_devices(const synnax::RackKey &rack, const std::string &make) override {
-        return {*remote, xerrors::NIL};
+        // Filter by make like the real implementation
+        std::vector<synnax::Device> filtered;
+        for (const auto &dev: *remote)
+            if (dev.make == make) filtered.push_back(dev);
+        return {filtered, xerrors::NIL};
     }
 
     std::pair<synnax::Device, xerrors::Error>
@@ -118,8 +122,6 @@ public:
 class MockScannerWithSignals final : public common::Scanner {
 public:
     common::ScannerConfig scanner_config;
-    std::vector<synnax::Device> devices_set;
-    std::vector<std::string> devices_deleted;
     std::vector<task::Command> exec_commands;
     bool exec_return_value = false;
     std::mutex mu;
@@ -161,16 +163,6 @@ public:
         std::lock_guard lock(mu);
         exec_commands.push_back(cmd);
         return exec_return_value;
-    }
-
-    void on_device_set(const synnax::Device &dev) override {
-        std::lock_guard lock(mu);
-        devices_set.push_back(dev);
-    }
-
-    void on_device_delete(const std::string &key) override {
-        std::lock_guard lock(mu);
-        devices_deleted.push_back(key);
     }
 };
 
@@ -491,38 +483,49 @@ TEST(TestScanTask, testScannerConfigReturnsExpectedValues) {
     EXPECT_EQ(returned_cfg.make, "test_make");
 }
 
-/// @brief Tests that on_device_set() tracks devices correctly.
-TEST(TestScanTask, testOnDeviceSetTracksDevice) {
-    common::ScannerConfig cfg{.make = "test"};
-    MockScannerWithSignals scanner(cfg);
+/// @brief Mock scanner that captures ctx.devices for verification.
+class DeviceCapturingScanner final : public common::Scanner {
+public:
+    common::ScannerConfig scanner_config;
+    mutable std::mutex mu;
+    std::vector<std::unordered_map<std::string, synnax::Device>> captured_devices;
 
-    synnax::Device dev;
-    dev.key = "test-device";
-    dev.name = "Test Device";
-    dev.make = "test";
+    explicit DeviceCapturingScanner(const common::ScannerConfig &config):
+        scanner_config(config) {}
 
-    scanner.on_device_set(dev);
+    common::ScannerConfig config() const override { return scanner_config; }
 
-    ASSERT_EQ(scanner.devices_set.size(), 1);
-    EXPECT_EQ(scanner.devices_set[0].key, "test-device");
-    EXPECT_EQ(scanner.devices_set[0].make, "test");
-}
+    std::pair<std::vector<synnax::Device>, xerrors::Error>
+    scan(const common::ScannerContext &ctx) override {
+        std::lock_guard lock(mu);
+        if (ctx.devices != nullptr)
+            captured_devices.push_back(*ctx.devices);
+        else
+            captured_devices.push_back({});
+        // Return devices from context (like OPC scanner does)
+        std::vector<synnax::Device> result;
+        if (ctx.devices != nullptr)
+            for (const auto &[key, dev]: *ctx.devices)
+                result.push_back(dev);
+        return {result, xerrors::NIL};
+    }
 
-/// @brief Tests that on_device_delete() tracks deletions correctly.
-TEST(TestScanTask, testOnDeviceDeleteTracksKey) {
-    common::ScannerConfig cfg{.make = "test"};
-    MockScannerWithSignals scanner(cfg);
+    size_t device_count() {
+        std::lock_guard lock(mu);
+        if (captured_devices.empty()) return 0;
+        return captured_devices.back().size();
+    }
 
-    scanner.on_device_delete("device-to-delete");
+    bool has_device(const std::string &key) {
+        std::lock_guard lock(mu);
+        if (captured_devices.empty()) return false;
+        return captured_devices.back().find(key) != captured_devices.back().end();
+    }
+};
 
-    ASSERT_EQ(scanner.devices_deleted.size(), 1);
-    EXPECT_EQ(scanner.devices_deleted[0], "device-to-delete");
-}
-
-/// @brief Tests that signal monitoring calls on_device_set when a device signal
-/// arrives.
-TEST(TestScanTask, testSignalMonitoringDeviceSet) {
-    // Create mock channels for signal monitoring
+/// @brief Tests that signal monitoring adds devices to dev_states when a device signal
+/// arrives, and the scanner sees them via ctx.devices.
+TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     synnax::Channel device_set_ch;
     device_set_ch.key = 100;
     device_set_ch.name = synnax::DEVICE_SET_CHANNEL;
@@ -536,17 +539,15 @@ TEST(TestScanTask, testSignalMonitoringDeviceSet) {
     signaled_dev.key = "signaled-device";
     signaled_dev.name = "Signaled Device";
     signaled_dev.make = "test_make";
-    signaled_dev.rack = 1; // Must match task rack
+    signaled_dev.rack = 1;
 
     // Create the frame with device JSON on the device_set channel
     auto reads = std::make_shared<std::vector<synnax::Frame>>();
     synnax::Frame signal_frame(1);
-    // Device JSON just needs the key for parsing, full device is retrieved
     json dev_json = {{"key", signaled_dev.key}};
     signal_frame.emplace(device_set_ch.key, telem::Series(dev_json.dump()));
     reads->push_back(std::move(signal_frame));
 
-    // Create mock streamer factory
     auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
         std::vector<xerrors::Error>{},
         std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(
@@ -554,7 +555,6 @@ TEST(TestScanTask, testSignalMonitoringDeviceSet) {
         )
     );
 
-    // Setup remote devices (for retrieve_device)
     auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
     remote_devices->push_back(signaled_dev);
 
@@ -566,9 +566,8 @@ TEST(TestScanTask, testSignalMonitoringDeviceSet) {
     cluster_api->streamer_factory = streamer_factory;
     cluster_api->signal_channels = {device_set_ch, device_delete_ch};
 
-    // Create scanner with matching make
     common::ScannerConfig cfg{.make = "test_make"};
-    auto scanner = std::make_unique<MockScannerWithSignals>(cfg);
+    auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -577,37 +576,27 @@ TEST(TestScanTask, testSignalMonitoringDeviceSet) {
     task.key = synnax::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 
-    breaker::Config breaker_config;
-    telem::Rate scan_rate = telem::HERTZ * 1;
-
     common::ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
-        breaker_config,
-        scan_rate,
+        breaker::Config{},
+        telem::HERTZ * 1,
         std::move(cluster_api)
     );
 
-    // Start the task (which starts signal monitoring)
     scan_task.start();
 
-    // Wait for signal thread to process the frame
-    ASSERT_EVENTUALLY_GE(scanner_ptr->devices_set.size(), 1);
+    // Wait for signal thread to process and device to appear in ctx.devices
+    ASSERT_EVENTUALLY_GE(scanner_ptr->device_count(), 1);
+    EXPECT_TRUE(scanner_ptr->has_device("signaled-device"));
 
-    // Stop the task
     scan_task.stop();
-
-    // Verify on_device_set was called with the correct device
-    ASSERT_EQ(scanner_ptr->devices_set.size(), 1);
-    EXPECT_EQ(scanner_ptr->devices_set[0].key, "signaled-device");
-    EXPECT_EQ(scanner_ptr->devices_set[0].make, "test_make");
 }
 
-/// @brief Tests that signal monitoring calls on_device_delete when a delete signal
-/// arrives.
-TEST(TestScanTask, testSignalMonitoringDeviceDelete) {
-    // Create mock channels for signal monitoring
+/// @brief Tests that signal monitoring removes devices from dev_states when a delete
+/// signal arrives.
+TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     synnax::Channel device_set_ch;
     device_set_ch.key = 100;
     device_set_ch.name = synnax::DEVICE_SET_CHANNEL;
@@ -625,7 +614,6 @@ TEST(TestScanTask, testSignalMonitoringDeviceDelete) {
     );
     reads->push_back(std::move(signal_frame));
 
-    // Create mock streamer factory
     auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
         std::vector<xerrors::Error>{},
         std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(
@@ -633,7 +621,16 @@ TEST(TestScanTask, testSignalMonitoringDeviceDelete) {
         )
     );
 
+    // Pre-populate remote devices so init() loads them into dev_states
+    synnax::Device existing_dev;
+    existing_dev.key = "device-to-delete";
+    existing_dev.name = "Device to Delete";
+    existing_dev.make = "test_make";
+    existing_dev.rack = 1;
+
     auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    remote_devices->push_back(existing_dev);
+
     auto created_devices = std::make_shared<std::vector<synnax::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
@@ -643,7 +640,7 @@ TEST(TestScanTask, testSignalMonitoringDeviceDelete) {
     cluster_api->signal_channels = {device_set_ch, device_delete_ch};
 
     common::ScannerConfig cfg{.make = "test_make"};
-    auto scanner = std::make_unique<MockScannerWithSignals>(cfg);
+    auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -652,32 +649,24 @@ TEST(TestScanTask, testSignalMonitoringDeviceDelete) {
     task.key = synnax::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 
-    breaker::Config breaker_config;
-    telem::Rate scan_rate = telem::HERTZ * 1;
-
     common::ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
-        breaker_config,
-        scan_rate,
+        breaker::Config{},
+        telem::HERTZ * 1,
         std::move(cluster_api)
     );
 
     scan_task.start();
 
-    // Wait for signal thread to process the frame
-    ASSERT_EVENTUALLY_GE(scanner_ptr->devices_deleted.size(), 1);
+    // Wait for signal thread to process and device to be removed
+    ASSERT_EVENTUALLY_FALSE(scanner_ptr->has_device("device-to-delete"));
 
     scan_task.stop();
-
-    // Verify on_device_delete was called
-    ASSERT_EQ(scanner_ptr->devices_deleted.size(), 1);
-    EXPECT_EQ(scanner_ptr->devices_deleted[0], "device-to-delete");
 }
 
-/// @brief Tests that signal monitoring filters by make - wrong make doesn't trigger
-/// on_device_set.
+/// @brief Tests that signal monitoring filters by make - wrong make doesn't add device.
 TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     synnax::Channel device_set_ch;
     device_set_ch.key = 100;
@@ -691,7 +680,7 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     synnax::Device wrong_make_dev;
     wrong_make_dev.key = "wrong-make-device";
     wrong_make_dev.name = "Wrong Make Device";
-    wrong_make_dev.make = "other_make"; // Different from scanner's "test_make"
+    wrong_make_dev.make = "other_make";
     wrong_make_dev.rack = 1;
 
     auto reads = std::make_shared<std::vector<synnax::Frame>>();
@@ -720,7 +709,7 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
 
     // Scanner expects "test_make" but device has "other_make"
     common::ScannerConfig cfg{.make = "test_make"};
-    auto scanner = std::make_unique<MockScannerWithSignals>(cfg);
+    auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -729,15 +718,12 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     task.key = synnax::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 
-    breaker::Config breaker_config;
-    telem::Rate scan_rate = telem::HERTZ * 1;
-
     common::ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
-        breaker_config,
-        scan_rate,
+        breaker::Config{},
+        telem::HERTZ * 1,
         std::move(cluster_api)
     );
 
@@ -746,8 +732,8 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     // Give time for signal to be processed
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    scan_task.stop();
+    // Device should NOT have been added due to make mismatch
+    EXPECT_FALSE(scanner_ptr->has_device("wrong-make-device"));
 
-    // on_device_set should NOT have been called due to make mismatch
-    EXPECT_EQ(scanner_ptr->devices_set.size(), 0);
+    scan_task.stop();
 }

@@ -42,33 +42,11 @@ common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{.make = INTEGRATION_NAME};
 }
 
-xerrors::Error Scanner::start() {
-    auto rack_key = synnax::rack_key_from_task_key(this->task.key);
-    synnax::DeviceRetrieveRequest req;
-    req.makes = {INTEGRATION_NAME};
-    req.racks = {rack_key};
-    auto [devs, err] = this->ctx->client->devices.retrieve(req);
-    if (err && !err.matches(xerrors::NOT_FOUND)) return err;
-    std::lock_guard lock(this->mu);
-    for (auto &dev: devs)
-        this->tracked_devices[dev.key] = dev;
-    LOG(INFO) << "[opc.scanner] loaded " << this->tracked_devices.size()
-              << " initial devices";
-    return xerrors::NIL;
-}
-
-xerrors::Error Scanner::stop() {
-    std::lock_guard lock(this->mu);
-    this->tracked_devices.clear();
-    return xerrors::NIL;
-}
-
 std::pair<std::vector<synnax::Device>, xerrors::Error>
-Scanner::scan(const common::ScannerContext &) {
+Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::Device> devices;
-
-    std::lock_guard lock(this->mu);
-    for (auto &[key, dev]: this->tracked_devices) {
+    if (scan_ctx.devices == nullptr) return {devices, xerrors::NIL};
+    for (auto [key, dev]: *scan_ctx.devices) {
         if (const auto err = this->check_device_health(dev); err)
             LOG(WARNING) << "[opc.scanner] health check failed for " << dev.name << ": "
                          << err;
@@ -91,18 +69,6 @@ bool Scanner::exec(
         return true;
     }
     return false; // Not handled
-}
-
-void Scanner::on_device_set(const synnax::Device &dev) {
-    std::lock_guard lock(this->mu);
-    this->tracked_devices[dev.key] = dev;
-    LOG(INFO) << "[opc.scanner] tracking device: " << dev.name;
-}
-
-void Scanner::on_device_delete(const std::string &key) {
-    std::lock_guard lock(this->mu);
-    if (this->tracked_devices.erase(key) > 0)
-        LOG(INFO) << "[opc.scanner] stopped tracking device: " << key;
 }
 
 xerrors::Error Scanner::check_device_health(synnax::Device &dev) const {

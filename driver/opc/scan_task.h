@@ -10,9 +10,7 @@
 #pragma once
 
 #include <memory>
-#include <mutex>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -80,15 +78,9 @@ public:
     /// @brief Returns scanner configuration for common::ScanTask.
     common::ScannerConfig config() const override;
 
-    /// @brief Called when scan task starts - loads initial devices.
-    xerrors::Error start() override;
-
-    /// @brief Called when scan task stops - clears tracked devices.
-    xerrors::Error stop() override;
-
     /// @brief Periodic scan method - checks health of all tracked devices.
     std::pair<std::vector<synnax::Device>, xerrors::Error>
-    scan(const common::ScannerContext &ctx) override;
+    scan(const common::ScannerContext &scan_ctx) override;
 
     /// @brief Handle OPC-specific commands (scan nodes, test connection).
     bool exec(
@@ -97,21 +89,11 @@ public:
         const std::shared_ptr<task::Context> &ctx
     ) override;
 
-    /// @brief Called when a device matching our make/rack is created/updated.
-    void on_device_set(const synnax::Device &dev) override;
-
-    /// @brief Called when a device is deleted.
-    void on_device_delete(const std::string &key) override;
-
 private:
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
     std::shared_ptr<connection::Pool> conn_pool;
     ScannerConfig cfg;
-
-    // Device registry - populated by signals and start(), used by scan()
-    std::unordered_map<std::string, synnax::Device> tracked_devices;
-    std::mutex mu;
 
     /// @brief Browse child nodes of a given OPC UA node.
     void browse_nodes(const task::Command &cmd) const;
