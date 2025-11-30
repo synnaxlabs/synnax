@@ -12,7 +12,6 @@ package codec
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"slices"
@@ -36,14 +35,6 @@ type state struct {
 	hasVariableDataTypes bool
 }
 
-func readTimeRange(reader io.Reader) (tr telem.TimeRange, err error) {
-	if err = read(reader, &tr.Start); err != nil {
-		return
-	}
-	err = read(reader, &tr.End)
-	return
-}
-
 func writeTimeRange(w *xbinary.Writer, tr telem.TimeRange) {
 	w.Uint64(uint64(tr.Start))
 	w.Uint64(uint64(tr.End))
@@ -52,6 +43,7 @@ func writeTimeRange(w *xbinary.Writer, tr telem.TimeRange) {
 type sorter struct {
 	rawIndices []int
 	keys       []channel.Key
+	alignments []telem.Alignment
 	offset     int
 }
 
@@ -60,12 +52,14 @@ func (s *sorter) reset(size int) {
 	if cap(s.rawIndices) < size {
 		s.rawIndices = make([]int, size)
 		s.keys = make([]channel.Key, size)
+		s.alignments = make([]telem.Alignment, size)
 	}
 }
 
-func (s *sorter) insert(key channel.Key, rawIndex int) {
+func (s *sorter) insert(key channel.Key, rawIndex int, alignment telem.Alignment) {
 	s.keys[s.offset] = key
 	s.rawIndices[s.offset] = rawIndex
+	s.alignments[s.offset] = alignment
 	s.offset++
 }
 
@@ -74,13 +68,22 @@ func (s *sorter) sort() { sort.Sort(s) }
 // Len implements sort.Interface.
 func (s *sorter) Len() int { return s.offset }
 
-// Less implements sort.Interface.
-func (s *sorter) Less(i, j int) bool { return s.keys[i] < s.keys[j] }
+// Less implements sort.Interface. Sorts by (key, alignment, rawIndex).
+func (s *sorter) Less(i, j int) bool {
+	if s.keys[i] != s.keys[j] {
+		return s.keys[i] < s.keys[j]
+	}
+	if s.alignments[i] != s.alignments[j] {
+		return s.alignments[i] < s.alignments[j]
+	}
+	return s.rawIndices[i] < s.rawIndices[j]
+}
 
 // Swap implements sort.Interface.
 func (s *sorter) Swap(i, j int) {
 	s.keys[i], s.keys[j] = s.keys[j], s.keys[i]
 	s.rawIndices[i], s.rawIndices[j] = s.rawIndices[j], s.rawIndices[i]
+	s.alignments[i], s.alignments[j] = s.alignments[j], s.alignments[i]
 }
 
 // Codec is a high-performance encoder/decoder specifically designed for moving
@@ -112,6 +115,9 @@ type Codec struct {
 	}
 	// buf is reused for each encode operation.
 	buf *xbinary.Writer
+	// reader is reused for each decode operation. Unlike the standard library
+	// binary.Read, this avoids reflection overhead.
+	reader *xbinary.Reader
 	// channels used in dynamic codecs to retrieve information about channels
 	// when Update is called.
 	channels channel.Readable
@@ -183,6 +189,7 @@ func NewDynamicWithConfig(channels channel.Readable, cfg Config) *Codec {
 func newCodec(cfg Config) *Codec {
 	c := &Codec{
 		buf:                        xbinary.NewWriter(0, byteOrder),
+		reader:                     xbinary.NewReader(nil, byteOrder),
 		enableAlignmentCompression: cfg.EnableAlignmentCompression,
 	}
 	c.mu.updates = make(chan state, 50)
@@ -304,10 +311,6 @@ func newFlags() flags {
 		equalAlignments:    true,
 		zeroAlignments:     true,
 	}
-}
-
-func read(r io.Reader, data any) error {
-	return binary.Read(r, byteOrder, data)
 }
 
 // Encode encodes the given frame into bytes.
@@ -475,13 +478,13 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 	)
 	src = src.KeepKeys(currState.keys)
 
-	// First pass: validate and insert into sorter
+	// First pass: validate and insert into sorter with pre-extracted data
 	for rawI, s := range src.RawSeries() {
 		if src.ShouldExcludeRaw(rawI) {
 			continue
 		}
 		key := src.RawKeyAt(rawI)
-		c.encodeSorter.insert(key, rawI)
+		c.encodeSorter.insert(key, rawI, s.Alignment)
 		dt, ok := currState.keyDataTypes[key]
 		if !ok {
 			return errors.Wrapf(
@@ -498,47 +501,8 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 		}
 	}
 
-	// Sort by (key, alignment, original_index) to preserve contiguous series
-	// Use slices.SortFunc for performance and to access frame data during comparison
-	indices := c.encodeSorter.rawIndices[:c.encodeSorter.offset]
-	keys := c.encodeSorter.keys[:c.encodeSorter.offset]
-	slices.SortFunc(indices, func(iRawIdx, jRawIdx int) int {
-		// slices.SortFunc passes slice elements (raw indices), not positions
-		iKey := src.RawKeyAt(iRawIdx)
-		jKey := src.RawKeyAt(jRawIdx)
-
-		// Primary sort: by key
-		if iKey != jKey {
-			if iKey < jKey {
-				return -1
-			}
-			return 1
-		}
-
-		// Secondary sort: by alignment (when keys are equal)
-		iAlign := src.RawSeriesAt(iRawIdx).Alignment
-		jAlign := src.RawSeriesAt(jRawIdx).Alignment
-		if iAlign != jAlign {
-			if iAlign < jAlign {
-				return -1
-			}
-			return 1
-		}
-
-		// Tertiary sort: by original index (deterministic when key and alignment equal)
-		if iRawIdx < jRawIdx {
-			return -1
-		}
-		if iRawIdx > jRawIdx {
-			return 1
-		}
-		return 0
-	})
-
-	// Update keys array to match sorted indices
-	for i := 0; i < c.encodeSorter.offset; i++ {
-		keys[i] = src.RawKeyAt(indices[i])
-	}
+	// Sort by (key, alignment, rawIndex) using pre-extracted data for cache efficiency
+	c.encodeSorter.sort()
 
 	// Merge contiguous series with the same key if enabled
 	var mergedSeries []mergedSeriesInfo
@@ -677,17 +641,20 @@ func (c *Codec) Decode(src []byte) (dst framer.Frame, err error) {
 func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 	c.processUpdates()
 	c.panicIfNotUpdated("Decode")
+	c.reader.Reset(reader)
+
 	var (
 		dataLen      uint32
 		refTr        telem.TimeRange
 		refAlignment telem.Alignment
-		seqNum       uint32
-		flagB        byte
 	)
-	if err = read(reader, &flagB); err != nil {
+
+	flagB, err := c.reader.Uint8()
+	if err != nil {
 		return
 	}
-	if err = read(reader, &seqNum); err != nil {
+	seqNum, err := c.reader.Uint32()
+	if err != nil {
 		return
 	}
 	cState, ok := c.mu.states[seqNum]
@@ -698,26 +665,29 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 	}
 	fgs := decodeFlags(flagB)
 	if fgs.equalLens {
-		if err = read(reader, &dataLen); err != nil {
+		if dataLen, err = c.reader.Uint32(); err != nil {
 			return
 		}
 	}
 	if fgs.equalTimeRanges && !fgs.timeRangesZero {
-		if refTr, err = readTimeRange(reader); err != nil {
+		if refTr, err = c.readTimeRange(); err != nil {
 			return
 		}
 	}
 	if fgs.equalAlignments && !fgs.zeroAlignments {
-		if err = read(reader, &refAlignment); err != nil {
+		v, readErr := c.reader.Uint64()
+		if readErr != nil {
+			err = readErr
 			return
 		}
+		refAlignment = telem.Alignment(v)
 	}
 
 	decodeSeries := func(key channel.Key) (err error) {
 		s := telem.Series{TimeRange: refTr, Alignment: refAlignment}
 		dataLenOrSize := dataLen
 		if !fgs.equalLens {
-			if err = read(reader, &dataLenOrSize); err != nil {
+			if dataLenOrSize, err = c.reader.Uint32(); err != nil {
 				return
 			}
 		}
@@ -731,18 +701,20 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 		} else {
 			s.Data = make([]byte, dataType.Density().Size(int64(dataLenOrSize)))
 		}
-		if _, err = io.ReadFull(reader, s.Data); err != nil {
+		if _, err = c.reader.Read(s.Data); err != nil {
 			return err
 		}
 		if !fgs.equalTimeRanges {
-			if s.TimeRange, err = readTimeRange(reader); err != nil {
+			if s.TimeRange, err = c.readTimeRange(); err != nil {
 				return
 			}
 		}
 		if !fgs.equalAlignments {
-			if err = read(reader, &s.Alignment); err != nil {
-				return
+			v, readErr := c.reader.Uint64()
+			if readErr != nil {
+				return readErr
 			}
+			s.Alignment = telem.Alignment(v)
 		}
 		frame = frame.Append(key, s)
 		return
@@ -758,14 +730,27 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 		return
 	}
 
-	var k channel.Key
 	for {
-		if err = read(reader, &k); err != nil {
-			err = errors.Skip(err, io.EOF)
+		k, readErr := c.reader.Uint32()
+		if readErr != nil {
+			err = errors.Skip(readErr, io.EOF)
 			return
 		}
-		if err = decodeSeries(k); err != nil {
+		if err = decodeSeries(channel.Key(k)); err != nil {
 			return
 		}
 	}
+}
+
+// readTimeRange reads a time range using the codec's reader.
+func (c *Codec) readTimeRange() (tr telem.TimeRange, err error) {
+	start, err := c.reader.Uint64()
+	if err != nil {
+		return
+	}
+	end, err := c.reader.Uint64()
+	if err != nil {
+		return
+	}
+	return telem.TimeRange{Start: telem.TimeStamp(start), End: telem.TimeStamp(end)}, nil
 }
