@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <mutex>
 #include <utility>
 
 #include "glog/logging.h"
@@ -158,6 +159,8 @@ struct ConnectionConfig {
 
 /// @brief controls access and caches connections to Modbus servers.
 class Manager {
+    /// @brief mutex to protect access to the devices map.
+    mutable std::mutex mu;
     /// @brief the current set of open Modbus servers.
     std::unordered_map<std::string, std::weak_ptr<Device>> devices;
 
@@ -169,6 +172,7 @@ public:
     /// @param config - the configuration for the connection.
     std::pair<std::shared_ptr<Device>, xerrors::Error>
     acquire(const ConnectionConfig &config) {
+        std::lock_guard lock(mu);
         const std::string id = config.host + ":" + std::to_string(config.port);
         const auto it = devices.find(id);
         if (it != devices.end()) {
@@ -186,7 +190,7 @@ public:
         }
 
         auto dev = std::shared_ptr<Device>(new Device(ctx));
-        devices[config.host] = dev;
+        devices[id] = dev;
 
         return {dev, xerrors::NIL};
     }
