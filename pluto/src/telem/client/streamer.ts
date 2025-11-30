@@ -42,7 +42,7 @@ interface StreamerProps {
 // request don't slam the socket with lots of updates.
 const STREAM_DEBOUNCE = TimeSpan.milliseconds(100).milliseconds;
 
-const THROTTLE_RATE = Rate.hz(60);
+const THROTTLE_RATE = Rate.hz(60).valueOf();
 
 export class Streamer {
   private readonly props: Omit<Required<StreamerProps>, "streamUpdateDelay"> & {
