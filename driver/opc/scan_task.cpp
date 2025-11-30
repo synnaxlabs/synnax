@@ -42,7 +42,7 @@ Scanner::Scanner(
 common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{
         .make = INTEGRATION_NAME,
-        .log_prefix = "opc.scan_task"
+        .log_prefix = SCAN_LOG_PREFIX
     };
 }
 

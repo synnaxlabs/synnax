@@ -33,6 +33,7 @@
 #include "driver/task/common/scan_task.h"
 
 namespace ni {
+const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
 const std::string RESET_DEVICE_CMD = "reset_device";
 
 struct ResetDeviceCommandArgs {
@@ -136,7 +137,7 @@ class Scanner final : public common::Scanner {
     parse_device(NISysCfgResourceHandle resource) const;
 
     common::ScannerConfig config() const override {
-        return common::ScannerConfig{.make = MAKE, .log_prefix = "ni.scan_task"};
+        return common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
     }
 
 public:

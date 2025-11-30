@@ -37,8 +37,8 @@ struct ScannerContext {
 struct ScannerConfig {
     /// @brief The make/integration name for device filtering (e.g., "opc", "ni").
     std::string make;
-    /// @brief Log prefix for this scanner (e.g., "ni.scan_task", "opc.scan_task").
-    std::string log_prefix = "scan_task";
+    /// @brief Log prefix for this scanner (e.g., "[opc] ", "[ni] ").
+    std::string log_prefix;
 };
 
 struct Scanner {
@@ -265,7 +265,9 @@ public:
         scanner(std::move(scanner)),
         ctx(ctx),
         client(std::move(client)),
-        log_prefix("[" + this->scanner->config().log_prefix + "] ") {
+        log_prefix(this->scanner->config().log_prefix) {
+        if (this->log_prefix.empty())
+            throw std::invalid_argument("log_prefix must be provided in ScannerConfig");
         this->key = task.key;
         this->status.key = task.status_key();
         this->status.name = task.name;

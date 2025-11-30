@@ -24,15 +24,12 @@ Scanner::Scanner(
     std::shared_ptr<device::Manager> devices,
     const ScannerConfig cfg
 ):
-    ctx(std::move(ctx)),
-    task(std::move(task)),
-    devices(std::move(devices)),
-    cfg(cfg) {}
+    ctx(std::move(ctx)), task(std::move(task)), devices(std::move(devices)), cfg(cfg) {}
 
 common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{
         .make = INTEGRATION_NAME,
-        .log_prefix = "modbus.scan_task"
+        .log_prefix = SCAN_LOG_PREFIX,
     };
 }
 
