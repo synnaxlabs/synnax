@@ -232,7 +232,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
                                 << err;
                             continue;
                         }
-                        if (!this->dev_states.contains(dev.key))
+                        if (this->dev_states.find(dev.key) == this->dev_states.end())
                             this->dev_states[dev.key] = dev;
                         if (dev.make != make || dev.rack != rack_key) continue;
                         this->scanner->on_device_set(dev);
@@ -398,7 +398,7 @@ public:
 
         std::vector<std::string> to_erase;
         for (auto &[key, dev]: this->dev_states) {
-            if (present.contains(key)) continue;
+            if (present.find(key) != present.end()) continue;
             dev.status.variant = status::variant::WARNING;
             dev.status.message = "Device disconnected";
         }

@@ -571,9 +571,8 @@ TEST(TestScanTask, testSignalMonitoringDeviceSet) {
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
-    // Task key encodes rack key - rack 1 is encoded in high bits
     synnax::Task task;
-    task.key = (1ULL << 32) | 12345; // rack 1, local key 12345
+    task.key = synnax::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 
     breaker::Config breaker_config;
@@ -648,7 +647,7 @@ TEST(TestScanTask, testSignalMonitoringDeviceDelete) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::Task task;
-    task.key = (1ULL << 32) | 12345;
+    task.key = synnax::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 
     breaker::Config breaker_config;
@@ -725,7 +724,7 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::Task task;
-    task.key = (1ULL << 32) | 12345;
+    task.key = synnax::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 
     breaker::Config breaker_config;
