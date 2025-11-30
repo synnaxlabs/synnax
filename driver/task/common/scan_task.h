@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <atomic>
 #include <mutex>
 #include <thread>
 
@@ -25,11 +24,6 @@
 #include "driver/task/task.h"
 
 namespace common {
-/// @brief Channel name for device set signals.
-const std::string DEVICE_SET_CHANNEL = "sy_device_set";
-/// @brief Channel name for device delete signals.
-const std::string DEVICE_DELETE_CHANNEL = "sy_device_delete";
-
 struct ScannerContext {
     std::size_t count = 0;
 };
@@ -147,6 +141,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, synnax::Device> dev_states;
+    std::mutex dev_states_mu;
 
     synnax::Channel state_channel;
     std::unique_ptr<synnax::Writer> state_writer;
@@ -170,14 +165,14 @@ class ScanTask final : public task::Task, public pipeline::Base {
     /// @brief Starts signal monitoring thread for device set/delete events.
     xerrors::Error start_signal_monitoring() {
         auto [channels, err] = this->client->retrieve_channels(
-            {DEVICE_SET_CHANNEL, DEVICE_DELETE_CHANNEL}
+            {synnax::DEVICE_SET_CHANNEL, synnax::DEVICE_DELETE_CHANNEL}
         );
         if (err) return err;
 
         for (const auto &ch: channels) {
-            if (ch.name == DEVICE_SET_CHANNEL)
+            if (ch.name == synnax::DEVICE_SET_CHANNEL)
                 this->device_set_channel = ch;
-            else if (ch.name == DEVICE_DELETE_CHANNEL)
+            else if (ch.name == synnax::DEVICE_DELETE_CHANNEL)
                 this->device_delete_channel = ch;
         }
 
@@ -188,10 +183,8 @@ class ScanTask final : public task::Task, public pipeline::Base {
         );
         if (open_err) return open_err;
         this->signal_streamer = std::move(s);
-
         this->signal_thread = std::thread([this]() { this->signal_thread_run(); });
-
-        LOG(INFO) << "[scan_task] started signal monitoring for make="
+        LOG(INFO) << "[scan_task] started signal monitoring for devices with make: "
                   << this->scanner->config().make;
         return xerrors::NIL;
     }
@@ -232,14 +225,19 @@ class ScanTask final : public task::Task, public pipeline::Base {
                                 << err;
                             continue;
                         }
-                        if (this->dev_states.find(dev.key) == this->dev_states.end())
-                            this->dev_states[dev.key] = dev;
+                        {
+                            std::lock_guard lock(this->dev_states_mu);
+                            if (this->dev_states.find(dev.key) ==
+                                this->dev_states.end())
+                                this->dev_states[dev.key] = dev;
+                        }
                         if (dev.make != make || dev.rack != rack_key) continue;
                         this->scanner->on_device_set(dev);
                     }
                 } else if (ch_key == this->device_delete_channel.key)
                     for (const auto &dev_key: series.strings()) {
                         this->scanner->on_device_delete(dev_key);
+                        std::lock_guard lock(this->dev_states_mu);
                         this->dev_states.erase(dev_key);
                     }
             }
@@ -370,39 +368,47 @@ public:
         // Step 2: Track which devices are present that need to be created, and
         // track currently present devices.
         std::vector<synnax::Device> to_create;
-        std::set<std::string> present;
-        auto last_available = telem::TimeStamp::now();
-        for (auto &scanned_dev: scanned_devs) {
-            present.insert(scanned_dev.key);
-            // Unless the device already exists on the remote, it should not
-            // be configured. No exceptions.
-            scanned_dev.configured = false;
-            auto iter = this->dev_states.find(scanned_dev.key);
-            if (iter == this->dev_states.end()) {
-                to_create.push_back(scanned_dev);
+        std::vector<synnax::DeviceStatus> statuses;
+        {
+            std::lock_guard lock(this->dev_states_mu);
+            std::set<std::string> present;
+            auto last_available = telem::TimeStamp::now();
+            for (auto &scanned_dev: scanned_devs) {
+                present.insert(scanned_dev.key);
+                // Unless the device already exists on the remote, it should not
+                // be configured. No exceptions.
+                scanned_dev.configured = false;
+                auto iter = this->dev_states.find(scanned_dev.key);
+                if (iter == this->dev_states.end()) {
+                    to_create.push_back(scanned_dev);
+                    this->dev_states[scanned_dev.key] = scanned_dev;
+                    continue;
+                }
+                const auto remote_dev = iter->second;
+                if (scanned_dev.rack != remote_dev.rack &&
+                    this->update_threshold_exceeded(scanned_dev.key)) {
+                    LOG(INFO) << "[scan_task] taking ownership over device";
+                    scanned_dev.properties = remote_dev.properties;
+                    scanned_dev.name = remote_dev.name;
+                    scanned_dev.configured = remote_dev.configured;
+                    to_create.push_back(scanned_dev);
+                }
+                scanned_dev.status.time = last_available;
                 this->dev_states[scanned_dev.key] = scanned_dev;
-                continue;
             }
-            const auto remote_dev = iter->second;
-            if (scanned_dev.rack != remote_dev.rack &&
-                this->update_threshold_exceeded(scanned_dev.key)) {
-                LOG(INFO) << "[scan_task] taking ownership over device";
-                scanned_dev.properties = remote_dev.properties;
-                scanned_dev.name = remote_dev.name;
-                scanned_dev.configured = remote_dev.configured;
-                to_create.push_back(scanned_dev);
+
+            for (auto &[key, dev]: this->dev_states) {
+                if (present.find(key) != present.end()) continue;
+                dev.status.variant = status::variant::WARNING;
+                dev.status.message = "Device disconnected";
             }
-            scanned_dev.status.time = last_available;
-            this->dev_states[scanned_dev.key] = scanned_dev;
+
+            statuses.reserve(this->dev_states.size());
+            for (auto &[key, info]: this->dev_states)
+                statuses.push_back(info.status);
         }
 
-        std::vector<std::string> to_erase;
-        for (auto &[key, dev]: this->dev_states) {
-            if (present.find(key) != present.end()) continue;
-            dev.status.variant = status::variant::WARNING;
-            dev.status.message = "Device disconnected";
-        }
-        if (const auto state_err = this->propagate_state())
+        if (const auto state_err = this->client->update_statuses(statuses))
             LOG(ERROR) << "[scan_task] failed to propagate state: " << state_err;
 
         if (to_create.empty()) return xerrors::NIL;
@@ -418,14 +424,6 @@ public:
                 LOG(INFO) << "[scan_task] successfully created device " << device.key;
         }
         return last_err;
-    }
-
-    xerrors::Error propagate_state() {
-        std::vector<synnax::DeviceStatus> statuses;
-        statuses.reserve(this->dev_states.size());
-        for (auto &[key, info]: this->dev_states)
-            statuses.push_back(info.status);
-        return this->client->update_statuses(statuses);
     }
 
     std::string name() const override { return this->task.name; }

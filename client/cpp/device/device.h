@@ -27,6 +27,9 @@
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/device.pb.h"
 
 namespace synnax {
+const std::string DEVICE_SET_CHANNEL = "sy_device_set";
+const std::string DEVICE_DELETE_CHANNEL = "device_delete";
+
 // Forward declaration for RackKey (needed for Device struct)
 using RackKey = std::uint32_t;
 

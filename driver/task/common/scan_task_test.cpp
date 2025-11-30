@@ -523,11 +523,11 @@ TEST(TestScanTask, testSignalMonitoringDeviceSet) {
     // Create mock channels for signal monitoring
     synnax::Channel device_set_ch;
     device_set_ch.key = 100;
-    device_set_ch.name = common::DEVICE_SET_CHANNEL;
+    device_set_ch.name = synnax::DEVICE_SET_CHANNEL;
 
     synnax::Channel device_delete_ch;
     device_delete_ch.key = 101;
-    device_delete_ch.name = common::DEVICE_DELETE_CHANNEL;
+    device_delete_ch.name = synnax::DEVICE_DELETE_CHANNEL;
 
     // Create a device that will be "signaled" and retrieved
     synnax::Device signaled_dev;
@@ -608,11 +608,11 @@ TEST(TestScanTask, testSignalMonitoringDeviceDelete) {
     // Create mock channels for signal monitoring
     synnax::Channel device_set_ch;
     device_set_ch.key = 100;
-    device_set_ch.name = common::DEVICE_SET_CHANNEL;
+    device_set_ch.name = synnax::DEVICE_SET_CHANNEL;
 
     synnax::Channel device_delete_ch;
     device_delete_ch.key = 101;
-    device_delete_ch.name = common::DEVICE_DELETE_CHANNEL;
+    device_delete_ch.name = synnax::DEVICE_DELETE_CHANNEL;
 
     // Create the frame with device key on the device_delete channel
     auto reads = std::make_shared<std::vector<synnax::Frame>>();
@@ -679,11 +679,11 @@ TEST(TestScanTask, testSignalMonitoringDeviceDelete) {
 TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     synnax::Channel device_set_ch;
     device_set_ch.key = 100;
-    device_set_ch.name = common::DEVICE_SET_CHANNEL;
+    device_set_ch.name = synnax::DEVICE_SET_CHANNEL;
 
     synnax::Channel device_delete_ch;
     device_delete_ch.key = 101;
-    device_delete_ch.name = common::DEVICE_DELETE_CHANNEL;
+    device_delete_ch.name = synnax::DEVICE_DELETE_CHANNEL;
 
     // Create a device with DIFFERENT make than the scanner
     synnax::Device wrong_make_dev;
