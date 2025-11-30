@@ -23,7 +23,7 @@ protected:
         server_cfg_.port = 4845;
         server_ = std::make_unique<mock::Server>(server_cfg_);
         server_->start();
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        ASSERT_TRUE(server_->wait_until_ready());
 
         conn_cfg_.endpoint = "opc.tcp://localhost:4845";
         conn_cfg_.security_mode = "None";
@@ -79,7 +79,7 @@ TEST_F(ConnectionPoolTest, DifferentEndpoints) {
     server2_cfg.port = 4846;
     mock::Server server2(server2_cfg);
     server2.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    ASSERT_TRUE(server2.wait_until_ready());
 
     opc::connection::Config cfg2 = conn_cfg_;
     cfg2.endpoint = "opc.tcp://localhost:4846";
@@ -194,11 +194,10 @@ TEST_F(ConnectionPoolTest, StaleConnectionAutoReconnect) {
 
     server_->stop();
     server_.reset();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     server_ = std::make_unique<mock::Server>(server_cfg_);
     server_->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server_->wait_until_ready());
 
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 }
@@ -212,11 +211,10 @@ TEST_F(ConnectionPoolTest, NewConnectionAfterServerRestart) {
 
     server_->stop();
     server_.reset();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     server_ = std::make_unique<mock::Server>(server_cfg_);
     server_->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server_->wait_until_ready());
 
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 }
@@ -302,11 +300,10 @@ TEST_F(ConnectionPoolTest, ServerRestartRecovery) {
     // Restart server while connection is held
     server_->stop();
     server_.reset();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     server_ = std::make_unique<mock::Server>(server_cfg_);
     server_->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    ASSERT_TRUE(server_->wait_until_ready());
 
     // Release the now-broken connection
     conn1 = opc::connection::Pool::Connection(nullptr, nullptr, "");
@@ -357,11 +354,10 @@ TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
     // Restart server
     server_->stop();
     server_.reset();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     server_ = std::make_unique<mock::Server>(server_cfg_);
     server_->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    ASSERT_TRUE(server_->wait_until_ready());
 
     // Multiple threads should all succeed with new connections
     const int num_threads = 5;
