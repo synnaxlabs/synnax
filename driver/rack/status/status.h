@@ -21,7 +21,7 @@
 namespace rack::status {
 const std::string INTEGRATION_NAME = "rack_status";
 const std::string LEGACY_HEARTBEAT_TYPE = "heartbeat";
-const std::string TASK_NAME = "Rack State";
+const std::string TASK_NAME = "Rack Status";
 const std::string TASK_TYPE = TASK_NAME;
 const auto EMISSION_RATE = telem::HERTZ * 1;
 

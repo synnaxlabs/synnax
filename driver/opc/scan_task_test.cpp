@@ -223,10 +223,9 @@ TEST_F(TestScanTask, testInvalidConnection) {
 
 /// @brief Tests that opc::Scanner::config() returns correct values.
 TEST_F(TestScanTask, testConfigReturnsCorrectValues) {
-    opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
+    const opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
     auto cfg = scanner.config();
     EXPECT_EQ(cfg.make, "opc");
-    EXPECT_TRUE(cfg.enable_device_signals);
 }
 
 /// @brief Tests that on_device_set() adds device to tracked_devices.

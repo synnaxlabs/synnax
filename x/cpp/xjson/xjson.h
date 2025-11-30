@@ -283,6 +283,12 @@ public:
         return {*iter, errors, path_prefix + path + "."};
     }
 
+    bool has(const std::string &path) const {
+        if (noop) return false;
+        const auto iter = config.find(path);
+        return iter != config.end();
+    }
+
     /// @brief Iterates over an array at the given path, executing a function for
     /// each element. If the path does not point to an array, logs an error.
     /// @param path The JSON path to the array.

@@ -39,10 +39,7 @@ Scanner::Scanner(
     cfg(cfg) {}
 
 common::ScannerConfig Scanner::config() const {
-    return common::ScannerConfig{
-        .make = INTEGRATION_NAME,
-        .enable_device_signals = true
-    };
+    return common::ScannerConfig{.make = INTEGRATION_NAME};
 }
 
 xerrors::Error Scanner::start() {
@@ -112,7 +109,7 @@ void Scanner::on_device_delete(const std::string &key) {
         LOG(INFO) << "[opc.scanner] stopped tracking device: " << key;
 }
 
-xerrors::Error Scanner::check_device_health(synnax::Device &dev)const {
+xerrors::Error Scanner::check_device_health(synnax::Device &dev) const {
     const auto rack_key = synnax::rack_key_from_task_key(this->task.key);
     const auto parser = xjson::Parser(dev.properties);
     const auto props = device::Properties(parser);
@@ -122,6 +119,7 @@ xerrors::Error Scanner::check_device_health(synnax::Device &dev)const {
             .name = dev.name,
             .variant = status::variant::WARNING,
             .message = "Invalid device properties",
+            .description = parser.error().message(),
             .time = ::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
@@ -132,16 +130,17 @@ xerrors::Error Scanner::check_device_health(synnax::Device &dev)const {
         props.connection,
         "[opc.scanner] "
     );
-    if (conn_err) {
+    if (conn_err)
         dev.status = synnax::DeviceStatus{
             .key = dev.status_key(),
             .name = dev.name,
             .variant = status::variant::WARNING,
-            .message = conn_err.message(),
+            .message = "Failed to reach server",
+            .description = conn_err.message(),
             .time = ::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
-    } else {
+    else
         dev.status = synnax::DeviceStatus{
             .key = dev.status_key(),
             .name = dev.name,
@@ -150,7 +149,6 @@ xerrors::Error Scanner::check_device_health(synnax::Device &dev)const {
             .time = ::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
-    }
     return xerrors::NIL;
 }
 

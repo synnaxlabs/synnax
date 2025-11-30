@@ -140,6 +140,11 @@ struct Device {
     /// @returns A pair containing the device and an error if one occurred.
     static std::pair<Device, xerrors::Error> from_proto(const api::v1::Device &device);
 
+    /// @brief Parses a device from a JSON parser.
+    /// @param parser The JSON parser containing device data.
+    /// @returns The parsed device.
+    static Device parse(xjson::Parser &parser);
+
 private:
     void to_proto(api::v1::Device *device) const;
 

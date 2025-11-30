@@ -120,6 +120,6 @@ private:
     void test_connection(const task::Command &cmd) const;
 
     /// @brief Check health of a single device by testing its connection.
-    xerrors::Error check_device_health(synnax::Device &dev)const;
+    xerrors::Error check_device_health(synnax::Device &dev) const;
 };
 }

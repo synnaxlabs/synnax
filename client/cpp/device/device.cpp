@@ -53,6 +53,7 @@ std::pair<std::vector<Device>, xerrors::Error> DeviceClient::retrieve(
     const std::vector<std::string> &keys,
     bool ignore_not_found
 ) const {
+    if (keys.empty()) return {std::vector<Device>(), xerrors::NIL};
     DeviceRetrieveRequest req;
     req.keys = keys;
     req.ignore_not_found = ignore_not_found;
@@ -163,5 +164,25 @@ void Device::to_proto(api::v1::Device *device) const {
     device->set_properties(properties);
     device->set_configured(configured);
     if (!status.is_zero()) status.to_proto(device->mutable_status());
+}
+
+Device Device::parse(xjson::Parser &parser) {
+    Device d;
+    d.key = parser.field<std::string>("key", "");
+    d.name = parser.field<std::string>("name", "");
+    d.rack = parser.field<RackKey>("rack", 0);
+    d.location = parser.field<std::string>("location", "");
+    d.make = parser.field<std::string>("make", "");
+    d.model = parser.field<std::string>("model", "");
+    d.configured = parser.field<bool>("configured", false);
+    // Properties can be either a string or an object - handle both cases
+    if (parser.has("properties")) {
+        const auto &props = parser.get_json()["properties"];
+        if (props.is_string())
+            d.properties = props.get<std::string>();
+        else if (props.is_object())
+            d.properties = props.dump();
+    }
+    return d;
 }
 }
