@@ -116,11 +116,13 @@ struct SynnaxClusterAPI final : ClusterAPI {
     }
 
     xerrors::Error create_devices(std::vector<synnax::Device> &devs) override {
+        if (devs.empty()) return xerrors::NIL;
         return this->client->devices.create(devs);
     }
 
     xerrors::Error
     update_statuses(std::vector<synnax::DeviceStatus> statuses) override {
+        if (statuses.empty()) return xerrors::NIL;
         return this->client->statuses.set(statuses);
     }
 
