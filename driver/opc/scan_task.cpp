@@ -27,7 +27,6 @@
 #include "driver/task/common/status.h"
 
 namespace opc {
-const std::string SCAN_LOG_PREFIX = "[opc.scan_task] ";
 Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
     synnax::Task task,

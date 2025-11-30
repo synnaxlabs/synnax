@@ -20,7 +20,6 @@ ni::Scanner::Scanner(
     cfg(std::move(cfg)), task(std::move(task)), syscfg(syscfg) {}
 
 const auto SKIP_DEVICE_ERR = xerrors::Error("ni.skip_device", "");
-const std::string SCAN_LOG_PREFIX = "[ni.scan_task] ";
 
 std::pair<ni::Device, xerrors::Error>
 ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
