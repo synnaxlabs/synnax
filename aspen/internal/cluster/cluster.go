@@ -185,8 +185,7 @@ func (c *Cluster) Resolve(key node.Key) (address.Address, error) {
 func (c *Cluster) Close() error { return c.shutdown.Close() }
 
 func (c *Cluster) gossipInitialState(ctx context.Context) error {
-	peers := xslices.IterEndlessly(c.Pledge.Peers)
-	for peer := range peers {
+	for peer := range xslices.IterEndlessly(c.Pledge.Peers) {
 		if err := c.gossip.GossipOnceWith(ctx, peer); err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()

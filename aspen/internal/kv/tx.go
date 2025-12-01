@@ -188,10 +188,12 @@ func (tr TxRequest) done(err error) {
 	}
 }
 
+func extractOpChange(op Operation) xkv.Change {
+	return op.Change
+}
+
 func (tr TxRequest) reader() xkv.TxReader {
-	return xiter.Map(slices.Values(tr.Operations), func(op Operation) xkv.Change {
-		return op.Change
-	})
+	return xiter.Map(slices.Values(tr.Operations), extractOpChange)
 }
 
 func (tr TxRequest) digests() []Digest {
