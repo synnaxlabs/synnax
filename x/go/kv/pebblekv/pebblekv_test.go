@@ -13,6 +13,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/cockroachdb/pebble/v2"
 	. "github.com/onsi/ginkgo/v2"
@@ -370,20 +371,12 @@ var _ = Describe("PebbleKV", func() {
 
 				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
 					subscriber1Called = true
-					c := 0
-					for range reader {
-						c++
-					}
-					Expect(c).To(BeNumerically(">", 0))
+					Expect(len(slices.Collect(reader))).To(BeNumerically(">", 0))
 				})
 
 				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
 					subscriber2Called = true
-					c := 0
-					for range reader {
-						c++
-					}
-					Expect(c).To(BeNumerically(">", 0))
+					Expect(len(slices.Collect(reader))).To(BeNumerically(">", 0))
 				})
 
 				key := []byte("multi-subscriber-key")

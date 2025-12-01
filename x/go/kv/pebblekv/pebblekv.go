@@ -238,11 +238,15 @@ func (txn *tx) NewReader() kv.TxReader {
 	return func(yield func(kv.Change) bool) {
 		r := txn.Reader()
 		for {
-			kind, k, v, ok, _ := r.Next()
+			kind, k, v, ok, err := r.Next()
+			if err != nil {
+				zap.S().DPanic("unexpected error reading batch", zap.Error(err))
+				return
+			}
 			if !ok {
 				return
 			}
-			variant, ok := kindsToVariant[kind]
+			variant, ok := kindToVariant(kind)
 			if !ok {
 				continue
 			}
@@ -253,9 +257,15 @@ func (txn *tx) NewReader() kv.TxReader {
 	}
 }
 
-var kindsToVariant = map[pebble.InternalKeyKind]change.Variant{
-	pebble.InternalKeyKindSet:    change.Set,
-	pebble.InternalKeyKindDelete: change.Delete,
+func kindToVariant(kind pebble.InternalKeyKind) (change.Variant, bool) {
+	switch kind {
+	case pebble.InternalKeyKindSet:
+		return change.Set, true
+	case pebble.InternalKeyKindDelete:
+		return change.Delete, true
+	default:
+		return 0, false
+	}
 }
 
 func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {

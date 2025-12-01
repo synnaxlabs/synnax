@@ -35,21 +35,22 @@ func Publish(
 	resourceObserver := observe.Translator[iter.Seq[ontology.Change], []change.Change[[]byte, struct{}]]{
 		Observable: otg.ResourceObserver,
 		Translate: func(nexter iter.Seq[ontology.Change]) []change.Change[[]byte, struct{}] {
-			var out []change.Change[[]byte, struct{}]
+			var (
+				out []change.Change[[]byte, struct{}]
+				key []byte
+				err error
+			)
 			for ch := range nexter {
 				if ch.Variant == change.Set {
-					v, err := signals.MarshalJSON(ch.Value)
+					key, err = signals.MarshalJSON(ch.Value)
 					if err != nil {
 						otg.L.DPanic("unexpected failure to marshal ontology resource set", zap.Error(err))
 						continue
 					}
-					out = append(out, change.Change[[]byte, struct{}]{Key: v, Variant: ch.Variant})
-					continue
+				} else {
+					key = EncodeID(ch.Key)
 				}
-				out = append(out, change.Change[[]byte, struct{}]{
-					Key:     EncodeID(ch.Key),
-					Variant: ch.Variant,
-				})
+				out = append(out, change.Change[[]byte, struct{}]{Key: key, Variant: ch.Variant})
 			}
 			return out
 		},

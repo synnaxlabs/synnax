@@ -46,6 +46,11 @@ func ConvertNegativeIndex(i int, len int) int {
 	return i
 }
 
+// IterEndlessly returns an iterator that cycles through the given slice indefinitely,
+// wrapping back to the beginning after reaching the end. The iteration continues until
+// the caller stops consuming values.
+//
+// Panics if values is empty.
 func IterEndlessly[T any](values []T) iter.Seq[T] {
 	return func(yield func(T) bool) {
 		i := 0
