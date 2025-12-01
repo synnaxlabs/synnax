@@ -371,12 +371,12 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 		closeTaskStateObs,
 		closeRackStateObs,
 		closeDeviceStateObs,
-		xio.NopCloserFunc(dcRackObs),
-		xio.NopCloserFunc(dcTaskObs),
-		xio.NopCloserFunc(dcDeviceObs),
-		xio.NopCloserFunc(dcRackStateObs),
-		xio.NopCloserFunc(dcTaskStateObs),
-		xio.NopCloserFunc(dcDeviceStateObs),
+		xio.NoFailCloserFunc(dcRackObs),
+		xio.NoFailCloserFunc(dcTaskObs),
+		xio.NoFailCloserFunc(dcDeviceObs),
+		xio.NoFailCloserFunc(dcRackStateObs),
+		xio.NoFailCloserFunc(dcTaskStateObs),
+		xio.NoFailCloserFunc(dcDeviceStateObs),
 	}
 	return t, nil
 }
