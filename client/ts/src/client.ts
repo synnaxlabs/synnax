@@ -62,7 +62,6 @@ export default class Synnax extends framer.Client {
   readonly auth: auth.Client;
   readonly users: user.Client;
   readonly access: access.Client;
-  readonly roles: access.role.Client;
   readonly connectivity: connection.Checker;
   readonly ontology: ontology.Client;
   readonly workspaces: workspace.Client;
@@ -142,7 +141,6 @@ export default class Synnax extends framer.Client {
       this.ontology,
     );
     this.access = new access.Client(this.transport.unary);
-    this.roles = new access.role.Client(this.transport.unary);
     this.users = new user.Client(this.transport.unary);
     this.workspaces = new workspace.Client(this.transport.unary);
     const devices = new device.Client(this.transport.unary);

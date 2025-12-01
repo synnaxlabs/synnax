@@ -115,4 +115,4 @@ export class Client {
   }
 }
 
-export const ontologyID = ontology.createIDFactory("table");
+export const ontologyID = ontology.createIDFactory<Key>("table");

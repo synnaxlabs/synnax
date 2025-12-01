@@ -185,4 +185,4 @@ export class Rack {
   }
 }
 
-export const ontologyID = ontology.createIDFactory("rack");
+export const ontologyID = ontology.createIDFactory<Key>("rack");

@@ -118,4 +118,4 @@ export class Client {
   }
 }
 
-export const ontologyID = ontology.createIDFactory("lineplot");
+export const ontologyID = ontology.createIDFactory<Key>("lineplot");

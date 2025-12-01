@@ -34,4 +34,4 @@ export type Status<Details extends z.ZodType = z.ZodNever> = status.Status<Detai
 export const SET_CHANNEL_NAME = "sy_status_set";
 export const DELETE_CHANNEL_NAME = "sy_status_delete";
 
-export const ontologyID = ontology.createIDFactory("status");
+export const ontologyID = ontology.createIDFactory<Key>("status");

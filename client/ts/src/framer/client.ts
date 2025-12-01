@@ -25,7 +25,7 @@ import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/strea
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 import { ontology } from "@/ontology";
 
-export const ontologyID = ontology.createIDFactory("framer");
+export const ontologyID = ontology.createIDFactory<string>("framer");
 
 export class Client {
   private readonly streamClient: WebSocketClient;

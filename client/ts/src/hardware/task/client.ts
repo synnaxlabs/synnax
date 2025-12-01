@@ -514,7 +514,7 @@ export class Client {
   }
 }
 
-export const ontologyID = ontology.createIDFactory("task");
+export const ontologyID = ontology.createIDFactory<Key>("task");
 
 interface ExecuteCommandInternalParams {
   frameClient: framer.Client | null;

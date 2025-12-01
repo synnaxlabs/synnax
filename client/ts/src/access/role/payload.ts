@@ -28,4 +28,4 @@ export const newZ = roleZ.partial({ key: true });
 
 export type New = z.infer<typeof newZ>;
 
-export const ontologyID = ontology.createIDFactory("role");
+export const ontologyID = ontology.createIDFactory<Key>("role");

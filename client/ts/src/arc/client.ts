@@ -17,7 +17,6 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { type Arc, arcZ, keyZ, type New, newZ, type Params } from "@/arc/payload";
-import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_arc_set";
@@ -124,5 +123,3 @@ export class Client {
     return await this.streamClient.stream("/arc/lsp", lspMessageZ, lspMessageZ);
   }
 }
-
-export const ontologyID = ontology.createIDFactory("arc");

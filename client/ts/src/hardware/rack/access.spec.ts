@@ -37,7 +37,7 @@ describe("rack", () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
-        objects: [rack.ontologyID("")],
+        objects: [rack.ontologyID(0)],
         actions: ["retrieve"],
       });
       const randomRack = await client.hardware.racks.create({
@@ -54,7 +54,7 @@ describe("rack", () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
-        objects: [rack.ontologyID("")],
+        objects: [rack.ontologyID(0)],
         actions: ["create"],
       });
       await userClient.hardware.racks.create({
@@ -66,7 +66,7 @@ describe("rack", () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
-        objects: [rack.ontologyID("")],
+        objects: [rack.ontologyID(0)],
         actions: ["create"],
       });
       await expect(
@@ -80,7 +80,7 @@ describe("rack", () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "allow",
-        objects: [rack.ontologyID("")],
+        objects: [rack.ontologyID(0)],
         actions: ["delete", "retrieve"],
       });
       const randomRack = await client.hardware.racks.create({
@@ -96,7 +96,7 @@ describe("rack", () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         effect: "deny",
-        objects: [rack.ontologyID("")],
+        objects: [rack.ontologyID(0)],
         actions: ["delete"],
       });
       const randomRack = await client.hardware.racks.create({

@@ -92,4 +92,4 @@ export const paramsZ = z.union([
 ]);
 export type Params = Key | Name | Keys | Names | Payload | Payload[];
 
-export const ontologyID = ontology.createIDFactory("channel");
+export const ontologyID = ontology.createIDFactory<Key>("channel");

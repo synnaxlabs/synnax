@@ -129,4 +129,4 @@ export class Client {
   }
 }
 
-export const ontologyID = ontology.createIDFactory("schematic_symbol");
+export const ontologyID = ontology.createIDFactory<Key>("schematic_symbol");

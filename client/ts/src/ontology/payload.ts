@@ -43,7 +43,6 @@ export const resourceTypeZ = z.enum([
   "arc",
   "schematic_symbol",
   "status",
-  "allow_all",
 ]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;
 

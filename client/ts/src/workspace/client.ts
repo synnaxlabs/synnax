@@ -134,4 +134,4 @@ export class Client {
   }
 }
 
-export const ontologyID = ontology.createIDFactory("workspace");
+export const ontologyID = ontology.createIDFactory<Key>("workspace");

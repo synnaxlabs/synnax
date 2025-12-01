@@ -27,7 +27,7 @@ const Content = (): ReactElement => {
           {canEditUser && (
             <Toolbar.Action
               onClick={() => placeLayout(REGISTER_LAYOUT)}
-              tooltip="Create User"
+              tooltip="Create user"
             >
               <User.CreateIcon />
             </Toolbar.Action>
