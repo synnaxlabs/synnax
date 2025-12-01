@@ -1,0 +1,82 @@
+name: Deadcode Check
+
+on:
+  pull_request:
+    branches: [main, rc]
+  push:
+    branches: [main, rc]
+  workflow_dispatch:
+
+jobs:
+  deadcode:
+    name: Check for Dead Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.4"
+          cache: true
+
+      - name: Install deadcode
+        run: go install golang.org/x/tools/cmd/deadcode@latest
+
+      - name: Run deadcode check
+        id: deadcode
+        run: |
+
+          # Capture output and exit code
+          if output=$(scripts/deadcode 2>&1); then
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "$output"
+          else
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "$output"
+            # Save output for PR comment
+            echo "$output" > deadcode_output.txt
+          fi
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && steps.deadcode.outputs.found == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('deadcode_output.txt', 'utf8');
+
+            const body = `## ⚠️ Dead Code Detected
+
+            The deadcode analysis found unused code in one or more packages:
+
+            <details>
+            <summary>Click to see full report</summary>
+
+            \`\`\`
+            ${output}
+            \`\`\`
+
+            </details>
+
+            Please review and remove unused code, or add a comment explaining why it should be kept.`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Fail if dead code found
+        if: steps.deadcode.outputs.found == 'true'
+        run: |
+          echo "::error::Dead code detected in one or more packages. See the PR comment for details."
+          exit 1
+
+      - name: Success message
+        if: steps.deadcode.outputs.found == 'false'
+        run: |
+          echo "✅ No dead code found in any package!"
