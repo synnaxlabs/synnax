@@ -190,8 +190,8 @@ var _ = Describe("Unsafe", func() {
 		})
 
 		It("Should return an error if the byte slice is too short", func() {
-			_, err := unsafe.CastBytes[uint32]([]byte{1, 2, 3})
-			Expect(err).To(MatchError(ContainSubstring("too short")))
+			Expect(unsafe.CastBytes[uint32]([]byte{1, 2, 3})).
+				Error().To(MatchError(ContainSubstring("too short")))
 		})
 	})
 

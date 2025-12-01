@@ -113,16 +113,10 @@ func GorpPublisherConfigPureNumeric[K types.SizedNumeric, E gorp.Entry[K]](db *g
 		DeleteDataType: dt,
 		SetDataType:    dt,
 		MarshalDelete: func(k K) (b []byte, err error) {
-			b = make([]byte, dt.Density())
-			data := xunsafe.CastSlice[byte, K](b)
-			data[0] = k
-			return b, nil
+			return xunsafe.CastToBytes(k), nil
 		},
 		MarshalSet: func(e E) (b []byte, err error) {
-			b = make([]byte, dt.Density())
-			data := xunsafe.CastSlice[byte, K](b)
-			data[0] = e.GorpKey()
-			return b, nil
+			return xunsafe.CastToBytes(e.GorpKey()), nil
 		},
 	}
 }
