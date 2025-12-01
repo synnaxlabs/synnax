@@ -143,8 +143,17 @@ func WrapIterator[E any](wrapped kv.Iterator, decoder binary.Decoder) *Iterator[
 // for calls to return a valid value.
 func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
 	k.value = new(E)
-	if err := k.decoder.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
-		k.err = err
+	if u, ok := any(k.value).(GorpUnmarshaler); ok {
+		if err := u.UnmarshalGorp(k.Iterator.Value()); err != nil {
+			k.err = err
+			return nil
+		}
+		return k.value
+	} else {
+		if err := k.decoder.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
+			k.err = err
+			return nil
+		}
 	}
 	return k.value
 }

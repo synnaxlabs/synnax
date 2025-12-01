@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -90,9 +91,9 @@ func (w Writer) Delete(
 	keys ...uuid.UUID,
 ) error {
 	if err := gorp.NewDelete[uuid.UUID, User]().WhereKeys(keys...).Guard(func(_ gorp.Context, u User) error {
-		//if u.RootUser {
-		//	return errors.New("cannot delete root user")
-		//}
+		if u.RootUser {
+			return errors.New("cannot delete root user")
+		}
 		return nil
 	}).Exec(ctx, w.tx); err != nil {
 		return err
@@ -115,7 +116,7 @@ func (w Writer) MaybeSetRootUser(
 		return nil
 	}
 	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(users[0].Key).Change(func(_ gorp.Context, u User) User {
-		//u.RootUser = true
+		u.RootUser = true
 		return u
 	}).Exec(ctx, w.tx)
 }

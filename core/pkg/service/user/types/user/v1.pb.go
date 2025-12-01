@@ -4,9 +4,9 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        (unknown)
-// source: core/pkg/service/user/types/user_v1.proto
+// source: core/pkg/service/user/types/user/v1.proto
 
-package types
+package user
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -23,7 +23,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type UserV1 struct {
+type V1 struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
@@ -34,20 +34,20 @@ type UserV1 struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UserV1) Reset() {
-	*x = UserV1{}
+func (x *V1) Reset() {
+	*x = V1{}
 	mi := &file_core_pkg_service_user_types_user_v1_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UserV1) String() string {
+func (x *V1) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UserV1) ProtoMessage() {}
+func (*V1) ProtoMessage() {}
 
-func (x *UserV1) ProtoReflect() protoreflect.Message {
+func (x *V1) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_user_types_user_v1_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -59,40 +59,40 @@ func (x *UserV1) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UserV1.ProtoReflect.Descriptor instead.
-func (*UserV1) Descriptor() ([]byte, []int) {
+// Deprecated: Use V1.ProtoReflect.Descriptor instead.
+func (*V1) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_user_types_user_v1_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *UserV1) GetKey() string {
+func (x *V1) GetKey() string {
 	if x != nil {
 		return x.Key
 	}
 	return ""
 }
 
-func (x *UserV1) GetUsername() string {
+func (x *V1) GetUsername() string {
 	if x != nil {
 		return x.Username
 	}
 	return ""
 }
 
-func (x *UserV1) GetFirstName() string {
+func (x *V1) GetFirstName() string {
 	if x != nil {
 		return x.FirstName
 	}
 	return ""
 }
 
-func (x *UserV1) GetLastName() string {
+func (x *V1) GetLastName() string {
 	if x != nil {
 		return x.LastName
 	}
 	return ""
 }
 
-func (x *UserV1) GetRootUser() bool {
+func (x *V1) GetRootUser() bool {
 	if x != nil {
 		return x.RootUser
 	}
@@ -103,18 +103,15 @@ var File_core_pkg_service_user_types_user_v1_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_user_types_user_v1_proto_rawDesc = "" +
 	"\n" +
-	")core/pkg/service/user/types/user_v1.proto\x12\n" +
-	"user.types\"\x8f\x01\n" +
-	"\x06UserV1\x12\x10\n" +
+	")core/pkg/service/user/types/user/v1.proto\x12\x0fuser.types.user\"\x8b\x01\n" +
+	"\x02V1\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x1d\n" +
 	"\n" +
 	"first_name\x18\x03 \x01(\tR\tfirstName\x12\x1b\n" +
 	"\tlast_name\x18\x04 \x01(\tR\blastName\x12\x1b\n" +
-	"\troot_user\x18\x05 \x01(\bR\brootUserB\x9b\x01\n" +
-	"\x0ecom.user.typesB\vUserV1ProtoP\x01Z3github.com/synnaxlabs/synnax/pkg/service/user/types\xa2\x02\x03UTX\xaa\x02\n" +
-	"User.Types\xca\x02\n" +
-	"User\\Types\xe2\x02\x16User\\Types\\GPBMetadata\xea\x02\vUser::Typesb\x06proto3"
+	"\troot_user\x18\x05 \x01(\bR\brootUserB\xb6\x01\n" +
+	"\x13com.user.types.userB\aV1ProtoP\x01Z8github.com/synnaxlabs/synnax/pkg/service/user/types/user\xa2\x02\x03UTU\xaa\x02\x0fUser.Types.User\xca\x02\x0fUser\\Types\\User\xe2\x02\x1bUser\\Types\\User\\GPBMetadata\xea\x02\x11User::Types::Userb\x06proto3"
 
 var (
 	file_core_pkg_service_user_types_user_v1_proto_rawDescOnce sync.Once
@@ -130,7 +127,7 @@ func file_core_pkg_service_user_types_user_v1_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_service_user_types_user_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_service_user_types_user_v1_proto_goTypes = []any{
-	(*UserV1)(nil), // 0: user.types.UserV1
+	(*V1)(nil), // 0: user.types.user.V1
 }
 var file_core_pkg_service_user_types_user_v1_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type

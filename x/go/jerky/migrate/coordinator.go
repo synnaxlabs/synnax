@@ -12,12 +12,12 @@ package migrate
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
+	"go.uber.org/zap"
 )
 
 const (
@@ -31,68 +31,53 @@ type Metadata struct {
 	MigratedAt time.Time `json:"migrated_at"`
 }
 
-// Coordinator manages migrations for multiple types using TypedMigrators.
-type Coordinator struct {
-	migrators map[string]TypedMigrator
-	db        *gorp.DB
-	kvDB      kv.DB
-}
-
-// NewCoordinator creates a new migration coordinator.
-func NewCoordinator(db *gorp.DB, kvDB kv.DB, migrators ...TypedMigrator) *Coordinator {
-	c := &Coordinator{
-		migrators: make(map[string]TypedMigrator),
-		db:        db,
-		kvDB:      kvDB,
+// Run executes migrations for the configured TypedMigrator. It should be called once
+// at service bootup for each type that needs migration support.
+func Run(ctx context.Context, cfgs ...Config) error {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return err
 	}
-	for _, m := range migrators {
-		c.migrators[m.TypeName()] = m
-	}
-	return c
-}
+	typeName := cfg.Migrator.TypeName()
+	cfg.L.Debug("checking migration status", zap.String("type", typeName))
 
-// Run executes all pending migrations.
-func (c *Coordinator) Run(ctx context.Context) error {
-	for typeName, migrator := range c.migrators {
-		if err := c.migrateType(ctx, typeName, migrator); err != nil {
-			return errors.Newf("migration failed for %s: %w", typeName, err)
-		}
-	}
-	return nil
-}
-
-func (c *Coordinator) migrateType(ctx context.Context, typeName string, migrator TypedMigrator) error {
-	// Read current metadata
-	meta, err := c.readMetadata(ctx, typeName)
+	meta, err := readMetadata(ctx, cfg, typeName)
 	if err != nil {
 		return err
 	}
 
-	// Check if migration is needed
-	if meta.Version >= migrator.CurrentVersion() {
+	if meta.Version >= cfg.Migrator.CurrentVersion() {
+		cfg.L.Debug("already at current version",
+			zap.String("type", typeName),
+			zap.Int("version", meta.Version))
 		return nil
 	}
 
-	fmt.Printf("jerky: migrating %s from v%d to v%d\n", typeName, meta.Version, migrator.CurrentVersion())
+	cfg.L.Info("migrating",
+		zap.String("type", typeName),
+		zap.Int("from_version", meta.Version),
+		zap.Int("to_version", cfg.Migrator.CurrentVersion()))
 
-	// Delegate migration to the TypedMigrator which uses gorp's iterator
-	// and version-aware proto unmarshaling
-	if err := migrator.MigrateAll(ctx, c.db, meta.Version); err != nil {
-		return err
+	if err := cfg.Migrator.MigrateAll(ctx, cfg.DB, meta.Version); err != nil {
+		cfg.L.Error("migration failed",
+			zap.String("type", typeName),
+			zap.Error(err))
+		return errors.Wrapf(err, "migration failed for %s", typeName)
 	}
 
-	// Update metadata
-	meta.Version = migrator.CurrentVersion()
+	meta.Version = cfg.Migrator.CurrentVersion()
 	meta.MigratedAt = time.Now()
 
-	fmt.Printf("jerky: completed migration for %s to v%d\n", typeName, meta.Version)
+	cfg.L.Info("migration complete",
+		zap.String("type", typeName),
+		zap.Int("version", meta.Version))
 
-	return c.writeMetadata(ctx, typeName, meta)
+	return writeMetadata(ctx, cfg, typeName, meta)
 }
 
-func (c *Coordinator) readMetadata(ctx context.Context, typeName string) (*Metadata, error) {
+func readMetadata(ctx context.Context, cfg Config, typeName string) (*Metadata, error) {
 	key := []byte(MetadataPrefix + typeName)
-	data, closer, err := c.kvDB.Get(ctx, key)
+	data, closer, err := cfg.DB.KV().Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, kv.NotFound) {
 			return &Metadata{Version: 0}, nil
@@ -111,11 +96,11 @@ func (c *Coordinator) readMetadata(ctx context.Context, typeName string) (*Metad
 	return &meta, nil
 }
 
-func (c *Coordinator) writeMetadata(ctx context.Context, typeName string, meta *Metadata) error {
+func writeMetadata(ctx context.Context, cfg Config, typeName string, meta *Metadata) error {
 	key := []byte(MetadataPrefix + typeName)
 	data, err := json.Marshal(meta)
 	if err != nil {
 		return err
 	}
-	return c.kvDB.Set(ctx, key, data)
+	return cfg.DB.KV().Set(ctx, key, data)
 }

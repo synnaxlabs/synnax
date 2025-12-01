@@ -71,7 +71,10 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = migrate.NewCoordinator(cfg.DB, cfg.DB.KV(), &UserMigrator{}).Run(ctx); err != nil {
+	if err = migrate.Run(ctx, migrate.Config{
+		Migrator: &UserMigrator{},
+		DB:       cfg.DB,
+	}); err != nil {
 		return nil, err
 	}
 	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)

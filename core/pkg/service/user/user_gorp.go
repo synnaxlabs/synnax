@@ -3,18 +3,19 @@
 package user
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/user/types"
+	user "github.com/synnaxlabs/synnax/pkg/service/user/types/user"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 )
 
 // MarshalGorp serializes a User to bytes using protobuf.
 func (m User) MarshalGorp() ([]byte, error) {
-	return proto.Marshal(&types.User{
+	return proto.Marshal(&user.Current{
 		Key: m.Key.String(),
 		Username: m.Username,
 		FirstName: m.FirstName,
 		LastName: m.LastName,
+		RootUser: m.RootUser,
 	})
 }
 
@@ -22,7 +23,7 @@ func (m User) MarshalGorp() ([]byte, error) {
 // It expects data to be in the current proto format. Run migrations at startup
 // using UserMigrator to convert legacy data before normal operation.
 func (m *User) UnmarshalGorp(data []byte) error {
-	var pb types.User
+	var pb user.Current
 	if err := proto.Unmarshal(data, &pb); err != nil {
 		return err
 	}
@@ -34,5 +35,6 @@ func (m *User) UnmarshalGorp(data []byte) error {
 	m.Username = pb.Username
 	m.FirstName = pb.FirstName
 	m.LastName = pb.LastName
+	m.RootUser = pb.RootUser
 	return nil
 }

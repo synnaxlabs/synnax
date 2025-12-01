@@ -56,6 +56,7 @@ var _ = Describe("User", Ordered, func() {
 			Expect(u.RootUser).To(BeFalse())
 			users = append(users, *u)
 		})
+
 		It("Should create a new user without a key", func() {
 			u := &user.User{Username: "test2"}
 			Expect(w.Create(ctx, u)).To(Succeed())
@@ -66,6 +67,7 @@ var _ = Describe("User", Ordered, func() {
 			Expect(u.RootUser).To(BeFalse())
 			users = append(users, *u)
 		})
+
 		It("Should create a user with a name", func() {
 			u := &user.User{Username: "test3", FirstName: "Patrick", LastName: "Star"}
 			Expect(w.Create(ctx, u)).To(Succeed())
@@ -76,6 +78,7 @@ var _ = Describe("User", Ordered, func() {
 			Expect(u.RootUser).To(BeFalse())
 			users = append(users, *u)
 		})
+
 		It("Should return an error if the user with the username already exists", func() {
 			u := &user.User{Username: "test1"}
 			Expect(errors.Is(w.Create(ctx, u), auth.RepeatedUsername)).To(BeTrue())
