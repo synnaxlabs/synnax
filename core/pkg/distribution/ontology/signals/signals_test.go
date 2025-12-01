@@ -11,6 +11,9 @@ package signals_test
 
 import (
 	"context"
+	"io"
+	"iter"
+	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,7 +28,7 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,7 +36,7 @@ import (
 )
 
 type changeService struct {
-	observe.Observer[iter.Nexter[ontology.Change]]
+	observe.Observer[iter.Seq[ontology.Change]]
 }
 
 const changeType ontology.Type = "change"
@@ -50,8 +53,8 @@ func (s *changeService) Schema() zyn.Schema {
 	return zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 }
 
-func (s *changeService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	return iter.NexterNopCloser(iter.All[ontology.Resource](nil)), nil
+func (s *changeService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+	return slices.Values([]ontology.Resource{}), xio.NopCloserFunc(nil), nil
 }
 
 func (s *changeService) RetrieveResource(
@@ -77,7 +80,7 @@ var _ = Describe("Signals", Ordered, func() {
 	BeforeAll(func() {
 		builder = mock.NewCluster()
 		dist = builder.Provision(ctx)
-		svc = &changeService{Observer: observe.New[iter.Nexter[ontology.Change]]()}
+		svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
 		dist.Ontology.RegisterService(svc)
 	})
 	AfterAll(func() {
@@ -103,8 +106,8 @@ var _ = Describe("Signals", Ordered, func() {
 			time.Sleep(5 * time.Millisecond)
 			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 			key := "hello"
-			svc.NotifyGenerator(ctx, func() iter.Nexter[ontology.Change] {
-				return iter.All([]ontology.Change{
+			svc.NotifyGenerator(ctx, func() iter.Seq[ontology.Change] {
+				return slices.Values([]ontology.Change{
 					{
 						Variant: change.Set,
 						Key:     newChangeID(key),
@@ -142,8 +145,8 @@ var _ = Describe("Signals", Ordered, func() {
 			time.Sleep(5 * time.Millisecond)
 			closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 			key := "hello"
-			svc.NotifyGenerator(ctx, func() iter.Nexter[ontology.Change] {
-				return iter.All([]ontology.Change{
+			svc.NotifyGenerator(ctx, func() iter.Seq[ontology.Change] {
+				return slices.Values([]ontology.Change{
 					{
 						Variant: change.Delete,
 						Key:     newChangeID(key),

@@ -11,6 +11,8 @@ package rack
 
 import (
 	"context"
+	"io"
+	"iter"
 	"strconv"
 
 	"github.com/samber/lo"
@@ -18,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
+	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -89,18 +91,15 @@ func translateChange(c change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Rack]) {
-		f(ctx, iter.NexterTranslator[change, ontology.Change]{Wrap: reader, Translate: translateChange})
+		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return gorp.Observe[Key, Rack](s.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	n, err := gorp.WrapReader[Key, Rack](s.DB).OpenNexter()
-	return iter.NexterCloserTranslator[Rack, ontology.Resource]{
-		Wrap:      n,
-		Translate: newResource,
-	}, err
+func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+	n, closer, err := gorp.WrapReader[Key, Rack](s.DB).OpenNexter(ctx)
+	return xiter.Map(n, newResource), closer, err
 }

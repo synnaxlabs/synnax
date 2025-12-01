@@ -119,6 +119,29 @@ var _ = Describe("NopCloserFunc", func() {
 		Expect(closer.Close()).To(Succeed())
 		Expect(called).To(BeTrue())
 	})
+
+	Describe("nil handling", func() {
+		It("should not panic when Close is called on a nil NopCloserFunc", func() {
+			var closer xio.NopCloserFunc
+			Expect(closer).To(BeNil())
+			Expect(func() {
+				_ = closer.Close()
+			}).ToNot(Panic())
+		})
+
+		It("should return nil when Close is called on a nil NopCloserFunc", func() {
+			var closer xio.NopCloserFunc
+			err := closer.Close()
+			Expect(err).To(BeNil())
+		})
+
+		It("should not call the function when NopCloserFunc is nil", func() {
+			var closer xio.NopCloserFunc
+			// This should not panic and should return nil
+			// The function is not called because the receiver is nil
+			Expect(closer.Close()).To(Succeed())
+		})
+	})
 })
 
 var _ = Describe("MultiCloser", func() {
