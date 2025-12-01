@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	xtypes "github.com/synnaxlabs/x/types"
+	slices "github.com/synnaxlabs/x/slices"
 )
 
 // {{ .TypeName }}Migrator implements migrate.TypedMigrator for {{ .TypeName }}.
@@ -42,10 +43,14 @@ func (m {{ .TypeName }}Migrator) MigrateAll(ctx context.Context, db *gorp.DB, fr
 		err = errors.Combine(iter.Close(), err)
 	}()
 
+    var (
+        key  []byte
+        data []byte
+    )
 	for iter.First(); iter.Valid(); iter.Next() {
-		key := make([]byte, len(iter.Key()))
+	    key = slices.GrowTo(key, len(iter.Key()))
 		copy(key, iter.Key())
-		data := make([]byte, len(iter.Value()))
+		data = slices.GrowTo(data, len(iter.Value()))
 		copy(data, iter.Value())
 		// Run migrations sequentially from fromVersion to current
 		migratedData, err := {{ .TypeAlias }}.Migrations.MigrateToLatest(data, fromVersion)
