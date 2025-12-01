@@ -29,10 +29,10 @@ var _ = Describe("Reader", Ordered, func() {
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Iterator", func() {
 		It("Should iterate over entries matching a type", func() {
-			Expect(gorp.NewCreate[int, entry]().
+			Expect(gorp.NewCreate[int32, entry]().
 				Entries(&[]entry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 				Exec(ctx, tx)).To(Succeed())
-			iter := MustSucceed(gorp.WrapReader[int, entry](tx).OpenIterator(gorp.IterOptions{}))
+			iter := MustSucceed(gorp.WrapReader[int32, entry](tx).OpenIterator(gorp.IterOptions{}))
 			Expect(iter.First()).To(BeTrue())
 			Expect(iter.Value(ctx).Data).To(Equal("data"))
 			Expect(iter.Next()).To(BeTrue())
@@ -43,10 +43,10 @@ var _ = Describe("Reader", Ordered, func() {
 	})
 	Describe("Nexter", func() {
 		It("Should iterate over entries matching a type", func() {
-			Expect(gorp.NewCreate[int, entry]().
+			Expect(gorp.NewCreate[int32, entry]().
 				Entries(&[]entry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 				Exec(ctx, tx)).To(Succeed())
-			nexter := MustSucceed(gorp.WrapReader[int, entry](tx).OpenNexter())
+			nexter := MustSucceed(gorp.WrapReader[int32, entry](tx).OpenNexter())
 			v, ok := nexter.Next(ctx)
 			Expect(ok).To(BeTrue())
 			Expect(v.Data).To(Equal("data"))

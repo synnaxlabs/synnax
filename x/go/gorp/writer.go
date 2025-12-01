@@ -19,13 +19,13 @@ import (
 // cesium.BeginWrite.
 type Writer[K Key, E Entry[K]] struct {
 	BaseWriter
-	lazyPrefix[K, E]
+	keyCodec keyCodec[K, E]
 }
 
 // WrapWriter wraps the given key-value writer to provide a strongly
 // typed interface for writing entries to the DB.
 func WrapWriter[K Key, E Entry[K]](base BaseWriter) *Writer[K, E] {
-	return &Writer[K, E]{BaseWriter: base, lazyPrefix: lazyPrefix[K, E]{Tools: base}}
+	return &Writer[K, E]{BaseWriter: base, keyCodec: newKeyCodec[K, E]()}
 }
 
 // Set writes the provided entries to the DB.
@@ -53,7 +53,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	if err != nil {
 		return err
 	}
-	prefixedKey, err := encodeKey[K](ctx, w, w.prefix(ctx), entry.GorpKey())
+	prefixedKey, err := w.keyCodec.encode(entry.GorpKey())
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
-	encodedKey, err := encodeKey[K](ctx, w, w.prefix(ctx), key)
+	encodedKey, err := w.keyCodec.encode(key)
 	if err != nil {
 		return err
 	}

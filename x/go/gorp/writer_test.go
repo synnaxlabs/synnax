@@ -30,7 +30,7 @@ var _ = Describe("Writer", Ordered, func() {
 	})
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 	It("Should wrap a key-value writer with an encoder", func() {
-		w := gorp.WrapWriter[int, entry](tx)
+		w := gorp.WrapWriter[int32, entry](tx)
 		Expect(w.Set(ctx, entry{ID: 1, Data: "Two"})).To(Succeed())
 		Expect(w.Delete(ctx, 1)).To(Succeed())
 	})

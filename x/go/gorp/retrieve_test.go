@@ -31,21 +31,21 @@ var _ = Describe("Retrieve", Ordered, func() {
 		kv = memkv.New()
 		db = gorp.Wrap(kv)
 		for i := range 10 {
-			entries = append(entries, entry{ID: i, Data: "data"})
+			entries = append(entries, entry{ID: int32(i), Data: "data"})
 		}
 
 	})
 	AfterAll(func() { Expect(kv.Close()).To(Succeed()) })
 	BeforeEach(func() {
 		tx = db.OpenTx()
-		Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
+		Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
 	})
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 	Describe("WhereKeys", func() {
 		Context("Multiple Entries", func() {
 			It("Should retrieve the entry by key", func() {
 				var res []entry
-				Expect(gorp.NewRetrieve[int, entry]().
+				Expect(gorp.NewRetrieve[int32, entry]().
 					WhereKeys(entries[0].GorpKey()).
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
@@ -53,7 +53,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			})
 			It("Should return a query.NotFound error if ANY key is not found", func() {
 				var res []entry
-				err := gorp.NewRetrieve[int, entry]().
+				err := gorp.NewRetrieve[int32, entry]().
 					WhereKeys(entries[0].GorpKey(), 444444).
 					Entries(&res).
 					Exec(ctx, tx)
@@ -64,7 +64,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			})
 			It("Should still retrieve all possible entries even if some are not found", func() {
 				var res []entry
-				Expect(gorp.NewRetrieve[int, entry]().
+				Expect(gorp.NewRetrieve[int32, entry]().
 					WhereKeys(44444, entries[0].GorpKey(), entries[1].GorpKey()).
 					Entries(&res).
 					Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
@@ -72,14 +72,14 @@ var _ = Describe("Retrieve", Ordered, func() {
 			})
 			Describe("Exists", func() {
 				It("Should return true if ALL keys have matching entries", func() {
-					exists, err := gorp.NewRetrieve[int, entry]().
+					exists, err := gorp.NewRetrieve[int32, entry]().
 						WhereKeys(entries[0].GorpKey(), entries[1].GorpKey()).
 						Exists(ctx, tx)
 					Expect(err).To(Not(HaveOccurred()))
 					Expect(exists).To(BeTrue())
 				})
 				It("Should return false if ANY key has no matching entry", func() {
-					exists, err := gorp.NewRetrieve[int, entry]().
+					exists, err := gorp.NewRetrieve[int32, entry]().
 						WhereKeys(entries[0].GorpKey(), 444444).
 						Exists(ctx, tx)
 					Expect(err).To(Not(HaveOccurred()))
@@ -90,7 +90,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		Context("Single Entry", func() {
 			It("Should retrieve the entry by key", func() {
 				res := &entry{}
-				Expect(gorp.NewRetrieve[int, entry]().
+				Expect(gorp.NewRetrieve[int32, entry]().
 					WhereKeys(entries[0].GorpKey()).
 					Entry(res).
 					Exec(ctx, tx)).To(Succeed())
@@ -98,13 +98,13 @@ var _ = Describe("Retrieve", Ordered, func() {
 			})
 			It("Should allow for a nil entry to be provided", func() {
 				var res *entry
-				Expect(gorp.NewRetrieve[int, entry]().
+				Expect(gorp.NewRetrieve[int32, entry]().
 					WhereKeys(entries[0].GorpKey()).
 					Entry(res).
 					Exec(ctx, tx)).To(Succeed())
 			})
 			It("Should return a query.NotFound error if the key is not found", func() {
-				err := gorp.NewRetrieve[int, entry]().
+				err := gorp.NewRetrieve[int32, entry]().
 					WhereKeys(444444).
 					Entry(&entry{}).
 					Exec(ctx, tx)
@@ -112,7 +112,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Expect(errors.Is(err, query.NotFound)).To(BeTrue())
 			})
 			It("Should return a query.NotFound error if the where clause matches no entry", func() {
-				err := gorp.NewRetrieve[int, entry]().
+				err := gorp.NewRetrieve[int32, entry]().
 					Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID == 241241, nil }).
 					Entry(&entry{}).
 					Exec(ctx, tx)
@@ -121,14 +121,14 @@ var _ = Describe("Retrieve", Ordered, func() {
 			})
 			Describe("exists", func() {
 				It("Should return true if the key has a matching entry", func() {
-					exists, err := gorp.NewRetrieve[int, entry]().
+					exists, err := gorp.NewRetrieve[int32, entry]().
 						WhereKeys(entries[0].GorpKey()).
 						Exists(ctx, tx)
 					Expect(err).To(Not(HaveOccurred()))
 					Expect(exists).To(BeTrue())
 				})
 				It("Should return false if the key has no matching entry", func() {
-					exists, err := gorp.NewRetrieve[int, entry]().
+					exists, err := gorp.NewRetrieve[int32, entry]().
 						WhereKeys(444444).
 						Exists(ctx, tx)
 					Expect(err).To(Not(HaveOccurred()))
@@ -162,7 +162,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 	Describe("Where", func() {
 		It("Should retrieve the entry by a filter parameter", func() {
 			var res []entry
-			Expect(gorp.NewRetrieve[int, entry]().
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil }).
 				Exec(ctx, tx),
@@ -171,7 +171,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 		It("Should support isMultiple filters", func() {
 			var res []entry
-			Expect(gorp.NewRetrieve[int, entry]().
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil }).
 				Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID == entries[2].ID, nil }).
@@ -181,7 +181,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 		It("Should require a filter to match when gorp.Required()", func() {
 			var res []entry
-			Expect(gorp.NewRetrieve[int, entry]().
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil }, gorp.Required()).
 				Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID == entries[2].ID, nil }).
@@ -191,7 +191,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 		It("Should NOT return a query.NamesNotFound error if no entries are found", func() {
 			var res []entry
-			Expect(gorp.NewRetrieve[int, entry]().
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID == 444444, nil }).
 				Exec(ctx, tx),
@@ -200,7 +200,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 		Describe("exists", func() {
 			It("Should return true if ANY entries exist", func() {
-				exists, err := gorp.NewRetrieve[int, entry]().
+				exists, err := gorp.NewRetrieve[int32, entry]().
 					Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil }).
 					Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID == 44444, nil }).
 					Exists(ctx, tx)
@@ -208,7 +208,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Expect(exists).To(BeTrue())
 			})
 			It("Should return false if ALL entries do not exist", func() {
-				exists, err := gorp.NewRetrieve[int, entry]().
+				exists, err := gorp.NewRetrieve[int32, entry]().
 					Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID == 444444, nil }).
 					Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID == 44444, nil }).
 					Exists(ctx, tx)
@@ -221,11 +221,11 @@ var _ = Describe("Retrieve", Ordered, func() {
 				toCreate := 100
 				var entries []entry
 				for i := range toCreate {
-					entries = append(entries, entry{ID: i, Data: "data"})
+					entries = append(entries, entry{ID: int32(i), Data: "data"})
 				}
-				Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
 				var res []entry
-				Expect(gorp.NewRetrieve[int, entry]().
+				Expect(gorp.NewRetrieve[int32, entry]().
 					Entries(&res).
 					Limit(10).
 					Exec(ctx, tx),
@@ -238,11 +238,11 @@ var _ = Describe("Retrieve", Ordered, func() {
 				toCreate := 100
 				var entries []entry
 				for i := range toCreate {
-					entries = append(entries, entry{ID: i, Data: "data"})
+					entries = append(entries, entry{ID: int32(i), Data: "data"})
 				}
-				Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
 				var res []entry
-				Expect(gorp.NewRetrieve[int, entry]().
+				Expect(gorp.NewRetrieve[int32, entry]().
 					Entries(&res).
 					Offset(10).
 					Exec(ctx, tx),
@@ -255,11 +255,11 @@ var _ = Describe("Retrieve", Ordered, func() {
 				toCreate := 100
 				var entries []entry
 				for i := range toCreate {
-					entries = append(entries, entry{ID: i, Data: "data"})
+					entries = append(entries, entry{ID: int32(i), Data: "data"})
 				}
-				Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
 				var res []entry
-				Expect(gorp.NewRetrieve[int, entry]().
+				Expect(gorp.NewRetrieve[int32, entry]().
 					Entries(&res).
 					Limit(10).
 					Offset(10).
@@ -272,7 +272,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 	Describe("No Parameters", func() {
 		It("Should return all entries for the given type", func() {
 			var res []entry
-			Expect(gorp.NewRetrieve[int, entry]().
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
 				Exec(ctx, tx),
 			).To(Succeed())
@@ -282,7 +282,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 	Describe("Count", func() {
 		Context("WhereKeys", func() {
 			It("Should return the count of existing keys", func() {
-				count, err := gorp.NewRetrieve[int, entry]().
+				count, err := gorp.NewRetrieve[int32, entry]().
 					WhereKeys(entries[0].GorpKey(), entries[1].GorpKey()).
 					Count(ctx, tx)
 				Expect(err).To(Not(HaveOccurred()))
@@ -290,7 +290,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			})
 
 			It("Should handle non-existent keys", func() {
-				count, err := gorp.NewRetrieve[int, entry]().
+				count, err := gorp.NewRetrieve[int32, entry]().
 					WhereKeys(entries[0].GorpKey(), 444444).
 					Count(ctx, tx)
 				Expect(err).To(Not(HaveOccurred()))
@@ -300,7 +300,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 		Context("Where", func() {
 			It("Should count entries matching a filter", func() {
-				count, err := gorp.NewRetrieve[int, entry]().
+				count, err := gorp.NewRetrieve[int32, entry]().
 					Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil }).
 					Count(ctx, tx)
 				Expect(err).To(Not(HaveOccurred()))
@@ -308,7 +308,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			})
 
 			It("Should return zero for non-matching filters", func() {
-				count, err := gorp.NewRetrieve[int, entry]().
+				count, err := gorp.NewRetrieve[int32, entry]().
 					Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID > 100, nil }).
 					Count(ctx, tx)
 				Expect(err).To(Not(HaveOccurred()))
@@ -316,7 +316,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			})
 
 			It("Should handle multiple filters", func() {
-				count, err := gorp.NewRetrieve[int, entry]().
+				count, err := gorp.NewRetrieve[int32, entry]().
 					Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil }, gorp.Required()).
 					Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID > 2, nil }, gorp.Required()).
 					Count(ctx, tx)
@@ -326,7 +326,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 			It("Should pass the correct transaction in the Context of the Where clause", func() {
 				callCount := 0
-				count, err := gorp.NewRetrieve[int, entry]().
+				count, err := gorp.NewRetrieve[int32, entry]().
 					Where(func(wCtx gorp.Context, e *entry) (bool, error) {
 						callCount++
 						Expect(wCtx.Context).To(BeIdenticalTo(ctx))
@@ -366,7 +366,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 		Context("No Parameters", func() {
 			It("Should count all entries", func() {
-				count, err := gorp.NewRetrieve[int, entry]().
+				count, err := gorp.NewRetrieve[int32, entry]().
 					Count(ctx, tx)
 				Expect(err).To(Not(HaveOccurred()))
 				Expect(count).To(Equal(10)) // Based on the 10 entries created in BeforeEach

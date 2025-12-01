@@ -35,34 +35,34 @@ var _ = Describe("Delete", Ordered, func() {
 
 	Describe("WhereKeys", func() {
 		It("Should delete an entry by key in the db", func() {
-			Expect(gorp.NewCreate[int, entry]().
+			Expect(gorp.NewCreate[int32, entry]().
 				Entry(&entry{ID: 1, Data: "Synnax"}).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewDelete[int, entry]().WhereKeys(1).Exec(ctx, tx)).To(Succeed())
-			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(ctx, tx)
+			Expect(gorp.NewDelete[int32, entry]().WhereKeys(1).Exec(ctx, tx)).To(Succeed())
+			exists, err := gorp.NewRetrieve[int32, entry]().WhereKeys(1).Exists(ctx, tx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeFalse())
 		})
 		It("Should NOT return an error if the entry does not exist", func() {
-			Expect(gorp.NewDelete[int, entry]().WhereKeys(1).Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewDelete[int32, entry]().WhereKeys(1).Exec(ctx, tx)).To(Succeed())
 		})
 	})
 
 	Describe("Where", func() {
 		It("Should delete an entry by predicate in the db", func() {
-			Expect(gorp.NewCreate[int, entry]().
+			Expect(gorp.NewCreate[int32, entry]().
 				Entry(&entry{ID: 1, Data: "Synnax"}).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewDelete[int, entry]().Where(func(ctx gorp.Context, e *entry) (bool, error) {
+			Expect(gorp.NewDelete[int32, entry]().Where(func(ctx gorp.Context, e *entry) (bool, error) {
 				return e.Data == "Synnax", nil
 			}).Exec(ctx, tx)).To(Succeed())
-			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(ctx, tx)
+			exists, err := gorp.NewRetrieve[int32, entry]().WhereKeys(1).Exists(ctx, tx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeFalse())
 		})
 
 		It("Should not return an error if the entry does not exist", func() {
-			Expect(gorp.NewDelete[int, entry]().Where(func(ctx gorp.Context, e *entry) (bool, error) {
+			Expect(gorp.NewDelete[int32, entry]().Where(func(ctx gorp.Context, e *entry) (bool, error) {
 				return e.Data == "Synnax", nil
 			}).Exec(ctx, tx)).To(Succeed())
 		})
@@ -70,31 +70,31 @@ var _ = Describe("Delete", Ordered, func() {
 
 	Describe("Guard", func() {
 		It("Should prevent deletion if any of the guard functions fail", func() {
-			Expect(gorp.NewCreate[int, entry]().
+			Expect(gorp.NewCreate[int32, entry]().
 				Entry(&entry{ID: 1, Data: "Synnax"}).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewDelete[int, entry]().
+			Expect(gorp.NewDelete[int32, entry]().
 				WhereKeys(1).
 				Guard(func(_ gorp.Context, e entry) error {
 					return validate.Error
 				}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Error))
-			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(ctx, tx)
+			exists, err := gorp.NewRetrieve[int32, entry]().WhereKeys(1).Exists(ctx, tx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())
 		})
 
 		It("Should pass the correct transaction to the gorp context of the guard clause", func() {
-			Expect(gorp.NewCreate[int, entry]().
+			Expect(gorp.NewCreate[int32, entry]().
 				Entry(&entry{ID: 22, Data: "Synnax"}).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewDelete[int, entry]().
+			Expect(gorp.NewDelete[int32, entry]().
 				WhereKeys(22).
 				Guard(func(gCtx gorp.Context, e entry) error {
 					Expect(gCtx.Tx).To(BeIdenticalTo(tx))
 					Expect(gCtx.Context).To(BeIdenticalTo(ctx))
 					return validate.Error
 				}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Error))
-			exists := MustSucceed(gorp.NewRetrieve[int, entry]().WhereKeys(22).Exists(ctx, tx))
+			exists := MustSucceed(gorp.NewRetrieve[int32, entry]().WhereKeys(22).Exists(ctx, tx))
 			Expect(exists).To(BeTrue())
 		})
 

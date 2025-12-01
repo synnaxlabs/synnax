@@ -10,9 +10,9 @@
 package gorp
 
 import (
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
+	xunsafe "github.com/synnaxlabs/x/unsafe"
 	"go.uber.org/zap"
 )
 
@@ -189,20 +189,26 @@ func GetEntries[K Key, E Entry[K]](q query.Parameters) *Entries[K, E] {
 	return re.(*Entries[K, E])
 }
 
-func encodeKey[K Key](
-	prefix []byte,
-	key K,
-) ([]byte, error) {
-	byteKey, err := binary.EncodePrimitive(key)
+type keyCodec[K Key, E Entry[K]] struct {
+	prefix []byte
+}
+
+func newKeyCodec[K Key, E Entry[K]]() keyCodec[K, E] {
+	return keyCodec[K, E]{prefix: prefix[K, E]()}
+}
+
+func (k keyCodec[K, E]) encode(key K) ([]byte, error) {
+	byteKey, err := xunsafe.EncodePrimitive(key)
 	if err != nil {
 		return nil, err
 	}
-	return append(prefix, byteKey...), nil
+	return append(k.prefix, byteKey...), nil
 }
 
-func decodeKey[K Key](
-	prefix []byte,
-	b []byte,
-) (K, error) {
-	return binary.DecodePrimitive[K](b[len(prefix):])
+func (k keyCodec[K, E]) decode(b []byte) (K, error) {
+	return xunsafe.DecodePrimitive[K](b[len(k.prefix):])
+}
+
+func prefix[K Key, E Entry[K]]() []byte {
+	return []byte(types.Name[E]())
 }

@@ -10,5 +10,5 @@
 package types
 
 type Primitive interface {
-	SignedInteger | UnsignedInteger | Floating | ~string | ~[]byte
+	Sized | ~string | ~[]byte
 }

@@ -28,7 +28,7 @@ import (
 // reading entries from the DB. Readonly only accesses entries that match
 // its type arguments.
 type Reader[K Key, E Entry[K]] struct {
-	*lazyPrefix[K, E]
+	keyCodec keyCodec[K, E]
 	// BaseReader is the underlying key-value reader that the Reader is wrapping.
 	BaseReader
 }
@@ -45,16 +45,13 @@ type Reader[K Key, E Entry[K]] struct {
 //
 //	r := gor.WrapReader[MyKey, MyEntry](tx)
 func WrapReader[K Key, E Entry[K]](base BaseReader) *Reader[K, E] {
-	return &Reader[K, E]{
-		BaseReader: base,
-		lazyPrefix: &lazyPrefix[K, E]{Tools: base},
-	}
+	return &Reader[K, E]{BaseReader: base, keyCodec: newKeyCodec[K, E]()}
 }
 
 // Get retrieves a single entry from the database. If the entry does not exist,
 // query.NotFound is returned.
 func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
-	bKey, err := encodeKey(ctx, r, r.prefix(ctx), key)
+	bKey, err := r.keyCodec.encode(key)
 	if err != nil {
 		return e, err
 	}
@@ -104,7 +101,7 @@ type IterOptions struct {
 
 // OpenIterator opens a new Iterator over the entries in the Reader.
 func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
-	prefixedKey := append(r.prefix(context.TODO()), opts.prefix...)
+	prefixedKey := append(r.keyCodec.prefix, opts.prefix...)
 	base, err := r.BaseReader.OpenIterator(kv.IterPrefix(prefixedKey))
 	return WrapIterator[E](base, r), err
 }
@@ -168,9 +165,9 @@ func (k *Iterator[E]) Valid() bool {
 //	r, ok, err := r.Nexter(ctx)
 func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {
 	return TxReader[K, E]{
-		kv:     reader,
-		tools:  tools,
-		prefix: lazyPrefix[K, E]{Tools: tools},
+		kv:       reader,
+		tools:    tools,
+		keyCodec: newKeyCodec[K, E](),
 	}
 }
 
@@ -178,9 +175,9 @@ func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K
 // that provides a strongly typed interface for iterating over a
 // transactions operations in order.
 type TxReader[K Key, E Entry[K]] struct {
-	kv     kv.TxReader
-	tools  Tools
-	prefix lazyPrefix[K, E]
+	kv       kv.TxReader
+	tools    Tools
+	keyCodec keyCodec[K, E]
 }
 
 var _ iter.Nexter[change.Change[string, nopEntry]] = TxReader[string, nopEntry]{}
@@ -196,12 +193,11 @@ func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bo
 	if !ok {
 		return op, false
 	}
-	pref := t.prefix.prefix(ctx)
-	if !bytes.HasPrefix(kvOp.Key, pref) {
+	if !bytes.HasPrefix(kvOp.Key, t.keyCodec.prefix) {
 		return t.Next(ctx)
 	}
 	var err error
-	if op.Key, err = decodeKey[K](pref, kvOp.Key); err != nil {
+	if op.Key, err = t.keyCodec.decode(kvOp.Key); err != nil {
 		panic(err)
 	}
 	op.Variant = kvOp.Variant
