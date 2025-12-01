@@ -16,6 +16,4 @@ export interface RegistryItem {
   layout: Layout.BaseState;
 }
 
-export interface Registry {
-  [key: string]: RegistryItem;
-}
+export interface Registry extends Record<string, RegistryItem> {}

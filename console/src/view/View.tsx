@@ -9,7 +9,7 @@
 
 import "@/view/View.css";
 
-import { type view } from "@synnaxlabs/client";
+import { type ontology, type view } from "@synnaxlabs/client";
 import {
   Button,
   type Component,
@@ -53,7 +53,7 @@ export interface ViewProps<
   filters?: React.FC<FiltersProps<R>>;
   initialRequest: R;
   shownFilters?: React.FC<FiltersProps<R>>;
-  resourceType: string;
+  resourceType: ontology.ResourceType;
   item: Component.RenderProp<List.ItemProps<K>>;
 }
 
@@ -150,7 +150,7 @@ export const View = <
               <>{shownFilters({ request, onRequestChange: handleRequestChange })}</>
             )}
             <SearchBox
-              searchTerm={request.searchTerm ?? ""}
+              value={request.searchTerm ?? ""}
               resourceType={resourceType}
               onChange={handleSearch}
             />
@@ -265,20 +265,17 @@ const Filters = <R extends Request>({
   </Dialog.Frame>
 );
 
-interface SearchBoxProps {
-  searchTerm: string;
+interface SearchBoxProps extends Omit<Input.TextProps, "placeholder"> {
   resourceType: string;
-  onChange: (searchTerm: string) => void;
 }
 
-const SearchBox = ({ searchTerm, resourceType, onChange }: SearchBoxProps) => (
+const SearchBox = ({ resourceType, ...rest }: SearchBoxProps) => (
   <Input.Text
     size="small"
     level="h5"
     variant="text"
+    {...rest}
     placeholder={`Search ${plural(resourceType)}...`}
-    value={searchTerm}
-    onChange={onChange}
   />
 );
 

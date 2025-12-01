@@ -27,6 +27,13 @@ const handleSelect: Ontology.HandleSelect = ({
   }, `Failed to select ${selection[0].name}`);
 };
 
+const editedViewRegistryIcons: Record<string, Icon.FC | undefined> = Object.fromEntries(
+  Object.entries(VIEW_REGISTRY).map(([type, { icon }]) => [
+    type,
+    Icon.createComposite(icon, { topRight: Icon.View }),
+  ]),
+);
+
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "view",
@@ -34,17 +41,9 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: (resource) => {
     const type = resource.data?.type;
     if (typeof type !== "string") return <Icon.View />;
-    if (compositeIconRegistry[type] != null) {
-      const I = compositeIconRegistry[type];
-      return <I />;
-    }
-    const { icon } = VIEW_REGISTRY[type];
-    if (icon == null) return <Icon.View />;
-    const I = Icon.createComposite(icon, { topRight: Icon.View });
-    compositeIconRegistry[type] = I;
+    const I = editedViewRegistryIcons[type];
+    if (I == null) return <Icon.View />;
     return <I />;
   },
   hasChildren: false,
 };
-
-const compositeIconRegistry: Record<string, Icon.FC> = {};

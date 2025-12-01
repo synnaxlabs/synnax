@@ -9,6 +9,7 @@
 
 import { type status } from "@synnaxlabs/client";
 import { Component, Status } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/status/Create";
@@ -28,18 +29,21 @@ export const EXPLORER_LAYOUT: Layout.BaseState = {
 
 const item = Component.renderProp(Item);
 
+const initialQuery = {} as const;
+
 export const Explorer: Layout.Renderer = () => {
-  const listProps = Status.useList({});
+  const listProps = Status.useList(initialQuery);
   const placeLayout = Layout.usePlacer();
+  const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
   return (
     <View<status.Key, status.Status, status.MultiRetrieveArgs>
       {...listProps}
       resourceType="status"
       item={item}
-      initialRequest={{}}
+      initialRequest={initialQuery}
       filters={FilterContextMenu}
       shownFilters={CoreFilters}
-      onCreate={() => placeLayout(CREATE_LAYOUT)}
+      onCreate={handleCreate}
     />
   );
 };
