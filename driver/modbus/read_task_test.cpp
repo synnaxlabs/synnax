@@ -33,7 +33,12 @@ protected:
         sy = std::make_shared<synnax::Synnax>(new_test_client());
 
         // Create index channel
-        index_channel = synnax::Channel("time_channel", telem::TIMESTAMP_T, 0, true);
+        index_channel = synnax::Channel(
+            make_unique_channel_name("time_channel"),
+            telem::TIMESTAMP_T,
+            0,
+            true
+        );
         ASSERT_NIL(sy->channels.create(index_channel));
 
         // Create rack and device
@@ -93,7 +98,9 @@ TEST_F(ModbusReadTest, testInvalidDeviceConfig) {
     auto cfg = create_base_config();
     cfg["device"] = "non_existent_device";
 
-    auto ch = ASSERT_NIL_P(sy->channels.create("test", telem::UINT8_T, true));
+    auto ch = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("test"), telem::UINT8_T, true)
+    );
     cfg["channels"].push_back(create_channel_config("coil_input", ch, 0));
 
     auto p = xjson::Parser(cfg);
@@ -114,7 +121,9 @@ TEST_F(ModbusReadTest, testInvalidChannelConfig) {
 TEST_F(ModbusReadTest, testInvalidChannelType) {
     auto cfg = create_base_config();
 
-    auto ch = ASSERT_NIL_P(sy->channels.create("test", telem::UINT8_T, true));
+    auto ch = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("test"), telem::UINT8_T, true)
+    );
     cfg["channels"].push_back(
         {{"type", "invalid_type"},
          {"enabled", true},
@@ -131,14 +140,18 @@ TEST_F(ModbusReadTest, testMultiChannelConfig) {
     auto cfg = create_base_config();
 
     // Create channels for different types
-    auto coil_ch = ASSERT_NIL_P(sy->channels.create("coil", telem::UINT8_T, true));
+    auto coil_ch = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("coil"), telem::UINT8_T, true)
+    );
     auto discrete_ch = ASSERT_NIL_P(
-        sy->channels.create("discrete", telem::UINT8_T, true)
+        sy->channels.create(make_unique_channel_name("discrete"), telem::UINT8_T, true)
     );
     auto holding_ch = ASSERT_NIL_P(
-        sy->channels.create("holding", telem::UINT16_T, true)
+        sy->channels.create(make_unique_channel_name("holding"), telem::UINT16_T, true)
     );
-    auto input_ch = ASSERT_NIL_P(sy->channels.create("input", telem::UINT16_T, true));
+    auto input_ch = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("input"), telem::UINT16_T, true)
+    );
 
     // Add different channel types
     cfg["channels"].push_back(create_channel_config("coil_input", coil_ch, 0));
@@ -165,10 +178,15 @@ TEST(ReadTask, testBasicReadTask) {
     ASSERT_NIL(slave.start());
     x::defer stop_slave([&slave] { slave.stop(); });
 
-    auto index_channel = synnax::Channel("time_channel", telem::TIMESTAMP_T, 0, true);
+    auto index_channel = synnax::Channel(
+        make_unique_channel_name("time_channel"),
+        telem::TIMESTAMP_T,
+        0,
+        true
+    );
 
     auto data_channel = synnax::Channel(
-        "data_channel",
+        make_unique_channel_name("data_channel"),
         telem::UINT8_T,
         index_channel.key,
         false
@@ -271,9 +289,12 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     // Create data channel
-    auto data_channel = ASSERT_NIL_P(
-        sy->channels.create("discrete_input", telem::UINT8_T, index_channel.key, false)
-    );
+    auto data_channel = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("discrete_input"),
+        telem::UINT8_T,
+        index_channel.key,
+        false
+    ));
 
     // Create task configuration
     auto cfg = create_base_config();
@@ -320,7 +341,7 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
 
     // Create data channel
     auto data_channel = ASSERT_NIL_P(sy->channels.create(
-        "holding_register",
+        make_unique_channel_name("holding_register"),
         telem::UINT16_T, // Holding registers are 16-bit
         index_channel.key,
         false
@@ -374,14 +395,18 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     // Create channels for different types
-    auto coil_ch = ASSERT_NIL_P(sy->channels.create("coil", telem::UINT8_T, true));
+    auto coil_ch = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("coil"), telem::UINT8_T, true)
+    );
     auto discrete_ch = ASSERT_NIL_P(
-        sy->channels.create("discrete", telem::UINT8_T, true)
+        sy->channels.create(make_unique_channel_name("discrete"), telem::UINT8_T, true)
     );
     auto holding_ch = ASSERT_NIL_P(
-        sy->channels.create("holding", telem::UINT16_T, true)
+        sy->channels.create(make_unique_channel_name("holding"), telem::UINT16_T, true)
     );
-    auto input_ch = ASSERT_NIL_P(sy->channels.create("input", telem::UINT16_T, true));
+    auto input_ch = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("input"), telem::UINT16_T, true)
+    );
 
     // Create task configuration with all channel types
     auto cfg = create_base_config();
@@ -429,9 +454,11 @@ TEST_F(ModbusReadTest, testModbusDriverSetsAutoCommitTrue) {
     auto cfg = create_base_config();
     cfg["data_saving"] = true;
 
-    auto coil_ch = ASSERT_NIL_P(
-        sy->channels.create("coil", telem::UINT8_T, index_channel.key)
-    );
+    auto coil_ch = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("coil"),
+        telem::UINT8_T,
+        index_channel.key
+    ));
     cfg["channels"].push_back(create_channel_config("coil_input", coil_ch, 0));
 
     auto p = xjson::Parser(cfg);
@@ -461,15 +488,21 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     // Create three UINT8 channels for sequential input registers
-    auto input0 = ASSERT_NIL_P(
-        sy->channels.create("input_reg_0", telem::UINT8_T, index_channel.key)
-    );
-    auto input1 = ASSERT_NIL_P(
-        sy->channels.create("input_reg_1", telem::UINT8_T, index_channel.key)
-    );
-    auto input2 = ASSERT_NIL_P(
-        sy->channels.create("input_reg_2", telem::UINT8_T, index_channel.key)
-    );
+    auto input0 = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("input_reg_0"),
+        telem::UINT8_T,
+        index_channel.key
+    ));
+    auto input1 = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("input_reg_1"),
+        telem::UINT8_T,
+        index_channel.key
+    ));
+    auto input2 = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("input_reg_2"),
+        telem::UINT8_T,
+        index_channel.key
+    ));
 
     // Create task configuration with three sequential UINT8 input registers
     auto cfg = create_base_config();
@@ -523,15 +556,21 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     // Create three UINT8 channels for sequential holding registers
-    auto holding0 = ASSERT_NIL_P(
-        sy->channels.create("holding_reg_0", telem::UINT8_T, index_channel.key)
-    );
-    auto holding1 = ASSERT_NIL_P(
-        sy->channels.create("holding_reg_1", telem::UINT8_T, index_channel.key)
-    );
-    auto holding2 = ASSERT_NIL_P(
-        sy->channels.create("holding_reg_2", telem::UINT8_T, index_channel.key)
-    );
+    auto holding0 = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("holding_reg_0"),
+        telem::UINT8_T,
+        index_channel.key
+    ));
+    auto holding1 = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("holding_reg_1"),
+        telem::UINT8_T,
+        index_channel.key
+    ));
+    auto holding2 = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("holding_reg_2"),
+        telem::UINT8_T,
+        index_channel.key
+    ));
 
     // Create task configuration with three sequential UINT8 holding registers
     auto cfg = create_base_config();
@@ -591,9 +630,12 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     // Create data channel
-    auto data_channel = ASSERT_NIL_P(
-        sy->channels.create("input_reg", telem::UINT8_T, index_channel.key, false)
-    );
+    auto data_channel = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("input_reg"),
+        telem::UINT8_T,
+        index_channel.key,
+        false
+    ));
 
     // Create task with auto_start=true
     json config{
@@ -650,9 +692,12 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     // Create data channel
-    auto data_channel = ASSERT_NIL_P(
-        sy->channels.create("input_reg_2", telem::UINT8_T, index_channel.key, false)
-    );
+    auto data_channel = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("input_reg_2"),
+        telem::UINT8_T,
+        index_channel.key,
+        false
+    ));
 
     // Create task with auto_start=false
     json config{
