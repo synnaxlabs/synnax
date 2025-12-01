@@ -35,17 +35,13 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 
-const EmptyContent = () => {
-  const placeLayout = Layout.usePlacer();
-  const handleClick = () => placeLayout(Editor.create());
-  return (
-    <EmptyAction
-      message="No existing Arcs."
-      action="Create an arc"
-      onClick={handleClick}
-    />
-  );
-};
+interface EmptyContentProps {
+  onCreate: () => void;
+}
+
+const EmptyContent = ({ onCreate }: EmptyContentProps) => (
+  <EmptyAction message="No existing Arcs." action="Create an arc" onClick={onCreate} />
+);
 
 const Content = () => {
   const [selected, setSelected] = useState<arc.Key[]>([]);
@@ -174,7 +170,7 @@ const Content = () => {
         >
           <List.Items<arc.Key, arc.Arc>
             full="y"
-            emptyContent={<EmptyContent />}
+            emptyContent={<EmptyContent onCreate={handleCreate} />}
             onContextMenu={menuProps.open}
           >
             {({ key, ...p }) => (
