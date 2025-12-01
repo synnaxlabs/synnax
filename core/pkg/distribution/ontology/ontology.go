@@ -145,14 +145,14 @@ type Writer interface {
 	DefineResource(ctx context.Context, id ID) error
 	// HasResource returns true if the resource with the given ID exists.
 	HasResource(ctx context.Context, id ID) (bool, error)
-	// DefineManyResources defines multiple resources with the given ResourceIDs. If any of the
+	// DefineManyResources defines multiple resources with the given IDs. If any of the
 	// resources already exist, DefineManyResources does nothing.
 	DefineManyResources(ctx context.Context, ids []ID) error
 	// DeleteResource deletes the resource with the given ID along with all of its
 	// incoming and outgoing relationships.  If the resource does not exist,
 	// DeleteResource does nothing.
 	DeleteResource(ctx context.Context, id ID) error
-	// DeleteManyResources deletes multiple resources with the given ResourceIDs along with all of
+	// DeleteManyResources deletes multiple resources with the given IDs along with all of
 	// their incoming and outgoing relationships. If any of the resources do not exist,
 	// DeleteManyResources does nothing.
 	DeleteManyResources(ctx context.Context, ids []ID) error

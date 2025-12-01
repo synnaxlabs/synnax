@@ -116,7 +116,7 @@ func DecodeRelationships(ser []byte) ([]ontology.Relationship, error) {
 }
 
 func DecodeIDs(ser []byte) ([]ontology.ID, error) {
-	// ser.Data is a byte slice containing the encoded ResourceIDs, we need to decode them
+	// ser.Data is a byte slice containing the encoded IDs, we need to decode them
 	// by looking for the newline separator.
 	var (
 		ids []ontology.ID

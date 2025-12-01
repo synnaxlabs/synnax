@@ -37,7 +37,7 @@ func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	})
 }
 
-// KeysFromOntologyIDs extracts the keys of the symbols from the ontology ResourceIDs.
+// KeysFromOntologyIDs extracts the keys of the symbols from the ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
@@ -49,7 +49,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	return keys, nil
 }
 
-// OntologyIDsFromSymbols returns the ontology ResourceIDs of the symbols.
+// OntologyIDsFromSymbols returns the ontology IDs of the symbols.
 func OntologyIDsFromSymbols(symbols []Symbol) []ontology.ID {
 	return lo.Map(symbols, func(s Symbol, _ int) ontology.ID {
 		return OntologyID(s.Key)

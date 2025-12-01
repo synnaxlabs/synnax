@@ -37,7 +37,7 @@ func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	})
 }
 
-// KeysFromOntologyIDs extracts the keys of the arcs from the ontology ResourceIDs.
+// KeysFromOntologyIDs extracts the keys of the arcs from the ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
@@ -49,7 +49,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	return keys, nil
 }
 
-// OntologyIDsFromArcs returns the ontology ResourceIDs of the arcs.
+// OntologyIDsFromArcs returns the ontology IDs of the arcs.
 func OntologyIDsFromArcs(arcs []Arc) []ontology.ID {
 	return lo.Map(arcs, func(c Arc, _ int) ontology.ID {
 		return OntologyID(c.Key)

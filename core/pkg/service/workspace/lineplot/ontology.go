@@ -37,14 +37,14 @@ func OntologyIDs(ids []uuid.UUID) []ontology.ID {
 	})
 }
 
-// OntologyIDsFromLinePlots returns the ontology ResourceIDs of the schematics.
+// OntologyIDsFromLinePlots returns the ontology IDs of the schematics.
 func OntologyIDsFromLinePlots(lps []LinePlot) []ontology.ID {
 	return lo.Map(lps, func(lp LinePlot, _ int) ontology.ID {
 		return OntologyID(lp.Key)
 	})
 }
 
-// KeysFromOntologyIDs extracts the keys of the schematics from the ontology ResourceIDs.
+// KeysFromOntologyIDs extracts the keys of the schematics from the ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {

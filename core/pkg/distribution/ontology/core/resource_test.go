@@ -90,12 +90,12 @@ var _ = Describe("Resource", func() {
 
 			Context("Multiple", func() {
 				Describe("ParseIDs", func() {
-					It("Should parse a list of ResourceIDs from a list of strings", func() {
+					It("Should parse a list of IDs from a list of strings", func() {
 						ids, err := core.ParseIDs([]string{"foo:bar", "foo:baz"})
 						Expect(err).NotTo(HaveOccurred())
 						Expect(ids).To(ConsistOf(core.ID{Type: "foo", Key: "bar"}, core.ID{Type: "foo", Key: "baz"}))
 					})
-					It("Should return an error if any of the ResourceIDs have an invalid structure", func() {
+					It("Should return an error if any of the IDs have an invalid structure", func() {
 						_, err := core.ParseIDs([]string{"foo:bar", "foo"})
 						Expect(err).To(HaveOccurredAs(validate.Error))
 					})

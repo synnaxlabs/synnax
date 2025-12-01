@@ -30,18 +30,18 @@ func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
-// OntologyIDs constructs a slice of unique ontology.ResourceIDs for the Policys with the given
+// OntologyIDs constructs a slice of unique ontology.IDs for the Policys with the given
 // keys.
 func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
 }
 
-// OntologyIDsFromPolicies constructs a slice of unique ontology.ResourceIDs for the given Policys.
+// OntologyIDsFromPolicies constructs a slice of unique ontology.IDs for the given Policys.
 func OntologyIDsFromPolicies(policies []Policy) []ontology.ID {
 	return lo.Map(policies, func(l Policy, _ int) ontology.ID { return OntologyID(l.Key) })
 }
 
-// KeysFromOntologyIds extracts the Policy keys from the given ontology.ResourceIDs.
+// KeysFromOntologyIds extracts the Policy keys from the given ontology.IDs.
 func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {

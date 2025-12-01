@@ -29,7 +29,7 @@ func OntologyID(k string) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: k}
 }
 
-// OntologyIDs converts a slice of keys to a slice of ontology ResourceIDs.
+// OntologyIDs converts a slice of keys to a slice of ontology IDs.
 func OntologyIDs(keys []string) (ids []ontology.ID) {
 	return lo.Map(keys, func(k string, _ int) ontology.ID {
 		return OntologyID(k)
@@ -40,7 +40,7 @@ func KeyFromOntologyID(id ontology.ID) string {
 	return id.Key
 }
 
-// KeysFromOntologyIDs converts a slice of ontology ResourceIDs to a slice of keys.
+// KeysFromOntologyIDs converts a slice of ontology IDs to a slice of keys.
 func KeysFromOntologyIDs(ids []ontology.ID) (keys []string) {
 	keys = make([]string, len(ids))
 	for i, id := range ids {
@@ -49,7 +49,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []string) {
 	return keys
 }
 
-// OntologyIDsFromStatuses converts a slice of statuses to a slice of ontology ResourceIDs.
+// OntologyIDsFromStatuses converts a slice of statuses to a slice of ontology IDs.
 func OntologyIDsFromStatuses(statuses []Status) (ids []ontology.ID) {
 	return lo.Map(statuses, func(s Status, _ int) ontology.ID {
 		return OntologyID(s.Key)

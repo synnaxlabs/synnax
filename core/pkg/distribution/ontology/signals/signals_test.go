@@ -84,7 +84,7 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(builder.Close()).To(Succeed())
 	})
 	Describe("DecodeIDs", func() {
-		It("Should decode a series of ResourceIDs", func() {
+		It("Should decode a series of IDs", func() {
 			encoded := ontologycdc.EncodeIDs([]ontology.ID{newChangeID("one"), newChangeID("two")})
 			decoded := MustSucceed(ontologycdc.DecodeIDs(encoded))
 			Expect(decoded).To(Equal([]ontology.ID{newChangeID("one"), newChangeID("two")}))

@@ -37,7 +37,7 @@ func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	})
 }
 
-// KeysFromOntologyIDs extracts the keys of the tables from the ontology ResourceIDs.
+// KeysFromOntologyIDs extracts the keys of the tables from the ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
@@ -49,7 +49,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	return keys, nil
 }
 
-// OntologyIDsFromTables returns the ontology ResourceIDs of the tables.
+// OntologyIDsFromTables returns the ontology IDs of the tables.
 func OntologyIDsFromTables(tables []Table) []ontology.ID {
 	return lo.Map(tables, func(l Table, _ int) ontology.ID {
 		return OntologyID(l.Key)

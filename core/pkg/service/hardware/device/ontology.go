@@ -27,19 +27,19 @@ const OntologyType ontology.Type = "device"
 // OntologyID returns the unique ID for the device within the ontology.
 func OntologyID(key string) ontology.ID { return ontology.ID{Type: OntologyType, Key: key} }
 
-// OntologyIDsFromDevices returns the ontology ResourceIDs for the given devices.
+// OntologyIDsFromDevices returns the ontology IDs for the given devices.
 func OntologyIDsFromDevices(devices []Device) []ontology.ID {
 	return lo.Map(devices, func(d Device, _ int) ontology.ID {
 		return OntologyID(d.Key)
 	})
 }
 
-// OntologyIDs returns the ontology ResourceIDs for the given keys.
+// OntologyIDs returns the ontology IDs for the given keys.
 func OntologyIDs(keys []string) []ontology.ID {
 	return lo.Map(keys, func(k string, _ int) ontology.ID { return OntologyID(k) })
 }
 
-// KeysFromOntologyIDs returns the keys for the given ontology ResourceIDs.
+// KeysFromOntologyIDs returns the keys for the given ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) []string {
 	keys := make([]string, len(ids))
 	for i, id := range ids {
