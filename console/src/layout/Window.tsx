@@ -39,7 +39,6 @@ const WindowInternal = (): ReactElement | null => {
   const dispatch = useDispatch();
   useEffect(() => {
     if (layout?.key == null) return;
-    console.log("setting window props", layout?.key);
     dispatch(
       setWindowProps({
         key: layout?.key,
