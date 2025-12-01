@@ -14,14 +14,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/version"
-)
-
-type Effect string
-
-const (
-	EffectAllow Effect = "allow"
-	EffectDeny  Effect = "deny"
 )
 
 // Policy is a simple access control policy in the RBAC model. A policy sets an action
@@ -41,8 +33,6 @@ type Policy struct {
 	Objects []ontology.ID `json:"objects" msgpack:"objects"`
 	// Actions is the list of actions that the policy applies to
 	Actions []access.Action `json:"actions" msgpack:"actions"`
-	// Version tracks the policy schema version (V1 = role-based)
-	Version version.Counter `json:"version" msgpack:"version"`
 	// Internal indicates whether the policy is built-in to the system.
 	Internal bool `json:"internal" msgpack:"internal"`
 }

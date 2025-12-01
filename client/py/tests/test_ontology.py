@@ -60,7 +60,6 @@ class TestOntology:
         assert g.key is not None
         g2 = client.ontology.groups.create(ROOT, name)
         assert g2.key is not None
-        print(g.ontology_id, g2.ontology_id)
         client.ontology.move_children(g.ontology_id, g2.ontology_id, g.ontology_id)
         children = client.ontology.retrieve_children(g2.ontology_id)
         assert len(children) == 1

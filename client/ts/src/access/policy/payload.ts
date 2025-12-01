@@ -25,7 +25,7 @@ export const policyZ = z.object({
   effect: effectZ,
   objects: array.nullableZ(ontology.idZ),
   actions: array.nullableZ(actionZ),
-  internal: z.boolean().optional(),
+  internal: z.boolean(),
 });
 export interface Policy extends z.infer<typeof policyZ> {}
 

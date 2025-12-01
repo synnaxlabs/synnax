@@ -322,7 +322,7 @@ const ContextMenu = ({
             <>
               <PMenu.Item itemKey="edit">
                 <Icon.Edit />
-                Edit automation
+                Edit Arc
               </PMenu.Item>
               <PMenu.Divider />
               <Menu.RenameItem />

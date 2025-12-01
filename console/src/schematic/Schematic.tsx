@@ -462,7 +462,6 @@ export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 export const create =
   (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
-    // TODO: Add permission check here.
     const canEditSchematic = true;
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     if (!canEditSchematic && tab?.editable) tab.editable = false;

@@ -98,10 +98,10 @@ func (s *LabelService) Retrieve(
 	if req.SearchTerm != "" {
 		q = q.Search(req.SearchTerm)
 	}
-	if req.Limit != 0 {
+	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
 	}
-	if req.Offset != 0 {
+	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
 	if len(req.Keys) != 0 {
