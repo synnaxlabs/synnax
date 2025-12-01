@@ -10,9 +10,6 @@
 package gorp
 
 import (
-	"context"
-
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
@@ -20,7 +17,7 @@ import (
 )
 
 // Key is a unique key for an entry of a particular type.
-type Key any
+type Key types.Primitive
 
 // Entry is a go type that can be queried against a DB. All go types must implement the Entry
 // interface so that they can be stored. Entry must be serializable by the Encodings and decoder
@@ -192,33 +189,11 @@ func GetEntries[K Key, E Entry[K]](q query.Parameters) *Entries[K, E] {
 	return re.(*Entries[K, E])
 }
 
-func prefix[K Key, E Entry[K]](ctx context.Context, encoder binary.Encoder) []byte {
-	return lo.Must(encoder.Encode(ctx, types.Name[E]()))
-}
-
-type lazyPrefix[K Key, E Entry[K]] struct {
-	_prefix []byte
-	Tools
-}
-
-func (lp *lazyPrefix[K, E]) prefix(ctx context.Context) []byte {
-	if lp._prefix == nil {
-		lp._prefix = prefix[K, E](ctx, lp)
-	}
-	return lp._prefix
-}
-
 func encodeKey[K Key](
-	ctx context.Context,
-	encoder binary.Encoder,
 	prefix []byte,
 	key K,
 ) ([]byte, error) {
-	// if the key is already a byte slice, we can just append it to the prefix
-	if b, ok := any(key).([]byte); ok {
-		return append(prefix, b...), nil
-	}
-	byteKey, err := encoder.Encode(ctx, key)
+	byteKey, err := binary.EncodePrimitive(key)
 	if err != nil {
 		return nil, err
 	}
@@ -226,14 +201,8 @@ func encodeKey[K Key](
 }
 
 func decodeKey[K Key](
-	ctx context.Context,
-	decoder binary.Decoder,
 	prefix []byte,
 	b []byte,
-) (v K, err error) {
-	// if the key is a byte slice, we can just return it
-	if _, ok := any(v).([]byte); ok {
-		return any(b[len(prefix):]).(K), nil
-	}
-	return v, decoder.Decode(ctx, b[len(prefix):], &v)
+) (K, error) {
+	return binary.DecodePrimitive[K](b[len(prefix):])
 }

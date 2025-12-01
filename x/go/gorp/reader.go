@@ -201,7 +201,7 @@ func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bo
 		return t.Next(ctx)
 	}
 	var err error
-	if op.Key, err = decodeKey[K](ctx, t.tools, pref, kvOp.Key); err != nil {
+	if op.Key, err = decodeKey[K](pref, kvOp.Key); err != nil {
 		panic(err)
 	}
 	op.Variant = kvOp.Variant
