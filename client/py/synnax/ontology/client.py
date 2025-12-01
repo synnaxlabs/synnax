@@ -40,7 +40,7 @@ class RemoveChildrenReq(Payload):
 
 
 class MoveChildrenReq(Payload):
-    from_: ID = Field(alias="from", serialization_alias="from")
+    from_: ID = Field(alias="from")
     to: ID
     children: list[ID]
 
