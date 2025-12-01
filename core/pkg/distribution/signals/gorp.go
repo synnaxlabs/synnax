@@ -107,7 +107,7 @@ func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpPublisher
 	}
 }
 
-func GorpPublisherConfigPureNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpPublisherConfig[K, E] {
+func GorpPublisherConfigPureNumeric[K types.SizedNumeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpPublisherConfig[K, E] {
 	return GorpPublisherConfig[K, E]{
 		DB:             db,
 		DeleteDataType: dt,
