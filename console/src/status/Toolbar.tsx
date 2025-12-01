@@ -22,7 +22,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useEffect } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { EmptyAction, Toolbar } from "@/components";
@@ -48,8 +48,14 @@ const NoStatuses = (): ReactElement => {
 const List = (): ReactElement => {
   const favorites = useSelectFavorites();
   const menuProps = PMenu.useContextMenu();
+  const [selected, setSelected] = useState<status.Key[]>([]);
   return (
-    <CoreList.Frame<status.Key, status.Status> data={favorites}>
+    <Select.Frame<status.Key, status.Status>
+      multiple
+      data={favorites}
+      value={selected}
+      onChange={setSelected}
+    >
       <PMenu.ContextMenu menu={contextMenuRenderProp} {...menuProps} />
       <CoreList.Items<status.Key>
         full="y"
@@ -58,7 +64,7 @@ const List = (): ReactElement => {
       >
         {listItem}
       </CoreList.Items>
-    </CoreList.Frame>
+    </Select.Frame>
   );
 };
 

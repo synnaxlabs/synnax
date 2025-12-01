@@ -35,15 +35,17 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 
-const EmptyContent = () => {
-  const placeLayout = Layout.usePlacer();
-  const handleClick = () => placeLayout(Editor.create());
+interface EmptyContentProps {
+  onCreate: () => void;
+}
+
+const EmptyContent = ({ onCreate }: EmptyContentProps) => {
   const canCreateArc = Arc.useEditAccessGranted("");
   return (
     <EmptyAction
       message="No existing Arcs."
       action={canCreateArc ? "Create an arc" : undefined}
-      onClick={handleClick}
+      onClick={onCreate}
     />
   );
 };
@@ -178,7 +180,7 @@ const Content = () => {
         >
           <List.Items<arc.Key, arc.Arc>
             full="y"
-            emptyContent={<EmptyContent />}
+            emptyContent={<EmptyContent onCreate={handleCreate} />}
             onContextMenu={menuProps.open}
           >
             {({ key, ...p }) => (

@@ -77,7 +77,6 @@ export const Main = (): ReactElement => (
   <>
     {/* We need to place notifications here so they are in the proper stacking context */}
     <Notifications />
-    <Layout.Modals />
     <SideEffect />
     <Auth.Guard>
       <Nav.Top />

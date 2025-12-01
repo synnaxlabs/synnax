@@ -69,8 +69,8 @@ type Service struct {
 	shutdownSignals io.Closer
 }
 
-// NewService opens a new Service with the given context ctx and configurations configs.
-func NewService(ctx context.Context, configs ...Config) (*Service, error) {
+// OpenService opens a new Service with the given context ctx and configurations configs.
+func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	cfg, err := config.New(defaultConfig, configs...)
 	if err != nil {
 		return nil, err
