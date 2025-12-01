@@ -40,7 +40,7 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({ onCreate }: EmptyContentProps) => (
-  <EmptyAction message="No existing Arcs." action="Create an arc" onClick={onCreate} />
+  <EmptyAction message="No existing Arcs." action="Create an Arc" onClick={onCreate} />
 );
 
 const Content = () => {
