@@ -296,7 +296,7 @@ describe("Channel", () => {
   });
 
   describe("update calculations", () => {
-    test.only("update virtual channel expression", async () => {
+    test("update virtual channel expression", async () => {
       const channel = await client.channels.create({
         name: id.create(),
         virtual: true,
