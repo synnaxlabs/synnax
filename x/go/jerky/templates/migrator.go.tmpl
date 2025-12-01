@@ -38,34 +38,24 @@ func (m {{ .TypeName }}Migrator) MigrateAll(ctx context.Context, db *gorp.DB, fr
 	if err != nil {
 		return errors.Newf("failed to open iterator: %w", err)
 	}
-	defer iter.Close()
+	defer func() {
+		err = errors.Combine(iter.Close(), err)
+	}()
 
-	count := 0
 	for iter.First(); iter.Valid(); iter.Next() {
 		key := make([]byte, len(iter.Key()))
 		copy(key, iter.Key())
-
 		data := make([]byte, len(iter.Value()))
 		copy(data, iter.Value())
-
 		// Run migrations sequentially from fromVersion to current
 		migratedData, err := {{ .TypeAlias }}.Migrations.MigrateToLatest(data, fromVersion)
 		if err != nil {
 			return errors.Newf("failed to migrate key %x: %w", key, err)
 		}
-
 		// Write back to the database
 		if err := db.Set(ctx, key, migratedData); err != nil {
 			return errors.Newf("failed to write key %x: %w", key, err)
 		}
-
-		count++
 	}
-
-	if err := iter.Error(); err != nil {
-		return errors.Newf("iterator error: %w", err)
-	}
-
-	fmt.Printf("jerky: migrated %d {{ .TypeName }} records\n", count)
-	return nil
+	return err
 }
