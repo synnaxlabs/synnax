@@ -17,7 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -75,21 +75,23 @@ func newResource(c Channel) ontology.Resource {
 	return core.NewResource(schema, OntologyID(c.Key()), c.Name, ToPayload(c))
 }
 
-var _ ontology.Service = (*service)(nil)
+var _ ontology.Service = (*Service)(nil)
 
-type change = changex.Change[Key, Channel]
+type change = xchange.Change[Key, Channel]
 
-func (s *service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
-func (s *service) Schema() zyn.Schema { return schema }
+func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
-func (s *service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
+func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	k := MustParseKey(key)
 	var ch Channel
-	err := s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(ctx, tx)
-	return newResource(ch), err
+	if err := s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(ctx, tx); err != nil {
+		return ontology.Resource{}, err
+	}
+	return newResource(ch), nil
 }
 
 func translateChange(ch change) ontology.Change {
@@ -101,19 +103,19 @@ func translateChange(ch change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Channel]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.NewObservable().OnChange(handleChange)
 }
 
-func (s *service) NewObservable() observe.Observable[gorp.TxReader[Key, Channel]] {
-	return gorp.Observe[Key, Channel](s.DB)
+func (s *Service) NewObservable() observe.Observable[gorp.TxReader[Key, Channel]] {
+	return gorp.Observe[Key, Channel](s.db)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := gorp.WrapReader[Key, Channel](s.DB).OpenNexter(ctx)
+func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+	n, closer, err := gorp.WrapReader[Key, Channel](s.db).OpenNexter(ctx)
 	return xiter.Map(n, newResource), closer, err
 }

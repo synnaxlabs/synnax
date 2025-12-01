@@ -16,11 +16,9 @@ import (
 	"io"
 	"time"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
-	"github.com/synnaxlabs/alamos"
-
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -64,9 +62,10 @@ type Config struct {
 	// gossip.
 	// [REQUIRED]
 	FreeWrites confluence.Outlet[Response]
-	// ChannelReader is used for retrieving channel information from the cluster.
+	// Channel is used for retrieving channel information from the cluster.
+	//
 	// [REQUIRED]
-	ChannelReader channel.Readable
+	Channel *channel.Service
 	// SlowConsumerTimeout sets the maximum amount of time that the relay will wait for
 	// a streamer to receive a response before dropping the frame.
 	SlowConsumerTimeout time.Duration
@@ -101,7 +100,7 @@ func (c Config) Override(other Config) Config {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
-	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.SlowConsumerTimeout = override.Numeric(c.SlowConsumerTimeout, other.SlowConsumerTimeout)
 	c.ResponseBufferSize = override.Numeric(c.ResponseBufferSize, other.ResponseBufferSize)
 	c.DemandBufferSize = override.Numeric(c.DemandBufferSize, other.DemandBufferSize)
@@ -115,7 +114,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "host_provider", c.HostResolver)
 	validate.NotNil(v, "ts", c.TS)
 	validate.NotNil(v, "free_writers", c.FreeWrites)
-	validate.NotNil(v, "channels", c.ChannelReader)
+	validate.NotNil(v, "channel", c.Channel)
 	validate.Positive(v, "slow_consumer_timeout", c.SlowConsumerTimeout)
 	validate.Positive(v, "response_buffer_size", c.ResponseBufferSize)
 	validate.Positive(v, "demand_buffer_size", c.DemandBufferSize)
@@ -198,7 +197,7 @@ func (r *Relay) connectToDelta(buf int) (confluence.Outlet[Response], observe.Di
 		// inside the relay.
 		c := make(chan struct{})
 		go func() {
-			confluence.Drain[Response](data)
+			confluence.Drain(data)
 			close(c)
 		}()
 		r.delta.Disconnect(data)
