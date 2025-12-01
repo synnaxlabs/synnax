@@ -57,5 +57,5 @@ func (b *builtinService) RetrieveResource(_ context.Context, key string, _ gorp.
 
 // OpenNexter implements Service.
 func (b *builtinService) OpenNexter(context.Context) (iter.Seq[Resource], io.Closer, error) {
-	return slices.Values([]Resource{rootResource}), xio.NopCloser{}, nil
+	return slices.Values([]Resource{rootResource}), xio.NopCloser, nil
 }
