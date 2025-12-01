@@ -425,7 +425,7 @@ func (t *Tracker) Close() error {
 func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Key, task.Task]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
+	for c := range r {
 		rackKey := c.Key.Rack()
 		if c.Variant == change.Delete {
 			delete(t.mu.Racks[rackKey].TaskStatuses, c.Key)
@@ -476,7 +476,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Key, rack.Rack]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
+	for c := range r {
 		if c.Variant == change.Delete {
 			delete(t.mu.Racks, c.Key)
 			continue
@@ -662,7 +662,7 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 func (t *Tracker) handleDeviceChanges(ctx context.Context, r gorp.TxReader[string, device.Device]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
+	for c := range r {
 		if c.Variant == change.Delete {
 			delete(t.mu.Devices, c.Key)
 			continue

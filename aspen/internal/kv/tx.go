@@ -12,6 +12,7 @@ package kv
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/samber/lo"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
+	xiter "github.com/synnaxlabs/x/iter"
 	xkv "github.com/synnaxlabs/x/kv"
 	"go.uber.org/zap"
 )
@@ -186,7 +188,11 @@ func (tr TxRequest) done(err error) {
 	}
 }
 
-func (tr TxRequest) reader() xkv.TxReader { return &txReader{ops: tr.Operations} }
+func (tr TxRequest) reader() xkv.TxReader {
+	return xiter.Map(slices.Values(tr.Operations), func(op Operation) xkv.Change {
+		return op.Change
+	})
+}
 
 func (tr TxRequest) digests() []Digest {
 	return lo.Map(tr.Operations, func(o Operation, _ int) Digest { return o.Digest() })
@@ -231,24 +237,4 @@ func (bc *txCoordinator) wait() error {
 func (bc *txCoordinator) add(data *TxRequest) {
 	bc.wg.Add(1)
 	data.doneF = bc.done
-}
-
-type txReader struct {
-	curr int
-	ops  []Operation
-}
-
-var _ xkv.TxReader = (*txReader)(nil)
-
-// Count implements xkv.TxReader.
-func (r *txReader) Count() int { return len(r.ops) }
-
-// Next implements xkv.TxReader.
-func (r *txReader) Next(_ context.Context) (xkv.Change, bool) {
-	if r.curr >= len(r.ops) {
-		return xkv.Change{}, false
-	}
-	op := r.ops[r.curr]
-	r.curr++
-	return op.Change, true
 }

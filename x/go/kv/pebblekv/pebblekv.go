@@ -21,7 +21,6 @@ import (
 	"io"
 
 	"github.com/cockroachdb/pebble/v2"
-	"github.com/cockroachdb/pebble/v2/batchrepr"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
@@ -236,9 +235,21 @@ func (txn *tx) Close() error {
 
 // NewReader implements kv.Writer.
 func (txn *tx) NewReader() kv.TxReader {
-	return &txReader{
-		count:  int(txn.Count()),
-		Reader: txn.Reader(),
+	return func(yield func(kv.Change) bool) {
+		r := txn.Reader()
+		for {
+			kind, k, v, ok, _ := r.Next()
+			if !ok {
+				return
+			}
+			variant, ok := kindsToVariant[kind]
+			if !ok {
+				continue
+			}
+			if !yield(kv.Change{Variant: variant, Key: k, Value: v}) {
+				return
+			}
+		}
 	}
 }
 
@@ -252,29 +263,6 @@ func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
 		LowerBound: opts.LowerBound,
 		UpperBound: opts.UpperBound,
 	}
-}
-
-type txReader struct {
-	count int
-	batchrepr.Reader
-}
-
-var _ kv.TxReader = (*txReader)(nil)
-
-// Count implements kv.TxReader.
-func (r *txReader) Count() int { return r.count }
-
-// Next implements kv.TxReader.
-func (r *txReader) Next(_ context.Context) (kv.Change, bool) {
-	kind, k, v, ok, _ := r.Reader.Next()
-	if !ok {
-		return kv.Change{}, false
-	}
-	variant, ok := kindsToVariant[kind]
-	if !ok {
-		return kv.Change{}, false
-	}
-	return kv.Change{Variant: variant, Key: k, Value: v}, true
 }
 
 func translateError(err error) error {

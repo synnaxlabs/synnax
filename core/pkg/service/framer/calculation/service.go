@@ -212,32 +212,31 @@ func (s *Service) handleChange(
 	ctx context.Context,
 	reader gorp.TxReader[channel.Key, channel.Channel],
 ) {
-	cg, ok := reader.Next(ctx)
-	if !ok {
-		return
-	}
-	ch := cg.Value
-	// Don't stop calculating if the channel is deleted. The calculation will be
-	// automatically shut down when it is no longer needed.
-	if cg.Variant != change.Set || !ch.IsCalculated() {
-		return
-	}
-	if ch.IsLegacyCalculated() {
-		s.legacy.Update(ctx, ch)
-		return
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, found := s.mu.calculators[cg.Key]; !found {
-		return
-	}
-	if err := s.updateCalculation(ctx, ch); err != nil {
-		s.setStatus(ctx, calculator.Status{
-			Key:         ch.Key().String(),
-			Variant:     status.ErrorVariant,
-			Message:     fmt.Sprintf("failed to update calculation for %s", ch),
-			Description: err.Error(),
-		})
+	for cg := range reader {
+		ch := cg.Value
+		// Don't stop calculating if the channel is deleted. The calculation will be
+		// automatically shut down when it is no longer needed.
+		if cg.Variant != change.Set || !ch.IsCalculated() {
+			continue
+		}
+		if ch.IsLegacyCalculated() {
+			s.legacy.Update(ctx, ch)
+			continue
+		}
+		s.mu.Lock()
+		if _, found := s.mu.calculators[cg.Key]; !found {
+			s.mu.Unlock()
+			continue
+		}
+		if err := s.updateCalculation(ctx, ch); err != nil {
+			s.setStatus(ctx, calculator.Status{
+				Key:         ch.Key().String(),
+				Variant:     status.ErrorVariant,
+				Message:     fmt.Sprintf("failed to update calculation for %s", ch),
+				Description: err.Error(),
+			})
+		}
+		s.mu.Unlock()
 	}
 }
 

@@ -26,7 +26,9 @@ func (c CloserFunc) Close() error { return c() }
 type NopCloserFunc func()
 
 func (c NopCloserFunc) Close() error {
-	c()
+	if c != nil {
+		c()
+	}
 	return nil
 }
 

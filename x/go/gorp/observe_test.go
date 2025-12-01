@@ -11,6 +11,7 @@ package gorp_test
 
 import (
 	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/change"
@@ -34,13 +35,11 @@ var _ = Describe("Observe", Ordered, func() {
 		Expect(gorp.NewCreate[int, entry]().Entry(&entry{ID: 42, Data: "data"}).Exec(ctx, tx)).To(Succeed())
 		called := false
 		gorp.Observe[int, entry](db).OnChange(func(ctx context.Context, r gorp.TxReader[int, entry]) {
-			ch, ok := r.Next(ctx)
-			Expect(ok).To(BeTrue())
-			Expect(ch.Value).To(Equal(entry{ID: 42, Data: "data"}))
-			Expect(ch.Variant).To(Equal(change.Set))
-			called = true
-			ch, ok = r.Next(ctx)
-			Expect(ok).To(BeFalse())
+			for ch := range r {
+				Expect(ch.Value).To(Equal(entry{ID: 42, Data: "data"}))
+				Expect(ch.Variant).To(Equal(change.Set))
+				called = true
+			}
 		})
 		Expect(tx.Commit(ctx)).To(Succeed())
 		Expect(called).To(BeTrue())
@@ -51,8 +50,11 @@ var _ = Describe("Observe", Ordered, func() {
 		called := false
 		gorp.Observe[int, entryTwo](db).OnChange(func(ctx context.Context, r gorp.TxReader[int, entryTwo]) {
 			called = true
-			_, ok := r.Next(ctx)
-			Expect(ok).To(BeFalse())
+			count := 0
+			for range r {
+				count++
+			}
+			Expect(count).To(Equal(0))
 		})
 		Expect(tx.Commit(ctx)).To(Succeed())
 		Expect(called).To(BeTrue())

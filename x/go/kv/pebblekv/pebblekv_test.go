@@ -145,10 +145,9 @@ var _ = Describe("PebbleKV", func() {
 			Expect(tx.Delete(ctx, []byte("k1"))).To(Succeed())
 
 			reader := tx.NewReader()
-			Expect(reader.Count()).To(Equal(3))
 
 			changes := make([]kv.Change, 0, 3)
-			for change, ok := reader.Next(ctx); ok; change, ok = reader.Next(ctx) {
+			for change := range reader {
 				changes = append(changes, change)
 			}
 
@@ -260,8 +259,9 @@ var _ = Describe("PebbleKV", func() {
 			Expect(db.Set(ctx, []byte("reader-key"), []byte("reader-value"))).To(Succeed())
 			reader := db.NewReader()
 			Expect(reader).ToNot(BeNil())
-			_, ok := reader.Next(ctx)
-			Expect(ok).To(BeFalse())
+			for range reader {
+				Fail("reader should be empty")
+			}
 		})
 	})
 
@@ -295,7 +295,7 @@ var _ = Describe("PebbleKV", func() {
 
 				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
 					notified = true
-					for change, ok := reader.Next(ctx); ok; change, ok = reader.Next(ctx) {
+					for change := range reader {
 						receivedChanges = append(receivedChanges, change)
 					}
 				})
@@ -317,7 +317,7 @@ var _ = Describe("PebbleKV", func() {
 
 				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
 					notified = true
-					for change, ok := reader.Next(ctx); ok; change, ok = reader.Next(ctx) {
+					for change := range reader {
 						receivedChanges = append(receivedChanges, change)
 					}
 				})
@@ -351,7 +351,7 @@ var _ = Describe("PebbleKV", func() {
 
 				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
 					notified = true
-					for change, ok := reader.Next(ctx); ok; change, ok = reader.Next(ctx) {
+					for change := range reader {
 						receivedChanges = append(receivedChanges, change)
 					}
 				})
@@ -370,12 +370,20 @@ var _ = Describe("PebbleKV", func() {
 
 				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
 					subscriber1Called = true
-					Expect(reader.Count()).To(BeNumerically(">", 0))
+					c := 0
+					for range reader {
+						c++
+					}
+					Expect(c).To(BeNumerically(">", 0))
 				})
 
 				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
 					subscriber2Called = true
-					Expect(reader.Count()).To(BeNumerically(">", 0))
+					c := 0
+					for range reader {
+						c++
+					}
+					Expect(c).To(BeNumerically(">", 0))
 				})
 
 				key := []byte("multi-subscriber-key")
