@@ -369,8 +369,7 @@ auto assert_nil_p(Pair &&pair_result, const char *file, const int line) ->
 /// succeeded and returning the result value
 /// @param pair_expr The expression returning the pair to evaluate
 /// @return The first element of the pair (the result value) if successful
-#define ASSERT_NIL_P(pair_expr)                                                        \
-    xtest::assert_nil_p((pair_expr), __FILE__, __LINE__)
+#define ASSERT_NIL_P(pair_expr) xtest::assert_nil_p((pair_expr), __FILE__, __LINE__)
 
 /// @brief macro asserting that the provided xerrors::Error is NIL.
 #define ASSERT_NIL(expr) ASSERT_FALSE(expr) << expr;
