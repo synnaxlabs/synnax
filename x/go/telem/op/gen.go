@@ -77,7 +77,6 @@ var operations = []Operation{
 var logicalOperations = []Operation{
 	{Name: "And", FuncName: "And", Op: "&", IsComp: false},
 	{Name: "Or", FuncName: "Or", Op: "|", IsComp: false},
-	{Name: "Xor", FuncName: "Xor", Op: "^", IsComp: false},
 }
 
 var reductionOperations = []ReductionOperation{

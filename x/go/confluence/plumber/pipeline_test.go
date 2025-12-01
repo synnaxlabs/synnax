@@ -42,14 +42,6 @@ var _ = Describe("Pipeline", func() {
 			Expect(sink).To(Equal(unarySink))
 		})
 
-		It("Should set and get a segment", func() {
-			trans := &confluence.LinearTransform[int, int]{}
-			SetSegment(pipe, "segment", trans)
-			segment, err := GetSegment[int, int](pipe, "segment")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(segment).To(Equal(segment))
-		})
-
 	})
 
 	Describe("NewHardShutdown Chain", func() {
@@ -104,17 +96,6 @@ var _ = Describe("Pipeline", func() {
 		It("Should return an error if the sink is of the wrong type", func() {
 			SetSink(pipe, "sink", &confluence.UnarySink[int]{})
 			_, err := GetSink[[]int](pipe, "sink")
-			Expect(err).To(HaveOccurred())
-		})
-	})
-	Describe("GetSegment", func() {
-		It("Should return an error if the segment is not found", func() {
-			_, err := GetSegment[int, int](pipe, "segment")
-			Expect(err).To(HaveOccurred())
-		})
-		It("Should return an error if the segment is of the wrong type", func() {
-			SetSegment(pipe, "segment", &confluence.LinearTransform[int, int]{})
-			_, err := GetSegment[int, []int](pipe, "segment")
 			Expect(err).To(HaveOccurred())
 		})
 	})

@@ -44,18 +44,6 @@ func returnErrAfterContextCancel(ctx context.Context) error {
 var _ = Describe("Signal", func() {
 
 	Describe("Coordination", func() {
-
-		Describe("CancelOnExit", func() {
-			It("Should cancel the context when the first routine exits", func() {
-				ctx, cancel := signal.Isolated()
-				ctx.Go(immediatelyReturnNil, signal.CancelOnExit())
-				ctx.Go(returnErrAfterContextCancel)
-				cancel()
-				Expect(ctx.Wait()).To(HaveOccurredAs(context.Canceled))
-				Eventually(ctx.Stopped()).Should(BeClosed())
-			})
-		})
-
 		Describe("CancelOnFail", func() {
 			It("Should cancel the context when the first routine exits with an error", func() {
 				ctx, cancel := signal.Isolated()

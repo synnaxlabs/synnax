@@ -178,15 +178,6 @@ func WithRetryScale(scale float32) RoutineOption {
 	}
 }
 
-// CancelOnExit instructs the goroutine to cancel upon exiting (error or no error)
-// If CancelOnFail or CancelOnExit is already called, this overrides the previous
-// configuration.
-func CancelOnExit() RoutineOption {
-	return func(r *routineOptions) {
-		r.contextPolicy = cancelOnExit
-	}
-}
-
 // CancelOnFail instructs the goroutine to cancel upon failing (error)
 // If CancelOnFail or CancelOnExit is already called, this overrides the previous
 // configuration.

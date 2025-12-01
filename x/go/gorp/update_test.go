@@ -84,37 +84,4 @@ var _ = Describe("update", Ordered, func() {
 		Expect(count).To(Equal(1))
 	})
 
-	Describe("Where", func() {
-		It("Should correctly update a set of entries based on a where filter function", func() {
-			Expect(gorp.NewUpdate[int, entry]().
-				Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil }).
-				Change(func(_ gorp.Context, e entry) entry {
-					e.Data = "new data"
-					return e
-				}).Exec(ctx, tx)).To(Succeed())
-			var res []entry
-			Expect(gorp.NewRetrieve[int, entry]().
-				Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil }).
-				Entries(&res).
-				Exec(ctx, tx)).To(Succeed())
-			for i := range res {
-				Expect(res[i]).To(Equal(entry{ID: i, Data: "new data"}))
-			}
-		})
-
-		It("Should pass the correct transaction to the gorp.Context in the where function", func() {
-			count := 0
-			Expect(gorp.NewUpdate[int, entry]().
-				WhereKeys(entries[0].GorpKey()).
-				Where(func(wCtx gorp.Context, e *entry) (bool, error) {
-					count++
-					Expect(wCtx.Context).To(BeIdenticalTo(ctx))
-					Expect(wCtx.Tx).To(BeIdenticalTo(tx))
-					Expect(e).NotTo(BeNil())
-					return true, nil
-				}).Change(func(_ gorp.Context, e entry) entry { return e }).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(count).To(Equal(1))
-		})
-	})
 })

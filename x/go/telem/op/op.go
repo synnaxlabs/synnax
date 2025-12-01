@@ -3918,42 +3918,6 @@ func OrU8(lhs, rhs telem.Series, output *telem.Series) {
 	}
 }
 
-func XorU8(lhs, rhs telem.Series, output *telem.Series) {
-	lhsLen := lhs.Len()
-	rhsLen := rhs.Len()
-	maxLen := lhsLen
-	if rhsLen > maxLen {
-		maxLen = rhsLen
-	}
-	output.Resize(maxLen)
-
-	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
-	rhsData := xunsafe.CastSlice[uint8, uint8](rhs.Data)
-	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
-
-	var lhsLast, rhsLast uint8
-	if lhsLen > 0 {
-		lhsLast = lhsData[lhsLen-1]
-	}
-	if rhsLen > 0 {
-		rhsLast = rhsData[rhsLen-1]
-	}
-
-	for i := int64(0); i < maxLen; i++ {
-		lhsVal := lhsLast
-		if i < lhsLen {
-			lhsVal = lhsData[i]
-			lhsLast = lhsVal
-		}
-		rhsVal := rhsLast
-		if i < rhsLen {
-			rhsVal = rhsData[i]
-			rhsLast = rhsVal
-		}
-		outData[i] = lhsVal ^ rhsVal
-	}
-}
-
 func NotU8(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
 	output.Resize(inputLen)
