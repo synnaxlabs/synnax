@@ -209,17 +209,15 @@ interface ItemProps extends List.ItemProps<string> {
   onSelectView: (view: view.View) => void;
 }
 
-const Item = (props: ItemProps) => {
+const Item = ({ itemKey, onSelectView }: ItemProps) => {
   const { getItem } = List.useUtilContext<string, view.View>();
   const { update: del } = PView.useDelete();
-  const view = getItem?.(props.itemKey);
+  const view = getItem?.(itemKey);
   if (view == null) return null;
   return (
     <Flex.Box x pack>
-      <Button.Button level="p" onClick={() => props.onSelectView(view)}>
-        {view.name}
-      </Button.Button>
-      <Button.Button level="p" onClick={() => del(props.itemKey)}>
+      <Button.Button onClick={() => onSelectView(view)}>{view.name}</Button.Button>
+      <Button.Button onClick={() => del(itemKey)}>
         <Icon.Delete />
       </Button.Button>
     </Flex.Box>
