@@ -26,7 +26,7 @@ import (
 )
 
 type Config struct {
-	Channels       channel.Readable
+	ChannelService *channel.Service
 	Channel        channel.Channel
 	SymbolResolver arc.SymbolResolver
 }
@@ -40,7 +40,7 @@ var (
 func (c Config) Override(other Config) Config {
 	c.Channel = other.Channel
 	c.SymbolResolver = override.Nil(c.SymbolResolver, other.SymbolResolver)
-	c.Channels = override.Nil(c.Channels, other.Channels)
+	c.ChannelService = override.Nil(c.ChannelService, other.ChannelService)
 	return c
 }
 
@@ -49,7 +49,7 @@ func (c Config) Validate() error {
 	v := validate.New("arc.runtime")
 	validate.NotNil(v, "resolver", c.SymbolResolver)
 	validate.NonZero(v, "channel.key", c.Channel.Key())
-	validate.NotNil(v, "channels", c.Channels)
+	validate.NotNil(v, "channel_service", c.ChannelService)
 	return v.Error()
 }
 
@@ -181,7 +181,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 	if err != nil {
 		return Module{}, err
 	}
-	stateCfg, err := runtime.NewStateConfig(ctx, cfg.Channels, mod)
+	stateCfg, err := runtime.NewStateConfig(ctx, cfg.ChannelService, mod)
 	if err != nil {
 		return Module{}, err
 	}

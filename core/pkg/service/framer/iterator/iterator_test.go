@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -30,7 +30,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		builder     = mock.NewCluster()
 		dist        mock.Node
 		iteratorSvc *iterator.Service
-		arcSvc      *svcarc.Service
+		arcSvc      *arc.Service
 	)
 	BeforeAll(func() {
 		dist = builder.Provision(ctx)
@@ -47,7 +47,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Signals:  dist.Signals,
 			Label:    labelSvc,
 		}))
-		arcSvc = MustSucceed(svcarc.OpenService(ctx, svcarc.ServiceConfig{
+		arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			DB:       dist.DB,
 			Channel:  dist.Channel,
 			Framer:   dist.Framer,
@@ -56,7 +56,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		}))
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			DistFramer: dist.Framer,
-			Channels:   dist.Channel,
+			Channel:    dist.Channel,
 			Arc:        arcSvc,
 		}))
 	})
@@ -86,7 +86,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-			Expect(iter.Value().Frame).To(telem.MatchWrittenFrame[channel.Key](fr.Frame))
+			Expect(iter.Value().Frame).To(telem.MatchWrittenFrame(fr.Frame))
 			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 			Expect(iter.Close()).To(Succeed())
 		})
