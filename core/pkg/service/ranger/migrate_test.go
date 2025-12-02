@@ -91,19 +91,17 @@ var _ = Describe("Migrate", func() {
 		Expect(
 			svc.NewWriter(tx).CreateManyWithParent(ctx, &ranges, subGroup.OntologyID()),
 		).To(Succeed())
-
-		// Manually set the migrate key to false and close the service
-		Expect(tx.Set(ctx, []byte("sy_ranger_migration_performed"), []byte{0})).
-			To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 		Expect(tx.Close()).To(Succeed())
 		Expect(svc.Close()).To(Succeed())
+
 		// Reopen the service to run the migration
 		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{
-			DB:       db,
-			Ontology: otg,
-			Group:    gSvc,
-			Label:    lab,
+			DB:             db,
+			Ontology:       otg,
+			Group:          gSvc,
+			Label:          lab,
+			ForceMigration: config.True(),
 		}))
 
 		// The "Ranges" group and "Subgroup" should be deleted

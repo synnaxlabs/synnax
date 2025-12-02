@@ -69,7 +69,7 @@ func (cfg Config) distribution() framer.StreamerConfig {
 type ServiceConfig struct {
 	alamos.Instrumentation
 	Calculation *calculation.Service
-	Channel     channel.Readable
+	Channel     *channel.Service
 	DistFramer  *framer.Service
 }
 
@@ -160,7 +160,7 @@ func (s *Service) newCalculationUpdaterTransform(
 	ut := &calculationUpdaterTransform{
 		Instrumentation: s.cfg.Instrumentation,
 		calcManager:     s.cfg.Calculation.OpenRequestManager(),
-		readable:        s.cfg.Channel,
+		channelSvc:      s.cfg.Channel,
 	}
 	ut.Transform = ut.transform
 	return ut, ut.calcManager.Set(ctx, cfg.Keys)

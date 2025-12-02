@@ -141,7 +141,7 @@ export const List = ({
             )}
           </Flex.Box>
         )}
-        <PList.Items<string> emptyContent={emptyContent} displayItems={Infinity} grow>
+        <PList.Items<string> emptyContent={emptyContent} grow>
           {({ key, ...rest }) => (
             <Item
               key={key}

@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	xbinary "github.com/synnaxlabs/x/binary"
-	xbits "github.com/synnaxlabs/x/bit"
+	"github.com/synnaxlabs/x/bit"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -120,46 +120,48 @@ type Codec struct {
 	reader *xbinary.Reader
 	// channels used in dynamic codecs to retrieve information about channels
 	// when Update is called.
-	channels channel.Readable
+	channels *channel.Service
 	// encodeSorter is used to sort source frames that are being encoded. Used instead
 	// of sorting the frame directly in order to avoid excess heap allocations
 	encodeSorter sorter
 	// mergedSeriesResult is a reusable slice for storing merged series info, avoiding
 	// allocations on each encode operation
 	mergedSeriesResult []mergedSeriesInfo
+	// opts holds configuration options for the codec.
+	opts *options
+}
+
+type options struct {
 	// enableAlignmentCompression controls whether to merge contiguous series with
 	// the same channel key during encoding. When enabled, reduces bandwidth at the
 	// cost of some CPU overhead during encoding.
 	enableAlignmentCompression bool
 }
 
-// Config contains configuration options for the codec.
-type Config struct {
-	// EnableAlignmentCompression enables merging of contiguous series with the same
-	// channel key during encoding. This can significantly reduce bandwidth usage
-	// (30-70%) for frames with many small contiguous series at the cost of 5-15%
-	// additional CPU overhead during encoding. Defaults to true.
-	EnableAlignmentCompression bool
+type Option = func(*options)
+
+// DisableAlignmentCompression disables merging of contiguous series with the same
+// channel key during encoding. This can significantly increase bandwidth usage
+// (30-70%) for frames with many small contiguous series at the cost of 5-15%
+// additional CPU overhead during encoding. Defaults to true.
+func DisableAlignmentCompression() Option {
+	return func(o *options) { o.enableAlignmentCompression = false }
+}
+
+func newOptions(opts []Option) *options {
+	o := &options{enableAlignmentCompression: true}
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o
 }
 
 var byteOrder = telem.ByteOrder
 
-// DefaultConfig returns the default codec configuration with alignment compression enabled.
-func DefaultConfig() Config {
-	return Config{
-		EnableAlignmentCompression: true,
-	}
-}
-
 // NewStatic creates a new codec that uses the given channel keys and data types as
 // its encoding state with default configuration (alignment compression enabled).
 // It is not safe to call Update on a codec instantiated using NewStatic.
-func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType) *Codec {
-	return NewStaticWithConfig(channelKeys, dataTypes, DefaultConfig())
-}
-
-// NewStaticWithConfig creates a new codec with custom configuration.
-func NewStaticWithConfig(channelKeys channel.Keys, dataTypes []telem.DataType, cfg Config) *Codec {
+func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType, opts ...Option) *Codec {
 	if len(dataTypes) != len(channelKeys) {
 		panic("data types and channel keys must be the same length")
 	}
@@ -167,7 +169,7 @@ func NewStaticWithConfig(channelKeys channel.Keys, dataTypes []telem.DataType, c
 	for i, key := range channelKeys {
 		keyDataTypes[key] = dataTypes[i]
 	}
-	c := newCodec(cfg)
+	c := newCodec(opts...)
 	c.update(channelKeys, keyDataTypes)
 	return c
 }
@@ -175,22 +177,18 @@ func NewStaticWithConfig(channelKeys channel.Keys, dataTypes []telem.DataType, c
 // NewDynamic creates a new codec that can be dynamically updated by retrieving channels
 // from the provided channel store with default configuration (alignment compression enabled).
 // Codec.Update must be called before the first call to Codec.Encode and Codec.Decode.
-func NewDynamic(channels channel.Readable) *Codec {
-	return NewDynamicWithConfig(channels, DefaultConfig())
-}
-
-// NewDynamicWithConfig creates a new dynamic codec with custom configuration.
-func NewDynamicWithConfig(channels channel.Readable, cfg Config) *Codec {
-	c := newCodec(cfg)
+func NewDynamic(channels *channel.Service, opts ...Option) *Codec {
+	c := newCodec(opts...)
 	c.channels = channels
 	return c
 }
 
-func newCodec(cfg Config) *Codec {
+func newCodec(opts ...Option) *Codec {
+	o := newOptions(opts)
 	c := &Codec{
-		buf:                        xbinary.NewWriter(0, byteOrder),
-		reader:                     xbinary.NewReader(nil, byteOrder),
-		enableAlignmentCompression: cfg.EnableAlignmentCompression,
+		buf:    xbinary.NewWriter(0, byteOrder),
+		reader: xbinary.NewReader(nil, byteOrder),
+		opts:   o,
 	}
 	c.mu.updates = make(chan state, 50)
 	c.mu.updateAvailable.Store(false)
@@ -272,12 +270,12 @@ type flags struct {
 }
 
 const (
-	zeroAlignmentsFlagPos     xbits.FlagPos = 5
-	equalAlignmentsFlagPos    xbits.FlagPos = 4
-	equalLengthsFlagPos       xbits.FlagPos = 3
-	equalTimeRangesFlagPos    xbits.FlagPos = 2
-	timeRangesZeroFlagPos     xbits.FlagPos = 1
-	allChannelsPresentFlagPos xbits.FlagPos = 0
+	zeroAlignmentsFlagPos     bit.FlagPos = 5
+	equalAlignmentsFlagPos    bit.FlagPos = 4
+	equalLengthsFlagPos       bit.FlagPos = 3
+	equalTimeRangesFlagPos    bit.FlagPos = 2
+	timeRangesZeroFlagPos     bit.FlagPos = 1
+	allChannelsPresentFlagPos bit.FlagPos = 0
 )
 
 func (f flags) encode() byte {
@@ -524,7 +522,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) (err error
 	// Merge contiguous series with the same key if enabled, otherwise just
 	// create series info directly. In both cases, we reuse c.mergedSeriesResult.
 	var mergedSeries []mergedSeriesInfo
-	if c.enableAlignmentCompression {
+	if c.opts.enableAlignmentCompression {
 		mergedSeries = c.mergeContiguousSeries(
 			c.encodeSorter.keys,
 			c.encodeSorter.rawIndices,
