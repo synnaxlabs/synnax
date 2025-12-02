@@ -165,7 +165,7 @@ export const rotateNodesAroundCenter = (
 
   layouts.forEach((layout) => {
     const nodeCenter = box.center(layout.box);
-    const newCenter = direction.rotate(nodeCenter, center, dir);
+    const newCenter = xy.rotate(nodeCenter, center, dir);
     const dims = box.dims(layout.box);
     const newPos = {
       x: newCenter.x - dims.width / 2,

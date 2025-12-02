@@ -56,37 +56,4 @@ describe("Direction", () => {
       });
     });
   });
-
-  describe("rotate", () => {
-    it("should rotate a point 90 degrees clockwise around the origin", () => {
-      const point = { x: 1, y: 0 };
-      const center = { x: 0, y: 0 };
-      const result = direction.rotate(point, center, "clockwise");
-      expect(result.x).toBeCloseTo(0);
-      expect(result.y).toBeCloseTo(1);
-    });
-
-    it("should rotate a point 90 degrees counterclockwise around the origin", () => {
-      const point = { x: 1, y: 0 };
-      const center = { x: 0, y: 0 };
-      const result = direction.rotate(point, center, "counterclockwise");
-      expect(result.x).toBeCloseTo(0);
-      expect(result.y).toBeCloseTo(-1);
-    });
-
-    it("should rotate a point around a non-origin center", () => {
-      const point = { x: 2, y: 1 };
-      const center = { x: 1, y: 1 };
-      const result = direction.rotate(point, center, "clockwise");
-      expect(result.x).toBeCloseTo(1);
-      expect(result.y).toBeCloseTo(2);
-    });
-
-    it("should return the same point when rotating around itself", () => {
-      const point = { x: 5, y: 5 };
-      const result = direction.rotate(point, point, "clockwise");
-      expect(result.x).toBeCloseTo(5);
-      expect(result.y).toBeCloseTo(5);
-    });
-  });
 });

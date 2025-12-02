@@ -19,11 +19,9 @@ import {
   DIRECTIONS,
   type Location,
   type SignedDimension,
-  type XY,
   Y_LOCATIONS,
   type YLocation,
 } from "@/spatial/base";
-import { xy } from "@/spatial/xy";
 
 export { Direction, direction, DIRECTIONS };
 
@@ -61,17 +59,3 @@ export const isX = (direction: CrudeDirection): direction is CrudeXDirection => 
 
 export const isY = (direction: CrudeDirection): direction is CrudeYDirection =>
   construct(direction) === "y";
-
-export const rotate = (point: xy.Crude, center: xy.Crude, dir: Angular): XY => {
-  const p = xy.construct(point);
-  const c = xy.construct(center);
-  const angle = dir === "clockwise" ? Math.PI / 2 : -Math.PI / 2;
-  const relativeX = p.x - c.x;
-  const relativeY = p.y - c.y;
-  const rotatedX = relativeX * Math.cos(angle) - relativeY * Math.sin(angle);
-  const rotatedY = relativeX * Math.sin(angle) + relativeY * Math.cos(angle);
-  return {
-    x: rotatedX + c.x,
-    y: rotatedY + c.y,
-  };
-};

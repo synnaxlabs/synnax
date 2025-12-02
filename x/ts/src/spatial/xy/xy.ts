@@ -10,18 +10,21 @@
 import { z } from "zod";
 
 import {
+  type AngularDirection,
   type ClientXY,
   clientXY,
   type CrudeDirection,
   dimensions,
   type Direction,
+  DIRECTIONS,
   type NumberCouple,
   numberCouple,
   signedDimensions,
   type XY,
   xy,
+  type YLocation,
+  Y_LOCATIONS,
 } from "@/spatial/base";
-import { direction } from "@/spatial/direction";
 import { type location } from "@/spatial/location";
 
 export { type ClientXY as Client, clientXY, type XY, xy };
@@ -164,9 +167,15 @@ export const translation = (to: Crude, from: Crude): XY => {
   return { x: from_.x - to_.x, y: from_.y - to_.y };
 };
 
+const constructDirection = (c: CrudeDirection): Direction => {
+  if (DIRECTIONS.includes(c as Direction)) return c as Direction;
+  if (Y_LOCATIONS.includes(c as YLocation)) return "y";
+  return "x";
+};
+
 export const align = (coordinate: Crude, dir: CrudeDirection, target: number): XY => {
   const c = construct(coordinate);
-  const d = direction.construct(dir);
+  const d = constructDirection(dir);
   return d === "x" ? { x: target, y: c.y } : { x: c.x, y: target };
 };
 
@@ -335,4 +344,25 @@ export const round = (a: Crude): XY => {
 export const reciprocal = (a: Crude): XY => {
   const xy = construct(a);
   return { x: 1 / xy.x, y: 1 / xy.y };
+};
+
+/**
+ * Rotates a point 90 degrees around a center point.
+ * @param point - The point to rotate.
+ * @param center - The center point to rotate around.
+ * @param dir - The direction to rotate (clockwise or counterclockwise).
+ * @returns The rotated point.
+ */
+export const rotate = (point: Crude, center: Crude, dir: AngularDirection): XY => {
+  const p = construct(point);
+  const c = construct(center);
+  const angle = dir === "clockwise" ? Math.PI / 2 : -Math.PI / 2;
+  const relativeX = p.x - c.x;
+  const relativeY = p.y - c.y;
+  const rotatedX = relativeX * Math.cos(angle) - relativeY * Math.sin(angle);
+  const rotatedY = relativeX * Math.sin(angle) + relativeY * Math.cos(angle);
+  return {
+    x: rotatedX + c.x,
+    y: rotatedY + c.y,
+  };
 };

@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type direction, type location } from "@synnaxlabs/x";
-import { box, xy } from "@synnaxlabs/x";
+import { box, type direction, type location, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -24,9 +23,7 @@ const alignNodes = (
   layouts: NodeLayout[],
   target: direction.Direction | location.Outer,
 ): NodeLayout[] => {
-  if (target === "x" || target === "y") {
-    return alignNodesAlongDirection(layouts, target);
-  }
+  if (target === "x" || target === "y") return alignNodesAlongDirection(layouts, target);
   return alignNodesToLocation(layouts, target);
 };
 
