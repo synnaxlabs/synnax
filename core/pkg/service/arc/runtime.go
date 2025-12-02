@@ -33,11 +33,7 @@ func (s *Service) handleChange(
 	ctx context.Context,
 	reader gorp.TxReader[uuid.UUID, Arc],
 ) {
-	for {
-		e, ok := reader.Next(ctx)
-		if !ok {
-			return
-		}
+	for e := range reader {
 		a := e.Value
 		existing, found := s.mu.entries[e.Key]
 		if found {

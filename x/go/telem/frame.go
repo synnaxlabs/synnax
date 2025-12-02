@@ -454,9 +454,7 @@ func (f Frame[K]) KeepKeys(keys []K) Frame[K] {
 
 // notContain is defined statically so that it doesn't accidentally escape to the heap,
 // applying more pressure on GC
-func notContains[T comparable](s []T, e T) bool {
-	return !lo.Contains[T](s, e)
-}
+func notContains[T comparable](s []T, e T) bool { return !lo.Contains(s, e) }
 
 // ExcludeKeys filters the frame to include any keys that are NOT in the given slice,
 // returning a shallow copy of the filtered frame.

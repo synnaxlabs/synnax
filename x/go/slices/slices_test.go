@@ -101,4 +101,63 @@ var _ = Describe("Slices", func() {
 			}).To(PanicWith("index out of range [-11] with length 10"))
 		})
 	})
+
+	Describe("IterEndlessly", func() {
+		It("Should yield elements in order", func() {
+			values := []int{1, 2, 3}
+			var results []int
+			for v := range slices.IterEndlessly(values) {
+				results = append(results, v)
+				if len(results) == 3 {
+					break
+				}
+			}
+			Expect(results).To(Equal([]int{1, 2, 3}))
+		})
+
+		It("Should wrap around after reaching the end", func() {
+			values := []int{1, 2, 3}
+			var results []int
+			for v := range slices.IterEndlessly(values) {
+				results = append(results, v)
+				if len(results) == 7 {
+					break
+				}
+			}
+			Expect(results).To(Equal([]int{1, 2, 3, 1, 2, 3, 1}))
+		})
+
+		It("Should work with a single element", func() {
+			values := []string{"only"}
+			var results []string
+			for v := range slices.IterEndlessly(values) {
+				results = append(results, v)
+				if len(results) == 5 {
+					break
+				}
+			}
+			Expect(results).To(Equal([]string{"only", "only", "only", "only", "only"}))
+		})
+
+		It("Should stop when the caller breaks", func() {
+			values := []int{1, 2, 3, 4, 5}
+			count := 0
+			for range slices.IterEndlessly(values) {
+				count++
+				if count == 2 {
+					break
+				}
+			}
+			Expect(count).To(Equal(2))
+		})
+
+		It("Should panic with an empty slice", func() {
+			var values []int
+			Expect(func() {
+				for range slices.IterEndlessly(values) {
+					break
+				}
+			}).To(Panic())
+		})
+	})
 })

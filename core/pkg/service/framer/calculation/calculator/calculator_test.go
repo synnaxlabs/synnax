@@ -10,6 +10,8 @@
 package calculator_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -19,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -38,7 +40,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		}))
-		statusSvc := MustSucceed(svcstatus.OpenService(ctx, svcstatus.ServiceConfig{
+		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Label:    labelSvc,
 			Ontology: dist.Ontology,
@@ -83,7 +85,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		}
 		Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			Channels:       dist.Channel,
+			ChannelService: dist.Channel,
 			Channel:        *calc,
 			SymbolResolver: arcSvc.SymbolResolver(),
 		}))
@@ -93,15 +95,15 @@ var _ = Describe("Calculator", Ordered, func() {
 	Describe("Alignment", func() {
 		Specify("Single alignment propagation", func() {
 			base := []channel.Channel{{
-				Name:     "base",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return base * 2",
+				Expression: fmt.Sprintf("return %s * 2", base[0].Name),
 			}
 			c := open(nil, &base, &calc)
 			d := telem.NewSeriesV[int64](10, 20, 30)
@@ -118,21 +120,21 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Multiple alignments accumulation", func() {
 			bases := []channel.Channel{
 				{
-					Name:     "base_1",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 				{
-					Name:     "base_2",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 			}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return base_1 + base_2",
+				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
 			}
 			c := open(nil, &bases, &calc)
 			d1 := telem.NewSeriesV[int64](1, 2)
@@ -153,15 +155,15 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Alignment persistence across calls", func() {
 			base := []channel.Channel{{
-				Name:     "base",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return base + 5",
+				Expression: fmt.Sprintf("return %s + 5", base[0].Name),
 			}
 			c := open(nil, &base, &calc)
 			d1 := telem.NewSeriesV[int64](1)
@@ -186,26 +188,26 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Mixed alignment sources", func() {
 			bases := []channel.Channel{
 				{
-					Name:     "base_1",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 				{
-					Name:     "base_2",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 				{
-					Name:     "base_3",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 			}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return base_1 + base_2 + base_3",
+				Expression: fmt.Sprintf("return %s + %s + %s", bases[0].Name, bases[1].Name, bases[2].Name),
 			}
 			c := open(nil, &bases, &calc)
 			d1 := telem.NewSeriesV[int64](1)
@@ -230,21 +232,21 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Two virtual channels", func() {
 			bases := []channel.Channel{
 				{
-					Name:     "sensor_a",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Float32T,
 					Virtual:  true,
 				},
 				{
-					Name:     "sensor_b",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Float32T,
 					Virtual:  true,
 				},
 			}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
 				Virtual:    true,
-				Expression: "return sensor_a - sensor_b",
+				Expression: fmt.Sprintf("return %s - %s", bases[0].Name, bases[1].Name),
 			}
 			c := open(nil, &bases, &calc)
 			fr := core.MultiFrame(
@@ -263,26 +265,26 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Three virtual channels", func() {
 			bases := []channel.Channel{
 				{
-					Name:     "x",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int32T,
 					Virtual:  true,
 				},
 				{
-					Name:     "y",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int32T,
 					Virtual:  true,
 				},
 				{
-					Name:     "z",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int32T,
 					Virtual:  true,
 				},
 			}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int32T,
 				Virtual:    true,
-				Expression: "return x * y + z",
+				Expression: fmt.Sprintf("return %s * %s + %s", bases[0].Name, bases[1].Name, bases[2].Name),
 			}
 			c := open(nil, &bases, &calc)
 			fr := core.MultiFrame(
@@ -301,24 +303,24 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Single persisted channel", func() {
 			indexes := []channel.Channel{{
-				Name:     "idx",
+				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{{
-				Name:     "data",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,
 			}}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float64T,
 				Virtual:    true,
-				Expression: "return data / 2",
+				Expression: fmt.Sprintf("return %s / 2", bases[0].Name),
 			}
 			c := open(&indexes, &bases, &calc)
 			idxData := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idxData.Alignment = telem.NewAlignment(10, 5)
-			valData := telem.NewSeriesV[float64](100.0, 200.0, 300.0)
+			valData := telem.NewSeriesV(100.0, 200.0, 300.0)
 			valData.Alignment = telem.NewAlignment(10, 5)
 			fr := core.MultiFrame(
 				[]channel.Key{indexes[0].Key(), bases[0].Key()},
@@ -326,8 +328,8 @@ var _ = Describe("Calculator", Ordered, func() {
 			)
 			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
 			Expect(changed).To(BeTrue())
-			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float64](50.0, 100.0, 150.0))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV(50.0, 100.0, 150.0))
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 5)))
@@ -336,25 +338,25 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Two persisted channels shared index", func() {
 			indexes := []channel.Channel{{
-				Name:     "time",
+				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{
 				{
-					Name:     "temp",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 				},
 				{
-					Name:     "pressure",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 				},
 			}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return temp + pressure",
+				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
 			}
 			c := open(&indexes, &bases, &calc)
 			idxData := telem.NewSeriesSecondsTSV(10, 20, 30)
@@ -370,7 +372,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](20, 35, 50))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				10*telem.SecondTS, 20*telem.SecondTS, 30*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(5, 2)))
@@ -380,31 +382,31 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Two persisted channels unique indexes", func() {
 			indexes := []channel.Channel{
 				{
-					Name:     "time_1",
+					Name:     channel.NewRandomName(),
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
 				},
 				{
-					Name:     "time_2",
+					Name:     channel.NewRandomName(),
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
 				},
 			}
 			bases := []channel.Channel{
 				{
-					Name:     "voltage",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Float32T,
 				},
 				{
-					Name:     "current",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Float32T,
 				},
 			}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
 				Virtual:    true,
-				Expression: "return voltage * current",
+				Expression: fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 			}
 			c := open(&indexes, &bases, &calc)
 			idx1Data := telem.NewSeriesSecondsTSV(1, 2)
@@ -428,26 +430,26 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Mixed virtual and persisted", func() {
 			indexes := []channel.Channel{{
-				Name:     "time",
+				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{
 				{
-					Name:     "persisted_ch",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 				},
 				{
-					Name:     "virtual_ch",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 			}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return persisted_ch - virtual_ch",
+				Expression: fmt.Sprintf("return %s - %s", bases[0].Name, bases[1].Name),
 			}
 			c := open(&indexes, &bases, &calc)
 			idxData := telem.NewSeriesSecondsTSV(5, 10)
@@ -472,21 +474,21 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Float32", func() {
 			bases := []channel.Channel{
 				{
-					Name:     "a",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Float32T,
 					Virtual:  true,
 				},
 				{
-					Name:     "b",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Float32T,
 					Virtual:  true,
 				},
 			}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
 				Virtual:    true,
-				Expression: "return a / b",
+				Expression: fmt.Sprintf("return %s / %s", bases[0].Name, bases[1].Name),
 			}
 			c := open(nil, &bases, &calc)
 			fr := core.MultiFrame(
@@ -506,19 +508,19 @@ var _ = Describe("Calculator", Ordered, func() {
 	Describe("Accumulation", func() {
 		Specify("Index after data", func() {
 			indexes := []channel.Channel{{
-				Name:     "time",
+				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{{
-				Name:     "sensor",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
 			}}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return sensor * 3",
+				Expression: fmt.Sprintf("return %s * 3", bases[0].Name),
 			}
 			c := open(&indexes, &bases, &calc)
 			dataOnly := telem.NewSeriesV[int64](10, 20, 30)
@@ -532,7 +534,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](30, 60, 90))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(5, 2)))
@@ -541,19 +543,19 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Data after index", func() {
 			indexes := []channel.Channel{{
-				Name:     "time",
+				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{{
-				Name:     "sensor",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
 			}}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return sensor * 2",
+				Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
 			}
 			c := open(&indexes, &bases, &calc)
 			idxData := telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -567,7 +569,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](30, 50, 70))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(3, 1)))
@@ -576,19 +578,19 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Interleaved", func() {
 			indexes := []channel.Channel{{
-				Name:     "time",
+				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{{
-				Name:     "sensor",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
 			}}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return sensor + 10",
+				Expression: fmt.Sprintf("return %s + 10", bases[0].Name),
 			}
 			c := open(&indexes, &bases, &calc)
 
@@ -607,7 +609,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](15, 25))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(2, 1)))
@@ -626,7 +628,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed = MustSucceed2(c.Next(ctx, fr4, of))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](3 * telem.SecondTS))
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(3 * telem.SecondTS))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(3, 2)))
 
 			Expect(c.Close()).To(Succeed())
@@ -634,25 +636,25 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Sequential channel arrivals", func() {
 			indexes := []channel.Channel{{
-				Name:     "time",
+				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{
 				{
-					Name:     "ch1",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Float64T,
 				},
 				{
-					Name:     "ch2",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Float64T,
 				},
 			}
 			calc := channel.Channel{
-				Name:       "calc",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float64T,
 				Virtual:    true,
-				Expression: "return ch1 + ch2",
+				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
 			}
 			c := open(&indexes, &bases, &calc)
 			idx := telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -660,20 +662,20 @@ var _ = Describe("Calculator", Ordered, func() {
 			fr1 := core.UnaryFrame(indexes[0].Key(), idx)
 			_, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
 			Expect(changed).To(BeFalse())
-			ch1Data := telem.NewSeriesV[float64](10.0, 20.0, 30.0)
+			ch1Data := telem.NewSeriesV(10.0, 20.0, 30.0)
 			ch1Data.Alignment = telem.NewAlignment(5, 1)
 			fr2 := core.UnaryFrame(bases[0].Key(), ch1Data)
 			of := core.Frame{}
 			_, changed = MustSucceed2(c.Next(ctx, fr2, of))
 			Expect(changed).To(BeFalse())
-			ch2Data := telem.NewSeriesV[float64](1.0, 2.0, 3.0)
+			ch2Data := telem.NewSeriesV(1.0, 2.0, 3.0)
 			ch2Data.Alignment = telem.NewAlignment(5, 1)
 			fr3 := core.UnaryFrame(bases[1].Key(), ch2Data)
 			of = core.Frame{}
 			of, changed = MustSucceed2(c.Next(ctx, fr3, of))
 			Expect(changed).To(BeTrue())
-			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float64](11.0, 22.0, 33.0))
-			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV(11.0, 22.0, 33.0))
+			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(5, 1)))
@@ -683,19 +685,19 @@ var _ = Describe("Calculator", Ordered, func() {
 
 	It("Operations", func() {
 		idx := []channel.Channel{{
-			Name:     "time",
+			Name:     channel.NewRandomName(),
 			DataType: telem.TimeStampT,
 			IsIndex:  true,
 		}}
 		base := []channel.Channel{{
-			Name:     "base",
+			Name:     channel.NewRandomName(),
 			DataType: telem.Int64T,
 		}}
 		calc := channel.Channel{
-			Name:       "calc",
+			Name:       channel.NewRandomName(),
 			DataType:   telem.Int64T,
 			Virtual:    true,
-			Expression: "return base",
+			Expression: fmt.Sprintf("return %s", base[0].Name),
 			Operations: []channel.Operation{
 				{
 					Type:     "avg",
@@ -736,20 +738,20 @@ var _ = Describe("Calculator", Ordered, func() {
 	Describe("Group", func() {
 
 		It("Should aggregate ReadFrom keys from all calculators", func() {
-			idx := []channel.Channel{{Name: "time", DataType: telem.TimeStampT, IsIndex: true}}
-			b1 := []channel.Channel{{Name: "base1", DataType: telem.Int64T}}
-			b2 := []channel.Channel{{Name: "base2", DataType: telem.Int64T, Virtual: true}}
+			idx := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true}}
+			b1 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T}}
+			b2 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}}
 			c1 := channel.Channel{
-				Name:       "calc1",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return base1 + 1",
+				Expression: fmt.Sprintf("return %s + 1", b1[0].Name),
 			}
 			c2 := channel.Channel{
-				Name:       "calc2",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return base2 * 2",
+				Expression: fmt.Sprintf("return %s * 2", b2[0].Name),
 			}
 			calc1 := open(&idx, &b1, &c1)
 			calc2 := open(nil, &b2, &c2)
@@ -760,20 +762,20 @@ var _ = Describe("Calculator", Ordered, func() {
 		})
 
 		It("Should execute all calculators and aggregate results", func() {
-			idx := []channel.Channel{{Name: "time", DataType: telem.TimeStampT, IsIndex: true}}
-			b1 := []channel.Channel{{Name: "base1", DataType: telem.Int64T}}
-			b2 := []channel.Channel{{Name: "base2", DataType: telem.Int64T, Virtual: true}}
+			idx := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true}}
+			b1 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T}}
+			b2 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}}
 			c1 := channel.Channel{
-				Name:       "calc1",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return base1 + 1",
+				Expression: fmt.Sprintf("return %s + 1", b1[0].Name),
 			}
 			c2 := channel.Channel{
-				Name:       "calc2",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return base2 * 2",
+				Expression: fmt.Sprintf("return %s * 2", b2[0].Name),
 			}
 			calc1 := open(&idx, &b1, &c1)
 			calc2 := open(nil, &b2, &c2)
@@ -793,20 +795,20 @@ var _ = Describe("Calculator", Ordered, func() {
 		})
 
 		It("Should close all calculators", func() {
-			idx := []channel.Channel{{Name: "time", DataType: telem.TimeStampT, IsIndex: true}}
-			b1 := []channel.Channel{{Name: "base1", DataType: telem.Int64T}}
-			b2 := []channel.Channel{{Name: "base2", DataType: telem.Int64T, Virtual: true}}
+			idx := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true}}
+			b1 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T}}
+			b2 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}}
 			c1 := channel.Channel{
-				Name:       "calc1",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return base1",
+				Expression: fmt.Sprintf("return %s", b1[0].Name),
 			}
 			c2 := channel.Channel{
-				Name:       "calc2",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return base2",
+				Expression: fmt.Sprintf("return %s", b2[0].Name),
 			}
 			calc1 := open(&idx, &b1, &c1)
 			calc2 := open(&idx, &b2, &c2)
@@ -816,21 +818,21 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		It("Should execute nested calculators", func() {
 			b1 := []channel.Channel{{
-				Name:     "base_a_1",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			c1 := channel.Channel{
-				Name:       "calc_a_1",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return base_a_1 + 1",
+				Expression: fmt.Sprintf("return %s + 1", b1[0].Name),
 			}
 			c2 := channel.Channel{
-				Name:       "calc_a_2",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: "return calc_a_1 * 2",
+				Expression: fmt.Sprintf("return %s * 2", c1.Name),
 			}
 			calc1 := open(nil, &b1, &c1)
 			calc2 := open(nil, nil, &c2)
