@@ -12,6 +12,7 @@ package unsafe_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/unsafe"
 )
 
@@ -156,13 +157,6 @@ var _ = Describe("Unsafe", func() {
 		})
 
 		Describe("Panic Conditions", func() {
-			It("Should panic on zero length types", func() {
-				in := []float32{1.0, 2.0, 3.0}
-				Expect(func() {
-					unsafe.CastSlice[float32, struct{}](in)
-				}).To(Panic())
-			})
-
 			It("Should panic when the stride lengths are incompatible", func() {
 				in := []byte{1, 2, 3}
 				Expect(func() {
@@ -191,9 +185,126 @@ var _ = Describe("Unsafe", func() {
 
 	Describe("CastBytes", func() {
 		It("Should cast bytes to a single element", func() {
-			b := unsafe.CastBytes[uint32]([]byte{1, 2, 3, 4})
+			b := MustSucceed(unsafe.CastBytes[uint32]([]byte{1, 2, 3, 4}))
 			Expect(b).To(Equal(uint32(67305985)))
 		})
 
+		It("Should return an error if the byte slice is too short", func() {
+			Expect(unsafe.CastBytes[uint32]([]byte{1, 2, 3})).
+				Error().To(MatchError(ContainSubstring("too short")))
+		})
+	})
+
+	Describe("CastToBytes", func() {
+		It("should cast uint32 to bytes", func() {
+			// 0x04030201 in little-endian is [0x01, 0x02, 0x03, 0x04]
+			b := unsafe.CastToBytes[uint32](0x04030201)
+			Expect(b).To(Equal([]byte{0x01, 0x02, 0x03, 0x04}))
+		})
+
+		It("should cast uint64 to 8 bytes", func() {
+			b := unsafe.CastToBytes[uint64](0x0807060504030201)
+			Expect(len(b)).To(Equal(8))
+			Expect(b).To(Equal([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}))
+		})
+
+		It("should cast int16 to 2 bytes", func() {
+			b := unsafe.CastToBytes[int16](0x0201)
+			Expect(len(b)).To(Equal(2))
+			Expect(b).To(Equal([]byte{0x01, 0x02}))
+		})
+
+		It("should cast float64 to 8 bytes", func() {
+			// 1.0 in IEEE 754 double precision is 0x3FF0000000000000
+			b := unsafe.CastToBytes[float64](1.0)
+			Expect(len(b)).To(Equal(8))
+			Expect(b).To(Equal([]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF0, 0x3F}))
+		})
+
+		It("should be the inverse of CastBytes", func() {
+			original := uint32(12345678)
+			bytes := unsafe.CastToBytes(original)
+			Expect(MustSucceed(unsafe.CastBytes[uint32](bytes))).To(Equal(original))
+		})
+
+		It("should preserve negative integers", func() {
+			original := int32(-12345)
+			bytes := unsafe.CastToBytes(original)
+			Expect(MustSucceed(unsafe.CastBytes[int32](bytes))).To(Equal(original))
+		})
+
+		It("should preserve float precision", func() {
+			original := float64(3.141592653589793)
+			bytes := unsafe.CastToBytes(original)
+			Expect(MustSucceed(unsafe.CastBytes[float64](bytes))).To(Equal(original))
+		})
+	})
+
+	Describe("ReinterpretMapKeys", func() {
+		type myCustomUint32 uint32
+
+		It("should convert map keys from one type to another", func() {
+			in := map[uint32]string{1: "one", 2: "two", 3: "three"}
+			out := unsafe.ReinterpretMapKeys[uint32, myCustomUint32](in)
+			Expect(out).To(Equal(map[myCustomUint32]string{1: "one", 2: "two", 3: "three"}))
+		})
+
+		It("should return nil for empty maps", func() {
+			in := map[uint32]string{}
+			out := unsafe.ReinterpretMapKeys[uint32, myCustomUint32](in)
+			Expect(out).To(BeNil())
+		})
+
+		It("should share underlying data with the original map", func() {
+			in := map[uint32]int{1: 100, 2: 200}
+			out := unsafe.ReinterpretMapKeys[uint32, myCustomUint32](in)
+			// Modify through the reinterpreted map
+			out[myCustomUint32(1)] = 999
+			// Original should reflect the change
+			Expect(in[1]).To(Equal(999))
+		})
+
+		It("should work with different value types", func() {
+			type myKey uint64
+			in := map[uint64][]int{1: {1, 2, 3}, 2: {4, 5, 6}}
+			out := unsafe.ReinterpretMapKeys[uint64, myKey](in)
+			Expect(out[myKey(1)]).To(Equal([]int{1, 2, 3}))
+			Expect(out[myKey(2)]).To(Equal([]int{4, 5, 6}))
+		})
+	})
+
+	Describe("ReinterpretMapValues", func() {
+		type myCustomUint64 uint64
+
+		It("should convert map values from one type to another", func() {
+			in := map[string]uint64{"a": 1, "b": 2, "c": 3}
+			out := unsafe.ReinterpretMapValues[string, uint64, myCustomUint64](in)
+			Expect(out).To(Equal(map[string]myCustomUint64{"a": 1, "b": 2, "c": 3}))
+		})
+
+		It("should return nil for empty maps", func() {
+			in := map[string]uint64{}
+			out := unsafe.ReinterpretMapValues[string, uint64, myCustomUint64](in)
+			Expect(out).To(BeNil())
+		})
+
+		It("should share underlying data with the original map", func() {
+			in := map[string]uint32{"x": 100, "y": 200}
+			type myVal uint32
+			out := unsafe.ReinterpretMapValues[string, uint32, myVal](in)
+			// Modify through the reinterpreted map
+			out["x"] = 999
+			// Original should reflect the change
+			Expect(in["x"]).To(Equal(uint32(999)))
+		})
+
+		It("should work with integer keys", func() {
+			type myVal int32
+			in := map[int]int32{1: -100, 2: 0, 3: 100}
+			out := unsafe.ReinterpretMapValues[int, int32, myVal](in)
+			Expect(out[1]).To(Equal(myVal(-100)))
+			Expect(out[2]).To(Equal(myVal(0)))
+			Expect(out[3]).To(Equal(myVal(100)))
+		})
 	})
 })

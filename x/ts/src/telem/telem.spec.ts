@@ -11,7 +11,6 @@ import { describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
 import {
-  addSamples,
   type CrudeDataType,
   DataType,
   Density,
@@ -2020,32 +2019,5 @@ describe("Size", () => {
       expect(result).toBeInstanceOf(Size);
       expect(result.valueOf()).toBe(10000);
     });
-  });
-});
-
-describe("addSamples", () => {
-  test("adds two numbers", () => {
-    expect(addSamples(1, 2)).toBe(3);
-    expect(addSamples(1.5, 2.5)).toBe(4);
-    expect(addSamples(-1, 1)).toBe(0);
-  });
-
-  test("adds two bigints", () => {
-    expect(addSamples(1n, 2n)).toBe(3n);
-    expect(addSamples(-1n, 1n)).toBe(0n);
-    expect(addSamples(9007199254740991n, 1n)).toBe(9007199254740992n);
-  });
-
-  test("handles mixed numeric types", () => {
-    expect(addSamples(1, 2n)).toBe(3);
-    expect(addSamples(2n, 1)).toBe(3);
-    expect(addSamples(1.5, 2n)).toBe(3.5);
-    expect(addSamples(2n, 1.5)).toBe(3.5);
-  });
-
-  test("handles edge cases", () => {
-    expect(addSamples(0, 0)).toBe(0);
-    expect(addSamples(Number.MAX_SAFE_INTEGER, 1)).toBe(Number.MAX_SAFE_INTEGER + 1);
-    expect(addSamples(Number.MIN_SAFE_INTEGER, -1)).toBe(Number.MIN_SAFE_INTEGER - 1);
   });
 });

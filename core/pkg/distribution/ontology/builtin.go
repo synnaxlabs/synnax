@@ -11,10 +11,13 @@ package ontology
 
 import (
 	"context"
+	"io"
+	"iter"
+	"slices"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/zyn"
@@ -31,7 +34,7 @@ var (
 )
 
 type builtinService struct {
-	observe.Noop[iter.Nexter[Change]]
+	observe.Noop[iter.Seq[Change]]
 }
 
 var _ Service = (*builtinService)(nil)
@@ -57,6 +60,6 @@ func (b *builtinService) RetrieveResource(
 }
 
 // OpenNexter implements Service.
-func (b *builtinService) OpenNexter() (iter.NexterCloser[Resource], error) {
-	return iter.NexterNopCloser(iter.All([]Resource{rootResource})), nil
+func (b *builtinService) OpenNexter(context.Context) (iter.Seq[Resource], io.Closer, error) {
+	return slices.Values([]Resource{rootResource}), xio.NopCloser, nil
 }

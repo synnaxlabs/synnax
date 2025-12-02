@@ -12,6 +12,9 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"io"
+	"iter"
+	"slices"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -19,7 +22,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/zyn"
 	"go.uber.org/zap"
@@ -58,6 +61,8 @@ type NodeOntologyService struct {
 	Cluster  Cluster
 }
 
+var _ ontology.Service = (*NodeOntologyService)(nil)
+
 func (s *NodeOntologyService) Type() ontology.Type { return nodeOntologyType }
 
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
@@ -81,20 +86,19 @@ func translateNodeChange(ch NodeChange, _ int) ontology.Change {
 
 // OnChange implements ontology.Service.
 func (s *NodeOntologyService) OnChange(
-	f func(context.Context, iter.Nexter[ontology.Change]),
+	f func(context.Context, iter.Seq[ontology.Change]),
 ) observe.Disconnect {
 	onChange := func(ctx context.Context, ch Change) {
-		f(ctx, iter.All(lo.Map(ch.Changes, translateNodeChange)))
+		f(ctx, slices.Values(lo.Map(ch.Changes, translateNodeChange)))
 	}
 	return s.Cluster.OnChange(onChange)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *NodeOntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	return iter.NexterNopCloser(iter.All(lo.MapToSlice(
-		s.Cluster.CopyState().Nodes,
-		func(_ NodeKey, n Node) ontology.Resource { return newNodeResource(n) },
-	))), nil
+func (s *NodeOntologyService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+	return slices.Values(lo.MapToSlice(s.Cluster.CopyState().Nodes, func(_ NodeKey, n Node) ontology.Resource {
+		return newNodeResource(n)
+	})), xio.NopCloser, nil
 }
 
 // Schema implements ontology.Service.
@@ -135,14 +139,14 @@ func newNodeResource(n Node) ontology.Resource {
 type OntologyService struct {
 	Cluster Cluster
 	// Nothing will ever change about the cluster.
-	observe.Noop[iter.Nexter[ontology.Change]]
+	observe.Noop[iter.Seq[ontology.Change]]
 }
 
 var _ ontology.Service = (*OntologyService)(nil)
 
 func (s *OntologyService) Type() ontology.Type { return clusterOntologyType }
 
-// schema implements ontology.Service.
+// Schema implements ontology.Service.
 func (s *OntologyService) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
@@ -154,9 +158,9 @@ func (s *OntologyService) RetrieveResource(
 	return newClusterResource(s.Cluster.Key()), nil
 }
 
-// OpenNexter implements ontology.Service.Relationship
-func (s *OntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	return iter.NexterNopCloser(iter.All([]ontology.Resource{})), nil
+// OpenNexter implements ontology.Service.
+func (s *OntologyService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
 }
 
 func newClusterResource(key uuid.UUID) ontology.Resource {

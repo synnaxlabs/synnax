@@ -18,11 +18,11 @@ package kv
 import (
 	"context"
 	"io"
+	"iter"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 )
 
@@ -100,11 +100,7 @@ type DB interface {
 type Change = change.Change[[]byte, []byte]
 
 // TxReader is used to read the operations in a transaction.
-type TxReader interface {
-	iter.Nexter[Change]
-	// Count returns the total number of operations in the transaction.
-	Count() int
-}
+type TxReader = iter.Seq[Change]
 
 // Observable allows the caller to observe changes to key-value pairs in the DB.
 type Observable = observe.Observable[TxReader]
