@@ -104,6 +104,7 @@ describe("View", () => {
       const retrieved = await client.views.retrieve({ types: [type] });
       expect(retrieved).toHaveLength(2);
       retrieved.forEach((v) => expect(v.type).toEqual(type));
+      retrieved.sort((a, b) => a.name.localeCompare(b.name));
       expect(retrieved[0].name).toEqual("Type 1");
       expect(retrieved[0].query).toEqual({ channels: ["ch-1"] });
       expect(retrieved[1].name).toEqual("Type 2");
