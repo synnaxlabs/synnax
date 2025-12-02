@@ -141,7 +141,7 @@ func DefaultConfig() Config {
 }
 
 // keyAuthorities returns a slice of keyAuthority structs that can be used to shard
-// channel keys across multiple nodes in the cluster. This method should only be valled
+// channel keys across multiple nodes in the cluster. This method should only be called
 // after the config has been validated.
 func (c Config) keyAuthorities() []keyAuthority {
 	authorities := make([]keyAuthority, len(c.Keys))
@@ -202,10 +202,11 @@ type ServiceConfig struct {
 	// TS is the local time series store to write to.
 	// [REQUIRED]
 	TS *ts.DB
-	// ChannelReader is used to resolve metadata and routing information for the provided
+	// Channel is used to resolve metadata and routing information for the provided
 	// keys.
+	//
 	// [REQUIRED]
-	ChannelReader channel.Readable
+	Channel *channel.Service
 	// HostResolver is used to resolve the host address for nodes in the cluster in order
 	// to route writes.
 	// [REQUIRED]
@@ -229,7 +230,7 @@ var (
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotNil(v, "ts", cfg.TS)
-	validate.NotNil(v, "channels", cfg.ChannelReader)
+	validate.NotNil(v, "channel", cfg.Channel)
 	validate.NotNil(v, "host_provider", cfg.HostResolver)
 	validate.NotNil(v, "transport", cfg.Transport)
 	return v.Error()
@@ -238,7 +239,7 @@ func (cfg ServiceConfig) Validate() error {
 // Override implements config.Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.TS = override.Nil(cfg.TS, other.TS)
-	cfg.ChannelReader = override.Nil(cfg.ChannelReader, other.ChannelReader)
+	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
 	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
@@ -254,17 +255,20 @@ type Service struct {
 	freeWriteAlignments *freeWriteAlignments
 }
 
-// OpenService opens the writer service using the given configuration. Also binds a server
-// to the given transport for receiving writes from other nodes in the cluster.
-func OpenService(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+// NewService opens the writer service using the given configuration. Also binds a
+// server to the given transport for receiving writes from other nodes in the cluster.
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		ServiceConfig: cfg,
 		server:        startServer(cfg),
 		freeWriteAlignments: &freeWriteAlignments{
 			alignments: make(map[channel.Key]*atomic.Uint32),
 		},
-	}, err
+	}, nil
 }
 
 const (
@@ -416,7 +420,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) ([
 		return nil, v.Error()
 	}
 	var channels []channel.Channel
-	if err := s.ChannelReader.
+	if err := s.Channel.
 		NewRetrieve().
 		Entries(&channels).
 		WhereKeys(keys...).

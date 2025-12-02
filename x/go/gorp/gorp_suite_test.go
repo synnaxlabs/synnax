@@ -10,14 +10,27 @@
 package gorp_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/memkv"
 )
 
-var ctx = context.Background()
+var (
+	kvDB kv.DB
+	db   *gorp.DB
+)
+var _ = BeforeSuite(func() {
+	kvDB = memkv.New()
+	db = gorp.Wrap(kvDB)
+})
+
+var _ = AfterSuite(func() {
+	Expect(db.Close()).To(Succeed())
+})
 
 func TestGorp(t *testing.T) {
 	RegisterFailHandler(Fail)

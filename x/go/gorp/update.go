@@ -39,7 +39,7 @@ func (u Update[K, E]) Change(f func(Context, E) E) Update[K, E] {
 }
 
 func (u Update[K, E]) ChangeErr(f func(Context, E) (E, error)) Update[K, E] {
-	addChange[K, E](u.retrieve.Params, f)
+	addChange(u.retrieve.Params, f)
 	return u
 }
 

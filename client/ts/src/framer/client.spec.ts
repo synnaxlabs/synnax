@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { createTestClient } from "@/testutil/client";
@@ -17,14 +17,13 @@ const client = createTestClient();
 describe("Client", () => {
   describe("read + write", () => {
     it("should correctly write and read a frame of data", async () => {
-      const rand = `${TimeStamp.now().toString()}${Math.random()}`;
       const time = await client.channels.create({
-        name: `time-${rand}`,
+        name: id.create(),
         dataType: "timestamp",
         isIndex: true,
       });
       const data = await client.channels.create({
-        name: `data-${rand}`,
+        name: id.create(),
         dataType: "float32",
         index: time.key,
       });
@@ -38,14 +37,13 @@ describe("Client", () => {
       expect(Array.from(frame.get(data.key))).toEqual([1]);
     });
     it("should correctly write a single series of data", async () => {
-      const rand = `${TimeStamp.now().toString()}${Math.random()}`;
       const time = await client.channels.create({
-        name: `time-${rand}`,
+        name: id.create(),
         dataType: "timestamp",
         isIndex: true,
       });
       const data = await client.channels.create({
-        name: `data-${rand}`,
+        name: id.create(),
         dataType: "float32",
         index: time.key,
       });
@@ -62,14 +60,13 @@ describe("Client", () => {
   });
   describe("readLatestN", () => {
     it("should correctly read the latest N samples from a single channel", async () => {
-      const rand = `${TimeStamp.now().toString()}${Math.random()}`;
       const time = await client.channels.create({
-        name: `time-${rand}`,
+        name: id.create(),
         dataType: "timestamp",
         isIndex: true,
       });
       const data = await client.channels.create({
-        name: `data-${rand}`,
+        name: id.create(),
         dataType: "float32",
         index: time.key,
       });
@@ -94,19 +91,18 @@ describe("Client", () => {
     });
 
     it("should correctly read the latest N samples from multiple channels", async () => {
-      const rand = `${TimeStamp.now().toString()}${Math.random()}`;
       const time = await client.channels.create({
-        name: `time-${rand}`,
+        name: id.create(),
         dataType: "timestamp",
         isIndex: true,
       });
       const data1 = await client.channels.create({
-        name: `data1-${rand}`,
+        name: id.create(),
         dataType: "float32",
         index: time.key,
       });
       const data2 = await client.channels.create({
-        name: `data2-${rand}`,
+        name: id.create(),
         dataType: "float32",
         index: time.key,
       });
@@ -142,14 +138,13 @@ describe("Client", () => {
     });
 
     it("should return empty series when no data exists", async () => {
-      const rand = `${TimeStamp.now().toString()}${Math.random()}`;
       const time = await client.channels.create({
-        name: `time-${rand}`,
+        name: id.create(),
         dataType: "timestamp",
         isIndex: true,
       });
       const data = await client.channels.create({
-        name: `data-${rand}`,
+        name: id.create(),
         dataType: "float32",
         index: time.key,
       });
@@ -159,14 +154,13 @@ describe("Client", () => {
     });
 
     it("should correctly handle N larger than available data", async () => {
-      const rand = `${TimeStamp.now().toString()}${Math.random()}`;
       const time = await client.channels.create({
-        name: `time-${rand}`,
+        name: id.create(),
         dataType: "timestamp",
         isIndex: true,
       });
       const data = await client.channels.create({
-        name: `data-${rand}`,
+        name: id.create(),
         dataType: "float32",
         index: time.key,
       });

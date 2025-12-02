@@ -33,17 +33,17 @@ describe("queries", () => {
   describe("useList", () => {
     it("should return a list of channel keys", async () => {
       const indexCh = await client.channels.create({
-        name: "time_index",
+        name: id.create(),
         dataType: DataType.TIMESTAMP,
         isIndex: true,
       });
       const ch1 = await client.channels.create({
-        name: "channel1",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         index: indexCh.key,
       });
       const ch2 = await client.channels.create({
-        name: "channel2",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         index: indexCh.key,
       });
@@ -64,7 +64,7 @@ describe("queries", () => {
 
     it("should get individual channels using getItem", async () => {
       const testChannel = await client.channels.create({
-        name: "testChannel",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -79,17 +79,18 @@ describe("queries", () => {
 
       const retrievedChannel = result.current.getItem(testChannel.key);
       expect(retrievedChannel?.key).toEqual(testChannel.key);
-      expect(retrievedChannel?.name).toEqual("testChannel");
+      expect(retrievedChannel?.name).toEqual(testChannel.name);
     });
 
     it("should filter channels by search term", async () => {
+      const prefix = id.create();
       await client.channels.create({
-        name: "ordinary_channel",
+        name: `${prefix}_ordinary_channel`,
         dataType: DataType.FLOAT32,
         virtual: true,
       });
       await client.channels.create({
-        name: "special_channel",
+        name: `${prefix}_special_channel`,
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -108,14 +109,14 @@ describe("queries", () => {
       expect(
         result.current.data
           .map((key: channel.Key) => result.current.getItem(key)?.name)
-          .includes("special_channel"),
+          .includes(`${prefix}_special_channel`),
       ).toBe(true);
     });
 
     it("should handle pagination with limit and offset", async () => {
       for (let i = 0; i < 5; i++)
         await client.channels.create({
-          name: `paginationChannel${i}`,
+          name: `${id.create()}_paginationChannel_${i}`,
           dataType: DataType.FLOAT32,
           virtual: true,
         });
@@ -143,7 +144,7 @@ describe("queries", () => {
       const initialLength = result.current.data.length;
 
       const newChannel = await client.channels.create({
-        name: "newChannel",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -156,7 +157,7 @@ describe("queries", () => {
 
     it("should update the list when a channel is updated", async () => {
       const testChannel = await client.channels.create({
-        name: "original",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -175,23 +176,26 @@ describe("queries", () => {
       await waitFor(() => {
         expect(result.current.list.variant).toEqual("success");
       });
-      expect(result.current.list.getItem(testChannel.key)?.name).toEqual("original");
+      expect(result.current.list.getItem(testChannel.key)?.name).toEqual(
+        testChannel.name,
+      );
 
+      const updatedName = id.create();
       await act(async () => {
         await result.current.rename.updateAsync({
           key: testChannel.key,
-          name: "updated",
+          name: updatedName,
         });
       });
 
       await waitFor(() => {
-        expect(result.current.list.getItem(testChannel.key)?.name).toEqual("updated");
+        expect(result.current.list.getItem(testChannel.key)?.name).toEqual(updatedName);
       });
     });
 
     it("should remove channel from list when deleted", async () => {
       const testChannel = await client.channels.create({
-        name: "toDelete",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -216,7 +220,7 @@ describe("queries", () => {
 
     it("should handle index channels correctly", async () => {
       const indexChannel = await client.channels.create({
-        name: "index_channel",
+        name: id.create(),
         dataType: DataType.TIMESTAMP,
         isIndex: true,
       });
@@ -236,7 +240,7 @@ describe("queries", () => {
 
     it("should handle virtual channels correctly", async () => {
       const virtualChannel = await client.channels.create({
-        name: "virtual_channel",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         isIndex: false,
         virtual: true,
@@ -256,11 +260,11 @@ describe("queries", () => {
 
     it("should update the channel alias when a range alias is set", async () => {
       const range = await client.ranges.create({
-        name: "range",
+        name: id.create(),
         timeRange: { start: 1n, end: 1000n },
       });
       const channel = await client.channels.create({
-        name: "channel",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -284,11 +288,11 @@ describe("queries", () => {
 
     it("should correctly retrieve the alias when an initial query is provided, and getItem is called but not retrieve", async () => {
       const range = await client.ranges.create({
-        name: "range",
+        name: id.create(),
         timeRange: { start: 1n, end: 1000n },
       });
       const channel = await client.channels.create({
-        name: "channel",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -309,7 +313,7 @@ describe("queries", () => {
     describe("retrieveCached", () => {
       it("should use cached data on initial mount when no searchTerm", async () => {
         const ch = await client.channels.create({
-          name: "cached_test",
+          name: id.create(),
           dataType: DataType.FLOAT32,
           virtual: true,
         });
@@ -331,8 +335,9 @@ describe("queries", () => {
       });
 
       it("should not use cached data on initial mount when searchTerm provided", async () => {
+        const suffix = id.create();
         await client.channels.create({
-          name: "cached_test_search",
+          name: `cached_test_search_${suffix}`,
           dataType: DataType.FLOAT32,
           virtual: true,
         });
@@ -355,7 +360,7 @@ describe("queries", () => {
 
       it("should filter cached data by internal flag", async () => {
         const normalCh = await client.channels.create({
-          name: "normal_ch",
+          name: id.create(),
           dataType: DataType.FLOAT32,
           virtual: true,
         });
@@ -377,12 +382,12 @@ describe("queries", () => {
 
       it("should filter by dataTypes inclusion", async () => {
         const float32Ch = await client.channels.create({
-          name: "float32_ch",
+          name: id.create(),
           dataType: DataType.FLOAT32,
           virtual: true,
         });
         const float64Ch = await client.channels.create({
-          name: "float64_ch",
+          name: id.create(),
           dataType: DataType.FLOAT64,
           virtual: true,
         });
@@ -406,12 +411,12 @@ describe("queries", () => {
 
       it("should filter by notDataTypes exclusion", async () => {
         const float32Ch = await client.channels.create({
-          name: "float32_exclude",
+          name: id.create(),
           dataType: DataType.FLOAT32,
           virtual: true,
         });
         const int32Ch = await client.channels.create({
-          name: "int32_include",
+          name: id.create(),
           dataType: DataType.INT32,
           virtual: true,
         });
@@ -439,12 +444,12 @@ describe("queries", () => {
 
       it("should filter by isIndex", async () => {
         const indexCh = await client.channels.create({
-          name: "index_filter",
+          name: id.create(),
           dataType: DataType.TIMESTAMP,
           isIndex: true,
         });
         const dataCh = await client.channels.create({
-          name: "data_filter",
+          name: id.create(),
           dataType: DataType.FLOAT32,
           index: indexCh.key,
         });
@@ -469,17 +474,17 @@ describe("queries", () => {
 
       it("should filter by virtual", async () => {
         const indexCh = await client.channels.create({
-          name: "index_virt",
+          name: id.create(),
           dataType: DataType.TIMESTAMP,
           isIndex: true,
         });
         const virtualCh = await client.channels.create({
-          name: "virtual_filter",
+          name: id.create(),
           dataType: DataType.FLOAT32,
           virtual: true,
         });
         const persistedCh = await client.channels.create({
-          name: "persisted_filter",
+          name: id.create(),
           dataType: DataType.FLOAT32,
           index: indexCh.key,
           virtual: false,
@@ -505,22 +510,22 @@ describe("queries", () => {
 
       it("should handle combined filters", async () => {
         const indexCh = await client.channels.create({
-          name: "idx_combined",
+          name: id.create(),
           dataType: DataType.TIMESTAMP,
           isIndex: true,
         });
         const virtualFloat32Ch = await client.channels.create({
-          name: "virtual_float32",
+          name: id.create(),
           dataType: DataType.FLOAT32,
           virtual: true,
         });
         const virtualInt32Ch = await client.channels.create({
-          name: "virtual_int32",
+          name: id.create(),
           dataType: DataType.INT32,
           virtual: true,
         });
         const persistedFloat32Ch = await client.channels.create({
-          name: "persisted_float32",
+          name: id.create(),
           dataType: DataType.FLOAT32,
           index: indexCh.key,
           virtual: false,
@@ -559,16 +564,17 @@ describe("queries", () => {
       const { result } = renderHook(() => Channel.useForm({ query: {} }), {
         wrapper,
       });
+      const name = id.create();
 
       act(() => {
-        result.current.form.set("name", "newFormChannel");
+        result.current.form.set("name", name);
         result.current.form.set("dataType", DataType.FLOAT32.toString());
         result.current.form.set("virtual", true);
         result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("newFormChannel");
+        expect(result.current.form.value().name).toEqual(name);
         expect(result.current.form.value().dataType).toEqual(
           DataType.FLOAT32.toString(),
         );
@@ -583,15 +589,16 @@ describe("queries", () => {
         wrapper,
       });
 
+      const name = id.create();
       act(() => {
-        result.current.form.set("name", "newIndexChannel");
+        result.current.form.set("name", name);
         result.current.form.set("dataType", DataType.TIMESTAMP.toString());
         result.current.form.set("isIndex", true);
         result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("newIndexChannel");
+        expect(result.current.form.value().name).toEqual(name);
         expect(result.current.form.value().dataType).toEqual(
           DataType.TIMESTAMP.toString(),
         );
@@ -603,7 +610,7 @@ describe("queries", () => {
 
     it("should create a new data channel with index", async () => {
       const indexChannel = await client.channels.create({
-        name: "test_index",
+        name: id.create(),
         dataType: DataType.TIMESTAMP,
         isIndex: true,
       });
@@ -612,15 +619,16 @@ describe("queries", () => {
         wrapper,
       });
 
+      const name = id.create();
       act(() => {
-        result.current.form.set("name", "newDataChannel");
+        result.current.form.set("name", name);
         result.current.form.set("dataType", DataType.FLOAT32.toString());
         result.current.form.set("index", indexChannel.key);
         result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("newDataChannel");
+        expect(result.current.form.value().name).toEqual(name);
         expect(result.current.form.value().dataType).toEqual(
           DataType.FLOAT32.toString(),
         );
@@ -631,8 +639,9 @@ describe("queries", () => {
     });
 
     it("should retrieve and edit existing channel", async () => {
+      const name = id.create();
       const existingChannel = await client.channels.create({
-        name: "existingChannel",
+        name,
         dataType: DataType.FLOAT64,
         virtual: true,
       });
@@ -643,23 +652,26 @@ describe("queries", () => {
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      expect(result.current.form.value().name).toEqual("existingChannel");
+      expect(result.current.form.value().name).toEqual(name);
       expect(result.current.form.value().dataType).toEqual(DataType.FLOAT64.toString());
       expect(result.current.form.value().virtual).toBe(true);
 
+      const updatedName = id.create();
+
       act(() => {
-        result.current.form.set("name", "editedChannel");
+        result.current.form.set("name", updatedName);
         result.current.save({ signal: controller.signal });
       });
 
       await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("editedChannel");
+        expect(result.current.form.value().name).toEqual(updatedName);
       });
     });
 
     it("should update form when channel is updated externally", async () => {
+      const name = id.create();
       const testChannel = await client.channels.create({
-        name: "externalUpdate",
+        name,
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -673,17 +685,18 @@ describe("queries", () => {
         { wrapper },
       );
       await waitFor(() => expect(result.current.form.variant).toEqual("success"));
-      expect(result.current.form.form.value().name).toEqual("externalUpdate");
+      expect(result.current.form.form.value().name).toEqual(testChannel.name);
 
+      const updatedName = id.create();
       await act(async () => {
         await result.current.rename.updateAsync({
           key: testChannel.key,
-          name: "externallyUpdated",
+          name: updatedName,
         });
       });
 
       await waitFor(() => {
-        expect(result.current.form.form.value().name).toEqual("externallyUpdated");
+        expect(result.current.form.form.value().name).toEqual(updatedName);
       });
     });
 
@@ -705,7 +718,7 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", "invalidIndex");
+        result.current.form.set("name", id.create());
         result.current.form.set("dataType", DataType.FLOAT32.toString());
         result.current.form.set("isIndex", true);
       });
@@ -722,7 +735,7 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", "invalidDataChannel");
+        result.current.form.set("name", id.create());
         result.current.form.set("dataType", DataType.FLOAT32.toString());
         result.current.form.set("isIndex", false);
         result.current.form.set("index", 0);
@@ -741,7 +754,7 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", "invalidPersistedChannel");
+        result.current.form.set("name", id.create());
         result.current.form.set("dataType", DataType.STRING.toString());
         result.current.form.set("virtual", false);
         result.current.form.set("isIndex", false);
@@ -756,8 +769,9 @@ describe("queries", () => {
 
   describe("useRetrieve", () => {
     it("should retrieve a channel by key", async () => {
+      const name = id.create();
       const ch = await client.channels.create({
-        name: "retrieve_test",
+        name,
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -766,17 +780,17 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.key).toEqual(ch.key);
-      expect(result.current.data?.name).toEqual("retrieve_test");
+      expect(result.current.data?.name).toEqual(name);
     });
 
     it("should retrieve channel with range alias", async () => {
       const indexCh = await client.channels.create({
-        name: "alias_index",
+        name: id.create(),
         dataType: DataType.TIMESTAMP,
         isIndex: true,
       });
       const ch = await client.channels.create({
-        name: "alias_channel",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         index: indexCh.key,
       });
@@ -795,8 +809,9 @@ describe("queries", () => {
     });
 
     it("should update when channel is renamed", async () => {
+      const name = id.create();
       const ch = await client.channels.create({
-        name: "original_retrieve",
+        name,
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -809,16 +824,18 @@ describe("queries", () => {
         { wrapper },
       );
       await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
-      expect(result.current.retrieve.data?.name).toEqual("original_retrieve");
+      expect(result.current.retrieve.data?.name).toEqual(name);
+
+      const updatedName = id.create();
 
       await act(async () => {
         await result.current.rename.updateAsync({
           key: ch.key,
-          name: "renamed_retrieve",
+          name: updatedName,
         });
       });
       await waitFor(() => {
-        expect(result.current.retrieve.data?.name).toEqual("renamed_retrieve");
+        expect(result.current.retrieve.data?.name).toEqual(updatedName);
       });
     });
   });
@@ -826,12 +843,12 @@ describe("queries", () => {
   describe("useRetrieveMultiple", () => {
     it("should retrieve multiple channels by keys", async () => {
       const ch1 = await client.channels.create({
-        name: "retrieve_many_1",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
       const ch2 = await client.channels.create({
-        name: "retrieve_many_2",
+        name: id.create(),
         dataType: DataType.INT32,
         virtual: true,
       });
@@ -847,17 +864,17 @@ describe("queries", () => {
 
     it("should retrieve channels with range aliases", async () => {
       const indexCh = await client.channels.create({
-        name: "many_alias_index",
+        name: id.create(),
         dataType: DataType.TIMESTAMP,
         isIndex: true,
       });
       const ch1 = await client.channels.create({
-        name: "many_alias_1",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         index: indexCh.key,
       });
       const ch2 = await client.channels.create({
-        name: "many_alias_2",
+        name: id.create(),
         dataType: DataType.FLOAT64,
         index: indexCh.key,
       });
@@ -885,12 +902,13 @@ describe("queries", () => {
 
     it("should update when a channel in the list is renamed", async () => {
       const ch1 = await client.channels.create({
-        name: "many_original_1",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
+      const orig2 = id.create();
       const ch2 = await client.channels.create({
-        name: "many_original_2",
+        name: orig2,
         dataType: DataType.INT64,
         virtual: true,
       });
@@ -904,25 +922,27 @@ describe("queries", () => {
       );
       await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
 
+      const renamed1 = id.create();
+
       await act(async () => {
         await result.current.rename.updateAsync({
           key: ch1.key,
-          name: "many_renamed_1",
+          name: renamed1,
         });
       });
       await waitFor(() => {
         const updated = result.current.retrieve.data?.find((c) => c.key === ch1.key);
-        expect(updated?.name).toEqual("many_renamed_1");
+        expect(updated?.name).toEqual(renamed1);
       });
       const unchanged = result.current.retrieve.data?.find((c) => c.key === ch2.key);
-      expect(unchanged?.name).toEqual("many_original_2");
+      expect(unchanged?.name).toEqual(orig2);
     });
   });
 
   describe("useDelete", () => {
     it("should delete a single channel", async () => {
       const ch = await client.channels.create({
-        name: "delete_single",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -950,12 +970,12 @@ describe("queries", () => {
 
     it("should delete multiple channels", async () => {
       const ch1 = await client.channels.create({
-        name: "delete_multi_1",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
       const ch2 = await client.channels.create({
-        name: "delete_multi_2",
+        name: id.create(),
         dataType: DataType.INT32,
         virtual: true,
       });
@@ -1001,17 +1021,17 @@ describe("queries", () => {
   describe("useUpdateAlias", () => {
     it("should update channel alias in a range", async () => {
       const indexCh = await client.channels.create({
-        name: "alias_update_index",
+        name: id.create(),
         dataType: DataType.TIMESTAMP,
         isIndex: true,
       });
       const ch = await client.channels.create({
-        name: "alias_update_channel",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         index: indexCh.key,
       });
       const range = await client.ranges.create({
-        name: "alias_update_range",
+        name: id.create(),
         timeRange: { start: 1n, end: 3000n },
       });
 
@@ -1052,17 +1072,17 @@ describe("queries", () => {
   describe("useDeleteAlias", () => {
     it("should delete a single channel alias", async () => {
       const indexCh = await client.channels.create({
-        name: "alias_delete_index",
+        name: id.create(),
         dataType: DataType.TIMESTAMP,
         isIndex: true,
       });
       const ch = await client.channels.create({
-        name: "alias_delete_channel",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         index: indexCh.key,
       });
       const range = await client.ranges.create({
-        name: "alias_delete_range",
+        name: id.create(),
         timeRange: { start: 1n, end: 4000n },
       });
       await client.ranges.setAlias(range.key, ch.key, "to_delete");
@@ -1091,22 +1111,22 @@ describe("queries", () => {
 
     it("should delete multiple channel aliases", async () => {
       const indexCh = await client.channels.create({
-        name: "alias_delete_multi_index",
+        name: id.create(),
         dataType: DataType.TIMESTAMP,
         isIndex: true,
       });
       const ch1 = await client.channels.create({
-        name: "alias_delete_multi_1",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         index: indexCh.key,
       });
       const ch2 = await client.channels.create({
-        name: "alias_delete_multi_2",
+        name: id.create(),
         dataType: DataType.INT32,
         index: indexCh.key,
       });
       const range = await client.ranges.create({
-        name: "alias_delete_multi_range",
+        name: id.create(),
         timeRange: { start: 1n, end: 5000n },
       });
       await client.ranges.setAlias(range.key, ch1.key, "multi_alias_1");
@@ -1173,7 +1193,7 @@ describe("queries", () => {
   describe("useCalculatedForm", () => {
     it("should create a new calculated channel", async () => {
       const sourceChannel = await client.channels.create({
-        name: "sourceChannel",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -1182,8 +1202,10 @@ describe("queries", () => {
         wrapper,
       });
 
+      const calculatedName = id.create();
+
       act(() => {
-        result.current.form.set("name", "calculatedChannel");
+        result.current.form.set("name", calculatedName);
         result.current.form.set("dataType", DataType.FLOAT32.toString());
         result.current.form.set("virtual", true);
         result.current.form.set("expression", `return ${sourceChannel.name} * 2`);
@@ -1191,7 +1213,7 @@ describe("queries", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.form.value().name).toEqual("calculatedChannel");
+        expect(result.current.form.value().name).toEqual(calculatedName);
         expect(result.current.form.value().expression).toEqual(
           `return ${sourceChannel.name} * 2`,
         );
@@ -1207,8 +1229,9 @@ describe("queries", () => {
         virtual: true,
       });
 
+      const existingName = id.create();
       const existingCalculated = await client.channels.create({
-        name: "existingCalculated",
+        name: existingName,
         dataType: DataType.FLOAT32,
         virtual: true,
         expression: `return ${sourceChannel.name} + 1`,
@@ -1220,7 +1243,7 @@ describe("queries", () => {
       );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      expect(result.current.form.value().name).toEqual("existingCalculated");
+      expect(result.current.form.value().name).toEqual(existingName);
       expect(result.current.form.value().expression).toEqual(
         `return ${sourceChannel.name} + 1`,
       );
@@ -1243,7 +1266,7 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", "invalidCalculated");
+        result.current.form.set("name", id.create());
         result.current.form.set("expression", "");
       });
 
@@ -1259,7 +1282,7 @@ describe("queries", () => {
       });
 
       act(() => {
-        result.current.form.set("name", "invalidCalculated");
+        result.current.form.set("name", id.create());
         result.current.form.set("expression", "sourceChannel * 2");
       });
 
@@ -1288,7 +1311,7 @@ describe("queries", () => {
       });
 
       const testCalculated = await client.channels.create({
-        name: "updateCalculated",
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
         expression: `return ${sourceChannel.name}`,
@@ -1307,19 +1330,18 @@ describe("queries", () => {
       await waitFor(() => {
         expect(result.current.form.variant).toEqual("success");
       });
-      expect(result.current.form.form.value().name).toEqual("updateCalculated");
+      expect(result.current.form.form.value().name).toEqual(testCalculated.name);
 
+      const updatedName = id.create();
       await act(async () => {
         await result.current.rename.updateAsync({
           key: testCalculated.key,
-          name: "externallyUpdatedCalculated",
+          name: updatedName,
         });
       });
 
       await waitFor(() => {
-        expect(result.current.form.form.value().name).toEqual(
-          "externallyUpdatedCalculated",
-        );
+        expect(result.current.form.form.value().name).toEqual(updatedName);
       });
     });
   });

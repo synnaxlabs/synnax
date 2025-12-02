@@ -4175,7 +4175,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 10)
 			for i := range 10 {
 				keys[i] = i + 1
-				series[i] = telem.NewSeriesV[int32](int32(i + 1))
+				series[i] = telem.NewSeriesV(int32(i + 1))
 			}
 
 			fr := telem.MultiFrame(keys, series)

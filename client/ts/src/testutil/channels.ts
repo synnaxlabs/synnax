@@ -17,13 +17,13 @@ export const newIndexedPair = async (
 ): Promise<[channel.Channel, channel.Channel]> => {
   const index = await client.channels.create({
     leaseholder: 1,
-    name: `test-${id.create()}`,
+    name: id.create(),
     dataType: DataType.TIMESTAMP,
     isIndex: true,
   });
   const data = await client.channels.create({
     leaseholder: 1,
-    name: `test-${id.create()}`,
+    name: id.create(),
     dataType: DataType.FLOAT64,
     index: index.key,
   });
@@ -32,7 +32,7 @@ export const newIndexedPair = async (
 
 export const newVirtualChannel = async (client: Synnax): Promise<channel.Channel> => {
   const ch = await client.channels.create({
-    name: `test-${id.create()}`,
+    name: id.create(),
     dataType: DataType.FLOAT64,
     virtual: true,
   });

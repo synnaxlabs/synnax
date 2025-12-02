@@ -29,7 +29,7 @@ var _ = Describe("Number", func() {
 	Describe("Basic Parsing", func() {
 		Specify("float64", numberTest[float64](12))
 		Specify("float32", numberTest[float32](12))
-		Specify("int", numberTest[int](12))
+		Specify("int", numberTest(12))
 		Specify("int8", numberTest[int8](12))
 		Specify("int16", numberTest[int16](12))
 		Specify("int32", numberTest[int32](12))

@@ -10,8 +10,6 @@
 package log
 
 import (
-	"context"
-
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
@@ -51,14 +49,14 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Service is the primary service for retrieving and modifying los from Synnax.
+// Service is the primary service for retrieving and modifying logs from Synnax.
 type Service struct{ Config }
 
 // NewService instantiates a new log service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
 // See the Config struct for information on which fields should be set.
-func NewService(ctx context.Context, configs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func NewService(cfgs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
