@@ -118,4 +118,38 @@ describe("View queries", () => {
       });
     });
   });
+  describe("useDelete", () => {
+    it("should delete a single view", async () => {
+      const view = await client.views.create({
+        name: "delete-single",
+        type: "lineplot",
+        query: { channels: ["ch1"] },
+      });
+      const { result } = renderHook(() => View.useDelete(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(view.key);
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await expect(client.views.retrieve({ key: view.key })).rejects.toThrow();
+    });
+    it("should delete multiple views", async () => {
+      const view1 = await client.views.create({
+        name: "delete-multi-1",
+        type: "lineplot",
+        query: { channels: ["ch1"] },
+      });
+      const view2 = await client.views.create({
+        name: "delete-multi-2",
+        type: "lineplot",
+        query: { channels: ["ch2"] },
+      });
+      const { result } = renderHook(() => View.useDelete(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync([view1.key, view2.key]);
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await expect(client.views.retrieve({ key: view1.key })).rejects.toThrow();
+      await expect(client.views.retrieve({ key: view2.key })).rejects.toThrow();
+    });
+  });
 });
