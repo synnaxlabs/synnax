@@ -43,8 +43,8 @@ class NoDevice(ConsoleCase):
         self.log(f"Creating {rack_name} and devices")
 
         client = self.client
-        rack = client.hardware.racks.create(name=rack_name)
-        client.hardware.devices.create(
+        rack = client.racks.create(name=rack_name)
+        client.devices.create(
             [
                 sy.Device(
                     key="a0e37b26-5401-413e-8e65-c7ad9d9afd70",
@@ -129,7 +129,7 @@ class NoDevice(ConsoleCase):
             msg = status["msg"]
 
         level_expected = "warning"
-        msg_expected = f"{rack_name} is not running"
+        msg_expected = f"{rack_name} not running"
 
         assert msg_expected in msg, f"<{msg}> should be <{msg_expected}>"
         assert level_expected == level, f"<{level}> should be <{level_expected}>"

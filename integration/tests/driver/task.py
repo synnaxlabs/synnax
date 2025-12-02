@@ -114,7 +114,7 @@ class TaskCase(TestCase):
     def setup(self) -> None:
         """Create and configure task."""
         # Get device
-        device = self.client.hardware.devices.retrieve(name=self.device_name)
+        device = self.client.devices.retrieve(name=self.device_name)
 
         # Create task using child implementation
         self.tsk = self.create(
@@ -126,7 +126,7 @@ class TaskCase(TestCase):
 
         # Configure task in Synnax
         try:
-            self.client.hardware.tasks.configure(self.tsk)
+            self.client.tasks.configure(self.tsk)
             self.log(f"Task '{self.task_name}' configured")
         except Exception as e:
             self.fail(f"Task configuration failed: {e}")
@@ -159,7 +159,7 @@ class TaskCase(TestCase):
         self.log("Test 2 - Reconfigure Task")
         new_rate = int(self.SAMPLE_RATE * 2)
         tsk.config.sample_rate = new_rate
-        client.hardware.tasks.configure(tsk)
+        client.tasks.configure(tsk)
         self.assert_sample_count(task=tsk, duration=self.TASK_DURATION)
 
     def assert_channel_names(
@@ -204,7 +204,7 @@ class TaskCase(TestCase):
             AssertionError: If the device still exists
         """
         try:
-            device = self.client.hardware.devices.retrieve(key=device_key)
+            device = self.client.devices.retrieve(key=device_key)
             raise AssertionError(f"Device '{device.name}' still exists after deletion")
         except sy.NotFoundError:
             return
@@ -224,7 +224,7 @@ class TaskCase(TestCase):
             The retrieved device if it exists
         """
         try:
-            device = self.client.hardware.devices.retrieve(key=device_key)
+            device = self.client.devices.retrieve(key=device_key)
             if device is None:
                 raise AssertionError(f"Device {device_key} does not exist (None)")
         except sy.NotFoundError:
@@ -299,7 +299,7 @@ class TaskCase(TestCase):
             AssertionError: If the task still exists
         """
         try:
-            self.client.hardware.tasks.retrieve(task_key)
+            self.client.tasks.retrieve(task_key)
             raise AssertionError(f"Task {task_key} still exists after deletion")
         except sy.NotFoundError:
             return  # Win condition
@@ -319,7 +319,7 @@ class TaskCase(TestCase):
             The retrieved task if it exists
         """
         try:
-            task = self.client.hardware.tasks.retrieve(task_key)
+            task = self.client.tasks.retrieve(task_key)
             if task is None:
                 raise AssertionError(f"Task {task_key} does not exist (None)")
         except sy.NotFoundError:
@@ -332,7 +332,7 @@ class TaskCase(TestCase):
         """Cleanup task after test."""
         if self.tsk is not None:
             try:
-                self.client.hardware.tasks.delete(self.tsk.key)
+                self.client.tasks.delete(self.tsk.key)
                 self.log(f"Task '{self.task_name}' deleted")
             except sy.NotFoundError:
                 self.log(f"Task '{self.task_name}' already deleted")

@@ -76,8 +76,8 @@ class NICounterReadForms(ConsoleCase):
             ni_ci.assert_channel(ch)
 
     def create_test_rack(self, rack_name: str, device_name: str, mode: str) -> None:
-        rack = self.client.hardware.racks.create(name=rack_name)
-        self.client.hardware.devices.create(
+        rack = self.client.racks.create(name=rack_name)
+        self.client.devices.create(
             [
                 sy.Device(
                     key=f"130227d9-02aa-47e4-b370-0d590add1bc{mode}",

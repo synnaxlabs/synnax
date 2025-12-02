@@ -68,14 +68,14 @@ class DisconnectTask(SimulatorTaskCase, ABC):
 
         client = self.client
         tsk = self.tsk
-        device = client.hardware.devices.retrieve(key=tsk.config.device)
+        device = client.devices.retrieve(key=tsk.config.device)
 
         self.log("Test 1 - Delete Device")
-        client.hardware.devices.delete([device.key])
+        client.devices.delete([device.key])
         self.assert_device_deleted(device_key=device.key)
 
         self.log("Test 2 - Reconnect Device")
-        reconnected_device = client.hardware.devices.create(device)
+        reconnected_device = client.devices.create(device)
         self.assert_device_exists(device_key=reconnected_device.key)
 
         self.log("Test 3 - Run Task After Device Reconnection")
@@ -91,13 +91,13 @@ class DisconnectTask(SimulatorTaskCase, ABC):
         self.start_simulator()
 
         self.log("Test 6 - Run Task")
-        client.hardware.tasks.configure(tsk)
+        client.tasks.configure(tsk)
         self.assert_sample_count(task=tsk, strict=False)
 
         # Shutdown
-        client.hardware.tasks.delete(tsk.key)
+        client.tasks.delete(tsk.key)
         self.assert_task_deleted(task_key=tsk.key)
-        client.hardware.devices.delete([reconnected_device.key])
+        client.devices.delete([reconnected_device.key])
         self.assert_device_deleted(device_key=reconnected_device.key)
 
 

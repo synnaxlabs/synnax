@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from synnax.hardware import opcua
+from synnax import opcua
 
 from tests.driver.opcua_task import OpcuaTaskCase
 

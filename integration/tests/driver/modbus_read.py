@@ -9,7 +9,7 @@
 
 
 import synnax as sy
-from synnax.hardware import modbus
+from synnax import modbus
 
 from tests.driver.modbus_task import ModbusTaskCase
 

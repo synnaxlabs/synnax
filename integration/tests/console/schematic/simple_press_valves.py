@@ -40,7 +40,6 @@ class SimplePressValves(ConsoleCase):
 
         self.log("Creating schematic symbols")
         schematic = Schematic(self.client, self.console, "simple_press_valves")
-        schematic.move("left")
 
         end_test_cmd = schematic.create_button(END_CMD)
         end_test_cmd.move(0, -90)

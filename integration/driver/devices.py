@@ -32,8 +32,8 @@ from examples.opcua import run_server as run_opcua_server  # type: ignore[import
 
 # isort: on
 import synnax as sy
-from synnax.hardware import modbus, opcua
-from synnax.hardware.device import Device as SynnaxDevice
+from synnax import modbus, opcua
+from synnax.device import Device as SynnaxDevice
 
 # Use fork method for multiprocessing to support lambdas
 mp_ctx = get_context("fork")
@@ -156,16 +156,16 @@ def connect_device(
             device_factory=KnownDevices.modbus_sim
         )
     """
-    rack = client.hardware.racks.retrieve(name=rack_name)
+    rack = client.racks.retrieve(name=rack_name)
 
     # Create device instance to get its name
     device_instance = device_factory(rack.key)
     device_name = device_instance.name
 
     try:
-        device = client.hardware.devices.retrieve(name=device_name)
+        device = client.devices.retrieve(name=device_name)
     except sy.NotFoundError:
-        device = client.hardware.devices.create(device_instance)
+        device = client.devices.create(device_instance)
     except Exception as e:
         raise AssertionError(f"Unexpected error creating device: {e}")
 
