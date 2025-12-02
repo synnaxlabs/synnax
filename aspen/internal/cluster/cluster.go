@@ -28,10 +28,10 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
+	xslices "github.com/synnaxlabs/x/slices"
 	"go.uber.org/zap"
 )
 
@@ -185,8 +185,7 @@ func (c *Cluster) Resolve(key node.Key) (address.Address, error) {
 func (c *Cluster) Close() error { return c.shutdown.Close() }
 
 func (c *Cluster) gossipInitialState(ctx context.Context) error {
-	peers := iter.Endlessly(c.Pledge.Peers)
-	for peer, _ := peers.Next(ctx); peer != ""; peer, _ = peers.Next(ctx) {
+	for peer := range xslices.IterEndlessly(c.Pledge.Peers) {
 		if err := c.gossip.GossipOnceWith(ctx, peer); err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()

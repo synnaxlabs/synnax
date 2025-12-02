@@ -9,7 +9,10 @@
 
 package slices
 
-import "fmt"
+import (
+	"fmt"
+	"iter"
+)
 
 // Truncate returns a limited number of elements from the slice if the number is larger
 // than maxDisplayValues, splitting the values evenly between maxDisplayValues/2 in first
@@ -41,4 +44,21 @@ func ConvertNegativeIndex(i int, len int) int {
 		return adjusted
 	}
 	return i
+}
+
+// IterEndlessly returns an iterator that cycles through the given slice indefinitely,
+// wrapping back to the beginning after reaching the end. The iteration continues until
+// the caller stops consuming values.
+//
+// Panics if values is empty.
+func IterEndlessly[T any](values []T) iter.Seq[T] {
+	return func(yield func(T) bool) {
+		i := 0
+		for {
+			if !yield(values[i]) {
+				return
+			}
+			i = (i + 1) % len(values)
+		}
+	}
 }
