@@ -244,7 +244,6 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
 };
 
 export const Write = Common.Task.wrapForm({
-  initialStatusData: null,
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,

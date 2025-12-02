@@ -59,6 +59,11 @@ type Config struct {
 	// that it has received a status update from a rack.
 	// [OPTIONAL]
 	HealthCheckInterval telem.TimeSpan
+	// AlertEveryNChecks controls dampening for dead rack alerts. After the initial
+	// alert when a rack goes down, subsequent alerts are only fired every N consecutive
+	// dead checks. Set to 1 to alert on every check (no dampening).
+	// [OPTIONAL - defaults to 12]
+	AlertEveryNChecks int
 }
 
 var (
@@ -66,7 +71,7 @@ var (
 	// DefaultConfig is the default configuration for opening a rack service. Note
 	// that this configuration is not valid. See the Config documentation for more
 	// details on which fields must be set.
-	DefaultConfig = Config{HealthCheckInterval: 5 * telem.Second}
+	DefaultConfig = Config{HealthCheckInterval: 5 * telem.Second, AlertEveryNChecks: 12}
 )
 
 // Override implements config.Config.
@@ -79,6 +84,7 @@ func (c Config) Override(other Config) Config {
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.HealthCheckInterval = override.Numeric(c.HealthCheckInterval, other.HealthCheckInterval)
+	c.AlertEveryNChecks = override.Numeric(c.AlertEveryNChecks, other.AlertEveryNChecks)
 	return c
 }
 

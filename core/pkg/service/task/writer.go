@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
@@ -31,32 +30,21 @@ type Writer struct {
 	status status.Writer[StatusDetails]
 }
 
-func newUnknownTaskStatus(key Key, name string) *Status {
-	return &Status{
-		Key:     OntologyID(key).String(),
-		Time:    telem.Now(),
-		Name:    name,
-		Message: fmt.Sprintf("%s status unknown", name),
-		Variant: xstatus.WarningVariant,
-		Details: StatusDetails{Task: key},
-	}
-}
-
-func (w Writer) resolveStatus(t *Task, provided *Status) (*Status, error) {
+func resolveStatus(t *Task, provided *Status) *Status {
 	if provided == nil {
-		return newUnknownTaskStatus(t.Key, t.Name), nil
-	}
-	v := validate.New("status")
-	validate.NotEmptyString(v, "Variant", string(provided.Variant))
-	if err := v.Error(); err != nil {
-		return nil, err
+		return &Status{
+			Key:     OntologyID(t.Key).String(),
+			Time:    telem.Now(),
+			Name:    t.Name,
+			Message: fmt.Sprintf("%s status unknown", t.Name),
+			Variant: xstatus.WarningVariant,
+			Details: StatusDetails{Task: t.Key},
+		}
 	}
 	provided.Key = OntologyID(t.Key).String()
 	provided.Details.Task = t.Key
-	if provided.Name == "" {
-		provided.Name = t.Name
-	}
-	return provided, nil
+	provided.Name = t.Name
+	return provided
 }
 
 // Create creates or updates a task. If a status is provided on the task,
@@ -82,11 +70,8 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	stat, err := w.resolveStatus(t, providedStatus)
-	if err != nil {
-		return err
-	}
-	if err = w.status.Set(ctx, stat); err != nil {
+	stat := resolveStatus(t, providedStatus)
+	if err := w.status.Set(ctx, stat); err != nil {
 		return err
 	}
 	// We don't create ontology resources for internal tasks.
@@ -133,7 +118,7 @@ func (w Writer) Copy(
 	}).Exec(ctx, w.tx); err != nil {
 		return res, err
 	}
-	if err = w.status.Set(ctx, newUnknownTaskStatus(res.Key, res.Name)); err != nil {
+	if err = w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {
 		return Task{}, err
 	}
 	if err = w.otg.DefineResource(ctx, OntologyID(newKey)); err != nil {

@@ -70,7 +70,7 @@ var (
 	_ fgrpc.Translator[api.TaskCopyResponse, *gapi.TaskCopyResponse]         = taskCopyResponseTranslator{}
 )
 
-func translateTaskForward(m *api.Task) *gapi.Task {
+func translateTaskForward(m *api.Task) (*gapi.Task, error) {
 	gt := &gapi.Task{
 		Key:      uint64(m.Key),
 		Name:     m.Name,
@@ -80,12 +80,16 @@ func translateTaskForward(m *api.Task) *gapi.Task {
 		Snapshot: m.Snapshot,
 	}
 	if m.Status != nil {
-		gt.Status, _ = status.TranslateToPB[task.StatusDetails](status.Status[task.StatusDetails](*m.Status))
+		var err error
+		gt.Status, err = status.TranslateToPB[task.StatusDetails](status.Status[task.StatusDetails](*m.Status))
+		if err != nil {
+			return nil, err
+		}
 	}
-	return gt
+	return gt, nil
 }
 
-func translateTaskBackward(m *gapi.Task) *api.Task {
+func translateTaskBackward(m *gapi.Task) (*api.Task, error) {
 	at := &api.Task{
 		Key:      task.Key(m.Key),
 		Name:     m.Name,
@@ -95,43 +99,70 @@ func translateTaskBackward(m *gapi.Task) *api.Task {
 		Snapshot: m.Snapshot,
 	}
 	if m.Status != nil {
-		s, _ := status.TranslateFromPB[task.StatusDetails](m.Status)
+		s, err := status.TranslateFromPB[task.StatusDetails](m.Status)
+		if err != nil {
+			return nil, err
+		}
 		ts := task.Status(s)
 		at.Status = &ts
 	}
-	return at
+	return at, nil
 }
 
-func translateTasksForward(ms []api.Task) []*gapi.Task {
+func translateTasksForward(ms []api.Task) ([]*gapi.Task, error) {
 	res := make([]*gapi.Task, len(ms))
 	for i, m := range ms {
-		res[i] = translateTaskForward(&m)
+		var err error
+		res[i], err = translateTaskForward(&m)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return res
+	return res, nil
 }
 
-func translateTasksBackward(ms []*gapi.Task) []api.Task {
+func translateTasksBackward(ms []*gapi.Task) ([]api.Task, error) {
 	res := make([]api.Task, len(ms))
 	for i, m := range ms {
-		res[i] = *translateTaskBackward(m)
+		tt, err := translateTaskBackward(m)
+		if err != nil {
+			return nil, err
+		}
+		res[i] = *tt
 	}
-	return res
+	return res, nil
 }
 
 func (taskCreateRequestTranslator) Forward(_ context.Context, req api.TaskCreateRequest) (*gapi.TaskCreateRequest, error) {
-	return &gapi.TaskCreateRequest{Tasks: translateTasksForward(req.Tasks)}, nil
+	tasks, err := translateTasksForward(req.Tasks)
+	if err != nil {
+		return nil, err
+	}
+	return &gapi.TaskCreateRequest{Tasks: tasks}, nil
 }
 
 func (taskCreateRequestTranslator) Backward(_ context.Context, req *gapi.TaskCreateRequest) (api.TaskCreateRequest, error) {
-	return api.TaskCreateRequest{Tasks: translateTasksBackward(req.Tasks)}, nil
+	tasks, err := translateTasksBackward(req.Tasks)
+	if err != nil {
+		return api.TaskCreateRequest{}, err
+	}
+	return api.TaskCreateRequest{Tasks: tasks}, nil
 }
 
 func (taskCreateResponseTranslator) Forward(_ context.Context, res api.TaskCreateResponse) (*gapi.TaskCreateResponse, error) {
-	return &gapi.TaskCreateResponse{Tasks: translateTasksForward(res.Tasks)}, nil
+	tasks, err := translateTasksForward(res.Tasks)
+	if err != nil {
+		return nil, err
+	}
+	return &gapi.TaskCreateResponse{Tasks: tasks}, nil
 }
 
 func (taskCreateResponseTranslator) Backward(_ context.Context, res *gapi.TaskCreateResponse) (api.TaskCreateResponse, error) {
-	return api.TaskCreateResponse{Tasks: translateTasksBackward(res.Tasks)}, nil
+	tasks, err := translateTasksBackward(res.Tasks)
+	if err != nil {
+		return api.TaskCreateResponse{}, err
+	}
+	return api.TaskCreateResponse{Tasks: tasks}, nil
 }
 
 func (taskRetrieveRequestTranslator) Forward(_ context.Context, req api.TaskRetrieveRequest) (*gapi.TaskRetrieveRequest, error) {
@@ -155,11 +186,19 @@ func (taskRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.TaskR
 }
 
 func (taskRetrieveResponseTranslator) Forward(_ context.Context, res api.TaskRetrieveResponse) (*gapi.TaskRetrieveResponse, error) {
-	return &gapi.TaskRetrieveResponse{Tasks: translateTasksForward(res.Tasks)}, nil
+	tasks, err := translateTasksForward(res.Tasks)
+	if err != nil {
+		return nil, err
+	}
+	return &gapi.TaskRetrieveResponse{Tasks: tasks}, nil
 }
 
 func (taskRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.TaskRetrieveResponse) (api.TaskRetrieveResponse, error) {
-	return api.TaskRetrieveResponse{Tasks: translateTasksBackward(res.Tasks)}, nil
+	tasks, err := translateTasksBackward(res.Tasks)
+	if err != nil {
+		return api.TaskRetrieveResponse{}, err
+	}
+	return api.TaskRetrieveResponse{Tasks: tasks}, nil
 }
 
 func (taskDeleteRequestTranslator) Forward(_ context.Context, req api.TaskDeleteRequest) (*gapi.TaskDeleteRequest, error) {
@@ -187,11 +226,19 @@ func (taskCopyRequestTranslator) Backward(_ context.Context, req *gapi.TaskCopyR
 }
 
 func (taskCopyResponseTranslator) Forward(_ context.Context, res api.TaskCopyResponse) (*gapi.TaskCopyResponse, error) {
-	return &gapi.TaskCopyResponse{Task: translateTaskForward(&res.Task)}, nil
+	t, err := translateTaskForward(&res.Task)
+	if err != nil {
+		return nil, err
+	}
+	return &gapi.TaskCopyResponse{Task: t}, nil
 }
 
 func (taskCopyResponseTranslator) Backward(_ context.Context, res *gapi.TaskCopyResponse) (api.TaskCopyResponse, error) {
-	return api.TaskCopyResponse{Task: *translateTaskBackward(res.Task)}, nil
+	t, err := translateTaskBackward(res.Task)
+	if err != nil {
+		return api.TaskCopyResponse{}, err
+	}
+	return api.TaskCopyResponse{Task: *t}, nil
 }
 
 func newTask(a *api.Transport) fgrpc.BindableTransport {

@@ -220,7 +220,6 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
 };
 
 export const AnalogWrite = Common.Task.wrapForm({
-  initialStatusData: null,
   Properties,
   Form,
   schemas: ANALOG_WRITE_SCHEMAS,
