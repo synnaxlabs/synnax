@@ -38,8 +38,10 @@ const BaseItems = <
   y,
   ...rest
 }: ItemsProps<K>): ReactElement => {
-  const { ref, getItems, getTotalSize, data, itemHeight, sentinelRef } =
-    useData<K, E>();
+  const { ref, getItems, getTotalSize, data, itemHeight, sentinelRef } = useData<
+    K,
+    E
+  >();
   const visibleData = getItems();
   let content = emptyContent;
   const hasItems = data.length > 0;
