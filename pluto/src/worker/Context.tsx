@@ -8,15 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { RoutedWorker, type SenderHandler, type TypedWorker } from "@synnaxlabs/x";
-import {
-  createContext,
-  memo,
-  type PropsWithChildren,
-  type ReactElement,
-  use as reactUse,
-  useState,
-} from "react";
+import { memo, type PropsWithChildren, type ReactElement, useState } from "react";
 
+import { context } from "@/context";
 import { useEffectCompare } from "@/hooks";
 import { useMemoCompare } from "@/memo";
 
@@ -24,8 +18,11 @@ export type ContextValue =
   | { enabled: true; route: <RQ, RS = RQ>(type: string) => TypedWorker<RQ, RS> }
   | { enabled: false; route: null };
 
-const Context = createContext<ContextValue>({ enabled: false, route: null });
-Context.displayName = "Worker.Context";
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: { enabled: false, route: null },
+  displayName: "Worker.Context",
+});
+export { useContext };
 
 export interface ProviderProps extends PropsWithChildren<{}> {
   url: string | URL;
@@ -73,7 +70,7 @@ export const Provider = memo(
 Provider.displayName = "worker.Provider";
 
 export const use = <RQ, RS = RQ>(type: string): SenderHandler<RQ, RS> | null => {
-  const ctx = reactUse(Context);
+  const ctx = useContext();
   if (!ctx.enabled) return null;
   return useMemoCompare(
     () => ctx.route(type),

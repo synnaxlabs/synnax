@@ -10,7 +10,7 @@
 import { context } from "@/context";
 import { type NodeShape } from "@/tree/core";
 
-export const [Context, useContext] = context.createRequired<NodeShape[]>(
-  "Tree.Context",
-  "Tree.Provider",
-);
+export const [Context, useContext] = context.create<NodeShape[]>({
+  displayName: "Tree.Context",
+  providerName: "Tree.Provider",
+});

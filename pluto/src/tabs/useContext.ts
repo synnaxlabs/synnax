@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createContext, type ReactElement, type ReactNode, use } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
+import { context } from "@/context";
 import { type RenderProp, type Spec, type Tab } from "@/tabs/types";
 
 export interface ContextValue {
@@ -66,18 +67,14 @@ export interface ContextValue {
   onCreate?: () => void;
 }
 
-/**
- * Context used to propagate tab related information to children. See the {@link ContextValue}
- * type for information on the shape of the context.
- */
-const Context = createContext<ContextValue>({ tabs: [] });
-Context.displayName = "Tabs.Context";
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: { tabs: [] },
+  displayName: "Tabs.Context",
+});
+export { useContext };
 
 /**
- * Provider for the {@link Context} context. See the {@link ContextValue} type for information
- * on the shape of the context.
+ * Provider for the {@link Context} context. See the {@link ContextValue} type for
+ * information on the shape of the context.
  */
 export const Provider = Context;
-
-/** @returns The current value of the {@link Context} context. */
-export const useContext = (): ContextValue => use(Context);

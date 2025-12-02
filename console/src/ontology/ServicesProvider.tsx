@@ -12,10 +12,10 @@ import { type PropsWithChildren, type ReactElement } from "react";
 
 import { type Services } from "@/ontology/service";
 
-const [Context, useContext] = context.createRequired<Services>(
-  "Ontology.ServicesProvider",
-  "Ontology.ServicesProvider",
-);
+const [Context, useContext] = context.create<Services>({
+  displayName: "Ontology.ServicesProvider",
+  providerName: "Ontology.ServicesProvider",
+});
 
 export const useServices = (): Services => useContext("Ontology.useServices");
 

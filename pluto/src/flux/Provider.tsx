@@ -19,10 +19,10 @@ import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Status } from "@/status/core";
 import { Synnax } from "@/synnax";
 
-const [Context, useContext] = context.createRequired<core.Client>(
-  "Flux.Context",
-  "Flux.Provider",
-);
+const [Context, useContext] = context.create<core.Client>({
+  displayName: "Flux.Context",
+  providerName: "Flux.Provider",
+});
 
 export const useStore = <ScopedStore extends flux.Store>(
   scope?: string,
