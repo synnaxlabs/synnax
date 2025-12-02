@@ -253,7 +253,7 @@ var _ = Describe("Codec", func() {
 	Describe("Dynamic Codec", Ordered, func() {
 		var (
 			builder    *mock.Cluster
-			channelSvc channel.Service
+			channelSvc *channel.Service
 			idxCh      channel.Channel
 			dataCh     channel.Channel
 		)
@@ -367,7 +367,7 @@ var _ = Describe("Codec", func() {
 					)
 					encoded := MustSucceed(encoder.Encode(ctx, frame1))
 					decoded := MustSucceed(decoder.Decode(encoded))
-					Expect(decoded.Frame).To(telem.MatchFrame[channel.Key](frame1.Frame))
+					Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
 					Expect(decoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
 					Expect(encoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
@@ -399,7 +399,7 @@ var _ = Describe("Codec", func() {
 					)
 					encoded := MustSucceed(encoder.Encode(ctx, frame1))
 					decoded := MustSucceed(decoder.Decode(encoded))
-					Expect(decoded.Frame).To(telem.MatchFrame[channel.Key](frame1.Frame))
+					Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
 					Expect(decoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
 					Expect(encoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())

@@ -30,21 +30,21 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("Update", func() {
 		It("Should rename a Log", func() {
-			s := log.Log{Name: "test", Data: "data"}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
-			Expect(svc.NewWriter(tx).Rename(ctx, s.Key, "test2")).To(Succeed())
+			l := log.Log{Name: "test", Data: "data"}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
+			Expect(svc.NewWriter(tx).Rename(ctx, l.Key, "test2")).To(Succeed())
 			var res log.Log
-			Expect(gorp.NewRetrieve[uuid.UUID, log.Log]().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewRetrieve[uuid.UUID, log.Log]().WhereKeys(l.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
 		})
 	})
 	Describe("SetData", func() {
 		It("Should set the data of a Log", func() {
-			s := log.Log{Name: "test", Data: "data"}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetData(ctx, s.Key, "data2")).To(Succeed())
+			l := log.Log{Name: "test", Data: "data"}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
+			Expect(svc.NewWriter(tx).SetData(ctx, l.Key, "data2")).To(Succeed())
 			var res log.Log
-			Expect(gorp.NewRetrieve[uuid.UUID, log.Log]().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewRetrieve[uuid.UUID, log.Log]().WhereKeys(l.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Data).To(Equal("data2"))
 		})
 	})

@@ -55,12 +55,12 @@ func (lp *leaseProxy) deleteTimeRange(
 
 func (lp *leaseProxy) deleteTimeRangeByName(
 	ctx context.Context,
-	retriever channel.Readable,
+	channelSvc *channel.Service,
 	names []string,
 	tr telem.TimeRange,
 ) error {
 	res := make([]channel.Channel, 0, len(names))
-	if err := retriever.
+	if err := channelSvc.
 		NewRetrieve().
 		Entries(&res).
 		WhereNames(names...).

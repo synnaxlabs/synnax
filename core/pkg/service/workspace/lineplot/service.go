@@ -53,11 +53,11 @@ func (c Config) Validate() error {
 // Service is the primary service for retrieving and modifying line plots from Synnax.
 type Service struct{ Config }
 
-// NewService instantiates a new line plot service using the provided configurations. Each
-// configuration will be used as an override for the previous configuration in the list.
-// See the Config struct for information on which fields should be set.
-func NewService(configs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+// NewService instantiates a new line plot service using the provided configurations.
+// Each configuration will be used as an override for the previous configuration in the
+// list. See the Config struct for information on which fields should be set.
+func NewService(cfgs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

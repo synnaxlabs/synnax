@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
+import { DataType, id, Series, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
@@ -24,12 +24,12 @@ describe("WriteFrameAdapter", () => {
 
   beforeAll(async () => {
     timeCh = await client.channels.create({
-      name: `time-${Math.random()}-${TimeStamp.now().toString()}`,
+      name: id.create(),
       dataType: DataType.TIMESTAMP,
       isIndex: true,
     });
     dataCh = await client.channels.create({
-      name: `data-${Math.random()}-${TimeStamp.now().toString()}`,
+      name: id.create(),
       dataType: DataType.FLOAT32,
       index: timeCh.key,
     });
@@ -118,7 +118,7 @@ describe("WriteFrameAdapter", () => {
 
   it("should correctly adapt a name and JSON value", async () => {
     const jsonChannel = await client.channels.create({
-      name: `json-${Math.random()}-${TimeStamp.now().toString()}`,
+      name: id.create(),
       dataType: DataType.JSON,
       virtual: true,
     });
@@ -134,7 +134,7 @@ describe("WriteFrameAdapter", () => {
 
   it("should correctly adapt a name and a json typed series", async () => {
     const jsonChannel = await client.channels.create({
-      name: `json-${Math.random()}-${TimeStamp.now().toString()}`,
+      name: id.create(),
       dataType: DataType.JSON,
       virtual: true,
     });
@@ -150,7 +150,7 @@ describe("WriteFrameAdapter", () => {
 
   it("should correctly adapt a numeric value to a BigInt keyed by key", async () => {
     const bigIntCh = await client.channels.create({
-      name: `bigint-${Math.random()}-${TimeStamp.now().toString()}`,
+      name: id.create(),
       dataType: DataType.INT64,
       virtual: true,
     });
@@ -176,7 +176,7 @@ describe("WriteFrameAdapter", () => {
 
     it("should return true when adding a new channel", async () => {
       const newCh = await client.channels.create({
-        name: `new-${Math.random()}-${TimeStamp.now().toString()}`,
+        name: id.create(),
         dataType: DataType.FLOAT32,
         index: timeCh.key,
       });
@@ -191,7 +191,7 @@ describe("WriteFrameAdapter", () => {
 
     it("should return true when replacing channels", async () => {
       const newCh = await client.channels.create({
-        name: `replacement-${Math.random()}-${TimeStamp.now().toString()}`,
+        name: id.create(),
         dataType: DataType.FLOAT32,
         index: timeCh.key,
       });
@@ -221,17 +221,17 @@ describe("ReadFrameAdapter", () => {
 
   beforeAll(async () => {
     timeCh = await client.channels.create({
-      name: `read-time-${Math.random()}-${TimeStamp.now().toString()}`,
+      name: id.create(),
       dataType: DataType.TIMESTAMP,
       isIndex: true,
     });
     dataCh = await client.channels.create({
-      name: `read-data-${Math.random()}-${TimeStamp.now().toString()}`,
+      name: id.create(),
       dataType: DataType.FLOAT32,
       index: timeCh.key,
     });
     extraCh = await client.channels.create({
-      name: `read-extra-${Math.random()}-${TimeStamp.now().toString()}`,
+      name: id.create(),
       dataType: DataType.FLOAT64,
       index: timeCh.key,
     });
@@ -471,7 +471,7 @@ describe("ReadFrameAdapter", () => {
     describe("data integrity", () => {
       it("should preserve series values across multiple data types", async () => {
         const int64Ch = await client.channels.create({
-          name: `read-int64-${Math.random()}-${TimeStamp.now().toString()}`,
+          name: id.create(),
           dataType: DataType.INT64,
           index: timeCh.key,
         });
@@ -582,7 +582,7 @@ describe("ReadFrameAdapter", () => {
 
     it("should return true when adding a new channel", async () => {
       const newCh = await client.channels.create({
-        name: `read-new-${Math.random()}-${TimeStamp.now().toString()}`,
+        name: id.create(),
         dataType: DataType.FLOAT32,
         index: timeCh.key,
       });
@@ -597,7 +597,7 @@ describe("ReadFrameAdapter", () => {
 
     it("should return true when replacing channels", async () => {
       const newCh = await client.channels.create({
-        name: `read-replacement-${Math.random()}-${TimeStamp.now().toString()}`,
+        name: id.create(),
         dataType: DataType.FLOAT32,
         index: timeCh.key,
       });

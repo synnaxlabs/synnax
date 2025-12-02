@@ -34,7 +34,9 @@ func allCandidates(nodes node.Group) func() node.Group {
 	return func() node.Group { return nodes }
 }
 
-func baseConfigWithAddr(n *fmock.Network[pledge.Request, pledge.Response]) (pledge.Config, address.Address) {
+func baseConfigWithAddr(
+	n *fmock.Network[pledge.Request, pledge.Response],
+) (pledge.Config, address.Address) {
 	server := n.UnaryServer("")
 	cfg := pledge.Config{
 		TransportServer: server,
@@ -146,7 +148,8 @@ var _ = Describe("PledgeServer", func() {
 					ctx,
 					baseConfig(net),
 					pledge.Config{
-						Peers: []address.Address{nodes[0].Address},
+						Candidates: func() node.Group { return nodes },
+						Peers:      []address.Address{nodes[0].Address},
 					},
 					pledge.BlazingFastConfig,
 				)

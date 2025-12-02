@@ -51,7 +51,7 @@ type Channel struct {
 type ChannelService struct {
 	dbProvider
 	accessProvider
-	internal channel.Service
+	internal *channel.Service
 	ranger   *ranger.Service
 }
 
@@ -81,7 +81,7 @@ type ChannelCreateResponse struct {
 func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
-) (res ChannelCreateResponse, _ error) {
+) (ChannelCreateResponse, error) {
 	translated := translateChannelsBackward(req.Channels)
 	for i := range translated {
 		translated[i].Internal = false
@@ -91,14 +91,24 @@ func (s *ChannelService) Create(
 		Action:  access.Create,
 		Objects: channel.OntologyIDsFromChannels(translated),
 	}); err != nil {
-		return res, err
+		return ChannelCreateResponse{}, err
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) (err error) {
+	var res ChannelCreateResponse
+	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
-		err = w.CreateMany(ctx, &translated, channel.RetrieveIfNameExists(req.RetrieveIfNameExists))
+		opts := []channel.CreateOption{}
+		if req.RetrieveIfNameExists {
+			opts = append(opts, channel.RetrieveIfNameExists())
+		}
+		if err := w.CreateMany(ctx, &translated, opts...); err != nil {
+			return err
+		}
 		res.Channels = translateChannelsForward(translated)
-		return err
-	})
+		return nil
+	}); err != nil {
+		return ChannelCreateResponse{}, err
+	}
+	return res, nil
 }
 
 // ChannelRetrieveRequest is a request for retrieving information about a Channel
@@ -264,7 +274,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 func translateChannelsBackward(channels []Channel) []channel.Channel {
 	translated := make([]channel.Channel, len(channels))
 	for i, ch := range channels {
-		tCH := channel.Channel{
+		tCh := channel.Channel{
 			Name:        ch.Name,
 			Leaseholder: ch.Leaseholder,
 			DataType:    ch.DataType,
@@ -278,10 +288,10 @@ func translateChannelsBackward(channels []Channel) []channel.Channel {
 			Operations:  ch.Operations,
 		}
 		if ch.IsIndex {
-			tCH.LocalIndex = tCH.LocalKey
+			tCh.LocalIndex = tCh.LocalKey
 		}
 
-		translated[i] = tCH
+		translated[i] = tCh
 	}
 	return translated
 }

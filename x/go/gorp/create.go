@@ -27,18 +27,25 @@ func NewCreate[K Key, E Entry[K]]() Create[K, E] {
 // MergeExisting adds a function to the query that can be used to prevent the accidental
 // override of existing entries with the same GorpKey. The provided function receives
 // the existing entry and should return an error if the entry should not be overwritten.
-// If no entry with a matching GorpKey is found, the function is not called. MergeExisting
-// adds overhead to the query, as a retrieval is required to check for existing entries.
+// If no entry with a matching GorpKey is found, the function is not called.
+// MergeExisting adds overhead to the query, as a retrieval is required to check for
+// existing entries.
 func (c Create[K, E]) MergeExisting(filter func(ctx Context, creating, existing E) (E, error)) Create[K, E] {
-	addMergeExisting[K, E](c.params, filter)
+	addMergeExisting(c.params, filter)
 	return c
 }
 
 // Entries sets the Entries to write to the DB.
-func (c Create[K, E]) Entries(entries *[]E) Create[K, E] { SetEntries[K](c.params, entries); return c }
+func (c Create[K, E]) Entries(entries *[]E) Create[K, E] {
+	SetEntries(c.params, entries)
+	return c
+}
 
 // Entry sets the entry to write to the DB.
-func (c Create[K, E]) Entry(entry *E) Create[K, E] { SetEntry[K](c.params, entry); return c }
+func (c Create[K, E]) Entry(entry *E) Create[K, E] {
+	SetEntry(c.params, entry)
+	return c
+}
 
 // Exec executes the query against the provided transaction. It returns any errors
 // encountered during execution.

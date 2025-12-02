@@ -54,7 +54,7 @@ type Config struct {
 	// Channel is used for retrieving channel information from the cluster.
 	//
 	// [REQUIRED]
-	Channel channel.Readable
+	Channel *channel.Service
 	// Framer is used for reading from and writing telemetry to the cluster.
 	//
 	// [REQUIRED]
@@ -160,7 +160,7 @@ func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse)
 
 func retrieveChannels(
 	ctx context.Context,
-	channelSvc channel.Readable,
+	channelSvc *channel.Service,
 	keys []channel.Key,
 ) ([]channel.Channel, error) {
 	channels := make([]channel.Channel, 0, len(keys))

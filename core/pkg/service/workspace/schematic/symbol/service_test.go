@@ -24,7 +24,7 @@ import (
 )
 
 var _ = Describe("Service", func() {
-	Describe("NewService", func() {
+	Describe("OpenService", func() {
 		It("Should create a service with minimal configuration", func() {
 			testDB := gorp.Wrap(memkv.New())
 			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
@@ -32,7 +32,7 @@ var _ = Describe("Service", func() {
 				DB:           testDB,
 			}))
 
-			testSvc, err := symbol.NewService(ctx, symbol.Config{
+			testSvc, err := symbol.OpenService(ctx, symbol.Config{
 				DB:       testDB,
 				Ontology: testOtg,
 			})
@@ -55,7 +55,7 @@ var _ = Describe("Service", func() {
 				Ontology: testOtg,
 			}))
 
-			testSvc, err := symbol.NewService(ctx, symbol.Config{
+			testSvc, err := symbol.OpenService(ctx, symbol.Config{
 				DB:       testDB,
 				Ontology: testOtg,
 				Group:    testGroup,
@@ -71,13 +71,13 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should fail with invalid configuration", func() {
-			_, err := symbol.NewService(ctx, symbol.Config{
+			_, err := symbol.OpenService(ctx, symbol.Config{
 				DB: nil,
 			})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("db: must be non-nil"))
 
-			_, err = symbol.NewService(ctx, symbol.Config{
+			_, err = symbol.OpenService(ctx, symbol.Config{
 				Ontology: otg,
 			})
 			Expect(err).To(HaveOccurred())
@@ -105,7 +105,7 @@ var _ = Describe("Service", func() {
 				Ontology: testOtg2,
 			}
 
-			testSvc, err := symbol.NewService(ctx, cfg1, cfg2)
+			testSvc, err := symbol.OpenService(ctx, cfg1, cfg2)
 			Expect(err).ToNot(HaveOccurred())
 			// Should use cfg2's values
 			Expect(testSvc.Config.DB).To(Equal(testDB2))
@@ -146,7 +146,7 @@ var _ = Describe("Service", func() {
 				DB:           testDB,
 			}))
 
-			testSvc, err := symbol.NewService(ctx, symbol.Config{
+			testSvc, err := symbol.OpenService(ctx, symbol.Config{
 				DB:       testDB,
 				Ontology: testOtg,
 			})

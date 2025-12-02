@@ -212,7 +212,7 @@ func translateChannelBackward(
 	}
 }
 
-func newChannel(a *api.Transport) []fgrpc.BindableTransport {
+func newChannel(a *api.Transport) fgrpc.BindableTransport {
 	c := &createServer{
 		RequestTranslator:  channelCreateRequestTranslator{},
 		ResponseTranslator: channelCreateResponseTranslator{},
@@ -231,7 +231,7 @@ func newChannel(a *api.Transport) []fgrpc.BindableTransport {
 	a.ChannelCreate = c
 	a.ChannelRetrieve = r
 	a.ChannelDelete = d
-	return []fgrpc.BindableTransport{c, r, d}
+	return fgrpc.CompoundBindableTransport{c, r, d}
 }
 
 func NewChannelCreateClient(
