@@ -66,7 +66,7 @@ var _ = Describe("Tracker", Ordered, func() {
 			Rack:                    rackSvc,
 			Task:                    taskSvc,
 			Signals:                 dist.Signals,
-			Channels:                dist.Channel,
+			Channel:                 dist.Channel,
 			HostProvider:            dist.Cluster,
 			Framer:                  dist.Framer,
 			Device:                  deviceSvc,

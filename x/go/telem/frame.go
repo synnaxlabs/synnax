@@ -25,7 +25,7 @@ import (
 
 // Frame is a performance-optimized record of numeric keys to series.
 // size = 24 + 24 + 1 + 16 + (7 buffer) = 72 bytes.
-type Frame[K types.Numeric] struct {
+type Frame[K types.SizedNumeric] struct {
 	// keys are the keys of the frame record. the keys slice is guaranteed to have the
 	// same length as the series slice. Note that keys are not guaranteed to be unique.
 	// 24 bytes
@@ -48,7 +48,7 @@ type Frame[K types.Numeric] struct {
 
 // UnsafeReinterpretFrameKeysAs reinterprets the keys of the frame as a different type. This
 // method performs no static type checking and is unsafe. Caveat emptor.
-func UnsafeReinterpretFrameKeysAs[I, O types.Numeric](f Frame[I]) Frame[O] {
+func UnsafeReinterpretFrameKeysAs[I, O types.SizedNumeric](f Frame[I]) Frame[O] {
 	return Frame[O]{
 		keys:   unsafe.ReinterpretSlice[I, O](f.keys),
 		series: f.series,
@@ -57,13 +57,13 @@ func UnsafeReinterpretFrameKeysAs[I, O types.Numeric](f Frame[I]) Frame[O] {
 }
 
 // UnaryFrame creates a new frame with a single key and series.
-func UnaryFrame[K types.Numeric](key K, series Series) Frame[K] {
+func UnaryFrame[K types.SizedNumeric](key K, series Series) Frame[K] {
 	return Frame[K]{keys: []K{key}, series: []Series{series}}
 }
 
 // MultiFrame creates a new Frame with multiple keys and series. The keys and series
 // slices must be the same length, or this function will panic.
-func MultiFrame[K types.Numeric](keys []K, series []Series) Frame[K] {
+func MultiFrame[K types.SizedNumeric](keys []K, series []Series) Frame[K] {
 	if len(keys) != len(series) {
 		panic("keys and series must be of the same length")
 	}
@@ -74,7 +74,7 @@ func MultiFrame[K types.Numeric](keys []K, series []Series) Frame[K] {
 // number of entries that can be added to the frame before it needs to be resized. The
 // frame is not initialized, so the keys and series slices will be empty. This function
 // is useful for creating a frame with a known number of entries
-func AllocFrame[K types.Numeric](cap int) Frame[K] {
+func AllocFrame[K types.SizedNumeric](cap int) Frame[K] {
 	return Frame[K]{keys: make([]K, 0, cap), series: make([]Series, 0, cap)}
 }
 
@@ -266,10 +266,10 @@ func (f Frame[K]) RawKeyAt(i int) K {
 }
 
 var (
-	_ json.Marshaler        = Frame[int]{}
-	_ json.Unmarshaler      = &Frame[int]{}
-	_ msgpack.CustomEncoder = Frame[int]{}
-	_ msgpack.CustomDecoder = &Frame[int]{}
+	_ json.Marshaler        = Frame[int8]{}
+	_ json.Unmarshaler      = &Frame[int8]{}
+	_ msgpack.CustomEncoder = Frame[int8]{}
+	_ msgpack.CustomDecoder = &Frame[int8]{}
 )
 
 // serializableFrame is a helper type for serializing the Frame to encoded
@@ -477,9 +477,7 @@ func (f Frame[K]) KeepKeys(keys []K) Frame[K] {
 
 // notContain is defined statically so that it doesn't accidentally escape to the heap,
 // applying more pressure on GC
-func notContains[T comparable](s []T, e T) bool {
-	return !lo.Contains[T](s, e)
-}
+func notContains[T comparable](s []T, e T) bool { return !lo.Contains(s, e) }
 
 // ExcludeKeys filters the frame to include any keys that are NOT in the given slice,
 // returning a shallow copy of the filtered frame.

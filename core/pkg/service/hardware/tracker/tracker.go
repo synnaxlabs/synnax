@@ -109,10 +109,10 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Signals *signals.Provider
-	// Channels is used to create channels for the tracker service.
+	// Channel is used to create channels for the tracker service.
 	//
 	// [REQUIRED]
-	Channels channel.ReadWriteable
+	Channel *channel.Service
 	// HostProvider returns information about the cluster host.
 	//
 	// [REQUIRED]
@@ -140,7 +140,7 @@ func (c Config) Override(other Config) Config {
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Signals = override.Nil(c.Signals, other.Signals)
-	c.Channels = override.Nil(c.Channels, other.Channels)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Framer = override.Nil(c.Framer, other.Framer)
@@ -158,7 +158,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "signals", c.Signals)
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "host", c.HostProvider)
-	validate.NotNil(v, "channels", c.Channels)
+	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "device", c.Device)
 	return v.Error()
@@ -247,7 +247,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 	}
 
 	if err =
-		cfg.Channels.DeleteByName(ctx, "sy_rack_heartbeat", true); err != nil {
+		cfg.Channel.DeleteByName(ctx, "sy_rack_heartbeat", true); err != nil {
 		return nil, err
 	}
 	channels := []channel.Channel{
@@ -284,7 +284,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 	defer func() {
 		err = errors.Combine(err, tx.Close())
 	}()
-	w := cfg.Channels.NewWriter(tx)
+	w := cfg.Channel.NewWriter(tx)
 	if err = w.MapRename(ctx, legacyChannelNames, true); err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 		ctx,
 		&channels,
 		channel.OverwriteIfNameExistsAndDifferentProperties(),
-		channel.RetrieveIfNameExists(true),
+		channel.RetrieveIfNameExists(),
 	); err != nil {
 		return nil, err
 	}
@@ -371,12 +371,12 @@ func Open(ctx context.Context, configs ...Config) (*Tracker, error) {
 		closeTaskStateObs,
 		closeRackStateObs,
 		closeDeviceStateObs,
-		xio.NopCloserFunc(dcRackObs),
-		xio.NopCloserFunc(dcTaskObs),
-		xio.NopCloserFunc(dcDeviceObs),
-		xio.NopCloserFunc(dcRackStateObs),
-		xio.NopCloserFunc(dcTaskStateObs),
-		xio.NopCloserFunc(dcDeviceStateObs),
+		xio.NoFailCloserFunc(dcRackObs),
+		xio.NoFailCloserFunc(dcTaskObs),
+		xio.NoFailCloserFunc(dcDeviceObs),
+		xio.NoFailCloserFunc(dcRackStateObs),
+		xio.NoFailCloserFunc(dcTaskStateObs),
+		xio.NoFailCloserFunc(dcDeviceStateObs),
 	}
 	return t, nil
 }
@@ -425,7 +425,7 @@ func (t *Tracker) Close() error {
 func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Key, task.Task]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
+	for c := range r {
 		rackKey := c.Key.Rack()
 		if c.Variant == change.Delete {
 			delete(t.mu.Racks[rackKey].TaskStatuses, c.Key)
@@ -476,7 +476,7 @@ func (t *Tracker) handleTaskChanges(ctx context.Context, r gorp.TxReader[task.Ke
 func (t *Tracker) handleRackChanges(ctx context.Context, r gorp.TxReader[rack.Key, rack.Rack]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
+	for c := range r {
 		if c.Variant == change.Delete {
 			delete(t.mu.Racks, c.Key)
 			continue
@@ -662,7 +662,7 @@ func (t *Tracker) handleDeviceState(ctx context.Context, changes []change.Change
 func (t *Tracker) handleDeviceChanges(ctx context.Context, r gorp.TxReader[string, device.Device]) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
+	for c := range r {
 		if c.Variant == change.Delete {
 			delete(t.mu.Devices, c.Key)
 			continue

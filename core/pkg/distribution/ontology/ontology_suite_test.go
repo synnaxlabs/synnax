@@ -11,6 +11,9 @@ package ontology_test
 
 import (
 	"context"
+	"io"
+	"iter"
+	"slices"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
 	. "github.com/synnaxlabs/x/testutil"
@@ -32,7 +35,7 @@ func TestOntology(t *testing.T) {
 }
 
 type sampleService struct {
-	observe.Noop[iter.Nexter[ontology.Change]]
+	observe.Noop[iter.Seq[ontology.Change]]
 }
 
 var _ ontology.Service = (*sampleService)(nil)
@@ -59,10 +62,10 @@ func (s *sampleService) RetrieveResource(_ context.Context, key string, _ gorp.T
 	return core.NewResource(s.Schema(), newSampleType(key), "empty", Sample{Key: key}), nil
 }
 
-func (s *sampleService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	return iter.NexterNopCloser(iter.All([]ontology.Resource{
+func (s *sampleService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+	return slices.Values([]ontology.Resource{
 		lo.Must(s.RetrieveResource(ctx, "", nil)),
-	})), nil
+	}), xio.NopCloser, nil
 }
 
 var (

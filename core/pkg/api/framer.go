@@ -56,7 +56,7 @@ type FrameService struct {
 	alamos.Instrumentation
 	dbProvider
 	accessProvider
-	Channel  channel.Readable
+	Channel  *channel.Service
 	Internal *framer.Service
 }
 
@@ -423,10 +423,10 @@ type WSFramerCodec struct {
 	LowerPerfCodec xbinary.Codec
 }
 
-func NewWSFramerCodec(channels channel.Readable) httputil.Codec {
+func NewWSFramerCodec(channelSvc *channel.Service) httputil.Codec {
 	return &WSFramerCodec{
 		LowerPerfCodec: httputil.JSONCodec,
-		Codec:          codec.NewDynamic(channels),
+		Codec:          codec.NewDynamic(channelSvc),
 	}
 }
 
@@ -633,10 +633,10 @@ func (c *WSFramerCodec) ContentType() string {
 
 const framerContentType = "application/sy-framer"
 
-func NewHTTPCodecResolver(channel channel.Readable) httputil.CodecResolver {
+func NewHTTPCodecResolver(channelSvc *channel.Service) httputil.CodecResolver {
 	return func(ct string) (httputil.Codec, error) {
 		if ct == framerContentType {
-			return NewWSFramerCodec(channel), nil
+			return NewWSFramerCodec(channelSvc), nil
 		}
 		return httputil.ResolveCodec(ct)
 	}
