@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { throttle } from "@synnaxlabs/x";
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
-
 export interface UseInactivityReturn<E extends HTMLElement> {
   visible: boolean;
   ref: RefObject<E | null>;
@@ -20,15 +20,21 @@ export const useInactivity = <E extends HTMLElement>(
   const [visible, setVisible] = useState(false);
   const inactivityTimeoutRef = useRef<NodeJS.Timeout>(undefined);
   const ref = useRef<E>(null);
-  const handleMouseMove = useCallback(() => {
-    setVisible(true);
-    clearTimeout(inactivityTimeoutRef.current);
-    inactivityTimeoutRef.current = setTimeout(() => setVisible(false), timeout);
-  }, [timeout]);
+
+  const handleMouseMove = useCallback(
+    throttle(() => {
+      setVisible(true);
+      clearTimeout(inactivityTimeoutRef.current);
+      inactivityTimeoutRef.current = setTimeout(() => setVisible(false), timeout);
+    }, 150),
+    [timeout],
+  );
+
   const handleMouseLeave = useCallback(() => {
     setVisible(false);
     clearTimeout(inactivityTimeoutRef.current);
   }, []);
+
   useEffect(() => {
     const el = ref.current;
     if (el == null) return;
@@ -39,6 +45,7 @@ export const useInactivity = <E extends HTMLElement>(
       el.removeEventListener("mouseleave", handleMouseLeave);
       clearTimeout(inactivityTimeoutRef.current);
     };
-  }, [handleMouseMove, handleMouseLeave]);
+  }, [handleMouseLeave, handleMouseMove]);
+
   return { visible, ref };
 };
