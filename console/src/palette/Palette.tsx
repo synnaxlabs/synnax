@@ -83,6 +83,7 @@ export const Palette = ({
           full="x"
         >
           <Icon.Search />
+          {/* This span needs to remain so we properly hide it on small window sizes. */}
           <Text.Text el="span" color={9}>
             Search and Command
           </Text.Text>
