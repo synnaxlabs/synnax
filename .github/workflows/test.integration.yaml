@@ -405,7 +405,7 @@ jobs:
 
   deploy-and-test-macos:
     name: Deploy and Test (macOS)
-    timeout-minutes: 1
+    timeout-minutes: 30
     runs-on:
       - self-hosted
       - macos-latest
