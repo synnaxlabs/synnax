@@ -17,12 +17,6 @@ import { renderProp } from "@/component/renderProp";
 import { List } from "@/list";
 import { mockBoundingClientRect } from "@/testutil/dom";
 
-const MockIntersectionObserverGlobal = vi.fn(() => ({
-  observe: vi.fn(),
-  disconnect: vi.fn(),
-  unobserve: vi.fn(),
-}));
-
 describe("List", () => {
   interface Context {
     virtual: boolean;
@@ -35,10 +29,6 @@ describe("List", () => {
   CONTEXTS.forEach((context) => {
     beforeAll(() => {
       Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
-      vi.stubGlobal("IntersectionObserver", MockIntersectionObserverGlobal);
-    });
-    afterEach(() => {
-      vi.clearAllMocks();
     });
     describe(context.name, () => {
       describe("basic item rendering", () => {
