@@ -28,7 +28,7 @@ func NewDelete[K Key, E Entry[K]]() Delete[K, E] {
 // Where adds the provided filter to the query. If filtering by the key of the Entry,
 // use the far more efficient WhereKeys method instead.
 func (d Delete[K, E]) Where(filter FilterFunc[K, E], opts ...FilterOption) Delete[K, E] {
-	addFilter[K, E](d.params, filter, opts)
+	addFilter(d.params, filter, opts)
 	return d
 }
 
@@ -39,7 +39,7 @@ func (d Delete[K, E]) Guard(filter GuardFunc[K, E]) Delete[K, E] {
 	if filter == nil {
 		return d
 	}
-	addGuard[K, E](d.params, filter)
+	addGuard(d.params, filter)
 	return d
 }
 
@@ -64,7 +64,7 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 	if err := q.Exec(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
 		return err
 	}
-	if err := checkGuards[K](Context{Context: ctx, Tx: tx}, d.params, entries); err != nil {
+	if err := checkGuards(Context{Context: ctx, Tx: tx}, d.params, entries); err != nil {
 		return err
 	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })

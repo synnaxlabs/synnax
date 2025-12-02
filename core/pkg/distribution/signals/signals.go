@@ -38,8 +38,9 @@ type Config struct {
 	// [OPTIONAL]
 	alamos.Instrumentation
 	// Channel is the service used for retrieving and creating free channels.
+	//
 	// [REQUIRED]
-	Channel channel.ReadWriteable
+	Channel *channel.Service
 	// Framer is the service used for writing frames containing changes to the Synnax
 	// telemetry pipeline.
 	// [REQUIRED]
@@ -55,8 +56,8 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("Signals")
-	validate.NotNil(v, "Channel", c.Channel)
-	validate.NotNil(v, "Framer", c.Framer)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "framer", c.Framer)
 	return v.Error()
 }
 

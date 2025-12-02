@@ -29,7 +29,7 @@ func marshalSeriesTest[T telem.Sample](data []T, dt telem.DataType) func() {
 
 func marshalUnmarshalSliceTest[T telem.Sample](data []T, dt telem.DataType) func() {
 	return func() {
-		s := telem.MarshalSlice[T](data)
+		s := telem.MarshalSlice(data)
 		Expect(telem.UnmarshalSlice[T](s, dt)).To(Equal(data))
 	}
 }
@@ -90,7 +90,7 @@ var _ = Describe("Series", func() {
 			Specify("bad data type", func() {
 				type BadType uint32
 				Expect(func() {
-					telem.MarshalSlice[BadType]([]BadType{1, 2, 3})
+					telem.MarshalSlice([]BadType{1, 2, 3})
 				}).To(Panic())
 			})
 		})
@@ -170,37 +170,37 @@ var _ = Describe("Series", func() {
 			})
 		})
 
-		Describe("Arange", func() {
+		Describe("Arrange", func() {
 			It("Should create a series with the correct values for int64", func() {
-				s := telem.Arange[int64](0, 5, 2)
+				s := telem.Arrange[int64](0, 5, 2)
 				Expect(s.Len()).To(Equal(int64(5)))
 				Expect(s.DataType).To(Equal(telem.Int64T))
 				data := telem.UnmarshalSeries[int64](s)
 				Expect(data).To(Equal([]int64{0, 2, 4, 6, 8}))
 			})
 			It("Should create a series with the correct values for float64", func() {
-				s := telem.Arange[float64](0.0, 5, 0.5)
+				s := telem.Arrange(0.0, 5, 0.5)
 				Expect(s.Len()).To(Equal(int64(5)))
 				Expect(s.DataType).To(Equal(telem.Float64T))
 				data := telem.UnmarshalSeries[float64](s)
 				Expect(data).To(Equal([]float64{0.0, 0.5, 1.0, 1.5, 2.0}))
 			})
 			It("Should create a series with a single value when count is 1", func() {
-				s := telem.Arange[int32](10, 1, 5)
+				s := telem.Arrange[int32](10, 1, 5)
 				Expect(s.Len()).To(Equal(int64(1)))
 				Expect(s.DataType).To(Equal(telem.Int32T))
 				data := telem.UnmarshalSeries[int32](s)
 				Expect(data).To(Equal([]int32{10}))
 			})
 			It("Should create a series with negative spacing", func() {
-				s := telem.Arange[int64](10, 5, -2)
+				s := telem.Arrange[int64](10, 5, -2)
 				Expect(s.Len()).To(Equal(int64(5)))
 				data := telem.UnmarshalSeries[int64](s)
 				Expect(data).To(Equal([]int64{10, 8, 6, 4, 2}))
 			})
 			It("Should panic when count is less than 0", func() {
 				Expect(func() {
-					telem.Arange[int64](0, -1, 1)
+					telem.Arrange[int64](0, -1, 1)
 				}).To(Panic())
 			})
 		})
@@ -1217,8 +1217,8 @@ var _ = Describe("Series", func() {
 		})
 
 		It("Should copy values at different indices", func() {
-			src := telem.NewSeriesV[float64](1.1, 2.2, 3.3)
-			dst := telem.NewSeriesV[float64](0.0, 0.0, 0.0)
+			src := telem.NewSeriesV(1.1, 2.2, 3.3)
+			dst := telem.NewSeriesV(0.0, 0.0, 0.0)
 			telem.CopyValue(dst, src, 1, 2)
 			Expect(telem.ValueAt[float64](dst, 1)).To(Equal(3.3))
 			Expect(telem.ValueAt[float64](dst, 0)).To(Equal(0.0))
