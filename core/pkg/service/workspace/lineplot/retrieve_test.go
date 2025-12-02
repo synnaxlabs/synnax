@@ -12,14 +12,14 @@ package lineplot_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
 )
 
 var _ = Describe("Retrieve", func() {
 	It("Should retrieve a LinePlot", func() {
-		p := schematic.Schematic{Name: "test", Data: "data"}
+		p := lineplot.LinePlot{Name: "test", Data: "data"}
 		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &p)).To(Succeed())
-		var res schematic.Schematic
+		var res lineplot.LinePlot
 		Expect(svc.NewRetrieve().WhereKeys(p.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 		Expect(res).To(Equal(p))
 	})

@@ -113,11 +113,7 @@ func (m *monitor) handleChange(ctx context.Context, t gorp.TxReader[string, stat
 		deletes []string
 		updates []string
 	)
-	for {
-		stat, ok := t.Next(ctx)
-		if !ok {
-			break
-		}
+	for stat := range t {
 		if !strings.HasPrefix(stat.Key, string(OntologyType)) {
 			continue
 		}
