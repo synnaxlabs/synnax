@@ -31,17 +31,18 @@ using json = nlohmann::json;
 
 namespace opc {
 inline const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
+inline const ::telem::Rate DEFAULT_SCAN_RATE = ::telem::HERTZ * 0.2;
 /// @brief Configuration for the OPC UA scanner.
 struct ScannerConfig {
-    /// @brief Rate at which to check device health.
-    ::telem::Rate health_check_rate = ::telem::Rate(0.2); // 5 seconds
+    /// @brief Rate at which to check device status.
+    ::telem::Rate scan_rate = DEFAULT_SCAN_RATE;
     /// @brief Whether scanning is enabled.
     bool enabled = true;
 
     ScannerConfig() = default;
 
     explicit ScannerConfig(xjson::Parser &cfg):
-        health_check_rate(::telem::Rate(cfg.field<double>("rate", 0.2))),
+        scan_rate(::telem::Rate(cfg.field<double>("rate", DEFAULT_SCAN_RATE.hz()))),
         enabled(cfg.field<bool>("enabled", true)) {}
 };
 
@@ -72,8 +73,7 @@ public:
     Scanner(
         std::shared_ptr<task::Context> ctx,
         synnax::Task task,
-        std::shared_ptr<connection::Pool> conn_pool,
-        ScannerConfig cfg
+        std::shared_ptr<connection::Pool> conn_pool
     );
 
     /// @brief Returns scanner configuration for common::ScanTask.

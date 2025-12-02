@@ -70,11 +70,11 @@ std::pair<common::ConfigureResult, xerrors::Error> configure_scan(
     auto cfg = opc::ScannerConfig(parser);
     if (parser.error()) return {std::move(result), parser.error()};
     result.task = std::make_unique<common::ScanTask>(
-        std::make_unique<opc::Scanner>(ctx, task, pool, cfg),
+        std::make_unique<opc::Scanner>(ctx, task, pool),
         ctx,
         task,
         breaker::default_config(task.name),
-        cfg.health_check_rate
+        cfg.scan_rate
     );
     result.auto_start = cfg.enabled;
     return {std::move(result), xerrors::NIL};
