@@ -26,6 +26,7 @@ package ontology
 
 import (
 	"context"
+	"iter"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
@@ -33,7 +34,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -72,7 +72,7 @@ func NewResource(schema zyn.Schema, id ID, name string, data any) core.Resource 
 // Ontology exposes an ontology stored in a key-value database for reading and writing.
 type Ontology struct {
 	Config
-	ResourceObserver     observe.Observer[iter.Nexter[Change]]
+	ResourceObserver     observe.Observer[iter.Seq[Change]]
 	RelationshipObserver observe.Observable[gorp.TxReader[[]byte, Relationship]]
 	search               struct {
 		*search.Index
@@ -119,7 +119,7 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	}
 	o := &Ontology{
 		Config:               cfg,
-		ResourceObserver:     observe.New[iter.Nexter[Change]](),
+		ResourceObserver:     observe.New[iter.Seq[Change]](),
 		RelationshipObserver: gorp.Observe[[]byte, Relationship](cfg.DB),
 		registrar:            serviceRegistrar{BuiltInType: &builtinService{}},
 	}
@@ -240,9 +240,9 @@ func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 		if !*o.EnableSearch {
 			continue
 		}
-		disconnect := svc.OnChange(func(ctx context.Context, i iter.Nexter[Change]) {
+		disconnect := svc.OnChange(func(ctx context.Context, i iter.Seq[Change]) {
 			err := o.search.WithTx(func(tx search.Tx) error {
-				for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {
+				for ch := range i {
 					o.L.Debug(
 						"updating search index",
 						zap.String("key", ch.Key.String()),
@@ -264,19 +264,19 @@ func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 		})
 		o.disconnectObservers = append(o.disconnectObservers, disconnect)
 		oCtx.Go(func(ctx context.Context) error {
-			n, err := svc.OpenNexter()
+			n, closer, err := svc.OpenNexter(ctx)
 			if err != nil {
 				return err
 			}
 			err = o.search.WithTx(func(tx search.Tx) error {
-				for r, ok := n.Next(ctx); ok; r, ok = n.Next(ctx) {
+				for r := range n {
 					if err = tx.Index(r); err != nil {
 						return err
 					}
 				}
 				return nil
 			})
-			return errors.Combine(err, n.Close())
+			return errors.Combine(err, closer.Close())
 		}, signal.WithKeyf("startup-indexing-%s", svc.Type()))
 	}
 	return oCtx.Wait()
