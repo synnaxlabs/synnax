@@ -75,7 +75,12 @@ check_run_built_artifacts() {
 }
 
 find_cached_run() {
-    local current_branch=$(git branch --show-current)
+    # Use GITHUB_HEAD_REF for PRs, fallback to git branch for direct pushes
+    local current_branch="${GITHUB_HEAD_REF:-$(git branch --show-current)}"
+    if [ -z "${current_branch}" ]; then
+        # Fallback for detached HEAD without GITHUB_HEAD_REF
+        current_branch="${GITHUB_REF_NAME:-main}"
+    fi
     local workflow_file="${GITHUB_WORKFLOW:-test.integration.yaml}"
     local runs_json=$(gh run list --workflow="${workflow_file}" --branch="${current_branch}" --limit=25 --json="databaseId,headSha")
 
