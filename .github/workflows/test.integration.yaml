@@ -399,7 +399,7 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: |
           set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
-          poetry run test-conductor --name test-conductor-win ${{ needs.setup.outputs.SEQUENCE_ARG }}
+          poetry run test-conductor --name tc_win ${{ needs.setup.outputs.SEQUENCE_ARG }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -471,7 +471,7 @@ jobs:
         timeout-minutes: 20
         working-directory: integration
         run:
-          poetry run test-conductor --name test-conductor-unix ${{
+          poetry run test-conductor --name tc_unix ${{
           needs.setup.outputs.SEQUENCE_ARG }}
 
       - name: Upload Test Results
@@ -542,7 +542,7 @@ jobs:
         timeout-minutes: 20
         working-directory: integration
         run:
-          poetry run test-conductor --name test-conductor-unix ${{
+          poetry run test-conductor --name tc_unix ${{
           needs.setup.outputs.SEQUENCE_ARG }}
 
       - name: Upload Test Results
