@@ -40,10 +40,8 @@ import {
 } from "@xyflow/react";
 import {
   type ComponentPropsWithoutRef,
-  createContext,
   memo,
   type ReactElement,
-  use as reactUse,
   useCallback,
   useEffect,
   useMemo,
@@ -55,6 +53,7 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
+import { context } from "@/context";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { useCombinedRefs, useDebouncedCallback } from "@/hooks";
@@ -202,22 +201,23 @@ interface ContextValue {
   fitViewOptions: FitViewOptions;
 }
 
-const Context = createContext<ContextValue>({
-  editable: true,
-  visible: true,
-  viewportMode: "select",
-  onViewportModeChange: () => {},
-  onEditableChange: () => {},
-  registerNodeRenderer: () => {},
-  registerEdgeRenderer: () => {},
-  registerConnectionLineComponent: () => {},
-  fitViewOnResize: false,
-  setFitViewOnResize: () => {},
-  fitViewOptions: FIT_VIEW_OPTIONS,
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: {
+    editable: true,
+    fitViewOnResize: false,
+    fitViewOptions: FIT_VIEW_OPTIONS,
+    onEditableChange: () => {},
+    onViewportModeChange: () => {},
+    registerConnectionLineComponent: () => {},
+    registerEdgeRenderer: () => {},
+    registerNodeRenderer: () => {},
+    setFitViewOnResize: () => {},
+    viewportMode: "select",
+    visible: true,
+  },
+  displayName: "Diagram.Context",
 });
-Context.displayName = "Diagram.Context";
-
-export const useContext = () => reactUse(Context);
+export { useContext };
 
 export interface NodeRendererProps {
   children: RenderProp<SymbolProps>;

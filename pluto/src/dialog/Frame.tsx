@@ -9,7 +9,6 @@
 
 import { box, location } from "@synnaxlabs/x";
 import {
-  createContext,
   type CSSProperties,
   type ReactElement,
   type RefCallback,
@@ -77,27 +76,28 @@ export interface ContextValue {
   location: location.XY;
 }
 
-const Context = createContext<ContextValue>({
-  close: () => {},
-  open: () => {},
-  toggle: () => {},
-  variant: "floating",
-  visible: false,
-  location: location.BOTTOM_LEFT,
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: {
+    close: () => {},
+    location: location.BOTTOM_LEFT,
+    open: () => {},
+    toggle: () => {},
+    variant: "floating",
+    visible: false,
+  },
+  displayName: "Dialog.Context",
 });
-Context.displayName = "Dialog.Context";
-export const useContext = () => use(Context);
+export { useContext };
 
 interface InternalContextValue
   extends Pick<State, "targetCorner" | "dialogCorner" | "style" | "modalPosition"> {
   ref: RefCallback<HTMLDivElement>;
 }
 
-const [InternalContext, useInternalContext] =
-  context.createRequired<InternalContextValue>(
-    "Dialog.InternalContext",
-    "Dialog.Frame",
-  );
+const [InternalContext, useInternalContext] = context.create<InternalContextValue>({
+  displayName: "Dialog.InternalContext",
+  providerName: "Dialog.Frame",
+});
 
 export { useInternalContext };
 

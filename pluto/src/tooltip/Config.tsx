@@ -9,15 +9,15 @@
 
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
 import {
-  createContext,
   type PropsWithChildren,
   type ReactElement,
-  use,
   useCallback,
   useMemo,
   useRef,
   useState,
 } from "react";
+
+import { context } from "@/context";
 
 export interface ContextValue {
   delay: CrudeTimeSpan;
@@ -32,13 +32,11 @@ export interface ConfigProps
   accelerationDelay?: CrudeTimeSpan;
 }
 
-const Context = createContext<ContextValue>({
-  delay: TimeSpan.milliseconds(750),
-  startAccelerating: () => {},
+const [Context, useConfig] = context.create<ContextValue>({
+  defaultValue: { delay: TimeSpan.milliseconds(750), startAccelerating: () => {} },
+  displayName: "Tooltip.Context",
 });
-Context.displayName = "Tooltip.Context";
-
-export const useConfig = () => use(Context);
+export { useConfig };
 
 /**
  * Sets the default configuration for all tooltips in its children.

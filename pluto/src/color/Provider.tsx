@@ -9,15 +9,14 @@
 
 import { color, TimeStamp } from "@synnaxlabs/x";
 import React, {
-  createContext,
   type PropsWithChildren,
   type ReactElement,
-  use,
   useCallback,
   useMemo,
 } from "react";
 import { z } from "zod";
 
+import { context } from "@/context";
 import { useSyncedRef } from "@/hooks";
 import { type state } from "@/state";
 
@@ -47,12 +46,11 @@ export const ZERO_CONTEXT_STATE: ContextState = {
   frequent: {},
 };
 
-const Context = createContext<ContextValue>({
-  ...ZERO_CONTEXT_STATE,
-  updateFrequent: () => undefined,
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: { ...ZERO_CONTEXT_STATE, updateFrequent: () => undefined },
+  displayName: "Color.Context",
 });
-Context.displayName = "Color.Context";
-export const useContext = () => use(Context);
+export { useContext };
 
 const RECENCY_WEIGHT = 0.6;
 const FREQUENCY_WEIGHT = 0.4;

@@ -10,23 +10,51 @@
 import { type NotUndefined } from "@synnaxlabs/x";
 import { createContext, use } from "react";
 
+export interface BaseCreateParams {
+  displayName: string;
+}
+
+export interface CreateWithDefaultParams<T> extends BaseCreateParams {
+  defaultValue: T;
+}
+
+export interface CreateWithoutDefaultParams extends BaseCreateParams {
+  providerName: string;
+}
+
+export interface Creator {
+  <T>(params: CreateWithDefaultParams<T>): [React.Context<T>, () => T];
+  <T extends NotUndefined>(
+    params: CreateWithoutDefaultParams,
+  ): [React.Context<T | undefined>, (hookOrComponentName: string) => T];
+}
+
 /**
- * Creates a required Context with a useContext hook that throws an error if the hook is
- * used outside of the context. The error message will be `{hookOrComponentName} must be
- * used within {providerName}`, where {hookOrComponentName} is the string passed to the
- * useContext hook.
+ * Creates a tuple containing a context and hook to use the context.
  *
- * @param contextDisplayName - The display name of the context.
- * @param providerName - The name of the provider where the context is used.
- * @returns A tuple containing the context and the hook to use the context. The hook
- * will throw an error if used outside of the provider.
+ * @param params.displayName - The display name of the context.
+ * @param params.defaultValue - The default value of the context.
+ * @param params.providerName - The name of the provider where the context is used.
+ * @returns A tuple containing the context and the hook to use the context. If a default
+ * value is not provided, the context will be of type `React.Context<T | undefined>`,
+ * and the hook will throw an error if used outside of the context. If a default value
+ * is provided, the context will be of type `React.Context<T>`, and the hook will return
+ * the default value if used outside of the context.
  */
-export const createRequired = <T extends NotUndefined>(
-  contextDisplayName: string,
-  providerName: string,
-): [React.Context<T | undefined>, (hookOrComponentName: string) => T] => {
+export const create: Creator = (<T>(
+  params: CreateWithDefaultParams<T> | CreateWithoutDefaultParams,
+):
+  | [React.Context<T>, () => T]
+  | [React.Context<T | undefined>, (hookOrComponentName: string) => T] => {
+  if ("defaultValue" in params) {
+    const { defaultValue, displayName } = params;
+    const ctx = createContext(defaultValue);
+    ctx.displayName = displayName;
+    return [ctx, () => use(ctx)];
+  }
   const ctx = createContext<T | undefined>(undefined);
-  ctx.displayName = contextDisplayName;
+  const { displayName, providerName } = params;
+  ctx.displayName = displayName;
   const useContext = (hookOrComponentName: string) => {
     const value = use(ctx);
     if (value === undefined)
@@ -34,4 +62,4 @@ export const createRequired = <T extends NotUndefined>(
     return value;
   };
   return [ctx, useContext];
-};
+}) as Creator;

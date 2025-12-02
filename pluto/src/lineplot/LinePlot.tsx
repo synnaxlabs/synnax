@@ -56,10 +56,10 @@ export interface ContextValue {
   setHold: (hold: boolean) => void;
 }
 
-const [Context, useContext] = context.createRequired<ContextValue>(
-  "LinePlot.Context",
-  "LinePlot.LinePlot",
-);
+const [Context, useContext] = context.create<ContextValue>({
+  displayName: "LinePlot.Context",
+  providerName: "LinePlot.LinePlot",
+});
 export { useContext };
 
 export const useViewport = (handle: Viewport.UseHandler, component: string): void => {

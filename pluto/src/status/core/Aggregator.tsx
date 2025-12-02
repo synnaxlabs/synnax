@@ -9,9 +9,7 @@
 
 import { id, type status as xstatus, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
-  createContext,
   type PropsWithChildren,
-  use,
   useCallback,
   useEffect,
   useMemo,
@@ -19,16 +17,22 @@ import {
 } from "react";
 
 import { Aether } from "@/aether";
+import { context } from "@/context";
 import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
-const Context = createContext<xstatus.Status[]>([]);
-Context.displayName = "Status.Context";
+const [Context, useContext] = context.create<xstatus.Status[]>({
+  defaultValue: [],
+  displayName: "Status.Context",
+});
 
 export interface Adder extends status.Adder {}
 
-const AdderContext = createContext<Adder>(() => {});
-AdderContext.displayName = "Status.AdderContext";
+const [AdderContext, useAdder] = context.create<Adder>({
+  defaultValue: () => {},
+  displayName: "Status.AdderContext",
+});
+export { useAdder };
 
 export interface AggregatorProps extends PropsWithChildren {
   maxHistory?: number;
@@ -66,8 +70,6 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
   );
 };
 
-export const useAdder = () => use(AdderContext);
-
 export interface ErrorHandler extends status.ErrorHandler {}
 
 export interface AsyncErrorHandler extends status.AsyncErrorHandler {}
@@ -103,7 +105,7 @@ export const useNotifications = ({
   expiration = DEFAULT_EXPIRATION,
   poll = DEFAULT_EXPIRATION_POLL,
 }: UseNotificationsProps = {}): UseNotificationsReturn => {
-  const statuses = use(Context);
+  const statuses = useContext();
   const [silencedKeys, setSilencedKeys] = useState<Set<string>>(new Set());
   const [now, setNow] = useState(() => TimeStamp.now());
 

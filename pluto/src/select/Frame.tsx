@@ -9,17 +9,16 @@
 
 import { array, type record } from "@synnaxlabs/x";
 import {
-  createContext,
   type PropsWithChildren,
   type ReactElement,
   useCallback,
-  useContext as reactUseContext,
   useEffect,
   useMemo,
   useRef,
   useSyncExternalStore,
 } from "react";
 
+import { context } from "@/context";
 import { useSyncedRef } from "@/hooks/ref";
 import { List } from "@/list";
 import {
@@ -35,12 +34,15 @@ interface SelectionState<K extends record.Key = record.Key> {
   hover?: K;
 }
 
-const Context = createContext<ContextValue>({
-  getState: () => ({ value: undefined, hover: undefined }),
-  onSelect: () => {},
-  setSelected: () => {},
-  clear: () => {},
-  subscribe: () => () => {},
+const [Context, useCtx] = context.create<ContextValue>({
+  defaultValue: {
+    clear: () => {},
+    getState: () => ({ value: undefined, hover: undefined }),
+    onSelect: () => {},
+    setSelected: () => {},
+    subscribe: () => () => {},
+  },
+  displayName: "Select.Context",
 });
 Context.displayName = "Select.Context";
 
@@ -148,7 +150,7 @@ export interface UseItemStateReturn {
 }
 
 export const useContext = <K extends record.Key = record.Key>(): ContextValue<K> =>
-  reactUseContext(Context) as unknown as ContextValue<K>;
+  useCtx() as unknown as ContextValue<K>;
 
 type ItemState = "none" | "selected" | "hovered" | "selected-hovered";
 

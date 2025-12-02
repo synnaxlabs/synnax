@@ -69,10 +69,10 @@ interface ContextValue {
   useLoading: (key: string) => boolean;
 }
 
-const [Context, useContext] = context.createRequired<ContextValue>(
-  "Ontology.Context",
-  "Ontology.Tree",
-);
+const [Context, useContext] = context.create<ContextValue>({
+  displayName: "Ontology.Context",
+  providerName: "Ontology.Tree",
+});
 
 const DefaultItem = ({
   onDoubleClick,
