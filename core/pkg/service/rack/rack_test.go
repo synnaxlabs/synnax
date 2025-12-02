@@ -10,8 +10,10 @@
 package rack_test
 
 import (
+	"context"
 	"slices"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -266,6 +268,72 @@ var _ = Describe("Rack", Ordered, func() {
 				g.Expect(s.Variant).To(Equal(xstatus.SuccessVariant))
 				g.Expect(s.Description).ToNot(ContainSubstring("Driver was last alive"))
 			}, 50*telem.Millisecond.Duration(), 5*telem.Millisecond.Duration()).Should(Succeed())
+		})
+
+		It("Should dampen alerts after first dead check", func() {
+			r := rack.Rack{Name: "dampening test rack"}
+			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+
+			var (
+				alertCount int
+				alertMu    sync.Mutex
+			)
+			getCount := func() int {
+				alertMu.Lock()
+				defer alertMu.Unlock()
+				return alertCount
+			}
+			disconnect := svc.OnSuspect(func(_ context.Context, s rack.Status) {
+				if s.Details.Rack == r.Key {
+					alertMu.Lock()
+					alertCount++
+					alertMu.Unlock()
+				}
+			})
+			defer disconnect()
+
+			Eventually(getCount).Should(BeNumerically(">=", 1))
+			countAfterFirst := getCount()
+			time.Sleep(50 * time.Millisecond)
+			Expect(getCount()).To(Equal(countAfterFirst))
+			Eventually(getCount, 200*time.Millisecond, 10*time.Millisecond).Should(BeNumerically(">", countAfterFirst))
+		})
+
+		It("Should reset alert count when rack comes back alive", func() {
+			r := rack.Rack{Name: "reset test rack"}
+			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+
+			var (
+				alertCount int
+				alertMu    sync.Mutex
+			)
+			getCount := func() int {
+				alertMu.Lock()
+				defer alertMu.Unlock()
+				return alertCount
+			}
+			disconnect := svc.OnSuspect(func(_ context.Context, s rack.Status) {
+				if s.Details.Rack == r.Key {
+					alertMu.Lock()
+					alertCount++
+					alertMu.Unlock()
+				}
+			})
+			defer disconnect()
+
+			Eventually(getCount).Should(Equal(1))
+
+			Expect(status.NewWriter[rack.StatusDetails](stat, nil).Set(ctx, &rack.Status{
+				Key:     rack.OntologyID(r.Key).String(),
+				Name:    r.Name,
+				Time:    telem.Now(),
+				Variant: xstatus.SuccessVariant,
+				Message: "Running",
+				Details: rack.StatusDetails{Rack: r.Key},
+			})).To(Succeed())
+
+			countAfterRecovery := getCount()
+			Eventually(getCount, 50*time.Millisecond, 5*time.Millisecond).Should(BeNumerically(">", countAfterRecovery))
 		})
 	})
 })
