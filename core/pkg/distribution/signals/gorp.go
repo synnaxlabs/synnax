@@ -129,7 +129,7 @@ func GorpPublisherConfigNumeric[K types.SizedNumeric, E gorp.Entry[K]](db *gorp.
 		MarshalDelete: func(k K) (b []byte, err error) {
 			return xunsafe.CastToBytes(k), nil
 		},
-		MarshalSet:     MarshalJSON[K, E],
+		MarshalSet: MarshalJSON[K, E],
 	}
 }
 
