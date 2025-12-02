@@ -40,8 +40,8 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/iter"
 	xrand "github.com/synnaxlabs/x/rand"
+	xslices "github.com/synnaxlabs/x/slices"
 	xtime "github.com/synnaxlabs/x/time"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -81,17 +81,16 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 	// introduce random jitter to avoid a thundering herd during concurrent pledging.
 	introduceRandomJitter(cfg.RetryInterval)
 
-	addresses := iter.Endlessly(cfg.Peers)
+	addresses := xslices.IterEndlessly(cfg.Peers)
 
 	t := xtime.NewScaledTicker(cfg.RetryInterval, cfg.RetryScale)
 	defer t.Stop()
 
-	for {
+	for addr := range addresses {
 		select {
 		case <-ctx.Done():
 			return Response{}, errors.Combine(ctx.Err(), err)
 		case dur := <-t.C:
-			addr, _ := addresses.Next(ctx)
 			cfg.L.Info("pledging to peer", zap.Stringer("address", addr))
 
 			reqCtx, cancel := context.WithTimeout(context.Background(), cfg.RequestTimeout)
@@ -120,6 +119,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 			)
 		}
 	}
+	return res, err
 }
 
 // Arbitrate registers a node to arbitrate future pledges. When processing a pledge
