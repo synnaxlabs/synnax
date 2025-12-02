@@ -235,10 +235,11 @@ class TaskCase(TestCase):
         Raises:
             AssertionError: If sample counts are incorrect or inconsistent
         """
-        start_time = sy.TimeStamp.now()
         with task.run():
+            sy.sleep(0.2)  # Allow task to start
+            start_time = sy.TimeStamp.now()
             sy.sleep(duration)
-        end_time = sy.TimeStamp.now()
+            end_time = sy.TimeStamp.now()
 
         sample_rate = task.config.sample_rate
         time_range = sy.TimeRange(start_time, end_time)

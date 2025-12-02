@@ -29,6 +29,8 @@ The base class provides the run() method that tests:
 
 from abc import ABC
 
+import synnax as sy
+
 from tests.driver.modbus_read import ModbusReadMixed
 from tests.driver.opcua_read import OPCUAReadMixed
 from tests.driver.simulator_task import SimulatorTaskCase
@@ -77,6 +79,7 @@ class DisconnectTask(SimulatorTaskCase, ABC):
         self.log("Test 2 - Reconnect Device")
         reconnected_device = client.devices.create(device)
         self.assert_device_exists(device_key=reconnected_device.key)
+        sy.sleep(3)  # Give the driver time to reconnect
 
         self.log("Test 3 - Run Task After Device Reconnection")
         self.assert_sample_count(task=tsk, strict=False)

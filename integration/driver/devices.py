@@ -39,8 +39,11 @@ def _run_modbus_server() -> None:
     sys.stdout = open(os.devnull, "w")
     sys.stderr = open(os.devnull, "w")
 
+    # Reset signal handlers to defaults
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    if sys.platform != "win32":
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+
     asyncio.run(run_server())
 
 
@@ -53,8 +56,11 @@ def _run_opcua_server() -> None:
     sys.stdout = open(os.devnull, "w")
     sys.stderr = open(os.devnull, "w")
 
+    # Reset signal handlers to defaults
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    if sys.platform != "win32":
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+
     asyncio.run(run_server())
 
 
@@ -122,14 +128,14 @@ class Simulator:
 
     MODBUS = SimulatorConfig(
         server_setup=start_modbus_server,
-        startup_delay_seconds=2.0,
+        startup_delay_seconds=3.0,
         device_factory=KnownDevices.modbus_sim,
         device_name="Modbus TCP Test Server",
     )
 
     OPCUA = SimulatorConfig(
         server_setup=start_opcua_server,
-        startup_delay_seconds=2.0,
+        startup_delay_seconds=3.0,
         device_factory=KnownDevices.opcua_sim,
         device_name="OPC UA Test Server",
     )
