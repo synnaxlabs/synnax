@@ -83,7 +83,6 @@ export interface WrapFormArgs<
   onConfigure: OnConfigure<Config>;
   schemas: task.Schemas<Type, Config, StatusData>;
   getInitialValues: GetInitialValues<Type, Config, StatusData>;
-  initialStatusData: z.infer<StatusData>;
   showHeader?: boolean;
   showControls?: boolean;
 }
@@ -125,7 +124,6 @@ export const wrapForm = <
   type,
   getInitialValues,
   onConfigure,
-  initialStatusData,
   showHeader = true,
   showControls = true,
 }: WrapFormArgs<Type, Config, StatusData>): Layout.Renderer => {
@@ -171,7 +169,7 @@ export const wrapForm = <
           time: TimeStamp.now(),
           variant: "loading",
           message: "Configuring task",
-          details: { running: true, data: initialStatusData },
+          details: { running: true, data: null },
         };
         form.set("status", status);
         return true;

@@ -31,14 +31,18 @@ import (
 	"go.uber.org/zap"
 )
 
+type rackState struct {
+	lastUpdated    telem.TimeStamp
+	deadCheckCount int
+}
+
 type monitor struct {
 	observe.Observer[Status]
 	alamos.Instrumentation
-	interval telem.TimeSpan
-	svc      *Service
-	mu       struct {
+	svc *Service
+	mu  struct {
 		sync.Mutex
-		lastUpdated map[Key]telem.TimeStamp
+		racks map[Key]rackState
 	}
 	disconnectStatusObserver observe.Disconnect
 	shutdownRoutines         io.Closer
@@ -56,37 +60,40 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	m.L.Debug("checking health of racks")
 	m.mu.Lock()
 	now := telem.Now()
-	var toCreate []Key
-	for k, ts := range m.mu.lastUpdated {
-		if telem.TimeSpan(now-ts) < m.interval {
+	var toAlert []Key
+	for k, state := range m.mu.racks {
+		if telem.TimeSpan(now-state.lastUpdated) < m.svc.HealthCheckInterval {
 			continue
 		}
-		toCreate = append(toCreate, k)
+		state.deadCheckCount++
+		m.mu.racks[k] = state
+		if state.deadCheckCount == 1 || state.deadCheckCount%m.svc.AlertEveryNChecks == 0 {
+			toAlert = append(toAlert, k)
+		}
 	}
 	m.mu.Unlock()
 
-	if len(toCreate) == 0 {
+	if len(toAlert) == 0 {
 		return nil
 	}
-	racks := make([]Rack, 0, len(toCreate))
+	racks := make([]Rack, 0, len(toAlert))
 	if err := m.svc.NewRetrieve().
-		WhereKeys(toCreate...).
+		WhereKeys(toAlert...).
 		Entries(&racks).
 		Exec(ctx, nil); errors.Skip(err, query.NotFound) != nil {
 		return err
 	}
 
-	// Re-acquire lock to read lastUpdated timestamps for status messages
 	m.mu.Lock()
 	statuses := make([]Status, len(racks))
 	for i, r := range racks {
-		lastUpdated := m.mu.lastUpdated[r.Key]
-		timeSinceAlive := telem.TimeSpan(now - lastUpdated)
+		state := m.mu.racks[r.Key]
+		timeSinceAlive := telem.TimeSpan(now - state.lastUpdated)
 		stat := Status{
 			Key:         OntologyID(r.Key).String(),
 			Name:        r.Name,
 			Variant:     xstatus.WarningVariant,
-			Time:        lastUpdated,
+			Time:        state.lastUpdated,
 			Message:     fmt.Sprintf("Synnax Driver on %s not running", r.Name),
 			Description: fmt.Sprintf("Driver was last alive %s seconds ago", timeSinceAlive),
 			Details:     StatusDetails{Rack: r.Key},
@@ -96,8 +103,6 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	}
 	m.mu.Unlock()
 
-	// Call SetMany without holding the lock to avoid deadlock when observer
-	// notifications trigger handleChange which also needs the lock
 	if err := status.NewWriter[StatusDetails](m.svc.Status, nil).
 		SetMany(ctx, &statuses); err != nil {
 		return err
@@ -109,49 +114,45 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 }
 
 func (m *monitor) handleChange(ctx context.Context, t gorp.TxReader[string, status.Status[any]]) {
-	var (
-		deletes []string
-		updates []string
-	)
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	for {
-		stat, ok := t.Next(ctx)
+		change, ok := t.Next(ctx)
 		if !ok {
 			break
 		}
-		if !strings.HasPrefix(stat.Key, string(OntologyType)) {
+		if !strings.HasPrefix(change.Key, string(OntologyType)) {
 			continue
 		}
-		if stat.Variant == xchange.Delete {
-			deletes = append(deletes, stat.Key)
-		} else {
-			updates = append(updates, stat.Key)
+		key, err := decodeKeyFromOntologyIDString(change.Key)
+		if err != nil {
+			m.L.Error("failed to decode status key", zap.Error(err))
+			continue
 		}
-	}
-
-	updateKeys, err := decodeKeysFromOntologyIDStrings(updates)
-	if err != nil {
-		m.L.Error("failed to decode status update as ontology id", zap.Error(err))
-	}
-	deleteKeys, err := decodeKeysFromOntologyIDStrings(deletes)
-	if err != nil {
-		m.L.Error("failed to decode status delete as ontology id", zap.Error(err))
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for _, key := range deleteKeys {
-		delete(m.mu.lastUpdated, key)
-	}
-	for _, key := range updateKeys {
-		m.mu.lastUpdated[key] = telem.Now()
+		if change.Variant == xchange.Delete {
+			delete(m.mu.racks, key)
+			continue
+		}
+		isHealthy := change.Value.Variant == xstatus.SuccessVariant ||
+			change.Value.Variant == xstatus.InfoVariant
+		if isHealthy {
+			m.mu.racks[key] = rackState{lastUpdated: telem.Now(), deadCheckCount: 0}
+		} else if _, exists := m.mu.racks[key]; !exists {
+			m.mu.racks[key] = rackState{lastUpdated: telem.Now(), deadCheckCount: 0}
+		}
 	}
 }
 
-func decodeKeysFromOntologyIDStrings(strings []string) ([]Key, error) {
-	ids, err := ontology.ParseIDs(strings)
+func decodeKeyFromOntologyIDString(s string) (Key, error) {
+	id, err := ontology.ParseID(s)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	return KeysFromOntologyIds(ids)
+	keys, err := KeysFromOntologyIds([]ontology.ID{id})
+	if err != nil || len(keys) == 0 {
+		return 0, err
+	}
+	return keys[0], nil
 }
 
 func openMonitor(
@@ -164,10 +165,9 @@ func openMonitor(
 		Observer:         observe.New[Status](),
 		Instrumentation:  ins,
 		svc:              svc,
-		interval:         svc.HealthCheckInterval,
 		shutdownRoutines: signal.NewHardShutdown(sCtx, cancel),
 	}
-	s.mu.lastUpdated = make(map[Key]telem.TimeStamp)
+	s.mu.racks = make(map[Key]rackState)
 	s.disconnectStatusObserver = obs.OnChange(s.handleChange)
 	signal.GoTick(sCtx, svc.HealthCheckInterval.Duration(), func(ctx context.Context, t time.Time) error {
 		if err := s.checkAlive(ctx); err != nil {

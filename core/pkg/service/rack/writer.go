@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete racks within a Synnax cluster.
@@ -39,30 +38,21 @@ type Writer struct {
 	status status.Writer[StatusDetails]
 }
 
-func unknownRackStatus(key Key, name string) *Status {
-	return &Status{
-		Key:     OntologyID(key).String(),
-		Name:    name,
-		Time:    telem.Now(),
-		Variant: xstatus.WarningVariant,
-		Message: "Status unknown",
-		Details: StatusDetails{Rack: key},
-	}
-}
-
-func (w Writer) resolveStatus(r *Rack) (*Status, error) {
+func resolveStatus(r *Rack) *Status {
 	if r.Status == nil {
-		return unknownRackStatus(r.Key, r.Name), nil
-	}
-	v := validate.New("status")
-	validate.NotEmptyString(v, "Variant", string(r.Status.Variant))
-	if err := v.Error(); err != nil {
-		return nil, err
+		return &Status{
+			Key:     OntologyID(r.Key).String(),
+			Name:    r.Name,
+			Time:    telem.Now(),
+			Variant: xstatus.WarningVariant,
+			Message: "Status unknown",
+			Details: StatusDetails{Rack: r.Key},
+		}
 	}
 	r.Status.Key = OntologyID(r.Key).String()
 	r.Status.Details.Rack = r.Key
 	r.Status.Name = r.Name
-	return r.Status, nil
+	return r.Status
 }
 
 // Create creates or updates a rack. If the rack key is zero or a rack with the key
@@ -85,11 +75,8 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 	if err = w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	status, err := w.resolveStatus(r)
-	if err != nil {
-		return err
-	}
-	if err = w.status.Set(ctx, status); err != nil {
+	stat := resolveStatus(r)
+	if err = w.status.Set(ctx, stat); err != nil {
 		return err
 	}
 	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)

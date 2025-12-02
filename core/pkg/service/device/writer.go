@@ -15,14 +15,12 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete devices within Synnax. The writer
@@ -36,42 +34,22 @@ type Writer struct {
 	status status.Writer[StatusDetails]
 }
 
-func newUnknownStatus(devKey string, rackKey rack.Key, name string) *Status {
-	return &Status{
-		Key:     OntologyID(devKey).String(),
-		Name:    name,
-		Time:    telem.Now(),
-		Variant: xstatus.WarningVariant,
-		Message: fmt.Sprintf("%s state unknown", name),
-		Details: StatusDetails{Rack: rackKey, Device: devKey},
-	}
-}
-
-func (w Writer) resolveStatus(d *Device, provided *Status) (*Status, error) {
+func resolveStatus(d *Device, provided *Status) *Status {
 	if provided == nil {
-		return newUnknownStatus(d.Key, d.Rack, d.Name), nil
+		return &Status{
+			Key:     OntologyID(d.Key).String(),
+			Name:    d.Name,
+			Time:    telem.Now(),
+			Variant: xstatus.WarningVariant,
+			Message: fmt.Sprintf("%s state unknown", d.Name),
+			Details: StatusDetails{Rack: d.Rack, Device: d.Key},
+		}
 	}
-	v := validate.New("status")
-	validate.NotEmptyString(v, "Variant", string(provided.Variant))
-	if err := v.Error(); err != nil {
-		return nil, err
-	}
-	// Always override key to match ontology
 	provided.Key = OntologyID(d.Key).String()
-	// Auto-fill missing fields
-	if provided.Time.IsZero() {
-		provided.Time = telem.Now()
-	}
-	if provided.Name == "" {
-		provided.Name = d.Name
-	}
-	if provided.Details.Device == "" {
-		provided.Details.Device = d.Key
-	}
-	if provided.Details.Rack == 0 {
-		provided.Details.Rack = d.Rack
-	}
-	return provided, nil
+	provided.Name = d.Name
+	provided.Details.Device = d.Key
+	provided.Details.Rack = d.Rack
+	return provided
 }
 
 // Create creates or updates the given device. Create will redefine ontology
@@ -105,19 +83,13 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 	if exists && device.Rack == existing.Rack {
 		// If the device is being renamed, update the status name.
 		if device.Name != existing.Name {
-			status, err := w.resolveStatus(&device, providedStatus)
-			if err != nil {
-				return err
-			}
-			return w.status.Set(ctx, status)
+			stat := resolveStatus(&device, providedStatus)
+			return w.status.Set(ctx, stat)
 		}
 		return nil
 	}
-	status, err := w.resolveStatus(&device, providedStatus)
-	if err != nil {
-		return err
-	}
-	if err = w.status.Set(ctx, status); err != nil {
+	stat := resolveStatus(&device, providedStatus)
+	if err = w.status.Set(ctx, stat); err != nil {
 		return err
 	}
 	otgID := OntologyID(device.Key)

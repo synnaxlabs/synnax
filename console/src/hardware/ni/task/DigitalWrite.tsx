@@ -197,7 +197,6 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
 };
 
 export const DigitalWrite = Common.Task.wrapForm({
-  initialStatusData: null,
   Properties,
   Form,
   schemas: DIGITAL_WRITE_SCHEMAS,

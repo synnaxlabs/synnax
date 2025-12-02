@@ -164,7 +164,6 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
 };
 
 export const DigitalRead = Common.Task.wrapForm({
-  initialStatusData: null,
   Properties,
   Form,
   schemas: DIGITAL_READ_SCHEMAS,

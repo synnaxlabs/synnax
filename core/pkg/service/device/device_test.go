@@ -214,6 +214,7 @@ var _ = Describe("Device", func() {
 		It("Should use the provided status when creating a device", func() {
 			providedStatus := &device.Status{
 				Variant:     xstatus.SuccessVariant,
+				Time:        telem.Now(),
 				Message:     "Device is connected",
 				Description: "Custom device description",
 			}
@@ -246,6 +247,7 @@ var _ = Describe("Device", func() {
 		It("Should return a validation error if provided status has empty variant", func() {
 			providedStatus := &device.Status{
 				Message: "Status with no variant",
+				Time:    telem.Now(),
 			}
 			d := device.Device{
 				Key:      "device-invalid-status",
