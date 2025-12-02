@@ -28,9 +28,9 @@ describe("useRequiredContext", () => {
     TestContext.displayName = "TestContext";
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <TestContext.Provider value={{ value: "test", count: 42 }}>
+      <TestContext value={{ value: "test", count: 42 }}>
         {children}
-      </TestContext.Provider>
+      </TestContext>
     );
 
     const { result } = renderHook(() => useRequiredContext(TestContext), {
@@ -47,7 +47,7 @@ describe("useRequiredContext", () => {
     TestContext.displayName = "TestContext";
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <TestContext.Provider value={null}>{children}</TestContext.Provider>
+      <TestContext value={null}>{children}</TestContext>
     );
 
     expect(() =>
@@ -64,7 +64,7 @@ describe("useRequiredContext", () => {
     TestContext.displayName = "UndefinedTestContext";
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <TestContext.Provider value={undefined as any}>{children}</TestContext.Provider>
+      <TestContext value={undefined as any}>{children}</TestContext>
     );
 
     expect(() =>
@@ -94,7 +94,7 @@ describe("useRequiredContext", () => {
     StringContext.displayName = "StringContext";
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <StringContext.Provider value="test string">{children}</StringContext.Provider>
+      <StringContext value="test string">{children}</StringContext>
     );
 
     const { result } = renderHook(() => useRequiredContext(StringContext), {
@@ -109,7 +109,7 @@ describe("useRequiredContext", () => {
     NumberContext.displayName = "NumberContext";
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <NumberContext.Provider value={0}>{children}</NumberContext.Provider>
+      <NumberContext value={0}>{children}</NumberContext>
     );
 
     const { result } = renderHook(() => useRequiredContext(NumberContext), {
@@ -124,7 +124,7 @@ describe("useRequiredContext", () => {
     BooleanContext.displayName = "BooleanContext";
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <BooleanContext.Provider value={false}>{children}</BooleanContext.Provider>
+      <BooleanContext value={false}>{children}</BooleanContext>
     );
 
     const { result } = renderHook(() => useRequiredContext(BooleanContext), {
@@ -139,7 +139,7 @@ describe("useRequiredContext", () => {
     EmptyStringContext.displayName = "EmptyStringContext";
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <EmptyStringContext.Provider value="">{children}</EmptyStringContext.Provider>
+      <EmptyStringContext value="">{children}</EmptyStringContext>
     );
 
     const { result } = renderHook(() => useRequiredContext(EmptyStringContext), {
@@ -155,7 +155,7 @@ describe("useRequiredContext", () => {
 
     const testArray = [1, 2, 3];
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <ArrayContext.Provider value={testArray}>{children}</ArrayContext.Provider>
+      <ArrayContext value={testArray}>{children}</ArrayContext>
     );
 
     const { result } = renderHook(() => useRequiredContext(ArrayContext), {
@@ -171,7 +171,7 @@ describe("useRequiredContext", () => {
     EmptyArrayContext.displayName = "EmptyArrayContext";
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <EmptyArrayContext.Provider value={[]}>{children}</EmptyArrayContext.Provider>
+      <EmptyArrayContext value={[]}>{children}</EmptyArrayContext>
     );
 
     const { result } = renderHook(() => useRequiredContext(EmptyArrayContext), {
@@ -195,7 +195,7 @@ describe("useRequiredContext", () => {
 
     let value = 1;
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <DynamicContext.Provider value={value}>{children}</DynamicContext.Provider>
+      <DynamicContext value={value}>{children}</DynamicContext>
     );
 
     const { result, rerender } = renderHook(() => useRequiredContext(DynamicContext), {
@@ -217,9 +217,9 @@ describe("useRequiredContext", () => {
     InnerContext.displayName = "InnerContext";
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <OuterContext.Provider value="outer">
-        <InnerContext.Provider value={42}>{children}</InnerContext.Provider>
-      </OuterContext.Provider>
+      <OuterContext value="outer">
+        <InnerContext value={42}>{children}</InnerContext>
+      </OuterContext>
     );
 
     const { result } = renderHook(
@@ -239,9 +239,9 @@ describe("useRequiredContext", () => {
     TypedContext.displayName = "TypedContext";
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <TypedContext.Provider value={{ optional: "value" }}>
+      <TypedContext value={{ optional: "value" }}>
         {children}
-      </TypedContext.Provider>
+      </TypedContext>
     );
 
     const { result } = renderHook(() => useRequiredContext(TypedContext), {

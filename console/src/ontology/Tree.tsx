@@ -516,7 +516,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
 
   return (
-    <Context.Provider value={contextValue}>
+    <Context value={contextValue}>
       <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
       <Core.Tree<string, ontology.Resource>
         {...treeProps}
@@ -532,7 +532,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       >
         {itemRenderProp}
       </Core.Tree>
-    </Context.Provider>
+    </Context>
   );
 };
 
