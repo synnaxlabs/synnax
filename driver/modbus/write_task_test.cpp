@@ -32,12 +32,14 @@ protected:
         this->sy = std::make_shared<synnax::Synnax>(new_test_client());
         this->devs = std::make_shared<modbus::device::Manager>();
         this->ctx = std::make_shared<task::MockContext>(sy);
-        if (this->coil_ch.name.empty()) this->coil_ch.name = "coil";
+        if (this->coil_ch.name.empty())
+            this->coil_ch.name = make_unique_channel_name("coil");
         if (this->coil_ch.data_type == telem::UNKNOWN_T)
             this->coil_ch.data_type = telem::UINT8_T;
         this->coil_ch.is_virtual = true;
         ASSERT_NIL(sy->channels.create(this->coil_ch));
-        if (this->reg_ch.name.empty()) this->reg_ch.name = "register";
+        if (this->reg_ch.name.empty())
+            this->reg_ch.name = make_unique_channel_name("register");
         if (this->reg_ch.data_type == telem::UNKNOWN_T)
             this->reg_ch.data_type = telem::UINT16_T;
         this->reg_ch.is_virtual = true;
@@ -134,14 +136,20 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     ASSERT_NIL(slave.start());
     x::defer stop_slave([&slave] { slave.stop(); });
 
-    auto int16_ch = ASSERT_NIL_P(sy->channels.create("int16", telem::INT16_T, true));
-    auto uint32_ch = ASSERT_NIL_P(sy->channels.create("uint32", telem::UINT32_T, true));
-    auto int32_ch = ASSERT_NIL_P(sy->channels.create("int32", telem::INT32_T, true));
+    auto int16_ch = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("int16"), telem::INT16_T, true)
+    );
+    auto uint32_ch = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("uint32"), telem::UINT32_T, true)
+    );
+    auto int32_ch = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("int32"), telem::INT32_T, true)
+    );
     auto float32_ch = ASSERT_NIL_P(
-        sy->channels.create("float32", telem::FLOAT32_T, true)
+        sy->channels.create(make_unique_channel_name("float32"), telem::FLOAT32_T, true)
     );
     auto float64_ch = ASSERT_NIL_P(
-        sy->channels.create("float64", telem::FLOAT64_T, true)
+        sy->channels.create(make_unique_channel_name("float64"), telem::FLOAT64_T, true)
     );
 
     json task_cfg{
@@ -262,10 +270,18 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
     ASSERT_NIL(slave.start());
     x::defer stop_slave([&slave] { slave.stop(); });
 
-    auto coil1 = ASSERT_NIL_P(sy->channels.create("coil1", telem::UINT8_T, true));
-    auto coil2 = ASSERT_NIL_P(sy->channels.create("coil2", telem::UINT8_T, true));
-    auto reg1 = ASSERT_NIL_P(sy->channels.create("reg1", telem::UINT16_T, true));
-    auto reg2 = ASSERT_NIL_P(sy->channels.create("reg2", telem::UINT16_T, true));
+    auto coil1 = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("coil1"), telem::UINT8_T, true)
+    );
+    auto coil2 = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("coil2"), telem::UINT8_T, true)
+    );
+    auto reg1 = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("reg1"), telem::UINT16_T, true)
+    );
+    auto reg2 = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("reg2"), telem::UINT16_T, true)
+    );
 
     json task_cfg{
         {"device", "modbus_test_dev"},
@@ -422,9 +438,15 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     // Create three UINT8 channels for sequential holding registers
-    auto holding0 = ASSERT_NIL_P(sy->channels.create("holding0", telem::UINT8_T, true));
-    auto holding1 = ASSERT_NIL_P(sy->channels.create("holding1", telem::UINT8_T, true));
-    auto holding2 = ASSERT_NIL_P(sy->channels.create("holding2", telem::UINT8_T, true));
+    auto holding0 = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("holding0"), telem::UINT8_T, true)
+    );
+    auto holding1 = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("holding1"), telem::UINT8_T, true)
+    );
+    auto holding2 = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("holding2"), telem::UINT8_T, true)
+    );
 
     json task_cfg{
         {"device", "modbus_test_dev"},

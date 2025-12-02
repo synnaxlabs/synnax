@@ -98,7 +98,7 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 		return nil, err
 	}
 	channels := []channel.Channel{cfg.SetChannel, cfg.DeleteChannel}
-	if err = s.Channel.CreateMany(ctx, &channels, channel.RetrieveIfNameExists(true), channel.OverwriteIfNameExistsAndDifferentProperties()); err != nil {
+	if err = s.Channel.CreateMany(ctx, &channels, channel.RetrieveIfNameExists(), channel.OverwriteIfNameExistsAndDifferentProperties()); err != nil {
 		return nil, err
 	}
 	keys := channel.KeysFromChannels(channels)

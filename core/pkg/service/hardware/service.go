@@ -47,7 +47,7 @@ type Config struct {
 	// Signals is used to propagate changes to meta-data throughout the cluster.
 	Signals *signals.Provider
 	// Channel is used to create channels necessary for hardware communication.
-	Channel channel.ReadWriteable
+	Channel *channel.Service
 	// Framer is used for writing hardware telemetry data.
 	Framer *framer.Service
 }
@@ -91,7 +91,7 @@ type Service struct {
 }
 
 func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
-	cfg, err := config.New[Config](DefaultConfig, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 		Device:          deviceSvc,
 		Signals:         cfg.Signals,
 		HostProvider:    cfg.HostProvider,
-		Channels:        cfg.Channel,
+		Channel:         cfg.Channel,
 		Framer:          cfg.Framer,
 	})
 	if err != nil {

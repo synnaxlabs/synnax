@@ -12,11 +12,11 @@ import "@/layout/Modals.css";
 import { type ReactElement } from "react";
 
 import { Modal } from "@/layout/Modal";
-import { useSelectModals } from "@/layout/selectors";
+import { useSelectWindowModals } from "@/layout/selectors";
 import { useRemover } from "@/layout/useRemover";
 
 export const Modals = (): ReactElement => {
-  const layouts = useSelectModals();
+  const layouts = useSelectWindowModals();
   const remove = useRemover();
   return (
     <>

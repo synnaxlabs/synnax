@@ -38,7 +38,7 @@ type Config struct {
 	Rack         *rack.Service
 	Signals      *signals.Provider
 	HostProvider cluster.HostProvider
-	Channel      channel.Writeable
+	Channel      *channel.Service
 }
 
 var (

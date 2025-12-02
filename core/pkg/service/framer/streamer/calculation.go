@@ -23,7 +23,7 @@ import (
 
 type calculationUpdaterTransform struct {
 	alamos.Instrumentation
-	readable    channel.Readable
+	channelSvc  *channel.Service
 	calcManager *calculation.RequestManager
 	confluence.LinearTransform[Request, framer.StreamerRequest]
 }

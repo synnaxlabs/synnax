@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
-	xtelem "github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -50,7 +50,7 @@ var (
 type source struct {
 	*state.Node
 	key           uint32
-	highWaterMark xtelem.Alignment
+	highWaterMark telem.Alignment
 }
 
 func (s *source) Init(node.Context) {}
@@ -63,12 +63,12 @@ func (s *source) Next(ctx node.Context) {
 	for i, ser := range data.Series {
 		ab := ser.AlignmentBounds()
 		if ab.Lower >= s.highWaterMark {
-			var timeSeries xtelem.Series
-			if indexData.DataType() == xtelem.UnknownT {
-				timeSeries = xtelem.Arange[xtelem.TimeStamp](
-					xtelem.Now(),
+			var timeSeries telem.Series
+			if indexData.DataType() == telem.UnknownT {
+				timeSeries = telem.Arrange(
+					telem.Now(),
 					int(data.Len()),
-					1*xtelem.NanosecondTS,
+					1*telem.NanosecondTS,
 				)
 				timeSeries.Alignment = ser.Alignment
 			} else if len(indexData.Series) > i {

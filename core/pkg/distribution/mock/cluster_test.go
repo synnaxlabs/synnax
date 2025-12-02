@@ -43,13 +43,13 @@ var _ = Describe("Cluster", func() {
 			Expect(ch.Key().Leaseholder()).To(Equal(cluster.NodeKey(1)))
 
 			Eventually(func(g Gomega) {
-				var resCH channel.Channel
+				var resCh channel.Channel
 				g.Expect(coreThree.Channel.NewRetrieve().
 					WhereKeys(ch.Key()).
-					Entry(&resCH).
+					Entry(&resCh).
 					Exec(ctx, nil)).To(Succeed())
 
-				g.Expect(resCH.Key()).To(Equal(ch.Key()))
+				g.Expect(resCh.Key()).To(Equal(ch.Key()))
 			}, "200ms").Should(Succeed())
 
 			Expect(mockCluster.Close()).To(Succeed())
