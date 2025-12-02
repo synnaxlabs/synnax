@@ -22,8 +22,8 @@ import {
   signedDimensions,
   type XY,
   xy,
-  type YLocation,
   Y_LOCATIONS,
+  type YLocation,
 } from "@/spatial/base";
 import { type location } from "@/spatial/location";
 
