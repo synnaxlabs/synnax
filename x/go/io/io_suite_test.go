@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestFs(t *testing.T) {
+func TestIO(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "IO Suite")
 }

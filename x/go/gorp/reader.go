@@ -13,12 +13,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"iter"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
@@ -111,9 +112,18 @@ func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err err
 
 // OpenNexter opens a new Nexter that can be used to iterate over
 // the entries in the reader in sequential order.
-func (r Reader[K, E]) OpenNexter() (iter.NexterCloser[E], error) {
+func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
 	i, err := r.OpenIterator(IterOptions{})
-	return &next[E]{Iterator: i}, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return func(yield func(E) bool) {
+		for i.First(); i.Valid(); i.Next() {
+			if !yield(*i.Value(ctx)) {
+				return
+			}
+		}
+	}, i, nil
 }
 
 // Iterator provides a simple wrapper around a kv.Iterator that decodes a byte-value
@@ -154,6 +164,8 @@ func (k *Iterator[E]) Valid() bool {
 	return lo.Ternary(k.err != nil, false, k.Iterator.Valid())
 }
 
+type TxReader[K Key, E Entry[K]] = iter.Seq[change.Change[K, E]]
+
 // WrapTxReader wraps the given key-value reader to provide a strongly
 // typed interface for iterating over a transactions operations in order. The given
 // tools are used to implement gorp-specific functionality, such as
@@ -163,77 +175,37 @@ func (k *Iterator[E]) Valid() bool {
 //	tx := db.OpenTx()
 //	defer tx.Close()
 //
-//	r := gor.WrapTxReader[MyKey, MyEntry](tx.NewStreamer(), tx)
+//	r := gor.WrapTxReader[MyKey, MyEntry](tx.NewReader(), tx)
 //
-//	r, ok, err := r.Nexter(ctx)
+//	for op := range r {
+//	    // process op
+//	}
 func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {
-	return TxReader[K, E]{
-		kv:     reader,
-		tools:  tools,
-		prefix: lazyPrefix[K, E]{Tools: tools},
+	prefix := &lazyPrefix[K, E]{Tools: tools}
+	return func(yield func(change.Change[K, E]) bool) {
+		ctx := context.TODO()
+		pref := prefix.prefix(ctx)
+		for kvChange := range reader {
+			if !bytes.HasPrefix(kvChange.Key, pref) {
+				continue
+			}
+			var op change.Change[K, E]
+			var err error
+			if op.Key, err = decodeKey[K](ctx, tools, pref, kvChange.Key); err != nil {
+				panic(err)
+			}
+			op.Variant = kvChange.Variant
+			if op.Variant == change.Set {
+				// Panicking in development here right now. Don't want to extend the
+				// footprint of TxReader to NexterCloser.
+				if err := tools.Decode(ctx, kvChange.Value, &op.Value); err != nil {
+					panic(err)
+				}
+				op.Key = op.Value.GorpKey()
+			}
+			if !yield(op) {
+				return
+			}
+		}
 	}
-}
-
-// TxReader is a thin-wrapper around a key-value transaction reader
-// that provides a strongly typed interface for iterating over a
-// transactions operations in order.
-type TxReader[K Key, E Entry[K]] struct {
-	kv     kv.TxReader
-	tools  Tools
-	prefix lazyPrefix[K, E]
-}
-
-var _ iter.Nexter[change.Change[string, nopEntry]] = TxReader[string, nopEntry]{}
-
-// Count returns the number of key-value operations in the reader. NOTE: This includes
-// operations that may not match the entry type of the reader. Caveat emptor.
-func (t TxReader[K, E]) Count() int { return t.kv.Count() }
-
-// Next implements TxReader.
-func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bool) {
-	var kvOp kv.Change
-	kvOp, ok = t.kv.Next(ctx)
-	if !ok {
-		return op, false
-	}
-	pref := t.prefix.prefix(ctx)
-	if !bytes.HasPrefix(kvOp.Key, pref) {
-		return t.Next(ctx)
-	}
-	var err error
-	if op.Key, err = decodeKey[K](ctx, t.tools, pref, kvOp.Key); err != nil {
-		panic(err)
-	}
-	op.Variant = kvOp.Variant
-	if op.Variant != change.Set {
-		return op, true
-	}
-	// Panicking in development here right now. Don't want to extend the footprint of
-	// TxReader to NexterCloser.
-	if err := t.tools.Decode(ctx, kvOp.Value, &op.Value); err != nil {
-		panic(err)
-	}
-	op.Key = op.Value.GorpKey()
-	return
-}
-
-type next[E any] struct {
-	afterFirst bool
-	*Iterator[E]
-}
-
-var _ iter.NexterCloser[any] = (*next[any])(nil)
-
-// Next implements iter.Nexter.
-func (n *next[E]) Next(ctx context.Context) (e E, ok bool) {
-	if !n.afterFirst {
-		ok = n.First()
-		n.afterFirst = true
-	} else {
-		ok = n.Iterator.Next()
-	}
-	if !ok {
-		return e, ok
-	}
-	return *n.Value(ctx), ok
 }

@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package iter_test
+// Package iter provides utilities for working with Go iterators.
+package iter
 
-import (
-	"testing"
+import "iter"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
-
-func TestIter(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Iter Suite")
+// Map returns an iterator that applies f to each element of the input iterator.
+func Map[T any, R any](iter iter.Seq[T], f func(T) R) iter.Seq[R] {
+	return func(yield func(R) bool) {
+		for v := range iter {
+			if !yield(f(v)) {
+				return
+			}
+		}
+	}
 }
