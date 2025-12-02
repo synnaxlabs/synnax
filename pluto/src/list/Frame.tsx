@@ -235,11 +235,11 @@ const VirtualFrame = <
   );
 
   return (
-    <DataContext.Provider value={dataCtxValue}>
-      <UtilContext.Provider value={utilCtxValue as unknown as UtilContextValue}>
+    <DataContext value={dataCtxValue}>
+      <UtilContext value={utilCtxValue as unknown as UtilContextValue}>
         {children}
-      </UtilContext.Provider>
-    </DataContext.Provider>
+      </UtilContext>
+    </DataContext>
   );
 };
 
@@ -295,11 +295,11 @@ const StaticFrame = <
     [refCallback, getItem, subscribe, scrollToIndex],
   );
   return (
-    <DataContext.Provider value={dataCtxValue}>
-      <UtilContext.Provider value={utilCtxValue as unknown as UtilContextValue}>
+    <DataContext value={dataCtxValue}>
+      <UtilContext value={utilCtxValue as unknown as UtilContextValue}>
         {children}
-      </UtilContext.Provider>
-    </DataContext.Provider>
+      </UtilContext>
+    </DataContext>
   );
 };
 

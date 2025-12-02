@@ -35,5 +35,5 @@ export const Provider = <K extends record.Key>({
   children,
 }: ProviderProps<K>) => {
   const value = useMemo(() => ({ shape }), [shape]);
-  return <Context.Provider value={value}>{children}</Context.Provider>;
+  return <Context value={value}>{children}</Context>;
 };

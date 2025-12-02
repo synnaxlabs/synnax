@@ -52,7 +52,7 @@ export interface CommandProviderProps extends PropsWithChildren {
 
 export const CommandProvider = ({ commands, children }: CommandProviderProps) => {
   const ctxValue = useMemo(() => ({ commands }), [commands]);
-  return <CommandContext.Provider value={ctxValue}>{children}</CommandContext.Provider>;
+  return <CommandContext value={ctxValue}>{children}</CommandContext>;
 };
 
 export const useCommandContext = (): ContextValue => useContext(CommandContext);

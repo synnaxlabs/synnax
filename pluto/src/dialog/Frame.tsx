@@ -316,8 +316,8 @@ export const Frame = ({
   );
 
   return (
-    <Context.Provider value={ctxValue}>
-      <InternalContext.Provider value={internalContextValue}>
+    <Context value={ctxValue}>
+      <InternalContext value={internalContextValue}>
         <Flex.Box
           {...rest}
           ref={combinedTargetRef}
@@ -336,8 +336,8 @@ export const Frame = ({
         >
           {children}
         </Flex.Box>
-      </InternalContext.Provider>
-    </Context.Provider>
+      </InternalContext>
+    </Context>
   );
 };
 Frame.displayName = "Dialog.Frame";

@@ -135,7 +135,7 @@ const Provider = <K extends record.Key = record.Key>({
     notifyListeners(notify);
   }, [value, notifyListeners]);
 
-  return <Context.Provider value={ctx}>{children}</Context.Provider>;
+  return <Context value={ctx}>{children}</Context>;
 };
 
 export interface UseItemStateReturn {
