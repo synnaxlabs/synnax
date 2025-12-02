@@ -25,6 +25,7 @@ export type ContextValue =
   | { enabled: false; route: null };
 
 const Context = createContext<ContextValue>({ enabled: false, route: null });
+Context.displayName = "Worker.Context";
 
 export interface ProviderProps extends PropsWithChildren<{}> {
   url: string | URL;

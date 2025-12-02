@@ -22,11 +22,13 @@ import { Aether } from "@/aether";
 import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
-const StatusesContext = createContext<xstatus.Status[]>([]);
+const Context = createContext<xstatus.Status[]>([]);
+Context.displayName = "Status.Context";
 
 export interface Adder extends status.Adder {}
 
 const AdderContext = createContext<Adder>(() => {});
+AdderContext.displayName = "Status.AdderContext";
 
 export interface AggregatorProps extends PropsWithChildren {
   maxHistory?: number;
@@ -56,11 +58,11 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
   );
 
   return (
-    <StatusesContext value={statuses}>
+    <Context value={statuses}>
       <AdderContext value={handleAdd}>
         <Aether.Composite path={path}>{children}</Aether.Composite>
       </AdderContext>
-    </StatusesContext>
+    </Context>
   );
 };
 
@@ -101,7 +103,7 @@ export const useNotifications = ({
   expiration = DEFAULT_EXPIRATION,
   poll = DEFAULT_EXPIRATION_POLL,
 }: UseNotificationsProps = {}): UseNotificationsReturn => {
-  const statuses = use(StatusesContext);
+  const statuses = use(Context);
   const [silencedKeys, setSilencedKeys] = useState<Set<string>>(new Set());
   const [now, setNow] = useState(() => TimeStamp.now());
 

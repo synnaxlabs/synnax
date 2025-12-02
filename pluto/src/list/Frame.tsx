@@ -10,7 +10,6 @@
 import { bounds, type location, type record } from "@synnaxlabs/x";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import {
-  createContext,
   memo,
   type PropsWithChildren,
   type ReactElement,
@@ -22,8 +21,9 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { context } from "@/context";
 import { Dialog } from "@/dialog";
-import { useRequiredContext, useSyncedRef } from "@/hooks";
+import { useSyncedRef } from "@/hooks";
 
 /**
  * Function interface for getting items from a list by key(s).
@@ -84,8 +84,21 @@ export interface UtilContextValue<
   scrollToIndex: (index: number, direction?: location.Y) => void;
 }
 
-const DataContext = createContext<DataContextValue | null>(null);
-const UtilContext = createContext<UtilContextValue | null>(null);
+const [DataContext, useDataContext] = context.createRequired<DataContextValue>(
+  "List.DataContext",
+  "List.Frame",
+);
+
+const [UtilContext, useUtilCtx] = context.createRequired<UtilContextValue>(
+  "List.UtilContext",
+  "List.Frame",
+);
+
+export const useUtilContext = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+>(): UtilContextValue<K, E> =>
+  useUtilCtx("List.useUtilContext") as unknown as UtilContextValue<K, E>;
 
 export interface FrameProps<
   K extends record.Key = record.Key,
@@ -99,20 +112,11 @@ export interface FrameProps<
   onFetchMore?: () => void;
 }
 
-const useDataContext = <K extends record.Key = record.Key>(): DataContextValue<K> =>
-  useRequiredContext(DataContext) as unknown as DataContextValue<K>;
-
-export const useUtilContext = <
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
->(): UtilContextValue<K, E> =>
-  useRequiredContext(UtilContext) as unknown as UtilContextValue<K, E>;
-
 export const useScroller = <K extends record.Key = record.Key>(): Pick<
   UtilContextValue<K>,
   "scrollToIndex"
 > => {
-  const { scrollToIndex } = useUtilContext();
+  const { scrollToIndex } = useUtilCtx("List.useScroller");
   return useMemo(() => ({ scrollToIndex }), [scrollToIndex]);
 };
 
@@ -122,7 +126,9 @@ export const useItem = <
 >(
   key: K,
 ): E | undefined => {
-  const { getItem, subscribe } = useUtilContext<K, E>();
+  const { getItem, subscribe } = useUtilCtx(
+    "List.useItem",
+  ) as unknown as UtilContextValue<K, E>;
   return useSyncExternalStore(
     useCallback(
       (callback) => {
@@ -139,8 +145,12 @@ export const useData = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >(): DataContextValue<K> & UtilContextValue<K, E> => {
-  const { data, getItems, getTotalSize, itemHeight } = useDataContext<K>();
-  const { ref, getItem, scrollToIndex, subscribe } = useUtilContext<K, E>();
+  const { data, getItems, getTotalSize, itemHeight } = useDataContext(
+    "List.useData",
+  ) as DataContextValue<K>;
+  const { ref, getItem, scrollToIndex, subscribe } = useUtilCtx(
+    "List.useData",
+  ) as unknown as UtilContextValue<K, E>;
   return useMemo(
     () => ({
       data,

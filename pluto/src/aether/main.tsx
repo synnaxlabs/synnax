@@ -71,12 +71,12 @@ export interface ContextValue {
   create: (type: string, path: string[], onReceive?: StateHandler) => CreateReturn;
 }
 
-const ZERO_CONTEXT_VALUE = {
+const Context = createContext<ContextValue>({
   path: [],
   create: () => ({ setState: () => {}, delete: () => {} }),
-};
-
-const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
+});
+Context.displayName = "Aether.Context";
+const useContext = () => reactUse(Context);
 
 /**
  * Props for the Aether Provider component that establishes the Aether context.
@@ -173,8 +173,6 @@ export const Provider = ({
 
   return <Context value={value}>{ready && children}</Context>;
 };
-
-export const useContext = () => reactUse(Context);
 
 export interface UseLifecycleReturn<S extends z.ZodType<state.State>> {
   path: string[];

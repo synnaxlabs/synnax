@@ -44,7 +44,8 @@ const DEFAULT_RETRY_CONFIG: breaker.Config = {
   scale: 2,
 };
 
-const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
+const Context = createContext(ZERO_CONTEXT_VALUE);
+Context.displayName = "Synnax.Context";
 
 const useContext = () => reactUse(Context);
 

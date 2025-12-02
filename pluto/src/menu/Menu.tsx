@@ -29,6 +29,9 @@ export interface ContextValue {
 }
 
 const Context = createContext<ContextValue>({ onClick: () => {}, selected: "" });
+Context.displayName = "Menu.Context";
+
+export const useContext = () => use(Context);
 
 export interface MenuProps
   extends PropsWithChildren,
@@ -36,8 +39,6 @@ export interface MenuProps
   value?: string;
   onChange?: ((key: string) => void) | Record<string, (key: string) => void>;
 }
-
-export const useContext = () => use(Context);
 
 /**
  * Menu is a modular component that allows you to create a menu with a list of items.

@@ -28,7 +28,7 @@ export const Legend = ({ variant = "floating", ...rest }: LegendProps): ReactEle
 interface FloatingProps extends Omit<LegendProps, "variant"> {}
 
 const Floating = memo(({ onLineChange, ...rest }: FloatingProps): ReactElement => {
-  const { lines } = useContext("FloatingLegend");
+  const { lines } = useContext("LinePlot.Legend");
   const groups: Core.GroupData[] = useGroupData(lines);
   if (groups.length === 1)
     return <Core.Simple data={groups[0].data} onEntryChange={onLineChange} {...rest} />;
@@ -58,12 +58,12 @@ const useGroupData = (lines: LineSpec[]): Core.GroupData[] => {
 };
 
 const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
-  const { lines } = useContext("FixedLegend");
+  const { lines } = useContext("LinePlot.Legend");
   const groups: Core.GroupData[] = useGroupData(lines);
   const key = useUniqueKey();
   const gridStyle = useGridEntry(
     { key, size: lines.length > 0 ? 36 : 0, loc: "top", order: 5 },
-    "Legend",
+    "LinePlot.Legend",
   );
   if (groups.length === 0) return null;
   if (groups.length === 1)
@@ -79,6 +79,7 @@ const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
     </Flex.Box>
   );
 };
+Fixed.displayName = "LinePlot.FixedLegend";
 
 interface FocusedGroupProps {
   name: string;

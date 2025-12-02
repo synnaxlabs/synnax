@@ -14,7 +14,7 @@ import { type ContextMenuRenderer, type Renderer } from "@/layout/slice";
 export interface Renderers extends Record<string, Renderer> {}
 
 const RendererContext = createContext<Renderers>({});
-
+RendererContext.displayName = "Layout.RendererContext";
 export const RendererProvider = RendererContext;
 
 export const useRenderer = (type: string): Renderer => {
@@ -29,7 +29,7 @@ export const useOptionalRenderer = (type: string): Renderer | null =>
 export interface ContextMenus extends Record<string, ContextMenuRenderer> {}
 
 const ContextMenuContext = createContext<ContextMenus>({});
-
+ContextMenuContext.displayName = "Layout.ContextMenuContext";
 export const ContextMenuProvider = ContextMenuContext;
 
 export const useContextMenuRenderer = (type: string): ContextMenuRenderer | null =>

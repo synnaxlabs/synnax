@@ -53,6 +53,7 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
 }
 
 export const Context = createContext<ContextValue | null>(null);
+Context.displayName = "Form.Context";
 
 export const useContext = <Z extends z.ZodType = z.ZodType>(
   override?: ContextValue<Z>,

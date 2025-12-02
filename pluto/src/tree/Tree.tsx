@@ -16,7 +16,7 @@ import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { state } from "@/state";
-import { Provider } from "@/tree/Context";
+import { Context } from "@/tree/Context";
 import { flatten, getNodeShape, type Node, type Shape } from "@/tree/core";
 import { Triggers } from "@/triggers";
 
@@ -162,7 +162,7 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
 }: TreeProps<K, E>): ReactElement => {
   const { keys } = shape;
   return (
-    <Provider shape={shape}>
+    <Context value={shape.nodes}>
       <Select.Frame
         multiple
         value={selected}
@@ -183,6 +183,6 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
           {children}
         </List.Items>
       </Select.Frame>
-    </Provider>
+    </Context>
   );
 };

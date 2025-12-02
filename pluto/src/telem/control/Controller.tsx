@@ -34,6 +34,7 @@ export interface ContextValue {
 }
 
 const Context = createContext<ContextValue>({ needsControlOf: [] });
+Context.displayName = "Control.Context";
 
 export const useContext = () => use(Context);
 

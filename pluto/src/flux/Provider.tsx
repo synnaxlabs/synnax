@@ -8,28 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as SynnaxClient } from "@synnaxlabs/client";
-import {
-  createContext,
-  type PropsWithChildren,
-  type ReactElement,
-  useMemo,
-  useRef,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useMemo, useRef } from "react";
 
 import { Aether } from "@/aether";
+import { context } from "@/context";
 import { flux } from "@/flux/aether";
 import { core } from "@/flux/core";
-import { useInitializerRef, useRequiredContext } from "@/hooks";
+import { useInitializerRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Status } from "@/status/core";
 import { Synnax } from "@/synnax";
 
-const Context = createContext<core.Client | null>(null);
+const [Context, useContext] = context.createRequired<core.Client>(
+  "Flux.Context",
+  "Flux.Provider",
+);
 
 export const useStore = <ScopedStore extends flux.Store>(
   scope?: string,
 ): ScopedStore => {
-  const client = useRequiredContext(Context);
+  const client = useContext("Flux.useStore");
   const uniqueKey = useUniqueKey(scope);
   return useMemo(() => client.scopedStore<ScopedStore>(uniqueKey), [client, uniqueKey]);
 };

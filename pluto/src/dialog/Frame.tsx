@@ -7,20 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location as xlocation } from "@synnaxlabs/x";
+import { box, location } from "@synnaxlabs/x";
 import {
   createContext,
   type CSSProperties,
   type ReactElement,
   type RefCallback,
+  use,
   useCallback,
-  useContext as reactUseContext,
   useMemo,
   useRef,
   useState,
 } from "react";
 
 import { type Component } from "@/component";
+import { context } from "@/context";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS } from "@/dialog/Background";
 import { type LocationPreference, position, type Preference } from "@/dialog/position";
@@ -28,7 +29,6 @@ import { Flex } from "@/flex";
 import {
   useClickOutside,
   useCombinedRefs,
-  useRequiredContext,
   useResize,
   useSyncedRef,
   useWindowResize,
@@ -55,15 +55,15 @@ export interface FrameProps
 }
 
 interface State {
-  targetCorner: xlocation.XY;
-  dialogCorner: xlocation.XY;
+  targetCorner: location.XY;
+  dialogCorner: location.XY;
   modalPosition: ModalPosition;
   style: CSSProperties;
 }
 
 const ZERO_STATE: State = {
-  targetCorner: xlocation.BOTTOM_LEFT,
-  dialogCorner: xlocation.BOTTOM_LEFT,
+  targetCorner: location.BOTTOM_LEFT,
+  dialogCorner: location.BOTTOM_LEFT,
   style: {},
   modalPosition: "base",
 };
@@ -74,7 +74,7 @@ export interface ContextValue {
   toggle: () => void;
   visible: boolean;
   variant: Variant;
-  location: xlocation.XY;
+  location: location.XY;
 }
 
 const Context = createContext<ContextValue>({
@@ -83,18 +83,23 @@ const Context = createContext<ContextValue>({
   toggle: () => {},
   variant: "floating",
   visible: false,
-  location: xlocation.BOTTOM_LEFT,
+  location: location.BOTTOM_LEFT,
 });
+Context.displayName = "Dialog.Context";
+export const useContext = () => use(Context);
 
 interface InternalContextValue
   extends Pick<State, "targetCorner" | "dialogCorner" | "style" | "modalPosition"> {
   ref: RefCallback<HTMLDivElement>;
 }
 
-const InternalContext = createContext<InternalContextValue | null>(null);
-export const useInternalContext = () => useRequiredContext(InternalContext);
+const [InternalContext, useInternalContext] =
+  context.createRequired<InternalContextValue>(
+    "Dialog.InternalContext",
+    "Dialog.Frame",
+  );
 
-export const useContext = (): ContextValue => reactUseContext(Context);
+export { useInternalContext };
 
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [["Escape"]];
 
@@ -115,24 +120,24 @@ const positionsEqual = (
 
 const PREFERENCES: LocationPreference[] = [
   {
-    targetCorner: xlocation.BOTTOM_LEFT,
-    dialogCorner: xlocation.TOP_LEFT,
+    targetCorner: location.BOTTOM_LEFT,
+    dialogCorner: location.TOP_LEFT,
   },
   {
-    targetCorner: xlocation.TOP_LEFT,
-    dialogCorner: xlocation.BOTTOM_LEFT,
+    targetCorner: location.TOP_LEFT,
+    dialogCorner: location.BOTTOM_LEFT,
   },
   {
-    targetCorner: xlocation.BOTTOM_RIGHT,
-    dialogCorner: xlocation.TOP_RIGHT,
+    targetCorner: location.BOTTOM_RIGHT,
+    dialogCorner: location.TOP_RIGHT,
   },
   {
-    targetCorner: xlocation.TOP_RIGHT,
-    dialogCorner: xlocation.BOTTOM_RIGHT,
+    targetCorner: location.TOP_RIGHT,
+    dialogCorner: location.BOTTOM_RIGHT,
   },
   {
-    targetCorner: xlocation.TOP_RIGHT,
-    dialogCorner: xlocation.TOP_LEFT,
+    targetCorner: location.TOP_RIGHT,
+    dialogCorner: location.TOP_LEFT,
   },
 ];
 

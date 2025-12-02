@@ -31,7 +31,7 @@ interface ContextValue {
 }
 
 const Context = createContext<ContextValue>({ monaco: null, requestInit: () => {} });
-
+Context.displayName = "Code.Context";
 export interface ProviderProps extends PropsWithChildren {
   importExtensions: Extension[];
   initServices: Service[];

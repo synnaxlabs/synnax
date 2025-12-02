@@ -47,13 +47,11 @@ export const ZERO_CONTEXT_STATE: ContextState = {
   frequent: {},
 };
 
-const ZERO_CONTEXT_VALUE: ContextValue = {
+const Context = createContext<ContextValue>({
   ...ZERO_CONTEXT_STATE,
   updateFrequent: () => undefined,
-};
-
-const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
-
+});
+Context.displayName = "Color.Context";
 export const useContext = () => use(Context);
 
 const RECENCY_WEIGHT = 0.6;

@@ -15,6 +15,7 @@ import {
 } from "@synnaxlabs/client";
 import {
   Component,
+  context,
   Flux,
   Haul,
   Icon,
@@ -28,12 +29,10 @@ import {
   useAsyncEffect,
   useCombinedStateAndRef,
   useInitializerRef,
-  useRequiredContext,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { array, type observe } from "@synnaxlabs/x";
 import {
-  createContext,
   type DragEvent,
   type ReactElement,
   type ReactNode,
@@ -70,9 +69,10 @@ interface ContextValue {
   useLoading: (key: string) => boolean;
 }
 
-const Context = createContext<ContextValue | null>(null);
-
-const useContext = (): ContextValue => useRequiredContext(Context);
+const [Context, useContext] = context.createRequired<ContextValue>(
+  "Ontology.Context",
+  "Ontology.Tree",
+);
 
 const DefaultItem = ({
   onDoubleClick,
@@ -106,7 +106,9 @@ const itemRenderProp = Component.renderProp(
     const resource = List.useItem<string, ontology.Resource>(itemKey);
     const service = useServices()[id.type];
     const Item = service.Item ?? DefaultItem;
-    const { onDrop, onDoubleClick, useLoading, onDragStart, onDragEnd } = useContext();
+    const { onDrop, onDoubleClick, useLoading, onDragStart, onDragEnd } = useContext(
+      "Ontology.itemRenderProp",
+    );
     const handleDoubleClick = useCallback(
       () => onDoubleClick(itemKey),
       [onDoubleClick, itemKey],
