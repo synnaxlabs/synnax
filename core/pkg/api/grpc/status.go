@@ -211,7 +211,7 @@ func (t statusDeleteRequestTranslator) Backward(
 	return api.StatusDeleteRequest{Keys: msg.Keys}, nil
 }
 
-func newStatus(a *api.Transport) []fgrpc.BindableTransport {
+func newStatus(a *api.Transport) fgrpc.BindableTransport {
 	s := &statusSetServer{
 		RequestTranslator:  statusSetRequestTranslator{},
 		ResponseTranslator: statusSetResponseTranslator{},
@@ -230,5 +230,5 @@ func newStatus(a *api.Transport) []fgrpc.BindableTransport {
 	a.StatusSet = s
 	a.StatusRetrieve = r
 	a.StatusDelete = d
-	return []fgrpc.BindableTransport{s, r, d}
+	return fgrpc.CompoundBindableTransport{s, r, d}
 }

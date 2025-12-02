@@ -54,7 +54,7 @@ type Config struct {
 	Signals *signals.Provider
 	// Channel is used to create channels related to task operations.
 	// [OPTIONAL]
-	Channel channel.Writeable
+	Channel *channel.Service
 }
 
 var (

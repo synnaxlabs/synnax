@@ -10,32 +10,28 @@
 package gorp_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
-	xkv "github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("update", Ordered, func() {
+var _ = Describe("update", func() {
 	var (
-		db      *gorp.DB
-		kv      xkv.DB
+		ctx     context.Context
 		entries []entry
 		tx      gorp.Tx
 	)
-	BeforeAll(func() {
-		kv = memkv.New()
-		db = gorp.Wrap(kv)
-		for i := range 10 {
-			entries = append(entries, entry{ID: i, Data: "data"})
-		}
-	})
-	AfterAll(func() { Expect(kv.Close()).To(Succeed()) })
 	BeforeEach(func() {
+		ctx = context.Background()
 		tx = db.OpenTx()
+		entries = make([]entry, 10)
+		for i := range 10 {
+			entries[i] = entry{ID: i, Data: "data"}
+		}
 		Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
 	})
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
@@ -58,7 +54,7 @@ var _ = Describe("update", Ordered, func() {
 	It("Should return an error if no change function was specified", func() {
 		Expect(gorp.NewUpdate[int, entry]().
 			WhereKeys(entries[0].GorpKey()).
-			Exec(ctx, tx)).To(testutil.HaveOccurredAs(query.InvalidParameters))
+			Exec(ctx, tx)).To(HaveOccurredAs(query.InvalidParameters))
 	})
 
 	It("Should return an error if the the key cannot be found", func() {
@@ -67,17 +63,17 @@ var _ = Describe("update", Ordered, func() {
 			Change(func(_ gorp.Context, e entry) entry {
 				e.Data = "new data"
 				return e
-			}).Exec(ctx, tx)).To(testutil.HaveOccurredAs(query.NotFound))
+			}).Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
 	})
 
 	It("Should pass the correct transaction into the gorp.Context in the where function", func() {
 		count := 0
 		Expect(gorp.NewUpdate[int, entry]().
 			WhereKeys(entries[0].GorpKey()).
-			Change(func(uCtx gorp.Context, e entry) entry {
+			Change(func(gCtx gorp.Context, e entry) entry {
 				e.Data = "new data"
-				Expect(uCtx.Context).To(BeIdenticalTo(ctx))
-				Expect(uCtx.Tx).To(BeIdenticalTo(tx))
+				Expect(gCtx.Context).To(BeIdenticalTo(ctx))
+				Expect(gCtx.Tx).To(BeIdenticalTo(tx))
 				count++
 				return e
 			}).Exec(ctx, tx)).To(Succeed())
@@ -87,14 +83,14 @@ var _ = Describe("update", Ordered, func() {
 	Describe("Where", func() {
 		It("Should correctly update a set of entries based on a where filter function", func() {
 			Expect(gorp.NewUpdate[int, entry]().
-				Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil }).
+				Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil }).
 				Change(func(_ gorp.Context, e entry) entry {
 					e.Data = "new data"
 					return e
 				}).Exec(ctx, tx)).To(Succeed())
 			var res []entry
 			Expect(gorp.NewRetrieve[int, entry]().
-				Where(func(ctx gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil }).
+				Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil }).
 				Entries(&res).
 				Exec(ctx, tx)).To(Succeed())
 			for i := range res {
@@ -106,10 +102,10 @@ var _ = Describe("update", Ordered, func() {
 			count := 0
 			Expect(gorp.NewUpdate[int, entry]().
 				WhereKeys(entries[0].GorpKey()).
-				Where(func(wCtx gorp.Context, e *entry) (bool, error) {
+				Where(func(gCtx gorp.Context, e *entry) (bool, error) {
 					count++
-					Expect(wCtx.Context).To(BeIdenticalTo(ctx))
-					Expect(wCtx.Tx).To(BeIdenticalTo(tx))
+					Expect(gCtx.Context).To(BeIdenticalTo(ctx))
+					Expect(gCtx.Tx).To(BeIdenticalTo(tx))
 					Expect(e).NotTo(BeNil())
 					return true, nil
 				}).Change(func(_ gorp.Context, e entry) entry { return e }).
