@@ -17,35 +17,45 @@ This module provides:
 """
 
 import asyncio
+import multiprocessing
 import os
 import signal
 import sys
-from collections.abc import Coroutine
 from dataclasses import dataclass
-from multiprocessing import get_context
-from multiprocessing.context import ForkProcess
+from multiprocessing.process import BaseProcess
 from typing import Callable
 
 import synnax as sy
-from examples.modbus import run_server as run_modbus_server
-from examples.opcua import run_server as run_opcua_server
 from synnax import modbus, opcua
 from synnax.device import Device as SynnaxDevice
 
-# Use fork method for multiprocessing to support lambdas
-mp_ctx = get_context("fork")
 
+def _run_modbus_server() -> None:
+    """Run Modbus server in a subprocess."""
+    # Import here to avoid issues with pickling
+    from examples.modbus import run_server
 
-def _run_server(server_func: Callable[[], Coroutine[None, None, None]]) -> None:
-    """Run a server in a subprocess, with default signal handling."""
-
-    # Suppress stdout
+    # Suppress stdout/stderr
     sys.stdout = open(os.devnull, "w")
     sys.stderr = open(os.devnull, "w")
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     signal.signal(signal.SIGTERM, signal.SIG_DFL)
-    asyncio.run(server_func())
+    asyncio.run(run_server())
+
+
+def _run_opcua_server() -> None:
+    """Run OPC UA server in a subprocess."""
+    # Import here to avoid issues with pickling
+    from examples.opcua import run_server
+
+    # Suppress stdout/stderr
+    sys.stdout = open(os.devnull, "w")
+    sys.stderr = open(os.devnull, "w")
+
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    asyncio.run(run_server())
 
 
 class KnownDevices:
@@ -87,22 +97,22 @@ class SimulatorConfig:
     Combines server startup callback with a reference to a device from KnownDevices.
     """
 
-    server_setup: Callable[[], ForkProcess]
+    server_setup: Callable[[], BaseProcess]
     startup_delay_seconds: float
     device_factory: Callable[[int], SynnaxDevice]
     device_name: str
 
 
-def start_modbus_server() -> ForkProcess:
+def start_modbus_server() -> BaseProcess:
     """Start the Modbus TCP simulator server in a separate process."""
-    process = mp_ctx.Process(target=lambda: _run_server(run_modbus_server), daemon=True)
+    process = multiprocessing.Process(target=_run_modbus_server, daemon=True)
     process.start()
     return process
 
 
-def start_opcua_server() -> ForkProcess:
+def start_opcua_server() -> BaseProcess:
     """Start the OPC UA simulator server in a separate process."""
-    process = mp_ctx.Process(target=lambda: _run_server(run_opcua_server), daemon=True)
+    process = multiprocessing.Process(target=_run_opcua_server, daemon=True)
     process.start()
     return process
 

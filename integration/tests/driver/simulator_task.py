@@ -15,7 +15,7 @@ that require simulated hardware (Modbus, OPC UA).
 """
 
 import atexit
-from multiprocessing.context import ForkProcess
+from multiprocessing.process import BaseProcess
 from typing import Any
 
 import synnax as sy
@@ -39,7 +39,7 @@ class SimulatorTaskCase(TaskCase):
     """
 
     # Set in start_simulator()
-    simulator_process: ForkProcess | None = None
+    simulator_process: BaseProcess | None = None
 
     def __init__(
         self,
