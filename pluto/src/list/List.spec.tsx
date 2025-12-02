@@ -8,14 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { observe, type record } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { act, useState } from "react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
 import { renderProp } from "@/component/renderProp";
 import { List } from "@/list";
 import { mockBoundingClientRect } from "@/testutil/dom";
+
+const MockIntersectionObserverGlobal = vi.fn(() => ({
+  observe: vi.fn(),
+  disconnect: vi.fn(),
+  unobserve: vi.fn(),
+}));
 
 describe("List", () => {
   interface Context {
@@ -29,6 +35,10 @@ describe("List", () => {
   CONTEXTS.forEach((context) => {
     beforeAll(() => {
       Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
+      vi.stubGlobal("IntersectionObserver", MockIntersectionObserverGlobal);
+    });
+    afterEach(() => {
+      vi.clearAllMocks();
     });
     describe(context.name, () => {
       describe("basic item rendering", () => {
@@ -162,12 +172,167 @@ describe("List", () => {
           const result = render(<Component />);
           const expectedCalls = context.virtual ? 2 : 1;
           expect(fetchMore).toHaveBeenCalledTimes(expectedCalls);
-          fireEvent.click(result.getByText("Toggle"));
+          result.getByText("Toggle").click();
           expect(fetchMore).toHaveBeenCalledTimes(expectedCalls);
-          fireEvent.click(result.getByText("Toggle"));
+          result.getByText("Toggle").click();
           expect(fetchMore).toHaveBeenCalledTimes(expectedCalls);
         });
       });
+    });
+  });
+
+  describe("scroll-based pagination (non-virtual)", () => {
+    let mockObserverCallback: IntersectionObserverCallback;
+    let mockObserverInstance: {
+      observe: ReturnType<typeof vi.fn>;
+      disconnect: ReturnType<typeof vi.fn>;
+      unobserve: ReturnType<typeof vi.fn>;
+    };
+    const MockIntersectionObserver = vi.fn((callback: IntersectionObserverCallback) => {
+      mockObserverCallback = callback;
+      mockObserverInstance = {
+        observe: vi.fn(),
+        disconnect: vi.fn(),
+        unobserve: vi.fn(),
+      };
+      return mockObserverInstance;
+    });
+
+    beforeAll(() => {
+      Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
+    });
+
+    beforeEach(() => {
+      vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.clearAllMocks();
+    });
+
+    it("should create an IntersectionObserver for the sentinel element", () => {
+      const fetchMore = vi.fn();
+      render(
+        <List.Frame data={["1", "2", "3"]} virtual={false} onFetchMore={fetchMore}>
+          <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+        </List.Frame>,
+      );
+      expect(MockIntersectionObserver).toHaveBeenCalled();
+      expect(mockObserverInstance.observe).toHaveBeenCalled();
+    });
+
+    it("should call onFetchMore when sentinel intersects", () => {
+      const fetchMore = vi.fn();
+      render(
+        <List.Frame data={["1", "2", "3"]} virtual={false} onFetchMore={fetchMore}>
+          <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+        </List.Frame>,
+      );
+      expect(fetchMore).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        mockObserverCallback(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        );
+      });
+
+      expect(fetchMore).toHaveBeenCalledTimes(2);
+    });
+
+    it("should not call onFetchMore multiple times while fetching", () => {
+      const fetchMore = vi.fn();
+      render(
+        <List.Frame data={["1", "2", "3"]} virtual={false} onFetchMore={fetchMore}>
+          <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+        </List.Frame>,
+      );
+      expect(fetchMore).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        mockObserverCallback(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        );
+      });
+      expect(fetchMore).toHaveBeenCalledTimes(2);
+
+      act(() => {
+        mockObserverCallback(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        );
+      });
+      expect(fetchMore).toHaveBeenCalledTimes(2);
+    });
+
+    it("should allow another fetch after data length changes", () => {
+      const fetchMore = vi.fn();
+      const Component = ({ data }: { data: string[] }) => (
+        <List.Frame data={data} virtual={false} onFetchMore={fetchMore}>
+          <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+        </List.Frame>
+      );
+
+      const { rerender } = render(<Component data={["1", "2", "3"]} />);
+      expect(fetchMore).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        mockObserverCallback(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        );
+      });
+      expect(fetchMore).toHaveBeenCalledTimes(2);
+
+      act(() => {
+        mockObserverCallback(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        );
+      });
+      expect(fetchMore).toHaveBeenCalledTimes(2);
+
+      rerender(<Component data={["1", "2", "3", "4", "5"]} />);
+
+      act(() => {
+        mockObserverCallback(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        );
+      });
+      expect(fetchMore).toHaveBeenCalledTimes(3);
+    });
+
+    it("should not call onFetchMore when sentinel is not intersecting", () => {
+      const fetchMore = vi.fn();
+      render(
+        <List.Frame data={["1", "2", "3"]} virtual={false} onFetchMore={fetchMore}>
+          <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+        </List.Frame>,
+      );
+      expect(fetchMore).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        mockObserverCallback(
+          [{ isIntersecting: false } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        );
+      });
+      expect(fetchMore).toHaveBeenCalledTimes(1);
+    });
+
+    it("should disconnect observer on unmount", () => {
+      const fetchMore = vi.fn();
+      const { unmount } = render(
+        <List.Frame data={["1", "2", "3"]} virtual={false} onFetchMore={fetchMore}>
+          <List.Items>{({ key }) => <div key={key}>{key}</div>}</List.Items>
+        </List.Frame>,
+      );
+
+      unmount();
+      expect(mockObserverInstance.disconnect).toHaveBeenCalled();
     });
   });
 });

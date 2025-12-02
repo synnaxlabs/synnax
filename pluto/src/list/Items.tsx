@@ -31,14 +31,15 @@ const BaseItems = <
   className,
   children,
   emptyContent,
-  displayItems = 10,
+  displayItems,
   style,
   direction,
   x,
   y,
   ...rest
 }: ItemsProps<K>): ReactElement => {
-  const { ref, getItems, getTotalSize, data, itemHeight } = useData<K, E>();
+  const { ref, getItems, getTotalSize, data, itemHeight, sentinelRef } =
+    useData<K, E>();
   const visibleData = getItems();
   let content = emptyContent;
   const hasItems = data.length > 0;
@@ -51,11 +52,18 @@ const BaseItems = <
         {visibleData.map(({ key, index, translate }) =>
           children({ key, index, itemKey: key, translate }),
         )}
+        {sentinelRef != null && (
+          <div
+            ref={sentinelRef}
+            className={CSS.BE("list", "sentinel")}
+            aria-hidden="true"
+          />
+        )}
       </div>
     );
 
   let minHeight: number | undefined;
-  if (itemHeight != null && isFinite(displayItems) && hasItems)
+  if (itemHeight != null && displayItems != null && isFinite(displayItems) && hasItems)
     minHeight = Math.min(displayItems, visibleData.length) * itemHeight + 1;
 
   const parsedDirection = Flex.parseDirection(direction, x, y);
