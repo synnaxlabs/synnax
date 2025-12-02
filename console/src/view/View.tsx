@@ -171,7 +171,6 @@ export const View = <
           emptyContent={
             <EmptyContent onCreate={onCreate} resourceType={resourceType} />
           }
-          displayItems={Infinity}
           grow
         >
           {item}
