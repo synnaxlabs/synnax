@@ -75,9 +75,9 @@ class TestFrame:
 @pytest.mark.framer
 class TestWriteFrameAdapter:
     @pytest.fixture(scope="class")
-    def adapter(self, client: sy.Synnax) -> [WriteFrameAdapter, sy.Channel]:
+    def adapter(self, client: sy.Synnax) -> tuple[WriteFrameAdapter, sy.Channel]:
         ch = client.channels.create(
-            name=f"test-{random.randint(0, 100000)}",
+            name=f"test_{random.randint(0, 100000)}",
             leaseholder=1,
             virtual=True,
             data_type=sy.DataType.FLOAT64,
@@ -87,7 +87,9 @@ class TestWriteFrameAdapter:
 
         return adapter, ch
 
-    def test_adaptation_of_keys_frame(self, adapter: [WriteFrameAdapter, sy.Channel]):
+    def test_adaptation_of_keys_frame(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ):
         """It should correctly adapt of a Frame keyed by channel key."""
         adapter, ch = adapter
         o = adapter.adapt(
@@ -96,7 +98,9 @@ class TestWriteFrameAdapter:
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
-    def test_adaptation_of_names_frame(self, adapter: [WriteFrameAdapter, sy.Channel]):
+    def test_adaptation_of_names_frame(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ):
         """It should correctly adapt of a Frame keyed by channel name."""
         adapter, ch = adapter
         o = adapter.adapt(
@@ -107,7 +111,9 @@ class TestWriteFrameAdapter:
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
-    def test_adaptation_of_name_series(self, adapter: [WriteFrameAdapter, sy.Channel]):
+    def test_adaptation_of_name_series(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ):
         """It should correctly adapt a first argument of a channel name and a second
         argument of a series."""
         adapter, ch = adapter
@@ -117,7 +123,9 @@ class TestWriteFrameAdapter:
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
-    def test_adaptation_of_name_float(self, adapter: [WriteFrameAdapter, sy.Channel]):
+    def test_adaptation_of_name_float(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ):
         """It should correctly adapt a first argument of a channel name and a second
         argument of a float."""
         adapter, ch = adapter
@@ -127,7 +135,9 @@ class TestWriteFrameAdapter:
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
-    def test_adaptation_of_name_int(self, adapter: [WriteFrameAdapter, sy.Channel]):
+    def test_adaptation_of_name_int(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ):
         """It should correctly adapt a first argument of a channel name and a second
         argument of an int."""
         adapter, ch = adapter
@@ -137,7 +147,9 @@ class TestWriteFrameAdapter:
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
-    def test_adaptation_of_names_series(self, adapter: [WriteFrameAdapter, sy.Channel]):
+    def test_adaptation_of_names_series(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ):
         """It should correctly adapt a first argument of a channel name and a second
         argument of a series."""
         adapter, ch = adapter
@@ -149,7 +161,9 @@ class TestWriteFrameAdapter:
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
-    def test_adaptation_of_dict_series(self, adapter: [WriteFrameAdapter, sy.Channel]):
+    def test_adaptation_of_dict_series(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ):
         """It should correctly adapt a dict of channel names to series."""
         adapter, ch = adapter
         o = adapter.adapt({ch.name: sy.Series([1, 2, 3])})
@@ -158,7 +172,9 @@ class TestWriteFrameAdapter:
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
-    def test_adaptation_of_dict_float(self, adapter: [WriteFrameAdapter, sy.Channel]):
+    def test_adaptation_of_dict_float(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ):
         """It should correctly adapt a dict of channel names to floats."""
         adapter, ch = adapter
         o = adapter.adapt(
@@ -175,7 +191,7 @@ class TestWriteFrameAdapter:
         """It should correctly adapt a dict of channel names to timestamps."""
         ch = client.channels.create(
             sy.Channel(
-                name=f"test-{random.randint(0, 100000)}",
+                name=f"test_{random.randint(0, 100000)}",
                 virtual=True,
                 data_type=sy.DataType.TIMESTAMP,
             )
@@ -188,7 +204,9 @@ class TestWriteFrameAdapter:
         assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.TIMESTAMP
 
-    def test_adaptation_of_channel_dict(self, adapter: [WriteFrameAdapter, sy.Channel]):
+    def test_adaptation_of_channel_dict(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ):
         """It should correctly adapt a dict of channels to series."""
         adapter, ch = adapter
         o = adapter.adapt(
@@ -202,7 +220,7 @@ class TestWriteFrameAdapter:
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
     def test_adaptation_of_channel_payload(
-        self, adapter: [WriteFrameAdapter, sy.Channel]
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
     ):
         """It should correctly adapt a FramePayload keyed by channel key."""
         adapter, ch = adapter
@@ -212,7 +230,7 @@ class TestWriteFrameAdapter:
 
     def test_adaptation_of_multiple_payloads(
         self,
-        adapter: [WriteFrameAdapter, sy.Channel],
+        adapter: tuple[WriteFrameAdapter, sy.Channel],
     ):
         """Should correctly adapt multiple channels and a single list of values"""
         adapter, ch = adapter
@@ -223,7 +241,7 @@ class TestWriteFrameAdapter:
 
     def test_adaptation_of_list(
         self,
-        adapter: [WriteFrameAdapter, sy.Channel],
+        adapter: tuple[WriteFrameAdapter, sy.Channel],
     ):
         """Should correctly adapt a channel and a list of values"""
         adapter, ch = adapter
@@ -262,7 +280,7 @@ class TestWriteFrameAdapter:
         """Should raise a validation error when a Frame with a nonexistent channel
         key is adapted
         """
-        adapter, ch = adapter
+        adapter, _ = adapter
         with pytest.raises(sy.ValidationError):
             adapter.adapt(
                 sy.Frame(
@@ -285,7 +303,7 @@ class TestWriteFrameAdapter:
     def test_adapt_single_string(self, client):
         """Should correctly adapt a single string into a string based series"""
         ch = client.channels.create(
-            name=f"test-{random.randint(0, 100000)}",
+            name=f"test_{random.randint(0, 100000)}",
             virtual=True,
             data_type=sy.DataType.STRING,
         )
@@ -296,7 +314,7 @@ class TestWriteFrameAdapter:
 
     def test_adapt_single_string_name_value_pair(self, client):
         ch = client.channels.create(
-            name=f"test-{random.randint(0, 100000)}",
+            name=f"test_{random.randint(0, 100000)}",
             virtual=True,
             data_type=sy.DataType.STRING,
         )

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { DataType, id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { UnauthorizedError, ValidationError } from "@/errors";
@@ -152,13 +152,13 @@ describe("Writer", () => {
 
     test("write with out of order timestamp", async () => {
       const indexCh = await client.channels.create({
-        name: "idx",
+        name: id.create(),
         dataType: DataType.TIMESTAMP,
         isIndex: true,
       });
 
       const dataCh = await client.channels.create({
-        name: "data",
+        name: id.create(),
         dataType: DataType.FLOAT64,
         index: indexCh.key,
       });

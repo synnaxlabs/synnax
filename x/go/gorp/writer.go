@@ -53,7 +53,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	if err != nil {
 		return err
 	}
-	prefixedKey, err := encodeKey[K](ctx, w, w.prefix(ctx), entry.GorpKey())
+	prefixedKey, err := encodeKey(ctx, w, w.prefix(ctx), entry.GorpKey())
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
-	encodedKey, err := encodeKey[K](ctx, w, w.prefix(ctx), key)
+	encodedKey, err := encodeKey(ctx, w, w.prefix(ctx), key)
 	if err != nil {
 		return err
 	}

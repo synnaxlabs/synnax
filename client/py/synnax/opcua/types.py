@@ -8,11 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 import json
-import warnings
 from typing import Literal
 from uuid import uuid4
+from warnings import warn
 
 from pydantic import BaseModel, Field, field_validator
+from typing_extensions import deprecated
 
 # Security mode constants
 SecurityMode = Literal["None", "Sign", "SignAndEncrypt"]
@@ -148,9 +149,9 @@ class ReadChannel(BaseModel):
         )
 
 
-@warnings.deprecated(
-    "opcua.Channel is deprecated and will be removed in a future version. "
-    "Use opcua.ReadChannel instead."
+@deprecated(
+    "opcua.Channel is deprecated and will be removed in a future version. Use opcua.ReadChannel instead.",
+    category=None,
 )
 def Channel(
     *,
@@ -162,6 +163,10 @@ def Channel(
     data_type: CrudeDataType = "float32",
     use_as_index: bool = False,
 ) -> ReadChannel:
+    warn(
+        "opcua.Channel is deprecated and will be removed in a future version. Use opcua.ReadChannel instead.",
+        DeprecationWarning,
+    )
     return ReadChannel(
         enabled=enabled,
         key=key,

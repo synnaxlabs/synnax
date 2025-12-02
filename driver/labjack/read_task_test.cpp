@@ -144,8 +144,8 @@ json basic_read_task_config() {
 }
 
 TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
-    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(sy->racks.create("cat"));
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::Device(
         "230227d9-02aa-47e4-b370-0d590add1bc1",
         "my_device",
@@ -155,16 +155,24 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
         "T7",
         ""
     );
-    ASSERT_NIL(sy->devices.create(dev));
+    ASSERT_NIL(client->devices.create(dev));
 
     // Create channels for each input type
-    auto tc_ch = ASSERT_NIL_P(
-        sy->channels.create("tc_channel", telem::FLOAT64_T, true)
-    );
-    auto di_ch = ASSERT_NIL_P(sy->channels.create("di_channel", telem::UINT8_T, true));
-    auto ai_ch = ASSERT_NIL_P(
-        sy->channels.create("ai_channel", telem::FLOAT64_T, true)
-    );
+    auto tc_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("tc_channel"),
+        telem::FLOAT64_T,
+        true
+    ));
+    auto di_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("di_channel"),
+        telem::UINT8_T,
+        true
+    ));
+    auto ai_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ai_channel"),
+        telem::FLOAT64_T,
+        true
+    ));
 
     auto j = basic_read_task_config();
     j["channels"][0]["channel"] = tc_ch.key;
@@ -172,7 +180,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     j["channels"][2]["channel"] = ai_ch.key;
 
     auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<labjack::ReadTaskConfig>(sy, p);
+    auto cfg = std::make_unique<labjack::ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     ASSERT_EQ(cfg->sample_rate, telem::HERTZ * 10);
@@ -210,8 +218,8 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
 }
 
 TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
-    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(sy->racks.create("cat"));
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::Device(
         "230227d9-02aa-47e4-b370-0d590add1bc1",
         "my_device",
@@ -221,10 +229,14 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
         "T7",
         ""
     );
-    ASSERT_NIL(sy->devices.create(dev));
+    ASSERT_NIL(client->devices.create(dev));
 
     // Create a channel
-    auto ch = ASSERT_NIL_P(sy->channels.create("test_channel", telem::FLOAT64_T, true));
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("test_channel"),
+        telem::FLOAT64_T,
+        true
+    ));
 
     // Create a config with an invalid channel type
     auto j = basic_read_task_config();
@@ -238,7 +250,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     );
 
     auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<labjack::ReadTaskConfig>(sy, p);
+    auto cfg = std::make_unique<labjack::ReadTaskConfig>(client, p);
 
     ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }
@@ -247,8 +259,8 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
 /// This prevents data from being written but not committed, making it unavailable for
 /// reads.
 TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
-    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(sy->racks.create("test_rack"));
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto dev = synnax::Device(
         "230227d9-02aa-47e4-b370-0d590add1bc1",
         "test_device",
@@ -258,8 +270,12 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
         "T7",
         ""
     );
-    ASSERT_NIL(sy->devices.create(dev));
-    auto ch = ASSERT_NIL_P(sy->channels.create("test_channel", telem::FLOAT64_T, true));
+    ASSERT_NIL(client->devices.create(dev));
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("test_channel"),
+        telem::FLOAT64_T,
+        true
+    ));
 
     auto j = basic_read_task_config();
     j["data_saving"] = true;
@@ -274,7 +290,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     );
 
     auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<labjack::ReadTaskConfig>(sy, p);
+    auto cfg = std::make_unique<labjack::ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     // Verify that writer_config has enable_auto_commit set to true
