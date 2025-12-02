@@ -550,7 +550,7 @@ func newStampReader() func(r io.ReaderAt, offset telem.Size) (telem.TimeStamp, e
 			zap.S().DPanic(err)
 			return 0, err
 		}
-		return unsafe.CastBytes[telem.TimeStamp](buf), nil
+		return unsafe.CastBytes[telem.TimeStamp](buf)
 	}
 }
 
