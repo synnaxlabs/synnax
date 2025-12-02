@@ -79,19 +79,37 @@ find_cached_run() {
     local current_branch="${GITHUB_HEAD_REF:-$(git branch --show-current)}"
     if [ -z "${current_branch}" ]; then
         # Fallback for detached HEAD without GITHUB_HEAD_REF
-        current_branch="${GITHUB_REF_NAME:-main}"
+        current_branch="${GITHUB_BASE_REF:-${GITHUB_REF_NAME:-rc}}"
     fi
-    local workflow_file="${GITHUB_WORKFLOW:-test.integration.yaml}"
+    # GITHUB_WORKFLOW contains the workflow name, not filename - hardcode the filename
+    local workflow_file="test.integration.yaml"
+
+    echo "DEBUG: GITHUB_HEAD_REF=${GITHUB_HEAD_REF}" >&2
+    echo "DEBUG: GITHUB_BASE_REF=${GITHUB_BASE_REF}" >&2
+    echo "DEBUG: GITHUB_REF_NAME=${GITHUB_REF_NAME}" >&2
+    echo "DEBUG: current_branch=${current_branch}" >&2
+    echo "DEBUG: workflow_file=${workflow_file}" >&2
+
     local runs_json=$(gh run list --workflow="${workflow_file}" --branch="${current_branch}" --limit=25 --json="databaseId,headSha")
+    echo "DEBUG: Found $(echo "${runs_json}" | jq 'length') runs" >&2
 
     for row in $(echo "${runs_json}" | jq -r '.[] | @base64'); do
         local run_id=$(echo ${row} | base64 --decode | jq -r '.databaseId')
         local sha=$(echo ${row} | base64 --decode | jq -r '.headSha')
 
         if [ -n "${run_id}" ] && [ "${run_id}" != "null" ]; then
-            if check_run_has_artifacts "${run_id}" && check_run_built_artifacts "${run_id}"; then
-                echo "${run_id}:${sha}"
-                return 0
+            echo "DEBUG: Checking run ${run_id} (sha: ${sha:0:8})" >&2
+            if check_run_has_artifacts "${run_id}"; then
+                echo "DEBUG:   - has_artifacts: YES" >&2
+                if check_run_built_artifacts "${run_id}"; then
+                    echo "DEBUG:   - built_artifacts: YES" >&2
+                    echo "${run_id}:${sha}"
+                    return 0
+                else
+                    echo "DEBUG:   - built_artifacts: NO" >&2
+                fi
+            else
+                echo "DEBUG:   - has_artifacts: NO" >&2
             fi
         fi
     done
@@ -101,18 +119,25 @@ find_cached_run() {
 check_if_rebuild_needed() {
     local sha=$1
 
+    echo "DEBUG: check_if_rebuild_needed for sha=${sha:0:8}" >&2
+
     if ! git cat-file -e "${sha}" 2> /dev/null; then
+        echo "DEBUG:   - SHA not found locally, fetching..." >&2
         git fetch --quiet --unshallow 2> /dev/null || git fetch --quiet --depth=25 2> /dev/null || true
     fi
 
     if ! git cat-file -e "${sha}" 2> /dev/null; then
+        echo "DEBUG:   - SHA still not found after fetch, rebuild needed" >&2
         return 0
     fi
 
     local changed_files=$(git diff --name-only "${sha}" HEAD 2> /dev/null)
     if [ $? -ne 0 ] || [ -z "${changed_files}" ]; then
+        echo "DEBUG:   - No changed files or diff failed, no rebuild needed" >&2
         return 1
     fi
+
+    echo "DEBUG:   - Found $(echo "${changed_files}" | wc -l) changed files" >&2
 
     while IFS= read -r file; do
         if [ -z "${file}" ]; then
@@ -123,6 +148,7 @@ check_if_rebuild_needed() {
         for rebuild_path in "${REBUILD_PATHS[@]}"; do
             if [[ "${file}" == ${rebuild_path} ]] || [[ "${file}" == ${rebuild_path}* ]]; then
                 needs_rebuild=true
+                echo "DEBUG:   - File '${file}' matches rebuild path '${rebuild_path}'" >&2
                 break
             fi
         done
@@ -132,6 +158,7 @@ check_if_rebuild_needed() {
         fi
     done <<< "${changed_files}"
 
+    echo "DEBUG:   - No rebuild paths matched, no rebuild needed" >&2
     return 1
 }
 
