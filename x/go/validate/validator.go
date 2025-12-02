@@ -43,10 +43,17 @@ func (v *Validator) Ternaryf(field string, cond bool, format string, args ...any
 	return v.Error() != nil
 }
 
+// NotNil returns true and attaches an error to v if the value is nil.
 func NotNil(v *Validator, field string, value any) bool {
-	isNil := value == nil ||
-		(reflect.ValueOf(value).Kind() == reflect.Pointer &&
-			reflect.ValueOf(value).IsNil())
+	isNil := value == nil
+	if !isNil {
+		rv := reflect.ValueOf(value)
+		switch rv.Kind() {
+		case reflect.Chan, reflect.Func, reflect.Interface,
+			reflect.Map, reflect.Pointer, reflect.Slice:
+			isNil = rv.IsNil()
+		}
+	}
 	return v.Ternary(field, isNil, "must be non-nil")
 }
 

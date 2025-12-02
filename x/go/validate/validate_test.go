@@ -64,12 +64,23 @@ var _ = Describe("Validate", func() {
 				Expect(validate.NotNil(v, "field", &value)).To(BeFalse())
 				Expect(v.Error()).NotTo(HaveOccurred())
 			})
-
-			It("Should catch nil values", func() {
-				var value *string
+			var p *any
+			var f func()
+			var m map[any]any
+			var s []any
+			var c chan any
+			var i any
+			DescribeTable("Should catch nil values", func(value any) {
 				Expect(validate.NotNil(v, "field", value)).To(BeTrue())
-				Expect(v.Error()).To(HaveOccurred())
-			})
+				Expect(v.Error()).To(MatchError(ContainSubstring("must be non-nil")))
+			},
+				Entry("pointers", p),
+				Entry("functions", f),
+				Entry("maps", m),
+				Entry("slices", s),
+				Entry("channels", c),
+				Entry("interfaces", i),
+			)
 		})
 
 		Describe("Numeric Validations", func() {
@@ -91,7 +102,7 @@ var _ = Describe("Validate", func() {
 				It("Should validate non-empty slices", func() {
 					slice := []int{1, 2, 3}
 					Expect(validate.NotEmptySlice(v, "field", slice)).To(BeFalse())
-					Expect(v.Error()).NotTo(HaveOccurred())
+					Expect(v.Error()).ToNot(HaveOccurred())
 				})
 
 				It("Should catch empty slices", func() {

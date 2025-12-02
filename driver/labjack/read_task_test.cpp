@@ -158,13 +158,21 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_NIL(sy->hardware.create_device(dev));
 
     // Create channels for each input type
-    auto tc_ch = ASSERT_NIL_P(
-        sy->channels.create("tc_channel", telem::FLOAT64_T, true)
-    );
-    auto di_ch = ASSERT_NIL_P(sy->channels.create("di_channel", telem::UINT8_T, true));
-    auto ai_ch = ASSERT_NIL_P(
-        sy->channels.create("ai_channel", telem::FLOAT64_T, true)
-    );
+    auto tc_ch = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("tc_channel"),
+        telem::FLOAT64_T,
+        true
+    ));
+    auto di_ch = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("di_channel"),
+        telem::UINT8_T,
+        true
+    ));
+    auto ai_ch = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("ai_channel"),
+        telem::FLOAT64_T,
+        true
+    ));
 
     auto j = basic_read_task_config();
     j["channels"][0]["channel"] = tc_ch.key;
@@ -224,7 +232,11 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     ASSERT_NIL(sy->hardware.create_device(dev));
 
     // Create a channel
-    auto ch = ASSERT_NIL_P(sy->channels.create("test_channel", telem::FLOAT64_T, true));
+    auto ch = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("test_channel"),
+        telem::FLOAT64_T,
+        true
+    ));
 
     // Create a config with an invalid channel type
     auto j = basic_read_task_config();
@@ -259,7 +271,11 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
         ""
     );
     ASSERT_NIL(sy->hardware.create_device(dev));
-    auto ch = ASSERT_NIL_P(sy->channels.create("test_channel", telem::FLOAT64_T, true));
+    auto ch = ASSERT_NIL_P(sy->channels.create(
+        make_unique_channel_name("test_channel"),
+        telem::FLOAT64_T,
+        true
+    ));
 
     auto j = basic_read_task_config();
     j["data_saving"] = true;
