@@ -333,7 +333,7 @@ jobs:
 
   deploy-and-test-windows:
     name: Deploy and Test (windows)
-    timeout-minutes: 1
+    timeout-minutes: 30
     runs-on:
       - self-hosted
       - windows-latest
