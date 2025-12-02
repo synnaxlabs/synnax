@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
@@ -177,6 +178,67 @@ var _ = Describe("Writer", func() {
 			Expect(ps).To(BeEmpty())
 		})
 	})
+
+	Describe("SetOnRole", func() {
+		var (
+			r        *role.Role
+			policies []policy.Policy
+		)
+		BeforeEach(func() {
+			rw := roleSvc.NewWriter(tx, true)
+			r = &role.Role{
+				Name:        "test-role",
+				Description: "Test role",
+			}
+			Expect(rw.Create(ctx, r)).To(Succeed())
+
+			policies = []policy.Policy{
+				{
+					Name:    "policy-1",
+					Effect:  policy.EffectAllow,
+					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
+				{
+					Name:    "policy-2",
+					Effect:  policy.EffectAllow,
+					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					Actions: []access.Action{access.ActionUpdate},
+				},
+			}
+			for i := range policies {
+				Expect(w.Create(ctx, &policies[i])).To(Succeed())
+			}
+		})
+
+		It("Should set policies for a role", func() {
+			policyKeys := []uuid.UUID{policies[0].Key, policies[1].Key}
+			Expect(w.SetOnRole(ctx, r.Key, policyKeys...)).To(Succeed())
+
+			var children []ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(role.OntologyID(r.Key)).
+				TraverseTo(ontology.Children).
+				WhereTypes(policy.OntologyType).
+				Entries(&children).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(children).To(HaveLen(2))
+		})
+
+		It("Should attach single policy to role", func() {
+			Expect(w.SetOnRole(ctx, r.Key, policies[0].Key)).To(Succeed())
+
+			var children []ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(role.OntologyID(r.Key)).
+				TraverseTo(ontology.Children).
+				WhereTypes(policy.OntologyType).
+				Entries(&children).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(children).To(HaveLen(1))
+			Expect(children[0].ID.Key).To(Equal(policies[0].Key.String()))
+		})
+	})
 })
 
 var _ = Describe("Retriever", func() {
@@ -261,6 +323,67 @@ var _ = Describe("Retriever", func() {
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ps).To(HaveLen(2))
+		})
+	})
+
+	Describe("WhereSubjects", func() {
+		var (
+			r        *role.Role
+			subject1 ontology.ID
+			subject2 ontology.ID
+		)
+		BeforeEach(func() {
+			rw := roleSvc.NewWriter(tx, true)
+			r = &role.Role{
+				Name:        "test-role",
+				Description: "Test role for subject queries",
+			}
+			Expect(rw.Create(ctx, r)).To(Succeed())
+			Expect(w.SetOnRole(ctx, r.Key, policies[0].Key, policies[1].Key)).To(Succeed())
+
+			subject1 = ontology.ID{Type: "user", Key: uuid.New().String()}
+			subject2 = ontology.ID{Type: "user", Key: uuid.New().String()}
+			Expect(otg.NewWriter(tx).DefineResource(ctx, subject1)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResource(ctx, subject2)).To(Succeed())
+			Expect(rw.AssignRole(ctx, subject1, r.Key)).To(Succeed())
+		})
+
+		It("Should retrieve policies for a subject via role", func() {
+			var ps []policy.Policy
+			Expect(svc.NewRetrieve().
+				WhereSubjects(subject1).
+				Entries(&ps).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(ps).To(HaveLen(2))
+			keys := []uuid.UUID{ps[0].Key, ps[1].Key}
+			Expect(keys).To(ContainElements(policies[0].Key, policies[1].Key))
+		})
+
+		It("Should return empty when subject has no roles", func() {
+			var ps []policy.Policy
+			Expect(svc.NewRetrieve().
+				WhereSubjects(subject2).
+				Entries(&ps).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(ps).To(BeEmpty())
+		})
+
+		It("Should retrieve policies for multiple subjects", func() {
+			rw := roleSvc.NewWriter(tx, true)
+			r2 := &role.Role{
+				Name:        "test-role-2",
+				Description: "Second test role",
+			}
+			Expect(rw.Create(ctx, r2)).To(Succeed())
+			Expect(w.SetOnRole(ctx, r2.Key, policies[2].Key)).To(Succeed())
+			Expect(rw.AssignRole(ctx, subject2, r2.Key)).To(Succeed())
+
+			var ps []policy.Policy
+			Expect(svc.NewRetrieve().
+				WhereSubjects(subject1, subject2).
+				Entries(&ps).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(ps).To(HaveLen(3))
 		})
 	})
 

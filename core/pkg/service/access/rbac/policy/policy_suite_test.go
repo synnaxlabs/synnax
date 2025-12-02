@@ -15,31 +15,43 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
-	ctx = context.Background()
-	db  *gorp.DB
-	otg *ontology.Ontology
-	svc *policy.Service
+	ctx     = context.Background()
+	db      *gorp.DB
+	otg     *ontology.Ontology
+	g       *group.Service
+	svc     *policy.Service
+	roleSvc *role.Service
 )
 
 var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+	g = MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
 	svc = MustSucceed(policy.OpenService(ctx, policy.Config{
 		DB:       db,
 		Ontology: otg,
 	}))
+	roleSvc = MustSucceed(role.OpenService(ctx, role.Config{
+		DB:       db,
+		Ontology: otg,
+		Group:    g,
+	}))
 })
 
 var _ = AfterSuite(func() {
+	Expect(roleSvc.Close()).To(Succeed())
 	Expect(svc.Close()).To(Succeed())
+	Expect(g.Close()).To(Succeed())
 	Expect(otg.Close()).To(Succeed())
 	Expect(db.Close()).To(Succeed())
 })

@@ -14,12 +14,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Retriever struct {
-	baseTx gorp.Tx
-	gorp   gorp.Retrieve[uuid.UUID, Policy]
+	baseTx        gorp.Tx
+	gorp          gorp.Retrieve[uuid.UUID, Policy]
+	ontology      *ontology.Ontology
+	whereSubjects []ontology.ID
 }
 
 func (r Retriever) WhereKeys(keys ...uuid.UUID) Retriever {
@@ -31,6 +35,11 @@ func (r Retriever) WhereNames(names ...string) Retriever {
 	r.gorp = r.gorp.Where(func(ctx gorp.Context, e *Policy) (bool, error) {
 		return lo.Contains(names, e.Name), nil
 	})
+	return r
+}
+
+func (r Retriever) WhereSubjects(subjects ...ontology.ID) Retriever {
+	r.whereSubjects = append(r.whereSubjects, subjects...)
 	return r
 }
 
@@ -53,6 +62,28 @@ func (r Retriever) Offset(offset int) Retriever {
 
 func (r Retriever) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTx, tx)
+	if len(r.whereSubjects) > 0 {
+		var (
+			policyResources []ontology.Resource
+			roles           []ontology.Resource
+		)
+		if err := r.ontology.NewRetrieve().WhereIDs(r.whereSubjects...).
+			ExcludeFieldData(true).
+			TraverseTo(ontology.Parents).
+			WhereTypes(role.OntologyType).
+			Entries(&roles).
+			TraverseTo(ontology.Children).
+			WhereTypes(OntologyType).
+			Entries(&policyResources).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		keys, err := KeysFromOntologyIds(ontology.ResourceIDs(policyResources))
+		if err != nil {
+			return err
+		}
+		r = r.WhereKeys(keys...)
+	}
 	return r.gorp.Exec(ctx, tx)
 }
 

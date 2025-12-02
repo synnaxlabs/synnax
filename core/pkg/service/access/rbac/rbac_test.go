@@ -91,7 +91,7 @@ var _ = Describe("Service", func() {
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				Expect(roleWriter.SetPolicies(ctx, r.Key, p.Key)).To(Succeed())
+				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 				Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
 				req := access.Request{
@@ -113,7 +113,7 @@ var _ = Describe("Service", func() {
 					Actions: []access.Action{access.ActionDelete},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				Expect(roleWriter.SetPolicies(ctx, r.Key, p.Key)).To(Succeed())
+				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 				Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
 				req := access.Request{
@@ -144,7 +144,7 @@ var _ = Describe("Service", func() {
 					Actions: []access.Action{access.ActionAll},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				Expect(roleWriter.SetPolicies(ctx, r.Key, p.Key)).To(Succeed())
+				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 				Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
 				for _, action := range []access.Action{
@@ -174,7 +174,7 @@ var _ = Describe("Service", func() {
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				Expect(roleWriter.SetPolicies(ctx, r.Key, p.Key)).To(Succeed())
+				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 				Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
 				req := access.Request{
@@ -196,7 +196,7 @@ var _ = Describe("Service", func() {
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				Expect(roleWriter.SetPolicies(ctx, r.Key, p.Key)).To(Succeed())
+				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 				Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
 				req := access.Request{
@@ -225,7 +225,7 @@ var _ = Describe("Service", func() {
 				}
 				Expect(policyWriter.Create(ctx, allowPolicy)).To(Succeed())
 				Expect(policyWriter.Create(ctx, denyPolicy)).To(Succeed())
-				Expect(roleWriter.SetPolicies(ctx, r.Key, allowPolicy.Key, denyPolicy.Key)).To(Succeed())
+				Expect(policyWriter.SetOnRole(ctx, r.Key, allowPolicy.Key, denyPolicy.Key)).To(Succeed())
 				Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
 				req := access.Request{
@@ -252,7 +252,7 @@ var _ = Describe("Service", func() {
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				Expect(roleWriter.SetPolicies(ctx, r.Key, p.Key)).To(Succeed())
+				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 				Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
 				req := access.Request{
@@ -277,7 +277,7 @@ var _ = Describe("Service", func() {
 					Actions: []access.Action{access.ActionRetrieve},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				Expect(roleWriter.SetPolicies(ctx, r.Key, p.Key)).To(Succeed())
+				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 				Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
 				req := access.Request{
@@ -329,7 +329,7 @@ var _ = Describe("Service", func() {
 			}
 			Expect(policyWriter.Create(ctx, p1)).To(Succeed())
 			Expect(policyWriter.Create(ctx, p2)).To(Succeed())
-			Expect(roleWriter.SetPolicies(ctx, r.Key, p1.Key, p2.Key)).To(Succeed())
+			Expect(policyWriter.SetOnRole(ctx, r.Key, p1.Key, p2.Key)).To(Succeed())
 			Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
 			policies, err := svc.RetrievePoliciesForSubject(ctx, subject, tx)
@@ -382,7 +382,7 @@ var _ = Describe("Service", func() {
 				Actions: []access.Action{access.ActionRetrieve},
 			}
 			Expect(policyWriter.Create(ctx, p)).To(Succeed())
-			Expect(roleWriter.SetPolicies(ctx, r.Key, p.Key)).To(Succeed())
+			Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 			Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
 			req := access.Request{

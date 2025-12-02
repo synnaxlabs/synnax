@@ -86,69 +86,21 @@ func (s *AccessService) RetrievePolicy(
 	ctx context.Context,
 	req AccessRetrievePolicyRequest,
 ) (res AccessRetrievePolicyResponse, err error) {
-	// If subjects are provided, retrieve policies for those subjects (via roles)
-	if len(req.Subjects) > 0 {
-		// Retrieve policies for each subject and deduplicate
-		policyMap := make(map[uuid.UUID]policy.Policy)
-		for _, subject := range req.Subjects {
-			policies, err := s.internal.RetrievePoliciesForSubject(ctx, subject, nil)
-			if err != nil {
-				return AccessRetrievePolicyResponse{}, err
-			}
-			for _, p := range policies {
-				policyMap[p.Key] = p
-			}
-		}
-		// Convert map to slice
-		res.Policies = make([]policy.Policy, 0, len(policyMap))
-		for _, p := range policyMap {
-			res.Policies = append(res.Policies, p)
-		}
-		// Apply pagination to the result
-		if req.Offset > 0 {
-			if req.Offset >= len(res.Policies) {
-				res.Policies = []policy.Policy{}
-			} else {
-				res.Policies = res.Policies[req.Offset:]
-			}
-		}
-		if req.Limit > 0 && len(res.Policies) > req.Limit {
-			res.Policies = res.Policies[:req.Limit]
-		}
-	} else if len(req.Keys) > 0 {
-		// Retrieve by keys (existing behavior)
-		q := s.internal.Policy.NewRetrieve()
-		q = q.WhereKeys(req.Keys...)
-		if req.Limit > 0 {
-			q = q.Limit(req.Limit)
-		}
-		if req.Offset > 0 {
-			q = q.Offset(req.Offset)
-		}
-		if req.Internal != nil {
-			q = q.WhereInternal(*req.Internal)
-		}
-		if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
-			return AccessRetrievePolicyResponse{}, err
-		}
-	} else {
-		// No filters provided, retrieve all policies
-		q := s.internal.Policy.NewRetrieve()
-		if req.Limit > 0 {
-			q = q.Limit(req.Limit)
-		}
-		if req.Offset > 0 {
-			q = q.Offset(req.Offset)
-		}
-		if req.Internal != nil {
-			q = q.WhereInternal(*req.Internal)
-		}
-		if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
-			return AccessRetrievePolicyResponse{}, err
-		}
+	q := s.internal.Policy.NewRetrieve().
+		WhereSubjects(req.Subjects...).
+		WhereKeys(req.Keys...)
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
 	}
-
-	// Enforce access control check
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
+	}
+	if req.Internal != nil {
+		q = q.WhereInternal(*req.Internal)
+	}
+	if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
+		return AccessRetrievePolicyResponse{}, err
+	}
 	if err = s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,

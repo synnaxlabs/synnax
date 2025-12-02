@@ -136,7 +136,7 @@ func provisionRole(
 			return uuid.Nil, err
 		}
 		// Associate all policies with the role
-		if err := w.SetPolicies(ctx, rol.Key, policyKeys...); err != nil {
+		if err := service.Policy.NewWriter(tx, true).SetOnRole(ctx, rol.Key, policyKeys...); err != nil {
 			return uuid.Nil, err
 		}
 	}

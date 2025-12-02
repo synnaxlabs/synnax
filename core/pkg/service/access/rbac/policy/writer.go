@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
@@ -48,4 +49,18 @@ func (w Writer) Delete(
 	keys ...uuid.UUID,
 ) error {
 	return gorp.NewDelete[uuid.UUID, Policy]().WhereKeys(keys...).Exec(ctx, w.tx)
+}
+
+func (w Writer) SetOnRole(
+	ctx context.Context,
+	roleKey uuid.UUID,
+	policyKeys ...uuid.UUID,
+) error {
+	policyIDs := OntologyIDs(policyKeys)
+	for _, p := range policyIDs {
+		if err := w.otg.DefineRelationship(ctx, role.OntologyID(roleKey), ontology.ParentOf, p); err != nil {
+			return err
+		}
+	}
+	return nil
 }

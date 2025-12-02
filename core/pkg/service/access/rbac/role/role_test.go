@@ -14,8 +14,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -250,66 +248,6 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-	Describe("SetPolicies", func() {
-		var (
-			r        *role.Role
-			policies []policy.Policy
-		)
-		BeforeEach(func() {
-			r = &role.Role{
-				Name:        "test-role",
-				Description: "Test role",
-			}
-			Expect(w.Create(ctx, r)).To(Succeed())
-
-			pw := policySvc.NewWriter(tx, true)
-			policies = []policy.Policy{
-				{
-					Name:    "policy-1",
-					Effect:  policy.EffectAllow,
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
-					Actions: []access.Action{access.ActionRetrieve},
-				},
-				{
-					Name:    "policy-2",
-					Effect:  policy.EffectAllow,
-					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
-					Actions: []access.Action{access.ActionUpdate},
-				},
-			}
-			for i := range policies {
-				Expect(pw.Create(ctx, &policies[i])).To(Succeed())
-			}
-		})
-
-		It("Should set policies for a role", func() {
-			policyKeys := []uuid.UUID{policies[0].Key, policies[1].Key}
-			Expect(w.SetPolicies(ctx, r.Key, policyKeys...)).To(Succeed())
-
-			var children []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(role.OntologyID(r.Key)).
-				TraverseTo(ontology.Children).
-				WhereTypes(policy.OntologyType).
-				Entries(&children).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(children).To(HaveLen(2))
-		})
-
-		It("Should attach single policy to role", func() {
-			Expect(w.SetPolicies(ctx, r.Key, policies[0].Key)).To(Succeed())
-
-			var children []ontology.Resource
-			Expect(otg.NewRetrieve().
-				WhereIDs(role.OntologyID(r.Key)).
-				TraverseTo(ontology.Children).
-				WhereTypes(policy.OntologyType).
-				Entries(&children).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(children).To(HaveLen(1))
-			Expect(children[0].ID.Key).To(Equal(policies[0].Key.String()))
-		})
-	})
 })
 
 var _ = Describe("Retrieve", func() {

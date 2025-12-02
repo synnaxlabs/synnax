@@ -120,27 +120,9 @@ func (e *Enforcer) retrievePolicies(
 	ctx context.Context,
 	subject ontology.ID,
 ) ([]policy.Policy, error) {
-	var (
-		policyResources []ontology.Resource
-		roles           []ontology.Resource
-		policies        []policy.Policy
-	)
-	if err := e.cfg.Ontology.NewRetrieve().WhereIDs(subject).
-		ExcludeFieldData(true).
-		TraverseTo(ontology.Parents).
-		WhereTypes(role.OntologyType).
-		Entries(&roles).
-		TraverseTo(ontology.Children).
-		WhereTypes(policy.OntologyType).
-		Entries(&policyResources).
-		Exec(ctx, e.tx); err != nil {
-		return nil, err
-	}
-	keys, err := policy.KeysFromOntologyIds(ontology.ResourceIDs(policyResources))
-	if err != nil {
-		return nil, err
-	}
-	if err = e.policy.NewRetrieve().WhereKeys(keys...).
+	var policies []policy.Policy
+	if err := e.policy.NewRetrieve().
+		WhereSubjects(subject).
 		Entries(&policies).
 		Exec(ctx, e.tx); err != nil {
 		return nil, err
