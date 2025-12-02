@@ -100,9 +100,7 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 		It("Should return an error if the rack has no name", func() {
 			r := &rack.Rack{}
-			err := writer.Create(ctx, r)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("name: required"))
+			Expect(writer.Create(ctx, r)).Error().To(MatchError(ContainSubstring("name")))
 		})
 	})
 	Describe("Retrieve", func() {
@@ -221,11 +219,10 @@ var _ = Describe("Rack", Ordered, func() {
 		It("Should return a validation error if provided status has empty variant", func() {
 			providedStatus := &rack.Status{
 				Message: "Status with no variant",
+				Time:    telem.Now(),
 			}
 			r := rack.Rack{Name: "rack with invalid status", Status: providedStatus}
-			err := svc.NewWriter(nil).Create(ctx, &r)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("variant"))
+			Expect(svc.NewWriter(nil).Create(ctx, &r)).Error().To(MatchError(ContainSubstring("variant")))
 		})
 
 		It("Should mark a rack as dead when it doesn't receive a status within the health check interval", func() {

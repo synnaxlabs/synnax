@@ -324,6 +324,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return a validation error if provided status has empty variant", func() {
 			providedStatus := &task.Status{
+				Time:    telem.Now(),
 				Message: "Status with no variant",
 			}
 			m := &task.Task{
@@ -331,9 +332,7 @@ var _ = Describe("Task", Ordered, func() {
 				Name:   "Task with invalid status",
 				Status: providedStatus,
 			}
-			err := w.Create(ctx, m)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("variant"))
+			Expect(w.Create(ctx, m)).Error().To(MatchError(ContainSubstring("variant")))
 		})
 		It("Should create an unknown status when copying a task", func() {
 			m := &task.Task{
