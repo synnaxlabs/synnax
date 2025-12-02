@@ -160,7 +160,7 @@ func formatDifferences(differences []string) string {
 	return result
 }
 
-type frameMatcher[K xtypes.Numeric] struct {
+type frameMatcher[K xtypes.SizedNumeric] struct {
 	expected        Frame[K]
 	matchSeriesOpts []SeriesMatcherOption
 }
@@ -168,11 +168,11 @@ type frameMatcher[K xtypes.Numeric] struct {
 // MatchFrame returns a Gomega matcher that compares two Frame objects for equality.
 // The matcher verifies that both frames have the same number of series and that each
 // series matches its corresponding one in the expected frame. K must be a numeric type.
-func MatchFrame[K xtypes.Numeric](expected Frame[K], matchSeriesOpts ...SeriesMatcherOption) types.GomegaMatcher {
+func MatchFrame[K xtypes.SizedNumeric](expected Frame[K], matchSeriesOpts ...SeriesMatcherOption) types.GomegaMatcher {
 	return &frameMatcher[K]{expected: expected, matchSeriesOpts: matchSeriesOpts}
 }
 
-func MatchWrittenFrame[K xtypes.Numeric](expected Frame[K], opts ...SeriesMatcherOption) types.GomegaMatcher {
+func MatchWrittenFrame[K xtypes.SizedNumeric](expected Frame[K], opts ...SeriesMatcherOption) types.GomegaMatcher {
 	return &frameMatcher[K]{expected: expected, matchSeriesOpts: append([]SeriesMatcherOption{ExcludeSeriesFields("TimeRange", "Alignment")}, opts...)}
 }
 

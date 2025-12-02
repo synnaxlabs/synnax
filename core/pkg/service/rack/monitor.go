@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -116,43 +117,33 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 func (m *monitor) handleChange(ctx context.Context, t gorp.TxReader[string, status.Status[any]]) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	for {
-		change, ok := t.Next(ctx)
-		if !ok {
-			break
-		}
-		if !strings.HasPrefix(change.Key, string(OntologyType)) {
+	for ch := range t {
+		if !strings.HasPrefix(ch.Key, string(OntologyType)) {
 			continue
 		}
-		key, err := decodeKeyFromOntologyIDString(change.Key)
+		key, err := parseKeyFromOntologyIDString(ch.Key)
 		if err != nil {
 			m.L.Error("failed to decode status key", zap.Error(err))
 			continue
 		}
-		if change.Variant == xchange.Delete {
+		if ch.Variant == xchange.Delete {
 			delete(m.mu.racks, key)
 			continue
 		}
-		isHealthy := change.Value.Variant == xstatus.SuccessVariant ||
-			change.Value.Variant == xstatus.InfoVariant
-		if isHealthy {
-			m.mu.racks[key] = rackState{lastUpdated: telem.Now(), deadCheckCount: 0}
-		} else if _, exists := m.mu.racks[key]; !exists {
+		isHealthy := ch.Value.Variant == xstatus.SuccessVariant ||
+			ch.Value.Variant == xstatus.InfoVariant
+		if isHealthy || !lo.HasKey(m.mu.racks, key) {
 			m.mu.racks[key] = rackState{lastUpdated: telem.Now(), deadCheckCount: 0}
 		}
 	}
 }
 
-func decodeKeyFromOntologyIDString(s string) (Key, error) {
+func parseKeyFromOntologyIDString(s string) (Key, error) {
 	id, err := ontology.ParseID(s)
 	if err != nil {
 		return 0, err
 	}
-	keys, err := KeysFromOntologyIds([]ontology.ID{id})
-	if err != nil || len(keys) == 0 {
-		return 0, err
-	}
-	return keys[0], nil
+	return KeyFromOntologyID(id)
 }
 
 func openMonitor(

@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "connection",
     srcs = [
@@ -22,7 +25,7 @@ cc_library(
 )
 
 cc_test(
-    name = "conn_test",
+    name = "connection_test",
     srcs = [
         "connection_test.cpp",
         "keepalive_test.cpp",

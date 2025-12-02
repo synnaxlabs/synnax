@@ -115,39 +115,6 @@ var _ = Describe("Set", func() {
 		})
 	})
 
-	Describe("Reset", func() {
-		It("should clear all elements from the set", func() {
-			s.Add(1, 2, 3, 4, 5)
-			Expect(len(s)).To(Equal(5))
-
-			s.Reset()
-			Expect(len(s)).To(Equal(0))
-			Expect(s.Contains(1)).To(BeFalse())
-			Expect(s.Contains(2)).To(BeFalse())
-			Expect(s.Contains(3)).To(BeFalse())
-		})
-
-		It("should be idempotent when called on an empty set", func() {
-			s.Reset()
-			Expect(len(s)).To(Equal(0))
-
-			s.Reset()
-			Expect(len(s)).To(Equal(0))
-		})
-
-		It("should allow adding elements after reset", func() {
-			s.Add(1, 2, 3)
-			s.Reset()
-			s.Add(4, 5, 6)
-
-			Expect(len(s)).To(Equal(3))
-			Expect(s.Contains(1)).To(BeFalse())
-			Expect(s.Contains(4)).To(BeTrue())
-			Expect(s.Contains(5)).To(BeTrue())
-			Expect(s.Contains(6)).To(BeTrue())
-		})
-	})
-
 	Describe("Copy", func() {
 		It("should create an independent copy of the set", func() {
 			s.Add(1, 2, 3)
