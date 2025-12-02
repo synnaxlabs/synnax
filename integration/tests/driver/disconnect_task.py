@@ -82,6 +82,7 @@ class DisconnectTask(SimulatorTaskCase, ABC):
         sy.sleep(3)  # Give the driver time to reconnect
 
         self.log("Test 3 - Run Task After Device Reconnection")
+        client.tasks.configure(tsk)
         self.assert_sample_count(task=tsk, strict=False)
 
         self.log("Test 4 - Kill Simulator")

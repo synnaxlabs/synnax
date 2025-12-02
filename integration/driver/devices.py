@@ -146,6 +146,8 @@ def connect_device(
     *,
     rack_name: str,
     device_factory: Callable[[int], SynnaxDevice],
+    max_retries: int = 10,
+    retry_delay: float = 1.0,
 ) -> sy.Device:
     """
     Get or create a hardware device using a factory from KnownDevices.
@@ -158,6 +160,8 @@ def connect_device(
         client: Synnax client instance
         rack_name: Name of the rack to connect the device to
         device_factory: A factory function from KnownDevices (e.g., KnownDevices.modbus_sim)
+        max_retries: Maximum number of retries to wait for rack to be available
+        retry_delay: Delay in seconds between retries
 
     Returns:
         The created or retrieved Synnax device
@@ -169,7 +173,28 @@ def connect_device(
             device_factory=KnownDevices.modbus_sim
         )
     """
-    rack = client.racks.retrieve(name=rack_name)
+    # Wait for the embedded driver to register its rack
+    rack = None
+    for attempt in range(max_retries):
+        try:
+            rack = client.racks.retrieve(name=rack_name)
+            break
+        except sy.NotFoundError:
+            if attempt < max_retries - 1:
+                sy.sleep(retry_delay)
+            else:
+                raise AssertionError(
+                    f"Rack '{rack_name}' not found after {max_retries} attempts. "
+                    "The embedded driver may not have started."
+                )
+        except Exception as e:
+            # For other errors (like JSONDecodeError from empty response), retry
+            if attempt < max_retries - 1:
+                sy.sleep(retry_delay)
+            else:
+                raise AssertionError(
+                    f"Failed to retrieve rack '{rack_name}' after {max_retries} attempts: {e}"
+                )
 
     # Create device instance to get its name
     device_instance = device_factory(rack.key)
