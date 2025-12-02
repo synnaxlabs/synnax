@@ -42,7 +42,9 @@ struct ScannerConfig {
     ScannerConfig() = default;
 
     explicit ScannerConfig(xjson::Parser &cfg):
-        scan_rate(::telem::Rate(cfg.field<double>("scan_rate", DEFAULT_SCAN_RATE.hz()))),
+        scan_rate(
+            ::telem::Rate(cfg.field<double>("scan_rate", DEFAULT_SCAN_RATE.hz()))
+        ),
         enabled(cfg.field<bool>("enabled", true)) {}
 };
 
