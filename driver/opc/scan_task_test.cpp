@@ -56,12 +56,13 @@ protected:
 };
 
 TEST_F(TestScanTask, testBasicScan) {
+    const auto cfg = opc::ScannerConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
-        std::make_unique<opc::Scanner>(ctx, task, conn_pool, opc::ScannerConfig{}),
+        std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,
         task,
         breaker::default_config(task.name),
-        telem::Rate(0.2)
+        cfg.scan_rate
     );
 
     opc::connection::Config conn_cfg;
@@ -128,12 +129,13 @@ TEST_F(TestScanTask, testBasicScan) {
 }
 
 TEST_F(TestScanTask, testConnectionPooling) {
+    const auto cfg = opc::ScannerConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
-        std::make_unique<opc::Scanner>(ctx, task, conn_pool, opc::ScannerConfig{}),
+        std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,
         task,
         breaker::default_config(task.name),
-        telem::Rate(0.2)
+        cfg.scan_rate
     );
 
     opc::connection::Config conn_cfg;
@@ -161,12 +163,13 @@ TEST_F(TestScanTask, testConnectionPooling) {
 }
 
 TEST_F(TestScanTask, testTestConnection) {
+    const auto cfg = opc::ScannerConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
-        std::make_unique<opc::Scanner>(ctx, task, conn_pool, opc::ScannerConfig{}),
+        std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,
         task,
         breaker::default_config(task.name),
-        telem::Rate(0.2)
+        cfg.scan_rate
     );
 
     opc::connection::Config conn_cfg;
@@ -192,12 +195,13 @@ TEST_F(TestScanTask, testTestConnection) {
 }
 
 TEST_F(TestScanTask, testInvalidConnection) {
-    auto scan_task = std::make_unique<common::ScanTask>(
-        std::make_unique<opc::Scanner>(ctx, task, conn_pool, opc::ScannerConfig{}),
+    auto cfg = opc::ScannerConfig{};
+    const auto scan_task = std::make_unique<common::ScanTask>(
+        std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,
         task,
         breaker::default_config(task.name),
-        telem::Rate(0.2)
+        cfg.scan_rate
     );
 
     opc::connection::Config conn_cfg;
@@ -223,15 +227,14 @@ TEST_F(TestScanTask, testInvalidConnection) {
 
 /// @brief Tests that opc::Scanner::config() returns correct values.
 TEST_F(TestScanTask, testConfigReturnsCorrectValues) {
-    const opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
+    const opc::Scanner scanner(ctx, task, conn_pool);
     auto cfg = scanner.config();
     EXPECT_EQ(cfg.make, "opc");
 }
 
 /// @brief Tests that exec() returns false for unknown commands.
 TEST_F(TestScanTask, testExecReturnsFalseForUnknownCommand) {
-    opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
-
+    opc::Scanner scanner(ctx, task, conn_pool);
     task::Command cmd(task.key, "unknown_command", json{});
     bool handled = scanner.exec(cmd, task, ctx);
     EXPECT_FALSE(handled);
@@ -239,7 +242,7 @@ TEST_F(TestScanTask, testExecReturnsFalseForUnknownCommand) {
 
 /// @brief Tests that scan() checks device health and updates status.
 TEST_F(TestScanTask, testScanChecksDeviceHealth) {
-    opc::Scanner scanner(ctx, task, conn_pool, opc::ScannerConfig{});
+    opc::Scanner scanner(ctx, task, conn_pool);
 
     // Create device with valid OPC connection properties
     synnax::Device dev;
@@ -291,7 +294,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
 
     // Use a fresh connection pool to avoid cached connections
     auto fresh_conn_pool = std::make_shared<opc::connection::Pool>();
-    opc::Scanner scanner(ctx, task, fresh_conn_pool, opc::ScannerConfig{});
+    opc::Scanner scanner(ctx, task, fresh_conn_pool);
 
     // Step 1: Server is running (started in SetUp) - health should be good
     {
@@ -307,7 +310,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     // Clear the connection pool to force new connection attempts
     fresh_conn_pool = std::make_shared<opc::connection::Pool>();
     // Recreate scanner with fresh pool
-    opc::Scanner scanner2(ctx, task, fresh_conn_pool, opc::ScannerConfig{});
+    opc::Scanner scanner2(ctx, task, fresh_conn_pool);
 
     {
         auto [devices, err] = scanner2.scan(scan_ctx);
@@ -341,7 +344,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
 
     // Use fresh connection pool again
     fresh_conn_pool = std::make_shared<opc::connection::Pool>();
-    opc::Scanner scanner3(ctx, task, fresh_conn_pool, opc::ScannerConfig{});
+    opc::Scanner scanner3(ctx, task, fresh_conn_pool);
 
     {
         auto [devices, err] = scanner3.scan(scan_ctx);

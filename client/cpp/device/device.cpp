@@ -168,14 +168,7 @@ Device Device::parse(xjson::Parser &parser) {
     d.make = parser.field<std::string>("make", "");
     d.model = parser.field<std::string>("model", "");
     d.configured = parser.field<bool>("configured", false);
-    // Properties can be either a string or an object - handle both cases
-    if (parser.has("properties")) {
-        const auto &props = parser.get_json()["properties"];
-        if (props.is_string())
-            d.properties = props.get<std::string>();
-        else if (props.is_object())
-            d.properties = props.dump();
-    }
+    d.properties = parser.field<std::string>("properties", "");
     return d;
 }
 }

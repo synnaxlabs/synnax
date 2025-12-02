@@ -30,13 +30,9 @@ namespace opc {
 Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
     synnax::Task task,
-    std::shared_ptr<connection::Pool> conn_pool,
-    const ScannerConfig cfg
+    std::shared_ptr<connection::Pool> conn_pool
 ):
-    ctx(std::move(ctx)),
-    task(std::move(task)),
-    conn_pool(std::move(conn_pool)),
-    cfg(cfg) {}
+    ctx(std::move(ctx)), task(std::move(task)), conn_pool(std::move(conn_pool)) {}
 
 common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{
