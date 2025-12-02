@@ -415,4 +415,80 @@ var _ = Describe("Select", func() {
 			Expect(sym.Name).To(Equal("select"))
 		})
 	})
+	Describe("Alignment Propagation", func() {
+		It("Should propagate alignment and time range to both outputs", func() {
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "select", Type: "select"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
+					},
+				},
+				Functions: []graph.Function{
+					{
+						Key: "source",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+					{
+						Key: "select",
+						Inputs: types.Params{
+							{Name: ir.DefaultInputParam, Type: types.U8()},
+						},
+						Outputs: types.Params{
+							{Name: "true", Type: types.U8()},
+							{Name: "false", Type: types.U8()},
+						},
+					},
+				},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			factory := selector.NewFactory()
+			cfg := node.Config{
+				Node:  ir.Node{Type: "select"},
+				State: s.Node("select"),
+			}
+			source := s.Node("source")
+
+			inputSeries := telem.NewSeriesV[uint8](1, 0, 1, 0)
+			inputSeries.Alignment = 150
+			inputSeries.TimeRange = telem.TimeRange{Start: 50 * telem.SecondTS, End: 200 * telem.SecondTS}
+			*source.Output(0) = inputSeries
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150, 200)
+
+			n, _ := factory.Create(ctx, cfg)
+			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+
+			selectNode := s.Node("select")
+
+			// Check true output
+			trueOut := selectNode.Output(0)
+			Expect(trueOut.Alignment).To(Equal(telem.Alignment(150)))
+			Expect(trueOut.TimeRange.Start).To(Equal(50 * telem.SecondTS))
+			Expect(trueOut.TimeRange.End).To(Equal(200 * telem.SecondTS))
+
+			trueTime := selectNode.OutputTime(0)
+			Expect(trueTime.Alignment).To(Equal(telem.Alignment(150)))
+			Expect(trueTime.TimeRange.Start).To(Equal(50 * telem.SecondTS))
+			Expect(trueTime.TimeRange.End).To(Equal(200 * telem.SecondTS))
+
+			// Check false output
+			falseOut := selectNode.Output(1)
+			Expect(falseOut.Alignment).To(Equal(telem.Alignment(150)))
+			Expect(falseOut.TimeRange.Start).To(Equal(50 * telem.SecondTS))
+			Expect(falseOut.TimeRange.End).To(Equal(200 * telem.SecondTS))
+
+			falseTime := selectNode.OutputTime(1)
+			Expect(falseTime.Alignment).To(Equal(telem.Alignment(150)))
+			Expect(falseTime.TimeRange.Start).To(Equal(50 * telem.SecondTS))
+			Expect(falseTime.TimeRange.End).To(Equal(200 * telem.SecondTS))
+		})
+	})
 })

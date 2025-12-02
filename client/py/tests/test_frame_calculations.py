@@ -701,6 +701,9 @@ class TestCalculationOperations:
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(20.0)
+                ser = frame[calc.key]
+                assert ser.alignment != 0
+                first_alignment = ser.alignment
                 writer.write(
                     {
                         idx.key: np.array(
@@ -717,6 +720,8 @@ class TestCalculationOperations:
                 frame = streamer.read(timeout=1)
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(35.0)
+                ser = frame[calc.key]
+                assert ser.alignment == first_alignment + 1
 
     def test_avg_duration_reset_triggers_on_boundary(self, client: sy.Synnax):
         idx = client.channels.create(
@@ -805,6 +810,9 @@ class TestCalculationOperations:
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(10.0)
+                ser = frame[calc.key]
+                assert ser.alignment != 0
+                first_alignment = ser.alignment
                 writer.write(
                     {
                         idx.key: np.array(
@@ -821,6 +829,8 @@ class TestCalculationOperations:
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(40.0)
+                ser = frame[calc.key]
+                assert ser.alignment == first_alignment + 1
 
     def test_max_operation_duration_reset(self, client: sy.Synnax):
         idx = client.channels.create(
@@ -857,6 +867,9 @@ class TestCalculationOperations:
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(30.0)
+                ser = frame[calc.key]
+                assert ser.alignment != 0
+                first_alignment = ser.alignment
                 writer.write(
                     {
                         idx.key: np.array(
@@ -873,6 +886,8 @@ class TestCalculationOperations:
                 assert frame is not None
                 assert len(frame[calc.key]) == 1
                 assert frame[calc.key][0] == pytest.approx(25.0)
+                ser = frame[calc.key]
+                assert ser.alignment == first_alignment + 1
 
     def test_avg_signal_reset_triggers_on_channel(self, client: sy.Synnax):
         idx = client.channels.create(
@@ -1319,17 +1334,17 @@ class TestCalculationsAcrossDomains:
         """Should correctly calculate values across two separate write domains
         with correct alignment for each domain."""
         idx = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
         data = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name} * 2",
         )
@@ -1407,24 +1422,24 @@ class TestCalculationsAcrossDomains:
         """Should correctly handle 2-level nested calculations across domains
         with proper alignment preservation."""
         idx = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
         sensor = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
         # B depends on sensor (concrete)
         calc_b = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor.name} * 2",
         )
         # C depends on B (calculated)
         calc_c = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {calc_b.name} + 10",
         )
@@ -1504,30 +1519,30 @@ class TestCalculationsAcrossDomains:
         """Should correctly handle 3-level nested calculations across domains
         with proper alignment preservation."""
         idx = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
         sensor = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
         # B depends on sensor (concrete)
         calc_b = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor.name} * 2",
         )
         # C depends on B (calculated)
         calc_c = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {calc_b.name} + 5",
         )
         # D depends on C (calculated)
         calc_d = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {calc_c.name} * 3",
         )
@@ -1619,30 +1634,30 @@ class TestCalculationsAcrossDomains:
         D depends on sensor (A)
         """
         idx = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
         sensor = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
         # C depends on sensor
         calc_c = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor.name} + 10",
         )
         # D also depends on sensor
         calc_d = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor.name} * 5",
         )
         # E depends on both C and D
         calc_e = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {calc_c.name} + {calc_d.name}",
         )
@@ -1728,29 +1743,29 @@ class TestCalculationsAcrossDomains:
         """Should correctly handle requesting both calculated and concrete channels
         with proper alignment for each."""
         idx = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
         sensor_1 = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
         sensor_2 = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
         # Calculated channel that depends on both sensors
         calc_mixed = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor_1.name} + {sensor_2.name}",
         )
         # Nested calculated channel
         calc_nested = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {calc_mixed.name} * 2",
         )
@@ -1873,17 +1888,17 @@ class TestCalculationsAcrossDomains:
         """Should correctly calculate values across three separate write domains
         with correct alignment for each."""
         idx = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
         data = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name} * 2",
         )
@@ -1966,17 +1981,17 @@ class TestCalculationsAcrossDomains:
         """Should correctly handle calculations when there's a large gap between domains
         while preserving proper alignment."""
         idx = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
         data = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {data.name} + 100",
         )
@@ -2043,28 +2058,28 @@ class TestCalculationsAcrossDomains:
         """Should correctly handle multiple calculations depending on the same source
         with consistent alignments across all calculated channels."""
         idx = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
         sensor = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
         # Multiple calculations on the same source
         calc_double = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor.name} * 2",
         )
         calc_square = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor.name} * {sensor.name}",
         )
         calc_plus_ten = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor.name} + 10",
         )
@@ -2145,17 +2160,17 @@ class TestCalculationsAcrossDomains:
         """Should correctly handle conditional calculations across domains
         with proper alignment."""
         idx = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
         data = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"""
             if ({data.name} > 5) {{
@@ -2239,22 +2254,22 @@ class TestCalculationsAcrossDomains:
         """Should handle calculations with two source channels written together
         across domains with proper alignment - reading ONLY calculated channels."""
         idx = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
         sensor_a = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
         sensor_b = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx.key,
         )
         calc = client.channels.create(
-            name=rand_name(),
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {sensor_a.name} + {sensor_b.name}",
         )
@@ -2325,5 +2340,247 @@ class TestCalculationsAcrossDomains:
             calc_multi.series[1], np.array([30.0, 31.0, 32.0, 33.0], dtype=np.float32)
         )
 
+        assert calc_multi.series[0].alignment == idx_multi.series[0].alignment
+        assert calc_multi.series[1].alignment == idx_multi.series[1].alignment
+
+
+class TestStatOperationsAlignment:
+    """Tests that statistical operations correctly propagate alignment metadata across domains."""
+
+    def test_avg_operation_alignment_across_domains(self, client: sy.Synnax):
+        """Should correctly calculate avg with proper alignment per domain."""
+        idx = client.channels.create(
+            name=random_name(),
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+        )
+        data = client.channels.create(
+            name=random_name(),
+            data_type=sy.DataType.FLOAT32,
+            index=idx.key,
+        )
+        calc = client.channels.create(
+            name=random_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="avg")],
+        )
+
+        # First domain
+        with client.open_writer(
+            1 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
+        ) as w:
+            w.write(
+                {
+                    idx.key: np.array(
+                        [
+                            1 * sy.TimeSpan.SECOND,
+                            2 * sy.TimeSpan.SECOND,
+                            3 * sy.TimeSpan.SECOND,
+                        ],
+                        dtype=np.int64,
+                    ),
+                    data.key: np.array([10.0, 20.0, 30.0], dtype=np.float32),
+                }
+            )
+
+        # Second domain
+        with client.open_writer(
+            6 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
+        ) as w:
+            w.write(
+                {
+                    idx.key: np.array(
+                        [
+                            6 * sy.TimeSpan.SECOND,
+                            7 * sy.TimeSpan.SECOND,
+                            8 * sy.TimeSpan.SECOND,
+                        ],
+                        dtype=np.int64,
+                    ),
+                    data.key: np.array([40.0, 50.0, 60.0], dtype=np.float32),
+                }
+            )
+
+        # Read calculated channel
+        res = client.read(sy.TimeRange.MAX, [calc.key, calc.index])
+        calc_multi = res[calc.key]
+        idx_multi = res[calc.index]
+
+        # Should have 2 series (one per domain)
+        assert len(calc_multi.series) == 2
+        assert len(idx_multi.series) == 2
+
+        # Verify domain 0 alignment
+        assert calc_multi.series[0].alignment.domain_index == 0
+        assert calc_multi.series[0].alignment.sample_index == 0
+        assert idx_multi.series[0].alignment.domain_index == 0
+
+        # Verify domain 1 alignment
+        assert calc_multi.series[1].alignment.domain_index == 1
+        assert calc_multi.series[1].alignment.sample_index == 0
+        assert idx_multi.series[1].alignment.domain_index == 1
+
+        assert calc_multi.series[0][0] == pytest.approx(20.0)
+        assert calc_multi.series[1][0] == pytest.approx(35.0)
+
+        assert calc_multi.series[0].alignment == idx_multi.series[0].alignment
+        assert calc_multi.series[1].alignment == idx_multi.series[1].alignment
+
+    def test_min_operation_alignment_across_domains(self, client: sy.Synnax):
+        """Should correctly calculate min with proper alignment per domain."""
+        idx = client.channels.create(
+            name=random_name(),
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+        )
+        data = client.channels.create(
+            name=random_name(),
+            data_type=sy.DataType.FLOAT32,
+            index=idx.key,
+        )
+        calc = client.channels.create(
+            name=random_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="min")],
+        )
+
+        # First domain
+        with client.open_writer(
+            1 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
+        ) as w:
+            w.write(
+                {
+                    idx.key: np.array(
+                        [
+                            1 * sy.TimeSpan.SECOND,
+                            2 * sy.TimeSpan.SECOND,
+                            3 * sy.TimeSpan.SECOND,
+                        ],
+                        dtype=np.int64,
+                    ),
+                    data.key: np.array([30.0, 10.0, 20.0], dtype=np.float32),
+                }
+            )
+
+        # Second domain
+        with client.open_writer(
+            6 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
+        ) as w:
+            w.write(
+                {
+                    idx.key: np.array(
+                        [
+                            6 * sy.TimeSpan.SECOND,
+                            7 * sy.TimeSpan.SECOND,
+                            8 * sy.TimeSpan.SECOND,
+                        ],
+                        dtype=np.int64,
+                    ),
+                    data.key: np.array([60.0, 40.0, 50.0], dtype=np.float32),
+                }
+            )
+
+        # Read calculated channel
+        res = client.read(sy.TimeRange.MAX, [calc.key, calc.index])
+        calc_multi = res[calc.key]
+        idx_multi = res[calc.index]
+
+        # Should have 2 series (one per domain)
+        assert len(calc_multi.series) == 2
+        assert len(idx_multi.series) == 2
+
+        # Verify domain 0 alignment
+        assert calc_multi.series[0].alignment.domain_index == 0
+        assert calc_multi.series[0].alignment.sample_index == 0
+
+        # Verify domain 1 alignment
+        assert calc_multi.series[1].alignment.domain_index == 1
+        assert calc_multi.series[1].alignment.sample_index == 0
+
+        assert calc_multi.series[0][0] == pytest.approx(10.0)
+        assert calc_multi.series[1][0] == pytest.approx(10.0)
+
+        # Verify calc and index alignments match
+        assert calc_multi.series[0].alignment == idx_multi.series[0].alignment
+        assert calc_multi.series[1].alignment == idx_multi.series[1].alignment
+
+    def test_max_operation_alignment_across_domains(self, client: sy.Synnax):
+        """Should correctly calculate max with proper alignment per domain."""
+        idx = client.channels.create(
+            name=random_name(),
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+        )
+        data = client.channels.create(
+            name=random_name(),
+            data_type=sy.DataType.FLOAT32,
+            index=idx.key,
+        )
+        calc = client.channels.create(
+            name=random_name(),
+            data_type=sy.DataType.FLOAT32,
+            expression=f"return {data.name}",
+            operations=[sy.channel.Operation(type="max")],
+        )
+
+        # First domain
+        with client.open_writer(
+            1 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
+        ) as w:
+            w.write(
+                {
+                    idx.key: np.array(
+                        [
+                            1 * sy.TimeSpan.SECOND,
+                            2 * sy.TimeSpan.SECOND,
+                            3 * sy.TimeSpan.SECOND,
+                        ],
+                        dtype=np.int64,
+                    ),
+                    data.key: np.array([10.0, 30.0, 20.0], dtype=np.float32),
+                }
+            )
+
+        # Second domain
+        with client.open_writer(
+            6 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
+        ) as w:
+            w.write(
+                {
+                    idx.key: np.array(
+                        [
+                            6 * sy.TimeSpan.SECOND,
+                            7 * sy.TimeSpan.SECOND,
+                            8 * sy.TimeSpan.SECOND,
+                        ],
+                        dtype=np.int64,
+                    ),
+                    data.key: np.array([40.0, 60.0, 50.0], dtype=np.float32),
+                }
+            )
+
+        # Read calculated channel
+        res = client.read(sy.TimeRange.MAX, [calc.key, calc.index])
+        calc_multi = res[calc.key]
+        idx_multi = res[calc.index]
+
+        # Should have 2 series (one per domain)
+        assert len(calc_multi.series) == 2
+        assert len(idx_multi.series) == 2
+
+        # Verify domain 0 alignment
+        assert calc_multi.series[0].alignment.domain_index == 0
+        assert calc_multi.series[0].alignment.sample_index == 0
+
+        # Verify domain 1 alignment
+        assert calc_multi.series[1].alignment.domain_index == 1
+        assert calc_multi.series[1].alignment.sample_index == 0
+
+        assert calc_multi.series[0][0] == pytest.approx(30.0)
+        assert calc_multi.series[1][0] == pytest.approx(60.0)
+
+        # Verify calc and index alignments match
         assert calc_multi.series[0].alignment == idx_multi.series[0].alignment
         assert calc_multi.series[1].alignment == idx_multi.series[1].alignment

@@ -158,13 +158,6 @@ func newOptions(opts []Option) *options {
 
 var byteOrder = telem.ByteOrder
 
-// DefaultConfig returns the default codec configuration with alignment compression enabled.
-func DefaultConfig() Config {
-	return Config{
-		EnableAlignmentCompression: true,
-	}
-}
-
 // NewStatic creates a new codec that uses the given channel keys and data types as
 // its encoding state with default configuration (alignment compression enabled).
 // It is not safe to call Update on a codec instantiated using NewStatic.
