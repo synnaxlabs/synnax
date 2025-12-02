@@ -228,7 +228,6 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
 };
 
 export const CounterRead = Common.Task.wrapForm({
-  initialStatusData: null,
   Properties,
   Form,
   schemas: COUNTER_READ_SCHEMAS,

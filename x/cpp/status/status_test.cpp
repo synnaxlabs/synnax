@@ -97,3 +97,40 @@ TEST(StatusTest, TestProtobufDetailsRoundTrip) {
     ASSERT_EQ(recovered.details.field1, "hello");
     ASSERT_EQ(recovered.details.field2, 42);
 }
+
+/// @brief it should correctly identify a zero/default status.
+TEST(StatusTest, TestIsZero) {
+    // Default-constructed status should be zero
+    status::Status<> zero_status{};
+    ASSERT_TRUE(zero_status.is_zero());
+
+    // Status with any non-default field should not be zero
+    status::Status<> with_key{.key = "test"};
+    ASSERT_FALSE(with_key.is_zero());
+
+    status::Status<> with_name{.name = "Test"};
+    ASSERT_FALSE(with_name.is_zero());
+
+    status::Status<> with_variant{.variant = status::variant::SUCCESS};
+    ASSERT_FALSE(with_variant.is_zero());
+
+    status::Status<> with_message{.message = "hello"};
+    ASSERT_FALSE(with_message.is_zero());
+
+    status::Status<> with_description{.description = "desc"};
+    ASSERT_FALSE(with_description.is_zero());
+
+    status::Status<> with_time{.time = telem::TimeStamp(1)};
+    ASSERT_FALSE(with_time.is_zero());
+
+    // Fully populated status should not be zero
+    status::Status<> full_status{
+        .key = "key",
+        .name = "name",
+        .variant = status::variant::INFO,
+        .message = "msg",
+        .description = "desc",
+        .time = telem::TimeStamp::now(),
+    };
+    ASSERT_FALSE(full_status.is_zero());
+}

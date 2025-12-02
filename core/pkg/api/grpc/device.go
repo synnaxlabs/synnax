@@ -60,7 +60,7 @@ var (
 	_ fgrpc.Translator[api.DeviceDeleteRequest, *gapi.DeviceDeleteRequest]       = deviceDeleteRequestTranslator{}
 )
 
-func translateDeviceForward(d *api.Device) *gapi.Device {
+func translateDeviceForward(d *api.Device) (*gapi.Device, error) {
 	gd := &gapi.Device{
 		Key:        d.Key,
 		Name:       d.Name,
@@ -72,12 +72,16 @@ func translateDeviceForward(d *api.Device) *gapi.Device {
 		Configured: d.Configured,
 	}
 	if d.Status != nil {
-		gd.Status, _ = status.TranslateToPB[device.StatusDetails](status.Status[device.StatusDetails](*d.Status))
+		var err error
+		gd.Status, err = status.TranslateToPB[device.StatusDetails](status.Status[device.StatusDetails](*d.Status))
+		if err != nil {
+			return nil, err
+		}
 	}
-	return gd
+	return gd, nil
 }
 
-func translateDeviceBackward(d *gapi.Device) *api.Device {
+func translateDeviceBackward(d *gapi.Device) (*api.Device, error) {
 	ad := &api.Device{
 		Key:        d.Key,
 		Name:       d.Name,
@@ -89,43 +93,70 @@ func translateDeviceBackward(d *gapi.Device) *api.Device {
 		Configured: d.Configured,
 	}
 	if d.Status != nil {
-		s, _ := status.TranslateFromPB[device.StatusDetails](d.Status)
+		s, err := status.TranslateFromPB[device.StatusDetails](d.Status)
+		if err != nil {
+			return nil, err
+		}
 		ds := device.Status(s)
 		ad.Status = &ds
 	}
-	return ad
+	return ad, nil
 }
 
-func translateDevicesForward(ds []api.Device) []*gapi.Device {
+func translateDevicesForward(ds []api.Device) ([]*gapi.Device, error) {
 	res := make([]*gapi.Device, len(ds))
 	for i, d := range ds {
-		res[i] = translateDeviceForward(&d)
+		var err error
+		res[i], err = translateDeviceForward(&d)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return res
+	return res, nil
 }
 
-func translateDevicesBackward(ds []*gapi.Device) []api.Device {
+func translateDevicesBackward(ds []*gapi.Device) ([]api.Device, error) {
 	res := make([]api.Device, len(ds))
 	for i, d := range ds {
-		res[i] = *translateDeviceBackward(d)
+		dd, err := translateDeviceBackward(d)
+		if err != nil {
+			return nil, err
+		}
+		res[i] = *dd
 	}
-	return res
+	return res, nil
 }
 
 func (deviceCreateRequestTranslator) Forward(_ context.Context, req api.DeviceCreateRequest) (*gapi.DeviceCreateRequest, error) {
-	return &gapi.DeviceCreateRequest{Devices: translateDevicesForward(req.Devices)}, nil
+	devices, err := translateDevicesForward(req.Devices)
+	if err != nil {
+		return nil, err
+	}
+	return &gapi.DeviceCreateRequest{Devices: devices}, nil
 }
 
 func (deviceCreateRequestTranslator) Backward(_ context.Context, req *gapi.DeviceCreateRequest) (api.DeviceCreateRequest, error) {
-	return api.DeviceCreateRequest{Devices: translateDevicesBackward(req.Devices)}, nil
+	devices, err := translateDevicesBackward(req.Devices)
+	if err != nil {
+		return api.DeviceCreateRequest{}, err
+	}
+	return api.DeviceCreateRequest{Devices: devices}, nil
 }
 
 func (deviceCreateResponseTranslator) Forward(_ context.Context, res api.DeviceCreateResponse) (*gapi.DeviceCreateResponse, error) {
-	return &gapi.DeviceCreateResponse{Devices: translateDevicesForward(res.Devices)}, nil
+	devices, err := translateDevicesForward(res.Devices)
+	if err != nil {
+		return nil, err
+	}
+	return &gapi.DeviceCreateResponse{Devices: devices}, nil
 }
 
 func (deviceCreateResponseTranslator) Backward(_ context.Context, res *gapi.DeviceCreateResponse) (api.DeviceCreateResponse, error) {
-	return api.DeviceCreateResponse{Devices: translateDevicesBackward(res.Devices)}, nil
+	devices, err := translateDevicesBackward(res.Devices)
+	if err != nil {
+		return api.DeviceCreateResponse{}, err
+	}
+	return api.DeviceCreateResponse{Devices: devices}, nil
 }
 
 func (deviceRetrieveRequestTranslator) Forward(_ context.Context, req api.DeviceRetrieveRequest) (*gapi.DeviceRetrieveRequest, error) {
@@ -161,11 +192,19 @@ func (deviceRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.Dev
 }
 
 func (deviceRetrieveResponseTranslator) Forward(_ context.Context, res api.DeviceRetrieveResponse) (*gapi.DeviceRetrieveResponse, error) {
-	return &gapi.DeviceRetrieveResponse{Devices: translateDevicesForward(res.Devices)}, nil
+	devices, err := translateDevicesForward(res.Devices)
+	if err != nil {
+		return nil, err
+	}
+	return &gapi.DeviceRetrieveResponse{Devices: devices}, nil
 }
 
 func (deviceRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.DeviceRetrieveResponse) (api.DeviceRetrieveResponse, error) {
-	return api.DeviceRetrieveResponse{Devices: translateDevicesBackward(res.Devices)}, nil
+	devices, err := translateDevicesBackward(res.Devices)
+	if err != nil {
+		return api.DeviceRetrieveResponse{}, err
+	}
+	return api.DeviceRetrieveResponse{Devices: devices}, nil
 }
 
 func (deviceDeleteRequestTranslator) Forward(_ context.Context, req api.DeviceDeleteRequest) (*gapi.DeviceDeleteRequest, error) {

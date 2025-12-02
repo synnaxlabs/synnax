@@ -59,54 +59,85 @@ var (
 	_ fgrpc.Translator[api.RackDeleteRequest, *gapi.RackDeleteRequest]       = rackDeleteRequestTranslator{}
 )
 
-func translateRackForward(r *api.Rack) *gapi.Rack {
+func translateRackForward(r *api.Rack) (*gapi.Rack, error) {
 	gr := &gapi.Rack{Key: uint32(r.Key), Name: r.Name}
 	if r.Status != nil {
-		gr.Status, _ = status.TranslateToPB[rack.StatusDetails](status.Status[rack.StatusDetails](*r.Status))
+		var err error
+		gr.Status, err = status.TranslateToPB[rack.StatusDetails](status.Status[rack.StatusDetails](*r.Status))
+		if err != nil {
+			return nil, err
+		}
 	}
-	return gr
+	return gr, nil
 }
 
-func translateRackBackward(r *gapi.Rack) *api.Rack {
+func translateRackBackward(r *gapi.Rack) (*api.Rack, error) {
 	ar := &api.Rack{Key: rack.Key(r.Key), Name: r.Name}
 	if r.Status != nil {
-		s, _ := status.TranslateFromPB[rack.StatusDetails](r.Status)
+		s, err := status.TranslateFromPB[rack.StatusDetails](r.Status)
+		if err != nil {
+			return nil, err
+		}
 		rs := rack.Status(s)
 		ar.Status = &rs
 	}
-	return ar
+	return ar, nil
 }
 
-func translateRacksForward(rs []api.Rack) []*gapi.Rack {
+func translateRacksForward(rs []api.Rack) ([]*gapi.Rack, error) {
 	res := make([]*gapi.Rack, len(rs))
 	for i, r := range rs {
-		res[i] = translateRackForward(&r)
+		var err error
+		res[i], err = translateRackForward(&r)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return res
+	return res, nil
 }
 
-func translateRacksBackward(rs []*gapi.Rack) []api.Rack {
+func translateRacksBackward(rs []*gapi.Rack) ([]api.Rack, error) {
 	res := make([]api.Rack, len(rs))
 	for i, r := range rs {
-		res[i] = *translateRackBackward(r)
+		rr, err := translateRackBackward(r)
+		if err != nil {
+			return nil, err
+		}
+		res[i] = *rr
 	}
-	return res
+	return res, nil
 }
 
 func (rackCreateRequestTranslator) Forward(_ context.Context, req api.RackCreateRequest) (*gapi.RackCreateRequest, error) {
-	return &gapi.RackCreateRequest{Racks: translateRacksForward(req.Racks)}, nil
+	racks, err := translateRacksForward(req.Racks)
+	if err != nil {
+		return nil, err
+	}
+	return &gapi.RackCreateRequest{Racks: racks}, nil
 }
 
 func (rackCreateRequestTranslator) Backward(_ context.Context, req *gapi.RackCreateRequest) (api.RackCreateRequest, error) {
-	return api.RackCreateRequest{Racks: translateRacksBackward(req.Racks)}, nil
+	racks, err := translateRacksBackward(req.Racks)
+	if err != nil {
+		return api.RackCreateRequest{}, err
+	}
+	return api.RackCreateRequest{Racks: racks}, nil
 }
 
 func (rackCreateResponseTranslator) Forward(_ context.Context, res api.RackCreateResponse) (*gapi.RackCreateResponse, error) {
-	return &gapi.RackCreateResponse{Racks: translateRacksForward(res.Racks)}, nil
+	racks, err := translateRacksForward(res.Racks)
+	if err != nil {
+		return nil, err
+	}
+	return &gapi.RackCreateResponse{Racks: racks}, nil
 }
 
 func (rackCreateResponseTranslator) Backward(_ context.Context, res *gapi.RackCreateResponse) (api.RackCreateResponse, error) {
-	return api.RackCreateResponse{Racks: translateRacksBackward(res.Racks)}, nil
+	racks, err := translateRacksBackward(res.Racks)
+	if err != nil {
+		return api.RackCreateResponse{}, err
+	}
+	return api.RackCreateResponse{Racks: racks}, nil
 }
 
 func (rackRetrieveRequestTranslator) Forward(_ context.Context, req api.RackRetrieveRequest) (*gapi.RackRetrieveRequest, error) {
@@ -124,11 +155,19 @@ func (rackRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.RackR
 }
 
 func (rackRetrieveResponseTranslator) Forward(_ context.Context, res api.RackRetrieveResponse) (*gapi.RackRetrieveResponse, error) {
-	return &gapi.RackRetrieveResponse{Racks: translateRacksForward(res.Racks)}, nil
+	racks, err := translateRacksForward(res.Racks)
+	if err != nil {
+		return nil, err
+	}
+	return &gapi.RackRetrieveResponse{Racks: racks}, nil
 }
 
 func (rackRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.RackRetrieveResponse) (api.RackRetrieveResponse, error) {
-	return api.RackRetrieveResponse{Racks: translateRacksBackward(res.Racks)}, nil
+	racks, err := translateRacksBackward(res.Racks)
+	if err != nil {
+		return api.RackRetrieveResponse{}, err
+	}
+	return api.RackRetrieveResponse{Racks: racks}, nil
 }
 
 func (rackDeleteRequestTranslator) Forward(_ context.Context, req api.RackDeleteRequest) (*gapi.RackDeleteRequest, error) {

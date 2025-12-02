@@ -270,7 +270,6 @@ export const Sequence = Common.Task.wrapForm<
   typeof configZ,
   typeof statusDetailsZ
 >({
-  initialStatusData: null,
   type: TYPE,
   Form: Internal,
   getInitialValues,
