@@ -174,27 +174,21 @@ def connect_device(
         )
     """
     # Wait for the embedded driver to register its rack
-    rack = None
     for attempt in range(max_retries):
         try:
             rack = client.racks.retrieve(name=rack_name)
             break
-        except sy.NotFoundError:
-            if attempt < max_retries - 1:
-                sy.sleep(retry_delay)
-            else:
-                raise AssertionError(
-                    f"Rack '{rack_name}' not found after {max_retries} attempts. "
-                    "The embedded driver may not have started."
-                )
         except Exception as e:
-            # For other errors (like JSONDecodeError from empty response), retry
             if attempt < max_retries - 1:
                 sy.sleep(retry_delay)
             else:
                 raise AssertionError(
                     f"Failed to retrieve rack '{rack_name}' after {max_retries} attempts: {e}"
                 )
+    else:
+        raise AssertionError(
+            f"Rack '{rack_name}' not found after {max_retries} attempts"
+        )
 
     # Create device instance to get its name
     device_instance = device_factory(rack.key)
