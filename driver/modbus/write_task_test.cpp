@@ -139,18 +139,24 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     auto int16_ch = ASSERT_NIL_P(
         client->channels.create(make_unique_channel_name("int16"), telem::INT16_T, true)
     );
-    auto uint32_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("uint32"), telem::UINT32_T, true)
-    );
+    auto uint32_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("uint32"),
+        telem::UINT32_T,
+        true
+    ));
     auto int32_ch = ASSERT_NIL_P(
         client->channels.create(make_unique_channel_name("int32"), telem::INT32_T, true)
     );
-    auto float32_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("float32"), telem::FLOAT32_T, true)
-    );
-    auto float64_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("float64"), telem::FLOAT64_T, true)
-    );
+    auto float32_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("float32"),
+        telem::FLOAT32_T,
+        true
+    ));
+    auto float64_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("float64"),
+        telem::FLOAT64_T,
+        true
+    ));
 
     json task_cfg{
         {"device", "modbus_test_dev"},
@@ -442,15 +448,21 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     // Create three UINT8 channels for sequential holding registers
-    auto holding0 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("holding0"), telem::UINT8_T, true)
-    );
-    auto holding1 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("holding1"), telem::UINT8_T, true)
-    );
-    auto holding2 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("holding2"), telem::UINT8_T, true)
-    );
+    auto holding0 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("holding0"),
+        telem::UINT8_T,
+        true
+    ));
+    auto holding1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("holding1"),
+        telem::UINT8_T,
+        true
+    ));
+    auto holding2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("holding2"),
+        telem::UINT8_T,
+        true
+    ));
 
     json task_cfg{
         {"device", "modbus_test_dev"},

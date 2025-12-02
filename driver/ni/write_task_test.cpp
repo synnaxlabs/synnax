@@ -220,9 +220,11 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
         state_idx_ch.key,
         false
     ));
-    auto cmd_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("cmd_ch"), telem::FLOAT64_T, true)
-    );
+    auto cmd_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("cmd_ch"),
+        telem::FLOAT64_T,
+        true
+    ));
 
     // Create a configuration with an invalid channel type
     json j{

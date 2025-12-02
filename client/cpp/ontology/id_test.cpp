@@ -105,7 +105,7 @@ TEST(OntologyID, testParseIDs) {
         "group:748d31e2-5732-4cb5-8bc9-64d4ad51efe8",
         "user:admin"
     };
-    auto ids = ASSERT_NIL_P(parse_ids(strs));
+    auto ids = ASSERT_NIL_P(synnax::ontology::parse_ids(strs));
     EXPECT_EQ(ids.size(), 3);
     EXPECT_EQ(ids[0].type, "channel");
     EXPECT_EQ(ids[0].key, "42");

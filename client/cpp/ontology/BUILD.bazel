@@ -16,6 +16,7 @@ cc_test(
     srcs = ["id_test.cpp"],
     deps = [
         ":ontology",
+        "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],
 )

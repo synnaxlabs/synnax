@@ -143,15 +143,21 @@ TEST_F(ModbusReadTest, testMultiChannelConfig) {
     auto coil_ch = ASSERT_NIL_P(
         client->channels.create(make_unique_channel_name("coil"), telem::UINT8_T, true)
     );
-    auto discrete_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("discrete"), telem::UINT8_T, true)
-    );
-    auto holding_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("holding"), telem::UINT16_T, true)
-    );
-    auto input_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("input"), telem::UINT16_T, true)
-    );
+    auto discrete_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("discrete"),
+        telem::UINT8_T,
+        true
+    ));
+    auto holding_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("holding"),
+        telem::UINT16_T,
+        true
+    ));
+    auto input_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("input"),
+        telem::UINT16_T,
+        true
+    ));
 
     // Add different channel types
     cfg["channels"].push_back(create_channel_config("coil_input", coil_ch, 0));
@@ -400,15 +406,21 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     auto coil_ch = ASSERT_NIL_P(
         client->channels.create(make_unique_channel_name("coil"), telem::UINT8_T, true)
     );
-    auto discrete_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("discrete"), telem::UINT8_T, true)
-    );
-    auto holding_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("holding"), telem::UINT16_T, true)
-    );
-    auto input_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("input"), telem::UINT16_T, true)
-    );
+    auto discrete_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("discrete"),
+        telem::UINT8_T,
+        true
+    ));
+    auto holding_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("holding"),
+        telem::UINT16_T,
+        true
+    ));
+    auto input_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("input"),
+        telem::UINT16_T,
+        true
+    ));
 
     // Create task configuration with all channel types
     auto cfg = create_base_config();

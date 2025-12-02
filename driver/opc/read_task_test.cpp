@@ -105,9 +105,7 @@ protected:
             this->index_channel.key,
             false
         ));
-        auto rack = ASSERT_NIL_P(
-            client->racks.create("opc_read_task_test_rack")
-        );
+        auto rack = ASSERT_NIL_P(client->racks.create("opc_read_task_test_rack"));
 
         opc::connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://localhost:4840";
