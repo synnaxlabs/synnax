@@ -256,6 +256,7 @@ func (t frameStreamerRequestTranslator) Forward(
 	return &gapi.FrameStreamerRequest{
 		Keys:             translateChannelKeysForward(msg.Keys),
 		DownsampleFactor: int32(msg.DownsampleFactor),
+		ThrottleRateHz:   float64(msg.ThrottleRate),
 	}, nil
 }
 
@@ -266,6 +267,7 @@ func (t frameStreamerRequestTranslator) Backward(
 	rq := api.FrameStreamerRequest{
 		Keys:             translateChannelKeysBackward(msg.Keys),
 		DownsampleFactor: int(msg.DownsampleFactor),
+		ThrottleRate:     telem.Rate(msg.ThrottleRateHz),
 	}
 	if msg.EnableExperimentalCodec {
 		return rq, t.codec.Update(ctx, rq.Keys)
