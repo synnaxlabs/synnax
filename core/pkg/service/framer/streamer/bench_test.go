@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -38,7 +38,7 @@ type benchStreamerEnv struct {
 }
 
 func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
-	gomega.RegisterTestingT(b)
+	RegisterTestingT(b)
 	ctx := context.Background()
 	builder := mock.NewCluster()
 	dist := builder.Provision(ctx)
