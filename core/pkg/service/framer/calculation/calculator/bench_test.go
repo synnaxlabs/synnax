@@ -110,7 +110,7 @@ func (e *benchEnv) openCalculator(
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
 	mod, err := compiler.Compile(e.ctx, compiler.Config{
-		Channels:       e.dist.Channel,
+		ChannelService: e.dist.Channel,
 		Channel:        *calc,
 		SymbolResolver: e.arcSvc.SymbolResolver(),
 	})
