@@ -30,12 +30,13 @@ TEST(ScanTask, testConnection) {
 
     auto dev_manager = std::make_shared<modbus::device::Manager>();
 
+    const auto cfg = modbus::ScannerConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
-        std::make_unique<modbus::Scanner>(ctx, t, dev_manager, modbus::ScannerConfig{}),
+        std::make_unique<modbus::Scanner>(ctx, t, dev_manager),
         ctx,
         t,
         breaker::default_config(t.name),
-        telem::Rate(0.2)
+        cfg.scan_rate
     );
 
     auto conn_cfg = modbus::device::ConnectionConfig{"127.0.0.1", 1502};
@@ -60,10 +61,10 @@ TEST(ScanTask, testConfigReturnsCorrectValues) {
     t.type = "modbus_scan";
     auto dev_manager = std::make_shared<modbus::device::Manager>();
 
-    const modbus::Scanner scanner(ctx, t, dev_manager, modbus::ScannerConfig{});
+    const modbus::Scanner scanner(ctx, t, dev_manager);
     auto cfg = scanner.config();
     EXPECT_EQ(cfg.make, "modbus");
-    EXPECT_EQ(cfg.log_prefix, "modbus.scan_task");
+    EXPECT_EQ(cfg.log_prefix, "[modbus.scan_task]");
 }
 
 TEST(ScanTask, testExecReturnsFalseForUnknownCommand) {
@@ -73,7 +74,7 @@ TEST(ScanTask, testExecReturnsFalseForUnknownCommand) {
     t.type = "modbus_scan";
     auto dev_manager = std::make_shared<modbus::device::Manager>();
 
-    modbus::Scanner scanner(ctx, t, dev_manager, modbus::ScannerConfig{});
+    modbus::Scanner scanner(ctx, t, dev_manager);
     task::Command cmd(t.key, "unknown_command", json{});
     bool handled = scanner.exec(cmd, t, ctx);
     EXPECT_FALSE(handled);
@@ -90,7 +91,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     t.type = "modbus_scan";
     auto dev_manager = std::make_shared<modbus::device::Manager>();
 
-    modbus::Scanner scanner(ctx, t, dev_manager, modbus::ScannerConfig{});
+    modbus::Scanner scanner(ctx, t, dev_manager);
 
     // Create device with valid Modbus connection properties
     synnax::Device dev;
@@ -125,7 +126,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
     t.type = "modbus_scan";
     auto dev_manager = std::make_shared<modbus::device::Manager>();
 
-    modbus::Scanner scanner(ctx, t, dev_manager, modbus::ScannerConfig{});
+    modbus::Scanner scanner(ctx, t, dev_manager);
 
     // Create device with invalid connection (no server running on this port)
     synnax::Device dev;

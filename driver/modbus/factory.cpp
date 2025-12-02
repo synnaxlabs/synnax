@@ -49,15 +49,15 @@ std::pair<common::ConfigureResult, xerrors::Error> configure_scan(
     const synnax::Task &task
 ) {
     common::ConfigureResult result;
-    auto parser = xjson::Parser(task.config);
-    auto cfg = ScannerConfig(parser);
+    xjson::Parser parser(task.config);
+    ScannerConfig cfg(parser);
     if (parser.error()) return {std::move(result), parser.error()};
     result.task = std::make_unique<common::ScanTask>(
-        std::make_unique<Scanner>(ctx, task, devs, cfg),
+        std::make_unique<Scanner>(ctx, task, devs),
         ctx,
         task,
         breaker::default_config(task.name),
-        cfg.health_check_rate
+        cfg.scan_rate
     );
     result.auto_start = cfg.enabled;
     return {std::move(result), xerrors::NIL};

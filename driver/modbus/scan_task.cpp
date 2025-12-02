@@ -21,10 +21,9 @@ namespace modbus {
 Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
     synnax::Task task,
-    std::shared_ptr<device::Manager> devices,
-    const ScannerConfig cfg
+    std::shared_ptr<device::Manager> devices
 ):
-    ctx(std::move(ctx)), task(std::move(task)), devices(std::move(devices)), cfg(cfg) {}
+    ctx(std::move(ctx)), task(std::move(task)), devices(std::move(devices)) {}
 
 common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{

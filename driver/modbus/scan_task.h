@@ -27,20 +27,21 @@
 #include "driver/task/task.h"
 
 namespace modbus {
-const std::string SCAN_LOG_PREFIX = "[modbus.scan_task] ";
+const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task]";
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
+inline const telem::Rate DEFAULT_SCAN_RATE = telem::HERTZ * 0.2;
 
 /// @brief Configuration for the Modbus scanner.
 struct ScannerConfig {
     /// @brief Rate at which to check device health.
-    telem::Rate health_check_rate = telem::Rate(0.2); // 5 seconds
+    telem::Rate scan_rate = DEFAULT_SCAN_RATE;
     /// @brief Whether scanning is enabled.
     bool enabled = true;
 
     ScannerConfig() = default;
 
     explicit ScannerConfig(xjson::Parser &cfg):
-        health_check_rate(telem::Rate(cfg.field<double>("rate", 0.2))),
+        scan_rate(telem::Rate(cfg.field<double>("scan_rate", DEFAULT_SCAN_RATE.hz()))),
         enabled(cfg.field<bool>("enabled", true)) {}
 };
 
@@ -61,12 +62,11 @@ public:
     Scanner(
         std::shared_ptr<task::Context> ctx,
         synnax::Task task,
-        std::shared_ptr<device::Manager> devices,
-        ScannerConfig cfg
+        std::shared_ptr<device::Manager> devices
     );
 
     /// @brief Returns scanner configuration for common::ScanTask.
-    common::ScannerConfig config() const override;
+    [[nodiscard]] common::ScannerConfig config() const override;
 
     /// @brief Periodic scan method - checks health of all tracked devices.
     std::pair<std::vector<synnax::Device>, xerrors::Error>
@@ -83,7 +83,6 @@ private:
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
     std::shared_ptr<device::Manager> devices;
-    ScannerConfig cfg;
 
     /// @brief Test connection to a Modbus server.
     void test_connection(const task::Command &cmd) const;
