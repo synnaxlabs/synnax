@@ -2298,13 +2298,5 @@ export const convertDataType = (
   if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
   if (!source.usesBigInt && target.usesBigInt)
     return BigInt(value.valueOf()) - BigInt(offset.valueOf());
-  return addSamples(value, -offset);
-};
-
-export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {
-  if (b == 0) return a;
-  if (a == 0) return b;
-  if (typeof a === "bigint" && typeof b === "bigint") return a + b;
-  if (typeof a === "number" && typeof b === "number") return a + b;
-  return Number(a) + Number(b);
+  return math.sub(value, offset);
 };

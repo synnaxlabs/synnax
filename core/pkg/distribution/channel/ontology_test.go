@@ -11,14 +11,16 @@ package channel_test
 
 import (
 	"context"
+	"iter"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -31,34 +33,28 @@ var _ = Describe("Ontology", Ordered, func() {
 	})
 	Describe("OpenNexter", func() {
 		It("Should correctly iterate over all channels", func() {
-			names := []string{channel.NewRandomName(), channel.NewRandomName(), channel.NewRandomName()}
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channel.Channel{Name: names[0], DataType: telem.Int64T, Virtual: true})).To(Succeed())
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channel.Channel{Name: names[1], DataType: telem.Int64T, Virtual: true})).To(Succeed())
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channel.Channel{Name: names[2], DataType: telem.Int64T, Virtual: true})).To(Succeed())
-			n := MustSucceed(mockCluster.Nodes[1].Channel.OpenNexter())
-			v := MustBeOk(n.Next(ctx))
-			Expect(v.Name).To(Equal("sy_node_1_control"))
-			v = MustBeOk(n.Next(ctx))
-			Expect(v.Name).To(Equal(names[0]))
-			v = MustBeOk(n.Next(ctx))
-			Expect(v.Name).To(Equal(names[1]))
-			v = MustBeOk(n.Next(ctx))
-			Expect(v.Name).To(Equal(names[2]))
-			Expect(n.Close()).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channel.Channel{Name: "SG01", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channel.Channel{Name: "SG02", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channel.Channel{Name: "SG03", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			n, closer := MustSucceed2(mockCluster.Nodes[1].Channel.OpenNexter(ctx))
+			defer func() {
+				GinkgoRecover()
+				Expect(closer.Close()).To(Succeed())
+			}()
+			values := slices.Collect(n)
+			Expect(len(values)).To(BeNumerically(">", 4))
+			names := lo.Map(values, func(v ontology.Resource, _ int) string { return v.Name })
+			Expect(names).To(ContainElements("sy_node_1_control", "SG01", "SG02", "SG03"))
 		})
 	})
 	Describe("OnChange", func() {
 		Context("Create", func() {
 			It("Should correctly propagate a create change", func() {
 				changes := make(chan []ontology.Change, 5)
-				dc := mockCluster.Nodes[1].Channel.OnChange(func(ctx context.Context, nexter iter.Nexter[ontology.Change]) {
+				dc := mockCluster.Nodes[1].Channel.OnChange(func(ctx context.Context, nexter iter.Seq[ontology.Change]) {
 					changesSlice := make([]ontology.Change, 0)
-					for {
-						v, ok := nexter.Next(ctx)
-						if !ok {
-							break
-						}
-						changesSlice = append(changesSlice, v)
+					for ch := range nexter {
+						changesSlice = append(changesSlice, ch)
 					}
 					changes <- changesSlice
 				})
