@@ -7,26 +7,45 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Diagram } from "@synnaxlabs/pluto";
+import { type direction, type location } from "@synnaxlabs/x";
 import { box, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
+
+import {
+  alignNodesAlongDirection,
+  alignNodesToLocation,
+  distributeNodes,
+  rotateNodesAroundCenter,
+} from "@/vis/diagram/align";
+import { HandleLayout, NodeLayout } from "@/vis/diagram/util";
+
+// Helper that dispatches to the correct alignment function based on argument
+const alignNodes = (
+  layouts: NodeLayout[],
+  target: direction.Direction | location.Outer,
+): NodeLayout[] => {
+  if (target === "x" || target === "y") {
+    return alignNodesAlongDirection(layouts, target);
+  }
+  return alignNodesToLocation(layouts, target);
+};
 
 describe("Schematic Alignment", () => {
   describe("aligning valve symbols", () => {
     it("should align valves vertically (along x-axis)", () => {
       // Create mock valve nodes with different Y positions
       const valves = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve2",
           box.construct({ x: 150, y: 20 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve3",
           box.construct({ x: 300, y: -10 }, { width: 100, height: 100 }),
           [],
@@ -34,7 +53,7 @@ describe("Schematic Alignment", () => {
       ];
 
       // Align them vertically (all on same horizontal line)
-      const aligned = Diagram.alignNodes(valves, "x");
+      const aligned = alignNodes(valves, "x");
 
       // All should have the same y-coordinate
       const yCoords = aligned.map((v) => box.top(v.box));
@@ -45,17 +64,17 @@ describe("Schematic Alignment", () => {
     it("should align valves horizontally (along y-axis)", () => {
       // Create mock valve nodes with different X positions
       const valves = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve2",
           box.construct({ x: 20, y: 150 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve3",
           box.construct({ x: -10, y: 300 }, { width: 100, height: 100 }),
           [],
@@ -63,7 +82,7 @@ describe("Schematic Alignment", () => {
       ];
 
       // Align them horizontally (all on same vertical line)
-      const aligned = Diagram.alignNodes(valves, "y");
+      const aligned = alignNodes(valves, "y");
 
       // All should have the same x-coordinate
       const xCoords = aligned.map((v) => box.left(v.box));
@@ -73,24 +92,24 @@ describe("Schematic Alignment", () => {
 
     it("should distribute valves horizontally with equal spacing", () => {
       const valves = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve2",
           box.construct({ x: 110, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve3",
           box.construct({ x: 600, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
       ];
 
-      const distributed = Diagram.distributeNodes(valves, "x");
+      const distributed = distributeNodes(valves, "x");
 
       // Check that spacing is equal
       const x1 = box.left(distributed[0].box);
@@ -105,24 +124,24 @@ describe("Schematic Alignment", () => {
 
     it("should distribute valves vertically with equal spacing", () => {
       const valves = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve2",
           box.construct({ x: 0, y: 110 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve3",
           box.construct({ x: 0, y: 600 }, { width: 100, height: 100 }),
           [],
         ),
       ];
 
-      const distributed = Diagram.distributeNodes(valves, "y");
+      const distributed = distributeNodes(valves, "y");
 
       // Check that spacing is equal
       const y1 = box.top(distributed[0].box);
@@ -139,24 +158,24 @@ describe("Schematic Alignment", () => {
   describe("aligning mixed symbol types", () => {
     it("should align setpoint, valve, and three-way valve symbols to left", () => {
       const symbols = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "setpoint",
           box.construct({ x: 50, y: 0 }, { width: 80, height: 60 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve",
           box.construct({ x: 150, y: 50 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "threeWayValve",
           box.construct({ x: 10, y: 100 }, { width: 120, height: 100 }),
           [],
         ),
       ];
 
-      const aligned = Diagram.alignNodes(symbols, "left");
+      const aligned = alignNodes(symbols, "left");
 
       // All should align to the leftmost position (x=10)
       const xCoords = aligned.map((s) => box.left(s.box));
@@ -165,24 +184,24 @@ describe("Schematic Alignment", () => {
 
     it("should align mixed symbols to right", () => {
       const symbols = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "setpoint",
           box.construct({ x: 50, y: 0 }, { width: 80, height: 60 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve",
           box.construct({ x: 150, y: 50 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "threeWayValve",
           box.construct({ x: 10, y: 100 }, { width: 120, height: 100 }),
           [],
         ),
       ];
 
-      const aligned = Diagram.alignNodes(symbols, "right");
+      const aligned = alignNodes(symbols, "right");
 
       // All should align to the rightmost position
       // Setpoint right: 50+80=130, Valve right: 150+100=250, ThreeWay right: 10+120=130
@@ -194,24 +213,24 @@ describe("Schematic Alignment", () => {
 
     it("should align mixed symbols to top", () => {
       const symbols = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "setpoint",
           box.construct({ x: 0, y: 50 }, { width: 80, height: 60 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve",
           box.construct({ x: 50, y: 150 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "threeWayValve",
           box.construct({ x: 100, y: 10 }, { width: 120, height: 100 }),
           [],
         ),
       ];
 
-      const aligned = Diagram.alignNodes(symbols, "top");
+      const aligned = alignNodes(symbols, "top");
 
       // All should align to the topmost position (y=10)
       const yCoords = aligned.map((s) => box.top(s.box));
@@ -220,24 +239,24 @@ describe("Schematic Alignment", () => {
 
     it("should align mixed symbols to bottom", () => {
       const symbols = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "setpoint",
           box.construct({ x: 0, y: 50 }, { width: 80, height: 60 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve",
           box.construct({ x: 50, y: 150 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "threeWayValve",
           box.construct({ x: 100, y: 10 }, { width: 120, height: 100 }),
           [],
         ),
       ];
 
-      const aligned = Diagram.alignNodes(symbols, "bottom");
+      const aligned = alignNodes(symbols, "bottom");
 
       // All should align to the bottommost position
       // Setpoint bottom: 50+60=110, Valve bottom: 150+100=250, ThreeWay bottom: 10+100=110
@@ -251,29 +270,29 @@ describe("Schematic Alignment", () => {
   describe("distributing mixed symbol types", () => {
     it("should distribute four symbols with different widths horizontally", () => {
       const symbols = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "setpoint",
           box.construct({ x: -210, y: 0 }, { width: 80, height: 60 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "threeWayValve",
           box.construct({ x: -150, y: 0 }, { width: 120, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "threeWayBall",
           box.construct({ x: 150, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve",
           box.construct({ x: 0, y: 50 }, { width: 100, height: 100 }),
           [],
         ),
       ];
 
-      const distributed = Diagram.distributeNodes(symbols, "x");
+      const distributed = distributeNodes(symbols, "x");
 
       // Verify they're spaced out between leftmost and rightmost
       const positions = distributed
@@ -288,29 +307,29 @@ describe("Schematic Alignment", () => {
 
     it("should distribute four symbols vertically", () => {
       const symbols = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve2",
           box.construct({ x: 0, y: 150 }, { width: 100, height: 120 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve3",
           box.construct({ x: 0, y: 400 }, { width: 100, height: 80 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve4",
           box.construct({ x: 0, y: 600 }, { width: 100, height: 100 }),
           [],
         ),
       ];
 
-      const distributed = Diagram.distributeNodes(symbols, "y");
+      const distributed = distributeNodes(symbols, "y");
 
       // Verify they're spaced out between topmost and bottommost
       const positions = distributed.map((s) => box.top(s.box));
@@ -325,25 +344,21 @@ describe("Schematic Alignment", () => {
   describe("alignment with handles", () => {
     it("should align nodes with handles based on handle positions", () => {
       const nodesWithHandles = [
-        new Diagram.NodeLayout(
-          "valve1",
-          box.construct(xy.ZERO, { width: 100, height: 100 }),
-          [
-            new Diagram.HandleLayout({ x: 0, y: 50 }, "left"),
-            new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
-          ],
-        ),
-        new Diagram.NodeLayout(
+        new NodeLayout("valve1", box.construct(xy.ZERO, { width: 100, height: 100 }), [
+          new HandleLayout({ x: 0, y: 50 }, "left"),
+          new HandleLayout({ x: 100, y: 50 }, "right"),
+        ]),
+        new NodeLayout(
           "valve2",
           box.construct({ x: 10, y: 10 }, { width: 100, height: 100 }),
           [
-            new Diagram.HandleLayout({ x: 0, y: 60 }, "left"),
-            new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
+            new HandleLayout({ x: 0, y: 60 }, "left"),
+            new HandleLayout({ x: 100, y: 50 }, "right"),
           ],
         ),
       ];
 
-      const aligned = Diagram.alignNodes(nodesWithHandles, "x");
+      const aligned = alignNodes(nodesWithHandles, "x");
 
       // Nodes with different handle positions should align differently
       // than nodes without handles
@@ -354,19 +369,19 @@ describe("Schematic Alignment", () => {
 
     it("should handle nodes without handles gracefully", () => {
       const mixedNodes = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
-          [new Diagram.HandleLayout({ x: 50, y: 0 }, "top")],
+          [new HandleLayout({ x: 50, y: 0 }, "top")],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve2",
           box.construct({ x: 150, y: 20 }, { width: 100, height: 100 }),
           [], // No handles
         ),
       ];
 
-      const aligned = Diagram.alignNodes(mixedNodes, "x");
+      const aligned = alignNodes(mixedNodes, "x");
 
       // Should align based on centers when handles aren't available
       const yCoords = aligned.map((v) => box.top(v.box));
@@ -377,19 +392,19 @@ describe("Schematic Alignment", () => {
   describe("rotation operations", () => {
     it("should rotate symbols clockwise around their group center", () => {
       const symbols = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve2",
           box.construct({ x: 200, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
       ];
 
-      const rotated = Diagram.rotateNodesAroundCenter(symbols, "clockwise");
+      const rotated = rotateNodesAroundCenter(symbols, "clockwise");
 
       // After rotation, positions should change
       expect(box.topLeft(rotated[0].box)).not.toEqual({ x: 0, y: 0 });
@@ -402,19 +417,19 @@ describe("Schematic Alignment", () => {
 
     it("should rotate symbols counter-clockwise around their group center", () => {
       const symbols = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve2",
           box.construct({ x: 200, y: 100 }, { width: 100, height: 100 }),
           [],
         ),
       ];
 
-      const rotatedCCW = Diagram.rotateNodesAroundCenter(symbols, "counterclockwise");
+      const rotatedCCW = rotateNodesAroundCenter(symbols, "counterclockwise");
 
       // Verify rotation happened (nodes moved from original positions)
       expect(box.topLeft(rotatedCCW[0].box)).not.toEqual({ x: 0, y: 0 });
@@ -427,14 +442,14 @@ describe("Schematic Alignment", () => {
 
     it("should handle single symbol rotation", () => {
       const single = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: 50, y: 50 }, { width: 100, height: 100 }),
           [],
         ),
       ];
 
-      const rotated = Diagram.rotateNodesAroundCenter(single, "clockwise");
+      const rotated = rotateNodesAroundCenter(single, "clockwise");
 
       // Single node rotates around itself, so position should stay the same
       expect(box.topLeft(rotated[0].box)).toEqual({ x: 50, y: 50 });
@@ -442,19 +457,19 @@ describe("Schematic Alignment", () => {
 
     it("should preserve all node properties except position during rotation", () => {
       const symbols = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: 0, y: 0 }, { width: 150, height: 80 }),
-          [new Diagram.HandleLayout({ x: 75, y: 0 }, "top")],
+          [new HandleLayout({ x: 75, y: 0 }, "top")],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve2",
           box.construct({ x: 200, y: 0 }, { width: 100, height: 120 }),
-          [new Diagram.HandleLayout({ x: 50, y: 0 }, "top")],
+          [new HandleLayout({ x: 50, y: 0 }, "top")],
         ),
       ];
 
-      const rotated = Diagram.rotateNodesAroundCenter(symbols, "clockwise");
+      const rotated = rotateNodesAroundCenter(symbols, "clockwise");
 
       // Keys should be preserved
       expect(rotated[0].key).toBe("valve1");
@@ -472,48 +487,48 @@ describe("Schematic Alignment", () => {
 
   describe("edge cases", () => {
     it("should handle empty array for alignment", () => {
-      const empty = Diagram.alignNodes([], "x");
+      const empty = alignNodes([], "x");
       expect(empty).toEqual([]);
     });
 
     it("should handle empty array for distribution", () => {
-      const empty = Diagram.distributeNodes([], "x");
+      const empty = distributeNodes([], "x");
       expect(empty).toEqual([]);
     });
 
     it("should handle empty array for rotation", () => {
-      const empty = Diagram.rotateNodesAroundCenter([], "clockwise");
+      const empty = rotateNodesAroundCenter([], "clockwise");
       expect(empty).toEqual([]);
     });
 
     it("should handle single element alignment", () => {
       const single = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: 50, y: 50 }, { width: 100, height: 100 }),
           [],
         ),
       ];
 
-      const aligned = Diagram.alignNodes(single, "left");
+      const aligned = alignNodes(single, "left");
       expect(box.topLeft(aligned[0].box)).toEqual({ x: 50, y: 50 });
     });
 
     it("should handle two elements for distribution (no middle nodes)", () => {
       const two = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve2",
           box.construct({ x: 500, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
       ];
 
-      const distributed = Diagram.distributeNodes(two, "x");
+      const distributed = distributeNodes(two, "x");
 
       // With only 2 nodes, first and last should stay in place
       expect(box.left(distributed[0].box)).toBe(0);
@@ -523,24 +538,24 @@ describe("Schematic Alignment", () => {
     it("should handle overlapping nodes during distribution", () => {
       // When nodes are too close together, distribution should pack them
       const overlapping = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve2",
           box.construct({ x: 50, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve3",
           box.construct({ x: 100, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
       ];
 
-      const distributed = Diagram.distributeNodes(overlapping, "x");
+      const distributed = distributeNodes(overlapping, "x");
 
       // Should stack them without negative spacing
       const x1 = box.left(distributed[0].box);
@@ -553,19 +568,19 @@ describe("Schematic Alignment", () => {
 
     it("should handle nodes with zero dimensions", () => {
       const zeroDims = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "point1",
           box.construct({ x: 0, y: 0 }, { width: 0, height: 0 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "point2",
           box.construct({ x: 100, y: 0 }, { width: 0, height: 0 }),
           [],
         ),
       ];
 
-      const aligned = Diagram.alignNodes(zeroDims, "x");
+      const aligned = alignNodes(zeroDims, "x");
       expect(aligned).toHaveLength(2);
     });
   });
@@ -574,41 +589,41 @@ describe("Schematic Alignment", () => {
     it("should handle complex piping schematic with multiple valve types", () => {
       // Simulate a realistic schematic with setpoint, valves, and sensors
       const schematic = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "setpoint",
           box.construct({ x: -210, y: 0 }, { width: 80, height: 60 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "threeWayValve",
           box.construct({ x: -150, y: 0 }, { width: 120, height: 120 }),
           [
-            new Diagram.HandleLayout({ x: 0, y: 60 }, "left"),
-            new Diagram.HandleLayout({ x: 120, y: 60 }, "right"),
-            new Diagram.HandleLayout({ x: 60, y: 0 }, "top"),
+            new HandleLayout({ x: 0, y: 60 }, "left"),
+            new HandleLayout({ x: 120, y: 60 }, "right"),
+            new HandleLayout({ x: 60, y: 0 }, "top"),
           ],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve",
           box.construct({ x: 0, y: 50 }, { width: 100, height: 100 }),
           [
-            new Diagram.HandleLayout({ x: 0, y: 50 }, "left"),
-            new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
+            new HandleLayout({ x: 0, y: 50 }, "left"),
+            new HandleLayout({ x: 100, y: 50 }, "right"),
           ],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "threeWayBall",
           box.construct({ x: 150, y: -20 }, { width: 100, height: 100 }),
           [
-            new Diagram.HandleLayout({ x: 0, y: 50 }, "left"),
-            new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
+            new HandleLayout({ x: 0, y: 50 }, "left"),
+            new HandleLayout({ x: 100, y: 50 }, "right"),
           ],
         ),
       ];
 
       // Test sequence from integration test: align vertical, distribute horizontal
-      const alignedVertical = Diagram.alignNodes([...schematic], "x");
-      const distributedHorizontal = Diagram.distributeNodes(alignedVertical, "x");
+      const alignedVertical = alignNodes([...schematic], "x");
+      const distributedHorizontal = distributeNodes(alignedVertical, "x");
 
       // When nodes have handles, alignment is based on handle positions
       // So we just verify that alignment happened (nodes moved)
@@ -623,17 +638,17 @@ describe("Schematic Alignment", () => {
 
     it("should handle workflow: align horizontal, then distribute vertical", () => {
       const symbols = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: 0, y: -100 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve2",
           box.construct({ x: 150, y: 100 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve3",
           box.construct({ x: 50, y: 50 }, { width: 100, height: 100 }),
           [],
@@ -641,7 +656,7 @@ describe("Schematic Alignment", () => {
       ];
 
       // First align horizontally (same vertical line)
-      const alignedHorizontal = Diagram.alignNodes([...symbols], "y");
+      const alignedHorizontal = alignNodes([...symbols], "y");
 
       // All should have same x-coordinate
       const xCoords = alignedHorizontal.map((s) => box.left(s.box));
@@ -649,7 +664,7 @@ describe("Schematic Alignment", () => {
       expect(xCoords[1]).toBe(xCoords[2]);
 
       // Then distribute vertically
-      const distributedVertical = Diagram.distributeNodes(alignedHorizontal, "y");
+      const distributedVertical = distributeNodes(alignedHorizontal, "y");
       const sorted = [...distributedVertical].sort(
         (a, b) => box.top(a.box) - box.top(b.box),
       );
@@ -662,17 +677,17 @@ describe("Schematic Alignment", () => {
 
     it("should handle workflow: align top, distribute horizontal, then rotate", () => {
       const symbols = [
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve1",
           box.construct({ x: -150, y: 30 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve2",
           box.construct({ x: 150, y: -20 }, { width: 100, height: 100 }),
           [],
         ),
-        new Diagram.NodeLayout(
+        new NodeLayout(
           "valve3",
           box.construct({ x: 0, y: 50 }, { width: 100, height: 100 }),
           [],
@@ -680,15 +695,15 @@ describe("Schematic Alignment", () => {
       ];
 
       // Align to top
-      const alignedTop = Diagram.alignNodes([...symbols], "top");
+      const alignedTop = alignNodes([...symbols], "top");
       expect(box.top(alignedTop[0].box)).toBe(box.top(alignedTop[1].box));
       expect(box.top(alignedTop[1].box)).toBe(box.top(alignedTop[2].box));
 
       // Distribute horizontally
-      const distributed = Diagram.distributeNodes(alignedTop, "x");
+      const distributed = distributeNodes(alignedTop, "x");
 
       // Rotate clockwise
-      const rotated = Diagram.rotateNodesAroundCenter(distributed, "clockwise");
+      const rotated = rotateNodesAroundCenter(distributed, "clockwise");
 
       // Verify rotation happened
       expect(rotated).toHaveLength(3);

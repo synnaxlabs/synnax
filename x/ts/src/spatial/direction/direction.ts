@@ -8,9 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  ANGULAR_DIRECTIONS,
   type AngularDirection,
-  type CrudeAngularDirection,
   type CrudeDirection,
   crudeDirection,
   type CrudeXDirection,
@@ -21,11 +19,13 @@ import {
   DIRECTIONS,
   type Location,
   type SignedDimension,
+  type XY,
   Y_LOCATIONS,
   type YLocation,
 } from "@/spatial/base";
+import { xy } from "@/spatial/xy";
 
-export { ANGULAR_DIRECTIONS, Direction, direction, DIRECTIONS };
+export { Direction, direction, DIRECTIONS };
 
 export const crude = crudeDirection;
 
@@ -33,7 +33,6 @@ export type Crude = CrudeDirection;
 export type CrudeX = CrudeXDirection;
 export type CrudeY = CrudeYDirection;
 export type Angular = AngularDirection;
-export type CrudeAngular = CrudeAngularDirection;
 
 export const construct = (c: Crude): Direction => {
   if (DIRECTIONS.includes(c as Direction)) return c as Direction;
@@ -63,19 +62,16 @@ export const isX = (direction: CrudeDirection): direction is CrudeXDirection => 
 export const isY = (direction: CrudeDirection): direction is CrudeYDirection =>
   construct(direction) === "y";
 
-export interface XY {
-  x: number;
-  y: number;
-}
-
-export const rotate = (point: XY, center: XY, dir: Angular): XY => {
+export const rotate = (point: xy.Crude, center: xy.Crude, dir: Angular): XY => {
+  const p = xy.construct(point);
+  const c = xy.construct(center);
   const angle = dir === "clockwise" ? Math.PI / 2 : -Math.PI / 2;
-  const relativeX = point.x - center.x;
-  const relativeY = point.y - center.y;
+  const relativeX = p.x - c.x;
+  const relativeY = p.y - c.y;
   const rotatedX = relativeX * Math.cos(angle) - relativeY * Math.sin(angle);
   const rotatedY = relativeX * Math.sin(angle) + relativeY * Math.cos(angle);
   return {
-    x: rotatedX + center.x,
-    y: rotatedY + center.y,
+    x: rotatedX + c.x,
+    y: rotatedY + c.y,
   };
 };

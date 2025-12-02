@@ -48,10 +48,11 @@ class ChannelClient:
         self.channels_list = self.page.locator("div[id^='channel:']")
 
     def show_channels(self) -> None:
-        if not self.channels_pane.is_visible():
-            self.channels_button.click(force=True, timeout=2000)
-            self.channels_pane.first.wait_for(state="visible", timeout=500)
-            self.page.wait_for_timeout(100)  # Wait for channels to render
+        if self.channels_pane.is_visible():
+            return
+        self.channels_button.click(force=True, timeout=2000)
+        self.channels_pane.first.wait_for(state="visible", timeout=500)
+        self.page.wait_for_timeout(100)  # Wait for channels to render
 
     def hide_channels(self) -> None:
         if self.channels_pane.is_visible():

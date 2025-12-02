@@ -182,33 +182,8 @@ const MultiElementProperties = ({
 
   const store = useStore<RootState>();
 
-  const topOffsetsForDistribution = new Map<string, number>();
-
   const getLayoutsForAlignment = () => {
     const viewport = selectViewport(store.getState(), layoutKey);
-
-    // For alignment: use uniform bottom padding so all nodes align at same visual level
-    let maxBottomExtension = 0;
-    elements.forEach((el) => {
-      if (el.type !== "node") return;
-      try {
-        const nodeEl = Diagram.selectNode(el.key);
-        const rect = nodeEl.getBoundingClientRect();
-        const bottomIndicator = nodeEl.querySelector(
-          ".pluto-grid__item.pluto--location-bottom",
-        );
-        if (bottomIndicator) {
-          const indicatorRect = bottomIndicator.getBoundingClientRect();
-          const extensionBelow = Math.max(0, indicatorRect.bottom - rect.bottom);
-          maxBottomExtension = Math.max(
-            maxBottomExtension,
-            extensionBelow / (viewport?.zoom ?? 1),
-          );
-        }
-      } catch (e) {
-        console.error("Failed to calculate bottom extension for node", el.key, e);
-      }
-    });
 
     return elements
       .map((el) => {
@@ -223,9 +198,6 @@ const MultiElementProperties = ({
             height: rect.height / (viewport?.zoom ?? 1),
           };
 
-          // Add uniform padding for consistent alignment
-          actualDims.height += maxBottomExtension;
-
           const nodeBox = box.construct(el.node.position, actualDims);
           const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
           const handles = Array.from(handleEls).map((el) => {
@@ -237,7 +209,7 @@ const MultiElementProperties = ({
             const match = el.className.match(/react-flow__handle-(\w+)/);
             if (match == null)
               throw new Error(`[schematic] - cannot find handle orientation`);
-            const orientation = location.construct(match[1]) as location.Outer;
+            const orientation = location.outer.parse(match[1]);
             return new Diagram.HandleLayout(dist, orientation);
           });
           return new Diagram.NodeLayout(el.key, nodeBox, handles);
@@ -249,12 +221,15 @@ const MultiElementProperties = ({
       .filter((el) => el !== null);
   };
 
-  const getLayoutsForDistribution = () => {
+  const getLayoutsForDistribution = (): {
+    layouts: Diagram.NodeLayout[];
+    topOffsets: Map<string, number>;
+  } => {
     const viewport = selectViewport(store.getState(), layoutKey);
-    topOffsetsForDistribution.clear();
+    const topOffsets = new Map<string, number>();
 
     // For distribution: use actual extensions to calculate true visual extents
-    return elements
+    const layouts = elements
       .map((el) => {
         if (el.type !== "node") return null;
         try {
@@ -280,7 +255,7 @@ const MultiElementProperties = ({
 
           // Adjust position if there are top extensions
           const topExtension = (rect.top - minTop) / (viewport?.zoom ?? 1);
-          topOffsetsForDistribution.set(el.key, topExtension);
+          topOffsets.set(el.key, topExtension);
           const adjustedPosition = xy.translate(el.node.position, {
             x: 0,
             y: -topExtension,
@@ -297,7 +272,7 @@ const MultiElementProperties = ({
             const match = el.className.match(/react-flow__handle-(\w+)/);
             if (match == null)
               throw new Error(`[schematic] - cannot find handle orientation`);
-            const orientation = location.construct(match[1]) as location.Outer;
+            const orientation = location.outer.parse(match[1]);
             return new Diagram.HandleLayout(dist, orientation);
           });
           return new Diagram.NodeLayout(el.key, nodeBox, handles);
@@ -307,6 +282,8 @@ const MultiElementProperties = ({
         return null;
       })
       .filter((el) => el !== null);
+
+    return { layouts, topOffsets };
   };
 
   const applyNodePositions = (
@@ -326,26 +303,28 @@ const MultiElementProperties = ({
     );
   };
 
-  const handleAlign = (dir: direction.Crude): void => {
-    applyNodePositions(Diagram.alignNodes(getLayoutsForAlignment(), dir));
+  const handleAlignToLocation = (loc: location.Outer): void => {
+    applyNodePositions(Diagram.alignNodesToLocation(getLayoutsForAlignment(), loc));
+  };
+
+  const handleAlignAlongDirection = (dir: direction.Direction): void => {
+    applyNodePositions(Diagram.alignNodesAlongDirection(getLayoutsForAlignment(), dir));
   };
 
   const handleDistribute = (dir: direction.Direction): void => {
-    applyNodePositions(
-      Diagram.distributeNodes(getLayoutsForDistribution(), dir),
-      (key, pos) => {
-        const topOffset = topOffsetsForDistribution.get(key) ?? 0;
-        return xy.translate(pos, { x: 0, y: topOffset });
-      },
-    );
+    const { layouts, topOffsets } = getLayoutsForDistribution();
+    applyNodePositions(Diagram.distributeNodes(layouts, dir), (key, pos) => {
+      const topOffset = topOffsets.get(key) ?? 0;
+      return xy.translate(pos, { x: 0, y: topOffset });
+    });
   };
 
   const handleRotateIndividual = (dir: direction.Angular): void => {
     elements.forEach((el) => {
       if (el.type !== "node") return;
-      const orientation = el.props.orientation as location.Location | undefined;
-      if (orientation == null) return;
-      onChange(el.key, { orientation: location.rotate(orientation, dir) });
+      const parsed = location.location.safeParse(el.props.orientation);
+      if (!parsed.success) return;
+      onChange(el.key, { orientation: location.rotate(parsed.data, dir) });
     });
   };
 
@@ -372,33 +351,39 @@ const MultiElementProperties = ({
       <Input.Item label="Align">
         <Flex.Box x>
           <Button.Button
-            tooltip="Align nodes vertically"
-            onClick={() => handleAlign("x")}
+            tooltip="Align symbols vertically"
+            onClick={() => handleAlignAlongDirection("x")}
           >
             <Icon.Align.YCenter />
           </Button.Button>
           <Button.Button
-            tooltip="Align nodes horizontally"
-            onClick={() => handleAlign("y")}
+            tooltip="Align symbols horizontally"
+            onClick={() => handleAlignAlongDirection("y")}
           >
             <Icon.Align.XCenter />
           </Button.Button>
           <Divider.Divider direction="y" />
-          <Button.Button tooltip="Align nodes left" onClick={() => handleAlign("left")}>
+          <Button.Button
+            tooltip="Align symbols left"
+            onClick={() => handleAlignToLocation("left")}
+          >
             <Icon.Align.Left />
           </Button.Button>
-          <Button.Button tooltip="Align nodes top" onClick={() => handleAlign("top")}>
+          <Button.Button
+            tooltip="Align symbols top"
+            onClick={() => handleAlignToLocation("top")}
+          >
             <Icon.Align.Top />
           </Button.Button>
           <Button.Button
-            tooltip="Align nodes bottom"
-            onClick={() => handleAlign("bottom")}
+            tooltip="Align symbols bottom"
+            onClick={() => handleAlignToLocation("bottom")}
           >
             <Icon.Align.Bottom />
           </Button.Button>
           <Button.Button
-            tooltip="Align nodes right"
-            onClick={() => handleAlign("right")}
+            tooltip="Align symbols right"
+            onClick={() => handleAlignToLocation("right")}
           >
             <Icon.Align.Right />
           </Button.Button>
@@ -407,13 +392,13 @@ const MultiElementProperties = ({
       <Input.Item label="Spacing">
         <Flex.Box x>
           <Button.Button
-            tooltip="Distribute nodes horizontally"
+            tooltip="Distribute symbols horizontally"
             onClick={() => handleDistribute("x")}
           >
             <Icon.Distribute.X />
           </Button.Button>
           <Button.Button
-            tooltip="Distribute nodes vertically"
+            tooltip="Distribute symbols vertically"
             onClick={() => handleDistribute("y")}
           >
             <Icon.Distribute.Y />
@@ -423,29 +408,29 @@ const MultiElementProperties = ({
       <Input.Item label="Rotate">
         <Flex.Box x>
           <Button.Button
-            tooltip="Rotate nodes clockwise"
+            tooltip="Rotate symbols clockwise"
             onClick={() => handleRotateIndividual("clockwise")}
           >
             <Icon.RotateGroup.CW />
           </Button.Button>
           <Button.Button
-            tooltip="Rotate nodes counter-clockwise"
+            tooltip="Rotate symbols counter-clockwise"
             onClick={() => handleRotateIndividual("counterclockwise")}
           >
             <Icon.RotateGroup.CCW />
           </Button.Button>
         </Flex.Box>
       </Input.Item>
-      <Input.Item label="Rotate Group">
+      <Input.Item label="Rotate Selection">
         <Flex.Box x>
           <Button.Button
-            tooltip="Rotate group clockwise"
+            tooltip="Rotate selection clockwise"
             onClick={() => handleRotateGroup("clockwise")}
           >
             <Icon.RotateAroundCenter.CW />
           </Button.Button>
           <Button.Button
-            tooltip="Rotate group counter-clockwise"
+            tooltip="Rotate selection counter-clockwise"
             onClick={() => handleRotateGroup("counterclockwise")}
           >
             <Icon.RotateAroundCenter.CCW />

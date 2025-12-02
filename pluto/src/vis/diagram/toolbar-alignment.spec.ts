@@ -7,9 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Diagram } from "@synnaxlabs/pluto";
 import { box, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
+
+import {
+  alignNodesAlongDirection,
+  alignNodesToLocation,
+  distributeNodes,
+  rotateNodesAroundCenter,
+} from "@/vis/diagram/align";
+import { NodeLayout } from "@/vis/diagram/util";
 
 describe("Schematic Toolbar Alignment Operations", () => {
   describe("alignment helper functions", () => {
@@ -35,12 +42,11 @@ describe("Schematic Toolbar Alignment Operations", () => {
 
       // Convert to NodeLayout objects
       const layouts = elements.map(
-        (el) =>
-          new Diagram.NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
+        (el) => new NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
       );
 
       // Test alignment
-      const aligned = Diagram.alignNodes(layouts, "x");
+      const aligned = alignNodesAlongDirection(layouts, "x");
 
       // All should be on same horizontal line
       const yPositions = aligned.map((l) => box.top(l.box));
@@ -68,11 +74,10 @@ describe("Schematic Toolbar Alignment Operations", () => {
       ];
 
       const layouts = elements.map(
-        (el) =>
-          new Diagram.NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
+        (el) => new NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
       );
 
-      const aligned = Diagram.alignNodes(layouts, "y");
+      const aligned = alignNodesAlongDirection(layouts, "y");
 
       // All should be on same vertical line
       const xPositions = aligned.map((l) => box.left(l.box));
@@ -100,11 +105,10 @@ describe("Schematic Toolbar Alignment Operations", () => {
       ];
 
       const layouts = elements.map(
-        (el) =>
-          new Diagram.NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
+        (el) => new NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
       );
 
-      const distributed = Diagram.distributeNodes(layouts, "x");
+      const distributed = distributeNodes(layouts, "x");
 
       // Should be distributed with even spacing
       const sorted = [...distributed].sort((a, b) => box.left(a.box) - box.left(b.box));
@@ -136,11 +140,10 @@ describe("Schematic Toolbar Alignment Operations", () => {
       ];
 
       const layouts = elements.map(
-        (el) =>
-          new Diagram.NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
+        (el) => new NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
       );
 
-      const aligned = Diagram.alignNodes(layouts, "left");
+      const aligned = alignNodesToLocation(layouts, "left");
 
       // All should align to leftmost edge (x=10)
       expect(box.left(aligned[0].box)).toBe(10);
@@ -168,11 +171,10 @@ describe("Schematic Toolbar Alignment Operations", () => {
       ];
 
       const layouts = elements.map(
-        (el) =>
-          new Diagram.NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
+        (el) => new NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
       );
 
-      const aligned = Diagram.alignNodes(layouts, "right");
+      const aligned = alignNodesToLocation(layouts, "right");
 
       // All should align to rightmost edge (250 = 150+100)
       expect(box.right(aligned[0].box)).toBe(250);
@@ -200,11 +202,10 @@ describe("Schematic Toolbar Alignment Operations", () => {
       ];
 
       const layouts = elements.map(
-        (el) =>
-          new Diagram.NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
+        (el) => new NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
       );
 
-      const aligned = Diagram.alignNodes(layouts, "top");
+      const aligned = alignNodesToLocation(layouts, "top");
 
       // All should align to topmost edge (y=10)
       expect(box.top(aligned[0].box)).toBe(10);
@@ -232,11 +233,10 @@ describe("Schematic Toolbar Alignment Operations", () => {
       ];
 
       const layouts = elements.map(
-        (el) =>
-          new Diagram.NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
+        (el) => new NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
       );
 
-      const aligned = Diagram.alignNodes(layouts, "bottom");
+      const aligned = alignNodesToLocation(layouts, "bottom");
 
       // All should align to bottommost edge (250 = 150+100)
       expect(box.bottom(aligned[0].box)).toBe(250);
@@ -266,11 +266,10 @@ describe("Schematic Toolbar Alignment Operations", () => {
       ];
 
       const layouts = elements.map(
-        (el) =>
-          new Diagram.NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
+        (el) => new NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
       );
 
-      const distributed = Diagram.distributeNodes(layouts, "x");
+      const distributed = distributeNodes(layouts, "x");
 
       // Check even spacing
       const sorted = [...distributed].sort((a, b) => box.left(a.box) - box.left(b.box));
@@ -301,11 +300,10 @@ describe("Schematic Toolbar Alignment Operations", () => {
       ];
 
       const layouts = elements.map(
-        (el) =>
-          new Diagram.NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
+        (el) => new NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
       );
 
-      const distributed = Diagram.distributeNodes(layouts, "y");
+      const distributed = distributeNodes(layouts, "y");
 
       // Check even spacing
       const sorted = [...distributed].sort((a, b) => box.top(a.box) - box.top(b.box));
@@ -387,11 +385,10 @@ describe("Schematic Toolbar Alignment Operations", () => {
       ];
 
       const layouts = elements.map(
-        (el) =>
-          new Diagram.NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
+        (el) => new NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
       );
 
-      const rotated = Diagram.rotateNodesAroundCenter(layouts, "clockwise");
+      const rotated = rotateNodesAroundCenter(layouts, "clockwise");
 
       // Positions should change after rotation
       expect(box.topLeft(rotated[0].box)).not.toEqual(elements[0].position);
@@ -417,11 +414,10 @@ describe("Schematic Toolbar Alignment Operations", () => {
       ];
 
       const layouts = elements.map(
-        (el) =>
-          new Diagram.NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
+        (el) => new NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
       );
 
-      const rotatedCCW = Diagram.rotateNodesAroundCenter(layouts, "counterclockwise");
+      const rotatedCCW = rotateNodesAroundCenter(layouts, "counterclockwise");
 
       // Verify rotation happened
       expect(box.topLeft(rotatedCCW[0].box)).not.toEqual({ x: 0, y: 0 });
@@ -458,17 +454,16 @@ describe("Schematic Toolbar Alignment Operations", () => {
       ];
 
       let layouts = elements.map(
-        (el) =>
-          new Diagram.NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
+        (el) => new NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
       );
 
       // Step 1: Align Vertical (all same Y)
-      layouts = Diagram.alignNodes(layouts, "x");
+      layouts = alignNodesAlongDirection(layouts, "x");
       // Verify alignment worked
       expect(layouts).toHaveLength(4);
 
       // Step 2: Distribute Horizontal
-      layouts = Diagram.distributeNodes(layouts, "x");
+      layouts = distributeNodes(layouts, "x");
       const sorted = [...layouts].sort((a, b) => box.left(a.box) - box.left(b.box));
       expect(sorted).toHaveLength(4);
       expect(box.left(sorted[1].box)).toBeGreaterThan(box.left(sorted[0].box));
@@ -489,26 +484,26 @@ describe("Schematic Toolbar Alignment Operations", () => {
       );
 
       // Step 4: Align Horizontal
-      layouts = Diagram.alignNodes(layouts, "y");
+      layouts = alignNodesAlongDirection(layouts, "y");
       // Verify alignment worked
       expect(layouts).toHaveLength(4);
 
       // Step 5: Distribute Vertical
-      layouts = Diagram.distributeNodes(layouts, "y");
+      layouts = distributeNodes(layouts, "y");
       const sortedVertical = [...layouts].sort(
         (a, b) => box.top(a.box) - box.top(b.box),
       );
       expect(sortedVertical).toHaveLength(4);
 
       // Step 6: Align Left
-      layouts = Diagram.alignNodes(layouts, "left");
+      layouts = alignNodesToLocation(layouts, "left");
       const leftEdges = layouts.map((l) => box.left(l.box));
       expect(leftEdges[0]).toBe(leftEdges[1]);
       expect(leftEdges[1]).toBe(leftEdges[2]);
       expect(leftEdges[2]).toBe(leftEdges[3]);
 
       // Step 7: Align Right
-      layouts = Diagram.alignNodes(layouts, "right");
+      layouts = alignNodesToLocation(layouts, "right");
       const rightEdges = layouts.map((l) => box.right(l.box));
       expect(rightEdges[0]).toBe(rightEdges[1]);
       expect(rightEdges[1]).toBe(rightEdges[2]);
@@ -530,11 +525,10 @@ describe("Schematic Toolbar Alignment Operations", () => {
       ];
 
       const layouts = elements.map(
-        (el) =>
-          new Diagram.NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
+        (el) => new NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
       );
 
-      const aligned = Diagram.alignNodes(layouts, "left");
+      const aligned = alignNodesToLocation(layouts, "left");
 
       // Single element should stay in place
       expect(box.topLeft(aligned[0].box)).toEqual({ x: 50, y: 50 });
@@ -555,11 +549,10 @@ describe("Schematic Toolbar Alignment Operations", () => {
       ];
 
       const layouts = elements.map(
-        (el) =>
-          new Diagram.NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
+        (el) => new NodeLayout(el.key, box.construct(el.position, el.dimensions), []),
       );
 
-      const distributed = Diagram.distributeNodes(layouts, "x");
+      const distributed = distributeNodes(layouts, "x");
 
       // With only 2 elements, they should stay at start and end
       expect(box.left(distributed[0].box)).toBe(0);
@@ -567,13 +560,15 @@ describe("Schematic Toolbar Alignment Operations", () => {
     });
 
     it("should handle empty selection", () => {
-      const layouts: Diagram.NodeLayout[] = [];
+      const layouts: NodeLayout[] = [];
 
-      const aligned = Diagram.alignNodes(layouts, "x");
-      const distributed = Diagram.distributeNodes(layouts, "x");
-      const rotated = Diagram.rotateNodesAroundCenter(layouts, "clockwise");
+      const aligned = alignNodesAlongDirection(layouts, "x");
+      const alignedToLoc = alignNodesToLocation(layouts, "left");
+      const distributed = distributeNodes(layouts, "x");
+      const rotated = rotateNodesAroundCenter(layouts, "clockwise");
 
       expect(aligned).toEqual([]);
+      expect(alignedToLoc).toEqual([]);
       expect(distributed).toEqual([]);
       expect(rotated).toEqual([]);
     });

@@ -59,20 +59,12 @@ const SWAPPED: Record<Location, Location> = {
   center: "center",
 };
 
-const ROTATE_90: Record<Location, Location> = {
-  top: "left",
-  right: "top",
-  bottom: "right",
-  left: "bottom",
-  center: "center",
-};
-
-const ROTATE_90_CCW: Record<Location, Location> = {
-  top: "right",
-  right: "bottom",
-  bottom: "left",
-  left: "top",
-  center: "center",
+const ROTATIONS: Record<Location, Record<AngularDirection, Location>> = {
+  top: { clockwise: "left", counterclockwise: "right" },
+  right: { clockwise: "top", counterclockwise: "bottom" },
+  bottom: { clockwise: "right", counterclockwise: "left" },
+  left: { clockwise: "bottom", counterclockwise: "top" },
+  center: { clockwise: "center", counterclockwise: "center" },
 };
 
 export const crude = crudeLocation;
@@ -88,10 +80,8 @@ export const construct = (cl: Crude): Location => {
 
 export const swap = (cl: Crude): Location => SWAPPED[construct(cl)];
 
-export const rotate90 = (cl: Crude): Location => ROTATE_90[construct(cl)];
-
-export const rotate = (cl: Crude, dir: AngularDirection): Location =>
-  dir === "clockwise" ? ROTATE_90[construct(cl)] : ROTATE_90_CCW[construct(cl)];
+export const rotate = (cl: Crude, dir: AngularDirection = "clockwise"): Location =>
+  ROTATIONS[construct(cl)][dir];
 
 export const direction = (cl: Crude): Direction => {
   const l = construct(cl);

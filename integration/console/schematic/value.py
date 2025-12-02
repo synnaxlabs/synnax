@@ -18,6 +18,7 @@ class Value(Symbol):
 
     def __init__(
         self,
+        *,
         label: str,
         channel_name: str,
         notation: str | None = None,

@@ -48,7 +48,7 @@ class SetpointPressUser(ConsoleCase):
         )
         start_cmd.move(-90, -100)
         end_cmd = schematic.create_symbol(
-            Button(label="end_test_cmd", channel_name="end_test_cmd", mode="fire")
+            Button(label="end_test_cmd", channel_name="end_test_cmd", mode="Fire")
         )
         end_cmd.move(90, -100)
         press_valve = schematic.create_symbol(

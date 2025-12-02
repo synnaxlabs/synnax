@@ -268,4 +268,26 @@ describe("XY", () => {
       expect(result).toEqual({ x: 7, y: 17 });
     });
   });
+
+  describe("align", () => {
+    it("should align x coordinate to target value", () => {
+      expect(xy.align([5, 10], "x", 20)).toEqual({ x: 20, y: 10 });
+    });
+
+    it("should align y coordinate to target value", () => {
+      expect(xy.align([5, 10], "y", 20)).toEqual({ x: 5, y: 20 });
+    });
+
+    it("should accept crude directions like locations", () => {
+      expect(xy.align([5, 10], "left", 20)).toEqual({ x: 20, y: 10 });
+      expect(xy.align([5, 10], "right", 20)).toEqual({ x: 20, y: 10 });
+      expect(xy.align([5, 10], "top", 20)).toEqual({ x: 5, y: 20 });
+      expect(xy.align([5, 10], "bottom", 20)).toEqual({ x: 5, y: 20 });
+    });
+
+    it("should work with different coordinate input formats", () => {
+      expect(xy.align({ width: 5, height: 10 }, "x", 15)).toEqual({ x: 15, y: 10 });
+      expect(xy.align({ x: 3, y: 4 }, "y", 8)).toEqual({ x: 3, y: 8 });
+    });
+  });
 });

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
+import { type Diagram } from "@synnaxlabs/pluto";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
@@ -117,8 +118,8 @@ describe("Schematic Slice", () => {
 
       const state = store.getState()[SLICE_NAME];
       const schematic = state.schematics[schematicKey];
-      const node1 = schematic.nodes.find((n: any) => n.key === node1Key);
-      const node2 = schematic.nodes.find((n: any) => n.key === node2Key);
+      const node1 = schematic.nodes.find((n: Diagram.Node) => n.key === node1Key);
+      const node2 = schematic.nodes.find((n: Diagram.Node) => n.key === node2Key);
 
       expect(node1?.position).toEqual({ x: 0, y: 0 });
       expect(node2?.position).toEqual({ x: 150, y: 0 });
@@ -179,8 +180,8 @@ describe("Schematic Slice", () => {
       const schematic = state.schematics[schematicKey];
       expect(schematic.nodes).toHaveLength(2);
 
-      const node1 = schematic.nodes.find((n: any) => n.key === "valve-1");
-      const node2 = schematic.nodes.find((n: any) => n.key === "valve-2");
+      const node1 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-1");
+      const node2 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-2");
 
       expect(node1?.position).toEqual({ x: 50, y: 50 });
       expect(node1?.selected).toBe(true);
@@ -227,8 +228,8 @@ describe("Schematic Slice", () => {
       const state = store.getState()[SLICE_NAME];
       const schematic = state.schematics[schematicKey];
 
-      const node1 = schematic.nodes.find((n: any) => n.key === "valve-1");
-      const node2 = schematic.nodes.find((n: any) => n.key === "valve-2");
+      const node1 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-1");
+      const node2 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-2");
 
       expect(node1?.selected).toBe(true);
       expect(node2?.selected).toBe(true);
@@ -256,7 +257,7 @@ describe("Schematic Slice", () => {
       const state = store.getState()[SLICE_NAME];
       const schematic = state.schematics[schematicKey];
 
-      expect(schematic.nodes.every((n: any) => !n.selected)).toBe(true);
+      expect(schematic.nodes.every((n: Diagram.Node) => !n.selected)).toBe(true);
       expect(schematic.toolbar.activeTab).toBe("symbols");
     });
 
@@ -321,8 +322,8 @@ describe("Schematic Slice", () => {
       const schematic = state.schematics[schematicKey];
 
       // Verify all nodes are aligned
-      const yPositions = schematic.nodes.map((n: any) => n.position.y);
-      expect(yPositions.every((y: any) => y === 0)).toBe(true);
+      const yPositions = schematic.nodes.map((n: Diagram.Node) => n.position.y);
+      expect(yPositions.every((y) => y === 0)).toBe(true);
     });
 
     it("should simulate horizontal distribution workflow", () => {
@@ -360,9 +361,9 @@ describe("Schematic Slice", () => {
       const state = store.getState()[SLICE_NAME];
       const schematic = state.schematics[schematicKey];
 
-      const node1 = schematic.nodes.find((n: any) => n.key === "valve-1");
-      const node2 = schematic.nodes.find((n: any) => n.key === "valve-2");
-      const node3 = schematic.nodes.find((n: any) => n.key === "valve-3");
+      const node1 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-1");
+      const node2 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-2");
+      const node3 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-3");
 
       // Check that spacing is even
       const gap1 = (node2?.position.x ?? 0) - (node1?.position.x ?? 0);
@@ -370,10 +371,8 @@ describe("Schematic Slice", () => {
       expect(gap1).toBe(gap2);
     });
 
-    it("should simulate complex alignment workflow from integration test", () => {
-      // Simulate the workflow from integration/tests/console/schematic/alignment.py
-
-      // Create nodes (setpoint, valves)
+    it("should handle vertical alignment followed by horizontal distribution", () => {
+      // Create nodes at different positions
       const nodes = [
         { key: "setpoint", position: { x: -210, y: 0 }, selected: true },
         { key: "threeWayValve", position: { x: -150, y: 0 }, selected: true },
@@ -393,7 +392,7 @@ describe("Schematic Slice", () => {
       let state = store.getState()[SLICE_NAME];
       let schematic = state.schematics[schematicKey];
       const targetY = 0;
-      const alignedVertical = schematic.nodes.map((n: any) => ({
+      const alignedVertical = schematic.nodes.map((n: Diagram.Node) => ({
         ...n,
         position: { ...n.position, y: targetY },
       }));
@@ -408,7 +407,9 @@ describe("Schematic Slice", () => {
 
       state = store.getState()[SLICE_NAME];
       schematic = state.schematics[schematicKey];
-      expect(schematic.nodes.every((n: any) => n.position.y === targetY)).toBe(true);
+      expect(schematic.nodes.every((n: Diagram.Node) => n.position.y === targetY)).toBe(
+        true,
+      );
 
       // Step 2: Distribute Horizontal (even spacing)
       const sorted = [...schematic.nodes].sort((a, b) => a.position.x - b.position.x);
@@ -417,7 +418,7 @@ describe("Schematic Slice", () => {
       const totalSpan = lastX - firstX;
       const gap = totalSpan / (sorted.length - 1);
 
-      const distributedHorizontal = schematic.nodes.map((n: any) => {
+      const distributedHorizontal = schematic.nodes.map((n: Diagram.Node) => {
         const sortedIdx = sorted.findIndex((s) => s.key === n.key);
         return {
           ...n,
@@ -513,9 +514,9 @@ describe("Schematic Slice", () => {
       const state = store.getState()[SLICE_NAME];
       const schematic = state.schematics[schematicKey];
 
-      const valve1 = schematic.nodes.find((n: any) => n.key === "valve-1");
-      const valve2 = schematic.nodes.find((n: any) => n.key === "valve-2");
-      const valve3 = schematic.nodes.find((n: any) => n.key === "valve-3");
+      const valve1 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-1");
+      const valve2 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-2");
+      const valve3 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-3");
 
       expect(valve1?.position).toEqual({ x: 0, y: 0 });
       expect(valve2?.position).toEqual({ x: 200, y: 50 });

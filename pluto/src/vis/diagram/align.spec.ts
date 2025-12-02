@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { box, xy } from "@synnaxlabs/x";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
-  alignNodes,
+  alignNodesAlongDirection,
+  alignNodesToLocation,
   distributeNodes,
-  rotateNodes,
   rotateNodesAroundCenter,
 } from "@/vis/diagram/align";
 import { HandleLayout, NodeLayout } from "@/vis/diagram/util";
@@ -163,7 +163,7 @@ describe("align", () => {
 
   for (const spec of SPECS)
     it(spec.name, () => {
-      const outputs = alignNodes(spec.inputs);
+      const outputs = alignNodesAlongDirection(spec.inputs);
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual(spec.outputs);
     });
 
@@ -186,7 +186,7 @@ describe("align", () => {
           [],
         ),
       ];
-      const outputs = alignNodes(inputs, "left");
+      const outputs = alignNodesToLocation(inputs, "left");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 },
         { x: 0, y: 50 },
@@ -207,7 +207,7 @@ describe("align", () => {
           [],
         ),
       ];
-      const outputs = alignNodes(inputs, "left");
+      const outputs = alignNodesToLocation(inputs, "left");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 10, y: 0 },
         { x: 10, y: 50 },
@@ -234,7 +234,7 @@ describe("align", () => {
           [],
         ),
       ];
-      const outputs = alignNodes(inputs, "right");
+      const outputs = alignNodesToLocation(inputs, "right");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 50, y: 0 },
         { x: 50, y: 50 },
@@ -255,7 +255,7 @@ describe("align", () => {
           [],
         ),
       ];
-      const outputs = alignNodes(inputs, "right");
+      const outputs = alignNodesToLocation(inputs, "right");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 50, y: 0 },
         { x: 10, y: 50 },
@@ -282,7 +282,7 @@ describe("align", () => {
           [],
         ),
       ];
-      const outputs = alignNodes(inputs, "top");
+      const outputs = alignNodesToLocation(inputs, "top");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 },
         { x: 50, y: 0 },
@@ -303,7 +303,7 @@ describe("align", () => {
           [],
         ),
       ];
-      const outputs = alignNodes(inputs, "top");
+      const outputs = alignNodesToLocation(inputs, "top");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 10 },
         { x: 50, y: 10 },
@@ -330,7 +330,7 @@ describe("align", () => {
           [],
         ),
       ];
-      const outputs = alignNodes(inputs, "bottom");
+      const outputs = alignNodesToLocation(inputs, "bottom");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 50 },
         { x: 50, y: 50 },
@@ -351,7 +351,7 @@ describe("align", () => {
           [],
         ),
       ];
-      const outputs = alignNodes(inputs, "bottom");
+      const outputs = alignNodesToLocation(inputs, "bottom");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 50 },
         { x: 50, y: 10 },
@@ -655,28 +655,7 @@ describe("distribute", () => {
   });
 });
 
-describe("rotate", () => {
-  it("should return layouts unchanged (rotation handled at console level)", () => {
-    const inputs = [
-      new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), []),
-      new NodeLayout(
-        "n2",
-        box.construct({ x: 150, y: 0 }, { width: 100, height: 100 }),
-        [],
-      ),
-    ];
-
-    const result = rotateNodes(inputs, "clockwise");
-    expect(result).toBe(inputs);
-  });
-});
-
 describe("rotateNodesAroundCenter", () => {
-  beforeEach(() => {
-    document.body.innerHTML = "";
-    vi.clearAllMocks();
-  });
-
   it("should return empty array for empty input", () => {
     const result = rotateNodesAroundCenter([], "clockwise");
     expect(result).toEqual([]);

@@ -13,7 +13,7 @@ import synnax as sy
 
 from .symbol import Symbol
 
-button_modes = Literal["fire", "momentary", "pulse"]
+ButtonMode = Literal["Fire", "Momentary", "Pulse"]
 
 
 class Button(Symbol):
@@ -21,11 +21,12 @@ class Button(Symbol):
 
     def __init__(
         self,
+        *,
         label: str,
         channel_name: str,
         activation_delay: float | None = None,
         show_control_chip: bool | None = None,
-        mode: button_modes = "fire",
+        mode: ButtonMode = "Fire",
         symbol_type: str = "Button",
     ):
         """Initialize a button symbol with configuration.
@@ -35,7 +36,7 @@ class Button(Symbol):
             channel_name: Channel name for the button
             activation_delay: Delay before activation in seconds (optional)
             show_control_chip: Whether to show the control chip (optional)
-            mode: Button mode - "fire", "momentary", or "pulse" (optional)
+            mode: Button mode - "Fire", "Momentary", or "Pulse" (optional)
             symbol_type: The type of symbol (default: "Button")
         """
         super().__init__(label, symbol_type=symbol_type, rotatable=False)
@@ -58,7 +59,7 @@ class Button(Symbol):
         channel_name: str | None = None,
         activation_delay: float | None = None,
         show_control_chip: bool | None = None,
-        mode: button_modes = "fire",
+        mode: ButtonMode = "Fire",
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Set Button properties including channel settings."""
@@ -94,9 +95,8 @@ class Button(Symbol):
             applied_properties["show_control_chip"] = show_control_chip
 
         if mode is not None:
-            # Convert to title case for UI interaction
-            self.page.get_by_text(mode.title()).click()
-            applied_properties["mode"] = mode.lower()
+            self.page.get_by_text(mode).click()
+            applied_properties["mode"] = mode
 
         return applied_properties
 
@@ -140,7 +140,7 @@ class Button(Symbol):
                 if button.count() > 0:
                     class_name = button.get_attribute("class") or ""
                     if "pluto-btn--filled" in class_name:
-                        props["mode"] = str(option).lower()
+                        props["mode"] = option
                         break
             except Exception as e:
                 raise RuntimeError(f"Error getting mode property: {e}")

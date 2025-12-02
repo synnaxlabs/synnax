@@ -152,7 +152,7 @@ class EditProps(ConsoleCase):
             "channel": CHANNEL_NAME,
             "activation_delay": 0,
             "show_control_chip": True,
-            "mode": "fire",
+            "mode": "Fire",
         }
         schematic.assert_symbol_properties(button, expected_default_props)
 
@@ -167,7 +167,7 @@ class EditProps(ConsoleCase):
             "channel": CHANNEL_NAME,
             "activation_delay": 4.2,
             "show_control_chip": False,
-            "mode": "momentary",
+            "mode": "Momentary",
         }
         schematic.assert_symbol_properties(button, expected_edited_props)
         button.delete()
@@ -177,7 +177,7 @@ class EditProps(ConsoleCase):
             "channel": CHANNEL_NAME,
             "activation_delay": 2.3,
             "show_control_chip": True,
-            "mode": "pulse",
+            "mode": "Pulse",
         }
         non_default_button = schematic.create_symbol(
             Button(
@@ -185,7 +185,7 @@ class EditProps(ConsoleCase):
                 channel_name=CHANNEL_NAME,
                 activation_delay=2.3,
                 show_control_chip=True,
-                mode="pulse",
+                mode="Pulse",
             )
         )
         schematic.assert_symbol_properties(non_default_button, non_default_props)

@@ -12,6 +12,7 @@ import { z } from "zod";
 import {
   type ClientXY,
   clientXY,
+  type CrudeDirection,
   dimensions,
   type Direction,
   type NumberCouple,
@@ -20,6 +21,7 @@ import {
   type XY,
   xy,
 } from "@/spatial/base";
+import { direction } from "@/spatial/direction";
 import { type location } from "@/spatial/location";
 
 export { type ClientXY as Client, clientXY, type XY, xy };
@@ -162,9 +164,10 @@ export const translation = (to: Crude, from: Crude): XY => {
   return { x: from_.x - to_.x, y: from_.y - to_.y };
 };
 
-export const align = (coord: Crude, dir: Direction, target: number): XY => {
-  const c = construct(coord);
-  return dir === "x" ? { x: target, y: c.y } : { x: c.x, y: target };
+export const align = (coordinate: Crude, dir: CrudeDirection, target: number): XY => {
+  const c = construct(coordinate);
+  const d = direction.construct(dir);
+  return d === "x" ? { x: target, y: c.y } : { x: c.x, y: target };
 };
 
 /** @returns true if both the x and y coordinates of the given coordinate are NaN. */

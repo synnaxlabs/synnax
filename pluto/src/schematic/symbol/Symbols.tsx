@@ -177,7 +177,7 @@ export const createToggle = <P extends object = record.Unknown>(
         symbolKey={symbolKey}
         items={gridItems}
         onRotate={() =>
-          onChange({ orientation: location.rotate90(orientation) } as Partial<
+          onChange({ orientation: location.rotate(orientation) } as Partial<
             ToggleProps<P>
           >)
         }
@@ -241,7 +241,7 @@ export const createLabeled = <P extends object = record.Unknown>(
         editable={selected}
         symbolKey={symbolKey}
         onRotate={() =>
-          onChange({ orientation: location.rotate90(orientation) } as Partial<
+          onChange({ orientation: location.rotate(orientation) } as Partial<
             LabeledProps<P>
           >)
         }
@@ -294,7 +294,7 @@ export const createDummyToggle = <P extends object = record.Unknown>(
         editable={selected}
         symbolKey={symbolKey}
         onRotate={() =>
-          onChange({ orientation: location.rotate90(orientation) } as Partial<
+          onChange({ orientation: location.rotate(orientation) } as Partial<
             LabeledProps<P>
           >)
         }
@@ -1061,7 +1061,7 @@ export const Button = ({
     <Grid
       onRotate={() =>
         onChange({
-          orientation: location.rotate90(orientation),
+          orientation: location.rotate(orientation),
         } as Partial<ButtonProps>)
       }
       allowRotate={false}

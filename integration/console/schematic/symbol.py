@@ -120,18 +120,13 @@ class Symbol(ABC):
             raise RuntimeError("Symbol not attached to schematic")
 
         self.console.click("Symbols")
-
         initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
 
-        if symbol_type == "Valve":
-            self.console.click("Valves")
-            self.console.click("Generic")
-        else:
-            search_input = self.page.locator(
-                "div:has-text('Search Symbols') input[role='textbox']"
-            ).first
-            search_input.fill(symbol_type)
-            self.console.click(symbol_type)
+        search_input = self.page.locator(
+            "div:has-text('Search Symbols') input[role='textbox']"
+        ).first
+        search_input.fill(symbol_type)
+        self.console.click(symbol_type)
 
         self.page.wait_for_function(
             f"document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > {initial_count}"
@@ -147,14 +142,6 @@ class Symbol(ABC):
         This method should call set_properties() with the symbol's configuration.
         """
         pass
-
-    def _ensure_attached(self) -> tuple[Page, Console]:
-        """Ensure symbol is attached to schematic and return page/console."""
-        if self.page is None or self.console is None:
-            raise RuntimeError(
-                "Symbol not attached to schematic. Call schematic.create_symbol() first."
-            )
-        return self.page, self.console
 
     def _disable_edit_mode(self) -> None:
         edit_off_icon = self.page.get_by_label("pluto-icon--edit-off")
@@ -238,26 +225,7 @@ class Symbol(ABC):
 
     @property
     def position(self) -> Box:
-        """
-        Get the symbol's bounding box information for alignment checks.
-
-        Returns:
-            Box dataclass with:
-                - x: x coordinate of the left edge
-                - y: y coordinate of the top edge
-                - width: width of the bounding box
-                - height: height of the bounding box
-
-            Computed properties available:
-                - left: x coordinate of the left edge (same as x)
-                - right: x coordinate of the right edge
-                - top: y coordinate of the top edge (same as y)
-                - bottom: y coordinate of the bottom edge
-                - center_x: x coordinate of the center (for horizontal alignment)
-                - center_y: y coordinate of the center (for vertical alignment)
-
-        Note: Edge alignments (left/right/top/bottom) use bounding box edges.
-              Center alignments (center_x/center_y) use the box center as a proxy for handle positions.
+        """Get the symbol's bounding box for alignment checks.
 
         Raises:
             RuntimeError: If the symbol's bounding box cannot be retrieved

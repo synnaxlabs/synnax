@@ -15,6 +15,7 @@ class ValveThreeWay(Valve):
 
     def __init__(
         self,
+        *,
         label: str,
         state_channel: str,
         command_channel: str,

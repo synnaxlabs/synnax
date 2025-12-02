@@ -11,35 +11,41 @@ import { box, direction, location, xy } from "@synnaxlabs/x";
 
 import { type NodeLayout } from "@/vis/diagram/util";
 
-export const alignNodes = (
+/** Aligns nodes to a specific edge (left/right/top/bottom). */
+export const alignNodesToLocation = (
   layouts: NodeLayout[],
-  dir: direction.Crude = "x",
+  loc: location.Outer,
 ): NodeLayout[] => {
-  if (layouts.length === 0) return [];
+  if (layouts.length === 0) return layouts;
 
-  if (dir === "left" || dir === "right" || dir === "top" || dir === "bottom") {
-    const loc = location.construct(dir);
-    const alignDir = location.direction(loc);
-    const isMin = dir === "left" || dir === "top";
+  const alignDir = location.direction(loc);
+  const isMin = loc === "left" || loc === "top";
 
-    const target = isMin
-      ? Math.min(...layouts.map((l) => box.loc(l.box, loc)))
-      : Math.max(...layouts.map((l) => box.loc(l.box, loc)));
+  const target = isMin
+    ? Math.min(...layouts.map((l) => box.loc(l.box, loc)))
+    : Math.max(...layouts.map((l) => box.loc(l.box, loc)));
 
-    layouts.forEach((layout) => {
-      const offset = target - box.loc(layout.box, loc);
-      const newPos = xy.translate(
-        box.topLeft(layout.box),
-        alignDir === "x" ? { x: offset, y: 0 } : { x: 0, y: offset },
-      );
-      layout.box = box.construct(newPos, box.dims(layout.box));
-    });
-    return layouts;
-  }
+  layouts.forEach((layout) => {
+    const offset = target - box.loc(layout.box, loc);
+    const newPos = xy.translate(
+      box.topLeft(layout.box),
+      alignDir === "x" ? { x: offset, y: 0 } : { x: 0, y: offset },
+    );
+    layout.box = box.construct(newPos, box.dims(layout.box));
+  });
+  return layouts;
+};
 
-  const alignDir = direction.construct(dir);
-  const loc = location.construct(alignDir);
+/** Aligns nodes by their handles along a direction (x or y). */
+export const alignNodesAlongDirection = (
+  layouts: NodeLayout[],
+  dir: direction.Direction = "x",
+): NodeLayout[] => {
+  if (layouts.length === 0) return layouts;
+
+  const loc = location.construct(dir);
   const oppositeLoc = location.swap(loc);
+  // Sort layouts by position, lowest to highest
   layouts.sort((a, b) => box.loc(a.box, loc) - box.loc(b.box, loc));
   layouts.forEach((layout, i) => {
     if (i === 0) return;
@@ -55,12 +61,13 @@ export const alignNodes = (
     if (prevHandlesInDir.length === 0 || currentHandlesInDir.length === 0) {
       const prevCenter = box.center(prev.box);
       const currentCenter = box.center(layout.box);
-      const dist = xy.set(xy.translation(currentCenter, prevCenter), alignDir, 0);
+      const dist = xy.set(xy.translation(currentCenter, prevCenter), dir, 0);
       const newPos = xy.translate(box.topLeft(layout.box), dist);
       layout.box = box.construct(newPos, box.dims(layout.box));
       return;
     }
 
+    // Align current node's handle with previous node's handle
     const prevHandle =
       prevHandlesInDir.find((h) => h.orientation === oppositeLoc) ??
       prevHandlesInDir[prevHandlesInDir.length - 1];
@@ -69,7 +76,7 @@ export const alignNodes = (
 
     const dist = xy.set(
       xy.translation(currentHandle.absolutePosition, prevHandle.absolutePosition),
-      alignDir,
+      dir,
       0,
     );
     const newPos = xy.translate(box.topLeft(layout.box), dist);
@@ -105,6 +112,8 @@ export const distributeNodes = (
   const rawGapSize = (totalSpace - totalMiddleSize) / numGaps;
 
   if (rawGapSize < 0) {
+    // Nodes overlap - stack them touching with no gaps.
+    // Sort by secondary axis to preserve visual coherence when stacking.
     const remaining = sorted
       .slice(1)
       .sort(
@@ -137,11 +146,6 @@ export const distributeNodes = (
 
   return layouts;
 };
-
-export const rotateNodes = (
-  _layouts: NodeLayout[],
-  _dir: direction.Angular,
-): NodeLayout[] => _layouts;
 
 export const rotateNodesAroundCenter = (
   layouts: NodeLayout[],
