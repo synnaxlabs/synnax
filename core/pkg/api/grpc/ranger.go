@@ -300,7 +300,7 @@ func (t rangeAliasSetRequestTranslator) Forward(
 ) (*gapi.RangeAliasSetRequest, error) {
 	return &gapi.RangeAliasSetRequest{
 		Range:   r.Range.String(),
-		Aliases: unsafe.ReinterpretMap[channel.Key, string, uint32, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32, string](r.Aliases),
 	}, nil
 }
 
@@ -311,7 +311,7 @@ func (t rangeAliasSetRequestTranslator) Backward(
 	key, err := uuid.Parse(r.Range)
 	return api.RangeAliasSetRequest{
 		Range:   key,
-		Aliases: unsafe.ReinterpretMap[uint32, string, channel.Key, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key, string](r.Aliases),
 	}, err
 }
 
@@ -381,7 +381,7 @@ func (t rangeAliasResolveResponseTranslator) Forward(
 	r api.RangeAliasResolveResponse,
 ) (*gapi.RangeAliasResolveResponse, error) {
 	return &gapi.RangeAliasResolveResponse{
-		Aliases: unsafe.ReinterpretMap[string, channel.Key, string, uint32](r.Aliases),
+		Aliases: unsafe.ReinterpretMapValues[string, channel.Key, uint32](r.Aliases),
 	}, nil
 }
 
@@ -390,7 +390,7 @@ func (t rangeAliasResolveResponseTranslator) Backward(
 	r *gapi.RangeAliasResolveResponse,
 ) (api.RangeAliasResolveResponse, error) {
 	return api.RangeAliasResolveResponse{
-		Aliases: unsafe.ReinterpretMap[string, uint32, string, channel.Key](r.Aliases),
+		Aliases: unsafe.ReinterpretMapValues[string, uint32, channel.Key](r.Aliases),
 	}, nil
 }
 
@@ -399,7 +399,7 @@ func (t rangeAliasListResponseTranslator) Forward(
 	r api.RangeAliasListResponse,
 ) (*gapi.RangeAliasListResponse, error) {
 	return &gapi.RangeAliasListResponse{
-		Aliases: unsafe.ReinterpretMap[channel.Key, string, uint32, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32, string](r.Aliases),
 	}, nil
 }
 
@@ -408,7 +408,7 @@ func (t rangeAliasListResponseTranslator) Backward(
 	r *gapi.RangeAliasListResponse,
 ) (api.RangeAliasListResponse, error) {
 	return api.RangeAliasListResponse{
-		Aliases: unsafe.ReinterpretMap[uint32, string, channel.Key, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key, string](r.Aliases),
 	}, nil
 }
 
@@ -416,9 +416,11 @@ func (t rangeDeleteRequestTranslator) Forward(
 	_ context.Context,
 	r api.RangeDeleteRequest,
 ) (*gapi.RangeDeleteRequest, error) {
-	return &gapi.RangeDeleteRequest{
-		Keys: unsafe.ReinterpretSlice[uuid.UUID, string](r.Keys),
-	}, nil
+	keys := make([]string, len(r.Keys))
+	for i, k := range r.Keys {
+		keys[i] = k.String()
+	}
+	return &gapi.RangeDeleteRequest{Keys: keys}, nil
 }
 
 func (t rangeDeleteRequestTranslator) Backward(

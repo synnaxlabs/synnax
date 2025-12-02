@@ -14,7 +14,7 @@ import { caseconv } from "@/caseconv";
 import { compare } from "@/compare";
 import { id } from "@/id";
 import { instance } from "@/instance";
-import { type math } from "@/math";
+import { math } from "@/math";
 import { bounds } from "@/spatial";
 import {
   type GLBufferController,
@@ -22,7 +22,6 @@ import {
   glBufferUsageZ,
 } from "@/telem/gl";
 import {
-  addSamples,
   convertDataType,
   type CrudeDataType,
   type CrudeTimeStamp,
@@ -635,7 +634,7 @@ export class Series<T extends TelemValue = TelemValue>
       throw new Error("cannot calculate maximum on a variable length data type");
     if (this.writePos === 0) return -Infinity;
     this.cachedMax ??= this.calcRawMax();
-    return addSamples(this.cachedMax, this.sampleOffset);
+    return math.add(this.cachedMax, this.sampleOffset);
   }
 
   private calcRawMin(): math.Numeric {
@@ -661,7 +660,7 @@ export class Series<T extends TelemValue = TelemValue>
       throw new Error("cannot calculate minimum on a variable length data type");
     if (this.writePos === 0) return Infinity;
     this.cachedMin ??= this.calcRawMin();
-    return addSamples(this.cachedMin, this.sampleOffset);
+    return math.add(this.cachedMin, this.sampleOffset);
   }
 
   /** @returns the bounds of the series. */
@@ -726,7 +725,7 @@ export class Series<T extends TelemValue = TelemValue>
       if (required === true) throw new Error(`[series] - no value at index ${index}`);
       return undefined;
     }
-    return addSamples(v, this.sampleOffset) as T;
+    return math.add(v, this.sampleOffset) as T;
   }
 
   private atUUID(index: number, required: boolean): string | undefined {
