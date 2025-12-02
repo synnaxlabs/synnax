@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type Synnax, table } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Mosaic, Table as Core } from "@synnaxlabs/pluto";
+import { Access, Icon, Menu as PMenu, Mosaic, Table as Core } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
-import { useMemo } from "react";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -56,8 +55,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleExport = Table.useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
-  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
-  const canEdit = Core.useEditAccessGranted(keys);
+  const canEdit = Access.useEditGranted(ids);
   const firstID = ids[0];
   const first = getResource(firstID);
   const onSelect = {

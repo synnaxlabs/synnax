@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, User } from "@synnaxlabs/pluto";
+import { user } from "@synnaxlabs/client";
+import { Access, Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Toolbar } from "@/components";
@@ -18,7 +19,7 @@ import { REGISTER_LAYOUT } from "@/user/Register";
 const Content = (): ReactElement => {
   const { data: groupID } = User.useRetrieveGroupID({});
   const placeLayout = Layout.usePlacer();
-  const canEditUser = User.useEditAccessGranted("");
+  const canEditUser = Access.useEditGranted(user.ontologyID(""));
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
@@ -48,5 +49,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   minSize: 175,
   maxSize: 400,
   trigger: ["U"],
-  useVisible: User.useEditAccessGranted,
+  useVisible: () => Access.useEditGranted(user.ontologyID("")),
 };

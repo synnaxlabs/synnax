@@ -10,7 +10,7 @@
 import "@/hardware/device/ontology.css";
 
 import { device, type ontology } from "@synnaxlabs/client";
-import { Device, Flex, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
+import { Access, Device, Flex, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
@@ -99,9 +99,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
-  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
-  const canEdit = Device.useEditAccessGranted(keys);
-  const canDelete = Device.useDeleteAccessGranted(keys);
+  const ontologyIDs = useMemo(() => ids.map((id) => device.ontologyID(id.key)), [ids]);
+  const canEdit = Access.useEditGranted(ontologyIDs);
+  const canDelete = Access.useDeleteGranted(ontologyIDs);
   const singleResource = ids.length === 1;
   const first = getResource(ids[0]);
   const handleDelete = useDelete(props);

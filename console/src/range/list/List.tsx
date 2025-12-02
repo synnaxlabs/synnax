@@ -9,15 +9,15 @@
 
 import "@/range/list/List.css";
 
-import { type ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import {
+  Access,
   Button,
   Flex,
   type Flux,
   Icon,
   Input,
   List as PList,
-  Ranger,
   Select,
   type state,
 } from "@synnaxlabs/pluto";
@@ -44,7 +44,7 @@ export interface ListProps
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Ranger.useEditAccessGranted("");
+  const canCreateRange = Access.useEditGranted(ranger.ontologyID(""));
   return (
     <EmptyAction
       message="No ranges found."
@@ -162,7 +162,7 @@ export const List = ({
 
 const AddButton = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Ranger.useEditAccessGranted("");
+  const canCreateRange = Access.useEditGranted(ranger.ontologyID(""));
   if (!canCreateRange) return null;
   return (
     <Button.Button tooltip="Create Range" onClick={() => placeLayout(CREATE_LAYOUT)}>

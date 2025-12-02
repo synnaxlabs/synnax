@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import {
+  Access,
   Component,
   Flex,
   type Flux,
@@ -17,7 +18,6 @@ import {
   List as PList,
   Select,
   type state,
-  Status,
 } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
@@ -42,7 +42,7 @@ const componentRenderProp = Component.renderProp(Item);
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const canEdit = Status.useEditAccessGranted();
+  const canEdit = Access.useEditGranted(status.ontologyID(""));
   return (
     <EmptyAction
       message="No statuses found."

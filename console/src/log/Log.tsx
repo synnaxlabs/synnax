@@ -9,7 +9,7 @@
 
 import { log } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon, Log as Core, telem, usePrevious } from "@synnaxlabs/pluto";
+import { Access, Icon, Log as Core, telem, usePrevious } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
 
@@ -28,7 +28,8 @@ export const useSyncComponent = Workspace.createSyncComponent(
   "Log",
   async ({ key, workspace, store, fluxStore, client }) => {
     const storeState = store.getState();
-    if (!Core.editAccessGranted({ key, store: fluxStore, client })) return;
+    if (!Access.editGranted({ id: log.ontologyID(key), store: fluxStore, client }))
+      return;
     const data = select(storeState, key);
     if (data == null) return;
     const layout = Layout.selectRequired(storeState, key);
@@ -114,7 +115,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Log",
   icon: <Icon.Log />,
-  useVisible: Core.useEditAccessGranted,
+  useVisible: () => Access.useEditGranted(log.ontologyID("")),
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 

@@ -9,6 +9,7 @@
 
 import { channel, isCalculated, ontology } from "@synnaxlabs/client";
 import {
+  Access,
   Channel as PChannel,
   type Flux,
   type Haul,
@@ -206,8 +207,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDeleteAlias = useDeleteAlias(props);
   const handleDelete = useDelete(props);
 
-  const canCreate = PChannel.useCreateAccessGranted();
-  const canDelete = PChannel.useDeleteAccessGranted();
+  const canCreate = Access.useCreateGranted(channel.ontologyID(0));
+  const canDelete = Access.useDeleteGranted(ids.map((id) => channel.ontologyID(Number(id.key))));
   const handleRename = useRename(props);
 
   const handleLink = Cluster.useCopyLinkToClipboard();

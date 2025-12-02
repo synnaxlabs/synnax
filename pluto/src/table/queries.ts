@@ -10,7 +10,6 @@
 import { table, type workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 
-import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
@@ -64,7 +63,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((k) => table.ontologyID(k));
+    const ids = table.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     await client.workspaces.tables.delete(data);
@@ -111,51 +110,3 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
     return data;
   },
 });
-
-const editAccessQuery = (
-  key: table.Key | table.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: table.ontologyID(key),
-  actions: ["retrieve", "create", "update"],
-});
-
-export const useEditAccessGranted = (key?: table.Key | table.Key[]) =>
-  Access.useGranted(editAccessQuery(key));
-
-export const editAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: table.Key | table.Key[] }) =>
-  Access.isGranted({ ...rest, query: editAccessQuery(key) });
-
-const viewAccessQuery = (
-  key: table.Key | table.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: table.ontologyID(key),
-  actions: ["retrieve"],
-});
-
-export const viewAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: table.Key | table.Key[] }) =>
-  Access.isGranted({ ...rest, query: viewAccessQuery(key) });
-
-export const useViewAccessGranted = (key?: table.Key | table.Key[]) =>
-  Access.useGranted(viewAccessQuery(key));
-
-const deleteAccessQuery = (
-  key: table.Key | table.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: table.ontologyID(key),
-  actions: ["retrieve", "create", "update", "delete"],
-});
-
-export const useDeleteAccessGranted = (key?: table.Key | table.Key[]) =>
-  Access.useGranted(deleteAccessQuery(key));
-
-export const deleteAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: table.Key }) =>
-  Access.isGranted({ ...rest, query: deleteAccessQuery(key) });

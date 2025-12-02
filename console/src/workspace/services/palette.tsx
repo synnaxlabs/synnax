@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Workspace as PWorkspace } from "@synnaxlabs/pluto";
+import { workspace } from "@synnaxlabs/client";
+import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { type Palette } from "@/palette";
 import { Workspace } from "@/workspace";
@@ -20,7 +21,7 @@ const CREATE_COMMAND: Palette.Command = {
   icon: <Icon.Workspace />,
   onSelect: ({ placeLayout }) => placeLayout(Workspace.CREATE_LAYOUT),
   visible: ({ store, client }) =>
-    PWorkspace.editAccessGranted({ key: "", store, client }),
+    Access.editGranted({ id: workspace.ontologyID(""), store, client }),
 };
 
 const IMPORT_COMMAND: Palette.Command = {
@@ -30,7 +31,7 @@ const IMPORT_COMMAND: Palette.Command = {
   icon: <ImportIcon />,
   onSelect: import_,
   visible: ({ store, client }) =>
-    PWorkspace.editAccessGranted({ key: "", store, client }),
+    Access.editGranted({ id: workspace.ontologyID(""), store, client }),
 };
 
 const EXPORT_COMMAND: Palette.Command = {
@@ -40,7 +41,7 @@ const EXPORT_COMMAND: Palette.Command = {
   icon: <Icon.Workspace />,
   onSelect: (ctx) => Workspace.export_(null, ctx),
   visible: ({ store, client }) =>
-    PWorkspace.viewAccessGranted({ key: "", store, client }),
+    Access.viewGranted({ id: workspace.ontologyID(""), store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND, EXPORT_COMMAND];

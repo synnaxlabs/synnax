@@ -11,6 +11,7 @@ import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
+  Access,
   Button,
   Control,
   Diagram,
@@ -19,7 +20,6 @@ import {
   Icon,
   Menu as PMenu,
   Schematic as Core,
-  Schematic as PSchematic,
   Text,
   Theming,
   usePrevious,
@@ -81,7 +81,10 @@ const useSyncComponent = Workspace.createSyncComponent(
   "Schematic",
   async ({ key, workspace, store, fluxStore, client }) => {
     const storeState = store.getState();
-    if (!PSchematic.editAccessGranted({ key, store: fluxStore, client })) return;
+    if (
+      !Access.editGranted({ id: schematic.ontologyID(key), store: fluxStore, client })
+    )
+      return;
     const data = selectOptional(storeState, key);
     if (data == null) return;
     const layout = Layout.selectRequired(storeState, key);
@@ -183,7 +186,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   }, [name, prevName, layoutKey, syncDispatch]);
 
   const isEditable = useSelectEditable(layoutKey);
-  const hasEditPermission = PSchematic.useEditAccessGranted(layoutKey);
+  const hasEditPermission = Access.useEditGranted(schematic.ontologyID(layoutKey));
   useEffect(() => {
     if (!hasEditPermission && isEditable)
       syncDispatch(setEditable({ key: layoutKey, editable: false }));
@@ -453,7 +456,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Schematic",
   icon: <Icon.Schematic />,
-  useVisible: Core.useEditAccessGranted,
+  useVisible: () => Access.useEditGranted(schematic.ontologyID("")),
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 

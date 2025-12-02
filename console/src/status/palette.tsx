@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Status } from "@synnaxlabs/pluto";
+import { status } from "@synnaxlabs/client";
+import { Access, Icon, Status } from "@synnaxlabs/pluto";
 
 import { type Palette } from "@/palette";
 import { CREATE_LAYOUT } from "@/status/Create";
@@ -18,7 +19,8 @@ export const CREATE_COMMAND: Palette.Command = {
   name: "Create a Status",
   icon: <Status.CreateIcon />,
   onSelect: ({ placeLayout }) => placeLayout(CREATE_LAYOUT),
-  visible: ({ store, client }) => Status.editAccessGranted({ key: "", store, client }),
+  visible: ({ store, client }) =>
+    Access.editGranted({ id: status.ontologyID(""), store, client }),
 };
 
 export const OPEN_EXPLORER_COMMAND: Palette.Command = {
@@ -26,7 +28,8 @@ export const OPEN_EXPLORER_COMMAND: Palette.Command = {
   name: "Open Status Explorer",
   icon: <Icon.Explore />,
   onSelect: ({ placeLayout }) => placeLayout(EXPLORER_LAYOUT),
-  visible: ({ store, client }) => Status.viewAccessGranted({ key: "", store, client }),
+  visible: ({ store, client }) =>
+    Access.viewGranted({ id: status.ontologyID(""), store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];

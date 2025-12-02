@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Log } from "@synnaxlabs/pluto";
+import { log } from "@synnaxlabs/client";
+import { Access } from "@synnaxlabs/pluto";
 
 import { Import } from "@/import";
 import { create } from "@/log/Log";
@@ -18,7 +19,7 @@ export const ingest: Import.FileIngestor = (
   { layout, placeLayout, store, client },
 ) => {
   const state = stateZ.parse(data);
-  if (!Log.editAccessGranted({ key: "", store, client }))
+  if (!Access.editGranted({ id: log.ontologyID(""), store, client }))
     throw new Error("You do not have permission to import logs");
   // create with an undefined key so we do not have to worry about the key that was from
   // the imported data overwriting existing logs in the cluster

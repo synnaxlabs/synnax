@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, task } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Mosaic, Task as Core } from "@synnaxlabs/pluto";
+import { Access, Icon, Menu as PMenu, Mosaic, Task as Core } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 import { Cluster } from "@/cluster";
@@ -87,9 +87,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const range = Range.useSelect();
   const group = Group.useCreateFromSelection();
   const rename = useRename(props);
-  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
-  const canDelete = Core.useDeleteAccessGranted(keys);
-  const canEdit = Core.useEditAccessGranted(keys);
+  const ontologyIDs = useMemo(() => ids.map((id) => task.ontologyID(id.key)), [ids]);
+  const canDelete = Access.useDeleteGranted(ontologyIDs);
+  const canEdit = Access.useEditGranted(ontologyIDs);
   const onSelect = {
     delete: handleDelete,
     edit: () =>

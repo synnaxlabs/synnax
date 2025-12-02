@@ -9,8 +9,9 @@
 
 import "@/arc/Toolbar.css";
 
-import { type arc, UnexpectedError } from "@synnaxlabs/client";
+import { arc, UnexpectedError } from "@synnaxlabs/client";
 import {
+  Access,
   Arc,
   Button,
   Flex,
@@ -40,7 +41,7 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({ onCreate }: EmptyContentProps) => {
-  const canCreateArc = Arc.useEditAccessGranted("");
+  const canCreateArc = Access.useEditGranted(arc.ontologyID(""));
   return (
     <EmptyAction
       message="No existing Arcs."
@@ -58,7 +59,7 @@ const Content = () => {
   const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
-  const canCreateArc = Arc.useEditAccessGranted("");
+  const canCreateArc = Access.useEditGranted(arc.ontologyID(""));
 
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
@@ -208,7 +209,7 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 225,
   maxSize: 400,
-  useVisible: Arc.useViewAccessGranted,
+  useVisible: () => Access.useViewGranted(arc.ontologyID("")),
 };
 
 interface ArcListItemProps extends List.ItemProps<arc.Key> {
@@ -218,13 +219,13 @@ interface ArcListItemProps extends List.ItemProps<arc.Key> {
 
 const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
-  const arc = List.useItem<arc.Key, arc.Arc>(itemKey);
-  const hasEditPermission = Arc.useEditAccessGranted(itemKey);
+  const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
+  const hasEditPermission = Access.useEditGranted(arc.ontologyID(itemKey));
 
-  const variant = arc?.status?.variant;
+  const variant = arcItem?.status?.variant;
   const isLoading = variant === "loading";
-  const isRunning = arc?.status?.details.running === true;
-  const isDeployed = arc?.deploy === true;
+  const isRunning = arcItem?.status?.details.running === true;
+  const isDeployed = arcItem?.deploy === true;
 
   return (
     <Select.ListItem {...rest} justify="between" align="center">
@@ -236,7 +237,7 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
           />
           <Text.MaybeEditable
             id={`text-${itemKey}`}
-            value={arc?.name ?? ""}
+            value={arcItem?.name ?? ""}
             onChange={hasEditPermission ? onRename : undefined}
             allowDoubleClick={false}
             overflow="ellipsis"
@@ -244,7 +245,7 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
           />
         </Flex.Box>
         <Text.Text level="small" color={10}>
-          {arc?.status?.message ?? (isDeployed ? "Started" : "Stopped")}
+          {arcItem?.status?.message ?? (isDeployed ? "Started" : "Stopped")}
         </Text.Text>
       </Flex.Box>
       {hasEditPermission && (
@@ -253,7 +254,7 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
           status={isLoading ? "loading" : undefined}
           onClick={onToggleDeploy}
           onDoubleClick={stopPropagation}
-          tooltip={`${isDeployed ? "Stop" : "Start"} ${arc?.name ?? ""}`}
+          tooltip={`${isDeployed ? "Stop" : "Start"} ${arcItem?.name ?? ""}`}
         >
           {isRunning ? <Icon.Pause /> : <Icon.Play />}
         </Button.Button>
@@ -277,8 +278,9 @@ const ContextMenu = ({
   onEdit,
   onToggleDeploy,
 }: ContextMenuProps) => {
-  const canDeleteAccess = Arc.useDeleteAccessGranted(keys);
-  const canEditAccess = Arc.useEditAccessGranted(keys);
+  const ids = arc.ontologyID(keys);
+  const canDeleteAccess = Access.useDeleteGranted(ids);
+  const canEditAccess = Access.useEditGranted(ids);
   const canDeploy = arcs.some((arc) => arc.deploy === false);
   const canStop = arcs.some((arc) => arc.deploy === true);
   const someSelected = arcs.length > 0;

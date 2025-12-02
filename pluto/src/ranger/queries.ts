@@ -12,7 +12,6 @@ import { array, type optional, primitive } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
-import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { Label } from "@/label";
 import { type List } from "@/list";
@@ -836,51 +835,3 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     return data;
   },
 });
-
-const editAccessQuery = (
-  key: ranger.Key | ranger.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: ranger.ontologyID(key),
-  actions: ["retrieve", "create", "update"],
-});
-
-export const useEditAccessGranted = (key: ranger.Key | ranger.Key[]) =>
-  Access.useGranted(editAccessQuery(key));
-
-export const editAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: ranger.Key | ranger.Key[] }) =>
-  Access.isGranted({ ...rest, query: editAccessQuery(key) });
-
-const viewAccessQuery = (
-  key: ranger.Key | ranger.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: ranger.ontologyID(key),
-  actions: ["retrieve"],
-});
-
-export const viewAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: ranger.Key | ranger.Key[] }) =>
-  Access.isGranted({ ...rest, query: viewAccessQuery(key) });
-
-export const useViewAccessGranted = (key?: ranger.Key | ranger.Key[]) =>
-  Access.useGranted(viewAccessQuery(key));
-
-const deleteAccessQuery = (
-  key: ranger.Key | ranger.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: ranger.ontologyID(key),
-  actions: ["retrieve", "create", "update", "delete"],
-});
-
-export const useDeleteAccessGranted = (key: ranger.Key | ranger.Key[]) =>
-  Access.useGranted(deleteAccessQuery(key));
-
-export const deleteAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: ranger.Key }) =>
-  Access.isGranted({ ...rest, query: deleteAccessQuery(key) });

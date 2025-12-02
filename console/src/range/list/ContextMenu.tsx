@@ -9,6 +9,7 @@
 
 import { ranger } from "@synnaxlabs/client";
 import {
+  Access,
   Divider,
   Form,
   Icon,
@@ -44,8 +45,9 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const ranges = getItem(keys);
   const isNotEmpty = ranges.length !== 0;
   const isSingle = ranges.length === 1;
-  const canEditAccess = Ranger.useEditAccessGranted(keys);
-  const canDeleteAccess = Ranger.useDeleteAccessGranted(keys);
+  const ids = ranger.ontologyID(keys);
+  const canEditAccess = Access.useEditGranted(ids);
+  const canDeleteAccess = Access.useDeleteGranted(ids);
   const placeLayout = Layout.usePlacer();
   const favoriteKeys = useSelectKeys();
   const someAreFavorites = ranges.some((r) => favoriteKeys.includes(r.key));

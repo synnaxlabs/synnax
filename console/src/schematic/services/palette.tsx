@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Schematic as PSchematic } from "@synnaxlabs/pluto";
+import { schematic } from "@synnaxlabs/client";
+import { Access } from "@synnaxlabs/pluto";
 
 import { type Palette } from "@/palette";
 import { Schematic } from "@/schematic";
@@ -20,7 +21,7 @@ const CREATE_COMMAND: Palette.Command = {
   icon: <CreateIcon />,
   onSelect: ({ placeLayout }) => placeLayout(Schematic.create()),
   visible: ({ store, client }) =>
-    PSchematic.editAccessGranted({ key: "", store, client }),
+    Access.editGranted({ id: schematic.ontologyID(""), store, client }),
 };
 
 const IMPORT_COMMAND: Palette.Command = {
@@ -30,7 +31,7 @@ const IMPORT_COMMAND: Palette.Command = {
   icon: <ImportIcon />,
   onSelect: import_,
   visible: ({ store, client }) =>
-    PSchematic.editAccessGranted({ key: "", store, client }),
+    Access.editGranted({ id: schematic.ontologyID(""), store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

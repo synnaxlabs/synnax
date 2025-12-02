@@ -9,8 +9,9 @@
 
 import "@/workspace/Selector.css";
 
-import { UnexpectedError, type workspace } from "@synnaxlabs/client";
+import { UnexpectedError, workspace } from "@synnaxlabs/client";
 import {
+  Access,
   Button,
   Component,
   Dialog,
@@ -72,8 +73,8 @@ export const Selector = (): ReactElement | null => {
     },
     [dispatch, getItem],
   );
-  const allowCreateWorkspace = Workspace.useEditAccessGranted();
-  const allowViewWorkspace = Workspace.useViewAccessGranted();
+  const allowCreateWorkspace = Access.useEditGranted(workspace.ontologyID(""));
+  const allowViewWorkspace = Access.useViewGranted(workspace.ontologyID(""));
   if (!allowViewWorkspace) return null;
   return (
     <Dialog.Frame visible={dialogVisible} onVisibleChange={setDialogVisible}>

@@ -12,7 +12,6 @@ import { array, deep, type optional, primitive, TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
-import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { type Group } from "@/group";
 import { Ontology } from "@/ontology";
@@ -497,7 +496,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((k) => channel.ontologyID(k));
+    const ids = channel.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.channels.delete(keys));
@@ -545,44 +544,3 @@ export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
     return g;
   },
 });
-
-const viewAccessQuery = (key?: channel.Key): Access.PermissionsQuery => ({
-  objects: channel.ontologyID(key ?? 0),
-  actions: ["retrieve"],
-});
-
-export const useViewAccessGranted = (key?: channel.Key) =>
-  Access.useGranted(viewAccessQuery(key));
-
-export const viewAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: channel.Key }) =>
-  Access.isGranted({ ...rest, query: viewAccessQuery(key) });
-
-export const createAccessQuery = (key?: channel.Key): Access.PermissionsQuery => ({
-  objects: channel.ontologyID(key ?? 0),
-  actions: ["retrieve", "create", "update"],
-});
-export const useCreateAccessGranted = (key?: channel.Key) =>
-  Access.useGranted(createAccessQuery(key));
-
-export const createAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: channel.Key }) =>
-  Access.isGranted({ ...rest, query: createAccessQuery(key) });
-
-export const deleteAccessQuery = (key?: channel.Key): Access.PermissionsQuery => ({
-  objects: channel.ontologyID(key ?? 0),
-  actions: ["retrieve", "create", "update", "delete"],
-});
-
-export const deleteAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: channel.Key }) =>
-  Access.isGranted({ ...rest, query: deleteAccessQuery(key) });
-
-export const useDeleteAccessGranted = (key?: channel.Key) =>
-  Access.useGranted(deleteAccessQuery(key));

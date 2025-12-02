@@ -52,7 +52,6 @@ export const SERVICES: Ontology.Services = {
   channel: ChannelServices.ONTOLOGY_SERVICE,
   framer: createEmptyService("framer"),
   policy: Access.Policy.ONTOLOGY_SERVICE,
-  allow_all: createEmptyService("allow_all"),
   log: LogServices.ONTOLOGY_SERVICE,
   table: TableServices.ONTOLOGY_SERVICE,
   status: createEmptyService("status", <Icon.Status />),

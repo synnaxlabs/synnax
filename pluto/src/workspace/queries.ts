@@ -11,7 +11,6 @@ import { ontology, workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { Access } from "@/access";
 import { type policy } from "@/access/policy/aether";
 import { type role } from "@/access/role/aether";
 import { Flux } from "@/flux";
@@ -112,7 +111,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((key) => workspace.ontologyID(key));
+    const ids = workspace.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(keys));
@@ -211,51 +210,3 @@ export const { useUpdate: useSaveLayout } = Flux.createUpdate<
     return data;
   },
 });
-
-const editAccessQuery = (
-  key: workspace.Key | workspace.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: workspace.ontologyID(key),
-  actions: ["retrieve", "create", "update"],
-});
-
-export const useEditAccessGranted = (key?: workspace.Key | workspace.Key[]) =>
-  Access.useGranted(editAccessQuery(key));
-
-export const editAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: workspace.Key | workspace.Key[] }) =>
-  Access.isGranted({ ...rest, query: editAccessQuery(key) });
-
-const viewAccessQuery = (
-  key: workspace.Key | workspace.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: workspace.ontologyID(key),
-  actions: ["retrieve"],
-});
-
-export const viewAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: workspace.Key | workspace.Key[] }) =>
-  Access.isGranted({ ...rest, query: viewAccessQuery(key) });
-
-export const useViewAccessGranted = (key?: workspace.Key | workspace.Key[]) =>
-  Access.useGranted(viewAccessQuery(key));
-
-const deleteAccessQuery = (
-  key: workspace.Key | workspace.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: workspace.ontologyID(key),
-  actions: ["retrieve", "create", "update", "delete"],
-});
-
-export const useDeleteAccessGranted = (key?: workspace.Key | workspace.Key[]) =>
-  Access.useGranted(deleteAccessQuery(key));
-
-export const deleteAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: workspace.Key }) =>
-  Access.isGranted({ ...rest, query: deleteAccessQuery(key) });

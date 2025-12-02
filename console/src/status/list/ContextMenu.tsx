@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, type Flux, Icon, Menu as PMenu, Status } from "@synnaxlabs/pluto";
+import { status } from "@synnaxlabs/client";
+import {
+  Access,
+  Component,
+  type Flux,
+  Icon,
+  Menu as PMenu,
+  Status,
+} from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -23,8 +31,9 @@ export const ContextMenu = ({ keys }: ContextMenuProps) => {
   const q = Status.useRetrieveMultiple({ keys });
   const dispatch = useDispatch();
   const favoriteSet = useSelectFavoriteSet();
-  const canEdit = Status.useEditAccessGranted(keys);
-  const canDelete = Status.useDeleteAccessGranted(keys);
+  const ids = status.ontologyID(keys);
+  const canEdit = Access.useEditGranted(ids);
+  const canDelete = Access.useDeleteGranted(ids);
 
   const confirm = useConfirmDelete({
     type: "Status",

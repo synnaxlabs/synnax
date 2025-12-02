@@ -9,6 +9,7 @@
 
 import { ontology, ranger, schematic, type Synnax } from "@synnaxlabs/client";
 import {
+  Access,
   type Flux,
   Icon,
   Menu as PMenu,
@@ -18,7 +19,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -126,10 +127,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource, shape },
   } = props;
   const activeRange = Range.useSelect();
-  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
-  const canDelete = Core.useDeleteAccessGranted(keys);
+  const canDelete = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
-  const canEdit = Core.useEditAccessGranted(keys);
+  const canEdit = Access.useEditGranted(ids);
   const handleCopy = useCopy(props);
   const snapshot = useRangeSnapshot();
   const handleExport = Schematic.useExport();

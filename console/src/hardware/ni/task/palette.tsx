@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, UnexpectedError } from "@synnaxlabs/client";
-import { Icon, Task } from "@synnaxlabs/pluto";
+import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
+import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";
 import { ANALOG_WRITE_LAYOUT } from "@/hardware/ni/task/AnalogWrite";
@@ -26,7 +26,7 @@ import { SCAN_SCHEMAS, SCAN_TYPE } from "@/hardware/ni/task/types";
 import { type Palette } from "@/palette";
 
 const visibleFilter = ({ store, client }: Palette.CommandVisibleContext) =>
-  Task.editAccessGranted({ key: "", store, client });
+  Access.editGranted({ id: task.ontologyID(""), store, client });
 
 const CREATE_ANALOG_READ_COMMAND: Palette.Command = {
   key: "ni-create-analog-read-task",

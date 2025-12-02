@@ -283,6 +283,279 @@ describe("Access Queries", () => {
     });
   });
 
+  describe("useViewGranted", () => {
+    it("should return true when user has retrieve permission", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        effect: "allow",
+        objects: [ranger.ontologyID(""), ...baseObjects],
+        actions: ["retrieve"],
+      });
+      const { result } = renderHook(
+        () => Access.useViewGranted(ranger.ontologyID("")),
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
+      );
+      await waitFor(() => {
+        expect(result.current).toBe(true);
+      });
+    });
+
+    it("should return false when user lacks retrieve permission", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        effect: "allow",
+        objects: [...baseObjects],
+        actions: ["retrieve"],
+      });
+      const { result } = renderHook(
+        () => Access.useViewGranted(ranger.ontologyID("")),
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
+      );
+      await waitFor(() => {
+        expect(result.current).toBe(false);
+      });
+    });
+
+    it("should handle multiple ontology IDs", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        effect: "allow",
+        objects: [ranger.ontologyID(""), channel.ontologyID(0), ...baseObjects],
+        actions: ["retrieve"],
+      });
+      const { result } = renderHook(
+        () =>
+          Access.useViewGranted([ranger.ontologyID(""), channel.ontologyID(0)]),
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
+      );
+      await waitFor(() => {
+        expect(result.current).toBe(true);
+      });
+    });
+  });
+
+  describe("useEditGranted", () => {
+    it("should return true when user has retrieve and update permissions", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        effect: "allow",
+        objects: [ranger.ontologyID(""), ...baseObjects],
+        actions: ["retrieve", "update"],
+      });
+      const { result } = renderHook(
+        () => Access.useEditGranted(ranger.ontologyID("")),
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
+      );
+      await waitFor(() => {
+        expect(result.current).toBe(true);
+      });
+    });
+
+    it("should return false when user only has retrieve permission", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        effect: "allow",
+        objects: [ranger.ontologyID(""), ...baseObjects],
+        actions: ["retrieve"],
+      });
+      const { result } = renderHook(
+        () => Access.useEditGranted(ranger.ontologyID("")),
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
+      );
+      await waitFor(() => {
+        expect(result.current).toBe(false);
+      });
+    });
+  });
+
+  describe("useDeleteGranted", () => {
+    it("should return true when user has all required permissions", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        effect: "allow",
+        objects: [ranger.ontologyID(""), ...baseObjects],
+        actions: ["retrieve", "update", "delete"],
+      });
+      const { result } = renderHook(
+        () => Access.useDeleteGranted(ranger.ontologyID("")),
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
+      );
+      await waitFor(() => {
+        expect(result.current).toBe(true);
+      });
+    });
+
+    it("should return false when user lacks delete permission", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        effect: "allow",
+        objects: [ranger.ontologyID(""), ...baseObjects],
+        actions: ["retrieve", "update"],
+      });
+      const { result } = renderHook(
+        () => Access.useDeleteGranted(ranger.ontologyID("")),
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
+      );
+      await waitFor(() => {
+        expect(result.current).toBe(false);
+      });
+    });
+  });
+
+  describe("useCreateGranted", () => {
+    it("should return true when user has retrieve and create permissions", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        effect: "allow",
+        objects: [ranger.ontologyID(""), ...baseObjects],
+        actions: ["retrieve", "create"],
+      });
+      const { result } = renderHook(
+        () => Access.useCreateGranted(ranger.ontologyID("")),
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
+      );
+      await waitFor(() => {
+        expect(result.current).toBe(true);
+      });
+    });
+
+    it("should return false when user lacks create permission", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        effect: "allow",
+        objects: [ranger.ontologyID(""), ...baseObjects],
+        actions: ["retrieve"],
+      });
+      const { result } = renderHook(
+        () => Access.useCreateGranted(ranger.ontologyID("")),
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
+      );
+      await waitFor(() => {
+        expect(result.current).toBe(false);
+      });
+    });
+  });
+
+  describe("viewGranted", () => {
+    it("should return true when the user has retrieve permission", async () => {
+      const policyName = id.create();
+      const userClient = await createTestClientWithPolicy(client, {
+        name: policyName,
+        effect: "allow",
+        objects: [ranger.ontologyID(""), ...baseObjects],
+        actions: ["retrieve"],
+      });
+      const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
+      const { result: grantedResult } = renderHook(
+        () => Access.useViewGranted(ranger.ontologyID("")),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(grantedResult.current).toBe(true);
+      });
+      const { result: storeResult } = renderHook(
+        () => Flux.useStore<Pluto.FluxStore>(),
+        { wrapper },
+      );
+      const result = Access.viewGranted({
+        store: storeResult.current,
+        client: userClient,
+        id: ranger.ontologyID(""),
+      });
+      expect(result).toBe(true);
+    });
+  });
+
+  describe("editGranted", () => {
+    it("should return true when the user has retrieve and update permissions", async () => {
+      const policyName = id.create();
+      const userClient = await createTestClientWithPolicy(client, {
+        name: policyName,
+        effect: "allow",
+        objects: [ranger.ontologyID(""), ...baseObjects],
+        actions: ["retrieve", "update"],
+      });
+      const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
+      const { result: grantedResult } = renderHook(
+        () => Access.useEditGranted(ranger.ontologyID("")),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(grantedResult.current).toBe(true);
+      });
+      const { result: storeResult } = renderHook(
+        () => Flux.useStore<Pluto.FluxStore>(),
+        { wrapper },
+      );
+      const result = Access.editGranted({
+        store: storeResult.current,
+        client: userClient,
+        id: ranger.ontologyID(""),
+      });
+      expect(result).toBe(true);
+    });
+  });
+
+  describe("deleteGranted", () => {
+    it("should return true when the user has all required permissions", async () => {
+      const policyName = id.create();
+      const userClient = await createTestClientWithPolicy(client, {
+        name: policyName,
+        effect: "allow",
+        objects: [ranger.ontologyID(""), ...baseObjects],
+        actions: ["retrieve", "update", "delete"],
+      });
+      const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
+      const { result: grantedResult } = renderHook(
+        () => Access.useDeleteGranted(ranger.ontologyID("")),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(grantedResult.current).toBe(true);
+      });
+      const { result: storeResult } = renderHook(
+        () => Flux.useStore<Pluto.FluxStore>(),
+        { wrapper },
+      );
+      const result = Access.deleteGranted({
+        store: storeResult.current,
+        client: userClient,
+        id: ranger.ontologyID(""),
+      });
+      expect(result).toBe(true);
+    });
+  });
+
+  describe("createGranted", () => {
+    it("should return true when the user has retrieve and create permissions", async () => {
+      const policyName = id.create();
+      const userClient = await createTestClientWithPolicy(client, {
+        name: policyName,
+        effect: "allow",
+        objects: [ranger.ontologyID(""), ...baseObjects],
+        actions: ["retrieve", "create"],
+      });
+      const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
+      const { result: grantedResult } = renderHook(
+        () => Access.useCreateGranted(ranger.ontologyID("")),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(grantedResult.current).toBe(true);
+      });
+      const { result: storeResult } = renderHook(
+        () => Flux.useStore<Pluto.FluxStore>(),
+        { wrapper },
+      );
+      const result = Access.createGranted({
+        store: storeResult.current,
+        client: userClient,
+        id: ranger.ontologyID(""),
+      });
+      expect(result).toBe(true);
+    });
+  });
+
   describe("useLoadPermissions", () => {
     it("should load all policies for the current user", async () => {
       const policyName = id.create();

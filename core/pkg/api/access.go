@@ -86,9 +86,13 @@ func (s *AccessService) RetrievePolicy(
 	ctx context.Context,
 	req AccessRetrievePolicyRequest,
 ) (res AccessRetrievePolicyResponse, err error) {
-	q := s.internal.Policy.NewRetrieve().
-		WhereSubjects(req.Subjects...).
-		WhereKeys(req.Keys...)
+	q := s.internal.Policy.NewRetrieve()
+	if len(req.Subjects) > 0 {
+		q = q.WhereSubjects(req.Subjects...)
+	}
+	if len(req.Keys) > 0 {
+		q = q.WhereKeys(req.Keys...)
+	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
 	}

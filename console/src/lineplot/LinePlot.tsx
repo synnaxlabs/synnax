@@ -9,14 +9,14 @@
 
 import "@/lineplot/LinePlot.css";
 
-import { type channel, type lineplot, type ranger } from "@synnaxlabs/client";
+import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
+  Access,
   type axis,
   Channel,
   Icon,
   LinePlot as Core,
-  LinePlot as PLinePlot,
   Menu as PMenu,
   Ranger,
   Status,
@@ -101,7 +101,8 @@ const useSyncComponent = Workspace.createSyncComponent(
   "Line Plot",
   async ({ key, workspace, store, fluxStore, client }) => {
     const s = store.getState();
-    if (!PLinePlot.editAccessGranted({ key, store: fluxStore, client })) return;
+    if (!Access.editGranted({ id: lineplot.ontologyID(key), store: fluxStore, client }))
+      return;
     const data = select(s, key);
     if (data == null) return;
     const la = Layout.selectRequired(s, key);
@@ -165,7 +166,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
-  const hasEditPermission = PLinePlot.useEditAccessGranted(layoutKey);
+  const hasEditPermission = Access.useEditGranted(lineplot.ontologyID(layoutKey));
 
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));

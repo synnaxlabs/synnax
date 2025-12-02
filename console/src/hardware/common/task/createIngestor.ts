@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Task } from "@synnaxlabs/pluto";
+import { task } from "@synnaxlabs/client";
+import { Access } from "@synnaxlabs/pluto";
 import { type z } from "zod";
 
 import { type Layout } from "@/hardware/common/task/Form";
@@ -17,7 +18,7 @@ export const createIngestor =
   (configSchema: z.ZodType, zeroLayout: Layout): Import.FileIngestor =>
   (data: unknown, { layout, placeLayout, store, client }) => {
     const config = configSchema.parse(data);
-    if (!Task.editAccessGranted({ key: "", store, client }))
+    if (!Access.editGranted({ id: task.ontologyID(""), store, client }))
       throw new Error("You do not have permission to import hardware tasks");
     placeLayout({ ...zeroLayout, ...layout, key: layout.key, args: { config } });
   };

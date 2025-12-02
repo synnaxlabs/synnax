@@ -9,7 +9,9 @@
 
 import "@/range/Toolbar.css";
 
+import { ranger } from "@synnaxlabs/client";
 import {
+  Access,
   Component,
   Flex,
   type Flux,
@@ -39,7 +41,7 @@ import { type RootState } from "@/store";
 
 const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Ranger.useEditAccessGranted("");
+  const canCreateRange = Access.useEditGranted(ranger.ontologyID(""));
   const handleLinkClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction
@@ -123,7 +125,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
   const entry = useSelect(itemKey);
   const labels = Ranger.useLabels(itemKey)?.data ?? [];
   const onRename = useRename();
-  const hasEditPermission = Ranger.useEditAccessGranted(itemKey);
+  const hasEditPermission = Access.useEditGranted(ranger.ontologyID(itemKey));
   if (entry == null || entry.variant === "dynamic") return null;
   const { key, name, timeRange, persisted } = entry;
   return (
@@ -169,7 +171,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
 
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Ranger.useEditAccessGranted("");
+  const canCreateRange = Access.useEditGranted(ranger.ontologyID(""));
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
@@ -206,5 +208,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
-  useVisible: Ranger.useViewAccessGranted,
+  useVisible: () => Access.useViewGranted(ranger.ontologyID("")),
 };

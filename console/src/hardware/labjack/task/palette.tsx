@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Task } from "@synnaxlabs/pluto";
+import { task } from "@synnaxlabs/client";
+import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { importRead, importWrite } from "@/hardware/labjack/task/import";
 import { READ_LAYOUT } from "@/hardware/labjack/task/Read";
@@ -15,7 +16,7 @@ import { WRITE_LAYOUT } from "@/hardware/labjack/task/Write";
 import { type Palette } from "@/palette";
 
 const visibleFilter = ({ store, client }: Palette.CommandVisibleContext) =>
-  Task.editAccessGranted({ key: "", store, client });
+  Access.editGranted({ id: task.ontologyID(""), store, client });
 
 const CREATE_READ_COMMAND: Palette.Command = {
   key: "labjack-create-read-task",

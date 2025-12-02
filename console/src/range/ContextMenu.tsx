@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { ranger, type Synnax as Client } from "@synnaxlabs/client";
+import { lineplot, ranger, type Synnax as Client } from "@synnaxlabs/client";
 import {
+  Access,
   type Flux,
   Icon,
-  LinePlot,
   Menu as PMenu,
   Ranger,
   Status,
@@ -98,7 +98,7 @@ const AddToNewPlotIcon = Icon.createComposite(Icon.LinePlot, {
 });
 
 export const AddToNewPlotMenuItem = () => {
-  const canAddToNewPlot = LinePlot.useEditAccessGranted("");
+  const canAddToNewPlot = Access.useEditGranted(lineplot.ontologyID(""));
   if (!canAddToNewPlot) return null;
   return (
     <PMenu.Item itemKey="addToNewPlot">
@@ -113,7 +113,7 @@ const AddToActivePlotIcon = Icon.createComposite(Icon.LinePlot, {
 });
 
 export const AddToActivePlotMenuItem = () => {
-  const canAddToActivePlot = LinePlot.useEditAccessGranted("");
+  const canAddToActivePlot = Access.useEditGranted(lineplot.ontologyID(""));
   if (!canAddToActivePlot) return null;
   return (
     <PMenu.Item itemKey="addToActivePlot">
@@ -197,8 +197,9 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   const dispatch = useDispatch();
   const client = Synnax.use();
   const ranges = useSelectMultiple();
-  const canEditAccess = Ranger.useEditAccessGranted(key ?? "");
-  const canDeleteAccess = Ranger.useDeleteAccessGranted(key ?? "");
+  const id = ranger.ontologyID(key ?? "");
+  const canEditAccess = Access.useEditGranted(id);
+  const canDeleteAccess = Access.useDeleteGranted(id);
   const handleCreate = (key?: string): void => {
     placeLayout(createCreateLayout({ key }));
   };

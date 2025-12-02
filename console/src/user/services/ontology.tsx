@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { type Flux, Icon, Menu as PMenu, Text, User } from "@synnaxlabs/pluto";
-import { useCallback, useMemo } from "react";
+import { Access, type Flux, Icon, Menu as PMenu, Text, User } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { Menu } from "@/components";
 import { Ontology } from "@/ontology";
@@ -48,9 +48,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource },
     selection: { ids },
   } = props;
-  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
-  const canEdit = User.useEditAccessGranted(keys);
-  const canDelete = User.useDeleteAccessGranted(keys);
+  const canEdit = Access.useEditGranted(ids);
+  const canDelete = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const handleSelect = {

@@ -8,9 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, ontology } from "@synnaxlabs/client";
-import { Icon, LinePlot as Core, Menu as PMenu, Mosaic } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Icon,
+  LinePlot as Core,
+  Menu as PMenu,
+  Mosaic,
+} from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
-import { useMemo } from "react";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -57,9 +62,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleExport = LinePlot.useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
-  const keys = useMemo(() => ids.map((id) => id.key), [ids]);
-  const canDelete = Core.useDeleteAccessGranted(keys);
-  const canEdit = Core.useEditAccessGranted(keys);
+  const canDelete = Access.useDeleteGranted(ids);
+  const canEdit = Access.useEditGranted(ids);
   const firstID = ids[0];
   const isSingle = ids.length === 1;
   const first = getResource(firstID);

@@ -11,7 +11,6 @@ import { device, ontology, type Synnax } from "@synnaxlabs/client";
 import { array, primitive, type record, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
-import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { type Rack } from "@/hardware/rack";
 import { type Task } from "@/hardware/task";
@@ -172,7 +171,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((key) => device.ontologyID(key));
+    const ids = device.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
@@ -297,51 +296,3 @@ export const createForm = <
   });
 
 export const useForm = createForm();
-
-const editAccessQuery = (
-  key: device.Key | device.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: device.ontologyID(key),
-  actions: ["retrieve", "create", "update"],
-});
-
-export const useEditAccessGranted = (key?: device.Key | device.Key[]) =>
-  Access.useGranted(editAccessQuery(key));
-
-export const editAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: device.Key | device.Key[] }) =>
-  Access.isGranted({ ...rest, query: editAccessQuery(key) });
-
-const viewAccessQuery = (
-  key: device.Key | device.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: device.ontologyID(key),
-  actions: ["retrieve"],
-});
-
-export const viewAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: device.Key | device.Key[] }) =>
-  Access.isGranted({ ...rest, query: viewAccessQuery(key) });
-
-export const useViewAccessGranted = (key?: device.Key | device.Key[]) =>
-  Access.useGranted(viewAccessQuery(key ?? ""));
-
-const deleteAccessQuery = (
-  key: device.Key | device.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: device.ontologyID(key),
-  actions: ["retrieve", "create", "update", "delete"],
-});
-
-export const useDeleteAccessGranted = (key?: device.Key | device.Key[]) =>
-  Access.useGranted(deleteAccessQuery(key));
-
-export const deleteAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: device.Key }) =>
-  Access.isGranted({ ...rest, query: deleteAccessQuery(key) });

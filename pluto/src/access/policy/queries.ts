@@ -84,7 +84,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((key) => access.policy.ontologyID(key));
+    const ids = access.policy.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(keys));

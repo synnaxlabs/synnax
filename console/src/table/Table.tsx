@@ -12,6 +12,7 @@ import "@/table/Table.css";
 import { table } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
+  Access,
   Button,
   Flex,
   Icon,
@@ -88,7 +89,8 @@ export const useSyncComponent = Workspace.createSyncComponent(
   "Table",
   async ({ key, workspace, store, fluxStore, client }) => {
     const storeState = store.getState();
-    if (!Core.editAccessGranted({ key, store: fluxStore, client })) return;
+    if (!Access.editGranted({ id: table.ontologyID(key), store: fluxStore, client }))
+      return;
     const data = select(storeState, key);
     if (data == null) return;
     const layout = Layout.selectRequired(storeState, key);
@@ -385,7 +387,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Table",
   icon: <Icon.Table />,
-  useVisible: Core.useEditAccessGranted,
+  useVisible: () => Access.useEditGranted(table.ontologyID("")),
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
-import { Channel, Flex, Icon, Input, Log as PLog } from "@synnaxlabs/pluto";
+import { Access, Channel, Flex, Icon, Input } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
@@ -28,7 +28,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useSyncComponent(layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelectOptional(layoutKey);
-  const hasEditPermission = PLog.useEditAccessGranted(layoutKey);
+  const hasEditPermission = Access.useEditGranted(log.ontologyID(layoutKey));
   const handleChannelChange = (v: channel.Key) =>
     dispatch(setChannels({ key: layoutKey, channels: [v ?? 0] }));
   const handleExport = useExport();

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Log as PLog } from "@synnaxlabs/pluto";
+import { log } from "@synnaxlabs/client";
+import { Access } from "@synnaxlabs/pluto";
 
 import { Log } from "@/log";
 import { CreateIcon, ImportIcon } from "@/log/services/Icon";
@@ -19,7 +20,8 @@ const CREATE_COMMAND: Palette.Command = {
   name: "Create a Log",
   icon: <CreateIcon />,
   onSelect: ({ placeLayout }) => placeLayout(Log.create()),
-  visible: ({ store, client }) => PLog.editAccessGranted({ key: "", store, client }),
+  visible: ({ store, client }) =>
+    Access.editGranted({ id: log.ontologyID(""), store, client }),
 };
 
 const IMPORT_COMMAND: Palette.Command = {
@@ -28,7 +30,8 @@ const IMPORT_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <ImportIcon />,
   onSelect: import_,
-  visible: ({ store, client }) => PLog.editAccessGranted({ key: "", store, client }),
+  visible: ({ store, client }) =>
+    Access.editGranted({ id: log.ontologyID(""), store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

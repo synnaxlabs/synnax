@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flux, type Pluto, Synnax, Workspace } from "@synnaxlabs/pluto";
+import { workspace } from "@synnaxlabs/client";
+import { Access, Flux, type Pluto, Synnax, Workspace } from "@synnaxlabs/pluto";
 import { deep, TimeSpan } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 import { useStore } from "react-redux";
@@ -28,7 +29,7 @@ export const useSyncLayout = (): void => {
       const s = store.getState();
       const key = selectActiveKey(s);
       if (key == null) return false;
-      if (!Workspace.editAccessGranted({ key, store: fluxStore, client })) return false;
+      if (!Access.editGranted({ id: workspace.ontologyID(key), store: fluxStore, client })) return false;
       const layoutSlice = Layout.selectSliceState(s);
       if (deep.equal(prevSyncRef.current, layoutSlice)) return false;
       prevSyncRef.current = layoutSlice;

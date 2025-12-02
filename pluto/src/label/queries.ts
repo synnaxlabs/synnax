@@ -11,7 +11,6 @@ import { label, ontology } from "@synnaxlabs/client";
 import { primitive } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { type RetrieveParams } from "@/flux/retrieve";
 import { type UpdateParams } from "@/flux/update";
@@ -259,51 +258,3 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
     ];
   },
 });
-
-const editAccessQuery = (
-  key: label.Key | label.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: label.ontologyID(key),
-  actions: ["retrieve", "create", "update"],
-});
-
-export const useEditAccessGranted = (key?: label.Key | label.Key[]) =>
-  Access.useGranted(editAccessQuery(key));
-
-export const editAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: label.Key | label.Key[] }) =>
-  Access.isGranted({ ...rest, query: editAccessQuery(key) });
-
-const viewAccessQuery = (
-  key: label.Key | label.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: label.ontologyID(key),
-  actions: ["retrieve"],
-});
-
-export const viewAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: label.Key | label.Key[] }) =>
-  Access.isGranted({ ...rest, query: viewAccessQuery(key) });
-
-export const useViewAccessGranted = (key?: label.Key | label.Key[]) =>
-  Access.useGranted(viewAccessQuery(key ?? ""));
-
-const deleteAccessQuery = (
-  key: label.Key | label.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: label.ontologyID(key),
-  actions: ["retrieve", "create", "update", "delete"],
-});
-
-export const useDeleteAccessGranted = (key?: label.Key | label.Key[]) =>
-  Access.useGranted(deleteAccessQuery(key));
-
-export const deleteAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: label.Key }) =>
-  Access.isGranted({ ...rest, query: deleteAccessQuery(key) });

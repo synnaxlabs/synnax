@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group } from "@synnaxlabs/client";
-import { Channel, Icon } from "@synnaxlabs/pluto";
+import { channel, group } from "@synnaxlabs/client";
+import { Access, Channel, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CALCULATED_LAYOUT } from "@/channel/calculatedLayout";
@@ -19,7 +19,7 @@ import { Ontology } from "@/ontology";
 
 const CreateChannelButtons = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreate = Channel.useCreateAccessGranted();
+  const canCreate = Access.useCreateGranted(channel.ontologyID(0));
   if (!canCreate) return null;
   return (
     <Toolbar.Actions>
@@ -63,5 +63,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
-  useVisible: Channel.useViewAccessGranted,
+  useVisible: () => Access.useViewGranted(channel.ontologyID(0)),
 };

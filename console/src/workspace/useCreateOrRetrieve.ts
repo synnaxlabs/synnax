@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type Synnax as Client } from "@synnaxlabs/client";
-import { Flux, type Pluto, Status, Synnax, Workspace } from "@synnaxlabs/pluto";
+import { NotFoundError, type Synnax as Client, workspace } from "@synnaxlabs/client";
+import { Access, Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -28,8 +28,8 @@ export const useCreateOrRetrieve = () => {
     const purgedLayout = purgeExcludedLayouts(layout);
     if (
       prevClient != null &&
-      Workspace.editAccessGranted({
-        key: activeWS.key,
+      Access.editGranted({
+        id: workspace.ontologyID(activeWS.key),
         store: fluxStore,
         client: prevClient,
       })
@@ -43,7 +43,11 @@ export const useCreateOrRetrieve = () => {
         try {
           await client.workspaces.retrieve(activeWS.key);
           if (
-            Workspace.editAccessGranted({ key: activeWS.key, store: fluxStore, client })
+            Access.editGranted({
+              id: workspace.ontologyID(activeWS.key),
+              store: fluxStore,
+              client,
+            })
           )
             await client.workspaces.setLayout(activeWS.key, purgedLayout);
           dispatch(setActive(activeWS));

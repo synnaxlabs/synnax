@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type Synnax, type workspace } from "@synnaxlabs/client";
-import { type Pluto, type Status, Workspace as PWorkspace } from "@synnaxlabs/pluto";
+import { type Synnax, workspace } from "@synnaxlabs/client";
+import { Access, type Pluto, type Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -25,7 +25,7 @@ export const ingest: Import.DirectoryIngestor = async (
   files,
   { client, fileIngestors, placeLayout, store, fluxStore },
 ) => {
-  if (!PWorkspace.editAccessGranted({ key: "", store: fluxStore, client }))
+  if (!Access.editGranted({ id: workspace.ontologyID(""), store: fluxStore, client }))
     throw new Error("You do not have permission to import workspaces");
   const layoutData = files.find((file) => file.name === Workspace.LAYOUT_FILE_NAME);
   if (layoutData == null) throw new Error(`${Workspace.LAYOUT_FILE_NAME} not found`);

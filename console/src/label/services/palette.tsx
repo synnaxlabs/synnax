@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Label as PLabel } from "@synnaxlabs/pluto";
+import { label } from "@synnaxlabs/client";
+import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { Label } from "@/label";
 import { type Palette } from "@/palette";
@@ -17,7 +18,8 @@ const EDIT_COMMAND: Palette.Command = {
   name: "Edit Labels",
   icon: <Icon.Label />,
   onSelect: ({ placeLayout }) => placeLayout(Label.EDIT_LAYOUT),
-  visible: ({ store, client }) => PLabel.editAccessGranted({ key: "", store, client }),
+  visible: ({ store, client }) =>
+    Access.editGranted({ id: label.ontologyID(""), store, client }),
 };
 
 export const COMMANDS = [EDIT_COMMAND];

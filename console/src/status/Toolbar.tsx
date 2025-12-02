@@ -9,8 +9,9 @@
 
 import "@/status/Toolbar.css";
 
-import { type status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import {
+  Access,
   Component,
   Flex,
   Icon,
@@ -124,7 +125,7 @@ const listItem = Component.renderProp(ListItem);
 
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canEdit = Status.useEditAccessGranted();
+  const canEdit = Access.useEditGranted(status.ontologyID(""));
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
@@ -161,5 +162,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
-  useVisible: Status.useViewAccessGranted,
+  useVisible: () => Access.useViewGranted(status.ontologyID("")),
 };

@@ -8,14 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import {
-  Breadcrumb,
-  Flex,
-  Icon,
-  Schematic as PSchematic,
-  Schematic,
-  Tabs,
-} from "@synnaxlabs/pluto";
+import { Access, Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -47,7 +40,7 @@ interface NotEditableContentProps extends ToolbarProps {}
 const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
-  const hasEditingPermissions = Schematic.useEditAccessGranted(layoutKey);
+  const hasEditingPermissions = Access.useEditGranted(schematic.ontologyID(layoutKey));
   const isSnapshot = useSelectIsSnapshot(layoutKey);
   const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
@@ -100,7 +93,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [dispatch, layoutKey],
   );
-  const canEdit = PSchematic.useEditAccessGranted(layoutKey);
+  const canEdit = Access.useEditGranted(schematic.ontologyID(layoutKey));
   const value = useMemo(
     () => ({
       tabs: TABS,

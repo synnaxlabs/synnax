@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Workspace } from "@synnaxlabs/pluto";
+import { workspace } from "@synnaxlabs/client";
+import { Access, Icon, Workspace } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";
@@ -17,7 +18,7 @@ import { CREATE_LAYOUT } from "@/workspace/Create";
 
 const CreateButton = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreateWorkspace = Workspace.useEditAccessGranted("");
+  const canCreateWorkspace = Access.useEditGranted(workspace.ontologyID(""));
   if (!canCreateWorkspace) return null;
   return (
     <Toolbar.Action
@@ -46,7 +47,7 @@ const Content = (): ReactElement => {
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const canCreateWorkspace = Workspace.useEditAccessGranted("");
+  const canCreateWorkspace = Access.useEditGranted(workspace.ontologyID(""));
   const handleClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction

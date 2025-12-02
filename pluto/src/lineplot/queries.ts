@@ -10,7 +10,6 @@
 import { lineplot, type workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 
-import { Access } from "@/access";
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
@@ -64,7 +63,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((k) => lineplot.ontologyID(k));
+    const ids = lineplot.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     await client.workspaces.lineplots.delete(data);
@@ -108,51 +107,3 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     return data;
   },
 });
-
-const editAccessQuery = (
-  key: lineplot.Key | lineplot.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: lineplot.ontologyID(key),
-  actions: ["retrieve", "create", "update"],
-});
-
-export const useEditAccessGranted = (key?: lineplot.Key | lineplot.Key[]) =>
-  Access.useGranted(editAccessQuery(key));
-
-export const editAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: lineplot.Key | lineplot.Key[] }) =>
-  Access.isGranted({ ...rest, query: editAccessQuery(key) });
-
-const viewAccessQuery = (
-  key: lineplot.Key | lineplot.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: lineplot.ontologyID(key),
-  actions: ["retrieve"],
-});
-
-export const viewAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: lineplot.Key | lineplot.Key[] }) =>
-  Access.isGranted({ ...rest, query: viewAccessQuery(key) });
-
-export const useViewAccessGranted = (key: lineplot.Key | lineplot.Key[]) =>
-  Access.useGranted(viewAccessQuery(key ?? ""));
-
-const deleteAccessQuery = (
-  key: lineplot.Key | lineplot.Key[] = "",
-): Access.PermissionsQuery => ({
-  objects: lineplot.ontologyID(key),
-  actions: ["retrieve", "create", "update", "delete"],
-});
-
-export const useDeleteAccessGranted = (key: lineplot.Key | lineplot.Key[]) =>
-  Access.useGranted(deleteAccessQuery(key));
-
-export const deleteAccessGranted = ({
-  key,
-  ...rest
-}: Access.IsGrantedExtensionParams & { key?: lineplot.Key }) =>
-  Access.isGranted({ ...rest, query: deleteAccessQuery(key) });
