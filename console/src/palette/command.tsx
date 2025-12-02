@@ -45,6 +45,7 @@ interface ContextValue {
 }
 
 const CommandContext = createContext<ContextValue>({ commands: [] });
+CommandContext.displayName = "Palette.CommandContext";
 
 export interface CommandProviderProps extends PropsWithChildren {
   commands: Command[];

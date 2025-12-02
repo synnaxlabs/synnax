@@ -71,6 +71,7 @@ export interface ContextValue {
  * type for information on the shape of the context.
  */
 const Context = createContext<ContextValue>({ tabs: [] });
+Context.displayName = "Tabs.Context";
 
 /**
  * Provider for the {@link Context} context. See the {@link ContextValue} type for information

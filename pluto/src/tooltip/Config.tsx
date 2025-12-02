@@ -32,12 +32,11 @@ export interface ConfigProps
   accelerationDelay?: CrudeTimeSpan;
 }
 
-const ZERO_TOOLTIP_CONFIG: ContextValue = {
+const Context = createContext<ContextValue>({
   delay: TimeSpan.milliseconds(750),
   startAccelerating: () => {},
-};
-
-const Context = createContext<ContextValue>(ZERO_TOOLTIP_CONFIG);
+});
+Context.displayName = "Tooltip.Context";
 
 export const useConfig = () => use(Context);
 
@@ -47,8 +46,8 @@ export const useConfig = () => use(Context);
  * @param props - The props for the tooltip config.
  * @param props.delay - The delay before the tooltip appears, in milliseconds.
  * @default 500ms.
- * @param props.accelerate - Whether to enable accelerated visibility of tooltps for
- * a short period of time after the user has hovered over a first tooltip.
+ * @param props.accelerate - Whether to enable accelerated visibility of tooltips for a
+ * short period of time after the user has hovered over a first tooltip.
  * @default true.
  * @param props.acceleratedDelay - The delay before the tooltip appears when
  * accelerated visibility is enabled.

@@ -35,13 +35,14 @@ interface SelectionState<K extends record.Key = record.Key> {
   hover?: K;
 }
 
-const Context = createContext<ContextValue<any>>({
+const Context = createContext<ContextValue>({
   getState: () => ({ value: undefined, hover: undefined }),
   onSelect: () => {},
   setSelected: () => {},
   clear: () => {},
   subscribe: () => () => {},
 });
+Context.displayName = "Select.Context";
 
 const isSelected = <K extends record.Key>(
   value: K | K[] | null | undefined,
@@ -135,7 +136,9 @@ const Provider = <K extends record.Key = record.Key>({
     notifyListeners(notify);
   }, [value, notifyListeners]);
 
-  return <Context value={ctx}>{children}</Context>;
+  return (
+    <Context value={ctx as unknown as ContextValue<record.Key>}>{children}</Context>
+  );
 };
 
 export interface UseItemStateReturn {

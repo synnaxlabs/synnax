@@ -29,6 +29,7 @@ export interface ContextValue {
 }
 
 const Context = createContext<ContextValue>({ divided: false, level: "h1" });
+Context.displayName = "Header.Context";
 
 export const useContext = () => use(Context);
 

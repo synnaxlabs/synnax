@@ -19,13 +19,11 @@ import {
   xy,
 } from "@synnaxlabs/x";
 import {
-  createContext,
   type CSSProperties,
   type DetailedHTMLProps,
   type HTMLAttributes,
   type PropsWithChildren,
   type ReactElement,
-  use,
   useCallback,
   useEffect,
   useMemo,
@@ -35,6 +33,7 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { context } from "@/context";
 import { CSS } from "@/css";
 import { useEffectCompare } from "@/hooks";
 import { lineplot } from "@/lineplot/aether";
@@ -57,17 +56,14 @@ export interface ContextValue {
   setHold: (hold: boolean) => void;
 }
 
-const Context = createContext<ContextValue | null>(null);
+const [Context, useContext] = context.createRequired<ContextValue>(
+  "LinePlot.Context",
+  "LinePlot.LinePlot",
+);
+export { useContext };
 
-export const useContext = (component: string) => {
-  const ctx = use(Context);
-  if (ctx == null)
-    throw new Error(`Cannot use ${component} as a non-child of LinePlot.`);
-  return ctx;
-};
-
-export const useViewport = (handle: Viewport.UseHandler): void => {
-  const { addViewportHandler } = useContext("Viewport");
+export const useViewport = (handle: Viewport.UseHandler, component: string): void => {
+  const { addViewportHandler } = useContext(component);
   useEffect(() => addViewportHandler(handle), [addViewportHandler, handle]);
 };
 

@@ -40,11 +40,8 @@ export interface ContextValue {
   listen: Listen;
 }
 
-const ZERO_CONTEXT_VALUE: ContextValue = {
-  listen: () => () => {},
-};
-
-const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
+const Context = createContext<ContextValue>({ listen: () => () => {} });
+Context.displayName = "Triggers.Context";
 
 export const useContext = () => use(Context);
 

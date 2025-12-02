@@ -88,6 +88,9 @@ export interface ContextValue {
 }
 
 const Context = createContext<ContextValue | null>(null);
+Context.displayName = "Haul.Context";
+
+export const useContext = () => use(Context);
 
 export interface ProviderProps extends PropsWithChildren {
   useState?: state.PureUse<DraggingState>;
@@ -102,8 +105,6 @@ const HAUL_REF: ProviderRef = {
   ...ZERO_DRAGGING_STATE,
   onSuccessfulDrop: () => {},
 };
-
-export const useContext = () => use(Context);
 
 export const Provider = memo(
   ({

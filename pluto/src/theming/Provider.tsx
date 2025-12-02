@@ -47,6 +47,7 @@ const Context = createContext<ContextValue>({
   toggleTheme: () => undefined,
   setTheme: () => undefined,
 });
+Context.displayName = "Theming.Context";
 
 export interface UseProviderProps {
   theme?: deep.Partial<theming.ThemeSpec> & { key: string };

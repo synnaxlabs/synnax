@@ -215,6 +215,7 @@ const Context = createContext<ContextValue>({
   setFitViewOnResize: () => {},
   fitViewOptions: FIT_VIEW_OPTIONS,
 });
+Context.displayName = "Diagram.Context";
 
 export const useContext = () => reactUse(Context);
 
