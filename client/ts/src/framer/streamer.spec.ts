@@ -117,7 +117,7 @@ describe("Streamer", () => {
       test("basic calculated channel streaming", async () => {
         // Create a timestamp index channel
         const timeChannel = await client.channels.create({
-          name: "calc_test_time",
+          name: id.create(),
           isIndex: true,
           dataType: DataType.TIMESTAMP,
         });
@@ -138,7 +138,7 @@ describe("Streamer", () => {
 
         // Create calculated channel that adds the two source channels
         const calcChannel = await client.channels.create({
-          name: "test_calc",
+          name: id.create(),
           dataType: DataType.FLOAT64,
           virtual: true,
           expression: `return ${channelA.name} + ${channelB.name}`,
@@ -192,7 +192,7 @@ describe("Streamer", () => {
 
         // Create calculated channel that adds 5
         const calcChannel = await client.channels.create({
-          name: "calc_const_channel",
+          name: id.create(),
           dataType: DataType.FLOAT64,
           virtual: true,
           expression: `return ${baseChannel.name} + 5`,
@@ -231,23 +231,24 @@ describe("Streamer", () => {
       test("calculated channel with multiple operations", async () => {
         // Create timestamp channel
         const timeChannel = await client.channels.create({
-          name: "calc_multi_time",
+          name: id.create(),
           isIndex: true,
           dataType: DataType.TIMESTAMP,
         });
 
         // Create source channels
+        const names = [id.create(), id.create()];
         const [channelA, channelB] = await client.channels.create([
-          { name: "multi_test_a", dataType: DataType.FLOAT64, index: timeChannel.key },
-          { name: "multi_test_b", dataType: DataType.FLOAT64, index: timeChannel.key },
+          { name: names[0], dataType: DataType.FLOAT64, index: timeChannel.key },
+          { name: names[1], dataType: DataType.FLOAT64, index: timeChannel.key },
         ]);
 
         // Create calculated channel with multiple operations
         const calcChannel = await client.channels.create({
-          name: "multi_calc",
+          name: id.create(),
           dataType: DataType.FLOAT64,
           virtual: true,
-          expression: "return (multi_test_a * 2) + (multi_test_b / 2)",
+          expression: `return (${names[0]} * 2) + (${names[1]} / 2)`,
         });
 
         const streamer = await client.openStreamer(calcChannel.key);
@@ -278,7 +279,7 @@ describe("Streamer", () => {
       describe("legacy calculations", async () => {
         it("should correctly execute a calculation with a requires field", async () => {
           const timeChannel = await client.channels.create({
-            name: "calc_test_time",
+            name: id.create(),
             isIndex: true,
             dataType: DataType.TIMESTAMP,
           });
@@ -297,7 +298,7 @@ describe("Streamer", () => {
           ]);
 
           const calcChannel = await client.channels.create({
-            name: "test_calc",
+            name: id.create(),
             dataType: DataType.FLOAT64,
             virtual: true,
             expression: `return ${channelA.name} + ${channelB.name}`,

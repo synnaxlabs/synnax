@@ -10,6 +10,7 @@
 package streamer_test
 
 import (
+	"fmt"
 	"runtime"
 	"time"
 
@@ -18,16 +19,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -45,7 +45,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		}))
-		statusSvc := MustSucceed(svcstatus.OpenService(ctx, svcstatus.ServiceConfig{
+		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Label:    labelSvc,
 			Ontology: dist.Ontology,
@@ -64,7 +64,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			DB:                dist.DB,
 			Arc:               arcSvc,
 			Framer:            dist.Framer,
-			Channels:          dist.Channel,
+			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
 		}))
 		streamerSvc = MustSucceed(streamer.NewService(streamer.ServiceConfig{
@@ -117,19 +117,19 @@ var _ = Describe("Streamer", Ordered, func() {
 		)
 		BeforeEach(func() {
 			indexCh = &channel.Channel{
-				Name:     "Winston",
+				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
 			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
 			dataCh1 = &channel.Channel{
-				Name:       "Hobbs",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
 			Expect(dist.Channel.Create(ctx, dataCh1)).To(Succeed())
 			dataCh2 = &channel.Channel{
-				Name:       "Winston",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
@@ -139,9 +139,9 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should receive calculated values", func() {
 			calculation := &channel.Channel{
-				Name:       "Output",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
-				Expression: "return Hobbs + Winston",
+				Expression: fmt.Sprintf("return %s + %s", dataCh1.Name, dataCh2.Name),
 			}
 			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
@@ -178,9 +178,9 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should allow the user to dynamically update the channels being calculated", func() {
 			calculation := &channel.Channel{
-				Name:       "Output",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
-				Expression: "return Hobbs + Winston",
+				Expression: fmt.Sprintf("return %s + %s", dataCh1.Name, dataCh2.Name),
 			}
 			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
@@ -222,7 +222,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	Describe("Downsampling", func() {
 		It("Should correctly downsample a factor of 2", func() {
 			ch := &channel.Channel{
-				Name:     "test",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -254,7 +254,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should handle invalid downsampling factors", func() {
 			ch := &channel.Channel{
-				Name:     "test",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -271,30 +271,30 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should correctly combine downsampling with calculations", func() {
 			indexCh := &channel.Channel{
-				Name:     "index",
+				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
 			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
 
 			dataCh1 := &channel.Channel{
-				Name:       "data1",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
 			Expect(dist.Channel.Create(ctx, dataCh1)).To(Succeed())
 
 			dataCh2 := &channel.Channel{
-				Name:       "data2",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
 			Expect(dist.Channel.Create(ctx, dataCh2)).To(Succeed())
 
 			calculation := &channel.Channel{
-				Name:       "sum",
+				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
-				Expression: "return data1 + data2",
+				Expression: fmt.Sprintf("return %s + %s", dataCh1.Name, dataCh2.Name),
 			}
 			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
 
@@ -330,7 +330,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 
 			expectedValues := []float32{2, 6, 10, 14}
-			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](expectedValues...))
+			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV(expectedValues...))
 
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())

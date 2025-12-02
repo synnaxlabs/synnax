@@ -76,7 +76,7 @@ func (r *Relay) NewStreamer(ctx context.Context, cfgs ...StreamerConfig) (Stream
 	if err != nil {
 		return nil, err
 	}
-	if err = r.cfg.ChannelReader.NewRetrieve().WhereKeys(cfg.Keys...).Exec(ctx, nil); err != nil {
+	if err = r.cfg.Channel.NewRetrieve().WhereKeys(cfg.Keys...).Exec(ctx, nil); err != nil {
 		return nil, err
 	}
 	return &streamer{

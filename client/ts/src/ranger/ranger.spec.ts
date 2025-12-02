@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, math, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { DataType, id, math, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -284,7 +284,7 @@ describe("Ranger", () => {
     describe("set + resolve", () => {
       it("should set and resolve an alias for the range", async () => {
         const ch = await client.channels.create({
-          name: "My New Channel",
+          name: id.create(),
           dataType: DataType.FLOAT32,
           virtual: true,
         });
@@ -300,7 +300,7 @@ describe("Ranger", () => {
     describe("deleteAlias", () => {
       it("should remove an alias for the range", async () => {
         const ch = await client.channels.create({
-          name: "My New Channel",
+          name: id.create(),
           dataType: DataType.FLOAT32,
           virtual: true,
         });
@@ -316,7 +316,7 @@ describe("Ranger", () => {
     describe("list", () => {
       it("should list the aliases for the range", async () => {
         const ch = await client.channels.create({
-          name: "My New Channel",
+          name: id.create(),
           dataType: DataType.FLOAT32,
           virtual: true,
         });

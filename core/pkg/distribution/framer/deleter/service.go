@@ -12,7 +12,6 @@ package deleter
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -20,14 +19,14 @@ import (
 )
 
 type Service struct {
-	channelReader channel.Readable
+	channel *channel.Service
 	Deleter
 	proxy *leaseProxy
 }
 
 type ServiceConfig struct {
 	HostResolver cluster.HostResolver
-	Channel      channel.Readable
+	Channel      *channel.Service
 	TSChannel    *ts.DB
 	Transport    Transport
 }
@@ -53,8 +52,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultConfig = ServiceConfig{}
 
-func New(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -63,13 +62,13 @@ func New(configs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{
-		proxy:         proxy,
-		channelReader: cfg.Channel,
+		proxy:   proxy,
+		channel: cfg.Channel,
 	}
 	s.Deleter = s.New()
 	return s, nil
 }
 
 func (s *Service) New() Deleter {
-	return Deleter{proxy: s.proxy, channelReader: s.channelReader}
+	return Deleter{proxy: s.proxy, channel: s.channel}
 }

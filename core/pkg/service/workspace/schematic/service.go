@@ -69,18 +69,18 @@ type Service struct {
 	Symbol *symbol.Service
 }
 
-// NewService instantiates a new schematic service using the provided configurations. Each
-// configuration will be used as an override for the previous configuration in the list.
-// See the Config struct for information on which fields should be set.
-func NewService(ctx context.Context, configs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+// OpenService instantiates a new schematic service using the provided configurations.
+// Each configuration will be used as an override for the previous configuration in the
+// list. See the Config struct for information on which fields should be set.
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{Config: cfg}
 	cfg.Ontology.RegisterService(s)
 
-	if s.Symbol, err = symbol.NewService(ctx, symbol.Config{
+	if s.Symbol, err = symbol.OpenService(ctx, symbol.Config{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
 		Group:    cfg.Group,
@@ -91,6 +91,10 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 
 	return s, nil
 }
+
+// Close closes the schematic service and releases any resources that it may have
+// acquired.
+func (s *Service) Close() error { return s.Symbol.Close() }
 
 // NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer

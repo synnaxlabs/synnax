@@ -21,7 +21,7 @@ import (
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/control"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -32,7 +32,7 @@ var _ = Describe("Channel", Ordered, func() {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
 				db      *cesium.DB
-				fs      xfs.FS
+				fs      fs.FS
 				cleanUp func() error
 			)
 			BeforeAll(func() {
@@ -253,7 +253,7 @@ var _ = Describe("Channel", Ordered, func() {
 					dataSeries1 := telem.NewSeriesV[int64](2, 3, 5, 7, 11)
 					data2Series1 := telem.NewSeriesV[int64](20, 30, 50, 70, 110)
 
-					Expect(db.Write(ctx, 2*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+					Expect(db.Write(ctx, 2*telem.SecondTS, telem.MultiFrame(
 						[]core.ChannelKey{indexKey, dataKey, data2Key},
 						[]telem.Series{indexSeries1, dataSeries1, data2Series1},
 					))).To(Succeed())
@@ -275,7 +275,7 @@ var _ = Describe("Channel", Ordered, func() {
 					dataSeries2 := telem.NewSeriesV[int64](13, 17, 19, 23, 29)
 					data2Series2 := telem.NewSeriesV[int64](130, 170, 190, 230, 290)
 
-					Expect(db.Write(ctx, 13*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+					Expect(db.Write(ctx, 13*telem.SecondTS, telem.MultiFrame(
 						[]core.ChannelKey{indexKeyNew, dataKey, data2Key},
 						[]telem.Series{indexSeries2, dataSeries2, data2Series2},
 					))).To(Succeed())
@@ -409,11 +409,11 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "fermat", DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}}))
 					series1 := telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)
-					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey]([]cesium.ChannelKey{key}, []telem.Series{series1})))
+					MustSucceed(w.Write(telem.MultiFrame([]cesium.ChannelKey{key}, []telem.Series{series1})))
 
 					Expect(db.RenameChannel(ctx, key, "laplace")).To(Succeed())
 					series2 := telem.NewSeriesSecondsTSV(20, 21, 22)
-					MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey]([]cesium.ChannelKey{key}, []telem.Series{series2})))
+					MustSucceed(w.Write(telem.MultiFrame([]cesium.ChannelKey{key}, []telem.Series{series2})))
 					Expect(w.Close()).To(Succeed())
 
 					ch := MustSucceed(db.RetrieveChannel(ctx, key))

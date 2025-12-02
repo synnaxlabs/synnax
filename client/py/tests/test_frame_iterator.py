@@ -7,10 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+
 import numpy as np
 import pytest
 
 import synnax as sy
+from synnax.util.random import random_name
 from tests.telem import seconds_linspace
 
 
@@ -261,26 +263,25 @@ class TestIterator:
         """Test reading latest from multiple channels with different data lengths."""
         # Create channels with shared index
         idx_ch = client.channels.create(
-            name=f"test_idx_{sy.TimeStamp.now()}",
+            name=random_name(),
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
 
         data_ch1 = client.channels.create(
-            name=f"test_data1_{sy.TimeStamp.now()}",
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx_ch.key,
         )
 
         data_ch2 = client.channels.create(
-            name=f"test_data2_{sy.TimeStamp.now()}",
+            name=random_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx_ch.key,
         )
 
         # Write different amounts of data to each channel
         time_data_long = seconds_linspace(1, 20)
-        time_data_short = seconds_linspace(1, 5)
 
         # Write 20 samples to channel 1
         idx_ch.write(sy.TimeSpan.SECOND * 1, time_data_long)
