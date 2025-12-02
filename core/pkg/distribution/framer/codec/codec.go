@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	xbinary "github.com/synnaxlabs/x/binary"
-	xbits "github.com/synnaxlabs/x/bit"
+	"github.com/synnaxlabs/x/bit"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -114,7 +114,7 @@ type Codec struct {
 	buf *xbinary.Writer
 	// channels used in dynamic codecs to retrieve information about channels
 	// when Update is called.
-	channels channel.Readable
+	channels *channel.Service
 	// encodeSorter is used to sort source frames that are being encoded. Used instead
 	// of sorting the frame directly in order to avoid excess heap allocations
 	encodeSorter sorter
@@ -141,9 +141,9 @@ func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType) *Codec {
 // NewDynamic creates a new codec that can be dynamically updated by retrieving channels
 // from the provided channel store. Codec.Update must be called before the first call
 // to Codec.Encode and Codec.Decode.
-func NewDynamic(channels channel.Readable) *Codec {
+func NewDynamic(channelSvc *channel.Service) *Codec {
 	c := newCodec()
-	c.channels = channels
+	c.channels = channelSvc
 	return c
 }
 
@@ -229,12 +229,12 @@ type flags struct {
 }
 
 const (
-	zeroAlignmentsFlagPos     xbits.FlagPos = 5
-	equalAlignmentsFlagPos    xbits.FlagPos = 4
-	equalLengthsFlagPos       xbits.FlagPos = 3
-	equalTimeRangesFlagPos    xbits.FlagPos = 2
-	timeRangesZeroFlagPos     xbits.FlagPos = 1
-	allChannelsPresentFlagPos xbits.FlagPos = 0
+	zeroAlignmentsFlagPos     bit.FlagPos = 5
+	equalAlignmentsFlagPos    bit.FlagPos = 4
+	equalLengthsFlagPos       bit.FlagPos = 3
+	equalTimeRangesFlagPos    bit.FlagPos = 2
+	timeRangesZeroFlagPos     bit.FlagPos = 1
+	allChannelsPresentFlagPos bit.FlagPos = 0
 )
 
 func (f flags) encode() byte {

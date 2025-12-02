@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 import synnax as sy
+from synnax.util.random import random_name
 from tests.telem import seconds_linspace
 
 
@@ -211,12 +212,12 @@ class TestWriter:
     def test_write_persist_stream_regression(self, client: sy.Synnax):
         """Should work"""
         idx = client.channels.create(
-            name="idx",
+            name=random_name(),
             is_index=True,
             data_type="timestamp",
         )
         data = client.channels.create(
-            name="data",
+            name=random_name(),
             data_type="float64",
             index=idx.key,
         )
@@ -233,12 +234,12 @@ class TestWriter:
         assert len(f) == 1
 
         data_2 = client.channels.create(
-            name="data_2",
+            name=random_name(),
             data_type="float64",
             index=idx.key,
         )
         data_3 = client.channels.create(
-            name="data_3",
+            name=random_name(),
             data_type="float64",
             index=idx.key,
         )

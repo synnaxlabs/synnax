@@ -54,7 +54,7 @@ type Config struct {
 	DB *gorp.DB
 	//  Distribution layer framer service.
 	Framer                   *framer.Service
-	Channel                  channel.Service
+	Channel                  *channel.Service
 	Arc                      *arc.Service
 	EnableLegacyCalculations *bool
 }
@@ -132,7 +132,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation:          cfg.Child("calculation"),
 		DB:                       cfg.DB,
-		Channels:                 cfg.Channel,
+		Channel:                  cfg.Channel,
 		Framer:                   cfg.Framer,
 		Arc:                      cfg.Arc,
 		ChannelObservable:        cfg.Channel.NewObservable(),
@@ -152,7 +152,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
 		DistFramer: cfg.Framer,
-		Channels:   cfg.Channel,
+		Channel:    cfg.Channel,
 		Arc:        cfg.Arc,
 	})
 	if err != nil {

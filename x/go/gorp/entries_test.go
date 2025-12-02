@@ -20,7 +20,7 @@ var _ = Describe("Entries", func() {
 		It("Should return an empty slice if no entries were set on the query", func() {
 			q := gorp.NewRetrieve[int, entry]()
 			entries := gorp.GetEntries[int, entry](q.Params)
-			Expect(entries.All()).To(HaveLen(0))
+			Expect(entries.All()).To(BeEmpty())
 		})
 	})
 
@@ -28,7 +28,7 @@ var _ = Describe("Entries", func() {
 		Context("Single Entry", func() {
 			It("Should return the entry that was set", func() {
 				q := gorp.NewRetrieve[int, entry]()
-				gorp.SetEntry[int, entry](q.Params, &entry{ID: 1})
+				gorp.SetEntry(q.Params, &entry{ID: 1})
 				entries := gorp.GetEntries[int, entry](q.Params)
 				entries.Set(0, entry{ID: 2})
 				Expect(entries.All()).To(HaveLen(1))
@@ -37,7 +37,7 @@ var _ = Describe("Entries", func() {
 		Context("Multiple Entries", func() {
 			It("Should return the entry that was set", func() {
 				q := gorp.NewRetrieve[int, entry]()
-				gorp.SetEntries[int, entry](q.Params, &[]entry{{ID: 1}})
+				gorp.SetEntries(q.Params, &[]entry{{ID: 1}})
 				e := gorp.GetEntries[int, entry](q.Params)
 				e.Set(0, entry{ID: 2})
 				Expect(e.All()).To(HaveLen(1))
@@ -54,7 +54,7 @@ var _ = Describe("Entries", func() {
 		})
 		It("Should return true if entries were set on the query", func() {
 			q := gorp.NewRetrieve[int, entry]()
-			gorp.SetEntry[int, entry](q.Params, &entry{ID: 1})
+			gorp.SetEntry(q.Params, &entry{ID: 1})
 			entries := gorp.GetEntries[int, entry](q.Params)
 			Expect(entries.Any()).To(BeTrue())
 		})
@@ -77,7 +77,7 @@ var _ = Describe("Entries", func() {
 		Context("Single entry", func() {
 			It("Should map the entry in place", func() {
 				q := gorp.NewRetrieve[int, entry]()
-				gorp.SetEntry[int, entry](q.Params, &entry{ID: 2})
+				gorp.SetEntry(q.Params, &entry{ID: 2})
 				entries := gorp.GetEntries[int, entry](q.Params)
 				Expect(entries.MapInPlace(func(e entry) (entry, bool, error) {
 					return e, e.ID == 2, nil
@@ -86,7 +86,7 @@ var _ = Describe("Entries", func() {
 			})
 			It("Should remove the entry if the map function returns false", func() {
 				q := gorp.NewRetrieve[int, entry]()
-				gorp.SetEntry[int, entry](q.Params, &entry{ID: 2})
+				gorp.SetEntry(q.Params, &entry{ID: 2})
 				entries := gorp.GetEntries[int, entry](q.Params)
 				Expect(entries.MapInPlace(func(e entry) (entry, bool, error) {
 					return e, false, nil
@@ -99,7 +99,7 @@ var _ = Describe("Entries", func() {
 	Describe("Keys", func() {
 		It("Should return the keys of the entries", func() {
 			q := gorp.NewRetrieve[int, entry]()
-			gorp.SetEntry[int, entry](q.Params, &entry{ID: 1})
+			gorp.SetEntry(q.Params, &entry{ID: 1})
 			entries := gorp.GetEntries[int, entry](q.Params)
 			Expect(entries.Keys()).To(ConsistOf(1))
 		})

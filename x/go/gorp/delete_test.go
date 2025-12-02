@@ -10,27 +10,24 @@
 package gorp_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Delete", Ordered, func() {
+var _ = Describe("Delete", func() {
 	var (
-		db   *gorp.DB
-		kvDB kv.DB
-		tx   gorp.Tx
+		ctx context.Context
+		tx  gorp.Tx
 	)
-	BeforeAll(func() {
-		kvDB = memkv.New()
-		db = gorp.Wrap(kvDB)
+	BeforeEach(func() {
+		ctx = context.Background()
+		tx = db.OpenTx()
 	})
-	AfterAll(func() { Expect(kvDB.Close()).To(Succeed()) })
-	BeforeEach(func() { tx = db.OpenTx() })
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("WhereKeys", func() {
@@ -39,9 +36,7 @@ var _ = Describe("Delete", Ordered, func() {
 				Entry(&entry{ID: 1, Data: "Synnax"}).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(gorp.NewDelete[int, entry]().WhereKeys(1).Exec(ctx, tx)).To(Succeed())
-			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(ctx, tx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(exists).To(BeFalse())
+			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(ctx, tx)).To(BeFalse())
 		})
 		It("Should NOT return an error if the entry does not exist", func() {
 			Expect(gorp.NewDelete[int, entry]().WhereKeys(1).Exec(ctx, tx)).To(Succeed())
@@ -53,16 +48,14 @@ var _ = Describe("Delete", Ordered, func() {
 			Expect(gorp.NewCreate[int, entry]().
 				Entry(&entry{ID: 1, Data: "Synnax"}).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewDelete[int, entry]().Where(func(ctx gorp.Context, e *entry) (bool, error) {
+			Expect(gorp.NewDelete[int, entry]().Where(func(_ gorp.Context, e *entry) (bool, error) {
 				return e.Data == "Synnax", nil
 			}).Exec(ctx, tx)).To(Succeed())
-			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(ctx, tx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(exists).To(BeFalse())
+			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(ctx, tx)).To(BeFalse())
 		})
 
 		It("Should not return an error if the entry does not exist", func() {
-			Expect(gorp.NewDelete[int, entry]().Where(func(ctx gorp.Context, e *entry) (bool, error) {
+			Expect(gorp.NewDelete[int, entry]().Where(func(_ gorp.Context, e *entry) (bool, error) {
 				return e.Data == "Synnax", nil
 			}).Exec(ctx, tx)).To(Succeed())
 		})
@@ -78,9 +71,7 @@ var _ = Describe("Delete", Ordered, func() {
 				Guard(func(_ gorp.Context, e entry) error {
 					return validate.Error
 				}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Error))
-			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(ctx, tx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(exists).To(BeTrue())
+			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(ctx, tx)).To(BeTrue())
 		})
 
 		It("Should pass the correct transaction to the gorp context of the guard clause", func() {
@@ -89,13 +80,12 @@ var _ = Describe("Delete", Ordered, func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(gorp.NewDelete[int, entry]().
 				WhereKeys(22).
-				Guard(func(gCtx gorp.Context, e entry) error {
+				Guard(func(gCtx gorp.Context, _ entry) error {
 					Expect(gCtx.Tx).To(BeIdenticalTo(tx))
 					Expect(gCtx.Context).To(BeIdenticalTo(ctx))
 					return validate.Error
 				}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Error))
-			exists := MustSucceed(gorp.NewRetrieve[int, entry]().WhereKeys(22).Exists(ctx, tx))
-			Expect(exists).To(BeTrue())
+			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(22).Exists(ctx, tx)).To(BeTrue())
 		})
 
 	})

@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"fmt"
 	"go/types"
 	"sync"
 
@@ -30,7 +31,7 @@ import (
 )
 
 type leaseProxy struct {
-	ServiceConfig
+	Config
 	createRouter       proxy.BatchFactory[Channel]
 	renameRouter       proxy.BatchFactory[renameBatchEntry]
 	keyRouter          proxy.BatchFactory[Key]
@@ -52,7 +53,7 @@ const (
 
 func newLeaseProxy(
 	ctx context.Context,
-	cfg ServiceConfig,
+	cfg Config,
 	group group.Group,
 ) (*leaseProxy, error) {
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
@@ -73,7 +74,7 @@ func newLeaseProxy(
 	}
 
 	p := &leaseProxy{
-		ServiceConfig: cfg,
+		Config:        cfg,
 		createRouter:  proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
 		keyRouter:     keyRouter,
 		renameRouter:  proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
@@ -124,6 +125,13 @@ func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (typ
 
 func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, opts CreateOptions) error {
 	channels := *_channels
+	if *lp.ValidateNames {
+		keys := KeysFromChannels(channels)
+		names := Names(channels)
+		if err := lp.validateChannelNames(ctx, tx, keys, names, opts.RetrieveIfNameExists || opts.OverwriteIfNameExistsAndDifferentProperties); err != nil {
+			return err
+		}
+	}
 	for i, ch := range channels {
 		if ch.Leaseholder == 0 {
 			channels[i].Leaseholder = lp.HostResolver.HostKey()
@@ -211,7 +219,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	if lp.freeCounter == nil {
 		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
 	}
-	if err := lp.validateFreeVirtual(ctx, channels, tx); err != nil {
+	if err := lp.validateFreeVirtual(channels); err != nil {
 		return err
 	}
 
@@ -349,11 +357,61 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	return lp.maybeSetResources(ctx, tx, toCreate)
 }
 
-func (lp *leaseProxy) validateFreeVirtual(
+func (lp *leaseProxy) validateChannelNames(
 	ctx context.Context,
-	channels *[]Channel,
 	tx gorp.Tx,
+	keys Keys,
+	names []string,
+	skipExisting bool,
 ) error {
+	for i, name := range names {
+		if err := ValidateName(name); err != nil {
+			return validate.PathedError(err, fmt.Sprintf("[%d].name", i))
+		}
+	}
+	namesSeen := make(set.Set[string], len(names))
+	for i, name := range names {
+		if namesSeen.Contains(name) {
+			return validate.PathedError(
+				errors.Wrapf(validate.Error, "duplicate channel name '%s' in request", name),
+				fmt.Sprintf("[%d].name", i),
+			)
+		}
+		namesSeen.Add(name)
+	}
+	if skipExisting {
+		return nil
+	}
+	var conflictingChannels []Channel
+	if err := gorp.NewRetrieve[Key, Channel]().
+		Where(func(_ gorp.Context, c *Channel) (bool, error) {
+			return namesSeen.Contains(c.Name), nil
+		}).
+		Entries(&conflictingChannels).Exec(ctx, tx); err != nil {
+		return errors.Skip(err, query.NotFound)
+	}
+	nameConflicts := make(map[string]int, len(conflictingChannels))
+	for i, ch := range conflictingChannels {
+		nameConflicts[ch.Name] = i
+	}
+	for i, name := range names {
+		conflictingIdx, conflict := nameConflicts[name]
+		if !conflict {
+			continue
+		}
+		existingCh := conflictingChannels[conflictingIdx]
+		if existingCh.Key() == keys[i] {
+			continue
+		}
+		return validate.PathedError(
+			errors.Wrapf(validate.Error, "channel with name '%s' already exists", name),
+			fmt.Sprintf("[%d].name", i),
+		)
+	}
+	return nil
+}
+
+func (lp *leaseProxy) validateFreeVirtual(channels *[]Channel) error {
 	for _, ch := range *channels {
 		if len(ch.Name) == 0 {
 			return validate.PathedError(validate.RequiredError, "name")
@@ -450,7 +508,7 @@ func (lp *leaseProxy) createGateway(
 		}
 	}
 
-	if err := lp.validateFreeVirtual(ctx, channels, tx); err != nil {
+	if err := lp.validateFreeVirtual(channels); err != nil {
 		return err
 	}
 
@@ -646,6 +704,12 @@ func (lp *leaseProxy) rename(
 	if len(keys) != len(names) {
 		return errors.Wrap(validate.Error, "keys and names must be the same length")
 	}
+	if *lp.ValidateNames {
+		if err := lp.validateChannelNames(ctx, tx, keys, names, false); err != nil {
+			return err
+		}
+	}
+
 	batch := lp.renameRouter.Batch(newRenameBatch(keys, names))
 	for nodeKey, entries := range batch.Peers {
 		keys, names := unzipRenameBatch(entries)

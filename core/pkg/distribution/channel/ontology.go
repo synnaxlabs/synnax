@@ -72,17 +72,17 @@ func newResource(c Channel) ontology.Resource {
 	return ontology.NewResource(schema, OntologyID(c.Key()), c.Name, ToPayload(c))
 }
 
-var _ ontology.Service = (*service)(nil)
+var _ ontology.Service = (*Service)(nil)
 
 type change = xchange.Change[Key, Channel]
 
-func (s *service) Type() ontology.Type { return OntologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
-func (s *service) Schema() zyn.Schema { return schema }
+func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
-func (s *service) RetrieveResource(
+func (s *Service) RetrieveResource(
 	ctx context.Context,
 	key string,
 	tx gorp.Tx,
@@ -104,7 +104,7 @@ func translateChange(ch change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *service) OnChange(
+func (s *Service) OnChange(
 	f func(context.Context, iter.Nexter[ontology.Change]),
 ) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Channel]) {
@@ -116,13 +116,13 @@ func (s *service) OnChange(
 	return s.NewObservable().OnChange(handleChange)
 }
 
-func (s *service) NewObservable() observe.Observable[gorp.TxReader[Key, Channel]] {
-	return gorp.Observe[Key, Channel](s.DB)
+func (s *Service) NewObservable() observe.Observable[gorp.TxReader[Key, Channel]] {
+	return gorp.Observe[Key, Channel](s.db)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	n, err := gorp.WrapReader[Key, Channel](s.DB).OpenNexter()
+func (s *Service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
+	n, err := gorp.WrapReader[Key, Channel](s.db).OpenNexter()
 	if err != nil {
 		return nil, err
 	}

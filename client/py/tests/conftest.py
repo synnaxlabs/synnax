@@ -37,7 +37,7 @@ def client() -> sy.Synnax:
 
 @pytest.fixture
 def indexed_pair(client: sy.Synnax) -> tuple[sy.Channel, sy.Channel]:
-    v = random.randint(0, 100000)
+    v = random.randint(0, 1000000)
     idx = client.channels.create(
         name=f"test_{v}_time",
         is_index=True,
@@ -53,7 +53,7 @@ def indexed_pair(client: sy.Synnax) -> tuple[sy.Channel, sy.Channel]:
 
 @pytest.fixture
 def virtual_channel(client: sy.Synnax) -> sy.Channel:
-    v = random.randint(0, 100000)
+    v = random.randint(0, 1000000)
     return client.channels.create(
         name=f"test_{v}_virtual",
         virtual=True,
