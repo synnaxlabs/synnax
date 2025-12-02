@@ -20,6 +20,11 @@
         position: relative;
         user-select: none;
         -webkit-user-select: none;
+
+        & > .pluto-list__sentinel {
+            height: 1px;
+            width: 100%;
+        }
     }
 
     &.pluto--direction-x {
