@@ -12,7 +12,6 @@ on:
     paths:
       - .bazeliskrc
       - .bazelrc
-      - .github/workflows/test.integration.yaml
       - alamos/go/**
       - alamos/py/**
       - alamos/ts/**
@@ -332,8 +331,8 @@ jobs:
         shell: cmd
         run: integration/scripts/DebugBuildEnvironmentWindows.cmd
 
-  download-artifacts-windows:
-    name: Download Artifacts (Windows)
+  deploy-and-test-windows:
+    name: Deploy and Test (windows)
     timeout-minutes: 1
     runs-on:
       - self-hosted
@@ -353,16 +352,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
         run: integration/scripts/DownloadArtifactsWindows.cmd
-
-  deploy-and-test-windows:
-    name: Deploy and Test (windows)
-    runs-on:
-      - self-hosted
-      - windows-latest
-    needs: [setup, download-artifacts-windows]
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
 
       - name: Update Submodules
         run: git submodule update --init --recursive
@@ -414,8 +403,8 @@ jobs:
         shell: cmd
         run: integration/scripts/DebugTestEnvironmentWindows.cmd
 
-  download-artifacts-macos:
-    name: Download Artifacts (macOS)
+  deploy-and-test-macos:
+    name: Deploy and Test (macOS)
     timeout-minutes: 1
     runs-on:
       - self-hosted
@@ -434,17 +423,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
         run: integration/scripts/download_artifacts_unix.sh
-
-  deploy-and-test-macos:
-    name: Deploy and Test (macOS)
-    runs-on:
-      - self-hosted
-      - macos-latest
-    if: false
-    needs: [setup, download-artifacts-macos]
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
 
       - name: Update Submodules
         run: git submodule update --init --recursive
@@ -486,8 +464,8 @@ jobs:
         if: failure()
         run: integration/scripts/debug_test_environment_unix.sh
 
-  download-artifacts-ubuntu:
-    name: Download Artifacts (Ubuntu-Latest)
+  deploy-and-test-ubuntu:
+    name: Deploy and Test (ubuntu)
     timeout-minutes: 1
     runs-on:
       - self-hosted
@@ -506,16 +484,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
         run: integration/scripts/download_artifacts_unix.sh
-
-  deploy-and-test-ubuntu:
-    name: Deploy and Test (ubuntu)
-    runs-on:
-      - self-hosted
-      - ubuntu-latest
-    needs: [setup, download-artifacts-ubuntu]
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
 
       - name: Update Submodules
         run: git submodule update --init --recursive
