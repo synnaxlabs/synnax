@@ -44,7 +44,6 @@ const [Context, useCtx] = context.create<ContextValue>({
   },
   displayName: "Select.Context",
 });
-Context.displayName = "Select.Context";
 
 const isSelected = <K extends record.Key>(
   value: K | K[] | null | undefined,

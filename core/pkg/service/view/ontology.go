@@ -11,13 +11,15 @@ package view
 
 import (
 	"context"
+	"io"
+	"iter"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
+	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -95,28 +97,20 @@ func translateChange(c change) ontology.Change {
 }
 
 func (s *Service) OnChange(
-	f func(context.Context, iter.Nexter[ontology.Change]),
+	f func(context.Context, iter.Seq[ontology.Change]),
 ) observe.Disconnect {
-	handleChange := func(
-		ctx context.Context,
-		reader gorp.TxReader[uuid.UUID, View],
-	) {
-		f(ctx, iter.NexterTranslator[change, ontology.Change]{
-			Wrap:      reader,
-			Translate: translateChange,
-		})
+	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, View]) {
+		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return gorp.Observe[uuid.UUID, View](s.cfg.DB).OnChange(handleChange)
 }
 
-// OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	n, err := gorp.WrapReader[uuid.UUID, View](s.cfg.DB).OpenNexter()
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
+	n, closer, err := gorp.WrapReader[uuid.UUID, View](s.cfg.DB).OpenNexter(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return iter.NexterCloserTranslator[View, ontology.Resource]{
-		Wrap:      n,
-		Translate: newResource,
-	}, nil
+	return xiter.Map(n, newResource), closer, nil
 }
