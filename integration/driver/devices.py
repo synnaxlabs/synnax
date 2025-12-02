@@ -24,14 +24,11 @@ from collections.abc import Coroutine
 from dataclasses import dataclass
 from multiprocessing import get_context
 from multiprocessing.context import ForkProcess
-from typing import Any, Callable
+from typing import Callable
 
-# isort: off
-from examples.modbus import run_server as run_modbus_server  # type: ignore[import-untyped]
-from examples.opcua import run_server as run_opcua_server  # type: ignore[import-untyped]
-
-# isort: on
 import synnax as sy
+from examples.modbus import run_server as run_modbus_server
+from examples.opcua import run_server as run_opcua_server
 from synnax import modbus, opcua
 from synnax.device import Device as SynnaxDevice
 
@@ -39,7 +36,7 @@ from synnax.device import Device as SynnaxDevice
 mp_ctx = get_context("fork")
 
 
-def _run_server(server_func: Callable[[], Coroutine[Any, Any, None]]) -> None:
+def _run_server(server_func: Callable[[], Coroutine[None, None, None]]) -> None:
     """Run a server in a subprocess, with default signal handling."""
 
     # Suppress stdout

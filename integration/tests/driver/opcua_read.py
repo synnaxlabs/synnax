@@ -10,10 +10,10 @@
 import synnax as sy
 from synnax import opcua
 
-from tests.driver.opcua_task import OpcuaTaskCase
+from tests.driver.opcua_task import OPCUATaskCase
 
 
-class OPCUAReadFloat(OpcuaTaskCase):
+class OPCUAReadFloat(OPCUATaskCase):
     """
     OPC UA read task test for float32 channels.
 
@@ -30,7 +30,7 @@ class OPCUAReadFloat(OpcuaTaskCase):
             **kwargs,
         )
 
-    def create_channels(self, *, device: sy.Device) -> list[opcua.ReadChannel]:
+    def create_channels(self) -> list[opcua.ReadChannel]:
         """Create float32 channels."""
         index_c = self.client.channels.create(
             name="opcua_float_index",
@@ -62,7 +62,7 @@ class OPCUAReadFloat(OpcuaTaskCase):
         ]
 
 
-class OPCUAReadBool(OpcuaTaskCase):
+class OPCUAReadBool(OPCUATaskCase):
     """
     OPC UA read task test for boolean channels.
 
@@ -79,7 +79,7 @@ class OPCUAReadBool(OpcuaTaskCase):
             **kwargs,
         )
 
-    def create_channels(self, *, device: sy.Device) -> list[opcua.ReadChannel]:
+    def create_channels(self) -> list[opcua.ReadChannel]:
         """Create boolean channels."""
         index_c = self.client.channels.create(
             name="opcua_bool_index",
@@ -111,7 +111,7 @@ class OPCUAReadBool(OpcuaTaskCase):
         ]
 
 
-class OPCUAReadArray(OpcuaTaskCase):
+class OPCUAReadArray(OPCUATaskCase):
     """
     OPC UA read task test for array mode.
 
@@ -129,7 +129,7 @@ class OPCUAReadArray(OpcuaTaskCase):
             **kwargs,
         )
 
-    def create_channels(self, *, device: sy.Device) -> list[opcua.ReadChannel]:
+    def create_channels(self) -> list[opcua.ReadChannel]:
         """Create array channels."""
 
         index_c = self.client.channels.create(
@@ -162,7 +162,7 @@ class OPCUAReadArray(OpcuaTaskCase):
         ]
 
 
-class OPCUAReadMixed(OpcuaTaskCase):
+class OPCUAReadMixed(OPCUATaskCase):
     """
     OPC UA read task test with mixed channel types.
 
@@ -179,7 +179,7 @@ class OPCUAReadMixed(OpcuaTaskCase):
             **kwargs,
         )
 
-    def create_channels(self, *, device: sy.Device) -> list[opcua.ReadChannel]:
+    def create_channels(self) -> list[opcua.ReadChannel]:
         """Create mixed channel types."""
         index_c = self.client.channels.create(
             name="opcua_mixed_index",

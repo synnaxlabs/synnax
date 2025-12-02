@@ -13,6 +13,7 @@ OPC UA-specific task test case.
 Provides OPC UA task creation logic using Synnax task client directly.
 """
 
+from abc import abstractmethod
 from typing import Any
 
 import synnax as sy
@@ -22,7 +23,7 @@ from driver.devices import Simulator
 from tests.driver.simulator_task import SimulatorTaskCase
 
 
-class OpcuaTaskCase(SimulatorTaskCase):
+class OPCUATaskCase(SimulatorTaskCase):
     """
     Base class for OPC UA task tests.
 
@@ -39,7 +40,7 @@ class OpcuaTaskCase(SimulatorTaskCase):
         **kwargs: Any,
     ) -> None:
         """
-        Initialize OpcuaTaskCase.
+        Initialize OPCUATaskCase.
 
         The device_name is automatically set from the OPC UA simulator configuration.
         """
@@ -51,6 +52,15 @@ class OpcuaTaskCase(SimulatorTaskCase):
             simulator=Simulator.OPCUA,
             **kwargs,
         )
+
+    @abstractmethod
+    def create_channels(self) -> list[opcua.ReadChannel]:
+        """Create OPC UA-specific task channels.
+
+        Returns:
+            List of OPC UA ReadChannel objects
+        """
+        pass
 
     def create(
         self,
@@ -72,7 +82,7 @@ class OpcuaTaskCase(SimulatorTaskCase):
         Returns:
             Configured OPC UA read task
         """
-        channels = self.create_channels(device=device)
+        channels = self.create_channels()
 
         return opcua.ReadTask(
             name=task_name,

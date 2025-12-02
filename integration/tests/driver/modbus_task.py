@@ -13,10 +13,12 @@ Modbus-specific task test case.
 Provides Modbus TCP task creation logic using Synnax task client directly.
 """
 
+from abc import abstractmethod
 from typing import Any
 
 import synnax as sy
 from synnax import modbus
+from synnax.modbus.types import BaseChan
 
 from driver.devices import Simulator
 from tests.driver.simulator_task import SimulatorTaskCase
@@ -47,6 +49,15 @@ class ModbusTaskCase(SimulatorTaskCase):
             **kwargs,
         )
 
+    @abstractmethod
+    def create_channels(self) -> list[BaseChan]:
+        """Create Modbus-specific task channels.
+
+        Returns:
+            List of Modbus channel objects (e.g., InputRegisterChan, HoldingRegisterInputChan)
+        """
+        pass
+
     def create(
         self,
         *,
@@ -67,7 +78,7 @@ class ModbusTaskCase(SimulatorTaskCase):
         Returns:
             Configured Modbus read task
         """
-        channels = self.create_channels(device=device)
+        channels = self.create_channels()
 
         return modbus.ReadTask(
             name=task_name,

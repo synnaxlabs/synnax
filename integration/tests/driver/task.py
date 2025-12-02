@@ -32,8 +32,7 @@ class TaskCase(TestCase):
     Use this class directly for hardware tests that don't need simulators (e.g., NI, LabJack).
 
     Subclasses should:
-    - Implement create_channels() method to define task-specific channels
-    - Implement create() method to return a configured task using those channels
+    - Implement create() method to return a configured task
     - Optionally override run() for custom test logic
     - Optionally pass task_name, task_key, and device_name to __init__ to override defaults
 
@@ -73,20 +72,6 @@ class TaskCase(TestCase):
         self.RACK_NAME = rack_name
 
         super().__init__(**params)
-
-    @abstractmethod
-    def create_channels(self, *, device: sy.Device) -> list[object]:
-        """
-        Create protocol-specific task channels.
-
-        Args:
-            device: Synnax device to create channels for
-
-        Returns:
-            List of protocol-specific channel objects (e.g., modbus.InputRegisterChan,
-            opcua.ReadChannel, ni.AIChannel, etc.)
-        """
-        pass
 
     @abstractmethod
     def create(

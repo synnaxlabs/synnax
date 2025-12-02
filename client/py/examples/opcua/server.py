@@ -178,7 +178,7 @@ async def update_bools(bools, elapsed):
         await bool_var.set_value(square_wave, varianttype=ua.VariantType.Boolean)
 
 
-async def main():
+async def run_server():
     # Initialize server
     server = Server()
     await server.init()
@@ -245,4 +245,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main(), debug=True)
+    asyncio.run(run_server(), debug=True)

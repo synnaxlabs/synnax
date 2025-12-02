@@ -9,6 +9,6 @@
 
 """OPC UA example package."""
 
-from .server import main as run_server
+from .server import run_server
 
 __all__ = ["run_server"]

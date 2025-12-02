@@ -10,6 +10,7 @@
 
 import synnax as sy
 from synnax import modbus
+from synnax.modbus.types import BaseChan
 
 from tests.driver.modbus_task import ModbusTaskCase
 
@@ -24,7 +25,7 @@ class ModbusReadInputRegister(ModbusTaskCase):
     def __init__(self, **kwargs: object) -> None:
         super().__init__(task_name="Modbus Read Input Register", **kwargs)
 
-    def create_channels(self, *, device: sy.Device) -> list[object]:
+    def create_channels(self) -> list[BaseChan]:
         """Create input register channels."""
         index_c = self.client.channels.create(
             name="input_register_index",
@@ -66,7 +67,7 @@ class ModbusReadHoldingRegister(ModbusTaskCase):
     def __init__(self, **kwargs: object) -> None:
         super().__init__(task_name="Modbus Read Holding Register", **kwargs)
 
-    def create_channels(self, *, device: sy.Device) -> list[object]:
+    def create_channels(self) -> list[BaseChan]:
         """Create holding register channels."""
         index_c = self.client.channels.create(
             name="holding_register_index",
@@ -108,7 +109,7 @@ class ModbusReadDiscreteInput(ModbusTaskCase):
     def __init__(self, **kwargs: object) -> None:
         super().__init__(task_name="Modbus Read Discrete Input", **kwargs)
 
-    def create_channels(self, *, device: sy.Device) -> list[object]:
+    def create_channels(self) -> list[BaseChan]:
         """Create discrete input channels."""
         index_c = self.client.channels.create(
             name="discrete_input_index",
@@ -148,7 +149,7 @@ class ModbusReadCoil(ModbusTaskCase):
     def __init__(self, **kwargs: object) -> None:
         super().__init__(task_name="Modbus Read Coil", **kwargs)
 
-    def create_channels(self, *, device: sy.Device) -> list[object]:
+    def create_channels(self) -> list[BaseChan]:
         """Create coil channels."""
         index_c = self.client.channels.create(
             name="coil_input_index",
@@ -188,7 +189,7 @@ class ModbusReadMixed(ModbusTaskCase):
     def __init__(self, **kwargs: object) -> None:
         super().__init__(task_name="Modbus Read Mixed", **kwargs)
 
-    def create_channels(self, *, device: sy.Device) -> list[object]:
+    def create_channels(self) -> list[BaseChan]:
         """Create mixed channel types."""
         index_c = self.client.channels.create(
             name="modbus_mixed_index",
