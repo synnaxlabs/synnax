@@ -19,6 +19,7 @@ import { useDispatch } from "react-redux";
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
+import { Modals } from "@/layout/Modals";
 import { useSelect } from "@/layout/selectors";
 import { Runtime } from "@/runtime";
 
@@ -38,7 +39,6 @@ const WindowInternal = (): ReactElement | null => {
   const dispatch = useDispatch();
   useEffect(() => {
     if (layout?.key == null) return;
-    console.log("setting window props", layout?.key);
     dispatch(
       setWindowProps({
         key: layout?.key,
@@ -70,6 +70,7 @@ const WindowInternal = (): ReactElement | null => {
       onDragOver={handleDragOver}
       onContextMenu={menuProps.open}
     >
+      <Modals />
       <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
         <Content layoutKey={layout.key} />
       </PMenu.ContextMenu>

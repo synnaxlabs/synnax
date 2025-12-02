@@ -27,7 +27,7 @@ type ExtendedStateConfig struct {
 
 func NewStateConfig(
 	ctx context.Context,
-	channelSvc channel.Readable,
+	channelSvc *channel.Service,
 	module arc.Module,
 ) (ExtendedStateConfig, error) {
 	var (

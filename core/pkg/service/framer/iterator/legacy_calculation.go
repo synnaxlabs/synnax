@@ -69,7 +69,7 @@ func (s *Service) newLegacyCalculationTransform(ctx context.Context, cfg *Config
 		calculated = make(set.Mapped[channel.Key, channel.Channel], len(channels))
 		required   = make(set.Mapped[channel.Key, channel.Channel], len(channels))
 	)
-	if err := s.cfg.Channels.NewRetrieve().
+	if err := s.cfg.Channel.NewRetrieve().
 		WhereKeys(cfg.Keys...).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
@@ -90,7 +90,7 @@ func (s *Service) newLegacyCalculationTransform(ctx context.Context, cfg *Config
 	})
 	cfg.Keys = append(cfg.Keys, required.Keys()...)
 	var requiredCh []channel.Channel
-	err := s.cfg.Channels.NewRetrieve().
+	err := s.cfg.Channel.NewRetrieve().
 		WhereKeys(required.Keys()...).
 		Entries(&requiredCh).
 		Exec(ctx, nil)

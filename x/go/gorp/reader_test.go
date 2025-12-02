@@ -10,23 +10,23 @@
 package gorp_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Reader", Ordered, func() {
+var _ = Describe("Reader", func() {
 	var (
-		db *gorp.DB
-		tx gorp.Tx
+		ctx context.Context
+		tx  gorp.Tx
 	)
-	BeforeAll(func() {
-		db = gorp.Wrap(memkv.New())
+	BeforeEach(func() {
+		ctx = context.Background()
 		tx = db.OpenTx()
 	})
-	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Iterator", func() {
 		It("Should iterate over entries matching a type", func() {
 			Expect(gorp.NewCreate[int, entry]().
@@ -47,11 +47,9 @@ var _ = Describe("Reader", Ordered, func() {
 				Entries(&[]entry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 				Exec(ctx, tx)).To(Succeed())
 			nexter := MustSucceed(gorp.WrapReader[int, entry](tx).OpenNexter())
-			v, ok := nexter.Next(ctx)
-			Expect(ok).To(BeTrue())
+			v := MustBeOk(nexter.Next(ctx))
 			Expect(v.Data).To(Equal("data"))
-			v, ok = nexter.Next(ctx)
-			Expect(ok).To(BeTrue())
+			v = MustBeOk(nexter.Next(ctx))
 			Expect(nexter.Close()).To(Succeed())
 		})
 		It("Should correctly iterate over entries with a binary key", func() {
@@ -59,11 +57,9 @@ var _ = Describe("Reader", Ordered, func() {
 				Entries(&[]prefixEntry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 				Exec(ctx, tx)).To(Succeed())
 			nexter := MustSucceed(gorp.WrapReader[[]byte, prefixEntry](tx).OpenNexter())
-			v, ok := nexter.Next(ctx)
-			Expect(ok).To(BeTrue())
+			v := MustBeOk(nexter.Next(ctx))
 			Expect(v.Data).To(Equal("data"))
-			v, ok = nexter.Next(ctx)
-			Expect(ok).To(BeTrue())
+			v = MustBeOk(nexter.Next(ctx))
 			Expect(nexter.Close()).To(Succeed())
 		})
 	})

@@ -36,7 +36,7 @@ type Config struct {
 	// Channel is used to create and retrieve metric collection channels.
 	//
 	// [REQUIRED]
-	Channel channel.Service
+	Channel *channel.Service
 	// Framer is used to write metrics to the metric channels.
 	//
 	// [REQUIRED]
@@ -120,7 +120,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err := cfg.Channel.Create(
 		ctx,
 		&c.idx,
-		channel.RetrieveIfNameExists(true),
+		channel.RetrieveIfNameExists(),
 	); err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err := cfg.Channel.CreateMany(
 		ctx,
 		&metricChannels,
-		channel.RetrieveIfNameExists(true),
+		channel.RetrieveIfNameExists(),
 	); err != nil {
 		return nil, err
 	}
