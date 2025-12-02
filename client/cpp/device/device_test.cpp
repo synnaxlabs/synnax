@@ -488,4 +488,77 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
     ASSERT_EQ(dm[d2.key].status.variant, status::variant::WARNING);
     ASSERT_EQ(dm[d2.key].status.message, "Device 2 warning");
 }
+
+/// @brief it should correctly parse DeviceStatusDetails from JSON.
+TEST(DeviceStatusDetailsTests, testParseFromJSON) {
+    json j = {{"rack", 12345}, {"device", "device-abc-123"}};
+    xjson::Parser parser(j);
+    auto details = DeviceStatusDetails::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(details.rack, 12345);
+    ASSERT_EQ(details.device, "device-abc-123");
+}
+
+/// @brief it should correctly serialize DeviceStatusDetails to JSON.
+TEST(DeviceStatusDetailsTests, testToJSON) {
+    DeviceStatusDetails details{
+        .rack = 67890,
+        .device = "device-xyz-456",
+    };
+    const auto j = details.to_json();
+    ASSERT_EQ(j["rack"], 67890);
+    ASSERT_EQ(j["device"], "device-xyz-456");
+}
+
+/// @brief it should round-trip DeviceStatusDetails through JSON.
+TEST(DeviceStatusDetailsTests, testRoundTrip) {
+    DeviceStatusDetails original{
+        .rack = 11111,
+        .device = "round-trip-device",
+    };
+    const auto j = original.to_json();
+    xjson::Parser parser(j);
+    auto recovered = DeviceStatusDetails::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(recovered.rack, original.rack);
+    ASSERT_EQ(recovered.device, original.device);
+}
+
+/// @brief it should correctly parse a Device from JSON.
+TEST(DeviceTests, testParseFromJSON) {
+    json j = {
+        {"key", "json-device-key"},
+        {"name", "json-device-name"},
+        {"rack", 99999},
+        {"location", "json-location"},
+        {"make", "json-make"},
+        {"model", "json-model"},
+        {"properties", "{\"custom\": true}"},
+        {"configured", true}
+    };
+    xjson::Parser parser(j);
+    auto d = Device::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(d.key, "json-device-key");
+    ASSERT_EQ(d.name, "json-device-name");
+    ASSERT_EQ(d.rack, 99999);
+    ASSERT_EQ(d.make, "json-make");
+    ASSERT_EQ(d.model, "json-model");
+    ASSERT_EQ(d.properties, "{\"custom\": true}");
+    ASSERT_EQ(d.configured, true);
+}
+
+/// @brief it should handle default values when parsing Device from JSON.
+TEST(DeviceTests, testParseFromJSONDefaults) {
+    json j = json::object();
+    xjson::Parser parser(j);
+    auto d = Device::parse(parser);
+    ASSERT_EQ(d.key, "");
+    ASSERT_EQ(d.name, "");
+    ASSERT_EQ(d.rack, 0);
+    ASSERT_EQ(d.make, "");
+    ASSERT_EQ(d.model, "");
+    ASSERT_EQ(d.properties, "");
+    ASSERT_EQ(d.configured, false);
+}
 }

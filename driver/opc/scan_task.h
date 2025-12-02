@@ -30,7 +30,7 @@
 using json = nlohmann::json;
 
 namespace opc {
-const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
+inline const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
 /// @brief Configuration for the OPC UA scanner.
 struct ScannerConfig {
     /// @brief Rate at which to check device health.
@@ -77,7 +77,7 @@ public:
     );
 
     /// @brief Returns scanner configuration for common::ScanTask.
-    common::ScannerConfig config() const override;
+    [[nodiscard]] common::ScannerConfig config() const override;
 
     /// @brief Periodic scan method - checks health of all tracked devices.
     std::pair<std::vector<synnax::Device>, xerrors::Error>
@@ -103,6 +103,6 @@ private:
     void test_connection(const task::Command &cmd) const;
 
     /// @brief Check health of a single device by testing its connection.
-    xerrors::Error check_device_health(synnax::Device &dev) const;
+    [[nodiscard]] xerrors::Error check_device_health(synnax::Device &dev) const;
 };
 }
