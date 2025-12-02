@@ -140,13 +140,20 @@ export const translate: Translate = (a, b, v, ...cb): XY => {
   }, ZERO);
 };
 
+const constructDirection = (c: CrudeDirection): Direction => {
+  if (DIRECTIONS.includes(c as Direction)) return c as Direction;
+  if (Y_LOCATIONS.includes(c as YLocation)) return "y";
+  return "x";
+};
+
 /**
  * @returns the given coordinate the given direction set to the given value.
  * @example set({ x: 1, y: 2 }, "x", 3) // { x: 3, y: 2 }
  */
-export const set = (c: Crude, direction: Direction, value: number): XY => {
+export const set = (c: Crude, direction: CrudeDirection, value: number): XY => {
   const xy = construct(c);
-  if (direction === "x") return { x: value, y: xy.y };
+  const d = constructDirection(direction);
+  if (d === "x") return { x: value, y: xy.y };
   return { x: xy.x, y: value };
 };
 
@@ -165,18 +172,6 @@ export const translation = (to: Crude, from: Crude): XY => {
   const to_ = construct(to);
   const from_ = construct(from);
   return { x: from_.x - to_.x, y: from_.y - to_.y };
-};
-
-const constructDirection = (c: CrudeDirection): Direction => {
-  if (DIRECTIONS.includes(c as Direction)) return c as Direction;
-  if (Y_LOCATIONS.includes(c as YLocation)) return "y";
-  return "x";
-};
-
-export const align = (coordinate: Crude, dir: CrudeDirection, target: number): XY => {
-  const c = construct(coordinate);
-  const d = constructDirection(dir);
-  return d === "x" ? { x: target, y: c.y } : { x: c.x, y: target };
 };
 
 /** @returns true if both the x and y coordinates of the given coordinate are NaN. */
