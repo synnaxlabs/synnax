@@ -809,7 +809,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     invalid_server_cfg.port = 4841; // Different port from main server
     auto invalid_server = std::make_unique<mock::Server>(invalid_server_cfg);
     invalid_server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(invalid_server->wait_until_ready());
 
     // Create a separate rack and device for the invalid data server
     auto invalid_rack = ASSERT_NIL_P(
@@ -888,7 +888,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     invalid_server_cfg.port = 4842; // Different port
     auto invalid_server = std::make_unique<mock::Server>(invalid_server_cfg);
     invalid_server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(invalid_server->wait_until_ready());
 
     // Create a separate rack and device for the invalid data server
     auto invalid_rack = ASSERT_NIL_P(
@@ -966,7 +966,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     invalid_server_cfg.port = 4843;
     auto invalid_server = std::make_unique<mock::Server>(invalid_server_cfg);
     invalid_server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(invalid_server->wait_until_ready());
 
     // Create a separate rack and device for the invalid data server
     auto invalid_rack = ASSERT_NIL_P(

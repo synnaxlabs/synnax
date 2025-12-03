@@ -226,4 +226,66 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
     ASSERT_TRUE(found1);
     ASSERT_TRUE(found2);
 }
+
+/// @brief it should correctly parse TaskStatusDetails from JSON.
+TEST(TaskStatusDetailsTests, testParseFromJSON) {
+    json j = {
+        {"task", 123456789},
+        {"cmd", "start"},
+        {"running", true},
+        {"data", {{"key", "value"}}}
+    };
+    xjson::Parser parser(j);
+    auto details = TaskStatusDetails::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(details.task, 123456789);
+    ASSERT_EQ(details.cmd, "start");
+    ASSERT_EQ(details.running, true);
+    ASSERT_EQ(details.data["key"], "value");
+}
+
+/// @brief it should correctly serialize TaskStatusDetails to JSON.
+TEST(TaskStatusDetailsTests, testToJSON) {
+    TaskStatusDetails details{
+        .task = 987654321,
+        .cmd = "stop",
+        .running = false,
+        .data = {{"status", "completed"}},
+    };
+    const auto j = details.to_json();
+    ASSERT_EQ(j["task"], 987654321);
+    ASSERT_EQ(j["cmd"], "stop");
+    ASSERT_EQ(j["running"], false);
+    ASSERT_EQ(j["data"]["status"], "completed");
+}
+
+/// @brief it should round-trip TaskStatusDetails through JSON.
+TEST(TaskStatusDetailsTests, testRoundTrip) {
+    TaskStatusDetails original{
+        .task = 555555,
+        .cmd = "configure",
+        .running = true,
+        .data = {{"config", "test"}, {"version", 2}},
+    };
+    const auto j = original.to_json();
+    xjson::Parser parser(j);
+    auto recovered = TaskStatusDetails::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(recovered.task, original.task);
+    ASSERT_EQ(recovered.cmd, original.cmd);
+    ASSERT_EQ(recovered.running, original.running);
+    ASSERT_EQ(recovered.data["config"], "test");
+    ASSERT_EQ(recovered.data["version"], 2);
+}
+
+/// @brief it should handle empty cmd field correctly.
+TEST(TaskStatusDetailsTests, testEmptyCmd) {
+    json j = {{"task", 111}, {"cmd", ""}, {"running", true}, {"data", json::object()}};
+    xjson::Parser parser(j);
+    auto details = TaskStatusDetails::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(details.task, 111);
+    ASSERT_EQ(details.cmd, "");
+    ASSERT_EQ(details.running, true);
+}
 }

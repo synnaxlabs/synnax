@@ -78,8 +78,8 @@ configure_initial_factory_tasks(
     if (task != nullptr)
         tasks.emplace_back(sy_task, std::move(task));
     else
-        LOG(WARNING) << "[" << integration_name
-                     << "] unexpected failure to configure initial scan task";
+        VLOG(1) << "[" << integration_name
+                << "] failure to configure initial scan task";
     return tasks;
 }
 

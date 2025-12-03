@@ -257,25 +257,15 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
     // Delete the first device
     ASSERT_NIL(client.devices.del(d1.key));
 
-    // Try to retrieve both devices
-    std::vector<std::string> keys;
-    keys.push_back(d1.key);
-    keys.push_back(d2.key);
-    auto devices = ASSERT_NIL_P(client.devices.retrieve(keys, true));
+    // Verify deleted device returns NOT_FOUND
+    auto [_, err] = client.devices.retrieve(d1.key);
+    ASSERT_TRUE(err);
+    ASSERT_MATCHES(err, xerrors::NOT_FOUND);
 
-    // Assert that we got at least one device back (the non-deleted one)
-    ASSERT_GE(devices.size(), 1);
-
-    // Verify that the remaining device is the second one
-    bool found = false;
-    for (const Device &device: devices) {
-        if (device.key == d2.key) {
-            ASSERT_EQ(device.name, "test_device_2");
-            found = true;
-            break;
-        }
-    }
-    ASSERT_TRUE(found);
+    // Verify remaining device can still be retrieved
+    const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(d2.key));
+    ASSERT_EQ(retrieved.key, d2.key);
+    ASSERT_EQ(retrieved.name, "test_device_2");
 }
 
 /// @brief it should correctly delete a device.
@@ -336,30 +326,6 @@ TEST(DeviceTests, testDeleteDevices) {
     ASSERT_OCCURRED_AS_P(client.devices.retrieve(keys), xerrors::NOT_FOUND);
 }
 
-/// @brief it should correctly handle ignore_not_found flag.
-TEST(DeviceTests, testRetrieveDeviceIgnoreNotFound) {
-    const auto client = new_test_client();
-    auto r = Rack("test_rack");
-    ASSERT_NIL(client.racks.create(r));
-    const auto [device1, err1] = client.devices.retrieve("nonexistent_key", true);
-    ASSERT_FALSE(err1);
-    ASSERT_TRUE(device1.key.empty());
-    auto d1 = Device(
-        "device1_key",
-        "test_device_1",
-        r.key,
-        "location_1",
-        "make_1",
-        "model_1",
-        "properties_1"
-    );
-    ASSERT_NIL(client.devices.create(d1));
-    std::vector<std::string> keys = {d1.key, "nonexistent_key"};
-    const auto [devices, err2] = client.devices.retrieve(keys, true);
-    ASSERT_FALSE(err2);
-    ASSERT_EQ(devices.size(), 1);
-    ASSERT_EQ(devices[0].key, d1.key);
-}
 /// @brief it should retrieve devices using a DeviceRetrieveRequest with keys and names.
 TEST(DeviceTests, testRetrieveWithRequest) {
     const auto client = new_test_client();
@@ -446,30 +412,6 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
             if (da.key == db.key) different = false;
     ASSERT_TRUE(different);
 }
-/// @brief it should handle ignore_not_found in DeviceRetrieveRequest.
-TEST(DeviceTests, testRetrieveRequestIgnoreNotFound) {
-    const auto client = new_test_client();
-    auto r = Rack("test_rack");
-    ASSERT_NIL(client.racks.create(r));
-    const auto rand = std::to_string(gen_rand_device());
-    auto d = Device(
-        "ignore_nf_" + rand,
-        "ignore_nf_dev_" + rand,
-        r.key,
-        "loc",
-        "make",
-        "model",
-        "props"
-    );
-    ASSERT_NIL(client.devices.create(d));
-    DeviceRetrieveRequest req;
-    req.keys = {d.key, "nonexistent_" + rand};
-    req.ignore_not_found = true;
-    const auto devices = ASSERT_NIL_P(client.devices.retrieve(req));
-    ASSERT_EQ(devices.size(), 1);
-    ASSERT_EQ(devices[0].key, d.key);
-}
-
 /// @brief it should correctly create and retrieve a device with a status.
 TEST(DeviceTests, testCreateDeviceWithStatus) {
     const auto client = new_test_client();
@@ -545,5 +487,78 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
     ASSERT_FALSE(dm[d2.key].status.is_zero());
     ASSERT_EQ(dm[d2.key].status.variant, status::variant::WARNING);
     ASSERT_EQ(dm[d2.key].status.message, "Device 2 warning");
+}
+
+/// @brief it should correctly parse DeviceStatusDetails from JSON.
+TEST(DeviceStatusDetailsTests, testParseFromJSON) {
+    json j = {{"rack", 12345}, {"device", "device-abc-123"}};
+    xjson::Parser parser(j);
+    auto details = DeviceStatusDetails::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(details.rack, 12345);
+    ASSERT_EQ(details.device, "device-abc-123");
+}
+
+/// @brief it should correctly serialize DeviceStatusDetails to JSON.
+TEST(DeviceStatusDetailsTests, testToJSON) {
+    DeviceStatusDetails details{
+        .rack = 67890,
+        .device = "device-xyz-456",
+    };
+    const auto j = details.to_json();
+    ASSERT_EQ(j["rack"], 67890);
+    ASSERT_EQ(j["device"], "device-xyz-456");
+}
+
+/// @brief it should round-trip DeviceStatusDetails through JSON.
+TEST(DeviceStatusDetailsTests, testRoundTrip) {
+    DeviceStatusDetails original{
+        .rack = 11111,
+        .device = "round-trip-device",
+    };
+    const auto j = original.to_json();
+    xjson::Parser parser(j);
+    auto recovered = DeviceStatusDetails::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(recovered.rack, original.rack);
+    ASSERT_EQ(recovered.device, original.device);
+}
+
+/// @brief it should correctly parse a Device from JSON.
+TEST(DeviceTests, testParseFromJSON) {
+    json j = {
+        {"key", "json-device-key"},
+        {"name", "json-device-name"},
+        {"rack", 99999},
+        {"location", "json-location"},
+        {"make", "json-make"},
+        {"model", "json-model"},
+        {"properties", "{\"custom\": true}"},
+        {"configured", true}
+    };
+    xjson::Parser parser(j);
+    auto d = Device::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(d.key, "json-device-key");
+    ASSERT_EQ(d.name, "json-device-name");
+    ASSERT_EQ(d.rack, 99999);
+    ASSERT_EQ(d.make, "json-make");
+    ASSERT_EQ(d.model, "json-model");
+    ASSERT_EQ(d.properties, "{\"custom\": true}");
+    ASSERT_EQ(d.configured, true);
+}
+
+/// @brief it should handle default values when parsing Device from JSON.
+TEST(DeviceTests, testParseFromJSONDefaults) {
+    json j = json::object();
+    xjson::Parser parser(j);
+    auto d = Device::parse(parser);
+    ASSERT_EQ(d.key, "");
+    ASSERT_EQ(d.name, "");
+    ASSERT_EQ(d.rack, 0);
+    ASSERT_EQ(d.make, "");
+    ASSERT_EQ(d.model, "");
+    ASSERT_EQ(d.properties, "");
+    ASSERT_EQ(d.configured, false);
 }
 }

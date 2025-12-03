@@ -27,6 +27,9 @@
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/device.pb.h"
 
 namespace synnax {
+const std::string DEVICE_SET_CHANNEL = "sy_device_set";
+const std::string DEVICE_DELETE_CHANNEL = "sy_device_delete";
+
 // Forward declaration for RackKey (needed for Device struct)
 using RackKey = std::uint32_t;
 
@@ -140,6 +143,11 @@ struct Device {
     /// @returns A pair containing the device and an error if one occurred.
     static std::pair<Device, xerrors::Error> from_proto(const api::v1::Device &device);
 
+    /// @brief Parses a device from a JSON parser.
+    /// @param parser The JSON parser containing device data.
+    /// @returns The parsed device.
+    static Device parse(xjson::Parser &parser);
+
 private:
     void to_proto(api::v1::Device *device) const;
 
@@ -208,13 +216,10 @@ public:
 
     /// @brief Retrieves a device by its key.
     /// @param key The key of the device to retrieve.
-    /// @param ignore_not_found If true, returns an empty device without error when
-    /// not found.
     /// @returns A pair containing the retrieved device and an error if one
     /// occurred.
     [[nodiscard]]
-    std::pair<Device, xerrors::Error>
-    retrieve(const std::string &key, bool ignore_not_found = false) const;
+    std::pair<Device, xerrors::Error> retrieve(const std::string &key) const;
 
     /// @brief Retrieves a device by its key with options.
     /// @param key The key of the device to retrieve.
@@ -227,12 +232,11 @@ public:
 
     /// @brief Retrieves multiple devices by their keys.
     /// @param keys The keys of the devices to retrieve.
-    /// @param ignore_not_found If true, skips non-existent devices without error.
     /// @returns A pair containing the retrieved devices and an error if one
     /// occurred.
     [[nodiscard]]
     std::pair<std::vector<Device>, xerrors::Error>
-    retrieve(const std::vector<std::string> &keys, bool ignore_not_found = false) const;
+    retrieve(const std::vector<std::string> &keys) const;
 
     /// @brief Retrieves multiple devices by their keys with options.
     /// @param keys The keys of the devices to retrieve.

@@ -21,17 +21,13 @@ DeviceClient::DeviceClient(
     device_retrieve_client(std::move(device_retrieve_client)),
     device_delete_client(std::move(device_delete_client)) {}
 
-std::pair<Device, xerrors::Error>
-DeviceClient::retrieve(const std::string &key, bool ignore_not_found) const {
+std::pair<Device, xerrors::Error> DeviceClient::retrieve(const std::string &key) const {
     auto req = api::v1::DeviceRetrieveRequest();
     req.add_keys(key);
-    req.set_ignore_not_found(ignore_not_found);
     auto [res, err] = device_retrieve_client->send("/device/retrieve", req);
     if (err) return {Device(), err};
-    if (res.devices_size() == 0) {
-        if (ignore_not_found) return {Device(), xerrors::NIL};
+    if (res.devices_size() == 0)
         return {Device(), not_found_error("device", "key " + key)};
-    }
     return Device::from_proto(res.devices(0));
 }
 
@@ -49,13 +45,11 @@ std::pair<Device, xerrors::Error> DeviceClient::retrieve(
     return Device::from_proto(res.devices(0));
 }
 
-std::pair<std::vector<Device>, xerrors::Error> DeviceClient::retrieve(
-    const std::vector<std::string> &keys,
-    bool ignore_not_found
-) const {
+std::pair<std::vector<Device>, xerrors::Error>
+DeviceClient::retrieve(const std::vector<std::string> &keys) const {
+    if (keys.empty()) return {std::vector<Device>(), xerrors::NIL};
     DeviceRetrieveRequest req;
     req.keys = keys;
-    req.ignore_not_found = ignore_not_found;
     return retrieve(req);
 }
 
@@ -163,5 +157,18 @@ void Device::to_proto(api::v1::Device *device) const {
     device->set_properties(properties);
     device->set_configured(configured);
     if (!status.is_zero()) status.to_proto(device->mutable_status());
+}
+
+Device Device::parse(xjson::Parser &parser) {
+    Device d;
+    d.key = parser.field<std::string>("key", "");
+    d.name = parser.field<std::string>("name", "");
+    d.rack = parser.field<RackKey>("rack", 0);
+    d.location = parser.field<std::string>("location", "");
+    d.make = parser.field<std::string>("make", "");
+    d.model = parser.field<std::string>("model", "");
+    d.configured = parser.field<bool>("configured", false);
+    d.properties = parser.field<std::string>("properties", "");
+    return d;
 }
 }

@@ -207,6 +207,10 @@ public:
         return task_ontology_id(this->key).string();
     }
 
+    [[nodiscard]] synnax::RackKey rack() const {
+        return rack_key_from_task_key(this->key);
+    }
+
 private:
     /// @brief Converts the task to its protobuf representation.
     /// @param task The protobuf object to populate.

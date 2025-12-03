@@ -67,4 +67,30 @@ TEST(RackTests, testCreateRackWithStatus) {
     ASSERT_EQ(r2.status.variant, status::variant::SUCCESS);
     ASSERT_EQ(r2.status.message, "Rack is healthy");
 }
+
+/// @brief it should correctly parse RackStatusDetails from JSON.
+TEST(RackStatusDetailsTests, testParseFromJSON) {
+    json j = {{"rack", 54321}};
+    xjson::Parser parser(j);
+    auto details = RackStatusDetails::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(details.rack, 54321);
+}
+
+/// @brief it should correctly serialize RackStatusDetails to JSON.
+TEST(RackStatusDetailsTests, testToJSON) {
+    RackStatusDetails details{.rack = 98765};
+    const auto j = details.to_json();
+    ASSERT_EQ(j["rack"], 98765);
+}
+
+/// @brief it should round-trip RackStatusDetails through JSON.
+TEST(RackStatusDetailsTests, testRoundTrip) {
+    RackStatusDetails original{.rack = 11223};
+    const auto j = original.to_json();
+    xjson::Parser parser(j);
+    auto recovered = RackStatusDetails::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(recovered.rack, original.rack);
+}
 }
