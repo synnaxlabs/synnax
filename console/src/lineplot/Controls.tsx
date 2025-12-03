@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/lineplot/Controls.css";
+
 import { Button, Flex, Icon, Text, Triggers, Viewport } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
+import { Controls as Base } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import {
@@ -28,8 +31,6 @@ import {
 } from "@/lineplot/slice";
 
 const TOOLTIP_LOCATION: location.XY = { x: "left", y: "bottom" };
-
-const style = { zIndex: 500 };
 
 export interface ControlsProps {
   layoutKey: string;
@@ -65,7 +66,7 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   return (
-    <Flex.Box className={CSS.BE("line-plot", "nav-controls")} gap="small" style={style}>
+    <Base.Controls>
       <Flex.Box x>
         <Viewport.SelectMode
           value={mode}
@@ -150,6 +151,6 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
           </Button.Toggle>
         </Flex.Box>
       )}
-    </Flex.Box>
+    </Base.Controls>
   );
 };
