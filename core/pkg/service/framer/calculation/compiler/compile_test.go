@@ -73,7 +73,7 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			Channels:       dist.Channel,
+			ChannelService: dist.Channel,
 			Channel:        calc,
 			SymbolResolver: arcSvc.SymbolResolver(),
 		}))
@@ -94,7 +94,7 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			Channels:       dist.Channel,
+			ChannelService: dist.Channel,
 			Channel:        calc,
 			SymbolResolver: arcSvc.SymbolResolver(),
 		}))
@@ -116,7 +116,7 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			Channels:       dist.Channel,
+			ChannelService: dist.Channel,
 			Channel:        calc,
 			SymbolResolver: arcSvc.SymbolResolver(),
 		}))
@@ -133,7 +133,7 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 		Expect(compiler.Compile(ctx, compiler.Config{
-			Channels:       dist.Channel,
+			ChannelService: dist.Channel,
 			Channel:        calc,
 			SymbolResolver: arcSvc.SymbolResolver(),
 		})).Error().To(ContainSubstring("extraneous input '{'"))

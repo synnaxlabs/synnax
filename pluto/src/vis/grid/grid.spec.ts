@@ -20,7 +20,6 @@ describe("grid", () => {
       key: string;
       expected: xy.XY;
       container: box.Crude;
-      only?: boolean;
     }
     const SPECS: Spec[] = [
       {
@@ -103,8 +102,8 @@ describe("grid", () => {
         expected: { x: 10, y: 80 },
       },
     ];
-    SPECS.forEach(({ key, only = false, name, grid: grid_, container, expected }) => {
-      (only ? it.only : it)(name, () => {
+    SPECS.forEach(({ key, name, grid: grid_, container, expected }) => {
+      it(name, () => {
         const actual = grid.position(key, grid_, box.construct(container));
         expect(actual).toEqual(expected);
       });

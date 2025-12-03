@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/x/address"
@@ -41,9 +41,10 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	DistFramer *framer.Service
 	// Channel is used to retrieve information about channels.
+	//
 	// [REQUIRED]
-	Channels channel.Readable
-	Arc      *svcarc.Service
+	Channel *channel.Service
+	Arc     *arc.Service
 }
 
 var (
@@ -58,7 +59,7 @@ var (
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.DistFramer = override.Nil(cfg.DistFramer, other.DistFramer)
-	cfg.Channels = override.Nil(cfg.Channels, other.Channels)
+	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
 	cfg.Arc = override.Nil(cfg.Arc, other.Arc)
 	return cfg
 }
@@ -67,7 +68,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("iterator")
 	validate.NotNil(v, "framer", cfg.DistFramer)
-	validate.NotNil(v, "channel", cfg.Channels)
+	validate.NotNil(v, "channel", cfg.Channel)
 	validate.NotNil(v, "arc", cfg.Arc)
 	return v.Error()
 }
@@ -95,17 +96,18 @@ type (
 )
 
 const (
-	AutoSpan    = iterator.AutoSpan
-	SeekFirst   = iterator.SeekFirst
-	SeekLast    = iterator.SeekLast
-	SeekLE      = iterator.SeekLE
-	SeekGE      = iterator.SeekGE
-	Next        = iterator.Next
-	Prev        = iterator.Prev
-	SetBounds   = iterator.SetBounds
-	AckResponse = iterator.AckResponse
-	Error       = iterator.Error
-	Valid       = iterator.Valid
+	AutoSpan     = iterator.AutoSpan
+	SeekFirst    = iterator.SeekFirst
+	SeekLast     = iterator.SeekLast
+	SeekLE       = iterator.SeekLE
+	SeekGE       = iterator.SeekGE
+	Next         = iterator.Next
+	Prev         = iterator.Prev
+	SetBounds    = iterator.SetBounds
+	AckResponse  = iterator.AckResponse
+	DataResponse = iterator.DataResponse
+	Error        = iterator.Error
+	Valid        = iterator.Valid
 )
 
 type ResponseSegment = confluence.Segment[Response, Response]
@@ -176,7 +178,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 
 	// Fetch the requested channels
 	var channels []channel.Channel
-	if err := s.cfg.Channels.NewRetrieve().
+	if err := s.cfg.Channel.NewRetrieve().
 		WhereKeys(cfg.Keys...).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
@@ -185,7 +187,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 
 	// Use allocator to resolve dependencies and get topological order
 	calcGraph, err := graph.New(graph.Config{
-		Channels:       s.cfg.Channels,
+		Channel:        s.cfg.Channel,
 		SymbolResolver: s.cfg.Arc.SymbolResolver(),
 	})
 	if err != nil {
@@ -225,7 +227,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 	// Fetch concrete base channel metadata to get their indices
 	var concreteBaseChannels []channel.Channel
 	if len(concreteBaseKeys) > 0 {
-		if err := s.cfg.Channels.NewRetrieve().
+		if err := s.cfg.Channel.NewRetrieve().
 			Entries(&concreteBaseChannels).
 			WhereKeys(concreteBaseKeys.Keys()...).
 			Exec(ctx, nil); err != nil {
@@ -251,38 +253,39 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 }
 
 type Iterator struct {
-	requests  confluence.Inlet[Request]
-	responses confluence.Outlet[Response]
-	shutdown  context.CancelFunc
-	wg        signal.WaitGroup
-	value     []Response
+	requests    confluence.Inlet[Request]
+	responses   confluence.Outlet[Response]
+	shutdown    context.CancelFunc
+	wg          signal.WaitGroup
+	value       []Response
+	valueFrames []core.Frame
 }
 
 // Next reads all channel data occupying the next span of time. Returns true
 // if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) Next(span telem.TimeSpan) bool {
-	i.value = nil
+	i.value = i.value[:0]
 	return i.exec(Request{Command: Next, Span: span})
 }
 
 // Prev reads all channel data occupying the previous span of time. Returns true
 // if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) Prev(span telem.TimeSpan) bool {
-	i.value = nil
+	i.value = i.value[:0]
 	return i.exec(Request{Command: Prev, Span: span})
 }
 
 // SeekFirst seeks the Iterator the start of the Iterator range.
 // Returns true if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) SeekFirst() bool {
-	i.value = nil
+	i.value = i.value[:0]
 	return i.exec(Request{Command: SeekFirst})
 }
 
 // SeekLast seeks the Iterator the end of the Iterator range.
 // Returns true if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) SeekLast() bool {
-	i.value = nil
+	i.value = i.value[:0]
 	return i.exec(Request{Command: SeekLast})
 }
 
@@ -290,7 +293,7 @@ func (i *Iterator) SeekLast() bool {
 // to the given timestamp. Returns true if the current IteratorServer.View is pointing
 // to any valid segments.
 func (i *Iterator) SeekLE(stamp telem.TimeStamp) bool {
-	i.value = nil
+	i.value = i.value[:0]
 	return i.exec(Request{Command: SeekLE, Stamp: stamp})
 }
 
@@ -298,7 +301,7 @@ func (i *Iterator) SeekLE(stamp telem.TimeStamp) bool {
 // given timestamp. Returns true if the current IteratorServer.View is pointing to
 // any valid segments.
 func (i *Iterator) SeekGE(stamp telem.TimeStamp) bool {
-	i.value = nil
+	i.value = i.value[:0]
 	return i.exec(Request{Command: SeekGE, Stamp: stamp})
 }
 
@@ -328,11 +331,15 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) bool {
 }
 
 func (i *Iterator) Value() core.Frame {
-	frames := make([]core.Frame, len(i.value))
-	for i, v := range i.value {
-		frames[i] = v.Frame
+	if cap(i.valueFrames) < len(i.value) {
+		i.valueFrames = make([]core.Frame, len(i.value))
+	} else {
+		i.valueFrames = i.valueFrames[:len(i.value)]
 	}
-	return core.MergeFrames(frames)
+	for idx, v := range i.value {
+		i.valueFrames[idx] = v.Frame
+	}
+	return core.MergeFrames(i.valueFrames)
 }
 
 func (i *Iterator) exec(req Request) bool {

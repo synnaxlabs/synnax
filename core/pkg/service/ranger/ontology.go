@@ -11,6 +11,8 @@ package ranger
 
 import (
 	"context"
+	"io"
+	"iter"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -18,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
+	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
@@ -104,28 +106,16 @@ func translateChange(c change) ontology.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(
-	f func(context.Context, iter.Nexter[ontology.Change]),
+	f func(context.Context, iter.Seq[ontology.Change]),
 ) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Range]) {
-		f(
-			ctx,
-			iter.NexterTranslator[change, ontology.Change]{
-				Wrap:      reader,
-				Translate: translateChange,
-			},
-		)
+		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return gorp.Observe[uuid.UUID, Range](s.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	n, err := gorp.WrapReader[uuid.UUID, Range](s.DB).OpenNexter()
-	if err != nil {
-		return nil, err
-	}
-	return iter.NexterCloserTranslator[Range, ontology.Resource]{
-		Wrap:      n,
-		Translate: newResource,
-	}, nil
+func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+	n, closer, err := gorp.WrapReader[uuid.UUID, Range](s.DB).OpenNexter(ctx)
+	return xiter.Map(n, newResource), closer, err
 }

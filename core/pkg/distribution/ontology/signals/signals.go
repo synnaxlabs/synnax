@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"iter"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -20,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -32,23 +32,27 @@ func Publish(
 	prov *signals.Provider,
 	otg *ontology.Ontology,
 ) (io.Closer, error) {
-	resourceObserver := observe.Translator[iter.Nexter[ontology.Change], []change.Change[[]byte, struct{}]]{
+	resourceObserver := observe.Translator[iter.Seq[ontology.Change], []change.Change[[]byte, struct{}]]{
 		Observable: otg.ResourceObserver,
-		Translate: func(nexter iter.Nexter[ontology.Change]) []change.Change[[]byte, struct{}] {
-			return iter.MapToSliceWithFilter(ctx, nexter, func(ch ontology.Change) (change.Change[[]byte, struct{}], bool) {
+		Translate: func(nexter iter.Seq[ontology.Change]) []change.Change[[]byte, struct{}] {
+			var (
+				out []change.Change[[]byte, struct{}]
+				key []byte
+				err error
+			)
+			for ch := range nexter {
 				if ch.Variant == change.Set {
-					v, err := signals.MarshalJSON(ch.Value)
+					key, err = signals.MarshalJSON(ch.Value)
 					if err != nil {
 						otg.L.DPanic("unexpected failure to marshal ontology resource set", zap.Error(err))
-						return change.Change[[]byte, struct{}]{}, false
+						continue
 					}
-					return change.Change[[]byte, struct{}]{Key: v, Variant: ch.Variant}, true
+				} else {
+					key = EncodeID(ch.Key)
 				}
-				return change.Change[[]byte, struct{}]{
-					Key:     EncodeID(ch.Key),
-					Variant: ch.Variant,
-				}, true
-			})
+				out = append(out, change.Change[[]byte, struct{}]{Key: key, Variant: ch.Variant})
+			}
+			return out
 		},
 	}
 	resourceObserverCloser, err := prov.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
@@ -63,12 +67,14 @@ func Publish(
 	relationshipObserver := observe.Translator[gorp.TxReader[[]byte, ontology.Relationship], []change.Change[[]byte, struct{}]]{
 		Observable: otg.RelationshipObserver,
 		Translate: func(nexter gorp.TxReader[[]byte, ontology.Relationship]) []change.Change[[]byte, struct{}] {
-			return iter.MapToSlice(ctx, nexter, func(ch change.Change[[]byte, ontology.Relationship]) change.Change[[]byte, struct{}] {
-				return change.Change[[]byte, struct{}]{
+			var out []change.Change[[]byte, struct{}]
+			for ch := range nexter {
+				out = append(out, change.Change[[]byte, struct{}]{
 					Key:     append(ch.Key, '\n'),
 					Variant: ch.Variant,
-				}
-			})
+				})
+			}
+			return out
 		},
 	}
 	relationshipObserverCloser, err := prov.PublishFromObservable(ctx, signals.ObservablePublisherConfig{

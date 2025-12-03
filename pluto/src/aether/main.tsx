@@ -10,11 +10,9 @@
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import { compare, deep, type SenderHandler } from "@synnaxlabs/x";
 import {
-  createContext,
   memo,
   type PropsWithChildren,
   type ReactElement,
-  use as reactUse,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -25,6 +23,7 @@ import {
 import { type z } from "zod";
 
 import { type AetherMessage, type MainMessage } from "@/aether/message";
+import { context } from "@/context";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoCompare } from "@/memo";
 import { type state } from "@/state";
@@ -71,12 +70,10 @@ export interface ContextValue {
   create: (type: string, path: string[], onReceive?: StateHandler) => CreateReturn;
 }
 
-const ZERO_CONTEXT_VALUE = {
-  path: [],
-  create: () => ({ setState: () => {}, delete: () => {} }),
-};
-
-const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: { create: () => ({ setState: () => {}, delete: () => {} }), path: [] },
+  displayName: "Aether.Context",
+});
 
 /**
  * Props for the Aether Provider component that establishes the Aether context.
@@ -173,8 +170,6 @@ export const Provider = ({
 
   return <Context value={value}>{ready && children}</Context>;
 };
-
-export const useContext = () => reactUse(Context);
 
 export interface UseLifecycleReturn<S extends z.ZodType<state.State>> {
   path: string[];

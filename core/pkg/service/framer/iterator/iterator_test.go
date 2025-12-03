@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -30,7 +30,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		builder     = mock.NewCluster()
 		dist        mock.Node
 		iteratorSvc *iterator.Service
-		arcSvc      *svcarc.Service
+		arcSvc      *arc.Service
 	)
 	BeforeAll(func() {
 		dist = builder.Provision(ctx)
@@ -47,7 +47,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Signals:  dist.Signals,
 			Label:    labelSvc,
 		}))
-		arcSvc = MustSucceed(svcarc.OpenService(ctx, svcarc.ServiceConfig{
+		arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			DB:       dist.DB,
 			Channel:  dist.Channel,
 			Framer:   dist.Framer,
@@ -56,7 +56,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		}))
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			DistFramer: dist.Framer,
-			Channels:   dist.Channel,
+			Channel:    dist.Channel,
 			Arc:        arcSvc,
 		}))
 	})
@@ -86,7 +86,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-			Expect(iter.Value().Frame).To(telem.MatchWrittenFrame[channel.Key](fr.Frame))
+			Expect(iter.Value().Frame).To(telem.MatchWrittenFrame(fr.Frame))
 			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 			Expect(iter.Close()).To(Succeed())
 		})
@@ -464,6 +464,418 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(v.Series).To(HaveLen(2))
 					Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](-2, -2, -2, -2, -2))
 					Expect(v.Series[1]).To(telem.MatchSeriesDataV[float32](6, 6, 6, 6, 6))
+
+					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+					Expect(iter.Close()).To(Succeed())
+				})
+			})
+
+			Describe("Three Domain Calculations", func() {
+				var (
+					threeDomainIndexCh *channel.Channel
+					threeDomainDataCh  *channel.Channel
+					threeDomainIdxData telem.MultiSeries
+				)
+				BeforeAll(func() {
+					threeDomainIndexCh = &channel.Channel{
+						Name:     "three_domain_time",
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
+					}
+					Expect(dist.Channel.Create(ctx, threeDomainIndexCh)).To(Succeed())
+					threeDomainDataCh = &channel.Channel{
+						Name:       "three_domain_sensor",
+						DataType:   telem.Float32T,
+						LocalIndex: threeDomainIndexCh.LocalKey,
+					}
+					Expect(dist.Channel.Create(ctx, threeDomainDataCh)).To(Succeed())
+					keys := []channel.Key{threeDomainIndexCh.Key(), threeDomainDataCh.Key()}
+
+					threeDomainIdxData = telem.MultiSeries{Series: []telem.Series{
+						telem.NewSeriesSecondsTSV(1, 2),
+						telem.NewSeriesSecondsTSV(5, 6),
+						telem.NewSeriesSecondsTSV(10, 11),
+					}}
+
+					// First domain
+					w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+						Start:            telem.SecondTS,
+						Keys:             keys,
+						EnableAutoCommit: config.True(),
+					}))
+					fr := core.MultiFrame(
+						keys,
+						[]telem.Series{
+							threeDomainIdxData.Series[0],
+							telem.NewSeriesV[float32](1, 2),
+						},
+					)
+					MustSucceed(w.Write(fr))
+					Expect(w.Close()).To(Succeed())
+
+					// Second domain
+					w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+						Start:            telem.SecondTS * 5,
+						Keys:             keys,
+						EnableAutoCommit: config.True(),
+					}))
+					fr = core.MultiFrame(
+						keys,
+						[]telem.Series{
+							threeDomainIdxData.Series[1],
+							telem.NewSeriesV[float32](5, 6),
+						},
+					)
+					MustSucceed(w.Write(fr))
+					Expect(w.Close()).To(Succeed())
+
+					// Third domain
+					w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+						Start:            telem.SecondTS * 10,
+						Keys:             keys,
+						EnableAutoCommit: config.True(),
+					}))
+					fr = core.MultiFrame(
+						keys,
+						[]telem.Series{
+							threeDomainIdxData.Series[2],
+							telem.NewSeriesV[float32](10, 11),
+						},
+					)
+					MustSucceed(w.Write(fr))
+					Expect(w.Close()).To(Succeed())
+				})
+
+				It("Should correctly calculate values across three domains with proper alignment", func() {
+					calc := &channel.Channel{
+						Name:       "three_domain_calc",
+						DataType:   telem.Float32T,
+						Expression: "return three_domain_sensor * 2",
+					}
+					Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
+
+					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+						Keys:   []channel.Key{calc.Key(), calc.Index()},
+						Bounds: telem.TimeRangeMax,
+					}))
+
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+
+					// Verify calculated values and alignments for all three domains
+					v := iter.Value().Get(calc.Key())
+					Expect(v.Series).To(HaveLen(3))
+
+					// Domain 0: sensor = [1, 2], calc = [2, 4]
+					Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](2, 4))
+					Expect(v.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+
+					// Domain 1: sensor = [5, 6], calc = [10, 12]
+					Expect(v.Series[1]).To(telem.MatchSeriesDataV[float32](10, 12))
+					Expect(v.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
+
+					// Domain 2: sensor = [10, 11], calc = [20, 22]
+					Expect(v.Series[2]).To(telem.MatchSeriesDataV[float32](20, 22))
+					Expect(v.Series[2].Alignment).To(Equal(telem.NewAlignment(2, 0)))
+
+					// Verify index alignments match
+					idxV := iter.Value().Get(calc.Index())
+					Expect(idxV.Series).To(HaveLen(3))
+					Expect(idxV.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+					Expect(idxV.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
+					Expect(idxV.Series[2].Alignment).To(Equal(telem.NewAlignment(2, 0)))
+
+					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+					Expect(iter.Close()).To(Succeed())
+				})
+
+				It("Should correctly handle nested calculations across three domains", func() {
+					// B depends on three_domain_sensor (concrete)
+					calcB := &channel.Channel{
+						Name:       "three_domain_calc_b",
+						DataType:   telem.Float32T,
+						Expression: "return three_domain_sensor * 2",
+					}
+					Expect(dist.Channel.Create(ctx, calcB)).To(Succeed())
+
+					// C depends on B (calculated)
+					calcC := &channel.Channel{
+						Name:       "three_domain_calc_c",
+						DataType:   telem.Float32T,
+						Expression: "return three_domain_calc_b + 10",
+					}
+					Expect(dist.Channel.Create(ctx, calcC)).To(Succeed())
+
+					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+						Keys:   []channel.Key{calcC.Key(), calcC.Index()},
+						Bounds: telem.TimeRangeMax,
+					}))
+
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+
+					// Verify calculated values and alignments
+					// sensor = [1,2], [5,6], [10,11]
+					// calc_b = sensor * 2 = [2,4], [10,12], [20,22]
+					// calc_c = calc_b + 10 = [12,14], [20,22], [30,32]
+					v := iter.Value().Get(calcC.Key())
+					Expect(v.Series).To(HaveLen(3))
+
+					Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](12, 14))
+					Expect(v.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+
+					Expect(v.Series[1]).To(telem.MatchSeriesDataV[float32](20, 22))
+					Expect(v.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
+
+					Expect(v.Series[2]).To(telem.MatchSeriesDataV[float32](30, 32))
+					Expect(v.Series[2].Alignment).To(Equal(telem.NewAlignment(2, 0)))
+
+					// Verify index alignments match
+					idxV := iter.Value().Get(calcC.Index())
+					Expect(idxV.Series).To(HaveLen(3))
+					Expect(idxV.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+					Expect(idxV.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
+					Expect(idxV.Series[2].Alignment).To(Equal(telem.NewAlignment(2, 0)))
+
+					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+					Expect(iter.Close()).To(Succeed())
+				})
+
+				It("Should correctly handle diamond dependency across three domains", func() {
+					// C depends on three_domain_sensor
+					calcC := &channel.Channel{
+						Name:       "three_domain_diamond_c",
+						DataType:   telem.Float32T,
+						Expression: "return three_domain_sensor + 10",
+					}
+					Expect(dist.Channel.Create(ctx, calcC)).To(Succeed())
+
+					// D also depends on three_domain_sensor
+					calcD := &channel.Channel{
+						Name:       "three_domain_diamond_d",
+						DataType:   telem.Float32T,
+						Expression: "return three_domain_sensor * 5",
+					}
+					Expect(dist.Channel.Create(ctx, calcD)).To(Succeed())
+
+					// E depends on both C and D
+					calcE := &channel.Channel{
+						Name:       "three_domain_diamond_e",
+						DataType:   telem.Float32T,
+						Expression: "return three_domain_diamond_c + three_domain_diamond_d",
+					}
+					Expect(dist.Channel.Create(ctx, calcE)).To(Succeed())
+
+					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+						Keys:   []channel.Key{calcE.Key(), calcE.Index()},
+						Bounds: telem.TimeRangeMax,
+					}))
+
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+
+					// Verify calculated values
+					// sensor = [1,2], [5,6], [10,11]
+					// calc_c = sensor + 10 = [11,12], [15,16], [20,21]
+					// calc_d = sensor * 5 = [5,10], [25,30], [50,55]
+					// calc_e = calc_c + calc_d = [16,22], [40,46], [70,76]
+					v := iter.Value().Get(calcE.Key())
+					Expect(v.Series).To(HaveLen(3))
+
+					Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](16, 22))
+					Expect(v.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+
+					Expect(v.Series[1]).To(telem.MatchSeriesDataV[float32](40, 46))
+					// Note: Diamond pattern may cause alignment increment
+					Expect(v.Series[1].Alignment.SampleIndex()).To(Equal(uint32(0)))
+
+					Expect(v.Series[2]).To(telem.MatchSeriesDataV[float32](70, 76))
+					Expect(v.Series[2].Alignment.SampleIndex()).To(Equal(uint32(0)))
+
+					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+					Expect(iter.Close()).To(Succeed())
+				})
+
+				It("Should correctly handle mixed calculated and concrete channels across three domains", func() {
+					calcMixed := &channel.Channel{
+						Name:       "three_domain_mixed_calc",
+						DataType:   telem.Float32T,
+						Expression: "return three_domain_sensor * 3",
+					}
+					Expect(dist.Channel.Create(ctx, calcMixed)).To(Succeed())
+
+					// Request both concrete and calculated channels
+					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+						Keys: []channel.Key{
+							threeDomainDataCh.Key(),
+							calcMixed.Key(),
+							calcMixed.Index(),
+						},
+						Bounds: telem.TimeRangeMax,
+					}))
+
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+
+					// Verify concrete channel has original values with correct alignments
+					concreteV := iter.Value().Get(threeDomainDataCh.Key())
+					Expect(concreteV.Series).To(HaveLen(3))
+					Expect(concreteV.Series[0]).To(telem.MatchSeriesDataV[float32](1, 2))
+					Expect(concreteV.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+					Expect(concreteV.Series[1]).To(telem.MatchSeriesDataV[float32](5, 6))
+					Expect(concreteV.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
+					Expect(concreteV.Series[2]).To(telem.MatchSeriesDataV[float32](10, 11))
+					Expect(concreteV.Series[2].Alignment).To(Equal(telem.NewAlignment(2, 0)))
+
+					// Verify calculated channel
+					calcV := iter.Value().Get(calcMixed.Key())
+					Expect(calcV.Series).To(HaveLen(3))
+					Expect(calcV.Series[0]).To(telem.MatchSeriesDataV[float32](3, 6))
+					Expect(calcV.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+					Expect(calcV.Series[1]).To(telem.MatchSeriesDataV[float32](15, 18))
+					Expect(calcV.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
+					Expect(calcV.Series[2]).To(telem.MatchSeriesDataV[float32](30, 33))
+					Expect(calcV.Series[2].Alignment).To(Equal(telem.NewAlignment(2, 0)))
+
+					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+					Expect(iter.Close()).To(Succeed())
+				})
+
+				It("Should correctly handle large gap between domains", func() {
+					// Create channels specifically for this test with large time gap
+					gapIndexCh := &channel.Channel{
+						Name:     "gap_domain_time",
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
+					}
+					Expect(dist.Channel.Create(ctx, gapIndexCh)).To(Succeed())
+					gapDataCh := &channel.Channel{
+						Name:       "gap_domain_sensor",
+						DataType:   telem.Float32T,
+						LocalIndex: gapIndexCh.LocalKey,
+					}
+					Expect(dist.Channel.Create(ctx, gapDataCh)).To(Succeed())
+					keys := []channel.Key{gapIndexCh.Key(), gapDataCh.Key()}
+
+					// First domain at t=1s
+					w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+						Start:            telem.SecondTS,
+						Keys:             keys,
+						EnableAutoCommit: config.True(),
+					}))
+					MustSucceed(w.Write(core.MultiFrame(
+						keys,
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1, 2, 3),
+							telem.NewSeriesV[float32](1, 2, 3),
+						},
+					)))
+					Expect(w.Close()).To(Succeed())
+
+					// Second domain at t=1000s (large gap)
+					w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+						Start:            telem.SecondTS * 1000,
+						Keys:             keys,
+						EnableAutoCommit: config.True(),
+					}))
+					MustSucceed(w.Write(core.MultiFrame(
+						keys,
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1000, 1001, 1002),
+							telem.NewSeriesV[float32](1000, 1001, 1002),
+						},
+					)))
+					Expect(w.Close()).To(Succeed())
+
+					calc := &channel.Channel{
+						Name:       "gap_domain_calc",
+						DataType:   telem.Float32T,
+						Expression: "return gap_domain_sensor + 100",
+					}
+					Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
+
+					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+						Keys:   []channel.Key{calc.Key(), calc.Index()},
+						Bounds: telem.TimeRangeMax,
+					}))
+
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+
+					v := iter.Value().Get(calc.Key())
+					Expect(v.Series).To(HaveLen(2))
+
+					// Domain 0
+					Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](101, 102, 103))
+					Expect(v.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+
+					// Domain 1
+					Expect(v.Series[1]).To(telem.MatchSeriesDataV[float32](1100, 1101, 1102))
+					Expect(v.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
+
+					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+					Expect(iter.Close()).To(Succeed())
+				})
+
+				It("Should correctly handle multiple calculations on same source across three domains", func() {
+					calcDouble := &channel.Channel{
+						Name:       "three_domain_double",
+						DataType:   telem.Float32T,
+						Expression: "return three_domain_sensor * 2",
+					}
+					Expect(dist.Channel.Create(ctx, calcDouble)).To(Succeed())
+
+					calcSquare := &channel.Channel{
+						Name:       "three_domain_square",
+						DataType:   telem.Float32T,
+						Expression: "return three_domain_sensor * three_domain_sensor",
+					}
+					Expect(dist.Channel.Create(ctx, calcSquare)).To(Succeed())
+
+					calcPlusTen := &channel.Channel{
+						Name:       "three_domain_plus_ten",
+						DataType:   telem.Float32T,
+						Expression: "return three_domain_sensor + 10",
+					}
+					Expect(dist.Channel.Create(ctx, calcPlusTen)).To(Succeed())
+
+					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+						Keys:   []channel.Key{calcDouble.Key(), calcSquare.Key(), calcPlusTen.Key()},
+						Bounds: telem.TimeRangeMax,
+					}))
+
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+
+					// Verify calcDouble: sensor * 2
+					doubleV := iter.Value().Get(calcDouble.Key())
+					Expect(doubleV.Series).To(HaveLen(3))
+					Expect(doubleV.Series[0]).To(telem.MatchSeriesDataV[float32](2, 4))
+					Expect(doubleV.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+					Expect(doubleV.Series[1]).To(telem.MatchSeriesDataV[float32](10, 12))
+					Expect(doubleV.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
+					Expect(doubleV.Series[2]).To(telem.MatchSeriesDataV[float32](20, 22))
+					Expect(doubleV.Series[2].Alignment).To(Equal(telem.NewAlignment(2, 0)))
+
+					// Verify calcSquare: sensor * sensor
+					squareV := iter.Value().Get(calcSquare.Key())
+					Expect(squareV.Series).To(HaveLen(3))
+					Expect(squareV.Series[0]).To(telem.MatchSeriesDataV[float32](1, 4))
+					Expect(squareV.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+					Expect(squareV.Series[1]).To(telem.MatchSeriesDataV[float32](25, 36))
+					Expect(squareV.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
+					Expect(squareV.Series[2]).To(telem.MatchSeriesDataV[float32](100, 121))
+					Expect(squareV.Series[2].Alignment).To(Equal(telem.NewAlignment(2, 0)))
+
+					// Verify calcPlusTen: sensor + 10
+					plusTenV := iter.Value().Get(calcPlusTen.Key())
+					Expect(plusTenV.Series).To(HaveLen(3))
+					Expect(plusTenV.Series[0]).To(telem.MatchSeriesDataV[float32](11, 12))
+					Expect(plusTenV.Series[0].Alignment).To(Equal(telem.NewAlignment(0, 0)))
+					Expect(plusTenV.Series[1]).To(telem.MatchSeriesDataV[float32](15, 16))
+					Expect(plusTenV.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
+					Expect(plusTenV.Series[2]).To(telem.MatchSeriesDataV[float32](20, 21))
+					Expect(plusTenV.Series[2].Alignment).To(Equal(telem.NewAlignment(2, 0)))
 
 					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())

@@ -103,6 +103,18 @@ export const selectModals = (state: StoreState): State[] =>
 
 export const useSelectModals = (): State[] => useMemoSelect(selectModals, []);
 
+export const selectWindowModals = (
+  state: StoreState & Drift.StoreState,
+  windowKey?: string,
+): State[] => {
+  const winKey = selectWindowKey(state, windowKey);
+  if (winKey == null) return [];
+  return selectModals(state).filter(({ windowKey }) => windowKey === winKey);
+};
+
+export const useSelectWindowModals = (): State[] =>
+  useMemoSelect(selectWindowModals, []);
+
 /**
  * Selects the central layout mosaic from the store.
  *

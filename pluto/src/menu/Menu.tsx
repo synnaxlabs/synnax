@@ -7,16 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  createContext,
-  type PropsWithChildren,
-  type ReactElement,
-  use,
-  useCallback,
-  useMemo,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
 
 import { type Component } from "@/component";
+import { context } from "@/context";
 import { type Text } from "@/text";
 import { type Theming } from "@/theming";
 
@@ -28,7 +22,11 @@ export interface ContextValue {
   background?: Theming.Shade;
 }
 
-const Context = createContext<ContextValue>({ onClick: () => {}, selected: "" });
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: { onClick: () => {}, selected: "" },
+  displayName: "Menu.Context",
+});
+export { useContext };
 
 export interface MenuProps
   extends PropsWithChildren,
@@ -36,8 +34,6 @@ export interface MenuProps
   value?: string;
   onChange?: ((key: string) => void) | Record<string, (key: string) => void>;
 }
-
-export const useContext = () => use(Context);
 
 /**
  * Menu is a modular component that allows you to create a menu with a list of items.

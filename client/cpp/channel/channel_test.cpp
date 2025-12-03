@@ -22,8 +22,9 @@ std::mt19937 gen_rand = random_generator(std::move("Channel Tests"));
 /// @brief it should create a rate based channel and assign it a non-zero key.
 TEST(TestChannel, testCreate) {
     const auto client = new_test_client();
-    auto channel = ASSERT_NIL_P(client.channels.create("test", telem::FLOAT64_T, true));
-    ASSERT_EQ(channel.name, "test");
+    const auto name = make_unique_channel_name("test");
+    auto channel = ASSERT_NIL_P(client.channels.create(name, telem::FLOAT64_T, true));
+    ASSERT_EQ(channel.name, name);
     ASSERT_FALSE(channel.key == 0);
 }
 
@@ -32,7 +33,8 @@ TEST(TestChannel, testCreate) {
 TEST(TestChannel, testCreateValidation) {
     const auto client = new_test_client();
     ASSERT_OCCURRED_AS_P(
-        client.channels.create("validation", telem::FLOAT64_T, 0, true),
+        client.channels
+            .create(make_unique_channel_name("validation"), telem::FLOAT64_T, 0, true),
         xerrors::VALIDATION
     );
 }
@@ -40,24 +42,27 @@ TEST(TestChannel, testCreateValidation) {
 /// @brief it should create an index based channel and assign it a non-zero key.
 TEST(TestChannel, testCreateIndex) {
     auto client = new_test_client();
+    const auto index_name = make_unique_channel_name("test_index");
     auto index = ASSERT_NIL_P(
-        client.channels.create("test", telem::TIMESTAMP_T, 0, true)
+        client.channels.create(index_name, telem::TIMESTAMP_T, 0, true)
     );
+    const auto indexed_name = make_unique_channel_name("test_indexed");
     auto indexed = ASSERT_NIL_P(
-        client.channels.create("test", telem::FLOAT64_T, index.key, false)
+        client.channels.create(indexed_name, telem::FLOAT64_T, index.key, false)
     );
-    ASSERT_EQ(index.name, "test");
+    ASSERT_EQ(index.name, index_name);
     ASSERT_FALSE(index.key == 0);
-    ASSERT_EQ(indexed.name, "test");
+    ASSERT_EQ(indexed.name, indexed_name);
     ASSERT_FALSE(indexed.key == 0);
     ASSERT_EQ(indexed.index, index.key);
 }
 
 TEST(TestChannel, testCreateVirtual) {
-    auto ch = synnax::Channel("test", telem::FLOAT64_T, true);
+    const auto name = make_unique_channel_name("virtual");
+    auto ch = synnax::Channel(name, telem::FLOAT64_T, true);
     const auto client = new_test_client();
     ASSERT_NIL(client.channels.create(ch));
-    ASSERT_EQ(ch.name, "test");
+    ASSERT_EQ(ch.name, name);
     ASSERT_TRUE(ch.is_virtual);
     ASSERT_FALSE(ch.key == 0);
 }
@@ -67,16 +72,16 @@ TEST(TestChannel, testCreateMany) {
     const auto client = new_test_client();
     auto channels = std::vector<synnax::Channel>{
         {
-            "test1",
+            make_unique_channel_name("test1"),
             telem::FLOAT64_T,
             true,
         },
         {
-            "test2",
+            make_unique_channel_name("test2"),
             telem::FLOAT64_T,
             true,
         },
-        {"test3", telem::FLOAT64_T, true},
+        {make_unique_channel_name("test3"), telem::FLOAT64_T, true},
     };
     ASSERT_TRUE(client.channels.create(channels).ok());
     ASSERT_EQ(channels.size(), 3);
@@ -87,7 +92,11 @@ TEST(TestChannel, testCreateMany) {
 /// @brief it should retrieve a channel by key.
 TEST(TestChannel, testRetrieve) {
     auto client = new_test_client();
-    auto channel = ASSERT_NIL_P(client.channels.create("test", telem::FLOAT64_T, true));
+    auto channel = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("retrieve"),
+        telem::FLOAT64_T,
+        true
+    ));
     auto retrieved = ASSERT_NIL_P(client.channels.retrieve(channel.key));
     ASSERT_EQ(channel.name, retrieved.name);
     ASSERT_EQ(channel.key, retrieved.key);
@@ -109,12 +118,9 @@ TEST(TestChannel, testRetrieveNotFound) {
 /// @brief it should correctly retrieve a channel by name.
 TEST(TestChannel, testRetrieveByName) {
     auto client = new_test_client();
-    auto rand_name = std::to_string(gen_rand());
-    auto channel = ASSERT_NIL_P(
-        client.channels.create(rand_name, telem::FLOAT64_T, true)
-    );
-    auto ch = synnax::Channel("test", telem::FLOAT64_T, true);
-    auto retrieved = ASSERT_NIL_P(client.channels.retrieve(rand_name));
+    const auto name = make_unique_channel_name("retrieve_by_name_test");
+    auto channel = ASSERT_NIL_P(client.channels.create(name, telem::FLOAT64_T, true));
+    auto retrieved = ASSERT_NIL_P(client.channels.retrieve(name));
     ASSERT_EQ(channel.name, retrieved.name);
     ASSERT_EQ(channel.key, retrieved.key);
     ASSERT_EQ(channel.data_type, retrieved.data_type);
@@ -137,16 +143,16 @@ TEST(TestChannel, testRetrieveMany) {
     auto client = new_test_client();
     auto channels = std::vector<synnax::Channel>{
         {
-            "test1",
+            make_unique_channel_name("retrieve_many_1"),
             telem::FLOAT64_T,
             true,
         },
         {
-            "test2",
+            make_unique_channel_name("retrieve_many_2"),
             telem::FLOAT64_T,
             true,
         },
-        {"test3", telem::FLOAT64_T, true},
+        {make_unique_channel_name("retrieve_many_3"), telem::FLOAT64_T, true},
     };
     ASSERT_NIL(client.channels.create(channels));
     auto retrieved = ASSERT_NIL_P(
@@ -179,14 +185,4 @@ TEST(TestChannel, testRetrieveManyNotFound) {
         client.channels.retrieve(std::vector<synnax::ChannelKey>{1, 2, 3}),
         xerrors::NOT_FOUND
     );
-}
-
-/// @brief multiple channels of the same name found
-TEST(TestChannel, testRetrieveManySameName) {
-    auto client = new_test_client();
-    auto channel = ASSERT_NIL_P(client.channels.create("test", telem::FLOAT64_T, true));
-    auto channel2 = ASSERT_NIL_P(
-        client.channels.create("test", telem::FLOAT64_T, true)
-    );
-    ASSERT_OCCURRED_AS_P(client.channels.retrieve("test"), xerrors::QUERY);
 }

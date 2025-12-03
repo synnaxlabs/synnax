@@ -10,16 +10,13 @@
 package iter_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var ctx = context.Background()
-
 func TestIter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Iterate Suite")
+	RunSpecs(t, "Iter Suite")
 }

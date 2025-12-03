@@ -14,17 +14,11 @@ import {
   TimeSpan,
 } from "@synnaxlabs/client";
 import { type breaker, caseconv, migrate, type status } from "@synnaxlabs/x";
-import {
-  createContext,
-  type PropsWithChildren,
-  type ReactElement,
-  use as reactUse,
-  useCallback,
-  useMemo,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
 import z from "zod";
 
 import { Aether } from "@/aether";
+import { context } from "@/context";
 import { useAsyncEffect, useCombinedStateAndRef } from "@/hooks";
 import { Status } from "@/status/core";
 import { synnax } from "@/synnax/aether";
@@ -44,9 +38,10 @@ const DEFAULT_RETRY_CONFIG: breaker.Config = {
   scale: 2,
 };
 
-const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
-
-const useContext = () => reactUse(Context);
+const [Context, useContext] = context.create({
+  defaultValue: ZERO_CONTEXT_VALUE,
+  displayName: "Synnax.Context",
+});
 
 export const use = () => useContext().client;
 

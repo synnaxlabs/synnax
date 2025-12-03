@@ -7,17 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCombinedStateAndRef } from "@synnaxlabs/pluto";
+import { context, useCombinedStateAndRef } from "@synnaxlabs/pluto";
 import { type destructor } from "@synnaxlabs/x";
 import type * as monacoT from "monaco-editor";
-import {
-  createContext,
-  type PropsWithChildren,
-  use,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import { type PropsWithChildren, useCallback, useMemo, useRef } from "react";
 
 import { type Extension, initializeMonaco, type Service } from "@/code/init/initialize";
 
@@ -30,7 +23,10 @@ interface ContextValue {
   requestInit: () => void;
 }
 
-const Context = createContext<ContextValue>({ monaco: null, requestInit: () => {} });
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: { monaco: null, requestInit: () => {} },
+  displayName: "Code.Context",
+});
 
 export interface ProviderProps extends PropsWithChildren {
   importExtensions: Extension[];
@@ -58,7 +54,7 @@ export const Provider = ({
 };
 
 export const useMonaco = () => {
-  const { monaco, requestInit } = use(Context);
+  const { monaco, requestInit } = useContext();
   requestInit();
   return monaco;
 };
