@@ -1,0 +1,22 @@
+cc_library(
+    name = "ontology",
+    srcs = [
+        "id.cpp",
+    ],
+    hdrs = ["id.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/xerrors",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "id_test",
+    srcs = ["id_test.cpp"],
+    deps = [
+        ":ontology",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

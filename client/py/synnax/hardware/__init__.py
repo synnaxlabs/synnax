@@ -7,4 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.hardware.client import Client
+"""Deprecated: Use synnax.device, synnax.rack, synnax.task instead."""
+
+import warnings
+
+warnings.warn(
+    "synnax.hardware is deprecated and will be removed in a future version. "
+    "Import directly from synnax instead (e.g., 'from synnax import ni', "
+    "'from synnax.device import Device').",
+    FutureWarning,
+    stacklevel=2,
+)

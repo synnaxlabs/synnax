@@ -13,17 +13,6 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
-from synnax.hardware.labjack import (
-    T7,
-    AIChan,
-    DIChan,
-    OutputChan,
-    ReadTask,
-    ReadTaskConfig,
-    ThermocoupleChan,
-    WriteTask,
-    WriteTaskConfig,
-)
 
 
 @pytest.mark.labjack
@@ -144,19 +133,19 @@ class TestLabJackReadTask:
     def test_parse_labjack_read_task(self, test_data):
         """Test that ReadTaskConfig can parse various channel configurations."""
         input_data = test_data["data"]
-        ReadTaskConfig.model_validate(input_data)
+        sy.labjack.ReadTaskConfig.model_validate(input_data)
 
     def test_read_task_stream_rate_validation(self):
         """Test that stream_rate cannot exceed sample_rate."""
         with pytest.raises(ValidationError) as exc_info:
-            ReadTaskConfig(
+            sy.labjack.ReadTaskConfig(
                 device="test-device",
                 sample_rate=10,
                 stream_rate=20,  # Invalid: greater than sample_rate
                 data_saving=False,
                 auto_start=False,
                 channels=[
-                    AIChan(
+                    sy.labjack.AIChan(
                         port="AIN0",
                         channel=1234,
                         range=10.0,
@@ -168,7 +157,7 @@ class TestLabJackReadTask:
     def test_read_task_empty_channels(self):
         """Test that empty channel list raises validation error."""
         with pytest.raises(ValidationError) as exc_info:
-            ReadTaskConfig(
+            sy.labjack.ReadTaskConfig(
                 device="test-device",
                 sample_rate=100,
                 stream_rate=25,
@@ -180,7 +169,7 @@ class TestLabJackReadTask:
 
     def test_read_task_auto_key_generation(self):
         """Test that channels auto-generate keys if not provided."""
-        channel = AIChan(
+        channel = sy.labjack.AIChan(
             port="AIN0",
             channel=1234,
             range=10.0,
@@ -191,44 +180,44 @@ class TestLabJackReadTask:
     def test_read_task_sample_rate_bounds(self):
         """Test that sample rate validation works (0-100000 Hz)."""
         # Valid sample rates
-        ReadTaskConfig(
+        sy.labjack.ReadTaskConfig(
             device="test-device",
             sample_rate=1,
             stream_rate=1,
             data_saving=False,
-            channels=[AIChan(port="AIN0", channel=1234, range=10.0)],
+            channels=[sy.labjack.AIChan(port="AIN0", channel=1234, range=10.0)],
         )
-        ReadTaskConfig(
+        sy.labjack.ReadTaskConfig(
             device="test-device",
             sample_rate=100000,
             stream_rate=100000,
             data_saving=False,
-            channels=[AIChan(port="AIN0", channel=1234, range=10.0)],
+            channels=[sy.labjack.AIChan(port="AIN0", channel=1234, range=10.0)],
         )
 
         # Invalid sample rates
         with pytest.raises(ValidationError):
-            ReadTaskConfig(
+            sy.labjack.ReadTaskConfig(
                 device="test-device",
                 sample_rate=-1,
                 stream_rate=1,
                 data_saving=False,
-                channels=[AIChan(port="AIN0", channel=1234, range=10.0)],
+                channels=[sy.labjack.AIChan(port="AIN0", channel=1234, range=10.0)],
             )
         with pytest.raises(ValidationError):
-            ReadTaskConfig(
+            sy.labjack.ReadTaskConfig(
                 device="test-device",
                 sample_rate=100001,
                 stream_rate=100001,
                 data_saving=False,
-                channels=[AIChan(port="AIN0", channel=1234, range=10.0)],
+                channels=[sy.labjack.AIChan(port="AIN0", channel=1234, range=10.0)],
             )
 
     def test_thermocouple_type_validation(self):
         """Test that thermocouple types are validated."""
         # Valid thermocouple types
         for tc_type in ["B", "E", "J", "K", "N", "R", "S", "T", "C"]:
-            ThermocoupleChan(
+            sy.labjack.ThermocoupleChan(
                 port="AIN0",
                 channel=1234,
                 thermocouple_type=tc_type,
@@ -240,7 +229,7 @@ class TestLabJackReadTask:
 
         # Invalid thermocouple type
         with pytest.raises(ValidationError):
-            ThermocoupleChan(
+            sy.labjack.ThermocoupleChan(
                 port="AIN0",
                 channel=1234,
                 thermocouple_type="InvalidType",
@@ -252,7 +241,7 @@ class TestLabJackReadTask:
 
     def test_create_and_retrieve_read_task(self, client: sy.Synnax):
         """Test that ReadTask can be created and retrieved from the database."""
-        task = ReadTask(
+        task = sy.labjack.ReadTask(
             name="test-labjack-read-task",
             device="some-device-key",
             sample_rate=100,
@@ -260,25 +249,25 @@ class TestLabJackReadTask:
             data_saving=False,
             auto_start=False,
             channels=[
-                AIChan(
+                sy.labjack.AIChan(
                     key="ai-1",
                     port="AIN0",
                     channel=1234,
                     range=10.0,
                 ),
-                DIChan(
+                sy.labjack.DIChan(
                     key="di-1",
                     port="FIO4",
                     channel=5678,
                 ),
             ],
         )
-        created_task = client.hardware.tasks.create(
+        created_task = client.tasks.create(
             name="test-labjack-read-task",
             type="labjack_read",
             config=task.config.model_dump_json(),
         )
-        ReadTask(created_task)
+        sy.labjack.ReadTask(created_task)
 
 
 @pytest.mark.labjack
@@ -374,12 +363,12 @@ class TestLabJackWriteTask:
     def test_parse_labjack_write_task(self, test_data):
         """Test that WriteTaskConfig can parse various channel configurations."""
         input_data = test_data["data"]
-        WriteTaskConfig.model_validate(input_data)
+        sy.labjack.WriteTaskConfig.model_validate(input_data)
 
     def test_write_task_empty_channels(self):
         """Test that empty channel list raises validation error."""
         with pytest.raises(ValidationError) as exc_info:
-            WriteTaskConfig(
+            sy.labjack.WriteTaskConfig(
                 device="test-device",
                 state_rate=20,
                 data_saving=False,
@@ -390,20 +379,20 @@ class TestLabJackWriteTask:
 
     def test_write_task_disabled_channels(self):
         """Test that disabled channels are handled correctly."""
-        config = WriteTaskConfig(
+        config = sy.labjack.WriteTaskConfig(
             device="test-device",
             state_rate=20,
             data_saving=False,
             auto_start=False,
             channels=[
-                OutputChan(
+                sy.labjack.OutputChan(
                     type="DO",
                     port="FIO4",
                     cmd_channel=1234,
                     state_channel=1235,
                     enabled=True,
                 ),
-                OutputChan(
+                sy.labjack.OutputChan(
                     type="DO",
                     port="FIO5",
                     cmd_channel=5678,
@@ -418,7 +407,7 @@ class TestLabJackWriteTask:
 
     def test_write_channel_auto_key_generation(self):
         """Test that OutputChan auto-generates a key if not provided."""
-        channel = OutputChan(
+        channel = sy.labjack.OutputChan(
             port="DAC0",
             cmd_channel=1234,
             state_channel=1235,
@@ -428,21 +417,21 @@ class TestLabJackWriteTask:
 
     def test_create_and_retrieve_write_task(self, client: sy.Synnax):
         """Test that WriteTask can be created and retrieved from the database."""
-        task = WriteTask(
+        task = sy.labjack.WriteTask(
             name="test-labjack-write-task",
             device="some-device-key",
             state_rate=20,
             data_saving=True,
             auto_start=False,
             channels=[
-                OutputChan(
+                sy.labjack.OutputChan(
                     key="ao-1",
                     type="AO",
                     port="DAC0",
                     cmd_channel=1234,
                     state_channel=1235,
                 ),
-                OutputChan(
+                sy.labjack.OutputChan(
                     key="do-1",
                     type="DO",
                     port="FIO4",
@@ -451,23 +440,23 @@ class TestLabJackWriteTask:
                 ),
             ],
         )
-        created_task = client.hardware.tasks.create(
+        created_task = client.tasks.create(
             name="test-labjack-write-task",
             type="labjack_write",
             config=task.config.model_dump_json(),
         )
-        WriteTask(created_task)
+        sy.labjack.WriteTask(created_task)
 
     def test_write_task_serialization_round_trip(self, client: sy.Synnax):
         """Test that task can be serialized and deserialized correctly."""
-        original_task = WriteTask(
+        original_task = sy.labjack.WriteTask(
             name="test-round-trip",
             device="some-device-key",
             state_rate=20,
             data_saving=True,
             auto_start=False,
             channels=[
-                OutputChan(
+                sy.labjack.OutputChan(
                     key="ao-1",
                     type="AO",
                     port="DAC0",
@@ -475,7 +464,7 @@ class TestLabJackWriteTask:
                     state_channel=1235,
                     enabled=True,
                 ),
-                OutputChan(
+                sy.labjack.OutputChan(
                     key="do-1",
                     type="DO",
                     port="FIO4",
@@ -490,14 +479,14 @@ class TestLabJackWriteTask:
         config_json = original_task.config.model_dump_json()
 
         # Create task in database
-        created_task = client.hardware.tasks.create(
+        created_task = client.tasks.create(
             name="test-round-trip",
             type="labjack_write",
             config=config_json,
         )
 
         # Deserialize from database
-        retrieved_task = WriteTask(created_task)
+        retrieved_task = sy.labjack.WriteTask(created_task)
 
         # Verify all fields match
         assert retrieved_task.config.device == original_task.config.device
@@ -525,14 +514,12 @@ class TestLabJackDevicePropertyUpdates:
         """Test that configuring a ReadTask updates device properties with channel mappings."""
         import json
 
-        from synnax.hardware import labjack
-
         # Create a rack
-        rack = client.hardware.racks.retrieve_embedded_rack()
+        rack = client.racks.retrieve_embedded_rack()
 
         # Create a device
-        device = labjack.Device(
-            model=T7,
+        device = sy.labjack.Device(
+            model=sy.labjack.T7,
             identifier="ANY",
             name="Test LabJack T7",
             location="USB",
@@ -540,7 +527,7 @@ class TestLabJackDevicePropertyUpdates:
             connection_type="ANY",
         )
 
-        device = client.hardware.devices.create(device)
+        device = client.devices.create(device)
 
         # Create channels
         rand_int = random.randint(0, 100000)
@@ -563,19 +550,19 @@ class TestLabJackDevicePropertyUpdates:
         )
 
         # Create task with multiple channel types
-        task = labjack.ReadTask(
+        task = sy.labjack.ReadTask(
             name="Test Read Task",
             device=device.key,
             sample_rate=100,
             stream_rate=25,
             data_saving=True,
             channels=[
-                labjack.AIChan(
+                sy.labjack.AIChan(
                     port="AIN0",
                     channel=ch1.key,
                     range=10.0,
                 ),
-                labjack.DIChan(
+                sy.labjack.DIChan(
                     port="FIO4",
                     channel=ch2.key,
                 ),
@@ -583,10 +570,10 @@ class TestLabJackDevicePropertyUpdates:
         )
 
         # Trigger device property update
-        task.update_device_properties(client.hardware.devices)
+        task.update_device_properties(client.devices)
 
         # Retrieve device and check properties
-        updated_device = client.hardware.devices.retrieve(key=device.key)
+        updated_device = client.devices.retrieve(key=device.key)
         props = json.loads(updated_device.properties)
 
         # Verify read.channels mapping exists
@@ -604,14 +591,12 @@ class TestLabJackDevicePropertyUpdates:
         """Test that configuring a WriteTask updates device properties with channel mappings."""
         import json
 
-        from synnax.hardware import labjack
-
         # Create a rack
-        rack = client.hardware.racks.retrieve_embedded_rack()
+        rack = client.racks.retrieve_embedded_rack()
 
         # Create a device
-        device = labjack.Device(
-            model=T7,
+        device = sy.labjack.Device(
+            model=sy.labjack.T7,
             identifier="ANY",
             name="Test LabJack Write T7",
             location="USB",
@@ -619,7 +604,7 @@ class TestLabJackDevicePropertyUpdates:
             connection_type="ANY",
         )
 
-        device = client.hardware.devices.create(device)
+        device = client.devices.create(device)
 
         rand_int = random.randint(0, 100000)
 
@@ -661,19 +646,19 @@ class TestLabJackDevicePropertyUpdates:
         )
 
         # Create write task
-        task = labjack.WriteTask(
+        task = sy.labjack.WriteTask(
             name="Test Write Task",
             device=device.key,
             state_rate=20,
             data_saving=True,
             channels=[
-                labjack.OutputChan(
+                sy.labjack.OutputChan(
                     type="AO",
                     port="DAC0",
                     cmd_channel=dac0_cmd.key,
                     state_channel=dac0_state.key,
                 ),
-                labjack.OutputChan(
+                sy.labjack.OutputChan(
                     type="DO",
                     port="FIO4",
                     cmd_channel=fio4_cmd.key,
@@ -683,10 +668,10 @@ class TestLabJackDevicePropertyUpdates:
         )
 
         # Trigger device property update
-        task.update_device_properties(client.hardware.devices)
+        task.update_device_properties(client.devices)
 
         # Retrieve device and check properties
-        updated_device = client.hardware.devices.retrieve(key=device.key)
+        updated_device = client.devices.retrieve(key=device.key)
         props = json.loads(updated_device.properties)
 
         # Verify write.channels mapping exists
