@@ -8,53 +8,44 @@
 #  included in the file licenses/APL.txt.
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import Any
 
 import synnax as sy
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import FloatRect, Locator, Page
 
 from ..console import Console
 
+""" Symbol Box helpers """
 
-@dataclass
-class Box:
-    """Bounding box with computed properties for position and dimensions."""
 
-    x: float  # left edge
-    y: float  # top edge
-    width: float
-    height: float
+def box_left(box: FloatRect) -> float:
+    """Left edge x-coordinate."""
+    return box["x"]
 
-    @property
-    def left(self) -> float:
-        """Left edge x-coordinate."""
-        return self.x
 
-    @property
-    def right(self) -> float:
-        """Right edge x-coordinate."""
-        return self.x + self.width
+def box_right(box: FloatRect) -> float:
+    """Right edge x-coordinate."""
+    return box["x"] + box["width"]
 
-    @property
-    def top(self) -> float:
-        """Top edge y-coordinate."""
-        return self.y
 
-    @property
-    def bottom(self) -> float:
-        """Bottom edge y-coordinate."""
-        return self.y + self.height
+def box_top(box: FloatRect) -> float:
+    """Top edge y-coordinate."""
+    return box["y"]
 
-    @property
-    def center_x(self) -> float:
-        """Center x-coordinate."""
-        return self.x + self.width / 2
 
-    @property
-    def center_y(self) -> float:
-        """Center y-coordinate."""
-        return self.y + self.height / 2
+def box_bottom(box: FloatRect) -> float:
+    """Bottom edge y-coordinate."""
+    return box["y"] + box["height"]
+
+
+def box_center_x(box: FloatRect) -> float:
+    """Center x-coordinate."""
+    return box["x"] + box["width"] / 2
+
+
+def box_center_y(box: FloatRect) -> float:
+    """Center y-coordinate."""
+    return box["y"] + box["height"] / 2
 
 
 class Symbol(ABC):
@@ -211,8 +202,8 @@ class Symbol(ABC):
     def move(self, delta_x: int, delta_y: int) -> None:
         """Move the symbol by the specified number of pixels using drag"""
         pos = self.position
-        start_x = pos.center_x
-        start_y = pos.center_y
+        start_x = box_center_x(pos)
+        start_y = box_center_y(pos)
         target_x = start_x + delta_x
         target_y = start_y + delta_y
 
@@ -224,7 +215,7 @@ class Symbol(ABC):
         sy.sleep(0.1)  # CI flakiness
 
     @property
-    def position(self) -> Box:
+    def position(self) -> FloatRect:
         """Get the symbol's bounding box for alignment checks.
 
         Raises:
@@ -235,13 +226,7 @@ class Symbol(ABC):
             raise RuntimeError(
                 f"Could not get bounding box for symbol {self.symbol_id}"
             )
-
-        return Box(
-            x=box["x"],
-            y=box["y"],
-            width=box["width"],
-            height=box["height"],
-        )
+        return box
 
     def delete(self) -> None:
         self.click()

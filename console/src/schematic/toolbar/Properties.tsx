@@ -223,7 +223,7 @@ const MultiElementProperties = ({
 
   const getLayoutsForDistribution = (): {
     layouts: Diagram.NodeLayout[];
-    topOffsets: Map<string, number>;
+    adjustPosition: (key: string, pos: xy.XY) => xy.XY;
   } => {
     const viewport = selectViewport(store.getState(), layoutKey);
     const topOffsets = new Map<string, number>();
@@ -283,7 +283,12 @@ const MultiElementProperties = ({
       })
       .filter((el) => el !== null);
 
-    return { layouts, topOffsets };
+    const adjustPosition = (key: string, pos: xy.XY): xy.XY => {
+      const topOffset = topOffsets.get(key) ?? 0;
+      return xy.translate(pos, { x: 0, y: topOffset });
+    };
+
+    return { layouts, adjustPosition };
   };
 
   const applyNodePositions = (
@@ -312,11 +317,8 @@ const MultiElementProperties = ({
   };
 
   const handleDistribute = (dir: direction.Direction): void => {
-    const { layouts, topOffsets } = getLayoutsForDistribution();
-    applyNodePositions(Diagram.distributeNodes(layouts, dir), (key, pos) => {
-      const topOffset = topOffsets.get(key) ?? 0;
-      return xy.translate(pos, { x: 0, y: topOffset });
-    });
+    const { layouts, adjustPosition } = getLayoutsForDistribution();
+    applyNodePositions(Diagram.distributeNodes(layouts, dir), adjustPosition);
   };
 
   const handleRotateIndividual = (dir: direction.Angular): void => {
@@ -414,7 +416,7 @@ const MultiElementProperties = ({
             <Icon.RotateGroup.CW />
           </Button.Button>
           <Button.Button
-            tooltip="Rotate symbols counter-clockwise"
+            tooltip="Rotate symbols counterclockwise"
             onClick={() => handleRotateIndividual("counterclockwise")}
           >
             <Icon.RotateGroup.CCW />
@@ -430,7 +432,7 @@ const MultiElementProperties = ({
             <Icon.RotateAroundCenter.CW />
           </Button.Button>
           <Button.Button
-            tooltip="Rotate selection counter-clockwise"
+            tooltip="Rotate selection counterclockwise"
             onClick={() => handleRotateGroup("counterclockwise")}
           >
             <Icon.RotateAroundCenter.CCW />

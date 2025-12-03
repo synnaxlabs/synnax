@@ -60,8 +60,11 @@ class Console:
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""
         self.page.keyboard.press("ControlOrMeta+Shift+p")
-        sy.sleep(0.1)
-        self.click(command)
+        palette_input = self.page.locator(
+            ".console-palette__input input[role='textbox']"
+        )
+        palette_input.fill(f">{command}", timeout=2000)
+        self.click(command, timeout=2000)
 
     @property
     def ESCAPE(self) -> None:
@@ -162,7 +165,6 @@ class Console:
             else "a"
         )
         page_command = f"Create {article} {page_type}"
-
         self.command_palette(page_command)
         page_tab, page_id = self._handle_new_page(page_type, page_name)
 

@@ -344,7 +344,7 @@ describe("Schematic Toolbar Alignment Operations", () => {
       expect(rotated[1].position).toEqual(elements[1].position);
     });
 
-    it("should handle rotate individual counter-clockwise", () => {
+    it("should handle rotate individual counterclockwise", () => {
       const elements = [
         {
           key: "valve-1",
@@ -399,7 +399,7 @@ describe("Schematic Toolbar Alignment Operations", () => {
       expect(box.dims(rotated[1].box)).toEqual(elements[1].dimensions);
     });
 
-    it("should handle rotate group counter-clockwise", () => {
+    it("should handle rotate group counterclockwise", () => {
       const elements = [
         {
           key: "valve-1",

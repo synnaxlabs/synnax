@@ -11,11 +11,20 @@ import math
 from typing import Literal
 
 import synnax as sy
+from playwright.sync_api import FloatRect
 
 from console.console import Console
 
 from ..page import ConsolePage
-from .symbol import Box, Symbol
+from .symbol import (
+    Symbol,
+    box_bottom,
+    box_center_x,
+    box_center_y,
+    box_left,
+    box_right,
+    box_top,
+)
 
 PropertyDict = dict[str, float | str | bool]
 
@@ -27,6 +36,15 @@ AlignmentType = Literal[
     "top",
     "bottom",
 ]
+
+ALIGNMENT_EXTRACTORS = {
+    "left": box_left,
+    "right": box_right,
+    "top": box_top,
+    "bottom": box_bottom,
+    "horizontal": box_center_x,
+    "vertical": box_center_y,
+}
 
 DistributionType = Literal[
     "horizontal",
@@ -512,19 +530,12 @@ class Schematic(ConsolePage):
             else:
                 tolerance = 3.0  # Strict tolerance for edge alignment
 
-        # Map horizontal/vertical to center_x/center_y for position lookup
-        position_key = (
-            "center_x"
-            if alignment == "horizontal"
-            else "center_y" if alignment == "vertical" else alignment
-        )
-
-        # Get the alignment coordinate from the first symbol
-        first_coord = getattr(positions[0], position_key)
+        extractor = ALIGNMENT_EXTRACTORS[alignment]
+        first_coord = extractor(positions[0])
 
         # Check that all symbols are aligned within tolerance
         for i, pos in enumerate(positions):
-            coord = getattr(pos, position_key)
+            coord = extractor(pos)
             diff = abs(coord - first_coord)
             assert diff <= tolerance, (
                 f"Symbol {i} ('{symbols[i].label}') is not aligned on {alignment}!\n"
@@ -566,15 +577,15 @@ class Schematic(ConsolePage):
 
         if distribution == "horizontal":
             # Sort by left edge position
-            sorted_data = sorted(zip(symbols, positions), key=lambda x: x[1].left)
+            sorted_data = sorted(zip(symbols, positions), key=lambda x: box_left(x[1]))
             sorted_symbols = [item[0] for item in sorted_data]
             sorted_positions = [item[1] for item in sorted_data]
 
             # Calculate gaps between consecutive symbols (right edge to left edge)
             gaps = []
             for i in range(len(sorted_positions) - 1):
-                current_right = sorted_positions[i].right
-                next_left = sorted_positions[i + 1].left
+                current_right = box_right(sorted_positions[i])
+                next_left = box_left(sorted_positions[i + 1])
                 gap = next_left - current_right
                 gaps.append(gap)
 
@@ -593,15 +604,15 @@ class Schematic(ConsolePage):
 
         else:  # vertical
             # Sort by top edge position
-            sorted_data = sorted(zip(symbols, positions), key=lambda x: x[1].top)
+            sorted_data = sorted(zip(symbols, positions), key=lambda x: box_top(x[1]))
             sorted_symbols = [item[0] for item in sorted_data]
             sorted_positions = [item[1] for item in sorted_data]
 
             # Calculate gaps between consecutive symbols (bottom edge to top edge)
             gaps = []
             for i in range(len(sorted_positions) - 1):
-                current_bottom = sorted_positions[i].bottom
-                next_top = sorted_positions[i + 1].top
+                current_bottom = box_bottom(sorted_positions[i])
+                next_top = box_top(sorted_positions[i + 1])
                 gap = next_top - current_bottom
                 gaps.append(gap)
 
@@ -621,7 +632,7 @@ class Schematic(ConsolePage):
     def assert_rotation(
         self,
         symbols: list[Symbol],
-        initial_positions: list[Box],
+        initial_positions: list[FloatRect],
         direction: RotationType,
         group: bool = False,
         tolerance: float = 3.0,
@@ -672,8 +683,8 @@ class Schematic(ConsolePage):
     def _assert_individual_rotation_dimensions(
         self,
         symbols: list[Symbol],
-        initial_positions: list[Box],
-        current_positions: list[Box],
+        initial_positions: list[FloatRect],
+        current_positions: list[FloatRect],
         tolerance: float,
     ) -> None:
         """Assert that symbol dimensions changed correctly after individual rotation.
@@ -687,28 +698,28 @@ class Schematic(ConsolePage):
 
             if symbol.rotatable:
                 # For rotatable symbols, dimensions should be swapped
-                width_diff = abs(current_pos.width - initial_pos.height)
-                height_diff = abs(current_pos.height - initial_pos.width)
+                width_diff = abs(current_pos["width"] - initial_pos["height"])
+                height_diff = abs(current_pos["height"] - initial_pos["width"])
 
                 assert width_diff <= tolerance and height_diff <= tolerance, (
                     f"Symbol {i} ({type(symbol).__name__}) dimensions not swapped after rotation!\n"
-                    f"Initial: width={initial_pos.width:.1f}, height={initial_pos.height:.1f}\n"
-                    f"Current: width={current_pos.width:.1f}, height={current_pos.height:.1f}\n"
-                    f"Expected: width={initial_pos.height:.1f}, height={initial_pos.width:.1f}\n"
+                    f"Initial: width={initial_pos['width']:.1f}, height={initial_pos['height']:.1f}\n"
+                    f"Current: width={current_pos['width']:.1f}, height={current_pos['height']:.1f}\n"
+                    f"Expected: width={initial_pos['height']:.1f}, height={initial_pos['width']:.1f}\n"
                     f"Difference: width_diff={width_diff:.1f}, height_diff={height_diff:.1f}\n"
                     f"Tolerance: {tolerance}px"
                 )
             else:
                 # For non-rotatable symbols, dimensions should remain the same
-                width_diff = abs(current_pos.width - initial_pos.width)
-                height_diff = abs(current_pos.height - initial_pos.height)
+                width_diff = abs(current_pos["width"] - initial_pos["width"])
+                height_diff = abs(current_pos["height"] - initial_pos["height"])
 
                 assert width_diff <= tolerance and height_diff <= tolerance, (
                     f"Symbol {i} ({type(symbol).__name__}) dimensions changed after rotation attempt!\n"
                     f"This symbol type cannot be rotated.\n"
-                    f"Initial: width={initial_pos.width:.1f}, height={initial_pos.height:.1f}\n"
-                    f"Current: width={current_pos.width:.1f}, height={current_pos.height:.1f}\n"
-                    f"Expected: width={initial_pos.width:.1f}, height={initial_pos.height:.1f}\n"
+                    f"Initial: width={initial_pos['width']:.1f}, height={initial_pos['height']:.1f}\n"
+                    f"Current: width={current_pos['width']:.1f}, height={current_pos['height']:.1f}\n"
+                    f"Expected: width={initial_pos['width']:.1f}, height={initial_pos['height']:.1f}\n"
                     f"Difference: width_diff={width_diff:.1f}, height_diff={height_diff:.1f}\n"
                     f"Tolerance: {tolerance}px"
                 )
@@ -716,8 +727,8 @@ class Schematic(ConsolePage):
     def _assert_individual_rotation_ordering(
         self,
         symbols: list[Symbol],
-        initial_positions: list[Box],
-        current_positions: list[Box],
+        initial_positions: list[FloatRect],
+        current_positions: list[FloatRect],
     ) -> None:
         """Assert that relative ordering is preserved after individual rotation.
 
@@ -726,14 +737,15 @@ class Schematic(ConsolePage):
         """
         ordering_separation_threshold = 15.0  # pixels
 
-        def check_axis_ordering(key: str, axis_name: str) -> None:
+        def check_axis_ordering(alignment: AlignmentType) -> None:
+            extractor = ALIGNMENT_EXTRACTORS[alignment]
             violations: list[dict[str, int | float]] = []
             for i in range(len(symbols)):
                 for j in range(i + 1, len(symbols)):
-                    initial_i_val = getattr(initial_positions[i], key)
-                    initial_j_val = getattr(initial_positions[j], key)
-                    current_i_val = getattr(current_positions[i], key)
-                    current_j_val = getattr(current_positions[j], key)
+                    initial_i_val = extractor(initial_positions[i])
+                    initial_j_val = extractor(initial_positions[j])
+                    current_i_val = extractor(current_positions[i])
+                    current_j_val = extractor(current_positions[j])
 
                     initial_diff = initial_j_val - initial_i_val
                     current_diff = current_j_val - current_i_val
@@ -754,7 +766,7 @@ class Schematic(ConsolePage):
                             )
 
             if violations:
-                msg = f"{axis_name} ordering changed for well-separated symbols!\n"
+                msg = f"{alignment.capitalize()} ordering changed for well-separated symbols!\n"
                 for v in violations:
                     i_idx = int(v["i"])
                     j_idx = int(v["j"])
@@ -763,14 +775,14 @@ class Schematic(ConsolePage):
                     msg += f"    Current: {v['current_i']:.1f} vs {v['current_j']:.1f} (diff: {abs(float(v['current_j']) - float(v['current_i'])):.1f}px)\n"
                 raise AssertionError(msg)
 
-        check_axis_ordering("center_x", "Horizontal")
-        check_axis_ordering("center_y", "Vertical")
+        check_axis_ordering("horizontal")
+        check_axis_ordering("vertical")
 
     def _assert_group_rotation_transform(
         self,
         symbols: list[Symbol],
-        initial_positions: list[Box],
-        current_positions: list[Box],
+        initial_positions: list[FloatRect],
+        current_positions: list[FloatRect],
         direction: RotationType,
         tolerance: float,
     ) -> None:
@@ -780,18 +792,18 @@ class Schematic(ConsolePage):
         rotated by approximately ±90 degrees around the group center.
         """
         # Calculate initial center
-        initial_center_x = sum(pos.center_x for pos in initial_positions) / len(
+        initial_center_x = sum(box_center_x(pos) for pos in initial_positions) / len(
             initial_positions
         )
-        initial_center_y = sum(pos.center_y for pos in initial_positions) / len(
+        initial_center_y = sum(box_center_y(pos) for pos in initial_positions) / len(
             initial_positions
         )
 
         # Calculate current center
-        current_center_x = sum(pos.center_x for pos in current_positions) / len(
+        current_center_x = sum(box_center_x(pos) for pos in current_positions) / len(
             current_positions
         )
-        current_center_y = sum(pos.center_y for pos in current_positions) / len(
+        current_center_y = sum(box_center_y(pos) for pos in current_positions) / len(
             current_positions
         )
 
@@ -800,11 +812,11 @@ class Schematic(ConsolePage):
 
         for i in range(len(symbols)):
 
-            init_x = initial_positions[i].center_x - initial_center_x
-            init_y = initial_positions[i].center_y - initial_center_y
+            init_x = box_center_x(initial_positions[i]) - initial_center_x
+            init_y = box_center_y(initial_positions[i]) - initial_center_y
 
-            curr_x = current_positions[i].center_x - current_center_x
-            curr_y = current_positions[i].center_y - current_center_y
+            curr_x = box_center_x(current_positions[i]) - current_center_x
+            curr_y = box_center_y(current_positions[i]) - current_center_y
 
             initial_angle = math.degrees(math.atan2(init_y, init_x))
             current_angle = math.degrees(math.atan2(curr_y, curr_x))

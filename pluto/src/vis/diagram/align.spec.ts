@@ -700,7 +700,7 @@ describe("rotateNodesAroundCenter", () => {
     expect(box.topLeft(outputs[1].box)).toEqual({ x: 100, y: 100 });
   });
 
-  it("should rotate two nodes 90 degrees counter-clockwise around their center", () => {
+  it("should rotate two nodes 90 degrees counterclockwise around their center", () => {
     const inputs = [
       new NodeLayout(
         "n1",

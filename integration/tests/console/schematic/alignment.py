@@ -119,13 +119,13 @@ class Alignment(ConsoleCase):
         self.log("Rotate Individual Clockwise")
         schematic.rotate(symbols, "clockwise", group=False)
 
-        self.log("Rotate Individual Counter-Clockwise")
+        self.log("Rotate Individual Counterclockwise")
         schematic.rotate(symbols, "counterclockwise", group=False)
 
         self.log("Rotate Group Clockwise")
         schematic.rotate(symbols, "clockwise", group=True)
 
-        self.log("Rotate Group Counter-Clockwise")
+        self.log("Rotate Group Counterclockwise")
         schematic.rotate(symbols, "counterclockwise", group=True)
 
         schematic.screenshot()

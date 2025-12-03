@@ -170,9 +170,9 @@ class ChannelClient:
                     # Right click on the channel item to get context menu
                     item.click(button="right")
                     rename_option = self.page.get_by_text("Rename", exact=True).first
-                    rename_option.click()
+                    self.page.wait_for_timeout(200)
+                    rename_option.click(timeout=1000)
 
-                    # The <p> element should now be editable - clear it and type new name
                     channel_name_element.click()
                     channel_name_element.fill(new_name)
                     self.page.keyboard.press("Enter")
