@@ -37,7 +37,7 @@ export const retrieveAndPlaceLayout = async (
   placeLayout: Layout.Placer,
 ) => {
   if (client == null) throw new DisconnectedError();
-  const t = await client.tasks.retrieve({ key });
+  const t = await client.hardware.tasks.retrieve({ key });
   const layout = createLayout(t);
   if (t.snapshot)
     layout.tab = {

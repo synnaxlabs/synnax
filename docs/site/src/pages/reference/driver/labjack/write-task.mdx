@@ -100,12 +100,12 @@ Writes digital state (0 or 1) to a specified digital I/O line.
 
 ```python
 import synnax as sy
-from synnax import labjack
+from synnax.hardware import labjack
 
 client = sy.Synnax()
 
 # Retrieve device
-dev = client.devices.retrieve(name="my_labjack")
+dev = client.hardware.devices.retrieve(name="my_labjack")
 
 # Create command time index
 cmd_time = client.channels.create(
@@ -173,7 +173,7 @@ task = labjack.WriteTask(
     ],
 )
 
-client.tasks.configure(task)
+client.hardware.tasks.configure(task)
 
 # Start task and write commands
 with task.run():
@@ -200,7 +200,7 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.tasks.retrieve(name="LabJack Write Task")
+task = client.hardware.tasks.retrieve(name="LabJack Write Task")
 task = labjack.WriteTask(internal=task)
 
 # Update task-level configuration
@@ -214,7 +214,7 @@ task.config.channels[0].port = "DAC1"
 task.config.channels[1].port = "DIO5"
 
 # Apply changes
-client.tasks.configure(task)
+client.hardware.tasks.configure(task)
 ```
 
 </ExampleDetails>
@@ -231,7 +231,7 @@ import { Synnax, TimeStamp, Rate } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const dev = await client.devices.retrieve({ name: "my_labjack" });
+const dev = await client.hardware.devices.retrieve({ name: "my_labjack" });
 
 // Create command time index
 const cmdTime = await client.channels.create({
@@ -280,7 +280,7 @@ const do4State = await client.channels.create({
 });
 
 // Create and configure task
-const task = await client.tasks.create({
+const task = await client.hardware.tasks.create({
   name: "LabJack Write Task",
   type: "labjack_write",
   config: JSON.stringify({
@@ -340,7 +340,7 @@ await streamer.close();
 
 ```typescript
 // Retrieve existing task
-const task = await client.tasks.retrieve({ name: "LabJack Write Task" });
+const task = await client.hardware.tasks.retrieve({ name: "LabJack Write Task" });
 
 // Parse and update configuration
 const config = JSON.parse(task.config);
@@ -356,7 +356,7 @@ config.channels[0].port = "DAC1";
 config.channels[1].port = "DIO5";
 
 // Apply changes
-await client.tasks.create({
+await client.hardware.tasks.create({
   key: task.key,
   name: task.name,
   type: task.type,

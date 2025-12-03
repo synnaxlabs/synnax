@@ -14,6 +14,7 @@ import numpy as np
 from scipy.signal import find_peaks
 
 import synnax as sy
+from synnax.control.controller import Controller
 
 client = sy.Synnax()
 
@@ -73,11 +74,11 @@ auto_logs = client.channels.create(
 )
 
 
-def start_sim_cmd(aut: sy.Controller):
+def start_sim_cmd(aut: Controller):
     return sim_cmd.key in aut.state and aut[START_SIM_CMD] == 1
 
 
-def log(aut: sy.Controller, msg: str):
+def log(aut: Controller, msg: str):
     aut.set(
         AUTO_LOGS,
         f"TPC  {sy.TimeStamp.now().datetime().strftime('%H:%M:%S.%f')}  {msg}",
@@ -85,7 +86,7 @@ def log(aut: sy.Controller, msg: str):
 
 
 def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Range:
-    def run_tpc(auto: sy.Controller):
+    def run_tpc(auto: Controller):
         pressure = auto[FUEL_TANK_PT]
         one_open = auto[TPC_CMD_ACK]
         if pressure > params.tpc_upper_bound:

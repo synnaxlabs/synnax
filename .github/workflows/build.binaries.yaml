@@ -160,7 +160,7 @@ jobs:
         if: inputs.driver && inputs.core
         shell: bash
         run: |
-          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} core/pkg/service/driver/assets/driver${{ matrix.executable }}
+          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} core/pkg/service/hardware/embedded/assets/driver${{ matrix.executable }}
 
       - name: Set up Go
         if: inputs.core

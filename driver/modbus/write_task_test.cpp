@@ -19,7 +19,7 @@
 
 class ModbusWriteTest : public ::testing::Test {
 protected:
-    std::shared_ptr<synnax::Synnax> client;
+    std::shared_ptr<synnax::Synnax> sy;
     synnax::Task task;
     std::unique_ptr<modbus::WriteTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
@@ -29,22 +29,22 @@ protected:
     synnax::Channel reg_ch;
 
     void setup_task_config() {
-        this->client = std::make_shared<synnax::Synnax>(new_test_client());
+        this->sy = std::make_shared<synnax::Synnax>(new_test_client());
         this->devs = std::make_shared<modbus::device::Manager>();
-        this->ctx = std::make_shared<task::MockContext>(client);
+        this->ctx = std::make_shared<task::MockContext>(sy);
         if (this->coil_ch.name.empty())
             this->coil_ch.name = make_unique_channel_name("coil");
         if (this->coil_ch.data_type == telem::UNKNOWN_T)
             this->coil_ch.data_type = telem::UINT8_T;
         this->coil_ch.is_virtual = true;
-        ASSERT_NIL(client->channels.create(this->coil_ch));
+        ASSERT_NIL(sy->channels.create(this->coil_ch));
         if (this->reg_ch.name.empty())
             this->reg_ch.name = make_unique_channel_name("register");
         if (this->reg_ch.data_type == telem::UNKNOWN_T)
             this->reg_ch.data_type = telem::UINT16_T;
         this->reg_ch.is_virtual = true;
-        ASSERT_NIL(client->channels.create(this->reg_ch));
-        auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+        ASSERT_NIL(sy->channels.create(this->reg_ch));
+        auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
         json properties{
             {"connection",
              {{"host", "127.0.0.1"},
@@ -62,7 +62,7 @@ protected:
             "Modbus Device",
             nlohmann::to_string(properties)
         );
-        ASSERT_NIL(client->devices.create(dev));
+        ASSERT_NIL(sy->hardware.create_device(dev));
 
         task = synnax::Task(rack.key, "modbus_write_test", "modbus_write", "");
     }
@@ -95,7 +95,7 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
     };
 
     auto p = xjson::Parser(task_cfg);
-    cfg = std::make_unique<modbus::WriteTaskConfig>(client, p);
+    cfg = std::make_unique<modbus::WriteTaskConfig>(sy, p);
     ASSERT_NIL(p.error());
     const auto reads = std::make_shared<std::vector<synnax::Frame>>();
     synnax::Frame fr(2);
@@ -137,26 +137,20 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     auto int16_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("int16"), telem::INT16_T, true)
+        sy->channels.create(make_unique_channel_name("int16"), telem::INT16_T, true)
     );
-    auto uint32_ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("uint32"),
-        telem::UINT32_T,
-        true
-    ));
+    auto uint32_ch = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("uint32"), telem::UINT32_T, true)
+    );
     auto int32_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("int32"), telem::INT32_T, true)
+        sy->channels.create(make_unique_channel_name("int32"), telem::INT32_T, true)
     );
-    auto float32_ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("float32"),
-        telem::FLOAT32_T,
-        true
-    ));
-    auto float64_ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("float64"),
-        telem::FLOAT64_T,
-        true
-    ));
+    auto float32_ch = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("float32"), telem::FLOAT32_T, true)
+    );
+    auto float64_ch = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("float64"), telem::FLOAT64_T, true)
+    );
 
     json task_cfg{
         {"device", "modbus_test_dev"},
@@ -191,7 +185,7 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     };
 
     auto p = xjson::Parser(task_cfg);
-    cfg = std::make_unique<modbus::WriteTaskConfig>(client, p);
+    cfg = std::make_unique<modbus::WriteTaskConfig>(sy, p);
     ASSERT_NIL(p.error());
 
     const auto reads = std::make_shared<std::vector<synnax::Frame>>();
@@ -243,26 +237,26 @@ TEST_F(ModbusWriteTest, testInvalidWriteConfiguration) {
     };
 
     auto p1 = xjson::Parser(task_cfg);
-    cfg = std::make_unique<modbus::WriteTaskConfig>(client, p1);
+    cfg = std::make_unique<modbus::WriteTaskConfig>(sy, p1);
     ASSERT_OCCURRED_AS(p1.error(), xerrors::VALIDATION);
 
     task_cfg["device"] = "modbus_test_dev";
     task_cfg["channels"][0]["type"] = "invalid_type";
     auto p2 = xjson::Parser(task_cfg);
-    cfg = std::make_unique<modbus::WriteTaskConfig>(client, p2);
+    cfg = std::make_unique<modbus::WriteTaskConfig>(sy, p2);
     ASSERT_OCCURRED_AS(p2.error(), xerrors::VALIDATION);
 
     task_cfg["channels"][0]["type"] = "coil_output";
     task_cfg["channels"][0].erase("channel");
     auto p3 = xjson::Parser(task_cfg);
-    cfg = std::make_unique<modbus::WriteTaskConfig>(client, p3);
+    cfg = std::make_unique<modbus::WriteTaskConfig>(sy, p3);
     ASSERT_OCCURRED_AS(p3.error(), xerrors::VALIDATION);
 
     task_cfg["channels"][0]["channel"] = reg_ch.key;
     task_cfg["channels"][0]["type"] = "holding_register_output";
     task_cfg["channels"][0].erase("data_type");
     auto p4 = xjson::Parser(task_cfg);
-    cfg = std::make_unique<modbus::WriteTaskConfig>(client, p4);
+    cfg = std::make_unique<modbus::WriteTaskConfig>(sy, p4);
     ASSERT_OCCURRED_AS(p4.error(), xerrors::VALIDATION);
 }
 
@@ -277,16 +271,16 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     auto coil1 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("coil1"), telem::UINT8_T, true)
+        sy->channels.create(make_unique_channel_name("coil1"), telem::UINT8_T, true)
     );
     auto coil2 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("coil2"), telem::UINT8_T, true)
+        sy->channels.create(make_unique_channel_name("coil2"), telem::UINT8_T, true)
     );
     auto reg1 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("reg1"), telem::UINT16_T, true)
+        sy->channels.create(make_unique_channel_name("reg1"), telem::UINT16_T, true)
     );
     auto reg2 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("reg2"), telem::UINT16_T, true)
+        sy->channels.create(make_unique_channel_name("reg2"), telem::UINT16_T, true)
     );
 
     json task_cfg{
@@ -315,7 +309,7 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
     };
 
     auto p = xjson::Parser(task_cfg);
-    cfg = std::make_unique<modbus::WriteTaskConfig>(client, p);
+    cfg = std::make_unique<modbus::WriteTaskConfig>(sy, p);
     ASSERT_NIL(p.error());
 
     const auto reads = std::make_shared<std::vector<synnax::Frame>>();
@@ -381,7 +375,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     };
 
     auto p = xjson::Parser(task_cfg);
-    cfg = std::make_unique<modbus::WriteTaskConfig>(client, p);
+    cfg = std::make_unique<modbus::WriteTaskConfig>(sy, p);
     ASSERT_NIL(p.error());
 
     const auto reads = std::make_shared<std::vector<synnax::Frame>>();
@@ -415,21 +409,17 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     ASSERT_EVENTUALLY_EQ(slave.get_coil(0), 1);
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(1), 42);
 
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, task.status_key());
-    EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
+    const auto first_state = ctx->states[0];
+    EXPECT_EQ(first_state.key, "start_cmd");
+    EXPECT_EQ(first_state.variant, "success");
 
     wt->stop("stop_cmd", true);
 
-    ASSERT_EQ(ctx->statuses.size(), 2);
-    const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, task.status_key());
-    EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    ASSERT_EQ(ctx->states.size(), 2);
+    const auto second_state = ctx->states[1];
+    EXPECT_EQ(second_state.key, "stop_cmd");
+    EXPECT_EQ(second_state.variant, "success");
 }
 
 /// Regression test for buffer size calculation bug with UINT8 holding registers.
@@ -448,21 +438,15 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     // Create three UINT8 channels for sequential holding registers
-    auto holding0 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("holding0"),
-        telem::UINT8_T,
-        true
-    ));
-    auto holding1 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("holding1"),
-        telem::UINT8_T,
-        true
-    ));
-    auto holding2 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("holding2"),
-        telem::UINT8_T,
-        true
-    ));
+    auto holding0 = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("holding0"), telem::UINT8_T, true)
+    );
+    auto holding1 = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("holding1"), telem::UINT8_T, true)
+    );
+    auto holding2 = ASSERT_NIL_P(
+        sy->channels.create(make_unique_channel_name("holding2"), telem::UINT8_T, true)
+    );
 
     json task_cfg{
         {"device", "modbus_test_dev"},
@@ -487,7 +471,7 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     };
 
     auto p = xjson::Parser(task_cfg);
-    cfg = std::make_unique<modbus::WriteTaskConfig>(client, p);
+    cfg = std::make_unique<modbus::WriteTaskConfig>(sy, p);
     ASSERT_NIL(p.error());
 
     const auto reads = std::make_shared<std::vector<synnax::Frame>>();

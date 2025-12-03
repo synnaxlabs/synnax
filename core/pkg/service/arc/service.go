@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/core"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -201,7 +200,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:     gorp.OverrideTx(s.cfg.DB, tx),
 		otg:    s.cfg.Ontology.NewWriter(tx),
-		status: status.NewWriter[core.StatusDetails](s.cfg.Status, tx),
+		status: s.cfg.Status.NewWriter(tx),
 	}
 }
 

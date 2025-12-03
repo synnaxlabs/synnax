@@ -8,12 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+from synnax.hardware import ni
 
 # We've logged in via the CLI, so there's no need to provide credentials here.
 # See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
 client = sy.Synnax()
 
-dev = client.devices.retrieve(model="USB-6289")
+dev = client.hardware.devices.retrieve(model="USB-6289")
 
 # Create an index channel that will be used to store the timestamps
 # for the digital read data.
@@ -44,7 +45,7 @@ di_1 = client.channels.create(
 # Instantiate the task. A task is a background process that can be used to acquire data
 # from, or write commands to a device. Tasks are the primary method for interacting with
 # Synnax hardware devices.
-tsk = sy.ni.DigitalReadTask(
+tsk = ni.DigitalReadTask(
     # A name to find and monitor the task via the Synnax Console.
     name="Basic Digital Read",
     # The key of the device to execute the task on.
@@ -59,14 +60,14 @@ tsk = sy.ni.DigitalReadTask(
     data_saving=True,
     # The list of physical channels we'd like to acquire data from.
     channels=[
-        sy.ni.DIChan(channel=di_0.key, port=0, line=0),
-        sy.ni.DIChan(channel=di_1.key, port=0, line=1),
+        ni.DIChan(channel=di_0.key, port=0, line=0),
+        ni.DIChan(channel=di_1.key, port=0, line=1),
     ],
 )
 
 # Create the task in Synnax and wait for the driver to validate that the
 # configuration is correct.
-client.tasks.configure(tsk)
+client.hardware.tasks.configure(tsk)
 
 # Stream 100 reads, which will accumulate a total of 200 samples per channel over
 # a period of 4 seconds.
@@ -83,7 +84,7 @@ with tsk.run():
             frame.append(streamer.read())
             total_reads -= 1
 
-client.tasks.delete(tsk.key)
+client.hardware.tasks.delete(tsk.key)
 
 # Save the data to a CSV file.
 frame.to_df().to_csv("digital_read_result.csv")

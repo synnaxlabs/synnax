@@ -83,7 +83,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<
     rollbacks.push(
       store.resources.set(
         ontology.idToString(id),
-        state.skipUndefined((r) => ({ ...r, username })),
+        state.skipNull((r) => ({ ...r, username })),
       ),
     );
     return data;

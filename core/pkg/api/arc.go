@@ -27,7 +27,7 @@ import (
 
 type Arc struct {
 	arc.Arc
-	Status *status.Status[arc.StatusDetails] `json:"status" msgpack:"status"`
+	Status *status.Status `json:"status" msgpack:"status"`
 }
 
 type ArcService struct {
@@ -139,11 +139,11 @@ func (s *ArcService) Retrieve(ctx context.Context, req ArcRetrieveRequest) (res 
 	res.Arcs = translateArcsFromService(svcArcs)
 
 	if req.IncludeStatus {
-		statuses := make([]status.Status[arc.StatusDetails], 0, len(res.Arcs))
+		statuses := make([]status.Status, 0, len(res.Arcs))
 		uuidStrings := lo.Map(res.Arcs, func(a Arc, _ int) string {
 			return a.Key.String()
 		})
-		if err = status.NewRetrieve[arc.StatusDetails](s.status).
+		if err = s.status.NewRetrieve().
 			WhereKeys(uuidStrings...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {

@@ -46,7 +46,7 @@ export const UtilityButtons = () => {
     copy(
       `
       // Retrieve ${name}
-      const task = client.tasks.retrieve("${taskKey}")
+      const task = client.hardware.tasks.retrieve("${taskKey}")
       `,
       `TypeScript code for retrieving ${name}`,
     );
@@ -56,7 +56,7 @@ export const UtilityButtons = () => {
     copy(
       `
       # Retrieve ${name}
-      task = client.tasks.retrieve("${taskKey}")
+      task = client.hardware.tasks.retrieve("${taskKey}")
       `,
       `Python code for retrieving ${name}`,
     );

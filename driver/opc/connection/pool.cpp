@@ -17,7 +17,6 @@
 
 /// internal
 #include "driver/opc/connection/connection.h"
-#include "driver/opc/errors/errors.h"
 
 namespace opc::connection {
 std::pair<Pool::Connection, xerrors::Error>
@@ -41,18 +40,10 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
                         nullptr
                     );
                     if (session_state == UA_SESSIONSTATE_ACTIVATED) {
-                        // Perform connection maintenance with error checking
-                        if (const auto err = run_iterate_checked(
-                                entry.client,
-                                log_prefix
-                            )) {
-                            VLOG(1)
-                                << log_prefix
-                                << "Cached connection failed maintenance, trying next";
-                            entry.client.reset();
-                            continue;
-                        }
                         entry.in_use = true;
+                        // Perform connection maintenance (token renewal, etc.)
+                        // Timeout=0 means non-blocking, just housekeeping
+                        UA_Client_run_iterate(entry.client.get(), 0);
                         VLOG(1) << log_prefix << "Reusing connection from pool for "
                                 << cfg.endpoint;
                         return {Connection(entry.client, this, key), xerrors::NIL};
@@ -77,11 +68,8 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     auto [client, err] = connect(cfg, log_prefix);
     if (err) { return {Connection(nullptr, nullptr, ""), err}; }
 
-    // Perform initial connection maintenance with error checking
-    if (const auto iterate_err = run_iterate_checked(client, log_prefix)) {
-        LOG(WARNING) << log_prefix << "New connection failed initial maintenance";
-        return {Connection(nullptr, nullptr, ""), iterate_err};
-    }
+    // Perform initial connection maintenance
+    UA_Client_run_iterate(client.get(), 0);
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -142,51 +130,6 @@ size_t Pool::available_count(const std::string &endpoint) const {
             for (const auto &entry: entries)
                 if (!entry.in_use && entry.client) count++;
     return count;
-}
-
-xerrors::Error Pool::run_iterate_checked(
-    const std::shared_ptr<UA_Client> &client,
-    const std::string &log_prefix
-) {
-    const UA_StatusCode status = UA_Client_run_iterate(client.get(), 0);
-    if (status != UA_STATUSCODE_GOOD) {
-        LOG(WARNING) << log_prefix
-                     << "run_iterate failed: " << UA_StatusCode_name(status);
-        return opc::errors::parse(status);
-    }
-
-    // Re-verify session state after run_iterate to catch any state transition
-    UA_SessionState session_state;
-    UA_SecureChannelState channel_state;
-    UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
-
-    if (session_state != UA_SESSIONSTATE_ACTIVATED) {
-        LOG(WARNING) << log_prefix << "Session no longer activated after run_iterate";
-        return xerrors::Error(
-            opc::errors::NO_CONNECTION,
-            "session deactivated during maintenance"
-        );
-    }
-
-    // Active health probe: read server time to verify connection is truly alive.
-    // This catches cases where the server died but the client's local state
-    // hasn't been updated yet.
-    UA_Variant value;
-    UA_Variant_init(&value);
-    const UA_StatusCode read_status = UA_Client_readValueAttribute(
-        client.get(),
-        UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME),
-        &value
-    );
-    UA_Variant_clear(&value);
-
-    if (read_status != UA_STATUSCODE_GOOD) {
-        LOG(WARNING) << log_prefix
-                     << "Health probe failed: " << UA_StatusCode_name(read_status);
-        return opc::errors::parse(read_status);
-    }
-
-    return xerrors::NIL;
 }
 
 }

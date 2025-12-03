@@ -32,7 +32,6 @@ struct StatusHandler {
 
     StatusHandler(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task):
         ctx(ctx), task(task) {
-        this->status.name = task.name;
         this->status.details.task = task.key;
         this->status.variant = status::variant::SUCCESS;
     }
@@ -58,7 +57,7 @@ struct StatusHandler {
     /// @brief sends the provided warning string to the task. If the task is in
     /// error state, the warning will not be sent.
     void send_warning(const std::string &warning) {
-        this->status.key = this->task.status_key();
+        this->status.key = "";
         // If there's already an error bound, communicate it instead.
         if (!this->accumulated_err) {
             this->status.variant = status::variant::WARNING;
@@ -80,8 +79,7 @@ struct StatusHandler {
     /// will be sent as part of the state. If the error is nil, then the task will
     /// be marked as running.
     void send_start(const std::string &cmd_key) {
-        this->status.key = this->task.status_key();
-        this->status.details.cmd = cmd_key;
+        this->status.key = cmd_key;
         if (!this->accumulated_err) {
             this->status.details.running = true;
             this->status.message = "Task started successfully";
@@ -98,8 +96,7 @@ struct StatusHandler {
     /// will be sent as part of the state. Regardless of the error state, the task
     /// will be marked as not running.
     void send_stop(const std::string &cmd_key) {
-        this->status.key = this->task.status_key();
-        this->status.details.cmd = cmd_key;
+        this->status.key = cmd_key;
         this->status.details.running = false;
         if (this->accumulated_err) {
             this->status.variant = status::variant::ERR;
@@ -118,8 +115,6 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     std::pair<common::ConfigureResult, xerrors::Error> res
 ) {
     synnax::TaskStatus status;
-    status.key = task.status_key();
-    status.name = task.name;
     status.details.task = task.key;
     status.details.running = false;
     if (res.second) {

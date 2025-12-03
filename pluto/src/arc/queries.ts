@@ -212,7 +212,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     rollbacks.push(
       store.arcs.set(
         key,
-        state.skipUndefined((p) => ({ ...p, name })),
+        state.skipNull((p) => ({ ...p, name })),
       ),
     );
     await client.arcs.create({ ...arc, name });

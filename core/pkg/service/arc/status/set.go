@@ -48,7 +48,7 @@ var (
 )
 
 type setStatus struct {
-	stat      status.Status[any]
+	stat      status.Status
 	statusSvc *status.Service
 	ins       alamos.Instrumentation
 }
@@ -86,7 +86,7 @@ func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node,
 	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
 		return nil, err
 	}
-	var stat status.Status[any]
+	var stat status.Status
 	if err := s.stat.NewRetrieve().
 		WhereKeys(nodeCfg.StatusKey).
 		Entry(&stat).

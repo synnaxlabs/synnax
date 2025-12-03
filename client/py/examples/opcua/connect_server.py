@@ -33,6 +33,7 @@ import json
 from uuid import uuid4
 
 import synnax as sy
+from synnax.hardware import opcua
 
 # Configuration
 DEVICE_NAME = "OPC UA Server"
@@ -49,7 +50,9 @@ print(f"Endpoint: {ENDPOINT}")
 print()
 
 # Check if device already exists
-existing_device = client.devices.retrieve(name=DEVICE_NAME, ignore_not_found=True)
+existing_device = client.hardware.devices.retrieve(
+    name=DEVICE_NAME, ignore_not_found=True
+)
 
 if existing_device is not None:
     print("✓ Device already connected!")
@@ -78,18 +81,18 @@ if response in ("", "y", "yes"):
 
     try:
         # Get the embedded rack (local driver rack)
-        rack = client.racks.retrieve_embedded_rack()
+        rack = client.hardware.racks.retrieve_embedded_rack()
         print(f"Using rack: {rack.name} (key={rack.key})")
 
         # Create the device with proper connection properties
-        device = sy.opcua.Device(
+        device = opcua.Device(
             endpoint=ENDPOINT,
             name=DEVICE_NAME,
             location=ENDPOINT,
             rack=rack.key,
         )
 
-        created_device = client.devices.create(device)
+        created_device = client.hardware.devices.create(device)
 
         print("✓ Device connected successfully!")
         print(f"  - Name: {created_device.name}")

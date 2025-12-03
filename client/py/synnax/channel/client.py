@@ -23,7 +23,6 @@ from synnax.channel.payload import (
     ChannelPayload,
     Operation,
     normalize_channel_params,
-    ontology_id,
 )
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.writer import ChannelWriter
@@ -39,6 +38,8 @@ from synnax.telem import (
     TimeRange,
 )
 from synnax.util.normalize import normalize
+
+CHANNEL_ONTOLOGY_TYPE = ID(type="channel")
 
 
 class Channel(ChannelPayload):
@@ -156,10 +157,6 @@ class Channel(ChannelPayload):
         :returns: None.
         """
         self.__client.rename(self.key, name)
-
-    @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
 
     @property
     def __frame_client(self) -> FrameClient:

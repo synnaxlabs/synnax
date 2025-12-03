@@ -21,7 +21,7 @@ print("Modbus Connection Diagnostic")
 print("=" * 70)
 
 # Check if device exists
-dev = client.devices.retrieve(name="Modbus Server", ignore_not_found=True)
+dev = client.hardware.devices.retrieve(name="Modbus Server", ignore_not_found=True)
 
 if dev is None:
     print("✗ Device 'Modbus Server' not found")
@@ -39,7 +39,7 @@ print()
 print("Checking for tasks...")
 try:
     # Retrieve task by name
-    task = client.tasks.retrieve(name="Modbus Python Example - Read Task")
+    task = client.hardware.tasks.retrieve(name="Modbus Python Example - Read Task")
     print(f"  ✓ Found task: {task.name}")
     print(f"    - Key: {task.key}")
     print(f"    - Type: {task.type}")

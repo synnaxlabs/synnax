@@ -24,7 +24,7 @@ Before running this example:
 """
 
 import synnax as sy
-from synnax import modbus
+from synnax.hardware import modbus
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
@@ -32,7 +32,7 @@ client = sy.Synnax()
 
 # Retrieve the Modbus device from Synnax
 # Update this with the name you gave the device in the Synnax Console
-dev = client.devices.retrieve(name="Modbus Server")
+dev = client.hardware.devices.retrieve(name="Modbus Server")
 
 # Create an index channel that will be used to store the timestamps for the data.
 modbus_time = client.channels.create(
@@ -60,7 +60,7 @@ input_reg_1 = client.channels.create(
 
 # Create the Modbus Read Task
 # Reads two input registers with sine wave data from the test server.
-tsk = sy.modbus.ReadTask(
+tsk = modbus.ReadTask(
     name="Modbus Py - Read Task",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
@@ -68,19 +68,15 @@ tsk = sy.modbus.ReadTask(
     data_saving=True,
     channels=[
         # Input register (16-bit R-only) at address 0
-        sy.modbus.InputRegisterChan(
-            channel=input_reg_0.key, address=0, data_type="uint8"
-        ),
+        modbus.InputRegisterChan(channel=input_reg_0.key, address=0, data_type="uint8"),
         # Input register (16-bit R-only) at address 1
-        sy.modbus.InputRegisterChan(
-            channel=input_reg_1.key, address=1, data_type="uint8"
-        ),
+        modbus.InputRegisterChan(channel=input_reg_1.key, address=1, data_type="uint8"),
     ],
 )
 
 # Configure the task with Synnax
 try:
-    client.tasks.configure(tsk)
+    client.hardware.tasks.configure(tsk)
     print("✓ Task configured successfully")
 except Exception as e:
     print(f"✗ Task configuration failed: {e}")

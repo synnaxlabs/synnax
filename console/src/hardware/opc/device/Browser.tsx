@@ -31,7 +31,7 @@ import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { CSS } from "@/css";
 import { retrieveScanTask } from "@/hardware/opc/device/retrieveScanTask";
 import { type Device } from "@/hardware/opc/device/types";
-import { BROWSE_COMMAND_TYPE, type ScannedNode } from "@/hardware/opc/task/types";
+import { SCAN_COMMAND_TYPE, type ScannedNode } from "@/hardware/opc/task/types";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,
@@ -100,7 +100,7 @@ const { useRetrieveObservable: useRetrieveNodes } = Flux.createRetrieve<
   }) => {
     const scanTask = await retrieveScanTask(client, store, rack);
     const { details, variant, message } = await scanTask.executeCommandSync({
-      type: BROWSE_COMMAND_TYPE,
+      type: SCAN_COMMAND_TYPE,
       timeout: TimeSpan.seconds(10),
       args: { connection, node_id: id },
     });

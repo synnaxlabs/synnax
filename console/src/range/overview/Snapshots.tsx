@@ -65,7 +65,7 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
       retrieveAndPlaceTaskLayout(client, key, placeLayout),
     onDelete: async ({ id: { key } }, { client }) => {
       if (client == null) throw new DisconnectedError();
-      await client.tasks.delete(key);
+      await client.hardware.tasks.delete(key);
     },
   },
 };

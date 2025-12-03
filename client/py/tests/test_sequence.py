@@ -10,7 +10,7 @@
 
 import pytest
 
-from synnax import sequence
+from synnax.hardware import sequence
 
 
 @pytest.mark.sequence

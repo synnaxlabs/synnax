@@ -21,7 +21,7 @@ import (
 )
 
 // Type is the type of a specific ontology Resource. This type should be unique for each
-// [Schema] in the cluster.
+// [Schema] in the cluster. in the cluster. in the cluster. in the cluster.
 type Type string
 
 // ZeroType is the zero type and should be assigned to any resource.
@@ -61,26 +61,20 @@ func (id ID) Validate() error {
 	return nil
 }
 
-// String returns a string representation of the ID in the format "type:key".
+// String returns a string representation of the Resource.
 func (id ID) String() string { return string(id.Type) + ":" + id.Key }
 
-// IsZero returns true if the ID is the zero value (both Key and Type are empty).
+// IsZero true if the ID is the zero value for its type.
 func (id ID) IsZero() bool { return id.Key == "" && id.Type == "" }
 
-// IsType returns true if the ID represents a type identifier (has a Type but no Key).
-// Type IDs are used to identify resource types rather than specific resource instances.
+// IsType returns true if the ID is a type ID.
 func (id ID) IsType() bool { return id.Type != "" && id.Key == "" }
 
 // ParseID parses the given string into an ID.
 func ParseID(s string) (ID, error) {
-	// We explicitly allow ontology id's that have multiple colons i.e.
-	// 'foo:bar:baz' will be parsed as ID{type: 'foo', Key: 'bar:baz'}
-	split := strings.SplitN(s, ":", 2)
+	split := strings.Split(s, ":")
 	if len(split) != 2 {
 		return ID{}, errors.Wrapf(validate.Error, "[ontology] - failed to parse id: %s", s)
-	}
-	if split[0] == "" {
-		return ID{}, errors.Wrapf(validate.Error, "[ontology] - failed to parse id: %s (empty type)", s)
 	}
 	return ID{Type: Type(split[0]), Key: split[1]}, nil
 }
@@ -98,24 +92,6 @@ func ParseIDs(s []string) ([]ID, error) {
 	return ids, nil
 }
 
-// IDs extracts the IDs from a slice of Resources.
-func IDs(resources []Resource) []ID {
-	ids := make([]ID, 0, len(resources))
-	for _, r := range resources {
-		ids = append(ids, r.ID)
-	}
-	return ids
-}
-
-// IDsToString converts a slice of IDs to a slice of their string representations.
-func IDsToString(ids []ID) []string {
-	strings := make([]string, 0, len(ids))
-	for _, id := range ids {
-		strings = append(strings, id.String())
-	}
-	return strings
-}
-
 // Resource represents an instance matching a [Schema] (think class and object in OOP).
 type Resource struct {
 	ID ID `json:"id" msgpack:"id"`
@@ -127,9 +103,6 @@ type Resource struct {
 	schema zyn.Schema
 }
 
-// Parse parses the Resource's Data field into the provided destination using the
-// resource's schema. Returns an error if the data does not match the schema or
-// cannot be parsed into the destination type.
 func (r Resource) Parse(dest any) error {
 	return r.schema.Parse(r.Data, dest)
 }

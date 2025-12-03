@@ -28,11 +28,8 @@ class ID(Payload):
         else:
             super().__init__(key=key, type=type)
 
-    def __str__(self):
-        return f"{self.key}:{self.type}"
 
-
-ROOT_ID = ID(key="root", type="builtin")
+ROOT = ID(key="root", type="builtin")
 
 CrudeID = str | ID
 

@@ -188,7 +188,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         std::vector<channel::InputDiscrete> coils;
         std::vector<channel::InputDiscrete> discrete_inputs;
 
-        auto [dev, dev_err] = client->devices.retrieve(this->device_key);
+        auto [dev, dev_err] = client->hardware.retrieve_device(this->device_key);
         if (dev_err) {
             cfg.field_err("device", dev_err.message());
             return;

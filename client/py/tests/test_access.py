@@ -12,6 +12,7 @@ import uuid
 import pytest
 
 import synnax as sy
+from synnax.ontology.payload import ID
 
 
 @pytest.mark.access
@@ -21,18 +22,18 @@ class TestAccessClient:
         return client.access.create(
             [
                 sy.Policy(
-                    subjects=[sy.ontology.ID(type="user", key=str(uuid.uuid4()))],
+                    subjects=[ID(type="user", key=str(uuid.uuid4()))],
                     objects=[
-                        sy.ontology.ID(type="channel", key=str(uuid.uuid4())),
-                        sy.ontology.ID(type="label", key=str(uuid.uuid4())),
+                        ID(type="channel", key=str(uuid.uuid4())),
+                        ID(type="label", key=str(uuid.uuid4())),
                     ],
                     actions=["create"],
                 ),
                 sy.Policy(
-                    subjects=[sy.ontology.ID(type="user", key=str(uuid.uuid4()))],
+                    subjects=[ID(type="user", key=str(uuid.uuid4()))],
                     objects=[
-                        sy.ontology.ID(type="channel", key=str(uuid.uuid4())),
-                        sy.ontology.ID(type="label", key=str(uuid.uuid4())),
+                        ID(type="channel", key=str(uuid.uuid4())),
+                        ID(type="label", key=str(uuid.uuid4())),
                     ],
                     actions=["create"],
                 ),
@@ -47,10 +48,10 @@ class TestAccessClient:
 
     def test_create_single(self, client: sy.Synnax) -> None:
         p = sy.Policy(
-            subjects=[sy.ontology.ID(type="user", key=str(uuid.uuid4()))],
+            subjects=[ID(type="user", key=str(uuid.uuid4()))],
             objects=[
-                sy.ontology.ID(type="channel", key=str(uuid.uuid4())),
-                sy.ontology.ID(type="label", key=str(uuid.uuid4())),
+                ID(type="channel", key=str(uuid.uuid4())),
+                ID(type="label", key=str(uuid.uuid4())),
             ],
             actions=["create"],
         )
@@ -63,25 +64,23 @@ class TestAccessClient:
     def test_create_from_kwargs(self, client: sy.Synnax) -> None:
         resource_id = str(uuid.uuid4())
         policy = client.access.create(
-            subjects=[sy.ontology.ID(type="user", key=resource_id)],
+            subjects=[ID(type="user", key=resource_id)],
             objects=[
-                sy.ontology.ID(type="channel", key=resource_id),
-                sy.ontology.ID(type="label", key=resource_id),
+                ID(type="channel", key=resource_id),
+                ID(type="label", key=resource_id),
             ],
             actions=["create"],
         )
         assert policy.key != ""
         assert policy.actions == ["create"]
-        assert policy.subjects == [sy.ontology.ID(type="user", key=resource_id)]
+        assert policy.subjects == [ID(type="user", key=resource_id)]
         assert policy.objects == [
-            sy.ontology.ID(type="channel", key=resource_id),
-            sy.ontology.ID(type="label", key=resource_id),
+            ID(type="channel", key=resource_id),
+            ID(type="label", key=resource_id),
         ]
 
     def test_retrieve_by_subject_not_found(self, client: sy.Synnax) -> None:
-        res = client.access.retrieve(
-            subjects=[sy.ontology.ID(type="channel", key="hehe")]
-        )
+        res = client.access.retrieve(subjects=[ID(type="channel", key="hehe")])
         assert res == []
 
     def test_delete_by_key(

@@ -44,7 +44,9 @@ print(f"Target Server Name: {DEVICE_NAME}")
 print()
 
 # Check if server exists
-existing_device = client.devices.retrieve(name=DEVICE_NAME, ignore_not_found=True)
+existing_device = client.hardware.devices.retrieve(
+    name=DEVICE_NAME, ignore_not_found=True
+)
 
 if existing_device is None:
     print("✓ Server not found - nothing to delete.")
@@ -73,7 +75,7 @@ if response in ("y", "yes"):
     print("Deleting server...")
 
     try:
-        client.devices.delete([existing_device.key])
+        client.hardware.devices.delete([existing_device.key])
 
         print("✓ Server deleted successfully!")
         print()

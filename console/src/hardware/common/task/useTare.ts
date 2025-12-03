@@ -43,7 +43,7 @@ export const useTare = <C extends TareableChannel>({
       const args = { keys };
       handleError(
         async () =>
-          await client.tasks.executeCommand({ task: key, type: "tare", args }),
+          await client.hardware.tasks.executeCommand({ task: key, type: "tare", args }),
         "Failed to tare channels",
       );
     },

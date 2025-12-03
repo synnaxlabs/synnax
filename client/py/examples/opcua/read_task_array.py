@@ -23,6 +23,7 @@ Before running this example:
 """
 
 import synnax as sy
+from synnax.hardware import opcua
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
@@ -30,7 +31,7 @@ client = sy.Synnax()
 
 # Retrieve the OPC UA server from Synnax
 # Update this with the name you gave the device in the Synnax Console
-dev = client.devices.retrieve(name="OPC UA Server")
+dev = client.hardware.devices.retrieve(name="OPC UA Server")
 
 # Create an index channel that will be used to store the timestamps for the data.
 opcua_array_time = client.channels.create(
@@ -59,7 +60,7 @@ my_array_1 = client.channels.create(
 # Array mode is more efficient for high-rate data collection when the OPC UA server
 # provides data in array format with a consistent size.
 # In this mode, each sample from the server contains an entire array of values.
-tsk = sy.opcua.ReadTask(
+tsk = opcua.ReadTask(
     name="OPC UA Py - Read Task (Array)",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
@@ -69,12 +70,12 @@ tsk = sy.opcua.ReadTask(
     channels=[
         # Bind the Synnax channels to the OPC UA node IDs
         # These IDs correspond to my_array_0 and my_array_1 in server_extended.py
-        sy.opcua.ReadChannel(
+        opcua.ReadChannel(
             channel=my_array_0.key,
             node_id="NS=2;I=2",  # my_array_0
             data_type="float32",
         ),
-        sy.opcua.ReadChannel(
+        opcua.ReadChannel(
             channel=my_array_1.key,
             node_id="NS=2;I=3",  # my_array_1
             data_type="float32",
@@ -83,7 +84,7 @@ tsk = sy.opcua.ReadTask(
 )
 
 # Configure the task with Synnax
-client.tasks.configure(tsk)
+client.hardware.tasks.configure(tsk)
 
 print("=" * 80)
 print("\nStarting OPC UA Array Read Task")

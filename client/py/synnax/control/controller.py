@@ -16,6 +16,7 @@ from typing import Any, Protocol, overload
 
 import numpy as np
 
+from synnax import ValidationError, framer
 from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
@@ -23,10 +24,6 @@ from synnax.channel.payload import (
     ChannelPayload,
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
-from synnax.exceptions import ValidationError
-from synnax.framer import AsyncStreamer as AsyncFrameStreamer
-from synnax.framer import Client as FrameClient
-from synnax.framer import Writer as FrameWriter
 from synnax.telem import CrudeTimeSpan, SampleValue, TimeSpan, TimeStamp
 from synnax.telem.control import CrudeAuthority
 from synnax.timing import sleep
@@ -95,7 +92,7 @@ class RemainsTrueFor(Processor):
 
 
 class Controller:
-    _writer_opt: FrameWriter | None = None
+    _writer_opt: framer.Writer | None = None
     _receiver_opt: _Receiver | None = None
     _idx_map: dict[ChannelKey, ChannelKey]
     _retriever: ChannelRetriever
@@ -105,7 +102,7 @@ class Controller:
         name: str,
         write: ChannelParams | None,
         read: ChannelParams | None,
-        frame_client: FrameClient,
+        frame_client: framer.Client,
         retriever: ChannelRetriever,
         write_authorities: CrudeAuthority | list[CrudeAuthority],
     ) -> None:
@@ -126,7 +123,7 @@ class Controller:
             self._receiver.startup_ack.wait()
 
     @property
-    def _writer(self) -> FrameWriter:
+    def _writer(self) -> framer.Writer:
         if self._writer_opt is None:
             raise ValidationError(
                 """
@@ -463,8 +460,8 @@ class Controller:
 class _Receiver(AsyncThread):
     state: dict[ChannelKey, np.number]
     channels: ChannelParams
-    client: FrameClient
-    streamer: AsyncFrameStreamer
+    client: framer.Client
+    streamer: framer.AsyncStreamer
     processors: set[Processor]
     processor_lock: Lock
     retriever: ChannelRetriever
@@ -474,7 +471,7 @@ class _Receiver(AsyncThread):
 
     def __init__(
         self,
-        client: FrameClient,
+        client: framer.Client,
         channels: ChannelParams,
         retriever: ChannelRetriever,
         controller: Controller,

@@ -126,7 +126,7 @@ export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
   mountListeners: ({ client, store, query: { id }, onChange }) => [
     store.labels.onSet((label) => {
       onChange(
-        state.skipUndefined((prev) => {
+        state.skipNull((prev) => {
           const filtered = prev.filter((l) => l.key !== label.key);
           if (filtered.length === prev.length) return prev;
           return [...filtered, label];
@@ -134,21 +134,19 @@ export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
       );
     }),
     store.labels.onDelete((key) =>
-      onChange(state.skipUndefined((prev) => prev.filter((l) => l.key !== key))),
+      onChange(state.skipNull((prev) => prev.filter((l) => l.key !== key))),
     ),
     store.relationships.onSet(async (rel) => {
       if (!matchRelationship(rel, id)) return;
       const { key } = rel.to;
       const l = await client.labels.retrieve({ key });
       store.labels.set(key, l);
-      onChange(
-        state.skipUndefined((prev) => [...prev.filter((l) => l.key !== key), l]),
-      );
+      onChange(state.skipNull((prev) => [...prev.filter((l) => l.key !== key), l]));
     }),
     store.relationships.onDelete((relKey) => {
       const rel = ontology.relationshipZ.parse(relKey);
       if (!matchRelationship(rel, id)) return;
-      onChange(state.skipUndefined((prev) => prev.filter((l) => l.key !== rel.to.key)));
+      onChange(state.skipNull((prev) => prev.filter((l) => l.key !== rel.to.key)));
     }),
   ],
 });
@@ -255,7 +253,7 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
       }),
       store.labels.onDelete(async (key) => {
         keysSet.delete(key);
-        onChange(state.skipUndefined((prev) => prev.filter((l) => l.key !== key)));
+        onChange(state.skipNull((prev) => prev.filter((l) => l.key !== key)));
       }),
     ];
   },

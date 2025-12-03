@@ -119,12 +119,12 @@ multi-value setpoints.
 
 ```python
 import synnax as sy
-from synnax import opcua
+from synnax.hardware import opcua
 
 client = sy.Synnax()
 
 # Retrieve OPC UA server device
-dev = client.devices.retrieve(name="my_opc_server")
+dev = client.hardware.devices.retrieve(name="my_opc_server")
 
 # Create command time index
 cmd_time = client.channels.create(
@@ -165,7 +165,7 @@ task = opcua.WriteTask(
     ],
 )
 
-client.tasks.configure(task)
+client.hardware.tasks.configure(task)
 
 # Start task and send commands
 with task.run():
@@ -198,7 +198,7 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.tasks.retrieve(name="OPC UA Write Task")
+task = client.hardware.tasks.retrieve(name="OPC UA Write Task")
 task = opcua.WriteTask(internal=task)
 
 # Update task-level configuration
@@ -211,7 +211,7 @@ task.config.channels[0].node_id = "ns=2;s=TemperatureSetpoint2"
 task.config.channels[1].node_id = "ns=2;s=ValveControl2"
 
 # Apply changes
-client.tasks.configure(task)
+client.hardware.tasks.configure(task)
 ```
 
 </ExampleDetails>
@@ -228,7 +228,7 @@ import { Synnax, TimeStamp } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve OPC UA server device
-const dev = await client.devices.retrieve({ name: "my_opc_server" });
+const dev = await client.hardware.devices.retrieve({ name: "my_opc_server" });
 
 // Create command time index
 const cmdTime = await client.channels.create({
@@ -254,7 +254,7 @@ const valveCmd = await client.channels.create({
 });
 
 // Create and configure task
-const task = await client.tasks.create({
+const task = await client.hardware.tasks.create({
   name: "OPC UA Write Task",
   type: "opc_write",
   config: JSON.stringify({
@@ -309,7 +309,7 @@ await writer.close();
 
 ```typescript
 // Retrieve existing task
-const task = await client.tasks.retrieve({ name: "OPC UA Write Task" });
+const task = await client.hardware.tasks.retrieve({ name: "OPC UA Write Task" });
 
 // Parse and update configuration
 const config = JSON.parse(task.config);
@@ -324,7 +324,7 @@ config.channels[0].node_id = "ns=2;s=TemperatureSetpoint2";
 config.channels[1].node_id = "ns=2;s=ValveControl2";
 
 // Apply changes
-await client.tasks.create({
+await client.hardware.tasks.create({
   key: task.key,
   name: task.name,
   type: task.type,

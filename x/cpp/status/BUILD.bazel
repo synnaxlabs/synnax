@@ -5,7 +5,6 @@ cc_library(
     deps = [
         "//x/cpp/telem",
         "//x/cpp/xjson",
-        "//x/go/status:status_grpc",
     ],
 )
 

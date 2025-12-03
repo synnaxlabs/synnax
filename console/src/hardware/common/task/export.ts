@@ -35,7 +35,7 @@ export const extract: Export.Extractor = async (key, { client, store }) => {
       );
     keyToFetch = args.taskKey;
   }
-  const task = await client.tasks.retrieve({ key: keyToFetch });
+  const task = await client.hardware.tasks.retrieve({ key: keyToFetch });
   return { data: JSON.stringify(task.config), name: task.name };
 };
 

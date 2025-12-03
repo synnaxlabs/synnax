@@ -38,7 +38,7 @@ export const Select = ({
     (key: device.Key, { set }: Form.ContextValue) => {
       if (client == null || primitive.isZero(key)) return;
       handleError(async () => {
-        const { configured, rack } = await client.devices.retrieve({ key });
+        const { configured, rack } = await client.hardware.devices.retrieve({ key });
         set("rackKey", rack);
         if (configured) return;
         placeLayout({ ...configureLayout, key });

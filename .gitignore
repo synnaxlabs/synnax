@@ -206,6 +206,8 @@ integration/tests/results/
 
 synnax-data/**
 
+core/pkg/service/hardware/embedded/assets/**
+
 # |||||| BAZEL ||||||
 # Ignore all bazel-* symlinks. There is no full list since this can change
 # based on the name of the directory bazel is cloned into.
@@ -246,9 +248,7 @@ synnax-data/**
 ./driver/.vs
 
 # |||| EMBEDDED CONSOLE ||||
-# Allow driver service assets to be tracked
 assets
-!core/pkg/service/driver/assets
 
 # |||| OTHER ||||
 .obsidian

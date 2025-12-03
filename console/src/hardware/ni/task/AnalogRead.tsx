@@ -150,7 +150,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
   let rackKey: rack.Key | undefined;
-  const allDevices = await client.devices.retrieve<Device.Properties>({
+  const allDevices = await client.hardware.devices.retrieve<Device.Properties>({
     keys: devices,
   });
   const racks = new Set(allDevices.map((d) => d.rack));
@@ -212,7 +212,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
           (dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key),
       );
     }
-    if (modified) await client.devices.create(dev);
+    if (modified) await client.hardware.devices.create(dev);
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;
       c.channel = dev.properties.analogInput.channels[c.port.toString()];

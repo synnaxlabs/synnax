@@ -40,7 +40,6 @@ struct Properties {
 
     explicit Properties(const xjson::Parser &parser):
         connection(parser.child("connection")) {
-        if (!parser.has("channels")) return;
         parser.iter("channels", [&](xjson::Parser &cb) { channels.emplace_back(cb); });
     }
 

@@ -42,7 +42,7 @@ public:
 
 TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_NewTask) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
     synnax::Task task(rack.key, "test_task", "test_type", "");
     auto created = ASSERT_NIL_P(create_if_type_not_exists_on_rack(rack, task));
     ASSERT_TRUE(created);
@@ -54,7 +54,7 @@ TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_NewTask) {
 
 TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_ExistingTask) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
     synnax::Task existing_task(rack.key, "existing_task", "test_type", "");
     ASSERT_NIL(rack.tasks.create(existing_task));
     synnax::Task new_task(rack.key, "new_task", "test_type", "");
@@ -65,7 +65,7 @@ TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_ExistingTask) {
 
 TEST(TestFactory, TestConfigureInitialFactoryTasks_Success) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    const auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    const auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
     const auto ctx = std::make_shared<task::MockContext>(client);
     const auto factory = std::make_unique<MockFactory>();
     auto tasks = configure_initial_factory_tasks(
@@ -85,7 +85,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_Success) {
 
 TEST(TestFactory, TestConfigureInitialFactoryTasks_ExistingTask) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
     auto ctx = std::make_shared<task::MockContext>(client);
     auto factory = std::make_unique<MockFactory>();
     synnax::Task existing_task(rack.key, "existing_task", "test_type", "");
@@ -104,7 +104,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ExistingTask) {
 
 TEST(TestFactory, TestConfigureInitialFactoryTasks_ConfigurationFailure) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
     auto ctx = std::make_shared<task::MockContext>(client);
     auto factory = std::make_unique<MockFactory>();
     factory->should_fail = true;
@@ -122,7 +122,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ConfigurationFailure) {
 
 TEST(TestFactory, TestConfigureInitialFactoryTasks_MultipleConfigurations) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
     auto ctx = std::make_shared<task::MockContext>(client);
     auto factory = std::make_unique<MockFactory>();
     auto tasks1 = configure_initial_factory_tasks(
@@ -152,7 +152,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_MultipleConfigurations) {
 
 TEST(TestFactory, TestDeleteLegacyTaskByType_Success) {
     const auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    const auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    const auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
     synnax::Task legacy_task(rack.key, "legacy_task", "legacy_type", "");
     ASSERT_NIL(rack.tasks.create(legacy_task));
     ASSERT_NIL(delete_legacy_task_by_type(rack, "legacy_type", "test_integration"));
@@ -164,7 +164,7 @@ TEST(TestFactory, TestDeleteLegacyTaskByType_Success) {
 
 TEST(TestFactory, TestDeleteLegacyTaskByType_NonExistent) {
     const auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    const auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    const auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
     ASSERT_NIL(
         delete_legacy_task_by_type(rack, "non_existent_type", "test_integration")
     );

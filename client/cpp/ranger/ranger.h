@@ -15,7 +15,6 @@
 
 #include "google/protobuf/empty.pb.h"
 
-#include "client/cpp/ontology/id.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
 
@@ -124,25 +123,6 @@ private:
 
     friend class RangeClient;
 };
-
-/// @brief Converts a range key to an ontology ID.
-/// @param key The range key.
-/// @returns An ontology ID with type "range" and the given key.
-inline ontology::ID range_ontology_id(const std::string &key) {
-    return ontology::ID("range", key);
-}
-
-/// @brief Converts a vector of range keys to a vector of ontology IDs.
-/// @param keys The range keys.
-/// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID>
-range_ontology_ids(const std::vector<std::string> &keys) {
-    std::vector<ontology::ID> ids;
-    ids.reserve(keys.size());
-    for (const auto &key: keys)
-        ids.push_back(range_ontology_id(key));
-    return ids;
-}
 
 /// @brief a client for performing operations on the ranges in a Synnax cluster.
 class RangeClient {

@@ -272,11 +272,6 @@ public:
         return {*iter, errors, path_prefix + path + "."};
     }
 
-    /// @brief gets the field at the given path and creates a new parser for that field,
-    /// returning a noop parser if the field does not exist. Unlike child(), this method
-    /// does not accumulate an error when the field is missing.
-    /// @param path The JSON path to the field.
-    /// @returns A parser for the child field, or a noop parser if not found.
     [[nodiscard]] Parser optional_child(const std::string &path) const {
         if (noop) return {};
         const auto iter = config.find(path);
@@ -286,16 +281,6 @@ public:
             return {};
         }
         return {*iter, errors, path_prefix + path + "."};
-    }
-
-    /// @brief checks whether a field exists at the given path.
-    /// @param path The JSON path to check.
-    /// @returns true if the field exists, false otherwise (including if parser is
-    /// noop).
-    [[nodiscard]] bool has(const std::string &path) const {
-        if (noop) return false;
-        const auto iter = config.find(path);
-        return iter != config.end();
     }
 
     /// @brief Iterates over an array at the given path, executing a function for
@@ -348,10 +333,6 @@ public:
         return results;
     }
 
-    /// @brief binds a new error to the field at the given path, using the message from
-    /// a xerrors::Error.
-    /// @param path The JSON path to the field.
-    /// @param err The error whose message will be used.
     void field_err(const std::string &path, const xerrors::Error &err) const {
         this->field_err(path, err.message());
     }
@@ -378,12 +359,8 @@ public:
         return err;
     }
 
-    /// @brief converts the parser's accumulated errors into a xerrors::Error.
-    /// @returns xerrors::NIL if no errors, a simple validation error if there's a
-    /// single error with an empty path, or a validation error containing all errors as
-    /// JSON.
     [[nodiscard]] xerrors::Error error() const {
-        if (this->errors->empty()) return xerrors::NIL;
+        if (this->errors->empty()) return xerrors::Error{};
         if (this->errors->size() == 1) {
             const auto &err = this->errors->at(0);
             if (err["path"].get<std::string>().empty())
@@ -395,7 +372,8 @@ public:
         return xerrors::Error{xerrors::VALIDATION, error_json().dump()};
     }
 
-    /// @returns the underlying JSON configuration being parsed.
+    /// @returns the parser's errors as a JSON object of the form {"errors":
+    /// [ACCUMULATED_ERRORS]}.
     [[nodiscard]] json get_json() const { return config; }
 
     /// @brief creates a parser from a file at the given path

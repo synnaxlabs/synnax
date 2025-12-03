@@ -52,7 +52,8 @@ export const Controls = ({
     if (key == null) return;
     const command = taskStatus.details.running ? "stop" : "start";
     handleError(
-      async () => await client?.tasks.executeCommand({ task: key, type: command }),
+      async () =>
+        await client?.hardware.tasks.executeCommand({ task: key, type: command }),
       `Failed to ${command} task`,
     );
   }, [taskStatus]);

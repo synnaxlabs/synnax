@@ -201,7 +201,7 @@ export const { useUpdate: useSaveLayout } = Flux.createUpdate<
     rollbacks.push(
       store.workspaces.set(
         key,
-        state.skipUndefined((p) => ({ ...p, layout })),
+        state.skipNull((p) => ({ ...p, layout })),
       ),
     );
     await client.workspaces.setLayout(key, layout);

@@ -143,12 +143,12 @@ generates timestamps with ~ 100μs precision using software timing.
 
 ```python
 import synnax as sy
-from synnax import opcua
+from synnax.hardware import opcua
 
 client = sy.Synnax()
 
 # Retrieve OPC UA server device
-dev = client.devices.retrieve(name="my_opc_server")
+dev = client.hardware.devices.retrieve(name="my_opc_server")
 
 # Create index channel
 data_time = client.channels.create(
@@ -192,7 +192,7 @@ task = opcua.ReadTask(
     ],
 )
 
-client.tasks.configure(task)
+client.hardware.tasks.configure(task)
 
 # Start task and read data
 with task.run():
@@ -209,7 +209,7 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.tasks.retrieve(name="OPC UA Read Task")
+task = client.hardware.tasks.retrieve(name="OPC UA Read Task")
 task = opcua.ReadTask(internal=task)
 
 # Update task-level configuration
@@ -223,7 +223,7 @@ task.config.channels[0].node_id = "ns=2;s=TemperatureSensor2"
 task.config.channels[1].node_id = "ns=2;s=PressureSensor2"
 
 # Apply changes
-client.tasks.configure(task)
+client.hardware.tasks.configure(task)
 ```
 
 </ExampleDetails>
@@ -240,7 +240,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve OPC UA server device
-const dev = await client.devices.retrieve({ name: "my_opc_server" });
+const dev = await client.hardware.devices.retrieve({ name: "my_opc_server" });
 
 // Create index channel
 const dataTime = await client.channels.create({
@@ -266,7 +266,7 @@ const pressureSensor = await client.channels.create({
 });
 
 // Create and configure task
-const task = await client.tasks.create({
+const task = await client.hardware.tasks.create({
   name: "OPC UA Read Task",
   type: "opc_read",
   config: JSON.stringify({
@@ -310,7 +310,7 @@ await streamer.close();
 
 ```typescript
 // Retrieve existing task
-const task = await client.tasks.retrieve({ name: "OPC UA Read Task" });
+const task = await client.hardware.tasks.retrieve({ name: "OPC UA Read Task" });
 
 // Parse and update configuration
 const config = JSON.parse(task.config);
@@ -326,7 +326,7 @@ config.channels[0].node_id = "ns=2;s=TemperatureSensor2";
 config.channels[1].node_id = "ns=2;s=PressureSensor2";
 
 // Apply changes
-await client.tasks.create({
+await client.hardware.tasks.create({
   key: task.key,
   name: task.name,
   type: task.type,

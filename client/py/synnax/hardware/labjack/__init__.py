@@ -7,16 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Deprecated: Use synnax.labjack instead."""
-
-import warnings
-
-warnings.warn(
-    "synnax.hardware.labjack is deprecated and will be removed in a future version. "
-    "Use synnax.labjack instead.",
-    FutureWarning,
-    stacklevel=2,
+from synnax.hardware.labjack.types import (
+    SUPPORTED_MODELS,
+    T4,
+    T7,
+    T8,
+    AIChan,
+    Device,
+    DIChan,
+    OutputChan,
+    ReadTask,
+    ReadTaskConfig,
+    ThermocoupleChan,
+    WriteTask,
+    WriteTaskConfig,
 )
-
-from synnax.labjack import *
-from synnax.labjack import __all__

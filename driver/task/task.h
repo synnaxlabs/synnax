@@ -76,6 +76,9 @@ public:
     virtual ~Task() = default;
 };
 
+/// @brief name of the channel used in Synnax to communicate state updates.
+const std::string TASK_STATE_CHANNEL = "sy_task_status";
+
 /// @brief an interface for a standard context that is provided to every task in the
 /// driver. This context provides access to the Synnax client and allows tasks to
 /// easily update their state.
@@ -92,7 +95,7 @@ public:
         client(std::move(client)) {}
 
     /// @brief updates the state of the task in the Synnax cluster.
-    virtual void set_status(synnax::TaskStatus &status) = 0;
+    virtual void set_status(const synnax::TaskStatus &status) = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -100,30 +103,66 @@ class MockContext final : public Context {
     std::mutex mu;
 
 public:
-    std::vector<synnax::TaskStatus> statuses{};
+    std::vector<synnax::TaskStatus> states{};
 
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
 
-    void set_status(synnax::TaskStatus &status) override {
+    void set_status(const synnax::TaskStatus &status) override {
         mu.lock();
-        statuses.push_back(status);
+        states.push_back(status);
         mu.unlock();
     }
 };
 
 class SynnaxContext final : public Context {
+    std::mutex mu;
+    std::unique_ptr<synnax::Writer> writer;
+    synnax::Channel chan;
+
 public:
     explicit SynnaxContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
 
-    void set_status(synnax::TaskStatus &status) override {
-        if (status.time == 0) status.time = telem::TimeStamp::now();
-        if (const auto err = this->client->statuses.set<synnax::TaskStatusDetails>(
-                status
+    void set_status(const synnax::TaskStatus &status) override {
+        std::unique_lock lock(mu);
+        if (writer == nullptr) {
+            auto [ch, err] = client->channels.retrieve(TASK_STATE_CHANNEL);
+            if (err) {
+                LOG(ERROR) << "[task.context] failed to retrieve channel to update "
+                              "task state"
+                           << err.message();
+                return;
+            }
+            chan = ch;
+            auto [su, su_err] = client->telem.open_writer(
+                synnax::WriterConfig{.channels = {ch.key}}
             );
-            err)
-            LOG(ERROR) << "[task.context] failed to write task status update: " << err;
+            if (err) {
+                LOG(
+                    ERROR
+                ) << "[task.context] failed to open writer to update task state"
+                  << su_err.message();
+                return;
+            }
+            writer = std::make_unique<synnax::Writer>(std::move(su));
+        }
+        // We're safe to ignore the error return value here and just check for a nil
+        // error, as close() is guaranteed to return the same error as write.
+        if (!writer->write(synnax::Frame(chan.key, telem::Series(status.to_json()))))
+            return;
+        auto err = writer->close();
+        LOG(ERROR) << "[task.context] failed to write task state update" << err;
+        writer = nullptr;
+    }
+
+    ~SynnaxContext() override {
+        std::unique_lock lock(mu);
+        if (writer == nullptr) return;
+        /// VERY IMPORTANT THAT WE USE CERR, as GLOG can cause problems in
+        /// destructors.
+        if (const auto err = writer->close())
+            std::cerr << "[task.context] failed to close writer: " << err.message();
     }
 };
 

@@ -46,9 +46,6 @@ public:
         if (current_read >= config.reads->size()) {
             // block "indefinitely"
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            if (this->config.read_errors != nullptr &&
-                !this->config.read_errors->empty())
-                return {synnax::Frame{}, this->config.read_errors->at(0)};
             return {synnax::Frame(0), xerrors::NIL};
         }
         auto fr = std::move(config.reads->at(current_read));
@@ -61,11 +58,7 @@ public:
 
     xerrors::Error close() override { return config.close_err; }
 
-    void close_send() override {
-        if (this->config.read_errors == nullptr)
-            this->config.read_errors = std::make_shared<std::vector<xerrors::Error>>();
-        this->config.read_errors->push_back(freighter::STREAM_CLOSED);
-    }
+    void close_send() override {}
 };
 
 // Factory for creating mock Streamers with configurable behavior.

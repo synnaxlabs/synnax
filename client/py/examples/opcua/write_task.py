@@ -34,7 +34,7 @@ client = sy.Synnax()
 
 # Retrieve the OPC UA server from Synnax
 # Update this with the name you gave the device in the Synnax Console
-dev = client.devices.retrieve(name="OPC UA Server")
+dev = client.hardware.devices.retrieve(name="OPC UA Server")
 
 # Create an index channel for the command channels
 opcua_cmd_time = client.channels.create(
@@ -83,7 +83,7 @@ tsk = opcua.WriteTask(
 )
 
 # Configure the task with Synnax
-client.tasks.configure(tsk)
+client.hardware.tasks.configure(tsk)
 
 print("=" * 70)
 print("Starting OPC UA Write Task")

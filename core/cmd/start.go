@@ -34,7 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
-	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/hardware/embedded"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/address"
@@ -133,7 +133,7 @@ func start(cmd *cobra.Command) {
 			serviceLayer      *service.Layer
 			apiLayer          *api.Layer
 			rootServer        *server.Server
-			embeddedDriver    *driver.Driver
+			embeddedDriver    *embedded.Driver
 			certLoaderConfig  = buildCertLoaderConfig(ins)
 		)
 		cleanup, ok := xservice.NewOpener(ctx, &closer)
@@ -256,15 +256,15 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 
-		if embeddedDriver, err = driver.OpenDriver(
+		if embeddedDriver, err = embedded.OpenDriver(
 			ctx,
-			driver.Config{
+			embedded.Config{
 				Enabled:         config.Bool(!noDriver),
 				Insecure:        config.Bool(insecure),
 				Integrations:    parseIntegrationsFlag(),
 				Instrumentation: ins.Child("driver"),
 				Address:         listenAddress,
-				RackKey:         serviceLayer.Rack.EmbeddedKey,
+				RackKey:         serviceLayer.Hardware.Rack.EmbeddedKey,
 				ClusterKey:      distributionLayer.Cluster.Key(),
 				Username:        rootUsername,
 				Password:        rootPassword,

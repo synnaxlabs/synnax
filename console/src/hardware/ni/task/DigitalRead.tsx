@@ -103,7 +103,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve<Device.Properties>({
+  const dev = await client.hardware.devices.retrieve<Device.Properties>({
     key: config.device,
   });
   Common.Device.checkConfigured(dev);
@@ -155,7 +155,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
       dev.properties.digitalInput.channels[key] = c.key;
     });
   }
-  if (modified) await client.devices.create(dev);
+  if (modified) await client.hardware.devices.create(dev);
   config.channels.forEach((c) => {
     const key = getDigitalChannelDeviceKey(c);
     c.channel = dev.properties.digitalInput.channels[key];

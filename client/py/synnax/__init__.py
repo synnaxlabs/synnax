@@ -9,11 +9,8 @@
 
 __version__ = "0.3.0"
 
-from synnax import labjack, modbus, ni, opcua, sequence, status
 from synnax.access import Policy, PolicyClient
 from synnax.channel import Channel
-from synnax.control import Controller
-from synnax.device import Device
 from synnax.exceptions import (
     AuthError,
     ConfigurationError,
@@ -38,12 +35,13 @@ from synnax.framer import (
     Writer,
     WriterMode,
 )
+from synnax.hardware import Client as HardwareClient
+from synnax.hardware.device import Device
+from synnax.hardware.rack import Rack
+from synnax.hardware.task import Task, TaskStatus, TaskStatusDetails
 from synnax.options import SynnaxOptions
-from synnax.rack import Rack
 from synnax.ranger import Range
-from synnax.status import Status
 from synnax.synnax import Synnax
-from synnax.task import Task, TaskStatus, TaskStatusDetails
 from synnax.telem import (
     Alignment,
     Authority,
@@ -57,7 +55,6 @@ from synnax.telem import (
     CrudeTimeStamp,
     DataType,
     Density,
-    MultiSeries,
     Rate,
     Series,
     Size,
@@ -76,7 +73,6 @@ __all__ = [
     "AUTO_SPAN",
     "AuthError",
     "Authority",
-    "Controller",
     "Bounds",
     "Channel",
     "ConfigurationError",
@@ -97,6 +93,7 @@ __all__ = [
     "ExpiredToken",
     "PathError",
     "Frame",
+    "HardwareClient",
     "Iterator",
     "InvalidToken",
     "Loop",
@@ -110,7 +107,6 @@ __all__ = [
     "Rate",
     "RouteError",
     "Series",
-    "MultiSeries",
     "Size",
     "sleep",
     "Streamer",
@@ -130,13 +126,4 @@ __all__ = [
     "ValidationError",
     "Writer",
     "WriterMode",
-    "modbus",
-    "ni",
-    "labjack",
-    "opcua",
-    "sequence",
-    "ontology",
-    "auth",
-    "status",
-    "Status",
 ]

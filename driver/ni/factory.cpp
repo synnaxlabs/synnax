@@ -43,14 +43,13 @@ bool ni::Factory::check_health(
     const synnax::Task &task
 ) const {
     if (this->check_health()) return true;
-    synnax::TaskStatus status{
-        .key = task.status_key(),
-        .name = task.name,
+    ctx->set_status({
         .variant = status::variant::ERR,
         .message = NO_LIBS_MSG,
-        .details = synnax::TaskStatusDetails{.task = task.key, .running = false},
-    };
-    ctx->set_status(status);
+        .details = synnax::TaskStatusDetails{
+            .task = task.key,
+        },
+    });
     return false;
 }
 
@@ -115,6 +114,7 @@ ni::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
+    if (!this->check_health()) return {};
     return common::configure_initial_factory_tasks(
         this,
         ctx,

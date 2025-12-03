@@ -7,18 +7,14 @@ proto_library(
         "auth.proto",
         "channel.proto",
         "connectivity.proto",
-        "device.proto",
         "framer.proto",
-        "rack.proto",
+        "hardware.proto",
         "ranger.proto",
-        "status.proto",
-        "task.proto",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//x/go/control:control_proto",
         "//x/go/errors:errors_proto",
-        "//x/go/status:status_proto",
         "//x/go/telem:telem_proto",
         "@protobuf//:empty_proto",
     ],
@@ -32,7 +28,6 @@ cpp_grpc_library(
     deps = [
         "//x/go/control:control_grpc",
         "//x/go/errors:errors_grpc",
-        "//x/go/status:status_grpc",
         "//x/go/telem:telem_grpc",
     ],
 )

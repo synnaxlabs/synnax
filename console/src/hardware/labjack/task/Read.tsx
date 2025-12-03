@@ -255,7 +255,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve<Device.Properties>({
+  const dev = await client.hardware.devices.retrieve<Device.Properties>({
     key: config.device,
   });
   Common.Device.checkConfigured(dev);
@@ -307,7 +307,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
       dev.properties[type].channels[toCreateC.port] = c.key;
     });
   }
-  if (modified) await client.devices.create(dev);
+  if (modified) await client.hardware.devices.create(dev);
   config.channels.forEach(
     (c) =>
       (c.channel =

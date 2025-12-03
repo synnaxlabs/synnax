@@ -28,11 +28,14 @@ Configuration:
     Modify the constants below to match your LabJack device configuration.
 """
 
+import json
+
 import synnax as sy
+from synnax.hardware import labjack
 
 # Configuration
 DEVICE_NAME = "My LabJack T7"
-MODEL = sy.labjack.T7  # Options: T4, T7, T8
+MODEL = labjack.T7  # Options: T4, T7, T8
 IDENTIFIER = "ANY"  # Options: serial number, IP address, device name, or "ANY"
 CONNECTION_TYPE = "ANY"  # Options: "ANY", "USB", "TCP", "ETHERNET", "WIFI"
 
@@ -49,7 +52,9 @@ print(f"Connection Type: {CONNECTION_TYPE}")
 print()
 
 # Check if device already exists
-existing_device = client.devices.retrieve(name=DEVICE_NAME, ignore_not_found=True)
+existing_device = client.hardware.devices.retrieve(
+    name=DEVICE_NAME, ignore_not_found=True
+)
 
 if existing_device is not None:
     print("✓ Device already connected!")
@@ -79,7 +84,7 @@ if response in ("", "y", "yes"):
 
     try:
         # Get the embedded rack (local driver rack)
-        rack = client.racks.retrieve_embedded_rack()
+        rack = client.hardware.racks.retrieve_embedded_rack()
         print(f"Using rack: {rack.name} (key={rack.key})")
 
         # Determine location string based on connection type
@@ -88,7 +93,7 @@ if response in ("", "y", "yes"):
         else:
             location = IDENTIFIER
 
-        device = sy.labjack.Device(
+        device = labjack.Device(
             model=MODEL,
             identifier=IDENTIFIER,
             name=DEVICE_NAME,
@@ -97,7 +102,7 @@ if response in ("", "y", "yes"):
             connection_type=CONNECTION_TYPE,
         )
 
-        created_device = client.devices.create(device)
+        created_device = client.hardware.devices.create(device)
 
         print("✓ Device connected successfully!")
         print(f"  - Name: {created_device.name}")

@@ -290,12 +290,12 @@ Measures the duty cycle of a periodic signal.
 
 ```python
 import synnax as sy
-from synnax import ni
+from synnax.hardware import ni
 
 client = sy.Synnax()
 
 # Retrieve device
-counter_dev = client.devices.retrieve(name="Mod1_Counter")
+counter_dev = client.hardware.devices.retrieve(name="Mod1_Counter")
 
 # Create index channel
 ctr_time = client.channels.create(
@@ -363,7 +363,7 @@ task = ni.CounterReadTask(
     ],
 )
 
-client.tasks.configure(task)
+client.hardware.tasks.configure(task)
 
 # Start task and read data
 with task.run():
@@ -380,7 +380,7 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.tasks.retrieve(name="Counter Read Task")
+task = client.hardware.tasks.retrieve(name="Counter Read Task")
 task = ni.CounterReadTask(internal=task)
 
 # Update task-level configuration
@@ -407,7 +407,7 @@ task.config.channels[2].terminalB = "PFI8"
 task.config.channels[2].terminalZ = "PFI9"
 
 # Apply changes
-client.tasks.configure(task)
+client.hardware.tasks.configure(task)
 ```
 
 </ExampleDetails>
@@ -424,7 +424,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const counterDev = await client.devices.retrieve({ name: "Mod1_Counter" });
+const counterDev = await client.hardware.devices.retrieve({ name: "Mod1_Counter" });
 
 // Create index channel
 const ctrTime = await client.channels.create({
@@ -457,7 +457,7 @@ const angularPosCh = await client.channels.create({
 });
 
 // Create and configure task
-const task = await client.tasks.create({
+const task = await client.hardware.tasks.create({
   name: "Counter Read Task",
   type: "ni_counter_read",
   config: JSON.stringify({
@@ -526,7 +526,7 @@ await streamer.close();
 
 ```typescript
 // Retrieve existing task
-const task = await client.tasks.retrieve({ name: "Counter Read Task" });
+const task = await client.hardware.tasks.retrieve({ name: "Counter Read Task" });
 
 // Parse and update configuration
 const config = JSON.parse(task.config);
@@ -555,7 +555,7 @@ config.channels[2].terminalB = "PFI8";
 config.channels[2].terminalZ = "PFI9";
 
 // Apply changes
-await client.tasks.create({
+await client.hardware.tasks.create({
   key: task.key,
   name: task.name,
   type: task.type,

@@ -11,11 +11,9 @@ cc_library(
     deps = [
         "//client/cpp/auth",
         "//client/cpp/channel",
-        "//client/cpp/device",
         "//client/cpp/framer",
-        "//client/cpp/rack",
+        "//client/cpp/hardware",
         "//client/cpp/ranger",
-        "//client/cpp/status",
         "//freighter/cpp:freighter",
         "//freighter/cpp/fgrpc",
         "//core/pkg/api/grpc/v1:api_grpc",

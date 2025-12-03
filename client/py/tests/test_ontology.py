@@ -12,20 +12,21 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
+from synnax.ontology import ROOT
 
 
 @pytest.mark.ontology
 class TestOntology:
     def test_retrieve_basic(self, client: sy.Synnax):
         name = str(uuid4())
-        g = client.ontology.groups.create(sy.ontology.ROOT_ID, name)
+        g = client.ontology.groups.create(ROOT, name)
         assert g.key is not None
         g2 = client.ontology.retrieve(g.ontology_id)
         assert g2.name == name
 
     def test_retrieve_children(self, client: sy.Synnax):
         name = str(uuid4())
-        g = client.ontology.groups.create(sy.ontology.ROOT_ID, name)
+        g = client.ontology.groups.create(ROOT, name)
         assert g.key is not None
         g2 = client.ontology.groups.create(g.ontology_id, name)
         assert g2.key is not None
@@ -35,7 +36,7 @@ class TestOntology:
 
     def test_retrieve_parents(self, client: sy.Synnax):
         name = str(uuid4())
-        g = client.ontology.groups.create(sy.ontology.ROOT_ID, name)
+        g = client.ontology.groups.create(ROOT, name)
         assert g.key is not None
         g2 = client.ontology.groups.create(g.ontology_id, name)
         assert g2.key is not None
@@ -45,7 +46,7 @@ class TestOntology:
 
     def test_remove_children(self, client: sy.Synnax):
         name = str(uuid4())
-        g = client.ontology.groups.create(sy.ontology.ROOT_ID, name)
+        g = client.ontology.groups.create(ROOT, name)
         assert g.key is not None
         g2 = client.ontology.groups.create(g.ontology_id, name)
         assert g2.key is not None
@@ -55,9 +56,9 @@ class TestOntology:
 
     def test_move_children(self, client: sy.Synnax):
         name = str(uuid4())
-        g = client.ontology.groups.create(sy.ontology.ROOT_ID, name)
+        g = client.ontology.groups.create(ROOT, name)
         assert g.key is not None
-        g2 = client.ontology.groups.create(sy.ontology.ROOT_ID, name)
+        g2 = client.ontology.groups.create(ROOT, name)
         assert g2.key is not None
         client.ontology.move_children(g.ontology_id, g2.ontology_id, g.ontology_id)
         children = client.ontology.retrieve_children(g2.ontology_id)

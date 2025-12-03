@@ -220,20 +220,6 @@ struct ServerConfig {
              "Test Double Node"},
             {1, "TestGuid", &UA_TYPES[UA_TYPES_GUID], guid_val, "Test GUID Node"},
         };
-
-        // Clean up the local variants - TestNode constructor copies them
-        UA_Variant_clear(&bool_val);
-        UA_Variant_clear(&uint16_val);
-        UA_Variant_clear(&uint32_val);
-        UA_Variant_clear(&uint64_val);
-        UA_Variant_clear(&int8_val);
-        UA_Variant_clear(&int16_val);
-        UA_Variant_clear(&int32_val);
-        UA_Variant_clear(&int64_val);
-        UA_Variant_clear(&float_val);
-        UA_Variant_clear(&double_val);
-        UA_Variant_clear(&guid_val);
-
         return cfg;
     }
 
@@ -289,7 +275,6 @@ class Server {
 public:
     ServerConfig cfg;
     std::atomic<bool> running{false};
-    std::atomic<bool> ready{false};
     std::thread thread;
 
     explicit Server(const ServerConfig &cfg): cfg(cfg) {}
@@ -299,25 +284,9 @@ public:
         thread = std::thread(&Server::run, this);
     }
 
-    /// @brief blocks until the server is ready to accept connections or timeout
-    /// expires.
-    /// @param timeout maximum time to wait for server readiness.
-    /// @return true if server is ready, false if timeout expired.
-    bool wait_until_ready(
-        std::chrono::milliseconds timeout = std::chrono::milliseconds(5000)
-    ) {
-        const auto start = std::chrono::steady_clock::now();
-        while (!ready.load() && running.load()) {
-            if (std::chrono::steady_clock::now() - start >= timeout) return false;
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
-        return ready.load();
-    }
-
     void stop() {
         running = false;
-        if (thread.joinable()) thread.join();
-        ready = false;
+        thread.join();
     }
 
     ~Server() {
@@ -378,12 +347,9 @@ public:
             return;
         }
 
-        ready = true;
-
         while (running.load())
             UA_Server_run_iterate(server, true);
 
-        ready = false;
         UA_Server_run_shutdown(server);
         UA_Server_delete(server);
     }

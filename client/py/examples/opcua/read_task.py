@@ -23,6 +23,7 @@ Before running this example:
 """
 
 import synnax as sy
+from synnax.hardware import opcua
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
@@ -30,7 +31,7 @@ client = sy.Synnax()
 
 # Retrieve the OPC UA server from Synnax
 # Update this with the name you gave the device in the Synnax Console
-dev = client.devices.retrieve(name="OPC UA Server")
+dev = client.hardware.devices.retrieve(name="OPC UA Server")
 
 # Create an index channel that will be used to store the timestamps for the data.
 opcua_time = client.channels.create(
@@ -58,7 +59,7 @@ my_float_1 = client.channels.create(
 # Create the OPC UA Read Task
 # Using node_name to reference the OPC UA variables directly by their names.
 # This is more reliable than using node IDs which can change between server restarts.
-tsk = sy.opcua.ReadTask(
+tsk = opcua.ReadTask(
     name="OPC UA Py - Read Task",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
@@ -67,12 +68,12 @@ tsk = sy.opcua.ReadTask(
     channels=[
         # Bind the Synnax channels to the OPC UA node IDs
         # These IDs correspond to my_float_0 and my_float_1 in server_extended.py
-        sy.opcua.ReadChannel(
+        opcua.ReadChannel(
             channel=my_float_0.key,
             node_id="NS=2;I=8",  # my_float_0
             data_type="float32",
         ),
-        sy.opcua.ReadChannel(
+        opcua.ReadChannel(
             channel=my_float_1.key,
             node_id="NS=2;I=9",  # my_float_1
             data_type="float32",
@@ -81,7 +82,7 @@ tsk = sy.opcua.ReadTask(
 )
 
 # Configure the task with Synnax
-client.tasks.configure(tsk)
+client.hardware.tasks.configure(tsk)
 
 print("=" * 70)
 print("Starting OPC UA Read Task")

@@ -7,15 +7,4 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Deprecated: Use synnax.ni instead."""
-
-import warnings
-
-warnings.warn(
-    "synnax.hardware.ni is deprecated and will be removed in a future version. "
-    "Use synnax.ni instead.",
-    FutureWarning,
-    stacklevel=2,
-)
-
-from synnax.ni import *
+from synnax.hardware.ni.types import *

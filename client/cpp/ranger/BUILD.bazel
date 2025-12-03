@@ -5,7 +5,6 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/errors",
-        "//client/cpp/ontology",
         "//freighter/cpp:freighter",
         "//freighter/cpp/fgrpc",
         "//core/pkg/api/grpc/v1:api_grpc",

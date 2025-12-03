@@ -14,7 +14,7 @@ import pandas as pd
 import pytest
 
 import synnax as sy
-from tests.channel import assert_eventually_channels_are_found
+from synnax import TimeSpan
 
 
 @pytest.mark.framer
@@ -145,15 +145,15 @@ class TestStreamer:
             start = sy.TimeStamp.now()
             f = s.read(timeout=0.1)
             assert f is None
-            assert abs(sy.TimeSpan.since(start).seconds - 0.1) < 0.05
+            assert abs(TimeSpan.since(start).seconds - 0.1) < 0.05
 
     def test_timeout_timespan(self, client: sy.Synnax):
         """Should return None after the specified timeout is exceeded"""
         with client.open_streamer([]) as s:
             start = sy.TimeStamp.now()
-            f = s.read(timeout=100 * sy.TimeSpan.MILLISECOND)
+            f = s.read(timeout=100 * TimeSpan.MILLISECOND)
             assert f is None
-            assert abs(sy.TimeSpan.since(start).seconds - 0.1) < 0.05
+            assert abs(TimeSpan.since(start).seconds - 0.1) < 0.05
 
     def test_downsample(self, virtual_channel: sy.Channel, client: sy.Synnax):
         """Should correctly stream data for a channel"""

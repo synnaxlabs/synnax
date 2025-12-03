@@ -144,12 +144,12 @@ sensor inputs (e.g., limit switches, proximity sensors).
 
 ```python
 import synnax as sy
-from synnax import modbus
+from synnax.hardware import modbus
 
 client = sy.Synnax()
 
 # Retrieve device
-dev = client.devices.retrieve(name="Modbus Server")
+dev = client.hardware.devices.retrieve(name="Modbus Server")
 
 # Create index channel
 modbus_time = client.channels.create(
@@ -195,7 +195,7 @@ task = modbus.ReadTask(
     ],
 )
 
-client.tasks.configure(task)
+client.hardware.tasks.configure(task)
 
 # Start task and read data
 with task.run():
@@ -212,7 +212,7 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.tasks.retrieve(name="Modbus Read Task")
+task = client.hardware.tasks.retrieve(name="Modbus Read Task")
 task = modbus.ReadTask(internal=task)
 
 # Update task-level configuration
@@ -228,7 +228,7 @@ task.config.channels[1].address = 11
 task.config.channels[1].data_type = "uint16"
 
 # Apply changes
-client.tasks.configure(task)
+client.hardware.tasks.configure(task)
 ```
 
 </ExampleDetails>
@@ -245,7 +245,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const dev = await client.devices.retrieve({ name: "Modbus Server" });
+const dev = await client.hardware.devices.retrieve({ name: "Modbus Server" });
 
 // Create index channel
 const modbusTime = await client.channels.create({
@@ -271,7 +271,7 @@ const inputReg1 = await client.channels.create({
 });
 
 // Create and configure task
-const task = await client.tasks.create({
+const task = await client.hardware.tasks.create({
   name: "Modbus Read Task",
   type: "modbus_read",
   config: JSON.stringify({
@@ -318,7 +318,7 @@ await streamer.close();
 
 ```typescript
 // Retrieve existing task
-const task = await client.tasks.retrieve({ name: "Modbus Read Task" });
+const task = await client.hardware.tasks.retrieve({ name: "Modbus Read Task" });
 
 // Parse and update configuration
 const config = JSON.parse(task.config);
@@ -336,7 +336,7 @@ config.channels[1].address = 11;
 config.channels[1].data_type = "uint16";
 
 // Apply changes
-await client.tasks.create({
+await client.hardware.tasks.create({
   key: task.key,
   name: task.name,
   type: task.type,

@@ -100,13 +100,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if cfg.Signals == nil {
 		return
 	}
-	signalsCfg := signals.GorpPublisherConfigString[Status[any]](cfg.DB)
-	signalsCfg.SetName = "sy_status_set"
-	signalsCfg.DeleteName = "sy_status_delete"
 	statusSignals, err := signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signalsCfg,
+		signals.GorpPublisherConfigString[Status](cfg.DB),
 	)
 	if err != nil {
 		return
@@ -128,17 +125,8 @@ func (s *Service) Close() error {
 // NewWriter opens a new Writer to create, update, and delete statuses. If tx is not nil,
 // the writer will use it to execute all operations. If tx is nil, the writer will execute
 // all operations directly against the underlying gorp.DB.
-func (s *Service) NewWriter(tx gorp.Tx) Writer[any] {
-	return NewWriter[any](s, tx)
-}
-
-// NewRetrieve opens a new Retrieve query to fetch statuses from the database.
-func (s *Service) NewRetrieve() Retrieve[any] {
-	return NewRetrieve[any](s)
-}
-
-func NewWriter[D any](s *Service, tx gorp.Tx) Writer[D] {
-	return Writer[D]{
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	return Writer{
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
@@ -146,9 +134,10 @@ func NewWriter[D any](s *Service, tx gorp.Tx) Writer[D] {
 	}
 }
 
-func NewRetrieve[D any](s *Service) Retrieve[D] {
-	return Retrieve[D]{
-		gorp:   gorp.NewRetrieve[string, Status[D]](),
+// NewRetrieve opens a new Retrieve query to fetch statuses from the database.
+func (s *Service) NewRetrieve() Retrieve {
+	return Retrieve{
+		gorp:   gorp.NewRetrieve[string, Status](),
 		baseTX: s.cfg.DB,
 		otg:    s.cfg.Ontology,
 		label:  s.cfg.Label,
