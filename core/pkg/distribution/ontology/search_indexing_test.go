@@ -11,19 +11,22 @@ package ontology_test
 
 import (
 	"context"
+	"io"
+	"iter"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/zyn"
 )
 
 // mockIndexingService implements the Service interface for testing startup indexing
 type mockIndexingService struct {
-	observe.Observer[iter.Nexter[ontology.Change]]
+	observe.Observer[iter.Seq[ontology.Change]]
 	resources []ontology.Resource
 	schema    zyn.Schema
 }
@@ -32,7 +35,7 @@ var _ ontology.Service = (*mockIndexingService)(nil)
 
 func newMockIndexingService(schema zyn.Schema, resources []ontology.Resource) *mockIndexingService {
 	return &mockIndexingService{
-		Observer:  observe.New[iter.Nexter[ontology.Change]](),
+		Observer:  observe.New[iter.Seq[ontology.Change]](),
 		resources: resources,
 		schema:    schema,
 	}
@@ -46,8 +49,8 @@ func (s *mockIndexingService) Schema() zyn.Schema {
 	return s.schema
 }
 
-func (s *mockIndexingService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	return iter.NexterNopCloser[ontology.Resource](iter.All[ontology.Resource](s.resources)), nil
+func (s *mockIndexingService) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+	return slices.Values(s.resources), xio.NopCloser, nil
 }
 
 func (s *mockIndexingService) RetrieveResource(

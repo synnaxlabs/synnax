@@ -130,11 +130,7 @@ export const List = ({
             <Filters request={request} onRequestChange={handleRequestChange} />
           </Flex.Box>
         )}
-        <PList.Items<status.Key>
-          emptyContent={<EmptyContent />}
-          displayItems={Infinity}
-          grow
-        >
+        <PList.Items<status.Key> emptyContent={<EmptyContent />} grow>
           {componentRenderProp}
         </PList.Items>
       </Select.Frame>

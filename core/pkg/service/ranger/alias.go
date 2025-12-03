@@ -12,6 +12,8 @@ package ranger
 import (
 	"context"
 	"fmt"
+	"io"
+	"iter"
 	"strings"
 
 	"github.com/google/uuid"
@@ -22,7 +24,7 @@ import (
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
+	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -132,25 +134,15 @@ func translateAliasChange(c aliasChange) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *aliasOntologyService) OnChange(
-	f func(context.Context, iter.Nexter[ontology.Change]),
-) observe.Disconnect {
+func (s *aliasOntologyService) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[string, Alias]) {
-		f(ctx, iter.NexterTranslator[aliasChange, ontology.Change]{
-			Wrap: reader, Translate: translateAliasChange,
-		})
+		f(ctx, xiter.Map(reader, translateAliasChange))
 	}
 	return gorp.Observe[string, Alias](s.db).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *aliasOntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	n, err := gorp.WrapReader[string, Alias](s.db).OpenNexter()
-	if err != nil {
-		return nil, err
-	}
-	return iter.NexterCloserTranslator[Alias, ontology.Resource]{
-		Wrap:      n,
-		Translate: newAliasResource,
-	}, nil
+func (s *aliasOntologyService) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+	n, closer, err := gorp.WrapReader[string, Alias](s.db).OpenNexter(ctx)
+	return xiter.Map(n, newAliasResource), closer, err
 }

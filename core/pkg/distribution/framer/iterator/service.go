@@ -56,9 +56,10 @@ type ServiceConfig struct {
 	// TS is the underlying storage layer time-series database for reading frames.
 	// [REQUIRED]
 	TS *ts.DB
-	// Channels retrieves channel information.
+	// Channel retrieves channel information.
+	//
 	// [REQUIRED}
-	Channels channel.Readable
+	Channel *channel.Service
 	// HostResolver is used to resolve reachable addresses for nodes in a Synnax cluster.
 	// [REQUIRED]
 	HostResolver aspen.HostResolver
@@ -78,7 +79,7 @@ var (
 // Override implements Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.TS = override.Nil(cfg.TS, other.TS)
-	cfg.Channels = override.Nil(cfg.Channels, other.Channels)
+	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
 	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
 	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
@@ -89,7 +90,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.iterator")
 	validate.NotNil(v, "ts", cfg.TS)
-	validate.NotNil(v, "channels", cfg.Channels)
+	validate.NotNil(v, "channel", cfg.Channel)
 	validate.NotNil(v, "aspen_transport", cfg.Transport)
 	validate.NotNil(v, "resolver", cfg.HostResolver)
 	return v.Error()
@@ -97,7 +98,7 @@ func (cfg ServiceConfig) Validate() error {
 
 // Service is the distribution layer entry point for using iterators within Synnax.
 // Iterators allow for reading chunks of historical data from channels distributed
-// across a muti-node cluster.
+// across a multi-node cluster.
 type Service struct {
 	cfg    ServiceConfig
 	server *server
@@ -105,8 +106,8 @@ type Service struct {
 
 // NewService opens a new iterator service using the provided configuration. If the
 // configuration is invalid, NewService returns a nil service and an error.
-func NewService(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +237,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 			return errors.Wrapf(validate.Error, "cannot read from free channel %v", k)
 		}
 	}
-	q := s.cfg.Channels.NewRetrieve().WhereKeys(keys...)
+	q := s.cfg.Channel.NewRetrieve().WhereKeys(keys...)
 	exists, err := q.Exists(ctx, nil)
 	if err != nil {
 		return err

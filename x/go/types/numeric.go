@@ -49,6 +49,11 @@ type SizedNumeric interface {
 	SizedSignedInteger | SizedUnsignedInteger | Floating
 }
 
+// Sized represents any numeric value with a fixed bit width.
+type Sized interface {
+	SizedNumeric | ~[4]byte | ~[8]byte | ~[16]byte
+}
+
 // Signed represents any numeric value that can be negative.
 type Signed interface {
 	SignedInteger | Floating

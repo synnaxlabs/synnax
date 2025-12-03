@@ -9,16 +9,15 @@
 
 import { type destructor, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
 import {
-  createContext,
   type PropsWithChildren,
   type ReactElement,
-  use,
   useCallback,
   useEffect,
   useMemo,
   useRef,
 } from "react";
 
+import { context } from "@/context";
 import { useStateRef } from "@/hooks/ref";
 import {
   type Callback,
@@ -40,13 +39,11 @@ export interface ContextValue {
   listen: Listen;
 }
 
-const ZERO_CONTEXT_VALUE: ContextValue = {
-  listen: () => () => {},
-};
-
-const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
-
-export const useContext = () => use(Context);
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: { listen: () => () => {} },
+  displayName: "Triggers.Context",
+});
+export { useContext };
 
 interface RefState {
   next: Trigger;

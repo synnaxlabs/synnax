@@ -53,7 +53,7 @@ type ServiceConfig struct {
 	// Channel is used for retrieving channel information from the cluster.
 	//
 	// [REQUIRED]
-	Channel channel.Readable
+	Channel *channel.Service
 	// Framer is used for reading and writing telemetry frames to/from the cluster.
 	//
 	// [REQUIRED]
@@ -188,14 +188,14 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		closer = append(closer, stopSignals)
 	}
 	obs := gorp.Observe[uuid.UUID, Arc](cfg.DB)
-	closer = append(closer, xio.NopCloserFunc(obs.OnChange(s.handleChange)))
+	closer = append(closer, xio.NoFailCloserFunc(obs.OnChange(s.handleChange)))
 	s.mu.closer = closer
 	return s, nil
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting arcs in Synnax. If
-// tx is provided, the writer will use that transaction. If tx is nil, the Writer
-// will execute the operations directly on the underlyinu gorp.DB.
+// tx is provided, the writer will use that transaction. If tx is nil, the Writer will
+// execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:     gorp.OverrideTx(s.cfg.DB, tx),

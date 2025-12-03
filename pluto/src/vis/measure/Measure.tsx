@@ -85,7 +85,7 @@ export const Measure = ({
     [setState, onModeChange],
   );
 
-  LinePlot.useViewport(handleClick);
+  LinePlot.useViewport(handleClick, "Measure.Measure");
 
   const handleMove = useCallback(
     (e: MouseEvent): void => setState((p) => ({ ...p, hover: xy.construct(e) })),

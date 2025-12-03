@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/telem/op"
 )
 
@@ -30,8 +31,22 @@ func (n *binary) Next(ctx node.Context) {
 	if !n.state.RefreshInputs() {
 		return
 	}
-	n.op(n.state.Input(0), n.state.Input(1), n.state.Output(0))
+	lhs, rhs := n.state.Input(0), n.state.Input(1)
+	n.op(lhs, rhs, n.state.Output(0))
 	*n.state.OutputTime(0) = n.state.InputTime(0)
+	// Propagate alignment and time range from inputs to output
+	alignment := lhs.Alignment + rhs.Alignment
+	timeRange := telem.TimeRange{Start: lhs.TimeRange.Start, End: lhs.TimeRange.End}
+	if !rhs.TimeRange.Start.IsZero() && (timeRange.Start.IsZero() || rhs.TimeRange.Start < timeRange.Start) {
+		timeRange.Start = rhs.TimeRange.Start
+	}
+	if rhs.TimeRange.End > timeRange.End {
+		timeRange.End = rhs.TimeRange.End
+	}
+	n.state.Output(0).Alignment = alignment
+	n.state.Output(0).TimeRange = timeRange
+	n.state.OutputTime(0).Alignment = alignment
+	n.state.OutputTime(0).TimeRange = timeRange
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
@@ -46,8 +61,14 @@ func (n *unary) Next(ctx node.Context) {
 	if !n.RefreshInputs() {
 		return
 	}
-	n.op(n.Input(0), n.Output(0))
+	input := n.Input(0)
+	n.op(input, n.Output(0))
 	*n.OutputTime(0) = n.InputTime(0)
+	// Propagate alignment and time range from input to output
+	n.Output(0).Alignment = input.Alignment
+	n.Output(0).TimeRange = input.TimeRange
+	n.OutputTime(0).Alignment = input.Alignment
+	n.OutputTime(0).TimeRange = input.TimeRange
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 

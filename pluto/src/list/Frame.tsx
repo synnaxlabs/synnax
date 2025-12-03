@@ -10,7 +10,6 @@
 import { bounds, type location, type record } from "@synnaxlabs/x";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import {
-  createContext,
   memo,
   type PropsWithChildren,
   type ReactElement,
@@ -22,8 +21,9 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { context } from "@/context";
 import { Dialog } from "@/dialog";
-import { useRequiredContext, useSyncedRef } from "@/hooks";
+import { useCombinedRefs, usePrevious, useSyncedRef } from "@/hooks";
 
 /**
  * Function interface for getting items from a list by key(s).
@@ -72,6 +72,7 @@ export interface DataContextValue<K extends record.Key = record.Key> {
   getItems: () => ItemSpec<K>[];
   getTotalSize: () => number | undefined;
   itemHeight?: number;
+  sentinelRef?: RefCallback<HTMLDivElement>;
 }
 
 export interface UtilContextValue<
@@ -84,8 +85,21 @@ export interface UtilContextValue<
   scrollToIndex: (index: number, direction?: location.Y) => void;
 }
 
-const DataContext = createContext<DataContextValue | null>(null);
-const UtilContext = createContext<UtilContextValue | null>(null);
+const [DataContext, useDataContext] = context.create<DataContextValue>({
+  displayName: "List.DataContext",
+  providerName: "List.Frame",
+});
+
+const [UtilContext, useUtilCtx] = context.create<UtilContextValue>({
+  displayName: "List.UtilContext",
+  providerName: "List.Frame",
+});
+
+export const useUtilContext = <
+  K extends record.Key = record.Key,
+  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
+>(): UtilContextValue<K, E> =>
+  useUtilCtx("List.useUtilContext") as unknown as UtilContextValue<K, E>;
 
 export interface FrameProps<
   K extends record.Key = record.Key,
@@ -99,20 +113,11 @@ export interface FrameProps<
   onFetchMore?: () => void;
 }
 
-const useDataContext = <K extends record.Key = record.Key>(): DataContextValue<K> =>
-  useRequiredContext(DataContext) as unknown as DataContextValue<K>;
-
-export const useUtilContext = <
-  K extends record.Key = record.Key,
-  E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
->(): UtilContextValue<K, E> =>
-  useRequiredContext(UtilContext) as unknown as UtilContextValue<K, E>;
-
 export const useScroller = <K extends record.Key = record.Key>(): Pick<
   UtilContextValue<K>,
   "scrollToIndex"
 > => {
-  const { scrollToIndex } = useUtilContext();
+  const { scrollToIndex } = useUtilCtx("List.useScroller");
   return useMemo(() => ({ scrollToIndex }), [scrollToIndex]);
 };
 
@@ -122,7 +127,9 @@ export const useItem = <
 >(
   key: K,
 ): E | undefined => {
-  const { getItem, subscribe } = useUtilContext<K, E>();
+  const { getItem, subscribe } = useUtilCtx(
+    "List.useItem",
+  ) as unknown as UtilContextValue<K, E>;
   return useSyncExternalStore(
     useCallback(
       (callback) => {
@@ -139,8 +146,12 @@ export const useData = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >(): DataContextValue<K> & UtilContextValue<K, E> => {
-  const { data, getItems, getTotalSize, itemHeight } = useDataContext<K>();
-  const { ref, getItem, scrollToIndex, subscribe } = useUtilContext<K, E>();
+  const { data, getItems, getTotalSize, itemHeight, sentinelRef } = useDataContext(
+    "List.useData",
+  ) as DataContextValue<K>;
+  const { ref, getItem, scrollToIndex, subscribe } = useUtilCtx(
+    "List.useData",
+  ) as unknown as UtilContextValue<K, E>;
   return useMemo(
     () => ({
       data,
@@ -151,8 +162,19 @@ export const useData = <
       scrollToIndex,
       subscribe,
       itemHeight,
+      sentinelRef,
     }),
-    [data, getItems, getTotalSize, ref, getItem, scrollToIndex, subscribe, itemHeight],
+    [
+      data,
+      getItems,
+      getTotalSize,
+      ref,
+      getItem,
+      scrollToIndex,
+      subscribe,
+      itemHeight,
+      sentinelRef,
+    ],
   );
 };
 
@@ -173,6 +195,71 @@ const useFetchMoreRefCallback = (
     },
     [onFetchMoreRef, visible, hasData],
   );
+};
+
+interface UseIntersectionFetchMoreReturn {
+  containerRef: RefCallback<HTMLDivElement>;
+  sentinelRef: RefCallback<HTMLDivElement>;
+}
+
+const SCROLL_THRESHOLD_PX = 100;
+
+const useIntersectionFetchMore = (
+  onFetchMore: (() => void) | undefined,
+  dataLength: number,
+): UseIntersectionFetchMoreReturn => {
+  const onFetchMoreRef = useSyncedRef(onFetchMore);
+  const isFetchingRef = useRef(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const containerElRef = useRef<HTMLDivElement | null>(null);
+  const sentinelElRef = useRef<HTMLDivElement | null>(null);
+
+  // Reset fetching flag when data length changes (new data arrived)
+  const prevDataLength = usePrevious(dataLength);
+  if (prevDataLength !== undefined && dataLength !== prevDataLength)
+    isFetchingRef.current = false;
+
+  const setupObserver = useCallback(() => {
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+
+    const container = containerElRef.current;
+    const sentinel = sentinelElRef.current;
+    if (container == null || sentinel == null) return;
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isFetchingRef.current) {
+          isFetchingRef.current = true;
+          onFetchMoreRef.current?.();
+        }
+      },
+      {
+        root: container,
+        rootMargin: `0px 0px ${SCROLL_THRESHOLD_PX}px 0px`,
+        threshold: 0,
+      },
+    );
+    observerRef.current.observe(sentinel);
+  }, [onFetchMoreRef]);
+
+  const containerRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      containerElRef.current = el;
+      setupObserver();
+    },
+    [setupObserver],
+  );
+
+  const sentinelRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      sentinelElRef.current = el;
+      setupObserver();
+    },
+    [setupObserver],
+  );
+
+  return { containerRef, sentinelRef };
 };
 
 const VirtualFrame = <
@@ -235,11 +322,11 @@ const VirtualFrame = <
   );
 
   return (
-    <DataContext.Provider value={dataCtxValue}>
-      <UtilContext.Provider value={utilCtxValue as unknown as UtilContextValue}>
+    <DataContext value={dataCtxValue}>
+      <UtilContext value={utilCtxValue as unknown as UtilContextValue}>
         {children}
-      </UtilContext.Provider>
-    </DataContext.Provider>
+      </UtilContext>
+    </DataContext>
   );
 };
 
@@ -258,7 +345,7 @@ const StaticFrame = <
   const hasData = data.length > 0;
   const scrollToIndex = useCallback((index: number, direction?: location.Y) => {
     const container = ref.current?.children[0];
-    if (!container) return;
+    if (container == null) return;
     const dirMultiplier = direction === "top" ? 1 : -1;
     let scrollTo: number;
     const idealHover = index + dirMultiplier;
@@ -270,9 +357,12 @@ const StaticFrame = <
       child.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
   }, []);
 
-  const refCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
+  const initialFetchCallback = useFetchMoreRefCallback(ref, hasData, onFetchMore);
+  const { containerRef: intersectionContainerRef, sentinelRef } =
+    useIntersectionFetchMore(onFetchMore, data.length);
+  const refCallback = useCombinedRefs(initialFetchCallback, intersectionContainerRef);
 
-  const items = data.map((key, index) => ({ key, index }));
+  const items = useMemo(() => data.map((key, index) => ({ key, index })), [data]);
   const dataCtxValue = useMemo<DataContextValue<K>>(
     () => ({
       ref: refCallback,
@@ -282,8 +372,9 @@ const StaticFrame = <
       getTotalSize: () => undefined,
       getItems: () => items,
       itemHeight,
+      sentinelRef,
     }),
-    [refCallback, data, getItem, subscribe, itemHeight],
+    [refCallback, data, getItem, subscribe, itemHeight, sentinelRef, items],
   );
   const utilCtxValue = useMemo<UtilContextValue<K, E>>(
     () => ({
@@ -295,11 +386,11 @@ const StaticFrame = <
     [refCallback, getItem, subscribe, scrollToIndex],
   );
   return (
-    <DataContext.Provider value={dataCtxValue}>
-      <UtilContext.Provider value={utilCtxValue as unknown as UtilContextValue}>
+    <DataContext value={dataCtxValue}>
+      <UtilContext value={utilCtxValue as unknown as UtilContextValue}>
         {children}
-      </UtilContext.Provider>
-    </DataContext.Provider>
+      </UtilContext>
+    </DataContext>
   );
 };
 
