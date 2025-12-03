@@ -96,17 +96,18 @@ type (
 )
 
 const (
-	AutoSpan    = iterator.AutoSpan
-	SeekFirst   = iterator.SeekFirst
-	SeekLast    = iterator.SeekLast
-	SeekLE      = iterator.SeekLE
-	SeekGE      = iterator.SeekGE
-	Next        = iterator.Next
-	Prev        = iterator.Prev
-	SetBounds   = iterator.SetBounds
-	AckResponse = iterator.AckResponse
-	Error       = iterator.Error
-	Valid       = iterator.Valid
+	AutoSpan     = iterator.AutoSpan
+	SeekFirst    = iterator.SeekFirst
+	SeekLast     = iterator.SeekLast
+	SeekLE       = iterator.SeekLE
+	SeekGE       = iterator.SeekGE
+	Next         = iterator.Next
+	Prev         = iterator.Prev
+	SetBounds    = iterator.SetBounds
+	AckResponse  = iterator.AckResponse
+	DataResponse = iterator.DataResponse
+	Error        = iterator.Error
+	Valid        = iterator.Valid
 )
 
 type ResponseSegment = confluence.Segment[Response, Response]
@@ -252,38 +253,39 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 }
 
 type Iterator struct {
-	requests  confluence.Inlet[Request]
-	responses confluence.Outlet[Response]
-	shutdown  context.CancelFunc
-	wg        signal.WaitGroup
-	value     []Response
+	requests    confluence.Inlet[Request]
+	responses   confluence.Outlet[Response]
+	shutdown    context.CancelFunc
+	wg          signal.WaitGroup
+	value       []Response
+	valueFrames []core.Frame
 }
 
 // Next reads all channel data occupying the next span of time. Returns true
 // if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) Next(span telem.TimeSpan) bool {
-	i.value = nil
+	i.value = i.value[:0]
 	return i.exec(Request{Command: Next, Span: span})
 }
 
 // Prev reads all channel data occupying the previous span of time. Returns true
 // if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) Prev(span telem.TimeSpan) bool {
-	i.value = nil
+	i.value = i.value[:0]
 	return i.exec(Request{Command: Prev, Span: span})
 }
 
 // SeekFirst seeks the Iterator the start of the Iterator range.
 // Returns true if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) SeekFirst() bool {
-	i.value = nil
+	i.value = i.value[:0]
 	return i.exec(Request{Command: SeekFirst})
 }
 
 // SeekLast seeks the Iterator the end of the Iterator range.
 // Returns true if the current IteratorServer.View is pointing to any valid segments.
 func (i *Iterator) SeekLast() bool {
-	i.value = nil
+	i.value = i.value[:0]
 	return i.exec(Request{Command: SeekLast})
 }
 
@@ -291,7 +293,7 @@ func (i *Iterator) SeekLast() bool {
 // to the given timestamp. Returns true if the current IteratorServer.View is pointing
 // to any valid segments.
 func (i *Iterator) SeekLE(stamp telem.TimeStamp) bool {
-	i.value = nil
+	i.value = i.value[:0]
 	return i.exec(Request{Command: SeekLE, Stamp: stamp})
 }
 
@@ -299,7 +301,7 @@ func (i *Iterator) SeekLE(stamp telem.TimeStamp) bool {
 // given timestamp. Returns true if the current IteratorServer.View is pointing to
 // any valid segments.
 func (i *Iterator) SeekGE(stamp telem.TimeStamp) bool {
-	i.value = nil
+	i.value = i.value[:0]
 	return i.exec(Request{Command: SeekGE, Stamp: stamp})
 }
 
@@ -329,11 +331,15 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) bool {
 }
 
 func (i *Iterator) Value() core.Frame {
-	frames := make([]core.Frame, len(i.value))
-	for i, v := range i.value {
-		frames[i] = v.Frame
+	if cap(i.valueFrames) < len(i.value) {
+		i.valueFrames = make([]core.Frame, len(i.value))
+	} else {
+		i.valueFrames = i.valueFrames[:len(i.value)]
 	}
-	return core.MergeFrames(frames)
+	for idx, v := range i.value {
+		i.valueFrames[idx] = v.Frame
+	}
+	return core.MergeFrames(i.valueFrames)
 }
 
 func (i *Iterator) exec(req Request) bool {

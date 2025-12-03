@@ -83,7 +83,10 @@ export const Palette = ({
           full="x"
         >
           <Icon.Search />
-          Search and Command
+          {/* This span needs to remain so we properly hide it on small window sizes. */}
+          <Text.Text el="span" color={9}>
+            Search and Command
+          </Text.Text>
         </Button.Button>
         <Dialog.Dialog
           className={CSS.BE("palette", "content")}
@@ -131,7 +134,7 @@ const DialogContent = ({
   const mode = value.startsWith(commandSymbol) ? "command" : "resource";
   const { handleSelect, data, getItem, subscribe, listItem, retrieve } =
     mode === "command" ? commandProps : resourceProps;
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve, pageSize: 20 });
   const handleSearch = useCallback(
     (v: string) => {
       onChange(v);
@@ -149,9 +152,9 @@ const DialogContent = ({
       onChange={handleSelect}
       onFetchMore={fetchMore}
       itemHeight={36}
-      virtual={false}
       initialHover={0}
       closeDialogOnSelect
+      virtual
     >
       <Input.Text
         className={CSS(CSS.BE("palette", "input"))}
@@ -176,6 +179,7 @@ const DialogContent = ({
         emptyContent={mode === "command" ? commandEmptyContent : resourceEmptyContent}
         bordered
         borderColor={8}
+        displayItems={10}
       >
         {listItem}
       </List.Items>
