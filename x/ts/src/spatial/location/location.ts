@@ -80,8 +80,8 @@ export const construct = (cl: Crude): Location => {
 
 export const swap = (cl: Crude): Location => SWAPPED[construct(cl)];
 
-export const rotate = (cl: Crude, dir: AngularDirection = "clockwise"): Location =>
-  ROTATIONS[construct(cl)][dir];
+export const rotate = (loc: Outer, dir: AngularDirection): Outer =>
+  ROTATIONS[loc][dir] as Outer;
 
 export const direction = (cl: Crude): Direction => {
   const l = construct(cl);

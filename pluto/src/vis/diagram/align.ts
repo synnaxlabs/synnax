@@ -47,16 +47,20 @@ export const alignNodesAlongDirection = (
   const oppositeLoc = location.swap(loc);
   // Sort layouts by position, lowest to highest
   layouts.sort((a, b) => box.loc(a.box, loc) - box.loc(b.box, loc));
+
+  // Pre-compute handles in direction for each layout
+  const handlesInDir = layouts.map((layout) =>
+    layout.handles.filter(
+      (h) => h.orientation === loc || h.orientation === oppositeLoc,
+    ),
+  );
+
   layouts.forEach((layout, i) => {
     if (i === 0) return;
     const prev = layouts[i - 1];
 
-    const prevHandlesInDir = prev.handles.filter(
-      (h) => h.orientation === loc || h.orientation === oppositeLoc,
-    );
-    const currentHandlesInDir = layout.handles.filter(
-      (h) => h.orientation === loc || h.orientation === oppositeLoc,
-    );
+    const prevHandlesInDir = handlesInDir[i - 1];
+    const currentHandlesInDir = handlesInDir[i];
 
     if (prevHandlesInDir.length === 0 || currentHandlesInDir.length === 0) {
       const prevCenter = box.center(prev.box);
@@ -126,8 +130,8 @@ export const distributeNodes = (
 
     reordered.forEach((node) => {
       const pos = xy.construct(
-        dir === "x" ? current : box.loc(node.box, location.construct("x")),
-        dir === "y" ? current : box.loc(node.box, location.construct("y")),
+        dir === "x" ? current : box.loc(node.box, "left"),
+        dir === "y" ? current : box.loc(node.box, "top"),
       );
       node.box = box.construct(pos, box.dims(node.box));
       current += box.dim(node.box, dir);
@@ -136,8 +140,8 @@ export const distributeNodes = (
     let current = box.loc(first.box, oppositeLoc) + rawGapSize;
     middleNodes.forEach((node) => {
       const pos = xy.construct(
-        dir === "x" ? current : box.loc(node.box, location.construct("x")),
-        dir === "y" ? current : box.loc(node.box, location.construct("y")),
+        dir === "x" ? current : box.loc(node.box, "left"),
+        dir === "y" ? current : box.loc(node.box, "top"),
       );
       node.box = box.construct(pos, box.dims(node.box));
       current += box.dim(node.box, dir) + rawGapSize;

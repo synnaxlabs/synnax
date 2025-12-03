@@ -134,7 +134,7 @@ class Schematic(ConsolePage):
             tolerance: Maximum allowed difference in spacing for assertion (default: 3.0 for horizontal, 20.0 for vertical)
 
         Raises:
-            ValueError: If fewer than 3 symbols are provided
+            ValueError: If fewer than 3 symbols are provided (otherwise, nothing to distribute)
             AssertionError: If symbols are not evenly distributed within tolerance after distribution
         """
         if len(symbols) < 3:
@@ -487,11 +487,6 @@ class Schematic(ConsolePage):
     ) -> None:
         """
         Assert that all symbols are aligned along the specified axis.
-
-        The TypeScript alignment logic uses handle-based alignment for center alignments
-        (horizontal/vertical), which may not perfectly align bounding box centers when
-        symbols have different shapes or handle configurations. Edge alignments (left/right/
-        top/bottom) align bounding box edges directly.
 
         Args:
             symbols: List of symbols to check for alignment

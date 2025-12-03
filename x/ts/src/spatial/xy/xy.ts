@@ -16,15 +16,13 @@ import {
   type CrudeDirection,
   dimensions,
   type Direction,
-  DIRECTIONS,
   type NumberCouple,
   numberCouple,
   signedDimensions,
   type XY,
   xy,
-  Y_LOCATIONS,
-  type YLocation,
 } from "@/spatial/base";
+import { direction as dir } from "@/spatial/direction";
 import { type location } from "@/spatial/location";
 
 export { type ClientXY as Client, clientXY, type XY, xy };
@@ -140,19 +138,13 @@ export const translate: Translate = (a, b, v, ...cb): XY => {
   }, ZERO);
 };
 
-const constructDirection = (c: CrudeDirection): Direction => {
-  if (DIRECTIONS.includes(c as Direction)) return c as Direction;
-  if (Y_LOCATIONS.includes(c as YLocation)) return "y";
-  return "x";
-};
-
 /**
  * @returns the given coordinate the given direction set to the given value.
  * @example set({ x: 1, y: 2 }, "x", 3) // { x: 3, y: 2 }
  */
 export const set = (c: Crude, direction: CrudeDirection, value: number): XY => {
   const xy = construct(c);
-  const d = constructDirection(direction);
+  const d = dir.construct(direction);
   if (d === "x") return { x: value, y: xy.y };
   return { x: xy.x, y: value };
 };

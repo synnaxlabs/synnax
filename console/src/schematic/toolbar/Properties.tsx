@@ -322,7 +322,7 @@ const MultiElementProperties = ({
   const handleRotateIndividual = (dir: direction.Angular): void => {
     elements.forEach((el) => {
       if (el.type !== "node") return;
-      const parsed = location.location.safeParse(el.props.orientation);
+      const parsed = location.outer.safeParse(el.props.orientation);
       if (!parsed.success) return;
       onChange(el.key, { orientation: location.rotate(parsed.data, dir) });
     });
