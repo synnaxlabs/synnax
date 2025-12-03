@@ -780,4 +780,233 @@ var _ = Describe("Wasm", func() {
 			Expect(vals).To(Equal([]int64{105}))
 		})
 	})
+
+	Describe("Alignment and TimeRange Propagation", func() {
+		It("Should sum alignments from multiple inputs and propagate to outputs", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "add",
+						Inputs: types.Params{
+							{Name: "lhs", Type: types.I64()},
+							{Name: "rhs", Type: types.I64()},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							return lhs + rhs
+						}`},
+					},
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+						Body: dummyBodyI64,
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+						Body: dummyBodyI64,
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "lhs", Type: "lhs"},
+					{Key: "rhs", Type: "rhs"},
+					{Key: "add", Type: "add"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "add", Param: "lhs"},
+					},
+					{
+						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "add", Param: "rhs"},
+					},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
+
+			// Set up inputs with different alignments and time ranges
+			lhsSeries := telem.NewSeriesV[int64](1, 2, 3)
+			lhsSeries.Alignment = 100
+			lhsSeries.TimeRange = telem.TimeRange{
+				Start: 10 * telem.SecondTS,
+				End:   30 * telem.SecondTS,
+			}
+			*lhsNode.Output(0) = lhsSeries
+			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30)
+
+			rhsSeries := telem.NewSeriesV[int64](10, 20, 30)
+			rhsSeries.Alignment = 50
+			rhsSeries.TimeRange = telem.TimeRange{
+				Start: 5 * telem.SecondTS,
+				End:   25 * telem.SecondTS,
+			}
+			*rhsNode.Output(0) = rhsSeries
+			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5, 15, 25)
+
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("add"),
+				State:  s.Node("add"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			// Verify computation is correct
+			result := *s.Node("add").Output(0)
+			Expect(result.Len()).To(Equal(int64(3)))
+			vals := telem.UnmarshalSeries[int64](result)
+			Expect(vals).To(Equal([]int64{11, 22, 33}))
+
+			// Verify alignment is sum of input alignments (100 + 50 = 150)
+			Expect(result.Alignment).To(Equal(telem.Alignment(150)))
+
+			// Verify time range is union of input time ranges
+			// min(10s, 5s) = 5s for start, max(30s, 25s) = 30s for end
+			Expect(result.TimeRange.Start).To(Equal(5 * telem.SecondTS))
+			Expect(result.TimeRange.End).To(Equal(30 * telem.SecondTS))
+
+			// Verify output time series also has correct alignment and time range
+			resultTime := *s.Node("add").OutputTime(0)
+			Expect(resultTime.Alignment).To(Equal(telem.Alignment(150)))
+			Expect(resultTime.TimeRange.Start).To(Equal(5 * telem.SecondTS))
+			Expect(resultTime.TimeRange.End).To(Equal(30 * telem.SecondTS))
+		})
+
+		It("Should propagate alignment and time range to multiple outputs", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "math_ops",
+						Inputs: types.Params{
+							{Name: "a", Type: types.I64()},
+							{Name: "b", Type: types.I64()},
+						},
+						Outputs: types.Params{
+							{Name: "sum", Type: types.I64()},
+							{Name: "product", Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							sum = a + b
+							product = a * b
+						}`},
+					},
+					{
+						Key: "a",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+						Body: dummyBodyI64,
+					},
+					{
+						Key: "b",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+						Body: dummyBodyI64,
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "a", Type: "a"},
+					{Key: "b", Type: "b"},
+					{Key: "math_ops", Type: "math_ops"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "math_ops", Param: "a"},
+					},
+					{
+						Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "math_ops", Param: "b"},
+					},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			aNode := s.Node("a")
+			bNode := s.Node("b")
+
+			aSeries := telem.NewSeriesV[int64](2, 3)
+			aSeries.Alignment = 200
+			aSeries.TimeRange = telem.TimeRange{
+				Start: 100 * telem.SecondTS,
+				End:   200 * telem.SecondTS,
+			}
+			*aNode.Output(0) = aSeries
+			*aNode.OutputTime(0) = telem.NewSeriesSecondsTSV(100, 150)
+
+			bSeries := telem.NewSeriesV[int64](5, 10)
+			bSeries.Alignment = 300
+			bSeries.TimeRange = telem.TimeRange{
+				Start: 50 * telem.SecondTS,
+				End:   250 * telem.SecondTS,
+			}
+			*bNode.Output(0) = bSeries
+			*bNode.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 200)
+
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("math_ops"),
+				State:  s.Node("math_ops"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+
+			expectedAlignment := telem.Alignment(500) // 200 + 300
+			expectedTimeRange := telem.TimeRange{
+				Start: 50 * telem.SecondTS,  // min(100, 50)
+				End:   250 * telem.SecondTS, // max(200, 250)
+			}
+
+			// Check sum output
+			sumResult := *s.Node("math_ops").Output(0)
+			Expect(sumResult.Alignment).To(Equal(expectedAlignment))
+			Expect(sumResult.TimeRange).To(Equal(expectedTimeRange))
+
+			// Check product output
+			productResult := *s.Node("math_ops").Output(1)
+			Expect(productResult.Alignment).To(Equal(expectedAlignment))
+			Expect(productResult.TimeRange).To(Equal(expectedTimeRange))
+
+			// Check output time series
+			sumTime := *s.Node("math_ops").OutputTime(0)
+			Expect(sumTime.Alignment).To(Equal(expectedAlignment))
+			Expect(sumTime.TimeRange).To(Equal(expectedTimeRange))
+
+			productTime := *s.Node("math_ops").OutputTime(1)
+			Expect(productTime.Alignment).To(Equal(expectedAlignment))
+			Expect(productTime.TimeRange).To(Equal(expectedTimeRange))
+		})
+	})
 })

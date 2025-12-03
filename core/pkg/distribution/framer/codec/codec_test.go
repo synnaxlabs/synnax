@@ -582,6 +582,265 @@ var _ = Describe("Codec", func() {
 			Expect(singleFrame.Frame).To(telem.MatchFrame(decoded2.Frame))
 		})
 	})
+
+	Describe("Alignment Compression", func() {
+		It("Should merge two contiguous series for the same channel", func() {
+			keys := channel.Keys{1}
+			dataTypes := []telem.DataType{telem.Int32T}
+			codec := codec.NewStatic(keys, dataTypes)
+
+			// Create two series with contiguous alignments
+			// Series 1: alignment 0, length 3 -> bounds [0, 3)
+			// Series 2: alignment 3, length 2 -> bounds [3, 5)
+			// These should merge into one series
+			s1 := telem.NewSeriesV[int32](1, 2, 3)
+			s1.Alignment = 0
+			s2 := telem.NewSeriesV[int32](4, 5)
+			s2.Alignment = 3
+
+			frame := core.MultiFrame(
+				channel.Keys{1, 1},
+				[]telem.Series{s1, s2},
+			)
+
+			encoded := MustSucceed(codec.Encode(ctx, frame))
+			decoded := MustSucceed(codec.Decode(encoded))
+
+			// After merging, we should have only one series
+			Expect(decoded.Count()).To(Equal(1))
+
+			// Verify the data is correct (concatenated)
+			series := decoded.Get(1)
+			Expect(len(series.Series)).To(Equal(1))
+			mergedData := telem.UnmarshalSlice[int32](series.Series[0].Data, telem.Int32T)
+			Expect(mergedData).To(Equal([]int32{1, 2, 3, 4, 5}))
+
+			// Verify alignment is from the first series
+			Expect(series.Series[0].Alignment).To(Equal(telem.Alignment(0)))
+		})
+
+		It("Should merge three contiguous series for the same channel", func() {
+			keys := channel.Keys{1}
+			dataTypes := []telem.DataType{telem.Uint8T}
+			codec := codec.NewStatic(keys, dataTypes)
+
+			s1 := telem.NewSeriesV[uint8](1, 2)
+			s1.Alignment = 0
+			s2 := telem.NewSeriesV[uint8](3, 4, 5)
+			s2.Alignment = 2
+			s3 := telem.NewSeriesV[uint8](6)
+			s3.Alignment = 5
+
+			frame := core.MultiFrame(
+				channel.Keys{1, 1, 1},
+				[]telem.Series{s1, s2, s3},
+			)
+
+			encoded := MustSucceed(codec.Encode(ctx, frame))
+			decoded := MustSucceed(codec.Decode(encoded))
+
+			Expect(decoded.Count()).To(Equal(1))
+			series := decoded.Get(1)
+			Expect(len(series.Series)).To(Equal(1))
+			mergedData := telem.UnmarshalSlice[uint8](series.Series[0].Data, telem.Uint8T)
+			Expect(mergedData).To(Equal([]uint8{1, 2, 3, 4, 5, 6}))
+		})
+
+		It("Should not merge non-contiguous series for the same channel", func() {
+			keys := channel.Keys{1}
+			dataTypes := []telem.DataType{telem.Int32T}
+			codec := codec.NewStatic(keys, dataTypes)
+
+			// Gap between series: s1 ends at 3, s2 starts at 5
+			s1 := telem.NewSeriesV[int32](1, 2, 3)
+			s1.Alignment = 0
+			s2 := telem.NewSeriesV[int32](4, 5)
+			s2.Alignment = 5 // Gap! Previous ends at 3
+
+			frame := core.MultiFrame(
+				channel.Keys{1, 1},
+				[]telem.Series{s1, s2},
+			)
+
+			encoded := MustSucceed(codec.Encode(ctx, frame))
+			decoded := MustSucceed(codec.Decode(encoded))
+
+			// Should have two separate series
+			Expect(decoded.Count()).To(Equal(2))
+			series := decoded.Get(1)
+			Expect(len(series.Series)).To(Equal(2))
+		})
+
+		It("Should handle mixed contiguous and non-contiguous series", func() {
+			keys := channel.Keys{1}
+			dataTypes := []telem.DataType{telem.Int32T}
+			codec := codec.NewStatic(keys, dataTypes)
+
+			// s1 and s2 are contiguous (merge)
+			// s3 has gap (don't merge)
+			// s4 continues s3 (don't merge with s1+s2, but keep separate)
+			s1 := telem.NewSeriesV[int32](1, 2)
+			s1.Alignment = 0
+			s2 := telem.NewSeriesV[int32](3, 4)
+			s2.Alignment = 2
+			s3 := telem.NewSeriesV[int32](5)
+			s3.Alignment = 10 // Gap!
+			s4 := telem.NewSeriesV[int32](6)
+			s4.Alignment = 11 // Contiguous with s3
+
+			frame := core.MultiFrame(
+				channel.Keys{1, 1, 1, 1},
+				[]telem.Series{s1, s2, s3, s4},
+			)
+
+			encoded := MustSucceed(codec.Encode(ctx, frame))
+			decoded := MustSucceed(codec.Decode(encoded))
+
+			// Should have 2 merged series: [s1+s2] and [s3+s4]
+			Expect(decoded.Count()).To(Equal(2))
+			series := decoded.Get(1)
+			Expect(len(series.Series)).To(Equal(2))
+
+			// First merged series should be [1, 2, 3, 4]
+			firstData := telem.UnmarshalSlice[int32](series.Series[0].Data, telem.Int32T)
+			Expect(firstData).To(Equal([]int32{1, 2, 3, 4}))
+
+			// Second merged series should be [5, 6]
+			secondData := telem.UnmarshalSlice[int32](series.Series[1].Data, telem.Int32T)
+			Expect(secondData).To(Equal([]int32{5, 6}))
+		})
+
+		It("Should merge series for multiple channels independently", func() {
+			keys := channel.Keys{1, 2}
+			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T}
+			codec := codec.NewStatic(keys, dataTypes)
+
+			// Channel 1: two contiguous series
+			s1_ch1 := telem.NewSeriesV[int32](1, 2)
+			s1_ch1.Alignment = 0
+			s2_ch1 := telem.NewSeriesV[int32](3, 4)
+			s2_ch1.Alignment = 2
+
+			// Channel 2: two contiguous series
+			s1_ch2 := telem.NewSeriesV[float32](1.1, 2.2, 3.3)
+			s1_ch2.Alignment = 5
+			s2_ch2 := telem.NewSeriesV[float32](4.4)
+			s2_ch2.Alignment = 8
+
+			frame := core.MultiFrame(
+				channel.Keys{1, 1, 2, 2},
+				[]telem.Series{s1_ch1, s2_ch1, s1_ch2, s2_ch2},
+			)
+
+			encoded := MustSucceed(codec.Encode(ctx, frame))
+			decoded := MustSucceed(codec.Decode(encoded))
+
+			// Should have 2 series total (one per channel)
+			Expect(decoded.Count()).To(Equal(2))
+
+			// Channel 1 should have merged series
+			ch1Series := decoded.Get(1)
+			Expect(len(ch1Series.Series)).To(Equal(1))
+			ch1Data := telem.UnmarshalSlice[int32](ch1Series.Series[0].Data, telem.Int32T)
+			Expect(ch1Data).To(Equal([]int32{1, 2, 3, 4}))
+
+			// Channel 2 should have merged series
+			ch2Series := decoded.Get(2)
+			Expect(len(ch2Series.Series)).To(Equal(1))
+			ch2Data := telem.UnmarshalSlice[float32](ch2Series.Series[0].Data, telem.Float32T)
+			Expect(ch2Data).To(Equal([]float32{1.1, 2.2, 3.3, 4.4}))
+		})
+
+		It("Should merge series with zero alignments", func() {
+			keys := channel.Keys{1}
+			dataTypes := []telem.DataType{telem.Int32T}
+			codec := codec.NewStatic(keys, dataTypes)
+
+			// All zero alignments are considered contiguous
+			s1 := telem.NewSeriesV[int32](1, 2, 3)
+			s1.Alignment = 0
+			s2 := telem.NewSeriesV[int32](4, 5)
+			s2.Alignment = 0 // Both zero, should still merge if data is contiguous
+
+			frame := core.MultiFrame(
+				channel.Keys{1, 1},
+				[]telem.Series{s1, s2},
+			)
+
+			encoded := MustSucceed(codec.Encode(ctx, frame))
+			decoded := MustSucceed(codec.Decode(encoded))
+
+			// Zero alignments: s1 has bounds [0, 3), s2 has bounds [0, 2)
+			// These are NOT contiguous (s2 starts at 0, not 3)
+			// So they should NOT merge
+			Expect(decoded.Count()).To(Equal(2))
+		})
+
+		It("Should handle time range extension when merging", func() {
+			keys := channel.Keys{1}
+			dataTypes := []telem.DataType{telem.Int32T}
+			codec := codec.NewStatic(keys, dataTypes)
+
+			s1 := telem.NewSeriesV[int32](1, 2)
+			s1.Alignment = 0
+			s1.TimeRange = telem.TimeRange{
+				Start: telem.TimeStamp(100),
+				End:   telem.TimeStamp(200),
+			}
+
+			s2 := telem.NewSeriesV[int32](3, 4)
+			s2.Alignment = 2
+			s2.TimeRange = telem.TimeRange{
+				Start: telem.TimeStamp(200),
+				End:   telem.TimeStamp(300),
+			}
+
+			frame := core.MultiFrame(
+				channel.Keys{1, 1},
+				[]telem.Series{s1, s2},
+			)
+
+			encoded := MustSucceed(codec.Encode(ctx, frame))
+			decoded := MustSucceed(codec.Decode(encoded))
+
+			Expect(decoded.Count()).To(Equal(1))
+			series := decoded.Get(1)
+			Expect(len(series.Series)).To(Equal(1))
+
+			// Time range should span both series
+			mergedSeries := series.Series[0]
+			Expect(mergedSeries.TimeRange.Start).To(Equal(telem.TimeStamp(100)))
+			Expect(mergedSeries.TimeRange.End).To(Equal(telem.TimeStamp(300)))
+		})
+
+		It("Should preserve variable-density types when merging", func() {
+			keys := channel.Keys{1}
+			dataTypes := []telem.DataType{telem.StringT}
+			codec := codec.NewStatic(keys, dataTypes)
+
+			s1 := telem.NewSeriesStringsV("hello", "world")
+			s1.Alignment = 0
+
+			s2 := telem.NewSeriesStringsV("foo")
+			s2.Alignment = 2
+
+			frame := core.MultiFrame(
+				channel.Keys{1, 1},
+				[]telem.Series{s1, s2},
+			)
+
+			encoded := MustSucceed(codec.Encode(ctx, frame))
+			decoded := MustSucceed(codec.Decode(encoded))
+
+			Expect(decoded.Count()).To(Equal(1))
+			series := decoded.Get(1)
+			Expect(len(series.Series)).To(Equal(1))
+
+			// Data should be concatenated correctly
+			mergedStrings := telem.UnmarshalStrings(series.Series[0].Data)
+			Expect(mergedStrings).To(Equal([]string{"hello", "world", "foo"}))
+		})
+	})
 })
 
 func BenchmarkEncode(b *testing.B) {
@@ -654,4 +913,237 @@ func BenchmarkJSONDecode(b *testing.B) {
 			b.Fatalf("failed to decode stream: %v", err)
 		}
 	}
+}
+
+// Benchmark alignment compression with single series (no benefit expected)
+func BenchmarkAlignmentCompression_SingleSeries(b *testing.B) {
+	keys := channel.Keys{1}
+	dataTypes := []telem.DataType{telem.Int32T}
+	frame := core.UnaryFrame(1, telem.NewSeriesV[int32](1, 2, 3, 4, 5))
+
+	b.Run("Enabled", func(b *testing.B) {
+		cd := codec.NewStatic(keys, dataTypes)
+		for b.Loop() {
+			if _, err := cd.Encode(b.Context(), frame); err != nil {
+				b.Fatalf("failed to encode: %v", err)
+			}
+		}
+	})
+
+	b.Run("Disabled", func(b *testing.B) {
+		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
+		for b.Loop() {
+			if _, err := cd.Encode(b.Context(), frame); err != nil {
+				b.Fatalf("failed to encode: %v", err)
+			}
+		}
+	})
+}
+
+// Benchmark alignment compression with two contiguous series
+func BenchmarkAlignmentCompression_TwoContiguous(b *testing.B) {
+	keys := channel.Keys{1}
+	dataTypes := []telem.DataType{telem.Int32T}
+
+	s1 := telem.NewSeriesV[int32](1, 2, 3)
+	s1.Alignment = 0
+	s2 := telem.NewSeriesV[int32](4, 5, 6)
+	s2.Alignment = 3
+
+	frame := core.MultiFrame(channel.Keys{1, 1}, []telem.Series{s1, s2})
+
+	b.Run("Enabled", func(b *testing.B) {
+		cd := codec.NewStatic(keys, dataTypes)
+		for b.Loop() {
+			if _, err := cd.Encode(b.Context(), frame); err != nil {
+				b.Fatalf("failed to encode: %v", err)
+			}
+		}
+	})
+
+	b.Run("Disabled", func(b *testing.B) {
+		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
+		for b.Loop() {
+			if _, err := cd.Encode(b.Context(), frame); err != nil {
+				b.Fatalf("failed to encode: %v", err)
+			}
+		}
+	})
+}
+
+// Benchmark alignment compression with many contiguous series (best case)
+func BenchmarkAlignmentCompression_ManyContiguous(b *testing.B) {
+	keys := channel.Keys{1}
+	dataTypes := []telem.DataType{telem.Int32T}
+
+	// Create 100 small contiguous series
+	seriesKeys := make(channel.Keys, 100)
+	seriesList := make([]telem.Series, 100)
+	for i := 0; i < 100; i++ {
+		seriesKeys[i] = 1
+		s := telem.NewSeriesV[int32](int32(i*10), int32(i*10+1), int32(i*10+2))
+		s.Alignment = telem.Alignment(i * 3)
+		seriesList[i] = s
+	}
+
+	frame := core.MultiFrame(seriesKeys, seriesList)
+
+	b.Run("Enabled", func(b *testing.B) {
+		cd := codec.NewStatic(keys, dataTypes)
+		for b.Loop() {
+			if _, err := cd.Encode(b.Context(), frame); err != nil {
+				b.Fatalf("failed to encode: %v", err)
+			}
+		}
+	})
+
+	b.Run("Disabled", func(b *testing.B) {
+		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
+		for b.Loop() {
+			if _, err := cd.Encode(b.Context(), frame); err != nil {
+				b.Fatalf("failed to encode: %v", err)
+			}
+		}
+	})
+}
+
+// Benchmark alignment compression with mixed contiguous/non-contiguous
+func BenchmarkAlignmentCompression_MixedContiguity(b *testing.B) {
+	keys := channel.Keys{1}
+	dataTypes := []telem.DataType{telem.Int32T}
+
+	// Create 50 series: alternating contiguous groups and gaps
+	seriesKeys := make(channel.Keys, 50)
+	seriesList := make([]telem.Series, 50)
+	alignment := telem.Alignment(0)
+	for i := 0; i < 50; i++ {
+		seriesKeys[i] = 1
+		s := telem.NewSeriesV[int32](int32(i*10), int32(i*10+1))
+		s.Alignment = alignment
+		seriesList[i] = s
+
+		// Every 5 series, add a gap
+		if (i+1)%5 == 0 {
+			alignment += 10 // Gap
+		} else {
+			alignment += 2 // Contiguous
+		}
+	}
+
+	frame := core.MultiFrame(seriesKeys, seriesList)
+
+	b.Run("Enabled", func(b *testing.B) {
+		cd := codec.NewStatic(keys, dataTypes)
+		for b.Loop() {
+			if _, err := cd.Encode(b.Context(), frame); err != nil {
+				b.Fatalf("failed to encode: %v", err)
+			}
+		}
+	})
+
+	b.Run("Disabled", func(b *testing.B) {
+		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
+		for b.Loop() {
+			if _, err := cd.Encode(b.Context(), frame); err != nil {
+				b.Fatalf("failed to encode: %v", err)
+			}
+		}
+	})
+}
+
+// Benchmark alignment compression with multiple channels
+func BenchmarkAlignmentCompression_MultiChannel(b *testing.B) {
+	keys := channel.Keys{1, 2, 3}
+	dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Uint8T}
+
+	// Create contiguous series for each channel
+	seriesKeys := make(channel.Keys, 60) // 20 series per channel
+	seriesList := make([]telem.Series, 60)
+
+	for ch := 0; ch < 3; ch++ {
+		alignment := telem.Alignment(ch * 100)
+		for i := 0; i < 20; i++ {
+			idx := ch*20 + i
+			seriesKeys[idx] = channel.Key(ch + 1)
+
+			var s telem.Series
+			switch ch {
+			case 0:
+				s = telem.NewSeriesV[int32](int32(i), int32(i+1))
+			case 1:
+				s = telem.NewSeriesV[float32](float32(i), float32(i+1))
+			case 2:
+				s = telem.NewSeriesV[uint8](uint8(i), uint8(i+1))
+			}
+			s.Alignment = alignment
+			alignment += 2
+			seriesList[idx] = s
+		}
+	}
+
+	frame := core.MultiFrame(seriesKeys, seriesList)
+
+	b.Run("Enabled", func(b *testing.B) {
+		cd := codec.NewStatic(keys, dataTypes)
+		for b.Loop() {
+			if _, err := cd.Encode(b.Context(), frame); err != nil {
+				b.Fatalf("failed to encode: %v", err)
+			}
+		}
+	})
+
+	b.Run("Disabled", func(b *testing.B) {
+		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
+		for b.Loop() {
+			if _, err := cd.Encode(b.Context(), frame); err != nil {
+				b.Fatalf("failed to encode: %v", err)
+			}
+		}
+	})
+}
+
+// Benchmark bandwidth savings - measure encoded size
+func BenchmarkAlignmentCompression_BandwidthSavings(b *testing.B) {
+	keys := channel.Keys{1}
+	dataTypes := []telem.DataType{telem.Int32T}
+
+	// Create 100 small contiguous series
+	seriesKeys := make(channel.Keys, 100)
+	seriesList := make([]telem.Series, 100)
+	for i := 0; i < 100; i++ {
+		seriesKeys[i] = 1
+		s := telem.NewSeriesV[int32](int32(i*10), int32(i*10+1), int32(i*10+2))
+		s.Alignment = telem.Alignment(i * 3)
+		seriesList[i] = s
+	}
+
+	frame := core.MultiFrame(seriesKeys, seriesList)
+
+	b.Run("Enabled", func(b *testing.B) {
+		cd := codec.NewStatic(keys, dataTypes)
+		encoded, err := cd.Encode(b.Context(), frame)
+		if err != nil {
+			b.Fatalf("failed to encode: %v", err)
+		}
+		b.ReportMetric(float64(len(encoded)), "bytes")
+		for b.Loop() {
+			if _, err := cd.Encode(b.Context(), frame); err != nil {
+				b.Fatalf("failed to encode: %v", err)
+			}
+		}
+	})
+
+	b.Run("Disabled", func(b *testing.B) {
+		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
+		encoded, err := cd.Encode(b.Context(), frame)
+		if err != nil {
+			b.Fatalf("failed to encode: %v", err)
+		}
+		b.ReportMetric(float64(len(encoded)), "bytes")
+		for b.Loop() {
+			if _, err := cd.Encode(b.Context(), frame); err != nil {
+				b.Fatalf("failed to encode: %v", err)
+			}
+		}
+	})
 }
