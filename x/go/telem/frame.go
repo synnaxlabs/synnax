@@ -427,11 +427,34 @@ func (f Frame[K]) Count() int {
 	return len(f.series)
 }
 
-// Extend extends the frame by appending the keys and series from another frame to it.
 func (f Frame[K]) Extend(frames ...Frame[K]) Frame[K] {
+	if len(frames) == 0 {
+		return f
+	}
+	totalKeys := len(f.keys)
 	for _, fr := range frames {
-		f.keys = append(f.keys, fr.KeysSlice()...)
-		f.series = append(f.series, fr.SeriesSlice()...)
+		totalKeys += fr.Count()
+	}
+	if cap(f.keys) < totalKeys {
+		newKeys := make([]K, len(f.keys), totalKeys)
+		copy(newKeys, f.keys)
+		f.keys = newKeys
+		newSeries := make([]Series, len(f.series), totalKeys)
+		copy(newSeries, f.series)
+		f.series = newSeries
+	}
+	for _, fr := range frames {
+		if !fr.mask.enabled {
+			f.keys = append(f.keys, fr.keys...)
+			f.series = append(f.series, fr.series...)
+		} else {
+			for i, k := range fr.keys {
+				if !fr.ShouldExcludeRaw(i) {
+					f.keys = append(f.keys, k)
+					f.series = append(f.series, fr.series[i])
+				}
+			}
+		}
 	}
 	return f
 }

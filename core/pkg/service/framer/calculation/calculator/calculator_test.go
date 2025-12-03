@@ -375,7 +375,8 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				10*telem.SecondTS, 20*telem.SecondTS, 30*telem.SecondTS,
 			))
-			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(5, 2)))
+			// Alignment is summed: (5,2) + (5,2) = (10,4)
+			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 4)))
 			Expect(c.Close()).To(Succeed())
 		})
 
@@ -678,7 +679,8 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
-			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(5, 1)))
+			// Alignment is summed: (5,1) + (5,1) = (10,2)
+			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 2)))
 			Expect(c.Close()).To(Succeed())
 		})
 	})
