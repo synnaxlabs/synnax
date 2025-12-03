@@ -16,6 +16,7 @@ export { Channel } from "@/channel";
 export { Cluster } from "@/cluster";
 export { Color } from "@/color";
 export { Component } from "@/component";
+export { context } from "@/context";
 export { ContextMenu } from "@/context-menu";
 export * from "@/css";
 export { Dialog } from "@/dialog";

@@ -108,7 +108,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
 
     const gridStyle = useGridEntry(
       { loc: location, key: `${aetherType}-${cKey}`, size: size + labelSize, order: 1 },
-      `${dir.toUpperCase()}Axis`,
+      `LinePlot.${dir.toUpperCase()}Axis`,
     );
 
     const font = Theming.useTypography(labelLevel).toString();

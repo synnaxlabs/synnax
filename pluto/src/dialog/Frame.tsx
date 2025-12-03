@@ -7,20 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location as xlocation } from "@synnaxlabs/x";
+import { box, location } from "@synnaxlabs/x";
 import {
-  createContext,
   type CSSProperties,
   type ReactElement,
   type RefCallback,
   useCallback,
-  useContext as reactUseContext,
   useMemo,
   useRef,
   useState,
 } from "react";
 
 import { type Component } from "@/component";
+import { context } from "@/context";
 import { CSS_CLASS as CONTEXT_MENU_CSS_CLASS } from "@/context-menu/types";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS } from "@/dialog/Background";
@@ -29,7 +28,6 @@ import { Flex } from "@/flex";
 import {
   useClickOutside,
   useCombinedRefs,
-  useRequiredContext,
   useResize,
   useSyncedRef,
   useWindowResize,
@@ -55,15 +53,15 @@ export interface FrameProps
 }
 
 interface State {
-  targetCorner: xlocation.XY;
-  dialogCorner: xlocation.XY;
+  targetCorner: location.XY;
+  dialogCorner: location.XY;
   modalPosition: ModalPosition;
   style: CSSProperties;
 }
 
 const ZERO_STATE: State = {
-  targetCorner: xlocation.BOTTOM_LEFT,
-  dialogCorner: xlocation.BOTTOM_LEFT,
+  targetCorner: location.BOTTOM_LEFT,
+  dialogCorner: location.BOTTOM_LEFT,
   style: {},
   modalPosition: "base",
 };
@@ -74,27 +72,33 @@ export interface ContextValue {
   toggle: () => void;
   visible: boolean;
   variant: Variant;
-  location: xlocation.XY;
+  location: location.XY;
 }
 
-const Context = createContext<ContextValue>({
-  close: () => {},
-  open: () => {},
-  toggle: () => {},
-  variant: "floating",
-  visible: false,
-  location: xlocation.BOTTOM_LEFT,
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: {
+    close: () => {},
+    location: location.BOTTOM_LEFT,
+    open: () => {},
+    toggle: () => {},
+    variant: "floating",
+    visible: false,
+  },
+  displayName: "Dialog.Context",
 });
+export { useContext };
 
 interface InternalContextValue
   extends Pick<State, "targetCorner" | "dialogCorner" | "style" | "modalPosition"> {
   ref: RefCallback<HTMLDivElement>;
 }
 
-const InternalContext = createContext<InternalContextValue | null>(null);
-export const useInternalContext = () => useRequiredContext(InternalContext);
+const [InternalContext, useInternalContext] = context.create<InternalContextValue>({
+  displayName: "Dialog.InternalContext",
+  providerName: "Dialog.Frame",
+});
 
-export const useContext = (): ContextValue => reactUseContext(Context);
+export { useInternalContext };
 
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [["Escape"]];
 
@@ -115,24 +119,24 @@ const positionsEqual = (
 
 const PREFERENCES: LocationPreference[] = [
   {
-    targetCorner: xlocation.BOTTOM_LEFT,
-    dialogCorner: xlocation.TOP_LEFT,
+    targetCorner: location.BOTTOM_LEFT,
+    dialogCorner: location.TOP_LEFT,
   },
   {
-    targetCorner: xlocation.TOP_LEFT,
-    dialogCorner: xlocation.BOTTOM_LEFT,
+    targetCorner: location.TOP_LEFT,
+    dialogCorner: location.BOTTOM_LEFT,
   },
   {
-    targetCorner: xlocation.BOTTOM_RIGHT,
-    dialogCorner: xlocation.TOP_RIGHT,
+    targetCorner: location.BOTTOM_RIGHT,
+    dialogCorner: location.TOP_RIGHT,
   },
   {
-    targetCorner: xlocation.TOP_RIGHT,
-    dialogCorner: xlocation.BOTTOM_RIGHT,
+    targetCorner: location.TOP_RIGHT,
+    dialogCorner: location.BOTTOM_RIGHT,
   },
   {
-    targetCorner: xlocation.TOP_RIGHT,
-    dialogCorner: xlocation.TOP_LEFT,
+    targetCorner: location.TOP_RIGHT,
+    dialogCorner: location.TOP_LEFT,
   },
 ];
 
@@ -316,8 +320,8 @@ export const Frame = ({
   );
 
   return (
-    <Context.Provider value={ctxValue}>
-      <InternalContext.Provider value={internalContextValue}>
+    <Context value={ctxValue}>
+      <InternalContext value={internalContextValue}>
         <Flex.Box
           {...rest}
           ref={combinedTargetRef}
@@ -336,8 +340,8 @@ export const Frame = ({
         >
           {children}
         </Flex.Box>
-      </InternalContext.Provider>
-    </Context.Provider>
+      </InternalContext>
+    </Context>
   );
 };
 Frame.displayName = "Dialog.Frame";
