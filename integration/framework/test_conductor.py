@@ -159,6 +159,7 @@ class TestConductor:
         self.active_tests: list[tuple[TestCase, sy.Range, threading.Thread]] = []
         self.active_tests_lock = threading.Lock()
         self.tests_lock = threading.Lock()
+        self.import_lock = threading.Lock()
 
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -812,15 +813,17 @@ class TestConductor:
             if integration_dir not in sys.path:
                 sys.path.insert(0, integration_dir)
 
-            spec = importlib.util.spec_from_file_location(module_name, file_path)
-            if spec is None:
-                raise ImportError(
-                    f"Cannot create spec for module: {module_name} at {file_path}"
-                )
+            # Prevent deadlock when multiple threads load modules that share dependencies
+            with self.import_lock:
+                spec = importlib.util.spec_from_file_location(module_name, file_path)
+                if spec is None:
+                    raise ImportError(
+                        f"Cannot create spec for module: {module_name} at {file_path}"
+                    )
 
-            module = importlib.util.module_from_spec(spec)
-            if spec.loader is not None:
-                spec.loader.exec_module(module)
+                module = importlib.util.module_from_spec(spec)
+                if spec.loader is not None:
+                    spec.loader.exec_module(module)
 
             # Try to get the class by name
             try:
