@@ -20,10 +20,8 @@ import inter800 from "@fontsource/inter/files/inter-latin-800-normal.woff2";
 import inter900 from "@fontsource-variable/inter/files/inter-latin-standard-normal.woff2";
 import { caseconv, deep } from "@synnaxlabs/x";
 import {
-  createContext,
   type PropsWithChildren,
   type ReactElement,
-  use as reactUse,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -32,6 +30,7 @@ import {
 } from "react";
 
 import { Aether } from "@/aether";
+import { context } from "@/context";
 import { CSS } from "@/css";
 import { theming } from "@/theming/aether";
 import { toCSSVars } from "@/theming/css";
@@ -42,11 +41,15 @@ export interface ContextValue {
   setTheme: (key: string) => void;
 }
 
-const Context = createContext<ContextValue>({
-  theme: theming.themeZ.parse(theming.SYNNAX_THEMES.synnaxLight),
-  toggleTheme: () => undefined,
-  setTheme: () => undefined,
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: {
+    theme: theming.themeZ.parse(theming.SYNNAX_THEMES.synnaxLight),
+    toggleTheme: () => {},
+    setTheme: () => {},
+  },
+  displayName: "Theming.Context",
 });
+export { useContext };
 
 export interface UseProviderProps {
   theme?: deep.Partial<theming.ThemeSpec> & { key: string };
@@ -114,8 +117,6 @@ export const useProvider = ({
     setTheme: setTheme ?? setSelected,
   };
 };
-
-export const useContext = () => reactUse(Context);
 
 export const use = (): theming.Theme => useContext().theme;
 

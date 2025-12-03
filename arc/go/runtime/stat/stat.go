@@ -140,6 +140,23 @@ func (r *stat) Next(ctx node.Context) {
 		lastTimestamp := telem.ValueAt[telem.TimeStamp](inputTime, -1)
 		*r.state.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](lastTimestamp)
 	}
+	// Propagate alignment and time range from inputs to output
+	alignment := inputData.Alignment
+	timeRange := inputData.TimeRange
+	if r.resetIdx >= 0 {
+		resetData := r.state.Input(r.resetIdx)
+		alignment += resetData.Alignment
+		if !resetData.TimeRange.Start.IsZero() && (timeRange.Start.IsZero() || resetData.TimeRange.Start < timeRange.Start) {
+			timeRange.Start = resetData.TimeRange.Start
+		}
+		if resetData.TimeRange.End > timeRange.End {
+			timeRange.End = resetData.TimeRange.End
+		}
+	}
+	r.state.Output(0).Alignment = alignment
+	r.state.Output(0).TimeRange = timeRange
+	r.state.OutputTime(0).Alignment = alignment
+	r.state.OutputTime(0).TimeRange = timeRange
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 

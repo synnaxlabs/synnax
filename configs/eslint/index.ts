@@ -9,6 +9,7 @@
 
 import { includeIgnoreFile } from "@eslint/compat";
 import pluginJs from "@eslint/js";
+import pluginReact2 from "@eslint-react/eslint-plugin";
 import type { Linter } from "eslint";
 import pluginReact from "eslint-plugin-react";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
@@ -40,7 +41,7 @@ const config: Linter.Config[] = [
         tsconfigRootDir: path.dirname(filename),
       },
     },
-    plugins: { "simple-import-sort": simpleImportSort },
+    plugins: { "simple-import-sort": simpleImportSort, "@eslint-react": pluginReact2 },
     rules: {
       "no-constant-condition": ["error", { checkLoops: false }],
       "no-duplicate-imports": "error",
@@ -98,10 +99,13 @@ const config: Linter.Config[] = [
         "error",
         { allow: "as-needed", extensions: [".jsx", ".tsx"] },
       ],
+      "react/display-name": ["error", { checkContextObjects: true }],
       "react/jsx-boolean-value": "error",
       "react/jsx-no-undef": "error",
       "react/jsx-no-constructed-context-values": "error",
       "react/jsx-no-useless-fragment": "error",
+      "@eslint-react/no-context-provider": "error",
+      "@eslint-react/no-missing-context-display-name": "error",
       "@typescript-eslint/no-deprecated": "error",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-floating-promises": "error",

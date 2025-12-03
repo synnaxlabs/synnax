@@ -7,21 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createContext, type PropsWithChildren, type ReactElement, use } from "react";
+import { context } from "@synnaxlabs/pluto";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 import { type Services } from "@/ontology/service";
 
-const Context = createContext<Services | null>(null);
+const [Context, useContext] = context.create<Services>({
+  displayName: "Ontology.ServicesProvider",
+  providerName: "Ontology.ServicesProvider",
+});
 
-export const useServices = (): Services => {
-  const services = use(Context);
-  if (services == null)
-    throw new Error("useServices must be used within a ServicesProvider");
-  return services;
-};
+export const useServices = (): Services => useContext("Ontology.useServices");
 
 export const useService = <T extends keyof Services>(service: T): Services[T] => {
-  const services = useServices();
+  const services = useContext("Ontology.useService");
   return services[service];
 };
 

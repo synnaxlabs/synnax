@@ -9,6 +9,23 @@
  * included in the file licenses/APL.txt.
  */
 
+.console-label__edit {
+    overflow: hidden;
+}
+
+.console-label__edit-header {
+    padding: 2rem;
+}
+
+.console-label__add-btn {
+    width: fit-content;
+}
+
+.console-label__items-container {
+    height: 100%;
+    overflow: hidden;
+}
+
 .console-label__list-item {
     height: 7.5rem;
     max-height: 7.5rem;

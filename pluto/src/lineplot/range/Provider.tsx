@@ -34,7 +34,7 @@ export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElem
   });
   const gridStyle = useGridEntry(
     { key: cKey, loc: "top", size: count > 0 ? 32 : 0, order: 3 },
-    "Annotation.Provider",
+    "Range.Provider",
   );
 
   const menuProps = Menu.useContextMenu();
