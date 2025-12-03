@@ -70,7 +70,7 @@ bool Scanner::exec(
     return false; // Not handled
 }
 
-xerrors::Error Scanner::check_device_health(synnax::Device &dev) const {
+xerrors::Error Scanner::check_device_health(synnax::Device &dev) {
     const auto rack_key = synnax::rack_key_from_task_key(this->task.key);
     const auto parser = xjson::Parser(dev.properties);
     const auto props = device::Properties(parser);
