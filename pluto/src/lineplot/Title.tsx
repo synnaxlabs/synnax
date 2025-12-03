@@ -22,7 +22,7 @@ export const Title = ({ level = "h2", ...rest }: TitleProps): ReactElement => {
   const font = Theming.useTypography(level);
   const gridStyle = useGridEntry(
     { key, size: (font.lineHeight + 2) * font.baseSize, loc: "top", order: 10 },
-    "Title",
+    "LinePlot.Title",
   );
   return (
     <Flex.Box justify="center" align="center" style={gridStyle}>
