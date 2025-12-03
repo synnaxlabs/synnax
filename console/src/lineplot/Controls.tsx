@@ -10,11 +10,11 @@
 import "@/lineplot/Controls.css";
 
 import { Button, Flex, Icon, Text, Triggers, Viewport } from "@synnaxlabs/pluto";
-import { type location } from "@synnaxlabs/x";
+import { location } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { Controls as Base } from "@/components";
+import { Controls as Core } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import {
@@ -29,8 +29,6 @@ import {
   setViewport,
   setViewportMode,
 } from "@/lineplot/slice";
-
-const TOOLTIP_LOCATION: location.XY = { x: "left", y: "bottom" };
 
 export interface ControlsProps {
   layoutKey: string;
@@ -66,18 +64,17 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   return (
-    <Base.Controls>
-      <Flex.Box x>
+    <Core>
+      <Flex.Box x gap="small">
         <Viewport.SelectMode
           value={mode}
           onChange={handleModeChange}
           triggers={triggers}
-          tooltipLocation={TOOLTIP_LOCATION}
+          tooltipLocation={location.BOTTOM_LEFT}
         />
         <Button.Button
           onClick={handleZoomReset}
-          variant="outlined"
-          tooltipLocation={TOOLTIP_LOCATION}
+          tooltipLocation={location.BOTTOM_LEFT}
           tooltip={
             <Text.Text level="small">
               Reset zoom
@@ -91,18 +88,18 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
         <Button.Toggle
           value={control.enableTooltip}
           onChange={handleTooltipChange}
-          checkedVariant="filled"
           size="small"
-          uncheckedVariant="outlined"
           tooltip={<Text.Text level="small">Show tooltip on hover</Text.Text>}
-          tooltipLocation={TOOLTIP_LOCATION}
+          tooltipLocation={location.BOTTOM_LEFT}
         >
           <Icon.Tooltip />
         </Button.Toggle>
         <Button.Toggle
           value={control.clickMode != null}
-          tooltip={`${control.clickMode != null ? "Close" : "Open"} measure tool`}
-          tooltipLocation={TOOLTIP_LOCATION}
+          tooltip={
+            <Text.Text level="small">{`${control.clickMode != null ? "Close" : "Open"} measure tool`}</Text.Text>
+          }
+          tooltipLocation={location.BOTTOM_LEFT}
           onChange={() =>
             handleClickModeChange(control.clickMode != null ? null : "measure")
           }
@@ -111,46 +108,42 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
           <Icon.Rule />
         </Button.Toggle>
         <Button.Toggle
-          className={CSS.BE("control", "pause")}
           value={control.hold}
           onChange={handleHoldChange}
-          uncheckedVariant="outlined"
-          tooltipLocation={TOOLTIP_LOCATION}
+          tooltipLocation={location.BOTTOM_LEFT}
           size="small"
           tooltip={
-            <Flex.Box x align="center" gap="small">
-              <Text.Text level="small">
-                {control.hold ? "Resume live plotting" : "Pause live plotting"}
-              </Text.Text>
-              <Triggers.Text level="small" trigger={["H"]} />
-            </Flex.Box>
+            <Text.Text level="small">
+              {`${control.hold ? "Resume" : "Pause"} live plotting`}
+              <Triggers.Text trigger={["H"]} level="small"></Triggers.Text>
+            </Text.Text>
           }
         >
           {control.hold ? <Icon.Play /> : <Icon.Pause />}
         </Button.Toggle>
       </Flex.Box>
       {control.clickMode === "measure" && (
-        <Flex.Box x gap="small" className={CSS.BE("control", "measure")}>
+        <Flex.Box x pack className={CSS.BE("control", "measure")}>
           <Button.Toggle
             size="small"
             value={measureMode === "one"}
-            tooltip="Select first point"
-            tooltipLocation={TOOLTIP_LOCATION}
+            tooltip={<Text.Text level="small">Select first point</Text.Text>}
+            tooltipLocation={location.BOTTOM_LEFT}
             onChange={() => dispatch(setMeasureMode({ key: layoutKey, mode: "one" }))}
           >
             1
           </Button.Toggle>
           <Button.Toggle
             size="small"
-            tooltipLocation={TOOLTIP_LOCATION}
+            tooltipLocation={location.BOTTOM_LEFT}
             value={measureMode === "two"}
-            tooltip="Select second point"
+            tooltip={<Text.Text level="small">Select second point</Text.Text>}
             onChange={() => dispatch(setMeasureMode({ key: layoutKey, mode: "two" }))}
           >
             2
           </Button.Toggle>
         </Flex.Box>
       )}
-    </Base.Controls>
+    </Core>
   );
 };

@@ -393,7 +393,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         >
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
           <Diagram.Background />
-          <Controls.Controls x>
+          <Controls x>
             <Diagram.SelectViewportModeControl />
             <Diagram.FitViewControl />
             <Flex.Box x pack>
@@ -407,14 +407,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
                   value={schematic.control === "acquired"}
                   onChange={acquireControl}
                   tooltipLocation={location.BOTTOM_LEFT}
-                  uncheckedVariant="outlined"
-                  checkedVariant="filled"
                   size="small"
                   tooltip={
                     <Text.Text level="small">
-                      {schematic.control === "acquired"
-                        ? "Release control"
-                        : "Acquire control"}
+                      {`${schematic.control === "acquired" ? "Release" : "Acquire"} control`}
                     </Text.Text>
                   }
                 >
@@ -422,7 +418,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
                 </Button.Toggle>
               )}
             </Flex.Box>
-          </Controls.Controls>
+          </Controls>
         </Core.Schematic>
         {legendVisible && (
           <Control.Legend

@@ -595,8 +595,6 @@ export const Background = (): ReactElement | null => {
 export interface ToggleEditControlProps
   extends Omit<Button.ToggleProps, "value" | "onChange" | "children"> {}
 
-const CONTROL_TOOLTIP_LOCATION = location.BOTTOM_LEFT;
-
 export const ToggleEditControl = ({
   onClick,
   ...rest
@@ -604,14 +602,14 @@ export const ToggleEditControl = ({
   const { editable, onEditableChange } = useContext();
   return (
     <Button.Toggle
+      tooltipLocation={location.BOTTOM_LEFT}
+      size="small"
+      tooltip={
+        <Text.Text level="small">{`${editable ? "Disable" : "Enable"} editing`}</Text.Text>
+      }
+      {...rest}
       onChange={() => onEditableChange(!editable)}
       value={editable}
-      uncheckedVariant="outlined"
-      checkedVariant="filled"
-      tooltipLocation={CONTROL_TOOLTIP_LOCATION}
-      size="small"
-      tooltip={`${editable ? "Disable" : "Enable"} editing`}
-      {...rest}
     >
       {editable ? <Icon.EditOff /> : <Icon.Edit />}
     </Button.Toggle>
@@ -633,13 +631,12 @@ export const FitViewControl = ({
         void fitView(FIT_VIEW_OPTIONS);
         onClick?.(e);
       }}
-      value={fitViewOnResize}
-      onChange={setFitViewOnResize}
-      rightClickToggle
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
       tooltipLocation={location.BOTTOM_LEFT}
       size="small"
       {...rest}
+      value={fitViewOnResize}
+      onChange={setFitViewOnResize}
     >
       <Icon.Expand />
     </Button.Toggle>
@@ -662,7 +659,7 @@ export const SelectViewportModeControl = (): ReactElement => {
         itemKey="pan"
         size="small"
         tooltip={<CoreViewport.TooltipText mode="pan" triggers={PAN_TRIGGER} />}
-        tooltipLocation={CONTROL_TOOLTIP_LOCATION}
+        tooltipLocation={location.BOTTOM_LEFT}
       >
         <Icon.Pan />
       </Select.Button>
@@ -670,7 +667,7 @@ export const SelectViewportModeControl = (): ReactElement => {
         itemKey="select"
         size="small"
         tooltip={<CoreViewport.TooltipText mode="select" triggers={SELECT_TRIGGER} />}
-        tooltipLocation={CONTROL_TOOLTIP_LOCATION}
+        tooltipLocation={location.BOTTOM_LEFT}
       >
         <Icon.Selection />
       </Select.Button>

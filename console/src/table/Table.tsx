@@ -292,7 +292,7 @@ const TableControls = ({ tableKey }: TableControls) => {
   }, []);
 
   return (
-    <Controls.Controls>
+    <Controls>
       <Button.Toggle
         value={editable}
         onChange={handleEdit}
@@ -302,7 +302,7 @@ const TableControls = ({ tableKey }: TableControls) => {
       >
         {editable ? <Icon.EditOff /> : <Icon.Edit />}
       </Button.Toggle>
-    </Controls.Controls>
+    </Controls>
   );
 };
 
