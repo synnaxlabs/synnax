@@ -11,14 +11,12 @@ import "@/haul/Haul.css";
 
 import { type destructor, type optional, record, xy } from "@synnaxlabs/x";
 import React, {
-  createContext,
   type DragEvent,
   type DragEventHandler,
   memo,
   type PropsWithChildren,
   type ReactElement,
   type RefObject,
-  use,
   useCallback,
   useId,
   useMemo,
@@ -26,6 +24,7 @@ import React, {
 } from "react";
 import { z } from "zod";
 
+import { context } from "@/context";
 import { type state } from "@/state";
 
 export const itemZ = z.object({
@@ -87,7 +86,11 @@ export interface ContextValue {
   bind: (interceptor: DragEndInterceptor) => destructor.Destructor;
 }
 
-const Context = createContext<ContextValue | null>(null);
+const [Context, useContext] = context.create<ContextValue | null>({
+  defaultValue: null,
+  displayName: "Haul.Context",
+});
+export { useContext };
 
 export interface ProviderProps extends PropsWithChildren {
   useState?: state.PureUse<DraggingState>;
@@ -102,8 +105,6 @@ const HAUL_REF: ProviderRef = {
   ...ZERO_DRAGGING_STATE,
   onSuccessfulDrop: () => {},
 };
-
-export const useContext = () => use(Context);
 
 export const Provider = memo(
   ({

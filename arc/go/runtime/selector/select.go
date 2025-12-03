@@ -69,6 +69,15 @@ func (s *selectNode) Next(ctx node.Context) {
 	trueTime.Resize(trueCount)
 	falseData.Resize(falseCount)
 	falseTime.Resize(falseCount)
+	// Propagate alignment and time range from input to both outputs
+	trueData.Alignment = data.Alignment
+	trueData.TimeRange = data.TimeRange
+	trueTime.Alignment = data.Alignment
+	trueTime.TimeRange = data.TimeRange
+	falseData.Alignment = data.Alignment
+	falseData.TimeRange = data.TimeRange
+	falseTime.Alignment = data.Alignment
+	falseTime.TimeRange = data.TimeRange
 	var trueIdx, falseIdx = 0, 0
 	for i := range data.Data {
 		if data.Data[i] == 1 {

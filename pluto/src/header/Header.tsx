@@ -9,8 +9,9 @@
 
 import "@/header/Header.css";
 
-import { createContext, type ReactElement, type ReactNode, use, useMemo } from "react";
+import { type ReactElement, type ReactNode, useMemo } from "react";
 
+import { context } from "@/context";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type Text } from "@/text";
@@ -28,9 +29,11 @@ export interface ContextValue {
   level: Text.Level;
 }
 
-const Context = createContext<ContextValue>({ divided: false, level: "h1" });
-
-export const useContext = () => use(Context);
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: { divided: false, level: "h1" },
+  displayName: "Header.Context",
+});
+export { useContext };
 
 /**
  * The container for a module header.

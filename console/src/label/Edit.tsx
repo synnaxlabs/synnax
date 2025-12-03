@@ -165,18 +165,18 @@ const listItem = Component.renderProp(LabelListItem);
 
 export const Edit: Layout.Renderer = () => {
   const { data, getItem, retrieve, subscribe } = Label.useList();
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
   const [newFormVisible, setNewFormVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   return (
-    <Flex.Box y grow empty>
+    <Flex.Box y grow empty className={CSS.BE("label", "edit")}>
       <List.Frame<label.Key, label.Label>
         data={data}
         getItem={getItem}
         onFetchMore={fetchMore}
         subscribe={subscribe}
       >
-        <Flex.Box x justify="between" style={{ padding: "2rem" }}>
+        <Flex.Box x justify="between" className={CSS.BE("label", "edit-header")}>
           <Input.Text
             placeholder={
               <>
@@ -192,7 +192,7 @@ export const Edit: Layout.Renderer = () => {
           />
           <Button.Button
             variant="filled"
-            style={{ width: "fit-content" }}
+            className={CSS.BE("label", "add-btn")}
             gap="small"
             onClick={() => setNewFormVisible(true)}
           >
@@ -201,14 +201,7 @@ export const Edit: Layout.Renderer = () => {
           </Button.Button>
         </Flex.Box>
         <Divider.Divider x />
-        <Flex.Box
-          y
-          style={{
-            borderRadius: "1rem",
-            height: "100%",
-          }}
-          empty
-        >
+        <Flex.Box y className={CSS.BE("label", "items-container")} empty>
           <LabelListItem
             key="form"
             index={0}
