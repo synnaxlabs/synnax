@@ -10,6 +10,11 @@
 #pragma once
 
 #ifdef _WIN32
+#include <cstdlib>  // For std::mbstowcs, std::wcstombs
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN  // Exclude winsock.h from windows.h
+#endif
 #include <windows.h>
 #else
 #include <pthread.h>
@@ -26,7 +31,7 @@ constexpr size_t MAX_NAME_LEN = 16;
 inline void set_name(const char *name) {
 #ifdef _WIN32
     wchar_t wname[64];
-    mbstowcs(wname, name, 64);
+    std::mbstowcs(wname, name, 64);
     SetThreadDescription(GetCurrentThread(), wname);
 #elif defined(__APPLE__)
     pthread_setname_np(name);
@@ -43,7 +48,7 @@ inline bool get_name(char *buf, size_t len) {
 #ifdef _WIN32
     PWSTR wname = nullptr;
     if (SUCCEEDED(GetThreadDescription(GetCurrentThread(), &wname))) {
-        wcstombs(buf, wname, len);
+        std::wcstombs(buf, wname, len);
         LocalFree(wname);
         return true;
     }
