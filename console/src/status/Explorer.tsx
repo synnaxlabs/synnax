@@ -15,7 +15,7 @@ import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/status/Create";
 import { Item } from "@/status/list/Item";
 import { FilterContextMenu, Filters as CoreFilters } from "@/status/list/SelectFilters";
-import { View } from "@/view/View";
+import { View } from "@/view";
 
 export const EXPLORER_LAYOUT_TYPE = "status_explorer";
 
@@ -32,18 +32,27 @@ const item = Component.renderProp(Item);
 const initialQuery = {} as const;
 
 export const Explorer: Layout.Renderer = () => {
-  const listProps = Status.useList(initialQuery);
+  const listProps = Status.useList();
   const placeLayout = Layout.usePlacer();
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
   return (
-    <View<status.Key, status.Status, status.MultiRetrieveArgs>
+    <View.Frame<status.Key, status.Status, status.MultiRetrieveArgs>
       {...listProps}
       resourceType="status"
-      item={item}
       initialRequest={initialQuery}
-      filters={FilterContextMenu}
-      shownFilters={CoreFilters}
-      onCreate={handleCreate}
-    />
+    >
+      <View.Toolbar>
+        <View.Filters dialog>
+          <FilterContextMenu />
+        </View.Filters>
+        <View.Filters>
+          <CoreFilters />
+        </View.Filters>
+        <View.Search />
+      </View.Toolbar>
+      <View.Controls onCreate={handleCreate} />
+      <View.Views />
+      <View.Items>{item}</View.Items>
+    </View.Frame>
   );
 };

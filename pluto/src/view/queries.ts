@@ -58,7 +58,14 @@ export const useList = Flux.createList<ListQuery, view.Key, view.View, FluxSubSt
     store.views.set(views);
     return views;
   },
-  retrieveByKey: async ({ client, key }) => await client.views.retrieve({ key }),
+  retrieveByKey: async ({ client, key, store }) => {
+    let v = store.views.get(key);
+    if (v == null) {
+      v = await client.views.retrieve({ key });
+      store.views.set(v);
+    }
+    return v;
+  },
   mountListeners: ({ store, onChange, onDelete, query: { keys, types } }) => {
     const keysSet = keys ? new Set(keys) : undefined;
     const typesSet = types ? new Set(types) : undefined;
@@ -101,4 +108,22 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     await client.views.delete(data);
     return data;
   },
+});
+
+export const { useRetrieve } = Flux.createRetrieve<
+  view.RetrieveSingleParams,
+  view.View,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ store, client, query: { key } }) => {
+    const cached = store.views.get(key);
+    if (cached != null) return cached;
+    const v = await client.views.retrieve({ key });
+    store.views.set(v);
+    return v;
+  },
+  mountListeners: ({ store, query: { key }, onChange }) => [
+    store.views.onSet(onChange, key),
+  ],
 });

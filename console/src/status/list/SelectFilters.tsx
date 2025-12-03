@@ -10,15 +10,15 @@
 import { type status } from "@synnaxlabs/client";
 import { Flex, Icon, Label as PLabel, state, Tag, Text } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { Label } from "@/label";
+import { View } from "@/view";
 
-export interface SelectFiltersProps {
-  request: status.MultiRetrieveArgs;
-  onRequestChange: state.Setter<status.MultiRetrieveArgs>;
-}
+export const FilterContextMenu = (): ReactElement => {
+  const { request, onRequestChange } =
+    View.useContext<status.MultiRetrieveArgs>("FilterContextMenu");
 
-export const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersProps) => {
   const handleRequestChange = (setter: state.SetArg<status.MultiRetrieveArgs>) => {
     onRequestChange((prev) => {
       const next = state.executeSetter(setter, prev);
@@ -36,11 +36,8 @@ export const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersPro
   );
 };
 
-interface HasLabelsFilterProps {
-  request: status.MultiRetrieveArgs;
-}
-
-const HasLabelsFilter = ({ request }: HasLabelsFilterProps) => {
+const HasLabelsFilter = (): ReactElement | null => {
+  const { request } = View.useContext<status.MultiRetrieveArgs>("HasLabelsFilter");
   const labels =
     PLabel.useRetrieveMultiple({ keys: request.hasLabels ?? [] }).data ?? [];
   if (request.hasLabels == null || request.hasLabels.length === 0) return null;
@@ -68,6 +65,4 @@ const HasLabelsFilter = ({ request }: HasLabelsFilterProps) => {
   );
 };
 
-export const Filters = ({ request }: SelectFiltersProps) => (
-  <HasLabelsFilter request={request} />
-);
+export const Filters = (): ReactElement | null => <HasLabelsFilter />;
