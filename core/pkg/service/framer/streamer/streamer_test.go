@@ -340,7 +340,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	Describe("Throttling", func() {
 		It("Should accumulate and throttle frames", func() {
 			ch := &channel.Channel{
-				Name:     "test_throttle",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -380,7 +380,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should not throttle when rate is 0", func() {
 			ch := &channel.Channel{
-				Name:     "test_no_throttle",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -418,7 +418,126 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should combine throttling and downsampling", func() {
 			ch := &channel.Channel{
-				Name:     "test_throttle_downsample",
+				Name:     channel.NewRandomName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			keys := []channel.Key{ch.Key()}
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  keys,
+			}))
+
+			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
+				Keys:             keys,
+				SendOpenAck:      true,
+				DownsampleFactor: 2,
+				ThrottleRate:     5 * telem.Hz,
+			}))
+
+			sCtx, cancel := signal.Isolated()
+			inlet, outlet := confluence.Attach(s)
+			defer cancel()
+			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+			Eventually(outlet.Outlet()).Should(Receive())
+
+			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6))
+			MustSucceed(w.Write(writtenFr))
+
+			var res streamer.Response
+			Eventually(outlet.Outlet(), 500*time.Millisecond).Should(Receive(&res))
+			Expect(res.Frame.Len()).To(BeNumerically(">", 0))
+
+			inlet.Close()
+			Eventually(outlet.Outlet()).Should(BeClosed())
+			Expect(w.Close()).To(Succeed())
+		})
+	})
+
+	Describe("Throttling", func() {
+		It("Should accumulate and throttle frames", func() {
+			ch := &channel.Channel{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			keys := []channel.Key{ch.Key()}
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  keys,
+			}))
+
+			throttleRate := 5 * telem.Hz
+			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
+				Keys:         keys,
+				SendOpenAck:  true,
+				ThrottleRate: throttleRate,
+			}))
+
+			sCtx, cancel := signal.Isolated()
+			inlet, outlet := confluence.Attach(s)
+			defer cancel()
+			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+			Eventually(outlet.Outlet()).Should(Receive())
+
+			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
+			MustSucceed(w.Write(writtenFr))
+			time.Sleep(50 * time.Millisecond)
+
+			var res streamer.Response
+			Eventually(outlet.Outlet(), 500*time.Millisecond).Should(Receive(&res))
+			Expect(res.Frame.Len()).To(BeNumerically(">", 0))
+
+			inlet.Close()
+			Eventually(outlet.Outlet()).Should(BeClosed())
+			Expect(w.Close()).To(Succeed())
+		})
+
+		It("Should not throttle when rate is 0", func() {
+			ch := &channel.Channel{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			keys := []channel.Key{ch.Key()}
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  keys,
+			}))
+
+			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
+				Keys:         keys,
+				SendOpenAck:  true,
+				ThrottleRate: 0,
+			}))
+
+			sCtx, cancel := signal.Isolated()
+			inlet, outlet := confluence.Attach(s)
+			defer cancel()
+			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+			Eventually(outlet.Outlet()).Should(Receive())
+
+			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
+			MustSucceed(w.Write(writtenFr))
+
+			var res streamer.Response
+			Eventually(outlet.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.Frame).To(telem.MatchWrittenFrame(writtenFr.Frame))
+
+			inlet.Close()
+			Eventually(outlet.Outlet()).Should(BeClosed())
+			Expect(w.Close()).To(Succeed())
+		})
+
+		It("Should combine throttling and downsampling", func() {
+			ch := &channel.Channel{
+				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
