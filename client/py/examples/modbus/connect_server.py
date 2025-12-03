@@ -80,7 +80,7 @@ if response in ("", "y", "yes"):
         rack = client.racks.retrieve_embedded_rack()
         print(f"Using rack: {rack.name} (key={rack.key})")
 
-        device = sy.sy.modbus.Device(
+        device = sy.modbus.Device(
             host=HOST,
             port=PORT,
             name=DEVICE_NAME,
