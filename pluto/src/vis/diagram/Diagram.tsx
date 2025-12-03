@@ -55,7 +55,6 @@ import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
 import { context } from "@/context";
 import { CSS } from "@/css";
-import { Flex } from "@/flex";
 import { useCombinedRefs, useDebouncedCallback } from "@/hooks";
 import { Icon } from "@/icon";
 import { useMemoCompare, useMemoDeepEqual } from "@/memo";
@@ -592,12 +591,6 @@ export const Background = (): ReactElement | null => {
   const { editable } = useContext();
   return editable ? <RFBackground /> : null;
 };
-
-export interface ControlsProps extends Flex.BoxProps {}
-
-export const Controls = (props: ControlsProps): ReactElement => (
-  <Flex.Box pack borderColor={5} className={CSS.BE("diagram", "controls")} {...props} />
-);
 
 export interface ToggleEditControlProps
   extends Omit<Button.ToggleProps, "value" | "onChange" | "children"> {}

@@ -9,11 +9,15 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-diagram {
-    .react-flow__selection,
-    .react-flow__nodesselection-rect {
-        background: var(--pluto-primary-z-10) !important;
-        border: calc(var(--pluto-border-width) * 2) dashed var(--pluto-primary-z-40) !important;
-        border-radius: var(--pluto-border-radius);
-    }
+.console-controls {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    z-index: 20;
+    opacity: 0;
+    transition: opacity 0.1s ease-in-out;
+}
+
+*:hover > .console-controls {
+    opacity: 1;
 }

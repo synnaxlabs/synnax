@@ -36,6 +36,7 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
+import { Controls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
@@ -392,7 +393,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         >
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
           <Diagram.Background />
-          <Diagram.Controls>
+          <Controls.Controls x>
             <Diagram.SelectViewportModeControl />
             <Diagram.FitViewControl />
             <Flex.Box x pack>
@@ -421,7 +422,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
                 </Button.Toggle>
               )}
             </Flex.Box>
-          </Diagram.Controls>
+          </Controls.Controls>
         </Core.Schematic>
         {legendVisible && (
           <Control.Legend

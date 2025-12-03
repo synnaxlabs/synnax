@@ -56,6 +56,7 @@ import {
 } from "@/arc/slice";
 import { translateGraphToConsole, translateGraphToServer } from "@/arc/types/translate";
 import { TYPE } from "@/arc/types/v0";
+import { Controls as PControls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
@@ -378,10 +379,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       >
         <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
         <Diagram.Background />
-        <Diagram.Controls>
+        <PControls.Controls x>
           {canEditArc && <Diagram.ToggleEditControl />}
           <Diagram.FitViewControl />
-        </Diagram.Controls>
+        </PControls.Controls>
       </Core.Arc>
       <Controls arc={arc} />
     </div>
