@@ -138,8 +138,8 @@ class TaskCase(TestCase):
         self.log("Test 1 - Start and Stop")
         self.assert_sample_count(task=tsk, duration=self.TASK_DURATION)
 
-        # SY-3310: OPC Read Array - rapid restart race condition
-        sy.sleep(0.2)
+        # DEBUG
+        sy.sleep(0.5)
 
         self.log("Test 2 - Reconfigure Task")
         new_rate = int(self.SAMPLE_RATE * 2)
