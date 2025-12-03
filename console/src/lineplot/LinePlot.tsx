@@ -59,7 +59,7 @@ import {
   type YAxisKey,
 } from "@/lineplot/axis";
 import { buildLines } from "@/lineplot/buildLines";
-import { NavControls } from "@/lineplot/NavControls";
+import { Controls } from "@/lineplot/Controls";
 import {
   select,
   useSelect,
@@ -485,11 +485,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           measureMode={vis.measure.mode}
           onMeasureModeChange={handleMeasureModeChange}
         >
-          {!focused && <NavControls layoutKey={layoutKey} />}
+          {!focused && <Controls layoutKey={layoutKey} />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />
         </Channel.LinePlot>
       </PMenu.ContextMenu>
-      {focused && <NavControls layoutKey={layoutKey} />}
+      {focused && <Controls layoutKey={layoutKey} />}
     </div>
   );
 };

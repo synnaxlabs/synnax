@@ -27,18 +27,15 @@ import {
   setViewportMode,
 } from "@/lineplot/slice";
 
-const TOOLTIP_LOCATION: location.XY = {
-  x: "left",
-  y: "bottom",
-};
+const TOOLTIP_LOCATION: location.XY = { x: "left", y: "bottom" };
 
 const style = { zIndex: 500 };
 
-export interface NavControlsProps {
+export interface ControlsProps {
   layoutKey: string;
 }
 
-export const NavControls = ({ layoutKey }: NavControlsProps): ReactElement => {
+export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
   const control = useSelectControlState(layoutKey);
   const { layoutKey: vis } = Layout.useSelectActiveMosaicTabState();
   const mode = useSelectViewportMode(layoutKey);
@@ -82,7 +79,7 @@ export const NavControls = ({ layoutKey }: NavControlsProps): ReactElement => {
           tooltipLocation={TOOLTIP_LOCATION}
           tooltip={
             <Text.Text level="small">
-              Reset Zoom
+              Reset zoom
               <Triggers.Text trigger={triggers.zoomReset[0]} el="span" />
             </Text.Text>
           }
@@ -96,14 +93,14 @@ export const NavControls = ({ layoutKey }: NavControlsProps): ReactElement => {
           checkedVariant="filled"
           size="small"
           uncheckedVariant="outlined"
-          tooltip={<Text.Text level="small">Show Tooltip on Hover</Text.Text>}
+          tooltip={<Text.Text level="small">Show tooltip on hover</Text.Text>}
           tooltipLocation={TOOLTIP_LOCATION}
         >
           <Icon.Tooltip />
         </Button.Toggle>
         <Button.Toggle
           value={control.clickMode != null}
-          tooltip="Measure Tool"
+          tooltip={`${control.clickMode != null ? "Close" : "Open"} measure tool`}
           tooltipLocation={TOOLTIP_LOCATION}
           onChange={() =>
             handleClickModeChange(control.clickMode != null ? null : "measure")
