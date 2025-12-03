@@ -340,7 +340,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	Describe("Throttling", func() {
 		It("Should accumulate and throttle frames", func() {
 			ch := &channel.Channel{
-				Name:     "test_throttle",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -380,7 +380,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should not throttle when rate is 0", func() {
 			ch := &channel.Channel{
-				Name:     "test_no_throttle",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -418,7 +418,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should combine throttling and downsampling", func() {
 			ch := &channel.Channel{
-				Name:     "test_throttle_downsample",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -455,10 +455,11 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 		})
 	})
+
 	Describe("Throttling", func() {
 		It("Should accumulate and throttle frames", func() {
 			ch := &channel.Channel{
-				Name:     "test_throttle",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -498,7 +499,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should not throttle when rate is 0", func() {
 			ch := &channel.Channel{
-				Name:     "test_no_throttle",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -536,7 +537,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should combine throttling and downsampling", func() {
 			ch := &channel.Channel{
-				Name:     "test_throttle_downsample",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
