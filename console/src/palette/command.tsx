@@ -10,6 +10,7 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import {
   Component,
+  context,
   Flex,
   type Icon,
   List,
@@ -19,14 +20,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { type compare } from "@synnaxlabs/x";
-import {
-  createContext,
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useContext,
-  useMemo,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
 import { useStore } from "react-redux";
 
 import { type Export } from "@/export";
@@ -44,7 +38,11 @@ interface ContextValue {
   commands: Command[];
 }
 
-const CommandContext = createContext<ContextValue>({ commands: [] });
+const [CommandContext, useCommandContext] = context.create<ContextValue>({
+  defaultValue: { commands: [] },
+  displayName: "Palette.CommandContext",
+});
+export { useCommandContext };
 
 export interface CommandProviderProps extends PropsWithChildren {
   commands: Command[];
@@ -52,10 +50,8 @@ export interface CommandProviderProps extends PropsWithChildren {
 
 export const CommandProvider = ({ commands, children }: CommandProviderProps) => {
   const ctxValue = useMemo(() => ({ commands }), [commands]);
-  return <CommandContext.Provider value={ctxValue}>{children}</CommandContext.Provider>;
+  return <CommandContext value={ctxValue}>{children}</CommandContext>;
 };
-
-export const useCommandContext = (): ContextValue => useContext(CommandContext);
 
 export const listItem = Component.renderProp(
   (props: CommandListItemProps): ReactElement | null => {

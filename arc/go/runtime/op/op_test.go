@@ -744,4 +744,124 @@ var _ = Describe("OP", func() {
 			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
 		})
 	})
+	Describe("Alignment Propagation", func() {
+		It("Should sum alignments from both inputs for binary ops", func() {
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "lhs", Type: "lhs"},
+					{Key: "rhs", Type: "rhs"},
+					{Key: "op", Type: "add"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
+					},
+					{
+						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
+					},
+				},
+				Functions: []graph.Function{
+					{
+						Key: "lhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+					},
+					{
+						Key: "rhs",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+					},
+				},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			lhsNode := s.Node("lhs")
+			rhsNode := s.Node("rhs")
+
+			lhsSeries := telem.NewSeriesV[int64](10, 20)
+			lhsSeries.Alignment = 100
+			lhsSeries.TimeRange = telem.TimeRange{Start: 10 * telem.SecondTS, End: 30 * telem.SecondTS}
+			*lhsNode.Output(0) = lhsSeries
+			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20)
+
+			rhsSeries := telem.NewSeriesV[int64](5, 10)
+			rhsSeries.Alignment = 50
+			rhsSeries.TimeRange = telem.TimeRange{Start: 5 * telem.SecondTS, End: 25 * telem.SecondTS}
+			*rhsNode.Output(0) = rhsSeries
+			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5, 15)
+
+			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
+				Node:  ir.Node{Type: "add"},
+				State: s.Node("op"),
+			}))
+			changed := make(set.Set[string])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := *s.Node("op").Output(0)
+			Expect(result.Alignment).To(Equal(telem.Alignment(150)))
+			Expect(result.TimeRange.Start).To(Equal(5 * telem.SecondTS))
+			Expect(result.TimeRange.End).To(Equal(30 * telem.SecondTS))
+
+			resultTime := *s.Node("op").OutputTime(0)
+			Expect(resultTime.Alignment).To(Equal(telem.Alignment(150)))
+			Expect(resultTime.TimeRange.Start).To(Equal(5 * telem.SecondTS))
+			Expect(resultTime.TimeRange.End).To(Equal(30 * telem.SecondTS))
+		})
+		It("Should copy alignment from input for unary ops", func() {
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "input", Type: "input"},
+					{Key: "op", Type: "neg"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "op", Param: ir.DefaultInputParam},
+					},
+				},
+				Functions: []graph.Function{
+					{
+						Key: "input",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+					},
+				},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			inputNode := s.Node("input")
+
+			inputSeries := telem.NewSeriesV[int64](10, 20, 30)
+			inputSeries.Alignment = 200
+			inputSeries.TimeRange = telem.TimeRange{Start: 100 * telem.SecondTS, End: 300 * telem.SecondTS}
+			*inputNode.Output(0) = inputSeries
+			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(100, 200, 300)
+
+			c := MustSucceed(op.NewFactory().Create(ctx, node.Config{
+				Node:  ir.Node{Type: "neg"},
+				State: s.Node("op"),
+			}))
+			changed := make(set.Set[string])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := *s.Node("op").Output(0)
+			Expect(result.Alignment).To(Equal(telem.Alignment(200)))
+			Expect(result.TimeRange.Start).To(Equal(100 * telem.SecondTS))
+			Expect(result.TimeRange.End).To(Equal(300 * telem.SecondTS))
+
+			resultTime := *s.Node("op").OutputTime(0)
+			Expect(resultTime.Alignment).To(Equal(telem.Alignment(200)))
+			Expect(resultTime.TimeRange.Start).To(Equal(100 * telem.SecondTS))
+			Expect(resultTime.TimeRange.End).To(Equal(300 * telem.SecondTS))
+		})
+	})
 })
