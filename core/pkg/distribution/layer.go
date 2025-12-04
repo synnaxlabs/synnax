@@ -112,7 +112,7 @@ var (
 	// required fields specific in Config.
 	DefaultConfig = Config{
 		EnableSearch:         config.True(),
-		GorpCodec:            &binary.MsgPackCodec{},
+		GorpCodec:            binary.NewDecodeFallbackCodec(&binary.JSONCodec{}, &binary.MsgPackCodec{}),
 		EnableServiceSignals: config.True(),
 	}
 )

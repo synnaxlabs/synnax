@@ -146,7 +146,7 @@ const MultiElementProperties = ({
           <Button.Button
             tooltip="Align nodes vertically"
             onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayouts(), "x");
+              const newPositions = Diagram.alignNodesAlongDirection(getLayouts(), "x");
               dispatch(
                 setNodePositions({
                   key: layoutKey,
@@ -162,7 +162,7 @@ const MultiElementProperties = ({
           <Button.Button
             tooltip="Align nodes horizontally"
             onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayouts(), "y");
+              const newPositions = Diagram.alignNodesAlongDirection(getLayouts(), "y");
               dispatch(
                 setNodePositions({
                   key: layoutKey,

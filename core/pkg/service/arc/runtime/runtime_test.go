@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -184,8 +185,8 @@ var _ = Describe("Runtime", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 
 			Eventually(func(g Gomega) {
-				var stat status.Status
-				g.Expect(statusSvc.NewRetrieve().WhereKeys("ox_alarm").Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				var stat status.Status[svcarc.StatusDetails]
+				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).WhereKeys("ox_alarm").Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
 			}).To(Succeed())
 		})

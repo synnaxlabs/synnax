@@ -123,19 +123,7 @@ const Content = () => {
     afterFailure: ({ status }) => addStatus(status),
   });
 
-  const handleCommandStatus = useCallback(
-    ({ data: statuses }: Flux.AfterSuccessParams<task.Status[]>) =>
-      statuses.forEach((status) => addStatus(status)),
-    [addStatus],
-  );
-
-  const { update: runCommand } = Task.useCommand({
-    afterSuccess: handleCommandStatus,
-    afterFailure: useCallback(
-      ({ status }: Flux.AfterFailureParams<Task.CommandParams>) => addStatus(status),
-      [addStatus],
-    ),
-  });
+  const { update: runCommand } = Task.useCommand();
   const handleCommand = useCallback(
     (keys: string[], type: string) => runCommand(keys.map((k) => ({ task: k, type }))),
     [runCommand],

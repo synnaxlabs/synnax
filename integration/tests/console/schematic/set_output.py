@@ -10,6 +10,7 @@
 import synnax as sy
 
 from console.case import ConsoleCase
+from console.schematic import Setpoint, Value
 from console.schematic.schematic import Schematic
 
 
@@ -42,10 +43,14 @@ class SetOutput(ConsoleCase):
         self.log("Creating schematic symbols")
         schematic = Schematic(client, console, "set_output_schematic")
 
-        setpoint_symbol = schematic.create_setpoint(CHANNEL_NAME)
+        setpoint_symbol = schematic.create_symbol(
+            Setpoint(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
+        )
         setpoint_symbol.move(-200, 0)
 
-        value_symbol = schematic.create_value(CHANNEL_NAME)
+        value_symbol = schematic.create_symbol(
+            Value(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
+        )
         value_symbol.move(200, 0)
 
         schematic.connect_symbols(setpoint_symbol, "right", value_symbol, "left")
