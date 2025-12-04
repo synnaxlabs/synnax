@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package status;
+
+option go_package = "github.com/synnaxlabs/x/status";
+
+message PBStatus {
+  string key = 1;
+  string name = 2;
+  string variant = 3;
+  string message = 4;
+  string description = 5;
+  int64 time = 6;
+  string details = 7;
+}

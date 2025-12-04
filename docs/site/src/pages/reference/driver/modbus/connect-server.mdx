@@ -62,13 +62,13 @@ following:
 
 ```python
 import synnax as sy
-from synnax.hardware import modbus
+from synnax import modbus
 
 # Initialize Synnax client
 client = sy.Synnax()
 
 # Retrieve the embedded rack
-rack = client.hardware.racks.retrieve_embedded_rack()
+rack = client.racks.retrieve_embedded_rack()
 
 # Create the Modbus device
 device = modbus.Device(
@@ -82,13 +82,13 @@ device = modbus.Device(
 )
 
 # Create the device in Synnax
-device = client.hardware.devices.create(device)
+device = client.devices.create(device)
 
 # Or retrieve by location
-device = client.hardware.devices.retrieve(location="192.168.1.100:502")
+device = client.devices.retrieve(location="192.168.1.100:502")
 
 # Or retrieve by name
-device = client.hardware.devices.retrieve(name="My Modbus Server")
+device = client.devices.retrieve(name="My Modbus Server")
 
 print(f"Connected to Modbus server: {device.name}")
 ```
@@ -105,14 +105,14 @@ import synnax as sy
 client = sy.Synnax()
 
 # Retrieve the device by name
-device = client.hardware.devices.retrieve(
+device = client.devices.retrieve(
     name="My Modbus Server",
     ignore_not_found=True
 )
 
 if device is not None:
     # Delete the server
-    client.hardware.devices.delete([device.key])
+    client.devices.delete([device.key])
     print(f"Disconnected Modbus server: {device.name}")
 else:
     print("Server not found")

@@ -7,6 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .types import Config, Sequence, StateDetails
+"""Deprecated: Use synnax.sequence instead."""
 
-__all__ = ["Config", "StateDetails", "Sequence"]
+import warnings
+
+warnings.warn(
+    "synnax.hardware.sequence is deprecated and will be removed in a future version. "
+    "Use synnax.sequence instead.",
+    FutureWarning,
+    stacklevel=2,
+)
+
+from synnax.sequence import *
+from synnax.sequence import __all__

@@ -222,11 +222,10 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   config,
   name,
 ) => {
-  const previous = await client.hardware.devices.retrieve<
-    Device.Properties,
-    Device.Make
-  >({ key: config.device });
-  const device = await client.hardware.devices.create<Device.Properties, Device.Make>({
+  const previous = await client.devices.retrieve<Device.Properties, Device.Make>({
+    key: config.device,
+  });
+  const device = await client.devices.create<Device.Properties, Device.Make>({
     ...previous,
     properties: Device.migrateProperties(previous.properties),
   });
@@ -268,7 +267,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     ...c,
     channel: getChannelByNodeID(device.properties, c.nodeId),
   }));
-  await client.hardware.devices.create(device);
+  await client.devices.create(device);
   return [config, device.rack];
 };
 

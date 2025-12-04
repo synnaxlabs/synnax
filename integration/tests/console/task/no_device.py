@@ -23,6 +23,11 @@ class NoDevice(ConsoleCase):
     that are not present.
     """
 
+    def setup(self) -> None:
+        if platform.system().lower() != "windows":
+            self.auto_pass(msg="Windows DAQmx drivers required")
+        super().setup()
+
     def run(self) -> None:
         """
         Test Opening and closing pages
@@ -79,7 +84,7 @@ class NoDevice(ConsoleCase):
         ni_ai.configure()
 
         # Assert error notification
-        notifications = self.console.check_for_notifications()
+        notifications = self.console.check_for_notifications(timeout=5)
         msg = notifications[0]["message"]
         msg_expected = "Failed to update Task"
         assert (
