@@ -174,13 +174,13 @@ jobs:
       - name: Copy Driver to Assets
         if: inputs.driver && inputs.core && matrix.os != 'windows-build-bot'
         run: |
-          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} core/pkg/service/hardware/embedded/assets/driver${{ matrix.executable }}
+          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} core/pkg/service/driver/assets/driver${{ matrix.executable }}
 
       - name: Copy Driver to Assets (Windows)
         if: inputs.driver && inputs.core && matrix.os == 'windows-build-bot'
         shell: powershell
         run: |
-          Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}.exe core/pkg/service/hardware/embedded/assets/driver.exe
+          Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}.exe core/pkg/service/driver/assets/driver.exe
 
       - name: Set up Go
         if: inputs.core

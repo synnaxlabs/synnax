@@ -247,14 +247,14 @@ jobs:
         if:
           matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run: |
-          mv bazel-bin/driver/driver core/pkg/service/hardware/embedded/assets/driver
+          mv bazel-bin/driver/driver core/pkg/service/driver/assets/driver
 
       - name: Move Driver to Assets (Windows)
         if:
           matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         shell: powershell
         run: |
-          Move-Item -Force bazel-bin/driver/driver.exe core/pkg/service/hardware/embedded/assets/driver.exe
+          Move-Item -Force bazel-bin/driver/driver.exe core/pkg/service/driver/assets/driver.exe
 
       - name: Set up Go
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}

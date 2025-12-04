@@ -7,16 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.hardware.modbus.types import (
-    CoilInputChan,
-    CoilOutputChan,
-    Device,
-    DiscreteInputChan,
-    HoldingRegisterInputChan,
-    HoldingRegisterOutputChan,
-    InputRegisterChan,
-    ReadTask,
-    ReadTaskConfig,
-    WriteTask,
-    WriteTaskConfig,
+"""Deprecated: Use synnax.modbus instead."""
+
+import warnings
+
+warnings.warn(
+    "synnax.hardware.modbus is deprecated and will be removed in a future version. "
+    "Use synnax.modbus instead.",
+    FutureWarning,
+    stacklevel=2,
 )
+
+from synnax.modbus import *
+from synnax.modbus import __all__
