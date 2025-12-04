@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from synnax.hardware import ni
 
 """
 This examples demonstrates how to configure and start an Analog Read Task on a National
@@ -25,7 +24,7 @@ via the NI-MAX software.
 # See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
 client = sy.Synnax()
 
-dev = client.hardware.devices.retrieve(model="USB-6289")
+dev = client.devices.retrieve(model="USB-6289")
 
 # Create an index channel that will be used to store the timestamps
 # for the analog read data.
@@ -57,7 +56,7 @@ ai_1 = client.channels.create(
 # Instantiate the task. A task is a background process that can be used to acquire data
 # from, or write commands to a device. Tasks are the primary method for interacting with
 # hardware in Synnax.
-tsk = ni.AnalogReadTask(
+tsk = sy.ni.AnalogReadTask(
     # A name to find and monitor the task via the Synnax Console.
     name="Basic Analog Read",
     # The rate at which the task will sample data from the device.
@@ -72,7 +71,7 @@ tsk = ni.AnalogReadTask(
     data_saving=True,
     # The list of physical channels we'd like to acquire data from.
     channels=[
-        ni.AIVoltageChan(
+        sy.ni.AIVoltageChan(
             # The key of the Synnax channel we're acquiring data for.
             channel=ai_0.key,
             # The key of the device on which the channel is located.
@@ -81,18 +80,18 @@ tsk = ni.AnalogReadTask(
             port=0,
             # A custom scale to apply to the data. This is optional, but can be useful
             # for converting raw data into meaningful units.
-            custom_scale=ni.LinScale(
+            custom_scale=sy.ni.LinScale(
                 slope=2e4,
                 y_intercept=50,
                 pre_scaled_units="Volts",
                 scaled_units="Volts",
             ),
         ),
-        ni.AIVoltageChan(
+        sy.ni.AIVoltageChan(
             channel=ai_1.key,
             device=dev.key,
             port=1,
-            custom_scale=ni.MapScale(
+            custom_scale=sy.ni.MapScale(
                 pre_scaled_min=0,
                 pre_scaled_max=10,
                 scaled_min=0,
@@ -106,7 +105,7 @@ tsk = ni.AnalogReadTask(
 
 # This will create the task in Synnax and wait for the driver to validate that the
 # configuration is correct.
-client.hardware.tasks.configure(tsk)
+client.tasks.configure(tsk)
 
 # Stream 100 reads, which will accumulate a total of 400 samples
 # for each channel over a period of 4 seconds.

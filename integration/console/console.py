@@ -8,9 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 import os
+import platform
 import random
 import re
 import time
+from collections.abc import Generator
+from contextlib import contextmanager
 from typing import Any, Literal
 
 import synnax as sy
@@ -39,8 +42,11 @@ PageType = Literal[
 
 class Console:
     """
-    Console UI automation interface with namespaced modules.
-    Parallel to synnax client structure.
+    Console UI automation interface.
+
+    Provides utility methods for interacting with the Synnax Console application
+    via Playwright, including page management, keyboard shortcuts, form interactions,
+    and element clicking helpers.
     """
 
     channels: ChannelClient
@@ -54,8 +60,11 @@ class Console:
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""
         self.page.keyboard.press("ControlOrMeta+Shift+p")
-        sy.sleep(0.1)
-        self.click(command)
+        palette_input = self.page.locator(
+            ".console-palette__input input[role='textbox']"
+        )
+        palette_input.fill(f">{command}", timeout=2000)
+        self.click(command, timeout=2000)
 
     @property
     def ESCAPE(self) -> None:
@@ -156,7 +165,6 @@ class Console:
             else "a"
         )
         page_command = f"Create {article} {page_type}"
-
         self.command_palette(page_command)
         page_tab, page_id = self._handle_new_page(page_type, page_name)
 
@@ -211,17 +219,17 @@ class Console:
             sy.sleep(0.2)
 
     def check_for_notifications(
-        self, timeout: sy.CrudeTimeSpan = 1.0
+        self, timeout: sy.CrudeTimeSpan = 0.2
     ) -> list[dict[str, Any]]:
         """
         Check for notifications in the bottom right corner.
         Polls every 100ms until notifications are found or timeout is reached.
 
-        :param timeout: Maximum time to wait for notifications in seconds (default: 1.0)
+        :param timeout: Maximum time to wait for notifications in seconds (default: 0.2)
         :returns: List of notification dictionaries with details
         """
         start_time = time.time()
-        poll_interval = 100  # ms
+        poll_interval = 50  # ms
 
         while time.time() - start_time < timeout:
             notifications = []
@@ -345,7 +353,7 @@ class Console:
             .first
         )
         button.wait_for(state="attached", timeout=300)
-        button.click(force=True)
+        button.click()
 
     def get_toggle(self, toggle_label: str) -> bool:
         """Get the value of a toggle by label."""
@@ -413,10 +421,56 @@ class Console:
 
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
-    def click(self, selector: str, timeout: int | None = 5000) -> None:
-        """Wait for and click a selector (by text)"""
-        element = self.page.get_by_text(selector, exact=True).first
-        element.click(timeout=timeout)
+    def click(
+        self, selector: str | Locator, timeout: int = 500, sleep: int = 100
+    ) -> None:
+        """
+        Click an element by text selector or Locator.
+
+        When clicking a Locator, uses bring_to_front wrapper for robustness.
+
+        Args:
+            selector: Either a text string to search for, or a Playwright Locator
+            timeout: Maximum time in milliseconds to wait for actionability.
+            sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
+        """
+        if isinstance(selector, str):
+            element = self.page.get_by_text(selector, exact=True).first
+            element.click(timeout=timeout)
+        else:
+            with self.bring_to_front(selector) as el:
+                el.click(timeout=timeout)
+
+        sy.sleep(sleep / 1000)
+
+    def meta_click(
+        self, selector: str | Locator, timeout: int = 500, sleep: int = 100
+    ) -> None:
+        """
+        Click an element with platform-appropriate modifier key (Cmd on Mac, Ctrl elsewhere) held.
+
+        When clicking a Locator, uses bring_to_front wrapper for robustness.
+
+        Args:
+            selector: Either a text string to search for, or a Playwright Locator
+            timeout: Maximum time in milliseconds to wait for actionability.
+            sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
+        """
+
+        modifier = "Meta" if platform.system() == "Darwin" else "Control"
+
+        if isinstance(selector, str):
+            element = self.page.get_by_text(selector, exact=True).first
+            self.page.keyboard.down(modifier)
+            element.click(timeout=timeout)
+            self.page.keyboard.up(modifier)
+        else:
+            with self.bring_to_front(selector) as el:
+                self.page.keyboard.down(modifier)
+                el.click(timeout=timeout)
+                self.page.keyboard.up(modifier)
+
+        sy.sleep(sleep / 1000)
 
     def check_for_modal(self) -> bool:
         """Check for a modal"""
@@ -426,3 +480,28 @@ class Console:
             ).count()
             > 0
         )
+
+    @contextmanager
+    def bring_to_front(self, element: Locator) -> Generator[Locator, None, None]:
+        """
+        Context manager that temporarily brings an element to the front by setting z-index.
+
+        This ensures the element is clickable even if other elements are overlapping it.
+        The original z-index is restored when exiting the context.
+
+        Args:
+            element: The Playwright Locator to bring to front
+
+        Yields:
+            The same element, now with z-index set to 9999
+
+        Example:
+            with console.bring_to_front(element) as el:
+                el.click(timeout=500)
+        """
+        original_z_index = element.evaluate("element => element.style.zIndex || 'auto'")
+        element.evaluate("element => element.style.zIndex = '9999'")
+        try:
+            yield element
+        finally:
+            element.evaluate(f"element => element.style.zIndex = '{original_z_index}'")

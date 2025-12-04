@@ -52,26 +52,30 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
 	entries, w := GetEntries[K, E](c.params), WrapWriter[K, E](tx)
 	mergeExisting, hasMergeExisting := getMergeExisting[K, E](c.params)
-	if hasMergeExisting {
-		r := WrapReader[K, E](tx)
-		for i, entry := range entries.All() {
-			e, err := r.Get(ctx, entry.GorpKey())
-			if errors.Is(err, query.NotFound) {
-				continue
-			}
-			if err != nil {
-				return err
-			}
-			if e, err = mergeExisting.exec(Context{
-				Context: ctx,
-				Tx:      tx,
-			}, entry, e); err != nil {
-				return err
-			}
-			entries.Set(i, e)
-		}
+	if !hasMergeExisting {
+		return w.Set(ctx, entries.All()...)
 	}
-	return w.Set(ctx, entries.All()...)
+	r := WrapReader[K, E](tx)
+	all := entries.All()
+	toWrite := make([]E, 0, len(all))
+	for _, entry := range all {
+		e, err := r.Get(ctx, entry.GorpKey())
+		if errors.Is(err, query.NotFound) {
+			toWrite = append(toWrite, entry)
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if e, err = mergeExisting.exec(Context{
+			Context: ctx,
+			Tx:      tx,
+		}, entry, e); err != nil {
+			return err
+		}
+		toWrite = append(toWrite, e)
+	}
+	return w.Set(ctx, toWrite...)
 }
 
 const mergeExistingKey = "mergeExisting"

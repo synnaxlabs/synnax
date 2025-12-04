@@ -84,7 +84,7 @@ export interface SetNodesPayload {
 
 export interface SetNodePositionsPayload {
   key: string;
-  positions: Record<string, xy.XY>;
+  positions: Array<[string, xy.XY]>;
 }
 
 export interface SetEdgesPayload {
@@ -324,7 +324,7 @@ export const { actions, reducer } = createSlice({
     setNodePositions: (state, { payload }: PayloadAction<SetNodePositionsPayload>) => {
       const { key: layoutKey, positions } = payload;
       const schematic = state.schematics[layoutKey];
-      Object.entries(positions).forEach(([key, position]) => {
+      positions.forEach(([key, position]) => {
         const node = schematic.nodes.find((node) => node.key === key);
         if (node == null) return;
         node.position = position;
