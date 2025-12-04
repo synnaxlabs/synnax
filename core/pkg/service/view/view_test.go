@@ -155,23 +155,22 @@ var _ = Describe("View", func() {
 				{
 					Name: "View A",
 					Key:  uuid.New(),
-					Type: "test",
+					Type: "testa",
 				},
 				{
 					Name: "View B",
 					Key:  uuid.New(),
-					Type: "test",
+					Type: "testa",
 				},
 				{
 					Name: "View C",
 					Key:  uuid.New(),
-					Type: "test",
+					Type: "testb",
 				},
 			}
-			Expect(w.CreateMany(ctx, &views)).To(Succeed())
-			Expect(tx.Commit(ctx)).To(Succeed())
 			tx = db.OpenTx()
 			w = svc.NewWriter(tx)
+			Expect(w.CreateMany(ctx, &views)).To(Succeed())
 		})
 
 		Describe("WhereKeys", func() {
@@ -186,6 +185,20 @@ var _ = Describe("View", func() {
 				var resViews []view.View
 				Expect(svc.NewRetrieve().WhereKeys(views[0].Key, views[1].Key).Entries(&resViews).Exec(ctx, tx)).To(Succeed())
 				Expect(resViews).To(HaveLen(2))
+			})
+		})
+
+		Describe("WhereTypes", func() {
+			It("Should retrieve views by type", func() {
+				var resViews []view.View
+				Expect(svc.NewRetrieve().WhereTypes("testa").Entries(&resViews).Exec(ctx, tx)).To(Succeed())
+				Expect(resViews).To(HaveLen(2))
+			})
+			It("Should also retrieve views by type and key", func() {
+				var resViews []view.View
+				Expect(svc.NewRetrieve().WhereTypes("testa").WhereKeys(views[0].Key).Entries(&resViews).Exec(ctx, tx)).To(Succeed())
+				Expect(resViews).To(HaveLen(1))
+				Expect(resViews[0].Key).To(Equal(views[0].Key))
 			})
 		})
 
@@ -205,10 +218,11 @@ var _ = Describe("View", func() {
 
 		Describe("Search", func() {
 			It("Should search for views", func() {
-				var views []view.View
-				Expect(svc.NewRetrieve().Search("View A").Entries(&views).Exec(ctx, tx)).To(Succeed())
-				Expect(len(views)).To(BeNumerically(">", 1))
-				Expect(views[0].Key).To(Equal(views[0].Key))
+				var resViews []view.View
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(svc.NewRetrieve().Search("View A").Entries(&resViews).Exec(ctx, db)).To(Succeed())
+				Expect(len(resViews)).To(BeNumerically(">", 1))
+				Expect(resViews[0].Key).To(Equal(views[0].Key))
 			})
 		})
 	})
