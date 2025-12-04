@@ -157,6 +157,17 @@ private:
     std::unordered_map<std::string, std::vector<Entry>> connections_;
 
     void release(const std::string &key, std::shared_ptr<UA_Client> client);
+
+    /// @brief Performs connection maintenance via run_iterate and verifies session
+    /// state.
+    /// @param client The OPC UA client to maintain.
+    /// @param log_prefix Prefix for log messages.
+    /// @return NIL on success, error if maintenance failed or session deactivated.
+    xerrors::Error run_iterate_checked(
+        const std::shared_ptr<UA_Client> &client,
+        const std::string &log_prefix
+    );
+
     friend class Connection;
 };
 }

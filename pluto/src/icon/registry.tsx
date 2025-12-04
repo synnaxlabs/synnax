@@ -100,6 +100,7 @@ import {
   MdFilterCenterFocus,
   MdHardware,
   MdHive,
+  MdHorizontalDistribute,
   MdInsights,
   MdKeyboardAlt,
   MdKeyboardArrowDown,
@@ -139,12 +140,17 @@ import {
   MdPictureInPicture,
   MdPlayArrow,
   MdQuestionMark,
+  MdRotate90DegreesCcw,
+  MdRotate90DegreesCw,
+  MdRotateLeft,
+  MdRotateRight,
   MdSaveAlt,
   MdSensors,
   MdShield,
   MdSquareFoot,
   MdTextFields,
   MdTypeSpecimen,
+  MdVerticalDistribute,
   MdWorkspacesFilled,
 } from "react-icons/md";
 import {
@@ -341,6 +347,10 @@ export const Align = {
   Top: wrapSVGIcon(MdAlignVerticalTop, "align-top"),
   Bottom: wrapSVGIcon(MdAlignVerticalBottom, "align-bottom"),
 };
+export const Distribute = {
+  X: wrapSVGIcon(MdHorizontalDistribute, "distribute-x"),
+  Y: wrapSVGIcon(MdVerticalDistribute, "distribute-y"),
+};
 export const TextAlign = {
   Center: wrapSVGIcon(FaAlignCenter, "text-align-center"),
   Left: wrapSVGIcon(FaAlignLeft, "text-align-left"),
@@ -378,6 +388,14 @@ export const Snooze = wrapSVGIcon(IoNotificationsOff, "snooze");
 export const Log = wrapSVGIcon(FaStream, "log");
 export const Tare = wrapSVGIcon(FaCreativeCommonsZero, "tare");
 export const Rotate = wrapSVGIcon(GrRotateRight, "rotate");
+export const RotateGroup = {
+  CW: wrapSVGIcon(MdRotateRight, "rotate-group-cw"),
+  CCW: wrapSVGIcon(MdRotateLeft, "rotate-group-ccw"),
+};
+export const RotateAroundCenter = {
+  CW: wrapSVGIcon(MdRotate90DegreesCw, "rotate-around-center-cw"),
+  CCW: wrapSVGIcon(MdRotate90DegreesCcw, "rotate-around-center-ccw"),
+};
 export const Text = wrapSVGIcon(MdTextFields, "text");
 export const Value = wrapSVGIcon(GoNumber, "value");
 export const Calendar = wrapSVGIcon(MdCalendarToday, "calendar");

@@ -77,14 +77,41 @@ var _ = Describe("Resource", func() {
 		Describe("Parse", func() {
 			Context("Single", func() {
 				It("Should parse an ID from a string", func() {
-					id, err := core.ParseID("foo:bar")
-					Expect(err).NotTo(HaveOccurred())
+					id := MustSucceed(core.ParseID("foo:bar"))
 					Expect(id.Type).To(Equal(core.Type("foo")))
 					Expect(id.Key).To(Equal("bar"))
 				})
+
 				It("Should return an error if the ID has an invalid structure", func() {
-					_, err := core.ParseID("foo")
-					Expect(err).To(HaveOccurredAs(validate.Error))
+					Expect(core.ParseID("foo")).Error().To(HaveOccurredAs(validate.Error))
+				})
+
+				It("Should return an error if the ID is an empty string", func() {
+					Expect(core.ParseID("")).Error().To(HaveOccurredAs(validate.Error))
+				})
+
+				It("Should return an error if the ID has an empty type (leading colon)", func() {
+					Expect(core.ParseID(":bar")).Error().To(HaveOccurredAs(validate.Error))
+				})
+
+				It("Should return an error if the ID has an empty type with colons in key", func() {
+					Expect(core.ParseID(":word1:word2")).Error().To(HaveOccurredAs(validate.Error))
+				})
+
+				It("Should return an error if the ID has an empty type and key starts with colon", func() {
+					Expect(core.ParseID("::word1")).Error().To(HaveOccurredAs(validate.Error))
+				})
+
+				It("Should parse an ID with empty key (trailing colon)", func() {
+					id := MustSucceed(core.ParseID("foo:"))
+					Expect(id.Type).To(Equal(core.Type("foo")))
+					Expect(id.Key).To(Equal(""))
+				})
+
+				It("Should ignore subsequence semi-colors in the type", func() {
+					id := MustSucceed(core.ParseID("foo:bar:baz"))
+					Expect(id.Type).To(Equal(core.Type("foo")))
+					Expect(id.Key).To(Equal("bar:baz"))
 				})
 			})
 
@@ -98,6 +125,11 @@ var _ = Describe("Resource", func() {
 					It("Should return an error if any of the IDs have an invalid structure", func() {
 						_, err := core.ParseIDs([]string{"foo:bar", "foo"})
 						Expect(err).To(HaveOccurredAs(validate.Error))
+					})
+					It("Should return an empty slice when given an empty slice", func() {
+						ids, err := core.ParseIDs([]string{})
+						Expect(err).NotTo(HaveOccurred())
+						Expect(ids).To(BeEmpty())
 					})
 				})
 			})
@@ -155,6 +187,52 @@ var _ = Describe("Resource", func() {
 				Expect(r.Parse(&v)).To(Succeed())
 				Expect(v.Cat).To(Equal("milo"))
 			})
+		})
+	})
+
+	Describe("IDs", func() {
+		It("Should extract IDs from a slice of resources", func() {
+			resources := []core.Resource{
+				ontology.NewResource(
+					zyn.Object(nil),
+					ontology.ID{Type: "cat", Key: "dog1"},
+					"cat1",
+					map[string]any{},
+				),
+				ontology.NewResource(
+					zyn.Object(nil),
+					ontology.ID{Type: "cat", Key: "dog2"},
+					"cat2",
+					map[string]any{},
+				),
+			}
+			ids := core.IDs(resources)
+			Expect(ids).To(HaveLen(2))
+			Expect(ids[0]).To(Equal(core.ID{Type: "cat", Key: "dog1"}))
+			Expect(ids[1]).To(Equal(core.ID{Type: "cat", Key: "dog2"}))
+		})
+
+		It("Should return an empty slice for empty input", func() {
+			ids := core.IDs([]core.Resource{})
+			Expect(ids).To(BeEmpty())
+		})
+	})
+
+	Describe("IDsToString", func() {
+		It("Should convert IDs to strings", func() {
+			ids := []core.ID{
+				{Type: "cat", Key: "dog1"},
+				{Type: "cat", Key: "dog2"},
+			}
+			strings := core.IDsToString(ids)
+			Expect(strings).To(HaveLen(2))
+			Expect(strings[0]).To(Equal("cat:dog1"))
+			Expect(strings[1]).To(Equal("cat:dog2"))
+		})
+
+		It("Should return an empty slice for empty input", func() {
+			strings := core.IDsToString([]core.ID{})
+			Expect(strings).To(BeEmpty())
 		})
 	})
 })
