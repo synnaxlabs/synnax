@@ -604,9 +604,7 @@ export const ToggleEditControl = ({
     <Button.Toggle
       tooltipLocation={location.BOTTOM_LEFT}
       size="small"
-      tooltip={
-        <Text.Text level="small">{`${editable ? "Disable" : "Enable"} editing`}</Text.Text>
-      }
+      tooltip={`${editable ? "Disable" : "Enable"} editing`}
       {...rest}
       onChange={() => onEditableChange(!editable)}
       value={editable}

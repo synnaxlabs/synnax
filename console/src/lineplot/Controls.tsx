@@ -76,7 +76,7 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
           onClick={handleZoomReset}
           tooltipLocation={location.BOTTOM_LEFT}
           tooltip={
-            <Text.Text level="small">
+            <Text.Text level="small" color={11}>
               Reset zoom
               <Triggers.Text trigger={triggers.zoomReset[0]} el="span" />
             </Text.Text>
@@ -89,16 +89,14 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
           value={control.enableTooltip}
           onChange={handleTooltipChange}
           size="small"
-          tooltip={<Text.Text level="small">Show tooltip on hover</Text.Text>}
+          tooltip="Show tooltip on hover"
           tooltipLocation={location.BOTTOM_LEFT}
         >
           <Icon.Tooltip />
         </Button.Toggle>
         <Button.Toggle
           value={control.clickMode != null}
-          tooltip={
-            <Text.Text level="small">{`${control.clickMode != null ? "Close" : "Open"} measure tool`}</Text.Text>
-          }
+          tooltip={`${control.clickMode != null ? "Close" : "Open"} measure tool`}
           tooltipLocation={location.BOTTOM_LEFT}
           onChange={() =>
             handleClickModeChange(control.clickMode != null ? null : "measure")
@@ -113,7 +111,7 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
           tooltipLocation={location.BOTTOM_LEFT}
           size="small"
           tooltip={
-            <Text.Text level="small">
+            <Text.Text level="small" color={11}>
               {`${control.hold ? "Resume" : "Pause"} live plotting`}
               <Triggers.Text trigger={["H"]} level="small"></Triggers.Text>
             </Text.Text>
@@ -127,7 +125,7 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
           <Button.Toggle
             size="small"
             value={measureMode === "one"}
-            tooltip={<Text.Text level="small">Select first point</Text.Text>}
+            tooltip="Select first point"
             tooltipLocation={location.BOTTOM_LEFT}
             onChange={() => dispatch(setMeasureMode({ key: layoutKey, mode: "one" }))}
           >
@@ -137,7 +135,7 @@ export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
             size="small"
             tooltipLocation={location.BOTTOM_LEFT}
             value={measureMode === "two"}
-            tooltip={<Text.Text level="small">Select second point</Text.Text>}
+            tooltip="Select second point"
             onChange={() => dispatch(setMeasureMode({ key: layoutKey, mode: "two" }))}
           >
             2

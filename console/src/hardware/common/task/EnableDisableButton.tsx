@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Form, Status, Text } from "@synnaxlabs/pluto";
+import { Button, Form, Status } from "@synnaxlabs/pluto";
 
 import { useIsSnapshot } from "@/hardware/common/task/Form";
 
@@ -28,11 +28,7 @@ export const EnableDisableButton = ({ path, ...rest }: EnableDisableButtonProps)
       onChange={(v) => set(path, v)}
       size="small"
       tooltip={
-        isSnapshot ? undefined : (
-          <Text.Text level="small">
-            {value ? "Disable" : "Enable"} data acquisition
-          </Text.Text>
-        )
+        isSnapshot ? undefined : `${value ? "Disable" : "Enable"} data acquisition`
       }
       value={value}
       {...rest}

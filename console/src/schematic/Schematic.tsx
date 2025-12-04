@@ -19,7 +19,6 @@ import {
   Icon,
   Menu as PMenu,
   Schematic as Core,
-  Text,
   Theming,
   usePrevious,
   useSyncedRef,
@@ -408,11 +407,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
                   onChange={acquireControl}
                   tooltipLocation={location.BOTTOM_LEFT}
                   size="small"
-                  tooltip={
-                    <Text.Text level="small">
-                      {`${schematic.control === "acquired" ? "Release" : "Acquire"} control`}
-                    </Text.Text>
-                  }
+                  tooltip={`${schematic.control === "acquired" ? "Release" : "Acquire"} control`}
                 >
                   <Icon.Circle />
                 </Button.Toggle>
