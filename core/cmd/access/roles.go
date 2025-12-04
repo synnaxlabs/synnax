@@ -34,6 +34,51 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
 )
 
+// allObjects is the complete list of ontology types used for permission definitions.
+var allObjects = []ontology.ID{
+	{Type: label.OntologyType},
+	{Type: log.OntologyType},
+	{Type: cluster.OntologyType},
+	{Type: cluster.NodeOntologyType},
+	{Type: channel.OntologyType},
+	{Type: group.OntologyType},
+	{Type: ranger.OntologyType},
+	{Type: framer.OntologyType},
+	{Type: ranger.AliasOntologyType},
+	{Type: user.OntologyType},
+	{Type: workspace.OntologyType},
+	{Type: schematic.OntologyType},
+	{Type: lineplot.OntologyType},
+	{Type: rack.OntologyType},
+	{Type: device.OntologyType},
+	{Type: task.OntologyType},
+	{Type: table.OntologyType},
+	{Type: arc.OntologyType},
+	{Type: symbol.OntologyType},
+	{Type: status.OntologyType},
+	{Type: role.OntologyType},
+	{Type: policy.OntologyType},
+	{Type: ontology.BuiltInType},
+}
+
+// Owner role - Full control of deployment, including user registration and security.
+var (
+	ownerRoleName = "Owner"
+	ownerRole     = role.Role{
+		Name:        ownerRoleName,
+		Description: "Full control of deployment, including user registration and security.",
+		Internal:    true,
+	}
+	ownerPolicy = policy.Policy{
+		Name:     ownerRoleName,
+		Effect:   policy.EffectAllow,
+		Objects:  allObjects,
+		Actions:  []access.Action{access.ActionAll},
+		Internal: true,
+	}
+)
+
+// Engineer role - Full access to system configuration, except for user management.
 var (
 	engineerRoleName = "Engineer"
 	engineerRole     = role.Role{
@@ -80,5 +125,51 @@ var (
 			Actions:  []access.Action{access.ActionRetrieve},
 			Internal: true,
 		},
+	}
+)
+
+// Operator role - Can view workspaces and control hardware tasks, cannot modify config.
+var (
+	operatorRoleName = "Operator"
+	operatorRole     = role.Role{
+		Name:        operatorRoleName,
+		Description: "Can view workspaces and visualizations, control hardware and data acquisition tasks. Cannot modify system configuration.",
+		Internal:    true,
+	}
+	operatorPolicies = []policy.Policy{
+		{
+			Name:   "Operator Edit Access",
+			Effect: policy.EffectAllow,
+			Objects: []ontology.ID{
+				{Type: framer.OntologyType},
+				{Type: ranger.OntologyType},
+			},
+			Actions:  []access.Action{access.ActionAll},
+			Internal: true,
+		},
+		{
+			Name:     "Operator View Access",
+			Effect:   policy.EffectAllow,
+			Objects:  allObjects,
+			Actions:  []access.Action{access.ActionRetrieve},
+			Internal: true,
+		},
+	}
+)
+
+// Viewer role - View access to all resources.
+var (
+	viewerRoleName = "Viewer"
+	viewerRole     = role.Role{
+		Name:        viewerRoleName,
+		Description: "View access to all resources.",
+		Internal:    true,
+	}
+	viewerPolicy = policy.Policy{
+		Name:     viewerRoleName,
+		Effect:   policy.EffectAllow,
+		Objects:  allObjects,
+		Actions:  []access.Action{access.ActionRetrieve},
+		Internal: true,
 	}
 )

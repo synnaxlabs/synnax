@@ -31,26 +31,41 @@ const changePasswordResZ = z.object({});
 
 const RETRY_ON = [InvalidTokenError, ExpiredTokenError] as const;
 
+type AuthState =
+  | { authenticated: false }
+  | { authenticated: true; user: user.User; token: string };
+
 export class Client {
-  token: string | undefined;
   private readonly client: UnaryClient;
   private readonly credentials: InsecureCredentials;
+  private authState: AuthState = { authenticated: false };
   authenticating: Promise<Error | null> | undefined;
-  authenticated: boolean;
-  user: user.User | undefined;
   private retryCount: number;
 
   constructor(client: UnaryClient, credentials: InsecureCredentials) {
     this.client = client;
-    this.authenticated = false;
     this.credentials = credentials;
     this.retryCount = 0;
   }
 
+  get authenticated(): boolean {
+    return this.authState.authenticated;
+  }
+
+  get user(): user.User | undefined {
+    return this.authState.authenticated ? this.authState.user : undefined;
+  }
+
+  get token(): string | undefined {
+    return this.authState.authenticated ? this.authState.token : undefined;
+  }
+
   async retrieveUser(): Promise<user.User> {
-    if (this.authenticated) return this.user as user.User;
+    if (this.authState.authenticated) return this.authState.user;
     await this.authenticating;
-    return this.user as user.User;
+    if (!this.authState.authenticated)
+      throw new Error("Authentication failed: user not available");
+    return this.authState.user;
   }
 
   async changePassword(newPassword: string): Promise<void> {

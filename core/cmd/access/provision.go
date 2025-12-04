@@ -13,58 +13,13 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/hardware/device"
-	"github.com/synnaxlabs/synnax/pkg/service/hardware/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/hardware/task"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/symbol"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
-
-var allObjects = []ontology.ID{
-	{Type: label.OntologyType},
-	{Type: log.OntologyType},
-	{Type: cluster.OntologyType},
-	{Type: cluster.NodeOntologyType},
-	{Type: channel.OntologyType},
-	{Type: group.OntologyType},
-	{Type: ranger.OntologyType},
-	{Type: framer.OntologyType},
-	{Type: ranger.AliasOntologyType},
-	{Type: user.OntologyType},
-	{Type: workspace.OntologyType},
-	{Type: schematic.OntologyType},
-	{Type: lineplot.OntologyType},
-	{Type: rack.OntologyType},
-	{Type: device.OntologyType},
-	{Type: task.OntologyType},
-	{Type: table.OntologyType},
-	{Type: arc.OntologyType},
-	{Type: symbol.OntologyType},
-	{Type: status.OntologyType},
-	{Type: role.OntologyType},
-	{Type: policy.OntologyType},
-	{Type: ontology.BuiltInType},
-}
 
 // ProvisionResult contains the keys of all provisioned built-in roles.
 type ProvisionResult struct {

@@ -11,14 +11,16 @@ package policy
 
 import (
 	"context"
+	"io"
+	"iter"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
+	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -63,7 +65,7 @@ func newResource(l Policy) ontology.Resource {
 	return core.NewResource(schema, OntologyID(l.Key), l.Name, l)
 }
 
-type change = changex.Change[uuid.UUID, Policy]
+type change = xchange.Change[uuid.UUID, Policy]
 
 func (s *Service) Type() ontology.Type { return OntologyType }
 
@@ -96,21 +98,15 @@ func translateChange(c change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Policy]) {
-		f(ctx, iter.NexterTranslator[change, ontology.Change]{
-			Wrap:      reader,
-			Translate: translateChange,
-		})
+		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return gorp.Observe[uuid.UUID, Policy](s.cfg.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	n, err := gorp.WrapReader[uuid.UUID, Policy](s.cfg.DB).OpenNexter()
-	return iter.NexterCloserTranslator[Policy, ontology.Resource]{
-		Wrap:      n,
-		Translate: newResource,
-	}, err
+func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+	n, closer, err := gorp.WrapReader[uuid.UUID, Policy](s.cfg.DB).OpenNexter(ctx)
+	return xiter.Map(n, newResource), closer, err
 }

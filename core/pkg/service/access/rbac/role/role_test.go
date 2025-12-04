@@ -10,6 +10,8 @@
 package role_test
 
 import (
+	"slices"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
@@ -449,18 +452,10 @@ var _ = Describe("Ontology Integration", func() {
 			}
 			Expect(tx.Commit(ctx)).To(Succeed())
 
-			nexter, err := svc.OpenNexter()
-			Expect(err).ToNot(HaveOccurred())
-			defer func() { Expect(nexter.Close()).To(Succeed()) }()
+			nexter, closer := MustSucceed2(svc.OpenNexter(ctx))
+			defer func() { Expect(closer.Close()).To(Succeed()) }()
 
-			count := 0
-			for {
-				_, ok := nexter.Next(ctx)
-				if !ok {
-					break
-				}
-				count++
-			}
+			count := len(slices.Collect(nexter))
 			Expect(count).To(BeNumerically(">=", 3))
 		})
 	})
