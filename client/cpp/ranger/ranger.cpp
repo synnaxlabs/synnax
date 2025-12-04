@@ -32,20 +32,14 @@ void Range::to_proto(api::v1::Range *rng) const {
     rng->mutable_time_range()->set_end(time_range.end.nanoseconds());
 }
 
-const std::string RETRIEVE_ENDPOINT = "/range/retrieve";
-const std::string CREATE_ENDPOINT = "/range/create";
-
 std::pair<Range, xerrors::Error>
 RangeClient::retrieve_by_key(const std::string &key) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_keys(key);
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
+    auto [res, err] = retrieve_client->send("/range/retrieve", req);
     if (err) return {Range(), err};
     if (res.ranges_size() == 0)
-        return {
-            Range(),
-            xerrors::Error(xerrors::NOT_FOUND, "no ranges found matching " + key)
-        };
+        return {Range(), not_found_error("range", "key " + key)};
     auto rng = Range(res.ranges(0));
     rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
     return {rng, err};
@@ -55,21 +49,12 @@ std::pair<Range, xerrors::Error>
 RangeClient::retrieve_by_name(const std::string &name) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
+    auto [res, err] = retrieve_client->send("/range/retrieve", req);
     if (err) return {Range(), err};
     if (res.ranges_size() == 0)
-        return {
-            Range(),
-            xerrors::Error(xerrors::NOT_FOUND, "no ranges found matching " + name)
-        };
+        return {Range(), not_found_error("range", "name " + name)};
     if (res.ranges_size() > 1)
-        return {
-            Range(),
-            xerrors::Error(
-                xerrors::MULTIPLE_RESULTS,
-                "multiple ranges found matching " + name
-            )
-        };
+        return {Range(), multiple_found_error("ranges", "name " + name)};
     auto rng = Range(res.ranges(0));
     rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
     return {rng, err};
@@ -77,7 +62,7 @@ RangeClient::retrieve_by_name(const std::string &name) const {
 
 std::pair<std::vector<Range>, xerrors::Error>
 RangeClient::retrieve_many(api::v1::RangeRetrieveRequest &req) const {
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
+    auto [res, err] = retrieve_client->send("/range/retrieve", req);
     if (err) return {std::vector<Range>(), err};
     std::vector<Range> ranges = {res.ranges().begin(), res.ranges().end()};
     for (auto &r: ranges)
@@ -106,7 +91,7 @@ xerrors::Error RangeClient::create(std::vector<Range> &ranges) const {
     req.mutable_ranges()->Reserve(ranges.size());
     for (const auto &range: ranges)
         range.to_proto(req.add_ranges());
-    auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
+    auto [res, err] = create_client->send("/range/create", req);
     if (err) return err;
     for (auto i = 0; i < res.ranges_size(); i++) {
         ranges[i].key = res.ranges(i).key();
@@ -123,9 +108,9 @@ xerrors::Error RangeClient::create(std::vector<Range> &ranges) const {
 xerrors::Error RangeClient::create(Range &range) const {
     auto req = api::v1::RangeCreateRequest();
     range.to_proto(req.add_ranges());
-    auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
+    auto [res, err] = create_client->send("/range/create", req);
     if (err) return err;
-    if (res.ranges_size() == 0) return unexpected_missing("range");
+    if (res.ranges_size() == 0) return unexpected_missing_error("range");
     const auto rng = res.ranges(0);
     range.key = rng.key();
     range.kv = RangeKV(rng.key(), kv_get_client, kv_set_client, kv_delete_client);
@@ -146,7 +131,7 @@ std::pair<std::string, xerrors::Error> RangeKV::get(const std::string &key) cons
     auto [res, err] = kv_get_client->send("/range/kv/get", req);
     if (err) return {"", err};
     if (res.pairs_size() == 0)
-        return {"", xerrors::Error(xerrors::NOT_FOUND, "key not found")};
+        return {"", not_found_error("range key-value pair", "key " + key)};
     return {res.pairs().at(0).value(), err};
 }
 

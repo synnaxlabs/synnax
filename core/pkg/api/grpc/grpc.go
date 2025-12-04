@@ -26,14 +26,14 @@ func New(channelSvc *channel.Service) (api.Transport, []fgrpc.BindableTransport)
 		newConnectivity(&a),
 		newAuth(&a),
 		newRanger(&a),
-		newHardware(&a),
+		newRack(&a),
+		newTask(&a),
+		newDevice(&a),
+		newStatus(&a),
 	}
 
 	// AUTH
 	a.AuthChangePassword = fnoop.UnaryServer[api.AuthChangePasswordRequest, types.Nil]{}
-
-	// HARDWARE
-	a.HardwareCopyTask = fnoop.UnaryServer[api.HardwareCopyTaskRequest, api.HardwareCopyTaskResponse]{}
 
 	// CHANNEL
 	a.ChannelRename = fnoop.UnaryServer[api.ChannelRenameRequest, types.Nil]{}

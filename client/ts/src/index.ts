@@ -22,6 +22,7 @@ export {
 } from "@/client";
 export * from "@/connection";
 export { control } from "@/control";
+export { device } from "@/device";
 export {
   AuthError,
   ContiguityError,
@@ -35,15 +36,13 @@ export {
 } from "@/errors";
 export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
-export { hardware } from "@/hardware";
-export { device } from "@/hardware/device";
-export { rack } from "@/hardware/rack";
-export { task } from "@/hardware/task";
 export { label } from "@/label";
 export { ontology } from "@/ontology";
 export { group } from "@/ontology/group";
+export { rack } from "@/rack";
 export { ranger } from "@/ranger";
 export { status } from "@/status";
+export { task } from "@/task";
 export { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil/client";
 export { user } from "@/user";
 export { view } from "@/view";

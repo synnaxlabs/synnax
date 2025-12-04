@@ -144,17 +144,18 @@ type Transport struct {
 	LabelDelete   freighter.UnaryServer[LabelDeleteRequest, types.Nil]
 	LabelAdd      freighter.UnaryServer[LabelAddRequest, types.Nil]
 	LabelRemove   freighter.UnaryServer[LabelRemoveRequest, types.Nil]
+	RackCreate    freighter.UnaryServer[RackCreateRequest, RackCreateResponse]
+	RackRetrieve  freighter.UnaryServer[RackRetrieveRequest, RackRetrieveResponse]
+	RackDelete    freighter.UnaryServer[RackDeleteRequest, types.Nil]
+	// TASK
+	TaskCreate   freighter.UnaryServer[TaskCreateRequest, TaskCreateResponse]
+	TaskRetrieve freighter.UnaryServer[TaskRetrieveRequest, TaskRetrieveResponse]
+	TaskDelete   freighter.UnaryServer[TaskDeleteRequest, types.Nil]
+	TaskCopy     freighter.UnaryServer[TaskCopyRequest, TaskCopyResponse]
 	// DEVICE
-	HardwareCreateRack     freighter.UnaryServer[HardwareCreateRackRequest, HardwareCreateRackResponse]
-	HardwareRetrieveRack   freighter.UnaryServer[HardwareRetrieveRackRequest, HardwareRetrieveRackResponse]
-	HardwareDeleteRack     freighter.UnaryServer[HardwareDeleteRackRequest, types.Nil]
-	HardwareCreateTask     freighter.UnaryServer[HardwareCreateTaskRequest, HardwareCreateTaskResponse]
-	HardwareRetrieveTask   freighter.UnaryServer[HardwareRetrieveTaskRequest, HardwareRetrieveTaskResponse]
-	HardwareCopyTask       freighter.UnaryServer[HardwareCopyTaskRequest, HardwareCopyTaskResponse]
-	HardwareDeleteTask     freighter.UnaryServer[HardwareDeleteTaskRequest, types.Nil]
-	HardwareCreateDevice   freighter.UnaryServer[HardwareCreateDeviceRequest, HardwareCreateDeviceResponse]
-	HardwareRetrieveDevice freighter.UnaryServer[HardwareRetrieveDeviceRequest, HardwareRetrieveDeviceResponse]
-	HardwareDeleteDevice   freighter.UnaryServer[HardwareDeleteDeviceRequest, types.Nil]
+	DeviceCreate   freighter.UnaryServer[DeviceCreateRequest, DeviceCreateResponse]
+	DeviceRetrieve freighter.UnaryServer[DeviceRetrieveRequest, DeviceRetrieveResponse]
+	DeviceDelete   freighter.UnaryServer[DeviceDeleteRequest, types.Nil]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
@@ -193,7 +194,9 @@ type Layer struct {
 	Log          *LogService
 	Table        *TableService
 	Label        *LabelService
-	Hardware     *HardwareService
+	Rack         *RackService
+	Task         *TaskService
+	Device       *DeviceService
 	Access       *AccessService
 	Arc          *ArcService
 	Status       *StatusService
@@ -318,18 +321,21 @@ func (a *Layer) BindTo(t Transport) {
 		t.LabelAdd,
 		t.LabelRemove,
 
-		// HARDWARE
-		t.HardwareCreateRack,
-		t.HardwareDeleteRack,
-		t.HardwareRetrieveRack,
-		t.HardwareDeleteTask,
-		t.HardwareCreateTask,
-		t.HardwareRetrieveTask,
-		t.HardwareDeleteTask,
-		t.HardwareCopyTask,
-		t.HardwareCreateDevice,
-		t.HardwareRetrieveDevice,
-		t.HardwareDeleteDevice,
+		// RACK
+		t.RackCreate,
+		t.RackRetrieve,
+		t.RackDelete,
+
+		// TASK
+		t.TaskCreate,
+		t.TaskRetrieve,
+		t.TaskDelete,
+		t.TaskCopy,
+
+		// DEVICE
+		t.DeviceCreate,
+		t.DeviceRetrieve,
+		t.DeviceDelete,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -452,17 +458,21 @@ func (a *Layer) BindTo(t Transport) {
 	t.LabelAdd.BindHandler(a.Label.Add)
 	t.LabelRemove.BindHandler(a.Label.Remove)
 
-	// HARDWARE
-	t.HardwareCreateRack.BindHandler(a.Hardware.CreateRack)
-	t.HardwareRetrieveRack.BindHandler(a.Hardware.RetrieveRack)
-	t.HardwareDeleteRack.BindHandler(a.Hardware.DeleteRack)
-	t.HardwareCreateTask.BindHandler(a.Hardware.CreateTask)
-	t.HardwareRetrieveTask.BindHandler(a.Hardware.RetrieveTask)
-	t.HardwareDeleteTask.BindHandler(a.Hardware.DeleteTask)
-	t.HardwareCreateDevice.BindHandler(a.Hardware.CreateDevice)
-	t.HardwareRetrieveDevice.BindHandler(a.Hardware.RetrieveDevice)
-	t.HardwareDeleteDevice.BindHandler(a.Hardware.DeleteDevice)
-	t.HardwareCopyTask.BindHandler(a.Hardware.CopyTask)
+	// RACK
+	t.RackCreate.BindHandler(a.Rack.Create)
+	t.RackRetrieve.BindHandler(a.Rack.Retrieve)
+	t.RackDelete.BindHandler(a.Rack.Delete)
+
+	// TASK
+	t.TaskCreate.BindHandler(a.Task.Create)
+	t.TaskRetrieve.BindHandler(a.Task.Retrieve)
+	t.TaskDelete.BindHandler(a.Task.Delete)
+	t.TaskCopy.BindHandler(a.Task.Copy)
+
+	// DEVICE
+	t.DeviceCreate.BindHandler(a.Device.Create)
+	t.DeviceRetrieve.BindHandler(a.Device.Retrieve)
+	t.DeviceDelete.BindHandler(a.Device.Delete)
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)
@@ -510,7 +520,9 @@ func New(cfgs ...Config) (*Layer, error) {
 		Schematic:    NewSchematicService(provider),
 		LinePlot:     NewLinePlotService(provider),
 		Label:        NewLabelService(provider),
-		Hardware:     NewHardwareService(provider),
+		Rack:         NewRackService(provider),
+		Task:         NewTaskService(provider),
+		Device:       NewDeviceService(provider),
 		Log:          NewLogService(provider),
 		Table:        NewTableService(provider),
 		Status:       NewStatusService(provider),

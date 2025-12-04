@@ -121,17 +121,21 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transpo
 		LabelAdd:      fhttp.UnaryServer[api.LabelAddRequest, types.Nil](router, "/api/v1/label/set"),
 		LabelRemove:   fhttp.UnaryServer[api.LabelRemoveRequest, types.Nil](router, "/api/v1/label/remove"),
 
-		// HARDWARE
-		HardwareCreateRack:     fhttp.UnaryServer[api.HardwareCreateRackRequest, api.HardwareCreateRackResponse](router, "/api/v1/hardware/rack/create"),
-		HardwareRetrieveRack:   fhttp.UnaryServer[api.HardwareRetrieveRackRequest, api.HardwareRetrieveRackResponse](router, "/api/v1/hardware/rack/retrieve"),
-		HardwareDeleteRack:     fhttp.UnaryServer[api.HardwareDeleteRackRequest, types.Nil](router, "/api/v1/hardware/rack/delete"),
-		HardwareCreateTask:     fhttp.UnaryServer[api.HardwareCreateTaskRequest, api.HardwareCreateTaskResponse](router, "/api/v1/hardware/task/create"),
-		HardwareRetrieveTask:   fhttp.UnaryServer[api.HardwareRetrieveTaskRequest, api.HardwareRetrieveTaskResponse](router, "/api/v1/hardware/task/retrieve"),
-		HardwareDeleteTask:     fhttp.UnaryServer[api.HardwareDeleteTaskRequest, types.Nil](router, "/api/v1/hardware/task/delete"),
-		HardwareCopyTask:       fhttp.UnaryServer[api.HardwareCopyTaskRequest, api.HardwareCopyTaskResponse](router, "/api/v1/hardware/task/copy"),
-		HardwareCreateDevice:   fhttp.UnaryServer[api.HardwareCreateDeviceRequest, api.HardwareCreateDeviceResponse](router, "/api/v1/hardware/device/create"),
-		HardwareRetrieveDevice: fhttp.UnaryServer[api.HardwareRetrieveDeviceRequest, api.HardwareRetrieveDeviceResponse](router, "/api/v1/hardware/device/retrieve"),
-		HardwareDeleteDevice:   fhttp.UnaryServer[api.HardwareDeleteDeviceRequest, types.Nil](router, "/api/v1/hardware/device/delete"),
+		// RACK
+		RackCreate:   fhttp.UnaryServer[api.RackCreateRequest, api.RackCreateResponse](router, "/api/v1/rack/create"),
+		RackRetrieve: fhttp.UnaryServer[api.RackRetrieveRequest, api.RackRetrieveResponse](router, "/api/v1/rack/retrieve"),
+		RackDelete:   fhttp.UnaryServer[api.RackDeleteRequest, types.Nil](router, "/api/v1/rack/delete"),
+
+		// TASK
+		TaskCreate:   fhttp.UnaryServer[api.TaskCreateRequest, api.TaskCreateResponse](router, "/api/v1/task/create"),
+		TaskRetrieve: fhttp.UnaryServer[api.TaskRetrieveRequest, api.TaskRetrieveResponse](router, "/api/v1/task/retrieve"),
+		TaskDelete:   fhttp.UnaryServer[api.TaskDeleteRequest, types.Nil](router, "/api/v1/task/delete"),
+		TaskCopy:     fhttp.UnaryServer[api.TaskCopyRequest, api.TaskCopyResponse](router, "/api/v1/task/copy"),
+
+		// DEVICE
+		DeviceCreate:   fhttp.UnaryServer[api.DeviceCreateRequest, api.DeviceCreateResponse](router, "/api/v1/device/create"),
+		DeviceRetrieve: fhttp.UnaryServer[api.DeviceRetrieveRequest, api.DeviceRetrieveResponse](router, "/api/v1/device/retrieve"),
+		DeviceDelete:   fhttp.UnaryServer[api.DeviceDeleteRequest, types.Nil](router, "/api/v1/device/delete"),
 
 		// ACCESS
 		AccessCreatePolicy:   fhttp.UnaryServer[api.AccessCreatePolicyRequest, api.AccessCreatePolicyResponse](router, "/api/v1/access/policy/create"),

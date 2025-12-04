@@ -7,27 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.hardware.task.client import (
-    BaseReadTaskConfig,
-    BaseTaskConfig,
-    BaseWriteTaskConfig,
-    Client,
-    JSONConfigMixin,
-    StarterStopperMixin,
-    Task,
-    TaskProtocol,
-)
-from synnax.hardware.task.payload import TaskStatus, TaskStatusDetails
+"""Deprecated: Use synnax.task instead."""
 
-__all__ = [
-    "BaseTaskConfig",
-    "BaseReadTaskConfig",
-    "BaseWriteTaskConfig",
-    "Task",
-    "TaskStatus",
-    "TaskProtocol",
-    "StarterStopperMixin",
-    "JSONConfigMixin",
-    "Client",
-    "TaskStatusDetails",
-]
+import warnings
+
+warnings.warn(
+    "synnax.hardware.task is deprecated and will be removed in a future version. "
+    "Use synnax.task instead.",
+    FutureWarning,
+    stacklevel=2,
+)
+
+from synnax.task import *
+from synnax.task import __all__
