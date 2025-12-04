@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -29,6 +30,7 @@ type Provider struct {
 	auth     authProvider
 	cluster  clusterProvider
 	ontology ontologyProvider
+	status   statusProvider
 }
 
 func NewProvider(cfg Config) Provider {
@@ -43,6 +45,7 @@ func NewProvider(cfg Config) Provider {
 		},
 		cluster:  clusterProvider{cluster: cfg.Distribution.Cluster},
 		ontology: ontologyProvider{ontology: cfg.Distribution.Ontology},
+		status:   statusProvider{status: cfg.Service.Status},
 	}
 }
 
@@ -60,3 +63,5 @@ type authProvider struct {
 type ontologyProvider struct{ ontology *ontology.Ontology }
 
 type clusterProvider struct{ cluster cluster.Cluster }
+
+type statusProvider struct{ status *status.Service }
