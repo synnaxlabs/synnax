@@ -22,7 +22,7 @@
 
 class SingleChannelAnalogWriteTest : public ::testing::Test {
 protected:
-    std::shared_ptr<synnax::Synnax> sy;
+    std::shared_ptr<synnax::Synnax> client;
     synnax::Task task;
     std::unique_ptr<ni::WriteTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
@@ -58,27 +58,27 @@ protected:
     );
 
     void parse_config() {
-        sy = std::make_shared<synnax::Synnax>(new_test_client());
+        client = std::make_shared<synnax::Synnax>(new_test_client());
 
-        auto idx_err = sy->channels.create(state_idx_ch);
+        auto idx_err = client->channels.create(state_idx_ch);
         ASSERT_FALSE(idx_err) << idx_err;
 
         state_ch_1.index = state_idx_ch.key;
         state_ch_2.index = state_idx_ch.key;
-        auto data_err = sy->channels.create(state_ch_1);
+        auto data_err = client->channels.create(state_ch_1);
         ASSERT_FALSE(data_err) << data_err;
-        data_err = sy->channels.create(state_ch_2);
+        data_err = client->channels.create(state_ch_2);
         ASSERT_FALSE(data_err) << data_err;
-        auto cmd_err = sy->channels.create(cmd_ch_1);
+        auto cmd_err = client->channels.create(cmd_ch_1);
         ASSERT_FALSE(cmd_err) << cmd_err;
-        cmd_err = sy->channels.create(cmd_ch_2);
+        cmd_err = client->channels.create(cmd_ch_2);
 
-        auto [rack, rack_err] = sy->hardware.create_rack("cat");
+        auto [rack, rack_err] = client->racks.create("cat");
         ASSERT_FALSE(rack_err) << rack_err;
 
         synnax::Device
             dev("abc123", "my_device", rack.key, "dev1", "ni", "PXI-6255", "");
-        auto dev_err = sy->hardware.create_device(dev);
+        auto dev_err = client->devices.create(dev);
         ASSERT_FALSE(dev_err) << dev_err;
 
         task = synnax::Task(rack.key, "my_task", "ni_analog_write", "");
@@ -116,10 +116,10 @@ protected:
         };
 
         auto p = xjson::Parser(j);
-        cfg = std::make_unique<ni::WriteTaskConfig>(sy, p);
+        cfg = std::make_unique<ni::WriteTaskConfig>(client, p);
         ASSERT_FALSE(p.error()) << p.error();
 
-        ctx = std::make_shared<task::MockContext>(sy);
+        ctx = std::make_shared<task::MockContext>(client);
         mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     }
 
@@ -154,9 +154,10 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     );
 
     wt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    const auto first_state = ctx->states[0];
-    EXPECT_EQ(first_state.key, "start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto first_state = ctx->statuses[0];
+    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
@@ -165,9 +166,10 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 6);
 
     wt->stop("stop_cmd", true);
-    ASSERT_EQ(ctx->states.size(), 2);
-    const auto second_state = ctx->states[1];
-    EXPECT_EQ(second_state.key, "stop_cmd");
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto second_state = ctx->statuses[1];
+    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
     ASSERT_EQ(second_state.message, "Task stopped successfully");
@@ -192,8 +194,8 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
 /// @brief Test that an invalid channel type in the configuration is properly detected
 /// and reported
 TEST(WriteTaskConfigTest, testInvalidChannelType) {
-    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     // Create a device
     auto dev = synnax::Device(
@@ -205,22 +207,24 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
         "PXI-6255",
         ""
     );
-    ASSERT_NIL(sy->hardware.create_device(dev));
+    ASSERT_NIL(client->devices.create(dev));
 
     // Create state and command channels
     auto state_idx_ch = ASSERT_NIL_P(
-        sy->channels
+        client->channels
             .create(make_unique_channel_name("state_idx"), telem::TIMESTAMP_T, 0, true)
     );
-    auto state_ch = ASSERT_NIL_P(sy->channels.create(
+    auto state_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("state_ch"),
         telem::FLOAT64_T,
         state_idx_ch.key,
         false
     ));
-    auto cmd_ch = ASSERT_NIL_P(
-        sy->channels.create(make_unique_channel_name("cmd_ch"), telem::FLOAT64_T, true)
-    );
+    auto cmd_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("cmd_ch"),
+        telem::FLOAT64_T,
+        true
+    ));
 
     // Create a configuration with an invalid channel type
     json j{
@@ -243,7 +247,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
     };
 
     auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<ni::WriteTaskConfig>(sy, p);
+    auto cfg = std::make_unique<ni::WriteTaskConfig>(client, p);
 
     ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }
