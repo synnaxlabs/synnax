@@ -56,11 +56,11 @@ type (
 
 func ParseID(s string) (ID, error) { return resource.ParseID(s) }
 
-func ParseIDs(s []string) ([]ID, error) { return core.ParseIDs(s) }
+func ParseIDs(s []string) ([]ID, error) { return resource.ParseIDs(s) }
 
-func IDs(resources []Resource) []ID { return core.IDs(resources) }
+func IDs(resources []Resource) []ID { return resource.IDs(resources) }
 
-func IDsToString(ids []ID) []string { return core.IDsToString(ids) }
+func IDsToString(ids []ID) []string { return resource.IDsToString(ids) }
 
 // NewResource creates a new entity with the given schema and name and an empty set of
 // field data. NewResource panics if the provided data value does not fit the ontology

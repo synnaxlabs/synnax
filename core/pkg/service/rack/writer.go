@@ -94,6 +94,6 @@ func (w Writer) DeleteGuard(ctx context.Context, key Key, guard gorp.GuardFunc[K
 }
 
 // NewTaskKey returns a new, unique key for the task on the provided rack.
-func (w Writer) NewTaskKey(ctx context.Context, key Key) (next uint32, err error) {
+func (w Writer) NewTaskKey(ctx context.Context, key Key) (uint32, error) {
 	return w.newTaskKey(ctx, key)
 }
