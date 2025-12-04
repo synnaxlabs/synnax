@@ -11,6 +11,7 @@
 
 #include <string>
 
+#include "client/cpp/ontology/id.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
 
@@ -116,7 +117,25 @@ map_channel_Keys(const std::vector<Channel> &channels) {
     return map;
 }
 
-/// @brief ChannelClient for creating and retrieving channels from Synnax.
+/// @brief Converts a channel key to an ontology ID.
+/// @param key The channel key.
+/// @returns An ontology ID with type "channel" and the given key.
+inline ontology::ID ontology_id(ChannelKey key) {
+    return ontology::ID("channel", std::to_string(key));
+}
+
+/// @brief Converts a vector of channel keys to a vector of ontology IDs.
+/// @param keys The channel keys.
+/// @returns A vector of ontology IDs.
+inline std::vector<ontology::ID> ontology_ids(const std::vector<ChannelKey> &keys) {
+    std::vector<ontology::ID> ids;
+    ids.reserve(keys.size());
+    for (const auto &key: keys)
+        ids.push_back(ontology_id(key));
+    return ids;
+}
+
+/// @brief ChannelClient for creating and retrieving channels from the Synnax Core.
 class ChannelClient {
 public:
     ChannelClient() = default;

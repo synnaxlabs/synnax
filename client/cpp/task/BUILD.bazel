@@ -1,0 +1,29 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
+cc_library(
+    name = "task",
+    srcs = ["task.cpp"],
+    hdrs = ["task.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/errors",
+        "//client/cpp/ontology",
+        "//core/pkg/api/grpc/v1:api_grpc",
+        "//freighter/cpp:freighter",
+        "//x/cpp/status",
+        "//x/cpp/xjson",
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_test(
+    name = "task_test",
+    srcs = ["task_test.cpp"],
+    deps = [
+        ":task",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

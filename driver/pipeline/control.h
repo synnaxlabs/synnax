@@ -83,7 +83,6 @@ public:
     virtual ~StreamerFactory() = default;
 };
 
-
 /// @brief an implementation of the pipeline::Streamer interface that is backed by a
 /// Synnax streamer that receives data from the Core.
 class SynnaxStreamer final : public Streamer {

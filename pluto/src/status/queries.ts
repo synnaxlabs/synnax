@@ -169,7 +169,7 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
           client,
         });
         onChange(
-          state.skipNull((p) => ({
+          state.skipUndefined((p) => ({
             ...p,
             labels: array.upsertKeyed(p.labels, l),
           })),
@@ -181,7 +181,7 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
         const isLabelChange = Label.matchRelationship(rel, otgID);
         if (!isLabelChange) return;
         onChange(
-          state.skipNull((p) => ({
+          state.skipUndefined((p) => ({
             ...p,
             labels: array.removeKeyed(p.labels, rel.to.key),
           })),
@@ -228,7 +228,7 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
             client,
           });
           onChange(
-            state.skipNull((prev) =>
+            state.skipUndefined((prev) =>
               prev.map((s) => {
                 if (s.key !== key) return s;
                 return {
@@ -246,7 +246,7 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
           const isLabelChange = Label.matchRelationship(rel, status.ontologyID(key));
           if (!isLabelChange) return;
           onChange(
-            state.skipNull((prev) =>
+            state.skipUndefined((prev) =>
               prev.map((s) => {
                 if (s.key !== key) return s;
                 return {

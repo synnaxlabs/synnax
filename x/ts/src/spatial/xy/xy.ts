@@ -10,8 +10,10 @@
 import { z } from "zod";
 
 import {
+  type AngularDirection,
   type ClientXY,
   clientXY,
+  type CrudeDirection,
   dimensions,
   type Direction,
   type NumberCouple,
@@ -20,6 +22,7 @@ import {
   type XY,
   xy,
 } from "@/spatial/base";
+import { direction as dir } from "@/spatial/direction";
 import { type location } from "@/spatial/location";
 
 export { type ClientXY as Client, clientXY, type XY, xy };
@@ -139,9 +142,10 @@ export const translate: Translate = (a, b, v, ...cb): XY => {
  * @returns the given coordinate the given direction set to the given value.
  * @example set({ x: 1, y: 2 }, "x", 3) // { x: 3, y: 2 }
  */
-export const set = (c: Crude, direction: Direction, value: number): XY => {
+export const set = (c: Crude, direction: CrudeDirection, value: number): XY => {
   const xy = construct(c);
-  if (direction === "x") return { x: value, y: xy.y };
+  const d = dir.construct(direction);
+  if (d === "x") return { x: value, y: xy.y };
   return { x: xy.x, y: value };
 };
 
@@ -327,4 +331,25 @@ export const round = (a: Crude): XY => {
 export const reciprocal = (a: Crude): XY => {
   const xy = construct(a);
   return { x: 1 / xy.x, y: 1 / xy.y };
+};
+
+/**
+ * Rotates a point 90 degrees around a center point.
+ * @param point - The point to rotate.
+ * @param center - The center point to rotate around.
+ * @param dir - The direction to rotate (clockwise or counterclockwise).
+ * @returns The rotated point.
+ */
+export const rotate = (point: Crude, center: Crude, dir: AngularDirection): XY => {
+  const p = construct(point);
+  const c = construct(center);
+  const angle = dir === "clockwise" ? Math.PI / 2 : -Math.PI / 2;
+  const relativeX = p.x - c.x;
+  const relativeY = p.y - c.y;
+  const rotatedX = relativeX * Math.cos(angle) - relativeY * Math.sin(angle);
+  const rotatedY = relativeX * Math.sin(angle) + relativeY * Math.cos(angle);
+  return {
+    x: rotatedX + c.x,
+    y: rotatedY + c.y,
+  };
 };

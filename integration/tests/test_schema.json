@@ -23,6 +23,12 @@
             "description": "Execution order for tests in this sequence",
             "default": "sequential"
           },
+          "pool_size": {
+            "type": "integer",
+            "description": "Maximum number of concurrent tests when sequence_order is 'asynchronous'. If not specified or -1, all tests run concurrently.",
+            "minimum": 2,
+            "default": -1
+          },
           "tests": {
             "type": "array",
             "items": {

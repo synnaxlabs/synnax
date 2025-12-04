@@ -34,12 +34,19 @@ export const executeSetter = <
   prev: PrevState,
 ): NextState => (isSetter(setter) ? setter(prev) : setter);
 
-export const skipNull =
+export const skipUndefined =
   <NextState extends State, PrevState extends State = NextState>(
     f: SetFunc<NextState, PrevState>,
   ): SetFunc<NextState | undefined, PrevState | undefined> =>
   (v) =>
     v == null ? undefined : f(v);
+
+export const skipNull =
+  <NextState extends State, PrevState extends State = NextState>(
+    f: SetFunc<NextState, PrevState>,
+  ): SetFunc<NextState | null, PrevState | null> =>
+  (v) =>
+    v == null ? null : f(v);
 
 export const executeInitialSetter = <InitialState extends State>(
   setter: Initial<InitialState>,
