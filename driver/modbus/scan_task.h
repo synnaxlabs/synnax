@@ -16,10 +16,12 @@
 #include "x/cpp/xjson/xjson.h"
 
 #include "driver/modbus/device/device.h"
+#include "driver/modbus/modbus.h"
 #include "driver/task/common/status.h"
 #include "driver/task/task.h"
 
 namespace modbus {
+const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
 /// @brief arguments for scanning a Modbus server on the network.
@@ -46,9 +48,10 @@ class ScanTask final : public task::Task {
         xjson::Parser parser(cmd.args);
         const ScanCommandArgs args(parser);
         synnax::TaskStatus status;
-        status.key = cmd.key;
+        status.key = task.status_key();
         status.details.task = task.key;
         status.details.running = true;
+        status.details.cmd = cmd.key;
         x::defer set_state([&] { this->ctx->set_status(status); });
         if (!parser.ok()) {
             status.details.data = parser.error_json();
@@ -59,7 +62,7 @@ class ScanTask final : public task::Task {
             status.variant = "error";
             status.message = err.data;
         } else {
-            status.variant = "success";
+            status.variant = status::variant::SUCCESS;
             status.message = "Connection successful";
         }
     }
@@ -73,18 +76,6 @@ public:
         ctx(context), task(std::move(task)), devices(devices) {}
 
     void exec(task::Command &cmd) override {
-        if (cmd.type == common::START_CMD_TYPE) {
-            ctx->set_status(
-                {.key = cmd.key,
-                 .variant = status::variant::SUCCESS,
-                 .message = "Modbus scanner ready",
-                 .details = synnax::TaskStatusDetails{
-                     .task = task.key,
-                     .running = true
-                 }}
-            );
-            return;
-        }
         if (cmd.type == TEST_CONNECTION_CMD_TYPE) this->test_connection(cmd);
     }
 

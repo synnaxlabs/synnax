@@ -208,7 +208,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDelete = useDelete(props);
 
   const canCreate = Access.useCreateGranted(channel.ontologyID(0));
-  const canDelete = Access.useDeleteGranted(ids.map((id) => channel.ontologyID(Number(id.key))));
+  const canDelete = Access.useDeleteGranted(
+    ids.map((id) => channel.ontologyID(Number(id.key))),
+  );
   const handleRename = useRename(props);
 
   const handleLink = Cluster.useCopyLinkToClipboard();

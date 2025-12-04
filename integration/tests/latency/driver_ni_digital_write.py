@@ -49,7 +49,7 @@ class DriverNIDigitalWrite(Latency):
 
         self.log("Searching for NI DO device: SYMod1")
         # Sim device must be set up in NI MAX
-        dev = client.hardware.devices.retrieve(location="SYMod1")
+        dev = client.devices.retrieve(location="SYMod1")
         self.log(f"Found NI DO device: {dev.location}")
 
         self.log("Creating Channels")
@@ -100,7 +100,7 @@ class DriverNIDigitalWrite(Latency):
                 ),
             ],
         )
-        tsk = client.hardware.tasks.configure(tsk)
+        tsk = client.tasks.configure(tsk)
 
         # Run NI DO Task
         self.log("Running NI DO Task")

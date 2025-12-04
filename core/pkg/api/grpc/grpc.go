@@ -26,14 +26,14 @@ func New(channelSvc *channel.Service) (api.Transport, []fgrpc.BindableTransport)
 		newConnectivity(&a),
 		newAuth(&a),
 		newRanger(&a),
-		newHardware(&a),
+		newRack(&a),
+		newTask(&a),
+		newDevice(&a),
+		newStatus(&a),
 	}
 
 	// AUTH
 	a.AuthChangePassword = fnoop.UnaryServer[api.AuthChangePasswordRequest, types.Nil]{}
-
-	// HARDWARE
-	a.HardwareCopyTask = fnoop.UnaryServer[api.HardwareCopyTaskRequest, api.HardwareCopyTaskResponse]{}
 
 	// CHANNEL
 	a.ChannelRename = fnoop.UnaryServer[api.ChannelRenameRequest, types.Nil]{}
@@ -120,11 +120,6 @@ func New(channelSvc *channel.Service) (api.Transport, []fgrpc.BindableTransport)
 	a.AccessRetrieveRole = fnoop.UnaryServer[api.AccessRetrieveRoleRequest, api.AccessRetrieveRoleResponse]{}
 	a.AccessAssignRole = fnoop.UnaryServer[api.AccessAssignRoleRequest, types.Nil]{}
 	a.AccessUnassignRole = fnoop.UnaryServer[api.AccessUnassignRoleRequest, types.Nil]{}
-
-	// STATUS
-	a.StatusSet = fnoop.UnaryServer[api.StatusSetRequest, api.StatusSetResponse]{}
-	a.StatusRetrieve = fnoop.UnaryServer[api.StatusRetrieveRequest, api.StatusRetrieveResponse]{}
-	a.StatusDelete = fnoop.UnaryServer[api.StatusDeleteRequest, types.Nil]{}
 
 	// arc
 	a.ArcCreate = fnoop.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse]{}

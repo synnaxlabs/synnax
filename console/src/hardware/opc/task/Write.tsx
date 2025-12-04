@@ -122,7 +122,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties, Device.Make>({
+  const dev = await client.devices.retrieve<Device.Properties, Device.Make>({
     key: config.device,
   });
   dev.properties = Device.migrateProperties(dev.properties);
@@ -169,7 +169,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     ...c,
     cmdChannel: getChannelByNodeID(dev.properties, c.nodeId),
   }));
-  await client.hardware.devices.create(dev);
+  await client.devices.create(dev);
   return [config, dev.rack];
 };
 

@@ -24,7 +24,8 @@ const CREATE_COMMAND: Palette.Command = {
       if (layout != null) placeLayout(layout);
     }, "Failed to create a control sequence");
   },
-  visible: ({ store, client }) => Access.editGranted({ id: task.ontologyID(""), store, client }),
+  visible: ({ store, client }) =>
+    Access.editGranted({ id: task.ontologyID(""), store, client }),
 };
 
 const IMPORT_COMMAND: Palette.Command = {
@@ -33,7 +34,8 @@ const IMPORT_COMMAND: Palette.Command = {
   icon: <Icon.Control />,
   sortOrder: -1,
   onSelect: import_,
-  visible: ({ store, client }) => Access.editGranted({ id: task.ontologyID(""), store, client }),
+  visible: ({ store, client }) =>
+    Access.editGranted({ id: task.ontologyID(""), store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

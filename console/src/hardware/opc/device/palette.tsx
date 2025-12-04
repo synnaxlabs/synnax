@@ -18,7 +18,8 @@ const CONNECT_SERVER_COMMAND: Palette.Command = {
   name: "Connect an OPC UA Server",
   icon: <Icon.Logo.OPC />,
   onSelect: ({ placeLayout }) => placeLayout(CONNECT_LAYOUT),
-  visible: ({ store, client }) => Access.editGranted({ id: device.ontologyID(""), store, client }),
+  visible: ({ store, client }) =>
+    Access.editGranted({ id: device.ontologyID(""), store, client }),
 };
 
 export const COMMANDS: Palette.Command[] = [CONNECT_SERVER_COMMAND];

@@ -29,7 +29,10 @@ export const useSyncLayout = (): void => {
       const s = store.getState();
       const key = selectActiveKey(s);
       if (key == null) return false;
-      if (!Access.editGranted({ id: workspace.ontologyID(key), store: fluxStore, client })) return false;
+      if (
+        !Access.editGranted({ id: workspace.ontologyID(key), store: fluxStore, client })
+      )
+        return false;
       const layoutSlice = Layout.selectSliceState(s);
       if (deep.equal(prevSyncRef.current, layoutSlice)) return false;
       prevSyncRef.current = layoutSlice;

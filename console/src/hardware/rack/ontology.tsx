@@ -8,7 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { rack } from "@synnaxlabs/client";
-import { Access, Icon, Menu as PMenu, Rack, Status, Text, Tree } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Icon,
+  Menu as PMenu,
+  Rack,
+  Status,
+  Text,
+  Tree,
+} from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 import { Menu } from "@/components";
@@ -72,7 +80,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { shape },
   } = props;
   const { ids, rootID } = selection;
-  const ontologyIDs = useMemo(() => ids.map((id) => rack.ontologyID(Number(id.key))), [ids]);
+  const ontologyIDs = useMemo(
+    () => ids.map((id) => rack.ontologyID(Number(id.key))),
+    [ids],
+  );
   const canEdit = Access.useEditGranted(ontologyIDs);
   const canDelete = Access.useDeleteGranted(ontologyIDs);
   const handleDelete = useDelete(props);

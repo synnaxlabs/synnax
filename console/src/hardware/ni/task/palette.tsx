@@ -121,7 +121,7 @@ const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
   onSelect: ({ client, addStatus, handleError }) => {
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
-      const scanTasks = await client.hardware.tasks.retrieve({
+      const scanTasks = await client.tasks.retrieve({
         types: [SCAN_TYPE],
         schemas: SCAN_SCHEMAS,
       });
@@ -130,7 +130,7 @@ const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
       const { config, payload } = scanTasks[0];
       const {
         config: { enabled },
-      } = await client.hardware.tasks.create(
+      } = await client.tasks.create(
         {
           ...payload,
           config: { ...config, enabled: !config.enabled },

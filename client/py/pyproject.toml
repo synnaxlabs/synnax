@@ -75,6 +75,7 @@ markers = [
     "role: mark test as a role test",
     "sequence: mark test as a sequence test",
     "series: mark test as a series test",
+    "status: mark test as a status test",
     "task: mark test as a task test",
     "tdms: mark test as a tdms test",
     "telem: mark test as a telem test",

@@ -61,11 +61,11 @@ export class Client {
   }
 
   async retrieveUser(): Promise<user.User> {
-    if (this.authState.authenticated) return this.authState.user;
-    await this.authenticating;
-    if (!this.authState.authenticated)
+    if (!this.authState.authenticated) await this.authenticating;
+    const { authState } = this;
+    if (!authState.authenticated)
       throw new Error("Authentication failed: user not available");
-    return this.authState.user;
+    return authState.user;
   }
 
   async changePassword(newPassword: string): Promise<void> {
@@ -97,9 +97,12 @@ export class Client {
             )
             .then(([res, err]) => {
               if (err != null) return resolve(err);
-              this.token = res?.token;
-              this.user = res?.user;
-              this.authenticated = true;
+              if (res == null) return resolve(new Error("No response from login"));
+              this.authState = {
+                authenticated: true,
+                user: res.user,
+                token: res.token,
+              };
               resolve(null);
             })
             .catch(reject);
@@ -110,7 +113,7 @@ export class Client {
       reqCtx.params.Authorization = `Bearer ${this.token}`;
       const [resCtx, err] = await next(reqCtx);
       if (RETRY_ON.some((e) => e.matches(err)) && this.retryCount < MAX_RETRIES) {
-        this.authenticated = false;
+        this.authState = { authenticated: false };
         this.authenticating = undefined;
         this.retryCount += 1;
         return mw(reqCtx, next);

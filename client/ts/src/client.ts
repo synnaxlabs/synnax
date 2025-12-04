@@ -16,16 +16,15 @@ import { auth } from "@/auth";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
+import { device } from "@/device";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
-import { hardware } from "@/hardware";
-import { device } from "@/hardware/device";
-import { rack } from "@/hardware/rack";
-import { task } from "@/hardware/task";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
+import { rack } from "@/rack";
 import { ranger } from "@/ranger";
 import { status } from "@/status";
+import { task } from "@/task";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 import { workspace } from "@/workspace";
@@ -67,7 +66,9 @@ export default class Synnax extends framer.Client {
   readonly workspaces: workspace.Client;
   readonly labels: label.Client;
   readonly statuses: status.Client;
-  readonly hardware: hardware.Client;
+  readonly tasks: task.Client;
+  readonly racks: rack.Client;
+  readonly devices: device.Client;
   readonly control: control.Client;
   readonly arcs: arc.Client;
   static readonly connectivity = connection.Checker;
@@ -143,15 +144,14 @@ export default class Synnax extends framer.Client {
     this.access = new access.Client(this.transport.unary);
     this.users = new user.Client(this.transport.unary);
     this.workspaces = new workspace.Client(this.transport.unary);
-    const devices = new device.Client(this.transport.unary);
-    const tasks = new task.Client(
+    this.tasks = new task.Client(
       this.transport.unary,
       this,
       this.ontology,
       this.ranges,
     );
-    const racks = new rack.Client(this.transport.unary, tasks);
-    this.hardware = new hardware.Client(tasks, racks, devices);
+    this.racks = new rack.Client(this.transport.unary, this.tasks);
+    this.devices = new device.Client(this.transport.unary);
     this.arcs = new arc.Client(this.transport.unary, this.transport.stream);
   }
 

@@ -18,7 +18,8 @@ const CREATE_COMMAND: Palette.Command = {
   name: "Create a Channel",
   key: "create-channel",
   onSelect: ({ placeLayout }) => placeLayout(Channel.CREATE_LAYOUT),
-  visible: ({ store, client }) => Access.createGranted({ id: channel.ontologyID(0), store, client }),
+  visible: ({ store, client }) =>
+    Access.createGranted({ id: channel.ontologyID(0), store, client }),
 };
 
 const CREATE_CALCULATED_COMMAND: Palette.Command = {
@@ -26,7 +27,8 @@ const CREATE_CALCULATED_COMMAND: Palette.Command = {
   name: "Create a Calculated Channel",
   key: "create-calculated-channel",
   onSelect: ({ placeLayout }) => placeLayout(Channel.CALCULATED_LAYOUT),
-  visible: ({ store, client }) => Access.createGranted({ id: channel.ontologyID(0), store, client }),
+  visible: ({ store, client }) =>
+    Access.createGranted({ id: channel.ontologyID(0), store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, CREATE_CALCULATED_COMMAND];

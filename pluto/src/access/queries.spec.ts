@@ -324,8 +324,7 @@ describe("Access Queries", () => {
         actions: ["retrieve"],
       });
       const { result } = renderHook(
-        () =>
-          Access.useViewGranted([ranger.ontologyID(""), channel.ontologyID(0)]),
+        () => Access.useViewGranted([ranger.ontologyID(""), channel.ontologyID(0)]),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
