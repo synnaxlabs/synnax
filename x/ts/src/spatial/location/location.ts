@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
 import {
+  type AngularDirection,
   CENTER_LOCATIONS,
   type CenterLocation,
   centerLocation,
@@ -58,12 +59,11 @@ const SWAPPED: Record<Location, Location> = {
   center: "center",
 };
 
-const ROTATE_90: Record<Location, Location> = {
-  top: "left",
-  right: "top",
-  bottom: "right",
-  left: "bottom",
-  center: "center",
+const ROTATIONS: Record<Outer, Record<AngularDirection, Outer>> = {
+  top: { clockwise: "left", counterclockwise: "right" },
+  right: { clockwise: "top", counterclockwise: "bottom" },
+  bottom: { clockwise: "right", counterclockwise: "left" },
+  left: { clockwise: "bottom", counterclockwise: "top" },
 };
 
 export const crude = crudeLocation;
@@ -79,7 +79,7 @@ export const construct = (cl: Crude): Location => {
 
 export const swap = (cl: Crude): Location => SWAPPED[construct(cl)];
 
-export const rotate90 = (cl: Crude): Location => ROTATE_90[construct(cl)];
+export const rotate = (loc: Outer, dir: AngularDirection): Outer => ROTATIONS[loc][dir];
 
 export const direction = (cl: Crude): Direction => {
   const l = construct(cl);

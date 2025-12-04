@@ -12,18 +12,6 @@ import json
 import pytest
 
 import synnax as sy
-from synnax import ValidationError
-from synnax.hardware import ni
-from synnax.hardware.ni import (
-    MAKE,
-    AIVoltageChan,
-    AnalogReadTask,
-    AnalogReadTaskConfig,
-    AnalogWriteConfig,
-    CounterReadConfig,
-    DigitalReadConfig,
-    DigitalWriteConfig,
-)
 
 
 @pytest.mark.ni
@@ -371,15 +359,15 @@ class TestNITask:
             ],
             "data_saving": True,
         }
-        AnalogReadTaskConfig.model_validate(data)
+        sy.ni.AnalogReadTaskConfig.model_validate(data)
 
     def test_parse_analog_read_task_default_device_none_provided(self):
-        with pytest.raises(ValidationError):
-            AnalogReadTask(
+        with pytest.raises(sy.ValidationError):
+            sy.ni.AnalogReadTask(
                 sample_rate=10,
                 stream_rate=5,
                 channels=[
-                    AIVoltageChan(
+                    sy.ni.AIVoltageChan(
                         key="k09AWoiyLxN",
                         terminal_config="Cfg_Default",
                         channel=1048582,
@@ -393,12 +381,12 @@ class TestNITask:
             )
 
     def test_parse_analog_read_task_default_device_provided(self):
-        AnalogReadTask(
+        sy.ni.AnalogReadTask(
             device="474503CF-49FD-11EF-80E5-91C59E7C9645",
             sample_rate=10,
             stream_rate=5,
             channels=[
-                AIVoltageChan(
+                sy.ni.AIVoltageChan(
                     key="k09AWoiyLxN",
                     terminal_config="Cfg_Default",
                     channel=1048582,
@@ -433,7 +421,7 @@ class TestNITask:
             "data_saving": True,
             "auto_start": False,
         }
-        AnalogWriteConfig.model_validate(data)
+        sy.ni.AnalogWriteConfig.model_validate(data)
 
     def test_parse_counter_read_task(self):
         data = {
@@ -460,7 +448,7 @@ class TestNITask:
             "data_saving": True,
             "auto_start": False,
         }
-        CounterReadConfig.model_validate(data)
+        sy.ni.CounterReadConfig.model_validate(data)
 
     def test_parse_counter_read_linear_velocity_task(self):
         data = {
@@ -487,7 +475,7 @@ class TestNITask:
             "data_saving": True,
             "auto_start": False,
         }
-        CounterReadConfig.model_validate(data)
+        sy.ni.CounterReadConfig.model_validate(data)
 
     def test_parse_counter_read_angular_velocity_task(self):
         data = {
@@ -514,7 +502,7 @@ class TestNITask:
             "data_saving": True,
             "auto_start": False,
         }
-        CounterReadConfig.model_validate(data)
+        sy.ni.CounterReadConfig.model_validate(data)
 
     def test_parse_counter_read_linear_position_task(self):
         data = {
@@ -544,7 +532,7 @@ class TestNITask:
             "data_saving": True,
             "auto_start": False,
         }
-        CounterReadConfig.model_validate(data)
+        sy.ni.CounterReadConfig.model_validate(data)
 
     def test_parse_counter_read_angular_position_task(self):
         data = {
@@ -574,7 +562,7 @@ class TestNITask:
             "data_saving": True,
             "auto_start": False,
         }
-        CounterReadConfig.model_validate(data)
+        sy.ni.CounterReadConfig.model_validate(data)
 
     def test_parse_counter_read_duty_cycle_task(self):
         data = {
@@ -597,7 +585,7 @@ class TestNITask:
             "data_saving": True,
             "auto_start": False,
         }
-        CounterReadConfig.model_validate(data)
+        sy.ni.CounterReadConfig.model_validate(data)
 
     def test_parse_digital_read_task(self):
         data = {
@@ -617,7 +605,7 @@ class TestNITask:
             "data_saving": True,
             "auto_start": False,
         }
-        DigitalReadConfig.model_validate(data)
+        sy.ni.DigitalReadConfig.model_validate(data)
 
     def test_parse_digital_write_task(self):
         data = {
@@ -637,7 +625,7 @@ class TestNITask:
             "data_saving": True,
             "auto_start": True,
         }
-        DigitalWriteConfig.model_validate(data)
+        sy.ni.DigitalWriteConfig.model_validate(data)
 
 
 @pytest.mark.ni
@@ -646,7 +634,7 @@ class TestNIDeviceHelpers:
 
     def test_device_creates_correct_structure(self):
         """Test that Device class creates the expected properties."""
-        device = ni.Device(
+        device = sy.ni.Device(
             identifier="test_device_01",
             name="Test Device",
             model="NI 9205",
@@ -670,7 +658,7 @@ class TestNIDeviceHelpers:
         ]
 
         for identifier in test_cases:
-            device = ni.Device(
+            device = sy.ni.Device(
                 identifier=identifier,
                 name="Test",
                 model="NI 9205",
@@ -682,9 +670,9 @@ class TestNIDeviceHelpers:
 
     def test_device_sets_make(self, client: sy.Synnax):
         """Test that Device class automatically sets make to 'NI'."""
-        rack = client.hardware.racks.retrieve_embedded_rack()
+        rack = client.racks.retrieve_embedded_rack()
 
-        device = ni.Device(
+        device = sy.ni.Device(
             identifier="dev_mod1",
             name="Test NI Device",
             model="NI 9205",
@@ -692,9 +680,9 @@ class TestNIDeviceHelpers:
             rack=rack.key,
         )
 
-        created_device = client.hardware.devices.create(device)
+        created_device = client.devices.create(device)
 
-        assert created_device.make == MAKE
+        assert created_device.make == sy.ni.MAKE
         assert created_device.make == "NI"
         assert created_device.name == "Test NI Device"
         assert created_device.model == "NI 9205"
@@ -702,9 +690,9 @@ class TestNIDeviceHelpers:
 
     def test_device_auto_generates_key(self, client: sy.Synnax):
         """Test that Device class auto-generates a UUID key if not provided."""
-        rack = client.hardware.racks.retrieve_embedded_rack()
+        rack = client.racks.retrieve_embedded_rack()
 
-        device = ni.Device(
+        device = sy.ni.Device(
             identifier="dev_mod2",
             name="Test NI Device Auto Key",
             model="NI 9205",
@@ -712,7 +700,7 @@ class TestNIDeviceHelpers:
             rack=rack.key,
         )
 
-        created_device = client.hardware.devices.create(device)
+        created_device = client.devices.create(device)
 
         assert created_device.key is not None
         assert len(created_device.key) > 0
@@ -721,10 +709,10 @@ class TestNIDeviceHelpers:
 
     def test_device_with_explicit_key(self, client: sy.Synnax):
         """Test that Device class accepts an explicit key."""
-        rack = client.hardware.racks.retrieve_embedded_rack()
+        rack = client.racks.retrieve_embedded_rack()
         explicit_key = "my-explicit-ni-key"
 
-        device = ni.Device(
+        device = sy.ni.Device(
             identifier="dev_mod3",
             key=explicit_key,
             name="Test NI Device Explicit Key",
@@ -733,16 +721,16 @@ class TestNIDeviceHelpers:
             rack=rack.key,
         )
 
-        created_device = client.hardware.devices.create(device)
+        created_device = client.devices.create(device)
 
         assert created_device.key == explicit_key
 
     def test_device_properties_parsing(self, client: sy.Synnax):
         """Test that device properties are correctly stored and retrieved."""
-        rack = client.hardware.racks.retrieve_embedded_rack()
+        rack = client.racks.retrieve_embedded_rack()
         test_identifier = "test_ni_module_01"
 
-        device = ni.Device(
+        device = sy.ni.Device(
             identifier=test_identifier,
             name="Test NI Props",
             model="NI 9205",
@@ -750,7 +738,7 @@ class TestNIDeviceHelpers:
             rack=rack.key,
         )
 
-        created_device = client.hardware.devices.create(device)
+        created_device = client.devices.create(device)
 
         # Retrieve and parse properties
         props = json.loads(created_device.properties)
@@ -759,9 +747,9 @@ class TestNIDeviceHelpers:
 
     def test_create_device_using_ni_module_directly(self, client: sy.Synnax):
         """Test that ni.Device works when imported via module."""
-        rack = client.hardware.racks.retrieve_embedded_rack()
+        rack = client.racks.retrieve_embedded_rack()
 
-        device = ni.Device(
+        device = sy.ni.Device(
             identifier="dev_mod5",
             name="Test via ni module",
             model="NI 9205",
@@ -769,14 +757,14 @@ class TestNIDeviceHelpers:
             rack=rack.key,
         )
 
-        created_device = client.hardware.devices.create(device)
+        created_device = client.devices.create(device)
 
         assert created_device.make == "NI"
         assert created_device.name == "Test via ni module"
 
     def test_device_has_properties_set(self):
         """Test that ni.Device sets properties correctly."""
-        device = ni.Device(
+        device = sy.ni.Device(
             identifier="test_id",
             name="Test Device",
             model="NI 9205",

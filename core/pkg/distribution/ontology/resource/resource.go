@@ -60,21 +60,27 @@ func (id ID) Validate() error {
 	return nil
 }
 
-// String returns a string representation of the Resource.
+// String returns a string representation of the ID in the format "type:key".
 func (id ID) String() string { return string(id.Type) + ":" + id.Key }
 
-// IsZero true if the ID is the zero value for its type.
+// IsZero returns true if the ID is the zero value (both Key and Type are empty).
 func (id ID) IsZero() bool { return id.Key == "" && id.Type == "" }
 
-// IsType returns true if the ID is a type ID.
+// IsType returns true if the ID represents a type identifier (has a Type but no Key).
+// Type IDs are used to identify resource types rather than specific resource instances.
 func (id ID) IsType() bool { return id.Type != "" && id.Key == "" }
 
 // ParseID parses the given string into an ID.
 func ParseID(s string) (ID, error) {
-	split := strings.Split(s, ":")
+	// We explicitly allow ontology id's that have multiple colons i.e.
+	// 'foo:bar:baz' will be parsed as ID{type: 'foo', Key: 'bar:baz'}
+	split := strings.SplitN(s, ":", 2)
 	if len(split) != 2 {
 		return ID{},
 			errors.Wrapf(validate.Error, "[ontology] - failed to parse id: %s", s)
+	}
+	if split[0] == "" {
+		return ID{}, errors.Wrapf(validate.Error, "[ontology] - failed to parse id: %s (empty type)", s)
 	}
 	return ID{Type: Type(split[0]), Key: split[1]}, nil
 }
@@ -92,7 +98,24 @@ func ParseIDs(s []string) ([]ID, error) {
 	return ids, nil
 }
 
-// Resource represents an instance matching a particular schema.
+// IDs extracts the IDs from a slice of Resources.
+func IDs(resources []Resource) []ID {
+	ids := make([]ID, 0, len(resources))
+	for _, r := range resources {
+		ids = append(ids, r.ID)
+	}
+	return ids
+}
+
+// IDsToString converts a slice of IDs to a slice of their string representations.
+func IDsToString(ids []ID) []string {
+	strings := make([]string, 0, len(ids))
+	for _, id := range ids {
+		strings = append(strings, id.String())
+	}
+	return strings
+}
+
 type Resource struct {
 	ID ID `json:"id" msgpack:"id"`
 	// Name is a human-readable name for the entity.
@@ -103,7 +126,10 @@ type Resource struct {
 	schema zyn.Schema
 }
 
-func (r Resource) Parse(dest any) error { return r.schema.Parse(r.Data, dest) }
+// Parse parses the Resource's Data field into the provided destination using the
+// resource's schema. Returns an error if the data does not match the schema or cannot
+// be parsed into the destination type.
+func (r Resource) Parse(dest any) error {	return r.schema.Parse(r.Data, dest)}
 
 type Change = change.Change[ID, Resource]
 

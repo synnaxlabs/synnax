@@ -11,15 +11,6 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
-from synnax.hardware.opcua import (
-    Channel,
-    ReadChannel,
-    ReadTask,
-    WrappedReadTaskConfig,
-    WriteChannel,
-    WriteTask,
-    WriteTaskConfig,
-)
 
 
 @pytest.mark.opcua
@@ -95,11 +86,11 @@ class TestOPCUATask:
     def test_parse_opcua_read_task(self, test_data):
         """Test that ReadTaskConfig can parse various configurations correctly."""
         input_data = test_data["data"]
-        WrappedReadTaskConfig(config=input_data)
+        sy.opcua.WrappedReadTaskConfig(config=input_data)
 
     def test_create_and_retrieve_task(self, client: sy.Synnax):
         """Test that ReadTask can be created and retrieved from the database."""
-        task = ReadTask(
+        task = sy.opcua.ReadTask(
             name="test-task",
             device="some-device-key",
             sample_rate=10,
@@ -107,19 +98,19 @@ class TestOPCUATask:
             array_mode=False,
             array_size=1,
             channels=[
-                ReadChannel(
+                sy.opcua.ReadChannel(
                     key="k09AWoiyLxN",
                     node_id="NS=2;I=8",
                     channel=1234,
                 )
             ],
         )
-        createdTask = client.hardware.tasks.create(
+        createdTask = client.tasks.create(
             name="test-task",
             type="opc_read",
             config=task.config.model_dump_json(),
         )
-        ReadTask(createdTask)
+        sy.opcua.ReadTask(createdTask)
 
 
 @pytest.mark.opcua
@@ -170,33 +161,33 @@ class TestOPCUAWriteTask:
     def test_parse_opcua_write_task(self, test_data):
         """Test that WriteTaskConfig can parse various configurations correctly."""
         input_data = test_data["data"]
-        WriteTaskConfig.model_validate(input_data)
+        sy.opcua.WriteTaskConfig.model_validate(input_data)
 
     def test_create_and_retrieve_write_task(self, client: sy.Synnax):
         """Test that WriteTask can be created and retrieved from the database."""
-        task = WriteTask(
+        task = sy.opcua.WriteTask(
             name="test-write-task",
             device="some-device-key",
             auto_start=True,
             channels=[
-                WriteChannel(
+                sy.opcua.WriteChannel(
                     key="k09AWoiyLxN",
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
                 )
             ],
         )
-        createdTask = client.hardware.tasks.create(
+        createdTask = client.tasks.create(
             name="test-write-task",
             type="opc_write",
             config=task.config.model_dump_json(),
         )
-        WriteTask(createdTask)
+        sy.opcua.WriteTask(createdTask)
 
     def test_write_task_empty_channels(self):
         """Test that empty channel list raises validation error."""
         with pytest.raises(ValidationError) as exc_info:
-            WriteTaskConfig(
+            sy.opcua.WriteTaskConfig(
                 device="some-device-key",
                 auto_start=True,
                 channels=[],
@@ -205,18 +196,18 @@ class TestOPCUAWriteTask:
 
     def test_write_task_disabled_channels(self, client: sy.Synnax):
         """Test that disabled channels are handled correctly."""
-        task = WriteTask(
+        task = sy.opcua.WriteTask(
             name="test-disabled-channels",
             device="some-device-key",
             auto_start=False,
             channels=[
-                WriteChannel(
+                sy.opcua.WriteChannel(
                     key="k09AWoiyLxN",
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
                     enabled=True,
                 ),
-                WriteChannel(
+                sy.opcua.WriteChannel(
                     key="k10BWoiyLxN",
                     node_id="ns=2;i=9",
                     cmd_channel=5678,
@@ -231,7 +222,7 @@ class TestOPCUAWriteTask:
 
     def test_write_channel_auto_key_generation(self):
         """Test that WriteChannel auto-generates a key if not provided."""
-        channel = WriteChannel(
+        channel = sy.opcua.WriteChannel(
             node_id="ns=2;i=8",
             cmd_channel=1234,
         )
@@ -240,18 +231,18 @@ class TestOPCUAWriteTask:
 
     def test_write_task_serialization_round_trip(self, client: sy.Synnax):
         """Test that task can be serialized and deserialized correctly."""
-        original_task = WriteTask(
+        original_task = sy.opcua.WriteTask(
             name="test-round-trip",
             device="some-device-key",
             auto_start=False,
             channels=[
-                WriteChannel(
+                sy.opcua.WriteChannel(
                     key="k09AWoiyLxN",
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
                     enabled=True,
                 ),
-                WriteChannel(
+                sy.opcua.WriteChannel(
                     key="k10BWoiyLxN",
                     node_id="ns=2;i=10",
                     cmd_channel=5678,
@@ -264,14 +255,14 @@ class TestOPCUAWriteTask:
         config_json = original_task.config.model_dump_json()
 
         # Create task in database
-        created_task = client.hardware.tasks.create(
+        created_task = client.tasks.create(
             name="test-round-trip",
             type="opc_write",
             config=config_json,
         )
 
         # Deserialize from database
-        retrieved_task = WriteTask(created_task)
+        retrieved_task = sy.opcua.WriteTask(created_task)
 
         # Verify all fields match
         assert retrieved_task.config.device == original_task.config.device
@@ -292,7 +283,7 @@ class TestOPCUAReadTaskDeprecation:
     def test_channel_deprecation_warning(self):
         """Test that using Channel emits a deprecation warning."""
         with pytest.warns(DeprecationWarning, match="opcua.Channel is deprecated"):
-            Channel(
+            sy.opcua.Channel(
                 key="test-key",
                 node_id="ns=2;i=8",
                 channel=1234,

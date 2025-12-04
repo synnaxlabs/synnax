@@ -261,7 +261,7 @@ class TestWriter:
         assert len(f2[data_2.key]) == 1
         assert len(f2[data_3.key]) == 1
 
-    def test_set_authority(self, client: sy.Synnax, indexed_pair: list[sy.channel]):
+    def test_set_authority(self, client: sy.Synnax, indexed_pair: list[sy.Channel]):
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
         w1 = client.open_writer(start=start, channels=indexed_pair, authorities=100)
@@ -293,7 +293,7 @@ class TestWriter:
             w2.close()
 
     def test_set_authority_by_name(
-        self, client: sy.Synnax, indexed_pair: list[sy.channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
@@ -326,7 +326,7 @@ class TestWriter:
             w2.close()
 
     def test_set_authority_by_name_value(
-        self, client: sy.Synnax, indexed_pair: list[sy.channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
@@ -362,7 +362,7 @@ class TestWriter:
     def test_writer_overlap_err(
         self,
         client: sy.Synnax,
-        indexed_pair: list[sy.channel],
+        indexed_pair: list[sy.Channel],
     ):
         idx_ch, data_ch = indexed_pair
         start = sy.TimeSpan.SECOND * 30
@@ -381,7 +381,7 @@ class TestWriter:
                 ...
 
     def test_set_authority_on_all_channels(
-        self, client: sy.Synnax, indexed_pair: list[sy.channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair

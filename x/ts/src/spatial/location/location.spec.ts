@@ -21,4 +21,20 @@ describe("Location", () => {
       test(name, () => expect(location.construct(arg)).toEqual("left")),
     );
   });
+
+  describe("rotate", () => {
+    test("should rotate clockwise", () => {
+      expect(location.rotate("top", "clockwise")).toEqual("left");
+      expect(location.rotate("left", "clockwise")).toEqual("bottom");
+      expect(location.rotate("bottom", "clockwise")).toEqual("right");
+      expect(location.rotate("right", "clockwise")).toEqual("top");
+    });
+
+    test("should rotate counterclockwise", () => {
+      expect(location.rotate("top", "counterclockwise")).toEqual("right");
+      expect(location.rotate("left", "counterclockwise")).toEqual("top");
+      expect(location.rotate("bottom", "counterclockwise")).toEqual("left");
+      expect(location.rotate("right", "counterclockwise")).toEqual("bottom");
+    });
+  });
 });

@@ -39,18 +39,18 @@ func NewStatusService(p Provider) *StatusService {
 }
 
 type Status struct {
-	status.Status
+	status.Status[any]
 	Labels []label.Label
 }
 
-func translateStatusesToService(statuses []Status) []status.Status {
-	return lo.Map(statuses, func(s Status, _ int) status.Status {
+func translateStatusesToService(statuses []Status) []status.Status[any] {
+	return lo.Map(statuses, func(s Status, _ int) status.Status[any] {
 		return s.Status
 	})
 }
 
-func translateStatusesFromService(statuses []status.Status) []Status {
-	return lo.Map(statuses, func(s status.Status, _ int) Status {
+func translateStatusesFromService(statuses []status.Status[any]) []Status {
+	return lo.Map(statuses, func(s status.Status[any], _ int) Status {
 		return Status{Status: s}
 	})
 
@@ -88,7 +88,7 @@ func (s *StatusService) Set(
 	// For status setting, we use Create action for new statuses
 	// and Update action for existing ones. Since Set can do both,
 	// we'll use Create permission.
-	if err := s.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.Create,
 		Objects: ids,
@@ -97,8 +97,11 @@ func (s *StatusService) Set(
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		translated := translateStatusesToService(req.Statuses)
-		err := s.internal.NewWriter(tx).SetManyWithParent(ctx, &translated, req.Parent)
-		if err != nil {
+		if err = s.internal.NewWriter(tx).SetManyWithParent(
+			ctx,
+			&translated,
+			req.Parent,
+		); err != nil {
 			return err
 		}
 		res.Statuses = translateStatusesFromService(translated)
@@ -132,7 +135,7 @@ func (s *StatusService) Retrieve(
 	req StatusRetrieveRequest,
 ) (res StatusRetrieveResponse, err error) {
 	q := s.internal.NewRetrieve()
-	resStatuses := make([]status.Status, 0, len(req.Keys))
+	resStatuses := make([]status.Status[any], 0, len(req.Keys))
 
 	if req.SearchTerm != "" {
 		q = q.Search(req.SearchTerm)
