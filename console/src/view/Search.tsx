@@ -11,10 +11,14 @@ import { Input, List } from "@synnaxlabs/pluto";
 import { plural } from "pluralize";
 import { type ReactElement, useCallback } from "react";
 
-import { useContext } from "@/view/context";
+import { type Request, useContext, type UseRequestReturn } from "@/view/context";
 
-export const Search = (): ReactElement => {
-  const { request, onRequestChange, resourceType } = useContext("Search");
+export interface SearchProps<R extends Request> extends UseRequestReturn<R> {}
+export const Search = <R extends Request>({
+  request,
+  onRequestChange,
+}: SearchProps<R>): ReactElement => {
+  const { resourceType } = useContext("Search");
 
   const handleSearch = useCallback(
     (searchTerm: string) => {

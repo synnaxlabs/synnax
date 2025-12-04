@@ -22,15 +22,18 @@ import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/css";
 import { Modals } from "@/modals";
-import { useContext } from "@/view/context";
+import { type Request, useContext } from "@/view/context";
 
-export interface ControlsProps {
+export interface ControlsProps<R extends Request> {
   onCreate: () => void;
+  request: R;
 }
 
-export const Controls = ({ onCreate }: ControlsProps): ReactElement => {
-  const { visible, editable, setEditable, resourceType, request } =
-    useContext("Controls");
+export const Controls = <R extends Request>({
+  onCreate,
+  request,
+}: ControlsProps<R>): ReactElement => {
+  const { visible, editable, setEditable, resourceType } = useContext("Controls");
   const { update: create } = PView.useCreate();
   const handleError = Status.useErrorHandler();
   const renameModal = Modals.useRename();

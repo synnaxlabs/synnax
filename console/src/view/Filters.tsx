@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Dialog, Icon } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type PropsWithChildren, type ReactNode } from "react";
 
 export interface FiltersProps extends PropsWithChildren {
   dialog?: boolean;
 }
 
-export const Filters = ({ children, dialog = false }: FiltersProps): ReactElement => {
+export const Filters = ({ children, dialog = false }: FiltersProps): ReactNode => {
   if (dialog)
     return (
       <Dialog.Frame>
@@ -31,6 +31,5 @@ export const Filters = ({ children, dialog = false }: FiltersProps): ReactElemen
         </Dialog.Dialog>
       </Dialog.Frame>
     );
-
-  return <>{children}</>;
+  return children;
 };

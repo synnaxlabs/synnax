@@ -7,19 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
 import { Flex, Icon, Label as PLabel, state, Tag, Text } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Label } from "@/label";
-import { View } from "@/view";
+import { type Request as ViewRequest, type UseRequestReturn } from "@/view/context";
 
-export const FilterContextMenu = (): ReactElement => {
-  const { request, onRequestChange } =
-    View.useContext<status.MultiRetrieveArgs>("FilterContextMenu");
+export interface Request extends ViewRequest {
+  hasLabels?: string[];
+}
 
-  const handleRequestChange = (setter: state.SetArg<status.MultiRetrieveArgs>) => {
+export interface FilterContextMenuProps<R extends Request>
+  extends UseRequestReturn<R> {}
+
+export const FilterContextMenu = <R extends Request>({
+  request,
+  onRequestChange,
+}: FilterContextMenuProps<R>): ReactElement => {
+  const handleRequestChange = (setter: state.SetArg<R>) => {
     onRequestChange((prev) => {
       const next = state.executeSetter(setter, prev);
       return { ...next, offset: 0, limit: 0 };
@@ -36,8 +42,12 @@ export const FilterContextMenu = (): ReactElement => {
   );
 };
 
-const HasLabelsFilter = (): ReactElement | null => {
-  const { request } = View.useContext<status.MultiRetrieveArgs>("HasLabelsFilter");
+export interface HasLabelsFilterProps<R extends Request>
+  extends Pick<UseRequestReturn<R>, "request"> {}
+
+const HasLabelsFilter = <R extends Request>({
+  request,
+}: HasLabelsFilterProps<R>): ReactElement | null => {
   const labels =
     PLabel.useRetrieveMultiple({ keys: request.hasLabels ?? [] }).data ?? [];
   if (request.hasLabels == null || request.hasLabels.length === 0) return null;
@@ -65,4 +75,9 @@ const HasLabelsFilter = (): ReactElement | null => {
   );
 };
 
-export const Filters = (): ReactElement | null => <HasLabelsFilter />;
+export interface FiltersProps<R extends Request>
+  extends Pick<UseRequestReturn<R>, "request"> {}
+
+export const Filters = <R extends Request>({
+  request,
+}: FiltersProps<R>): ReactElement | null => <HasLabelsFilter request={request} />;

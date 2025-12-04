@@ -19,18 +19,23 @@ import {
   useInactivity,
 } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useCallback, useState } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useState,
+} from "react";
 
 import { CSS } from "@/css";
-import { type ContextValue, Provider, type Request } from "@/view/context";
+import { Provider, type Request } from "@/view/context";
 
 export interface FrameProps<
   K extends record.Key,
   E extends record.Keyed<K>,
   R extends Request,
 > extends PropsWithChildren,
-    Pick<Flux.UseListReturn<R, K, E>, "data" | "getItem" | "subscribe" | "retrieve"> {
-  initialRequest: R;
+    Pick<Flux.UseListReturn<R, K, E>, "data" | "getItem" | "subscribe"> {
+  onRequestChange: (setter: state.SetArg<R>, opts?: Flux.AsyncListOptions) => void;
   resourceType: ontology.ResourceType;
 }
 
@@ -40,32 +45,19 @@ export const Frame = <
   R extends Request,
 >({
   children,
-  initialRequest,
+  onRequestChange,
   resourceType,
   data,
   getItem,
   subscribe,
-  retrieve,
 }: FrameProps<K, E, R>): ReactElement => {
-  const [request, setRequest] = useState<R>(initialRequest);
   const [selected, setSelected] = useState<K[]>([]);
   const [editable, setEditable] = useState(true);
   const { visible, ref } = useInactivity<HTMLDivElement>(500);
 
-  const handleRequestChange = useCallback(
-    (setter: state.SetArg<R>, opts?: Flux.AsyncListOptions) => {
-      if (typeof setter === "function")
-        retrieve((p) => setter({ ...request, ...p }), opts);
-      else retrieve(setter, opts);
-      setRequest(setter);
-    },
-    [retrieve, request],
-  );
-
   const handleFetchMore = useCallback(
-    () =>
-      handleRequestChange((p) => ({ ...p, ...List.page(p, 25) }), { mode: "append" }),
-    [handleRequestChange],
+    () => onRequestChange((p) => ({ ...p, ...List.page(p, 25) }), { mode: "append" }),
+    [onRequestChange],
   );
 
   return (
@@ -79,18 +71,7 @@ export const Frame = <
         value={selected}
         onFetchMore={handleFetchMore}
       >
-        <Provider
-          value={
-            {
-              request,
-              onRequestChange: handleRequestChange,
-              editable,
-              setEditable,
-              visible,
-              resourceType,
-            } as unknown as ContextValue
-          }
-        >
+        <Provider value={{ editable, setEditable, visible, resourceType }}>
           {children}
         </Provider>
       </Select.Frame>

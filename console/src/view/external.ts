@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { type Request, useContext } from "@/view/context";
+export { type Request, useContext, useRequest } from "@/view/context";
 export { Controls, type ControlsProps } from "@/view/Controls";
 export { Filters, type FiltersProps } from "@/view/Filters";
 export { Frame, type FrameProps } from "@/view/Frame";

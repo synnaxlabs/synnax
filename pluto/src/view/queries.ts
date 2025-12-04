@@ -127,3 +127,47 @@ export const { useRetrieve } = Flux.createRetrieve<
     store.views.onSet(onChange, key),
   ],
 });
+
+export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
+  view.RetrieveMultipleParams,
+  view.View[],
+  FluxSubStore
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query: { keys, types }, store }) => {
+    // if keys are provided, we can first check the store for the views and potentially
+    // avoid a network call
+    const typeSet = types != null ? new Set(types) : undefined;
+    if (keys != null) {
+      const views = store.views.get(keys);
+      if (views.length === keys.length) {
+        // if views length is the same as the keys length, we can return the views once
+        // we filter for the types
+        if (typeSet == null) return views;
+        return views.filter((v) => typeSet.has(v.type));
+      }
+      const missing = keys.filter((k) => !store.views.has(k));
+      const retrieved = await client.views.retrieve({ keys: missing, types });
+      store.views.set(retrieved);
+      return [...views, ...retrieved];
+    }
+    // if keys are not provided, we will have to retrieve all views and filter them
+    const views = await client.views.retrieve({ keys, types });
+    store.views.set(views);
+    return views;
+  },
+  mountListeners: ({ store, onChange, query: { keys, types } }) => {
+    const keysSet = keys ? new Set(keys) : undefined;
+    const typesSet = types ? new Set(types) : undefined;
+    return [
+      store.views.onSet(async (view) => {
+        if (keysSet != null && !keysSet.has(view.key)) return;
+        if (typesSet != null && !typesSet.has(view.type)) return;
+        onChange((prev) => {
+          if (prev == null) return [view];
+          return [...prev.filter((v) => v.key !== view.key), view];
+        });
+      }),
+    ];
+  },
+});

@@ -11,24 +11,29 @@ import { type view } from "@synnaxlabs/client";
 import { Button, Flex, Icon, List, View as PView } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { type Request, useContext } from "@/view/context";
+import { type Request, useContext, type UseRequestReturn } from "@/view/context";
 
-export const Views = (): ReactElement | null => {
-  const { editable, resourceType, onRequestChange } = useContext("Views");
-  const listProps = PView.useList({ initialQuery: { types: [resourceType] } });
+export interface ViewsProps<R extends Request>
+  extends Pick<UseRequestReturn<R>, "onRequestChange"> {}
+
+export const Views = <R extends Request>({
+  onRequestChange,
+}: ViewsProps<R>): ReactElement | null => {
+  const { editable, resourceType } = useContext("Views");
+  const query = PView.useRetrieveMultiple({ types: [resourceType] });
 
   const handleSelectView = useCallback(
     (v: view.View) => {
-      onRequestChange(v.query as Request);
+      onRequestChange(v.query as R);
     },
     [onRequestChange],
   );
-  console.log("VIEWS", listProps.data);
-
-  if (!editable || listProps.data.length === 0) return null;
+  console.log("VIEWS", query.data);
+  if (!editable) return null;
+  if (query.variant !== "success" || query.data.length === 0) return null;
 
   return (
-    <List.Frame<view.Key, view.View> {...listProps}>
+    <List.Frame<view.Key, view.View> data={query.data.map((v) => v.key)}>
       <List.Items<view.Key, view.View>
         displayItems={Infinity}
         x

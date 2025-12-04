@@ -35,23 +35,27 @@ export const Explorer: Layout.Renderer = () => {
   const listProps = Status.useList();
   const placeLayout = Layout.usePlacer();
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
+  const { request, onRequestChange } = View.useRequest<status.MultiRetrieveArgs>(
+    initialQuery,
+    listProps.retrieve,
+  );
   return (
     <View.Frame<status.Key, status.Status, status.MultiRetrieveArgs>
       {...listProps}
       resourceType="status"
-      initialRequest={initialQuery}
+      onRequestChange={onRequestChange}
     >
       <View.Toolbar>
         <View.Filters dialog>
-          <FilterContextMenu />
+          <FilterContextMenu request={request} onRequestChange={onRequestChange} />
         </View.Filters>
         <View.Filters>
-          <CoreFilters />
+          <CoreFilters request={request} />
         </View.Filters>
-        <View.Search />
+        <View.Search request={request} onRequestChange={onRequestChange} />
       </View.Toolbar>
-      <View.Controls onCreate={handleCreate} />
-      <View.Views />
+      <View.Controls onCreate={handleCreate} request={request} />
+      <View.Views onRequestChange={onRequestChange} />
       <View.Items>{item}</View.Items>
     </View.Frame>
   );
