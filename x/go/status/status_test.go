@@ -196,4 +196,131 @@ var _ = Describe("Status", func() {
 			})
 		})
 	})
+
+	Describe("Protocol Buffer Translation", func() {
+		Describe("TranslateToPB", func() {
+			It("Should translate a status with basic fields", func() {
+				s := status.Status[any]{
+					Key:         "test-key",
+					Name:        "Test Status",
+					Variant:     status.InfoVariant,
+					Message:     "Test message",
+					Description: "Test description",
+					Time:        telem.TimeStamp(1609459200000000000),
+				}
+				pb, err := status.TranslateToPB(s)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pb.Key).To(Equal("test-key"))
+				Expect(pb.Name).To(Equal("Test Status"))
+				Expect(pb.Variant).To(Equal("info"))
+				Expect(pb.Message).To(Equal("Test message"))
+				Expect(pb.Description).To(Equal("Test description"))
+				Expect(pb.Time).To(Equal(int64(1609459200000000000)))
+			})
+
+			It("Should marshal struct details to JSON", func() {
+				s := status.Status[CustomDetails]{
+					Key:     "detail-key",
+					Name:    "Detail Status",
+					Variant: status.ErrorVariant,
+					Details: CustomDetails{Code: 500, Context: "server error"},
+				}
+				pb, err := status.TranslateToPB(s)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pb.Details).To(Equal(`{"Code":500,"Context":"server error"}`))
+			})
+
+			It("Should marshal primitive details to JSON", func() {
+				s := status.Status[int]{
+					Key:     "int-key",
+					Variant: status.InfoVariant,
+					Details: 42,
+				}
+				pb, err := status.TranslateToPB(s)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pb.Details).To(Equal("42"))
+			})
+		})
+
+		Describe("TranslateFromPB", func() {
+			It("Should translate a protobuf status back to Status", func() {
+				pb := &status.PBStatus{
+					Key:         "pb-key",
+					Name:        "PB Status",
+					Variant:     "warning",
+					Message:     "Warning message",
+					Description: "Warning description",
+					Time:        1609459200000000000,
+					Details:     "null",
+				}
+				s, err := status.TranslateFromPB[any](pb)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(s.Key).To(Equal("pb-key"))
+				Expect(s.Name).To(Equal("PB Status"))
+				Expect(s.Variant).To(Equal(status.WarningVariant))
+				Expect(s.Message).To(Equal("Warning message"))
+				Expect(s.Description).To(Equal("Warning description"))
+				Expect(s.Time).To(Equal(telem.TimeStamp(1609459200000000000)))
+			})
+
+			It("Should unmarshal struct details from JSON", func() {
+				pb := &status.PBStatus{
+					Key:     "detail-pb-key",
+					Variant: "error",
+					Details: `{"Code":404,"Context":"not found"}`,
+				}
+				s, err := status.TranslateFromPB[CustomDetails](pb)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(s.Details.Code).To(Equal(404))
+				Expect(s.Details.Context).To(Equal("not found"))
+			})
+
+			It("Should unmarshal primitive details from JSON", func() {
+				pb := &status.PBStatus{
+					Key:     "int-pb-key",
+					Variant: "info",
+					Details: "123",
+				}
+				s, err := status.TranslateFromPB[int](pb)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(s.Details).To(Equal(123))
+			})
+
+			It("Should return error for invalid JSON details", func() {
+				pb := &status.PBStatus{
+					Key:     "bad-json",
+					Variant: "error",
+					Details: "invalid json {",
+				}
+				_, err := status.TranslateFromPB[CustomDetails](pb)
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		Describe("Round trip", func() {
+			It("Should round trip a status with struct details", func() {
+				original := status.Status[CustomDetails]{
+					Key:         "round-trip-key",
+					Name:        "Round Trip",
+					Variant:     status.SuccessVariant,
+					Message:     "Success message",
+					Description: "Detailed description",
+					Time:        telem.TimeStamp(1609459200000000000),
+					Details:     CustomDetails{Code: 200, Context: "ok"},
+				}
+				pb, err := status.TranslateToPB(original)
+				Expect(err).ToNot(HaveOccurred())
+
+				result, err := status.TranslateFromPB[CustomDetails](pb)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.Key).To(Equal(original.Key))
+				Expect(result.Name).To(Equal(original.Name))
+				Expect(result.Variant).To(Equal(original.Variant))
+				Expect(result.Message).To(Equal(original.Message))
+				Expect(result.Description).To(Equal(original.Description))
+				Expect(result.Time).To(Equal(original.Time))
+				Expect(result.Details).To(Equal(original.Details))
+			})
+		})
+	})
 })

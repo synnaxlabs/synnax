@@ -129,7 +129,7 @@ import synnax as sy
 client = sy.Synnax()
 
 # Retrieve your task
-task = client.hardware.tasks.retrieve(name="My Analog Read Task")
+task = client.tasks.retrieve(name="My Analog Read Task")
 
 # Option 1: Use run() context manager (Recommended)
 # Automatically starts and stops the task, even if
@@ -160,13 +160,13 @@ import synnax as sy
 client = sy.Synnax()
 
 # Retrieve task by name
-task = client.hardware.tasks.retrieve(name="My Example Task")
+task = client.tasks.retrieve(name="My Example Task")
 
 # Retrieve multiple tasks by names
-tasks = client.hardware.tasks.retrieve(names=["Task 1", "Task 2"])
+tasks = client.tasks.retrieve(names=["Task 1", "Task 2"])
 
 # List all tasks
-all_tasks = client.hardware.tasks.list()
+all_tasks = client.tasks.list()
 for task in all_tasks:
     print(f"Task: {task.name}, Type: {task.type}")
 
@@ -190,15 +190,15 @@ analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
 
 ```python
 import synnax as sy
-from synnax.hardware import modbus, ni, labjack, opcua
+from synnax import modbus, ni, labjack, opcua
 
 client = sy.Synnax()
 
 # Retrieve the original task
-original_task = client.hardware.tasks.retrieve(name="My Example Task")
+original_task = client.tasks.retrieve(name="My Example Task")
 
 # Copy the task with a new name
-copied_task_raw = client.hardware.tasks.copy(
+copied_task_raw = client.tasks.copy(
     key=original_task.key,
     name="My Example Task Copy"
 )
@@ -211,7 +211,7 @@ copied_task = modbus.ReadTask(internal=copied_task_raw)
 copied_task.config.auto_start = True
 
 # Apply the changes
-client.hardware.tasks.configure(copied_task)
+client.tasks.configure(copied_task)
 
 ```
 
@@ -226,13 +226,13 @@ import synnax as sy
 client = sy.Synnax()
 
 # Retrieve task
-task = client.hardware.tasks.retrieve(name="My Example Task")
+task = client.tasks.retrieve(name="My Example Task")
 
 # Stop task if running
 task.stop()
 
 # Delete task
-client.hardware.tasks.delete(task.key)
+client.tasks.delete(task.key)
 ```
 
 </ExampleDetails>
@@ -249,7 +249,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve your task
-const task = await client.hardware.tasks.retrieve({ name: "My Analog Read Task" });
+const task = await client.tasks.retrieve({ name: "My Analog Read Task" });
 
 // Option 1: Use run() context manager (Recommended)
 // Automatically starts and stops the task, even if
@@ -286,13 +286,13 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve task by name
-const task = await client.hardware.tasks.retrieve({ name: "My Example Task" });
+const task = await client.tasks.retrieve({ name: "My Example Task" });
 
 // Retrieve multiple tasks by names
-const tasks = await client.hardware.tasks.retrieve({ names: ["Task 1", "Task 2"] });
+const tasks = await client.tasks.retrieve({ names: ["Task 1", "Task 2"] });
 
 // List all tasks
-const allTasks = await client.hardware.tasks.list();
+const allTasks = await client.tasks.list();
 allTasks.forEach((task) => {
   console.log(`Task: ${task.name}, Type: ${task.type}`);
 });
@@ -320,10 +320,10 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve the original task
-const originalTask = await client.hardware.tasks.retrieve({ name: "My Example Task" });
+const originalTask = await client.tasks.retrieve({ name: "My Example Task" });
 
 // Copy the task with a new name
-const copiedTask = await client.hardware.tasks.copy(
+const copiedTask = await client.tasks.copy(
   originalTask.key,
   "My Example Task Copy",
   false, // snapshot = false
@@ -334,7 +334,7 @@ const config = JSON.parse(copiedTask.config);
 config.auto_start = true;
 
 // Update the task (create with key updates existing task)
-await client.hardware.tasks.create({
+await client.tasks.create({
   key: copiedTask.key,
   name: copiedTask.name,
   type: copiedTask.type,
@@ -353,13 +353,13 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve task
-const task = await client.hardware.tasks.retrieve({ name: "My Example Task" });
+const task = await client.tasks.retrieve({ name: "My Example Task" });
 
 // Stop task if running
 await task.stop();
 
 // Delete task
-await client.hardware.tasks.delete(task.key);
+await client.tasks.delete(task.key);
 ```
 
 </ExampleDetails>

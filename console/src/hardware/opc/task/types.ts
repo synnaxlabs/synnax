@@ -142,7 +142,7 @@ export const scanConfigZ = z.object({});
 export type ScanConfig = z.infer<typeof scanConfigZ>;
 export const ZERO_SCAN_CONFIG: ScanConfig = {};
 
-export const SCAN_COMMAND_TYPE = "scan";
+export const BROWSE_COMMAND_TYPE = "browse";
 
 export const scannedNodeZ = z
   .object({

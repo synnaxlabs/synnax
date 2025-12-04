@@ -33,9 +33,9 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 				Expect(a.Key).ToNot(Equal(uuid.Nil))
 
-				var s status.Status
+				var s status.Status[arc.StatusDetails]
 				statusKey := a.Key.String()
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(statusKey).
 					Entry(&s).
 					Exec(ctx, tx)).To(Succeed())
@@ -58,9 +58,9 @@ var _ = Describe("Writer", func() {
 				Expect(a.Key).To(Equal(key))
 
 				// Verify the status was created with the correct key
-				var s status.Status
+				var s status.Status[arc.StatusDetails]
 				statusKey := key.String()
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(statusKey).
 					Entry(&s).
 					Exec(ctx, tx)).To(Succeed())
@@ -78,9 +78,9 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 				// Verify the status was created
-				var s status.Status
+				var s status.Status[arc.StatusDetails]
 				statusKey := a.Key.String()
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(statusKey).
 					Entry(&s).
 					Exec(ctx, tx)).To(Succeed())
@@ -106,12 +106,12 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &a2)).To(Succeed())
 
 				// Verify both statuses were created
-				var s1, s2 status.Status
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				var s1, s2 status.Status[arc.StatusDetails]
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(a1.Key.String()).
 					Entry(&s1).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(a2.Key.String()).
 					Entry(&s2).
 					Exec(ctx, tx)).To(Succeed())
@@ -139,8 +139,8 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 				// Status should still exist
-				var s status.Status
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				var s status.Status[arc.StatusDetails]
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(key.String()).
 					Entry(&s).
 					Exec(ctx, tx)).To(Succeed())
@@ -160,9 +160,9 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 				// Verify status exists
-				var s status.Status
+				var s status.Status[arc.StatusDetails]
 				statusKey := a.Key.String()
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(statusKey).
 					Entry(&s).
 					Exec(ctx, tx)).To(Succeed())
@@ -172,7 +172,7 @@ var _ = Describe("Writer", func() {
 
 				// Status should still exist (it's managed separately)
 				// The status service would handle cleanup through ontology relationships
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(statusKey).
 					Entry(&s).
 					Exec(ctx, tx)).To(Succeed())

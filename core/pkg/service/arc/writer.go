@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/core"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
@@ -27,7 +28,7 @@ import (
 type Writer struct {
 	tx     gorp.Tx
 	otg    ontology.Writer
-	status status.Writer
+	status status.Writer[core.StatusDetails]
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -58,13 +59,13 @@ func (w Writer) Create(
 		}
 	}
 
-	return w.status.SetWithParent(ctx, &status.Status{
+	return w.status.SetWithParent(ctx, &status.Status[core.StatusDetails]{
 		Name:    c.Name + " Status",
 		Key:     c.Key.String(),
 		Variant: xstatus.LoadingVariant,
 		Message: "Deploying",
 		Time:    telem.Now(),
-		Details: map[string]any{"running": false},
+		Details: core.StatusDetails{Running: false},
 	}, otgID)
 }
 

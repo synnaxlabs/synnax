@@ -27,7 +27,6 @@ This example controls an analog output (DAC0) and a digital output (FIO4).
 import time
 
 import synnax as sy
-from synnax.hardware import labjack
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
@@ -35,7 +34,7 @@ client = sy.Synnax()
 
 # Retrieve the LabJack device from Synnax
 # Update this with the name you gave the device in the Synnax Console
-dev = client.hardware.devices.retrieve(name="My LabJack T7")
+dev = client.devices.retrieve(name="My LabJack T7")
 
 # Create an index channel for command timestamps
 labjack_cmd_time = client.channels.create(
@@ -85,21 +84,21 @@ fio4_state = client.channels.create(
 
 # Create the LabJack Write Task
 # Controls an analog output (DAC0) and a digital output (FIO4)
-tsk = labjack.WriteTask(
+tsk = sy.labjack.WriteTask(
     name="LabJack Py - Write Task",
     device=dev.key,
     state_rate=sy.Rate.HZ * 20,  # Update state at 20 Hz
     data_saving=True,
     channels=[
         # Analog output (DAC0) - voltage control
-        labjack.OutputChan(
+        sy.labjack.OutputChan(
             type="AO",
             port="DAC0",
             cmd_channel=dac0_cmd.key,
             state_channel=dac0_state.key,
         ),
         # Digital output (FIO4) - binary control
-        labjack.OutputChan(
+        sy.labjack.OutputChan(
             type="DO",
             port="FIO4",
             cmd_channel=fio4_cmd.key,
@@ -110,7 +109,7 @@ tsk = labjack.WriteTask(
 
 # Configure the task with Synnax
 try:
-    client.hardware.tasks.configure(tsk)
+    client.tasks.configure(tsk)
     print("✓ Task configured successfully")
 except Exception as e:
     print(f"✗ Task configuration failed: {e}")

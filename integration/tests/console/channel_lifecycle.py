@@ -80,6 +80,7 @@ class ChannelLifecycle(ConsoleCase):
         ch_list.reverse()
         data_types.reverse()
         data_types.append(sy.DataType.TIMESTAMP)
+
         return ch_list, data_types
 
     def rename_channels(
@@ -88,8 +89,10 @@ class ChannelLifecycle(ConsoleCase):
         self.log("Renaming channels")
 
         # Rename the channels
+        sy.sleep(5)  # Allow the channels to be created
         ch_list_renamed = [f"{ch}_renamed" for ch in ch_list]
         self.console.channels.rename(ch_list, ch_list_renamed)
+        sy.sleep(5)  # Allow the channels to be renamed
 
         # Verify the data types
         for ch, dtype_expected in zip(ch_list_renamed, data_types):

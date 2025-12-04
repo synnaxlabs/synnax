@@ -10,6 +10,7 @@
 import synnax as sy
 
 from console.case import ConsoleCase
+from console.schematic import Button, Value
 from console.schematic.schematic import PropertyDict, Schematic
 
 CHANNEL_NAME = "button_cmd"
@@ -48,30 +49,30 @@ class EditProps(ConsoleCase):
 
         self.log("0.1 Change Properties")
         schematic.assert_properties()
-        schematic.edit_properties(control_authority=7)
+        schematic.set_properties(control_authority=7)
         schematic.assert_properties(control_authority=7, show_control_legend=True)
-        schematic.edit_properties(show_control_legend=False)
+
+        schematic.set_properties(show_control_legend=False)
         schematic.assert_properties(control_authority=7, show_control_legend=False)
-        schematic.edit_properties(control_authority=128, show_control_legend=True)
+
+        schematic.set_properties(control_authority=128, show_control_legend=True)
         schematic.assert_properties(control_authority=128, show_control_legend=True)
 
         self.log("0.2 Acquire Control")
-        button = schematic.create_button(channel_name=CHANNEL_NAME)
+        button = schematic.create_symbol(
+            Button(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
+        )
         schematic.acquire_control()
-        sy.sleep(0.1)  # CI flakiness
         schematic.assert_control_status(True)
         schematic.assert_control_legend_visible(True)
 
         self.log("0.3 Hide Legend")
         schematic.release_control()
-        sy.sleep(0.1)  # CI flakiness
         schematic.assert_control_status(False)
         schematic.enable_edit()
-        sy.sleep(0.1)  # CI flakiness
         schematic.assert_edit_status(True)
-        schematic.edit_properties(show_control_legend=False)
+        schematic.set_properties(show_control_legend=False)
         schematic.acquire_control()
-        sy.sleep(0.1)  # CI flakiness
         schematic.assert_control_legend_visible(False)
 
         # Clean up schematic
@@ -83,7 +84,9 @@ class EditProps(ConsoleCase):
         self.log("Test 1: Value Properties")
 
         self.log("1.1 Default")
-        value = schematic.create_value(f"{self.name}_uptime")
+        value = schematic.create_symbol(
+            Value(label=f"{self.name}_uptime", channel_name=f"{self.name}_uptime")
+        )
         default_props: PropertyDict = {
             "channel": f"{self.name}_uptime",
             "notation": "standard",
@@ -103,7 +106,7 @@ class EditProps(ConsoleCase):
             "stale_color": "#FF0000",
             "stale_timeout": 10,
         }
-        value.edit_properties(
+        value.set_properties(
             channel_name=f"{self.name}_time",
             notation="scientific",
             precision=4,
@@ -123,13 +126,16 @@ class EditProps(ConsoleCase):
             "stale_color": "#00FF00",
             "stale_timeout": 15,
         }
-        non_default_value = schematic.create_value(
-            f"{self.name}_state",
-            notation="engineering",
-            precision=7,
-            averaging_window=3,
-            stale_color="#00FF00",
-            stale_timeout=15,
+        non_default_value = schematic.create_symbol(
+            Value(
+                label=f"{self.name}_state",
+                channel_name=f"{self.name}_state",
+                notation="engineering",
+                precision=7,
+                averaging_window=3,
+                stale_color="#00FF00",
+                stale_timeout=15,
+            )
         )
         schematic.assert_symbol_properties(non_default_value, non_default_props)
         non_default_value.delete()
@@ -138,18 +144,20 @@ class EditProps(ConsoleCase):
         self.log("Test 2: Button Properties")
 
         self.log("2.1 Default")
-        button = schematic.create_button(channel_name=CHANNEL_NAME)
+        button = schematic.create_symbol(
+            Button(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
+        )
 
         expected_default_props: PropertyDict = {
             "channel": CHANNEL_NAME,
             "activation_delay": 0,
             "show_control_chip": True,
-            "mode": "fire",
+            "mode": "Fire",
         }
         schematic.assert_symbol_properties(button, expected_default_props)
 
         self.log("2.2 Edited")
-        button.edit_properties(
+        button.set_properties(
             channel_name=CHANNEL_NAME,
             activation_delay=4.2,
             show_control_chip=False,
@@ -159,7 +167,7 @@ class EditProps(ConsoleCase):
             "channel": CHANNEL_NAME,
             "activation_delay": 4.2,
             "show_control_chip": False,
-            "mode": "momentary",
+            "mode": "Momentary",
         }
         schematic.assert_symbol_properties(button, expected_edited_props)
         button.delete()
@@ -169,13 +177,16 @@ class EditProps(ConsoleCase):
             "channel": CHANNEL_NAME,
             "activation_delay": 2.3,
             "show_control_chip": True,
-            "mode": "pulse",
+            "mode": "Pulse",
         }
-        non_default_button = schematic.create_button(
-            channel_name=CHANNEL_NAME,
-            activation_delay=2.3,
-            show_control_chip=True,
-            mode="pulse",
+        non_default_button = schematic.create_symbol(
+            Button(
+                label=CHANNEL_NAME,
+                channel_name=CHANNEL_NAME,
+                activation_delay=2.3,
+                show_control_chip=True,
+                mode="Pulse",
+            )
         )
         schematic.assert_symbol_properties(non_default_button, non_default_props)
         non_default_button.delete()
