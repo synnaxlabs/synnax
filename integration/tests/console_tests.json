@@ -4,7 +4,7 @@
     {
       "sequence_name": "Console_Tests",
       "sequence_order": "asynchronous",
-      "pool_size": 2,
+      "pool_size": 3,
       "tests": [
         {
           "case": "console/schematic/alignment"

@@ -1210,6 +1210,11 @@ class TestConductor:
         # Summary Counts
         self.log_message("=" * 60, False)
         self.log_message(f"Total tests: {stats['total']}", False)
+        if self.range is not None:
+            test_time = (
+                sy.TimeStamp.now() - self.range.time_range.start
+            ) / sy.TimeSpan.SECOND
+            self.log_message(f"Total time: {test_time:.1f} s", False)
         self.log_message(f"Passed: {stats['passed']}", False)
         self.log_message(
             f"Failed: {stats['total_failed']} (includes {stats['failed']} failed, {stats['killed']} killed, {stats['timeout']} timeout)",
