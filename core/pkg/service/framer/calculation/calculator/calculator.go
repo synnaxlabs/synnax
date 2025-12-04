@@ -30,36 +30,29 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Calculator is an engine for executing expressions and operations in calculated
 // channels.
 type Calculator struct {
-	cfg        Config
-	state      *state.State
-	scheduler  *scheduler.Scheduler
-	stateCfg   arcruntime.ExtendedStateConfig
-	alignments map[channel.Key]telem.Alignment
-	timeRange  telem.TimeRange
+	cfg       Config
+	state     *state.State
+	scheduler *scheduler.Scheduler
+	stateCfg  arcruntime.ExtendedStateConfig
 }
 
 type Config struct {
-	Module              compiler.Module
-	CalculateAlignments *bool
+	Module compiler.Module
 }
 
 var (
 	_                       config.Config[Config] = Config{}
-	DefaultCalculatorConfig                       = Config{
-		CalculateAlignments: config.True(),
-	}
+	DefaultCalculatorConfig                       = Config{}
 )
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
-	c.CalculateAlignments = override.Nil(c.CalculateAlignments, other.CalculateAlignments)
 	c.Module = override.Zero(c.Module, other.Module)
 	return c
 }
@@ -67,7 +60,6 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("arc.runtime")
-	validate.NotNil(v, "calculate_alignments", c.CalculateAlignments)
 	validate.NonZeroable(v, "module", c.Module)
 	return v.Error()
 }
@@ -126,23 +118,11 @@ func Open(
 
 	sched := scheduler.New(ctx, cfg.Module.IR, nodes)
 	sched.Init(ctx)
-	alignments := make(map[channel.Key]telem.Alignment)
-	for _, ch := range cfg.Module.StateConfig.State.ChannelDigests {
-		if ch.Key == uint32(cfg.Module.Channel.Key()) {
-			continue
-		}
-		if ch.Index == 0 {
-			alignments[channel.Key(ch.Key)] = telem.Alignment(0)
-		} else {
-			alignments[channel.Key(ch.Index)] = telem.Alignment(0)
-		}
-	}
 	return &Calculator{
-		cfg:        cfg,
-		scheduler:  sched,
-		state:      progState,
-		stateCfg:   cfg.Module.StateConfig,
-		alignments: alignments,
+		cfg:       cfg,
+		scheduler: sched,
+		state:     progState,
+		stateCfg:  cfg.Module.StateConfig,
 	}, nil
 }
 
@@ -185,24 +165,6 @@ func (c *Calculator) Next(
 	input,
 	output framer.Frame,
 ) (framer.Frame, bool, error) {
-	if *c.cfg.CalculateAlignments {
-		for rawI, rawKey := range input.RawKeys() {
-			if input.ShouldExcludeRaw(rawI) {
-				continue
-			}
-			v, ok := c.alignments[rawKey]
-			s := input.RawSeriesAt(rawI)
-			if ok && v == 0 {
-				c.alignments[rawKey] = s.Alignment
-			}
-			if c.timeRange.Start == 0 || s.TimeRange.Start < c.timeRange.Start {
-				c.timeRange.Start = s.TimeRange.Start
-			}
-			if c.timeRange.End == 0 || s.TimeRange.End > c.timeRange.End {
-				c.timeRange.End = s.TimeRange.End
-			}
-		}
-	}
 	c.state.Ingest(input.ToStorage())
 	var (
 		ofr         = output.ToStorage()
@@ -221,21 +183,6 @@ func (c *Calculator) Next(
 		return output, false, nil
 	}
 	c.state.ClearReads()
-	if *c.cfg.CalculateAlignments {
-		var alignment telem.Alignment
-		for k, v := range c.alignments {
-			alignment += v
-			c.alignments[k] = 0
-		}
-		for rawI, s := range ofr.RawSeries() {
-			if rawI < len(ofr.RawSeries())-2 {
-				continue
-			}
-			s.Alignment = alignment
-			s.TimeRange = c.timeRange
-			ofr.SetRawSeriesAt(rawI, s)
-		}
-	}
 	return core.NewFrameFromStorage(ofr), true, nil
 }
 
