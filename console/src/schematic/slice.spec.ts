@@ -109,10 +109,10 @@ describe("Schematic Slice", () => {
       store.dispatch(
         actions.setNodePositions({
           key: schematicKey,
-          positions: {
-            [node1Key]: { x: 0, y: 0 },
-            [node2Key]: { x: 150, y: 0 }, // Aligned vertically
-          },
+          positions: [
+            [node1Key, { x: 0, y: 0 }],
+            [node2Key, { x: 150, y: 0 }], // Aligned vertically
+          ],
         }),
       );
 
@@ -456,9 +456,7 @@ describe("Schematic Slice", () => {
       store.dispatch(
         actions.setNodePositions({
           key: schematicKey,
-          positions: {
-            "non-existent": { x: 100, y: 100 },
-          },
+          positions: [["non-existent", { x: 100, y: 100 }]],
         }),
       );
 

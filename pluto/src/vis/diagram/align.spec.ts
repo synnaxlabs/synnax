@@ -655,6 +655,59 @@ describe("distribute", () => {
   });
 });
 
+describe("edge cases", () => {
+  it("should return empty array for all operations with empty input", () => {
+    const layouts: NodeLayout[] = [];
+
+    expect(alignNodesAlongDirection(layouts)).toEqual([]);
+    expect(alignNodesToLocation(layouts, "left")).toEqual([]);
+    expect(distributeNodes(layouts, "x")).toEqual([]);
+    expect(rotateNodesAroundCenter(layouts, "clockwise")).toEqual([]);
+  });
+
+  it("should keep single element in place for alignment operations", () => {
+    const layouts = [
+      new NodeLayout(
+        "n1",
+        box.construct({ x: 50, y: 50 }, { width: 100, height: 100 }),
+        [],
+      ),
+    ];
+
+    const alignedLeft = alignNodesToLocation(layouts, "left");
+    expect(box.topLeft(alignedLeft[0].box)).toEqual({ x: 50, y: 50 });
+
+    const alignedRight = alignNodesToLocation(layouts, "right");
+    expect(box.topLeft(alignedRight[0].box)).toEqual({ x: 50, y: 50 });
+
+    const alignedTop = alignNodesToLocation(layouts, "top");
+    expect(box.topLeft(alignedTop[0].box)).toEqual({ x: 50, y: 50 });
+
+    const alignedBottom = alignNodesToLocation(layouts, "bottom");
+    expect(box.topLeft(alignedBottom[0].box)).toEqual({ x: 50, y: 50 });
+  });
+
+  it("should keep two elements at start and end for distribution", () => {
+    const layouts = [
+      new NodeLayout(
+        "n1",
+        box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
+        [],
+      ),
+      new NodeLayout(
+        "n2",
+        box.construct({ x: 500, y: 0 }, { width: 100, height: 100 }),
+        [],
+      ),
+    ];
+
+    const distributed = distributeNodes(layouts, "x");
+
+    expect(box.left(distributed[0].box)).toBe(0);
+    expect(box.left(distributed[1].box)).toBe(500);
+  });
+});
+
 describe("rotateNodesAroundCenter", () => {
   it("should return empty array for empty input", () => {
     const result = rotateNodesAroundCenter([], "clockwise");

@@ -291,19 +291,11 @@ const MultiElementProperties = ({
     return { layouts, adjustPosition };
   };
 
-  const applyNodePositions = (
-    layouts: Diagram.NodeLayout[],
-    adjustPosition?: (key: string, pos: xy.XY) => xy.XY,
-  ): void => {
+  const applyNodePositions = (layouts: Diagram.NodeLayout[]): void => {
     dispatch(
       setNodePositions({
         key: layoutKey,
-        positions: Object.fromEntries(
-          layouts.map((n) => {
-            const pos = box.topLeft(n.box);
-            return [n.key, adjustPosition ? adjustPosition(n.key, pos) : pos];
-          }),
-        ),
+        positions: layouts.map((n) => [n.key, box.topLeft(n.box)]),
       }),
     );
   };
@@ -318,7 +310,16 @@ const MultiElementProperties = ({
 
   const handleDistribute = (dir: direction.Direction): void => {
     const { layouts, adjustPosition } = getLayoutsForDistribution();
-    applyNodePositions(Diagram.distributeNodes(layouts, dir), adjustPosition);
+    const distributed = Diagram.distributeNodes(layouts, dir);
+    const adjusted = distributed.map((n) => {
+      const pos = adjustPosition(n.key, box.topLeft(n.box));
+      return new Diagram.NodeLayout(
+        n.key,
+        box.construct(pos, box.dims(n.box)),
+        n.handles,
+      );
+    });
+    applyNodePositions(adjusted);
   };
 
   const handleRotateIndividual = (dir: direction.Angular): void => {
@@ -391,22 +392,24 @@ const MultiElementProperties = ({
           </Button.Button>
         </Flex.Box>
       </Input.Item>
-      <Input.Item label="Spacing">
-        <Flex.Box x>
-          <Button.Button
-            tooltip="Distribute symbols horizontally"
-            onClick={() => handleDistribute("x")}
-          >
-            <Icon.Distribute.X />
-          </Button.Button>
-          <Button.Button
-            tooltip="Distribute symbols vertically"
-            onClick={() => handleDistribute("y")}
-          >
-            <Icon.Distribute.Y />
-          </Button.Button>
-        </Flex.Box>
-      </Input.Item>
+      {elements.length >= 3 && (
+        <Input.Item label="Spacing">
+          <Flex.Box x>
+            <Button.Button
+              tooltip="Distribute symbols horizontally"
+              onClick={() => handleDistribute("x")}
+            >
+              <Icon.Distribute.X />
+            </Button.Button>
+            <Button.Button
+              tooltip="Distribute symbols vertically"
+              onClick={() => handleDistribute("y")}
+            >
+              <Icon.Distribute.Y />
+            </Button.Button>
+          </Flex.Box>
+        </Input.Item>
+      )}
       <Input.Item label="Rotate">
         <Flex.Box x>
           <Button.Button
