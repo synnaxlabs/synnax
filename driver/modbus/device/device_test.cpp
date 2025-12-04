@@ -29,13 +29,8 @@ TEST(ManagerTest, AcquireAlwaysCreatesNewConnection) {
     modbus::device::Manager manager;
     modbus::device::ConnectionConfig config{"127.0.0.1", 1520};
 
-    auto [dev1, err1] = manager.acquire(config);
-    ASSERT_NIL(err1);
-    ASSERT_NE(dev1, nullptr);
-
-    auto [dev2, err2] = manager.acquire(config);
-    ASSERT_NIL(err2);
-    ASSERT_NE(dev2, nullptr);
+    auto dev1 = ASSERT_NIL_P(manager.acquire(config));
+    auto dev2 = ASSERT_NIL_P(manager.acquire(config));
 
     EXPECT_NE(dev1.get(), dev2.get());
 
@@ -109,14 +104,10 @@ TEST(DeviceTest, RepeatedAcquireReleaseNoLeak) {
     modbus::device::ConnectionConfig config{"127.0.0.1", 1541};
 
     for (int i = 0; i < 100; i++) {
-        auto [dev, err] = manager.acquire(config);
-        ASSERT_NIL(err);
-        ASSERT_NE(dev, nullptr);
+        auto dev = ASSERT_NIL_P(manager.acquire(config));
     }
 
-    auto [dev, err] = manager.acquire(config);
-    ASSERT_NIL(err);
-    ASSERT_NE(dev, nullptr);
+    auto dev = ASSERT_NIL_P(manager.acquire(config));
 
     slave.stop();
 }
@@ -135,13 +126,10 @@ TEST(DeviceTest, ReadCoilsWorks) {
     modbus::device::Manager manager;
     modbus::device::ConnectionConfig config{"127.0.0.1", 1543};
 
-    auto [dev, err] = manager.acquire(config);
-    ASSERT_NIL(err);
-    ASSERT_NE(dev, nullptr);
+    auto dev = ASSERT_NIL_P(manager.acquire(config));
 
     uint8_t bits[3];
-    auto read_err = dev->read_bits(modbus::device::Coil, 0, 3, bits);
-    ASSERT_NIL(read_err);
+    ASSERT_NIL(dev->read_bits(modbus::device::Coil, 0, 3, bits));
 
     EXPECT_EQ(bits[0], 1);
     EXPECT_EQ(bits[1], 0);
@@ -164,13 +152,10 @@ TEST(DeviceTest, ReadDiscreteInputsWorks) {
     modbus::device::Manager manager;
     modbus::device::ConnectionConfig config{"127.0.0.1", 1549};
 
-    auto [dev, err] = manager.acquire(config);
-    ASSERT_NIL(err);
-    ASSERT_NE(dev, nullptr);
+    auto dev = ASSERT_NIL_P(manager.acquire(config));
 
     uint8_t bits[3];
-    auto read_err = dev->read_bits(modbus::device::DiscreteInput, 0, 3, bits);
-    ASSERT_NIL(read_err);
+    ASSERT_NIL(dev->read_bits(modbus::device::DiscreteInput, 0, 3, bits));
 
     EXPECT_EQ(bits[0], 1);
     EXPECT_EQ(bits[1], 1);
@@ -192,13 +177,10 @@ TEST(DeviceTest, ReadHoldingRegistersWorks) {
     modbus::device::Manager manager;
     modbus::device::ConnectionConfig config{"127.0.0.1", 1544};
 
-    auto [dev, err] = manager.acquire(config);
-    ASSERT_NIL(err);
-    ASSERT_NE(dev, nullptr);
+    auto dev = ASSERT_NIL_P(manager.acquire(config));
 
     uint16_t regs[2];
-    auto read_err = dev->read_registers(modbus::device::HoldingRegister, 0, 2, regs);
-    ASSERT_NIL(read_err);
+    ASSERT_NIL(dev->read_registers(modbus::device::HoldingRegister, 0, 2, regs));
 
     EXPECT_EQ(regs[0], 0x1234);
     EXPECT_EQ(regs[1], 0x5678);
@@ -219,13 +201,10 @@ TEST(DeviceTest, ReadInputRegistersWorks) {
     modbus::device::Manager manager;
     modbus::device::ConnectionConfig config{"127.0.0.1", 1550};
 
-    auto [dev, err] = manager.acquire(config);
-    ASSERT_NIL(err);
-    ASSERT_NE(dev, nullptr);
+    auto dev = ASSERT_NIL_P(manager.acquire(config));
 
     uint16_t regs[2];
-    auto read_err = dev->read_registers(modbus::device::InputRegister, 0, 2, regs);
-    ASSERT_NIL(read_err);
+    ASSERT_NIL(dev->read_registers(modbus::device::InputRegister, 0, 2, regs));
 
     EXPECT_EQ(regs[0], 0xAAAA);
     EXPECT_EQ(regs[1], 0xBBBB);
@@ -246,17 +225,13 @@ TEST(DeviceTest, WriteBitsWorks) {
     modbus::device::Manager manager;
     modbus::device::ConnectionConfig config{"127.0.0.1", 1545};
 
-    auto [dev, err] = manager.acquire(config);
-    ASSERT_NIL(err);
-    ASSERT_NE(dev, nullptr);
+    auto dev = ASSERT_NIL_P(manager.acquire(config));
 
     uint8_t bits_to_write[2] = {1, 1};
-    auto write_err = dev->write_bits(0, 2, bits_to_write);
-    ASSERT_NIL(write_err);
+    ASSERT_NIL(dev->write_bits(0, 2, bits_to_write));
 
     uint8_t bits_read[2];
-    auto read_err = dev->read_bits(modbus::device::Coil, 0, 2, bits_read);
-    ASSERT_NIL(read_err);
+    ASSERT_NIL(dev->read_bits(modbus::device::Coil, 0, 2, bits_read));
 
     EXPECT_EQ(bits_read[0], 1);
     EXPECT_EQ(bits_read[1], 1);
@@ -277,22 +252,13 @@ TEST(DeviceTest, WriteRegistersWorks) {
     modbus::device::Manager manager;
     modbus::device::ConnectionConfig config{"127.0.0.1", 1546};
 
-    auto [dev, err] = manager.acquire(config);
-    ASSERT_NIL(err);
-    ASSERT_NE(dev, nullptr);
+    auto dev = ASSERT_NIL_P(manager.acquire(config));
 
     uint16_t regs_to_write[2] = {0xABCD, 0xEF01};
-    auto write_err = dev->write_registers(0, 2, regs_to_write);
-    ASSERT_NIL(write_err);
+    ASSERT_NIL(dev->write_registers(0, 2, regs_to_write));
 
     uint16_t regs_read[2];
-    auto read_err = dev->read_registers(
-        modbus::device::HoldingRegister,
-        0,
-        2,
-        regs_read
-    );
-    ASSERT_NIL(read_err);
+    ASSERT_NIL(dev->read_registers(modbus::device::HoldingRegister, 0, 2, regs_read));
 
     EXPECT_EQ(regs_read[0], 0xABCD);
     EXPECT_EQ(regs_read[1], 0xEF01);
@@ -312,9 +278,7 @@ TEST(DeviceTest, ServerStopsWhileConnected) {
     modbus::device::Manager manager;
     modbus::device::ConnectionConfig config{"127.0.0.1", 1547};
 
-    auto [dev, err] = manager.acquire(config);
-    ASSERT_NIL(err);
-    ASSERT_NE(dev, nullptr);
+    auto dev = ASSERT_NIL_P(manager.acquire(config));
 
     slave->stop();
     slave.reset();
@@ -340,13 +304,10 @@ TEST(DeviceTest, ReconnectAfterServerRestart) {
         ASSERT_NIL(slave.start());
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        auto [dev, err] = manager.acquire(config);
-        ASSERT_NIL(err);
-        ASSERT_NE(dev, nullptr);
+        auto dev = ASSERT_NIL_P(manager.acquire(config));
 
         uint8_t bits[1];
-        auto read_err = dev->read_bits(modbus::device::Coil, 0, 1, bits);
-        ASSERT_NIL(read_err);
+        ASSERT_NIL(dev->read_bits(modbus::device::Coil, 0, 1, bits));
         EXPECT_EQ(bits[0], 1);
 
         slave.stop();
@@ -360,13 +321,10 @@ TEST(DeviceTest, ReconnectAfterServerRestart) {
         ASSERT_NIL(slave.start());
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        auto [dev, err] = manager.acquire(config);
-        ASSERT_NIL(err);
-        ASSERT_NE(dev, nullptr);
+        auto dev = ASSERT_NIL_P(manager.acquire(config));
 
         uint8_t bits[1];
-        auto read_err = dev->read_bits(modbus::device::Coil, 0, 1, bits);
-        ASSERT_NIL(read_err);
+        ASSERT_NIL(dev->read_bits(modbus::device::Coil, 0, 1, bits));
         EXPECT_EQ(bits[0], 0);
 
         slave.stop();

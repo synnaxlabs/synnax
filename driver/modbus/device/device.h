@@ -173,8 +173,7 @@ public:
         if (ctx == nullptr)
             return {nullptr, xerrors::Error(CRITICAL_ERROR, modbus_strerror(errno))};
 
-        if (modbus_connect(ctx) == -1) {
-            auto err = xerrors::Error(CRITICAL_ERROR, modbus_strerror(errno));
+        if (auto err = parse_error(modbus_connect(ctx))) {
             modbus_free(ctx);
             return {nullptr, err};
         }
