@@ -12,6 +12,7 @@ import {
   Button,
   Color,
   Diagram,
+  Divider,
   Flex,
   Form,
   Icon,
@@ -20,7 +21,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { box, color, deep, location, xy } from "@synnaxlabs/x";
+import { box, color, deep, type direction, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, type ReactNode } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -181,20 +182,24 @@ const MultiElementProperties = ({
 
   const store = useStore<RootState>();
 
-  const getLayouts = () => {
+  const getLayoutsForAlignment = () => {
     const viewport = selectViewport(store.getState(), layoutKey);
+
     return elements
       .map((el) => {
         if (el.type !== "node") return null;
-        // grab all child elements with the class 'react-flow__handle'
         try {
           const nodeEl = Diagram.selectNode(el.key);
-          const nodeBox = box.construct(
-            el.node.position,
-            box.dims(box.construct(nodeEl)),
-          );
-          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
           const nodeElBox = box.construct(nodeEl);
+          const rect = nodeEl.getBoundingClientRect();
+
+          const actualDims = {
+            width: rect.width / (viewport?.zoom ?? 1),
+            height: rect.height / (viewport?.zoom ?? 1),
+          };
+
+          const nodeBox = box.construct(el.node.position, actualDims);
+          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
           const handles = Array.from(handleEls).map((el) => {
             const pos = box.center(box.construct(el));
             const dist = xy.scale(
@@ -204,7 +209,7 @@ const MultiElementProperties = ({
             const match = el.className.match(/react-flow__handle-(\w+)/);
             if (match == null)
               throw new Error(`[schematic] - cannot find handle orientation`);
-            const orientation = location.construct(match[1]) as location.Outer;
+            const orientation = location.outer.parse(match[1]);
             return new Diagram.HandleLayout(dist, orientation);
           });
           return new Diagram.NodeLayout(el.key, nodeBox, handles);
@@ -214,6 +219,121 @@ const MultiElementProperties = ({
         return null;
       })
       .filter((el) => el !== null);
+  };
+
+  const getLayoutsForDistribution = (): {
+    layouts: Diagram.NodeLayout[];
+    adjustPosition: (key: string, pos: xy.XY) => xy.XY;
+  } => {
+    const viewport = selectViewport(store.getState(), layoutKey);
+    const topOffsets = new Map<string, number>();
+
+    // For distribution: use actual extensions to calculate true visual extents
+    const layouts = elements
+      .map((el) => {
+        if (el.type !== "node") return null;
+        try {
+          const nodeEl = Diagram.selectNode(el.key);
+          const nodeElBox = box.construct(nodeEl);
+          const rect = nodeEl.getBoundingClientRect();
+
+          // Calculate union of all child elements (labels, indicators, etc.)
+          const gridItems = nodeEl.querySelectorAll(".pluto-grid__item");
+          let minTop = rect.top;
+          let maxBottom = rect.bottom;
+
+          gridItems.forEach((item) => {
+            const itemRect = item.getBoundingClientRect();
+            minTop = Math.min(minTop, itemRect.top);
+            maxBottom = Math.max(maxBottom, itemRect.bottom);
+          });
+
+          const actualDims = {
+            width: rect.width / (viewport?.zoom ?? 1),
+            height: (maxBottom - minTop) / (viewport?.zoom ?? 1),
+          };
+
+          // Adjust position if there are top extensions
+          const topExtension = (rect.top - minTop) / (viewport?.zoom ?? 1);
+          topOffsets.set(el.key, topExtension);
+          const adjustedPosition = xy.translate(el.node.position, {
+            x: 0,
+            y: -topExtension,
+          });
+
+          const nodeBox = box.construct(adjustedPosition, actualDims);
+          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
+          const handles = Array.from(handleEls).map((el) => {
+            const pos = box.center(box.construct(el));
+            const dist = xy.scale(
+              xy.translation(box.topLeft(nodeElBox), pos),
+              1 / (viewport?.zoom ?? 1),
+            );
+            const match = el.className.match(/react-flow__handle-(\w+)/);
+            if (match == null)
+              throw new Error(`[schematic] - cannot find handle orientation`);
+            const orientation = location.outer.parse(match[1]);
+            return new Diagram.HandleLayout(dist, orientation);
+          });
+          return new Diagram.NodeLayout(el.key, nodeBox, handles);
+        } catch (e) {
+          handleError(e, "failed to calculate schematic node layout");
+        }
+        return null;
+      })
+      .filter((el) => el !== null);
+
+    const adjustPosition = (key: string, pos: xy.XY): xy.XY => {
+      const topOffset = topOffsets.get(key) ?? 0;
+      return xy.translate(pos, { x: 0, y: topOffset });
+    };
+
+    return { layouts, adjustPosition };
+  };
+
+  const applyNodePositions = (layouts: Diagram.NodeLayout[]): void => {
+    dispatch(
+      setNodePositions({
+        key: layoutKey,
+        positions: layouts.map((n) => [n.key, box.topLeft(n.box)]),
+      }),
+    );
+  };
+
+  const handleAlignToLocation = (loc: location.Outer): void => {
+    applyNodePositions(Diagram.alignNodesToLocation(getLayoutsForAlignment(), loc));
+  };
+
+  const handleAlignAlongDirection = (dir: direction.Direction): void => {
+    applyNodePositions(Diagram.alignNodesAlongDirection(getLayoutsForAlignment(), dir));
+  };
+
+  const handleDistribute = (dir: direction.Direction): void => {
+    const { layouts, adjustPosition } = getLayoutsForDistribution();
+    const distributed = Diagram.distributeNodes(layouts, dir);
+    const adjusted = distributed.map((n) => {
+      const pos = adjustPosition(n.key, box.topLeft(n.box));
+      return new Diagram.NodeLayout(
+        n.key,
+        box.construct(pos, box.dims(n.box)),
+        n.handles,
+      );
+    });
+    applyNodePositions(adjusted);
+  };
+
+  const handleRotateIndividual = (dir: direction.Angular): void => {
+    elements.forEach((el) => {
+      if (el.type !== "node") return;
+      const parsed = location.outer.safeParse(el.props.orientation);
+      if (!parsed.success) return;
+      onChange(el.key, { orientation: location.rotate(parsed.data, dir) });
+    });
+  };
+
+  const handleRotateGroup = (dir: direction.Angular): void => {
+    applyNodePositions(Diagram.rotateNodesAroundCenter(getLayoutsForAlignment(), dir));
+    handleRotateIndividual(dir);
   };
 
   return (
@@ -234,36 +354,91 @@ const MultiElementProperties = ({
       <Input.Item label="Align">
         <Flex.Box x>
           <Button.Button
-            tooltip="Align nodes vertically"
-            onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayouts(), "x");
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                  ),
-                }),
-              );
-            }}
+            tooltip="Align symbols vertically"
+            onClick={() => handleAlignAlongDirection("x")}
           >
             <Icon.Align.YCenter />
           </Button.Button>
           <Button.Button
-            tooltip="Align nodes horizontally"
-            onClick={() => {
-              const newPositions = Diagram.alignNodes(getLayouts(), "y");
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                  ),
-                }),
-              );
-            }}
+            tooltip="Align symbols horizontally"
+            onClick={() => handleAlignAlongDirection("y")}
           >
             <Icon.Align.XCenter />
+          </Button.Button>
+          <Divider.Divider direction="y" />
+          <Button.Button
+            tooltip="Align symbols left"
+            onClick={() => handleAlignToLocation("left")}
+          >
+            <Icon.Align.Left />
+          </Button.Button>
+          <Button.Button
+            tooltip="Align symbols top"
+            onClick={() => handleAlignToLocation("top")}
+          >
+            <Icon.Align.Top />
+          </Button.Button>
+          <Button.Button
+            tooltip="Align symbols bottom"
+            onClick={() => handleAlignToLocation("bottom")}
+          >
+            <Icon.Align.Bottom />
+          </Button.Button>
+          <Button.Button
+            tooltip="Align symbols right"
+            onClick={() => handleAlignToLocation("right")}
+          >
+            <Icon.Align.Right />
+          </Button.Button>
+        </Flex.Box>
+      </Input.Item>
+      {elements.length >= 3 && (
+        <Input.Item label="Spacing">
+          <Flex.Box x>
+            <Button.Button
+              tooltip="Distribute symbols horizontally"
+              onClick={() => handleDistribute("x")}
+            >
+              <Icon.Distribute.X />
+            </Button.Button>
+            <Button.Button
+              tooltip="Distribute symbols vertically"
+              onClick={() => handleDistribute("y")}
+            >
+              <Icon.Distribute.Y />
+            </Button.Button>
+          </Flex.Box>
+        </Input.Item>
+      )}
+      <Input.Item label="Rotate">
+        <Flex.Box x>
+          <Button.Button
+            tooltip="Rotate symbols clockwise"
+            onClick={() => handleRotateIndividual("clockwise")}
+          >
+            <Icon.RotateGroup.CW />
+          </Button.Button>
+          <Button.Button
+            tooltip="Rotate symbols counterclockwise"
+            onClick={() => handleRotateIndividual("counterclockwise")}
+          >
+            <Icon.RotateGroup.CCW />
+          </Button.Button>
+        </Flex.Box>
+      </Input.Item>
+      <Input.Item label="Rotate Selection">
+        <Flex.Box x>
+          <Button.Button
+            tooltip="Rotate selection clockwise"
+            onClick={() => handleRotateGroup("clockwise")}
+          >
+            <Icon.RotateAroundCenter.CW />
+          </Button.Button>
+          <Button.Button
+            tooltip="Rotate selection counterclockwise"
+            onClick={() => handleRotateGroup("counterclockwise")}
+          >
+            <Icon.RotateAroundCenter.CCW />
           </Button.Button>
         </Flex.Box>
       </Input.Item>

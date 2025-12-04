@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type AngularDirection,
   type CrudeDirection,
   crudeDirection,
   type CrudeXDirection,
@@ -29,6 +30,7 @@ export const crude = crudeDirection;
 export type Crude = CrudeDirection;
 export type CrudeX = CrudeXDirection;
 export type CrudeY = CrudeYDirection;
+export type Angular = AngularDirection;
 
 export const construct = (c: Crude): Direction => {
   if (DIRECTIONS.includes(c as Direction)) return c as Direction;
