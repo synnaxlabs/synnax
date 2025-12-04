@@ -53,6 +53,7 @@ jobs:
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
@@ -88,6 +89,15 @@ jobs:
             "${{ inputs.driver }}" \
             "${{ inputs.console }}" \
             "${{ inputs.core }}"
+
+      - name: Generate Go Build Tags
+        id: go-tags
+        run: |
+          TAGS=""
+          if [ "${{ inputs.console }}" = "true" ]; then TAGS="console"; fi
+          if [ "${{ inputs.driver }}" = "true" ]; then TAGS="${TAGS:+$TAGS,}driver"; fi
+          if [ -n "$TAGS" ]; then TAGS="-tags $TAGS"; fi
+          echo "GO_BUILD_TAGS=$TAGS" >> $GITHUB_OUTPUT
 
   build:
     name: Build (${{ matrix.os }})
@@ -222,25 +232,9 @@ jobs:
           Copy-Item -Recurse -Force console/dist/* core/pkg/service/console/dist/
 
       - name: Build Core
-        if: inputs.core && matrix.os != 'windows-build-bot'
+        if: inputs.core
         working-directory: core
-        run: |
-          TAGS=""
-          ${{ inputs.console == true }} && TAGS="console"
-          ${{ inputs.driver == true }} && TAGS="${TAGS:+$TAGS,}driver"
-          [ -n "$TAGS" ] && TAGS="-tags $TAGS"
-          go build $TAGS -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
-
-      - name: Build Core (Windows)
-        if: inputs.core && matrix.os == 'windows-build-bot'
-        working-directory: core
-        shell: powershell
-        run: |
-          $TAGS = ""
-          if ("${{ inputs.console }}" -eq "true") { $TAGS = "console" }
-          if ("${{ inputs.driver }}" -eq "true") { if ($TAGS) { $TAGS = "$TAGS,driver" } else { $TAGS = "driver" } }
-          if ($TAGS) { go build -tags $TAGS -o synnax-v${{ needs.setup.outputs.VERSION }}.exe }
-          else { go build -o synnax-v${{ needs.setup.outputs.VERSION }}.exe }
+        run: go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
       - name: Upload Core Binary as Artifact
         if: inputs.core
