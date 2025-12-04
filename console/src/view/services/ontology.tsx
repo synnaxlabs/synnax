@@ -10,7 +10,8 @@
 import { Icon } from "@synnaxlabs/pluto";
 
 import { Ontology } from "@/ontology";
-import { VIEW_REGISTRY } from "@/status/external";
+import { Status } from "@/status";
+import { type View } from "@/view";
 
 const handleSelect: Ontology.HandleSelect = ({
   selection,
@@ -21,14 +22,20 @@ const handleSelect: Ontology.HandleSelect = ({
   if (selection.length === 0) return;
   handleError(async () => {
     const view = await client.views.retrieve({ key: selection[0].id.key });
-    const { layout } = VIEW_REGISTRY[view.type];
-    if (layout == null) return;
-    placeLayout({ ...layout, name: view.name, args: { initialRequest: view.query } });
+    const item = registry[view.type];
+    if (item == null) return;
+    placeLayout({
+      ...item.layout,
+      name: view.name,
+      args: { initialRequest: view.query },
+    });
   }, `Failed to select ${selection[0].name}`);
 };
 
+const registry: View.Registry = Status.VIEW_REGISTRY;
+
 const editedViewRegistryIcons: Record<string, Icon.FC | undefined> = Object.fromEntries(
-  Object.entries(VIEW_REGISTRY).map(([type, { icon }]) => [
+  Object.entries(registry).map(([type, { icon }]) => [
     type,
     Icon.createComposite(icon, { topRight: Icon.View }),
   ]),

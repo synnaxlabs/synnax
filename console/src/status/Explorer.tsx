@@ -29,13 +29,13 @@ export const EXPLORER_LAYOUT: Layout.BaseState = {
 
 const item = Component.renderProp(Item);
 
-const initialQuery = {} as const;
+const initialQuery: status.MultiRetrieveArgs = {};
 
 export const Explorer: Layout.Renderer = () => {
   const listProps = Status.useList();
   const placeLayout = Layout.usePlacer();
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
-  const { request, onRequestChange } = View.useRequest<status.MultiRetrieveArgs>(
+  const { query, onQueryChange } = View.useQuery<status.MultiRetrieveArgs>(
     initialQuery,
     listProps.retrieve,
   );
@@ -43,19 +43,19 @@ export const Explorer: Layout.Renderer = () => {
     <View.Frame<status.Key, status.Status, status.MultiRetrieveArgs>
       {...listProps}
       resourceType="status"
-      onRequestChange={onRequestChange}
+      onQueryChange={onQueryChange}
     >
       <View.Toolbar>
         <View.Filters dialog>
-          <FilterContextMenu request={request} onRequestChange={onRequestChange} />
+          <FilterContextMenu query={query} onQueryChange={onQueryChange} />
         </View.Filters>
         <View.Filters>
-          <CoreFilters request={request} />
+          <CoreFilters query={query} onQueryChange={onQueryChange} />
         </View.Filters>
-        <View.Search request={request} onRequestChange={onRequestChange} />
+        <View.Search query={query} onQueryChange={onQueryChange} />
       </View.Toolbar>
-      <View.Controls onCreate={handleCreate} request={request} />
-      <View.Views onRequestChange={onRequestChange} />
+      <View.Controls onCreate={handleCreate} query={query} />
+      <View.Views onQueryChange={onQueryChange} />
       <View.Items>{item}</View.Items>
     </View.Frame>
   );

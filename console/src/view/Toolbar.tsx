@@ -15,7 +15,7 @@ import { useContext } from "@/view/context";
 export interface ToolbarProps extends PropsWithChildren {}
 
 export const Toolbar = ({ children }: ToolbarProps): ReactElement | null => {
-  const { editable } = useContext("Toolbar");
+  const { editable } = useContext("View.Toolbar");
   if (!editable) return null;
   return (
     <Flex.Box

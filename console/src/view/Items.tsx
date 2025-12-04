@@ -7,44 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Component, Flex, List, Text } from "@synnaxlabs/pluto";
+import { Flex, List, Text } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
-import { type ReactElement, type ReactNode } from "react";
+import { type ReactElement } from "react";
 
 import { useContext } from "@/view/context";
 
-export interface ItemsProps<K extends record.Key> {
-  children: Component.RenderProp<List.ItemProps<K>>;
-  emptyContent?: ReactNode;
-}
+export interface ItemsProps<K extends record.Key = record.Key>
+  extends List.ItemsProps<K> {}
 
-export const Items = <K extends record.Key>({
-  children,
-  emptyContent,
-}: ItemsProps<K>): ReactElement => {
-  const { resourceType } = useContext("Items");
+export const Items = <K extends record.Key>(props: ItemsProps<K>): ReactElement => (
+  <List.Items<K> emptyContent={<DefaultEmptyContent />} grow {...props} />
+);
 
+const DefaultEmptyContent = (): ReactElement => {
+  const { resourceType } = useContext("View.Items");
   return (
-    <List.Items<K>
-      emptyContent={emptyContent ?? <DefaultEmptyContent resourceType={resourceType} />}
-      grow
-    >
-      {children}
-    </List.Items>
+    <Flex.Box center grow>
+      <Text.Text status="disabled">No {plural(resourceType)} found.</Text.Text>
+    </Flex.Box>
   );
 };
-
-interface DefaultEmptyContentProps {
-  resourceType: string;
-}
-
-const DefaultEmptyContent = ({
-  resourceType,
-}: DefaultEmptyContentProps): ReactElement => (
-  <Flex.Box center grow>
-    <Text.Text level="p" status="disabled">
-      No {plural(resourceType)} found.
-    </Text.Text>
-  </Flex.Box>
-);

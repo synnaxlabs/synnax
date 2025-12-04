@@ -11,24 +11,24 @@ import { type view } from "@synnaxlabs/client";
 import { Button, Flex, Icon, List, View as PView } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { type Request, useContext, type UseRequestReturn } from "@/view/context";
+import { useContext } from "@/view/context";
+import { type Query, type UseQueryReturn } from "@/view/useQuery";
 
-export interface ViewsProps<R extends Request>
-  extends Pick<UseRequestReturn<R>, "onRequestChange"> {}
+export interface ViewsProps<Q extends Query>
+  extends Pick<UseQueryReturn<Q>, "onQueryChange"> {}
 
-export const Views = <R extends Request>({
-  onRequestChange,
-}: ViewsProps<R>): ReactElement | null => {
-  const { editable, resourceType } = useContext("Views");
+export const Views = <Q extends Query>({
+  onQueryChange,
+}: ViewsProps<Q>): ReactElement | null => {
+  const { editable, resourceType } = useContext("View.Views");
   const query = PView.useRetrieveMultiple({ types: [resourceType] });
 
   const handleSelectView = useCallback(
     (v: view.View) => {
-      onRequestChange(v.query as R);
+      onQueryChange(v.query as Q);
     },
-    [onRequestChange],
+    [onQueryChange],
   );
-  console.log("VIEWS", query.data);
   if (!editable) return null;
   if (query.variant !== "success" || query.data.length === 0) return null;
 
@@ -52,7 +52,7 @@ export const Views = <R extends Request>({
 
 const itemsStyle = { padding: "1rem 1.5rem" } as const;
 
-interface ViewItemProps extends List.ItemProps<string> {
+interface ViewItemProps extends List.ItemProps<view.Key> {
   onSelectView: (view: view.View) => void;
 }
 

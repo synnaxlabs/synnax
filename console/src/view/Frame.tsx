@@ -10,14 +10,7 @@
 import "@/view/View.css";
 
 import { type ontology } from "@synnaxlabs/client";
-import {
-  Flex,
-  type Flux,
-  List,
-  Select,
-  type state,
-  useInactivity,
-} from "@synnaxlabs/pluto";
+import { Flex, type Flux, List, Select, useInactivity } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
@@ -27,37 +20,38 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { Provider, type Request } from "@/view/context";
+import { Provider } from "@/view/context";
+import { type Query, type UseQueryReturn } from "@/view/useQuery";
 
 export interface FrameProps<
   K extends record.Key,
   E extends record.Keyed<K>,
-  R extends Request,
+  Q extends Query,
 > extends PropsWithChildren,
-    Pick<Flux.UseListReturn<R, K, E>, "data" | "getItem" | "subscribe"> {
-  onRequestChange: (setter: state.SetArg<R>, opts?: Flux.AsyncListOptions) => void;
+    Pick<Flux.UseListReturn<Q, K, E>, "data" | "getItem" | "subscribe">,
+    Pick<UseQueryReturn<Q>, "onQueryChange"> {
   resourceType: ontology.ResourceType;
 }
 
 export const Frame = <
   K extends record.Key,
   E extends record.Keyed<K>,
-  R extends Request,
+  Q extends Query,
 >({
   children,
-  onRequestChange,
+  onQueryChange,
   resourceType,
   data,
   getItem,
   subscribe,
-}: FrameProps<K, E, R>): ReactElement => {
+}: FrameProps<K, E, Q>): ReactElement => {
   const [selected, setSelected] = useState<K[]>([]);
   const [editable, setEditable] = useState(true);
   const { visible, ref } = useInactivity<HTMLDivElement>(500);
 
   const handleFetchMore = useCallback(
-    () => onRequestChange((p) => ({ ...p, ...List.page(p, 25) }), { mode: "append" }),
-    [onRequestChange],
+    () => onQueryChange((p) => ({ ...p, ...List.page(p, 25) }), { mode: "append" }),
+    [onQueryChange],
   );
 
   return (

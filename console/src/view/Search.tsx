@@ -11,20 +11,22 @@ import { Input, List } from "@synnaxlabs/pluto";
 import { plural } from "pluralize";
 import { type ReactElement, useCallback } from "react";
 
-import { type Request, useContext, type UseRequestReturn } from "@/view/context";
+import { useContext } from "@/view/context";
+import { type Query, type UseQueryReturn } from "@/view/useQuery";
 
-export interface SearchProps<R extends Request> extends UseRequestReturn<R> {}
-export const Search = <R extends Request>({
-  request,
-  onRequestChange,
-}: SearchProps<R>): ReactElement => {
-  const { resourceType } = useContext("Search");
+export interface SearchProps<Q extends Query> extends UseQueryReturn<Q> {}
+
+export const Search = <Q extends Query>({
+  query,
+  onQueryChange,
+}: SearchProps<Q>): ReactElement => {
+  const { resourceType } = useContext("View.Search");
 
   const handleSearch = useCallback(
     (searchTerm: string) => {
-      onRequestChange((p) => ({ ...p, ...List.search(p, searchTerm) }));
+      onQueryChange((q) => ({ ...q, ...List.search(q, searchTerm) }));
     },
-    [onRequestChange],
+    [onQueryChange],
   );
 
   return (
@@ -32,7 +34,7 @@ export const Search = <R extends Request>({
       size="small"
       level="h5"
       variant="text"
-      value={request.searchTerm ?? ""}
+      value={query.searchTerm ?? ""}
       onChange={handleSearch}
       placeholder={`Search ${plural(resourceType)}...`}
     />

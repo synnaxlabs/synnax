@@ -22,18 +22,19 @@ import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/css";
 import { Modals } from "@/modals";
-import { type Request, useContext } from "@/view/context";
+import { useContext } from "@/view/context";
+import { type Query } from "@/view/useQuery";
 
-export interface ControlsProps<R extends Request> {
+export interface ControlsProps<Q extends Query> {
   onCreate: () => void;
-  request: R;
+  query: Q;
 }
 
-export const Controls = <R extends Request>({
+export const Controls = <Q extends Query>({
   onCreate,
-  request,
-}: ControlsProps<R>): ReactElement => {
-  const { visible, editable, setEditable, resourceType } = useContext("Controls");
+  query,
+}: ControlsProps<Q>): ReactElement => {
+  const { visible, editable, setEditable, resourceType } = useContext("View.Controls");
   const { update: create } = PView.useCreate();
   const handleError = Status.useErrorHandler();
   const renameModal = Modals.useRename();
@@ -47,13 +48,9 @@ export const Controls = <R extends Request>({
         { icon: "Status", name: "View.Create" },
       );
       if (name == null) return;
-      create({
-        name,
-        type: resourceType,
-        query: request,
-      });
+      create({ name, type: resourceType, query });
     }, "Failed to create view");
-  }, [create, request, resourceType, renameModal, handleError]);
+  }, [create, query, resourceType, renameModal, handleError]);
 
   return (
     <Flex.Box x className={CSS(CSS.BE("view", "buttons"), PCSS.visible(visible))} pack>
@@ -65,7 +62,6 @@ export const Controls = <R extends Request>({
         <Icon.Add />
       </Button.Button>
       <Button.Toggle
-        checkedVariant="filled"
         value={editable}
         onChange={handleEditableClick}
         tooltipLocation={location.BOTTOM_LEFT}
