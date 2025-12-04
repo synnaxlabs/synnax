@@ -231,21 +231,30 @@ jobs:
           repository-cache: true
 
       - name: Build Driver
-        if: matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
+        if:
+          matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run: |
           bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
 
       - name: Build Driver (Windows)
-        if: matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
+        if:
+          matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run:
           bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
           --announce_rc //driver
 
       - name: Move Driver to Assets
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        shell: bash
+        if:
+          matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run: |
-          mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+          mv bazel-bin/driver/driver core/pkg/service/hardware/embedded/assets/driver
+
+      - name: Move Driver to Assets (Windows)
+        if:
+          matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
+        shell: powershell
+        run: |
+          Move-Item -Force bazel-bin/driver/driver.exe core/pkg/service/hardware/embedded/assets/driver.exe
 
       - name: Set up Go
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -278,9 +287,16 @@ jobs:
         run: pnpm build:console-vite
 
       - name: Copy Console Assets to Server
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        shell: bash
+        if:
+          matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run: cp -r console/dist/* core/pkg/service/console/dist/
+
+      - name: Copy Console Assets to Server (Windows)
+        if:
+          matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
+        shell: powershell
+        run: |
+          Copy-Item -Recurse -Force console/dist/* core/pkg/service/console/dist/
 
       - name: Build
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
