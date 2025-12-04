@@ -165,8 +165,8 @@ public:
     /// server could not be connected to.
     /// @param config - the configuration for the connection.
     /// @note Each call creates a fresh connection. Connections are not cached or shared
-    /// to avoid thread-safety issues (libmodbus is not thread-safe) and stale connection
-    /// problems when servers restart.
+    /// to avoid thread-safety issues (libmodbus is not thread-safe) and stale
+    /// connection problems when servers restart.
     std::pair<std::shared_ptr<Device>, xerrors::Error>
     acquire(const ConnectionConfig &config) {
         auto ctx = modbus_new_tcp(config.host.c_str(), config.port);

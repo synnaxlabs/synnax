@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
 #include <thread>
 #include <vector>
-#include <chrono>
 
 #include "gtest/gtest.h"
 
@@ -286,7 +286,12 @@ TEST(DeviceTest, WriteRegistersWorks) {
     ASSERT_NIL(write_err);
 
     uint16_t regs_read[2];
-    auto read_err = dev->read_registers(modbus::device::HoldingRegister, 0, 2, regs_read);
+    auto read_err = dev->read_registers(
+        modbus::device::HoldingRegister,
+        0,
+        2,
+        regs_read
+    );
     ASSERT_NIL(read_err);
 
     EXPECT_EQ(regs_read[0], 0xABCD);

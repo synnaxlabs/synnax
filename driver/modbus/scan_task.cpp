@@ -37,9 +37,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::Device> devices_out;
     if (scan_ctx.devices == nullptr) return {devices_out, xerrors::NIL};
     for (auto [key, dev]: *scan_ctx.devices) {
-        if (const auto err = this->check_device_health(dev); err)
-            LOG(WARNING) << SCAN_LOG_PREFIX << "health check failed for " << dev.name
-                         << ": " << err;
+        this->check_device_health(dev);
         devices_out.push_back(dev);
     }
     return {devices_out, xerrors::NIL};
@@ -57,7 +55,7 @@ bool Scanner::exec(
     return false;
 }
 
-xerrors::Error Scanner::check_device_health(synnax::Device &dev) const {
+void Scanner::check_device_health(synnax::Device &dev) const {
     const auto rack_key = synnax::rack_key_from_task_key(this->task.key);
     const auto parser = xjson::Parser(dev.properties);
     const auto conn_cfg = device::ConnectionConfig(parser.child("connection"));
@@ -71,7 +69,7 @@ xerrors::Error Scanner::check_device_health(synnax::Device &dev) const {
             .time = telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
-        return parser.error();
+        return;
     }
 
     auto [conn, conn_err] = this->devices->acquire(conn_cfg);
@@ -94,7 +92,6 @@ xerrors::Error Scanner::check_device_health(synnax::Device &dev) const {
             .time = telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
-    return xerrors::NIL;
 }
 
 void Scanner::test_connection(const task::Command &cmd) const {
