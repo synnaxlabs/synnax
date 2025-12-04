@@ -234,7 +234,9 @@ jobs:
       - name: Build Core
         if: inputs.core
         working-directory: core
-        run: go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
+        run:
+          go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} -o synnax-v${{
+          needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
       - name: Upload Core Binary as Artifact
         if: inputs.core
