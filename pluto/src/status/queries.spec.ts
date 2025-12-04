@@ -681,14 +681,14 @@ describe("Status queries", () => {
     it("should retrieve multiple statuses by keys", async () => {
       const status1 = await client.statuses.set({
         name: "Retrieve Multiple 1",
-        key: "retrieve-multiple-1",
+        key: `retrieve-multiple-${id.create()}`,
         variant: "info",
         message: "First status",
         time: TimeStamp.now(),
       });
       const status2 = await client.statuses.set({
         name: "Retrieve Multiple 2",
-        key: "retrieve-multiple-2",
+        key: `retrieve-multiple-${id.create()}`,
         variant: "success",
         message: "Second status",
         time: TimeStamp.now(),

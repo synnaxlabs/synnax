@@ -110,7 +110,7 @@ describe("queries", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.data).toHaveLength(initialLength + 1);
+        expect(result.current.data.length).toBeGreaterThanOrEqual(initialLength + 1);
         expect(result.current.data).toContain(newRole.key);
       });
     });

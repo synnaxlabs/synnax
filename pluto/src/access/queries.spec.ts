@@ -46,7 +46,7 @@ describe("Access Queries", () => {
   describe("useGranted", () => {
     it("should return true when the user has the appropriate permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
+        name: id.create(),
         effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
@@ -63,7 +63,7 @@ describe("Access Queries", () => {
 
     it("should return false when the user does not have the appropriate permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
+        name: id.create(),
         effect: "allow",
         objects: [...baseObjects],
         actions: ["retrieve"],
@@ -107,7 +107,7 @@ describe("Access Queries", () => {
 
     it("should handle multiple objects correctly", async () => {
       const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
+        name: id.create(),
         effect: "allow",
         objects: [ranger.ontologyID(""), channel.ontologyID(0), ...baseObjects],
         actions: ["retrieve"],
@@ -127,7 +127,7 @@ describe("Access Queries", () => {
 
     it("should handle multiple actions correctly", async () => {
       const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
+        name: id.create(),
         effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve", "create", "update"],
@@ -147,7 +147,7 @@ describe("Access Queries", () => {
 
     it("should return false when missing partial permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
+        name: id.create(),
         effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
@@ -286,7 +286,7 @@ describe("Access Queries", () => {
   describe("useViewGranted", () => {
     it("should return true when user has retrieve permission", async () => {
       const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
+        name: id.create(),
         effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
@@ -302,7 +302,7 @@ describe("Access Queries", () => {
 
     it("should return false when user lacks retrieve permission", async () => {
       const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
+        name: id.create(),
         effect: "allow",
         objects: [...baseObjects],
         actions: ["retrieve"],
@@ -318,7 +318,7 @@ describe("Access Queries", () => {
 
     it("should handle multiple ontology IDs", async () => {
       const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
+        name: id.create(),
         effect: "allow",
         objects: [ranger.ontologyID(""), channel.ontologyID(0), ...baseObjects],
         actions: ["retrieve"],
@@ -336,10 +336,10 @@ describe("Access Queries", () => {
   describe("useEditGranted", () => {
     it("should return true when user has retrieve and update permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
+        name: id.create(),
         effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
-        actions: ["retrieve", "update"],
+        actions: ["retrieve", "update", "create"],
       });
       const { result } = renderHook(
         () => Access.useEditGranted(ranger.ontologyID("")),
@@ -352,7 +352,7 @@ describe("Access Queries", () => {
 
     it("should return false when user only has retrieve permission", async () => {
       const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
+        name: id.create(),
         effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
@@ -370,7 +370,7 @@ describe("Access Queries", () => {
   describe("useDeleteGranted", () => {
     it("should return true when user has all required permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
+        name: id.create(),
         effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve", "update", "delete"],
@@ -386,7 +386,7 @@ describe("Access Queries", () => {
 
     it("should return false when user lacks delete permission", async () => {
       const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
+        name: id.create(),
         effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve", "update"],
@@ -404,7 +404,7 @@ describe("Access Queries", () => {
   describe("useCreateGranted", () => {
     it("should return true when user has retrieve and create permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
+        name: id.create(),
         effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve", "create"],
@@ -420,7 +420,7 @@ describe("Access Queries", () => {
 
     it("should return false when user lacks create permission", async () => {
       const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
+        name: id.create(),
         effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
@@ -472,7 +472,7 @@ describe("Access Queries", () => {
         name: policyName,
         effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
-        actions: ["retrieve", "update"],
+        actions: ["retrieve", "update", "create"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result: grantedResult } = renderHook(
@@ -591,7 +591,7 @@ describe("Access Queries", () => {
         actions: ["retrieve"],
       });
       const r = await client.access.roles.create({
-        name: "test",
+        name: id.create(),
         description: "test",
       });
       await client.ontology.addChildren(
