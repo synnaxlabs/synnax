@@ -184,7 +184,7 @@ jobs:
 
   build:
     name: Build (${{ matrix.os }})
-    timeout-minutes: 75
+    timeout-minutes: 30
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
