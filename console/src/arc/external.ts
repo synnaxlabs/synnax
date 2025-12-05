@@ -16,7 +16,6 @@ export * from "@/arc/editor";
 export * from "@/arc/Explorer";
 export * from "@/arc/export";
 export * from "@/arc/middleware";
-export * from "@/arc/NavControls";
 export * from "@/arc/selectors";
 export * from "@/arc/slice";
 export * from "@/arc/Toolbar";

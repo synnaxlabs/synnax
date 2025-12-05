@@ -288,6 +288,7 @@ class Schematic(ConsolePage):
             raise ValueError(
                 f"Control Authority must be between 0 and 255, got {authority}"
             )
+        self.console.close_all_notifications()
         self.console.click("Control")
         self.console.fill_input_field("Control Authority", str(authority))
 
@@ -297,6 +298,7 @@ class Schematic(ConsolePage):
         show_control_legend: bool | None = None,
     ) -> None:
         """Set schematic properties."""
+        self.console.close_all_notifications()
         self.console.click("Control")
 
         if control_authority is not None:
@@ -321,7 +323,7 @@ class Schematic(ConsolePage):
     def get_control_status(self) -> bool:
         """Get whether control is currently acquired for this schematic."""
         control_button = (
-            self.page.locator(".pluto-diagram__controls button")
+            self.page.locator(".console-controls button")
             .filter(has=self.page.locator("svg.pluto-icon--circle"))
             .first
         )
@@ -337,14 +339,14 @@ class Schematic(ConsolePage):
         """Acquire control of the schematic if not already acquired."""
         if not self.get_control_status():
             control_button = (
-                self.page.locator(".pluto-diagram__controls button.pluto-btn--outlined")
+                self.page.locator(".console-controls button.pluto-btn--outlined")
                 .filter(has=self.page.locator("svg.pluto-icon--circle"))
                 .first
             )
             if control_button.count() > 0:
                 control_button.click()
                 self.page.wait_for_selector(
-                    ".pluto-diagram__controls button.pluto-btn--filled", timeout=2000
+                    ".console-controls button.pluto-btn--filled", timeout=2000
                 )
             sy.sleep(0.1)  # Wait for Core update
 
@@ -352,28 +354,28 @@ class Schematic(ConsolePage):
         """Release control of the schematic if currently acquired."""
         if self.get_control_status():
             control_button = (
-                self.page.locator(".pluto-diagram__controls button.pluto-btn--filled")
+                self.page.locator(".console-controls button.pluto-btn--filled")
                 .filter(has=self.page.locator("svg.pluto-icon--circle"))
                 .first
             )
             if control_button.count() > 0:
                 control_button.click()
                 self.page.wait_for_selector(
-                    ".pluto-diagram__controls button.pluto-btn--outlined", timeout=1000
+                    ".console-controls button.pluto-btn--outlined", timeout=1000
                 )
             sy.sleep(0.1)  # Wait for Core update
 
     def get_edit_status(self) -> bool:
         """Get whether edit is currently enabled for this schematic."""
         edit_button = (
-            self.page.locator(".pluto-diagram__controls button")
+            self.page.locator(".console-controls button")
             .filter(has=self.page.locator("svg.pluto-icon--edit"))
             .first
         )
 
         if edit_button.count() == 0:
             edit_button = (
-                self.page.locator(".pluto-diagram__controls button")
+                self.page.locator(".console-controls button")
                 .filter(has=self.page.locator("svg.pluto-icon--edit-off"))
                 .first
             )
@@ -389,14 +391,14 @@ class Schematic(ConsolePage):
         """Enable edit for the schematic if not already enabled."""
         if not self.get_edit_status():
             edit_button = (
-                self.page.locator(".pluto-diagram__controls button.pluto-btn--outlined")
+                self.page.locator(".console-controls button.pluto-btn--outlined")
                 .filter(has=self.page.locator("svg.pluto-icon--edit"))
                 .first
             )
             if edit_button.count() > 0:
                 edit_button.click()
                 self.page.wait_for_selector(
-                    ".pluto-diagram__controls button.pluto-btn--filled", timeout=2000
+                    ".console-controls button.pluto-btn--filled", timeout=2000
                 )
         sy.sleep(0.1)
 
@@ -404,14 +406,14 @@ class Schematic(ConsolePage):
         """Disable edit for the schematic if currently enabled."""
         if self.get_edit_status():
             edit_button = (
-                self.page.locator(".pluto-diagram__controls button.pluto-btn--filled")
+                self.page.locator(".console-controls button.pluto-btn--filled")
                 .filter(has=self.page.locator("svg.pluto-icon--edit"))
                 .first
             )
             if edit_button.count() > 0:
                 edit_button.click()
                 self.page.wait_for_selector(
-                    ".pluto-diagram__controls button.pluto-btn--outlined", timeout=2000
+                    ".console-controls button.pluto-btn--outlined", timeout=2000
                 )
         sy.sleep(0.1)
 
@@ -420,6 +422,7 @@ class Schematic(ConsolePage):
     ) -> None:
         """Assert that setting the setpoint value results in the expected value in the Core."""
         setpoint_symbol.set_value(value)
+        sy.sleep(0.2)  # Wait for the value to be set
         actual_value = self.get_value(channel_name)
         assert (
             actual_value == value
@@ -439,6 +442,7 @@ class Schematic(ConsolePage):
         Returns:
             Tuple of (control_authority, show_control_legend)
         """
+        self.console.close_all_notifications()
         self.console.click("Control")
 
         control_authority = int(self.console.get_input_field("Control Authority"))

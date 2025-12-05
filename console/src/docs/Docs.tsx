@@ -10,7 +10,7 @@
 import "@/docs/Docs.css";
 
 import { Logo } from "@synnaxlabs/media";
-import { Button, Icon, Text, Theming, Triggers } from "@synnaxlabs/pluto";
+import { Button, Icon, Theming, Triggers } from "@synnaxlabs/pluto";
 import { buildQueryString, URL } from "@synnaxlabs/x";
 import { memo, type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -103,7 +103,7 @@ export const OpenButton = (): ReactElement => {
       onClick={handleDocs}
       contrast={2}
       className={CSS.BE("docs", "open-button")}
-      tooltip={<Text.Text level="small">Open Documentation</Text.Text>}
+      tooltip="Open Documentation"
     >
       <Icon.QuestionMark />
     </Button.Button>

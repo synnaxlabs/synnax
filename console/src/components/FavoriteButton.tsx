@@ -9,7 +9,7 @@
 
 import "@/components/FavoriteButton.css";
 
-import { Button, Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Icon } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 
@@ -27,11 +27,7 @@ export const FavoriteButton = ({
   <Button.Button
     className={CSS(CSS.B("favorite-button"), isFavorite && CSS.M("favorite"))}
     onClick={onFavorite}
-    tooltip={
-      <Text.Text level="small" color={10}>
-        {isFavorite ? "Remove from" : "Add to"} favorites
-      </Text.Text>
-    }
+    tooltip={`${isFavorite ? "Remove from" : "Add to"} favorites`}
     variant="text"
     ghost={isFavorite ? false : ghost}
     {...rest}
