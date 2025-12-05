@@ -98,7 +98,7 @@ func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Seq[ontology
 func (s *NodeOntologyService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values(lo.MapToSlice(s.Cluster.CopyState().Nodes, func(_ NodeKey, n Node) ontology.Resource {
 		return newNodeResource(n)
-	})), xio.NopCloserFunc(nil), nil
+	})), xio.NopCloser, nil
 }
 
 // Schema implements ontology.Service.
@@ -149,7 +149,7 @@ func (s *OntologyService) RetrieveResource(context.Context, string, gorp.Tx) (on
 
 // OpenNexter implements ontology.Service.
 func (s *OntologyService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	return slices.Values([]ontology.Resource{}), xio.NopCloserFunc(nil), nil
+	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
 }
 
 func newClusterResource(key uuid.UUID) ontology.Resource {

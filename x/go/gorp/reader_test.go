@@ -10,23 +10,23 @@
 package gorp_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Reader", Ordered, func() {
+var _ = Describe("Reader", func() {
 	var (
-		db *gorp.DB
-		tx gorp.Tx
+		ctx context.Context
+		tx  gorp.Tx
 	)
-	BeforeAll(func() {
-		db = gorp.Wrap(memkv.New())
+	BeforeEach(func() {
+		ctx = context.Background()
 		tx = db.OpenTx()
 	})
-	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Iterator", func() {
 		It("Should iterate over entries matching a type", func() {
 			Expect(gorp.NewCreate[int, entry]().

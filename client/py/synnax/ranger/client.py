@@ -32,9 +32,7 @@ from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import QueryError
 from synnax.framer.client import Client
 from synnax.framer.frame import CrudeFrame
-from synnax.hardware.ni import AnalogReadTask
-from synnax.hardware.task import Client as TaskClient
-from synnax.hardware.task import Task
+from synnax.ni import AnalogReadTask
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
 from synnax.ranger.alias import Aliaser
@@ -45,11 +43,14 @@ from synnax.ranger.payload import (
     RangeName,
     RangeNames,
     RangePayload,
+    ontology_id,
 )
 from synnax.ranger.retrieve import RangeRetriever
 from synnax.ranger.writer import RangeWriter
 from synnax.signals.signals import Registry
 from synnax.state import LatestState
+from synnax.task import Client as TaskClient
+from synnax.task import Task
 from synnax.telem import (
     CrudeSeries,
     DataType,
@@ -356,7 +357,7 @@ class Range(RangePayload):
 
     @property
     def ontology_id(self) -> ID:
-        return ID(type="range", key=str(self.key))
+        return ontology_id(self.key)
 
     @property
     def meta_data(self):

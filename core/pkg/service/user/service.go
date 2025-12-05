@@ -66,8 +66,8 @@ type Service struct {
 const groupName = "Users"
 
 // NewService opens a new Service with the given context ctx and configurations configs.
-func NewService(ctx context.Context, configs ...Config) (*Service, error) {
-	cfg, err := config.New(defaultConfig, configs...)
+func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
+	cfg, err := config.New(defaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

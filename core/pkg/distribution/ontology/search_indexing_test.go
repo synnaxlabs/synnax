@@ -49,8 +49,8 @@ func (s *mockIndexingService) Schema() zyn.Schema {
 	return s.schema
 }
 
-func (s *mockIndexingService) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	return slices.Values(s.resources), xio.NopCloserFunc(nil), nil
+func (s *mockIndexingService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+	return slices.Values(s.resources), xio.NopCloser, nil
 }
 
 func (s *mockIndexingService) RetrieveResource(

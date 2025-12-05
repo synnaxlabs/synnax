@@ -18,20 +18,22 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
 
-func New(channels channel.Readable) (a api.Transport, transports []fgrpc.BindableTransport) {
-	transports = make([]fgrpc.BindableTransport, 0, 20)
-	transports = append(transports, newChannel(&a)...)
-	transports = append(transports, newFramer(&a, channels))
-	transports = append(transports, newConnectivity(&a))
-	transports = append(transports, newAuth(&a))
-	transports = append(transports, newRanger(&a))
-	transports = append(transports, newHardware(&a))
+func New(channelSvc *channel.Service) (api.Transport, []fgrpc.BindableTransport) {
+	var a api.Transport
+	transports := fgrpc.CompoundBindableTransport{
+		newChannel(&a),
+		newFramer(&a, channelSvc),
+		newConnectivity(&a),
+		newAuth(&a),
+		newRanger(&a),
+		newRack(&a),
+		newTask(&a),
+		newDevice(&a),
+		newStatus(&a),
+	}
 
 	// AUTH
 	a.AuthChangePassword = fnoop.UnaryServer[api.AuthChangePasswordRequest, types.Nil]{}
-
-	// HARDWARE
-	a.HardwareCopyTask = fnoop.UnaryServer[api.HardwareCopyTaskRequest, api.HardwareCopyTaskResponse]{}
 
 	// CHANNEL
 	a.ChannelRename = fnoop.UnaryServer[api.ChannelRenameRequest, types.Nil]{}
@@ -113,11 +115,6 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.AccessCreatePolicy = fnoop.UnaryServer[api.AccessCreatePolicyRequest, api.AccessCreatePolicyResponse]{}
 	a.AccessDeletePolicy = fnoop.UnaryServer[api.AccessDeletePolicyRequest, types.Nil]{}
 	a.AccessRetrievePolicy = fnoop.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse]{}
-
-	// STATUS
-	a.StatusSet = fnoop.UnaryServer[api.StatusSetRequest, api.StatusSetResponse]{}
-	a.StatusRetrieve = fnoop.UnaryServer[api.StatusRetrieveRequest, api.StatusRetrieveResponse]{}
-	a.StatusDelete = fnoop.UnaryServer[api.StatusDeleteRequest, types.Nil]{}
 
 	// arc
 	a.ArcCreate = fnoop.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse]{}

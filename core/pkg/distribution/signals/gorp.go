@@ -74,13 +74,13 @@ func (g GorpPublisherConfig[K, E]) Override(other GorpPublisherConfig[K, E]) Gor
 
 func (g GorpPublisherConfig[K, E]) Validate() error {
 	v := validate.New("cdc.GorpPublisherConfig")
-	validate.NotEmptyString(v, "SetName", g.SetName)
-	validate.NotEmptyString(v, "DeleteName", g.DeleteName)
-	validate.NotNil(v, "DB", g.DB)
-	validate.NotEmptyString(v, "SetDataType", g.SetDataType)
-	validate.NotEmptyString(v, "DeleteDataType", g.DeleteDataType)
-	validate.NotNil(v, "MarshalSet", g.MarshalSet)
-	validate.NotNil(v, "MarshalDelete", g.MarshalDelete)
+	validate.NotEmptyString(v, "set_name", g.SetName)
+	validate.NotEmptyString(v, "delete_name", g.DeleteName)
+	validate.NotNil(v, "db", g.DB)
+	validate.NotEmptyString(v, "set_data_type", g.SetDataType)
+	validate.NotEmptyString(v, "delete_data_type", g.DeleteDataType)
+	validate.NotNil(v, "marshal_set", g.MarshalSet)
+	validate.NotNil(v, "marshal_delete", g.MarshalDelete)
 	return v.Error()
 }
 
@@ -107,23 +107,29 @@ func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpPublisher
 	}
 }
 
-func GorpPublisherConfigPureNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpPublisherConfig[K, E] {
+func GorpPublisherConfigPureNumeric[K types.SizedNumeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpPublisherConfig[K, E] {
 	return GorpPublisherConfig[K, E]{
 		DB:             db,
 		DeleteDataType: dt,
 		SetDataType:    dt,
 		MarshalDelete: func(k K) (b []byte, err error) {
-			b = make([]byte, dt.Density())
-			data := xunsafe.CastSlice[byte, K](b)
-			data[0] = k
-			return b, nil
+			return xunsafe.CastToBytes(k), nil
 		},
 		MarshalSet: func(e E) (b []byte, err error) {
-			b = make([]byte, dt.Density())
-			data := xunsafe.CastSlice[byte, K](b)
-			data[0] = e.GorpKey()
-			return b, nil
+			return xunsafe.CastToBytes(e.GorpKey()), nil
 		},
+	}
+}
+
+func GorpPublisherConfigNumeric[K types.SizedNumeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpPublisherConfig[K, E] {
+	return GorpPublisherConfig[K, E]{
+		DB:             db,
+		DeleteDataType: dt,
+		SetDataType:    telem.JSONT,
+		MarshalDelete: func(k K) (b []byte, err error) {
+			return xunsafe.CastToBytes(k), nil
+		},
+		MarshalSet: MarshalJSON[K, E],
 	}
 }
 

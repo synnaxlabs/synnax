@@ -54,7 +54,7 @@ func (s *changeService) Schema() zyn.Schema {
 }
 
 func (s *changeService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	return slices.Values([]ontology.Resource{}), xio.NopCloserFunc(nil), nil
+	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
 }
 
 func (s *changeService) RetrieveResource(

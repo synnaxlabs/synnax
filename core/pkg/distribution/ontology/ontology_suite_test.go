@@ -65,7 +65,7 @@ func (s *sampleService) RetrieveResource(_ context.Context, key string, _ gorp.T
 func (s *sampleService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values([]ontology.Resource{
 		lo.Must(s.RetrieveResource(ctx, "", nil)),
-	}), xio.NopCloserFunc(nil), nil
+	}), xio.NopCloser, nil
 }
 
 var (

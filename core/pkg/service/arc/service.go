@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/core"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -53,7 +54,7 @@ type ServiceConfig struct {
 	// Channel is used for retrieving channel information from the cluster.
 	//
 	// [REQUIRED]
-	Channel channel.Readable
+	Channel *channel.Service
 	// Framer is used for reading and writing telemetry frames to/from the cluster.
 	//
 	// [REQUIRED]
@@ -188,19 +189,19 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		closer = append(closer, stopSignals)
 	}
 	obs := gorp.Observe[uuid.UUID, Arc](cfg.DB)
-	closer = append(closer, xio.NopCloserFunc(obs.OnChange(s.handleChange)))
+	closer = append(closer, xio.NoFailCloserFunc(obs.OnChange(s.handleChange)))
 	s.mu.closer = closer
 	return s, nil
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting arcs in Synnax. If
-// tx is provided, the writer will use that transaction. If tx is nil, the Writer
-// will execute the operations directly on the underlyinu gorp.DB.
+// tx is provided, the writer will use that transaction. If tx is nil, the Writer will
+// execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:     gorp.OverrideTx(s.cfg.DB, tx),
 		otg:    s.cfg.Ontology.NewWriter(tx),
-		status: s.cfg.Status.NewWriter(tx),
+		status: status.NewWriter[core.StatusDetails](s.cfg.Status, tx),
 	}
 }
 

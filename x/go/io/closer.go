@@ -23,14 +23,22 @@ var _ io.Closer = CloserFunc(nil)
 // Close implements io.Closer.
 func (c CloserFunc) Close() error { return c() }
 
-type NopCloserFunc func()
+type nopCloser struct{}
 
-func (c NopCloserFunc) Close() error {
-	if c != nil {
-		c()
-	}
-	return nil
-}
+var _ io.Closer = nopCloser{}
+
+func (nopCloser) Close() error { return nil }
+
+// NopCloser is an io.Closer that does nothing.
+var NopCloser io.Closer = nopCloser{}
+
+// NoFailCloserFunc is an io.Closer that executes a function and returns nil.
+type NoFailCloserFunc func()
+
+var _ io.Closer = NoFailCloserFunc(nil)
+
+// Close implements io.Closer.
+func (c NoFailCloserFunc) Close() error { c(); return nil }
 
 // MultiCloser is a collection of io.Closer objects that can be closed together. The
 // Close method will close each closer in the collection in the reverse order they were

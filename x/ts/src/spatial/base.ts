@@ -78,5 +78,6 @@ export const crudeDirection = z.enum([...direction.options, ...location.options]
 export type CrudeDirection = z.infer<typeof crudeDirection>;
 export type CrudeXDirection = "x" | "left" | "right";
 export type CrudeYDirection = "y" | "top" | "bottom";
+export type AngularDirection = "clockwise" | "counterclockwise";
 export const crudeLocation = z.union([direction, location, z.instanceof(String)]);
 export type CrudeLocation = z.infer<typeof crudeLocation>;
