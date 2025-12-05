@@ -32,6 +32,7 @@ class BadActor(ConsoleCase):
             "vent_vlv_cmd",
         ]
         self.subscribe(channels_to_delete)
+        sy.sleep(2)
         for ch in channels_to_delete:
             try:
                 console.channels.delete(ch)

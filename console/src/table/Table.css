@@ -48,10 +48,4 @@
         border-top-left-radius: 0;
         border-top-right-radius: 0;
     }
-
-    .console-table__edit {
-        position: absolute;
-        top: 2rem;
-        right: 2rem;
-    }
 }

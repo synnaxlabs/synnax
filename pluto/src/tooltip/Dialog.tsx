@@ -309,7 +309,7 @@ export const Dialog = ({
 export const formatTip = (tip: ReactNode): ReactNode => {
   if (typeof tip === "string" || typeof tip === "number" || !isValidElement(tip))
     return (
-      <Text.Text level="small" color={11} weight={450}>
+      <Text.Text level="small" color={11}>
         {tip as string | number}
       </Text.Text>
     );
