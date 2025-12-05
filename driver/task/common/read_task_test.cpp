@@ -498,7 +498,7 @@ TEST(BaseReadTaskConfigTest, testEqualRates) {
 
     auto p = xjson::Parser(j);
     const auto cfg = common::BaseReadTaskConfig(p);
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
     EXPECT_EQ(cfg.stream_rate, telem::Rate(100.0));
 }
@@ -509,8 +509,7 @@ TEST(BaseReadTaskConfigTest, testMissingSampleRate) {
 
     auto p = xjson::Parser(j);
     [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
-    ASSERT_TRUE(p.error());
-    EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
+    ASSERT_MATCHES(p.error(), xerrors::VALIDATION);
 }
 
 /// @brief it should return validation error when stream_rate is missing.
@@ -519,8 +518,7 @@ TEST(BaseReadTaskConfigTest, testMissingStreamRate) {
 
     auto p = xjson::Parser(j);
     [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
-    ASSERT_TRUE(p.error());
-    EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
+    ASSERT_MATCHES(p.error(), xerrors::VALIDATION);
 }
 
 /// @brief it should return validation error for negative sample_rate.
@@ -529,8 +527,7 @@ TEST(BaseReadTaskConfigTest, testNegativeSampleRate) {
 
     auto p = xjson::Parser(j);
     [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
-    ASSERT_TRUE(p.error());
-    EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
+    ASSERT_MATCHES(p.error(), xerrors::VALIDATION);
 }
 
 /// @brief it should return validation error for negative stream_rate.
@@ -539,8 +536,7 @@ TEST(BaseReadTaskConfigTest, testNegativeStreamRate) {
 
     auto p = xjson::Parser(j);
     [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
-    ASSERT_TRUE(p.error());
-    EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
+    ASSERT_MATCHES(p.error(), xerrors::VALIDATION);
 }
 
 /// @brief it should return validation error when sample_rate is less than stream_rate.
@@ -549,8 +545,7 @@ TEST(BaseReadTaskConfigTest, testSampleRateLessThanStreamRate) {
 
     auto p = xjson::Parser(j);
     [[maybe_unused]] auto _ = common::BaseReadTaskConfig(p);
-    ASSERT_TRUE(p.error());
-    EXPECT_TRUE(p.error().matches(xerrors::VALIDATION));
+    ASSERT_MATCHES(p.error(), xerrors::VALIDATION);
 }
 
 /// @brief it should accept missing stream_rate when marked as optional.
@@ -563,7 +558,7 @@ TEST(BaseReadTaskConfigTest, testStreamRateOptional) {
 
     auto p = xjson::Parser(j);
     const auto cfg = common::BaseReadTaskConfig(p, common::TimingConfig(), false);
-    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NIL(p.error());
     EXPECT_EQ(cfg.sample_rate, telem::Rate(100.0));
     EXPECT_TRUE(cfg.data_saving);
 }

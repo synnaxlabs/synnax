@@ -51,7 +51,7 @@ TEST(ErrorsTest, LibraryInfoWithoutURL) {
 
     auto err = driver::missing_lib(no_url);
 
-    EXPECT_TRUE(err.matches(xlib::LOAD_ERROR));
+    ASSERT_MATCHES(err, xlib::LOAD_ERROR);
     EXPECT_NE(err.data.find("Test Library"), std::string::npos);
     EXPECT_NE(err.data.find("is not installed"), std::string::npos);
     EXPECT_EQ(err.data.find("Download here:"), std::string::npos);

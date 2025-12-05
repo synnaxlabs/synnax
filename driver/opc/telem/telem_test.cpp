@@ -120,7 +120,7 @@ TEST(TelemTest, testSeriesToVariant) {
     series.write(val);
 
     auto [variant, err] = opc::telem::series_to_variant(series);
-    EXPECT_EQ(err, xerrors::NIL);
+    ASSERT_NIL(err);
     EXPECT_TRUE(UA_Variant_hasScalarType(&variant, &UA_TYPES[UA_TYPES_FLOAT]));
     EXPECT_EQ(*static_cast<float *>(variant.data), 42.0f);
 

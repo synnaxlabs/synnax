@@ -83,7 +83,7 @@ TEST(TypesTest, NodeIdParsing) {
     EXPECT_EQ(string_node.get().identifierType, UA_NODEIDTYPE_STRING);
 
     auto [invalid, err3] = opc::NodeId::parse("InvalidFormat");
-    EXPECT_TRUE(err3.matches(xerrors::VALIDATION));
+    ASSERT_MATCHES(err3, xerrors::VALIDATION);
     EXPECT_TRUE(invalid.is_null());
 }
 

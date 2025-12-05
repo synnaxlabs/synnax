@@ -62,7 +62,7 @@ TEST(ControlPipeline, testUnknownErrOnOpen) {
     control.start();
     ASSERT_EVENTUALLY_EQ(sink->writes->size(), 0);
     control.stop();
-    ASSERT_TRUE(sink->stop_err.matches(xerrors::UNKNOWN));
+    ASSERT_MATCHES(sink->stop_err, xerrors::UNKNOWN);
 }
 
 /// @brief it should retry opening streamer on unreachable error and succeed.
