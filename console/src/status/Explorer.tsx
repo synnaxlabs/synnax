@@ -11,10 +11,10 @@ import { type status } from "@synnaxlabs/client";
 import { Component, Status } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/status/Create";
 import { Item } from "@/status/list/Item";
-import { FilterContextMenu, Filters as CoreFilters } from "@/status/list/SelectFilters";
 import { View } from "@/view";
 
 export const EXPLORER_LAYOUT_TYPE = "status_explorer";
@@ -35,27 +35,26 @@ export const Explorer: Layout.Renderer = () => {
   const listProps = Status.useList();
   const placeLayout = Layout.usePlacer();
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
-  const { query, onQueryChange } = View.useQuery<status.MultiRetrieveArgs>(
+  const { query, onQueryChange, resetQuery } = View.useQuery(
     initialQuery,
     listProps.retrieve,
   );
   return (
-    <View.Frame<status.Key, status.Status, status.MultiRetrieveArgs>
+    <View.Frame
       {...listProps}
       resourceType="status"
+      onCreate={handleCreate}
+      query={query}
       onQueryChange={onQueryChange}
     >
       <View.Toolbar>
-        <View.Filters dialog>
-          <FilterContextMenu query={query} onQueryChange={onQueryChange} />
-        </View.Filters>
-        <View.Filters>
-          <CoreFilters query={query} onQueryChange={onQueryChange} />
-        </View.Filters>
+        <View.FilterMenu>
+          <Label.Filter.MenuItem query={query} onQueryChange={onQueryChange} />
+        </View.FilterMenu>
+        <Label.Filter.Chips query={query} onQueryChange={onQueryChange} isClosable />
         <View.Search query={query} onQueryChange={onQueryChange} />
       </View.Toolbar>
-      <View.Controls onCreate={handleCreate} query={query} />
-      <View.Views onQueryChange={onQueryChange} />
+      <View.Views onQueryChange={onQueryChange} resetQuery={resetQuery} />
       <View.Items>{item}</View.Items>
     </View.Frame>
   );

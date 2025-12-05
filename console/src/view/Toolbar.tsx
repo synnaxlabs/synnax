@@ -8,25 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { useContext } from "@/view/context";
 
-export interface ToolbarProps extends PropsWithChildren {}
+export interface ToolbarProps extends Flex.BoxProps {}
 
-export const Toolbar = ({ children }: ToolbarProps): ReactElement | null => {
+export const Toolbar = ({ className, ...rest }: ToolbarProps): ReactElement | null => {
   const { editable } = useContext("View.Toolbar");
   if (!editable) return null;
   return (
     <Flex.Box
       x
       bordered
-      style={{ padding: "1.5rem" }}
       background={1}
       justify="between"
       align="center"
-    >
-      {children}
-    </Flex.Box>
+      className={CSS(CSS.BE("view", "toolbar"), className)}
+      {...rest}
+    />
   );
 };

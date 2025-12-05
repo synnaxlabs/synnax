@@ -10,16 +10,28 @@
 import "@/view/View.css";
 
 import { type ontology } from "@synnaxlabs/client";
-import { Flex, type Flux, List, Select, useInactivity } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import {
+  Button,
+  Flex,
+  type Flux,
+  Icon,
+  List,
+  Select,
+  Status,
+  View as PView,
+} from "@synnaxlabs/pluto";
+import { location, type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
   useCallback,
+  useMemo,
   useState,
 } from "react";
 
+import { Controls } from "@/components";
 import { CSS } from "@/css";
+import { Modals } from "@/modals";
 import { Provider } from "@/view/context";
 import { type Query, type UseQueryReturn } from "@/view/useQuery";
 
@@ -29,8 +41,9 @@ export interface FrameProps<
   Q extends Query,
 > extends PropsWithChildren,
     Pick<Flux.UseListReturn<Q, K, E>, "data" | "getItem" | "subscribe">,
-    Pick<UseQueryReturn<Q>, "onQueryChange"> {
+    Pick<UseQueryReturn<Q>, "query" | "onQueryChange"> {
   resourceType: ontology.ResourceType;
+  onCreate: () => void;
 }
 
 export const Frame = <
@@ -39,7 +52,9 @@ export const Frame = <
   Q extends Query,
 >({
   children,
+  query,
   onQueryChange,
+  onCreate,
   resourceType,
   data,
   getItem,
@@ -47,15 +62,55 @@ export const Frame = <
 }: FrameProps<K, E, Q>): ReactElement => {
   const [selected, setSelected] = useState<K[]>([]);
   const [editable, setEditable] = useState(true);
-  const { visible, ref } = useInactivity<HTMLDivElement>(500);
-
   const handleFetchMore = useCallback(
-    () => onQueryChange((p) => ({ ...p, ...List.page(p, 25) }), { mode: "append" }),
+    () => onQueryChange((q) => ({ ...q, ...List.page(q, 25) }), { mode: "append" }),
     [onQueryChange],
   );
-
+  const { update: create } = PView.useCreate();
+  const handleError = Status.useErrorHandler();
+  const renameModal = Modals.useRename();
+  const handleCreateView = () =>
+    handleError(async () => {
+      const name = await renameModal(
+        { initialValue: `View for ${resourceType}` },
+        { icon: "View", name: "View.Create" },
+      );
+      if (name == null) return;
+      create({ name, type: resourceType, query });
+    }, "Failed to create view");
+  const contextValue = useMemo(
+    () => ({ editable, resourceType }),
+    [editable, resourceType],
+  );
   return (
-    <Flex.Box full="y" empty className={CSS.B("view")} ref={ref}>
+    <Flex.Box full="y" empty className={CSS.B("view")}>
+      <Controls x>
+        <Button.Button
+          onClick={onCreate}
+          size="small"
+          tooltipLocation={location.BOTTOM_LEFT}
+          tooltip={`Create a ${resourceType}`}
+        >
+          <Icon.Add />
+        </Button.Button>
+        <Button.Toggle
+          size="small"
+          value={editable}
+          onChange={() => setEditable((e) => !e)}
+          tooltipLocation={location.BOTTOM_LEFT}
+          tooltip={`${editable ? "Disable" : "Enable"} editing`}
+        >
+          {editable ? <Icon.EditOff /> : <Icon.Edit />}
+        </Button.Toggle>
+        <Button.Button
+          size="small"
+          onClick={handleCreateView}
+          tooltipLocation={location.BOTTOM_LEFT}
+          tooltip="Create a view"
+        >
+          <Icon.View />
+        </Button.Button>
+      </Controls>
       <Select.Frame
         multiple
         data={data}
@@ -65,9 +120,7 @@ export const Frame = <
         value={selected}
         onFetchMore={handleFetchMore}
       >
-        <Provider value={{ editable, setEditable, visible, resourceType }}>
-          {children}
-        </Provider>
+        <Provider value={contextValue}>{children}</Provider>
       </Select.Frame>
     </Flex.Box>
   );

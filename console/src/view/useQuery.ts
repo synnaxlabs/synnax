@@ -16,6 +16,7 @@ export interface Query extends List.PagerParams, record.Unknown {}
 export interface UseQueryReturn<Q extends Query = Query> {
   query: Q;
   onQueryChange: (setter: state.SetArg<Q>, opts?: Flux.AsyncListOptions) => void;
+  resetQuery: () => void;
 }
 
 export const useQuery = <Q extends Query>(
@@ -32,8 +33,11 @@ export const useQuery = <Q extends Query>(
     },
     [retrieve, query],
   );
+  const resetQuery = useCallback(() => {
+    handleQueryChange(initialQuery);
+  }, [handleQueryChange, initialQuery]);
   return useMemo(
-    () => ({ query, onQueryChange: handleQueryChange }),
-    [query, handleQueryChange],
+    () => ({ query, onQueryChange: handleQueryChange, resetQuery }),
+    [query, handleQueryChange, resetQuery],
   );
 };

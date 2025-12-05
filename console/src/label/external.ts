@@ -11,7 +11,7 @@ import { Edit, EDIT_LAYOUT_TYPE } from "@/label/Edit";
 import { type Layout } from "@/layout";
 
 export * from "@/label/Edit";
-export * from "@/label/HasFilter";
+export * from "@/label/filter";
 export * from "@/label/Select";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

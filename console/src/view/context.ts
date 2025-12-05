@@ -8,12 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { context, type state } from "@synnaxlabs/pluto";
+import { context } from "@synnaxlabs/pluto";
 
 export interface ContextValue {
   editable: boolean;
-  setEditable: state.Setter<boolean>;
-  visible: boolean;
   resourceType: ontology.ResourceType;
 }
 

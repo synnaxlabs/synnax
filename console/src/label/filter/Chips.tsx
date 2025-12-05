@@ -11,32 +11,36 @@ import { type label } from "@synnaxlabs/client";
 import { Flex, Icon, Label, Tag, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { type HasQuery } from "@/label/filter/types";
 import { type View } from "@/view";
 
-interface HasFilterQuery extends View.Query {
-  hasLabels?: label.Key[];
-}
-
-export interface HasFilterProps extends View.UseQueryReturn<HasFilterQuery> {
+export interface ChipsProps
+  extends Pick<View.UseQueryReturn<HasQuery>, "query" | "onQueryChange"> {
   isClosable?: boolean;
 }
 
-export const HasFilter = ({
+export const Chips = ({
   query,
   onQueryChange,
   isClosable = false,
-}: HasFilterProps): ReactElement | null => {
+}: ChipsProps): ReactElement | null => {
   const { hasLabels } = query;
   const labels = Label.useRetrieveMultiple({ keys: hasLabels ?? [] }).data ?? [];
+  if (labels.length === 0) return null;
   const handleClose = (key: label.Key) =>
     onQueryChange(({ hasLabels, ...rest }) => ({
       ...rest,
       hasLabels: hasLabels?.filter((k) => k !== key),
     }));
-  if (labels.length === 0) return null;
   return (
     <Flex.Box x pack background={0}>
-      <Text.Text bordered size="small" style={style} borderColor={5} level="small">
+      <Text.Text
+        bordered
+        size="small"
+        style={{ padding: "0 1rem", boxShadow: "var(--pluto-shadow-v1)" }}
+        borderColor={5}
+        level="small"
+      >
         <Icon.Label />
         Labels
       </Text.Text>
@@ -53,5 +57,3 @@ export const HasFilter = ({
     </Flex.Box>
   );
 };
-
-const style = { padding: "0 1rem", boxShadow: "var(--pluto-shadow-v1)" } as const;

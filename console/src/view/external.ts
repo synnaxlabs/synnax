@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/view/Controls";
-export * from "@/view/Filters";
+export * from "@/view/FilterMenu";
 export * from "@/view/Frame";
 export * from "@/view/Items";
 export * from "@/view/Search";
 export * from "@/view/Toolbar";
-export * from "@/view/types";
 export * from "@/view/useQuery";
 export * from "@/view/Views";

@@ -14,21 +14,20 @@ import { type ReactElement, useCallback } from "react";
 import { useContext } from "@/view/context";
 import { type Query, type UseQueryReturn } from "@/view/useQuery";
 
-export interface SearchProps<Q extends Query> extends UseQueryReturn<Q> {}
+export interface SearchProps<Q extends Query>
+  extends Pick<UseQueryReturn<Q>, "query" | "onQueryChange"> {}
 
 export const Search = <Q extends Query>({
   query,
   onQueryChange,
 }: SearchProps<Q>): ReactElement => {
   const { resourceType } = useContext("View.Search");
-
   const handleSearch = useCallback(
     (searchTerm: string) => {
       onQueryChange((q) => ({ ...q, ...List.search(q, searchTerm) }));
     },
     [onQueryChange],
   );
-
   return (
     <Input.Text
       size="small"

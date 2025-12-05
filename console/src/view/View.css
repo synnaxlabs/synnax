@@ -10,18 +10,7 @@
  */
 
 .console-view {
-    .console-view__buttons {
-        position: absolute;
-        top: 1.5rem;
-        right: 1.5rem;
-        opacity: 0;
-        z-index: 10;
-        transition: opacity 0.2s ease-in-out;
-        &:hover {
-            opacity: 1;
-        }
-        &.pluto--visible {
-            opacity: 1;
-        }
+    .console-view__toolbar {
+        padding: 1.5rem;
     }
 }

@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hooks/ref";
-export * from "@/hooks/useAsyncEffect";
-export * from "@/hooks/useClickOutside";
-export * from "@/hooks/useCursorDrag";
-export * from "@/hooks/useDebouncedCallback";
-export * from "@/hooks/useDestructors";
-export * from "@/hooks/useEffectCompare";
-export * from "@/hooks/useResize";
+import { type label } from "@synnaxlabs/client";
+
+import { type View } from "@/view";
+
+export interface HasQuery extends View.Query {
+  hasLabels?: label.Key[];
+}

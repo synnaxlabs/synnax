@@ -43,16 +43,6 @@ export interface ListQuery extends view.RetrieveMultipleParams {}
 
 export const useList = Flux.createList<ListQuery, view.Key, view.View, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ query, store }) => {
-    const { types = [], keys = [] } = query;
-    const typesSet = types.length > 0 ? new Set(types) : undefined;
-    const keysSet = keys.length > 0 ? new Set(keys) : undefined;
-    return store.views.get((v) => {
-      if (typesSet != null && !typesSet.has(v.type)) return false;
-      if (keysSet != null && !keysSet.has(v.key)) return false;
-      return true;
-    });
-  },
   retrieve: async ({ client, query, store }) => {
     const views = await client.views.retrieve(query);
     store.views.set(views);
@@ -76,7 +66,7 @@ export const useList = Flux.createList<ListQuery, view.Key, view.View, FluxSubSt
           (typesSet != null && !typesSet.has(view.type))
         )
           return;
-        onChange(view.key, view, { mode: "prepend" });
+        onChange(view.key, view);
       }),
       store.views.onDelete(onDelete),
     ];

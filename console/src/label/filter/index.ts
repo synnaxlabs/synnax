@@ -7,13 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Icon } from "@synnaxlabs/pluto";
-
-import { type Layout } from "@/layout";
-
-export interface RegistryItem {
-  icon: Icon.FC;
-  layout: Layout.BaseState;
-}
-
-export interface Registry extends Record<string, RegistryItem> {}
+export * as Filter from "@/label/filter/external";
