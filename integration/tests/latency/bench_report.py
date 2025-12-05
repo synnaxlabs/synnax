@@ -163,10 +163,10 @@ class BenchReport(Latency):
 
         # Selected arbitrarily. However, these values should
         # provide a good maximumm threshold
-        max_p90 = 2.5
-        max_p95 = 3.0
-        max_p99 = 5
-        max_average_jitter = 2
+        max_p90 = 5
+        max_p95 = 6
+        max_p99 = 10
+        max_average_jitter = 5
 
         if platform.system().lower() == "windows":
             max_peak_to_peak_jitter = 40

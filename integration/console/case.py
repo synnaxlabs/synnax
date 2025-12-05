@@ -46,7 +46,8 @@ class ConsoleCase(TestCase):
         self.playwright = sync_playwright().start()
         browser_engine = self.determine_browser()
         self.browser = browser_engine.launch(headless=not headed, slow_mo=slow_mo)
-        self.page = self.browser.new_page()
+        # Use larger viewport to reduce element overlap
+        self.page = self.browser.new_page(viewport={"width": 1920, "height": 1080})
 
         # Set timeouts
         self.page.set_default_timeout(default_timeout)  # 1s

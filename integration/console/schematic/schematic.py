@@ -422,6 +422,7 @@ class Schematic(ConsolePage):
     ) -> None:
         """Assert that setting the setpoint value results in the expected value in the Core."""
         setpoint_symbol.set_value(value)
+        sy.sleep(0.2)  # Wait for the value to be set
         actual_value = self.get_value(channel_name)
         assert (
             actual_value == value

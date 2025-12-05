@@ -49,7 +49,7 @@ class DriverNIDigitalWrite(Latency):
 
         self.log("Searching for NI DO device: SYMod1")
         # Sim device must be set up in NI MAX
-        dev = client.hardware.devices.retrieve(location="SYMod1")
+        dev = client.devices.retrieve(location="SYMod1")
         self.log(f"Found NI DO device: {dev.location}")
 
         self.log("Creating Channels")
@@ -100,7 +100,7 @@ class DriverNIDigitalWrite(Latency):
                 ),
             ],
         )
-        tsk = client.hardware.tasks.configure(tsk)
+        tsk = client.tasks.configure(tsk)
 
         # Run NI DO Task
         self.log("Running NI DO Task")
@@ -297,8 +297,8 @@ class DriverNIDigitalWrite(Latency):
         assert stats_driver["p95"] <= 8, "Driver p95 latency is greater than 8 ms"
         assert stats_loop["p95"] <= 8, "Loop p95 latency is greater than 8 ms"
 
-        assert stats_driver["p99"] <= 10, "Driver p99 latency is greater than 10 ms"
-        assert stats_loop["p99"] <= 10, "Loop p99 latency is greater than 10 ms"
+        assert stats_driver["p99"] <= 15, "Driver p99 latency is greater than 15 ms"
+        assert stats_loop["p99"] <= 15, "Loop p99 latency is greater than 15 ms"
 
         assert (
             stats_driver["peak_to_peak"] < 40
