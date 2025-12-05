@@ -23,16 +23,18 @@ import (
 // defined field schemas.
 type ObjectZ struct {
 	baseZ
-	fields map[string]Schema
+	fields          map[string]Schema
+	snakeCaseNames  map[string]string // pre-computed snake_case field names
+	pascalCaseNames map[string]string // pre-computed PascalCase field names
 }
 
 var _ Schema = (*ObjectZ)(nil)
 
 // fieldByName finds a field in a struct by its name, supporting both PascalCase and
-// snake_case.
-func fieldByName(v reflect.Value, field string) reflect.Value {
-	snake := lo.SnakeCase(field)
-	pascal := lo.PascalCase(field)
+// snake_case. Uses pre-computed case conversions from the schema.
+func (o ObjectZ) fieldByName(v reflect.Value, field string) reflect.Value {
+	snake := o.snakeCaseNames[field]
+	pascal := o.pascalCaseNames[field]
 	return v.FieldByNameFunc(func(s string) bool { return pascal == s || snake == s })
 }
 
@@ -62,8 +64,12 @@ func (o objectShape) Fields() map[string]Shape { return o.fields }
 func (o ObjectZ) Field(name string, shape Schema) ObjectZ {
 	if o.fields == nil {
 		o.fields = make(map[string]Schema)
+		o.snakeCaseNames = make(map[string]string)
+		o.pascalCaseNames = make(map[string]string)
 	}
 	o.fields[name] = shape
+	o.snakeCaseNames[name] = lo.SnakeCase(name)
+	o.pascalCaseNames[name] = lo.PascalCase(name)
 	return o
 }
 
@@ -99,7 +105,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 	if dataMap, ok := data.(map[string]any); ok {
 		result := make(map[string]any)
 		for fieldName, schema := range o.fields {
-			fieldData, exists := getFieldOnMap(dataMap, fieldName)
+			fieldData, exists := o.getFieldOnMap(dataMap, fieldName)
 			if !exists {
 				if schema.Shape().Optional() {
 					continue
@@ -113,8 +119,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 			if fieldData == nil && schema.Shape().Optional() {
 				continue
 			}
-			snakeCaseName := lo.SnakeCase(fieldName)
-			result[snakeCaseName] = fieldData
+			result[o.snakeCaseNames[fieldName]] = fieldData
 		}
 		return result, nil
 	}
@@ -136,7 +141,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 	}
 	result := make(map[string]any)
 	for fieldName, schema := range o.fields {
-		field := fieldByName(val, fieldName)
+		field := o.fieldByName(val, fieldName)
 		if !field.IsValid() {
 			if schema.Shape().Optional() {
 				continue
@@ -150,9 +155,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 		if fieldData == nil && schema.Shape().Optional() {
 			continue
 		}
-		// Convert field name to snake case for output
-		snakeCaseName := lo.SnakeCase(fieldName)
-		result[snakeCaseName] = fieldData
+		result[o.snakeCaseNames[fieldName]] = fieldData
 	}
 	return result, nil
 }
@@ -185,18 +188,12 @@ func (o ObjectZ) Parse(data any, dest any) error {
 	if !ok {
 		return NewInvalidDestinationTypeError("map[string]any", destVal)
 	}
-	// Create a map of snake case field names to their original names
-	fieldNameMap := make(map[string]string)
-	for fieldName := range o.fields {
-		fieldNameMap[lo.SnakeCase(fieldName)] = fieldName
-	}
 	for fieldName, fieldSchema := range o.fields {
-		field := fieldByName(destVal, fieldName)
+		field := o.fieldByName(destVal, fieldName)
 		if !field.IsValid() {
 			continue
 		}
-		// Try both original and snake case field names
-		fieldData, exists := getFieldOnMap(dataMap, fieldName)
+		fieldData, exists := o.getFieldOnMap(dataMap, fieldName)
 		if !exists {
 			if fieldSchema.Shape().Optional() {
 				continue
@@ -215,17 +212,23 @@ func (o ObjectZ) Parse(data any, dest any) error {
 // validation schemas.
 func Object(fields map[string]Schema) ObjectZ {
 	o := ObjectZ{
-		baseZ:  baseZ{dataType: ObjectT, expectedType: reflect.TypeOf(struct{}{})},
-		fields: fields,
+		baseZ:           baseZ{dataType: ObjectT, expectedType: reflect.TypeOf(struct{}{})},
+		fields:          fields,
+		snakeCaseNames:  make(map[string]string, len(fields)),
+		pascalCaseNames: make(map[string]string, len(fields)),
+	}
+	for name := range fields {
+		o.snakeCaseNames[name] = lo.SnakeCase(name)
+		o.pascalCaseNames[name] = lo.PascalCase(name)
 	}
 	o.wrapper = o
 	return o
 }
 
-func getFieldOnMap(data map[string]any, field string) (any, bool) {
-	v, ok := data[lo.PascalCase(field)]
+func (o ObjectZ) getFieldOnMap(data map[string]any, field string) (any, bool) {
+	v, ok := data[o.pascalCaseNames[field]]
 	if !ok {
-		v, ok = data[lo.SnakeCase(field)]
+		v, ok = data[o.snakeCaseNames[field]]
 	}
 	return v, ok
 }
