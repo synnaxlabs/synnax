@@ -15,6 +15,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"io"
+	"math"
 	"reflect"
 	"strconv"
 
@@ -388,18 +389,39 @@ func UnmarshalMsgpackUint64(dec *msgpack.Decoder) (uint64, error) {
 	case uint8:
 		return uint64(val), nil
 	case int64:
+		if val < 0 {
+			return 0, errors.Newf("negative value %d cannot be converted to uint64", val)
+		}
 		return uint64(val), nil
 	case int32:
+		if val < 0 {
+			return 0, errors.Newf("negative value %d cannot be converted to uint64", val)
+		}
 		return uint64(val), nil
 	case int16:
+		if val < 0 {
+			return 0, errors.Newf("negative value %d cannot be converted to uint64", val)
+		}
 		return uint64(val), nil
 	case int8:
+		if val < 0 {
+			return 0, errors.Newf("negative value %d cannot be converted to uint64", val)
+		}
 		return uint64(val), nil
 	case int:
+		if val < 0 {
+			return 0, errors.Newf("negative value %d cannot be converted to uint64", val)
+		}
 		return uint64(val), nil
 	case float64:
+		if val < 0 {
+			return 0, errors.Newf("negative value %f cannot be converted to uint64", val)
+		}
 		return uint64(val), nil
 	case float32:
+		if val < 0 {
+			return 0, errors.Newf("negative value %f cannot be converted to uint64", val)
+		}
 		return uint64(val), nil
 	case string:
 		return strconv.ParseUint(val, 10, 64)
@@ -417,6 +439,9 @@ func UnmarshalMsgpackUint32(dec *msgpack.Decoder) (uint32, error) {
 	}
 	switch val := v.(type) {
 	case uint64:
+		if val > math.MaxUint32 {
+			return 0, errors.Newf("value %d exceeds uint32 max", val)
+		}
 		return uint32(val), nil
 	case uint32:
 		return val, nil
@@ -425,18 +450,39 @@ func UnmarshalMsgpackUint32(dec *msgpack.Decoder) (uint32, error) {
 	case uint8:
 		return uint32(val), nil
 	case int64:
+		if val < 0 || val > math.MaxUint32 {
+			return 0, errors.Newf("value %d out of uint32 range", val)
+		}
 		return uint32(val), nil
 	case int32:
+		if val < 0 {
+			return 0, errors.Newf("negative value %d cannot be converted to uint32", val)
+		}
 		return uint32(val), nil
 	case int16:
+		if val < 0 {
+			return 0, errors.Newf("negative value %d cannot be converted to uint32", val)
+		}
 		return uint32(val), nil
 	case int8:
+		if val < 0 {
+			return 0, errors.Newf("negative value %d cannot be converted to uint32", val)
+		}
 		return uint32(val), nil
 	case int:
+		if val < 0 || val > math.MaxUint32 {
+			return 0, errors.Newf("value %d out of uint32 range", val)
+		}
 		return uint32(val), nil
 	case float64:
+		if val < 0 || val > math.MaxUint32 {
+			return 0, errors.Newf("value %f out of uint32 range", val)
+		}
 		return uint32(val), nil
 	case float32:
+		if val < 0 || val > math.MaxUint32 {
+			return 0, errors.Newf("value %f out of uint32 range", val)
+		}
 		return uint32(val), nil
 	case string:
 		n, err := strconv.ParseUint(val, 10, 32)

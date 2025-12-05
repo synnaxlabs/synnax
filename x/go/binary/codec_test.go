@@ -184,7 +184,7 @@ var _ = Describe("Codec", func() {
 			b := []byte(input)
 			val, err := binary.UnmarshalJSONStringInt64(b)
 			if shouldError {
-				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("invalid")))
 			} else {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(val).To(Equal(expected))
@@ -270,16 +270,27 @@ var _ = Describe("Codec", func() {
 		It("Should return an error for unsupported types", func() {
 			b := MustSucceed(msgpack.Marshal([]int{1, 2, 3}))
 			dec := msgpack.NewDecoder(bytes.NewReader(b))
-			_, err := binary.UnmarshalMsgpackUint64(dec)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("cannot unmarshal"))
+			Expect(binary.UnmarshalMsgpackUint64(dec)).Error().To(MatchError(ContainSubstring("cannot unmarshal")))
 		})
 		It("Should return an error for invalid string", func() {
 			b := MustSucceed(msgpack.Marshal("not-a-number"))
 			dec := msgpack.NewDecoder(bytes.NewReader(b))
-			_, err := binary.UnmarshalMsgpackUint64(dec)
-			Expect(err).To(HaveOccurred())
+			Expect(binary.UnmarshalMsgpackUint64(dec)).Error().To(MatchError(ContainSubstring("invalid")))
 		})
+		DescribeTable("Should return an error for negative values",
+			func(value any) {
+				b := MustSucceed(msgpack.Marshal(value))
+				dec := msgpack.NewDecoder(bytes.NewReader(b))
+				Expect(binary.UnmarshalMsgpackUint64(dec)).Error().To(MatchError(ContainSubstring("negative")))
+			},
+			Entry("negative int64", int64(-1)),
+			Entry("negative int32", int32(-1)),
+			Entry("negative int16", int16(-1)),
+			Entry("negative int8", int8(-1)),
+			Entry("negative int", int(-1)),
+			Entry("negative float64", float64(-1.5)),
+			Entry("negative float32", float32(-1.5)),
+		)
 	})
 	Describe("UnmarshalMsgpackUint32", func() {
 		DescribeTable("Should decode various types to uint32",
@@ -305,15 +316,36 @@ var _ = Describe("Codec", func() {
 		It("Should return an error for unsupported types", func() {
 			b := MustSucceed(msgpack.Marshal(map[string]int{"a": 1}))
 			dec := msgpack.NewDecoder(bytes.NewReader(b))
-			_, err := binary.UnmarshalMsgpackUint32(dec)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("cannot unmarshal"))
+			Expect(binary.UnmarshalMsgpackUint32(dec)).Error().To(MatchError(ContainSubstring("cannot unmarshal")))
 		})
 		It("Should return an error for invalid string", func() {
 			b := MustSucceed(msgpack.Marshal("invalid"))
 			dec := msgpack.NewDecoder(bytes.NewReader(b))
-			_, err := binary.UnmarshalMsgpackUint32(dec)
-			Expect(err).To(HaveOccurred())
+			Expect(binary.UnmarshalMsgpackUint32(dec)).Error().To(MatchError(ContainSubstring("invalid")))
 		})
+		DescribeTable("Should return an error for negative values",
+			func(value any) {
+				b := MustSucceed(msgpack.Marshal(value))
+				dec := msgpack.NewDecoder(bytes.NewReader(b))
+				Expect(binary.UnmarshalMsgpackUint32(dec)).Error().To(MatchError(Or(ContainSubstring("negative"), ContainSubstring("out of uint32 range"))))
+			},
+			Entry("negative int64", int64(-1)),
+			Entry("negative int32", int32(-1)),
+			Entry("negative int16", int16(-1)),
+			Entry("negative int8", int8(-1)),
+			Entry("negative int", int(-1)),
+			Entry("negative float64", float64(-1.5)),
+			Entry("negative float32", float32(-1.5)),
+		)
+		DescribeTable("Should return an error for overflow values",
+			func(value any) {
+				b := MustSucceed(msgpack.Marshal(value))
+				dec := msgpack.NewDecoder(bytes.NewReader(b))
+				Expect(binary.UnmarshalMsgpackUint32(dec)).Error().To(MatchError(Or(ContainSubstring("exceeds uint32 max"), ContainSubstring("out of uint32 range"))))
+			},
+			Entry("uint64 overflow", uint64(5000000000)),
+			Entry("int64 overflow", int64(5000000000)),
+			Entry("float64 overflow", float64(5000000000)),
+		)
 	})
 })
