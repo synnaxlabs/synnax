@@ -164,7 +164,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 			clause.WhereKeys(nextIDs...)
 		}
 		atLast := len(r.query.Clauses) == i+1
-		entriesBound := hasEntriesBound(clause.Params)
+		entriesBound := gorp.HasEntries[ID, Resource](clause.Params)
 		// If we only have keys and no filters, and don't need entries, skip execution
 		// entirely and use the keys directly.
 		if canSkipExec(clause.Params, entriesBound, atLast) {
@@ -202,8 +202,7 @@ func canSkipExec(q query.Parameters, entriesBound, atLast bool) bool {
 	if entriesBound || atLast {
 		return false
 	}
-	_, hasKeys := gorp.GetWhereKeys[ID](q)
-	if !hasKeys {
+	if _, hasKeys := gorp.GetWhereKeys[ID](q); !hasKeys {
 		return false
 	}
 	if gorp.HasFilters(q) {
@@ -212,17 +211,7 @@ func canSkipExec(q query.Parameters, entriesBound, atLast bool) bool {
 	if _, hasLimit := gorp.GetLimit(q); hasLimit {
 		return false
 	}
-	if gorp.GetOffset(q) > 0 {
-		return false
-	}
-	return true
-}
-
-const entriesOptKey = "entries"
-
-func hasEntriesBound(q query.Parameters) bool {
-	_, ok := q.Get(entriesOptKey)
-	return ok
+	return gorp.GetOffset(q) == 0
 }
 
 const traverseOptKey = "traverse"

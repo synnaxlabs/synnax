@@ -24,8 +24,10 @@ import (
 type ObjectZ struct {
 	baseZ
 	fields          map[string]Schema
-	snakeCaseNames  map[string]string // pre-computed snake_case field names
-	pascalCaseNames map[string]string // pre-computed PascalCase field names
+	caseConversions struct {
+		snake  map[string]string
+		pascal map[string]string
+	}
 }
 
 var _ Schema = (*ObjectZ)(nil)
@@ -33,8 +35,8 @@ var _ Schema = (*ObjectZ)(nil)
 // fieldByName finds a field in a struct by its name, supporting both PascalCase and
 // snake_case. Uses pre-computed case conversions from the schema.
 func (o ObjectZ) fieldByName(v reflect.Value, field string) reflect.Value {
-	snake := o.snakeCaseNames[field]
-	pascal := o.pascalCaseNames[field]
+	snake := o.caseConversions.snake[field]
+	pascal := o.caseConversions.pascal[field]
 	return v.FieldByNameFunc(func(s string) bool { return pascal == s || snake == s })
 }
 
@@ -59,17 +61,28 @@ func (o ObjectZ) Shape() Shape {
 // Fields returns a map of field names to their shapes.
 func (o objectShape) Fields() map[string]Shape { return o.fields }
 
+func (o ObjectZ) initializeFields() ObjectZ {
+	if o.fields == nil {
+		o.fields = make(map[string]Schema)
+	}
+	if o.caseConversions.snake == nil || o.caseConversions.pascal == nil {
+		o.caseConversions.snake = make(map[string]string)
+		o.caseConversions.pascal = make(map[string]string)
+		for name := range o.fields {
+			o.caseConversions.snake[name] = lo.SnakeCase(name)
+			o.caseConversions.pascal[name] = lo.PascalCase(name)
+		}
+	}
+	return o
+}
+
 // Field adds a field to the object schema. The field name can be in PascalCase or
 // snake_case. The shape parameter defines the validation rules for the field.
 func (o ObjectZ) Field(name string, shape Schema) ObjectZ {
-	if o.fields == nil {
-		o.fields = make(map[string]Schema)
-		o.snakeCaseNames = make(map[string]string)
-		o.pascalCaseNames = make(map[string]string)
-	}
+	o = o.initializeFields()
 	o.fields[name] = shape
-	o.snakeCaseNames[name] = lo.SnakeCase(name)
-	o.pascalCaseNames[name] = lo.PascalCase(name)
+	o.caseConversions.snake[name] = lo.SnakeCase(name)
+	o.caseConversions.pascal[name] = lo.PascalCase(name)
 	return o
 }
 
@@ -119,7 +132,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 			if fieldData == nil && schema.Shape().Optional() {
 				continue
 			}
-			result[o.snakeCaseNames[fieldName]] = fieldData
+			result[o.caseConversions.snake[fieldName]] = fieldData
 		}
 		return result, nil
 	}
@@ -155,7 +168,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 		if fieldData == nil && schema.Shape().Optional() {
 			continue
 		}
-		result[o.snakeCaseNames[fieldName]] = fieldData
+		result[o.caseConversions.snake[fieldName]] = fieldData
 	}
 	return result, nil
 }
@@ -212,23 +225,17 @@ func (o ObjectZ) Parse(data any, dest any) error {
 // validation schemas.
 func Object(fields map[string]Schema) ObjectZ {
 	o := ObjectZ{
-		baseZ:           baseZ{dataType: ObjectT, expectedType: reflect.TypeOf(struct{}{})},
-		fields:          fields,
-		snakeCaseNames:  make(map[string]string, len(fields)),
-		pascalCaseNames: make(map[string]string, len(fields)),
-	}
-	for name := range fields {
-		o.snakeCaseNames[name] = lo.SnakeCase(name)
-		o.pascalCaseNames[name] = lo.PascalCase(name)
+		baseZ:  baseZ{dataType: ObjectT, expectedType: reflect.TypeOf(struct{}{})},
+		fields: fields,
 	}
 	o.wrapper = o
-	return o
+	return o.initializeFields()
 }
 
 func (o ObjectZ) getFieldOnMap(data map[string]any, field string) (any, bool) {
-	v, ok := data[o.pascalCaseNames[field]]
+	v, ok := data[o.caseConversions.pascal[field]]
 	if !ok {
-		v, ok = data[o.snakeCaseNames[field]]
+		v, ok = data[o.caseConversions.snake[field]]
 	}
 	return v, ok
 }
