@@ -75,6 +75,7 @@ class Plot(ConsolePage):
 
     def download_csv(self) -> str:
         """Download the plot as a CSV file."""
+        self.console.close_all_notifications()
         csv_button = self.page.locator(".pluto-icon--csv").locator("..")
         with self.page.expect_download() as download_info:
             csv_button.click()
@@ -84,6 +85,7 @@ class Plot(ConsolePage):
 
     def set_axis(self, axis: Axis, config: dict[str, Any]) -> None:
         """Set axis configuration with the given parameters."""
+        self.console.close_all_notifications()
         self.page.get_by_text("Axes").click(timeout=5000)
         self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=5000)
 
