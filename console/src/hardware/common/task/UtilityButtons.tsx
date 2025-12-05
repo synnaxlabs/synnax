@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Button, Flex, Form, Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Icon } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
@@ -23,13 +23,8 @@ interface UtilityButtonProps {
   tooltip: string;
 }
 
-const UtilityButton = ({ children: Icon, tooltip, ...rest }: UtilityButtonProps) => (
-  <Button.Button
-    tooltip={<Text.Text level="small">{tooltip}</Text.Text>}
-    tooltipLocation="left"
-    variant="text"
-    {...rest}
-  >
+const UtilityButton = ({ children: Icon, ...rest }: UtilityButtonProps) => (
+  <Button.Button tooltipLocation="left" variant="text" {...rest}>
     <Icon style={{ color: "var(--pluto-gray-l9)" }} />
   </Button.Button>
 );

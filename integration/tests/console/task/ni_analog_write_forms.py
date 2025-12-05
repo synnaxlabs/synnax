@@ -57,8 +57,8 @@ class NIAnalogWriteForms(ConsoleCase):
             ni_ao.assert_channel(ch)
 
     def create_test_rack(self, rack_name: str, device_name: str) -> None:
-        rack = self.client.hardware.racks.create(name=rack_name)
-        self.client.hardware.devices.create(
+        rack = self.client.racks.create(name=rack_name)
+        self.client.devices.create(
             [
                 sy.Device(
                     key=f"130227d7-02cc-4733-b370-0d590add1bc4",
