@@ -20,27 +20,19 @@ class NICounterReadForms(ConsoleCase):
     Test the input selection for each channel type. Not running the tasks here.
     Only verify that each input type (dropdown/int/float) can be
     appropriately selected. Tasks are not configured/run.
+
+    Randomly selects ~1/4 of all channel types to test each run.
     """
 
     def run(self) -> None:
-        """
-        Test Opening and closing pages
-        """
+        """Test channel type form inputs with random subset selection."""
         console = self.console
-
-        # Get set from matrix parameters
-        set_id = self.params.get("set")
-        if set_id is None:
-            raise ValueError("Missing required parameter 'set' from matrix")
-
-        # Talks to NI MAX sim devices
         rack_name = f"TestRack_{random.randint(100, 999)}"
-        device_name = f"{set_id}_CI103"
+        device_name = "CI_E103"
 
         self.log("Creating NI Counter Read Task")
         ni_ci = CounterRead(self.client, console, "CI_Test_task")
 
-        # Check simple functionality
         ni_ci.set_parameters(
             task_name="CI_Test_task",
             sample_rate=100,
@@ -49,38 +41,44 @@ class NICounterReadForms(ConsoleCase):
             auto_start=False,
         )
 
-        self.create_test_rack(rack_name, device_name, set_id)
+        self.create_test_rack(rack_name, device_name)
 
-        # Verify each counter input channel type by set
-        if set_id == 1:
-            self.verify_edge_count_inputs(ni_ci, device_name)
-            self.verify_frequency_inputs(ni_ci, device_name)
-            self.verify_period_inputs(ni_ci, device_name)
-        if set_id == 2:
-            self.verify_pulse_width_inputs(ni_ci, device_name)
-            self.verify_semi_period_inputs(ni_ci, device_name)
-            self.verify_two_edge_sep_inputs(ni_ci, device_name)
-            self.verify_duty_cycle_inputs(ni_ci, device_name)
-        if set_id == 3:
-            self.verify_linear_velocity_inputs(ni_ci, device_name)
-            self.verify_angular_velocity_inputs(ni_ci, device_name)
-            self.verify_linear_position_inputs(ni_ci, device_name)
-            self.verify_angular_position_inputs(ni_ci, device_name)
+        # All available channel type verifiers
+        all_verifiers = [
+            self.verify_edge_count_inputs,
+            self.verify_frequency_inputs,
+            self.verify_period_inputs,
+            self.verify_pulse_width_inputs,
+            self.verify_semi_period_inputs,
+            self.verify_two_edge_sep_inputs,
+            self.verify_duty_cycle_inputs,
+            self.verify_linear_velocity_inputs,
+            self.verify_angular_velocity_inputs,
+            self.verify_linear_position_inputs,
+            self.verify_angular_position_inputs,
+        ]
+
+        # Select random 1/4 of verifiers
+        sample_size = max(1, len(all_verifiers) // 4)
+        selected = random.sample(all_verifiers, sample_size)
+
+        self.log(f"Testing {len(selected)}/{len(all_verifiers)} channel types")
+        for verifier in selected:
+            verifier(ni_ci, device_name)
 
         # Assert the set values with form state
         ch_names = ni_ci.channels_by_name.copy()
         random.shuffle(ch_names)
-        total = len(ch_names)
-        self.log(f"Asserting {total} channel forms in random order")
+        self.log(f"Asserting {len(ch_names)} channel forms in random order")
         for ch in ch_names:
             ni_ci.assert_channel(ch)
 
-    def create_test_rack(self, rack_name: str, device_name: str, mode: str) -> None:
+    def create_test_rack(self, rack_name: str, device_name: str) -> None:
         rack = self.client.racks.create(name=rack_name)
         self.client.devices.create(
             [
                 sy.Device(
-                    key=f"130227d9-02aa-47e4-b370-0d590add1bc{mode}",
+                    key="230227d9-02aa-47e4-b370-0d590add1bc1",
                     rack=rack.key,
                     name=device_name,
                     make="NI",

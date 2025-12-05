@@ -90,7 +90,6 @@ class NoDevice(ConsoleCase):
         assert (
             msg_expected == msg
         ), f"Notification msg is <{msg}>, should be <{msg_expected}>"
-        self.console.close_all_notifications()
 
         # Assert Task error status
         status = ni_ai.status()

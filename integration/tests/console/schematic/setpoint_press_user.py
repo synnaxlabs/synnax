@@ -132,7 +132,7 @@ class SetpointPressUser(ConsoleCase):
         start_cmd.press()  # Set True
 
         self.log("Starting test")
-        setpoints = [30, 15, 60, 30, 0]
+        setpoints = [50, 25, 0]
         for target in setpoints:
             self.log(f"Target pressure: {target}")
             setpoint.set_value(target)

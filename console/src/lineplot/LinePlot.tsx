@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/lineplot/LinePlot.css";
-
 import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
@@ -60,7 +58,7 @@ import {
   type YAxisKey,
 } from "@/lineplot/axis";
 import { buildLines } from "@/lineplot/buildLines";
-import { NavControls } from "@/lineplot/NavControls";
+import { Controls } from "@/lineplot/Controls";
 import {
   select,
   useSelect,
@@ -491,11 +489,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           measureMode={vis.measure.mode}
           onMeasureModeChange={hasEditPermission ? handleMeasureModeChange : undefined}
         >
-          {!focused && <NavControls layoutKey={layoutKey} />}
+          {!focused && <Controls layoutKey={layoutKey} />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />
         </Channel.LinePlot>
       </PMenu.ContextMenu>
-      {focused && <NavControls layoutKey={layoutKey} />}
+      {focused && <Controls layoutKey={layoutKey} />}
     </div>
   );
 };

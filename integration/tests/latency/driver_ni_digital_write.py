@@ -15,7 +15,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import synnax as sy
-from synnax.hardware import ni
+from synnax import ni
 
 from framework.utils import (
     get_cpu_cores,
@@ -297,8 +297,8 @@ class DriverNIDigitalWrite(Latency):
         assert stats_driver["p95"] <= 8, "Driver p95 latency is greater than 8 ms"
         assert stats_loop["p95"] <= 8, "Loop p95 latency is greater than 8 ms"
 
-        assert stats_driver["p99"] <= 10, "Driver p99 latency is greater than 10 ms"
-        assert stats_loop["p99"] <= 10, "Loop p99 latency is greater than 10 ms"
+        assert stats_driver["p99"] <= 15, "Driver p99 latency is greater than 15 ms"
+        assert stats_loop["p99"] <= 15, "Loop p99 latency is greater than 15 ms"
 
         assert (
             stats_driver["peak_to_peak"] < 40

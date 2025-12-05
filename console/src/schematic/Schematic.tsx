@@ -20,7 +20,6 @@ import {
   Icon,
   Menu as PMenu,
   Schematic as Core,
-  Text,
   Theming,
   usePrevious,
   useSyncedRef,
@@ -37,6 +36,7 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
+import { Controls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
@@ -395,7 +395,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         >
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
           <Diagram.Background />
-          <Diagram.Controls>
+          <Controls x>
             <Diagram.SelectViewportModeControl />
             <Diagram.FitViewControl />
             <Flex.Box x pack>
@@ -407,22 +407,14 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
                   value={state.control === "acquired"}
                   onChange={acquireControl}
                   tooltipLocation={location.BOTTOM_LEFT}
-                  uncheckedVariant="outlined"
-                  checkedVariant="filled"
                   size="small"
-                  tooltip={
-                    <Text.Text level="small">
-                      {state.control === "acquired"
-                        ? "Release control"
-                        : "Acquire control"}
-                    </Text.Text>
-                  }
+                  tooltip={`${state.control === "acquired" ? "Release" : "Acquire"} control`}
                 >
                   <Icon.Circle />
                 </Button.Toggle>
               )}
             </Flex.Box>
-          </Diagram.Controls>
+          </Controls>
         </Core.Schematic>
         {legendVisible && (
           <Control.Legend
