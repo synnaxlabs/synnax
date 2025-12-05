@@ -44,7 +44,7 @@ protected:
     void TearDown() override { std::filesystem::remove_all(test_dir); }
 
 private:
-    void create_test_file() {
+    void create_test_file() const {
         std::ofstream file(test_file);
         file << "Hello, World!\n";
         file << "This is a test file.\n";
@@ -52,12 +52,12 @@ private:
         file.close();
     }
 
-    void create_empty_file() {
+    void create_empty_file() const {
         std::ofstream file(empty_file);
         file.close();
     }
 
-    void create_large_file() {
+    void create_large_file() const {
         std::ofstream file(large_file);
         // Create a file larger than the buffer size (1024 bytes)
         for (int i = 0; i < 200; i++) {
@@ -68,14 +68,14 @@ private:
         file.close();
     }
 
-    void create_binary_file() {
+    void create_binary_file() const {
         std::ofstream file(binary_file, std::ios::binary);
         unsigned char data[] = {0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD};
         file.write(reinterpret_cast<const char *>(data), sizeof(data));
         file.close();
     }
 
-    void create_special_chars_file() {
+    void create_special_chars_file() const {
         std::ofstream file(special_chars_file);
         file << "Special chars: \t\n\r";
         file << "Unicode: €£¥";
@@ -84,18 +84,21 @@ private:
     }
 };
 
+/// @brief it should successfully read a file with multiple lines.
 TEST_F(FSTest, ReadFileSuccess) {
     auto [content, err] = fs::read_file(test_file);
     ASSERT_TRUE(err.ok());
     ASSERT_EQ(content, "Hello, World!\nThis is a test file.\nIt has multiple lines.");
 }
 
+/// @brief it should successfully read an empty file.
 TEST_F(FSTest, ReadEmptyFile) {
     auto [content, err] = fs::read_file(empty_file);
     ASSERT_TRUE(err.ok());
     ASSERT_TRUE(content.empty());
 }
 
+/// @brief it should successfully read a file larger than the buffer size.
 TEST_F(FSTest, ReadLargeFile) {
     auto [content, err] = fs::read_file(large_file);
     ASSERT_TRUE(err.ok());
@@ -105,6 +108,7 @@ TEST_F(FSTest, ReadLargeFile) {
     ASSERT_GT(content.size(), 1024);
 }
 
+/// @brief it should return a NOT_FOUND error for a non-existent file.
 TEST_F(FSTest, ReadNonExistentFile) {
     auto [content, err] = fs::read_file(non_existent_file);
     ASSERT_FALSE(err.ok());
@@ -114,6 +118,7 @@ TEST_F(FSTest, ReadNonExistentFile) {
     ASSERT_NE(err.data.find(non_existent_file), std::string::npos);
 }
 
+/// @brief it should correctly read binary data from a file.
 TEST_F(FSTest, ReadBinaryFile) {
     auto [content, err] = fs::read_file(binary_file);
     ASSERT_TRUE(err.ok());
@@ -126,6 +131,7 @@ TEST_F(FSTest, ReadBinaryFile) {
     ASSERT_EQ(static_cast<unsigned char>(content[5]), 0xFD);
 }
 
+/// @brief it should correctly read a file containing special characters and unicode.
 TEST_F(FSTest, ReadSpecialCharsFile) {
     auto [content, err] = fs::read_file(special_chars_file);
     ASSERT_TRUE(err.ok());
@@ -134,6 +140,7 @@ TEST_F(FSTest, ReadSpecialCharsFile) {
     ASSERT_NE(content.find("\nEnd of file"), std::string::npos);
 }
 
+/// @brief it should correctly read a file with spaces in its path.
 TEST_F(FSTest, ReadFileWithSpacesInPath) {
     std::string path_with_spaces = test_dir + "/file with spaces.txt";
     std::ofstream file(path_with_spaces);
@@ -145,6 +152,7 @@ TEST_F(FSTest, ReadFileWithSpacesInPath) {
     std::filesystem::remove(path_with_spaces);
 }
 
+/// @brief it should return consistent content when reading the same file multiple times.
 TEST_F(FSTest, ReadFileMultipleReads) {
     auto [content1, err1] = fs::read_file(test_file);
     ASSERT_TRUE(err1.ok());
@@ -153,6 +161,7 @@ TEST_F(FSTest, ReadFileMultipleReads) {
     ASSERT_EQ(content1, content2);
 }
 
+/// @brief it should return a NOT_FOUND error when given an empty path.
 TEST_F(FSTest, ReadFileEmptyPath) {
     auto [content, err] = fs::read_file("");
     ASSERT_FALSE(err.ok());
@@ -160,6 +169,7 @@ TEST_F(FSTest, ReadFileEmptyPath) {
     ASSERT_TRUE(content.empty());
 }
 
+/// @brief it should correctly read a file using a relative path.
 TEST_F(FSTest, ReadFileRelativePath) {
     std::string relative_file = "test_relative.txt";
     std::ofstream file(relative_file);
@@ -171,6 +181,7 @@ TEST_F(FSTest, ReadFileRelativePath) {
     std::filesystem::remove(relative_file);
 }
 
+/// @brief it should define the correct error types.
 TEST_F(FSTest, ErrorTypeVerification) {
     ASSERT_EQ(fs::FS_ERROR.type, "fs");
     ASSERT_EQ(fs::NOT_FOUND.type, "fs.not_found");
@@ -179,6 +190,7 @@ TEST_F(FSTest, ErrorTypeVerification) {
     ASSERT_EQ(fs::READ_ERROR.type, "fs.read_error");
 }
 
+/// @brief it should correctly read a file with different newline styles.
 TEST_F(FSTest, ReadFileWithNewlines) {
     std::string newline_file = test_dir + "/newlines.txt";
     std::ofstream file(newline_file);
@@ -192,6 +204,7 @@ TEST_F(FSTest, ReadFileWithNewlines) {
     ASSERT_EQ(content, "Line1\nLine2\r\nLine3\rLine4");
 }
 
+/// @brief it should correctly read a file exactly matching the buffer size.
 TEST_F(FSTest, ReadFileExactBufferSize) {
     std::string exact_buffer_file = test_dir + "/exact_buffer.txt";
     std::ofstream file(exact_buffer_file);
@@ -204,6 +217,7 @@ TEST_F(FSTest, ReadFileExactBufferSize) {
     ASSERT_EQ(content, data);
 }
 
+/// @brief it should correctly read a file one byte larger than the buffer size.
 TEST_F(FSTest, ReadFileOneByteOverBuffer) {
     std::string over_buffer_file = test_dir + "/over_buffer.txt";
     std::ofstream file(over_buffer_file);

@@ -12,6 +12,7 @@
 /// local.
 #include "x/cpp/xjson/xjson.h"
 
+/// @brief it should parse valid JSON fields successfully.
 TEST(testConfig, testParserHappyPath) {
     struct MyConfig {
         std::string name;
@@ -28,6 +29,7 @@ TEST(testConfig, testParserHappyPath) {
     ASSERT_EQ(v.dog, 1.0);
 }
 
+/// @brief it should report error when required field does not exist.
 TEST(testConfig, testParserFieldDoesnNotExist) {
     struct MyConfig {
         std::string name;
@@ -45,6 +47,7 @@ TEST(testConfig, testParserFieldDoesnNotExist) {
     EXPECT_EQ(err["message"], "This field is required");
 }
 
+/// @brief it should report error when field has invalid type.
 TEST(testConfig, testParserFieldHasInvalidType) {
     struct MyConfig {
         std::string name;
@@ -62,6 +65,7 @@ TEST(testConfig, testParserFieldHasInvalidType) {
     EXPECT_EQ(err["message"], "expected a number, got 'cat'");
 }
 
+/// @brief it should parse nested child objects successfully.
 TEST(testConfig, testParserFieldChildHappyPath) {
     struct MyChildConfig {
         std::string name;
@@ -83,6 +87,7 @@ TEST(testConfig, testParserFieldChildHappyPath) {
     ASSERT_EQ(v.child.dog, 1.0);
 }
 
+/// @brief it should report error when child object does not exist.
 TEST(testConfig, testParserFieldChildDoesNotExist) {
     struct MyChildConfig {
         std::string name;
@@ -106,6 +111,7 @@ TEST(testConfig, testParserFieldChildDoesNotExist) {
     EXPECT_EQ(err["message"], "this field is required");
 }
 
+/// @brief it should report error when child field has invalid type.
 TEST(testConfig, testParserChildFieldInvalidType) {
     struct MyChildConfig {
         std::string name;
@@ -129,6 +135,7 @@ TEST(testConfig, testParserChildFieldInvalidType) {
     EXPECT_EQ(err["message"], "expected a number, got 'cat'");
 }
 
+/// @brief it should iterate over array fields successfully.
 TEST(testConfig, testIterHappyPath) {
     struct MyChildConfig {
         std::string name;
@@ -158,6 +165,7 @@ TEST(testConfig, testIterHappyPath) {
     ASSERT_EQ(v.children[0].dog, 1.0);
 }
 
+/// @brief it should report error when iterable field does not exist.
 TEST(testConfig, testIterFieldDoesNotExist) {
     struct MyChildConfig {
         std::string name;
@@ -184,6 +192,7 @@ TEST(testConfig, testIterFieldDoesNotExist) {
     EXPECT_EQ(err["message"], "this field is required");
 }
 
+/// @brief it should report error when iterable field is not an array.
 TEST(testConfig, testIterFieldIsNotArray) {
     struct MyChildConfig {
         std::string name;
@@ -210,6 +219,7 @@ TEST(testConfig, testIterFieldIsNotArray) {
     EXPECT_EQ(err["message"], "expected an array");
 }
 
+/// @brief it should report error when array element has invalid field type.
 TEST(testConfig, testIterFieldChildFieldInvalidType) {
     struct MyChildConfig {
         std::string name;
@@ -240,6 +250,7 @@ TEST(testConfig, testIterFieldChildFieldInvalidType) {
     EXPECT_EQ(err["message"], "expected a number, got 'red'");
 }
 
+/// @brief it should interpret string values as numbers when possible.
 TEST(testConfig, testInterpretStringAsNumber) {
     struct MyConfig {
         float dog;
@@ -253,6 +264,7 @@ TEST(testConfig, testInterpretStringAsNumber) {
     ASSERT_NEAR(v.dog, 1.232, 0.0001);
 }
 
+/// @brief it should parse array fields successfully.
 TEST(testConfig, testArray) {
     const json j = {{"array", {1, 2, 3, 4, 5}}};
     xjson::Parser parser(j);
@@ -266,6 +278,7 @@ TEST(testConfig, testArray) {
     ASSERT_EQ(values[4], 5);
 }
 
+/// @brief it should report error when required array field does not exist.
 TEST(testConfig, testArrayDoesNotExist) {
     const json j = {};
     xjson::Parser parser(j);
@@ -277,6 +290,7 @@ TEST(testConfig, testArrayDoesNotExist) {
     EXPECT_EQ(err["message"], "This field is required");
 }
 
+/// @brief it should report error when array field is not an array.
 TEST(testConfig, testArrayIsNotArray) {
     const json j = {{"array", 1}};
     xjson::Parser parser(j);
@@ -288,6 +302,7 @@ TEST(testConfig, testArrayIsNotArray) {
     EXPECT_EQ(err["message"], "expected an array");
 }
 
+/// @brief it should parse optional array with provided value over default.
 TEST(testConfig, testOptionalArray) {
     const json j = {{"array", {1, 2, 3, 4, 5}}};
     xjson::Parser parser(j);
@@ -301,6 +316,7 @@ TEST(testConfig, testOptionalArray) {
     ASSERT_EQ(values[4], 5);
 }
 
+/// @brief it should report no error for valid parser with no field access.
 TEST(testConfig, testNoError) {
     const json j = {};
     const xjson::Parser parser(j);
@@ -308,6 +324,7 @@ TEST(testConfig, testNoError) {
     ASSERT_FALSE(err);
 }
 
+/// @brief it should parse config from a valid JSON file.
 TEST(testConfig, testParseFromFileSuccess) {
     struct MyConfig {
         std::string name;
@@ -336,6 +353,7 @@ TEST(testConfig, testParseFromFileSuccess) {
     std::remove(test_file.c_str());
 }
 
+/// @brief it should report error when parsing from nonexistent file.
 TEST(testConfig, testParseFromFileFailure) {
     auto parser = xjson::Parser::from_file_path("nonexistent_file.json");
     EXPECT_FALSE(parser.ok());
@@ -345,6 +363,7 @@ TEST(testConfig, testParseFromFileFailure) {
     EXPECT_EQ(err["message"], "failed to open file: nonexistent_file.json");
 }
 
+/// @brief it should report error when parsing file with invalid JSON.
 TEST(testConfig, testParseFromFileInvalidJSON) {
     // Create a temporary test file with invalid JSON
     std::string test_file = "invalid_config.json";
@@ -368,6 +387,7 @@ TEST(testConfig, testParseFromFileInvalidJSON) {
     std::remove(test_file.c_str());
 }
 
+/// @brief it should add custom xerror as field error.
 TEST(testConfig, testFieldErrWithXError) {
     const json j = {};
     xjson::Parser parser(j);
@@ -526,6 +546,7 @@ static_assert(
     "NestedInnerConfig should be detected as parser-constructible"
 );
 
+/// @brief it should parse basic parser-constructible types.
 TEST(testConfig, testBasicConstructibleType) {
     const json j = {{"config", {{"name", "test"}, {"value", 42}}}};
     xjson::Parser parser(j);
@@ -536,6 +557,7 @@ TEST(testConfig, testBasicConstructibleType) {
     ASSERT_EQ(config.value, 42);
 }
 
+/// @brief it should parse nested parser-constructible types.
 TEST(testConfig, testNestedConstructibleTypes) {
     const json j = {
         {"config",
@@ -551,6 +573,7 @@ TEST(testConfig, testNestedConstructibleTypes) {
     ASSERT_NEAR(config.inner.threshold, 3.14f, 0.0001f);
 }
 
+/// @brief it should report error when constructible type has missing required field.
 TEST(testConfig, testConstructibleTypeWithMissingRequiredField) {
     const json j = {{"config", {{"name", "test"}}}};
     xjson::Parser parser(j);
@@ -563,6 +586,7 @@ TEST(testConfig, testConstructibleTypeWithMissingRequiredField) {
     EXPECT_EQ(err["message"], "This field is required");
 }
 
+/// @brief it should report error when constructible type has invalid field type.
 TEST(testConfig, testConstructibleTypeWithInvalidType) {
     const json j = {{"config", {{"name", "test"}, {"value", "not_a_number"}}}};
     xjson::Parser parser(j);
@@ -577,6 +601,7 @@ TEST(testConfig, testConstructibleTypeWithInvalidType) {
     );
 }
 
+/// @brief it should report nested error path for constructible type errors.
 TEST(testConfig, testConstructibleTypeWithNestedError) {
     // Create an empty JSON object explicitly
     json empty_obj = json::object();
@@ -592,6 +617,7 @@ TEST(testConfig, testConstructibleTypeWithNestedError) {
     EXPECT_EQ(err["message"], "This field is required");
 }
 
+/// @brief it should parse arrays of parser-constructible types.
 TEST(testConfig, testArrayOfConstructibleTypes) {
     const json j = {
         {"items",
@@ -613,6 +639,7 @@ TEST(testConfig, testArrayOfConstructibleTypes) {
     ASSERT_EQ(items[2].id, 3);
 }
 
+/// @brief it should report error with correct path for array of constructible types.
 TEST(testConfig, testArrayOfConstructibleTypesWithError) {
     const json j = {
         {"items",
@@ -631,6 +658,7 @@ TEST(testConfig, testArrayOfConstructibleTypesWithError) {
     EXPECT_EQ(err["message"], "This field is required");
 }
 
+/// @brief it should parse mixed constructible and primitive types together.
 TEST(testConfig, testMixedConstructibleAndPrimitiveTypes) {
     const json j = {
         {"config",
@@ -650,6 +678,7 @@ TEST(testConfig, testMixedConstructibleAndPrimitiveTypes) {
     ASSERT_FALSE(config.enabled);
 }
 
+/// @brief it should report error when parent field for constructible type is missing.
 TEST(testConfig, testConstructibleTypeParentMissing) {
     const json j = {};
     xjson::Parser parser(j);
@@ -662,6 +691,7 @@ TEST(testConfig, testConstructibleTypeParentMissing) {
     EXPECT_EQ(err["message"], "This field is required");
 }
 
+/// @brief it should report error when parent field has invalid type for constructible.
 TEST(testConfig, testConstructibleTypeParentInvalidType) {
     const json j = {{"config", "not_an_object"}};
     xjson::Parser parser(j);
@@ -674,6 +704,7 @@ TEST(testConfig, testConstructibleTypeParentInvalidType) {
     EXPECT_EQ(err["message"], "expected an object or array");
 }
 
+/// @brief it should use default value for optional missing constructible type.
 TEST(testConfig, testOptionalConstructibleType) {
     const json j = {};
     xjson::Parser parser(j);
@@ -688,6 +719,7 @@ TEST(testConfig, testOptionalConstructibleType) {
     ASSERT_EQ(config.value, 100);
 }
 
+/// @brief it should parse root object when empty path is provided.
 TEST(testConfig, testEmptyPathBehaviorParsesRoot) {
     // Test 1: Empty path now parses the root object as a parser-constructible type
     const json j1 = {{"name", "test"}, {"id", 42}};
@@ -724,6 +756,7 @@ TEST(testConfig, testEmptyPathBehaviorParsesRoot) {
     EXPECT_EQ(val4a, 123);
 }
 
+/// @brief it should parse root array when no path argument is provided.
 TEST(testConfig, testFieldNoArgsWithRootArray) {
     const json j = json::array({1, 2, 3, 4, 5});
     xjson::Parser parser(j);
@@ -737,6 +770,7 @@ TEST(testConfig, testFieldNoArgsWithRootArray) {
     ASSERT_EQ(values[4], 5);
 }
 
+/// @brief it should parse root string array when no path argument is provided.
 TEST(testConfig, testFieldNoArgsWithRootArrayStrings) {
     const json j = json::array({"a", "b", "c"});
     xjson::Parser parser(j);
@@ -748,6 +782,7 @@ TEST(testConfig, testFieldNoArgsWithRootArrayStrings) {
     ASSERT_EQ(values[2], "c");
 }
 
+/// @brief it should parse root array of constructible types with no path argument.
 TEST(testConfig, testFieldNoArgsWithConstructibleTypes) {
     const json j = json::array(
         {{{"name", "item1"}, {"id", 1}},
@@ -766,6 +801,7 @@ TEST(testConfig, testFieldNoArgsWithConstructibleTypes) {
     ASSERT_EQ(items[2].id, 3);
 }
 
+/// @brief it should report error when root is not array for array field type.
 TEST(testConfig, testFieldNoArgsRootNotArray) {
     const json j = {{"name", "test"}, {"value", 42}};
     xjson::Parser parser(j);
@@ -777,6 +813,7 @@ TEST(testConfig, testFieldNoArgsRootNotArray) {
     EXPECT_EQ(err["message"], "expected an array");
 }
 
+/// @brief it should report error with correct path for root array parsing errors.
 TEST(testConfig, testFieldNoArgsWithError) {
     const json j = json::array(
         {{{"name", "item1"}, {"id", 1}},
@@ -792,6 +829,7 @@ TEST(testConfig, testFieldNoArgsWithError) {
     EXPECT_EQ(err["message"], "This field is required");
 }
 
+/// @brief it should parse empty root array successfully.
 TEST(testConfig, testFieldNoArgsEmpty) {
     const json j = json::array({});
     xjson::Parser parser(j);
@@ -800,6 +838,7 @@ TEST(testConfig, testFieldNoArgsEmpty) {
     ASSERT_EQ(values.size(), 0);
 }
 
+/// @brief it should parse root scalar value with no path argument.
 TEST(testConfig, testFieldNoArgsWithRootScalar) {
     const json j = 42;
     xjson::Parser parser(j);
@@ -808,6 +847,7 @@ TEST(testConfig, testFieldNoArgsWithRootScalar) {
     ASSERT_EQ(value, 42);
 }
 
+/// @brief it should parse root object as constructible type with no path argument.
 TEST(testConfig, testFieldNoArgsWithRootObject) {
     const json j = {{"name", "test"}, {"id", 123}};
     xjson::Parser parser(j);
@@ -817,6 +857,7 @@ TEST(testConfig, testFieldNoArgsWithRootObject) {
     ASSERT_EQ(item.id, 123);
 }
 
+/// @brief it should treat empty string path equivalent to no path argument.
 TEST(testConfig, testFieldEmptyStringEquivalentToNoArgs) {
     const json j = json::array({1, 2, 3});
     xjson::Parser parser(j);
@@ -828,6 +869,7 @@ TEST(testConfig, testFieldEmptyStringEquivalentToNoArgs) {
     ASSERT_EQ(values[2], 3);
 }
 
+/// @brief it should parse map fields with string keys successfully.
 TEST(testConfig, testMapHappyPath) {
     const json j = {{"servers", {{"host1", 8080}, {"host2", 8081}, {"host3", 8082}}}};
     xjson::Parser parser(j);
@@ -840,6 +882,7 @@ TEST(testConfig, testMapHappyPath) {
     ASSERT_EQ(servers.at("host3"), 8082);
 }
 
+/// @brief it should parse unordered map fields successfully.
 TEST(testConfig, testUnorderedMapHappyPath) {
     const json j = {{"config", {{"key1", "value1"}, {"key2", "value2"}}}};
     xjson::Parser parser(j);
@@ -853,6 +896,7 @@ TEST(testConfig, testUnorderedMapHappyPath) {
     ASSERT_EQ(config.at("key2"), "value2");
 }
 
+/// @brief it should report error when required map field does not exist.
 TEST(testConfig, testMapDoesNotExist) {
     const json j = {};
     xjson::Parser parser(j);
@@ -865,6 +909,7 @@ TEST(testConfig, testMapDoesNotExist) {
     EXPECT_EQ(err["message"], "This field is required");
 }
 
+/// @brief it should report error when map field is not an object.
 TEST(testConfig, testMapIsNotObject) {
     const json j = {{"servers", "not an object"}};
     xjson::Parser parser(j);
@@ -877,6 +922,7 @@ TEST(testConfig, testMapIsNotObject) {
     EXPECT_EQ(err["message"], "expected an object");
 }
 
+/// @brief it should use default value for optional missing map field.
 TEST(testConfig, testOptionalMapWithDefault) {
     const json j = {};
     xjson::Parser parser(j);
@@ -891,6 +937,7 @@ TEST(testConfig, testOptionalMapWithDefault) {
     ASSERT_EQ(servers.at("default"), 9000);
 }
 
+/// @brief it should report error when map value has invalid type.
 TEST(testConfig, testMapWithInvalidValueType) {
     const json j = {{"servers", {{"host1", "not_a_number"}, {"host2", 8081}}}};
     xjson::Parser parser(j);
@@ -905,6 +952,7 @@ TEST(testConfig, testMapWithInvalidValueType) {
     );
 }
 
+/// @brief it should parse nested maps successfully.
 TEST(testConfig, testNestedMaps) {
     const json j = {
         {"regions",
@@ -927,6 +975,7 @@ TEST(testConfig, testNestedMaps) {
     ASSERT_EQ(regions.at("us-west").at("server4"), 9091);
 }
 
+/// @brief it should parse maps with vector values successfully.
 TEST(testConfig, testMapWithVectorValues) {
     const json j = {
         {"groups", {{"admin", {1, 2, 3}}, {"user", {4, 5, 6}}, {"guest", {7, 8}}}}
@@ -944,6 +993,7 @@ TEST(testConfig, testMapWithVectorValues) {
     ASSERT_EQ(groups.at("guest").size(), 2);
 }
 
+/// @brief it should parse maps with constructible type values.
 TEST(testConfig, testMapWithConstructibleTypeValues) {
     const json j = {
         {"devices",
@@ -961,6 +1011,7 @@ TEST(testConfig, testMapWithConstructibleTypeValues) {
     ASSERT_EQ(devices.at("device2").id, 200);
 }
 
+/// @brief it should report error for map with constructible type value errors.
 TEST(testConfig, testMapWithConstructibleTypeValuesError) {
     const json j = {
         {"devices",
@@ -977,6 +1028,7 @@ TEST(testConfig, testMapWithConstructibleTypeValuesError) {
     EXPECT_EQ(err["message"], "This field is required");
 }
 
+/// @brief it should parse root object as map with no path argument.
 TEST(testConfig, testMapRootParsing) {
     const json j = {{"key1", 10}, {"key2", 20}, {"key3", 30}};
     xjson::Parser parser(j);
@@ -989,6 +1041,7 @@ TEST(testConfig, testMapRootParsing) {
     ASSERT_EQ(map_values.at("key3"), 30);
 }
 
+/// @brief it should parse empty object as empty map.
 TEST(testConfig, testMapEmptyObject) {
     const json j = {{"config", json::object()}};
     xjson::Parser parser(j);
@@ -998,6 +1051,7 @@ TEST(testConfig, testMapEmptyObject) {
     ASSERT_EQ(config.size(), 0);
 }
 
+/// @brief it should parse map field using alternative paths.
 TEST(testConfig, testMapWithAlternativePaths) {
     const json j = {{"servers_v2", {{"host1", 8080}, {"host2", 8081}}}};
     xjson::Parser parser(j);
@@ -1011,6 +1065,7 @@ TEST(testConfig, testMapWithAlternativePaths) {
     ASSERT_EQ(servers.at("host2"), 8081);
 }
 
+/// @brief it should parse maps with numeric string keys as integer keys.
 TEST(testConfig, testMapWithIntKeys) {
     const json j = {{"ports", {{"8080", "http"}, {"8443", "https"}, {"3000", "dev"}}}};
     xjson::Parser parser(j);
@@ -1023,6 +1078,7 @@ TEST(testConfig, testMapWithIntKeys) {
     ASSERT_EQ(ports.at(3000), "dev");
 }
 
+/// @brief it should parse maps with size_t keys.
 TEST(testConfig, testMapWithSizeTKeys) {
     const json j = {{"indices", {{"0", "first"}, {"1", "second"}, {"42", "answer"}}}};
     xjson::Parser parser(j);
@@ -1035,6 +1091,7 @@ TEST(testConfig, testMapWithSizeTKeys) {
     ASSERT_EQ(indices.at(42), "answer");
 }
 
+/// @brief it should parse maps with float keys.
 TEST(testConfig, testMapWithFloatKeys) {
     const json j = {
         {"thresholds", {{"1.5", "low"}, {"3.14", "medium"}, {"9.99", "high"}}}
@@ -1049,6 +1106,7 @@ TEST(testConfig, testMapWithFloatKeys) {
     ASSERT_EQ(thresholds.at(9.99f), "high");
 }
 
+/// @brief it should report error for invalid numeric key in map.
 TEST(testConfig, testMapWithInvalidNumericKey) {
     const json j = {{"ports", {{"8080", "http"}, {"not_a_number", "invalid"}}}};
     xjson::Parser parser(j);
@@ -1061,6 +1119,7 @@ TEST(testConfig, testMapWithInvalidNumericKey) {
     EXPECT_EQ(err["message"], "Invalid numeric key: 'not_a_number'");
 }
 
+/// @brief it should parse maps with numeric keys and complex values.
 TEST(testConfig, testMapWithNumericKeysAndComplexValues) {
     const json j = {
         {"items",
@@ -1081,6 +1140,7 @@ TEST(testConfig, testMapWithNumericKeysAndComplexValues) {
     ASSERT_EQ(items.at(5).id, 500);
 }
 
+/// @brief it should use default for optional map with numeric keys.
 TEST(testConfig, testMapWithNumericKeysOptional) {
     const json j = {};
     xjson::Parser parser(j);
@@ -1092,6 +1152,7 @@ TEST(testConfig, testMapWithNumericKeysOptional) {
     ASSERT_EQ(ports.at(80), "default_http");
 }
 
+/// @brief it should parse nested maps with numeric keys.
 TEST(testConfig, testMapWithNumericKeysNested) {
     const json j = {
         {"regions",
@@ -1113,6 +1174,7 @@ TEST(testConfig, testMapWithNumericKeysNested) {
     ASSERT_EQ(regions.at(1).at(40), "server4");
 }
 
+/// @brief it should parse root object as map with numeric keys.
 TEST(testConfig, testMapWithNumericKeysRootParsing) {
     const json j = {{"0", 100}, {"1", 200}, {"10", 300}};
     xjson::Parser parser(j);
@@ -1125,6 +1187,7 @@ TEST(testConfig, testMapWithNumericKeysRootParsing) {
     ASSERT_EQ(values.at(10), 300);
 }
 
+/// @brief it should parse unordered maps with numeric keys.
 TEST(testConfig, testUnorderedMapWithNumericKeys) {
     const json j = {{"channels", {{"0", "red"}, {"1", "green"}, {"2", "blue"}}}};
     xjson::Parser parser(j);
@@ -1139,6 +1202,7 @@ TEST(testConfig, testUnorderedMapWithNumericKeys) {
     ASSERT_EQ(channels.at(2), "blue");
 }
 
+/// @brief it should handle different key types in separate map fields.
 TEST(testConfig, testMapMixedStringAndNumericKeys) {
     // Test that we can handle string keys in one map and numeric keys in another
     const json j = {
@@ -1157,6 +1221,7 @@ TEST(testConfig, testMapMixedStringAndNumericKeys) {
     ASSERT_EQ(numeric_map.at(1), 200);
 }
 
+/// @brief it should find field using multiple alternative paths.
 TEST(testConfig, testAlternativePathsMultiple) {
     const json j = {{"version_v3", "latest"}};
     xjson::Parser parser(j);
@@ -1167,6 +1232,7 @@ TEST(testConfig, testAlternativePathsMultiple) {
     ASSERT_EQ(version, "latest");
 }
 
+/// @brief it should use first matching alternative path.
 TEST(testConfig, testAlternativePathsFirst) {
     const json j = {{"version", "v1"}};
     xjson::Parser parser(j);
@@ -1177,6 +1243,7 @@ TEST(testConfig, testAlternativePathsFirst) {
     ASSERT_EQ(version, "v1");
 }
 
+/// @brief it should use second matching alternative path when first is missing.
 TEST(testConfig, testAlternativePathsSecond) {
     const json j = {{"version_v1", "v1"}};
     xjson::Parser parser(j);
@@ -1187,6 +1254,7 @@ TEST(testConfig, testAlternativePathsSecond) {
     ASSERT_EQ(version, "v1");
 }
 
+/// @brief it should report error when no alternative paths are found.
 TEST(testConfig, testAlternativePathsNoneFound) {
     const json j = {};
     xjson::Parser parser(j);
@@ -1200,6 +1268,7 @@ TEST(testConfig, testAlternativePathsNoneFound) {
     EXPECT_EQ(err["message"], "this field is required");
 }
 
+/// @brief it should use default value when no alternative paths are found.
 TEST(testConfig, testAlternativePathsWithDefault) {
     const json j = {};
     xjson::Parser parser(j);
@@ -1211,6 +1280,7 @@ TEST(testConfig, testAlternativePathsWithDefault) {
     ASSERT_EQ(version, "default_version");
 }
 
+/// @brief it should use found value over default in alternative paths.
 TEST(testConfig, testAlternativePathsWithDefaultFoundInAlternative) {
     const json j = {{"version_v2", "v2"}};
     xjson::Parser parser(j);
@@ -1222,6 +1292,7 @@ TEST(testConfig, testAlternativePathsWithDefaultFoundInAlternative) {
     ASSERT_EQ(version, "v2");
 }
 
+/// @brief it should report error when empty paths vector is provided.
 TEST(testConfig, testAlternativePathsEmptyVector) {
     const json j = {{"name", "test"}};
     xjson::Parser parser(j);
@@ -1234,6 +1305,7 @@ TEST(testConfig, testAlternativePathsEmptyVector) {
     EXPECT_EQ(err["message"], "No paths provided");
 }
 
+/// @brief it should use default when empty paths vector is provided.
 TEST(testConfig, testAlternativePathsEmptyVectorWithDefault) {
     const json j = {{"name", "test"}};
     xjson::Parser parser(j);
@@ -1243,6 +1315,7 @@ TEST(testConfig, testAlternativePathsEmptyVectorWithDefault) {
     ASSERT_EQ(version, "default");
 }
 
+/// @brief it should parse nested vectors successfully.
 TEST(testConfig, testNestedVectors) {
     const json j = {{"matrix", {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}}};
     xjson::Parser parser(j);
@@ -1261,6 +1334,7 @@ TEST(testConfig, testNestedVectors) {
     ASSERT_EQ(matrix[2][2], 9);
 }
 
+/// @brief it should parse empty nested vectors successfully.
 TEST(testConfig, testNestedVectorsEmpty) {
     const json j = {{"matrix", json::array()}};
     xjson::Parser parser(j);
@@ -1269,6 +1343,7 @@ TEST(testConfig, testNestedVectorsEmpty) {
     ASSERT_EQ(matrix.size(), 0);
 }
 
+/// @brief it should report error for invalid element in nested vectors.
 TEST(testConfig, testNestedVectorsWithError) {
     const json j = {{"matrix", {{1, 2}, {"invalid", 5}, {7, 8}}}};
     xjson::Parser parser(j);
@@ -1279,6 +1354,7 @@ TEST(testConfig, testNestedVectorsWithError) {
     EXPECT_EQ(err["path"], "matrix.1.0");
 }
 
+/// @brief it should map array elements using callback function.
 TEST(testConfig, testMapMethod) {
     const json j = {
         {"items",
@@ -1303,6 +1379,7 @@ TEST(testConfig, testMapMethod) {
     ASSERT_EQ(items[2].id, 3);
 }
 
+/// @brief it should filter array elements using map callback.
 TEST(testConfig, testMapMethodWithFilter) {
     const json j = {
         {"items",
@@ -1326,6 +1403,7 @@ TEST(testConfig, testMapMethodWithFilter) {
     ASSERT_EQ(items[1].name, "item3");
 }
 
+/// @brief it should report error when map field does not exist.
 TEST(testConfig, testMapMethodFieldDoesNotExist) {
     const json j = {};
     xjson::Parser parser(j);
@@ -1342,6 +1420,7 @@ TEST(testConfig, testMapMethodFieldDoesNotExist) {
     EXPECT_EQ(err["message"], "this field is required");
 }
 
+/// @brief it should report error when map field is not an array.
 TEST(testConfig, testMapMethodFieldNotArray) {
     const json j = {{"items", "not an array"}};
     xjson::Parser parser(j);
@@ -1358,6 +1437,7 @@ TEST(testConfig, testMapMethodFieldNotArray) {
     EXPECT_EQ(err["message"], "expected an array");
 }
 
+/// @brief it should report errors from map callback with correct path.
 TEST(testConfig, testMapMethodWithErrors) {
     const json j = {
         {"items",
@@ -1379,6 +1459,7 @@ TEST(testConfig, testMapMethodWithErrors) {
     EXPECT_EQ(err["message"], "This field is required");
 }
 
+/// @brief it should return valid parser for existing optional child.
 TEST(testConfig, testOptionalChildExists) {
     const json j = {{"child", {{"name", "test"}, {"value", 42}}}};
     xjson::Parser parser(j);
@@ -1390,6 +1471,7 @@ TEST(testConfig, testOptionalChildExists) {
     ASSERT_EQ(value, 42);
 }
 
+/// @brief it should return noop parser for missing optional child.
 TEST(testConfig, testOptionalChildMissing) {
     const json j = {};
     xjson::Parser parser(j);
@@ -1401,6 +1483,7 @@ TEST(testConfig, testOptionalChildMissing) {
     EXPECT_TRUE(parser.ok()); // Still ok because child is noop
 }
 
+/// @brief it should report error for optional child with invalid type.
 TEST(testConfig, testOptionalChildInvalidType) {
     const json j = {{"child", "not an object"}};
     xjson::Parser parser(j);
@@ -1412,6 +1495,7 @@ TEST(testConfig, testOptionalChildInvalidType) {
     EXPECT_EQ(err["message"], "expected an object or array");
 }
 
+/// @brief it should handle arrays in optional child parser.
 TEST(testConfig, testOptionalChildArray) {
     const json j = {{"items", {{{"name", "a"}}, {{"name", "b"}}}}};
     xjson::Parser parser(j);
@@ -1421,6 +1505,7 @@ TEST(testConfig, testOptionalChildArray) {
     EXPECT_TRUE(items_parser.ok());
 }
 
+/// @brief it should convert string array elements to float.
 TEST(testConfig, testVectorStringToNumber) {
     const json j = {{"values", {"1.5", "2.5", "3.5"}}};
     xjson::Parser parser(j);
@@ -1432,6 +1517,7 @@ TEST(testConfig, testVectorStringToNumber) {
     ASSERT_NEAR(values[2], 3.5f, 0.0001f);
 }
 
+/// @brief it should convert string array elements to int.
 TEST(testConfig, testVectorStringToInt) {
     const json j = {{"ports", {"8080", "8443", "3000"}}};
     xjson::Parser parser(j);
@@ -1443,6 +1529,7 @@ TEST(testConfig, testVectorStringToInt) {
     ASSERT_EQ(ports[2], 3000);
 }
 
+/// @brief it should report error for invalid string to number conversion.
 TEST(testConfig, testVectorStringToNumberInvalid) {
     const json j = {{"values", {"1.5", "invalid", "3.5"}}};
     xjson::Parser parser(j);
@@ -1454,6 +1541,7 @@ TEST(testConfig, testVectorStringToNumberInvalid) {
     EXPECT_EQ(err["message"], "expected a number, got 'invalid'");
 }
 
+/// @brief it should return true for existing fields via has method.
 TEST(testConfig, testHasFieldExists) {
     const json j = {{"name", "test"}, {"value", 42}};
     xjson::Parser parser(j);
@@ -1462,6 +1550,7 @@ TEST(testConfig, testHasFieldExists) {
     EXPECT_TRUE(parser.ok());
 }
 
+/// @brief it should return false for non-existing fields via has method.
 TEST(testConfig, testHasFieldDoesNotExist) {
     const json j = {{"name", "test"}};
     xjson::Parser parser(j);
@@ -1470,12 +1559,14 @@ TEST(testConfig, testHasFieldDoesNotExist) {
     EXPECT_TRUE(parser.ok()); // has() should not accumulate errors
 }
 
+/// @brief it should return false for any field on noop parser.
 TEST(testConfig, testHasNoopParser) {
     xjson::Parser parser; // Default constructor creates noop parser
     EXPECT_FALSE(parser.has("anything"));
     EXPECT_FALSE(parser.ok()); // noop parser is never ok
 }
 
+/// @brief it should check field existence on child parser.
 TEST(testConfig, testHasOnChildParser) {
     const json j = {{"parent", {{"child_field", "value"}, {"another", 123}}}};
     xjson::Parser parser(j);
@@ -1486,6 +1577,7 @@ TEST(testConfig, testHasOnChildParser) {
     EXPECT_TRUE(parser.ok());
 }
 
+/// @brief it should return true for field with null value via has method.
 TEST(testConfig, testHasWithNullValue) {
     const json j = {{"null_field", nullptr}, {"string_field", "test"}};
     xjson::Parser parser(j);
@@ -1494,6 +1586,7 @@ TEST(testConfig, testHasWithNullValue) {
     EXPECT_TRUE(parser.ok());
 }
 
+/// @brief it should return false for any field on empty object.
 TEST(testConfig, testHasEmptyObject) {
     const json j = json::object();
     xjson::Parser parser(j);
@@ -1501,6 +1594,7 @@ TEST(testConfig, testHasEmptyObject) {
     EXPECT_TRUE(parser.ok());
 }
 
+/// @brief it should support conditional parsing based on field existence.
 TEST(testConfig, testHasConditionalParsing) {
     // Test a common use case: conditionally parse based on field existence
     const json j = {{"type", "sensor"}, {"threshold", 3.14}};

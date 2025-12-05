@@ -196,7 +196,7 @@ class Parser {
     T handle_required(const std::string &name, const char *error_msg) {
         const auto [value, found] = find_arg(name);
         if (!found) {
-            errors.emplace_back(name, "Required argument not found");
+            errors.emplace_back(xerrors::VALIDATION, name + ": required argument not found");
             return T();
         }
         return parse_value<T>(value, name, error_msg);

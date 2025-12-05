@@ -18,7 +18,7 @@ TEST(LoopTest, testWaitPrecise) {
     const auto TARGET_AVG_THRESHOLD = telem::MICROSECOND * 500;
     loop::Timer timer{rate};
     std::vector<telem::TimeSpan> elapsed;
-    const int count = 5e3;
+     constexpr int count = 5e3;
     elapsed.reserve(count);
     for (int i = 0; i < count; i++) {
         auto start = std::chrono::high_resolution_clock::now();
@@ -35,12 +35,13 @@ TEST(LoopTest, testWaitPrecise) {
     EXPECT_LT(avg_delta, TARGET_AVG_THRESHOLD);
 }
 
+/// @brief it should correctly wait for low rate requests.
 TEST(LoopTest, testWaitLowRate) {
     const auto rate = telem::HERTZ * 10;
     const auto AVG_THRESHOLD = telem::MILLISECOND * 10;
     loop::Timer timer{rate};
     std::vector<telem::TimeSpan> elapsed;
-    const int count = 10;
+     constexpr int count = 10;
     elapsed.reserve(count);
     for (int i = 0; i < count; i++) {
         auto start = std::chrono::high_resolution_clock::now();
@@ -57,12 +58,13 @@ TEST(LoopTest, testWaitLowRate) {
     EXPECT_LT(avg_delta, AVG_THRESHOLD);
 }
 
-void runBreaker(breaker::Breaker &brker) {
+void runBreaker(breaker::Breaker &brk) {
     const auto rate = telem::HERTZ * 1;
     loop::Timer timer{rate};
-    timer.wait(brker);
+    timer.wait(brk);
 }
 
+/// @brief it should correctly interrupt wait when breaker is stopped.
 TEST(LoopTest, testWaitBreaker) {
     const auto b = breaker::Config{
         .name = "test",
@@ -70,12 +72,12 @@ TEST(LoopTest, testWaitBreaker) {
         .max_retries = 10,
         .scale = 1.1
     };
-    auto brker = breaker::Breaker(b);
-    brker.start();
+    auto brk = breaker::Breaker(b);
+    brk.start();
     const auto start = std::chrono::high_resolution_clock::now();
-    std::thread t(runBreaker, std::ref(brker));
+    std::thread t(runBreaker, std::ref(brk));
     std::this_thread::sleep_for((telem::MILLISECOND * 10).chrono());
-    brker.stop();
+    brk.stop();
     const auto end = std::chrono::high_resolution_clock::now();
     const auto elapsed = telem::TimeSpan(end - start);
     EXPECT_NEAR(

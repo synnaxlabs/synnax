@@ -39,13 +39,12 @@ TEST(ErrorsTest, URLsAreWellFormed) {
         return true;
     };
 
-    for (const auto &lib: ALL_LIBS) {
+    for (const auto &lib: ALL_LIBS)
         EXPECT_TRUE(is_valid_url(lib.url)) << "URL is not well-formed for " << lib.name;
-    }
 }
 
 TEST(ErrorsTest, LibraryInfoWithoutURL) {
-    driver::LibraryInfo no_url = {"Test Library", ""};
+    const driver::LibraryInfo no_url = {"Test Library", ""};
 
     auto err = driver::missing_lib(no_url);
 

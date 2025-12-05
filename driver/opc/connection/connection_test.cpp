@@ -13,6 +13,7 @@
 #include "x/cpp/xtest/xtest.h"
 
 #include "driver/opc/connection/connection.h"
+#include "driver/opc/errors/errors.h"
 #include "driver/opc/mock/server.h"
 #include "driver/opc/testutil/testutil.h"
 
@@ -59,8 +60,7 @@ TEST(ConnectionTest, connectionRefused) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS_P(opc::connection::connect(cfg, "test"), opc::errors::UNREACHABLE);
 }
 
 TEST(ConnectionTest, invalidEndpointFormat) {
@@ -69,8 +69,7 @@ TEST(ConnectionTest, invalidEndpointFormat) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS_P(opc::connection::connect(cfg, "test"), opc::errors::UNREACHABLE);
 }
 
 TEST(ConnectionTest, emptyEndpoint) {
