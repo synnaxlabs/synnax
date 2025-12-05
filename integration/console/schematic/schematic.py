@@ -441,6 +441,7 @@ class Schematic(ConsolePage):
         Returns:
             Tuple of (control_authority, show_control_legend)
         """
+        self.console.close_all_notifications()
         self.console.click("Control")
 
         control_authority = int(self.console.get_input_field("Control Authority"))
