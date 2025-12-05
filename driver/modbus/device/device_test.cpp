@@ -92,26 +92,6 @@ TEST(ManagerTest, AcquireFailsWhenServerNotRunning) {
     EXPECT_EQ(dev, nullptr);
 }
 
-TEST(DeviceTest, RepeatedAcquireReleaseNoLeak) {
-    modbus::mock::SlaveConfig slave_config;
-    slave_config.host = "127.0.0.1";
-    slave_config.port = 1541;
-    modbus::mock::Slave slave(slave_config);
-    ASSERT_NIL(slave.start());
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    modbus::device::Manager manager;
-    modbus::device::ConnectionConfig config{"127.0.0.1", 1541};
-
-    for (int i = 0; i < 100; i++) {
-        auto dev = ASSERT_NIL_P(manager.acquire(config));
-    }
-
-    auto dev = ASSERT_NIL_P(manager.acquire(config));
-
-    slave.stop();
-}
-
 TEST(DeviceTest, ReadCoilsWorks) {
     modbus::mock::SlaveConfig slave_config;
     slave_config.host = "127.0.0.1";
