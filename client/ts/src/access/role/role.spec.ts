@@ -12,7 +12,6 @@ import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil/client";
-import { user } from "@/user";
 
 const client = createTestClient();
 

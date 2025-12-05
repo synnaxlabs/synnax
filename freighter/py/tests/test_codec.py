@@ -71,6 +71,7 @@ class TestMsgPackCodec:
         payload = PayloadWithAlias(from_="source", to="destination")
         encoded = codec.encode(payload)
         data = msgpack.unpackb(encoded)
+        assert isinstance(data, dict)
         # The key should be "from" (the alias), not "from_" (the Python attribute)
         assert "from" in data
         assert "from_" not in data

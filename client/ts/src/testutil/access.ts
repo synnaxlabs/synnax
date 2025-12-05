@@ -13,7 +13,6 @@ import { policy } from "@/access/policy";
 import { role } from "@/access/role";
 import type Synnax from "@/client";
 import { createTestClient } from "@/testutil/client";
-import { user } from "@/user";
 
 export const createTestClientWithPolicy = async (client: Synnax, pol: policy.New) => {
   const username = id.create();

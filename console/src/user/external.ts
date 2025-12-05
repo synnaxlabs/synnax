@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Layout } from "@/layout";
-import { AssignRole, ASSIGN_ROLE_LAYOUT_TYPE } from "@/user/AssignRole";
+import { ASSIGN_ROLE_LAYOUT_TYPE, AssignRole } from "@/user/AssignRole";
 import { Register, REGISTER_LAYOUT_TYPE } from "@/user/Register";
 
 export * from "@/user/AssignRole";
