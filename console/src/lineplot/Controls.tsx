@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/lineplot/Controls.css";
+
 import { Button, Flex, Icon, Text, Triggers, Viewport } from "@synnaxlabs/pluto";
-import { type location } from "@synnaxlabs/x";
+import { location } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
+import { Controls as Core } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import {
@@ -27,18 +30,11 @@ import {
   setViewportMode,
 } from "@/lineplot/slice";
 
-const TOOLTIP_LOCATION: location.XY = {
-  x: "left",
-  y: "bottom",
-};
-
-const style = { zIndex: 500 };
-
-export interface NavControlsProps {
+export interface ControlsProps {
   layoutKey: string;
 }
 
-export const NavControls = ({ layoutKey }: NavControlsProps): ReactElement => {
+export const Controls = ({ layoutKey }: ControlsProps): ReactElement => {
   const control = useSelectControlState(layoutKey);
   const { layoutKey: vis } = Layout.useSelectActiveMosaicTabState();
   const mode = useSelectViewportMode(layoutKey);
@@ -68,21 +64,20 @@ export const NavControls = ({ layoutKey }: NavControlsProps): ReactElement => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   return (
-    <Flex.Box className={CSS.BE("line-plot", "nav-controls")} gap="small" style={style}>
-      <Flex.Box x>
+    <Core>
+      <Flex.Box x gap="small">
         <Viewport.SelectMode
           value={mode}
           onChange={handleModeChange}
           triggers={triggers}
-          tooltipLocation={TOOLTIP_LOCATION}
+          tooltipLocation={location.BOTTOM_LEFT}
         />
         <Button.Button
           onClick={handleZoomReset}
-          variant="outlined"
-          tooltipLocation={TOOLTIP_LOCATION}
+          tooltipLocation={location.BOTTOM_LEFT}
           tooltip={
-            <Text.Text level="small">
-              Reset Zoom
+            <Text.Text level="small" color={11}>
+              Reset zoom
               <Triggers.Text trigger={triggers.zoomReset[0]} el="span" />
             </Text.Text>
           }
@@ -93,18 +88,16 @@ export const NavControls = ({ layoutKey }: NavControlsProps): ReactElement => {
         <Button.Toggle
           value={control.enableTooltip}
           onChange={handleTooltipChange}
-          checkedVariant="filled"
           size="small"
-          uncheckedVariant="outlined"
-          tooltip={<Text.Text level="small">Show Tooltip on Hover</Text.Text>}
-          tooltipLocation={TOOLTIP_LOCATION}
+          tooltip="Show tooltip on hover"
+          tooltipLocation={location.BOTTOM_LEFT}
         >
           <Icon.Tooltip />
         </Button.Toggle>
         <Button.Toggle
           value={control.clickMode != null}
-          tooltip="Measure Tool"
-          tooltipLocation={TOOLTIP_LOCATION}
+          tooltip={`${control.clickMode != null ? "Close" : "Open"} measure tool`}
+          tooltipLocation={location.BOTTOM_LEFT}
           onChange={() =>
             handleClickModeChange(control.clickMode != null ? null : "measure")
           }
@@ -113,38 +106,34 @@ export const NavControls = ({ layoutKey }: NavControlsProps): ReactElement => {
           <Icon.Rule />
         </Button.Toggle>
         <Button.Toggle
-          className={CSS.BE("control", "pause")}
           value={control.hold}
           onChange={handleHoldChange}
-          uncheckedVariant="outlined"
-          tooltipLocation={TOOLTIP_LOCATION}
+          tooltipLocation={location.BOTTOM_LEFT}
           size="small"
           tooltip={
-            <Flex.Box x align="center" gap="small">
-              <Text.Text level="small">
-                {control.hold ? "Resume live plotting" : "Pause live plotting"}
-              </Text.Text>
-              <Triggers.Text level="small" trigger={["H"]} />
-            </Flex.Box>
+            <Text.Text level="small" color={11}>
+              {`${control.hold ? "Resume" : "Pause"} live plotting`}
+              <Triggers.Text trigger={["H"]} level="small"></Triggers.Text>
+            </Text.Text>
           }
         >
           {control.hold ? <Icon.Play /> : <Icon.Pause />}
         </Button.Toggle>
       </Flex.Box>
       {control.clickMode === "measure" && (
-        <Flex.Box x gap="small" className={CSS.BE("control", "measure")}>
+        <Flex.Box x pack className={CSS.BE("control", "measure")}>
           <Button.Toggle
             size="small"
             value={measureMode === "one"}
             tooltip="Select first point"
-            tooltipLocation={TOOLTIP_LOCATION}
+            tooltipLocation={location.BOTTOM_LEFT}
             onChange={() => dispatch(setMeasureMode({ key: layoutKey, mode: "one" }))}
           >
             1
           </Button.Toggle>
           <Button.Toggle
             size="small"
-            tooltipLocation={TOOLTIP_LOCATION}
+            tooltipLocation={location.BOTTOM_LEFT}
             value={measureMode === "two"}
             tooltip="Select second point"
             onChange={() => dispatch(setMeasureMode({ key: layoutKey, mode: "two" }))}
@@ -153,6 +142,6 @@ export const NavControls = ({ layoutKey }: NavControlsProps): ReactElement => {
           </Button.Toggle>
         </Flex.Box>
       )}
-    </Flex.Box>
+    </Core>
   );
 };

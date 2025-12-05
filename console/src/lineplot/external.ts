@@ -15,11 +15,11 @@ import { LinePlot } from "@/lineplot/LinePlot";
 import { SELECTABLE } from "@/lineplot/Selectable";
 import { type Selector } from "@/selector";
 
+export * from "@/lineplot/Controls";
 export * from "@/lineplot/export";
 export * from "@/lineplot/layout";
 export * from "@/lineplot/LinePlot";
 export * from "@/lineplot/middleware";
-export * from "@/lineplot/NavControls";
 export * from "@/lineplot/selectors";
 export * from "@/lineplot/slice";
 export * from "@/lineplot/toolbar";

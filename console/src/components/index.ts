@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/components/context-menu";
+export * from "@/components/Controls";
 export * from "@/components/EmptyAction";
 export * from "@/components/FavoriteButton";
 export * from "@/components/toolbar";

@@ -14,7 +14,6 @@ import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Button,
   ContextMenu as PContextMenu,
-  Flex,
   Icon,
   Table as Core,
   TableCells,
@@ -25,7 +24,7 @@ import { box, clamp, dimensions, location, type record, uuid, xy } from "@synnax
 import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 
-import { ContextMenu } from "@/components";
+import { ContextMenu, Controls } from "@/components";
 import { CSS } from "@/css";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
@@ -221,10 +220,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       <PContextMenu.ContextMenu menu={contextMenu} {...contextMenuProps}>
         <Core.Table
           visible={visible}
-          style={{
-            width: totalColSizes,
-            height: totalRowSizes,
-          }}
+          style={{ width: totalColSizes, height: totalRowSizes }}
           onContextMenu={contextMenuProps.open}
           className={contextMenuProps.className}
         >
@@ -291,7 +287,7 @@ const TableControls = ({ tableKey }: TableControls) => {
   }, []);
 
   return (
-    <Flex.Box pack className={CSS.BE("table", "edit")}>
+    <Controls>
       <Button.Toggle
         value={editable}
         onChange={handleEdit}
@@ -301,7 +297,7 @@ const TableControls = ({ tableKey }: TableControls) => {
       >
         {editable ? <Icon.EditOff /> : <Icon.Edit />}
       </Button.Toggle>
-    </Flex.Box>
+    </Controls>
   );
 };
 
