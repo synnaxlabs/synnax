@@ -46,7 +46,8 @@ public:
                 .max_retries = breaker::RETRY_INFINITELY,
                 .scale = 1.05f,
                 .max_interval = 5 * telem::SECOND,
-            }
+            },
+            TASK_NAME
         ),
         rack(rack),
         task(task),
