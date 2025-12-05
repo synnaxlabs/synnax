@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
@@ -161,9 +160,13 @@ func BenchmarkRetrieveByID(b *testing.B) {
 				queryIDs := ids[:batch]
 				b.ReportAllocs()
 				b.ResetTimer()
+				var err error
 				for i := 0; i < b.N; i++ {
 					var res []ontology.Resource
-					_ = env.otg.NewRetrieve().WhereIDs(queryIDs...).Entries(&res).Exec(env.ctx, nil)
+					err = env.otg.NewRetrieve().WhereIDs(queryIDs...).Entries(&res).Exec(env.ctx, nil)
+				}
+				if err != nil {
+					b.Fatalf("benchmark failed: %v", err)
 				}
 			})
 		}
@@ -179,9 +182,13 @@ func BenchmarkTraverseChildren(b *testing.B) {
 				root, _ := env.populateTree(b, depth, width)
 				b.ReportAllocs()
 				b.ResetTimer()
+				var err error
 				for i := 0; i < b.N; i++ {
 					var res []ontology.Resource
-					_ = env.otg.NewRetrieve().WhereIDs(root).TraverseTo(ontology.Children).Entries(&res).Exec(env.ctx, nil)
+					err = env.otg.NewRetrieve().WhereIDs(root).TraverseTo(ontology.Children).Entries(&res).Exec(env.ctx, nil)
+				}
+				if err != nil {
+					b.Fatalf("benchmark failed: %v", err)
 				}
 			})
 		}
@@ -197,9 +204,13 @@ func BenchmarkTraverseParents(b *testing.B) {
 			leaf := leaves[0]
 			b.ReportAllocs()
 			b.ResetTimer()
+			var err error
 			for i := 0; i < b.N; i++ {
 				var res []ontology.Resource
-				_ = env.otg.NewRetrieve().WhereIDs(leaf).TraverseTo(ontology.Parents).Entries(&res).Exec(env.ctx, nil)
+				err = env.otg.NewRetrieve().WhereIDs(leaf).TraverseTo(ontology.Parents).Entries(&res).Exec(env.ctx, nil)
+			}
+			if err != nil {
+				b.Fatalf("benchmark failed: %v", err)
 			}
 		})
 	}
@@ -214,9 +225,13 @@ func BenchmarkPagination(b *testing.B) {
 				env.populate(b, total)
 				b.ReportAllocs()
 				b.ResetTimer()
+				var err error
 				for i := 0; i < b.N; i++ {
 					var res []ontology.Resource
-					_ = env.otg.NewRetrieve().Offset(offset).Limit(50).Entries(&res).Exec(env.ctx, nil)
+					err = env.otg.NewRetrieve().Offset(offset).Limit(50).Entries(&res).Exec(env.ctx, nil)
+				}
+				if err != nil {
+					b.Fatalf("benchmark failed: %v", err)
 				}
 			})
 		}
@@ -231,8 +246,12 @@ func BenchmarkSearch(b *testing.B) {
 			env.populate(b, count)
 			b.ReportAllocs()
 			b.ResetTimer()
+			var err error
 			for i := 0; i < b.N; i++ {
-				_, _ = env.otg.Search(env.ctx, search.Request{Term: "500"})
+				_, err = env.otg.Search(env.ctx, search.Request{Term: "500"})
+			}
+			if err != nil {
+				b.Fatalf("benchmark failed: %v", err)
 			}
 		})
 	}
@@ -246,9 +265,13 @@ func BenchmarkRetrieveByType(b *testing.B) {
 			env.populate(b, count)
 			b.ReportAllocs()
 			b.ResetTimer()
+			var err error
 			for i := 0; i < b.N; i++ {
 				var res []ontology.Resource
-				_ = env.otg.NewRetrieve().WhereTypes(benchType).Entries(&res).Exec(env.ctx, nil)
+				err = env.otg.NewRetrieve().WhereTypes(benchType).Entries(&res).Exec(env.ctx, nil)
+			}
+			if err != nil {
+				b.Fatalf("benchmark failed: %v", err)
 			}
 		})
 	}
@@ -266,13 +289,17 @@ func BenchmarkMultiHopTraversal(b *testing.B) {
 				root, _ := env.populateTree(b, depth, 3)
 				b.ReportAllocs()
 				b.ResetTimer()
+				var err error
 				for i := 0; i < b.N; i++ {
 					q := env.otg.NewRetrieve().WhereIDs(root)
 					for range hops {
 						q = q.TraverseTo(ontology.Children)
 					}
 					var res []ontology.Resource
-					_ = q.Entries(&res).Exec(env.ctx, nil)
+					err = q.Entries(&res).Exec(env.ctx, nil)
+				}
+				if err != nil {
+					b.Fatalf("benchmark failed: %v", err)
 				}
 			})
 		}
@@ -287,15 +314,19 @@ func BenchmarkIntermediateTraversalOverhead(b *testing.B) {
 			root, _ := env.populateTree(b, 3, width)
 			b.ReportAllocs()
 			b.ResetTimer()
+			var err error
 			for i := 0; i < b.N; i++ {
 				var res []ontology.Resource
-				_ = env.otg.NewRetrieve().
+				err = env.otg.NewRetrieve().
 					WhereIDs(root).
 					TraverseTo(ontology.Children).
 					TraverseTo(ontology.Children).
 					TraverseTo(ontology.Children).
 					Entries(&res).
 					Exec(env.ctx, nil)
+			}
+			if err != nil {
+				b.Fatalf("benchmark failed: %v", err)
 			}
 		})
 	}
@@ -338,13 +369,17 @@ func BenchmarkTraverseChildrenByType(b *testing.B) {
 				parents := env.populateParentsWithChildren(b, numParents, childrenPerParent)
 				b.ReportAllocs()
 				b.ResetTimer()
+				var err error
 				for i := 0; i < b.N; i++ {
 					var res []ontology.Resource
-					_ = env.otg.NewRetrieve().
+					err = env.otg.NewRetrieve().
 						WhereIDs(parents...).
 						TraverseTo(ontology.Children).
 						Entries(&res).
 						Exec(env.ctx, nil)
+				}
+				if err != nil {
+					b.Fatalf("benchmark failed: %v", err)
 				}
 			})
 			b.Run(fmt.Sprintf("parents=%d/children=%d/withfilter", numParents, childrenPerParent), func(b *testing.B) {
@@ -353,18 +388,20 @@ func BenchmarkTraverseChildrenByType(b *testing.B) {
 				parents := env.populateParentsWithChildren(b, numParents, childrenPerParent)
 				b.ReportAllocs()
 				b.ResetTimer()
+				var err error
 				for i := 0; i < b.N; i++ {
 					var res []ontology.Resource
-					_ = env.otg.NewRetrieve().
+					err = env.otg.NewRetrieve().
 						WhereIDs(parents...).
 						TraverseTo(ontology.Children).
 						WhereTypes(benchType).
 						Entries(&res).
 						Exec(env.ctx, nil)
 				}
+				if err != nil {
+					b.Fatalf("benchmark failed: %v", err)
+				}
 			})
 		}
 	}
 }
-
-var _ = lo.Must(1, nil)
