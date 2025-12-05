@@ -17,11 +17,13 @@ export const userZ = z.object({
   username: z.string().min(1, "Username is required"),
   firstName: z.string().default(""),
   lastName: z.string().default(""),
+  rootUser: z.boolean().default(false),
 });
 
 export interface User extends z.infer<typeof userZ> {}
 
 export const newZ = userZ
+  .omit({ rootUser: true })
   .partial({ key: true, firstName: true, lastName: true })
   .extend({ password: z.string().min(1) });
 export interface New extends z.infer<typeof newZ> {}

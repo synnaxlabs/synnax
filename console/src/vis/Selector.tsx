@@ -25,9 +25,12 @@ export const SELECTABLES: CoreSelector.Selectable[] = [
 
 export const SELECTOR_LAYOUT_TYPE = "visualizationSelector";
 
-export const useSelectorVisible = () =>
-  // It is safe to call hooks in a map as SELECTABLES is a global constant.
-  SELECTABLES.some(({ useVisible }) => useVisible?.() ?? true);
+export const useSelectorVisible = (): boolean => {
+  // Call ALL hooks first to maintain consistent hook order across renders.
+  // Using .some() directly would short-circuit and skip hooks, violating Rules of Hooks.
+  const results = SELECTABLES.map(({ useVisible }) => useVisible?.() ?? true);
+  return results.some(Boolean);
+};
 
 export const createSelectorLayout = (): Layout.BaseState => ({
   type: SELECTOR_LAYOUT_TYPE,

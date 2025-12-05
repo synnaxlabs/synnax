@@ -39,6 +39,7 @@ func ProvisionRootUser(
 		}
 		if rootUser.Key == uuid.Nil {
 			rootUser.Username = creds.Username
+			rootUser.RootUser = true
 			if err := svc.Auth.NewWriter(tx).Register(ctx, creds); err != nil {
 				return err
 			}

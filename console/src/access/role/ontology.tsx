@@ -72,4 +72,10 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Role />,
   TreeContextMenu,
   hasChildren: true,
+  canDrop: ({ items }) =>
+    items.every(
+      ({ key, type, data }) =>
+        (key.toString().startsWith("user:") || type === "user") &&
+        data?.rootUser !== true,
+    ),
 };

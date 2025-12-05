@@ -93,4 +93,5 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.User />,
   TreeContextMenu,
   hasChildren: false,
+  haulItems: ({ id, data }) => [{ ...id, data: data ?? undefined }],
 };

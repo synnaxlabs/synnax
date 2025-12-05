@@ -150,7 +150,7 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSub
   },
   update: async ({ client, value, rollbacks, store }) => {
     const v = value();
-    const newUser: user.New & user.User = { key: uuid.create(), ...v };
+    const newUser: user.New & user.User = { key: uuid.create(), rootUser: false, ...v };
     rollbacks.push(store.users.set(newUser.key, newUser));
     const createdUser = await client.users.create(newUser);
     if (v.role == null) return;

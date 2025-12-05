@@ -432,7 +432,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const depth = Core.getDepth(itemKey, shapeRef.current);
       startDrag([
         { type: Core.HAUL_TYPE, key: itemKey, data: { depth } },
-        ...haulItems.map((item) => ({ ...item, data: { depth } })),
+        ...haulItems.map((item) => ({ ...item, data: { ...item.data, depth } })),
       ]);
     },
     [getResource, selectedRef],
