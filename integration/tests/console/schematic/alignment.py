@@ -18,8 +18,8 @@ from console.schematic import (
     ValveThreeWayBall,
 )
 
-CHANNEL_NAME = "command_channel"
-INDEX_NAME = "idx_channel"
+CHANNEL_NAME = "alignment_command_channel"
+INDEX_NAME = "alignment_idx_channel"
 
 
 class Alignment(ConsoleCase):
