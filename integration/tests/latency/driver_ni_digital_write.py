@@ -15,7 +15,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import synnax as sy
-from synnax.hardware import ni
+from synnax import ni
 
 from framework.utils import (
     get_cpu_cores,

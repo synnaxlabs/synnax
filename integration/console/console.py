@@ -307,6 +307,7 @@ class Console:
             if close_button.count() > 0:
                 close_button.wait_for(state="attached", timeout=500)
                 close_button.click()
+                notification.wait_for(state="hidden", timeout=1000)
                 return True
             return False
 

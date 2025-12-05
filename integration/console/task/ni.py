@@ -196,9 +196,12 @@ class NITask(ConsolePage):
 
     def run(self) -> None:
         sy.sleep(0.2)
-        self.console.page.locator("button .pluto-icon--play").locator("..").click(
-            force=True
+        self.console.close_all_notifications()
+        play_button = self.console.page.locator("button .pluto-icon--play").locator(
+            ".."
         )
+        play_button.wait_for(state="visible", timeout=10000)
+        play_button.click(timeout=1000)
         sy.sleep(0.2)
 
     def status(self) -> dict[str, str]:

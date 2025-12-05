@@ -13,16 +13,10 @@
           "case": "console/task/ni_analog_write_forms"
         },
         {
-          "case": "console/task/ni_counter_read_forms",
-          "parameters": {
-            "set": [1, 2, 3]
-          }
+          "case": "console/task/ni_counter_read_forms"
         },
         {
-          "case": "console/task/ni_analog_read_forms",
-          "parameters": {
-            "set": [1, 2, 3, 4, 5, 6]
-          }
+          "case": "console/task/ni_analog_read_forms"
         }
       ]
     }
