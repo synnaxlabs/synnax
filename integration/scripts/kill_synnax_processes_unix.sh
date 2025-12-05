@@ -11,6 +11,35 @@
 
 set -euo pipefail
 
+KILLED_PROCESSES=false
+
+echo "Checking for existing synnax processes..."
+# Exclude this script from the search (script path contains "synnax")
+SYNNAX_PIDS=$(pgrep -f "synnax" 2> /dev/null | grep -v "^$$\$" | grep -v "^$PPID\$" || true)
+# Also filter out any processes that are running this kill script
+SYNNAX_PIDS=$(echo "$SYNNAX_PIDS" | while read pid; do
+    if [ -n "$pid" ] && ! ps -p "$pid" -o args= 2> /dev/null | grep -q "kill_synnax"; then
+        echo "$pid"
+    fi
+done)
+
+if [ -n "$SYNNAX_PIDS" ]; then
+    echo "Found synnax processes, killing them..."
+    echo "$SYNNAX_PIDS" | xargs -r kill 2> /dev/null || true
+    sleep 2
+    echo "$SYNNAX_PIDS" | xargs -r kill -9 2> /dev/null || true
+    echo "Synnax processes killed"
+    KILLED_PROCESSES=true
+else
+    echo "No synnax processes found"
+fi
+
+# Wait for processes to fully terminate before cleanup
+if [ "$KILLED_PROCESSES" = true ]; then
+    echo "Waiting 10 seconds for processes to fully terminate..."
+    sleep 10
+fi
+
 echo "Cleaning up synnax directories..."
 [ -d "$HOME/synnax-binaries" ] && rm -rf "$HOME/synnax-binaries" && echo "Removed synnax-binaries directory from $HOME" || echo "No synnax-binaries directory found in $HOME"
 [ -d "$HOME/synnax-data" ] && rm -rf "$HOME/synnax-data" && echo "Removed synnax-data directory from $HOME" || echo "No synnax-data directory found in $HOME"
@@ -25,17 +54,6 @@ if [ -d "$HOME/synnax-binaries" ] || [ -d "$HOME/synnax-data" ]; then
     exit 1
 else
     echo "✅ Directory cleanup verified - no synnax directories found"
-fi
-
-echo "Checking for existing synnax processes..."
-if pgrep -f "synnax" > /dev/null 2>&1; then
-    echo "Found synnax processes, killing them..."
-    pkill -f "synnax" 2> /dev/null || true
-    sleep 2
-    pkill -9 -f "synnax" 2> /dev/null || true
-    echo "Synnax processes killed"
-else
-    echo "No synnax processes found"
 fi
 
 echo "Synnax process cleanup completed"

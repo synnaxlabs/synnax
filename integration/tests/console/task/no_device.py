@@ -48,8 +48,8 @@ class NoDevice(ConsoleCase):
         self.log(f"Creating {rack_name} and devices")
 
         client = self.client
-        rack = client.hardware.racks.create(name=rack_name)
-        client.hardware.devices.create(
+        rack = client.racks.create(name=rack_name)
+        client.devices.create(
             [
                 sy.Device(
                     key="a0e37b26-5401-413e-8e65-c7ad9d9afd70",
@@ -90,7 +90,6 @@ class NoDevice(ConsoleCase):
         assert (
             msg_expected == msg
         ), f"Notification msg is <{msg}>, should be <{msg_expected}>"
-        self.console.close_all_notifications()
 
         # Assert Task error status
         status = ni_ai.status()
