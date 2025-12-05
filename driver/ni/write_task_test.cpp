@@ -133,6 +133,7 @@ protected:
     }
 };
 
+/// @brief it should write analog values and update state channels correctly.
 TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     parse_config();
     auto reads = std::make_shared<std::vector<synnax::Frame>>();

@@ -249,7 +249,10 @@ TEST_F(XArgsTest, TestNullPointerHandling) {
     const auto required_str = parser.field<std::string>("test");
     EXPECT_TRUE(required_str.empty());
     EXPECT_FALSE(parser.errors.empty());
-    EXPECT_EQ(parser.errors[0].message(), "[sy.validation] test: required argument not found");
+    EXPECT_EQ(
+        parser.errors[0].message(),
+        "[sy.validation] test: required argument not found"
+    );
 
     // Clear errors for next test
     parser.errors.clear();

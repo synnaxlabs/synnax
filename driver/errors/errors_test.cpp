@@ -23,6 +23,7 @@ const std::vector<driver::LibraryInfo> ALL_LIBS = {
     ni::NI_SYSCFG,
 };
 
+/// @brief it should have non-empty names and URLs for all library info.
 TEST(ErrorsTest, LibraryInfoNotEmpty) {
     for (const auto &lib: ALL_LIBS) {
         EXPECT_FALSE(lib.name.empty()) << "Library name should not be empty";
@@ -31,6 +32,7 @@ TEST(ErrorsTest, LibraryInfoNotEmpty) {
     }
 }
 
+/// @brief it should have well-formed HTTPS URLs for all libraries.
 TEST(ErrorsTest, URLsAreWellFormed) {
     auto is_valid_url = [](const std::string &url) {
         if (url.length() < 12) return false;
@@ -43,6 +45,7 @@ TEST(ErrorsTest, URLsAreWellFormed) {
         EXPECT_TRUE(is_valid_url(lib.url)) << "URL is not well-formed for " << lib.name;
 }
 
+/// @brief it should create a missing library error without download URL.
 TEST(ErrorsTest, LibraryInfoWithoutURL) {
     const driver::LibraryInfo no_url = {"Test Library", ""};
 

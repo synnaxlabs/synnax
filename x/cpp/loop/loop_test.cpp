@@ -18,7 +18,7 @@ TEST(LoopTest, testWaitPrecise) {
     const auto TARGET_AVG_THRESHOLD = telem::MICROSECOND * 500;
     loop::Timer timer{rate};
     std::vector<telem::TimeSpan> elapsed;
-     constexpr int count = 5e3;
+    constexpr int count = 5e3;
     elapsed.reserve(count);
     for (int i = 0; i < count; i++) {
         auto start = std::chrono::high_resolution_clock::now();
@@ -41,7 +41,7 @@ TEST(LoopTest, testWaitLowRate) {
     const auto AVG_THRESHOLD = telem::MILLISECOND * 10;
     loop::Timer timer{rate};
     std::vector<telem::TimeSpan> elapsed;
-     constexpr int count = 10;
+    constexpr int count = 10;
     elapsed.reserve(count);
     for (int i = 0; i < count; i++) {
         auto start = std::chrono::high_resolution_clock::now();

@@ -15,6 +15,7 @@
 
 #include "driver/opc/types/types.h"
 
+/// @brief it should properly manage NodeId lifecycle with RAII.
 TEST(TypesTest, NodeIdRAII) {
     opc::NodeId nodeId1;
     EXPECT_TRUE(nodeId1.is_null());
@@ -36,6 +37,7 @@ TEST(TypesTest, NodeIdRAII) {
     UA_NodeId_clear(&string_id);
 }
 
+/// @brief it should properly implement NodeId copy semantics.
 TEST(TypesTest, NodeIdCopySemantics) {
     UA_NodeId string_id = UA_NODEID_STRING_ALLOC(2, "TestNode");
     opc::NodeId nodeId1(string_id);
@@ -51,6 +53,7 @@ TEST(TypesTest, NodeIdCopySemantics) {
     EXPECT_TRUE(nodeId2.is_null());
 }
 
+/// @brief it should properly implement NodeId move semantics.
 TEST(TypesTest, NodeIdMoveSemantics) {
     UA_NodeId string_id = UA_NODEID_STRING_ALLOC(2, "TestNode");
     opc::NodeId nodeId1(string_id);
@@ -66,6 +69,7 @@ TEST(TypesTest, NodeIdMoveSemantics) {
     EXPECT_TRUE(nodeId2.is_null());
 }
 
+/// @brief it should parse NodeId strings in various formats.
 TEST(TypesTest, NodeIdParsing) {
     auto [numeric, err1] = opc::NodeId::parse("NS=1;I=1000");
     ASSERT_NIL(err1);
@@ -83,6 +87,7 @@ TEST(TypesTest, NodeIdParsing) {
     EXPECT_TRUE(invalid.is_null());
 }
 
+/// @brief it should convert NodeId to string representation.
 TEST(TypesTest, NodeIdToString) {
     UA_NodeId numeric = UA_NODEID_NUMERIC(1, 1000);
     std::string str1 = opc::NodeId::to_string(numeric);
@@ -94,6 +99,7 @@ TEST(TypesTest, NodeIdToString) {
     UA_NodeId_clear(&string_node);
 }
 
+/// @brief it should properly manage Variant lifecycle with RAII.
 TEST(TypesTest, VariantRAII) {
     opc::Variant var1;
     EXPECT_TRUE(UA_Variant_isEmpty(&var1.get()));
@@ -111,6 +117,7 @@ TEST(TypesTest, VariantRAII) {
     UA_Variant_clear(&ua_var);
 }
 
+/// @brief it should properly implement Variant copy and move semantics.
 TEST(TypesTest, VariantCopyMoveSemantics) {
     UA_Variant ua_var;
     UA_Variant_init(&ua_var);
@@ -128,6 +135,7 @@ TEST(TypesTest, VariantCopyMoveSemantics) {
     EXPECT_TRUE(UA_Variant_isEmpty(&var2.get()));
 }
 
+/// @brief it should properly manage ReadResponse lifecycle with RAII.
 TEST(TypesTest, ReadResponseRAII) {
     UA_ReadResponse ua_response;
     UA_ReadResponse_init(&ua_response);
@@ -140,6 +148,7 @@ TEST(TypesTest, ReadResponseRAII) {
     EXPECT_EQ(response2.get().resultsSize, 0);
 }
 
+/// @brief it should properly manage WriteResponse lifecycle with RAII.
 TEST(TypesTest, WriteResponseRAII) {
     UA_WriteResponse ua_response;
     UA_WriteResponse_init(&ua_response);
@@ -152,6 +161,7 @@ TEST(TypesTest, WriteResponseRAII) {
     EXPECT_EQ(response2.get().resultsSize, 0);
 }
 
+/// @brief it should properly manage LocalizedText lifecycle with RAII.
 TEST(TypesTest, LocalizedTextRAII) {
     opc::LocalizedText text1;
     EXPECT_EQ(text1.get().locale.length, 0);
@@ -168,6 +178,7 @@ TEST(TypesTest, LocalizedTextRAII) {
     EXPECT_EQ(text3.get().text.length, 0);
 }
 
+/// @brief it should properly manage QualifiedName lifecycle with RAII.
 TEST(TypesTest, QualifiedNameRAII) {
     opc::QualifiedName name1;
     EXPECT_EQ(name1.get().name.length, 0);
@@ -186,6 +197,7 @@ TEST(TypesTest, QualifiedNameRAII) {
     EXPECT_EQ(name3.get().name.length, 0);
 }
 
+/// @brief it should properly manage String lifecycle with RAII.
 TEST(TypesTest, StringRAII) {
     opc::String str1;
     EXPECT_EQ(str1.get().length, 0);
@@ -202,6 +214,7 @@ TEST(TypesTest, StringRAII) {
     EXPECT_EQ(str3.get().length, 0);
 }
 
+/// @brief it should properly manage ByteString lifecycle with RAII.
 TEST(TypesTest, ByteStringRAII) {
     opc::ByteString bytes1;
     EXPECT_EQ(bytes1.get().length, 0);
@@ -213,6 +226,7 @@ TEST(TypesTest, ByteStringRAII) {
     EXPECT_EQ(bytes3.get().length, 0);
 }
 
+/// @brief it should not cause double-free when moving NodeId.
 TEST(TypesTest, NoDoubleFree) {
     UA_NodeId string_id = UA_NODEID_STRING_ALLOC(2, "TestNode");
 
@@ -225,6 +239,7 @@ TEST(TypesTest, NoDoubleFree) {
     }
 }
 
+/// @brief it should parse numeric NodeId from JSON.
 TEST(TypesTest, ParseNumericNodeIdFromJSON) {
     xjson::Parser parser(std::string(R"({"nodeId": "NS=1;I=42"})"));
     opc::NodeId nodeId = opc::NodeId::parse("nodeId", parser);
@@ -233,6 +248,7 @@ TEST(TypesTest, ParseNumericNodeIdFromJSON) {
     EXPECT_EQ(nodeId.get().identifier.numeric, 42);
 }
 
+/// @brief it should parse string NodeId from JSON.
 TEST(TypesTest, ParseStringNodeIdFromJSON) {
     xjson::Parser parser(std::string(R"({"nodeId": "NS=2;S=TestString"})"));
     opc::NodeId nodeId = opc::NodeId::parse("nodeId", parser);
@@ -247,6 +263,7 @@ TEST(TypesTest, ParseStringNodeIdFromJSON) {
     );
 }
 
+/// @brief it should parse GUID NodeId from JSON.
 TEST(TypesTest, ParseGuidNodeIdFromJSON) {
     xjson::Parser parser(
         std::string(R"({"nodeId": "NS=3;G=12345678-1234-5678-9ABC-123456789ABC"})")
@@ -261,12 +278,14 @@ TEST(TypesTest, ParseGuidNodeIdFromJSON) {
     EXPECT_EQ(nodeId.get().identifier.guid.data4[1], 0xBC);
 }
 
+/// @brief it should return null for invalid NodeId in JSON.
 TEST(TypesTest, ParseInvalidNodeIdFromJSON) {
     xjson::Parser parser(std::string(R"({"nodeId": "Invalid"})"));
     opc::NodeId nodeId = opc::NodeId::parse("nodeId", parser);
     EXPECT_TRUE(nodeId.is_null());
 }
 
+/// @brief it should return error for missing NodeId in JSON.
 TEST(TypesTest, ParseMissingNodeIdFromJSON) {
     xjson::Parser parser(std::string(R"({"otherField": "value"})"));
     opc::NodeId nodeId = opc::NodeId::parse("nodeId", parser);
@@ -274,12 +293,14 @@ TEST(TypesTest, ParseMissingNodeIdFromJSON) {
     EXPECT_FALSE(parser.ok());
 }
 
+/// @brief it should convert numeric NodeId to string.
 TEST(TypesTest, NodeIdToStringNumeric) {
     UA_NodeId nodeId = UA_NODEID_NUMERIC(1, 42);
     std::string nodeIdStr = opc::NodeId::to_string(nodeId);
     EXPECT_EQ(nodeIdStr, "NS=1;I=42");
 }
 
+/// @brief it should convert string NodeId to string.
 TEST(TypesTest, NodeIdToStringString) {
     UA_String uaStr;
     uaStr.data = (UA_Byte *) "TestString";
@@ -292,6 +313,7 @@ TEST(TypesTest, NodeIdToStringString) {
     EXPECT_EQ(nodeIdStr, "NS=2;S=TestString");
 }
 
+/// @brief it should convert GUID NodeId to string.
 TEST(TypesTest, NodeIdToStringGuid) {
     UA_Guid guid;
     guid.data1 = 0x12345678;
@@ -313,6 +335,7 @@ TEST(TypesTest, NodeIdToStringGuid) {
     EXPECT_EQ(nodeIdStr, "NS=3;G=12345678-1234-5678-9abc-123456789abc");
 }
 
+/// @brief it should convert ByteString NodeId to string.
 TEST(TypesTest, NodeIdToStringByteString) {
     UA_Byte data[] = {0xDE, 0xAD, 0xBE, 0xEF};
     UA_ByteString byteString;
@@ -326,6 +349,7 @@ TEST(TypesTest, NodeIdToStringByteString) {
     EXPECT_EQ(nodeIdStr, "NS=4;B=deadbeef");
 }
 
+/// @brief it should round-trip NodeId through parse and to_string.
 TEST(TypesTest, NodeIdRoundTripConversion) {
     {
         xjson::Parser parser(std::string(R"({"nodeId": "NS=1;I=42"})"));

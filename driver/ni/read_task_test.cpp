@@ -50,6 +50,7 @@ json base_analog_config() {
 }
 }
 
+/// @brief it should parse basic analog read task configuration.
 TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
@@ -330,7 +331,7 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
 }
 
-/// @breif it should communicate an error when the hardware fails to start.
+/// @brief it should communicate an error when the hardware fails to start.
 TEST_F(AnalogReadTest, testErrorOnStart) {
     parse_config();
     const auto rt = create_task(

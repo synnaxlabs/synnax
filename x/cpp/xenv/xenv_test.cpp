@@ -66,9 +66,18 @@ TEST_F(XEnvTest, LoadLong) {
 
 /// @brief it should load uint16 values from environment variables.
 TEST_F(XEnvTest, LoadUInt16) {
-    EXPECT_EQ(xenv::load("TEST_UINT16", static_cast<uint16_t>(0)), static_cast<uint16_t>(65000));
-    EXPECT_EQ(xenv::load("NONEXISTENT_VAR", static_cast<uint16_t>(100)), static_cast<uint16_t>(100));
-    EXPECT_EQ(xenv::load("TEST_INVALID_NUM", static_cast<uint16_t>(100)), static_cast<uint16_t>(100));
+    EXPECT_EQ(
+        xenv::load("TEST_UINT16", static_cast<uint16_t>(0)),
+        static_cast<uint16_t>(65000)
+    );
+    EXPECT_EQ(
+        xenv::load("NONEXISTENT_VAR", static_cast<uint16_t>(100)),
+        static_cast<uint16_t>(100)
+    );
+    EXPECT_EQ(
+        xenv::load("TEST_INVALID_NUM", static_cast<uint16_t>(100)),
+        static_cast<uint16_t>(100)
+    );
 }
 
 /// @brief it should load boolean values with true as default.

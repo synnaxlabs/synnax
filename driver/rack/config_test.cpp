@@ -34,6 +34,7 @@ protected:
     }
 };
 
+/// @brief it should load default configuration values.
 TEST_F(RackConfigTest, testDefault) {
     auto [cfg, err] = rack::Config::load(args, brk);
     ASSERT_FALSE(err) << err;
@@ -45,6 +46,7 @@ TEST_F(RackConfigTest, testDefault) {
     ASSERT_NE(cfg.rack.name, "");
 }
 
+/// @brief it should load rack key from persisted state file.
 TEST_F(RackConfigTest, loadRackFromPersistedState) {
     auto [cfg, err] = rack::Config::load(args, brk);
     ASSERT_FALSE(err) << err;
@@ -55,6 +57,7 @@ TEST_F(RackConfigTest, loadRackFromPersistedState) {
     ASSERT_EQ(cfg2.rack.key, rack_key);
 }
 
+/// @brief it should create a new rack after clearing persisted state.
 TEST_F(RackConfigTest, clearRackFromPersistedState) {
     auto [cfg, err] = rack::Config::load(args, brk);
     ASSERT_FALSE(err) << err;
@@ -66,6 +69,7 @@ TEST_F(RackConfigTest, clearRackFromPersistedState) {
     ASSERT_NE(cfg2.rack.key, cfg.rack.key);
 }
 
+/// @brief it should save and load connection parameters from persisted state.
 TEST_F(RackConfigTest, saveConnParamsToPersistedState) {
     rack::Config::save_conn_params(
         args,
@@ -85,6 +89,7 @@ TEST_F(RackConfigTest, saveConnParamsToPersistedState) {
     ASSERT_EQ(cfg.connection.password, "nip");
 }
 
+/// @brief it should load rack configuration from remote info in persisted state.
 TEST_F(RackConfigTest, parseRackFromConfigArg) {
     const auto client = new_test_client();
     auto [rack, r_err] = client.racks.create("abc rack");
@@ -101,6 +106,7 @@ TEST_F(RackConfigTest, parseRackFromConfigArg) {
     ASSERT_EQ(cfg.remote_info.cluster_key, client.auth->cluster_info.cluster_key);
 }
 
+/// @brief it should recreate rack when cluster key does not match.
 TEST_F(RackConfigTest, recreateOnClusterKeyMismatch) {
     const auto client = new_test_client();
     auto [rack, r_err] = client.racks.create("abc rack");
@@ -118,6 +124,7 @@ TEST_F(RackConfigTest, recreateOnClusterKeyMismatch) {
     ASSERT_NE(cfg.remote_info.cluster_key, "abc");
 }
 
+/// @brief it should load default timing configuration.
 TEST_F(RackConfigTest, testDefaultTimingConfig) {
     auto [cfg, err] = rack::Config::load(args, brk);
     ASSERT_FALSE(err) << err;
@@ -125,6 +132,7 @@ TEST_F(RackConfigTest, testDefaultTimingConfig) {
     ASSERT_TRUE(cfg.timing.correct_skew); // Assuming the default is true
 }
 
+/// @brief it should load timing configuration from config file.
 TEST_F(RackConfigTest, loadTimingConfigFromFile) {
     // Create a temporary config file with timing settings
     const std::string config_path = "/tmp/rack-config-test/config.json";
@@ -156,6 +164,7 @@ TEST_F(RackConfigTest, loadTimingConfigFromFile) {
     std::remove(config_path.c_str());
 }
 
+/// @brief it should load connection parameters from command line arguments.
 TEST_F(RackConfigTest, loadFromCommandLineArgs) {
     xargs::Parser args_with_config(
         std::vector<std::string>{
@@ -180,6 +189,7 @@ TEST_F(RackConfigTest, loadFromCommandLineArgs) {
     ASSERT_EQ(cfg.connection.password, "argpass");
 }
 
+/// @brief it should load connection parameters from environment variables.
 TEST_F(RackConfigTest, loadFromEnvironmentVariables) {
     // Set environment variables
     xenv::set("SYNNAX_DRIVER_HOST", "envhost");
@@ -200,6 +210,7 @@ TEST_F(RackConfigTest, loadFromEnvironmentVariables) {
     xenv::unset("SYNNAX_DRIVER_PASSWORD");
 }
 
+/// @brief it should respect configuration precedence: args > env > file.
 TEST_F(RackConfigTest, configurationPrecedence) {
     // Create config file
     const std::string config_path = "/tmp/rack-config-test/config.json";

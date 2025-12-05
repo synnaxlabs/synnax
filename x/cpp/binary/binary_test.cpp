@@ -205,7 +205,8 @@ TEST(BinaryReader, testUint32Read) {
 
 /// @brief it should correctly read a uint64 value in little-endian byte order.
 TEST(BinaryReader, testUint64Read) {
-    const std::vector<uint8_t> buffer = {0xEF, 0xCD, 0xAB, 0x90, 0x78, 0x56, 0x34, 0x12};
+    const std::vector<uint8_t> buffer =
+        {0xEF, 0xCD, 0xAB, 0x90, 0x78, 0x56, 0x34, 0x12};
     binary::Reader reader(buffer);
 
     ASSERT_EQ(reader.uint64(), 0x1234567890ABCDEF);
@@ -312,7 +313,7 @@ TEST(BinaryRoundTrip, testReadWriteRoundTrip) {
 
 /// @brief it should correctly get individual bits from a byte.
 TEST(BitUtils, testGetBit) {
-     constexpr uint8_t byte = 0b10101010;
+    constexpr uint8_t byte = 0b10101010;
 
     ASSERT_FALSE(binary::get_bit(byte, 0));
     ASSERT_TRUE(binary::get_bit(byte, 1));
@@ -346,7 +347,7 @@ TEST(BitUtils, testSetBit) {
 
 /// @brief it should not change a bit when setting it to its current value.
 TEST(BitUtils, testSetBitNoChangeWhenSameValue) {
-     constexpr uint8_t byte = 0b10101010;
+    constexpr uint8_t byte = 0b10101010;
 
     uint8_t result = binary::set_bit(byte, 0, false);
     ASSERT_EQ(result, byte);
@@ -357,7 +358,7 @@ TEST(BitUtils, testSetBitNoChangeWhenSameValue) {
 
 /// @brief it should correctly flip all bits in a byte.
 TEST(BitUtils, testFlipAllBits) {
-     constexpr uint8_t original = 0b10101010;
+    constexpr uint8_t original = 0b10101010;
     uint8_t flipped = original;
     for (uint8_t i = 0; i < 8; i++)
         flipped = binary::set_bit(flipped, i, !binary::get_bit(flipped, i));

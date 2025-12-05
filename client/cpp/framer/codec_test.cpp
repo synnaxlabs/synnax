@@ -201,7 +201,10 @@ TEST(CodecTests, OnlyOneChannelPresent) {
         telem::UINT8_T,
         telem::UINT8_T
     };
-    const auto frame = synnax::Frame(3, telem::Series(std::vector<uint8_t>{1, 2, 3, 4, 5}));
+    const auto frame = synnax::Frame(
+        3,
+        telem::Series(std::vector<uint8_t>{1, 2, 3, 4, 5})
+    );
     std::vector<uint8_t> encoded;
     synnax::Codec codec(channels, data_types);
     codec.encode(frame, encoded);
@@ -225,7 +228,8 @@ TEST(CodecTests, EncodeDecodeEqualPropertiesFrame) {
     assert_frames_equal(original_frame, decoded_frame);
 }
 
-/// @brief it should encode and decode a frame with zero properties using optimized encoding.
+/// @brief it should encode and decode a frame with zero properties using optimized
+/// encoding.
 TEST(CodecTests, EncodeDecodeZeroPropertiesFrame) {
     const auto original_frame = create_zero_properties_frame();
     const std::vector data_types = {

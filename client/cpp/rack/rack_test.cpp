@@ -90,7 +90,7 @@ TEST(RackStatusDetailsTests, testToJSON) {
 
 /// @brief it should round-trip RackStatusDetails through JSON.
 TEST(RackStatusDetailsTests, testRoundTrip) {
-     constexpr RackStatusDetails original{.rack = 11223};
+    constexpr RackStatusDetails original{.rack = 11223};
     const auto j = original.to_json();
     const xjson::Parser parser(j);
     const auto recovered = RackStatusDetails::parse(parser);

@@ -15,7 +15,7 @@
 
 #include "driver/rack/status/status.h"
 
-/// @brief tests the nominal state case.
+/// @brief it should report nominal driver status via state streamer.
 TEST(stateTests, testNominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));

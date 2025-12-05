@@ -64,7 +64,10 @@ TEST(RangerTests, testRetrieveByName) {
 /// @brief it should return a not found error when retrieving by non-existent name.
 TEST(RangerTests, testRetrieveByNameNotFound) {
     const auto client = new_test_client();
-    ASSERT_OCCURRED_AS_P(client.ranges.retrieve_by_name("not_found"), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(
+        client.ranges.retrieve_by_name("not_found"),
+        xerrors::NOT_FOUND
+    );
 }
 
 /// @brief it should retrieve multiple ranges by their names.

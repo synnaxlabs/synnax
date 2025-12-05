@@ -23,7 +23,9 @@ std::mt19937 gen_rand = random_generator(std::move("Channel Tests"));
 TEST(TestChannel, testCreate) {
     const auto client = new_test_client();
     const auto name = make_unique_channel_name("test");
-    const auto channel = ASSERT_NIL_P(client.channels.create(name, telem::FLOAT64_T, true));
+    const auto channel = ASSERT_NIL_P(
+        client.channels.create(name, telem::FLOAT64_T, true)
+    );
     ASSERT_EQ(channel.name, name);
     ASSERT_FALSE(channel.key == 0);
 }

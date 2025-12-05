@@ -123,7 +123,10 @@ TEST(StatusTest, UpdateExistingStatus) {
 /// @brief it should return a not found error for non-existent status.
 TEST(StatusTest, RetrieveNonExistentStatus) {
     const auto client = new_test_client();
-    ASSERT_OCCURRED_AS_P(client.statuses.retrieve("non-existent-status-key"), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(
+        client.statuses.retrieve("non-existent-status-key"),
+        xerrors::NOT_FOUND
+    );
 }
 
 /// @brief it should delete multiple statuses in a batch.
@@ -203,7 +206,9 @@ TEST(StatusTest, CustomDetailsSetAndRetrieve) {
 
     ASSERT_NIL(client.statuses.set<CustomStatusDetails>(s));
 
-    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve<CustomStatusDetails>(s.key));
+    const auto retrieved = ASSERT_NIL_P(
+        client.statuses.retrieve<CustomStatusDetails>(s.key)
+    );
     EXPECT_EQ(retrieved.key, s.key);
     EXPECT_EQ(retrieved.variant, s.variant);
     EXPECT_EQ(retrieved.message, s.message);
@@ -237,7 +242,9 @@ TEST(StatusTest, CustomDetailsSetMultiple) {
     for (const auto &s: statuses)
         keys.push_back(s.key);
 
-    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve<CustomStatusDetails>(keys));
+    const auto retrieved = ASSERT_NIL_P(
+        client.statuses.retrieve<CustomStatusDetails>(keys)
+    );
     EXPECT_EQ(retrieved.size(), 3);
 
     for (size_t i = 0; i < retrieved.size(); i++) {
@@ -271,7 +278,9 @@ TEST(StatusTest, CustomDetailsUpdate) {
 
     ASSERT_NIL(client.statuses.set<CustomStatusDetails>(s));
 
-    const auto retrieved= ASSERT_NIL_P(client.statuses.retrieve<CustomStatusDetails>(s.key));
+    const auto retrieved = ASSERT_NIL_P(
+        client.statuses.retrieve<CustomStatusDetails>(s.key)
+    );
     EXPECT_EQ(retrieved.key, "test-custom-update");
     EXPECT_EQ(retrieved.variant, status::variant::ERR);
     EXPECT_EQ(retrieved.message, "Escalated to error");
@@ -292,7 +301,9 @@ TEST(StatusTest, CustomDetailsEmptyFields) {
 
     ASSERT_NIL(client.statuses.set<CustomStatusDetails>(s));
 
-    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve<CustomStatusDetails>(s.key));
+    const auto retrieved = ASSERT_NIL_P(
+        client.statuses.retrieve<CustomStatusDetails>(s.key)
+    );
     EXPECT_EQ(retrieved.details.device_id, "");
     EXPECT_EQ(retrieved.details.error_code, 0);
     EXPECT_EQ(retrieved.details.critical, false);

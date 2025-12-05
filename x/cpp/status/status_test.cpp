@@ -53,10 +53,7 @@ struct TestDetails {
     int field2 = 0;
 
     [[nodiscard]] json to_json() const {
-        return json{
-            {"field1", field1},
-            {"field2", field2}
-        };
+        return json{{"field1", field1}, {"field2", field2}};
     }
 
     static TestDetails parse(xjson::Parser &parser) {

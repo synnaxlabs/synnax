@@ -210,7 +210,7 @@ TEST(testGRPC, testStreamError) {
     auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
     auto mes = test::Message();
 
-    auto streamer= ASSERT_NIL_P(client.stream(target));
+    auto streamer = ASSERT_NIL_P(client.stream(target));
     ASSERT_OCCURRED_AS(streamer->send(mes), freighter::UNREACHABLE);
 
     ASSERT_OCCURRED_AS_P(streamer->receive(), freighter::UNREACHABLE);
@@ -227,7 +227,7 @@ void client_send(
     ASSERT_EQ(res.payload(), "Read request: " + std::to_string(num));
 }
 
- constexpr int N_THREADS = 3;
+constexpr int N_THREADS = 3;
 
 /// @brief it should handle concurrent unary requests from multiple threads.
 TEST(testGRPC, stressTestUnaryWithManyThreads) {

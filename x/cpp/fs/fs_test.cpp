@@ -152,7 +152,8 @@ TEST_F(FSTest, ReadFileWithSpacesInPath) {
     std::filesystem::remove(path_with_spaces);
 }
 
-/// @brief it should return consistent content when reading the same file multiple times.
+/// @brief it should return consistent content when reading the same file multiple
+/// times.
 TEST_F(FSTest, ReadFileMultipleReads) {
     auto [content1, err1] = fs::read_file(test_file);
     ASSERT_TRUE(err1.ok());

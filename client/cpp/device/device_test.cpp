@@ -92,9 +92,11 @@ TEST(DeviceTests, testRetrieveDevices) {
     ASSERT_EQ(devices.size(), 2);
 
     // Find and verify first device
-    const auto it1 = std::find_if(devices.begin(), devices.end(), [&d1](const Device &d) {
-        return d.key == d1.key;
-    });
+    const auto it1 = std::find_if(
+        devices.begin(),
+        devices.end(),
+        [&d1](const Device &d) { return d.key == d1.key; }
+    );
     ASSERT_NE(it1, devices.end());
     ASSERT_EQ(it1->name, "test_device_1");
     ASSERT_EQ(it1->location, "location_1");

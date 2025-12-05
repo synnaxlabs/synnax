@@ -95,7 +95,7 @@ TEST(TaskTests, testDeleteTask) {
 
 /// @brief it should convert a task key to an ontology ID
 TEST(TaskTests, testTaskOntologyId) {
-     constexpr synnax::TaskKey key = 12345678901234;
+    constexpr synnax::TaskKey key = 12345678901234;
     const auto id = synnax::task_ontology_id(key);
     ASSERT_EQ(id.type, "task");
     ASSERT_EQ(id.key, "12345678901234");
@@ -116,7 +116,7 @@ TEST(TaskTests, testTaskOntologyIds) {
 
 /// @brief it should return empty vector for empty input
 TEST(TaskTests, testTaskOntologyIdsEmpty) {
-     constexpr std::vector<synnax::TaskKey> keys;
+    constexpr std::vector<synnax::TaskKey> keys;
     const auto ids = synnax::task_ontology_ids(keys);
     ASSERT_TRUE(ids.empty());
 }
