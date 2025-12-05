@@ -88,7 +88,7 @@ describe("role", () => {
         lastName: "test",
       });
       await client.access.roles.assign({
-        user: user.ontologyID(u.key),
+        user: u.key,
         role: role.key,
       });
     });

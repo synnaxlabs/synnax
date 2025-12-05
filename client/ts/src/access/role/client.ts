@@ -12,7 +12,7 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { keyZ, type New, newZ, type Role, roleZ } from "@/access/role/payload";
-import { ontology } from "@/ontology";
+import { user } from "@/user";
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
@@ -50,7 +50,7 @@ const deleteArgsZ = keyZ
 export type DeleteArgs = z.input<typeof deleteArgsZ>;
 
 const assignReqZ = z.object({
-  user: ontology.idZ,
+  user: user.keyZ,
   role: keyZ,
 });
 export type AssignArgs = z.input<typeof assignReqZ>;
@@ -58,7 +58,7 @@ export type AssignArgs = z.input<typeof assignReqZ>;
 const assignResZ = z.object({});
 
 const unassignReqZ = z.object({
-  user: ontology.idZ,
+  user: user.keyZ,
   role: keyZ,
 });
 export type UnassignArgs = z.input<typeof unassignReqZ>;

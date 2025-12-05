@@ -12,8 +12,10 @@ import { Access, type Flux, Icon, Menu as PMenu, Text, User } from "@synnaxlabs/
 import { useCallback } from "react";
 
 import { Menu } from "@/components";
+import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
+import { ASSIGN_ROLE_LAYOUT } from "@/user/AssignRole";
 
 const useDelete = createUseDelete({
   type: "User",
@@ -42,6 +44,22 @@ const useRename = ({
   );
 };
 
+const useAssignRole = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const placeLayout = Layout.usePlacer();
+
+  return useCallback(
+    ({ selection: { ids }, state: { getResource } }: Ontology.TreeContextMenuProps) => {
+      const resource = getResource(ids[0]);
+      placeLayout({
+        ...ASSIGN_ROLE_LAYOUT,
+        name: `Assign Role - ${resource.name}`,
+        args: { key: ids[0].key },
+      });
+    },
+    [placeLayout],
+  );
+};
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     client,
@@ -52,12 +70,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const canDelete = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
+  const handleAssignRole = useAssignRole();
   const handleSelect = {
     rename,
     delete: handleDelete,
+    assignRole: () => handleAssignRole(props),
   };
   const singleResource = ids.length === 1;
   const isNotCurrentUser = getResource(ids[0]).name !== client.params.username;
+  const isRootUser = getResource(ids[0]).data?.root_user === true;
 
   return (
     <PMenu.Menu onChange={handleSelect} level="small" gap="small">
@@ -66,6 +87,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Item itemKey="rename">
             <Icon.Rename />
             Change username
+          </PMenu.Item>
+          <PMenu.Divider />
+        </>
+      )}
+      {canEdit && singleResource && !isRootUser && isNotCurrentUser && (
+        <>
+          <PMenu.Item itemKey="assignRole">
+            <Icon.Role />
+            Assign to role
           </PMenu.Item>
           <PMenu.Divider />
         </>

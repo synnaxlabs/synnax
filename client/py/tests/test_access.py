@@ -175,10 +175,9 @@ class TestRoleClient:
         username = str(uuid.uuid4())
         user = client.user.create(username=username, password="testpass")
         assert user.key is not None
-        user_id = ID(type="user", key=str(user.key))
 
         # Assign role to user
-        client.access.roles.assign(user=user_id, role=two_roles[0].key)
+        client.access.roles.assign(user=user.key, role=two_roles[0].key)
 
         # Verify by retrieving policies for the user (via role)
         # Note: This requires the policies to be attached to the role via ontology

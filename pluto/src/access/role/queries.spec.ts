@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError } from "@synnaxlabs/client";
+import { createTestClient, NotFoundError, user } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -260,6 +260,139 @@ describe("queries", () => {
           NotFoundError,
         );
       });
+    });
+  });
+
+  describe("useChangeRoleForm", () => {
+    it("should retrieve the current role for a user", async () => {
+      const role = await client.access.roles.create({
+        name: `retrieveForRole-${Date.now()}`,
+        description: "Role for retrieve test",
+      });
+      const testUser = await client.users.create({
+        username: `retrieve-for-${Date.now()}`,
+        firstName: "Test",
+        lastName: "User",
+        password: "password123",
+      });
+      await client.access.roles.assign({
+        user: testUser.key,
+        role: role.key,
+      });
+
+      const { result } = renderHook(
+        () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      expect(result.current.form.value().role).toEqual(role.key);
+    });
+
+    it("should have empty role when user has no role assigned", async () => {
+      const testUser = await client.users.create({
+        username: `no-role-${Date.now()}`,
+        firstName: "No",
+        lastName: "Role",
+        password: "password123",
+      });
+
+      const { result } = renderHook(
+        () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      expect(result.current.form.value().role).toEqual("");
+    });
+
+    it("should change a user's role when saved", async () => {
+      const role1 = await client.access.roles.create({
+        name: `changeFrom-${Date.now()}`,
+        description: "Original role",
+      });
+      const role2 = await client.access.roles.create({
+        name: `changeTo-${Date.now()}`,
+        description: "New role",
+      });
+      const testUser = await client.users.create({
+        username: `change-role-${Date.now()}`,
+        firstName: "Change",
+        lastName: "Role",
+        password: "password123",
+      });
+      await client.access.roles.assign({
+        user: testUser.key,
+        role: role1.key,
+      });
+
+      const { result } = renderHook(
+        () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
+        { wrapper },
+      );
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.form.value().role).toEqual(role1.key);
+
+      // Change the role in the form
+      act(() => {
+        result.current.form.set("role", role2.key);
+      });
+
+      // Save the form
+      await act(async () => {
+        result.current.save();
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      // Verify role changed via direct API call
+      const parents = await client.ontology.retrieveParents(
+        user.ontologyID(testUser.key),
+        { types: ["role"] },
+      );
+      expect(parents.length).toEqual(1);
+      expect(parents[0].id.key).toEqual(role2.key);
+    });
+
+    it("should assign a role to a user with no previous role", async () => {
+      const role = await client.access.roles.create({
+        name: `assignNew-${Date.now()}`,
+        description: "New role assignment",
+      });
+      const testUser = await client.users.create({
+        username: `no-prev-role-${Date.now()}`,
+        firstName: "No",
+        lastName: "Previous",
+        password: "password123",
+      });
+
+      const { result } = renderHook(
+        () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
+        { wrapper },
+      );
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      // Set the role in the form
+      act(() => {
+        result.current.form.set("role", role.key);
+      });
+
+      // Save the form
+      await act(async () => {
+        result.current.save();
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      // Verify role assigned
+      const parents = await client.ontology.retrieveParents(
+        user.ontologyID(testUser.key),
+        { types: ["role"] },
+      );
+      expect(parents.length).toEqual(1);
+      expect(parents[0].id.key).toEqual(role.key);
     });
   });
 });

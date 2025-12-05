@@ -599,7 +599,7 @@ describe("Access Queries", () => {
         access.policy.ontologyID(p.key),
       );
       await client.access.roles.assign({
-        user: user.ontologyID(u.key),
+        user: u.key,
         role: r.key,
       });
       const wrapper = await createAsyncSynnaxWrapper({ client });

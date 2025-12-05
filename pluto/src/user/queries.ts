@@ -155,7 +155,7 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSub
     const createdUser = await client.users.create(newUser);
     if (v.role == null) return;
     await client.access.roles.assign({
-      user: user.ontologyID(createdUser.key),
+      user: createdUser.key,
       role: v.role,
     });
   },

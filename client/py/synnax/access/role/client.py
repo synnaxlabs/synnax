@@ -14,7 +14,6 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
 
 from synnax.access.role.payload import Role
-from synnax.ontology.payload import ID
 from synnax.util.normalize import normalize
 
 
@@ -41,12 +40,12 @@ class _DeleteRequest(Payload):
 
 
 class _AssignRequest(Payload):
-    user: ID
+    user: UUID
     role: UUID
 
 
 class _UnassignRequest(Payload):
-    user: ID
+    user: UUID
     role: UUID
 
 
@@ -117,21 +116,21 @@ class RoleClient:
         req = _DeleteRequest(keys=normalize(keys))
         send_required(self._client, "/access/role/delete", req, Empty)
 
-    def assign(self, user: ID, role: UUID) -> None:
+    def assign(self, user: UUID, role: UUID) -> None:
         """Assign a role to a user.
 
         Args:
-            user: The ontology ID of the user to assign the role to
+            user: The UUID of the user to assign the role to
             role: The UUID of the role to assign
         """
         req = _AssignRequest(user=user, role=role)
         send_required(self._client, "/access/role/assign", req, Empty)
 
-    def unassign(self, user: ID, role: UUID) -> None:
+    def unassign(self, user: UUID, role: UUID) -> None:
         """Remove a role from a user.
 
         Args:
-            user: The ontology ID of the user to unassign the role from
+            user: The UUID of the user to unassign the role from
             role: The UUID of the role to unassign
         """
         req = _UnassignRequest(user=user, role=role)

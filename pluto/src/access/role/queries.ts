@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, ontology } from "@synnaxlabs/client";
+import { access, ontology, user } from "@synnaxlabs/client";
 import { array, uuid } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { type role } from "@/access/role/aether";
 import { Flux } from "@/flux";
@@ -112,6 +113,95 @@ export const { useUpdate: useRename } = Flux.createUpdate<
   },
 });
 
+export interface ChangeRoleFormQuery {
+  key: user.Key;
+}
+
+export const changeRoleFormSchema = z.object({
+  key: user.keyZ,
+  role: access.role.keyZ,
+});
+
+const retrieveUserRole = async ({
+  client,
+  store,
+  query: { key: userKey },
+}: Flux.RetrieveParams<RetrieveQuery, role.FluxSubStore>): Promise<
+  access.role.Key | undefined
+> => {
+  const userID = user.ontologyID(userKey);
+  const rels = store.relationships.get((r) =>
+    ontology.matchRelationship(r, {
+      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      to: userID,
+      from: { type: "role" },
+    }),
+  );
+  if (rels.length > 0) return rels[0].from.key;
+
+  const parents = await client.ontology.retrieveParents(userID, { types: ["role"] });
+  if (parents.length === 0) return undefined;
+
+  const parent = parents[0];
+  const rel: ontology.Relationship = {
+    from: parent.id,
+    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+    to: userID,
+  };
+  store.relationships.set(ontology.relationshipToString(rel), rel);
+
+  const r: access.role.Role = {
+    key: parent.id.key,
+    name: parent.name,
+    ...parent.data,
+  };
+  store.roles.set(r.key, r);
+  return r.key;
+};
+
+export const useChangeRoleForm = Flux.createForm<
+  ChangeRoleFormQuery,
+  typeof changeRoleFormSchema,
+  role.FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  schema: changeRoleFormSchema,
+  initialValues: { key: "", role: "" },
+  retrieve: async ({ client, query: { key: userKey }, reset, store }) => {
+    const roleKey = await retrieveUserRole({ client, store, query: { key: userKey } });
+    reset({ key: userKey, role: roleKey ?? "" });
+  },
+  update: async ({ client, value, store, rollbacks }) => {
+    const { key: userKey, role: newRoleKey } = value();
+    const userID = user.ontologyID(userKey);
+    const oldRoleKey = await retrieveUserRole({
+      client,
+      store,
+      query: { key: userKey },
+    });
+    if (oldRoleKey === newRoleKey) return;
+    if (oldRoleKey != null) {
+      const oldRel: ontology.Relationship = {
+        from: access.role.ontologyID(oldRoleKey),
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        to: userID,
+      };
+      rollbacks.push(store.relationships.delete(ontology.relationshipToString(oldRel)));
+    }
+    const newRel: ontology.Relationship = {
+      from: access.role.ontologyID(newRoleKey),
+      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      to: userID,
+    };
+    rollbacks.push(
+      store.relationships.set(ontology.relationshipToString(newRel), newRel),
+    );
+    if (oldRoleKey != null)
+      await client.access.roles.unassign({ user: userKey, role: oldRoleKey });
+    await client.access.roles.assign({ user: userKey, role: newRoleKey });
+  },
+});
+
 export const formSchema = access.role.newZ.extend({
   policies: access.policy.keyZ.array(),
 });
@@ -162,7 +252,6 @@ export const useForm = Flux.createForm<
       );
     }
     r = await client.access.roles.create(r);
-
     set("key", r.key);
   },
 });

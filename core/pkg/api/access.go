@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -244,40 +245,42 @@ func (s *AccessService) DeleteRole(ctx context.Context, req AccessDeleteRoleRequ
 }
 
 type AccessAssignRoleRequest struct {
-	User ontology.ID `json:"user" msgpack:"user"`
-	Role uuid.UUID   `json:"role" msgpack:"role"`
+	User uuid.UUID `json:"user" msgpack:"user"`
+	Role uuid.UUID `json:"role" msgpack:"role"`
 }
 
 func (s *AccessService) AssignRole(
 	ctx context.Context,
 	req AccessAssignRoleRequest,
 ) (types.Nil, error) {
+	userID := user.OntologyID(req.User)
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: getSubject(ctx),
-			Objects: []ontology.ID{req.User},
+			Objects: []ontology.ID{userID},
 			Action:  access.ActionUpdate,
 		}); err != nil {
 			return err
 		}
-		return s.internal.Role.NewWriter(tx, allowInternal).AssignRole(ctx, req.User, req.Role)
+		return s.internal.Role.NewWriter(tx, allowInternal).AssignRole(ctx, userID, req.Role)
 	})
 }
 
 type AccessUnassignRoleRequest struct {
-	User ontology.ID `json:"user" msgpack:"user"`
-	Role uuid.UUID   `json:"role" msgpack:"role"`
+	User uuid.UUID `json:"user" msgpack:"user"`
+	Role uuid.UUID `json:"role" msgpack:"role"`
 }
 
 func (s *AccessService) UnassignRole(ctx context.Context, req AccessUnassignRoleRequest) (types.Nil, error) {
+	userID := user.OntologyID(req.User)
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: getSubject(ctx),
-			Objects: []ontology.ID{req.User},
+			Objects: []ontology.ID{userID},
 			Action:  access.ActionUpdate,
 		}); err != nil {
 			return err
 		}
-		return s.internal.Role.NewWriter(tx, true).UnassignRole(ctx, req.User, req.Role)
+		return s.internal.Role.NewWriter(tx, true).UnassignRole(ctx, userID, req.Role)
 	})
 }

@@ -29,7 +29,7 @@ export const createTestClientWithPolicy = async (client: Synnax, pol: policy.New
     description: "test",
   });
   await client.ontology.addChildren(role.ontologyID(r.key), policy.ontologyID(p.key));
-  await client.access.roles.assign({ user: user.ontologyID(u.key), role: r.key });
+  await client.access.roles.assign({ user: u.key, role: r.key });
   const userClient = createTestClient({ username, password: "test" });
   return userClient;
 };
