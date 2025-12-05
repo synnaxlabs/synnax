@@ -26,7 +26,7 @@ export const SELECTABLES: CoreSelector.Selectable[] = [
   ...Sequence.SELECTABLES,
 ].map((selectable) => ({
   ...selectable,
-  useVisible: () => Access.useEditGranted(task.ontologyID("")),
+  useVisible: () => Access.useEditGranted(task.TYPE_ONTOLOGY_ID),
 }));
 
 export const SELECTOR_LAYOUT_TYPE = "taskSelector";

@@ -171,11 +171,15 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     onChange: useCallback(
       ({ data: resources, variant }, { id }) => {
         if (variant == "success") {
-          const converted = resources.map((r) => ({
+          const filtered = resources.filter((r) => {
+            const svc = services[r.id.type];
+            return svc.visible == null || svc.visible(r);
+          });
+          const converted = filtered.map((r) => ({
             key: ontology.idToString(r.id),
             children: services[r.id.type].hasChildren ? [] : undefined,
           }));
-          const ids = new Set(resources.map((r) => ontology.idToString(r.id)));
+          const ids = new Set(filtered.map((r) => ontology.idToString(r.id)));
           setNodes((prevNodes) => [
             ...Core.updateNodeChildren({
               tree: prevNodes,
@@ -219,7 +223,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const resources = await client.ontology.retrieveChildren(root);
       resources.forEach((r) => resourceStore.set(r));
       if (signal.aborted) return;
-      const nodes = resources.map((c) => ({
+      const filtered = resources.filter((r) => {
+        const svc = services[r.id.type];
+        return svc.visible == null || svc.visible(r);
+      });
+      const nodes = filtered.map((c) => ({
         key: ontology.idToString(c.id),
         children: services[c.id.type].hasChildren ? [] : undefined,
       }));

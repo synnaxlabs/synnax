@@ -18,7 +18,7 @@ const CREATE_COMMAND: Palette.Command = {
   name: "Create a Range",
   icon: <Ranger.CreateIcon />,
   visible: ({ store, client }) =>
-    Access.editGranted({ id: ranger.ontologyID(""), store, client }),
+    Access.editGranted({ id: ranger.TYPE_ONTOLOGY_ID, store, client }),
   onSelect: ({ placeLayout }) => placeLayout(Range.CREATE_LAYOUT),
 };
 
@@ -28,7 +28,7 @@ const OPEN_EXPLORER_COMMAND: Palette.Command = {
   icon: <Icon.Explore />,
   onSelect: ({ placeLayout }) => placeLayout(Range.EXPLORER_LAYOUT),
   visible: ({ store, client }) =>
-    Access.viewGranted({ id: ranger.ontologyID(""), store, client }),
+    Access.viewGranted({ id: ranger.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];

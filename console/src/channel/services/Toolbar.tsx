@@ -19,7 +19,7 @@ import { Ontology } from "@/ontology";
 
 const CreateChannelButtons = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreate = Access.useCreateGranted(channel.ontologyID(0));
+  const canCreate = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
   if (!canCreate) return null;
   return (
     <Toolbar.Actions>
@@ -63,5 +63,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
-  useVisible: () => Access.useViewGranted(channel.ontologyID(0)),
+  useVisible: () => Access.useViewGranted(channel.TYPE_ONTOLOGY_ID),
 };

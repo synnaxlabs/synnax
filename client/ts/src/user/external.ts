@@ -15,6 +15,7 @@ export {
   type RetrieveArgs,
   type RetrieveRequest,
   SET_CHANNEL_NAME,
+  TYPE_ONTOLOGY_ID,
   type UsernameRetrieveRequest,
   type UsernamesRetrieveRequest,
 } from "@/user/client";

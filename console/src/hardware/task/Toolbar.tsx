@@ -46,7 +46,7 @@ import { Range } from "@/range";
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
-  const canCreateTask = Access.useEditGranted(task.ontologyID(""));
+  const canCreateTask = Access.useEditGranted(task.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No existing tasks."
@@ -71,7 +71,7 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
-  const canCreateTask = Access.useEditGranted(task.ontologyID(""));
+  const canCreateTask = Access.useEditGranted(task.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve } = Task.useList({
     initialQuery: INITIAL_QUERY,
     filter,
@@ -223,7 +223,7 @@ export const TOOLBAR_NAV_DRAWER_ITEM: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 225,
   maxSize: 400,
-  useVisible: () => Access.useViewGranted(task.ontologyID("")),
+  useVisible: () => Access.useViewGranted(task.TYPE_ONTOLOGY_ID),
 };
 
 interface TaskListItemProps extends List.ItemProps<task.Key> {

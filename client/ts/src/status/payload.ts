@@ -35,3 +35,4 @@ export const SET_CHANNEL_NAME = "sy_status_set";
 export const DELETE_CHANNEL_NAME = "sy_status_delete";
 
 export const ontologyID = ontology.createIDFactory<Key>("status");
+export const TYPE_ONTOLOGY_ID = ontologyID("");

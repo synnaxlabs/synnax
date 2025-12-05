@@ -19,7 +19,7 @@ const REGISTER_USER_COMMAND: Palette.Command = {
   key: "register-user",
   onSelect: ({ placeLayout }) => placeLayout(User.REGISTER_LAYOUT),
   visible: ({ store, client }) =>
-    Access.editGranted({ id: user.ontologyID(""), store, client }),
+    Access.editGranted({ id: user.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 export const COMMANDS = [REGISTER_USER_COMMAND];

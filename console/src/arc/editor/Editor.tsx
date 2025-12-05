@@ -396,7 +396,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Arc Automation",
   icon: <Icon.Arc />,
-  useVisible: () => Access.useEditGranted(arc.ontologyID("")),
+  useVisible: () => Access.useEditGranted(arc.TYPE_ONTOLOGY_ID),
   create: async ({ layoutKey, rename }) => {
     const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
     if (name == null) return null;

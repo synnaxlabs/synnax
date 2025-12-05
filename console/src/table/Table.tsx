@@ -383,7 +383,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Table",
   icon: <Icon.Table />,
-  useVisible: () => Access.useEditGranted(table.ontologyID("")),
+  useVisible: () => Access.useEditGranted(table.TYPE_ONTOLOGY_ID),
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 

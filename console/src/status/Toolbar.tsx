@@ -125,7 +125,7 @@ const listItem = Component.renderProp(ListItem);
 
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canEdit = Access.useEditGranted(status.ontologyID(""));
+  const canEdit = Access.useEditGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
@@ -162,5 +162,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
-  useVisible: () => Access.useViewGranted(status.ontologyID("")),
+  useVisible: () => Access.useViewGranted(status.TYPE_ONTOLOGY_ID),
 };

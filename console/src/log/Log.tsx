@@ -115,7 +115,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Log",
   icon: <Icon.Log />,
-  useVisible: () => Access.useEditGranted(log.ontologyID("")),
+  useVisible: () => Access.useEditGranted(log.TYPE_ONTOLOGY_ID),
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 

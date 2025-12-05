@@ -448,7 +448,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Schematic",
   icon: <Icon.Schematic />,
-  useVisible: () => Access.useEditGranted(schematic.ontologyID("")),
+  useVisible: () => Access.useEditGranted(schematic.TYPE_ONTOLOGY_ID),
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 

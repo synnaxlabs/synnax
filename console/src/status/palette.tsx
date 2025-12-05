@@ -20,7 +20,7 @@ export const CREATE_COMMAND: Palette.Command = {
   icon: <Status.CreateIcon />,
   onSelect: ({ placeLayout }) => placeLayout(CREATE_LAYOUT),
   visible: ({ store, client }) =>
-    Access.editGranted({ id: status.ontologyID(""), store, client }),
+    Access.editGranted({ id: status.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 export const OPEN_EXPLORER_COMMAND: Palette.Command = {
@@ -29,7 +29,7 @@ export const OPEN_EXPLORER_COMMAND: Palette.Command = {
   icon: <Icon.Explore />,
   onSelect: ({ placeLayout }) => placeLayout(EXPLORER_LAYOUT),
   visible: ({ store, client }) =>
-    Access.viewGranted({ id: status.ontologyID(""), store, client }),
+    Access.viewGranted({ id: status.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];

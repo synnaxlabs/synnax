@@ -36,5 +36,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   minSize: 175,
   maxSize: 400,
   trigger: ["D"],
-  useVisible: () => Access.useViewGranted(device.ontologyID("")),
+  useVisible: () => Access.useViewGranted(device.TYPE_ONTOLOGY_ID),
 };

@@ -145,3 +145,4 @@ export class Client {
 }
 
 export const ontologyID = ontology.createIDFactory<Key>("schematic");
+export const TYPE_ONTOLOGY_ID = ontologyID("");

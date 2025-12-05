@@ -41,7 +41,7 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({ onCreate }: EmptyContentProps) => {
-  const canCreateArc = Access.useEditGranted(arc.ontologyID(""));
+  const canCreateArc = Access.useEditGranted(arc.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No existing Arcs."
@@ -59,7 +59,7 @@ const Content = () => {
   const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
-  const canCreateArc = Access.useEditGranted(arc.ontologyID(""));
+  const canCreateArc = Access.useEditGranted(arc.TYPE_ONTOLOGY_ID);
 
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
@@ -209,7 +209,7 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 225,
   maxSize: 400,
-  useVisible: () => Access.useViewGranted(arc.ontologyID("")),
+  useVisible: () => Access.useViewGranted(arc.TYPE_ONTOLOGY_ID),
 };
 
 interface ArcListItemProps extends List.ItemProps<arc.Key> {

@@ -16,7 +16,7 @@ import { WRITE_LAYOUT } from "@/hardware/labjack/task/Write";
 import { type Palette } from "@/palette";
 
 const visibleFilter = ({ store, client }: Palette.CommandVisibleContext) =>
-  Access.editGranted({ id: task.ontologyID(""), store, client });
+  Access.editGranted({ id: task.TYPE_ONTOLOGY_ID, store, client });
 
 const CREATE_READ_COMMAND: Palette.Command = {
   key: "labjack-create-read-task",

@@ -72,4 +72,5 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Policy />,
   TreeContextMenu,
   hasChildren: false,
+  visible: () => false,
 };

@@ -26,7 +26,7 @@ export const useCreate = (): (() => void) => {
 
 export const SelectEmptyContent = (): ReactElement => {
   const add = useCreate();
-  const canEdit = Access.useEditGranted(status.ontologyID(""));
+  const canEdit = Access.useEditGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="Non statuses created."
@@ -38,7 +38,7 @@ export const SelectEmptyContent = (): ReactElement => {
 
 export const CreateButton = () => {
   const add = useCreate();
-  const canEdit = Access.useEditGranted(status.ontologyID(""));
+  const canEdit = Access.useEditGranted(status.TYPE_ONTOLOGY_ID);
   if (!canEdit) return null;
   return (
     <Button.Button onClick={add} title="Create a Status">

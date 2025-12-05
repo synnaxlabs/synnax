@@ -325,6 +325,7 @@ export class Client {
 }
 
 export const ontologyID = ontology.createIDFactory<Key>("range");
+export const TYPE_ONTOLOGY_ID = ontologyID("");
 
 export const aliasOntologyID = (key: Key): ontology.ID => ({
   type: "range-alias",

@@ -136,5 +136,6 @@ export class Client {
 }
 
 export const ontologyID = ontology.createIDFactory<Key>("device");
+export const TYPE_ONTOLOGY_ID = ontologyID("");
 
 export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));

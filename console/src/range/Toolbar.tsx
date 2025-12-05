@@ -41,7 +41,7 @@ import { type RootState } from "@/store";
 
 const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Access.useEditGranted(ranger.ontologyID(""));
+  const canCreateRange = Access.useEditGranted(ranger.TYPE_ONTOLOGY_ID);
   const handleLinkClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction
@@ -171,7 +171,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
 
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Access.useEditGranted(ranger.ontologyID(""));
+  const canCreateRange = Access.useEditGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
@@ -208,5 +208,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
-  useVisible: () => Access.useViewGranted(ranger.ontologyID("")),
+  useVisible: () => Access.useViewGranted(ranger.TYPE_ONTOLOGY_ID),
 };

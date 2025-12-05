@@ -17,6 +17,6 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Line Plot",
   icon: <Icon.LinePlot />,
-  useVisible: () => Access.useEditGranted(lineplot.ontologyID("")),
+  useVisible: () => Access.useEditGranted(lineplot.TYPE_ONTOLOGY_ID),
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };

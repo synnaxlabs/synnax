@@ -73,8 +73,8 @@ export const Selector = (): ReactElement | null => {
     },
     [dispatch, getItem],
   );
-  const allowCreateWorkspace = Access.useEditGranted(workspace.ontologyID(""));
-  const allowViewWorkspace = Access.useViewGranted(workspace.ontologyID(""));
+  const allowCreateWorkspace = Access.useEditGranted(workspace.TYPE_ONTOLOGY_ID);
+  const allowViewWorkspace = Access.useViewGranted(workspace.TYPE_ONTOLOGY_ID);
   if (!allowViewWorkspace) return null;
   return (
     <Dialog.Frame visible={dialogVisible} onVisibleChange={setDialogVisible}>

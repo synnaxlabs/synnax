@@ -21,7 +21,7 @@ const CREATE_COMMAND: Palette.Command = {
   icon: <CreateIcon />,
   onSelect: ({ placeLayout }) => placeLayout(Schematic.create()),
   visible: ({ store, client }) =>
-    Access.editGranted({ id: schematic.ontologyID(""), store, client }),
+    Access.editGranted({ id: schematic.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 const IMPORT_COMMAND: Palette.Command = {
@@ -31,7 +31,7 @@ const IMPORT_COMMAND: Palette.Command = {
   icon: <ImportIcon />,
   onSelect: import_,
   visible: ({ store, client }) =>
-    Access.editGranted({ id: schematic.ontologyID(""), store, client }),
+    Access.editGranted({ id: schematic.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

@@ -25,7 +25,7 @@ const CREATE_COMMAND: Palette.Command = {
     }, "Failed to create arc");
   },
   visible: ({ store, client }) =>
-    Access.editGranted({ id: arc.ontologyID(""), store, client }),
+    Access.editGranted({ id: arc.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 const OPEN_EXPLORER_COMMAND: Palette.Command = {
@@ -34,7 +34,7 @@ const OPEN_EXPLORER_COMMAND: Palette.Command = {
   icon: <Icon.Explore />,
   onSelect: ({ placeLayout }) => placeLayout(Arc.EXPLORER_LAYOUT),
   visible: ({ store, client }) =>
-    Access.viewGranted({ id: arc.ontologyID(""), store, client }),
+    Access.viewGranted({ id: arc.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];

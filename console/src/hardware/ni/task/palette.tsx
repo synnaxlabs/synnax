@@ -26,7 +26,7 @@ import { SCAN_SCHEMAS, SCAN_TYPE } from "@/hardware/ni/task/types";
 import { type Palette } from "@/palette";
 
 const visibleFilter = ({ store, client }: Palette.CommandVisibleContext) =>
-  Access.editGranted({ id: task.ontologyID(""), store, client });
+  Access.editGranted({ id: task.TYPE_ONTOLOGY_ID, store, client });
 
 const CREATE_ANALOG_READ_COMMAND: Palette.Command = {
   key: "ni-create-analog-read-task",

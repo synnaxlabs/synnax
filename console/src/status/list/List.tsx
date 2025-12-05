@@ -42,7 +42,7 @@ const componentRenderProp = Component.renderProp(Item);
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const canEdit = Access.useEditGranted(status.ontologyID(""));
+  const canEdit = Access.useEditGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No statuses found."

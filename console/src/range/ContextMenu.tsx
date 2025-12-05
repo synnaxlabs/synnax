@@ -98,7 +98,7 @@ const AddToNewPlotIcon = Icon.createComposite(Icon.LinePlot, {
 });
 
 export const AddToNewPlotMenuItem = () => {
-  const canAddToNewPlot = Access.useEditGranted(lineplot.ontologyID(""));
+  const canAddToNewPlot = Access.useEditGranted(lineplot.TYPE_ONTOLOGY_ID);
   if (!canAddToNewPlot) return null;
   return (
     <PMenu.Item itemKey="addToNewPlot">
@@ -113,7 +113,7 @@ const AddToActivePlotIcon = Icon.createComposite(Icon.LinePlot, {
 });
 
 export const AddToActivePlotMenuItem = () => {
-  const canAddToActivePlot = Access.useEditGranted(lineplot.ontologyID(""));
+  const canAddToActivePlot = Access.useEditGranted(lineplot.TYPE_ONTOLOGY_ID);
   if (!canAddToActivePlot) return null;
   return (
     <PMenu.Item itemKey="addToActivePlot">
