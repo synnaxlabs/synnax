@@ -15,19 +15,19 @@ KILLED_PROCESSES=false
 
 echo "Checking for existing synnax processes..."
 # Exclude this script from the search (script path contains "synnax")
-SYNNAX_PIDS=$(pgrep -f "synnax" 2>/dev/null | grep -v "^$$\$" | grep -v "^$PPID\$" || true)
+SYNNAX_PIDS=$(pgrep -f "synnax" 2> /dev/null | grep -v "^$$\$" | grep -v "^$PPID\$" || true)
 # Also filter out any processes that are running this kill script
 SYNNAX_PIDS=$(echo "$SYNNAX_PIDS" | while read pid; do
-    if [ -n "$pid" ] && ! ps -p "$pid" -o args= 2>/dev/null | grep -q "kill_synnax"; then
+    if [ -n "$pid" ] && ! ps -p "$pid" -o args= 2> /dev/null | grep -q "kill_synnax"; then
         echo "$pid"
     fi
 done)
 
 if [ -n "$SYNNAX_PIDS" ]; then
     echo "Found synnax processes, killing them..."
-    echo "$SYNNAX_PIDS" | xargs -r kill 2>/dev/null || true
+    echo "$SYNNAX_PIDS" | xargs -r kill 2> /dev/null || true
     sleep 2
-    echo "$SYNNAX_PIDS" | xargs -r kill -9 2>/dev/null || true
+    echo "$SYNNAX_PIDS" | xargs -r kill -9 2> /dev/null || true
     echo "Synnax processes killed"
     KILLED_PROCESSES=true
 else
