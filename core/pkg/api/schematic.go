@@ -179,16 +179,16 @@ func (s *SchematicService) Copy(ctx context.Context, req SchematicCopyRequest) (
 }
 
 type (
-	SymbolCreateRequest struct {
+	SchematicCreateSymbolRequest struct {
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 		Parent  ontology.ID     `json:"parent" msgpack:"parent"`
 	}
-	SymbolCreateResponse struct {
+	SchematicCreateSymbolResponse struct {
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 	}
 )
 
-func (s *SchematicService) CreateSymbol(ctx context.Context, req SymbolCreateRequest) (res SymbolCreateResponse, err error) {
+func (s *SchematicService) CreateSymbol(ctx context.Context, req SchematicCreateSymbolRequest) (res SchematicCreateSymbolResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
@@ -210,16 +210,16 @@ func (s *SchematicService) CreateSymbol(ctx context.Context, req SymbolCreateReq
 }
 
 type (
-	SymbolRetrieveRequest struct {
+	SchematicRetrieveSymbolRequest struct {
 		Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
 		SearchTerm string      `json:"search_term" msgpack:"search_term"`
 	}
-	SymbolRetrieveResponse struct {
+	SchematicRetrieveSymbolResponse struct {
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 	}
 )
 
-func (s *SchematicService) RetrieveSymbol(ctx context.Context, req SymbolRetrieveRequest) (res SymbolRetrieveResponse, err error) {
+func (s *SchematicService) RetrieveSymbol(ctx context.Context, req SchematicRetrieveSymbolRequest) (res SchematicRetrieveSymbolResponse, err error) {
 	q := s.internal.Symbol.NewRetrieve()
 	if len(req.Keys) > 0 {
 		q = q.WhereKeys(req.Keys...)
@@ -229,24 +229,24 @@ func (s *SchematicService) RetrieveSymbol(ctx context.Context, req SymbolRetriev
 	}
 	err = q.Entries(&res.Symbols).Exec(ctx, nil)
 	if err != nil {
-		return SymbolRetrieveResponse{}, err
+		return SchematicRetrieveSymbolResponse{}, err
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: symbol.OntologyIDsFromSymbols(res.Symbols),
 	}); err != nil {
-		return SymbolRetrieveResponse{}, err
+		return SchematicRetrieveSymbolResponse{}, err
 	}
 	return res, err
 }
 
-type SymbolRenameRequest struct {
+type SchematicRenameSymbolRequest struct {
 	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
 }
 
-func (s *SchematicService) RenameSymbol(ctx context.Context, req SymbolRenameRequest) (res types.Nil, err error) {
+func (s *SchematicService) RenameSymbol(ctx context.Context, req SchematicRenameSymbolRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
@@ -259,11 +259,11 @@ func (s *SchematicService) RenameSymbol(ctx context.Context, req SymbolRenameReq
 	})
 }
 
-type SymbolDeleteRequest struct {
+type SchematicDeleteSymbolRequest struct {
 	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 }
 
-func (s *SchematicService) DeleteSymbol(ctx context.Context, req SymbolDeleteRequest) (res types.Nil, err error) {
+func (s *SchematicService) DeleteSymbol(ctx context.Context, req SchematicDeleteSymbolRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionDelete,
@@ -276,23 +276,23 @@ func (s *SchematicService) DeleteSymbol(ctx context.Context, req SymbolDeleteReq
 	})
 }
 
-type SymbolRetrieveGroupRequest struct{}
+type SchematicRetrieveSymbolGroupRequest struct{}
 
-type SymbolRetrieveGroupResponse struct {
+type SchematicRetrieveSymbolGroupResponse struct {
 	Group group.Group `json:"group" msgpack:"group"`
 }
 
 func (s *SchematicService) RetrieveSymbolGroup(
 	ctx context.Context,
-	_ SymbolRetrieveGroupRequest,
-) (SymbolRetrieveGroupResponse, error) {
+	_ SchematicRetrieveSymbolGroupRequest,
+) (SchematicRetrieveSymbolGroupResponse, error) {
 	g := s.internal.Symbol.Group()
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{g.OntologyID()},
 	}); err != nil {
-		return SymbolRetrieveGroupResponse{}, err
+		return SchematicRetrieveSymbolGroupResponse{}, err
 	}
-	return SymbolRetrieveGroupResponse{Group: g}, nil
+	return SchematicRetrieveSymbolGroupResponse{Group: g}, nil
 }

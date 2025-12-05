@@ -23,7 +23,7 @@ const CreateButton = (): ReactElement | null => {
   return (
     <Toolbar.Action
       onClick={() => placeLayout(CREATE_LAYOUT)}
-      tooltip="Create Workspace"
+      tooltip="Create workspace"
     >
       <Icon.Add />
     </Toolbar.Action>

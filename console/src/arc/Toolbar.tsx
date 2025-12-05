@@ -45,7 +45,7 @@ const EmptyContent = ({ onCreate }: EmptyContentProps) => {
   return (
     <EmptyAction
       message="No existing Arcs."
-      action={canCreateArc ? "Create an arc" : undefined}
+      action={canCreateArc ? "Create an Arc" : undefined}
       onClick={onCreate}
     />
   );

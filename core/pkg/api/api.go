@@ -115,11 +115,11 @@ type Transport struct {
 	SchematicSetData  freighter.UnaryServer[SchematicSetDataRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[SchematicCopyRequest, SchematicCopyResponse]
 	// SCHEMATIC SYMBOL
-	SchematicSymbolCreate        freighter.UnaryServer[SymbolCreateRequest, SymbolCreateResponse]
-	SchematicSymbolRetrieve      freighter.UnaryServer[SymbolRetrieveRequest, SymbolRetrieveResponse]
-	SchematicSymbolDelete        freighter.UnaryServer[SymbolDeleteRequest, types.Nil]
-	SchematicSymbolRename        freighter.UnaryServer[SymbolRenameRequest, types.Nil]
-	SchematicSymbolRetrieveGroup freighter.UnaryServer[SymbolRetrieveGroupRequest, SymbolRetrieveGroupResponse]
+	SchematicCreateSymbol        freighter.UnaryServer[SchematicCreateSymbolRequest, SchematicCreateSymbolResponse]
+	SchematicRetrieveSymbol      freighter.UnaryServer[SchematicRetrieveSymbolRequest, SchematicRetrieveSymbolResponse]
+	SchematicDeleteSymbol        freighter.UnaryServer[SchematicDeleteSymbolRequest, types.Nil]
+	SchematicRenameSymbol        freighter.UnaryServer[SchematicRenameSymbolRequest, types.Nil]
+	SchematicRetrieveSymbolGroup freighter.UnaryServer[SchematicRetrieveSymbolGroupRequest, SchematicRetrieveSymbolGroupResponse]
 	// LOG
 	LogCreate   freighter.UnaryServer[LogCreateRequest, LogCreateResponse]
 	LogRetrieve freighter.UnaryServer[LogRetrieveRequest, LogRetrieveResponse]
@@ -287,11 +287,11 @@ func (a *Layer) BindTo(t Transport) {
 		t.SchematicCopy,
 
 		// SCHEMATIC SYMBOL
-		t.SchematicSymbolCreate,
-		t.SchematicSymbolRetrieve,
-		t.SchematicSymbolDelete,
-		t.SchematicSymbolRename,
-		t.SchematicSymbolRetrieveGroup,
+		t.SchematicCreateSymbol,
+		t.SchematicRetrieveSymbol,
+		t.SchematicDeleteSymbol,
+		t.SchematicRenameSymbol,
+		t.SchematicRetrieveSymbolGroup,
 
 		// LINE PLOT
 		t.LinePlotCreate,
@@ -424,11 +424,11 @@ func (a *Layer) BindTo(t Transport) {
 	t.SchematicCopy.BindHandler(a.Schematic.Copy)
 
 	// SCHEMATIC SYMBOL
-	t.SchematicSymbolCreate.BindHandler(a.Schematic.CreateSymbol)
-	t.SchematicSymbolRetrieve.BindHandler(a.Schematic.RetrieveSymbol)
-	t.SchematicSymbolDelete.BindHandler(a.Schematic.DeleteSymbol)
-	t.SchematicSymbolRename.BindHandler(a.Schematic.RenameSymbol)
-	t.SchematicSymbolRetrieveGroup.BindHandler(a.Schematic.RetrieveSymbolGroup)
+	t.SchematicCreateSymbol.BindHandler(a.Schematic.CreateSymbol)
+	t.SchematicRetrieveSymbol.BindHandler(a.Schematic.RetrieveSymbol)
+	t.SchematicDeleteSymbol.BindHandler(a.Schematic.DeleteSymbol)
+	t.SchematicRenameSymbol.BindHandler(a.Schematic.RenameSymbol)
+	t.SchematicRetrieveSymbolGroup.BindHandler(a.Schematic.RetrieveSymbolGroup)
 
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(a.LinePlot.Create)

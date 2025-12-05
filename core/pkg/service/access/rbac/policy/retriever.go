@@ -74,7 +74,7 @@ func (r Retriever) Exec(ctx context.Context, tx gorp.Tx) error {
 			Exec(ctx, tx); err != nil {
 			return err
 		}
-		keys, err := KeysFromOntologyIds(ontology.ResourceIDs(policyResources))
+		keys, err := KeysFromOntologyIDs(ontology.ResourceIDs(policyResources))
 		if err != nil {
 			return err
 		}

@@ -43,8 +43,8 @@ func OntologyIDsFromPolicies(policies []Policy) []ontology.ID {
 	return lo.Map(policies, func(l Policy, _ int) ontology.ID { return OntologyID(l.Key) })
 }
 
-// KeysFromOntologyIds extracts the Policy keys from the given ontology.IDs.
-func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
+// KeysFromOntologyIDs extracts the Policy keys from the given ontology.IDs.
+func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
 		keys[i], err = uuid.Parse(id.Key)

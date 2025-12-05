@@ -59,7 +59,7 @@ export const AssignRole: Layout.Renderer = ({ layoutKey, onClose }) => {
               variant="filled"
               disabled={client == null}
               status={status.keepVariants(variant, "loading")}
-              tooltip={client == null ? "No Core Connected" : undefined}
+              tooltip={client == null ? "No Core connected" : undefined}
               tooltipLocation="bottom"
             >
               Assign

@@ -161,7 +161,7 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSub
   },
 });
 
-export const retrieveCurrent = async (client: Synnax): Promise<user.User> => {
+const retrieveCurrent = async (client: Synnax): Promise<user.User> => {
   const user = client.auth?.user;
   if (user == null) {
     const res = await client.connectivity.check();

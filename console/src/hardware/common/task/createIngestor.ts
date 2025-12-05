@@ -19,6 +19,6 @@ export const createIngestor =
   (data: unknown, { layout, placeLayout, store, client }) => {
     const config = configSchema.parse(data);
     if (!Access.editGranted({ id: task.ontologyID(""), store, client }))
-      throw new Error("You do not have permission to import hardware tasks");
+      throw new Error("You do not have permission to import tasks");
     placeLayout({ ...zeroLayout, ...layout, key: layout.key, args: { config } });
   };

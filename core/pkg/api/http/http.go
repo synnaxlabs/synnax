@@ -87,11 +87,11 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transpo
 		SchematicCopy:     fhttp.UnaryServer[api.SchematicCopyRequest, api.SchematicCopyResponse](router, "/api/v1/workspace/schematic/copy"),
 
 		// SCHEMATIC SYMBOL
-		SchematicSymbolCreate:        fhttp.UnaryServer[api.SymbolCreateRequest, api.SymbolCreateResponse](router, "/api/v1/workspace/schematic/symbol/create"),
-		SchematicSymbolRetrieve:      fhttp.UnaryServer[api.SymbolRetrieveRequest, api.SymbolRetrieveResponse](router, "/api/v1/workspace/schematic/symbol/retrieve"),
-		SchematicSymbolDelete:        fhttp.UnaryServer[api.SymbolDeleteRequest, types.Nil](router, "/api/v1/workspace/schematic/symbol/delete"),
-		SchematicSymbolRename:        fhttp.UnaryServer[api.SymbolRenameRequest, types.Nil](router, "/api/v1/workspace/schematic/symbol/rename"),
-		SchematicSymbolRetrieveGroup: fhttp.UnaryServer[api.SymbolRetrieveGroupRequest, api.SymbolRetrieveGroupResponse](router, "/api/v1/workspace/schematic/symbol/retrieve_group"),
+		SchematicCreateSymbol:        fhttp.UnaryServer[api.SchematicCreateSymbolRequest, api.SchematicCreateSymbolResponse](router, "/api/v1/workspace/schematic/symbol/create"),
+		SchematicRetrieveSymbol:      fhttp.UnaryServer[api.SchematicRetrieveSymbolRequest, api.SchematicRetrieveSymbolResponse](router, "/api/v1/workspace/schematic/symbol/retrieve"),
+		SchematicDeleteSymbol:        fhttp.UnaryServer[api.SchematicDeleteSymbolRequest, types.Nil](router, "/api/v1/workspace/schematic/symbol/delete"),
+		SchematicRenameSymbol:        fhttp.UnaryServer[api.SchematicRenameSymbolRequest, types.Nil](router, "/api/v1/workspace/schematic/symbol/rename"),
+		SchematicRetrieveSymbolGroup: fhttp.UnaryServer[api.SchematicRetrieveSymbolGroupRequest, api.SchematicRetrieveSymbolGroupResponse](router, "/api/v1/workspace/schematic/symbol/retrieve_group"),
 
 		// LINE PLOT
 		LinePlotCreate:   fhttp.UnaryServer[api.LinePlotCreateRequest, api.LinePlotCreateResponse](router, "/api/v1/workspace/lineplot/create"),

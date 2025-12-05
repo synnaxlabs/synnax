@@ -104,7 +104,7 @@ export const useGranted = (query: PermissionsQuery) =>
 export const VIEW_ACTIONS: Action[] = ["retrieve"];
 export const DELETE_ACTIONS: Action[] = ["delete"];
 export const CREATE_ACTIONS: Action[] = ["create"];
-export const EDIT_ACTIONS: Action[] = ["update", "create"];
+export const EDIT_ACTIONS: Action[] = ["update"];
 
 export const useViewGranted = (id: ontology.ID | ontology.ID[]): boolean =>
   useGranted({ objects: id, actions: VIEW_ACTIONS });

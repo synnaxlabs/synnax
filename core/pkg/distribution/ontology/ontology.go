@@ -54,15 +54,7 @@ type (
 
 func ParseID(s string) (ID, error) { return core.ParseID(s) }
 
-func ResourceIDs(resources []Resource) []ID {
-	ids := make([]ID, 0, len(resources))
-	for _, r := range resources {
-		ids = append(ids, r.ID)
-	}
-	return ids
-}
-
-func ParseIDs(s []string) ([]ID, error) { return core.ParseIDs(s) }
+func ResourceIDs(resources []Resource) []ID { return core.ResourceIDs(resources) }
 
 func IDsToString(ids []ID) []string { return core.IDsToString(ids) }
 

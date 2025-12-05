@@ -12,7 +12,7 @@ package access
 type Action string
 
 const (
-	ActionAll      Action = "*"
+	ActionAll      Action = "all"
 	ActionCreate   Action = "create"
 	ActionRetrieve Action = "retrieve"
 	ActionUpdate   Action = "update"

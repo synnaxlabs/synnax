@@ -52,7 +52,7 @@ const useAssignRole = (): ((props: Ontology.TreeContextMenuProps) => void) => {
       const resource = getResource(ids[0]);
       placeLayout({
         ...ASSIGN_ROLE_LAYOUT,
-        name: `Assign Role - ${resource.name}`,
+        name: `Role.Assign.${resource.name}`,
         args: { key: ids[0].key },
       });
     },
