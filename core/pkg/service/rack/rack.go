@@ -15,8 +15,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a rack. Each rack is leased to a particular
@@ -54,6 +56,15 @@ func (k Key) IsZero() bool { return k == 0 }
 
 // String implements fmt.Stringer.
 func (k Key) String() string { return strconv.Itoa(int(k)) }
+
+func (k *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
+	n, err := binary.UnmarshalMsgpackUint32(dec)
+	if err != nil {
+		return err
+	}
+	*k = Key(n)
+	return nil
+}
 
 type StatusDetails struct {
 	Rack Key `json:"rack" msgpack:"rack"`

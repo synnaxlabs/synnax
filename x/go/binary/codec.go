@@ -369,3 +369,79 @@ func (f *decodeFallbackCodec) DecodeStream(
 func MustEncodeJSONToString(v any) string {
 	return string(lo.Must((&JSONCodec{}).Encode(context.Background(), v)))
 }
+
+// UnmarshalMsgpackUint64 decodes a msgpack value into a uint64, handling type coercion
+// from various numeric types, floats, and strings. This is useful when TypeScript/JavaScript
+// clients send numbers that may be encoded as different msgpack types.
+func UnmarshalMsgpackUint64(dec *msgpack.Decoder) (uint64, error) {
+	v, err := dec.DecodeInterface()
+	if err != nil {
+		return 0, err
+	}
+	switch val := v.(type) {
+	case uint64:
+		return val, nil
+	case uint32:
+		return uint64(val), nil
+	case uint16:
+		return uint64(val), nil
+	case uint8:
+		return uint64(val), nil
+	case int64:
+		return uint64(val), nil
+	case int32:
+		return uint64(val), nil
+	case int16:
+		return uint64(val), nil
+	case int8:
+		return uint64(val), nil
+	case int:
+		return uint64(val), nil
+	case float64:
+		return uint64(val), nil
+	case float32:
+		return uint64(val), nil
+	case string:
+		return strconv.ParseUint(val, 10, 64)
+	default:
+		return 0, errors.Newf("cannot unmarshal %T into uint64", v)
+	}
+}
+
+// UnmarshalMsgpackUint32 decodes a msgpack value into a uint32, handling type coercion
+// from various numeric types, floats, and strings.
+func UnmarshalMsgpackUint32(dec *msgpack.Decoder) (uint32, error) {
+	v, err := dec.DecodeInterface()
+	if err != nil {
+		return 0, err
+	}
+	switch val := v.(type) {
+	case uint64:
+		return uint32(val), nil
+	case uint32:
+		return val, nil
+	case uint16:
+		return uint32(val), nil
+	case uint8:
+		return uint32(val), nil
+	case int64:
+		return uint32(val), nil
+	case int32:
+		return uint32(val), nil
+	case int16:
+		return uint32(val), nil
+	case int8:
+		return uint32(val), nil
+	case int:
+		return uint32(val), nil
+	case float64:
+		return uint32(val), nil
+	case float32:
+		return uint32(val), nil
+	case string:
+		n, err := strconv.ParseUint(val, 10, 32)
+		return uint32(n), err
+	default:
+		return 0, errors.Newf("cannot unmarshal %T into uint32", v)
+	}
+}

@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/binary"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type toEncode struct {
@@ -243,6 +244,76 @@ var _ = Describe("Codec", func() {
 	Describe("MarshalStringUint64", func() {
 		It("Should encode a uint64 value as a string", func() {
 			Expect(binary.MarshalStringUint64(12)).To(Equal([]byte("\"12\"")))
+		})
+	})
+	Describe("UnmarshalMsgpackUint64", func() {
+		DescribeTable("Should decode various types to uint64",
+			func(value any, expected uint64) {
+				b := MustSucceed(msgpack.Marshal(value))
+				dec := msgpack.NewDecoder(bytes.NewReader(b))
+				result := MustSucceed(binary.UnmarshalMsgpackUint64(dec))
+				Expect(result).To(Equal(expected))
+			},
+			Entry("uint64", uint64(12345678901234), uint64(12345678901234)),
+			Entry("uint32", uint32(123456), uint64(123456)),
+			Entry("uint16", uint16(1234), uint64(1234)),
+			Entry("uint8", uint8(123), uint64(123)),
+			Entry("int64", int64(12345678901234), uint64(12345678901234)),
+			Entry("int32", int32(123456), uint64(123456)),
+			Entry("int16", int16(1234), uint64(1234)),
+			Entry("int8", int8(123), uint64(123)),
+			Entry("int", int(123456789), uint64(123456789)),
+			Entry("float64", float64(123456), uint64(123456)),
+			Entry("float32", float32(1234), uint64(1234)),
+			Entry("string", "281543696187399", uint64(281543696187399)),
+		)
+		It("Should return an error for unsupported types", func() {
+			b := MustSucceed(msgpack.Marshal([]int{1, 2, 3}))
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			_, err := binary.UnmarshalMsgpackUint64(dec)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("cannot unmarshal"))
+		})
+		It("Should return an error for invalid string", func() {
+			b := MustSucceed(msgpack.Marshal("not-a-number"))
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			_, err := binary.UnmarshalMsgpackUint64(dec)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+	Describe("UnmarshalMsgpackUint32", func() {
+		DescribeTable("Should decode various types to uint32",
+			func(value any, expected uint32) {
+				b := MustSucceed(msgpack.Marshal(value))
+				dec := msgpack.NewDecoder(bytes.NewReader(b))
+				result := MustSucceed(binary.UnmarshalMsgpackUint32(dec))
+				Expect(result).To(Equal(expected))
+			},
+			Entry("uint64", uint64(123456), uint32(123456)),
+			Entry("uint32", uint32(123456), uint32(123456)),
+			Entry("uint16", uint16(1234), uint32(1234)),
+			Entry("uint8", uint8(123), uint32(123)),
+			Entry("int64", int64(123456), uint32(123456)),
+			Entry("int32", int32(123456), uint32(123456)),
+			Entry("int16", int16(1234), uint32(1234)),
+			Entry("int8", int8(123), uint32(123)),
+			Entry("int", int(123456), uint32(123456)),
+			Entry("float64", float64(65536), uint32(65536)),
+			Entry("float32", float32(1234), uint32(1234)),
+			Entry("string", "65537", uint32(65537)),
+		)
+		It("Should return an error for unsupported types", func() {
+			b := MustSucceed(msgpack.Marshal(map[string]int{"a": 1}))
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			_, err := binary.UnmarshalMsgpackUint32(dec)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("cannot unmarshal"))
+		})
+		It("Should return an error for invalid string", func() {
+			b := MustSucceed(msgpack.Marshal("invalid"))
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			_, err := binary.UnmarshalMsgpackUint32(dec)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })
