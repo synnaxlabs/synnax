@@ -19,12 +19,11 @@ const client = createTestClient();
 
 describe("task", () => {
   describe("access control", () => {
-    it("should prevent the caller to retrieve tasks with the correct policy", async () => {
+    it("should deny access when no retrieve policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [],
-        actions: ["retrieve"],
+        actions: [],
       });
       const rack = await client.racks.create({
         name: "test",
@@ -42,7 +41,6 @@ describe("task", () => {
     it("should allow the caller to retrieve tasks with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [task.ontologyID("")],
         actions: ["retrieve"],
       });
@@ -64,7 +62,6 @@ describe("task", () => {
     it("should allow the caller to create tasks with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [task.ontologyID(""), rack.ontologyID(0)],
         actions: ["create", "retrieve"],
       });
@@ -79,12 +76,11 @@ describe("task", () => {
       });
     });
 
-    it("should prevent the caller to create tasks with the incorrect policy", async () => {
+    it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [task.ontologyID("")],
-        actions: ["create"],
+        actions: [],
       });
       await expect(
         userClient.tasks.create({
@@ -98,7 +94,6 @@ describe("task", () => {
     it("should allow the caller to delete tasks with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [task.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
@@ -116,12 +111,11 @@ describe("task", () => {
       );
     });
 
-    it("should prevent the caller to delete tasks with the incorrect policy", async () => {
+    it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [task.ontologyID("")],
-        actions: ["delete"],
+        actions: [],
       });
       const rack = await client.racks.create({
         name: "test",

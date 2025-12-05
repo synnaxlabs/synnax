@@ -86,7 +86,6 @@ var _ = Describe("Service", func() {
 
 				p := &policy.Policy{
 					Name:    "allow-read",
-					Effect:  policy.EffectAllow,
 					Objects: []ontology.ID{obj1},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
@@ -100,28 +99,6 @@ var _ = Describe("Service", func() {
 					Action:  access.ActionRetrieve,
 				}
 				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
-			})
-
-			It("Should deny access when policy denies action", func() {
-				r := &role.Role{Name: "test-role", Description: "Test role"}
-				Expect(roleWriter.Create(ctx, r)).To(Succeed())
-
-				p := &policy.Policy{
-					Name:    "deny-delete",
-					Effect:  policy.EffectDeny,
-					Objects: []ontology.ID{obj1},
-					Actions: []access.Action{access.ActionDelete},
-				}
-				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-				Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
-
-				req := access.Request{
-					Subject: subject,
-					Objects: []ontology.ID{obj1},
-					Action:  access.ActionDelete,
-				}
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.Denied))
 			})
 
 			It("Should deny access when no policy exists", func() {
@@ -139,7 +116,6 @@ var _ = Describe("Service", func() {
 
 				p := &policy.Policy{
 					Name:    "allow-all-actions",
-					Effect:  policy.EffectAllow,
 					Objects: []ontology.ID{obj1},
 					Actions: []access.Action{access.ActionAll},
 				}
@@ -169,7 +145,6 @@ var _ = Describe("Service", func() {
 				typeWildcard := ontology.ID{Type: "channel"}
 				p := &policy.Policy{
 					Name:    "allow-all-channels",
-					Effect:  policy.EffectAllow,
 					Objects: []ontology.ID{typeWildcard},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
@@ -191,7 +166,6 @@ var _ = Describe("Service", func() {
 
 				p := &policy.Policy{
 					Name:    "allow-obj1",
-					Effect:  policy.EffectAllow,
 					Objects: []ontology.ID{obj1},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
@@ -202,35 +176,6 @@ var _ = Describe("Service", func() {
 				req := access.Request{
 					Subject: subject,
 					Objects: []ontology.ID{obj1, obj2},
-					Action:  access.ActionRetrieve,
-				}
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.Denied))
-			})
-
-			It("Should prioritize deny over allow", func() {
-				r := &role.Role{Name: "test-role", Description: "Test role"}
-				Expect(roleWriter.Create(ctx, r)).To(Succeed())
-
-				allowPolicy := &policy.Policy{
-					Name:    "allow-read",
-					Effect:  policy.EffectAllow,
-					Objects: []ontology.ID{obj1},
-					Actions: []access.Action{access.ActionRetrieve},
-				}
-				denyPolicy := &policy.Policy{
-					Name:    "deny-read",
-					Effect:  policy.EffectDeny,
-					Objects: []ontology.ID{obj1},
-					Actions: []access.Action{access.ActionRetrieve},
-				}
-				Expect(policyWriter.Create(ctx, allowPolicy)).To(Succeed())
-				Expect(policyWriter.Create(ctx, denyPolicy)).To(Succeed())
-				Expect(policyWriter.SetOnRole(ctx, r.Key, allowPolicy.Key, denyPolicy.Key)).To(Succeed())
-				Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
-
-				req := access.Request{
-					Subject: subject,
-					Objects: []ontology.ID{obj1},
 					Action:  access.ActionRetrieve,
 				}
 				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.Denied))
@@ -247,7 +192,6 @@ var _ = Describe("Service", func() {
 
 				p := &policy.Policy{
 					Name:    "allow-read",
-					Effect:  policy.EffectAllow,
 					Objects: []ontology.ID{obj1},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
@@ -272,7 +216,6 @@ var _ = Describe("Service", func() {
 
 				p := &policy.Policy{
 					Name:    "allow-read",
-					Effect:  policy.EffectAllow,
 					Objects: []ontology.ID{obj1},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
@@ -316,14 +259,12 @@ var _ = Describe("Service", func() {
 
 			p1 := &policy.Policy{
 				Name:     "policy-1",
-				Effect:   policy.EffectAllow,
 				Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
 				Actions:  []access.Action{access.ActionAll},
 				Internal: true,
 			}
 			p2 := &policy.Policy{
 				Name:    "policy-2",
-				Effect:  policy.EffectAllow,
 				Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			}
@@ -377,7 +318,6 @@ var _ = Describe("Service", func() {
 
 			p := &policy.Policy{
 				Name:    "allow-read",
-				Effect:  policy.EffectAllow,
 				Objects: []ontology.ID{obj},
 				Actions: []access.Action{access.ActionRetrieve},
 			}

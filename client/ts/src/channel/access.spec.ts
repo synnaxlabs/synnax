@@ -19,12 +19,11 @@ const client = createTestClient();
 
 describe("channel", () => {
   describe("access control", () => {
-    it("should prevent the caller to retrieve channels with the correct policy", async () => {
+    it("should deny access when no matching policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [],
-        actions: ["retrieve"],
+        actions: [],
       });
       const randomChannel = await client.channels.create({
         name: id.create(),
@@ -39,7 +38,6 @@ describe("channel", () => {
     it("should allow the caller to retrieve channels with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [channel.ontologyID(0)],
         actions: ["retrieve"],
       });
@@ -57,7 +55,6 @@ describe("channel", () => {
     it("should allow the caller to create channels with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [channel.ontologyID(0)],
         actions: ["create"],
       });
@@ -68,12 +65,11 @@ describe("channel", () => {
       });
     });
 
-    it("should prevent the caller to create channels with the incorrect policy", async () => {
+    it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [channel.ontologyID(0)],
-        actions: ["create"],
+        actions: ["retrieve"],
       });
       await expect(
         userClient.channels.create({
@@ -87,7 +83,6 @@ describe("channel", () => {
     it("should allow the caller to delete channels with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [channel.ontologyID(0)],
         actions: ["delete"],
       });
@@ -102,12 +97,11 @@ describe("channel", () => {
       );
     });
 
-    it("should prevent the caller to delete channels with the incorrect policy", async () => {
+    it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [channel.ontologyID(0)],
-        actions: ["delete"],
+        actions: ["retrieve"],
       });
       const randomChannel = await client.channels.create({
         name: id.create(),

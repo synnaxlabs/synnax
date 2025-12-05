@@ -18,12 +18,11 @@ const client = createTestClient();
 
 describe("label", () => {
   describe("access control", () => {
-    it("should prevent the caller to retrieve labels with the correct policy", async () => {
+    it("should deny access when no retrieve policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [],
-        actions: ["retrieve"],
+        actions: [],
       });
       const randomLabel = await client.labels.create({
         name: "test",
@@ -37,7 +36,6 @@ describe("label", () => {
     it("should allow the caller to retrieve labels with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [label.ontologyID("")],
         actions: ["retrieve"],
       });
@@ -54,7 +52,6 @@ describe("label", () => {
     it("should allow the caller to create labels with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [label.ontologyID("")],
         actions: ["create"],
       });
@@ -64,12 +61,11 @@ describe("label", () => {
       });
     });
 
-    it("should prevent the caller to create labels with the incorrect policy", async () => {
+    it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [label.ontologyID("")],
-        actions: ["create"],
+        actions: [],
       });
       await expect(
         userClient.labels.create({
@@ -82,7 +78,6 @@ describe("label", () => {
     it("should allow the caller to delete labels with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [label.ontologyID("")],
         actions: ["delete"],
       });
@@ -96,12 +91,11 @@ describe("label", () => {
       ).rejects.toThrow(NotFoundError);
     });
 
-    it("should prevent the caller to delete labels with the incorrect policy", async () => {
+    it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [label.ontologyID("")],
-        actions: ["delete"],
+        actions: [],
       });
       const randomLabel = await client.labels.create({
         name: "test",

@@ -15,7 +15,6 @@ from synnax.access.policy.payload import (
     DELETE_ACTION,
     RETRIEVE_ACTION,
     UPDATE_ACTION,
-    Effect,
     Policy,
     ontology_id,
 )
@@ -24,7 +23,6 @@ __all__ = [
     "PolicyClient",
     "Policy",
     "ALLOW_ALL",
-    "Effect",
     "ALL_ACTION",
     "CREATE_ACTION",
     "DELETE_ACTION",

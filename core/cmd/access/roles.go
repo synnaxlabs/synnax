@@ -71,7 +71,6 @@ var (
 	}
 	ownerPolicy = policy.Policy{
 		Name:     ownerRoleName,
-		Effect:   policy.EffectAllow,
 		Objects:  allObjects,
 		Actions:  []access.Action{access.ActionAll},
 		Internal: true,
@@ -88,8 +87,7 @@ var (
 	}
 	engineerPolicies = []policy.Policy{
 		{
-			Name:   "Engineer Edit Access",
-			Effect: policy.EffectAllow,
+			Name: "Engineer Edit Access",
 			Objects: []ontology.ID{
 				{Type: label.OntologyType},
 				{Type: log.OntologyType},
@@ -115,8 +113,7 @@ var (
 			Internal: true,
 		},
 		{
-			Name:   "Engineer View Access",
-			Effect: policy.EffectAllow,
+			Name: "Engineer View Access",
 			Objects: []ontology.ID{
 				{Type: user.OntologyType},
 				{Type: role.OntologyType},
@@ -138,8 +135,7 @@ var (
 	}
 	operatorPolicies = []policy.Policy{
 		{
-			Name:   "Operator Edit Access",
-			Effect: policy.EffectAllow,
+			Name: "Operator Edit Access",
 			Objects: []ontology.ID{
 				{Type: framer.OntologyType},
 				{Type: ranger.OntologyType},
@@ -149,7 +145,6 @@ var (
 		},
 		{
 			Name:     "Operator View Access",
-			Effect:   policy.EffectAllow,
 			Objects:  allObjects,
 			Actions:  []access.Action{access.ActionRetrieve},
 			Internal: true,
@@ -167,7 +162,6 @@ var (
 	}
 	viewerPolicy = policy.Policy{
 		Name:     viewerRoleName,
-		Effect:   policy.EffectAllow,
 		Objects:  allObjects,
 		Actions:  []access.Action{access.ActionRetrieve},
 		Internal: true,

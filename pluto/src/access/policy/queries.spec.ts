@@ -27,13 +27,11 @@ describe("queries", () => {
     it("should return a list of policy keys", async () => {
       const policy1 = await client.access.policies.create({
         name: "policy1",
-        effect: "allow",
         objects: [{ type: "channel", key: "1" }],
         actions: ["create"],
       });
       const policy2 = await client.access.policies.create({
         name: "policy2",
-        effect: "deny",
         objects: [{ type: "channel", key: "2" }],
         actions: ["delete"],
       });
@@ -53,7 +51,6 @@ describe("queries", () => {
     it("should get individual policies using getItem", async () => {
       const testPolicy = await client.access.policies.create({
         name: "testPolicy",
-        effect: "allow",
         objects: [{ type: "channel", key: "test" }],
         actions: ["create", "retrieve"],
       });
@@ -67,7 +64,6 @@ describe("queries", () => {
       const retrievedPolicy = result.current.getItem(testPolicy.key);
       expect(retrievedPolicy?.key).toEqual(testPolicy.key);
       expect(retrievedPolicy?.name).toEqual("testPolicy");
-      expect(retrievedPolicy?.effect).toEqual("allow");
     });
 
     it("should update the list when a policy is created", async () => {
@@ -80,7 +76,6 @@ describe("queries", () => {
 
       const newPolicy = await client.access.policies.create({
         name: "newPolicy",
-        effect: "allow",
         objects: [{ type: "channel", key: "new" }],
         actions: ["*"],
       });
@@ -94,7 +89,6 @@ describe("queries", () => {
     it("should remove policy from list when deleted", async () => {
       const testPolicy = await client.access.policies.create({
         name: "toDeletePolicy",
-        effect: "deny",
         objects: [{ type: "channel", key: "delete" }],
         actions: ["delete"],
       });
@@ -116,13 +110,11 @@ describe("queries", () => {
     it("should handle multiple policy updates simultaneously", async () => {
       const policy1 = await client.access.policies.create({
         name: "multiUpdate1",
-        effect: "allow",
         objects: [{ type: "channel", key: "1" }],
         actions: ["create"],
       });
       const policy2 = await client.access.policies.create({
         name: "multiUpdate2",
-        effect: "allow",
         objects: [{ type: "channel", key: "2" }],
         actions: ["create"],
       });
@@ -149,7 +141,6 @@ describe("queries", () => {
     it("should retrieve a single policy by key", async () => {
       const testPolicy = await client.access.policies.create({
         name: "singlePolicy",
-        effect: "allow",
         objects: [{ type: "channel", key: "single" }],
         actions: ["create", "retrieve", "update"],
       });
@@ -161,14 +152,12 @@ describe("queries", () => {
 
       expect(result.current.data?.key).toEqual(testPolicy.key);
       expect(result.current.data?.name).toEqual("singlePolicy");
-      expect(result.current.data?.effect).toEqual("allow");
       expect(result.current.data?.actions).toContain("create");
     });
 
     it("should handle retrieve with valid policy key", async () => {
       const policy = await client.access.policies.create({
         name: "validPolicy",
-        effect: "deny",
         objects: [{ type: "user", key: "user1" }],
         actions: ["delete"],
       });
@@ -180,7 +169,6 @@ describe("queries", () => {
 
       expect(result.current.data).toBeDefined();
       expect(result.current.data?.key).toEqual(policy.key);
-      expect(result.current.data?.effect).toEqual("deny");
     });
   });
 
@@ -188,7 +176,6 @@ describe("queries", () => {
     it("should correctly rename a policy", async () => {
       const policy = await client.access.policies.create({
         name: "testPolicy",
-        effect: "allow",
         objects: [{ type: "channel", key: "test" }],
         actions: ["create"],
       });
@@ -213,7 +200,6 @@ describe("queries", () => {
     it("should correctly delete a policy", async () => {
       const policy = await client.access.policies.create({
         name: "testPolicy",
-        effect: "allow",
         objects: [{ type: "channel", key: "test" }],
         actions: ["create"],
       });
@@ -232,13 +218,11 @@ describe("queries", () => {
     it("should delete multiple policies", async () => {
       const policy1 = await client.access.policies.create({
         name: "deletePolicy1",
-        effect: "allow",
         objects: [{ type: "channel", key: "1" }],
         actions: ["create"],
       });
       const policy2 = await client.access.policies.create({
         name: "deletePolicy2",
-        effect: "deny",
         objects: [{ type: "channel", key: "2" }],
         actions: ["delete"],
       });
@@ -264,7 +248,6 @@ describe("queries", () => {
 
       await act(async () => {
         result.current.form.set("name", "formPolicy");
-        result.current.form.set("effect", "allow");
         result.current.form.set("objects", [{ type: "channel", key: "form" }]);
         result.current.form.set("actions", ["create"]);
       });
@@ -281,13 +264,11 @@ describe("queries", () => {
       const createdKey = result.current.form.get<string>("key").value;
       const retrieved = await client.access.policies.retrieve({ key: createdKey });
       expect(retrieved.name).toEqual("formPolicy");
-      expect(retrieved.effect).toEqual("allow");
     });
 
     it("should retrieve and populate form with existing policy", async () => {
       const existingPolicy = await client.access.policies.create({
         name: "existingPolicy",
-        effect: "deny",
         objects: [{ type: "user", key: "user1" }],
         actions: ["delete", "update"],
       });
@@ -301,7 +282,6 @@ describe("queries", () => {
 
       await waitFor(() => {
         expect(result.current.form.get("name").value).toEqual("existingPolicy");
-        expect(result.current.form.get("effect").value).toEqual("deny");
         expect(result.current.form.get("actions").value).toContain("delete");
       });
     });

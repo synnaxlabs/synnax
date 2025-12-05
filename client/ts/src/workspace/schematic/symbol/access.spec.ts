@@ -20,12 +20,11 @@ const client = createTestClient();
 
 describe("schematic_symbol", () => {
   describe("access control", () => {
-    it("should prevent the caller to retrieve symbols with the correct policy", async () => {
+    it("should deny access when no retrieve policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [],
-        actions: ["retrieve"],
+        actions: [],
       });
       const symbolGroup = await client.ontology.groups.create({
         parent: ontology.ROOT_ID,
@@ -49,7 +48,6 @@ describe("schematic_symbol", () => {
     it("should allow the caller to retrieve symbols with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [symbol.ontologyID("")],
         actions: ["retrieve"],
       });
@@ -77,7 +75,6 @@ describe("schematic_symbol", () => {
     it("should allow the caller to create symbols with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [symbol.ontologyID("")],
         actions: ["create"],
       });
@@ -97,12 +94,11 @@ describe("schematic_symbol", () => {
       });
     });
 
-    it("should prevent the caller to create symbols with the incorrect policy", async () => {
+    it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [symbol.ontologyID("")],
-        actions: ["create"],
+        actions: [],
       });
       const symbolGroup = await client.ontology.groups.create({
         parent: ontology.ROOT_ID,
@@ -125,7 +121,6 @@ describe("schematic_symbol", () => {
     it("should allow the caller to delete symbols with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [symbol.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
@@ -149,12 +144,11 @@ describe("schematic_symbol", () => {
       ).rejects.toThrow(NotFoundError);
     });
 
-    it("should prevent the caller to delete symbols with the incorrect policy", async () => {
+    it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [symbol.ontologyID("")],
-        actions: ["delete"],
+        actions: [],
       });
       const symbolGroup = await client.ontology.groups.create({
         parent: ontology.ROOT_ID,

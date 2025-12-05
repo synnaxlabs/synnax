@@ -158,14 +158,7 @@ func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 
 func allowRequest(req access.Request, policies []policy.Policy) bool {
 	for _, requestedObj := range req.Objects {
-		var allowed *bool = nil
-		applyEffect := func(p policy.Policy) {
-			if p.Effect == policy.EffectDeny {
-				allowed = config.False()
-			} else if allowed == nil {
-				allowed = config.True()
-			}
-		}
+		found := false
 		for _, p := range policies {
 			hasAction := lo.Contains(p.Actions, req.Action) || lo.Contains(p.Actions, access.ActionAll)
 			if !hasAction {
@@ -174,17 +167,19 @@ func allowRequest(req access.Request, policies []policy.Policy) bool {
 			for _, policyObj := range p.Objects {
 				if policyObj.IsType() {
 					if policyObj.Type == requestedObj.Type {
-						applyEffect(p)
-					}
-				} else {
-					if policyObj.Type == requestedObj.Type && policyObj.Key == requestedObj.Key {
-						applyEffect(p)
+						found = true
 						break
 					}
+				} else if policyObj.Type == requestedObj.Type && policyObj.Key == requestedObj.Key {
+					found = true
+					break
 				}
 			}
+			if found {
+				break
+			}
 		}
-		if allowed == nil || !*allowed {
+		if !found {
 			return false
 		}
 	}

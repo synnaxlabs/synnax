@@ -16,13 +16,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type Effect string
-
-const (
-	EffectAllow Effect = "allow"
-	EffectDeny  Effect = "deny"
-)
-
 // Policy is a simple access control policy in the RBAC model. A policy sets an action
 // that is allowed. All other accesses except for those specified by a policy are denied
 // by default.
@@ -33,9 +26,6 @@ type Policy struct {
 	Name string `json:"name" msgpack:"name"`
 	// Key is a unique uuid to identify the policy.
 	Key uuid.UUID `json:"key" msgpack:"key"`
-	// Effect sets whether the policy denies or allows the actions on the provided
-	// objects.
-	Effect Effect `json:"effect" msgpack:"effect"`
 	// Objects is the list of objects that the policy applies to
 	Objects []ontology.ID `json:"objects" msgpack:"objects"`
 	// Actions is the list of actions that the policy applies to

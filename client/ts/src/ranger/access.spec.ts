@@ -19,12 +19,11 @@ const client = createTestClient();
 
 describe("range", () => {
   describe("access control", () => {
-    it("should prevent the caller to retrieve ranges with the correct policy", async () => {
+    it("should deny access when no retrieve policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [],
-        actions: ["retrieve"],
+        actions: [],
       });
       const randomRange = await client.ranges.create({
         name: "test",
@@ -39,7 +38,6 @@ describe("range", () => {
     it("should allow the caller to retrieve ranges with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [ranger.ontologyID("")],
         actions: ["retrieve"],
       });
@@ -56,7 +54,6 @@ describe("range", () => {
     it("should allow the caller to create ranges with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [ranger.ontologyID("")],
         actions: ["create"],
       });
@@ -67,12 +64,11 @@ describe("range", () => {
       });
     });
 
-    it("should prevent the caller to create ranges with the incorrect policy", async () => {
+    it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [ranger.ontologyID("")],
-        actions: ["create"],
+        actions: [],
       });
       await expect(
         userClient.ranges.create({
@@ -86,7 +82,6 @@ describe("range", () => {
     it("should allow the caller to delete ranges with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [ranger.ontologyID("")],
         actions: ["delete"],
       });
@@ -101,12 +96,11 @@ describe("range", () => {
       );
     });
 
-    it("should prevent the caller to delete ranges with the incorrect policy", async () => {
+    it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [ranger.ontologyID("")],
-        actions: ["delete"],
+        actions: [],
       });
       const randomRange = await client.ranges.create({
         name: "test",

@@ -22,7 +22,6 @@ const PLURAL_RESOURCE_NAME = "Policies";
 export const formSchema = z.object({
   key: z.uuid().optional(),
   name: z.string().min(1, "Name is required"),
-  effect: z.enum(["allow", "deny"]),
   objects: ontology.idZ.array(),
   actions: access.actionZ.array(),
 });
@@ -128,7 +127,6 @@ export const useForm = Flux.createForm<
   initialValues: {
     key: undefined,
     name: "",
-    effect: "allow",
     objects: [],
     actions: [],
   },

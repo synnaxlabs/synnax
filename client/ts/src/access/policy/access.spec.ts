@@ -22,7 +22,6 @@ describe("policy", () => {
       // Create a non-internal policy
       const created = await client.access.policies.create({
         name: "test-non-internal",
-        effect: "allow",
         objects: [],
         actions: ["retrieve"],
       });
@@ -45,16 +44,15 @@ describe("policy", () => {
   });
 
   describe("access control", () => {
-    it("should prevent the caller to retrieve policies with the correct policy", async () => {
+    it("should deny access when no matching policy exists", async () => {
+      // Create a user with no policy for retrieving policies
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [],
-        actions: ["retrieve"],
+        actions: [],
       });
       const randomPolicy = await client.access.policies.create({
         name: "test",
-        effect: "allow",
         objects: [],
         actions: ["retrieve"],
       });
@@ -66,13 +64,11 @@ describe("policy", () => {
     it("should allow the caller to retrieve policies with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [policy.ontologyID("")],
         actions: ["retrieve"],
       });
       const randomPolicy = await client.access.policies.create({
         name: "test",
-        effect: "allow",
         objects: [],
         actions: ["retrieve"],
       });
@@ -81,7 +77,6 @@ describe("policy", () => {
       });
       expect(retrieved.key).toBe(randomPolicy.key);
       expect(retrieved.name).toBe(randomPolicy.name);
-      expect(retrieved.effect).toBe(randomPolicy.effect);
       expect(retrieved.objects).toEqual(randomPolicy.objects);
       expect(retrieved.actions).toEqual(randomPolicy.actions);
     });
@@ -89,29 +84,26 @@ describe("policy", () => {
     it("should allow the caller to create policies with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [policy.ontologyID("")],
         actions: ["create"],
       });
       await userClient.access.policies.create({
         name: "test",
-        effect: "allow",
         objects: [],
         actions: ["retrieve"],
       });
     });
 
-    it("should prevent the caller to create policies with the incorrect policy", async () => {
+    it("should deny access when no create policy exists", async () => {
+      // Create a user with no create policy for policies
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [policy.ontologyID("")],
-        actions: ["create"],
+        actions: ["retrieve"],
       });
       await expect(
         userClient.access.policies.create({
           name: "test",
-          effect: "allow",
           objects: [],
           actions: ["retrieve"],
         }),
@@ -121,13 +113,11 @@ describe("policy", () => {
     it("should allow the caller to delete policies with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [policy.ontologyID("")],
         actions: ["delete"],
       });
       const randomPolicy = await client.access.policies.create({
         name: "test",
-        effect: "allow",
         objects: [],
         actions: ["retrieve"],
       });
@@ -137,16 +127,15 @@ describe("policy", () => {
       ).rejects.toThrow(NotFoundError);
     });
 
-    it("should prevent the caller to delete policies with the incorrect policy", async () => {
+    it("should deny access when no delete policy exists", async () => {
+      // Create a user with no delete policy for policies
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [policy.ontologyID("")],
-        actions: ["delete"],
+        actions: ["retrieve"],
       });
       const randomPolicy = await client.access.policies.create({
         name: "test",
-        effect: "allow",
         objects: [],
         actions: ["retrieve"],
       });

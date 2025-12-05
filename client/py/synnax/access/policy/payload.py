@@ -10,7 +10,6 @@
 
 from __future__ import annotations
 
-from typing import Literal
 from uuid import UUID
 
 from freighter import Payload
@@ -18,8 +17,6 @@ from freighter import Payload
 from synnax.ontology.payload import ID
 
 ALLOW_ALL = ID(type="allow_all", key="")
-
-Effect = Literal["allow", "deny"]
 
 ALL_ACTION = "*"
 CREATE_ACTION = "create"
@@ -31,7 +28,6 @@ UPDATE_ACTION = "update"
 class Policy(Payload):
     key: UUID | None = None
     name: str
-    effect: Effect = "allow"
     objects: list[ID] = []
     actions: list[str] = []
     internal: bool = False

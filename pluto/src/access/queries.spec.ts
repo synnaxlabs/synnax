@@ -47,7 +47,6 @@ describe("Access Queries", () => {
     it("should return true when the user has the appropriate permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
       });
@@ -64,7 +63,6 @@ describe("Access Queries", () => {
     it("should return false when the user does not have the appropriate permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        effect: "allow",
         objects: [...baseObjects],
         actions: ["retrieve"],
       });
@@ -82,7 +80,6 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
       });
@@ -108,7 +105,6 @@ describe("Access Queries", () => {
     it("should handle multiple objects correctly", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        effect: "allow",
         objects: [ranger.ontologyID(""), channel.ontologyID(0), ...baseObjects],
         actions: ["retrieve"],
       });
@@ -128,7 +124,6 @@ describe("Access Queries", () => {
     it("should handle multiple actions correctly", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve", "create", "update"],
       });
@@ -148,7 +143,6 @@ describe("Access Queries", () => {
     it("should return false when missing partial permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
       });
@@ -171,7 +165,6 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
       });
@@ -200,7 +193,6 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        effect: "allow",
         objects: [...baseObjects],
         actions: ["retrieve"],
       });
@@ -243,7 +235,6 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve", "create"],
       });
@@ -287,7 +278,6 @@ describe("Access Queries", () => {
     it("should return true when user has retrieve permission", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
       });
@@ -303,7 +293,6 @@ describe("Access Queries", () => {
     it("should return false when user lacks retrieve permission", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        effect: "allow",
         objects: [...baseObjects],
         actions: ["retrieve"],
       });
@@ -319,7 +308,6 @@ describe("Access Queries", () => {
     it("should handle multiple ontology IDs", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        effect: "allow",
         objects: [ranger.ontologyID(""), channel.ontologyID(0), ...baseObjects],
         actions: ["retrieve"],
       });
@@ -337,7 +325,6 @@ describe("Access Queries", () => {
     it("should return true when user has retrieve and update permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve", "update", "create"],
       });
@@ -353,7 +340,6 @@ describe("Access Queries", () => {
     it("should return false when user only has retrieve permission", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
       });
@@ -371,7 +357,6 @@ describe("Access Queries", () => {
     it("should return true when user has all required permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve", "update", "delete"],
       });
@@ -387,7 +372,6 @@ describe("Access Queries", () => {
     it("should return false when user lacks delete permission", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve", "update"],
       });
@@ -405,7 +389,6 @@ describe("Access Queries", () => {
     it("should return true when user has retrieve and create permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve", "create"],
       });
@@ -421,7 +404,6 @@ describe("Access Queries", () => {
     it("should return false when user lacks create permission", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
       });
@@ -440,7 +422,6 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
       });
@@ -470,7 +451,6 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve", "update", "create"],
       });
@@ -500,7 +480,6 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve", "update", "delete"],
       });
@@ -530,7 +509,6 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve", "create"],
       });
@@ -560,7 +538,6 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
       });
@@ -572,7 +549,6 @@ describe("Access Queries", () => {
       expect(result.current.data!.length).toBeGreaterThan(0);
       const policy = result.current.data!.find((p) => p.name === policyName);
       expect(policy).toBeDefined();
-      expect(policy!.effect).toBe("allow");
       expect(policy!.actions).toContain("retrieve");
     });
 
@@ -586,7 +562,6 @@ describe("Access Queries", () => {
       });
       const p = await client.access.policies.create({
         name: policyName,
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
       });
@@ -613,7 +588,6 @@ describe("Access Queries", () => {
       expect(result.current.data!.length).toBeGreaterThan(0);
       const policy = result.current.data!.find((pol) => pol.name === policyName);
       expect(policy).toBeDefined();
-      expect(policy!.effect).toBe("allow");
       expect(policy!.actions).toContain("retrieve");
     });
 
@@ -639,7 +613,6 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve", "create"],
       });
@@ -655,7 +628,6 @@ describe("Access Queries", () => {
       const policies = storeResult.current.policies.get((p) => p.name === policyName);
       expect(policies.length).toBe(1);
       expect(policies[0].name).toBe(policyName);
-      expect(policies[0].effect).toBe("allow");
       expect(policies[0].actions).toContain("retrieve");
       expect(policies[0].actions).toContain("create");
     });
@@ -664,7 +636,6 @@ describe("Access Queries", () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
-        effect: "allow",
         objects: [ranger.ontologyID(""), ...baseObjects],
         actions: ["retrieve"],
       });

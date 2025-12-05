@@ -23,7 +23,6 @@ describe("group", () => {
     it("should allow the caller to create groups with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [group.ontologyID("")],
         actions: ["create"],
       });
@@ -33,12 +32,11 @@ describe("group", () => {
       });
     });
 
-    it("should prevent the caller to create groups with the incorrect policy", async () => {
+    it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [group.ontologyID("")],
-        actions: ["create"],
+        actions: [],
       });
       await expect(
         userClient.ontology.groups.create({
@@ -51,7 +49,6 @@ describe("group", () => {
     it("should allow the caller to delete groups with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [group.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
@@ -62,12 +59,11 @@ describe("group", () => {
       await userClient.ontology.groups.delete(randomGroup.key);
     });
 
-    it("should prevent the caller to delete groups with the incorrect policy", async () => {
+    it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [group.ontologyID("")],
-        actions: ["delete"],
+        actions: [],
       });
       const randomGroup = await client.ontology.groups.create({
         parent: ontology.ROOT_ID,

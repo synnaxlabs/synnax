@@ -19,12 +19,11 @@ const client = createTestClient();
 
 describe("status", () => {
   describe("access control", () => {
-    it("should prevent the caller to retrieve statuses with the correct policy", async () => {
+    it("should deny access when no retrieve policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [],
-        actions: ["retrieve"],
+        actions: [],
       });
       const randomStatus = await client.statuses.set({
         name: "test",
@@ -41,7 +40,6 @@ describe("status", () => {
     it("should allow the caller to retrieve statuses with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [status.ontologyID("")],
         actions: ["retrieve"],
       });
@@ -62,7 +60,6 @@ describe("status", () => {
     it("should allow the caller to set statuses with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [status.ontologyID("")],
         actions: ["create"],
       });
@@ -75,12 +72,11 @@ describe("status", () => {
       });
     });
 
-    it("should prevent the caller to set statuses with the incorrect policy", async () => {
+    it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [status.ontologyID("")],
-        actions: ["create"],
+        actions: [],
       });
       await expect(
         userClient.statuses.set({
@@ -96,7 +92,6 @@ describe("status", () => {
     it("should allow the caller to delete statuses with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [status.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
@@ -113,12 +108,11 @@ describe("status", () => {
       ).rejects.toThrow(NotFoundError);
     });
 
-    it("should prevent the caller to delete statuses with the incorrect policy", async () => {
+    it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [status.ontologyID("")],
-        actions: ["delete"],
+        actions: [],
       });
       const randomStatus = await client.statuses.set({
         name: "test",

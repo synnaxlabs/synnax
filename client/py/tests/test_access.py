@@ -23,7 +23,6 @@ class TestAccessClient:
             [
                 sy.Policy(
                     name="Test Policy 1",
-                    effect="allow",
                     objects=[
                         ID(type="channel", key=str(uuid.uuid4())),
                         ID(type="label", key=str(uuid.uuid4())),
@@ -32,7 +31,6 @@ class TestAccessClient:
                 ),
                 sy.Policy(
                     name="Test Policy 2",
-                    effect="allow",
                     objects=[
                         ID(type="channel", key=str(uuid.uuid4())),
                         ID(type="label", key=str(uuid.uuid4())),
@@ -48,12 +46,10 @@ class TestAccessClient:
             assert "create" in policy.actions
             assert policy.key is not None
             assert policy.name is not None
-            assert policy.effect == "allow"
 
     def test_create_single(self, client: sy.Synnax) -> None:
         p = sy.Policy(
             name="Single Test Policy",
-            effect="allow",
             objects=[
                 ID(type="channel", key=str(uuid.uuid4())),
                 ID(type="label", key=str(uuid.uuid4())),
@@ -64,7 +60,6 @@ class TestAccessClient:
         assert policy.key != ""
         assert policy.actions == ["create"]
         assert policy.name == p.name
-        assert policy.effect == p.effect
         assert policy.objects == p.objects
 
     def test_retrieve_by_subject_not_found(self, client: sy.Synnax) -> None:
@@ -96,7 +91,6 @@ class TestAccessClient:
         created = client.access.policies.create(
             sy.Policy(
                 name="Test Non-Internal Policy",
-                effect="allow",
                 objects=[ID(type="channel", key=str(uuid.uuid4()))],
                 actions=["retrieve"],
             )

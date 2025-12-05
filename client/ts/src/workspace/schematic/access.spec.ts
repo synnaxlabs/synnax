@@ -18,12 +18,11 @@ const client = createTestClient();
 
 describe("schematic", () => {
   describe("access control", () => {
-    it("should prevent the caller to retrieve schematics with the correct policy", async () => {
+    it("should deny access when no retrieve policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [],
-        actions: ["retrieve"],
+        actions: [],
       });
       const ws = await client.workspaces.create({
         name: "test",
@@ -41,7 +40,6 @@ describe("schematic", () => {
     it("should allow the caller to retrieve schematics with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [schematic.ontologyID("")],
         actions: ["retrieve"],
       });
@@ -63,7 +61,6 @@ describe("schematic", () => {
     it("should allow the caller to create schematics with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [schematic.ontologyID("")],
         actions: ["create"],
       });
@@ -77,12 +74,11 @@ describe("schematic", () => {
       });
     });
 
-    it("should prevent the caller to create schematics with the incorrect policy", async () => {
+    it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [schematic.ontologyID("")],
-        actions: ["create"],
+        actions: [],
       });
       const ws = await client.workspaces.create({
         name: "test",
@@ -99,7 +95,6 @@ describe("schematic", () => {
     it("should allow the caller to delete schematics with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "allow",
         objects: [schematic.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
@@ -117,12 +112,11 @@ describe("schematic", () => {
       ).rejects.toThrow(NotFoundError);
     });
 
-    it("should prevent the caller to delete schematics with the incorrect policy", async () => {
+    it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        effect: "deny",
         objects: [schematic.ontologyID("")],
-        actions: ["delete"],
+        actions: [],
       });
       const ws = await client.workspaces.create({
         name: "test",

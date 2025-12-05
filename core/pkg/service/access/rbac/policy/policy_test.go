@@ -39,7 +39,6 @@ var _ = Describe("Writer", func() {
 		It("Should create a policy with auto-generated UUID", func() {
 			p := &policy.Policy{
 				Name:    "test-policy",
-				Effect:  policy.EffectAllow,
 				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			}
@@ -52,7 +51,6 @@ var _ = Describe("Writer", func() {
 			p := &policy.Policy{
 				Key:     key,
 				Name:    "test-policy",
-				Effect:  policy.EffectAllow,
 				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			}
@@ -62,8 +60,7 @@ var _ = Describe("Writer", func() {
 
 		It("Should create a policy with multiple objects", func() {
 			p := &policy.Policy{
-				Name:   "multi-object-policy",
-				Effect: policy.EffectAllow,
+				Name: "multi-object-policy",
 				Objects: []ontology.ID{
 					{Type: "channel", Key: "ch1"},
 					{Type: "channel", Key: "ch2"},
@@ -78,19 +75,8 @@ var _ = Describe("Writer", func() {
 		It("Should create a policy with ActionAll wildcard", func() {
 			p := &policy.Policy{
 				Name:    "wildcard-policy",
-				Effect:  policy.EffectAllow,
 				Objects: []ontology.ID{{Type: "channel"}},
 				Actions: []access.Action{access.ActionAll},
-			}
-			Expect(w.Create(ctx, p)).To(Succeed())
-		})
-
-		It("Should create a policy with EffectDeny", func() {
-			p := &policy.Policy{
-				Name:    "deny-policy",
-				Effect:  policy.EffectDeny,
-				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions: []access.Action{access.ActionDelete},
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
 		})
@@ -98,7 +84,6 @@ var _ = Describe("Writer", func() {
 		It("Should define policy in ontology", func() {
 			p := &policy.Policy{
 				Name:    "ontology-test",
-				Effect:  policy.EffectAllow,
 				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			}
@@ -117,7 +102,6 @@ var _ = Describe("Writer", func() {
 			internalWriter := svc.NewWriter(tx, true)
 			p := &policy.Policy{
 				Name:     "internal-policy",
-				Effect:   policy.EffectAllow,
 				Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
 				Actions:  []access.Action{access.ActionRetrieve},
 				Internal: true,
@@ -129,7 +113,6 @@ var _ = Describe("Writer", func() {
 		It("Should fail to create an internal policy when allowInternal is false", func() {
 			p := &policy.Policy{
 				Name:     "internal-policy",
-				Effect:   policy.EffectAllow,
 				Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
 				Actions:  []access.Action{access.ActionRetrieve},
 				Internal: true,
@@ -146,13 +129,11 @@ var _ = Describe("Writer", func() {
 			policies = []policy.Policy{
 				{
 					Name:    "policy-1",
-					Effect:  policy.EffectAllow,
 					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 				{
 					Name:    "policy-2",
-					Effect:  policy.EffectAllow,
 					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
 					Actions: []access.Action{access.ActionUpdate},
 				},
@@ -198,13 +179,11 @@ var _ = Describe("Writer", func() {
 			policies = []policy.Policy{
 				{
 					Name:    "policy-1",
-					Effect:  policy.EffectAllow,
 					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 				{
 					Name:    "policy-2",
-					Effect:  policy.EffectAllow,
 					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
 					Actions: []access.Action{access.ActionUpdate},
 				},
@@ -256,19 +235,16 @@ var _ = Describe("Retriever", func() {
 		policies = []policy.Policy{
 			{
 				Name:    "alpha-policy",
-				Effect:  policy.EffectAllow,
 				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			},
 			{
 				Name:    "beta-policy",
-				Effect:  policy.EffectDeny,
 				Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
 				Actions: []access.Action{access.ActionDelete},
 			},
 			{
 				Name:    "gamma-policy",
-				Effect:  policy.EffectAllow,
 				Objects: []ontology.ID{{Type: "user", Key: "u1"}},
 				Actions: []access.Action{access.ActionUpdate},
 			},
@@ -426,14 +402,12 @@ var _ = Describe("Retriever", func() {
 			internalWriter := svc.NewWriter(tx, true)
 			internalPolicy = policy.Policy{
 				Name:     "internal-policy",
-				Effect:   policy.EffectAllow,
 				Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
 				Actions:  []access.Action{access.ActionRetrieve},
 				Internal: true,
 			}
 			regularPolicy = policy.Policy{
 				Name:     "regular-policy",
-				Effect:   policy.EffectAllow,
 				Objects:  []ontology.ID{{Type: "channel", Key: "ch2"}},
 				Actions:  []access.Action{access.ActionRetrieve},
 				Internal: false,
@@ -491,7 +465,6 @@ var _ = Describe("Ontology Integration", func() {
 			w := svc.NewWriter(tx, false)
 			p := &policy.Policy{
 				Name:    "resource-test",
-				Effect:  policy.EffectAllow,
 				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			}
@@ -520,7 +493,6 @@ var _ = Describe("Ontology Integration", func() {
 			for i := 0; i < 3; i++ {
 				p := &policy.Policy{
 					Name:    "nexter-test",
-					Effect:  policy.EffectAllow,
 					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
