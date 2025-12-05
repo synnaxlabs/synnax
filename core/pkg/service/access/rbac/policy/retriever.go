@@ -63,15 +63,11 @@ func (r Retriever) Offset(offset int) Retriever {
 func (r Retriever) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTx, tx)
 	if len(r.whereSubjects) > 0 {
-		var (
-			policyResources []ontology.Resource
-			roles           []ontology.Resource
-		)
+		var policyResources []ontology.Resource
 		if err := r.ontology.NewRetrieve().WhereIDs(r.whereSubjects...).
 			ExcludeFieldData(true).
 			TraverseTo(ontology.Parents).
 			WhereTypes(role.OntologyType).
-			Entries(&roles).
 			TraverseTo(ontology.Children).
 			WhereTypes(OntologyType).
 			Entries(&policyResources).
