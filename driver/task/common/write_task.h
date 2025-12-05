@@ -194,13 +194,15 @@ public:
             streamer_factory,
             this->sink->internal->streamer_config(),
             this->sink,
-            breaker_cfg
+            breaker_cfg,
+            task.name
         ),
         state_write_pipe(
             writer_factory,
             this->sink->writer_config(),
             this->sink,
-            breaker_cfg
+            breaker_cfg,
+            task.name + ":state"
         ) {}
 
     /// @brief primary constructor that uses the task context's Synnax client for
