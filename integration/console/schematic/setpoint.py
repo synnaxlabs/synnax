@@ -52,10 +52,11 @@ class Setpoint(Symbol):
 
     def set_value(self, value: float) -> None:
         self._disable_edit_mode()
+        self.console.close_all_notifications()
         self.click()
 
         # Fill the input and set the value
         value_input = self.locator.locator("input[type='number'], input").first
         value_input.fill(str(value))
         set_button = self.locator.locator("button").filter(has_text="Set")
-        set_button.click()
+        set_button.click(timeout=500)

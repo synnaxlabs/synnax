@@ -288,6 +288,7 @@ class Schematic(ConsolePage):
             raise ValueError(
                 f"Control Authority must be between 0 and 255, got {authority}"
             )
+        self.console.close_all_notifications()
         self.console.click("Control")
         self.console.fill_input_field("Control Authority", str(authority))
 
@@ -297,6 +298,7 @@ class Schematic(ConsolePage):
         show_control_legend: bool | None = None,
     ) -> None:
         """Set schematic properties."""
+        self.console.close_all_notifications()
         self.console.click("Control")
 
         if control_authority is not None:
@@ -420,6 +422,7 @@ class Schematic(ConsolePage):
     ) -> None:
         """Assert that setting the setpoint value results in the expected value in the Core."""
         setpoint_symbol.set_value(value)
+        sy.sleep(0.2)  # Wait for the value to be set
         actual_value = self.get_value(channel_name)
         assert (
             actual_value == value
@@ -439,6 +442,7 @@ class Schematic(ConsolePage):
         Returns:
             Tuple of (control_authority, show_control_legend)
         """
+        self.console.close_all_notifications()
         self.console.click("Control")
 
         control_authority = int(self.console.get_input_field("Control Authority"))
