@@ -9,6 +9,7 @@
 
 import csv
 import io
+import uuid
 
 import synnax as sy
 
@@ -29,7 +30,7 @@ class DownloadCSV(ConsoleCase):
         console = self.console
         client = self.client
         index_channel = client.channels.create(
-            name="download_csv_csv_index",
+            name=f"download_csv_csv_index_{str(uuid.uuid4())[:4]}",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
@@ -37,7 +38,7 @@ class DownloadCSV(ConsoleCase):
             f"Created index channel {index_channel.name} with key {index_channel.key} and data type {index_channel.data_type}"
         )
         data_channel = client.channels.create(
-            name="download_csv_csv_data",
+            name=f"download_csv_csv_data_{str(uuid.uuid4())[:4]}",
             data_type=sy.DataType.FLOAT32,
             index=index_channel.key,
         )

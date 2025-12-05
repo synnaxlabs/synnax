@@ -115,11 +115,8 @@ class NITask(ConsolePage):
         if dev_name is None:
             dev_name = name[:12]
         # Handle device creation modal if it appears
-        # Notifications will block the modal.
-        console.close_all_notifications()
-        sy.sleep(0.3)  # Give modal time to appear
+        sy.sleep(0.2)  # Give modal time to appear
         if console.check_for_modal():
-            console.close_all_notifications()
             sy.sleep(0.2)
             console.fill_input_field("Name", dev_name)
             console.click_btn("Next")
@@ -187,18 +184,17 @@ class NITask(ConsolePage):
                 console.click_checkbox("Auto Start")
 
     def configure(self) -> None:
-        # Notifications will block the configure channel.
-        # Another mitigation is to snap the task page left.
-        self.console.close_all_notifications()
         self.console.page.get_by_role("button", name="Configure", exact=True).click(
             force=True
         )
 
     def run(self) -> None:
         sy.sleep(0.2)
-        self.console.page.locator("button .pluto-icon--play").locator("..").click(
-            force=True
+        play_button = self.console.page.locator("button .pluto-icon--play").locator(
+            ".."
         )
+        play_button.wait_for(state="visible", timeout=3000)
+        play_button.click(timeout=1000)
         sy.sleep(0.2)
 
     def status(self) -> dict[str, str]:

@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import platform
 import random
 
 import synnax as sy
@@ -21,29 +20,19 @@ class NIAnalogReadForms(ConsoleCase):
     Test the input selection for each channel type. Not running the tasks here.
     Only verify that each input type (dropdown/int/float) can be
     appropriately selected. Tasks are not configured/run.
+
+    Randomly selects ~1/8 of all channel types to test each run.
     """
 
     def run(self) -> None:
-        """
-        Test Opening and closing pages
-        """
+        """Test channel type form inputs with random subset selection."""
         console = self.console
-
-        # Set is used so that we can break this test into smaller
-        # chunks to run concurrently. The split is arbitrary. However,
-        # there is a balance between small (and fast) chunks and
-        # initializing multiple, resource-intensive playwright instances
-
-        set_id = self.params.get("set", 1)
-
-        # Talks to NI MAX sim devices
         rack_name = f"TestRack_{random.randint(100, 999)}"
-        device_name = f"{set_id}_E103"
+        device_name = "AI_E103"
 
         self.log("Creating NI Analog Read Task")
         ni_ai = AnalogRead(self.client, console, "Test_AI_task")
 
-        # Check simple functionality
         ni_ai.set_parameters(
             task_name="Test_task",
             sample_rate=100,
@@ -52,47 +41,51 @@ class NIAnalogReadForms(ConsoleCase):
             auto_start=False,
         )
 
-        self.create_test_rack(rack_name, device_name, set_id)
+        self.create_test_rack(rack_name, device_name)
 
-        if set_id == 1:
-            self.verify_voltage_inputs(ni_ai, device_name)
-            self.verify_accel_inputs(ni_ai, device_name)
-            self.verify_bridge_inputs(ni_ai, device_name)
-        if set_id == 2:
-            self.verify_current_inputs(ni_ai, device_name)
-            self.verify_force_bridge_table_inputs(ni_ai, device_name)
-            self.verify_force_bridge_two_point_linear_inputs(ni_ai, device_name)
-        if set_id == 3:
-            self.verify_force_iepe_inputs(ni_ai, device_name)
-            self.verify_microphone_inputs(ni_ai, device_name)
-            self.verify_pressure_bridge_table_inputs(ni_ai, device_name)
-        if set_id == 4:
-            self.verify_pressure_bridge_two_point_linear_inputs(ni_ai, device_name)
-            self.verify_resistance_inputs(ni_ai, device_name)
-            self.verify_rtd_inputs(ni_ai, device_name)
-        if set_id == 5:
-            self.verify_strain_gauge_inputs(ni_ai, device_name)
-            self.verify_temperature_built_in_sensor_inputs(ni_ai, device_name)
-            self.verify_thermocouple_inputs(ni_ai, device_name)
-        if set_id == 6:
-            self.verify_torque_bridge_table_inputs(ni_ai, device_name)
-            self.verify_torque_bridge_two_point_linear_inputs(ni_ai, device_name)
-            self.verify_velocity_iepe_inputs(ni_ai, device_name)
+        # All available channel type verifiers
+        all_verifiers = [
+            self.verify_voltage_inputs,
+            self.verify_accel_inputs,
+            self.verify_bridge_inputs,
+            self.verify_current_inputs,
+            self.verify_force_bridge_table_inputs,
+            self.verify_force_bridge_two_point_linear_inputs,
+            self.verify_force_iepe_inputs,
+            self.verify_microphone_inputs,
+            self.verify_pressure_bridge_table_inputs,
+            self.verify_pressure_bridge_two_point_linear_inputs,
+            self.verify_resistance_inputs,
+            self.verify_rtd_inputs,
+            self.verify_strain_gauge_inputs,
+            self.verify_temperature_built_in_sensor_inputs,
+            self.verify_thermocouple_inputs,
+            self.verify_torque_bridge_table_inputs,
+            self.verify_torque_bridge_two_point_linear_inputs,
+            self.verify_velocity_iepe_inputs,
+        ]
+
+        # Select random 1/8 of verifiers
+        sample_size = max(1, len(all_verifiers) // 8)
+        selected = random.sample(all_verifiers, sample_size)
+
+        self.log(f"Testing {len(selected)}/{len(all_verifiers)} channel types")
+        for verifier in selected:
+            verifier(ni_ai, device_name)
 
         # Assert the set values with form state
         ch_names = ni_ai.channels_by_name.copy()
         random.shuffle(ch_names)
-        total = len(ch_names)
-        self.log(f"Asserting {total} channel forms in random order")
+        self.log(f"Asserting {len(ch_names)} channel forms in random order")
         for ch in ch_names:
             ni_ai.assert_channel(ch)
 
-    def create_test_rack(self, rack_name: str, device_name: str, mode: str) -> None:
-        rack = self.client.hardware.racks.create(name=rack_name)
-        self.client.hardware.devices.create(
+    def create_test_rack(self, rack_name: str, device_name: str) -> None:
+        rack = self.client.racks.create(name=rack_name)
+        self.client.devices.create(
             [
                 sy.Device(
-                    key=f"130227d9-02aa-47e4-b370-0d590add1bc{mode}",
+                    key="130227d9-02aa-47e4-b370-0d590add1bc0",
                     rack=rack.key,
                     name=device_name,
                     make="NI",

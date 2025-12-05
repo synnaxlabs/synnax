@@ -307,6 +307,7 @@ class Console:
             if close_button.count() > 0:
                 close_button.wait_for(state="attached", timeout=500)
                 close_button.click()
+                notification.wait_for(state="hidden", timeout=2000)
                 return True
             return False
 
@@ -320,12 +321,21 @@ class Console:
         :returns: Number of notifications closed
         """
         closed_count = 0
-        notifications_closed = True
+        max_attempts = 10
 
-        while notifications_closed:
-            notifications_closed = self.close_notification(0)
-            if notifications_closed:
+        for _ in range(max_attempts):
+            notification_elements = self.page.locator(".pluto-notification").all()
+            if len(notification_elements) == 0:
+                break
+
+            if self.close_notification(0):
                 closed_count += 1
+            else:
+                sy.sleep(0.1)
+
+        # Small sleep to ensure any closing animations complete
+        if closed_count > 0:
+            sy.sleep(0.1)
 
         return closed_count
 
