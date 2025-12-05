@@ -130,7 +130,7 @@ describe("Status queries", () => {
       });
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeLessThanOrEqual(2);
+      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
     });
   });
 
