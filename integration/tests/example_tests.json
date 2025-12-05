@@ -3,11 +3,12 @@
   "sequences": [
     {
       "sequence_name": "Matrix_Example",
-      "sequence_order": "sequential",
+      "sequence_order": "asynchronous",
+      "pool_size": 4,
       "tests": [
         {
           "case": "example_basic",
-          "matrix": {
+          "parameters": {
             "wait_time": [1, 3],
             "timeout": [5, 10]
           }
