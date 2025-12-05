@@ -50,7 +50,6 @@ class Plot(ConsolePage):
 
         selector = self.page.get_by_text(f"{axis} Select channels")
 
-        self.console.close_all_notifications()
         selector.click(timeout=5000)
 
         search_input = self.page.locator("input[placeholder*='Search']")
@@ -65,7 +64,6 @@ class Plot(ConsolePage):
         self, ranges: list[Literal["30s", "1m", "5m", "15m", "30m"]]
     ) -> None:
         """Add time ranges to the plot."""
-        self.console.close_all_notifications()
         self.page.get_by_text("Select ranges").click()
 
         for range_value in ranges:

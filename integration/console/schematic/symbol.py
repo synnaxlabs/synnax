@@ -237,8 +237,6 @@ class Symbol(ABC):
         """Toggle absolute control authority for this symbol by clicking its control chip button."""
         # Locate the control chip button within this specific symbol's container
         control_chip = self.locator.locator(".pluto-control-chip").first
-
-        self.console.close_all_notifications()
         self.console.click(control_chip)
 
     def get_properties(self, tab: str = "Symbols") -> dict[str, Any]:

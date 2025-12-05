@@ -58,6 +58,5 @@ class Setpoint(Symbol):
         # Fill the input and set the value
         value_input = self.locator.locator("input[type='number'], input").first
         value_input.fill(str(value))
-        self.console.close_all_notifications()
         set_button = self.locator.locator("button").filter(has_text="Set")
         set_button.click(timeout=500)

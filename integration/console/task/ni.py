@@ -193,7 +193,7 @@ class NITask(ConsolePage):
         play_button = self.console.page.locator("button .pluto-icon--play").locator(
             ".."
         )
-        play_button.wait_for(state="visible", timeout=10000)
+        play_button.wait_for(state="visible", timeout=3000)
         play_button.click(timeout=1000)
         sy.sleep(0.2)
 
