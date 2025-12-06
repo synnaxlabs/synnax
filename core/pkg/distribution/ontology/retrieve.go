@@ -199,6 +199,12 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		if canSkipExec(cls, entriesBound, atLast) {
 			nextIDs = lo.Must(core.ParseIDs(cls.GetWhereKeys()))
 		} else {
+			// For intermediate clauses that don't have user-bound entries, we need to
+			// bind a temporary slice so gorp can store the query results. Without this,
+			// gorp.Retrieve.Replace/Add silently drops results when entries aren't bound.
+			if !atLast && !entriesBound {
+				cls.Retrieve = cls.Retrieve.Entries(&[]Resource{})
+			}
 			cErr := cls.Exec(ctx, tx)
 			if atLast || entriesBound {
 				resources, err := r.retrieveEntities(ctx, cls, tx)

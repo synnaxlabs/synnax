@@ -169,6 +169,76 @@ var _ = Describe("retrieveResource", func() {
 		})
 	})
 
+	Describe("Multi-hop traversal with intermediate filters", func() {
+		// Regression test for issue where intermediate clauses with filters
+		// but no bound entries would silently drop results because gorp.NewRetrieve
+		// created unbound entries that couldn't store query results.
+		It("Should traverse through intermediate filtered clauses without bound entries", func() {
+			// Create a hierarchy: grandparent -> parent -> child
+			// We'll query: grandparent -> TraverseTo(Children) -> WhereTypes(sample) -> TraverseTo(Children) -> Entries
+			grandparent := newSampleType("grandparent")
+			parent := newSampleType("parent")
+			child := newSampleType("child")
+
+			Expect(w.DefineResource(ctx, grandparent)).To(Succeed())
+			Expect(w.DefineResource(ctx, parent)).To(Succeed())
+			Expect(w.DefineResource(ctx, child)).To(Succeed())
+			Expect(w.DefineRelationship(ctx, grandparent, ontology.ParentOf, parent)).To(Succeed())
+			Expect(w.DefineRelationship(ctx, parent, ontology.ParentOf, child)).To(Succeed())
+
+			// This query pattern has an intermediate clause (WhereTypes) with no bound entries
+			var results []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereIDs(grandparent).
+				TraverseTo(ontology.Children).
+				WhereTypes(sampleType). // Intermediate filter, no Entries() bound
+				TraverseTo(ontology.Children).
+				WhereTypes(sampleType).
+				Entries(&results). // Only final clause has entries
+				Exec(ctx, tx),
+			).To(Succeed())
+
+			Expect(results).To(HaveLen(1))
+			var res Sample
+			Expect(results[0].Parse(&res)).To(Succeed())
+			Expect(res.Key).To(Equal("child"))
+		})
+
+		It("Should traverse through multiple intermediate filtered clauses", func() {
+			// Create a 4-level hierarchy: A -> B -> C -> D
+			a := newSampleType("level-A")
+			b := newSampleType("level-B")
+			c := newSampleType("level-C")
+			d := newSampleType("level-D")
+
+			Expect(w.DefineResource(ctx, a)).To(Succeed())
+			Expect(w.DefineResource(ctx, b)).To(Succeed())
+			Expect(w.DefineResource(ctx, c)).To(Succeed())
+			Expect(w.DefineResource(ctx, d)).To(Succeed())
+			Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, b)).To(Succeed())
+			Expect(w.DefineRelationship(ctx, b, ontology.ParentOf, c)).To(Succeed())
+			Expect(w.DefineRelationship(ctx, c, ontology.ParentOf, d)).To(Succeed())
+
+			// Multiple intermediate clauses with filters, no bound entries
+			var results []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereIDs(a).
+				TraverseTo(ontology.Children).
+				WhereTypes(sampleType). // Intermediate filter #1
+				TraverseTo(ontology.Children).
+				WhereTypes(sampleType). // Intermediate filter #2
+				TraverseTo(ontology.Children).
+				Entries(&results). // Only final clause has entries
+				Exec(ctx, tx),
+			).To(Succeed())
+
+			Expect(results).To(HaveLen(1))
+			var res Sample
+			Expect(results[0].Parse(&res)).To(Succeed())
+			Expect(res.Key).To(Equal("level-D"))
+		})
+	})
+
 	Describe("Limit + Offset", func() {
 		It("Should page through resources in order", func() {
 			ids := make([]ontology.ID, 10)
