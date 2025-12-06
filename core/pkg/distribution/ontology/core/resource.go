@@ -140,10 +140,10 @@ type Change = change.Change[ID, Resource]
 // implementing the bleve.bleveClassifier interface.
 func (r Resource) BleveType() string { return string(r.ID.Type) }
 
-var _ gorp.Entry[ID] = Resource{}
+var _ gorp.Entry[string] = Resource{}
 
 // GorpKey implements gorp.Entry.
-func (r Resource) GorpKey() ID { return r.ID }
+func (r Resource) GorpKey() string { return r.ID.String() }
 
 // SetOptions implements gorp.Entry.
 func (r Resource) SetOptions() []any { return nil }

@@ -153,9 +153,18 @@ func (e *Entries[K, E]) Keys() []K {
 	return entryKeys(e.All())
 }
 
+// Any returns true if any entries are obund to the query.
 func (e *Entries[K, E]) Any() bool {
 	if e.isMultiple {
 		return len(*e.entries) > 0
+	}
+	return e.entry != nil
+}
+
+// Bound returns true if entries binding was set on the query.
+func (e *Entries[K, E]) Bound() bool {
+	if e.isMultiple {
+		return e.entries != nil
 	}
 	return e.entry != nil
 }

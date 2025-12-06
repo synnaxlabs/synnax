@@ -13,17 +13,39 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
 
+type clause struct {
+	gorp.Retrieve[string, Resource]
+	traverser        Traverser
+	excludeFieldData bool
+}
+
 // Retrieve implements a set of methods for retrieving resources and traversing their
 // relationships in teh ontology.
 type Retrieve struct {
-	query     *gorp.CompoundRetrieve[ID, Resource]
+	clauses   []clause
 	registrar serviceRegistrar
 	tx        gorp.Tx
+}
+
+func (r Retrieve) nextClause() Retrieve {
+	c := clause{Retrieve: gorp.NewRetrieve[string, Resource]()}
+	r.clauses = append(r.clauses, c)
+	return r
+}
+
+func (r Retrieve) currentClause() clause {
+	return r.clauses[len(r.clauses)-1]
+}
+
+func (r Retrieve) setCurrentClause(c clause) Retrieve {
+	r.clauses[len(r.clauses)-1] = c
+	return r
 }
 
 // NewRetrieve opens a new Retrieve query, which can be used to traverse and read resources
@@ -32,50 +54,54 @@ func (o *Ontology) NewRetrieve() Retrieve { return newRetrieve(o.registrar, o.DB
 
 func newRetrieve(registrar serviceRegistrar, tx gorp.Tx) Retrieve {
 	r := Retrieve{
-		query:     &gorp.CompoundRetrieve[ID, Resource]{},
 		registrar: registrar,
 		tx:        tx,
 	}
-	r.query.Next()
-	return r
+	return r.nextClause()
 }
 
 // WhereIDs filters resources by the provided keys.
-func (r Retrieve) WhereIDs(keys ...ID) Retrieve {
-	r.query.Current().WhereKeys(keys...)
-	return r
+func (r Retrieve) WhereIDs(ids ...ID) Retrieve {
+	c := r.currentClause()
+	c.Retrieve = c.Retrieve.WhereKeys(IDsToString(ids)...)
+	return r.setCurrentClause(c)
 }
 
 // Where filters resources by the provided predicate.
-func (r Retrieve) Where(filter gorp.FilterFunc[ID, Resource]) Retrieve {
-	r.query.Current().Where(filter)
-	return r
+func (r Retrieve) Where(filter gorp.FilterFunc[string, Resource]) Retrieve {
+	c := r.currentClause()
+	c.Retrieve = c.Retrieve.Where(filter)
+	return r.setCurrentClause(c)
 }
 
 func (r Retrieve) WhereTypes(types ...Type) Retrieve {
-	r.query.Current().Where(func(ctx gorp.Context, r *Resource) (bool, error) {
+	c := r.currentClause()
+	c.Retrieve = c.Retrieve.Where(func(ctx gorp.Context, r *Resource) (bool, error) {
 		return lo.Contains(types, r.ID.Type), nil
 	})
-	return r
+	return r.setCurrentClause(c)
 }
 
 // Limit limits the number of results returned.
 func (r Retrieve) Limit(limit int) Retrieve {
-	r.query.Current().Limit(limit)
-	return r
+	c := r.currentClause()
+	c.Retrieve = c.Retrieve.Limit(limit)
+	return r.setCurrentClause(c)
 }
 
 // Offset offsets the results returned.
 func (r Retrieve) Offset(offset int) Retrieve {
-	r.query.Current().Offset(offset)
-	return r
+	c := r.currentClause()
+	c.Retrieve = c.Retrieve.Offset(offset)
+	return r.setCurrentClause(c)
 }
 
 // ExcludeFieldData includes the field data of the resource in the results based on the
 // provided predicate.
 func (r Retrieve) ExcludeFieldData(excludeFieldData bool) Retrieve {
-	setExcludeFieldData(r.query.Current().Params, excludeFieldData)
-	return r
+	c := r.currentClause()
+	c.excludeFieldData = excludeFieldData
+	return r.setCurrentClause(c)
 }
 
 // Direction is the direction of a relationship traversal.
@@ -136,49 +162,52 @@ func childrenPrefix(id ID) []byte {
 // TraverseTo traverses to the provided relationship type. All filtering methods will
 // now be applied to elements of the traversed relationship.
 func (r Retrieve) TraverseTo(t Traverser) Retrieve {
-	setTraverser(r.query.Current().Params, t)
-	r.query.Next()
-	return r
+	c := r.currentClause()
+	c.traverser = t
+	r = r.setCurrentClause(c)
+	return r.nextClause()
 }
 
 // Entry binds the entry that the query will fill results into. Calls to Entry will
 // override all previous calls to Entries or Entry.
 func (r Retrieve) Entry(res *Resource) Retrieve {
-	r.query.Current().Entry(res)
-	return r
+	c := r.currentClause()
+	c.Retrieve = c.Retrieve.Entry(res)
+	return r.setCurrentClause(c)
 }
 
 // Entries binds a slice that the query will fill results into. Calls to Entry will
 // override all previous calls to Entries or Entry.
 func (r Retrieve) Entries(res *[]Resource) Retrieve {
-	r.query.Current().Entries(res)
-	return r
+	c := r.currentClause()
+	c.Retrieve = c.Retrieve.Entries(res)
+	return r.setCurrentClause(c)
 }
 
 // Exec executes the query.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	var nextIDs []ID
 	tx = gorp.OverrideTx(r.tx, tx)
-	for i, clause := range r.query.Clauses {
+	for i, cls := range r.clauses {
 		if i != 0 {
-			clause.WhereKeys(nextIDs...)
+			cls.Retrieve = cls.Retrieve.WhereKeys(IDsToString(nextIDs)...)
 		}
-		atLast := len(r.query.Clauses) == i+1
-		entriesBound := gorp.HasEntries[ID, Resource](clause.Params)
+		atLast := len(r.clauses) == i+1
+		entriesBound := cls.GetEntries().Bound()
 		// If we only have keys and no filters, and don't need entries, skip execution
 		// entirely and use the keys directly.
-		if canSkipExec(clause.Params, entriesBound, atLast) {
-			nextIDs, _ = gorp.GetWhereKeys[ID](clause.Params)
+		if canSkipExec(cls, entriesBound, atLast) {
+			nextIDs = lo.Must(core.ParseIDs(cls.GetWhereKeys()))
 		} else {
-			cErr := clause.Exec(ctx, tx)
+			cErr := cls.Exec(ctx, tx)
 			if atLast || entriesBound {
-				resources, err := r.retrieveEntities(ctx, clause, tx)
+				resources, err := r.retrieveEntities(ctx, cls, tx)
 				if cErr != nil || err != nil || len(resources) == 0 || atLast {
 					return errors.Combine(cErr, err)
 				}
 				nextIDs = ResourceIDs(resources)
 			} else {
-				ids := r.extractIDs(clause)
+				ids := r.extractIDs(cls.Retrieve)
 				if cErr != nil || len(ids) == 0 {
 					return cErr
 				}
@@ -189,7 +218,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		if nextIDs, err = r.traverse(
 			ctx,
 			tx,
-			getTraverser(clause.Params),
+			cls.traverser,
 			nextIDs,
 		); err != nil {
 			return err
@@ -198,56 +227,22 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	return nil
 }
 
-func canSkipExec(q query.Parameters, entriesBound, atLast bool) bool {
-	if entriesBound || atLast {
-		return false
-	}
-	if _, hasKeys := gorp.GetWhereKeys[ID](q); !hasKeys {
-		return false
-	}
-	if gorp.HasFilters(q) {
-		return false
-	}
-	if _, hasLimit := gorp.GetLimit(q); hasLimit {
-		return false
-	}
-	return gorp.GetOffset(q) == 0
-}
-
-const traverseOptKey = "traverse"
-
-func setTraverser(q query.Parameters, f Traverser) {
-	q.Set(traverseOptKey, f)
-}
-
-func getTraverser(q query.Parameters) Traverser {
-	return q.GetRequired(traverseOptKey).(Traverser)
-}
-
-const includeFieldDataOptKey = "includeFieldData"
-
-func setExcludeFieldData(q query.Parameters, b bool) {
-	q.Set(includeFieldDataOptKey, b)
-}
-
-func getExcludeFieldData(q query.Parameters) bool {
-	v, ok := q.Get(includeFieldDataOptKey)
-	if !ok {
-		return false
-	}
-	return v.(bool)
+func canSkipExec(q clause, entriesBound, atLast bool) bool {
+	return !entriesBound && !atLast && q.HasWhereKeys() && !q.HasFilters() && !q.HasLimit() && !q.HasOffset()
 }
 
 func (r Retrieve) retrieveEntities(
 	ctx context.Context,
-	clause gorp.Retrieve[ID, Resource],
+	clause clause,
 	tx gorp.Tx,
 ) ([]Resource, error) {
 	var (
-		entries          = gorp.GetEntries[ID, Resource](clause.Params)
-		excludeFieldData = getExcludeFieldData(clause.Params)
-		retrieveResource = !excludeFieldData
+		entries          = clause.GetEntries()
+		retrieveResource = !clause.excludeFieldData
 	)
+	if !entries.Any() {
+		return entries.All(), nil
+	}
 	// Iterate over the entries in place, retrieving the resource if the query requires it.
 	err := entries.MapInPlace(func(res Resource) (Resource, bool, error) {
 		if res.ID.IsZero() {
@@ -263,7 +258,7 @@ func (r Retrieve) retrieveEntities(
 		if errors.Is(err, query.NotFound) && entries.IsMultiple() {
 			return res, false, nil
 		}
-		if excludeFieldData {
+		if clause.excludeFieldData {
 			res.Data = nil
 		}
 		return res, true, err
@@ -271,8 +266,8 @@ func (r Retrieve) retrieveEntities(
 	return entries.All(), err
 }
 
-func (r Retrieve) extractIDs(clause gorp.Retrieve[ID, Resource]) []ID {
-	entries := gorp.GetEntries[ID, Resource](clause.Params)
+func (r Retrieve) extractIDs(clause gorp.Retrieve[string, Resource]) []ID {
+	entries := clause.GetEntries()
 	resources := entries.All()
 	ids := make([]ID, 0, len(resources))
 	for _, res := range resources {
@@ -324,8 +319,12 @@ func (r Retrieve) traverseByScan(
 	traverse Traverser,
 	ids []ID,
 ) ([]ID, error) {
-	nextIDs := make([]ID, 0, len(ids)*4)
-	return nextIDs, gorp.NewRetrieve[[]byte, Relationship]().
+	var (
+		nextIDs       = make([]ID, 0, len(ids)*4)
+		relationships []Relationship
+	)
+	err := gorp.NewRetrieve[[]byte, Relationship]().
+		Entries(&relationships).
 		Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
 			for _, id := range ids {
 				res := Resource{ID: id}
@@ -335,4 +334,5 @@ func (r Retrieve) traverseByScan(
 			}
 			return false, nil
 		}).Exec(ctx, tx)
+	return nextIDs, err
 }
