@@ -53,8 +53,8 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	if err != nil {
 		return err
 	}
-	return w.BaseWriter.Set(
-		ctx, w.keyCodec.encode(entry.GorpKey()), data, entry.SetOptions()...)
+	v := w.keyCodec.encode(entry.GorpKey())
+	return w.BaseWriter.Set(ctx, v, data, entry.SetOptions()...)
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {

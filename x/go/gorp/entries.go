@@ -179,12 +179,14 @@ func multipleEntries[K Key, E Entry[K]](entries *[]E) *Entries[K, E] {
 	return &Entries[K, E]{entries: entries, isMultiple: true}
 }
 
+const magicPrefix = "---"
+
 type keyCodec[K Key, E Entry[K]] struct {
 	prefix []byte
 }
 
 func newKeyCodec[K Key, E Entry[K]]() keyCodec[K, E] {
-	return keyCodec[K, E]{prefix: []byte(types.Name[E]())}
+	return keyCodec[K, E]{prefix: []byte(magicPrefix + types.Name[E]())}
 }
 
 func (k keyCodec[K, E]) encode(key K) []byte {
