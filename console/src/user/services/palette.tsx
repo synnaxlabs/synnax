@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { user } from "@synnaxlabs/client";
+import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { type Palette } from "@/palette";
 import { User } from "@/user";
@@ -17,7 +18,8 @@ const REGISTER_USER_COMMAND: Palette.Command = {
   name: "Register a User",
   key: "register-user",
   onSelect: ({ placeLayout }) => placeLayout(User.REGISTER_LAYOUT),
-  visible: (state) => User.selectHasPermission(state),
+  visible: ({ store, client }) =>
+    Access.editGranted({ id: user.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 export const COMMANDS = [REGISTER_USER_COMMAND];

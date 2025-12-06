@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export { access } from "@/access";
-export { policy } from "@/access/policy";
 export { arc } from "@/arc";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
@@ -43,6 +42,7 @@ export { rack } from "@/rack";
 export { ranger } from "@/ranger";
 export { status } from "@/status";
 export { task } from "@/task";
+export { createTestClientWithPolicy } from "@/testutil/access";
 export { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil/client";
 export { user } from "@/user";
 export { workspace } from "@/workspace";

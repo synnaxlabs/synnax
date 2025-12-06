@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { arc } from "@synnaxlabs/client";
+import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { Arc } from "@/arc";
 import { type Palette } from "@/palette";
@@ -23,6 +24,8 @@ const CREATE_COMMAND: Palette.Command = {
       placeLayout(Arc.Editor.create({ name }));
     }, "Failed to create arc");
   },
+  visible: ({ store, client }) =>
+    Access.editGranted({ id: arc.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 const OPEN_EXPLORER_COMMAND: Palette.Command = {
@@ -30,6 +33,8 @@ const OPEN_EXPLORER_COMMAND: Palette.Command = {
   name: "Open Arc Explorer",
   icon: <Icon.Explore />,
   onSelect: ({ placeLayout }) => placeLayout(Arc.EXPLORER_LAYOUT),
+  visible: ({ store, client }) =>
+    Access.viewGranted({ id: arc.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];

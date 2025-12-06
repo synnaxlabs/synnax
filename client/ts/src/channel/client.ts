@@ -26,6 +26,7 @@ import {
   keyZ,
   type Name,
   type New,
+  ontologyID,
   type Operation,
   type Params,
   type Payload,
@@ -439,11 +440,6 @@ export const isCalculated = ({ virtual, expression }: Payload): boolean =>
 
 export const isLegacyCalculated = (pld: Payload): boolean =>
   isCalculated(pld) && pld.requires.length > 0;
-
-export const ontologyID = (key: Key): ontology.ID => ({
-  type: "channel",
-  key: key.toString(),
-});
 
 export const resolveLegacyCalculatedIndex = async (
   retrieve: (key: Key) => Promise<Payload | null>,

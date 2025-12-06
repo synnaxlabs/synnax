@@ -1,0 +1,102 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { describe, expect, it } from "vitest";
+
+import { AuthError, NotFoundError } from "@/errors";
+import { rack } from "@/rack";
+import { createTestClientWithPolicy } from "@/testutil/access";
+import { createTestClient } from "@/testutil/client";
+
+const client = createTestClient();
+
+describe("rack", () => {
+  describe("access control", () => {
+    it("should deny access when no retrieve policy exists", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [],
+        actions: [],
+      });
+      const randomRack = await client.racks.create({
+        name: "test",
+      });
+      await expect(userClient.racks.retrieve({ key: randomRack.key })).rejects.toThrow(
+        AuthError,
+      );
+    });
+
+    it("should allow the caller to retrieve racks with the correct policy", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [rack.ontologyID(0)],
+        actions: ["retrieve"],
+      });
+      const randomRack = await client.racks.create({
+        name: "test",
+      });
+      const retrieved = await userClient.racks.retrieve({
+        key: randomRack.key,
+      });
+      expect(retrieved.key).toBe(randomRack.key);
+      expect(retrieved.name).toBe(randomRack.name);
+    });
+
+    it("should allow the caller to create racks with the correct policy", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [rack.ontologyID(0)],
+        actions: ["create"],
+      });
+      await userClient.racks.create({
+        name: "test",
+      });
+    });
+
+    it("should deny access when no create policy exists", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [rack.ontologyID(0)],
+        actions: [],
+      });
+      await expect(
+        userClient.racks.create({
+          name: "test",
+        }),
+      ).rejects.toThrow(AuthError);
+    });
+
+    it("should allow the caller to delete racks with the correct policy", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [rack.ontologyID(0)],
+        actions: ["delete", "retrieve"],
+      });
+      const randomRack = await client.racks.create({
+        name: "test",
+      });
+      await userClient.racks.delete(randomRack.key);
+      await expect(userClient.racks.retrieve({ key: randomRack.key })).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
+    it("should deny access when no delete policy exists", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [rack.ontologyID(0)],
+        actions: [],
+      });
+      const randomRack = await client.racks.create({
+        name: "test",
+      });
+      await expect(userClient.racks.delete(randomRack.key)).rejects.toThrow(AuthError);
+    });
+  });
+});

@@ -24,6 +24,7 @@ import {
 import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
+import { Access } from "@/access";
 import { Arc } from "@/arc";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
@@ -43,7 +44,6 @@ import { Log } from "@/log";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 import { Palette } from "@/palette";
-import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
@@ -67,7 +67,6 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...LinePlot.LAYOUTS,
   ...Log.LAYOUTS,
   ...Modals.LAYOUTS,
-  ...Permissions.LAYOUTS,
   ...Range.LAYOUTS,
   ...Schematic.LAYOUTS,
   ...Table.LAYOUTS,
@@ -77,6 +76,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Workspace.LAYOUTS,
   ...Arc.LAYOUTS,
   ...Status.LAYOUTS,
+  ...Access.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {

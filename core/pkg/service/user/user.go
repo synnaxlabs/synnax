@@ -29,9 +29,7 @@ type User struct {
 	FirstName string `json:"first_name" msgpack:"first_name"`
 	// LastName is the last name of the user.
 	LastName string `json:"last_name" msgpack:"last_name"`
-	// RootUser is a boolean that determines if the user is a root user. Root users are
-	// the users that configure the Synnax server, and have full access to the server.
-	RootUser bool `json:"root_user" msgpack:"root_user"`
+	RootUser bool   `json:"root_user" msgpack:"root_user"`
 }
 
 var _ gorp.Entry[uuid.UUID] = User{}

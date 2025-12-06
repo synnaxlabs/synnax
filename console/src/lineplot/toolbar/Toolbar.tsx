@@ -10,7 +10,7 @@
 import "@/lineplot/toolbar/Toolbar.css";
 
 import { lineplot } from "@synnaxlabs/client";
-import { Button, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import { Access, Button, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -50,6 +50,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const state = useSelectToolbar(layoutKey);
+  const hasEditPermission = Access.useEditGranted(lineplot.ontologyID(layoutKey));
   const handleExport = useExport();
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
@@ -107,7 +108,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
                 ontologyID={lineplot.ontologyID(layoutKey)}
               />
             </Flex.Box>
-            <Tabs.Selector style={{ borderBottom: "none" }} />
+            {hasEditPermission && <Tabs.Selector style={{ borderBottom: "none" }} />}
           </Flex.Box>
         </Core.Header>
         <Tabs.Content />
