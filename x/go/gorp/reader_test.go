@@ -46,7 +46,7 @@ var _ = Describe("Reader", func() {
 			Expect(gorp.NewCreate[int32, entry]().
 				Entries(&[]entry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 				Exec(ctx, tx)).To(Succeed())
-			nexter, closer := MustSucceed2(gorp.WrapReader[int, entry](tx).OpenNexter(ctx))
+			nexter, closer := MustSucceed2(gorp.WrapReader[int32, entry](tx).OpenNexter(ctx))
 			for v := range nexter {
 				Expect(v.Data).To(Equal("data"))
 			}

@@ -30,7 +30,7 @@ var _ = Describe("update", func() {
 		tx = db.OpenTx()
 		entries = make([]entry, 10)
 		for i := range 10 {
-			entries[i] = entry{ID: i, Data: "data"}
+			entries[i] = entry{ID: int32(i), Data: "data"}
 		}
 		Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
 	})

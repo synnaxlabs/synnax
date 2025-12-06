@@ -78,7 +78,7 @@ var _ = Describe("Create", Ordered, func() {
 		It("Should create the entries in the db", func() {
 			e := make([]entry, 10)
 			for i := range 10 {
-				e[i] = entry{ID: i, Data: "data"}
+				e[i] = entry{ID: int32(i), Data: "data"}
 			}
 			Expect(gorp.NewCreate[int32, entry]().Entries(&e).Exec(ctx, tx)).To(Succeed())
 			keys := make([]int32, 10)
@@ -135,8 +135,8 @@ var _ = Describe("Create", Ordered, func() {
 			entries := make([]entry, 10)
 			keys := make([]int32, 10)
 			for i := range 10 {
-				entries[i] = entry{ID: i, Data: "data"}
-				keys[i] = i
+				entries[i] = entry{ID: int32(i), Data: "data"}
+				keys[i] = int32(i)
 			}
 			Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
 			Expect(gorp.NewRetrieve[int32, entry]().WhereKeys(keys...).Exists(ctx, db)).To(BeFalse())

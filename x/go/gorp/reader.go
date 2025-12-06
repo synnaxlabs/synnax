@@ -178,24 +178,25 @@ type TxReader[K Key, E Entry[K]] = iter.Seq[change.Change[K, E]]
 //	    // process op
 //	}
 func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {
-	prefix := &lazyPrefix[K, E]{Tools: tools}
+	keyCodec := newKeyCodec[K, E]()
 	return func(yield func(change.Change[K, E]) bool) {
-		ctx := context.TODO()
-		pref := prefix.prefix(ctx)
+		var (
+			op  change.Change[K, E]
+			err error
+			ctx = context.TODO()
+		)
 		for kvChange := range reader {
-			if !bytes.HasPrefix(kvChange.Key, pref) {
+			if !bytes.HasPrefix(kvChange.Key, keyCodec.prefix) {
 				continue
 			}
-			var op change.Change[K, E]
-			var err error
-			if op.Key, err = decodeKey[K](ctx, tools, pref, kvChange.Key); err != nil {
+			if op.Key, err = keyCodec.decode(kvChange.Key); err != nil {
 				panic(err)
 			}
 			op.Variant = kvChange.Variant
 			if op.Variant == change.Set {
 				// Panicking in development here right now. Don't want to extend the
 				// footprint of TxReader to NexterCloser.
-				if err := tools.Decode(ctx, kvChange.Value, &op.Value); err != nil {
+				if err = tools.Decode(ctx, kvChange.Value, &op.Value); err != nil {
 					panic(err)
 				}
 				op.Key = op.Value.GorpKey()

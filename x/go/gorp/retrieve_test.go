@@ -30,9 +30,9 @@ var _ = Describe("Retrieve", func() {
 		tx = db.OpenTx()
 		entries = make([]entry, 10)
 		for i := range 10 {
-			entries[i] = entry{ID: i, Data: "data"}
+			entries[i] = entry{ID: int32(i), Data: "data"}
 		}
-		Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
+		Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
 	})
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 	Describe("WhereKeys", func() {
@@ -66,12 +66,12 @@ var _ = Describe("Retrieve", func() {
 			})
 			Describe("Exists", func() {
 				It("Should return true if ALL keys have matching entries", func() {
-					Expect(gorp.NewRetrieve[int, entry]().
+					Expect(gorp.NewRetrieve[int32, entry]().
 						WhereKeys(entries[0].GorpKey(), entries[1].GorpKey()).
 						Exists(ctx, tx)).To(BeTrue())
 				})
 				It("Should return false if ANY key has no matching entry", func() {
-					Expect(gorp.NewRetrieve[int, entry]().
+					Expect(gorp.NewRetrieve[int32, entry]().
 						WhereKeys(entries[0].GorpKey(), 444444).
 						Exists(ctx, tx)).To(BeFalse())
 				})
@@ -94,7 +94,7 @@ var _ = Describe("Retrieve", func() {
 					Exec(ctx, tx)).To(Succeed())
 			})
 			It("Should return a query.NotFound error if the key is not found", func() {
-				Expect(gorp.NewRetrieve[int, entry]().
+				Expect(gorp.NewRetrieve[int32, entry]().
 					WhereKeys(444444).
 					Entry(&entry{}).
 					Exec(ctx, tx)).Error().To(HaveOccurredAs(query.NotFound))

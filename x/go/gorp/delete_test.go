@@ -85,7 +85,7 @@ var _ = Describe("Delete", func() {
 					Expect(gCtx.Context).To(BeIdenticalTo(ctx))
 					return validate.Error
 				}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Error))
-			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(22).Exists(ctx, tx)).To(BeTrue())
+			Expect(gorp.NewRetrieve[int32, entry]().WhereKeys(22).Exists(ctx, tx)).To(BeTrue())
 		})
 
 	})

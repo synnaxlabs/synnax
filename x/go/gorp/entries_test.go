@@ -101,7 +101,7 @@ var _ = Describe("Entries", func() {
 			q := gorp.NewRetrieve[int32, entry]()
 			gorp.SetEntry(q.Params, &entry{ID: 1})
 			entries := gorp.GetEntries[int32, entry](q.Params)
-			Expect(entries.Keys()).To(ConsistOf(1))
+			Expect(entries.Keys()).To(ConsistOf(int32(1)))
 		})
 	})
 })
