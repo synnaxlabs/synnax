@@ -50,13 +50,11 @@ export const Buttons = <K extends record.Key = record.Key>({
 
 export interface ButtonProps<K extends record.Key = record.Key>
   extends Omit<CoreButton.ToggleProps, "onChange" | "value"> {
-  selectOnContextMenu?: boolean;
   itemKey: K;
 }
 
 export const Button = <K extends record.Key = record.Key>({
   itemKey,
-  selectOnContextMenu = true,
   ...rest
 }: ButtonProps<K>): ReactElement | null => {
   const { setSelected } = useContext();
@@ -67,7 +65,7 @@ export const Button = <K extends record.Key = record.Key>({
       onChange={onSelect}
       value={selected}
       onContextMenu={(e) => {
-        if (selectOnContextMenu) setSelected([itemKey]);
+        setSelected([itemKey]);
         e.preventDefault();
       }}
     />
