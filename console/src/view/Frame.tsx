@@ -1,0 +1,151 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/view/View.css";
+
+import { type ontology, type view } from "@synnaxlabs/client";
+import {
+  Button,
+  Flex,
+  type Flux,
+  Form,
+  Icon,
+  List,
+  Select,
+  Status,
+  View as PView,
+} from "@synnaxlabs/pluto";
+import { location, type record, uuid } from "@synnaxlabs/x";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
+
+import { Controls } from "@/components";
+import { CSS } from "@/css";
+import { Modals } from "@/modals";
+import { Provider } from "@/view/context";
+
+export interface Query extends List.PagerParams, record.Unknown {}
+
+export interface FrameProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+  Q extends Query,
+> extends PropsWithChildren,
+    Pick<Flux.UseListReturn<Q, K, E>, "data" | "getItem" | "subscribe" | "retrieve"> {
+  resourceType: ontology.ResourceType;
+  onCreate: () => void;
+}
+
+export const Frame = <
+  K extends record.Key,
+  E extends record.Keyed<K>,
+  Q extends Query,
+>({
+  children,
+  onCreate,
+  resourceType,
+  data,
+  getItem,
+  retrieve,
+  subscribe,
+}: FrameProps<K, E, Q>): ReactElement => {
+  const [selected, setSelected] = useState<K[]>([]);
+  const [editable, setEditable] = useState(true);
+  const { fetchMore, search } = List.usePager({
+    // type assertion here to deal with the weird setter<Q, Partial<Q>> type that causes
+    // typing issues that shouldn't happen.
+    retrieve: retrieve as List.UsePagerArgs["retrieve"],
+  });
+  const { form } = PView.useForm({
+    query: {},
+    initialValues: {
+      type: resourceType,
+      name: "",
+      query: { hasLabels: [] },
+    },
+    autoSave: true,
+    beforeSave: async ({ value }) => {
+      const { key, query } = value();
+      // type assertion because we the current implementation of the query client
+
+      retrieve((p) => {
+        const nextQuery = { ...p, ...(query as Q), offset: 0, limit: 25 };
+        return nextQuery;
+      });
+      if (key == null || key === "") return false;
+      return true;
+    },
+  });
+  const handleError = Status.useErrorHandler();
+  const renameModal = Modals.useRename();
+  const handleCreateView = useCallback(() => {
+    handleError(async () => {
+      const name = await renameModal(
+        { initialValue: `View for ${resourceType}` },
+        { icon: "View", name: "View.Create" },
+      );
+      if (name == null) return;
+      form.set("name", name);
+      form.set("key", uuid.create());
+    }, "Failed to create view");
+  }, [renameModal, form.set]);
+  const contextValue = useMemo(
+    () => ({ editable, resourceType, search }),
+    [editable, resourceType, search],
+  );
+  return (
+    <Form.Form<typeof view.newZ> {...form}>
+      <Flex.Box full="y" empty className={CSS.B("view")}>
+        <Controls x>
+          <Button.Button
+            onClick={onCreate}
+            size="small"
+            tooltipLocation={location.BOTTOM_LEFT}
+            tooltip={`Create a ${resourceType}`}
+          >
+            <Icon.Add />
+          </Button.Button>
+          <Button.Toggle
+            size="small"
+            value={editable}
+            onChange={() => setEditable(!editable)}
+            tooltipLocation={location.BOTTOM_LEFT}
+            tooltip={`${editable ? "Disable" : "Enable"} editing`}
+          >
+            {editable ? <Icon.EditOff /> : <Icon.Edit />}
+          </Button.Toggle>
+          <Button.Button
+            size="small"
+            onClick={handleCreateView}
+            tooltipLocation={location.BOTTOM_LEFT}
+            tooltip="Create a view"
+          >
+            <Icon.View />
+          </Button.Button>
+        </Controls>
+        <Select.Frame
+          multiple
+          data={data}
+          getItem={getItem}
+          subscribe={subscribe}
+          onChange={setSelected}
+          value={selected}
+          onFetchMore={fetchMore}
+        >
+          <Provider value={contextValue}>{children}</Provider>
+        </Select.Frame>
+      </Flex.Box>
+    </Form.Form>
+  );
+};

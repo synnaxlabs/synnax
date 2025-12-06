@@ -7,32 +7,42 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status } from "@synnaxlabs/pluto";
+import { Component, Status } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { type Layout } from "@/layout";
-import { List } from "@/status/list/List";
+import { Label } from "@/label";
+import { Layout } from "@/layout";
+import { CREATE_LAYOUT } from "@/status/Create";
+import { Item } from "@/status/list/Item";
+import { View } from "@/view";
 
 export const EXPLORER_LAYOUT_TYPE = "status_explorer";
 
-export const EXPLORER_LAYOUT: Layout.State = {
+export const EXPLORER_LAYOUT: Layout.BaseState = {
   key: EXPLORER_LAYOUT_TYPE,
-  windowKey: EXPLORER_LAYOUT_TYPE,
   type: EXPLORER_LAYOUT_TYPE,
   name: "Status Explorer",
   icon: "Status",
   location: "mosaic",
 };
 
+const item = Component.renderProp(Item);
+
 export const Explorer: Layout.Renderer = () => {
-  const { data, getItem, subscribe, retrieve } = Status.useList({});
+  const listProps = Status.useList();
+  const placeLayout = Layout.usePlacer();
+  const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
   return (
-    <List
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      retrieve={retrieve}
-      enableSearch
-      enableFilters
-    />
+    <View.Frame {...listProps} resourceType="status" onCreate={handleCreate}>
+      <View.Toolbar>
+        <View.FilterMenu>
+          <Label.Filter.MenuItem />
+        </View.FilterMenu>
+        <Label.Filter.Chips />
+        <View.Search />
+      </View.Toolbar>
+      <View.Views />
+      <View.Items>{item}</View.Items>
+    </View.Frame>
   );
 };
