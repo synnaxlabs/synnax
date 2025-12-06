@@ -30,15 +30,12 @@ func formatErrorWithStack(value any) (string, bool) {
 	if !ok {
 		return "", false
 	}
-
 	var b strings.Builder
-	b.WriteString(err.Error())
-
-	stack := errors.GetStackTrace(err)
-	if stack != nil && stack.String() != "" {
-		b.WriteString("\n\nError Origin Stack Trace:\n")
-		b.WriteString(stack.String())
+	if stackTrace := errors.GetStackTrace(err); stackTrace != nil {
+		b.WriteString("\nError Origin Stack Trace:\n\n")
+		stackTrace.StringBuilder(&b)
+	} else {
+		b.WriteString(err.Error())
 	}
-
 	return b.String(), true
 }
