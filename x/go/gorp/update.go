@@ -17,7 +17,10 @@ import (
 )
 
 // Update is a query that updates Entries in the DB.
-type Update[K Key, E Entry[K]] struct{ retrieve Retrieve[K, E] }
+type Update[K Key, E Entry[K]] struct {
+	retrieve Retrieve[K, E]
+	changes  changes[K, E]
+}
 
 // NewUpdate opens a new Update query.
 func NewUpdate[K Key, E Entry[K]]() Update[K, E] {
@@ -39,7 +42,7 @@ func (u Update[K, E]) Change(f func(Context, E) E) Update[K, E] {
 }
 
 func (u Update[K, E]) ChangeErr(f func(Context, E) (E, error)) Update[K, E] {
-	addChange(u.retrieve.Params, f)
+	u.changes = append(u.changes, f)
 	return u
 }
 
@@ -49,19 +52,16 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 	if err := u.retrieve.Entries(&entries).Exec(ctx, tx); err != nil {
 		return err
 	}
-	c := getChanges[K, E](u.retrieve.Params)
-	if len(c) == 0 {
+	if len(u.changes) == 0 {
 		return errors.Wrap(query.InvalidParameters, "[gorp] - update query must specify at least one change function")
 	}
 	for i, e := range entries {
-		if entries[i], err = c.exec(Context{Context: ctx, Tx: tx}, e); err != nil {
+		if entries[i], err = u.changes.exec(Context{Context: ctx, Tx: tx}, e); err != nil {
 			return err
 		}
 	}
 	return WrapWriter[K, E](tx).Set(ctx, entries...)
 }
-
-const updateChangeKey = "updateChange"
 
 type ChangeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)
 
@@ -74,24 +74,4 @@ func (c changes[K, E]) exec(ctx Context, entry E) (o E, err error) {
 		}
 	}
 	return
-}
-
-func addChange[K Key, E Entry[K]](q query.Parameters, change ChangeFunc[K, E]) {
-	var c changes[K, E]
-	rc, ok := q.Get(updateChangeKey)
-	if !ok {
-		c = make(changes[K, E], 0, 1)
-	} else {
-		c = rc.(changes[K, E])
-	}
-	c = append(c, change)
-	q.Set(updateChangeKey, c)
-}
-
-func getChanges[K Key, E Entry[K]](q query.Parameters) (c changes[K, E]) {
-	rc, ok := q.Get(updateChangeKey)
-	if !ok {
-		return c
-	}
-	return rc.(changes[K, E])
 }

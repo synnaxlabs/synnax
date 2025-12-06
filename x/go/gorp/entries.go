@@ -10,7 +10,6 @@
 package gorp
 
 import (
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
 	"go.uber.org/zap"
@@ -45,8 +44,6 @@ var _ Entry[string] = nopEntry{}
 func (nopEntry) GorpKey() string { return "" }
 
 func (nopEntry) SetOptions() []any { return nil }
-
-const entriesOptKey query.Parameter = "entries"
 
 // Entries is a query option used to bind entities from a retrieve query or
 // write values to a create query.
@@ -165,28 +162,12 @@ func (e *Entries[K, E]) Any() bool {
 
 func (e *Entries[K, E]) IsMultiple() bool { return e.isMultiple }
 
-// SetEntry sets the entry that the query will fill results into or write results to.
-//
-//	Calls to SetEntry will override All previous calls to SetEntry or SetEntries.
-func SetEntry[K Key, E Entry[K]](q query.Parameters, entry *E) {
-	q.Set(entriesOptKey, &Entries[K, E]{entry: entry, isMultiple: false})
+func singleEntry[K Key, E Entry[K]](entry *E) *Entries[K, E] {
+	return &Entries[K, E]{entry: entry, isMultiple: false}
 }
 
-// SetEntries sets the entries that the query will fill results into or write results to.
-// Calls to SetEntries will override All previous calls to SetEntry or SetEntries.
-func SetEntries[K Key, E Entry[K]](q query.Parameters, e *[]E) {
-	q.Set(entriesOptKey, &Entries[K, E]{entries: e, isMultiple: true})
-}
-
-// GetEntries returns the entries that the query will fill results into or write
-// results from.
-func GetEntries[K Key, E Entry[K]](q query.Parameters) *Entries[K, E] {
-	re, ok := q.Get(entriesOptKey)
-	if !ok {
-		SetEntries(q, &[]E{})
-		return GetEntries[K, E](q)
-	}
-	return re.(*Entries[K, E])
+func multipleEntries[K Key, E Entry[K]](entries *[]E) *Entries[K, E] {
+	return &Entries[K, E]{entries: entries, isMultiple: true}
 }
 
 type keyCodec[K Key, E Entry[K]] struct {
@@ -194,7 +175,7 @@ type keyCodec[K Key, E Entry[K]] struct {
 }
 
 func newKeyCodec[K Key, E Entry[K]]() keyCodec[K, E] {
-	return keyCodec[K, E]{prefix: prefix[K, E]()}
+	return keyCodec[K, E]{prefix: []byte(types.Name[E]())}
 }
 
 func (k keyCodec[K, E]) encode(key K) ([]byte, error) {
@@ -207,8 +188,4 @@ func (k keyCodec[K, E]) encode(key K) ([]byte, error) {
 
 func (k keyCodec[K, E]) decode(b []byte) (K, error) {
 	return xunsafe.DecodePrimitive[K](b[len(k.prefix):])
-}
-
-func prefix[K Key, E Entry[K]]() []byte {
-	return []byte(types.Name[E]())
 }

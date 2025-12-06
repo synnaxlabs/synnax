@@ -21,11 +21,18 @@ import (
 )
 
 // Retrieve is a query that retrieves Entries from the DB.
-type Retrieve[K Key, E Entry[K]] struct{ Params query.Parameters }
+type Retrieve[K Key, E Entry[K]] struct {
+	entries   *Entries[K, E]
+	limit     int
+	offset    int
+	whereKeys []K
+	prefix    []byte
+	filters   filters[K, E]
+}
 
 // NewRetrieve opens a new Retrieve query.
 func NewRetrieve[K Key, E Entry[K]]() Retrieve[K, E] {
-	return Retrieve[K, E]{Params: make(query.Parameters)}
+	return Retrieve[K, E]{entries: new(Entries[K, E])}
 }
 
 type filterOptions struct {
@@ -40,28 +47,30 @@ func Required() FilterOption {
 
 type FilterFunc[K Key, E Entry[K]] = func(ctx Context, e *E) (bool, error)
 
+func (r Retrieve[K, E]) GetEntries() *Entries[K, E] { return r.entries }
+
 // Where adds the provided filter to the query. If filtering by the key of the Entry,
 // use the far more efficient WhereKeys method instead.
 func (r Retrieve[K, E]) Where(filter FilterFunc[K, E], opts ...FilterOption) Retrieve[K, E] {
-	addFilter(r.Params, filter, opts)
+	r.filters = append(r.filters, newFilter(filter, opts))
 	return r
 }
 
 func (r Retrieve[K, E]) WherePrefix(prefix []byte) Retrieve[K, E] {
-	setWherePrefix(r.Params, prefix)
+	r.prefix = prefix
 	return r
 }
 
 // Limit sets the maximum number of results that the query will return, discarding
 // any results beyond the limit.
 func (r Retrieve[K, E]) Limit(limit int) Retrieve[K, E] {
-	SetLimit(r.Params, limit)
+	r.limit = limit
 	return r
 }
 
 // Offset sets the number of results that the query will skip before returning results.
 func (r Retrieve[K, E]) Offset(offset int) Retrieve[K, E] {
-	SetOffset(r.Params, offset)
+	r.offset = offset
 	return r
 }
 
@@ -70,14 +79,14 @@ func (r Retrieve[K, E]) Offset(offset int) Retrieve[K, E] {
 // conjunction with Where, the WhereKeys filter will be applied first. Subsequent calls
 // to WhereKeys will append the keys to the existing set.
 func (r Retrieve[K, E]) WhereKeys(keys ...K) Retrieve[K, E] {
-	setWhereKeys(r.Params, keys...)
+	r.whereKeys = append(r.whereKeys, keys...)
 	return r
 }
 
 // Entries binds a slice that the Params will fill results into. Repeated calls to Entry
 // or Entries will override all previous calls to Entries or Entry.
 func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
-	SetEntries(r.Params, entries)
+	r.entries = multipleEntries[K, E](entries)
 	return r
 }
 
@@ -85,7 +94,7 @@ func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
 // or Entries will override All previous calls to Entries or Entry. If  isMultiple results
 // are returned by the query, entry will be set to the last result.
 func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
-	SetEntry(r.Params, entry)
+	r.entries = singleEntry[K, E](entry)
 	return r
 }
 
@@ -95,16 +104,15 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 // if NO keys pass the Where filter.
 func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Retriever.Exec", tx)
-	_, ok := getWhereKeys[K](r.Params)
-	f := lo.Ternary(ok, keysRetrieve[K, E], filterRetrieve[K, E])
-	return f(ctx, r.Params, tx)
+	f := lo.Ternary(len(r.whereKeys) > 0, keysRetrieve[K, E], filterRetrieve[K, E])
+	return f(ctx, r, tx)
 }
 
 // Exists checks whether records matching the query exist in the DB. If the WhereKeys method is
 // set on the query, Exists will return true if ANY of the keys exist in the database. If
 // Where is set on the query, Exists will return true if ANY keys pass the Where filter.
 func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
-	return checkExists[K, E](ctx, r.Params, tx)
+	return checkExists[K, E](ctx, r, tx)
 }
 
 // Count returns the number of records matching the query. If the WhereKeys method is
@@ -112,21 +120,21 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 // on the query, Count will return the number of records that pass the Where filter.
 func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (int, error) {
 	checkForNilTx("Retriever.Count", tx)
-	if keys, ok := getWhereKeys[K](r.Params); ok {
+	if len(r.whereKeys) > 0 {
 		// For key-based queries, we can optimize by only retrieving the keys
-		entries := make([]E, 0, len(keys))
-		SetEntries(r.Params, &entries)
-		if err := keysRetrieve[K, E](ctx, r.Params, tx); err != nil && !errors.Is(err, query.NotFound) {
+		e := make([]E, 0, len(r.whereKeys))
+		r.entries = multipleEntries[K, E](&e)
+		if err := keysRetrieve[K, E](ctx, r, tx); err != nil && !errors.Is(err, query.NotFound) {
 			return 0, err
 		}
-		return len(entries), nil
+		return len(r.entries.All()), nil
 	}
 
 	// For filter-based queries, we need to iterate through all records
 	var count int
-	f := getFilters[K, E](r.Params)
+	f := r.filters
 	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{
-		prefix: getWherePrefix(r.Params),
+		prefix: r.prefix,
 	})
 	if err != nil {
 		return 0, err
@@ -177,163 +185,68 @@ func (f filters[K, E]) exec(ctx Context, entry *E) (bool, error) {
 	return match, nil
 }
 
-func addFilter[K Key, E Entry[K]](
-	q query.Parameters,
+func newFilter[K Key, E Entry[K]](
 	filterFunc FilterFunc[K, E],
 	options []FilterOption,
-) {
-	var f filters[K, E]
-	rf, ok := q.Get(filtersKey)
-	if !ok {
-		f = filters[K, E]{}
-	} else {
-		f = rf.(filters[K, E])
-	}
+) filter[K, E] {
 	opts := &filterOptions{}
 	for _, o := range options {
 		o(opts)
 	}
-	f = append(f, filter[K, E]{f: filterFunc, filterOptions: *opts})
-	q.Set(filtersKey, f)
+	return filter[K, E]{f: filterFunc, filterOptions: *opts}
 }
 
-func getFilters[K Key, E Entry[K]](q query.Parameters) filters[K, E] {
-	rf, ok := q.Get(filtersKey)
-	if !ok {
-		return filters[K, E]{}
-	}
-	return rf.(filters[K, E])
-}
-
-const limitKey query.Parameter = "limit"
-
-func SetLimit(q query.Parameters, limit int) { q.Set(limitKey, limit) }
-
-func GetLimit(q query.Parameters) (int, bool) {
-	limit, ok := q.Get(limitKey)
-	if !ok {
-		return 0, false
-	}
-	return limit.(int), true
-}
-
-const offsetKey query.Parameter = "offset"
-
-func SetOffset(q query.Parameters, offset int) { q.Set(offsetKey, offset) }
-
-func GetOffset(q query.Parameters) int {
-	offset, ok := q.Get(offsetKey)
-	if !ok {
-		return 0
-	}
-	return offset.(int)
-}
-
-const whereKeysKey query.Parameter = "retrieveByKeys"
-
-type whereKeys[K Key] []K
-
-func setWhereKeys[K Key](q query.Parameters, keys ...K) {
-	var (
-		keysToSet whereKeys[K]
-		ok        bool
-	)
-	if keysToSet, ok = getWhereKeys[K](q); ok {
-		keysToSet = append(keysToSet, keys...)
-	} else {
-		keysToSet = keys
-	}
-	q.Set(whereKeysKey, keysToSet)
-}
-
-func getWhereKeys[K Key](q query.Parameters) (whereKeys[K], bool) {
-	keys, ok := q.Get(whereKeysKey)
-	if !ok {
-		return nil, false
-	}
-	return keys.(whereKeys[K]), true
-}
-
-const wherePrefixKey query.Parameter = "retrieveByPrefix"
-
-type wherePrefix struct {
-	prefix []byte
-}
-
-func setWherePrefix(q query.Parameters, prefix []byte) {
-	q.Set(wherePrefixKey, wherePrefix{prefix})
-}
-
-func getWherePrefix(q query.Parameters) (r []byte) {
-	p, ok := q.Get(wherePrefixKey)
-	if !ok {
-		return
-	}
-	return p.(wherePrefix).prefix
-}
-
-func checkExists[K Key, E Entry[K]](ctx context.Context, q query.Parameters, reader Tx) (bool, error) {
-	if keys, ok := getWhereKeys[K](q); ok {
-		entries := make([]E, 0, len(keys))
-		SetEntries(q, &entries)
-		if err := keysRetrieve[K, E](ctx, q, reader); errors.Skip(err, query.NotFound) != nil {
+func checkExists[K Key, E Entry[K]](ctx context.Context, r Retrieve[K, E], reader Tx) (bool, error) {
+	if len(r.whereKeys) > 0 {
+		e := make([]E, 0, len(r.whereKeys))
+		r.entries = multipleEntries[K, E](&e)
+		if err := keysRetrieve[K, E](ctx, r, reader); errors.Skip(err, query.NotFound) != nil {
 			return false, err
 		}
-		return len(entries) == len(keys), nil
+		return len(e) == len(r.whereKeys), nil
 	}
-	entries := make([]E, 0, 1)
-	SetEntries(q, &entries)
-	if err := filterRetrieve[K, E](ctx, q, reader); errors.Skip(err, query.NotFound) != nil {
+	e := make([]E, 0, 1)
+	r.entries = multipleEntries[K, E](&e)
+	if err := filterRetrieve[K, E](ctx, r, reader); errors.Skip(err, query.NotFound) != nil {
 		return false, err
 	}
-	return len(entries) > 0, nil
+	return len(e) > 0, nil
 }
 
 func keysRetrieve[K Key, E Entry[K]](
 	ctx context.Context,
-	q query.Parameters,
+	r Retrieve[K, E],
 	tx Tx,
 ) error {
 	var (
-		limit, limitOk  = GetLimit(q)
-		offset          = GetOffset(q)
-		keys, _         = getWhereKeys[K](q)
-		f               = getFilters[K, E](q)
-		entries         = GetEntries[K, E](q)
-		keysResult, err = WrapReader[K, E](tx).GetMany(ctx, keys)
+		keysResult, err = WrapReader[K, E](tx).GetMany(ctx, r.whereKeys)
 		toReplace       = make([]E, 0, len(keysResult))
 		validCount      int
 	)
 	for _, e := range keysResult {
-		match, err := f.exec(Context{Context: ctx, Tx: tx}, &e)
+		match, err := r.filters.exec(Context{Context: ctx, Tx: tx}, &e)
 		if err != nil {
 			return err
 		}
 		if match {
 			validCount += 1
-			if (validCount > offset) && (!limitOk || validCount <= limit+offset) {
+			if (validCount > r.offset) && (r.limit == 0 || validCount <= r.limit+r.offset) {
 				toReplace = append(toReplace, e)
 			}
 		}
 	}
-	entries.Replace(toReplace)
+	r.entries.Replace(toReplace)
 	return err
 }
 
 func filterRetrieve[K Key, E Entry[K]](
 	ctx context.Context,
-	q query.Parameters,
+	r Retrieve[K, E],
 	tx Tx,
 ) (err error) {
-	var (
-		limit, limitOk = GetLimit(q)
-		offset         = GetOffset(q)
-		f              = getFilters[K, E](q)
-		entries        = GetEntries[K, E](q)
-		validCount     int
-	)
+	var validCount int
 	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{
-		prefix: getWherePrefix(q),
+		prefix: r.prefix,
 	})
 	if err != nil {
 		return err
@@ -346,21 +259,21 @@ func filterRetrieve[K Key, E Entry[K]](
 		if iter.Error() != nil {
 			return iter.Error()
 		}
-		match, err := f.exec(Context{Context: ctx, Tx: tx}, v)
+		match, err := r.filters.exec(Context{Context: ctx, Tx: tx}, v)
 		if err != nil {
 			return err
 		}
 		if match {
 			validCount += 1
-			if (validCount > offset) && (!limitOk || validCount <= limit+offset) {
-				entries.Add(*v)
+			if (validCount > r.offset) && (r.limit == 0 || validCount <= r.limit+r.offset) {
+				r.entries.Add(*v)
 			}
 		}
 	}
-	if entries.isMultiple {
+	if r.entries.isMultiple {
 		return nil
 	}
-	if entries.changes == 0 {
+	if r.entries.changes == 0 {
 		return errors.Wrapf(
 			query.NotFound,
 			fmt.Sprintf("no %s found matching query", types.PluralName[E]()),
