@@ -38,7 +38,7 @@ export interface Request {
  * This function implements the following logic:
  * - For each requested object, check if any policy allows the action
  * - A policy allows an action if:
- *   1. The policy's actions include the requested action OR "*" (all actions)
+ *   1. The policy's actions include the requested action or "all"
  *   2. The policy's objects include the requested object, either:
  *      - Type-level match: policy object has empty key and matching type
  *      - Instance-level match: policy object has matching type and key

@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-export const ALL_ACTION = "*";
+export const ALL_ACTION = "all";
 export const CREATE_ACTION = "create";
 export const DELETE_ACTION = "delete";
 export const RETRIEVE_ACTION = "retrieve";
