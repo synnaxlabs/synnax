@@ -39,6 +39,9 @@ func (d Delete[K, E]) Where(filter FilterFunc[K, E], opts ...FilterOption) Delet
 // returns an error, the query will fail and no further entries will be processed. If
 // the provided guard function is nil, no guard will be applied.
 func (d Delete[K, E]) Guard(filter GuardFunc[K, E]) Delete[K, E] {
+	if filter == nil {
+		return d
+	}
 	d.guards = append(d.guards, filter)
 	return d
 }

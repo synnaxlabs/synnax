@@ -122,15 +122,28 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 // if NO keys pass the Where filter.
 func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Retriever.Exec", tx)
-	f := lo.Ternary(r.HasWhereKeys(), keysRetrieve[K, E], filterRetrieve[K, E])
-	return f(ctx, r, tx)
+	f := lo.Ternary(r.HasWhereKeys(), r.execKeys, r.execFilter)
+	return f(ctx, tx)
 }
 
 // Exists checks whether records matching the query exist in the DB. If the WhereKeys method is
 // set on the query, Exists will return true if ANY of the keys exist in the database. If
 // Where is set on the query, Exists will return true if ANY keys pass the Where filter.
 func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
-	return checkExists[K, E](ctx, r, tx)
+	if r.HasWhereKeys() {
+		e := make([]E, 0, len(*r.whereKeys))
+		r.entries = multipleEntries[K, E](&e)
+		if err := r.execKeys(ctx, tx); errors.Skip(err, query.NotFound) != nil {
+			return false, err
+		}
+		return len(e) == len(*r.whereKeys), nil
+	}
+	e := make([]E, 0, 1)
+	r.entries = multipleEntries(&e)
+	if err := r.execFilter(ctx, tx); errors.Skip(err, query.NotFound) != nil {
+		return false, err
+	}
+	return len(e) > 0, nil
 }
 
 // Count returns the number of records matching the query. If the WhereKeys method is
@@ -142,7 +155,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (int, error) {
 		// For key-based queries, we can optimize by only retrieving the keys
 		e := make([]E, 0, len(*r.whereKeys))
 		r.entries = multipleEntries[K, E](&e)
-		if err := keysRetrieve[K, E](ctx, r, tx); err != nil && !errors.Is(err, query.NotFound) {
+		if err := r.execKeys(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
 			return 0, err
 		}
 		return len(r.entries.All()), nil
@@ -212,28 +225,7 @@ func newFilter[K Key, E Entry[K]](
 	return filter[K, E]{f: filterFunc, filterOptions: *opts}
 }
 
-func checkExists[K Key, E Entry[K]](ctx context.Context, r Retrieve[K, E], reader Tx) (bool, error) {
-	if r.HasWhereKeys() {
-		e := make([]E, 0, len(*r.whereKeys))
-		r.entries = multipleEntries[K, E](&e)
-		if err := keysRetrieve[K, E](ctx, r, reader); errors.Skip(err, query.NotFound) != nil {
-			return false, err
-		}
-		return len(e) == len(*r.whereKeys), nil
-	}
-	e := make([]E, 0, 1)
-	r.entries = multipleEntries[K, E](&e)
-	if err := filterRetrieve[K, E](ctx, r, reader); errors.Skip(err, query.NotFound) != nil {
-		return false, err
-	}
-	return len(e) > 0, nil
-}
-
-func keysRetrieve[K Key, E Entry[K]](
-	ctx context.Context,
-	r Retrieve[K, E],
-	tx Tx,
-) error {
+func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 	var (
 		keysResult, err = WrapReader[K, E](tx).GetMany(ctx, *r.whereKeys)
 		toReplace       = make([]E, 0, len(keysResult))
@@ -255,15 +247,9 @@ func keysRetrieve[K Key, E Entry[K]](
 	return err
 }
 
-func filterRetrieve[K Key, E Entry[K]](
-	ctx context.Context,
-	r Retrieve[K, E],
-	tx Tx,
-) (err error) {
+func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) (err error) {
 	var validCount int
-	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{
-		prefix: r.prefix,
-	})
+	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{prefix: r.prefix})
 	if err != nil {
 		return err
 	}
@@ -286,7 +272,7 @@ func filterRetrieve[K Key, E Entry[K]](
 			}
 		}
 	}
-	if r.entries.isMultiple {
+	if r.entries.isMultiple || !r.entries.Bound() {
 		return nil
 	}
 	if r.entries.changes == 0 {
