@@ -8,74 +8,171 @@
 #  included in the file licenses/APL.txt.
 
 from abc import ABC, abstractmethod
-from collections.abc import Generator
-from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from playwright.sync_api import Locator, Page
+import synnax as sy
+from playwright.sync_api import FloatRect, Locator, Page
 
-if TYPE_CHECKING:
-    from ..console import Console
+from ..console import Console
+
+""" Symbol Box helpers """
+
+
+def box_left(box: FloatRect) -> float:
+    """Left edge x-coordinate."""
+    return box["x"]
+
+
+def box_right(box: FloatRect) -> float:
+    """Right edge x-coordinate."""
+    return box["x"] + box["width"]
+
+
+def box_top(box: FloatRect) -> float:
+    """Top edge y-coordinate."""
+    return box["y"]
+
+
+def box_bottom(box: FloatRect) -> float:
+    """Bottom edge y-coordinate."""
+    return box["y"] + box["height"]
+
+
+def box_center_x(box: FloatRect) -> float:
+    """Center x-coordinate."""
+    return box["x"] + box["width"] / 2
+
+
+def box_center_y(box: FloatRect) -> float:
+    """Center y-coordinate."""
+    return box["y"] + box["height"] / 2
 
 
 class Symbol(ABC):
     """Base class for all schematic symbols"""
 
     page: Page
-    console: "Console"
-    symbol: Locator
-    symbol_id: str
-    channel_name: str
+    console: Console
+    locator: Locator
+    symbol_id: str | None
     label: str
+    rotatable: bool
+    _symbol_type: str
 
-    def __init__(
-        self, page: Page, console: "Console", symbol_id: str, channel_name: str
-    ):
-        if channel_name.strip() == "":
-            raise ValueError("Channel name cannot be empty")
+    def __init__(self, label: str, symbol_type: str, rotatable: bool = False):
+        """Initialize a symbol with configuration parameters.
 
-        self.channel_name = channel_name
+        The symbol is not yet attached to a schematic. Call schematic.create_symbol(symbol)
+        to add it to the schematic.
+
+        Args:
+            label: Display label for the symbol
+            symbol_type: The type of symbol (e.g., "Valve", "Button", "Three Way")
+            rotatable: Whether the symbol can be rotated (default: False)
+        """
+        if label.strip() == "":
+            raise ValueError("Label cannot be empty")
+
+        self.label = label
+        self._symbol_type = symbol_type
+        self.rotatable = rotatable
+        self.symbol_id = None
+
+    def create(self, page: Page, console: Console) -> None:
+        """Attach this symbol to a schematic (called by Schematic.create_symbol).
+
+        This method adds the symbol to the schematic UI and configures it.
+
+        Args:
+            page: Playwright Page instance
+            console: Console instance for UI interactions
+        """
         self.page = page
         self.console = console
-        self.symbol_id = symbol_id
-        self.label = channel_name
 
-        self.symbol = self.page.get_by_test_id(self.symbol_id)
-        self.set_label(channel_name)
+        # Add symbol to schematic
+        self.symbol_id = self._add_symbol_to_schematic(self._symbol_type)
+        self.locator = self.page.get_by_test_id(self.symbol_id)
+        self.set_label(self.label)
 
-    @contextmanager
-    def bring_to_front(self, element: "Locator") -> Generator["Locator", None, None]:
-        original_z_index = element.evaluate("element => element.style.zIndex || 'auto'")
-        element.evaluate("element => element.style.zIndex = '9999'")
-        try:
-            yield element
-        finally:
-            element.evaluate(f"element => element.style.zIndex = '{original_z_index}'")
+        # Apply properties
+        self._apply_properties()
+
+    def _add_symbol_to_schematic(self, symbol_type: str) -> str:
+        """Add a symbol to the schematic and return its ID.
+
+        Args:
+            symbol_type: The type of symbol to add (e.g., "Valve", "Button", "Three Way")
+
+        Returns:
+            The symbol ID of the newly created symbol
+        """
+        if self.page is None or self.console is None:
+            raise RuntimeError("Symbol not attached to schematic")
+
+        self.console.close_all_notifications()
+        self.console.click("Symbols")
+        initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
+
+        search_input = self.page.locator(
+            "div:has-text('Search Symbols') input[role='textbox']"
+        ).first
+        search_input.fill(symbol_type)
+        self.console.click(symbol_type)
+
+        self.page.wait_for_function(
+            f"document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > {initial_count}"
+        )
+
+        all_symbols = self.page.locator("[data-testid^='rf__node-']").all()
+        return all_symbols[-1].get_attribute("data-testid") or "unknown"
+
+    @abstractmethod
+    def _apply_properties(self) -> None:
+        """Apply symbol-specific configuration after being added to schematic.
+
+        This method should call set_properties() with the symbol's configuration.
+        """
+        pass
 
     def _disable_edit_mode(self) -> None:
         edit_off_icon = self.page.get_by_label("pluto-icon--edit-off")
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
 
-    def _click_symbol(self) -> None:
-        with self.bring_to_front(self.symbol) as s:
-            s.click(force=True)
-        self.console.page.wait_for_timeout(100)
+    def click(self, sleep: int = 100) -> None:
+        """Click the symbol to select it.
+
+        Args:
+            sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
+        """
+
+        self.console.click(self.locator, sleep=sleep)
+
+    def meta_click(self, sleep: int = 0) -> None:
+        """
+        Click the symbol with the platform-appropriate modifier key (Cmd/Ctrl) held down.
+
+        Args:
+            sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
+        """
+
+        self.console.meta_click(self.locator, sleep=sleep)
 
     def set_label(self, label: str) -> None:
-        self._click_symbol()
+        self.click()
         self.page.get_by_text("Style").click(force=True)
         self.console.fill_input_field("Label", label)
         self.label = label
 
     @abstractmethod
-    def edit_properties(
+    def set_properties(
         self,
         channel_name: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
-        Edit symbol properties. Must be implemented by all child classes.
+        Set symbol properties. Must be implemented by all child classes.
 
         Args:
             channel_name: Optional channel name to set
@@ -91,17 +188,23 @@ class Symbol(ABC):
             self.console.click_btn(input_field)
             self.console.select_from_dropdown(channel_name, "Search")
 
+    def set_value(self, value: float) -> None:
+        """Set the symbol's value if applicable. Default implementation does nothing."""
+        pass
+
+    def press(self, sleep: int = 100) -> None:
+        """Press/activate the symbol if applicable. Default implementation does nothing.
+
+        Args:
+            sleep: Time in milliseconds to wait after pressing. Buffer for network delays and slow animations.
+        """
+        pass
+
     def move(self, delta_x: int, delta_y: int) -> None:
         """Move the symbol by the specified number of pixels using drag"""
-        box = self.symbol.bounding_box()
-        if not box:
-            raise RuntimeError(
-                f"Could not get bounding box for symbol {self.symbol_id}"
-            )
-
-        # Calculate target position
-        start_x = box["x"] + box["width"] / 2
-        start_y = box["y"] + box["height"] / 2
+        pos = self.position
+        start_x = box_center_x(pos)
+        start_y = box_center_y(pos)
         target_x = start_x + delta_x
         target_y = start_y + delta_y
 
@@ -110,21 +213,31 @@ class Symbol(ABC):
         self.page.mouse.down()
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
+        sy.sleep(0.1)  # CI flakiness
+
+    @property
+    def position(self) -> FloatRect:
+        """Get the symbol's bounding box for alignment checks.
+
+        Raises:
+            RuntimeError: If the symbol's bounding box cannot be retrieved
+        """
+        box = self.locator.bounding_box()
+        if not box:
+            raise RuntimeError(
+                f"Could not get bounding box for symbol {self.symbol_id}"
+            )
+        return box
 
     def delete(self) -> None:
-        self._click_symbol()
+        self.click()
         self.console.DELETE
 
     def toggle_absolute_control(self) -> None:
         """Toggle absolute control authority for this symbol by clicking its control chip button."""
         # Locate the control chip button within this specific symbol's container
-        control_chip = self.symbol.locator(".pluto-control-chip").first
-
-        # Bring to front and click to ensure visibility and interaction
-        with self.bring_to_front(control_chip) as chip:
-            chip.click(force=True)
-
-        self.console.page.wait_for_timeout(100)
+        control_chip = self.locator.locator(".pluto-control-chip").first
+        self.console.click(control_chip)
 
     def get_properties(self, tab: str = "Symbols") -> dict[str, Any]:
         """
@@ -139,7 +252,7 @@ class Symbol(ABC):
         Returns:
             Empty dict - subclasses should populate with actual properties
         """
-        self._click_symbol()
+        self.click()
         self.page.get_by_text("Properties").click()
         if tab:
             self.page.get_by_text(tab).last.click()

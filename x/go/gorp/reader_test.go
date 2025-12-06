@@ -10,23 +10,23 @@
 package gorp_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Reader", Ordered, func() {
+var _ = Describe("Reader", func() {
 	var (
-		db *gorp.DB
-		tx gorp.Tx
+		ctx context.Context
+		tx  gorp.Tx
 	)
-	BeforeAll(func() {
-		db = gorp.Wrap(memkv.New())
+	BeforeEach(func() {
+		ctx = context.Background()
 		tx = db.OpenTx()
 	})
-	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Iterator", func() {
 		It("Should iterate over entries matching a type", func() {
 			Expect(gorp.NewCreate[int32, entry]().
@@ -46,25 +46,21 @@ var _ = Describe("Reader", Ordered, func() {
 			Expect(gorp.NewCreate[int32, entry]().
 				Entries(&[]entry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 				Exec(ctx, tx)).To(Succeed())
-			nexter := MustSucceed(gorp.WrapReader[int32, entry](tx).OpenNexter())
-			v, ok := nexter.Next(ctx)
-			Expect(ok).To(BeTrue())
-			Expect(v.Data).To(Equal("data"))
-			v, ok = nexter.Next(ctx)
-			Expect(ok).To(BeTrue())
-			Expect(nexter.Close()).To(Succeed())
+			nexter, closer := MustSucceed2(gorp.WrapReader[int, entry](tx).OpenNexter(ctx))
+			for v := range nexter {
+				Expect(v.Data).To(Equal("data"))
+			}
+			Expect(closer.Close()).To(Succeed())
 		})
 		It("Should correctly iterate over entries with a binary key", func() {
 			Expect(gorp.NewCreate[[]byte, prefixEntry]().
 				Entries(&[]prefixEntry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 				Exec(ctx, tx)).To(Succeed())
-			nexter := MustSucceed(gorp.WrapReader[[]byte, prefixEntry](tx).OpenNexter())
-			v, ok := nexter.Next(ctx)
-			Expect(ok).To(BeTrue())
-			Expect(v.Data).To(Equal("data"))
-			v, ok = nexter.Next(ctx)
-			Expect(ok).To(BeTrue())
-			Expect(nexter.Close()).To(Succeed())
+			nexter, closer := MustSucceed2(gorp.WrapReader[[]byte, prefixEntry](tx).OpenNexter(ctx))
+			for v := range nexter {
+				Expect(v.Data).To(Equal("data"))
+			}
+			Expect(closer.Close()).To(Succeed())
 		})
 	})
 })

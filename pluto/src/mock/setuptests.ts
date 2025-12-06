@@ -10,9 +10,16 @@
 import { ResizeObserver } from "@juggle/resize-observer";
 import { afterAll, beforeAll, vi } from "vitest";
 
+const MockIntersectionObserver = vi.fn(() => ({
+  observe: vi.fn(),
+  disconnect: vi.fn(),
+  unobserve: vi.fn(),
+}));
+
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserver);
   vi.stubGlobal("OffscreenCanvas", {} as OffscreenCanvas);
+  vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
 });
 
 afterAll(() => {

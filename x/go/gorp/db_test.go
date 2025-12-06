@@ -10,25 +10,21 @@
 package gorp_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
-	xkv "github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("DB", Ordered, func() {
-	var (
-		kv xkv.DB
-		db *gorp.DB
-	)
-	BeforeAll(func() {
-		kv = memkv.New()
-		db = gorp.Wrap(kv)
+var _ = Describe("DB", func() {
+	var ctx context.Context
+
+	BeforeEach(func() {
+		ctx = context.Background()
 	})
-	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 
 	Describe("WithTx", func() {
 		It("Should commit the transaction if the callback returns nil", func() {
@@ -43,10 +39,8 @@ var _ = Describe("DB", Ordered, func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return gorp.NewCreate[int32, entry]().Entry(&entry{ID: 1, Data: "One"}).Exec(ctx, tx)
 			})).To(Succeed())
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				_ = gorp.NewCreate[int32, entry]().Entry(&entry{ID: 2, Data: "Two"}).Exec(ctx, tx)
-				return query.NotFound
-			})).ToNot(Succeed())
+			Expect(db.WithTx(ctx, func(_ gorp.Tx) error { return query.NotFound })).
+				ToNot(Succeed())
 			Expect(gorp.NewRetrieve[int32, entry]().WhereKeys(2).Exec(ctx, db)).To(HaveOccurredAs(query.NotFound))
 		})
 	})
@@ -64,7 +58,7 @@ var _ = Describe("DB", Ordered, func() {
 
 	Describe("KV", func() {
 		It("Should return the underlying key-value store for the DB", func() {
-			Expect(db.KV()).To(BeIdenticalTo(kv))
+			Expect(db.KV()).To(BeIdenticalTo(kvDB))
 		})
 	})
 })

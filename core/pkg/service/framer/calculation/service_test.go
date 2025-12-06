@@ -11,6 +11,7 @@ package calculation_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,7 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -42,7 +43,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		indexChannels,
 		baseChannels,
 		calculations *[]channel.Channel,
-		streamKeys func(calcs []channel.Channel) channel.Keys,
+		streamKeys func([]channel.Channel) channel.Keys,
 	) (*framer.Writer, confluence.Outlet[streamer.Response], context.CancelFunc) {
 		if indexChannels != nil {
 			Expect(dist.Channel.CreateMany(ctx, indexChannels)).To(Succeed())
@@ -102,7 +103,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		}))
-		statusSvc := MustSucceed(svcstatus.OpenService(ctx, svcstatus.ServiceConfig{
+		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Label:    labelSvc,
 			Ontology: dist.Ontology,
@@ -120,7 +121,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Framer:            dist.Framer,
-			Channels:          dist.Channel,
+			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
 			Arc:               arcSvc,
 		}))
@@ -135,16 +136,16 @@ var _ = Describe("Calculation", Ordered, func() {
 
 		Specify("Single Virtual Channel as Base", func() {
 			bases := []channel.Channel{{
-				Name:     "base",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			calcs := []channel.Channel{{
-				Name:        "calculated",
+				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: cluster.Free,
-				Expression:  "return base * 2",
+				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
 			defer cancel()
@@ -166,32 +167,32 @@ var _ = Describe("Calculation", Ordered, func() {
 			BeforeEach(func() {
 				bases = []channel.Channel{
 					{
-						Name:     "base_1",
+						Name:     channel.NewRandomName(),
 						DataType: telem.Int64T,
 						Virtual:  true,
 					},
 					{
-						Name:     "base_2",
+						Name:     channel.NewRandomName(),
 						DataType: telem.Int64T,
 						Virtual:  true,
 					},
 				}
 				calcs = []channel.Channel{{
-					Name:        "calculated",
+					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: cluster.Free,
-					Expression:  "return base_1 * base_2",
+					Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 				}}
 			})
 			Specify("Single Write with Data for Both Channels", func() {
 				w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
-				baseCH1 := bases[0]
+				baseCh1 := bases[0]
 				baseCh2 := bases[1]
 				calcCh := calcs[0]
 				MustSucceed(w.Write(core.MultiFrame(
-					[]channel.Key{baseCH1.Key(), baseCh2.Key()},
+					[]channel.Key{baseCh1.Key(), baseCh2.Key()},
 					[]telem.Series{telem.NewSeriesV[int64](1, 2), telem.NewSeriesV[int64](2, 4)},
 				)))
 				var res framer.StreamerResponse
@@ -204,10 +205,10 @@ var _ = Describe("Calculation", Ordered, func() {
 			Specify("Two Writes with Data for Individual Channels", func() {
 				w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
 				defer cancel()
-				baseCH1 := bases[0]
+				baseCh1 := bases[0]
 				baseCh2 := bases[1]
 				calcCh := calcs[0]
-				MustSucceed(w.Write(core.UnaryFrame(baseCH1.Key(), telem.NewSeriesV[int64](1, 2))))
+				MustSucceed(w.Write(core.UnaryFrame(baseCh1.Key(), telem.NewSeriesV[int64](1, 2))))
 				MustSucceed(w.Write(core.UnaryFrame(baseCh2.Key(), telem.NewSeriesV[int64](2, 4))))
 				var res framer.StreamerResponse
 				Eventually(sOutlet.Outlet()).Should(Receive(&res))
@@ -220,20 +221,20 @@ var _ = Describe("Calculation", Ordered, func() {
 		Specify("Single Data Channel as Base", func() {
 			var (
 				indexes = []channel.Channel{{
-					Name:     "base_time",
+					Name:     channel.NewRandomName(),
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
 				}}
 				bases = []channel.Channel{{
-					Name:     "base",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 				}}
 				calcs = []channel.Channel{{
-					Name:        "calculated",
+					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: cluster.Free,
-					Expression:  "return base * 2",
+					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 				}}
 			)
 			w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
@@ -259,26 +260,26 @@ var _ = Describe("Calculation", Ordered, func() {
 			Specify("Shared Index", func() {
 				var (
 					indexes = []channel.Channel{{
-						Name:     "base_time",
+						Name:     channel.NewRandomName(),
 						DataType: telem.TimeStampT,
 						IsIndex:  true,
 					}}
 					bases = []channel.Channel{
 						{
-							Name:     "base_1",
+							Name:     channel.NewRandomName(),
 							DataType: telem.Float32T,
 						},
 						{
-							Name:     "base_2",
+							Name:     channel.NewRandomName(),
 							DataType: telem.Float32T,
 						},
 					}
 					calcs = []channel.Channel{{
-						Name:        "calculated",
+						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
 						Leaseholder: cluster.Free,
-						Expression:  "return base_1 * base_2",
+						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
 				w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
@@ -304,32 +305,32 @@ var _ = Describe("Calculation", Ordered, func() {
 				var (
 					indexes = []channel.Channel{
 						{
-							Name:     "base_1_time",
+							Name:     channel.NewRandomName(),
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
 						{
-							Name:     "base_2_time",
+							Name:     channel.NewRandomName(),
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
 					}
 					bases = []channel.Channel{
 						{
-							Name:     "base_1",
+							Name:     channel.NewRandomName(),
 							DataType: telem.Float32T,
 						},
 						{
-							Name:     "base_2",
+							Name:     channel.NewRandomName(),
 							DataType: telem.Float32T,
 						},
 					}
 					calcs = []channel.Channel{{
-						Name:        "calculated",
+						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
 						Leaseholder: cluster.Free,
-						Expression:  "return base_1 * base_2",
+						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
 				w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
@@ -359,32 +360,32 @@ var _ = Describe("Calculation", Ordered, func() {
 				var (
 					indexes = []channel.Channel{
 						{
-							Name:     "base_1_time",
+							Name:     channel.NewRandomName(),
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
 						{
-							Name:     "base_2_time",
+							Name:     channel.NewRandomName(),
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
 					}
 					bases = []channel.Channel{
 						{
-							Name:     "base_1",
+							Name:     channel.NewRandomName(),
 							DataType: telem.Float32T,
 						},
 						{
-							Name:     "base_2",
+							Name:     channel.NewRandomName(),
 							DataType: telem.Float32T,
 						},
 					}
 					calcs = []channel.Channel{{
-						Name:        "calculated",
+						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
 						Leaseholder: cluster.Free,
-						Expression:  "return base_1 * base_2",
+						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
 				w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
@@ -422,23 +423,24 @@ var _ = Describe("Calculation", Ordered, func() {
 				calcs []channel.Channel
 			)
 			BeforeEach(func() {
+				calc1Name := channel.NewRandomName()
 				bases = []channel.Channel{{
-					Name:     "base",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}}
 				calcs = []channel.Channel{{
-					Name:        "calculated",
+					Name:        calc1Name,
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: cluster.Free,
-					Expression:  "return base * 2",
+					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 				}, {
-					Name:        "calculated_2",
+					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: cluster.Free,
-					Expression:  "return calculated * 2",
+					Expression:  fmt.Sprintf("return %s * 2", calc1Name),
 				}}
 			})
 			Specify("Base and Derived Requested", func() {
@@ -476,16 +478,16 @@ var _ = Describe("Calculation", Ordered, func() {
 	Describe("Calculation Updates", func() {
 		Specify("Modified Expression, No New Dependencies", func() {
 			bases := []channel.Channel{{
-				Name:     "base_cwb_1",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			calcs := []channel.Channel{{
-				Name:        "calculated",
+				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: cluster.Free,
-				Expression:  "return base_cwb_1 * 2",
+				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
 			defer cancel()
@@ -497,7 +499,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
 
-			calcs[0].Expression = "return base_cwb_1 * 3"
+			calcs[0].Expression = fmt.Sprintf("return %s * 3", bases[0].Name)
 			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -513,20 +515,20 @@ var _ = Describe("Calculation", Ordered, func() {
 
 		Specify("Modified Expression, New Dependencies", func() {
 			bases := []channel.Channel{{
-				Name:     "base_a_1",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}, {
-				Name:     "base_a_2",
+				Name:     channel.NewRandomName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			calcs := []channel.Channel{{
-				Name:        "calculated",
+				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: cluster.Free,
-				Expression:  "return base_a_1 * 2",
+				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
 			defer cancel()
@@ -539,7 +541,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
 
-			calcs[0].Expression = "return base_a_2 * 3"
+			calcs[0].Expression = fmt.Sprintf("return %s * 3", baseCh2.Name)
 			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 
 			Expect(func(g Gomega) {

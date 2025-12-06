@@ -268,4 +268,59 @@ describe("XY", () => {
       expect(result).toEqual({ x: 7, y: 17 });
     });
   });
+
+  describe("set", () => {
+    it("should set x coordinate to target value", () => {
+      expect(xy.set([5, 10], "x", 20)).toEqual({ x: 20, y: 10 });
+    });
+
+    it("should set y coordinate to target value", () => {
+      expect(xy.set([5, 10], "y", 20)).toEqual({ x: 5, y: 20 });
+    });
+
+    it("should accept crude directions like locations", () => {
+      expect(xy.set([5, 10], "left", 20)).toEqual({ x: 20, y: 10 });
+      expect(xy.set([5, 10], "right", 20)).toEqual({ x: 20, y: 10 });
+      expect(xy.set([5, 10], "top", 20)).toEqual({ x: 5, y: 20 });
+      expect(xy.set([5, 10], "bottom", 20)).toEqual({ x: 5, y: 20 });
+    });
+
+    it("should work with different coordinate input formats", () => {
+      expect(xy.set({ width: 5, height: 10 }, "x", 15)).toEqual({ x: 15, y: 10 });
+      expect(xy.set({ x: 3, y: 4 }, "y", 8)).toEqual({ x: 3, y: 8 });
+    });
+  });
+
+  describe("rotate", () => {
+    it("should rotate a point 90 degrees clockwise around the origin", () => {
+      const point = { x: 1, y: 0 };
+      const center = { x: 0, y: 0 };
+      const result = xy.rotate(point, center, "clockwise");
+      expect(result.x).toBeCloseTo(0);
+      expect(result.y).toBeCloseTo(1);
+    });
+
+    it("should rotate a point 90 degrees counterclockwise around the origin", () => {
+      const point = { x: 1, y: 0 };
+      const center = { x: 0, y: 0 };
+      const result = xy.rotate(point, center, "counterclockwise");
+      expect(result.x).toBeCloseTo(0);
+      expect(result.y).toBeCloseTo(-1);
+    });
+
+    it("should rotate a point around a non-origin center", () => {
+      const point = { x: 2, y: 1 };
+      const center = { x: 1, y: 1 };
+      const result = xy.rotate(point, center, "clockwise");
+      expect(result.x).toBeCloseTo(1);
+      expect(result.y).toBeCloseTo(2);
+    });
+
+    it("should return the same point when rotating around itself", () => {
+      const point = { x: 5, y: 5 };
+      const result = xy.rotate(point, point, "clockwise");
+      expect(result.x).toBeCloseTo(5);
+      expect(result.y).toBeCloseTo(5);
+    });
+  });
 });

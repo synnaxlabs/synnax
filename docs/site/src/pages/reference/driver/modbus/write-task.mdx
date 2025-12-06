@@ -111,12 +111,12 @@ control signals like relay states and valve positions.
 
 ```python
 import synnax as sy
-from synnax.hardware import modbus
+from synnax import modbus
 
 client = sy.Synnax()
 
 # Retrieve device
-dev = client.hardware.devices.retrieve(name="Modbus Server")
+dev = client.devices.retrieve(name="Modbus Server")
 
 # Create command time index
 modbus_cmd_time = client.channels.create(
@@ -159,7 +159,7 @@ task = modbus.WriteTask(
     ],
 )
 
-client.hardware.tasks.configure(task)
+client.tasks.configure(task)
 
 # Start task and send commands
 with task.run():
@@ -181,7 +181,7 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.hardware.tasks.retrieve(name="Modbus Write Task")
+task = client.tasks.retrieve(name="Modbus Write Task")
 task = modbus.WriteTask(internal=task)
 
 # Update task-level configuration
@@ -195,7 +195,7 @@ task.config.channels[1].address = 20
 task.config.channels[1].data_type = "uint16"
 
 # Apply changes
-client.hardware.tasks.configure(task)
+client.tasks.configure(task)
 ```
 
 </ExampleDetails>
@@ -212,7 +212,7 @@ import { Synnax, TimeStamp } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const dev = await client.hardware.devices.retrieve({ name: "Modbus Server" });
+const dev = await client.devices.retrieve({ name: "Modbus Server" });
 
 // Create command time index
 const modbusCmdTime = await client.channels.create({
@@ -239,7 +239,7 @@ const holdingRegCmd = await client.channels.create({
 });
 
 // Create and configure task
-const task = await client.hardware.tasks.create({
+const task = await client.tasks.create({
   name: "Modbus Write Task",
   type: "modbus_write",
   config: JSON.stringify({
@@ -286,7 +286,7 @@ await writer.close();
 
 ```typescript
 // Retrieve existing task
-const task = await client.hardware.tasks.retrieve({ name: "Modbus Write Task" });
+const task = await client.tasks.retrieve({ name: "Modbus Write Task" });
 
 // Parse and update configuration
 const config = JSON.parse(task.config);
@@ -302,7 +302,7 @@ config.channels[1].address = 20;
 config.channels[1].data_type = "uint16";
 
 // Apply changes
-await client.hardware.tasks.create({
+await client.tasks.create({
   key: task.key,
   name: task.name,
   type: task.type,

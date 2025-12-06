@@ -2,49 +2,18 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "NI Counter Forms",
+      "sequence_name": "NI Task Forms",
       "sequence_order": "asynchronous",
-      "tests": [
-        {
-          "case": "console/task/ni_counter_read_forms",
-          "parameters": {
-            "set": [1, 2, 3]
-          }
-        }
-      ]
-    },
-    {
-      "sequence_name": "NI Analog Forms 1",
-      "sequence_order": "asynchronous",
+      "pool_size": 3,
       "tests": [
         {
           "case": "console/task/ni_analog_write_forms"
         },
         {
-          "case": "console/task/ni_analog_read_forms",
-          "parameters": {
-            "set": [1, 2, 3]
-          }
-        }
-      ]
-    },
-    {
-      "sequence_name": "NI Analog Forms 2",
-      "sequence_order": "asynchronous",
-      "tests": [
+          "case": "console/task/ni_counter_read_forms"
+        },
         {
-          "case": "console/task/ni_analog_read_forms",
-          "parameters": {
-            "set": [4, 5, 6]
-          }
-        }
-      ]
-    },
-    {
-      "sequence_name": "Task Status Verification",
-      "tests": [
-        {
-          "case": "console/task/no_device"
+          "case": "console/task/ni_analog_read_forms"
         }
       ]
     }

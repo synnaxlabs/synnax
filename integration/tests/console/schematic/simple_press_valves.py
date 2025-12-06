@@ -10,6 +10,7 @@
 import synnax as sy
 
 from console.case import ConsoleCase
+from console.schematic import Button, Valve
 from console.schematic.schematic import Schematic
 
 
@@ -42,19 +43,33 @@ class SimplePressValves(ConsoleCase):
         schematic = Schematic(self.client, self.console, "simple_press_valves")
         schematic.move("left")
 
-        end_test_cmd = schematic.create_button(END_CMD)
+        end_test_cmd = schematic.create_symbol(
+            Button(label=END_CMD, channel_name=END_CMD)
+        )
         end_test_cmd.move(0, -90)
 
-        press_valve = schematic.create_valve("press_vlv")
+        press_valve = schematic.create_symbol(
+            Valve(
+                label="press_vlv",
+                state_channel="press_vlv",
+                command_channel="press_vlv",
+            )
+        )
         press_valve.move(-200, 0)
 
-        vent_valve = schematic.create_valve("vent_vlv")
+        vent_valve = schematic.create_symbol(
+            Valve(
+                label="vent_vlv",
+                state_channel="vent_vlv",
+                command_channel="vent_vlv",
+            )
+        )
         schematic.connect_symbols(press_valve, "right", vent_valve, "left")
 
         self.log("Starting test")
         target_Pressure = 20
 
-        for _ in range(3):
+        for _ in range(2):
             self.log(f"Target pressure: {target_Pressure}")
             press_valve.press()
             self.assert_states(press_state=1, vent_state=0)

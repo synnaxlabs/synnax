@@ -112,7 +112,7 @@ var (
 	// required fields specific in Config.
 	DefaultConfig = Config{
 		EnableSearch:         config.True(),
-		GorpCodec:            &binary.MsgPackCodec{},
+		GorpCodec:            binary.NewDecodeFallbackCodec(&binary.JSONCodec{}, &binary.MsgPackCodec{}),
 		EnableServiceSignals: config.True(),
 	}
 )
@@ -163,7 +163,7 @@ type Layer struct {
 	// Cluster provides information about the cluster topology. Nodes, keys, addresses, states, etc.
 	Cluster cluster.Cluster
 	// Channel is for creating, deleting, and retrieving channels across the cluster.
-	Channel channel.Service
+	Channel *channel.Service
 	// Framer is for reading, writing, and streaming frames of telemetry across the
 	// cluster.
 	Framer *framer.Service
@@ -266,7 +266,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 
-	if l.Channel, err = channel.New(ctx, channel.ServiceConfig{
+	if l.Channel, err = channel.NewService(ctx, channel.Config{
 		HostResolver: l.Cluster,
 		ClusterDB:    l.DB,
 		TSChannel:    cfg.Storage.TS,
@@ -282,9 +282,9 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 
-	if l.Framer, err = framer.Open(framer.Config{
+	if l.Framer, err = framer.OpenService(framer.Config{
 		Instrumentation: cfg.Child("framer"),
-		ChannelReader:   l.Channel,
+		Channel:         l.Channel,
 		TS:              cfg.Storage.TS,
 		Transport:       cfg.FrameTransport,
 		HostResolver:    l.Cluster,
@@ -345,7 +345,7 @@ func (l *Layer) configureControlUpdates(ctx context.Context) error {
 		DataType:    telem.StringT,
 		Internal:    true,
 	}
-	if err := l.Channel.Create(ctx, &controlCh, channel.RetrieveIfNameExists(true)); err != nil {
+	if err := l.Channel.Create(ctx, &controlCh, channel.RetrieveIfNameExists()); err != nil {
 		return err
 	}
 	return l.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), controlCh.Name)

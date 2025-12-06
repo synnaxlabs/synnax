@@ -150,6 +150,28 @@ func ReinterpretMapValues[K comparable, A, B types.Sized](in map[K]A) map[K]B {
 	return *(*map[K]B)(unsafe.Pointer(&in))
 }
 
+// ReinterpretMapKeys re-interprets a map's keys from one type to another while preserving
+// values of any type. A and B must have the same memory layout (e.g., uint32 -> type alias).
+//
+// IF YOU DON'T KNOW WHAT YOU'RE DOING, DON'T USE THIS.
+func ReinterpretMapKeys[A, B types.Sized, V any](in map[A]V) map[B]V {
+	if len(in) == 0 {
+		return nil
+	}
+	return *(*map[B]V)(unsafe.Pointer(&in))
+}
+
+// ReinterpretMapValues re-interprets a map's values from one type to another while preserving
+// keys of any comparable type. A and B must have the same memory layout (e.g., uint64 -> type alias).
+//
+// IF YOU DON'T KNOW WHAT YOU'RE DOING, DON'T USE THIS.
+func ReinterpretMapValues[K comparable, A, B types.Sized](in map[K]A) map[K]B {
+	if len(in) == 0 {
+		return nil
+	}
+	return *(*map[K]B)(unsafe.Pointer(&in))
+}
+
 // EncodePrimitive encodes a primitive value to a byte slice using little-endian
 // byte order for numeric types.
 func EncodePrimitive[K types.Primitive](value K) ([]byte, error) {

@@ -352,4 +352,130 @@ var _ = Describe("Stat", func() {
 			Expect(vals[0]).To(Equal(int64(50)))
 		})
 	})
+
+	Describe("Alignment Propagation", func() {
+		It("Should propagate alignment from input to output", func() {
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "input", Type: "input"},
+					{Key: "avg", Type: "avg"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "avg", Param: ir.DefaultInputParam},
+					},
+				},
+				Functions: []graph.Function{
+					{
+						Key: "input",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+					},
+				},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			inputNode := s.Node("input")
+			n := MustSucceed(stat.Factory.Create(ctx, node.Config{
+				Node:   ir.Node{Type: "avg"},
+				State:  s.Node("avg"),
+				Module: module.Module{IR: analyzed},
+			}))
+			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
+
+			inputSeries := telem.NewSeriesV(10.0, 20.0, 30.0)
+			inputSeries.Alignment = 250
+			inputSeries.TimeRange = telem.TimeRange{Start: 100 * telem.SecondTS, End: 300 * telem.SecondTS}
+			*inputNode.Output(0) = inputSeries
+			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(100, 200, 300)
+
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := *s.Node("avg").Output(0)
+			Expect(result.Alignment).To(Equal(telem.Alignment(250)))
+			Expect(result.TimeRange.Start).To(Equal(100 * telem.SecondTS))
+			Expect(result.TimeRange.End).To(Equal(300 * telem.SecondTS))
+
+			resultTime := *s.Node("avg").OutputTime(0)
+			Expect(resultTime.Alignment).To(Equal(telem.Alignment(250)))
+			Expect(resultTime.TimeRange.Start).To(Equal(100 * telem.SecondTS))
+			Expect(resultTime.TimeRange.End).To(Equal(300 * telem.SecondTS))
+		})
+
+		It("Should sum alignments when reset signal is connected", func() {
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "input", Type: "input"},
+					{Key: "reset", Type: "reset"},
+					{Key: "avg", Type: "avg"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "avg", Param: ir.DefaultInputParam},
+					},
+					{
+						Source: ir.Handle{Node: "reset", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "avg", Param: "reset"},
+					},
+				},
+				Functions: []graph.Function{
+					{
+						Key: "input",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+					},
+					{
+						Key: "reset",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+				},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			inputNode := s.Node("input")
+			resetNode := s.Node("reset")
+			n := MustSucceed(stat.Factory.Create(ctx, node.Config{
+				Node:   ir.Node{Key: "avg", Type: "avg"},
+				State:  s.Node("avg"),
+				Module: module.Module{IR: analyzed},
+			}))
+			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
+
+			inputSeries := telem.NewSeriesV[int64](10, 20, 30)
+			inputSeries.Alignment = 100
+			inputSeries.TimeRange = telem.TimeRange{Start: 50 * telem.SecondTS, End: 150 * telem.SecondTS}
+			*inputNode.Output(0) = inputSeries
+			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150)
+
+			resetSeries := telem.NewSeriesV[uint8](0)
+			resetSeries.Alignment = 75
+			resetSeries.TimeRange = telem.TimeRange{Start: 25 * telem.SecondTS, End: 175 * telem.SecondTS}
+			*resetNode.Output(0) = resetSeries
+			*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(25)
+
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := *s.Node("avg").Output(0)
+			Expect(result.Alignment).To(Equal(telem.Alignment(175))) // 100 + 75
+			Expect(result.TimeRange.Start).To(Equal(25 * telem.SecondTS))
+			Expect(result.TimeRange.End).To(Equal(175 * telem.SecondTS))
+
+			resultTime := *s.Node("avg").OutputTime(0)
+			Expect(resultTime.Alignment).To(Equal(telem.Alignment(175)))
+			Expect(resultTime.TimeRange.Start).To(Equal(25 * telem.SecondTS))
+			Expect(resultTime.TimeRange.End).To(Equal(175 * telem.SecondTS))
+		})
+	})
 })

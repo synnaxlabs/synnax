@@ -10,12 +10,6 @@
  */
 
 .pluto-diagram {
-    .pluto-diagram__controls {
-        position: absolute;
-        top: 2rem;
-        right: 2rem;
-        z-index: 4;
-    }
     .react-flow__selection,
     .react-flow__nodesselection-rect {
         background: var(--pluto-primary-z-10) !important;

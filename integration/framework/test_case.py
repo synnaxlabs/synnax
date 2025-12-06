@@ -711,7 +711,11 @@ class TestCase(ABC):
             self._manual_timeout = manual_timeout
             params["manual_timeout"] = manual_timeout
 
-        self.log(f"Configured with: {params}")
+        log_params = {
+            k: (f"{v.interval}" if isinstance(v, sy.Loop) else v)
+            for k, v in params.items()
+        }
+        self.log(f"Configured with: {log_params}")
 
     def is_client_running(self) -> bool:
         """Check if client threads are running."""
