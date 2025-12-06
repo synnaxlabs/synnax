@@ -10,6 +10,8 @@
 package rbac
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -41,14 +43,23 @@ func (c Config) Validate() error {
 
 type Service struct {
 	Config
+	entryManager *gorp.EntryManager[uuid.UUID, Policy]
 }
 
-func NewService(cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{Config: cfg}, nil
+	entryManager, err := gorp.OpenEntryManager[uuid.UUID, Policy](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{Config: cfg, entryManager: entryManager}, nil
+}
+
+func (s *Service) Close() error {
+	return s.entryManager.Close()
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

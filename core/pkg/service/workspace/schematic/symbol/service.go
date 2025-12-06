@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -66,8 +67,9 @@ func (c Config) Validate() error {
 // Service is the primary service for retrieving and modifying symbols from Synnax.
 type Service struct {
 	Config
-	signals io.Closer
-	group   group.Group
+	signals      io.Closer
+	group        group.Group
+	entryManager *gorp.EntryManager[uuid.UUID, Symbol]
 }
 
 // OpenService instantiates a new symbol service using the provided configurations. Each
@@ -78,7 +80,11 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg}
+	entryManager, err := gorp.OpenEntryManager[uuid.UUID, Symbol](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{Config: cfg, entryManager: entryManager}
 
 	// Create or retrieve the permanent symbols group
 	if cfg.Group != nil {
@@ -129,7 +135,7 @@ func (s *Service) Group() group.Group { return s.group }
 // Close closes the symbol service, shutting down signal publishers.
 func (s *Service) Close() error {
 	if s.signals != nil {
-		return s.signals.Close()
+		return errors.Combine(s.signals.Close(), s.entryManager.Close())
 	}
-	return nil
+	return s.entryManager.Close()
 }

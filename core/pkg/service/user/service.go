@@ -59,14 +59,19 @@ func (c Config) Validate() error {
 type Service struct {
 	// Config is the configuration for the service.
 	Config
-	group group.Group
+	group        group.Group
+	entryManager *gorp.EntryManager[uuid.UUID, User]
 }
 
 const groupName = "Users"
 
-// NewService opens a new Service with the given context ctx and configurations configs.
-func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
+// OpenService opens a new Service with the given context ctx and configurations configs.
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(defaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	entryManager, err := gorp.OpenEntryManager[uuid.UUID, User](ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -74,9 +79,13 @@ func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg, group: g}
+	s := &Service{Config: cfg, group: g, entryManager: entryManager}
 	cfg.Ontology.RegisterService(s)
 	return s, nil
+}
+
+func (s *Service) Close() error {
+	return s.entryManager.Close()
 }
 
 // NewWriter opens a new writer capable of creating, updating, and deleting Users. The

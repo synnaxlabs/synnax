@@ -155,10 +155,9 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		r = r.WhereKeys(keys...)
 	}
 	err := r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx))
-
-	entries := gorp.GetEntries[Key, Channel](r.gorp.Params).All()
-	channels, vErr := r.validateRetrievedChannels(entries)
-	gorp.SetEntries(r.gorp.Params, &channels)
+	entries := r.gorp.GetEntries()
+	channels, vErr := r.validateRetrievedChannels(entries.All())
+	r.gorp = r.gorp.Entries(&channels)
 	return errors.Combine(err, vErr)
 }
 

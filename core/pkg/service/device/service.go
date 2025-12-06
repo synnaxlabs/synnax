@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -90,6 +91,7 @@ type Service struct {
 	shutdownSignals               io.Closer
 	group                         group.Group
 	disconnectSuspectRackObserver observe.Disconnect
+	entryManager                  *gorp.EntryManager[string, Device]
 }
 
 // OpenService opens a new device service using the provided configuration. If error
@@ -100,11 +102,15 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	entryManager, err := gorp.OpenEntryManager[string, Device](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
 	g, err := cfg.Group.CreateOrRetrieve(ctx, "Devices", ontology.RootID)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, group: g}
+	s := &Service{cfg: cfg, group: g, entryManager: entryManager}
 	cfg.Ontology.RegisterService(s)
 	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
 	if cfg.Signals != nil {
@@ -123,9 +129,9 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 func (s *Service) Close() error {
 	s.disconnectSuspectRackObserver()
 	if s.shutdownSignals == nil {
-		return nil
+		return s.entryManager.Close()
 	}
-	return s.shutdownSignals.Close()
+	return errors.Combine(s.shutdownSignals.Close(), s.entryManager.Close())
 }
 
 // RootGroup returns the permanent group for devices. Note that racks will be children

@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
-	xkv "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 )
 
 var ErrLeaseNotTransferable = errors.New("[cesium] - cannot transfer leaseAlloc")
@@ -43,7 +43,7 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 			// we return an error.
 			return op, ErrLeaseNotTransferable
 		}
-	} else if errors.Is(err, xkv.NotFound) && op.Variant == change.Set {
+	} else if errors.Is(err, query.NotFound) && op.Variant == change.Set {
 		if op.Leaseholder == DefaultLeaseholder {
 			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder assigned,
 			// we assign the leaseAlloc to the cluster host.

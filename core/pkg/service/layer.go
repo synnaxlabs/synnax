@@ -147,19 +147,21 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		err = cleanup(err)
 	}()
 
-	if l.User, err = user.NewService(ctx, user.Config{
+	if l.User, err = user.OpenService(ctx, user.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.RBAC, err = rbac.NewService(rbac.Config{
+	if l.RBAC, err = rbac.OpenService(ctx, rbac.Config{
 		DB: cfg.Distribution.DB,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	l.Auth = &auth.KV{DB: cfg.Distribution.DB}
+	if l.Auth, err = auth.OpenKV(ctx, cfg.Distribution.DB); !ok(err, nil) {
+		return nil, err
+	}
 	if l.Token, err = token.NewService(token.ServiceConfig{
 		KeyProvider:      cfg.Security,
 		Expiration:       24 * time.Hour,
@@ -200,22 +202,22 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, l.Schematic) {
 		return nil, err
 	}
-	if l.LinePlot, err = lineplot.NewService(lineplot.Config{
+	if l.LinePlot, err = lineplot.OpenService(ctx, lineplot.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
-	}); !ok(err, nil) {
+	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}
-	if l.Log, err = log.NewService(log.Config{
+	if l.Log, err = log.OpenService(ctx, log.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
-	}); !ok(err, nil) {
+	}); !ok(err, l.Log) {
 		return nil, err
 	}
-	if l.Table, err = table.NewService(table.Config{
+	if l.Table, err = table.OpenService(ctx, table.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
-	}); !ok(err, nil) {
+	}); !ok(err, l.Table) {
 		return nil, err
 	}
 	if l.Status, err = status.OpenService(

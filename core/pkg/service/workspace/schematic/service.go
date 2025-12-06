@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/symbol"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -66,7 +67,8 @@ func (c Config) Validate() error {
 // Service is the primary service for retrieving and modifying schematics from Synnax.
 type Service struct {
 	Config
-	Symbol *symbol.Service
+	Symbol       *symbol.Service
+	entryManager *gorp.EntryManager[uuid.UUID, Schematic]
 }
 
 // OpenService instantiates a new schematic service using the provided configurations.
@@ -77,7 +79,11 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg}
+	entryManager, err := gorp.OpenEntryManager[uuid.UUID, Schematic](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{Config: cfg, entryManager: entryManager}
 	cfg.Ontology.RegisterService(s)
 
 	if s.Symbol, err = symbol.OpenService(ctx, symbol.Config{
@@ -94,7 +100,9 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 
 // Close closes the schematic service and releases any resources that it may have
 // acquired.
-func (s *Service) Close() error { return s.Symbol.Close() }
+func (s *Service) Close() error {
+	return errors.Combine(s.Symbol.Close(), s.entryManager.Close())
+}
 
 // NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer

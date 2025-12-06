@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xiter "github.com/synnaxlabs/x/iter"
 	xkv "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 	"go.uber.org/zap"
 )
 
@@ -107,7 +108,7 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 		op := dig.Operation()
 		if op.Variant == change.Set {
 			v, closer, err := b.Get(ctx, dig.Key)
-			if errors.Is(err, xkv.NotFound) {
+			if errors.Is(err, query.NotFound) {
 				zap.S().Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
 				continue
 			}

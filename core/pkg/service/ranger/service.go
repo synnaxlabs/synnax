@@ -85,6 +85,9 @@ func (c Config) Override(other Config) Config {
 type Service struct {
 	Config
 	shutdownSignals io.Closer
+	rangeManager    *gorp.EntryManager[uuid.UUID, Range]
+	kvPairManager   *gorp.EntryManager[string, KVPair]
+	aliasManager    *gorp.EntryManager[string, Alias]
 }
 
 // OpenService opens a new ranger.Service with the provided configuration. If error is
@@ -95,7 +98,24 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg}
+	rangeManager, err := gorp.OpenEntryManager[uuid.UUID, Range](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	kvPairManager, err := gorp.OpenEntryManager[string, KVPair](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	aliasManager, err := gorp.OpenEntryManager[string, Alias](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{
+		Config:       cfg,
+		rangeManager: rangeManager,
+		kvPairManager: kvPairManager,
+		aliasManager:  aliasManager,
+	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Ontology.RegisterService(&aliasOntologyService{db: cfg.DB})
 	if err := s.migrate(ctx); err != nil {
@@ -134,10 +154,11 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 // is not safe to call concurrently with any other Service methods (including Writer(s)
 // and Retrieve(s)).
 func (s *Service) Close() error {
+	c := xio.MultiCloser{s.rangeManager, s.kvPairManager, s.aliasManager}
 	if s.shutdownSignals != nil {
-		return s.shutdownSignals.Close()
+		c = append(c, s.shutdownSignals)
 	}
-	return nil
+	return c.Close()
 }
 
 // NewWriter opens a new Writer to create, update, and delete ranges. If tx is not nil,

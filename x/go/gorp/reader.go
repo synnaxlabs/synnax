@@ -176,10 +176,10 @@ type TxReader[K Key, E Entry[K]] = iter.Seq[change.Change[K, E]]
 func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {
 	return func(yield func(change.Change[K, E]) bool) {
 		var (
+			ctx    = context.TODO()
 			kCodec = newKeyCodec[K, E]()
 			op     change.Change[K, E]
 			err    error
-			ctx    = context.TODO()
 		)
 		for kvChange := range reader {
 			if !bytes.HasPrefix(kvChange.Key, kCodec.prefix) {
