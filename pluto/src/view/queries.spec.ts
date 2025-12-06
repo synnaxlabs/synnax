@@ -163,7 +163,7 @@ describe("View queries", () => {
       );
     });
   });
-  describe.only("useForm", () => {
+  describe("useForm", () => {
     it("should create a new view", async () => {
       const { result } = renderHook(() => View.useForm({ query: {} }), { wrapper });
       act(() => {
