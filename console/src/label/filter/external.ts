@@ -9,4 +9,3 @@
 
 export * from "@/label/filter/Chips";
 export * from "@/label/filter/MenuItem";
-export * from "@/label/filter/types";

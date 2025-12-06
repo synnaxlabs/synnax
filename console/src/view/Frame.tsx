@@ -64,7 +64,7 @@ export const Frame = <
   const [editable, setEditable] = useState(true);
   const { fetchMore, search } = List.usePager({
     // type assertion here to deal with the weird setter<Q, Partial<Q>> type that causes
-    // typing issues that shouldn't happen.
+    // typing issues.
     retrieve: retrieve as List.UsePagerArgs["retrieve"],
   });
   const { form } = PView.useForm({
@@ -77,8 +77,8 @@ export const Frame = <
     autoSave: true,
     beforeSave: async ({ value }) => {
       const { key, query } = value();
-      // type assertion because we the current implementation of the query client
-
+      // type assertion because the current implementation of the query client doesn't
+      // support custom typing yet.
       retrieve((p) => {
         const nextQuery = { ...p, ...(query as Q), offset: 0, limit: 25 };
         return nextQuery;

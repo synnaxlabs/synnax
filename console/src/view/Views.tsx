@@ -126,12 +126,7 @@ const ViewItem = ({
   if (query.variant !== "success") return null;
   return (
     <Flex.Box pack onContextMenu={onContextMenu}>
-      <Select.Button
-        itemKey={itemKey}
-        size="small"
-        justify="between"
-        selectOnContextMenu={false}
-      >
+      <Select.Button itemKey={itemKey} size="small" justify="between">
         <Text.MaybeEditable
           id={`text-${itemKey}`}
           value={query.data.name}
