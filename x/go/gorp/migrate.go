@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 )
 
 var ErrMigrationCountExceeded = errors.Newf(
@@ -70,7 +70,7 @@ func (r Migrator) Run(ctx context.Context, db *DB) error {
 		var currentVersion uint8
 		if !r.Force {
 			versionBytes, closer, err := tx.Get(ctx, []byte(r.Key))
-			if err := errors.Skip(err, kv.NotFound); err != nil {
+			if err := errors.Skip(err, query.NotFound); err != nil {
 				return err
 			}
 			if closer != nil {

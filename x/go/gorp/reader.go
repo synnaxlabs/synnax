@@ -52,13 +52,9 @@ func WrapReader[K Key, E Entry[K]](base BaseReader) *Reader[K, E] {
 // Get retrieves a single entry from the database. If the entry does not exist,
 // query.NotFound is returned.
 func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
-	bKey, err := r.keyCodec.encode(key)
+	b, closer, err := r.BaseReader.Get(ctx, r.keyCodec.encode(key))
 	if err != nil {
 		return e, err
-	}
-	b, closer, err := r.BaseReader.Get(ctx, bKey)
-	if err != nil {
-		return e, lo.Ternary(errors.Is(err, kv.NotFound), query.NotFound, err)
 	}
 	err = r.Decode(ctx, b, &e)
 	return e, errors.Combine(err, closer.Close())
@@ -178,20 +174,18 @@ type TxReader[K Key, E Entry[K]] = iter.Seq[change.Change[K, E]]
 //	    // process op
 //	}
 func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {
-	keyCodec := newKeyCodec[K, E]()
 	return func(yield func(change.Change[K, E]) bool) {
 		var (
-			op  change.Change[K, E]
-			err error
-			ctx = context.TODO()
+			kCodec = newKeyCodec[K, E]()
+			op     change.Change[K, E]
+			err    error
+			ctx    = context.TODO()
 		)
 		for kvChange := range reader {
-			if !bytes.HasPrefix(kvChange.Key, keyCodec.prefix) {
+			if !bytes.HasPrefix(kvChange.Key, kCodec.prefix) {
 				continue
 			}
-			if op.Key, err = keyCodec.decode(kvChange.Key); err != nil {
-				panic(err)
-			}
+			op.Key = kCodec.decode(kvChange.Key)
 			op.Variant = kvChange.Variant
 			if op.Variant == change.Set {
 				// Panicking in development here right now. Don't want to extend the

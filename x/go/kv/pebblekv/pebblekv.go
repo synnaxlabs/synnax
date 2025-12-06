@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/query"
 	"go.uber.org/zap"
 )
 
@@ -277,7 +278,7 @@ func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
 
 func translateError(err error) error {
 	if errors.Is(err, pebble.ErrNotFound) {
-		return kv.NotFound
+		return query.NotFound
 	}
 	return err
 }

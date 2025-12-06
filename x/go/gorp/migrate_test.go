@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -166,7 +166,7 @@ var _ = Describe("Gorp", func() {
 
 				// No version key should be set
 				Expect(db.Get(ctx, []byte("test_migration_version_5"))).Error().
-					To(MatchError(kv.NotFound))
+					To(MatchError(query.NotFound))
 			})
 		})
 
@@ -191,7 +191,7 @@ var _ = Describe("Gorp", func() {
 
 				// Version should not be updated
 				Expect(db.Get(ctx, []byte("test_migration_version_6"))).Error().
-					To(MatchError(kv.NotFound))
+					To(MatchError(query.NotFound))
 			})
 
 			It("Should fail when migration count exceeds 255", func() {
@@ -249,7 +249,7 @@ var _ = Describe("Gorp", func() {
 
 				// Version should be undefined because the transaction was rolled back
 				Expect(db.Get(ctx, []byte("test_migration_version_8"))).Error().
-					To(MatchError(kv.NotFound))
+					To(MatchError(query.NotFound))
 			})
 		})
 
@@ -337,7 +337,7 @@ var _ = Describe("Gorp", func() {
 							Migrate: func(ctx context.Context, tx gorp.Tx) error {
 								// Version should be undefined before the migration
 								Expect(tx.Get(ctx, []byte("test_migration_version_12"))).
-									Error().To(MatchError(kv.NotFound))
+									Error().To(MatchError(query.NotFound))
 								return nil
 							},
 						},
@@ -404,11 +404,11 @@ var _ = Describe("Gorp", func() {
 
 				// Data from first migration should be rolled back
 				Expect(db.Get(ctx, []byte("test_key"))).Error().
-					To(MatchError(kv.NotFound))
+					To(MatchError(query.NotFound))
 
 				// Version should not be set
 				Expect(db.Get(ctx, []byte("test_migration_version_13"))).Error().
-					To(MatchError(kv.NotFound))
+					To(MatchError(query.NotFound))
 			})
 
 			It("Should commit all changes when all migrations succeed", func() {

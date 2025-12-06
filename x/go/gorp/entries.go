@@ -178,14 +178,11 @@ func newKeyCodec[K Key, E Entry[K]]() keyCodec[K, E] {
 	return keyCodec[K, E]{prefix: []byte(types.Name[E]())}
 }
 
-func (k keyCodec[K, E]) encode(key K) ([]byte, error) {
-	byteKey, err := xunsafe.EncodePrimitive(key)
-	if err != nil {
-		return nil, err
-	}
-	return append(k.prefix, byteKey...), nil
+func (k keyCodec[K, E]) encode(key K) []byte {
+	byteKey := xunsafe.EncodePrimitive(key)
+	return append(k.prefix, byteKey...)
 }
 
-func (k keyCodec[K, E]) decode(b []byte) (K, error) {
+func (k keyCodec[K, E]) decode(b []byte) K {
 	return xunsafe.DecodePrimitive[K](b[len(k.prefix):])
 }

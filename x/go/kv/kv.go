@@ -26,9 +26,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 )
 
-// NotFound is returned when a key is not found in the DB.
-var NotFound = errors.New("[kv] - not found")
-
 // Reader is a readable key-value store.
 type Reader interface {
 	// Get returns the value for the given key.

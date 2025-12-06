@@ -41,7 +41,7 @@ var _ = Describe("Tx", Ordered, func() {
 				return err
 			})).To(MatchError(err))
 			_, _, err = db.Get(ctx, k)
-			Expect(err).To(MatchError(kv.NotFound))
+			Expect(err).To(MatchError(query.NotFound))
 		})
 	})
 })

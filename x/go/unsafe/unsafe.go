@@ -152,31 +152,31 @@ func ReinterpretMapValues[K comparable, A, B types.Sized](in map[K]A) map[K]B {
 
 // EncodePrimitive encodes a primitive value to a byte slice using little-endian
 // byte order for numeric types.
-func EncodePrimitive[K types.Primitive](value K) ([]byte, error) {
+func EncodePrimitive[K types.Primitive](value K) []byte {
 	switch v := any(value).(type) {
 	case string:
-		return []byte(v), nil
+		return []byte(v)
 	case []byte:
-		return v, nil
+		return v
 	default:
 		// All remaining Primitive types are fixed-size numerics
 		size := int(unsafe.Sizeof(value))
 		out := make([]byte, size)
 		copy(out, unsafe.Slice((*byte)(unsafe.Pointer(&value)), size))
-		return out, nil
+		return out
 	}
 }
 
 // DecodePrimitive decodes a byte slice into a primitive value using little-endian
 // byte order for numeric types.
-func DecodePrimitive[K types.Primitive](data []byte) (K, error) {
+func DecodePrimitive[K types.Primitive](data []byte) K {
 	var zero K
 	switch any(zero).(type) {
 	case string:
-		return any(string(data)).(K), nil
+		return any(string(data)).(K)
 	case []byte:
-		return any(data).(K), nil
+		return any(data).(K)
 	default:
-		return *(*K)(unsafe.Pointer(&data[0])), nil
+		return *(*K)(unsafe.Pointer(&data[0]))
 	}
 }
