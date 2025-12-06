@@ -7,11 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
 from typing import Any, Literal
 
 import synnax as sy
 
 from .console import Console
+from .context_menu import ContextMenu
 from .page import ConsolePage
 
 Axis = Literal["Y1", "Y2", "X1"]
@@ -163,3 +165,52 @@ class Plot(ConsolePage):
 
         selector = f"label:has-text('Label Size') + div button:has-text('{size}')"
         self.page.locator(selector).click(timeout=5000)
+
+    # -------------------------------------------------------------------------
+    # Tab-based operations
+    # -------------------------------------------------------------------------
+
+    def _get_tab(self):
+        """Get the tab locator for this plot."""
+        return self.page.locator("div").filter(
+            has_text=re.compile(f"^{re.escape(self.page_name)}$")
+        ).first
+
+    def rename(self, new_name: str) -> None:
+        """Rename the plot by double-clicking the tab name.
+
+        Args:
+            new_name: The new name for the plot
+        """
+        tab = self._get_tab()
+        tab.dblclick()
+        self.page.wait_for_timeout(100)
+
+        # Find and fill the editable text
+        editable = self.page.get_by_text(self.page_name).first
+        editable.fill(new_name)
+        self.page.keyboard.press("Enter")
+        self.page.wait_for_timeout(200)
+
+        # Update the stored page name
+        self.page_name = new_name
+
+    def copy_link(self) -> str:
+        """Copy link to the plot via tab context menu.
+
+        Returns:
+            The copied link from clipboard (empty string if clipboard access fails)
+        """
+        tab = self._get_tab()
+        menu = ContextMenu(self.page)
+        menu.open_on(tab)
+        menu.click_option("Copy Link")
+        self.page.wait_for_timeout(200)
+
+        # Try to get the link from clipboard
+        try:
+            link = self.page.evaluate("navigator.clipboard.readText()")
+            return link
+        except Exception:
+            # If clipboard access fails, return empty string
+            return ""

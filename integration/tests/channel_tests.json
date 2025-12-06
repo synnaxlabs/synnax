@@ -1,0 +1,14 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "Channel_Operations",
+      "sequence_order": "sequential",
+      "tests": [
+        {
+          "case": "console/channel/channel_operations"
+        }
+      ]
+    }
+  ]
+}

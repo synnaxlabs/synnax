@@ -1,0 +1,12 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "LinePlot_Operations",
+      "sequence_order": "sequential",
+      "tests": [
+        {"case": "console/lineplot/plot_context_menu"}
+      ]
+    }
+  ]
+}

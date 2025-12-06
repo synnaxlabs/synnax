@@ -1,0 +1,13 @@
+{
+  "sequences": [
+    {
+      "sequence_name": "label_lifecycle",
+      "sequence_order": "sequential",
+      "tests": [
+        {
+          "case": "console/label/label_lifecycle"
+        }
+      ]
+    }
+  ]
+}

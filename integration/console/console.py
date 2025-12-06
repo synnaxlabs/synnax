@@ -20,6 +20,8 @@ import synnax as sy
 from playwright.sync_api import Locator, Page
 
 from .channels import ChannelClient
+from .labels import LabelClient
+from .layout import LayoutClient
 
 # Define literal types for page creation
 PageType = Literal[
@@ -50,12 +52,16 @@ class Console:
     """
 
     channels: ChannelClient
+    labels: LabelClient
+    layout: LayoutClient
     page: Page
 
     def __init__(self, page: Page):
         # Playwright
         self.page = page
         self.channels = ChannelClient(page, self)
+        self.labels = LabelClient(page, self)
+        self.layout = LayoutClient(page, self)
 
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette"""

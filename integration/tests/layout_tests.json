@@ -1,0 +1,17 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "Layout_Tests",
+      "sequence_order": "sequential",
+      "tests": [
+        {
+          "case": "console/layout/mosaic_operations"
+        },
+        {
+          "case": "console/layout/keyboard_shortcuts"
+        }
+      ]
+    }
+  ]
+}
