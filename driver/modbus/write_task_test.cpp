@@ -68,6 +68,7 @@ protected:
     }
 };
 
+/// @brief it should write coil and register values to Modbus device.
 TEST_F(ModbusWriteTest, testBasicWrite) {
     this->setup_task_config();
     modbus::mock::SlaveConfig slave_cfg;
@@ -126,6 +127,7 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
     wt->stop("stop_cmd", true);
 }
 
+/// @brief it should write multiple data types to holding registers.
 TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     this->setup_task_config();
     modbus::mock::SlaveConfig slave_cfg;
@@ -228,6 +230,7 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     wt->stop("stop_cmd", true);
 }
 
+/// @brief it should return validation errors for invalid configurations.
 TEST_F(ModbusWriteTest, testInvalidWriteConfiguration) {
     this->setup_task_config();
 
@@ -266,6 +269,7 @@ TEST_F(ModbusWriteTest, testInvalidWriteConfiguration) {
     ASSERT_OCCURRED_AS(p4.error(), xerrors::VALIDATION);
 }
 
+/// @brief it should handle concurrent writes to multiple channels.
 TEST_F(ModbusWriteTest, testConcurrentWrites) {
     this->setup_task_config();
     modbus::mock::SlaveConfig slave_cfg;
@@ -351,6 +355,7 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
     wt->stop("stop_cmd", true);
 }
 
+/// @brief it should verify written values match expected values.
 TEST_F(ModbusWriteTest, testWriteVerification) {
     this->setup_task_config();
     modbus::mock::SlaveConfig slave_cfg;

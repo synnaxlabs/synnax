@@ -17,6 +17,7 @@
 
 #include "driver/labjack/read_task.h"
 
+/// @brief it should parse analog input channel configuration.
 TEST(TestInputChannelParse, testAIChan) {
     const json cfg{
         {"port", "AIN0"},
@@ -38,6 +39,7 @@ TEST(TestInputChannelParse, testAIChan) {
     ASSERT_EQ(ai_chan->range, 5);
 }
 
+/// @brief it should parse digital input channel configuration.
 TEST(TestInputChannelParse, testDIChan) {
     const json cfg{
         {"port", "DIO0"},
@@ -56,6 +58,7 @@ TEST(TestInputChannelParse, testDIChan) {
     ASSERT_EQ(di_chan->synnax_key, 1);
 }
 
+/// @brief it should parse thermocouple channel configuration.
 TEST(TestInputChannelParse, testTCChan) {
     const json cfg{
         {"port", "AIN0"},
@@ -90,6 +93,7 @@ TEST(TestInputChannelParse, testTCChan) {
     ASSERT_EQ(tc_chan->cjc_offset, 0);
 }
 
+/// @brief it should reject invalid channel type in configuration.
 TEST(TestInputChannelParse, testInvalidChannelType) {
     const json cfg{
         {"port", "AIN0"},
@@ -143,6 +147,7 @@ json basic_read_task_config() {
     };
 }
 
+/// @brief it should parse basic read task configuration with multiple channels.
 TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
@@ -217,6 +222,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(ai_chan->range, 0);
 }
 
+/// @brief it should reject invalid channel type in read task configuration.
 TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
@@ -255,9 +261,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }
 
-/// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
-/// This prevents data from being written but not committed, making it unavailable for
-/// reads.
+/// @brief it should enable auto commit in writer config for data availability.
 TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));

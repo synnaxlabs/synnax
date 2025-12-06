@@ -419,7 +419,7 @@ TEST(ScaleTests, TransformInplaceUsage) {
     ASSERT_EQ(frame.at<float>(3, 1), 2.5f);
 }
 
-// @brief it should correctly tare channels with different data types.
+/// @brief it should correctly tare channels with different data types.
 TEST_F(TareTests, TareWithDifferentDataTypes) {
     std::vector<synnax::Channel> channels;
 
