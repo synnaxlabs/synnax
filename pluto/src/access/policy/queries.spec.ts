@@ -77,7 +77,7 @@ describe("queries", () => {
       const newPolicy = await client.access.policies.create({
         name: "newPolicy",
         objects: [{ type: "channel", key: "new" }],
-        actions: ["*"],
+        actions: ["all"],
       });
 
       await waitFor(() => {
