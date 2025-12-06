@@ -25,9 +25,9 @@ import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { LoginNav } from "@/auth/LoginNav";
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
+import { Layout } from "@/layout";
 import { Version } from "@/version";
 
 const SIGN_IN_TRIGGER: Triggers.Trigger = ["Enter"];
@@ -107,7 +107,7 @@ export const Login = (): ReactElement => {
 
   return (
     <Flex.Box y empty className={CSS.B("login")}>
-      <LoginNav />
+      <Layout.Nav.Simple />
       <Flex.Box
         y
         align="center"

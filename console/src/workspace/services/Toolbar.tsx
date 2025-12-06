@@ -7,21 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Workspace } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { workspace } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/pluto";
+import { type ReactElement, useMemo } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";
 import { Layout } from "@/layout";
+import { createSelectorLayout } from "@/layouts/Selector";
 import { Ontology } from "@/ontology";
+import { Workspace } from "@/workspace";
 import { CREATE_LAYOUT } from "@/workspace/Create";
 
 const Content = (): ReactElement => {
-  const { data: groupID } = Workspace.useRetrieveGroupID({});
+  const ws = Workspace.useSelectActive();
   const placeLayout = Layout.usePlacer();
+  const groupID = useMemo(() => workspace.ontologyID(ws?.key ?? ""), [ws?.key]);
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
-        <Toolbar.Title icon={<Icon.Workspace />}>Workspaces</Toolbar.Title>
+        <Toolbar.Title icon={<Icon.Workspace />}>Workspace</Toolbar.Title>
         <Toolbar.Actions>
           <Toolbar.Action onClick={() => placeLayout(CREATE_LAYOUT)}>
             <Icon.Add />
@@ -35,12 +39,11 @@ const Content = (): ReactElement => {
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const handleClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction
-      message="No workspaces found."
-      action="Create a workspace"
-      onClick={handleClick}
+      message="No components in workspace."
+      action="Create a component"
+      onClick={() => placeLayout(createSelectorLayout({}))}
     />
   );
 };
