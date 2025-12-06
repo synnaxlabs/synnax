@@ -9,13 +9,18 @@
 
 import "@/layouts/nav/Nav.css";
 
-import { CSS as PCSS, Menu as PMenu } from "@synnaxlabs/pluto";
+import { useSelectWindowKey } from "@synnaxlabs/drift/react";
+import { CSS as PCSS, Menu as PMenu, Triggers, useSyncedRef } from "@synnaxlabs/pluto";
 import { xy } from "@synnaxlabs/x";
-import { type ReactElement, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { selectActiveMosaicTabState } from "@/layout/selectors";
+import { setNavDrawerVisible, toggleNavHover } from "@/layout/slice";
 import { DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
+import { type RootState } from "@/store";
 
 interface MenuItemProps {
   item: Layout.NavMenuItem;
@@ -32,11 +37,46 @@ const MenuItem = ({
 }: MenuItemProps): ReactElement | null => {
   const positionRef = useRef<xy.XY>({ ...xy.ZERO });
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const dispatch = useDispatch();
+  const store = useStore<RootState>();
+  const windowKey = useSelectWindowKey();
 
   const isVisible = item.useVisible?.() ?? true;
-  if (!isVisible) return null;
+  const isVisibleRef = useSyncedRef(isVisible);
 
   const { key, icon, trigger } = item;
+
+  // Build triggers regardless of visibility: single press + double press.
+  const triggers = useMemo(() => {
+    if (!trigger?.length) return [];
+    return [trigger, [trigger[0], trigger[0]]];
+  }, [trigger]);
+
+  Triggers.use({
+    triggers,
+    loose: false,
+    callback: useCallback(
+      (e: Triggers.UseEvent) => {
+        if (
+          !isVisibleRef.current ||
+          e.stage !== "start" ||
+          windowKey == null ||
+          (e.prevTriggers.length > 0 && e.prevTriggers[0].length > 1)
+        )
+          return;
+        const state = store.getState();
+        const { blurred } = selectActiveMosaicTabState(state, windowKey);
+        if (blurred) return;
+
+        const isDouble = e.triggers.some((t) => t.length === 2);
+        if (isDouble) dispatch(setNavDrawerVisible({ windowKey, key, value: true }));
+        else dispatch(toggleNavHover({ windowKey, key }));
+      },
+      [dispatch, windowKey, key, store, isVisibleRef],
+    ),
+  });
+
+  if (!isVisible) return null;
 
   return (
     <PMenu.Item

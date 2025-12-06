@@ -62,7 +62,6 @@ const SideEffect = (): null => {
   Status.useListenForChanges();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
-  Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });
   Layout.useDropOutside();
   return null;
 };

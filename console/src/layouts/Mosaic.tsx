@@ -49,7 +49,6 @@ import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
 import { Runtime } from "@/runtime";
 import { type RootState, type RootStore } from "@/store";
-import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
@@ -342,15 +341,12 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   );
 };
 
-const NAV_ITEMS = [Vis.TOOLBAR];
-
 const NavTop = (): ReactElement | null => {
   const os = OS.use();
   const isWindowsOS = os === "Windows";
   const { onSelect } = Layout.useNavDrawer("bottom", Nav.DRAWER_ITEMS);
   const activeName = Layout.useSelectActiveMosaicTabName();
   const activeWorkspaceName = Workspace.useSelectActiveName();
-  Layout.Nav.useTriggers({ items: NAV_ITEMS });
   const button = (
     <Button.Button
       variant="outlined"
