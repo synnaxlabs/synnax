@@ -18,11 +18,13 @@ import {
   Dialog,
   Eraser,
   Flex,
+  Flux,
   Icon,
   Menu as PMenu,
   Mosaic as Core,
   Nav as PNav,
   OS,
+  type Pluto,
   Portal,
   Status,
   Synnax,
@@ -42,31 +44,34 @@ import { FILE_INGESTORS } from "@/ingestors";
 import { Layout } from "@/layout";
 import { Controls } from "@/layout/Controls";
 import { Nav } from "@/layouts/nav";
-import { createSelectorLayout } from "@/layouts/Selector";
+import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
 import { Runtime } from "@/runtime";
 import { type RootState, type RootStore } from "@/store";
-import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 import { WorkspaceServices } from "@/workspace/services";
 
-const EmptyContent = (): ReactElement => (
-  <Eraser.Eraser>
-    <Flex.Box gap={5} center>
-      <Logo className="synnax-logo-watermark" />
-      <Flex.Box x gap="small">
-        <Text.Text level="h5" weight={450} color={9}>
-          New Component
-        </Text.Text>
-        <Flex.Box x empty>
-          <Triggers.Text level="h5" trigger={["Control", "T"]} />
-        </Flex.Box>
+const EmptyContent = (): ReactElement => {
+  const createComponentEnabled = useSelectorVisible();
+  return (
+    <Eraser.Eraser>
+      <Flex.Box gap={5} center>
+        <Logo className="synnax-logo-watermark" />
+        {createComponentEnabled && (
+          <Flex.Box x gap="small">
+            <Text.Text level="h5" weight={450} color={9}>
+              New Component
+            </Text.Text>
+            <Flex.Box x empty>
+              <Triggers.Text level="h5" trigger={["Control", "T"]} />
+            </Flex.Box>
+          </Flex.Box>
+        )}
       </Flex.Box>
-    </Flex.Box>
-  </Eraser.Eraser>
-);
-
+    </Eraser.Eraser>
+  );
+};
 export const MOSAIC_LAYOUT_TYPE = "mosaic";
 
 const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
@@ -192,7 +197,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const dispatch = useDispatch();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location, index?: number): void => {
       if (windowKey == null) return;
@@ -205,6 +210,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
 
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
+      console.log("handleCreate", mosaicKey, location, tabKeys);
       if (tabKeys == null) {
         placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
         return;
@@ -271,6 +277,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
               layout: { tab: { mosaicKey: nodeKey, location: loc } },
               placeLayout,
               store,
+              fluxStore,
             });
           } catch (e) {
             handleError(e, `Failed to read ${item.getAsFile()?.name ?? "file"}`);
@@ -278,7 +285,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         }),
       );
     },
-    [client, placeLayout, store],
+    [client, placeLayout, store, fluxStore],
   );
 
   // Creates a wrapper around the general purpose layout content to create a set of
@@ -304,6 +311,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     ),
     [],
   );
+  const selectorVisible = useSelectorVisible();
 
   return (
     <>
@@ -321,7 +329,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         onResize={handleResize}
         emptyContent={<EmptyContent />}
         onRename={handleRename}
-        onCreate={handleCreate}
+        onCreate={selectorVisible ? handleCreate : undefined}
         activeTab={activeTab.layoutKey ?? undefined}
         onFileDrop={handleFileDrop}
         addTooltip="Create Component"
@@ -333,15 +341,12 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   );
 };
 
-const NAV_ITEMS = [Vis.TOOLBAR];
-
 const NavTop = (): ReactElement | null => {
   const os = OS.use();
   const isWindowsOS = os === "Windows";
   const { onSelect } = Layout.useNavDrawer("bottom", Nav.DRAWER_ITEMS);
   const activeName = Layout.useSelectActiveMosaicTabName();
   const activeWorkspaceName = Workspace.useSelectActiveName();
-  Layout.Nav.useTriggers({ items: NAV_ITEMS });
   const button = (
     <Button.Button
       variant="outlined"

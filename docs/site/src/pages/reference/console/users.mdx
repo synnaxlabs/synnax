@@ -12,9 +12,11 @@ import { Video } from "@/components/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-If you are managing large teams in Synnax, you can register different user accounts.
-Each user can have different permissions, allowing you to block permissions for certain
-actions, such as editing schematics or registering users.
+Synnax uses role-based access control (RBAC) to manage what actions different team
+members can perform. Each user is assigned a role, and the role determines what
+resources the user can view, edit, or delete. This approach makes it easy to manage
+permissions for large teams by assigning users to predefined roles rather than
+configuring individual permissions.
 
 <Divider.Divider x />
 
@@ -31,22 +33,41 @@ top of the Console. The palette can be opened by pressing <Icon.Keyboard.Control
 
 <Video client:only="react" id="console/users/register" />
 
-Afterwards, users can log in to Synnax using the username and password that was
-registered for them.
+During registration, you can select a role for the new user. The role determines what
+permissions the user will have in the system. Afterwards, users can log in to Synnax
+using the username and password that was registered for them.
 
 <Divider.Divider x />
 
-## Editing Permissions
+## Built-In Roles
 
-To change a user's permissions, find the user's username in the Users Toolbar on the
-left-hand side of the screen. Right-click the user and select "Edit Permissions".
+Synnax provides four built-in roles that cover common access patterns. These roles
+cannot be deleted or renamed, ensuring a consistent permission structure across your
+deployment.
 
-<Video client:only="react" id="console/users/permissions" />
+| Role         | Description                                                               | Key Capabilities                                                                                                         |
+| ------------ | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Owner**    | Full control of deployment, including user registration and security      | All actions on all resources; user management; security settings                                                         |
+| **Engineer** | Full access to system configuration except user management                | Create/edit channels, workspaces, schematics, line plots, tasks, devices, ranges, tables, Arc code; view users and roles |
+| **Operator** | View workspaces and visualizations; control hardware and data acquisition | Control hardware tasks; edit ranges and framers; view all resources; cannot modify system configuration                  |
+| **Viewer**   | Read-only access to all resources                                         | View all resources; no edit or delete capabilities                                                                       |
 
-You can give users the following permissions:
+<Divider.Divider x />
 
-- **Admin**: Admin users can manage other users, including registering users and setting
-  permissions for them.
-- **Schematics Edit**: Users with this permission can create and edit schematics. If a
-  user does not have this permission, they will be able to control symbols on the
-  schematic, but will not be able to add symbols or change the schematic layout.
+## Assigning Roles
+
+To change a user's role, find the user's username in the Users Toolbar on the left-hand
+side of the screen. Right-click the user and select "Assign to role". This opens a
+dialog where you can select a role from a dropdown and click "Assign" to save the
+change.
+
+<Video client:only="react" id="console/users/modal-change-role" />
+
+You can also assign roles by dragging a user onto the desired role in the resource tree.
+This provides a quick way to reassign multiple users to different roles.
+
+<Video client:only="react" id="console/users/drag-change-role" />
+
+There are some restrictions on role assignment. Root users cannot have their roles
+changed, which ensures the system always has at least one administrator. Additionally,
+users cannot change their own roles, preventing accidental privilege changes.

@@ -19,6 +19,7 @@ from typing import Any, Literal
 import synnax as sy
 from playwright.sync_api import Locator, Page
 
+from .access import AccessClient
 from .channels import ChannelClient
 
 # Define literal types for page creation
@@ -49,12 +50,14 @@ class Console:
     and element clicking helpers.
     """
 
+    access: AccessClient
     channels: ChannelClient
     page: Page
 
     def __init__(self, page: Page):
         # Playwright
         self.page = page
+        self.access = AccessClient(page, self)
         self.channels = ChannelClient(page, self)
 
     def command_palette(self, command: str) -> None:

@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { lineplot } from "@synnaxlabs/client";
+import { Access } from "@synnaxlabs/pluto";
+
 import { LinePlot } from "@/lineplot";
 import { CreateIcon, ImportIcon } from "@/lineplot/services/Icon";
 import { import_ } from "@/lineplot/services/import";
@@ -17,6 +20,8 @@ const CREATE_COMMAND: Palette.Command = {
   name: "Create a Line Plot",
   icon: <CreateIcon />,
   onSelect: ({ placeLayout }) => placeLayout(LinePlot.create()),
+  visible: ({ store, client }) =>
+    Access.editGranted({ id: lineplot.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 const IMPORT_COMMAND: Palette.Command = {
@@ -25,6 +30,8 @@ const IMPORT_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <ImportIcon />,
   onSelect: import_,
+  visible: ({ store, client }) =>
+    Access.editGranted({ id: lineplot.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];

@@ -27,7 +27,6 @@ class User(Payload):
     username: str
     first_name: str
     last_name: str
-    root_user: bool
 
     @property
     def ontology_id(self) -> ID:

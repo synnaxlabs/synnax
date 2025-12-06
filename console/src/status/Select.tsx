@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Dialog, Icon, Status } from "@synnaxlabs/pluto";
+import { status } from "@synnaxlabs/client";
+import { Access, Button, Dialog, Icon, Status } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { EmptyAction } from "@/components";
@@ -25,17 +26,20 @@ export const useCreate = (): (() => void) => {
 
 export const SelectEmptyContent = (): ReactElement => {
   const add = useCreate();
+  const canEdit = Access.useEditGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="Non statuses created."
-      action="Create a Status"
-      onClick={add}
+      action={canEdit ? "Create a Status" : undefined}
+      onClick={canEdit ? add : undefined}
     />
   );
 };
 
 export const CreateButton = () => {
   const add = useCreate();
+  const canEdit = Access.useEditGranted(status.TYPE_ONTOLOGY_ID);
+  if (!canEdit) return null;
   return (
     <Button.Button onClick={add} title="Create a Status">
       <Icon.Add />

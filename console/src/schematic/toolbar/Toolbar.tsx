@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import { Access, Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -20,7 +20,6 @@ import { useExport } from "@/schematic/export";
 import {
   useSelectControlStatus,
   useSelectEditable,
-  useSelectHasPermission,
   useSelectIsSnapshot,
   useSelectSelectedElementNames,
   useSelectToolbar,
@@ -41,7 +40,7 @@ interface NotEditableContentProps extends ToolbarProps {}
 const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
-  const hasEditingPermissions = useSelectHasPermission();
+  const hasEditingPermissions = Access.useEditGranted(schematic.ontologyID(layoutKey));
   const isSnapshot = useSelectIsSnapshot(layoutKey);
   const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
@@ -50,9 +49,11 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
       x
       message={`${name} is not editable.${isEditable ? " To make changes," : ""}`}
       action={
-        controlState === "acquired"
-          ? "release control and enable editing."
-          : "enable editing."
+        isEditable
+          ? controlState === "acquired"
+            ? "release control and enable editing."
+            : "enable editing."
+          : undefined
       }
       onClick={() => {
         dispatch(setEditable({ key: layoutKey, editable: true }));
@@ -92,7 +93,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [dispatch, layoutKey],
   );
-  const canEdit = useSelectHasPermission();
+  const canEdit = Access.useEditGranted(schematic.ontologyID(layoutKey));
   const value = useMemo(
     () => ({
       tabs: TABS,

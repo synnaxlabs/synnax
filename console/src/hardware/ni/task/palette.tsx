@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, UnexpectedError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/pluto";
+import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
+import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";
 import { ANALOG_WRITE_LAYOUT } from "@/hardware/ni/task/AnalogWrite";
@@ -25,11 +25,15 @@ import {
 import { SCAN_SCHEMAS, SCAN_TYPE } from "@/hardware/ni/task/types";
 import { type Palette } from "@/palette";
 
+const visibleFilter = ({ store, client }: Palette.CommandVisibleContext) =>
+  Access.editGranted({ id: task.TYPE_ONTOLOGY_ID, store, client });
+
 const CREATE_ANALOG_READ_COMMAND: Palette.Command = {
   key: "ni-create-analog-read-task",
   name: "Create an NI Analog Read Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(ANALOG_READ_LAYOUT),
+  visible: visibleFilter,
 };
 
 const CREATE_ANALOG_WRITE_COMMAND: Palette.Command = {
@@ -37,6 +41,7 @@ const CREATE_ANALOG_WRITE_COMMAND: Palette.Command = {
   name: "Create an NI Analog Write Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(ANALOG_WRITE_LAYOUT),
+  visible: visibleFilter,
 };
 
 const CREATE_COUNTER_READ_COMMAND: Palette.Command = {
@@ -44,6 +49,7 @@ const CREATE_COUNTER_READ_COMMAND: Palette.Command = {
   name: "Create an NI Counter Read Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(COUNTER_READ_LAYOUT),
+  visible: visibleFilter,
 };
 
 const CREATE_DIGITAL_WRITE_COMMAND: Palette.Command = {
@@ -51,6 +57,7 @@ const CREATE_DIGITAL_WRITE_COMMAND: Palette.Command = {
   name: "Create an NI Digital Write Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(DIGITAL_WRITE_LAYOUT),
+  visible: visibleFilter,
 };
 
 const CREATE_DIGITAL_READ_COMMAND: Palette.Command = {
@@ -58,6 +65,7 @@ const CREATE_DIGITAL_READ_COMMAND: Palette.Command = {
   name: "Create an NI Digital Read Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(DIGITAL_READ_LAYOUT),
+  visible: visibleFilter,
 };
 
 const IMPORT_ANALOG_READ_COMMAND: Palette.Command = {
@@ -66,6 +74,7 @@ const IMPORT_ANALOG_READ_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Logo.NI />,
   onSelect: importAnalogRead,
+  visible: visibleFilter,
 };
 
 const IMPORT_ANALOG_WRITE_COMMAND: Palette.Command = {
@@ -74,6 +83,7 @@ const IMPORT_ANALOG_WRITE_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Logo.NI />,
   onSelect: importAnalogWrite,
+  visible: visibleFilter,
 };
 
 const IMPORT_COUNTER_READ_COMMAND: Palette.Command = {
@@ -82,6 +92,7 @@ const IMPORT_COUNTER_READ_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Logo.NI />,
   onSelect: importCounterRead,
+  visible: visibleFilter,
 };
 
 const IMPORT_DIGITAL_READ_COMMAND: Palette.Command = {
@@ -90,6 +101,7 @@ const IMPORT_DIGITAL_READ_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Logo.NI />,
   onSelect: importDigitalRead,
+  visible: visibleFilter,
 };
 
 const IMPORT_DIGITAL_WRITE_COMMAND: Palette.Command = {
@@ -98,12 +110,14 @@ const IMPORT_DIGITAL_WRITE_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Import />,
   onSelect: importDigitalWrite,
+  visible: visibleFilter,
 };
 
 const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
   key: "ni-toggle-scan-task",
   name: "Toggle the NI Device Scanner",
   icon: <Icon.Logo.NI />,
+  visible: visibleFilter,
   onSelect: ({ client, addStatus, handleError }) => {
     handleError(async () => {
       if (client == null) throw new DisconnectedError();

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { log, ontology, type Synnax } from "@synnaxlabs/client";
-import { Icon, Log as Core, Menu as PMenu, Mosaic } from "@synnaxlabs/pluto";
+import { Access, Icon, Log as Core, Menu as PMenu, Mosaic } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
@@ -55,6 +55,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleExport = Log.useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
+  const canEdit = Access.useEditGranted(ids);
   const firstID = ids[0];
   const firstResource = getResource(firstID);
   const onSelect = {
@@ -71,10 +72,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const isSingle = ids.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" gap="small">
-      <Menu.RenameItem />
-      <Menu.DeleteItem />
-      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-      <PMenu.Divider />
+      {canEdit && (
+        <>
+          <Menu.RenameItem />
+          <Menu.DeleteItem />
+          <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
+          <PMenu.Divider />
+        </>
+      )}
       {isSingle && (
         <>
           <Export.MenuItem />

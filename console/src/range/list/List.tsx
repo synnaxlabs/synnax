@@ -9,8 +9,9 @@
 
 import "@/range/list/List.css";
 
-import { type ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import {
+  Access,
   Button,
   Flex,
   type Flux,
@@ -43,10 +44,11 @@ export interface ListProps
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
+  const canCreateRange = Access.useEditGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No ranges found."
-      action="Create a range"
+      action={canCreateRange ? "Create a range" : undefined}
       onClick={() => placeLayout(CREATE_LAYOUT)}
     />
   );
@@ -158,8 +160,10 @@ export const List = ({
   );
 };
 
-const AddButton = (): ReactElement => {
+const AddButton = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
+  const canCreateRange = Access.useEditGranted(ranger.TYPE_ONTOLOGY_ID);
+  if (!canCreateRange) return null;
   return (
     <Button.Button tooltip="Create Range" onClick={() => placeLayout(CREATE_LAYOUT)}>
       <Icon.Add />

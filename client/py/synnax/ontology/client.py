@@ -126,6 +126,7 @@ class Client:
         )
 
     def move_children(self, from_: CrudeID, to: CrudeID, *children: CrudeID) -> None:
+
         send_required(
             self._client,
             "/ontology/move-children",

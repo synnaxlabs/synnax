@@ -25,6 +25,7 @@ export interface Selectable {
   key: string;
   title: string;
   icon: Icon.ReactElement;
+  useVisible?: () => boolean;
   create: (props: SelectableCreateArgs) => Promise<Layout.PlacerArgs | null>;
 }
 
@@ -32,6 +33,44 @@ export interface SelectorProps extends Layout.RendererProps {
   text: string;
   selectables: Selectable[];
 }
+
+interface SelectableItemProps {
+  item: Selectable;
+  layoutKey: string;
+  rename: Modals.PromptRename;
+  onPlace: (args: Layout.PlacerArgs) => void;
+  onError: (err: unknown, message: string) => void;
+}
+
+const SelectableItem = ({
+  item,
+  layoutKey,
+  rename,
+  onPlace,
+  onError,
+}: SelectableItemProps): ReactElement | null => {
+  const isVisible = item.useVisible?.() ?? true;
+  if (!isVisible) return null;
+
+  const { key, title, icon, create } = item;
+
+  return (
+    <Button.Button
+      key={key}
+      variant="outlined"
+      onClick={() =>
+        onError(async () => {
+          const layout = await create({ layoutKey, rename });
+          if (layout != null) onPlace(layout);
+        }, `Failed to create ${title}`)
+      }
+      style={{ flexBasis: "185px" }}
+    >
+      {icon}
+      {title}
+    </Button.Button>
+  );
+};
 
 export const Selector = ({
   layoutKey,
@@ -55,21 +94,15 @@ export const Selector = ({
           justify="center"
           gap={2.5}
         >
-          {selectables.map(({ key, title, icon, create }) => (
-            <Button.Button
-              key={key}
-              variant="outlined"
-              onClick={() =>
-                handleError(async () => {
-                  const layout = await create({ layoutKey, rename });
-                  if (layout != null) place(layout);
-                }, `Failed to create ${title}`)
-              }
-              style={{ flexBasis: "185px" }}
-            >
-              {icon}
-              {title}
-            </Button.Button>
+          {selectables.map((item) => (
+            <SelectableItem
+              key={item.key}
+              item={item}
+              layoutKey={layoutKey}
+              rename={rename}
+              onPlace={place}
+              onError={handleError}
+            />
           ))}
         </Flex.Box>
       </Flex.Box>
