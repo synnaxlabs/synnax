@@ -39,12 +39,12 @@ func migrateKeys[K Key, E Entry[K]](ctx context.Context, db *DB) error {
 	err = db.WithTx(ctx, func(tx Tx) error {
 		writer := WrapWriter[K, E](tx)
 		for iter.First(); iter.Valid(); iter.Next() {
-			// Delete the iterator by its previous key.
-			if err := writer.BaseWriter.Delete(ctx, iter.Key()); err != nil {
-				return err
-			}
+			//// Delete the iterator by its previous key.
+			//if err = writer.BaseWriter.Delete(ctx, iter.Key()); err != nil {
+			//	return err
+			//}
 			// Reset the entry using its new gorp key.
-			if err := writer.Set(ctx, *iter.Value(ctx)); err != nil {
+			if err = writer.Set(ctx, *iter.Value(ctx)); err != nil {
 				return err
 			}
 		}

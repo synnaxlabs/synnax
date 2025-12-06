@@ -46,7 +46,7 @@ func sugarDecodingErr(data []byte, value any, base error) error {
 	}
 	val := reflect.ValueOf(value)
 	main := errors.Wrapf(DecodeError, "kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
-	return errors.Combine(main, base)
+	return errors.WithStack(errors.Combine(main, base))
 }
 
 // Codec is an interface that encodes and decodes values.

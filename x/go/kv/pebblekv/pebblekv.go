@@ -278,7 +278,7 @@ func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
 
 func translateError(err error) error {
 	if errors.Is(err, pebble.ErrNotFound) {
-		return query.NotFound
+		return errors.WithStack(query.NotFound)
 	}
 	return err
 }

@@ -59,6 +59,9 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 
 func (la *leaseAllocator) getLease(ctx context.Context, key []byte) (node.Key, error) {
 	digest, err := getDigestFromKV(ctx, la.Engine, key)
+	if err != nil {
+		return 0, err
+	}
 	return digest.Leaseholder, err
 }
 

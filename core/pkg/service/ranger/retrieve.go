@@ -105,7 +105,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if err := r.gorp.Exec(ctx, tx); err != nil {
 		return err
 	}
-	entries := gorp.GetEntries[uuid.UUID, Range](r.gorp.Params)
+	entries := r.gorp.GetEntries()
 	for i, e := range entries.All() {
 		entries.Set(i, e.UseTx(tx).setOntology(r.otg).setLabel(r.label))
 	}

@@ -66,7 +66,7 @@ var _ = BeforeSuite(func() {
 	Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())
 	ws.Author = author.Key
 	Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
-	svc = MustSucceed(lineplot.NewService(lineplot.Config{
+	svc = MustSucceed(lineplot.OpenService(ctx, lineplot.Config{
 		DB:       db,
 		Ontology: otg,
 	}))

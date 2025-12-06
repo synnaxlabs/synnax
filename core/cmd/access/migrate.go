@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 )
 
 var (
@@ -63,10 +63,10 @@ func MigratePermissions(
 ) error {
 	// Check if migration already performed
 	performed, closer, err := tx.Get(ctx, migrationKey)
-	if err != nil && !errors.Is(err, kv.NotFound) {
+	if err != nil && !errors.Is(err, query.NotFound) {
 		return err
 	} else if err == nil {
-		if err := closer.Close(); err != nil {
+		if err = closer.Close(); err != nil {
 			return err
 		}
 	}
