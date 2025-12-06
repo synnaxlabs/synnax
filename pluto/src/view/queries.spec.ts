@@ -230,4 +230,19 @@ describe("View queries", () => {
       });
     });
   });
+  describe("useRename", () => {
+    it("should rename a view", async () => {
+      const view = await client.views.create({
+        name: "existing-view",
+        type: "lineplot",
+        query: { channels: ["ch1"] },
+      });
+      const { result } = renderHook(() => View.useRename(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ key: view.key, name: "renamed-view" });
+      });
+      const retrieved = await client.views.retrieve({ key: view.key });
+      expect(retrieved.name).toEqual("renamed-view");
+    });
+  });
 });
