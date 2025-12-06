@@ -12,6 +12,7 @@ import { array, type optional } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
+import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "views";
 export const RESOURCE_NAME = "view";
@@ -145,10 +146,29 @@ export const useForm = Flux.createForm<FormQuery, typeof View.newZ, FluxSubStore
     reset(updated);
     rollbacks.push(store.views.set(updated.key, updated));
   },
-  mountListeners: ({ store, query: { key }, reset }) => [
+  mountListeners: ({ store, get, reset }) => [
     store.views.onSet((view) => {
-      if (key == null || view.key !== key) return;
+      const prevKey = get<string>("key", { optional: true })?.value;
+      if (prevKey == null || view.key !== prevKey) return;
       reset(view);
     }),
   ],
+});
+
+export interface RenameParams extends Pick<View.View, "key" | "name"> {}
+
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+  name: RESOURCE_NAME,
+  verbs: Flux.RENAME_VERBS,
+  update: async ({ client, data: { key, name }, store, rollbacks }) => {
+    const v = await retrieveSingle({ client, store, query: { key } });
+    rollbacks.push(
+      store.views.set(
+        key,
+        state.skipUndefined((p) => ({ ...p, name })),
+      ),
+    );
+    await client.views.create({ ...v, name });
+    return { key, name };
+  },
 });

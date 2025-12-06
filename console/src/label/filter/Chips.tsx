@@ -8,30 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import { type label } from "@synnaxlabs/client";
-import { Flex, Icon, Label, Tag, Text } from "@synnaxlabs/pluto";
+import { Flex, Form, Icon, Label, Tag, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { type HasQuery } from "@/label/filter/types";
-import { type View } from "@/view";
+import { View } from "@/view";
 
-export interface ChipsProps
-  extends Pick<View.UseQueryReturn<HasQuery>, "query" | "onQueryChange"> {
-  isClosable?: boolean;
-}
-
-export const Chips = ({
-  query,
-  onQueryChange,
-  isClosable = false,
-}: ChipsProps): ReactElement | null => {
-  const { hasLabels } = query;
+export const Chips = (): ReactElement | null => {
+  const { editable } = View.useContext();
+  const { set } = Form.useContext();
+  const hasLabels = Form.useFieldValue<label.Key[]>("query.hasLabels", {
+    defaultValue: [],
+  });
   const labels = Label.useRetrieveMultiple({ keys: hasLabels ?? [] }).data ?? [];
   if (labels.length === 0) return null;
-  const handleClose = (key: label.Key) =>
-    onQueryChange(({ hasLabels, ...rest }) => ({
-      ...rest,
-      hasLabels: hasLabels?.filter((k) => k !== key),
-    }));
+  const handleClose = (key: label.Key) => {
+    set(
+      "query.hasLabels",
+      hasLabels.filter((k) => k !== key),
+      { notifyOnChange: true },
+    );
+  };
   return (
     <Flex.Box x pack background={0}>
       <Text.Text
@@ -49,7 +45,7 @@ export const Chips = ({
           key={key}
           color={color}
           size="small"
-          onClose={isClosable ? () => handleClose(key) : undefined}
+          onClose={editable ? () => handleClose(key) : undefined}
         >
           {name}
         </Tag.Tag>

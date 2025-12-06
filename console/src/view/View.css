@@ -10,7 +10,7 @@
  */
 
 .console-view {
-    .console-view__toolbar {
+    .console-view__toolbar:has(*) {
         padding: 1.5rem;
     }
 }

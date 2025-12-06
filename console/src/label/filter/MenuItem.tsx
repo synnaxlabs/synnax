@@ -8,34 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { type label } from "@synnaxlabs/client";
+import { Form } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
-import { type HasQuery } from "@/label/filter/types";
 import { SelectMultiple } from "@/label/Select";
-import { type View } from "@/view";
 
-export interface MenuItemProps
-  extends Pick<View.UseQueryReturn<HasQuery>, "query" | "onQueryChange"> {}
+export const MenuItem = (): ReactElement => (
+  <Form.Field<label.Key[]> path="query.hasLabels" defaultValue={[]} showLabel={false}>
+    {({ value, onChange }) => (
+      <SelectMultiple
+        value={value}
+        onChange={onChange}
+        location={labelLocation}
+        triggerProps={triggerProps}
+      />
+    )}
+  </Form.Field>
+);
 
-export const MenuItem = ({ query, onQueryChange }: MenuItemProps): ReactElement => {
-  const handleLabelChange = useCallback(
-    (labels: label.Key[]) => {
-      onQueryChange((prev) => ({ ...prev, hasLabels: labels, offset: 0, limit: 0 }));
-    },
-    [onQueryChange],
-  );
-  return (
-    <SelectMultiple
-      value={query.hasLabels ?? defaultValue}
-      onChange={handleLabelChange}
-      triggerProps={triggerProps}
-      location={labelLocation}
-    />
-  );
-};
-
-const defaultValue: label.Key[] = [];
 const triggerProps = { hideTags: true, variant: "text" } as const;
 const labelLocation = {
   targetCorner: location.TOP_RIGHT,

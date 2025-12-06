@@ -11,22 +11,17 @@ import { Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { useContext } from "@/view/context";
 
 export interface ToolbarProps extends Flex.BoxProps {}
 
-export const Toolbar = ({ className, ...rest }: ToolbarProps): ReactElement | null => {
-  const { editable } = useContext("View.Toolbar");
-  if (!editable) return null;
-  return (
-    <Flex.Box
-      x
-      bordered
-      background={1}
-      justify="between"
-      align="center"
-      className={CSS(CSS.BE("view", "toolbar"), className)}
-      {...rest}
-    />
-  );
-};
+export const Toolbar = ({ className, ...rest }: ToolbarProps): ReactElement | null => (
+  <Flex.Box
+    x
+    bordered
+    background={1}
+    justify="between"
+    align="center"
+    className={CSS(CSS.BE("view", "toolbar"), className)}
+    {...rest}
+  />
+);

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
 import { Component, Status } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -29,32 +28,20 @@ export const EXPLORER_LAYOUT: Layout.BaseState = {
 
 const item = Component.renderProp(Item);
 
-const initialQuery: status.MultiRetrieveArgs = {};
-
 export const Explorer: Layout.Renderer = () => {
   const listProps = Status.useList();
   const placeLayout = Layout.usePlacer();
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
-  const { query, onQueryChange, resetQuery } = View.useQuery(
-    initialQuery,
-    listProps.retrieve,
-  );
   return (
-    <View.Frame
-      {...listProps}
-      resourceType="status"
-      onCreate={handleCreate}
-      query={query}
-      onQueryChange={onQueryChange}
-    >
+    <View.Frame {...listProps} resourceType="status" onCreate={handleCreate}>
       <View.Toolbar>
         <View.FilterMenu>
-          <Label.Filter.MenuItem query={query} onQueryChange={onQueryChange} />
+          <Label.Filter.MenuItem />
         </View.FilterMenu>
-        <Label.Filter.Chips query={query} onQueryChange={onQueryChange} isClosable />
-        <View.Search query={query} onQueryChange={onQueryChange} />
+        <Label.Filter.Chips />
+        <View.Search />
       </View.Toolbar>
-      <View.Views onQueryChange={onQueryChange} resetQuery={resetQuery} />
+      <View.Views />
       <View.Items>{item}</View.Items>
     </View.Frame>
   );

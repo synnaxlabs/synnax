@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useContext as useCtx } from "@/view/context";
+export const useContext = () => useCtx("View.useContext");
+
 export * from "@/view/FilterMenu";
 export * from "@/view/Frame";
 export * from "@/view/Items";
 export * from "@/view/Search";
 export * from "@/view/Toolbar";
-export * from "@/view/useQuery";
 export * from "@/view/Views";

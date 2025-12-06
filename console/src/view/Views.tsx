@@ -8,73 +8,135 @@
 // included in the file licenses/APL.txt.
 
 import { type view } from "@synnaxlabs/client";
-import { Button, Icon, Select, Text, View as PView } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useState } from "react";
+import {
+  Button,
+  Flex,
+  Form,
+  Icon,
+  List,
+  Menu,
+  Select,
+  Text,
+  View,
+} from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback } from "react";
 
+import { Menu as CMenu } from "@/components";
 import { useContext } from "@/view/context";
-import { type Query, type UseQueryReturn } from "@/view/useQuery";
 
-export interface ViewsProps<Q extends Query>
-  extends Pick<UseQueryReturn<Q>, "onQueryChange" | "resetQuery"> {}
-
-export const Views = <Q extends Query>({
-  onQueryChange,
-  resetQuery,
-}: ViewsProps<Q>): ReactElement | null => {
+export const Views = (): ReactElement | null => {
   const { editable, resourceType } = useContext("View.Views");
-  const query = PView.useList({ initialQuery: { types: [resourceType] } });
-  const [selected, setSelected] = useState<view.Key>();
+  const listReturn = View.useList({ initialQuery: { types: [resourceType] } });
+  const { fetchMore } = List.usePager({ retrieve: listReturn.retrieve });
+  const { set, reset } = Form.useContext();
+  const selected = Form.useFieldValue<view.Key>("key", {
+    optional: true,
+  });
   const handleSelectView = useCallback(
-    (view: view.Key) => {
-      const v = query.getItem(view);
-      if (v == null) {
-        setSelected(undefined);
-        resetQuery();
+    (view: view.Key | null) => {
+      if (view == null) {
+        reset();
         return;
       }
-      setSelected(view);
-      onQueryChange(v.query as Q);
+      const v = listReturn.getItem(view);
+      if (v == null) return;
+      set("", v);
     },
-    [onQueryChange, resetQuery],
+    [set, reset, listReturn.getItem],
   );
-  if (!editable || query.variant !== "success" || query.data.length === 0) return null;
+  const { update: del } = View.useDelete();
+  const handleDelete = useCallback(
+    (viewKey: view.Key) => {
+      if (viewKey === selected) reset();
+
+      del(viewKey);
+    },
+    [reset, selected],
+  );
+  const contextMenuProps = Menu.useContextMenu();
+  if (!editable) return null;
   return (
-    <Select.Buttons
-      keys={query.data}
-      x
-      value={selected}
+    <Select.Frame<view.Key, view.View>
+      {...listReturn}
+      value={selected ?? undefined}
+      onFetchMore={fetchMore}
       multiple={false}
-      pack={false}
-      gap="medium"
-      style={buttonsStyle}
       onChange={handleSelectView}
       allowNone
     >
-      {query.data.map((key) => (
-        <ViewItem key={key} itemKey={key} />
-      ))}
-    </Select.Buttons>
+      <Menu.ContextMenu
+        {...contextMenuProps}
+        menu={({ keys }) => (
+          <Menu.Menu level="small" gap="small">
+            <Menu.Item
+              itemKey="rename"
+              onClick={() => {
+                Text.edit(keys[0]);
+              }}
+            >
+              <Icon.Rename />
+              Rename
+            </Menu.Item>
+            <Menu.Item itemKey="delete" onClick={() => handleDelete(keys[0])}>
+              <Icon.Delete />
+              Delete
+            </Menu.Item>
+            <Menu.Divider />
+            <CMenu.ReloadConsoleItem />
+          </Menu.Menu>
+        )}
+      >
+        <List.Items<view.Key> x gap="medium" style={itemsStyle}>
+          {({ key, ...rest }) => (
+            <ViewItem
+              key={key}
+              onDelete={handleDelete}
+              {...rest}
+              onContextMenu={contextMenuProps.open}
+            />
+          )}
+        </List.Items>
+      </Menu.ContextMenu>
+    </Select.Frame>
   );
 };
 
-const buttonsStyle = { padding: "1rem 1.5rem", overflow: "scroll" } as const;
+const itemsStyle = { padding: "1rem 1.5rem", overflow: "scroll" } as const;
 
-interface ViewItemProps {
-  itemKey: view.Key;
+interface ViewItemProps extends List.ItemProps<view.Key> {
+  onDelete: (viewKey: view.Key) => void;
 }
 
-const ViewItem = ({ itemKey }: ViewItemProps): ReactElement | null => {
-  const query = PView.useRetrieve({ key: itemKey });
-  const { update: del } = PView.useDelete();
+const ViewItem = ({
+  itemKey,
+  onDelete,
+  onContextMenu,
+}: ViewItemProps): ReactElement | null => {
+  const query = View.useRetrieve({ key: itemKey });
+  const { update: rename } = View.useRename();
+  const handleRename = useCallback(
+    (name: string) => {
+      rename({ key: itemKey, name });
+    },
+    [itemKey, rename],
+  );
+  const handleDelete = useCallback(() => {
+    onDelete(itemKey);
+  }, [itemKey, onDelete]);
   if (query.variant !== "success") return null;
   return (
-    <Select.Button itemKey={itemKey} justify="between" style={viewItemStyle}>
-      <Text.Text>{query.data.name}</Text.Text>
-      <Button.Button onClick={() => del(itemKey)} size="small">
+    <Flex.Box pack onContextMenu={onContextMenu}>
+      <Select.Button itemKey={itemKey} size="small" justify="between">
+        <Text.MaybeEditable
+          id={`text-${itemKey}`}
+          value={query.data.name}
+          onChange={handleRename}
+          style={{ padding: "0rem 1rem" }}
+        />
+      </Select.Button>
+      <Button.Button onClick={handleDelete} size="small">
         <Icon.Delete />
       </Button.Button>
-    </Select.Button>
+    </Flex.Box>
   );
 };
-
-const viewItemStyle = { padding: "0.5rem 1rem" } as const;

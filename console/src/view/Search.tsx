@@ -7,34 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Input, List } from "@synnaxlabs/pluto";
+import { Icon, Input } from "@synnaxlabs/pluto";
 import { plural } from "pluralize";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
 import { useContext } from "@/view/context";
-import { type Query, type UseQueryReturn } from "@/view/useQuery";
 
-export interface SearchProps<Q extends Query>
-  extends Pick<UseQueryReturn<Q>, "query" | "onQueryChange"> {}
-
-export const Search = <Q extends Query>({
-  query,
-  onQueryChange,
-}: SearchProps<Q>): ReactElement => {
-  const { resourceType } = useContext("View.Search");
-  const handleSearch = useCallback(
-    (searchTerm: string) => {
-      onQueryChange((q) => ({ ...q, ...List.search(q, searchTerm) }));
+export const Search = (): ReactElement | null => {
+  const { editable, resourceType, search } = useContext("View.Search");
+  const [value, setValue] = useState("");
+  const handleChange = useCallback(
+    (v: string) => {
+      setValue(v);
+      search(v);
     },
-    [onQueryChange],
+    [search],
   );
+  if (!editable) return null;
   return (
     <Input.Text
       size="small"
       level="h5"
+      startContent={<Icon.Search color={9} />}
       variant="text"
-      value={query.searchTerm ?? ""}
-      onChange={handleSearch}
+      value={value}
+      onChange={handleChange}
       placeholder={`Search ${plural(resourceType)}...`}
     />
   );

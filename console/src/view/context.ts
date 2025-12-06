@@ -13,6 +13,7 @@ import { context } from "@synnaxlabs/pluto";
 export interface ContextValue {
   editable: boolean;
   resourceType: ontology.ResourceType;
+  search: (term: string) => void;
 }
 
 export const [Provider, useContext] = context.create<ContextValue>({

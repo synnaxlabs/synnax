@@ -11,19 +11,29 @@ import { Dialog, Icon, Menu } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactNode } from "react";
 
+import { useContext } from "@/view/context";
+
 export interface FilterMenuProps extends PropsWithChildren {}
 
-export const FilterMenu = ({ children }: FilterMenuProps): ReactNode => (
-  <Dialog.Frame>
-    <Dialog.Trigger hideCaret tooltip="Filter" tooltipLocation={location.BOTTOM_RIGHT}>
-      <Icon.Filter />
-    </Dialog.Trigger>
-    <Dialog.Dialog background={1} pack={false} bordered={false} style={style}>
-      <Menu.Menu level="small" gap="small">
-        {children}
-      </Menu.Menu>
-    </Dialog.Dialog>
-  </Dialog.Frame>
-);
+export const FilterMenu = ({ children }: FilterMenuProps): ReactNode => {
+  const { editable } = useContext("View.FilterMenu");
+  if (!editable) return null;
+  return (
+    <Dialog.Frame>
+      <Dialog.Trigger
+        hideCaret
+        tooltip="Filter"
+        tooltipLocation={location.BOTTOM_RIGHT}
+      >
+        <Icon.Filter />
+      </Dialog.Trigger>
+      <Dialog.Dialog background={1} pack={false} bordered={false} style={style}>
+        <Menu.Menu level="small" gap="small">
+          {children}
+        </Menu.Menu>
+      </Dialog.Dialog>
+    </Dialog.Frame>
+  );
+};
 
 const style = { padding: "1rem" } as const;
