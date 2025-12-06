@@ -19,8 +19,10 @@ import { View } from "@/view";
 const client = createTestClient();
 
 describe("View queries", () => {
+  let controller: AbortController;
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
+    controller = new AbortController();
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
@@ -93,7 +95,10 @@ describe("View queries", () => {
         () => View.useList({ initialQuery: { types: [type] } }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.data.length).toBe(3));
+      await act(async () => {
+        await result.current.retrieveAsync({ types: [type] });
+      });
+      expect(result.current.data.length).toBe(3);
       expect(result.current.data).toContain(views[0].key);
       expect(result.current.data).toContain(views[1].key);
       expect(result.current.data).toContain(soloView.key);
@@ -156,6 +161,73 @@ describe("View queries", () => {
       await expect(client.views.retrieve({ key: view2.key })).rejects.toThrow(
         NotFoundError,
       );
+    });
+  });
+  describe.only("useForm", () => {
+    it("should create a new view", async () => {
+      const { result } = renderHook(() => View.useForm({ query: {} }), { wrapper });
+      act(() => {
+        result.current.form.set("name", "new-view");
+        result.current.form.set("type", "lineplot");
+        result.current.form.set("query", { channels: ["ch1"] });
+        result.current.save({ signal: controller.signal });
+      });
+      await waitFor(() => {
+        expect(result.current.form.value().name).toEqual("new-view");
+        expect(result.current.form.value().type).toEqual("lineplot");
+        expect(result.current.form.value().query).toEqual({ channels: ["ch1"] });
+        expect(result.current.form.value().key).toBeDefined();
+        expect(result.current.form.value().key).not.toEqual("");
+      });
+    });
+    it("should retrieve and edit an existing view", async () => {
+      const view = await client.views.create({
+        name: "existing-view",
+        type: "lineplot",
+        query: { channels: ["ch1"] },
+      });
+      const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.form.value().name).toEqual("existing-view");
+      expect(result.current.form.value().type).toEqual("lineplot");
+      expect(result.current.form.value().query).toEqual({ channels: ["ch1"] });
+      expect(result.current.form.value().key).toEqual(view.key);
+      act(() => {
+        result.current.form.set("name", "edited-view");
+        result.current.form.set("query", { channels: ["ch2"] });
+        result.current.save({ signal: controller.signal });
+      });
+      await waitFor(() => {
+        expect(result.current.form.value().name).toEqual("edited-view");
+        expect(result.current.form.value().query).toEqual({ channels: ["ch2"] });
+      });
+    });
+    it("should update the form when the view is updated externally", async () => {
+      const view = await client.views.create({
+        name: "existing-view",
+        type: "lineplot",
+        query: { channels: ["ch1"] },
+      });
+      const { result } = renderHook(() => View.useForm({ query: { key: view.key } }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.form.value().name).toEqual("existing-view");
+      expect(result.current.form.value().type).toEqual("lineplot");
+      expect(result.current.form.value().query).toEqual({ channels: ["ch1"] });
+      expect(result.current.form.value().key).toEqual(view.key);
+      await client.views.create({
+        key: view.key,
+        name: "edited-view",
+        type: "lineplot",
+        query: { channels: ["ch2"] },
+      });
+      await waitFor(() => {
+        expect(result.current.form.value().name).toEqual("edited-view");
+        expect(result.current.form.value().query).toEqual({ channels: ["ch2"] });
+      });
     });
   });
 });
