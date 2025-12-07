@@ -9,8 +9,6 @@
 
 from synnax.access.policy.client import PolicyClient
 from synnax.access.policy.payload import (
-    ALL_ACTION,
-    ALLOW_ALL,
     CREATE_ACTION,
     DELETE_ACTION,
     RETRIEVE_ACTION,
@@ -22,8 +20,6 @@ from synnax.access.policy.payload import (
 __all__ = [
     "PolicyClient",
     "Policy",
-    "ALLOW_ALL",
-    "ALL_ACTION",
     "CREATE_ACTION",
     "DELETE_ACTION",
     "RETRIEVE_ACTION",

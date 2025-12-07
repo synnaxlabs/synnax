@@ -12,9 +12,10 @@ package access
 type Action string
 
 const (
-	ActionAll      Action = "all"
 	ActionCreate   Action = "create"
 	ActionRetrieve Action = "retrieve"
 	ActionUpdate   Action = "update"
 	ActionDelete   Action = "delete"
 )
+
+var AllActions = []Action{ActionCreate, ActionRetrieve, ActionUpdate, ActionDelete}

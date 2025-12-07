@@ -223,7 +223,7 @@ export const TOOLBAR_NAV_DRAWER_ITEM: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 225,
   maxSize: 400,
-  useVisible: () => Access.useViewGranted(task.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(task.TYPE_ONTOLOGY_ID),
 };
 
 interface TaskListItemProps extends List.ItemProps<task.Key> {

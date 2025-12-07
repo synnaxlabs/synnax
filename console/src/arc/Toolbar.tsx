@@ -209,7 +209,7 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 225,
   maxSize: 400,
-  useVisible: () => Access.useViewGranted(arc.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID),
 };
 
 interface ArcListItemProps extends List.ItemProps<arc.Key> {

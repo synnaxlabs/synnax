@@ -101,7 +101,7 @@ var _ = Describe("Access", Ordered, func() {
 						{Type: user.OntologyType},
 						{Type: "policy"},
 					},
-					Actions: []svcAccess.Action{svcAccess.ActionAll},
+					Actions: []svcAccess.Action{"all"},
 				}
 				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
 					Entry(&adminPolicy).
@@ -120,7 +120,7 @@ var _ = Describe("Access", Ordered, func() {
 					Objects: []ontology.ID{
 						{Type: "schematic"},
 					},
-					Actions: []svcAccess.Action{svcAccess.ActionAll},
+					Actions: []svcAccess.Action{"all"},
 				}
 				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
 					Entry(&schematicPolicy).
@@ -145,7 +145,7 @@ var _ = Describe("Access", Ordered, func() {
 					Key:      uuid.New(),
 					Subjects: []ontology.ID{user.OntologyID(u.Key)},
 					Objects:  []ontology.ID{{Type: "schematic"}},
-					Actions:  []svcAccess.Action{svcAccess.ActionAll},
+					Actions:  []svcAccess.Action{"all"},
 				}
 				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
 					Entry(&schematicPolicy).
@@ -164,7 +164,7 @@ var _ = Describe("Access", Ordered, func() {
 					Key:      uuid.New(),
 					Subjects: []ontology.ID{user.OntologyID(u.Key)},
 					Objects:  []ontology.ID{{Type: "schematic"}},
-					Actions:  []svcAccess.Action{svcAccess.ActionAll},
+					Actions:  []svcAccess.Action{"all"},
 				}
 				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
 					Entry(&legacyPolicy).

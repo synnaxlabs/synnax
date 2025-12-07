@@ -9,7 +9,7 @@
 
 import { array } from "@synnaxlabs/x";
 
-import { type Action, ALL_ACTION } from "@/access/payload";
+import { type Action } from "@/access/payload";
 import { type Policy } from "@/access/policy/payload";
 import { type ontology } from "@/ontology";
 
@@ -20,8 +20,8 @@ import { type ontology } from "@/ontology";
 export interface Request {
   /** The subject making the request (typically a user) */
   subject: ontology.ID;
-  /** The action being requested */
-  actions: Action | Action[];
+  /** The action(s) being requested */
+  actions: Action;
   /** The objects being accessed */
   objects: ontology.ID | ontology.ID[];
 }
@@ -52,10 +52,7 @@ export const allowRequest = (req: Request, policies: Policy[]): boolean => {
 
     for (const policy of policies) {
       // Check if every requested action is allowed by this policy
-      const actionAllowed =
-        actions.every((action) => policy.actions.includes(action)) ||
-        policy.actions.includes(ALL_ACTION);
-
+      const actionAllowed = actions.every((action) => policy.actions.includes(action));
       if (!actionAllowed) continue;
 
       // Check if any object in the policy matches the requested object

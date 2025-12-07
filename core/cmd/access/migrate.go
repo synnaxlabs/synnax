@@ -177,7 +177,7 @@ func isAdminPolicy(p LegacyPolicy) bool {
 			hasPolicyType = true
 		}
 	}
-	return hasUserType && hasPolicyType && containsAllAction(p.Actions)
+	return hasUserType && hasPolicyType && containsLegacyAllAction(p.Actions)
 }
 
 // isSchematicPolicy checks if a legacy policy grants schematic access.
@@ -185,13 +185,13 @@ func isAdminPolicy(p LegacyPolicy) bool {
 func isSchematicPolicy(p LegacyPolicy) bool {
 	for _, obj := range p.Objects {
 		if obj.Type == "schematic" {
-			return containsAllAction(p.Actions)
+			return containsLegacyAllAction(p.Actions)
 		}
 	}
 	return false
 }
 
-// containsAllAction checks if the actions slice contains the "all" action.
-func containsAllAction(actions []access.Action) bool {
-	return lo.Contains(actions, access.ActionAll)
+// containsLegacyAllAction checks if the actions slice contains the "all" action.
+func containsLegacyAllAction(actions []access.Action) bool {
+	return lo.Contains(actions, "all")
 }

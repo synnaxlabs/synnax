@@ -16,9 +16,6 @@ from freighter import Payload
 
 from synnax.ontology.payload import ID
 
-ALLOW_ALL = ID(type="allow_all", key="")
-
-ALL_ACTION = "all"
 CREATE_ACTION = "create"
 DELETE_ACTION = "delete"
 RETRIEVE_ACTION = "retrieve"

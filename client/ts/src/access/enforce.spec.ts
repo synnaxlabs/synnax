@@ -24,11 +24,11 @@ const policy = (
 describe("allowRequest", () => {
   describe("single object", () => {
     it("should allow when policy has exact match", () => {
-      const policies = [policy([id("channel", "1")], [access.RETRIEVE_ACTION])];
+      const policies = [policy([id("channel", "1")], ["retrieve"])];
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: access.RETRIEVE_ACTION,
+          actions: "retrieve",
           objects: id("channel", "1"),
         },
         policies,
@@ -37,11 +37,11 @@ describe("allowRequest", () => {
     });
 
     it("should allow when policy has type-level match (empty key)", () => {
-      const policies = [policy([id("channel", "")], [access.RETRIEVE_ACTION])];
+      const policies = [policy([id("channel", "")], ["retrieve"])];
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: access.RETRIEVE_ACTION,
+          actions: "retrieve",
           objects: id("channel", "42"),
         },
         policies,
@@ -50,11 +50,11 @@ describe("allowRequest", () => {
     });
 
     it("should deny when no policy matches", () => {
-      const policies = [policy([id("channel", "1")], [access.RETRIEVE_ACTION])];
+      const policies = [policy([id("channel", "1")], ["retrieve"])];
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: access.RETRIEVE_ACTION,
+          actions: "retrieve",
           objects: id("channel", "2"),
         },
         policies,
@@ -63,11 +63,11 @@ describe("allowRequest", () => {
     });
 
     it("should deny when action not allowed", () => {
-      const policies = [policy([id("channel", "1")], [access.RETRIEVE_ACTION])];
+      const policies = [policy([id("channel", "1")], ["retrieve"])];
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: access.DELETE_ACTION,
+          actions: "delete",
           objects: id("channel", "1"),
         },
         policies,
@@ -76,11 +76,11 @@ describe("allowRequest", () => {
     });
 
     it("should deny when type does not match", () => {
-      const policies = [policy([id("channel", "1")], [access.RETRIEVE_ACTION])];
+      const policies = [policy([id("channel", "1")], ["retrieve"])];
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: access.RETRIEVE_ACTION,
+          actions: "retrieve",
           objects: id("device", "1"),
         },
         policies,
@@ -89,94 +89,13 @@ describe("allowRequest", () => {
     });
   });
 
-  describe("wildcard action", () => {
-    it("should allow any action when policy has ALL_ACTION", () => {
-      const policies = [policy([id("channel", "1")], [access.ALL_ACTION])];
-      expect(
-        access.allowRequest(
-          {
-            subject: id("user", "u1"),
-            actions: access.RETRIEVE_ACTION,
-            objects: id("channel", "1"),
-          },
-          policies,
-        ),
-      ).toBe(true);
-      expect(
-        access.allowRequest(
-          {
-            subject: id("user", "u1"),
-            actions: access.DELETE_ACTION,
-            objects: id("channel", "1"),
-          },
-          policies,
-        ),
-      ).toBe(true);
-      expect(
-        access.allowRequest(
-          {
-            subject: id("user", "u1"),
-            actions: access.CREATE_ACTION,
-            objects: id("channel", "1"),
-          },
-          policies,
-        ),
-      ).toBe(true);
-    });
-  });
-
-  describe("multiple actions", () => {
-    it("should allow when policy covers all requested actions", () => {
-      const policies = [
-        policy([id("channel", "1")], [access.RETRIEVE_ACTION, access.DELETE_ACTION]),
-      ];
-      const allowed = access.allowRequest(
-        {
-          subject: id("user", "u1"),
-          actions: [access.RETRIEVE_ACTION, access.DELETE_ACTION],
-          objects: id("channel", "1"),
-        },
-        policies,
-      );
-      expect(allowed).toBe(true);
-    });
-
-    it("should deny when policy only covers some requested actions", () => {
-      const policies = [policy([id("channel", "1")], [access.RETRIEVE_ACTION])];
-      const allowed = access.allowRequest(
-        {
-          subject: id("user", "u1"),
-          actions: [access.RETRIEVE_ACTION, access.DELETE_ACTION],
-          objects: id("channel", "1"),
-        },
-        policies,
-      );
-      expect(allowed).toBe(false);
-    });
-
-    it("should allow multiple actions when policy has ALL_ACTION", () => {
-      const policies = [policy([id("channel", "1")], [access.ALL_ACTION])];
-      const allowed = access.allowRequest(
-        {
-          subject: id("user", "u1"),
-          actions: [access.RETRIEVE_ACTION, access.DELETE_ACTION, access.CREATE_ACTION],
-          objects: id("channel", "1"),
-        },
-        policies,
-      );
-      expect(allowed).toBe(true);
-    });
-  });
-
   describe("multiple objects", () => {
     it("should allow when all objects are covered", () => {
-      const policies = [
-        policy([id("channel", "1"), id("channel", "2")], [access.RETRIEVE_ACTION]),
-      ];
+      const policies = [policy([id("channel", "1"), id("channel", "2")], ["retrieve"])];
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: access.RETRIEVE_ACTION,
+          actions: "retrieve",
           objects: [id("channel", "1"), id("channel", "2")],
         },
         policies,
@@ -185,11 +104,11 @@ describe("allowRequest", () => {
     });
 
     it("should deny when some objects are not covered", () => {
-      const policies = [policy([id("channel", "1")], [access.RETRIEVE_ACTION])];
+      const policies = [policy([id("channel", "1")], ["retrieve"])];
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: access.RETRIEVE_ACTION,
+          actions: "retrieve",
           objects: [id("channel", "1"), id("channel", "2")],
         },
         policies,
@@ -198,11 +117,11 @@ describe("allowRequest", () => {
     });
 
     it("should allow all objects with type-level policy", () => {
-      const policies = [policy([id("channel", "")], [access.RETRIEVE_ACTION])];
+      const policies = [policy([id("channel", "")], ["retrieve"])];
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: access.RETRIEVE_ACTION,
+          actions: "retrieve",
           objects: [id("channel", "1"), id("channel", "2"), id("channel", "99")],
         },
         policies,
@@ -214,13 +133,13 @@ describe("allowRequest", () => {
   describe("multiple policies", () => {
     it("should allow when different policies cover different objects", () => {
       const policies = [
-        policy([id("channel", "1")], [access.RETRIEVE_ACTION]),
-        policy([id("channel", "2")], [access.RETRIEVE_ACTION]),
+        policy([id("channel", "1")], ["retrieve"]),
+        policy([id("channel", "2")], ["retrieve"]),
       ];
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: access.RETRIEVE_ACTION,
+          actions: "retrieve",
           objects: [id("channel", "1"), id("channel", "2")],
         },
         policies,
@@ -230,13 +149,13 @@ describe("allowRequest", () => {
 
     it("should allow when one policy covers object and another has different action", () => {
       const policies = [
-        policy([id("channel", "1")], [access.DELETE_ACTION]),
-        policy([id("channel", "1")], [access.RETRIEVE_ACTION]),
+        policy([id("channel", "1")], ["delete"]),
+        policy([id("channel", "1")], ["retrieve"]),
       ];
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: access.RETRIEVE_ACTION,
+          actions: "retrieve",
           objects: id("channel", "1"),
         },
         policies,
@@ -250,7 +169,7 @@ describe("allowRequest", () => {
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: access.RETRIEVE_ACTION,
+          actions: "retrieve",
           objects: id("channel", "1"),
         },
         [],
@@ -259,9 +178,9 @@ describe("allowRequest", () => {
     });
 
     it("should allow with empty objects", () => {
-      const policies = [policy([id("channel", "1")], [access.RETRIEVE_ACTION])];
+      const policies = [policy([id("channel", "1")], ["retrieve"])];
       const allowed = access.allowRequest(
-        { subject: id("user", "u1"), actions: access.RETRIEVE_ACTION, objects: [] },
+        { subject: id("user", "u1"), actions: "retrieve", objects: [] },
         policies,
       );
       expect(allowed).toBe(true);

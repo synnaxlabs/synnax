@@ -76,7 +76,7 @@ var _ = Describe("Writer", func() {
 			p := &policy.Policy{
 				Name:    "wildcard-policy",
 				Objects: []ontology.ID{{Type: "channel"}},
-				Actions: []access.Action{access.ActionAll},
+				Actions: access.AllActions,
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
 		})
