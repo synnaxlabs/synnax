@@ -9,10 +9,14 @@
 
 import "@/range/Explorer.css";
 
-import { Ranger } from "@synnaxlabs/pluto";
+import { Component, Ranger } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { type Layout } from "@/layout";
-import { List } from "@/range/list/List";
+import { Label } from "@/label";
+import { Layout } from "@/layout";
+import { CREATE_LAYOUT } from "@/range/Create";
+import { Item } from "@/range/list/Item";
+import { View } from "@/view";
 
 export const EXPLORER_LAYOUT_TYPE = "range_explorer";
 
@@ -25,19 +29,25 @@ export const EXPLORER_LAYOUT: Layout.State = {
   location: "mosaic",
 };
 
+const item = Component.renderProp(Item);
+
 export const Explorer: Layout.Renderer = () => {
-  const { data, getItem, subscribe, retrieve } = Ranger.useList({
+  const listProps = Ranger.useList({
     sort: Ranger.sortByStage,
   });
+  const placeLayout = Layout.usePlacer();
+  const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
   return (
-    <List
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      retrieve={retrieve}
-      enableAddButton
-      enableSearch
-      enableFilters
-    />
+    <View.Frame {...listProps} resourceType="range" onCreate={handleCreate}>
+      <View.Views />
+      <View.Toolbar>
+        <View.FilterMenu>
+          <Label.Filter.MenuItem />
+        </View.FilterMenu>
+        <View.Search />
+        <Label.Filter.Chips />
+      </View.Toolbar>
+      <View.Items>{item}</View.Items>
+    </View.Frame>
   );
 };
