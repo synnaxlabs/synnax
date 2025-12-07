@@ -28,6 +28,23 @@ namespace common {
 /// @brief the default rate to scan for devices.
 const auto DEFAULT_SCAN_RATE = telem::Rate(telem::SECOND * 5);
 
+/// @brief Base configuration for scan tasks with rate and enabled settings.
+struct ScanTaskConfig {
+    telem::Rate scan_rate = DEFAULT_SCAN_RATE;
+    bool enabled = true;
+
+    ScanTaskConfig() = default;
+
+    explicit ScanTaskConfig(xjson::Parser &cfg):
+        scan_rate(
+            telem::Rate(cfg.field<double>(
+                std::vector<std::string>{"scan_rate", "rate"},
+                DEFAULT_SCAN_RATE.hz()
+            ))
+        ),
+        enabled(cfg.field<bool>("enabled", true)) {}
+};
+
 struct ScannerContext {
     /// @brief the number of scans run before the current one.
     std::size_t count = 0;

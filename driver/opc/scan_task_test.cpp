@@ -56,7 +56,7 @@ protected:
 };
 
 TEST_F(TestScanTask, testBasicScan) {
-    const auto cfg = opc::ScannerConfig{};
+    const auto cfg = opc::ScanTaskConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,
@@ -129,7 +129,7 @@ TEST_F(TestScanTask, testBasicScan) {
 }
 
 TEST_F(TestScanTask, testConnectionPooling) {
-    const auto cfg = opc::ScannerConfig{};
+    const auto cfg = opc::ScanTaskConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,
@@ -163,7 +163,7 @@ TEST_F(TestScanTask, testConnectionPooling) {
 }
 
 TEST_F(TestScanTask, testTestConnection) {
-    const auto cfg = opc::ScannerConfig{};
+    const auto cfg = opc::ScanTaskConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,
@@ -195,7 +195,7 @@ TEST_F(TestScanTask, testTestConnection) {
 }
 
 TEST_F(TestScanTask, testInvalidConnection) {
-    auto cfg = opc::ScannerConfig{};
+    auto cfg = opc::ScanTaskConfig{};
     const auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,

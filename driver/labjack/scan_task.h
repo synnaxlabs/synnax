@@ -28,17 +28,12 @@ const std::vector SCAN_SKIP_ERRORS = {
 };
 
 /// @brief configuration for the scan task
-struct ScanTaskConfig {
-    /// @brief the rate at which to scan for devices
-    const telem::Rate rate;
-    /// @brief whether the scan task is enabled
-    const bool enabled;
+struct ScanTaskConfig : common::ScanTaskConfig {
     /// @brief how often to scan TCP devices relative to USB devices
     const int tcp_scan_multiplier;
 
     explicit ScanTaskConfig(xjson::Parser &cfg):
-        rate(telem::Rate(cfg.field<double>("rate", common::DEFAULT_SCAN_RATE.hz()))),
-        enabled(cfg.field<bool>("enabled", true)),
+        common::ScanTaskConfig(cfg),
         tcp_scan_multiplier(cfg.field<int>("tcp_scan_multiplier", 10)) {}
 };
 
