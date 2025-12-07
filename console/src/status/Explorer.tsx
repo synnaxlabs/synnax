@@ -38,8 +38,8 @@ export const Explorer: Layout.Renderer = () => {
         <View.FilterMenu>
           <Label.Filter.MenuItem />
         </View.FilterMenu>
-        <Label.Filter.Chips />
         <View.Search />
+        <Label.Filter.Chips />
       </View.Toolbar>
       <View.Views />
       <View.Items>{item}</View.Items>

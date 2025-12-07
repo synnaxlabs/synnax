@@ -27,7 +27,7 @@ export const FilterMenu = ({ children }: FilterMenuProps): ReactNode => {
       >
         <Icon.Filter />
       </Dialog.Trigger>
-      <Dialog.Dialog background={1} pack={false} bordered={false} style={style}>
+      <Dialog.Dialog background={1} pack={false} style={style}>
         <Menu.Menu level="small" gap="small">
           {children}
         </Menu.Menu>

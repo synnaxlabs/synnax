@@ -9,49 +9,62 @@
 
 import { type view } from "@synnaxlabs/client";
 import {
-  Button,
   Flex,
   Form,
   Icon,
   List,
   Menu,
   Select,
+  Status,
   Text,
   View,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { Menu as CMenu } from "@/components";
+import { useConfirmDelete } from "@/ontology/hooks";
 import { useContext } from "@/view/context";
 
 export const Views = (): ReactElement | null => {
   const { editable, resourceType } = useContext("View.Views");
   const listReturn = View.useList({ initialQuery: { types: [resourceType] } });
-  const { fetchMore } = List.usePager({ retrieve: listReturn.retrieve });
-  const { set, reset } = Form.useContext();
+  const { retrieve, getItem } = listReturn;
+  const { fetchMore } = List.usePager({ retrieve });
+  const { set, reset, get } = Form.useContext();
   const selected = Form.useFieldValue<view.Key>("key", {
     optional: true,
   });
+  const confirm = useConfirmDelete({
+    type: "View",
+    description: "Deleting this view will permanently remove it.",
+  });
+  const handleError = Status.useErrorHandler();
+
   const handleSelectView = useCallback(
     (view: view.Key | null) => {
       if (view == null) {
         reset();
         return;
       }
-      const v = listReturn.getItem(view);
+      const v = getItem(view);
       if (v == null) return;
       set("", v);
     },
-    [set, reset, listReturn.getItem],
+    [set, reset, getItem],
   );
   const { update: del } = View.useDelete();
   const handleDelete = useCallback(
     (viewKey: view.Key) => {
-      if (viewKey === selected) reset();
-
-      del(viewKey);
+      handleError(async () => {
+        const v = getItem(viewKey);
+        if (v == null) return;
+        const confirmed = await confirm([v]);
+        if (!confirmed) return;
+        if (viewKey === get<string>("key").value) reset();
+        del(viewKey);
+      }, "Failed to delete view");
     },
-    [reset, selected],
+    [reset, get, getItem, confirm, del, handleError],
   );
   const contextMenuProps = Menu.useContextMenu();
   if (!editable) return null;
@@ -88,12 +101,7 @@ export const Views = (): ReactElement | null => {
       >
         <List.Items<view.Key> x gap="medium" style={itemsStyle}>
           {({ key, ...rest }) => (
-            <ViewItem
-              key={key}
-              onDelete={handleDelete}
-              {...rest}
-              onContextMenu={contextMenuProps.open}
-            />
+            <ViewItem key={key} {...rest} onContextMenu={contextMenuProps.open} />
           )}
         </List.Items>
       </Menu.ContextMenu>
@@ -103,15 +111,9 @@ export const Views = (): ReactElement | null => {
 
 const itemsStyle = { padding: "1rem 1.5rem", overflow: "scroll" } as const;
 
-interface ViewItemProps extends List.ItemProps<view.Key> {
-  onDelete: (viewKey: view.Key) => void;
-}
+interface ViewItemProps extends List.ItemProps<view.Key> {}
 
-const ViewItem = ({
-  itemKey,
-  onDelete,
-  onContextMenu,
-}: ViewItemProps): ReactElement | null => {
+const ViewItem = ({ itemKey, onContextMenu }: ViewItemProps): ReactElement | null => {
   const query = View.useRetrieve({ key: itemKey });
   const { update: rename } = View.useRename();
   const handleRename = useCallback(
@@ -120,9 +122,6 @@ const ViewItem = ({
     },
     [itemKey, rename],
   );
-  const handleDelete = useCallback(() => {
-    onDelete(itemKey);
-  }, [itemKey, onDelete]);
   if (query.variant !== "success") return null;
   return (
     <Flex.Box pack onContextMenu={onContextMenu}>
@@ -134,9 +133,6 @@ const ViewItem = ({
           style={{ padding: "0rem 1rem" }}
         />
       </Select.Button>
-      <Button.Button onClick={handleDelete} size="small">
-        <Icon.Delete />
-      </Button.Button>
     </Flex.Box>
   );
 };
