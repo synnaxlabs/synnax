@@ -172,7 +172,7 @@ xerrors::Error ni::Scanner::start() {
             nullptr,
             NISysCfgLocaleDefault,
             NISysCfgBoolTrue,
-            (this->cfg.rate.period() - telem::SECOND).milliseconds(),
+            (this->cfg.scan_rate.period() - telem::SECOND).milliseconds(),
             nullptr,
             &this->session
         ))

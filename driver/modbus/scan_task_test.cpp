@@ -30,7 +30,7 @@ TEST(ScanTask, testConnection) {
 
     auto dev_manager = std::make_shared<modbus::device::Manager>();
 
-    const auto cfg = modbus::ScannerConfig{};
+    const auto cfg = modbus::ScanTaskConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<modbus::Scanner>(ctx, t, dev_manager),
         ctx,
