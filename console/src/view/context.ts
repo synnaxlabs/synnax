@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { context } from "@synnaxlabs/pluto";
+import { context, type Flux } from "@synnaxlabs/pluto";
 
 export interface ContextValue {
   editable: boolean;
   resourceType: ontology.ResourceType;
   search: (term: string) => void;
+  save: (opts?: Flux.FetchOptions) => void;
 }
 
 export const [Provider, useContext] = context.create<ContextValue>({

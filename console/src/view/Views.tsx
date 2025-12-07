@@ -10,7 +10,6 @@
 import { type view } from "@synnaxlabs/client";
 import {
   Button,
-  Divider,
   Flex,
   Form,
   Icon,
@@ -30,7 +29,7 @@ import { useConfirmDelete } from "@/ontology/hooks";
 import { useContext } from "@/view/context";
 
 export const Views = (): ReactElement | null => {
-  const { editable, resourceType } = useContext("View.Views");
+  const { editable, resourceType, save } = useContext("View.Views");
   const listReturn = View.useList({ initialQuery: { types: [resourceType] } });
   const { retrieve, getItem } = listReturn;
   const { fetchMore } = List.usePager({ retrieve });
@@ -39,6 +38,7 @@ export const Views = (): ReactElement | null => {
     optional: true,
   });
   const confirm = useConfirmDelete({
+    icon: "Delete",
     type: "View",
     description: "Deleting this view will permanently remove it.",
   });
@@ -48,7 +48,7 @@ export const Views = (): ReactElement | null => {
     handleError(async () => {
       const name = await renameModal(
         { initialValue: `View for ${resourceType}` },
-        { icon: "View", name: "View.Create" },
+        { name: "View.Create" },
       );
       if (name == null) return;
       set("name", name);
@@ -59,11 +59,13 @@ export const Views = (): ReactElement | null => {
     (view: view.Key | null) => {
       if (view == null) {
         reset();
+        save();
         return;
       }
       const v = getItem(view);
       if (v == null) return;
       set("", v);
+      save();
     },
     [set, reset, getItem],
   );
@@ -91,16 +93,17 @@ export const Views = (): ReactElement | null => {
       onChange={handleSelectView}
       allowNone
     >
-      <Flex.Box x style={{ padding: "1rem 1rem" }} gap="medium">
-        <Text.Text align="center">
-          Views
-          {editable && (
-            <Button.Button onClick={handleCreate} size="small" variant="shadow">
-              <Icon.Add />
-            </Button.Button>
-          )}
-        </Text.Text>
-        <Divider.Divider y />
+      <Flex.Box
+        x
+        style={{ padding: "1rem 1rem", height: "8rem" }}
+        gap="medium"
+        align="center"
+      >
+        {editable && (
+          <Button.Button onClick={handleCreate} tooltip="Create a view" size="small">
+            <Icon.Add />
+          </Button.Button>
+        )}
         <Menu.ContextMenu
           {...contextMenuProps}
           menu={({ keys }) => (
@@ -150,8 +153,9 @@ const ViewItem = ({ itemKey, onContextMenu }: ViewItemProps): ReactElement | nul
     <Flex.Box pack onContextMenu={onContextMenu}>
       <Select.Button itemKey={itemKey} size="small" justify="between">
         <Text.MaybeEditable
-          id={`text-${itemKey}`}
+          id={itemKey}
           value={query.data.name}
+          color={9}
           onChange={handleRename}
           style={{ padding: "0rem 1rem" }}
         />

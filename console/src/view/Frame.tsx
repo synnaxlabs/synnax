@@ -59,7 +59,7 @@ export const Frame = <
     // typing issues.
     retrieve: retrieve as List.UsePagerArgs["retrieve"],
   });
-  const { form } = PView.useForm({
+  const { form, save } = PView.useForm({
     query: {},
     initialValues: {
       type: resourceType,
@@ -80,8 +80,8 @@ export const Frame = <
     },
   });
   const contextValue = useMemo(
-    () => ({ editable, resourceType, search }),
-    [editable, resourceType, search],
+    () => ({ editable, resourceType, search, save }),
+    [editable, resourceType, search, save],
   );
   return (
     <Form.Form<typeof view.newZ> {...form}>
