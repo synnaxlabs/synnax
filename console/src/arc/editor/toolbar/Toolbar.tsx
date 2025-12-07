@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
+import { Access, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -17,7 +17,6 @@ import { Stages } from "@/arc/editor/toolbar/Stages";
 import { useExport } from "@/arc/export";
 import {
   useSelectEditable,
-  useSelectHasPermission,
   useSelectSelectedElementNames,
   useSelectToolbar,
 } from "@/arc/selectors";
@@ -41,7 +40,7 @@ const NotEditableContent = ({
   name,
 }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
-  const hasEditingPermissions = useSelectHasPermission();
+  const hasEditingPermissions = Access.useUpdateGranted(arc.ontologyID(layoutKey));
   const isEditable = hasEditingPermissions;
   return (
     <Flex.Box x gap="small" center>
@@ -95,7 +94,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [dispatch],
   );
-  const canEdit = useSelectHasPermission();
+  const canEdit = Access.useUpdateGranted(arc.ontologyID(layoutKey));
   const contextValue = useMemo(
     () => ({
       tabs: TABS,

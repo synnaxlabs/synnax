@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x";
+import { array, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actionZ } from "@/access/payload";
@@ -18,16 +18,20 @@ export type Key = z.infer<typeof keyZ>;
 
 export const policyZ = z.object({
   key: keyZ,
-  subjects: array.nullableZ(ontology.idZ),
+  name: z.string(),
   objects: array.nullableZ(ontology.idZ),
   actions: array.nullableZ(actionZ),
+  internal: z.boolean(),
 });
 export interface Policy extends z.infer<typeof policyZ> {}
 
 export const newZ = z.object({
   key: keyZ.optional(),
-  subjects: ontology.idZ.array().or(ontology.idZ),
-  objects: ontology.idZ.array().or(ontology.idZ),
-  actions: actionZ.array().or(actionZ),
+  name: z.string(),
+  objects: zod.toArray(ontology.idZ),
+  actions: zod.toArray(actionZ),
 });
 export interface New extends z.input<typeof newZ> {}
+
+export const ontologyID = ontology.createIDFactory<Key>("policy");
+export const TYPE_ONTOLOGY_ID = ontologyID("");

@@ -114,6 +114,7 @@ export interface Service {
   onMosaicDrop?: HandleMosaicDrop;
   TreeContextMenu?: TreeContextMenu;
   PaletteListItem?: PaletteListItem;
+  visible?: (resource: ontology.Resource) => boolean;
 }
 
 export const NOOP_SERVICE: Omit<Service, "type"> = {

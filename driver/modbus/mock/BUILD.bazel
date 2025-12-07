@@ -3,7 +3,11 @@ cc_library(
     hdrs = ["slave.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/modbus/util",
         "//vendor/libmodbus",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+        "@glog//:glog",
     ],
 )
 

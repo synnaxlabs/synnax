@@ -14,6 +14,7 @@ cc_library(
         "//x/cpp/breaker",
         "//x/cpp/loop",
         "//x/cpp/status",
+        "//x/cpp/xthread",
         "@glog",
         "@nlohmann_json//:json",
     ],

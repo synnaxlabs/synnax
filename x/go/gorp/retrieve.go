@@ -205,6 +205,12 @@ func getFilters[K Key, E Entry[K]](q query.Parameters) filters[K, E] {
 	return rf.(filters[K, E])
 }
 
+// HasFilters returns true if any Where filters have been set on the query.
+func HasFilters(q query.Parameters) bool {
+	_, ok := q.Get(filtersKey)
+	return ok
+}
+
 const limitKey query.Parameter = "limit"
 
 func SetLimit(q query.Parameters, limit int) { q.Set(limitKey, limit) }
@@ -252,6 +258,11 @@ func getWhereKeys[K Key](q query.Parameters) (whereKeys[K], bool) {
 		return nil, false
 	}
 	return keys.(whereKeys[K]), true
+}
+
+// GetWhereKeys returns the keys set via WhereKeys, if any.
+func GetWhereKeys[K Key](q query.Parameters) ([]K, bool) {
+	return getWhereKeys[K](q)
 }
 
 const wherePrefixKey query.Parameter = "retrieveByPrefix"

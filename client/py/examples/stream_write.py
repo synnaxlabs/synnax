@@ -50,7 +50,7 @@ start = sy.TimeStamp.now()
 
 # The rate at which we'll send samples to the cluster. sy.Loop  is a utility to help
 # regulate the timing.
-loop = sy.Loop(sy.Rate.HZ * 50)
+loop = sy.Loop(sy.Rate.HZ * 500)
 
 client.channels.create(
     name="stream_write_avg",

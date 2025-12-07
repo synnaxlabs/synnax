@@ -147,11 +147,13 @@ public:
     /// @param breaker_config the configuration for the breaker used to manage the
     /// control thread lifecycle and retry requests on connection loss or temporary
     /// hardware errors.
+    /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Control(
         std::shared_ptr<synnax::Synnax> client,
         synnax::StreamerConfig streamer_config,
         std::shared_ptr<Sink> sink,
-        const breaker::Config &breaker_config
+        const breaker::Config &breaker_config,
+        std::string thread_name = ""
     );
 
     //// @brief constructs a new control pipeline that opens streamers using the
@@ -164,11 +166,13 @@ public:
     /// @param breaker_config the configuration for the breaker used to manage the
     /// control thread lifecycle and retry requests on connection loss or temporary
     /// hardware errors.
+    /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Control(
         std::shared_ptr<StreamerFactory> streamer_factory,
         synnax::StreamerConfig streamer_config,
         std::shared_ptr<Sink> sink,
-        const breaker::Config &breaker_config
+        const breaker::Config &breaker_config,
+        std::string thread_name = ""
     );
 
     /// @brief stops the control pipeline, blocking until the control thread has

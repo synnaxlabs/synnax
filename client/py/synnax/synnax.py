@@ -12,7 +12,9 @@ import warnings
 from alamos import NOOP, Instrumentation
 from freighter import URL
 
-from synnax.access import PolicyClient
+from synnax.access import Client as AccessClient
+from synnax.access.policy.client import PolicyClient
+from synnax.access.role.client import RoleClient
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
 from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriever
@@ -59,7 +61,7 @@ class Synnax(Client):
     """
 
     channels: ChannelClient
-    access: PolicyClient
+    access: AccessClient
     user: UserClient
     ranges: RangeClient
     control: ControlClient
@@ -161,9 +163,12 @@ class Synnax(Client):
             tasks=self.tasks,
         )
         self.control = ControlClient(self, ch_retriever)
-        self.access = PolicyClient(self._transport.unary, instrumentation)
         self.user = UserClient(self._transport.unary)
         self.statuses = StatusClient(self._transport.unary)
+        self.access = AccessClient(
+            roles=RoleClient(self._transport.unary, instrumentation),
+            policies=PolicyClient(self._transport.unary, instrumentation),
+        )
 
     @property
     def hardware(self) -> "Synnax":

@@ -25,11 +25,11 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "arc"
+const OntologyType ontology.Type = "arc"
 
 // OntologyID returns unique identifier for the Arc within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
+	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the arcs within the ontology.
@@ -70,7 +70,7 @@ var _ ontology.Service = (*Service)(nil)
 
 type change = changex.Change[uuid.UUID, Arc]
 
-func (s *Service) Type() ontology.Type { return ontologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }
