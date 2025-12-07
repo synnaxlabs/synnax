@@ -66,7 +66,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTx, tx)
 	if r.searchTerm != "" {
 		ids, err := r.otg.SearchIDs(ctx, search.Request{
-			Type: ontologyType,
+			Type: OntologyType,
 			Term: r.searchTerm,
 		})
 		if err != nil {
@@ -98,7 +98,7 @@ func (s *Service) RetrieveFor(
 		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
-	keys, err := KeysFromOntologyIDs(ontology.IDs(labelResources))
+	keys, err := KeysFromOntologyIDs(ontology.ResourceIDs(labelResources))
 	if err != nil {
 		return nil, err
 	}

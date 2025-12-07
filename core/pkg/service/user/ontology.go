@@ -23,11 +23,11 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "user"
+const OntologyType ontology.Type = "user"
 
 // OntologyID returns a unique identifier for a User for use within a resource ontology.
 func OntologyID(key uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: key.String()}
+	return ontology.ID{Type: OntologyType, Key: key.String()}
 }
 
 // OntologyIDsFromKeys returns a slice of unique identifiers from a slice of keys
@@ -55,7 +55,7 @@ func OntologyIDsFromUsers(users []User) []ontology.ID {
 
 func KeyFromOntologyID(id ontology.ID) (uuid.UUID, error) { return uuid.Parse(id.Key) }
 
-var OntologyTypeID = ontology.ID{Type: ontologyType, Key: ""}
+var OntologyTypeID = ontology.ID{Type: OntologyType, Key: ""}
 
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":        zyn.UUID(),
@@ -65,7 +65,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"root_user":  zyn.Bool(),
 })
 
-func (s *Service) Type() ontology.Type { return ontologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

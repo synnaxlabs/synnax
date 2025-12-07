@@ -129,7 +129,7 @@ type Resource struct {
 // Parse parses the Resource's Data field into the provided destination using the
 // resource's schema. Returns an error if the data does not match the schema or cannot
 // be parsed into the destination type.
-func (r Resource) Parse(dest any) error {	return r.schema.Parse(r.Data, dest)}
+func (r Resource) Parse(dest any) error { return r.schema.Parse(r.Data, dest) }
 
 type Change = change.Change[ID, Resource]
 

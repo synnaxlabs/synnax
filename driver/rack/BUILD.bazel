@@ -36,6 +36,7 @@ cc_library(
         "//x/cpp/xlog",
         "//x/cpp/xos",
         "//x/cpp/xpath",
+        "//x/cpp/xthread",
     ] + select({
         ":nilinuxrt": [],
         "//conditions:default": ["//driver/modbus"],

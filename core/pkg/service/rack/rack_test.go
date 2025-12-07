@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -85,6 +86,49 @@ var _ = Describe("Rack", Ordered, func() {
 			k := rack.NewKey(1, 2)
 			Expect(k.Node()).To(Equal(cluster.NodeKey(1)))
 			Expect(k.LocalKey()).To(Equal(uint16(2)))
+		})
+	})
+	Describe("Key msgpack decoding", func() {
+		var codec = &binary.MsgPackCodec{}
+		DescribeTable("Should decode rack.Key from various types",
+			func(value any, expected rack.Key) {
+				data := MustSucceed(codec.Encode(ctx, value))
+				var k rack.Key
+				Expect(codec.Decode(ctx, data, &k)).To(Succeed())
+				Expect(k).To(Equal(expected))
+			},
+			Entry("string", "65537", rack.Key(65537)),
+			Entry("uint64", uint64(65537), rack.Key(65537)),
+			Entry("uint32", uint32(65537), rack.Key(65537)),
+			Entry("uint16", uint16(1234), rack.Key(1234)),
+			Entry("int64", int64(65537), rack.Key(65537)),
+			Entry("int32", int32(65537), rack.Key(65537)),
+			Entry("float64", float64(65537), rack.Key(65537)),
+			Entry("float32", float32(1234), rack.Key(1234)),
+		)
+		It("Should decode StatusDetails with rack key as float64", func() {
+			type statusDetailsWithFloat struct {
+				Rack float64 `msgpack:"rack"`
+			}
+			original := statusDetailsWithFloat{
+				Rack: float64(65537),
+			}
+			data := MustSucceed(codec.Encode(ctx, original))
+			var decoded rack.StatusDetails
+			Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
+			Expect(decoded.Rack).To(Equal(rack.Key(65537)))
+		})
+		It("Should decode StatusDetails with rack key as string", func() {
+			type statusDetailsWithString struct {
+				Rack string `msgpack:"rack"`
+			}
+			original := statusDetailsWithString{
+				Rack: "65537",
+			}
+			data := MustSucceed(codec.Encode(ctx, original))
+			var decoded rack.StatusDetails
+			Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
+			Expect(decoded.Rack).To(Equal(rack.Key(65537)))
 		})
 	})
 	Describe("Create", func() {

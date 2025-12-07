@@ -15,6 +15,5 @@ import (
 )
 
 var (
-	Denied        = errors.Wrap(base.AuthError, "access denied")
-	Granted error = nil
+	ErrDenied = errors.Wrap(base.AuthError, "access denied")
 )

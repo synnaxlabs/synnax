@@ -118,6 +118,34 @@ var _ = Describe("retrieveResource", func() {
 				Expect(res.Key).To(Equal("C"))
 			})
 
+			It("Should retrieve resources at intermediate and final clauses", func() {
+				a := newSampleType("A")
+				b := newSampleType("B")
+				c := newSampleType("C")
+				Expect(w.DefineResource(ctx, a)).To(Succeed())
+				Expect(w.DefineResource(ctx, b)).To(Succeed())
+				Expect(w.DefineResource(ctx, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, b, ontology.ParentOf, c)).To(Succeed())
+				var intermediate []ontology.Resource
+				var final []ontology.Resource
+				Expect(w.NewRetrieve().
+					WhereIDs(a).
+					TraverseTo(ontology.Children).
+					Entries(&intermediate).
+					TraverseTo(ontology.Children).
+					Entries(&final).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(intermediate).To(HaveLen(1))
+				Expect(final).To(HaveLen(1))
+				var res Sample
+				Expect(intermediate[0].Parse(&res)).To(Succeed())
+				Expect(res.Key).To(Equal("B"))
+				Expect(final[0].Parse(&res)).To(Succeed())
+				Expect(res.Key).To(Equal("C"))
+			})
+
 			It("Should retrieve the resources of a parent by their type", func() {
 				a := newSampleType("A")
 				b := newSampleType("B")

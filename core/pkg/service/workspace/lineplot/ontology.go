@@ -24,11 +24,11 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "lineplot"
+const OntologyType ontology.Type = "lineplot"
 
-// OntologyID returns unique identifier for the line plot within the ontology.
+// OntologyID returns unique identifier for the lineplot within the ontology.
 func OntologyID(key uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: key.String()}
+	return ontology.ID{Type: OntologyType, Key: key.String()}
 }
 
 // OntologyIDs returns unique identifiers for the line plots within the ontology.
@@ -58,7 +58,7 @@ var _ ontology.Service = (*Service)(nil)
 
 type change = xchange.Change[uuid.UUID, LinePlot]
 
-func (s *Service) Type() ontology.Type { return ontologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

@@ -17,6 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -26,30 +29,32 @@ type AccessService struct {
 }
 
 func NewAccessService(p Provider) *AccessService {
-	return &AccessService{
-		internal:   p.Service.RBAC,
-		dbProvider: p.db,
-	}
+	return &AccessService{internal: p.Service.RBAC, dbProvider: p.db}
 }
+
+const allowInternal = false
 
 type (
 	AccessCreatePolicyRequest struct {
-		Policies []rbac.Policy `json:"policies" msgpack:"policies"`
+		Policies []policy.Policy `json:"policies" msgpack:"policies"`
 	}
 	AccessCreatePolicyResponse = AccessCreatePolicyRequest
 )
 
-func (s *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicyRequest) (AccessCreatePolicyResponse, error) {
-	if err := s.internal.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Objects: rbac.PolicyOntologyIDsFromPolicies(req.Policies),
-		Action:  access.Create,
-	}); err != nil {
-		return AccessCreatePolicyRequest{}, err
-	}
-	results := make([]rbac.Policy, len(req.Policies))
+func (s *AccessService) CreatePolicy(
+	ctx context.Context,
+	req AccessCreatePolicyRequest,
+) (AccessCreatePolicyResponse, error) {
+	results := make([]policy.Policy, len(req.Policies))
 	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.internal.NewWriter(tx)
+		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: getSubject(ctx),
+			Objects: policy.OntologyIDsFromPolicies(req.Policies),
+			Action:  access.ActionCreate,
+		}); err != nil {
+			return err
+		}
+		w := s.internal.Policy.NewWriter(tx, allowInternal)
 		for i, p := range req.Policies {
 			if p.Key == uuid.Nil {
 				p.Key = uuid.New()
@@ -66,53 +71,45 @@ func (s *AccessService) CreatePolicy(ctx context.Context, req AccessCreatePolicy
 	return AccessCreatePolicyResponse{Policies: results}, nil
 }
 
-// AccessRetrievePolicyRequest is a request for retrieving a policy from the cluster.
 type AccessRetrievePolicyRequest struct {
-	// Subjects are the ontology IDs of subjects of the policy.
 	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
-	// Keys is an optional parameter for the list of keys in the ontology.
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys     []uuid.UUID   `json:"keys" msgpack:"keys"`
+	Limit    int           `json:"limit" msgpack:"limit"`
+	Offset   int           `json:"offset" msgpack:"offset"`
+	Internal *bool         `json:"internal" msgpack:"internal"`
 }
 
-// AccessRetrievePolicyResponse is the response containing the retrieved policies.
 type AccessRetrievePolicyResponse struct {
-	// Policies is a list of policies retrieved from the cluster.
-	Policies []rbac.Policy `json:"policies" msgpack:"policies"`
+	Policies []policy.Policy `json:"policies" msgpack:"policies"`
 }
 
-// RetrievePolicy retrieves policies from the cluster based on the provided request.
-// It filters policies by subjects and keys if they are provided in the request.
-// It enforces access control to ensure the subject has permission to retrieve the policies.
-//
-// Parameters:
-//   - ctx: The context for the request.
-//   - req: The request containing the subjects and keys to filter the policies.
-//
-// Returns:
-//   - res: The response containing the retrieved policies.
-//   - err: An error if the retrieval or access control enforcement fails.
 func (s *AccessService) RetrievePolicy(
 	ctx context.Context,
 	req AccessRetrievePolicyRequest,
 ) (res AccessRetrievePolicyResponse, err error) {
-	var (
-		hasSubjects = len(req.Subjects) > 0
-		hasKeys     = len(req.Keys) > 0
-	)
-	q := s.internal.NewRetrieve()
-	if hasSubjects {
+	q := s.internal.Policy.NewRetrieve()
+	if len(req.Subjects) > 0 {
 		q = q.WhereSubjects(req.Subjects...)
 	}
-	if hasKeys {
+	if len(req.Keys) > 0 {
 		q = q.WhereKeys(req.Keys...)
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
+	}
+	if req.Internal != nil {
+		q = q.WhereInternal(*req.Internal)
 	}
 	if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
 		return AccessRetrievePolicyResponse{}, err
 	}
-	if err = s.internal.Enforce(ctx, access.Request{
+	if err = s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
-		Objects: rbac.PolicyOntologyIDsFromPolicies(res.Policies),
+		Action:  access.ActionRetrieve,
+		Objects: policy.OntologyIDsFromPolicies(res.Policies),
 	}); err != nil {
 		return AccessRetrievePolicyResponse{}, err
 	}
@@ -124,14 +121,166 @@ type AccessDeletePolicyRequest struct {
 }
 
 func (s *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicyRequest) (types.Nil, error) {
-	if err := s.internal.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Objects: rbac.PolicyOntologyIDs(req.Keys),
-		Action:  access.Delete,
-	}); err != nil {
-		return types.Nil{}, err
-	}
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: getSubject(ctx),
+			Objects: policy.OntologyIDs(req.Keys),
+			Action:  access.ActionDelete,
+		}); err != nil {
+			return err
+		}
+		return s.internal.Policy.NewWriter(tx, allowInternal).Delete(ctx, req.Keys...)
+	})
+
+}
+
+type (
+	AccessCreateRoleRequest struct {
+		Roles []role.Role `json:"roles" msgpack:"roles"`
+	}
+	AccessCreateRoleResponse struct {
+		Roles []role.Role `json:"roles" msgpack:"roles"`
+	}
+)
+
+func (s *AccessService) CreateRole(
+	ctx context.Context,
+	req AccessCreateRoleRequest,
+) (AccessCreateRoleResponse, error) {
+	results := make([]role.Role, len(req.Roles))
+	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: getSubject(ctx),
+			Objects: []ontology.ID{role.OntologyID(uuid.Nil)},
+			Action:  access.ActionCreate,
+		}); err != nil {
+			return err
+		}
+		w := s.internal.Role.NewWriter(tx, allowInternal)
+		for i, r := range req.Roles {
+			if r.Key == uuid.Nil {
+				r.Key = uuid.New()
+			}
+			if err := w.Create(ctx, &r); err != nil {
+				return err
+			}
+			results[i] = r
+		}
+		return nil
+	}); err != nil {
+		return AccessCreateRoleResponse{}, err
+	}
+	return AccessCreateRoleResponse{Roles: results}, nil
+}
+
+type (
+	AccessRetrieveRoleRequest struct {
+		Keys     []uuid.UUID `json:"keys" msgpack:"keys"`
+		Limit    int         `json:"limit" msgpack:"limit"`
+		Offset   int         `json:"offset" msgpack:"offset"`
+		Internal *bool       `json:"internal" msgpack:"internal"`
+	}
+	AccessRetrieveRoleResponse struct {
+		Roles []role.Role `json:"roles" msgpack:"roles"`
+	}
+)
+
+func (s *AccessService) RetrieveRole(
+	ctx context.Context,
+	req AccessRetrieveRoleRequest,
+) (AccessRetrieveRoleResponse, error) {
+	var res AccessRetrieveRoleResponse
+	q := s.internal.Role.NewRetrieve()
+	if len(req.Keys) > 0 {
+		q = q.WhereKeys(req.Keys...)
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
+	}
+	if req.Internal != nil {
+		q = q.WhereInternal(*req.Internal)
+	}
+	if err := q.Entries(&res.Roles).Exec(ctx, nil); err != nil {
+		return AccessRetrieveRoleResponse{}, err
+	}
+	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: getSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: []ontology.ID{role.OntologyID(uuid.Nil)}, // Type-level check
+	}); err != nil {
+		return AccessRetrieveRoleResponse{}, err
+	}
+
+	return res, nil
+}
+
+type AccessDeleteRoleRequest struct {
+	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+}
+
+func (s *AccessService) DeleteRole(ctx context.Context, req AccessDeleteRoleRequest) (types.Nil, error) {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		roleIDs := make([]ontology.ID, len(req.Keys))
+		for i, key := range req.Keys {
+			roleIDs[i] = role.OntologyID(key)
+		}
+		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: getSubject(ctx),
+			Objects: roleIDs,
+			Action:  access.ActionDelete,
+		}); err != nil {
+			return err
+		}
+		w := s.internal.Role.NewWriter(tx, allowInternal)
+		for _, key := range req.Keys {
+			if err := w.Delete(ctx, key); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+type AccessAssignRoleRequest struct {
+	User uuid.UUID `json:"user" msgpack:"user"`
+	Role uuid.UUID `json:"role" msgpack:"role"`
+}
+
+func (s *AccessService) AssignRole(
+	ctx context.Context,
+	req AccessAssignRoleRequest,
+) (types.Nil, error) {
+	userID := user.OntologyID(req.User)
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: getSubject(ctx),
+			Objects: []ontology.ID{userID},
+			Action:  access.ActionUpdate,
+		}); err != nil {
+			return err
+		}
+		return s.internal.Role.NewWriter(tx, allowInternal).AssignRole(ctx, userID, req.Role)
+	})
+}
+
+type AccessUnassignRoleRequest struct {
+	User uuid.UUID `json:"user" msgpack:"user"`
+	Role uuid.UUID `json:"role" msgpack:"role"`
+}
+
+func (s *AccessService) UnassignRole(ctx context.Context, req AccessUnassignRoleRequest) (types.Nil, error) {
+	userID := user.OntologyID(req.User)
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: getSubject(ctx),
+			Objects: []ontology.ID{userID},
+			Action:  access.ActionUpdate,
+		}); err != nil {
+			return err
+		}
+		return s.internal.Role.NewWriter(tx, true).UnassignRole(ctx, userID, req.Role)
 	})
 }

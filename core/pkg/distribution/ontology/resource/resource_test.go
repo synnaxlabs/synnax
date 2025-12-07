@@ -12,7 +12,6 @@ package resource_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/resource"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -23,7 +22,7 @@ var _ = Describe("Resource", func() {
 	Describe("Type", func() {
 		Describe("String", func() {
 			It("Should return the string representation of the type", func() {
-				Expect(ontology.Type("abc").String()).To(Equal("abc"))
+				Expect(resource.Type("abc").String()).To(Equal("abc"))
 			})
 		})
 	})
@@ -35,7 +34,7 @@ var _ = Describe("Resource", func() {
 				Expect(id.Validate()).To(HaveOccurredAs(validate.Error))
 			})
 			It("Should return an error if the resource ID does not have a type", func() {
-				id := ontology.ID{Key: "foo"}
+				id := resource.ID{Key: "foo"}
 				Expect(id.Validate()).To(HaveOccurredAs(validate.Error))
 			})
 			It("Should return nil if the resource ID is valid", func() {
@@ -46,28 +45,28 @@ var _ = Describe("Resource", func() {
 
 		Describe("IsType", func() {
 			It("Should return true if the type of the key is empty", func() {
-				Expect(ontology.ID{Type: "foo"}.IsType()).To(BeTrue())
+				Expect(resource.ID{Type: "foo"}.IsType()).To(BeTrue())
 			})
 			It("Should return false if the type of the key is not empty", func() {
-				Expect(ontology.ID{Type: "Bar", Key: "foo"}.IsType()).To(BeFalse())
+				Expect(resource.ID{Type: "Bar", Key: "foo"}.IsType()).To(BeFalse())
 			})
 		})
 
 		Describe("IsZero", func() {
 			It("Should return true if both the type and key are empty", func() {
-				Expect(ontology.ID{}.IsZero()).To(BeTrue())
+				Expect(resource.ID{}.IsZero()).To(BeTrue())
 			})
 			It("Should return false when the type is not empty", func() {
-				Expect(ontology.ID{Type: "cat"}.IsZero()).To(BeFalse())
+				Expect(resource.ID{Type: "cat"}.IsZero()).To(BeFalse())
 			})
 			It("Should return false when the key is not empty", func() {
-				Expect(ontology.ID{Key: "cat"}.IsZero()).To(BeFalse())
+				Expect(resource.ID{Key: "cat"}.IsZero()).To(BeFalse())
 			})
 		})
 
 		Describe("String", func() {
 			It("Should return the string representation to the ID", func() {
-				Expect(ontology.ID{Key: "dog", Type: "cat"}.String()).
+				Expect(resource.ID{Key: "dog", Type: "cat"}.String()).
 					To(Equal("cat:dog"))
 			})
 		})
@@ -137,9 +136,9 @@ var _ = Describe("Resource", func() {
 	})
 
 	Describe("Resource", func() {
-		r := ontology.NewResource(
+		r := resource.New(
 			zyn.Object(nil),
-			ontology.ID{Type: "cat", Key: "dog"},
+			resource.ID{Type: "cat", Key: "dog"},
 			"cat",
 			map[string]any{},
 		)
@@ -168,9 +167,9 @@ var _ = Describe("Resource", func() {
 			It("Should parse a resource from its schema", func() {
 				type myStruct struct{ Cat string }
 				schema := zyn.Object(map[string]zyn.Schema{"cat": zyn.String()})
-				r := ontology.NewResource(
+				r := resource.New(
 					schema,
-					ontology.ID{Type: "cat", Key: "dog"},
+					resource.ID{Type: "cat", Key: "dog"},
 					"cat",
 					map[string]any{"cat": "milo"},
 				)
@@ -184,15 +183,15 @@ var _ = Describe("Resource", func() {
 	Describe("IDs", func() {
 		It("Should extract IDs from a slice of resources", func() {
 			resources := []resource.Resource{
-				ontology.NewResource(
+				resource.New(
 					zyn.Object(nil),
-					ontology.ID{Type: "cat", Key: "dog1"},
+					resource.ID{Type: "cat", Key: "dog1"},
 					"cat1",
 					map[string]any{},
 				),
-				ontology.NewResource(
+				resource.New(
 					zyn.Object(nil),
-					ontology.ID{Type: "cat", Key: "dog2"},
+					resource.ID{Type: "cat", Key: "dog2"},
 					"cat2",
 					map[string]any{},
 				),

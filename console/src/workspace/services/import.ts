@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type Synnax, type workspace } from "@synnaxlabs/client";
-import { type Status } from "@synnaxlabs/pluto";
+import { type Synnax, workspace } from "@synnaxlabs/client";
+import { Access, type Pluto, type Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -23,8 +23,12 @@ import { Workspace } from "@/workspace";
 export const ingest: Import.DirectoryIngestor = async (
   name,
   files,
-  { client, fileIngestors, placeLayout, store },
+  { client, fileIngestors, placeLayout, store, fluxStore },
 ) => {
+  if (
+    !Access.updateGranted({ id: workspace.TYPE_ONTOLOGY_ID, store: fluxStore, client })
+  )
+    throw new Error("You do not have permission to import workspaces");
   const layoutData = files.find((file) => file.name === Workspace.LAYOUT_FILE_NAME);
   if (layoutData == null) throw new Error(`${Workspace.LAYOUT_FILE_NAME} not found`);
   const layout = Layout.migrateSlice(Layout.anySliceStateZ.parse(layoutData.data));
@@ -53,7 +57,7 @@ export const ingest: Import.DirectoryIngestor = async (
             ("name" in file.data && file.data.name === layout.name))),
     )?.data;
     if (data == null) throw new Error(`Data for ${key} not found`);
-    ingest(data, { layout, placeLayout, store });
+    ingest(data, { layout, placeLayout, store: fluxStore, client });
   });
 };
 
@@ -63,6 +67,7 @@ export interface IngestContext {
   fileIngestors: Import.FileIngestors;
   placeLayout: Layout.Placer;
   store: Store;
+  fluxStore: Pluto.FluxStore;
 }
 
 export const import_ = ({
@@ -71,6 +76,7 @@ export const import_ = ({
   fileIngestors,
   placeLayout,
   store,
+  fluxStore,
 }: IngestContext) => {
   let name: string | undefined = "workspace";
   handleError(async () => {
@@ -95,6 +101,12 @@ export const import_ = ({
         }),
       ),
     );
-    await ingest(name, fileData, { client, fileIngestors, placeLayout, store });
+    await ingest(name, fileData, {
+      client,
+      fileIngestors,
+      placeLayout,
+      store,
+      fluxStore,
+    });
   }, `Failed to import ${name}`);
 };

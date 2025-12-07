@@ -142,7 +142,7 @@ describe("queries", () => {
       });
       result.current.retrieve({});
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThan(2);
+      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
       expect(result.current.data).toContain(dev1.key);
       expect(result.current.data).toContain(dev2.key);
     });
