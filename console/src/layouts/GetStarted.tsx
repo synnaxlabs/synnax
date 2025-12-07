@@ -9,71 +9,15 @@
 
 import "@/layouts/GetStarted.css";
 
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
-import { Button, Eraser, Flex, Icon, Synnax, Text } from "@synnaxlabs/pluto";
+import { Button, Eraser, Flex, Icon, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
-import { Docs } from "@/docs";
 import { Layout } from "@/layout";
-import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
-export const GetStarted = (): ReactElement => {
-  const client = Synnax.use();
-  return client == null ? <NoCluster /> : <Overview />;
-};
-
-const NoCluster = (): ReactElement => {
-  const windowKey = useSelectWindowKey() as string;
-  const placeLayout = Layout.usePlacer();
-  const dispatch = useDispatch();
-
-  // As a note, we need to stop propagation on these events so that we don't
-  // trigger the 'onSelect' handler of the tab we're in. This means we appropriately
-  // select the new layout when we create it.
-  const handleCluster = useCallback(() => {
-    placeLayout(Cluster.CONNECT_LAYOUT);
-  }, [placeLayout]);
-
-  const handleVisualize = useCallback(() => {
-    placeLayout(Vis.createSelectorLayout());
-    dispatch(
-      Layout.setNavDrawerVisible({ windowKey, key: Vis.TOOLBAR.key, value: true }),
-    );
-  }, [placeLayout, dispatch, windowKey]);
-
-  const handleDocs = useCallback<NonNullable<Text.TextProps["onClick"]>>(
-    (e) => {
-      e.stopPropagation();
-      placeLayout(Docs.LAYOUT);
-    },
-    [placeLayout],
-  );
-
-  return (
-    <Flex.Box className={CSS.B("get-started")} gap={4} full align="center">
-      <Logo variant="title" className="console-get-started__logo" />
-      <Text.Text level="h1">Get Started</Text.Text>
-      <Flex.Box x gap="large" justify="center" wrap>
-        <Button.Button onClick={handleCluster} size="large" variant="filled">
-          <Icon.Cluster />
-          Connect a Core
-        </Button.Button>
-        <Button.Button onClick={handleVisualize} size="large" variant="filled">
-          <Icon.Visualize />
-          Create a Visualization
-        </Button.Button>
-      </Flex.Box>
-      <Text.Text variant="link" target="_blank" level="h4" onClick={handleDocs}>
-        Read the Documentation
-      </Text.Text>
-    </Flex.Box>
-  );
-};
+export const GetStarted = (): ReactElement => <Overview />;
 
 const Overview = (): ReactElement => {
   const placeLayout = Layout.usePlacer();

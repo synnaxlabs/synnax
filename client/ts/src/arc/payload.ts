@@ -10,6 +10,7 @@
 import { record, xy } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
+import { ontology } from "@/ontology";
 import { statusZ as baseStatusZ } from "@/status/payload";
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
@@ -72,3 +73,6 @@ export interface New extends z.input<typeof newZ> {}
 
 export const ONTOLOGY_TYPE = "arc";
 export type OntologyType = typeof ONTOLOGY_TYPE;
+
+export const ontologyID = ontology.createIDFactory<Key>("arc");
+export const TYPE_ONTOLOGY_ID = ontologyID("");

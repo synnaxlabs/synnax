@@ -85,12 +85,9 @@ func (s *StatusService) Set(
 	req StatusSetRequest,
 ) (res StatusSetResponse, err error) {
 	ids := statusAccessOntologyIDs(req.Statuses)
-	// For status setting, we use Create action for new statuses
-	// and Update action for existing ones. Since Set can do both,
-	// we'll use Create permission.
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: ids,
 	}); err != nil {
 		return res, err
@@ -140,10 +137,10 @@ func (s *StatusService) Retrieve(
 	if req.SearchTerm != "" {
 		q = q.Search(req.SearchTerm)
 	}
-	if req.Limit != 0 {
+	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
 	}
-	if req.Offset != 0 {
+	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
 	if len(req.HasLabels) > 0 {
@@ -169,7 +166,7 @@ func (s *StatusService) Retrieve(
 
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: ids,
 	}); err != nil {
 		return StatusRetrieveResponse{}, err
@@ -188,7 +185,7 @@ func (s *StatusService) Delete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: status.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
