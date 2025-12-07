@@ -51,6 +51,8 @@ export class InvalidTokenError extends AuthError.sub("invalid_token") {}
 
 export class ExpiredTokenError extends AuthError.sub("expired_token") {}
 
+export class AccessDeniedError extends AuthError.sub("access_denied") {}
+
 /**
  * UnexpectedError is raised when an unexpected error occurs.
  */
