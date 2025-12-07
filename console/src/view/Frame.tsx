@@ -114,15 +114,6 @@ export const Frame = <
               {editable ? <Icon.EditOff /> : <Icon.Edit />}
             </Button.Toggle>
           )}
-          <Button.Toggle
-            size="small"
-            value={editable}
-            onChange={() => setEditable(!editable)}
-            tooltipLocation={location.BOTTOM_LEFT}
-            tooltip={`${editable ? "Disable" : "Enable"} editing`}
-          >
-            {editable ? <Icon.EditOff /> : <Icon.Edit />}
-          </Button.Toggle>
         </Controls>
         <Select.Frame
           multiple
