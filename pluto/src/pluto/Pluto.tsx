@@ -9,6 +9,7 @@
 
 import { type PropsWithChildren, type ReactElement } from "react";
 
+import { access } from "@/access/aether";
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Arc } from "@/arc";
@@ -58,7 +59,7 @@ export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
   color?: Color.ProviderProps;
 }
 
-export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
+export interface FluxStore extends Flux.Store {
   [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
   [Label.FLUX_STORE_KEY]: Label.FluxStore;
   [Rack.FLUX_STORE_KEY]: Rack.FluxStore;
@@ -80,7 +81,11 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Schematic.FLUX_STORE_KEY]: Schematic.FluxStore;
   [User.FLUX_STORE_KEY]: User.FluxStore;
   [View.FLUX_STORE_KEY]: View.FluxStore;
-}> = {
+  [access.policy.FLUX_STORE_KEY]: access.policy.FluxStore;
+  [access.role.FLUX_STORE_KEY]: access.role.FluxStore;
+}
+
+export const FLUX_STORE_CONFIG: Flux.StoreConfig<FluxStore> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
   [Label.FLUX_STORE_KEY]: Label.FLUX_STORE_CONFIG,
   [Rack.FLUX_STORE_KEY]: Rack.FLUX_STORE_CONFIG,
@@ -102,6 +107,8 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [User.FLUX_STORE_KEY]: User.FLUX_STORE_CONFIG,
   [Arc.FLUX_STORE_KEY]: Arc.FLUX_STORE_CONFIG,
   [View.FLUX_STORE_KEY]: View.FLUX_STORE_CONFIG,
+  [access.policy.FLUX_STORE_KEY]: access.policy.FLUX_STORE_CONFIG,
+  [access.role.FLUX_STORE_KEY]: access.role.FLUX_STORE_CONFIG,
 };
 
 export const Provider = ({

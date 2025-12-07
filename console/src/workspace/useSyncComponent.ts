@@ -9,7 +9,7 @@
 
 import { type Dispatch, type PayloadAction, type Store } from "@reduxjs/toolkit";
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { Flux } from "@synnaxlabs/pluto";
+import { Flux, type Pluto } from "@synnaxlabs/pluto";
 import { useCallback, useEffect } from "react";
 import { useStore } from "react-redux";
 
@@ -26,6 +26,7 @@ export interface SaveArgs {
   key: string;
   workspace: string;
   store: Store<RootState>;
+  fluxStore: Pluto.FluxStore;
   client: Client;
 }
 
@@ -33,15 +34,15 @@ export const createSyncComponent = (
   name: string,
   save: (args: SaveArgs) => Promise<void>,
 ) => {
-  const { useUpdate } = Flux.createUpdate<UpdateParams, {}>({
+  const { useUpdate } = Flux.createUpdate<UpdateParams, Pluto.FluxStore>({
     name,
     verbs: Flux.SAVE_VERBS,
-    update: async ({ client, data }) => {
+    update: async ({ client, data, store: fluxStore }) => {
       const { store, layoutKey } = data;
       if (layoutKey == null || client == null) return false;
       const ws = selectActiveKey(store.getState());
       if (ws == null) return false;
-      await save({ key: layoutKey, workspace: ws, store, client });
+      await save({ key: layoutKey, workspace: ws, store, fluxStore, client });
       return data;
     },
   });

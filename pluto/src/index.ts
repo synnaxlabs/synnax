@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export { Access } from "@/access";
 export { Aether } from "@/aether";
 export { Arc } from "@/arc";
 export { Breadcrumb } from "@/breadcrumb";

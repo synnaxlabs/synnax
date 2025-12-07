@@ -50,7 +50,7 @@ func (s *ViewService) Create(
 ) (ViewCreateResponse, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: view.OntologyIDsFromViews(req.Views),
 	}); err != nil {
 		return ViewCreateResponse{}, err
@@ -107,7 +107,7 @@ func (s *ViewService) Retrieve(
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: view.OntologyIDsFromViews(views),
 	}); err != nil {
 		return ViewRetrieveResponse{}, err
@@ -125,7 +125,7 @@ func (s *ViewService) Delete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: view.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err

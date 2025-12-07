@@ -62,7 +62,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((key) => log.ontologyID(key));
+    const ids = log.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     await client.workspaces.logs.delete(data);

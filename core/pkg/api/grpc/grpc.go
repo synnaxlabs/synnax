@@ -77,11 +77,11 @@ func New(channelSvc *channel.Service) (api.Transport, []fgrpc.BindableTransport)
 	a.SchematicCopy = fnoop.UnaryServer[api.SchematicCopyRequest, api.SchematicCopyResponse]{}
 
 	// SCHEMATIC SYMBOL
-	a.SchematicSymbolCreate = fnoop.UnaryServer[api.SymbolCreateRequest, api.SymbolCreateResponse]{}
-	a.SchematicSymbolRetrieve = fnoop.UnaryServer[api.SymbolRetrieveRequest, api.SymbolRetrieveResponse]{}
-	a.SchematicSymbolDelete = fnoop.UnaryServer[api.SymbolDeleteRequest, types.Nil]{}
-	a.SchematicSymbolRename = fnoop.UnaryServer[api.SymbolRenameRequest, types.Nil]{}
-	a.SchematicSymbolRetrieveGroup = fnoop.UnaryServer[api.SymbolRetrieveGroupRequest, api.SymbolRetrieveGroupResponse]{}
+	a.SchematicCreateSymbol = fnoop.UnaryServer[api.SchematicCreateSymbolRequest, api.SchematicCreateSymbolResponse]{}
+	a.SchematicRetrieveSymbol = fnoop.UnaryServer[api.SchematicRetrieveSymbolRequest, api.SchematicRetrieveSymbolResponse]{}
+	a.SchematicDeleteSymbol = fnoop.UnaryServer[api.SchematicDeleteSymbolRequest, types.Nil]{}
+	a.SchematicRenameSymbol = fnoop.UnaryServer[api.SchematicRenameSymbolRequest, types.Nil]{}
+	a.SchematicRetrieveSymbolGroup = fnoop.UnaryServer[api.SchematicRetrieveSymbolGroupRequest, api.SchematicRetrieveSymbolGroupResponse]{}
 
 	// LINE PLOT
 	a.LinePlotCreate = fnoop.UnaryServer[api.LinePlotCreateRequest, api.LinePlotCreateResponse]{}
@@ -115,6 +115,11 @@ func New(channelSvc *channel.Service) (api.Transport, []fgrpc.BindableTransport)
 	a.AccessCreatePolicy = fnoop.UnaryServer[api.AccessCreatePolicyRequest, api.AccessCreatePolicyResponse]{}
 	a.AccessDeletePolicy = fnoop.UnaryServer[api.AccessDeletePolicyRequest, types.Nil]{}
 	a.AccessRetrievePolicy = fnoop.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse]{}
+	a.AccessCreateRole = fnoop.UnaryServer[api.AccessCreateRoleRequest, api.AccessCreateRoleResponse]{}
+	a.AccessDeleteRole = fnoop.UnaryServer[api.AccessDeleteRoleRequest, types.Nil]{}
+	a.AccessRetrieveRole = fnoop.UnaryServer[api.AccessRetrieveRoleRequest, api.AccessRetrieveRoleResponse]{}
+	a.AccessAssignRole = fnoop.UnaryServer[api.AccessAssignRoleRequest, types.Nil]{}
+	a.AccessUnassignRole = fnoop.UnaryServer[api.AccessUnassignRoleRequest, types.Nil]{}
 
 	// STATUS
 	a.StatusSet = fnoop.UnaryServer[api.StatusSetRequest, api.StatusSetResponse]{}
