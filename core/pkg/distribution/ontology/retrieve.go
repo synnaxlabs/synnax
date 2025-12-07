@@ -246,7 +246,7 @@ func (r Retrieve) retrieveEntities(
 		entries          = clause.GetEntries()
 		retrieveResource = !clause.excludeFieldData
 	)
-	if !entries.Any() {
+	if !entries.Bound() {
 		return entries.All(), nil
 	}
 	// Iterate over the entries in place, retrieving the resource if the query requires it.

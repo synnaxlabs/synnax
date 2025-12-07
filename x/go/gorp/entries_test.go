@@ -42,14 +42,21 @@ var _ = Describe("Entries", func() {
 		})
 	})
 
-	Describe("Any", func() {
+	Describe("Bound", func() {
 		It("Should return false if no entries were set on the query", func() {
 			q := gorp.NewRetrieve[int32, entry]()
-			Expect(q.GetEntries().Any()).To(BeFalse())
+			Expect(q.GetEntries().Bound()).To(BeFalse())
 		})
+
 		It("Should return true if entries were set on the query", func() {
 			q := gorp.NewRetrieve[int32, entry]().Entry(&entry{ID: 1})
-			Expect(q.GetEntries().Any()).To(BeTrue())
+			Expect(q.GetEntries().Bound()).To(BeTrue())
+		})
+
+		It("Should return true when multiple entries were obund on the query", func() {
+			q := gorp.NewRetrieve[int32, entry]().
+				Entries(&[]entry{{ID: 1}, {ID: 2}})
+			Expect(q.GetEntries().Bound()).To(BeTrue())
 		})
 	})
 
@@ -77,7 +84,7 @@ var _ = Describe("Entries", func() {
 				Expect(q.GetEntries().MapInPlace(func(e entry) (entry, bool, error) {
 					return e, false, nil
 				})).To(Succeed())
-				Expect(q.GetEntries().Any()).To(BeFalse())
+				Expect(q.GetEntries().Bound()).To(BeFalse())
 			})
 		})
 	})

@@ -153,14 +153,6 @@ func (e *Entries[K, E]) Keys() []K {
 	return entryKeys(e.All())
 }
 
-// Any returns true if any entries are obund to the query.
-func (e *Entries[K, E]) Any() bool {
-	if e.isMultiple {
-		return len(*e.entries) > 0
-	}
-	return e.entry != nil
-}
-
 // Bound returns true if entries binding was set on the query.
 func (e *Entries[K, E]) Bound() bool {
 	if e.isMultiple {
@@ -169,6 +161,7 @@ func (e *Entries[K, E]) Bound() bool {
 	return e.entry != nil
 }
 
+// IsMultiple returns true if multiple entries were bound to the query.
 func (e *Entries[K, E]) IsMultiple() bool { return e.isMultiple }
 
 func singleEntry[K Key, E Entry[K]](entry *E) *Entries[K, E] {
@@ -179,7 +172,7 @@ func multipleEntries[K Key, E Entry[K]](entries *[]E) *Entries[K, E] {
 	return &Entries[K, E]{entries: entries, isMultiple: true}
 }
 
-const magicPrefix = "---"
+const magicPrefix = "__gorp__//"
 
 type keyCodec[K Key, E Entry[K]] struct {
 	prefix []byte

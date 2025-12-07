@@ -12,7 +12,6 @@ package gorp
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
@@ -47,6 +46,7 @@ func Required() FilterOption {
 
 type FilterFunc[K Key, E Entry[K]] = func(ctx Context, e *E) (bool, error)
 
+// GetEntries returns the entries bound to the query.
 func (r Retrieve[K, E]) GetEntries() *Entries[K, E] { return r.entries }
 
 // Where adds the provided filter to the query. If filtering by the key of the Entry,
@@ -56,12 +56,16 @@ func (r Retrieve[K, E]) Where(filter FilterFunc[K, E], opts ...FilterOption) Ret
 	return r
 }
 
+// HasLimit returns true if a limit was set on the query.
 func (r Retrieve[K, E]) HasLimit() bool { return r.limit > 0 }
 
+// HasOffset returns true if an offset was set on the query.
 func (r Retrieve[K, E]) HasOffset() bool { return r.offset > 0 }
 
+// HasWhereKeys returns true if WhereKeys was called on the query.
 func (r Retrieve[K, E]) HasWhereKeys() bool { return r.whereKeys != nil }
 
+// GetWhereKeys returns the keys set by WhereKeys, or nil if not set.
 func (r Retrieve[K, E]) GetWhereKeys() []K {
 	if r.whereKeys != nil {
 		return *r.whereKeys
@@ -69,8 +73,10 @@ func (r Retrieve[K, E]) GetWhereKeys() []K {
 	return nil
 }
 
+// HasFilters returns true if any Where filters were added to the query.
 func (r Retrieve[K, E]) HasFilters() bool { return len(r.filters) > 0 }
 
+// WherePrefix filters entries whose key starts with the given prefix.
 func (r Retrieve[K, E]) WherePrefix(prefix []byte) Retrieve[K, E] {
 	r.prefix = prefix
 	return r
@@ -247,8 +253,11 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 	return err
 }
 
-func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) (err error) {
-	var validCount int
+func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
+	var (
+		validCount int
+		match      bool
+	)
 	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{prefix: r.prefix})
 	if err != nil {
 		return err
@@ -258,10 +267,10 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) (err error) {
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		v := iter.Value(ctx)
-		if iter.Error() != nil {
-			return iter.Error()
+		if err = iter.Error(); err != nil {
+			return err
 		}
-		match, err := r.filters.exec(Context{Context: ctx, Tx: tx}, v)
+		match, err = r.filters.exec(Context{Context: ctx, Tx: tx}, v)
 		if err != nil {
 			return err
 		}
@@ -273,13 +282,14 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) (err error) {
 		}
 	}
 	if r.entries.isMultiple || !r.entries.Bound() {
-		return nil
+		return err
 	}
 	if r.entries.changes == 0 {
 		return errors.Wrapf(
 			query.NotFound,
-			fmt.Sprintf("no %s found matching query", types.PluralName[E]()),
+			"no %s found matching query",
+			types.PluralName[E](),
 		)
 	}
-	return nil
+	return err
 }
