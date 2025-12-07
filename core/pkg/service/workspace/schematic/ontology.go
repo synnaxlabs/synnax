@@ -25,11 +25,11 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "schematic"
+const OntologyType ontology.Type = "schematic"
 
 // OntologyID returns unique identifier for the schematic within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
+	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the schematics within the ontology.
@@ -58,7 +58,7 @@ func newResource(s Schematic) ontology.Resource {
 
 type change = changex.Change[uuid.UUID, Schematic]
 
-func (s *Service) Type() ontology.Type { return ontologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

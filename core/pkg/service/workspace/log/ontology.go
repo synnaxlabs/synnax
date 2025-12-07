@@ -25,11 +25,11 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "log"
+const OntologyType ontology.Type = "log"
 
 // OntologyID returns unique identifier for the log within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
+	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the logs within the ontology.
@@ -59,7 +59,7 @@ type change = changex.Change[uuid.UUID, Log]
 
 var _ ontology.Service = (*Service)(nil)
 
-func (s *Service) Type() ontology.Type { return ontologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }

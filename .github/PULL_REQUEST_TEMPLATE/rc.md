@@ -304,20 +304,32 @@ I can successfully:
 - [ ] Rename a group.
 - [ ] Delete a group.
 
-### Permissions
+### Permissions & Roles
 
 I can successfully:
 
-- **As a user without schematic permissions:**
-  - [ ] Cannot open the "Create Schematic" dialog from the command palette.
-  - [ ] Cannot create a new schematic from the workspace resources toolbar.
-  - [ ] Cannot import a schematic from the workspace resources toolbar.
-  - [ ] Cannot import a schematic via drag-and-drop.
+- **Role Management**
+  - [ ] View all available roles in the Resources Toolbar.
+  - [ ] Assign a role to a user.
+  - [ ] Unassign a role from a user.
+  - [ ] Cannot delete built-in roles (Owner, Engineer, Operator, Viewer).
+
+- **As an Owner:**
+  - [ ] Can register new users and assign roles.
+  - [ ] Can create, edit, and delete all resource types.
+
+- **As an Engineer:**
+  - [ ] Can create and edit schematics, line plots, tables, logs, and workspaces.
+  - [ ] Cannot register new users or assign roles.
+
+- **As an Operator:**
   - [ ] Can actuate valves on a schematic.
-  - [ ] Cannot switch to edit mode on a schematic.
-- **As a user without admin permissions:**
-  - [ ] Cannot open the "Register User" dialog from the command palette.
-  - [ ] Cannot delete users, open the permissions dialog, or change a username from the resources toolbar.
+  - [ ] Cannot create or edit schematics.
+
+- **As a Viewer:**
+  - [ ] Can view schematics, line plots, tables, logs.
+  - [ ] Cannot actuate valves on a schematic.
+  - [ ] Cannot create or edit any resources.
 
 ### Racks
 
@@ -581,13 +593,20 @@ I can successfully:
 I can successfully:
 
 - **Resources Toolbar**
+  - [ ] Open the "Assign Role" dialog for a user.
+  - [ ] Assign a role to a user.
+  - [ ] Unassign a role from a user.
+  - [ ] View the roles assigned to a user.
   - [ ] Open the "Permissions" dialog.
   - [ ] Rename a user.
   - [ ] Delete a user.
   - [ ] Delete multiple users.
 - **Search and Command Palette**
   - [ ] Register a new user.
+  - [ ] Register a new user with a specific role assigned.
 - [ ] Change a user's username and log in with the new username.
+- [ ] Change a user's role and verify their permissions change accordingly.
+- [ ] Log in as a user with a specific role and verify permission enforcement.
 
 ### Arc
 

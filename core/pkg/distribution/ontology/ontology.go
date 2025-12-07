@@ -54,9 +54,7 @@ type (
 
 func ParseID(s string) (ID, error) { return core.ParseID(s) }
 
-func ParseIDs(s []string) ([]ID, error) { return core.ParseIDs(s) }
-
-func IDs(resources []Resource) []ID { return core.IDs(resources) }
+func ResourceIDs(resources []Resource) []ID { return core.ResourceIDs(resources) }
 
 func IDsToString(ids []ID) []string { return core.IDsToString(ids) }
 

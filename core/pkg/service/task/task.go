@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Key uint64
@@ -37,6 +38,15 @@ func (k *Key) UnmarshalJSON(b []byte) error {
 	n, err := binary.UnmarshalJSONStringUint64(b)
 	*k = Key(n)
 	return err
+}
+
+func (k *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
+	n, err := binary.UnmarshalMsgpackUint64(dec)
+	if err != nil {
+		return err
+	}
+	*k = Key(n)
+	return nil
 }
 
 type Task struct {
@@ -65,9 +75,7 @@ func (t Task) String() string {
 }
 
 type StatusDetails struct {
-	// Task is the key of the task that the state update is for.
-	Task Key `json:"task" msgpack:"task"`
-	// Cmd is a non-empty string if the status is an explicit response to a command.
+	Task    Key            `json:"task" msgpack:"task"`
 	Cmd     string         `json:"cmd" msgpack:"cmd"`
 	Running bool           `json:"running" msgpack:"running"`
 	Data    map[string]any `json:"data" msgpack:"data"`

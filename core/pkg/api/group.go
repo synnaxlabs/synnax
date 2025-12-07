@@ -51,7 +51,7 @@ func (s *GroupService) Create(
 ) (GroupCreateResponse, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
 		return GroupCreateResponse{}, err
@@ -81,7 +81,7 @@ func (s *GroupService) Delete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: group.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
@@ -102,7 +102,7 @@ func (s *GroupService) Rename(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
 		return types.Nil{}, err
