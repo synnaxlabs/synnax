@@ -9,6 +9,8 @@
 
 import { type view } from "@synnaxlabs/client";
 import {
+  Button,
+  Divider,
   Flex,
   Form,
   Icon,
@@ -19,9 +21,11 @@ import {
   Text,
   View,
 } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Menu as CMenu } from "@/components";
+import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { useContext } from "@/view/context";
 
@@ -39,7 +43,18 @@ export const Views = (): ReactElement | null => {
     description: "Deleting this view will permanently remove it.",
   });
   const handleError = Status.useErrorHandler();
-
+  const renameModal = Modals.useRename();
+  const handleCreate = useCallback(() => {
+    handleError(async () => {
+      const name = await renameModal(
+        { initialValue: `View for ${resourceType}` },
+        { icon: "View", name: "View.Create" },
+      );
+      if (name == null) return;
+      set("name", name);
+      set("key", uuid.create());
+    }, "Failed to create view");
+  }, [handleError, resourceType]);
   const handleSelectView = useCallback(
     (view: view.Key | null) => {
       if (view == null) {
@@ -67,7 +82,6 @@ export const Views = (): ReactElement | null => {
     [reset, get, getItem, confirm, del, handleError],
   );
   const contextMenuProps = Menu.useContextMenu();
-  if (!editable) return null;
   return (
     <Select.Frame<view.Key, view.View>
       {...listReturn}
@@ -77,39 +91,48 @@ export const Views = (): ReactElement | null => {
       onChange={handleSelectView}
       allowNone
     >
-      <Menu.ContextMenu
-        {...contextMenuProps}
-        menu={({ keys }) => (
-          <Menu.Menu level="small" gap="small">
-            <Menu.Item
-              itemKey="rename"
-              onClick={() => {
-                Text.edit(keys[0]);
-              }}
-            >
-              <Icon.Rename />
-              Rename
-            </Menu.Item>
-            <Menu.Item itemKey="delete" onClick={() => handleDelete(keys[0])}>
-              <Icon.Delete />
-              Delete
-            </Menu.Item>
-            <Menu.Divider />
-            <CMenu.ReloadConsoleItem />
-          </Menu.Menu>
-        )}
-      >
-        <List.Items<view.Key> x gap="medium" style={itemsStyle}>
-          {({ key, ...rest }) => (
-            <ViewItem key={key} {...rest} onContextMenu={contextMenuProps.open} />
+      <Flex.Box x style={{ padding: "1rem 1rem" }} gap="medium">
+        <Text.Text align="center">
+          Views
+          {editable && (
+            <Button.Button onClick={handleCreate} size="small" variant="shadow">
+              <Icon.Add />
+            </Button.Button>
           )}
-        </List.Items>
-      </Menu.ContextMenu>
+        </Text.Text>
+        <Divider.Divider y />
+        <Menu.ContextMenu
+          {...contextMenuProps}
+          menu={({ keys }) => (
+            <Menu.Menu level="small" gap="small">
+              <Menu.Item
+                itemKey="rename"
+                onClick={() => {
+                  Text.edit(keys[0]);
+                }}
+              >
+                <Icon.Rename />
+                Rename
+              </Menu.Item>
+              <Menu.Item itemKey="delete" onClick={() => handleDelete(keys[0])}>
+                <Icon.Delete />
+                Delete
+              </Menu.Item>
+              <Menu.Divider />
+              <CMenu.ReloadConsoleItem />
+            </Menu.Menu>
+          )}
+        >
+          <List.Items<view.Key> x gap="medium">
+            {({ key, ...rest }) => (
+              <ViewItem key={key} {...rest} onContextMenu={contextMenuProps.open} />
+            )}
+          </List.Items>
+        </Menu.ContextMenu>
+      </Flex.Box>
     </Select.Frame>
   );
 };
-
-const itemsStyle = { padding: "1rem 1.5rem", overflow: "scroll" } as const;
 
 interface ViewItemProps extends List.ItemProps<view.Key> {}
 

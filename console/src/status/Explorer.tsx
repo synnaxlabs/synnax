@@ -34,6 +34,7 @@ export const Explorer: Layout.Renderer = () => {
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
   return (
     <View.Frame {...listProps} resourceType="status" onCreate={handleCreate}>
+      <View.Views />
       <View.Toolbar>
         <View.FilterMenu>
           <Label.Filter.MenuItem />
@@ -41,7 +42,6 @@ export const Explorer: Layout.Renderer = () => {
         <View.Search />
         <Label.Filter.Chips />
       </View.Toolbar>
-      <View.Views />
       <View.Items>{item}</View.Items>
     </View.Frame>
   );
