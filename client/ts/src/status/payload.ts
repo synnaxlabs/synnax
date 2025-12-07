@@ -10,7 +10,7 @@
 import { status } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
@@ -34,4 +34,5 @@ export type Status<Details extends z.ZodType = z.ZodNever> = status.Status<Detai
 export const SET_CHANNEL_NAME = "sy_status_set";
 export const DELETE_CHANNEL_NAME = "sy_status_delete";
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "status", key });
+export const ontologyID = ontology.createIDFactory<Key>("status");
+export const TYPE_ONTOLOGY_ID = ontologyID("");

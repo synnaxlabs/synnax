@@ -514,7 +514,8 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "task", key });
+export const ontologyID = ontology.createIDFactory<Key>("task");
+export const TYPE_ONTOLOGY_ID = ontologyID("");
 
 export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
 

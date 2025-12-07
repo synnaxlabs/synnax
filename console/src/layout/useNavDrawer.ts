@@ -32,6 +32,7 @@ export interface NavMenuItem {
   icon: Icon.ReactElement;
   tooltip: string;
   trigger: Triggers.Trigger;
+  useVisible?: () => boolean;
 }
 
 export interface NavDrawerItem extends Nav.DrawerItem, NavMenuItem {}

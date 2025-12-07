@@ -17,6 +17,7 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/xjson/xjson.h"
+#include "x/cpp/xthread/xthread.h"
 
 #include "driver/pipeline/base.h"
 #include "driver/pipeline/control.h"
@@ -206,6 +207,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
 
     /// @brief Signal thread run loop - processes device set/delete events.
     void signal_thread_run() {
+        xthread::set_name((this->task.name + ":sig").c_str());
         const auto rack_key = synnax::rack_key_from_task_key(this->key);
         const auto make = this->scanner->config().make;
 
@@ -261,7 +263,7 @@ public:
         const telem::Rate scan_rate,
         std::unique_ptr<ClusterAPI> client
     ):
-        Base(breaker_config),
+        Base(breaker_config, task.name),
         task(task),
         timer(scan_rate),
         scanner(std::move(scanner)),

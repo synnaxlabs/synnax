@@ -87,4 +87,8 @@ span.pluto-text {
     &.pluto-text--overflow-nowrap {
         white-space: nowrap;
     }
+
+    &.pluto-text--overflow-wrap {
+        white-space: wrap;
+    }
 }

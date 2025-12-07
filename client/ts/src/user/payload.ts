@@ -15,17 +15,15 @@ export type Key = z.infer<typeof keyZ>;
 export const userZ = z.object({
   key: keyZ,
   username: z.string().min(1, "Username is required"),
-  // defaults for firstName, lastName, and rootUser are done to give compatibility with
-  // servers running v0.30.x and earlier. These defaults should be removed in a future
-  // release.
   firstName: z.string().default(""),
   lastName: z.string().default(""),
-  rootUser: z.boolean().default(true),
+  rootUser: z.boolean().default(false),
 });
+
 export interface User extends z.infer<typeof userZ> {}
 
 export const newZ = userZ
-  .partial({ key: true, firstName: true, lastName: true })
   .omit({ rootUser: true })
+  .partial({ key: true, firstName: true, lastName: true })
   .extend({ password: z.string().min(1) });
 export interface New extends z.infer<typeof newZ> {}
