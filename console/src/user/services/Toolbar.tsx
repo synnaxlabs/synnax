@@ -19,7 +19,7 @@ import { REGISTER_LAYOUT } from "@/user/Register";
 const Content = (): ReactElement => {
   const { data: groupID } = User.useRetrieveGroupID({});
   const placeLayout = Layout.usePlacer();
-  const canEditUser = Access.useEditGranted(user.TYPE_ONTOLOGY_ID);
+  const canEditUser = Access.useUpdateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
@@ -49,5 +49,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   minSize: 175,
   maxSize: 400,
   trigger: ["U"],
-  useVisible: () => Access.useEditGranted(user.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useUpdateGranted(user.TYPE_ONTOLOGY_ID),
 };

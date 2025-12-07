@@ -25,7 +25,7 @@ const CREATE_COMMAND: Palette.Command = {
     }, "Failed to create arc");
   },
   visible: ({ store, client }) =>
-    Access.editGranted({ id: arc.TYPE_ONTOLOGY_ID, store, client }),
+    Access.updateGranted({ id: arc.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 const OPEN_EXPLORER_COMMAND: Palette.Command = {

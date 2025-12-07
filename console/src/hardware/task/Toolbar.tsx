@@ -46,7 +46,7 @@ import { Range } from "@/range";
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
-  const canCreateTask = Access.useEditGranted(task.TYPE_ONTOLOGY_ID);
+  const canCreateTask = Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No existing tasks."
@@ -71,7 +71,7 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
-  const canCreateTask = Access.useEditGranted(task.TYPE_ONTOLOGY_ID);
+  const canCreateTask = Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve } = Task.useList({
     initialQuery: INITIAL_QUERY,
     filter,
@@ -234,7 +234,7 @@ interface TaskListItemProps extends List.ItemProps<task.Key> {
 const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => {
   const { itemKey } = rest;
   const task_ = List.useItem<task.Key, task.Task>(itemKey);
-  const hasEditPermission = Access.useEditGranted(task.ontologyID(itemKey));
+  const hasEditPermission = Access.useUpdateGranted(task.ontologyID(itemKey));
   const details = task_?.status?.details;
   let variant = task_?.status?.variant;
   const icon = getIcon(task_?.type ?? "");
@@ -305,7 +305,7 @@ const ContextMenu = ({
   const snapshotToActiveRange = useRangeSnapshot();
   const ontologyIDs = task.ontologyID(keys);
   const canDeleteAccess = Access.useDeleteGranted(ontologyIDs);
-  const canEditAccess = Access.useEditGranted(ontologyIDs);
+  const canEditAccess = Access.useUpdateGranted(ontologyIDs);
 
   const canStart = selectedTasks.some(
     ({ status }) => status?.details.running === false,

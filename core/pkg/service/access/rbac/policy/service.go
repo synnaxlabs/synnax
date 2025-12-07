@@ -61,7 +61,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	}
 	s := &Service{cfg: cfg}
 	if cfg.Signals != nil {
-		if s.signals, err = signals.PublishFromGorp[uuid.UUID, Policy](
+		if s.signals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigUUID[Policy](cfg.DB),

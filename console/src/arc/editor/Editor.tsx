@@ -202,7 +202,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const theme = Theming.use();
   const viewportRef = useSyncedRef(state.graph.viewport);
-  const hasEditPermission = Access.useEditGranted(arc.ontologyID(layoutKey));
+  const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
 
   useEffect(() => {
     if (!hasEditPermission && state.graph.editable)
@@ -396,7 +396,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Arc Automation",
   icon: <Icon.Arc />,
-  useVisible: () => Access.useEditGranted(arc.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID),
   create: async ({ layoutKey, rename }) => {
     const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
     if (name == null) return null;

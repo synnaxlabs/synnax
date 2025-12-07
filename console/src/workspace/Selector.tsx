@@ -73,7 +73,7 @@ export const Selector = (): ReactElement | null => {
     },
     [dispatch, getItem],
   );
-  const allowCreateWorkspace = Access.useEditGranted(workspace.TYPE_ONTOLOGY_ID);
+  const allowCreateWorkspace = Access.useUpdateGranted(workspace.TYPE_ONTOLOGY_ID);
   const allowViewWorkspace = Access.useRetrieveGranted(workspace.TYPE_ONTOLOGY_ID);
   if (!allowViewWorkspace) return null;
   return (

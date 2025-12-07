@@ -129,7 +129,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const activeRange = Range.useSelect();
   const canDelete = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
-  const canEdit = Access.useEditGranted(ids);
+  const canEdit = Access.useUpdateGranted(ids);
   const handleCopy = useCopy(props);
   const snapshot = useRangeSnapshot();
   const handleExport = Schematic.useExport();

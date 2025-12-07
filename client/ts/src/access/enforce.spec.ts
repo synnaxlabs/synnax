@@ -28,7 +28,7 @@ describe("allowRequest", () => {
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: "retrieve",
+          action: "retrieve",
           objects: id("channel", "1"),
         },
         policies,
@@ -41,7 +41,7 @@ describe("allowRequest", () => {
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: "retrieve",
+          action: "retrieve",
           objects: id("channel", "42"),
         },
         policies,
@@ -54,7 +54,7 @@ describe("allowRequest", () => {
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: "retrieve",
+          action: "retrieve",
           objects: id("channel", "2"),
         },
         policies,
@@ -67,7 +67,7 @@ describe("allowRequest", () => {
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: "delete",
+          action: "delete",
           objects: id("channel", "1"),
         },
         policies,
@@ -80,7 +80,7 @@ describe("allowRequest", () => {
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: "retrieve",
+          action: "retrieve",
           objects: id("device", "1"),
         },
         policies,
@@ -95,7 +95,7 @@ describe("allowRequest", () => {
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: "retrieve",
+          action: "retrieve",
           objects: [id("channel", "1"), id("channel", "2")],
         },
         policies,
@@ -108,7 +108,7 @@ describe("allowRequest", () => {
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: "retrieve",
+          action: "retrieve",
           objects: [id("channel", "1"), id("channel", "2")],
         },
         policies,
@@ -121,7 +121,7 @@ describe("allowRequest", () => {
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: "retrieve",
+          action: "retrieve",
           objects: [id("channel", "1"), id("channel", "2"), id("channel", "99")],
         },
         policies,
@@ -139,7 +139,7 @@ describe("allowRequest", () => {
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: "retrieve",
+          action: "retrieve",
           objects: [id("channel", "1"), id("channel", "2")],
         },
         policies,
@@ -155,7 +155,7 @@ describe("allowRequest", () => {
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: "retrieve",
+          action: "retrieve",
           objects: id("channel", "1"),
         },
         policies,
@@ -169,7 +169,7 @@ describe("allowRequest", () => {
       const allowed = access.allowRequest(
         {
           subject: id("user", "u1"),
-          actions: "retrieve",
+          action: "retrieve",
           objects: id("channel", "1"),
         },
         [],
@@ -180,7 +180,7 @@ describe("allowRequest", () => {
     it("should allow with empty objects", () => {
       const policies = [policy([id("channel", "1")], ["retrieve"])];
       const allowed = access.allowRequest(
-        { subject: id("user", "u1"), actions: "retrieve", objects: [] },
+        { subject: id("user", "u1"), action: "retrieve", objects: [] },
         policies,
       );
       expect(allowed).toBe(true);

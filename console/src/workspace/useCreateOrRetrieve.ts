@@ -28,7 +28,7 @@ export const useCreateOrRetrieve = () => {
     const purgedLayout = purgeExcludedLayouts(layout);
     if (
       prevClient != null &&
-      Access.editGranted({
+      Access.updateGranted({
         id: workspace.ontologyID(activeWS.key),
         store: fluxStore,
         client: prevClient,
@@ -43,7 +43,7 @@ export const useCreateOrRetrieve = () => {
         try {
           await client.workspaces.retrieve(activeWS.key);
           if (
-            Access.editGranted({
+            Access.updateGranted({
               id: workspace.ontologyID(activeWS.key),
               store: fluxStore,
               client,

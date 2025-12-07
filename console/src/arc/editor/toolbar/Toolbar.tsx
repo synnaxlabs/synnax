@@ -40,7 +40,7 @@ const NotEditableContent = ({
   name,
 }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
-  const hasEditingPermissions = Access.useEditGranted(arc.ontologyID(layoutKey));
+  const hasEditingPermissions = Access.useUpdateGranted(arc.ontologyID(layoutKey));
   const isEditable = hasEditingPermissions;
   return (
     <Flex.Box x gap="small" center>
@@ -94,7 +94,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [dispatch],
   );
-  const canEdit = Access.useEditGranted(arc.ontologyID(layoutKey));
+  const canEdit = Access.useUpdateGranted(arc.ontologyID(layoutKey));
   const contextValue = useMemo(
     () => ({
       tabs: TABS,

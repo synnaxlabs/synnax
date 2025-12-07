@@ -18,7 +18,7 @@ const CREATE_COMMAND: Palette.Command = {
   name: "Create a Range",
   icon: <Ranger.CreateIcon />,
   visible: ({ store, client }) =>
-    Access.editGranted({ id: ranger.TYPE_ONTOLOGY_ID, store, client }),
+    Access.updateGranted({ id: ranger.TYPE_ONTOLOGY_ID, store, client }),
   onSelect: ({ placeLayout }) => placeLayout(Range.CREATE_LAYOUT),
 };
 

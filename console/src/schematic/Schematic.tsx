@@ -82,7 +82,7 @@ const useSyncComponent = Workspace.createSyncComponent(
   async ({ key, workspace, store, fluxStore, client }) => {
     const storeState = store.getState();
     if (
-      !Access.editGranted({ id: schematic.ontologyID(key), store: fluxStore, client })
+      !Access.updateGranted({ id: schematic.ontologyID(key), store: fluxStore, client })
     )
       return;
     const data = selectOptional(storeState, key);
@@ -186,7 +186,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   }, [name, prevName, layoutKey, syncDispatch]);
 
   const isEditable = useSelectEditable(layoutKey);
-  const hasEditPermission = Access.useEditGranted(schematic.ontologyID(layoutKey));
+  const hasEditPermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
   useEffect(() => {
     if (!hasEditPermission && isEditable)
       syncDispatch(setEditable({ key: layoutKey, editable: false }));
@@ -448,7 +448,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Schematic",
   icon: <Icon.Schematic />,
-  useVisible: () => Access.useEditGranted(schematic.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID),
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 

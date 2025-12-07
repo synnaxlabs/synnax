@@ -84,7 +84,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     () => ids.map((id) => rack.ontologyID(Number(id.key))),
     [ids],
   );
-  const canEdit = Access.useEditGranted(ontologyIDs);
+  const canEdit = Access.useUpdateGranted(ontologyIDs);
   const canDelete = Access.useDeleteGranted(ontologyIDs);
   const handleDelete = useDelete(props);
   const placeLayout = Layout.usePlacer();

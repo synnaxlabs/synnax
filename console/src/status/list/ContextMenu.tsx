@@ -32,7 +32,7 @@ export const ContextMenu = ({ keys }: ContextMenuProps) => {
   const dispatch = useDispatch();
   const favoriteSet = useSelectFavoriteSet();
   const ids = status.ontologyID(keys);
-  const canEdit = Access.useEditGranted(ids);
+  const canEdit = Access.useUpdateGranted(ids);
   const canDelete = Access.useDeleteGranted(ids);
 
   const confirm = useConfirmDelete({

@@ -66,7 +66,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource },
     selection: { ids },
   } = props;
-  const canEdit = Access.useEditGranted(ids);
+  const canEdit = Access.useUpdateGranted(ids);
   const canDelete = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const rename = useRename(props);

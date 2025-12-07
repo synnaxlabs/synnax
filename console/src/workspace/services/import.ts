@@ -25,7 +25,9 @@ export const ingest: Import.DirectoryIngestor = async (
   files,
   { client, fileIngestors, placeLayout, store, fluxStore },
 ) => {
-  if (!Access.editGranted({ id: workspace.TYPE_ONTOLOGY_ID, store: fluxStore, client }))
+  if (
+    !Access.updateGranted({ id: workspace.TYPE_ONTOLOGY_ID, store: fluxStore, client })
+  )
     throw new Error("You do not have permission to import workspaces");
   const layoutData = files.find((file) => file.name === Workspace.LAYOUT_FILE_NAME);
   if (layoutData == null) throw new Error(`${Workspace.LAYOUT_FILE_NAME} not found`);

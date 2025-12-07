@@ -99,7 +99,9 @@ const useSyncComponent = Workspace.createSyncComponent(
   "Line Plot",
   async ({ key, workspace, store, fluxStore, client }) => {
     const s = store.getState();
-    if (!Access.editGranted({ id: lineplot.ontologyID(key), store: fluxStore, client }))
+    if (
+      !Access.updateGranted({ id: lineplot.ontologyID(key), store: fluxStore, client })
+    )
       return;
     const data = select(s, key);
     if (data == null) return;
@@ -164,7 +166,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
-  const hasEditPermission = Access.useEditGranted(lineplot.ontologyID(layoutKey));
+  const hasEditPermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
 
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));

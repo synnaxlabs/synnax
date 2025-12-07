@@ -55,7 +55,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleExport = Table.useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
-  const canEdit = Access.useEditGranted(ids);
+  const canEdit = Access.useUpdateGranted(ids);
   const firstID = ids[0];
   const first = getResource(firstID);
   const onSelect = {

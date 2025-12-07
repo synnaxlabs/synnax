@@ -20,8 +20,8 @@ import { type ontology } from "@/ontology";
 export interface Request {
   /** The subject making the request (typically a user) */
   subject: ontology.ID;
-  /** The action(s) being requested */
-  actions: Action;
+  /** The action being requested */
+  action: Action;
   /** The objects being accessed */
   objects: ontology.ID | ontology.ID[];
 }
@@ -46,13 +46,13 @@ export interface Request {
  */
 export const allowRequest = (req: Request, policies: Policy[]): boolean => {
   const objs = array.toArray(req.objects);
-  const actions = array.toArray(req.actions);
+  const { action } = req;
   for (const requestedObj of objs) {
     let allowed = false;
 
     for (const policy of policies) {
       // Check if every requested action is allowed by this policy
-      const actionAllowed = actions.every((action) => policy.actions.includes(action));
+      const actionAllowed = policy.actions.includes(action);
       if (!actionAllowed) continue;
 
       // Check if any object in the policy matches the requested object

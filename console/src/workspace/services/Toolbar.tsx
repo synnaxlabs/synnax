@@ -18,7 +18,7 @@ import { CREATE_LAYOUT } from "@/workspace/Create";
 
 const CreateButton = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreateWorkspace = Access.useEditGranted(workspace.TYPE_ONTOLOGY_ID);
+  const canCreateWorkspace = Access.useUpdateGranted(workspace.TYPE_ONTOLOGY_ID);
   if (!canCreateWorkspace) return null;
   return (
     <Toolbar.Action
@@ -47,7 +47,7 @@ const Content = (): ReactElement => {
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const canCreateWorkspace = Access.useEditGranted(workspace.TYPE_ONTOLOGY_ID);
+  const canCreateWorkspace = Access.useUpdateGranted(workspace.TYPE_ONTOLOGY_ID);
   const handleClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction

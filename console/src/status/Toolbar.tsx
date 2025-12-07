@@ -125,7 +125,7 @@ const listItem = Component.renderProp(ListItem);
 
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canEdit = Access.useEditGranted(status.TYPE_ONTOLOGY_ID);
+  const canEdit = Access.useUpdateGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>

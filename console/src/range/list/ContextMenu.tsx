@@ -46,7 +46,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const isNotEmpty = ranges.length !== 0;
   const isSingle = ranges.length === 1;
   const ids = ranger.ontologyID(keys);
-  const canEditAccess = Access.useEditGranted(ids);
+  const canEditAccess = Access.useUpdateGranted(ids);
   const canDeleteAccess = Access.useDeleteGranted(ids);
   const placeLayout = Layout.usePlacer();
   const favoriteKeys = useSelectKeys();
