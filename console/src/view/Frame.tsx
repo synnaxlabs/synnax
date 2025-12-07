@@ -18,21 +18,13 @@ import {
   Icon,
   List,
   Select,
-  Status,
   View as PView,
 } from "@synnaxlabs/pluto";
-import { location, type record, uuid } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { location, type record } from "@synnaxlabs/x";
+import { type PropsWithChildren, type ReactElement, useMemo, useState } from "react";
 
 import { Controls } from "@/components";
 import { CSS } from "@/css";
-import { Modals } from "@/modals";
 import { Provider } from "@/view/context";
 
 export interface Query extends List.PagerParams, record.Unknown {}
@@ -87,19 +79,6 @@ export const Frame = <
       return true;
     },
   });
-  const handleError = Status.useErrorHandler();
-  const renameModal = Modals.useRename();
-  const handleCreateView = useCallback(() => {
-    handleError(async () => {
-      const name = await renameModal(
-        { initialValue: `View for ${resourceType}` },
-        { icon: "View", name: "View.Create" },
-      );
-      if (name == null) return;
-      form.set("name", name);
-      form.set("key", uuid.create());
-    }, "Failed to create view");
-  }, [renameModal, form.set]);
   const contextValue = useMemo(
     () => ({ editable, resourceType, search }),
     [editable, resourceType, search],
@@ -108,14 +87,16 @@ export const Frame = <
     <Form.Form<typeof view.newZ> {...form}>
       <Flex.Box full="y" empty className={CSS.B("view")}>
         <Controls x>
-          <Button.Button
-            onClick={onCreate}
-            size="small"
-            tooltipLocation={location.BOTTOM_LEFT}
-            tooltip={`Create a ${resourceType}`}
-          >
-            <Icon.Add />
-          </Button.Button>
+          {editable && (
+            <Button.Button
+              onClick={onCreate}
+              size="small"
+              tooltipLocation={location.BOTTOM_LEFT}
+              tooltip={`Create a ${resourceType}`}
+            >
+              <Icon.Add />
+            </Button.Button>
+          )}
           <Button.Toggle
             size="small"
             value={editable}
@@ -125,14 +106,6 @@ export const Frame = <
           >
             {editable ? <Icon.EditOff /> : <Icon.Edit />}
           </Button.Toggle>
-          <Button.Button
-            size="small"
-            onClick={handleCreateView}
-            tooltipLocation={location.BOTTOM_LEFT}
-            tooltip="Create a view"
-          >
-            <Icon.View />
-          </Button.Button>
         </Controls>
         <Select.Frame
           multiple

@@ -54,7 +54,6 @@ import {
   FaCheck,
   FaGaugeHigh,
   FaGear,
-  FaGlasses,
   FaHelmetSafety,
   FaXmark,
 } from "react-icons/fa6";
@@ -367,7 +366,6 @@ export const Hardware = wrapSVGIcon(MdHardware, "hardware");
 export const Save = wrapSVGIcon(MdSaveAlt, "save");
 export const Task = wrapSVGIcon(TbRadarFilled, "task");
 export const Device = wrapSVGIcon(SiGooglenearby, "device");
-export const View = wrapSVGIcon(FaGlasses, "view");
 export const Link = wrapSVGIcon(MdLink, "link");
 export const Attachment = wrapSVGIcon(GrAttachment, "attachment");
 export const Drag = wrapSVGIcon(GrDrag, "drag");
@@ -560,7 +558,6 @@ const icons = {
   Array,
   Label,
   Details,
-  View,
   LinkExternal,
   Access,
   JSON,
