@@ -21,12 +21,12 @@ import (
 
 // Retrieve is a query that retrieves Entries from the DB.
 type Retrieve[K Key, E Entry[K]] struct {
-	entries   *Entries[K, E]
-	limit     int
-	offset    int
-	whereKeys *[]K
-	prefix    []byte
-	filters   filters[K, E]
+	entries *Entries[K, E]
+	limit   int
+	offset  int
+	keys    *[]K
+	prefix  []byte
+	filters filters[K, E]
 }
 
 // NewRetrieve opens a new Retrieve query.
@@ -63,12 +63,12 @@ func (r Retrieve[K, E]) HasLimit() bool { return r.limit > 0 }
 func (r Retrieve[K, E]) HasOffset() bool { return r.offset > 0 }
 
 // HasWhereKeys returns true if WhereKeys was called on the query.
-func (r Retrieve[K, E]) HasWhereKeys() bool { return r.whereKeys != nil }
+func (r Retrieve[K, E]) HasWhereKeys() bool { return r.keys != nil }
 
 // GetWhereKeys returns the keys set by WhereKeys, or nil if not set.
 func (r Retrieve[K, E]) GetWhereKeys() []K {
-	if r.whereKeys != nil {
-		return *r.whereKeys
+	if r.keys != nil {
+		return *r.keys
 	}
 	return nil
 }
@@ -100,10 +100,10 @@ func (r Retrieve[K, E]) Offset(offset int) Retrieve[K, E] {
 // conjunction with Where, the WhereKeys filter will be applied first. Subsequent calls
 // to WhereKeys will append the keys to the existing set.
 func (r Retrieve[K, E]) WhereKeys(keys ...K) Retrieve[K, E] {
-	if r.whereKeys == nil {
-		r.whereKeys = new([]K)
+	if r.keys == nil {
+		r.keys = new([]K)
 	}
-	*r.whereKeys = append(*r.whereKeys, keys...)
+	*r.keys = append(*r.keys, keys...)
 	return r
 }
 
@@ -137,12 +137,12 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 // Where is set on the query, Exists will return true if ANY keys pass the Where filter.
 func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 	if r.HasWhereKeys() {
-		e := make([]E, 0, len(*r.whereKeys))
+		e := make([]E, 0, len(*r.keys))
 		r.entries = multipleEntries[K, E](&e)
 		if err := r.execKeys(ctx, tx); errors.Skip(err, query.NotFound) != nil {
 			return false, err
 		}
-		return len(e) == len(*r.whereKeys), nil
+		return len(e) == len(*r.keys), nil
 	}
 	e := make([]E, 0, 1)
 	r.entries = multipleEntries(&e)
@@ -159,7 +159,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (int, error) {
 	checkForNilTx("Retriever.Count", tx)
 	if r.HasWhereKeys() {
 		// For key-based queries, we can optimize by only retrieving the keys
-		e := make([]E, 0, len(*r.whereKeys))
+		e := make([]E, 0, len(*r.keys))
 		r.entries = multipleEntries[K, E](&e)
 		if err := r.execKeys(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
 			return 0, err
@@ -233,7 +233,7 @@ func newFilter[K Key, E Entry[K]](
 
 func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 	var (
-		keysResult, err = WrapReader[K, E](tx).GetMany(ctx, *r.whereKeys)
+		keysResult, err = WrapReader[K, E](tx).GetMany(ctx, *r.keys)
 		toReplace       = make([]E, 0, len(keysResult))
 		validCount      int
 	)
