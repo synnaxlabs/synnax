@@ -84,8 +84,6 @@ struct Device : synnax::Device {
     }
 };
 
-/// @brief the default rate for scanning for devices.
-const auto DEFAULT_SCAN_RATE = telem::Rate(telem::SECOND * 5);
 /// @brief the default pattern for ignoring certain models.
 const std::vector<std::string> DEFAULT_IGNORED_MODELS = {"^cRIO.*", "^nown.*"};
 /// @brief configuration for opening a scan task.
@@ -98,7 +96,7 @@ struct ScanTaskConfig {
     std::vector<std::regex> ignored_models;
 
     explicit ScanTaskConfig(xjson::Parser &cfg):
-        rate(telem::Rate(cfg.field<double>("rate", DEFAULT_SCAN_RATE.hz()))),
+        rate(telem::Rate(cfg.field<double>("rate", common::DEFAULT_SCAN_RATE.hz()))),
         enabled(cfg.field<bool>("enabled", true)) {
         const auto i = cfg.field<std::vector<std::string>>(
             "ignored_models",

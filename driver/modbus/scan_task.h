@@ -29,19 +29,20 @@
 namespace modbus {
 const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task]";
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
-inline const telem::Rate DEFAULT_SCAN_RATE = telem::HERTZ * 0.2;
 
 /// @brief Configuration for the Modbus scanner.
 struct ScannerConfig {
     /// @brief Rate at which to check device health.
-    telem::Rate scan_rate = DEFAULT_SCAN_RATE;
+    telem::Rate scan_rate = common::DEFAULT_SCAN_RATE;
     /// @brief Whether scanning is enabled.
     bool enabled = true;
 
     ScannerConfig() = default;
 
     explicit ScannerConfig(xjson::Parser &cfg):
-        scan_rate(telem::Rate(cfg.field<double>("scan_rate", DEFAULT_SCAN_RATE.hz()))),
+        scan_rate(
+            telem::Rate(cfg.field<double>("scan_rate", common::DEFAULT_SCAN_RATE.hz()))
+        ),
         enabled(cfg.field<bool>("enabled", true)) {}
 };
 

@@ -25,7 +25,11 @@
 #include "driver/task/task.h"
 
 namespace common {
+/// @brief the default rate to scan for devices.
+const auto DEFAULT_SCAN_RATE = telem::Rate(telem::SECOND * 5);
+
 struct ScannerContext {
+    /// @brief the number of scans run before the current one.
     std::size_t count = 0;
     /// @brief Devices currently tracked by the scan task. The scanner can use this
     /// to check health or perform other device-specific operations without maintaining

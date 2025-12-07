@@ -22,8 +22,6 @@
 
 namespace labjack {
 const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
-/// @brief the default rate for scanning devices
-const auto DEFAULT_SCAN_RATE = telem::Rate(0.5);
 
 const std::vector SCAN_SKIP_ERRORS = {
     ljm::LJME_AUTO_IPS_FILE_NOT_FOUND,
@@ -39,7 +37,7 @@ struct ScanTaskConfig {
     const int tcp_scan_multiplier;
 
     explicit ScanTaskConfig(xjson::Parser &cfg):
-        rate(telem::Rate(cfg.field<double>("rate", DEFAULT_SCAN_RATE.hz()))),
+        rate(telem::Rate(cfg.field<double>("rate", common::DEFAULT_SCAN_RATE.hz()))),
         enabled(cfg.field<bool>("enabled", true)),
         tcp_scan_multiplier(cfg.field<int>("tcp_scan_multiplier", 10)) {}
 };
@@ -105,6 +103,7 @@ class Scanner final : public common::Scanner {
                 .name = name,
                 .variant = status::variant::SUCCESS,
                 .message = "Device present",
+                .time = telem::TimeStamp::now(),
                 .details = synnax::DeviceStatusDetails{
                     .rack = rack,
                     .device = sy_dev.key,
