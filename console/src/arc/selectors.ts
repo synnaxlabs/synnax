@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, UnexpectedError } from "@synnaxlabs/client";
+import { UnexpectedError } from "@synnaxlabs/client";
 import { Arc, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
 import {
@@ -19,7 +19,6 @@ import {
   type ToolbarState,
 } from "@/arc/slice";
 import { useMemoSelect } from "@/hooks";
-import { Permissions } from "@/permissions";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
@@ -207,12 +206,6 @@ export const selectViewport = (state: StoreState, key: string): Diagram.Viewport
 
 export const useSelectViewport = (key: string): Diagram.Viewport =>
   useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);
-
-export const selectHasPermission = (state: Permissions.StoreState): boolean =>
-  Permissions.selectCanUseType(state, arc.ONTOLOGY_TYPE);
-
-export const useSelectHasPermission = (): boolean =>
-  useMemoSelect(selectHasPermission, []);
 
 export const selectVersion = (state: StoreState, key: string): string | undefined =>
   selectOptional(state, key)?.version;

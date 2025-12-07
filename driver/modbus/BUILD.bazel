@@ -5,6 +5,7 @@ cc_library(
         "factory.cpp",
         "modbus.h",
         "read_task.h",
+        "scan_task.cpp",
         "scan_task.h",
         "write_task.h",
     ],
@@ -17,6 +18,7 @@ cc_library(
         "//driver/task",
         "//driver/task/common",
         "//vendor/libmodbus",
+        "//x/cpp/breaker",
         "//x/cpp/defer",
     ],
 )

@@ -559,6 +559,14 @@ export const { actions, reducer } = createSlice({
         }));
       }
     },
+    hideAllNavDrawers: (state) => {
+      Object.values(state.nav).forEach((navState) => {
+        Object.values(navState.drawers).forEach((drawer) => {
+          drawer.activeItem = null;
+          drawer.hover = false;
+        });
+      });
+    },
   },
 });
 
@@ -586,6 +594,7 @@ export const {
   toggleNavHover,
   stopNavHover,
   setUnsavedChanges,
+  hideAllNavDrawers,
 } = actions;
 
 export const setArgs = <T>(pld: SetArgsPayload<T>): PayloadAction<SetArgsPayload<T>> =>

@@ -12,7 +12,6 @@ package codec
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"slices"
@@ -327,7 +326,7 @@ func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
 
 func (c *Codec) panicIfNotUpdated(opName string) {
 	if c.mu.seqNum < 1 {
-		panic("[framer.codec] - dynamic codec was not updated for first call to " + opName)
+		panic(fmt.Sprintf("[framer.codec] - dynamic codec was not updated for first call to %s", opName))
 	}
 }
 
@@ -682,17 +681,18 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 	if !ok {
 		states := lo.Keys(c.mu.states)
 		err = errors.Wrapf(validate.Error, "[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v", seqNum, states)
-		return frame, err
+		return
 	}
 	fgs := decodeFlags(flagB)
 	if fgs.equalLens {
-		if err = read(reader, &dataLen); err != nil {
-			return frame, err
+		if dataLen, err = c.reader.Uint32(); err != nil {
+			return
 		}
 	}
 	if fgs.equalTimeRanges && !fgs.timeRangesZero {
-		if refTr, err = readTimeRange(reader); err != nil {
-			return frame, err
+		if refTr, err = c.readTimeRange(); err != nil {
+			return
+		}
 	}
 	if fgs.equalAlignments && !fgs.zeroAlignments {
 		v, readErr := c.reader.Uint64()
@@ -706,8 +706,9 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 	decodeSeries := func(key channel.Key) (err error) {
 		s := telem.Series{TimeRange: refTr, Alignment: refAlignment}
 		dataLenOrSize := dataLen
+		if !fgs.equalLens {
 			if dataLenOrSize, err = c.reader.Uint32(); err != nil {
-				return err
+				return
 			}
 		}
 		dataType, exists := cState.keyDataTypes[key]
@@ -724,9 +725,6 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 			return err
 		}
 		if !fgs.equalTimeRanges {
-			if s.TimeRange, err = readTimeRange(reader); err != nil {
-			if err = read(reader, &s.Alignment); err != nil {
-				return err
 			if s.TimeRange, err = c.readTimeRange(); err != nil {
 				return
 			}
@@ -739,17 +737,17 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame framer.Frame, err error) {
 			s.Alignment = telem.Alignment(v)
 		}
 		frame = frame.Append(key, s)
-		return err
+		return
 	}
 
 	if fgs.allChannelsPresent {
 		frame = core.AllocFrame(len(cState.keys))
 		for _, k := range cState.keys {
 			if err = decodeSeries(k); err != nil {
-				return frame, err
+				return
 			}
 		}
-		return frame, err
+		return
 	}
 
 	for {

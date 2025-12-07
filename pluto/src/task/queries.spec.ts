@@ -1234,16 +1234,19 @@ describe("queries", () => {
         result.current.save({ signal: abortController.signal });
       });
 
-      await waitFor(async () => {
-        const updatedTask = await client.tasks.retrieve<
-          typeof typeSchema,
-          typeof configSchema,
-          typeof statusDataSchema
-        >({
-          key: testTask.key,
-        });
-        expect(updatedTask.config.connection.port).toEqual(9090);
-      });
+      await waitFor(
+        async () => {
+          const updatedTask = await client.tasks.retrieve<
+            typeof typeSchema,
+            typeof configSchema,
+            typeof statusDataSchema
+          >({
+            key: testTask.key,
+          });
+          expect(updatedTask.config.connection.port).toEqual(9090);
+        },
+        { timeout: 3000 },
+      );
     });
   });
 

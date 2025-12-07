@@ -206,14 +206,14 @@ var _ = Describe("Resource", func() {
 					map[string]any{},
 				),
 			}
-			ids := core.IDs(resources)
+			ids := core.ResourceIDs(resources)
 			Expect(ids).To(HaveLen(2))
 			Expect(ids[0]).To(Equal(core.ID{Type: "cat", Key: "dog1"}))
 			Expect(ids[1]).To(Equal(core.ID{Type: "cat", Key: "dog2"}))
 		})
 
 		It("Should return an empty slice for empty input", func() {
-			ids := core.IDs([]core.Resource{})
+			ids := core.ResourceIDs([]core.Resource{})
 			Expect(ids).To(BeEmpty())
 		})
 	})

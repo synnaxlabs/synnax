@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -90,6 +91,58 @@ var _ = Describe("Task", Ordered, func() {
 			k := task.NewKey(rk, 2)
 			Expect(k.Rack()).To(Equal(rk))
 			Expect(k.LocalKey()).To(Equal(uint32(2)))
+		})
+	})
+	Describe("Key msgpack decoding", func() {
+		var codec = &binary.MsgPackCodec{}
+		DescribeTable("Should decode task.Key from various types",
+			func(value any, expected task.Key) {
+				data := MustSucceed(codec.Encode(ctx, value))
+				var k task.Key
+				Expect(codec.Decode(ctx, data, &k)).To(Succeed())
+				Expect(k).To(Equal(expected))
+			},
+			Entry("string", "281543696187399", task.Key(281543696187399)),
+			Entry("uint64", uint64(281543696187399), task.Key(281543696187399)),
+			Entry("uint32", uint32(123456), task.Key(123456)),
+			Entry("int64", int64(123456789), task.Key(123456789)),
+			Entry("int32", int32(123456), task.Key(123456)),
+			Entry("float64", float64(123456), task.Key(123456)),
+			Entry("float32", float32(1234), task.Key(1234)),
+		)
+		It("Should decode StatusDetails with task key as string", func() {
+			type statusDetailsWithString struct {
+				Task    string         `msgpack:"task"`
+				Running bool           `msgpack:"running"`
+				Data    map[string]any `msgpack:"data"`
+			}
+			original := statusDetailsWithString{
+				Task:    "281543696187399",
+				Running: true,
+				Data:    map[string]any{"test": true},
+			}
+			data := MustSucceed(codec.Encode(ctx, original))
+			var decoded task.StatusDetails
+			Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
+			Expect(decoded.Task).To(Equal(task.Key(281543696187399)))
+			Expect(decoded.Running).To(BeTrue())
+		})
+		It("Should decode StatusDetails with task key as float64", func() {
+			type statusDetailsWithFloat struct {
+				Task    float64        `msgpack:"task"`
+				Running bool           `msgpack:"running"`
+				Data    map[string]any `msgpack:"data"`
+			}
+			original := statusDetailsWithFloat{
+				Task:    float64(65536),
+				Running: true,
+				Data:    map[string]any{"test": true},
+			}
+			data := MustSucceed(codec.Encode(ctx, original))
+			var decoded task.StatusDetails
+			Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
+			Expect(decoded.Task).To(Equal(task.Key(65536)))
+			Expect(decoded.Running).To(BeTrue())
 		})
 	})
 

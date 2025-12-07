@@ -34,7 +34,7 @@ var _ = Describe("Ontology", Ordered, func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		svc = MustSucceed(user.NewService(ctx, user.Config{DB: db, Ontology: otg, Group: g}))
+		svc = MustSucceed(user.OpenService(ctx, user.Config{DB: db, Ontology: otg, Group: g}))
 	})
 	AfterAll(func() {
 		Expect(otg.Close()).To(Succeed())
