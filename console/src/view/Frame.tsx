@@ -11,6 +11,7 @@ import "@/view/View.css";
 
 import { type ontology, type view } from "@synnaxlabs/client";
 import {
+  Access,
   Button,
   Flex,
   type Flux,
@@ -53,7 +54,6 @@ export const Frame = <
   subscribe,
 }: FrameProps<K, E, Q>): ReactElement => {
   const [selected, setSelected] = useState<K[]>([]);
-  const [editable, setEditable] = useState(true);
   const { fetchMore, search } = List.usePager({
     // type assertion here to deal with the weird setter<Q, Partial<Q>> type that causes
     // typing issues.
@@ -79,15 +79,21 @@ export const Frame = <
       return true;
     },
   });
+  const canEditView = Access.useUpdateGranted({
+    type: "view",
+    key: form.value().key ?? "",
+  });
+  const [editable, setEditable] = useState(canEditView);
   const contextValue = useMemo(
     () => ({ editable, resourceType, search, save }),
     [editable, resourceType, search, save],
   );
+  const canCreate = Access.useCreateGranted({ type: resourceType, key: "" });
   return (
     <Form.Form<typeof view.newZ> {...form}>
       <Flex.Box full="y" empty className={CSS.B("view")}>
         <Controls x>
-          {editable && (
+          {editable && canCreate && (
             <Button.Button
               onClick={onCreate}
               size="small"
@@ -96,6 +102,17 @@ export const Frame = <
             >
               <Icon.Add />
             </Button.Button>
+          )}
+          {canEditView && (
+            <Button.Toggle
+              size="small"
+              value={editable}
+              onChange={() => setEditable(!editable)}
+              tooltipLocation={location.BOTTOM_LEFT}
+              tooltip={`${editable ? "Disable" : "Enable"} editing`}
+            >
+              {editable ? <Icon.EditOff /> : <Icon.Edit />}
+            </Button.Toggle>
           )}
           <Button.Toggle
             size="small"
