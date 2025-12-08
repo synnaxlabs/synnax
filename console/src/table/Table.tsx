@@ -108,6 +108,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const layout = useSelectLayout(layoutKey);
   const syncDispatch = useSyncComponent(layoutKey);
   const editable = useSelectEditable(layoutKey);
+  const hasEditPermission = Access.useUpdateGranted(table.ontologyID(layoutKey));
+  const isEditable = hasEditPermission && editable;
 
   const handleAddRow = () => {
     syncDispatch(addRow({ key: layoutKey }));
@@ -191,11 +193,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
 
   const handleDoubleClick = useCallback(() => {
-    if (!editable) return;
+    if (!isEditable) return;
     syncDispatch(
       Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
     );
-  }, [editable]);
+  }, [isEditable]);
 
   const colSizes = layout.columns.map((col) => col.size);
   const totalColSizes = colSizes.reduce((acc, size) => acc + size, 0);
@@ -253,7 +255,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             );
           })}
         </Core.Table>
-        {editable && (
+        {isEditable && (
           <>
             <Button.Button
               className={CSS.BE("table", "add-col")}
@@ -290,20 +292,24 @@ interface TableControls {
 const TableControls = ({ tableKey }: TableControls) => {
   const dispatch = useDispatch();
   const editable = useSelectEditable(tableKey);
+  const hasEditPermission = Access.useUpdateGranted(table.ontologyID(tableKey));
+  const isEditable = hasEditPermission && editable;
   const handleEdit = useCallback(() => {
     dispatch(setEditable({ key: tableKey }));
   }, []);
 
+  if (!hasEditPermission) return null;
+
   return (
     <Controls>
       <Button.Toggle
-        value={editable}
+        value={isEditable}
         onChange={handleEdit}
         size="small"
         tooltipLocation={location.BOTTOM_LEFT}
-        tooltip={`${editable ? "Disable" : "Enable"} editing`}
+        tooltip={`${isEditable ? "Disable" : "Enable"} editing`}
       >
-        {editable ? <Icon.EditOff /> : <Icon.Edit />}
+        {isEditable ? <Icon.EditOff /> : <Icon.Edit />}
       </Button.Toggle>
     </Controls>
   );
