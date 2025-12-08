@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -94,6 +96,9 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := s.NewWriter(nil).CreateMany(ctx, &DefaultViews); err != nil {
+		return nil, err
+	}
 	s.shutdownSignals = viewSignals
 	return s, nil
 }
@@ -127,4 +132,19 @@ func (s *Service) NewRetrieve() Retrieve {
 		baseTX: s.cfg.DB,
 		otg:    s.cfg.Ontology,
 	}
+}
+
+var DefaultViews = []View{
+	{
+		Name:  "All Statuses",
+		Key:   uuid.MustParse("7b00b1e5-b132-4c21-a226-2c493d98684a"),
+		Type:  status.OntologyType.String(),
+		Query: map[string]any{},
+	},
+	{
+		Name:  "All Ranges",
+		Key:   uuid.MustParse("deadbeef-fc80-4598-86a1-aa565fdae138"),
+		Type:  ranger.OntologyType.String(),
+		Query: map[string]any{},
+	},
 }

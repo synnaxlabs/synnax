@@ -9,7 +9,7 @@
 
 import "@/view/View.css";
 
-import { type ontology, type view } from "@synnaxlabs/client";
+import { type ontology, view } from "@synnaxlabs/client";
 import {
   Access,
   Button,
@@ -23,6 +23,7 @@ import {
   View as PView,
 } from "@synnaxlabs/pluto";
 import { location, primitive, type record, uuid } from "@synnaxlabs/x";
+import { plural } from "pluralize";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -91,12 +92,11 @@ export const Frame = <
   );
   const handleError = Status.useErrorHandler();
   const renameModal = Modals.useRename();
-  const canCreate =
-    Access.useCreateGranted({ type: resourceType, key: "" }) && editable;
+  const canCreate = Access.useCreateGranted(view.TYPE_ONTOLOGY_ID) && editable;
   const handleCreate = useCallback(() => {
     handleError(async () => {
       const name = await renameModal(
-        { initialValue: `View for ${resourceType}` },
+        { initialValue: `View for ${plural(resourceType)}` },
         { name: "View.Create" },
       );
       if (name == null) return;
@@ -109,7 +109,12 @@ export const Frame = <
       <Flex.Box full="y" empty>
         <Controls x>
           {canCreate && (
-            <Button.Button onClick={handleCreate} tooltip="Create a view" size="small">
+            <Button.Button
+              onClick={handleCreate}
+              tooltip="Create a view"
+              size="small"
+              tooltipLocation={location.BOTTOM_LEFT}
+            >
               <Icon.Add />
             </Button.Button>
           )}
