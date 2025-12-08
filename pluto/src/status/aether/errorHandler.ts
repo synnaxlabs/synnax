@@ -44,23 +44,18 @@ const checkSkip = (
 };
 
 const formatError = (stat: status.Status): void => {
-  console.group(
-    `%c${stat.variant.toUpperCase()}: ${stat.message}`,
-    "color: #ff6b6b; font-weight: bold",
-  );
+  const parts: string[] = [`${stat.variant.toUpperCase()}: ${stat.message}`];
   if (stat.description)
     try {
       const parsed = JSON.parse(stat.description);
-      console.log("%cDescription:", "font-weight: bold");
-      console.log(JSON.stringify(parsed, null, 2));
+      parts.push(`Description:\n${JSON.stringify(parsed, null, 2)}`);
     } catch {
-      console.log("%cDescription:", "font-weight: bold", stat.description);
+      parts.push(`Description: ${stat.description}`);
     }
-  if ("details" in stat && narrow.isObject(stat.details) && "stack" in stat.details) {
-    console.log("%cStack Trace:", "font-weight: bold");
-    console.log(stat.details.stack);
-  }
-  console.groupEnd();
+
+  if ("details" in stat && narrow.isObject(stat.details) && "stack" in stat.details)
+    parts.push(`Stack Trace:\n${String(stat.details.stack)}`);
+  console.error(parts.join("\n\n"));
 };
 
 const parseException = (
