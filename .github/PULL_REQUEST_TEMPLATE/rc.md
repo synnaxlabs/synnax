@@ -514,9 +514,6 @@ I can successfully:
       - [ ] Export a symbol.
       - [ ] Edit a symbol.
       - [ ] Rename a symbol.
-- **Search and Command Palette**
-  - [ ] Open the "Create Symbol" modal.
-  - [ ] Create a symbol from the "Create Symbol" modal.
 
 ### Tables
 
