@@ -93,6 +93,7 @@ export const Notification = ({
           <Text.Text
             className={CSS(CSS.BE("notification", "message"))}
             style={{ flexGrow: 1 }}
+            lineClamp={2}
           >
             {message}
           </Text.Text>
@@ -102,6 +103,7 @@ export const Notification = ({
             className={CSS(CSS.BE("notification", "description"))}
             level="small"
             style={{ flexGrow: 1 }}
+            lineClamp={8}
           >
             {description}
           </Text.Text>

@@ -48,6 +48,8 @@ export interface ExtensionProps
   overflow?: Overflow;
   /* Status sets the status of the text */
   status?: status.Variant;
+  /* LineClamp sets the maximum number of lines before truncating with ellipsis */
+  lineClamp?: number;
 }
 
 export type TextProps<E extends Generic.ElementType = "p"> = Omit<
@@ -116,17 +118,23 @@ export const Text = <E extends Generic.ElementType = "p">({
   href,
   autoFormatHref,
   status,
+  lineClamp,
   ...rest
 }: TextProps<E>): ReactElement => (
   <Flex.Box<E>
     direction="x"
     el={parseElement<E>(level, el, defaultEl, variant, href)}
-    style={{ fontWeight: weight, ...style }}
+    style={{
+      fontWeight: weight,
+      ...(lineClamp != null && { WebkitLineClamp: lineClamp }),
+      ...style,
+    }}
     className={CSS(
       CSS.B("text"),
       variant != null && CSS.BM("text", variant),
       CSS.BM("text", level),
       overflow != null && CSS.BM("text", "overflow", overflow),
+      lineClamp != null && CSS.BM("text", "line-clamp"),
       status != null && CSS.M("status", status),
       className,
     )}
