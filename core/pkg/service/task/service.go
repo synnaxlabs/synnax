@@ -113,7 +113,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 			DataType: telem.JSONT,
 			Virtual:  true,
 			Internal: true,
-		}); err != nil {
+		}, channel.RetrieveIfNameExists()); err != nil {
 			return nil, err
 		}
 	}

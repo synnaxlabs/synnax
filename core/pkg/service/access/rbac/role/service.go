@@ -54,7 +54,7 @@ func (c Config) Validate() error {
 }
 
 type Service struct {
-	Config
+	cfg     Config
 	signals io.Closer
 	group   group.Group
 }
@@ -73,7 +73,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg}
+	s := &Service{cfg: cfg}
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
@@ -93,15 +93,17 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	return s, nil
 }
 
+func (s *Service) UsersGroup() group.Group { return s.group }
+
 func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 	return Writer{
-		tx:            gorp.OverrideTx(s.DB, tx),
-		otg:           s.Ontology.NewWriter(tx),
+		tx:            gorp.OverrideTx(s.cfg.DB, tx),
+		otg:           s.cfg.Ontology.NewWriter(tx),
 		group:         s.group,
 		allowInternal: allowInternal,
 	}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{baseTx: s.DB, gorp: gorp.NewRetrieve[uuid.UUID, Role]()}
+	return Retrieve{baseTx: s.cfg.DB, gorp: gorp.NewRetrieve[uuid.UUID, Role]()}
 }

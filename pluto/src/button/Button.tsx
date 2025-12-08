@@ -120,15 +120,12 @@ const Core = <E extends ElementType = "button">({
 
   if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
 
-  const handleClick = useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      if (!propagateClick) e.stopPropagation();
-      if (isDisabled || variant === "preview" || preventClick === true) return;
-      // @ts-expect-error - TODO: fix this
-      if (parsedDelay.isZero) return onClick?.(e);
-    },
-    [propagateClick, isDisabled, variant === "preview", parsedDelay.isZero, onClick],
-  );
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!propagateClick) e.stopPropagation();
+    if (isDisabled || variant === "preview" || preventClick === true) return;
+    // @ts-expect-error - TODO: fix this
+    if (parsedDelay.isZero) return onClick?.(e);
+  };
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

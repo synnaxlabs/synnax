@@ -73,7 +73,7 @@ interface LinePlotLineControlsProps extends Omit<List.ItemProps<string>, "onChan
 }
 
 const STROKE_WIDTH_BOUNDS: bounds.Bounds = { lower: 1, upper: 11 };
-const DOWNSAMPLE_BOUNDS: bounds.Bounds = { lower: 1, upper: 51 };
+const DOWNSAMPLE_BOUNDS: bounds.Bounds = { lower: 1, upper: 1001 };
 const STROKE_WIDTH_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 const DOWNSAMPLE_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 
