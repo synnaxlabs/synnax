@@ -18,7 +18,9 @@ import { View } from "@/view";
 
 export const Chips = (): ReactElement | null => {
   const { editable } = View.useContext();
-  const { onChange } = Form.useField<label.Key[]>("query.hasLabels");
+  const { onChange } = Form.useField<label.Key[]>("query.hasLabels", {
+    defaultValue: [],
+  });
   const hasLabels = Form.useFieldValue<label.Key[]>("query.hasLabels", {
     defaultValue: [],
   });

@@ -51,15 +51,15 @@ export const Views = (): ReactElement | null => {
   );
   const contextMenuProps = PMenu.useContextMenu();
   return (
-    <Select.Frame<view.Key, view.View>
-      {...listReturn}
-      value={selected ?? undefined}
-      onFetchMore={fetchMore}
-      multiple={false}
-      onChange={handleSelectView}
-      allowNone
-    >
-      <PMenu.ContextMenu {...contextMenuProps} menu={contextMenu}>
+    <PMenu.ContextMenu {...contextMenuProps} menu={contextMenu}>
+      <Select.Frame<view.Key, view.View>
+        {...listReturn}
+        value={selected ?? undefined}
+        onFetchMore={fetchMore}
+        multiple={false}
+        onChange={handleSelectView}
+        allowNone
+      >
         <List.Items<view.Key>
           className={CSS.BE("view", "views")}
           x
@@ -69,8 +69,8 @@ export const Views = (): ReactElement | null => {
         >
           {item}
         </List.Items>
-      </PMenu.ContextMenu>
-    </Select.Frame>
+      </Select.Frame>
+    </PMenu.ContextMenu>
   );
 };
 
@@ -91,6 +91,7 @@ const Item = ({ itemKey }: ItemProps): ReactElement | null => {
         <Text.MaybeEditable
           id={itemKey}
           value={name}
+          allowDoubleClick={false}
           color={7}
           onChange={handleRename}
           className={CSS.BE("view", "view-item")}
