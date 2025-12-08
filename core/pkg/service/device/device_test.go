@@ -463,4 +463,74 @@ var _ = Describe("Device", func() {
 			}).Should(Succeed())
 		})
 	})
+	Describe("Migration", func() {
+		It("Should create unknown statuses for devices missing them", func() {
+			ctx := context.Background()
+			db := gorp.Wrap(memkv.New())
+			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+			groupSvc := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+			}))
+			stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+				Ontology: otg,
+				DB:       db,
+				Group:    groupSvc,
+				Label:    labelSvc,
+			}))
+			rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
+				DB:           db,
+				Ontology:     otg,
+				Group:        groupSvc,
+				HostProvider: mock.StaticHostKeyProvider(1),
+				Status:       stat,
+			}))
+			svc := MustSucceed(device.OpenService(ctx, device.Config{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				Status:   stat,
+				Rack:     rackSvc,
+			}))
+			d := device.Device{
+				Key:      "migration-device",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "loc",
+				Name:     "Migration Test Device",
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, d)).To(Succeed())
+			Expect(status.NewWriter[device.StatusDetails](stat, nil).Delete(ctx, device.OntologyID(d.Key).String())).To(Succeed())
+			var deletedStatus device.Status
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				WhereKeys(device.OntologyID(d.Key).String()).
+				Entry(&deletedStatus).
+				Exec(ctx, nil)).To(MatchError(query.NotFound))
+			Expect(svc.Close()).To(Succeed())
+			svc = MustSucceed(device.OpenService(ctx, device.Config{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				Status:   stat,
+				Rack:     rackSvc,
+			}))
+			var restoredStatus device.Status
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				WhereKeys(device.OntologyID(d.Key).String()).
+				Entry(&restoredStatus).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(restoredStatus.Variant).To(Equal(xstatus.WarningVariant))
+			Expect(restoredStatus.Message).To(Equal("Migration Test Device state unknown"))
+			Expect(restoredStatus.Details.Device).To(Equal(d.Key))
+			Expect(restoredStatus.Details.Rack).To(Equal(rackSvc.EmbeddedKey))
+			Expect(svc.Close()).To(Succeed())
+			Expect(rackSvc.Close()).To(Succeed())
+			Expect(stat.Close()).To(Succeed())
+			Expect(labelSvc.Close()).To(Succeed())
+			Expect(groupSvc.Close()).To(Succeed())
+			Expect(otg.Close()).To(Succeed())
+			Expect(db.Close()).To(Succeed())
+		})
+	})
 })
