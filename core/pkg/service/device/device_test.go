@@ -364,7 +364,7 @@ var _ = Describe("Device", func() {
 		})
 	})
 	Describe("Delete", func() {
-		It("Should correctly delete a device", func() {
+		It("Should correctly delete a device and its associated status", func() {
 			d := device.Device{
 				Key:      "device14",
 				Rack:     rackSvc.EmbeddedKey,
@@ -376,6 +376,11 @@ var _ = Describe("Device", func() {
 			var res device.Device
 			Expect(svc.NewRetrieve().WhereKeys(d.Key).Entry(&res).Exec(ctx, tx)).
 				To(MatchError(query.NotFound))
+			var deletedStatus device.Status
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				WhereKeys(device.OntologyID(d.Key).String()).
+				Entry(&deletedStatus).
+				Exec(ctx, tx)).To(MatchError(query.NotFound))
 		})
 		It("Should correctly delete an ontology resource for the device", func() {
 			d := device.Device{

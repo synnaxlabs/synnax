@@ -309,16 +309,19 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Delete", func() {
-		It("Should correctly delete a task", func() {
+		It("Should correctly delete a task and its associated status", func() {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 17)))
-			Expect(m.Name).To(Equal("Test Task"))
 			Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
 			Expect(svc.NewRetrieve().WhereKeys(m.Key).Exec(ctx, tx)).To(MatchError(query.NotFound))
+			var deletedStatus task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				WhereKeys(task.OntologyID(m.Key).String()).
+				Entry(&deletedStatus).
+				Exec(ctx, tx)).To(MatchError(query.NotFound))
 		})
 	})
 

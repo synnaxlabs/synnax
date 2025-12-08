@@ -170,13 +170,18 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(res.Embedded).To(BeTrue())
 		})
 	})
-	Describe("DeleteChannel", func() {
-		It("Should delete a rack by its key", func() {
+	Describe("Delete", func() {
+		It("Should delete a rack and its associated status", func() {
 			r := &rack.Rack{Name: "rack4"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(writer.Delete(ctx, r.Key)).To(Succeed())
 			var res rack.Rack
 			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&res).Exec(ctx, tx)).To(MatchError(query.NotFound))
+			var deletedStatus rack.Status
+			Expect(status.NewRetrieve[rack.StatusDetails](stat).
+				WhereKeys(rack.OntologyID(r.Key).String()).
+				Entry(&deletedStatus).
+				Exec(ctx, tx)).To(MatchError(query.NotFound))
 		})
 	})
 
