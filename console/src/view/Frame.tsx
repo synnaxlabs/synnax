@@ -19,13 +19,20 @@ import {
   Icon,
   List,
   Select,
+  Status,
   View as PView,
 } from "@synnaxlabs/pluto";
-import { location, type record } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useMemo, useState } from "react";
+import { location, primitive, type record, uuid } from "@synnaxlabs/x";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 
 import { Controls } from "@/components";
-import { CSS } from "@/css";
+import { Modals } from "@/modals";
 import { Provider } from "@/view/context";
 
 export interface Query extends List.PagerParams, record.Unknown {}
@@ -37,7 +44,6 @@ export interface FrameProps<
 > extends PropsWithChildren,
     Pick<Flux.UseListReturn<Q, K, E>, "data" | "getItem" | "subscribe" | "retrieve"> {
   resourceType: ontology.ResourceType;
-  onCreate: () => void;
 }
 
 export const Frame = <
@@ -46,7 +52,6 @@ export const Frame = <
   Q extends Query,
 >({
   children,
-  onCreate,
   resourceType,
   data,
   getItem,
@@ -71,12 +76,8 @@ export const Frame = <
       const { key, query } = value();
       // type assertion because the current implementation of the query client doesn't
       // support custom typing yet.
-      retrieve((p) => {
-        const nextQuery = { ...p, ...(query as Q), offset: 0, limit: 25 };
-        return nextQuery;
-      });
-      if (key == null || key === "") return false;
-      return true;
+      retrieve((p) => ({ ...p, ...(query as Q), offset: 0, limit: 25 }));
+      return primitive.isNonZero(key);
     },
   });
   const canEditView = Access.useUpdateGranted({
@@ -88,18 +89,27 @@ export const Frame = <
     () => ({ editable, resourceType, search, save }),
     [editable, resourceType, search, save],
   );
-  const canCreate = Access.useCreateGranted({ type: resourceType, key: "" });
+  const handleError = Status.useErrorHandler();
+  const renameModal = Modals.useRename();
+  const canCreate =
+    Access.useCreateGranted({ type: resourceType, key: "" }) && editable;
+  const handleCreate = useCallback(() => {
+    handleError(async () => {
+      const name = await renameModal(
+        { initialValue: `View for ${resourceType}` },
+        { name: "View.Create" },
+      );
+      if (name == null) return;
+      form.set("name", name);
+      form.set("key", uuid.create());
+    }, "Failed to create view");
+  }, [renameModal, resourceType, form.set]);
   return (
     <Form.Form<typeof view.newZ> {...form}>
-      <Flex.Box full="y" empty className={CSS.B("view")}>
+      <Flex.Box full="y" empty>
         <Controls x>
-          {editable && canCreate && (
-            <Button.Button
-              onClick={onCreate}
-              size="small"
-              tooltipLocation={location.BOTTOM_LEFT}
-              tooltip={`Create a ${resourceType}`}
-            >
+          {canCreate && (
+            <Button.Button onClick={handleCreate} tooltip="Create a view" size="small">
               <Icon.Add />
             </Button.Button>
           )}
@@ -107,7 +117,7 @@ export const Frame = <
             <Button.Toggle
               size="small"
               value={editable}
-              onChange={() => setEditable(!editable)}
+              onChange={() => setEditable((prev) => !prev)}
               tooltipLocation={location.BOTTOM_LEFT}
               tooltip={`${editable ? "Disable" : "Enable"} editing`}
             >

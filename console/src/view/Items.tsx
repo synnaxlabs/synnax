@@ -18,7 +18,7 @@ export interface ItemsProps<K extends record.Key = record.Key>
   extends List.ItemsProps<K> {}
 
 export const Items = <K extends record.Key>(props: ItemsProps<K>): ReactElement => (
-  <List.Items<K> emptyContent={<DefaultEmptyContent />} grow {...props} />
+  <List.Items<K> emptyContent={emptyContent} grow {...props} />
 );
 
 const DefaultEmptyContent = (): ReactElement => {
@@ -29,3 +29,5 @@ const DefaultEmptyContent = (): ReactElement => {
     </Flex.Box>
   );
 };
+
+const emptyContent = <DefaultEmptyContent />;

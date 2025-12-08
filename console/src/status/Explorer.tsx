@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Status } from "@synnaxlabs/pluto";
+import { Button, Component, Icon, Status } from "@synnaxlabs/pluto";
+import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Label } from "@/label";
@@ -33,7 +34,7 @@ export const Explorer: Layout.Renderer = () => {
   const placeLayout = Layout.usePlacer();
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
   return (
-    <View.Frame {...listProps} resourceType="status" onCreate={handleCreate}>
+    <View.Frame {...listProps} resourceType="status">
       <View.Views />
       <View.Toolbar>
         <View.FilterMenu>
@@ -41,6 +42,13 @@ export const Explorer: Layout.Renderer = () => {
         </View.FilterMenu>
         <View.Search />
         <Label.Filter.Chips />
+        <Button.Button
+          onClick={handleCreate}
+          tooltipLocation={location.BOTTOM_LEFT}
+          tooltip="Create a status"
+        >
+          <Icon.Add />
+        </Button.Button>
       </View.Toolbar>
       <View.Items>{item}</View.Items>
     </View.Frame>

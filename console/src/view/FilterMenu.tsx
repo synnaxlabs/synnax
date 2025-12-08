@@ -9,11 +9,13 @@
 
 import { Dialog, Icon, Menu } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactNode } from "react";
+import { type CSSProperties, type PropsWithChildren, type ReactNode } from "react";
 
 import { useContext } from "@/view/context";
 
 export interface FilterMenuProps extends PropsWithChildren {}
+
+const STYLE: CSSProperties = { padding: "1rem" };
 
 export const FilterMenu = ({ children }: FilterMenuProps): ReactNode => {
   const { editable } = useContext("View.FilterMenu");
@@ -27,7 +29,7 @@ export const FilterMenu = ({ children }: FilterMenuProps): ReactNode => {
       >
         <Icon.Filter />
       </Dialog.Trigger>
-      <Dialog.Dialog background={1} pack={false} style={style}>
+      <Dialog.Dialog background={1} pack={false} style={STYLE}>
         <Menu.Menu level="small" gap="small">
           {children}
         </Menu.Menu>
@@ -35,5 +37,3 @@ export const FilterMenu = ({ children }: FilterMenuProps): ReactNode => {
     </Dialog.Frame>
   );
 };
-
-const style = { padding: "1rem" } as const;

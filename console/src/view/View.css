@@ -9,8 +9,15 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-view {
-    .console-view__toolbar:has(*) {
-        padding: 1.5rem;
-    }
+.console-view__toolbar:not(:empty) {
+    padding: 1.5rem;
+}
+
+.console-view__views {
+    padding: 0rem 2rem;
+    height: 8rem;
+}
+
+.console-view__view-item {
+    padding: 0rem 1rem;
 }

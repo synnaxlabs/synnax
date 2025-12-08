@@ -9,7 +9,8 @@
 
 import "@/range/Explorer.css";
 
-import { Component, Ranger } from "@synnaxlabs/pluto";
+import { Button, Component, Icon, Ranger } from "@synnaxlabs/pluto";
+import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Label } from "@/label";
@@ -38,7 +39,7 @@ export const Explorer: Layout.Renderer = () => {
   const placeLayout = Layout.usePlacer();
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
   return (
-    <View.Frame {...listProps} resourceType="range" onCreate={handleCreate}>
+    <View.Frame {...listProps} resourceType="range">
       <View.Views />
       <View.Toolbar>
         <View.FilterMenu>
@@ -46,6 +47,13 @@ export const Explorer: Layout.Renderer = () => {
         </View.FilterMenu>
         <View.Search />
         <Label.Filter.Chips />
+        <Button.Button
+          onClick={handleCreate}
+          tooltipLocation={location.BOTTOM_LEFT}
+          tooltip="Create a range"
+        >
+          <Icon.Add />
+        </Button.Button>
       </View.Toolbar>
       <View.Items>{item}</View.Items>
     </View.Frame>

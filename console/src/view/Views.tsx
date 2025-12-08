@@ -7,54 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type view } from "@synnaxlabs/client";
+import { UnexpectedError, type view } from "@synnaxlabs/client";
 import {
-  Button,
+  Component,
   Flex,
+  type Flux,
   Form,
   Icon,
   List,
-  Menu,
+  Menu as PMenu,
   Select,
-  Status,
   Text,
   View,
 } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { Menu as CMenu } from "@/components";
-import { Modals } from "@/modals";
+import { Menu } from "@/components";
+import { CSS } from "@/css";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { useContext } from "@/view/context";
 
 export const Views = (): ReactElement | null => {
-  const { editable, resourceType, save } = useContext("View.Views");
+  const { resourceType, save } = useContext("View.Views");
   const listReturn = View.useList({ initialQuery: { types: [resourceType] } });
   const { retrieve, getItem } = listReturn;
   const { fetchMore } = List.usePager({ retrieve });
-  const { set, reset, get } = Form.useContext();
-  const selected = Form.useFieldValue<view.Key>("key", {
-    optional: true,
-  });
-  const confirm = useConfirmDelete({
-    icon: "Delete",
-    type: "View",
-    description: "Deleting this view will permanently remove it.",
-  });
-  const handleError = Status.useErrorHandler();
-  const renameModal = Modals.useRename();
-  const handleCreate = useCallback(() => {
-    handleError(async () => {
-      const name = await renameModal(
-        { initialValue: `View for ${resourceType}` },
-        { name: "View.Create" },
-      );
-      if (name == null) return;
-      set("name", name);
-      set("key", uuid.create());
-    }, "Failed to create view");
-  }, [handleError, resourceType]);
+  const { set, reset } = Form.useContext();
+  const selected = Form.useFieldValue<view.Key>("key", { optional: true });
   const handleSelectView = useCallback(
     (view: view.Key | null) => {
       if (view == null) {
@@ -69,21 +49,7 @@ export const Views = (): ReactElement | null => {
     },
     [set, reset, getItem],
   );
-  const { update: del } = View.useDelete();
-  const handleDelete = useCallback(
-    (viewKey: view.Key) => {
-      handleError(async () => {
-        const v = getItem(viewKey);
-        if (v == null) return;
-        const confirmed = await confirm([v]);
-        if (!confirmed) return;
-        if (viewKey === get<string>("key").value) reset();
-        del(viewKey);
-      }, "Failed to delete view");
-    },
-    [reset, get, getItem, confirm, del, handleError],
-  );
-  const contextMenuProps = Menu.useContextMenu();
+  const contextMenuProps = PMenu.useContextMenu();
   return (
     <Select.Frame<view.Key, view.View>
       {...listReturn}
@@ -93,73 +59,94 @@ export const Views = (): ReactElement | null => {
       onChange={handleSelectView}
       allowNone
     >
-      <Flex.Box
-        x
-        style={{ padding: "1rem 1rem", height: "8rem" }}
-        gap="medium"
-        align="center"
-      >
-        {editable && (
-          <Button.Button onClick={handleCreate} tooltip="Create a view" size="small">
-            <Icon.Add />
-          </Button.Button>
-        )}
-        <Menu.ContextMenu
-          {...contextMenuProps}
-          menu={({ keys }) => (
-            <Menu.Menu level="small" gap="small">
-              <Menu.Item
-                itemKey="rename"
-                onClick={() => {
-                  Text.edit(keys[0]);
-                }}
-              >
-                <Icon.Rename />
-                Rename
-              </Menu.Item>
-              <Menu.Item itemKey="delete" onClick={() => handleDelete(keys[0])}>
-                <Icon.Delete />
-                Delete
-              </Menu.Item>
-              <Menu.Divider />
-              <CMenu.ReloadConsoleItem />
-            </Menu.Menu>
-          )}
+      <PMenu.ContextMenu {...contextMenuProps} menu={contextMenu}>
+        <List.Items<view.Key>
+          className={CSS.BE("view", "views")}
+          x
+          align="center"
+          gap="medium"
+          onContextMenu={contextMenuProps.open}
         >
-          <List.Items<view.Key> x gap="medium">
-            {({ key, ...rest }) => (
-              <ViewItem key={key} {...rest} onContextMenu={contextMenuProps.open} />
-            )}
-          </List.Items>
-        </Menu.ContextMenu>
-      </Flex.Box>
+          {item}
+        </List.Items>
+      </PMenu.ContextMenu>
     </Select.Frame>
   );
 };
 
-interface ViewItemProps extends List.ItemProps<view.Key> {}
+interface ItemProps extends List.ItemProps<view.Key> {}
 
-const ViewItem = ({ itemKey, onContextMenu }: ViewItemProps): ReactElement | null => {
-  const query = View.useRetrieve({ key: itemKey });
+const Item = ({ itemKey }: ItemProps): ReactElement | null => {
+  const item = List.useItem<view.Key, view.View>(itemKey);
   const { update: rename } = View.useRename();
   const handleRename = useCallback(
-    (name: string) => {
-      rename({ key: itemKey, name });
-    },
+    (name: string) => rename({ key: itemKey, name }),
     [itemKey, rename],
   );
-  if (query.variant !== "success") return null;
+  if (item == null) return null;
+  const { name } = item;
   return (
-    <Flex.Box pack onContextMenu={onContextMenu}>
+    <Flex.Box pack>
       <Select.Button itemKey={itemKey} size="small" justify="between">
         <Text.MaybeEditable
           id={itemKey}
-          value={query.data.name}
-          color={9}
+          value={name}
+          color={7}
           onChange={handleRename}
-          style={{ padding: "0rem 1rem" }}
+          className={CSS.BE("view", "view-item")}
         />
       </Select.Button>
     </Flex.Box>
   );
 };
+
+const item = Component.renderProp(Item);
+
+const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
+  const confirm = useConfirmDelete({
+    icon: "Delete",
+    type: "View",
+    description: "Deleting this view will permanently remove it.",
+  });
+  const { getItem } = List.useUtilContext<view.Key, view.View>();
+  const { get, reset } = Form.useContext();
+  const { update: del } = View.useDelete({
+    beforeUpdate: useCallback(
+      async ({ data }: Flux.BeforeUpdateParams<View.DeleteParams>) => {
+        const keys = array.toArray(data);
+        if (keys.length === 0) throw new UnexpectedError("No views to delete");
+        // we are only calling this with a single view so we can just use keys[0]
+        const key = keys[0];
+        const v = getItem?.(key);
+        if (v == null) throw new UnexpectedError(`View with key ${key} not found`);
+        const confirmed = await confirm([v]);
+        if (!confirmed) return false;
+        if (key === get<string>("key").value) reset();
+        return key;
+      },
+      [getItem, confirm, get, reset],
+    ),
+  });
+  const canRename = keys.length === 1;
+  const canDelete = keys.length > 0;
+  return (
+    <PMenu.Menu level="small" gap="small">
+      {canRename && (
+        <PMenu.Item itemKey="rename" onClick={() => Text.edit(keys[0])}>
+          <Icon.Rename />
+          Rename
+        </PMenu.Item>
+      )}
+      {canDelete && (
+        <PMenu.Item itemKey="delete" onClick={() => del(keys[0])}>
+          <Icon.Delete />
+          Delete
+        </PMenu.Item>
+      )}
+      {(canRename || canDelete) && <PMenu.Divider />}
+      <Menu.ReloadConsoleItem />
+    </PMenu.Menu>
+  );
+};
+
+const contextMenu = Component.renderProp(ContextMenu);

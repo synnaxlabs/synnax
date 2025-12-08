@@ -28,6 +28,7 @@ export const Search = (): ReactElement | null => {
     <Input.Text
       size="small"
       level="h5"
+      color={9}
       startContent={<Icon.Search color={9} />}
       variant="text"
       value={value}

@@ -92,3 +92,5 @@ export class Client {
 }
 
 export const ontologyID = (key: Key): ontology.ID => ({ type: "view", key });
+
+export const TYPE_ONTOLOGY_ID = ontologyID("");
