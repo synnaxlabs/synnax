@@ -46,6 +46,7 @@ import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
+import { DefaultContextMenu } from "@/ontology/DefaultContextMenu";
 import {
   type BaseProps,
   type GetResource,
@@ -466,7 +467,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const handleContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps) => {
-      if (keys.length === 0 || client == null) return <Layout.DefaultContextMenu />;
+      if (client == null) return <Layout.DefaultContextMenu />;
+      if (keys.length === 0)
+        return <DefaultContextMenu root={root} state={getState()} />;
       const rightClickedButNotSelected = keys.find(
         (v) => !selectedRef.current.includes(v),
       );
