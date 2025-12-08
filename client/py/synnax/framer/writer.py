@@ -377,12 +377,11 @@ class Writer:
             )
         self._exec(WriterRequest(command=WriterCommand.SET_AUTHORITY, config=cfg))
 
-    def commit(self) -> TimeStamp | None:
+    def commit(self) -> TimeStamp:
         """Commits the written frames to the database. Commit is synchronous, meaning
         that it will not return until all frames have been committed to the database.
 
-        :returns: The end timestamp of the committed region, or None if no data was
-            committed.
+        :returns: The timestamp of the last sample written to the writer.
         :raises: An exception if the commit fails or any calls to previous writer
             methods have thrown an exception. Once commit fails, the writer must be
             closed and re-opened to continue use.
