@@ -79,11 +79,11 @@ export const Container = memo(
       const clamped = clampScale.pos(newDecimalPos);
       if (ref.current == null || ref.current.parentElement == null)
         return positionRef.current;
-      return sticky.calculate(
-        clamped,
-        box.construct(ref.current),
-        bounds,
-      );
+      return sticky.calculate({
+        position: clamped,
+        element: box.construct(ref.current),
+        container: bounds,
+      });
     }, []);
 
     const handleCursorDragStart = useCursorDrag({
@@ -92,11 +92,11 @@ export const Container = memo(
         // element based on the new dimensions of the parent. This removes strange
         // 'jumping' behavior when starting to drag.
         if (ref.current == null || ref.current.parentElement == null) return;
-        positionRef.current = sticky.toDecimal(
-          positionRef.current,
-          box.construct(ref.current),
-          box.construct(ref.current.parentElement),
-        );
+        positionRef.current = sticky.toDecimal({
+          position: positionRef.current,
+          element: box.construct(ref.current),
+          container: box.construct(ref.current.parentElement),
+        });
       }, []),
       onMove: useCallback((box: box.Box) => {
         if (disabled.current) return;
