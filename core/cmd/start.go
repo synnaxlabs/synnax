@@ -14,6 +14,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -219,17 +220,6 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 
-		// We run startup searching indexing after all services have been
-		// registered within the ontology. We used to fork a new goroutine for
-		// every service at registration time, but this caused a race condition
-		// where bleve would concurrently read and write to a map.
-		// See https://linear.app/synnax/issue/SY-1116/race-condition-on-server-startup
-		// for more details on this issue.
-		sCtx.Go(
-			distributionLayer.Ontology.InitializeSearchIndex,
-			xsignal.WithKey("startup_search_indexing"),
-		)
-
 		// Configure the HTTP Layer AspenTransport.
 		r := fhttp.NewRouter(fhttp.RouterConfig{
 			Instrumentation:     ins,
@@ -261,6 +251,19 @@ func start(cmd *cobra.Command) {
 			},
 		); !ok(err, rootServer) {
 			return err
+		}
+
+		// We run startup searching indexing after all services have been
+		// registered within the ontology. We used to fork a new goroutine for
+		// every service at registration time, but this caused a race condition
+		// where bleve would concurrently read and write to a map.
+		// See https://linear.app/synnax/issue/SY-1116/race-condition-on-server-startup
+		// for more details on this issue.
+		if stopSearchIndexing := runStartupSearchIndexing(
+			sCtx,
+			distributionLayer,
+		); !ok(nil, stopSearchIndexing) {
+			return nil
 		}
 
 		if embeddedDriver, err = driver.OpenDriver(
@@ -320,4 +323,20 @@ func resolveWorkDir() (string, error) {
 		return "", err
 	}
 	return filepath.Join(cacheDir, "synnax", "core", "workdir"), nil
+}
+
+func runStartupSearchIndexing(
+	ctx context.Context,
+	dist *distribution.Layer,
+) io.Closer {
+	// Run indexing inside an isolated signal context, so that if
+	// we receive an early cancellation signal, we can ensure that
+	// we exit indexing before we close any resources that it depends
+	// on (notably storage KV).
+	searchIndexCtx, cancelIndexing := xsignal.WithCancel(ctx)
+	searchIndexCtx.Go(
+		dist.Ontology.InitializeSearchIndex,
+		xsignal.WithKey("startup_search_indexing"),
+	)
+	return xsignal.NewHardShutdown(searchIndexCtx, cancelIndexing)
 }
