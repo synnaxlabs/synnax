@@ -10,6 +10,7 @@
 #include <regex>
 #include <string>
 
+#include "driver/ni/errors.h"
 #include "driver/ni/scan_task.h"
 
 ni::Scanner::Scanner(
@@ -20,6 +21,7 @@ ni::Scanner::Scanner(
     cfg(std::move(cfg)), task(std::move(task)), syscfg(syscfg) {}
 
 const auto SKIP_DEVICE_ERR = xerrors::Error("ni.skip_device", "");
+const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
 
 std::pair<ni::Device, xerrors::Error>
 ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
@@ -136,8 +138,8 @@ ni::Scanner::scan(const common::ScannerContext &ctx) {
         &resources
     );
     if (err) {
-        if (err.matches("ni.end_of_enum")) {
-            if (ctx.count % 12 == 0)
+        if (err.matches(ni::END_OF_ENUM)) {
+            if (ctx.count % NO_DEVICES_LOG_MULTIPLIER == 0)
                 LOG(INFO) << SCAN_LOG_PREFIX << "no devices found.";
             return {devices, xerrors::NIL};
         }
