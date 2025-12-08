@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
@@ -222,10 +222,11 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
       if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
       else throw e;
     }
+  const identifier = channel.escapeInvalidName(dev.properties.identifier);
   if (shouldCreateStateIndex) {
     modified = true;
     const stateIndex = await client.channels.create({
-      name: `${dev.properties.identifier}_write_state_time`,
+      name: `${identifier}_write_state_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -261,7 +262,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     modified = true;
     const stateChannels = await client.channels.create(
       stateChannelsToCreate.map(({ port, type }) => ({
-        name: `${dev.properties.identifier}_${port}_state`,
+        name: `${identifier}_${port}_state`,
         index: dev.properties.writeStateIndex,
         dataType: type === "AO" ? "float32" : "uint8",
       })),
@@ -281,14 +282,14 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     modified = true;
     const commandIndexes = await client.channels.create(
       commandChannelsToCreate.map(({ port }) => ({
-        name: `${dev.properties.identifier}_${port}_cmd_time`,
+        name: `${identifier}_${port}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commandChannels = await client.channels.create(
       commandChannelsToCreate.map(({ port, type }, i) => ({
-        name: `${dev.properties.identifier}_${port}_cmd`,
+        name: `${identifier}_${port}_cmd`,
         index: commandIndexes[i].key,
         dataType: type === "AO" ? "float32" : "uint8",
       })),
