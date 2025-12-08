@@ -34,8 +34,6 @@ export const convertFrameGroups = (
     const indexSeries = frame.get(index);
     if (!indexSeries.dataType.equals(DataType.TIMESTAMP))
       throw new Error(`Index channel ${index} is not of type timestamp`);
-    if (!frame.isVertical)
-      throw new Error(`Frame with index channel ${index} is not vertical`);
     const length = indexSeries.length;
     frame.forEach((key, series) => {
       if (series.length !== length)

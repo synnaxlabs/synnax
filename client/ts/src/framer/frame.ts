@@ -352,24 +352,32 @@ export class Frame {
    * boolean.
    */
   map(
-    fn: (k: channel.KeyOrName, arr: Series, i: number) => [channel.KeyOrName, Series],
+    fn: (
+      keyOrName: channel.KeyOrName,
+      multiSeries: MultiSeries,
+    ) => [channel.KeyOrName, Series | MultiSeries],
   ): Frame {
     const frame = new Frame();
-    this.forEach((k, arr, i) => frame.push(...fn(k, arr, i)));
+    this.forEach((keyOrName, multiSeries) => {
+      const [nextKey, nextSeries] = fn(keyOrName, multiSeries);
+      if (nextSeries instanceof Series) frame.push(nextKey, nextSeries);
+      else frame.push(nextKey, ...nextSeries.series);
+    });
     return frame;
   }
 
   mapFilter(
     fn: (
       k: channel.KeyOrName,
-      arr: Series,
-      i: number,
-    ) => [channel.KeyOrName, Series, boolean],
+      multiSeries: MultiSeries,
+    ) => [channel.KeyOrName, Series | MultiSeries, boolean],
   ): Frame {
     const frame = new Frame();
-    this.forEach((k, arr, i) => {
-      const [newK, newArr, keep] = fn(k, arr, i);
-      if (keep) frame.push(newK, newArr);
+    this.forEach((keyOrName, multiSeries) => {
+      const [nextKey, nextSeries, keep] = fn(keyOrName, multiSeries);
+      if (!keep) return;
+      if (nextSeries instanceof Series) frame.push(nextKey, nextSeries);
+      else frame.push(nextKey, ...nextSeries.series);
     });
     return frame;
   }
@@ -379,11 +387,8 @@ export class Frame {
    *
    * @param fn a function that takes a channel key and series.
    */
-  forEach(fn: (k: channel.KeyOrName, arr: Series, i: number) => void): void {
-    this.columns.forEach((k, i) => {
-      const a = this.series[i];
-      fn(k, a, i);
-    });
+  forEach(fn: (keyOrName: channel.KeyOrName, multiSeries: MultiSeries) => void): void {
+    this.uniqueColumns.forEach((k) => fn(k, this.get(k)));
   }
 
   at(index: number, required: true): Record<channel.KeyOrName, TelemValue>;

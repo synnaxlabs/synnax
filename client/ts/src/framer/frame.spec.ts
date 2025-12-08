@@ -745,44 +745,6 @@ describe("framer.Frame", () => {
       expect(result.series.length).toEqual(2);
     });
 
-    it("should use the index parameter correctly", () => {
-      const f = new framer.Frame(
-        new Map([
-          [
-            12,
-            [
-              new Series({
-                data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
-              }),
-            ],
-          ],
-          [
-            13,
-            [
-              new Series({
-                data: new Float32Array([4, 5, 6]),
-                timeRange: new TimeRange(500, 50001),
-              }),
-            ],
-          ],
-          [
-            14,
-            [
-              new Series({
-                data: new Float32Array([7, 8, 9]),
-                timeRange: new TimeRange(600, 60000),
-              }),
-            ],
-          ],
-        ]),
-      );
-      // Keep only items at even indices
-      const result = f.mapFilter((k, arr, i) => [k, arr, i % 2 === 0]);
-      expect(result.columns).toEqual([12, 14]);
-      expect(result.series.length).toEqual(2);
-    });
-
     it("should work with string keys", () => {
       const f = new framer.Frame({
         a: new Series({

@@ -68,9 +68,11 @@ export class ReadAdapter {
   adapt(frm: Frame): Frame {
     if (this.adapter == null) {
       let shouldFilter = false;
-      frm.forEach((k) => {
-        if (!this.keys.has(k as channel.Key)) shouldFilter = true;
-      });
+      for (const k of frm.columns) {
+        if (this.keys.has(k as channel.Key)) continue;
+        shouldFilter = true;
+        break;
+      }
       if (shouldFilter) return frm.filter((k) => this.keys.has(k as channel.Key));
       return frm;
     }

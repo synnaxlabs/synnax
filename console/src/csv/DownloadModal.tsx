@@ -35,7 +35,7 @@ const NON_VIRTUAL_CHANNEL_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
   virtual: false,
 };
 const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
-  placeholder: "Select Channels to Download",
+  placeholder: "Select channels to download",
 };
 
 export interface PromptDownload extends Modals.Prompt<void, DownloadModalArgs> {}
@@ -82,7 +82,7 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
     return (
       <Modals.ModalContentLayout footer={footer} gap="huge">
         <Text.Text level="h4" weight={450}>
-          Export Data for {name} to a CSV
+          Export data for {name} to a CSV
         </Text.Text>
         <Flex.Box y full="x">
           <Channel.SelectMultiple
