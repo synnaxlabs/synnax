@@ -12,6 +12,7 @@ import { array, type optional, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
+import { type Form } from "@/form";
 import { type Label } from "@/label";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
@@ -265,6 +266,23 @@ const taskToFormValues = <
   snapshot: t.snapshot ?? false,
 });
 
+const resetFormValues = <
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+>(
+  set: Form.UseReturn<FormSchema<Type, Config, StatusData>>["set"],
+  payload: task.Payload<Type, Config, StatusData>,
+) => {
+  const values = taskToFormValues(payload);
+  set("key", values.key);
+  set("name", values.name);
+  set("type", values.type);
+  set("rackKey", values.rackKey);
+  set("config", values.config);
+  set("snapshot", values.snapshot);
+};
+
 export const createForm = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
@@ -306,20 +324,13 @@ export const createForm = <
           schemas,
         );
         store.tasks.set(task as unknown as task.Task);
-        const updatedValues = taskToFormValues<Type, Config, StatusData>(task.payload);
-        form.set("key", updatedValues.key);
-        form.set("name", updatedValues.name);
-        form.set("rackKey", updatedValues.rackKey);
-        form.set("type", updatedValues.type);
-        form.set("payload", updatedValues.config);
-        form.set("snapshot", updatedValues.snapshot);
+        resetFormValues(form.set, task.payload);
       },
-      mountListeners: ({ store, get, reset, set }) => [
+      mountListeners: ({ store, get, set }) => [
         store.tasks.onSet((task) => {
           const prevKey = get<string>("key", { optional: true })?.value;
           if (prevKey == null || prevKey !== task.key) return;
-          const payload = task.payload as task.Payload<Type, Config, StatusData>;
-          reset(taskToFormValues(payload));
+          resetFormValues(set, task.payload);
         }),
         store.statuses.onSet((status) => {
           const prevKey = get<string>("key", { optional: true })?.value;

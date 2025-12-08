@@ -67,7 +67,7 @@ std::pair<common::ConfigureResult, xerrors::Error> configure_scan(
 ) {
     common::ConfigureResult result;
     auto parser = xjson::Parser(task.config);
-    auto cfg = opc::ScannerConfig(parser);
+    auto cfg = opc::ScanTaskConfig(parser);
     if (parser.error()) return {std::move(result), parser.error()};
     result.task = std::make_unique<common::ScanTask>(
         std::make_unique<opc::Scanner>(ctx, task, pool),
