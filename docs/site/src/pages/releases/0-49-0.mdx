@@ -30,7 +30,7 @@ the [Users](/reference/console/users) page.
 
 ### Improved Status Handling for Drivers, Devices, and Tasks
 
-Statuses for all drivers, devices, and tasks are now displayed in the status explorer,
+Statuses for all Drivers, devices, and tasks are now displayed in the Status Explorer,
 providing a unified view of your entire system's health.
 
 <Diagram
@@ -54,8 +54,8 @@ providing a unified view of your entire system's health.
 
 #### OPC UA and Modbus Status Checking
 
-OPC UA and Modbus integrations now periodically check the connection status of every
-configured server, displaying results in the status explorer and devices toolbar.
+Our OPC UA and Modbus integrations now periodically check the connection status of every
+configured server, displaying results in the Status Explorer and Devices Toolbar.
 
 <Divider.Divider x />
 
@@ -68,9 +68,13 @@ variables in Arc programs without errors.
 Channel names must also be unique, preventing potential mistakes when writing
 automations or analyzing data.
 
+Existing channels that do not conform to the new naming conventions will not be changed
+automatically, so we recommend updating your channels to the new conventions to avoid
+potential issues in the future.
+
 <Divider.Divider x />
 
-### Better Tools for Distributing Elements in the Schematic Editor
+### Improved Schematic Editor Tools
 
 The schematic editor toolbar now includes buttons for aligning, distributing, and
 rotating selected elements.
@@ -93,8 +97,9 @@ rotating selected elements.
 - Added the ability to hide the schematic legend.
 - Long notifications are now truncated to prevent overflow.
 - Console updates can now be checked without being connected to a cluster.
-- Fixed the "Add to New Plot" button not working for ranges.
-- Fixed links on range meta-data not opening correctly.
+- Fixed the "Add to new plot" button not working for ranges.
+- Fixed the CSV data exporting not working for long time ranges.
+- Fixed links on range metadata not opening correctly.
 - Fixed tags with long text overflowing their containers.
 - Fixed lists not paginating correctly.
 
@@ -103,7 +108,7 @@ rotating selected elements.
 - Added a throttle rate parameter to streamers for limiting the rate at which telemetry
   is received. This reduces network traffic when streaming high-frequency data.
 
-#### Calculated Channels
+#### Core
 
 - Fixed deeply nested calculated channels not retrieving historical data correctly.
 - Fixed Arc automation statuses not being deleted when automations were removed.
