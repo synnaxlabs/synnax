@@ -30,7 +30,14 @@ export const keyZ = z.uint32().or(
 );
 export type Key = z.infer<typeof keyZ>;
 export type Keys = Key[];
-export const nameZ = z.string();
+const VALID_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+export const nameZ = z
+  .string()
+  .min(1, "Name must not be empty")
+  .regex(
+    VALID_NAME_PATTERN,
+    "Name can only contain letters, digits, and underscores, and cannot start with a digit",
+  );
 export type Name = z.infer<typeof nameZ>;
 export type Names = Name[];
 export type KeyOrName = Key | Name;
@@ -52,7 +59,7 @@ export type Operation = z.infer<typeof operationZ>;
 export const statusZ = status.statusZ();
 export type Status = z.infer<typeof statusZ>;
 export const payloadZ = z.object({
-  name: nameZ,
+  name: z.string(),
   key: keyZ,
   dataType: DataType.z,
   leaseholder: zod.uint12,
@@ -70,6 +77,7 @@ export interface Payload extends z.infer<typeof payloadZ> {}
 
 export const newZ = payloadZ.extend({
   key: keyZ.optional(),
+  name: nameZ,
   leaseholder: zod.uint12.optional(),
   index: keyZ.optional(),
   isIndex: z.boolean().optional(),

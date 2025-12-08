@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type errors, status } from "@synnaxlabs/x";
+import { type errors, narrow, status } from "@synnaxlabs/x";
 
 export interface Adder {
   <Details = never>(spec: status.Crude<Details>): void;
@@ -43,13 +43,28 @@ const checkSkip = (
   return skip?.matches(err) ?? false;
 };
 
+const formatError = (stat: status.Status): void => {
+  const parts: string[] = [`${stat.variant.toUpperCase()}: ${stat.message}`];
+  if (stat.description)
+    try {
+      const parsed = JSON.parse(stat.description);
+      parts.push(`Description:\n${JSON.stringify(parsed, null, 2)}`);
+    } catch {
+      parts.push(`Description: ${stat.description}`);
+    }
+
+  if ("details" in stat && narrow.isObject(stat.details) && "stack" in stat.details)
+    parts.push(`Stack Trace:\n${String(stat.details.stack)}`);
+  console.error(parts.join("\n\n"));
+};
+
 const parseException = (
   exc: unknown,
   message?: string,
   skip?: errors.Matchable | errors.Matchable[],
 ): status.Status | null => {
   const stat = status.fromException(exc, message);
-  console.error(stat);
+  formatError(stat);
   if (checkSkip(exc, skip)) return null;
   return stat;
 };

@@ -91,7 +91,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
 
 export const formSchema = channel.newZ
   .extend({
-    name: z.string().min(1, "Name must not be empty"),
+    name: channel.nameZ,
     dataType: DataType.z.transform((v) => v.toString()),
     requires: channel.keyZ.array().optional(),
   })
