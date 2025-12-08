@@ -36,9 +36,7 @@ const SET_WORKSPACE_LISTENER: Flux.ChannelListener<
 > = {
   channel: workspace.SET_CHANNEL_NAME,
   schema: workspace.workspaceZ,
-  onChange: ({ store, changed }) => {
-    store.workspaces.set(changed.key, changed);
-  },
+  onChange: ({ store, changed }) => store.workspaces.set(changed.key, changed),
 };
 
 const DELETE_WORKSPACE_LISTENER: Flux.ChannelListener<
@@ -75,7 +73,7 @@ export const { useRetrieve } = Flux.createRetrieve<
   workspace.Workspace,
   FluxSubStore
 >({
-  name: "Workspace",
+  name: RESOURCE_NAME,
   retrieve: retrieveSingle,
   mountListeners: ({ store, query: { key }, onChange }) => [
     store.workspaces.onSet(onChange, key),
