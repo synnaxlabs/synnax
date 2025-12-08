@@ -10,7 +10,7 @@
 import { DataType } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { nameZ, newZ } from "@/channel/payload";
+import { escapeInvalidName, nameZ, newZ } from "@/channel/payload";
 
 describe("nameZ", () => {
   describe("valid names", () => {
@@ -133,5 +133,39 @@ describe("newZ", () => {
       const result = newZ.safeParse({ ...validNewChannel, name: "_private_sensor" });
       expect(result.success).toBe(true);
     });
+  });
+});
+describe.only("escapeInvalidName", () => {
+  it("should escape invalid name", () => {
+    const result = escapeInvalidName("sensor-temp");
+    expect(result).toBe("sensor_temp");
+  });
+  it("should escape name starting with digit", () => {
+    const result = escapeInvalidName("1sensor");
+    expect(result).toBe("_1sensor");
+  });
+  it("should escape name with spaces", () => {
+    const result = escapeInvalidName("my channel");
+    expect(result).toBe("my_channel");
+  });
+  it("should escape name with special characters", () => {
+    const result = escapeInvalidName("sensor!");
+    expect(result).toBe("sensor_");
+  });
+  it("should escape name with hyphens", () => {
+    const result = escapeInvalidName("sensor-temp");
+    expect(result).toBe("sensor_temp");
+  });
+  it("should escape name with dots", () => {
+    const result = escapeInvalidName("sensor.temp");
+    expect(result).toBe("sensor_temp");
+  });
+  it("should allow an empty string by default", () => {
+    const result = escapeInvalidName("");
+    expect(result).toBe("");
+  });
+  it("should change empty string to underscore when changeEmptyToUnderscore is true", () => {
+    const result = escapeInvalidName("", true);
+    expect(result).toBe("_");
   });
 });
