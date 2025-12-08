@@ -268,7 +268,7 @@ class Writer:
             3. When writing to an index (i.e. TimeStamp) channel, the values must be
             monotonically increasing.
 
-        :raises: Raises if the writer has accumulated an error. Once write throws,
+        :raises: If the writer has accumulated an error. Once write throws,
         all subsequent calls to write and/or commit will also fail. At this point,
         the writer must be closed and re-opened in order to continue writing.
         """
