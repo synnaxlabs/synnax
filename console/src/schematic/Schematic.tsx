@@ -186,7 +186,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const hasEditPermission =
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) && !state.snapshot;
-  const isEditable = hasEditPermission && state.editable;
+  const canEdit = hasEditPermission && state.editable;
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
@@ -379,7 +379,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           onEdgesChange={handleEdgesChange}
           onNodesChange={handleNodesChange}
           onEditableChange={handleEditableChange}
-          editable={isEditable}
+          editable={canEdit}
           triggers={triggers}
           onDoubleClick={handleDoubleClick}
           fitViewOnResize={state.fitViewOnResize}

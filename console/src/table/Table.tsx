@@ -107,9 +107,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const layout = useSelectLayout(layoutKey);
   const syncDispatch = useSyncComponent(layoutKey);
-  const editable = useSelectEditable(layoutKey);
+  const editMode = useSelectEditable(layoutKey);
   const hasEditPermission = Access.useUpdateGranted(table.ontologyID(layoutKey));
-  const isEditable = hasEditPermission && editable;
+  const canEdit = hasEditPermission && editMode;
 
   const handleAddRow = () => {
     syncDispatch(addRow({ key: layoutKey }));
@@ -175,10 +175,12 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           <PMenu.Divider />
         </>
       )}
-      <PMenu.Item itemKey="toggleEdit">
-        {editable ? <Icon.EditOff /> : <Icon.Edit />}
-        {`${editable ? "Disable" : "Enable"} editing`}
-      </PMenu.Item>
+      {canEdit && (
+        <PMenu.Item itemKey="toggleEdit">
+          {editMode ? <Icon.EditOff /> : <Icon.Edit />}
+          {`${editMode ? "Disable" : "Enable"} editing`}
+        </PMenu.Item>
+      )}
       <PMenu.Divider />
       <Menu.ReloadConsoleItem />
     </PMenu.Menu>
@@ -193,11 +195,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
 
   const handleDoubleClick = useCallback(() => {
-    if (!isEditable) return;
+    if (!canEdit) return;
     syncDispatch(
       Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
     );
-  }, [isEditable]);
+  }, [canEdit]);
 
   const colSizes = layout.columns.map((col) => col.size);
   const totalColSizes = colSizes.reduce((acc, size) => acc + size, 0);
@@ -255,7 +257,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             );
           })}
         </Core.Table>
-        {isEditable && (
+        {canEdit && (
           <>
             <Button.Button
               className={CSS.BE("table", "add-col")}
@@ -291,9 +293,9 @@ interface TableControls {
 
 const TableControls = ({ tableKey }: TableControls) => {
   const dispatch = useDispatch();
-  const editable = useSelectEditable(tableKey);
+  const editMode = useSelectEditable(tableKey);
   const hasEditPermission = Access.useUpdateGranted(table.ontologyID(tableKey));
-  const isEditable = hasEditPermission && editable;
+  const canEdit = hasEditPermission && editMode;
   const handleEdit = useCallback(() => {
     dispatch(setEditable({ key: tableKey }));
   }, []);
@@ -303,13 +305,13 @@ const TableControls = ({ tableKey }: TableControls) => {
   return (
     <Controls>
       <Button.Toggle
-        value={isEditable}
+        value={canEdit}
         onChange={handleEdit}
         size="small"
         tooltipLocation={location.BOTTOM_LEFT}
-        tooltip={`${isEditable ? "Disable" : "Enable"} editing`}
+        tooltip={`${canEdit ? "Disable" : "Enable"} editing`}
       >
-        {isEditable ? <Icon.EditOff /> : <Icon.Edit />}
+        {canEdit ? <Icon.EditOff /> : <Icon.Edit />}
       </Button.Toggle>
     </Controls>
   );

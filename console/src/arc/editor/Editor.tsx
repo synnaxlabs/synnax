@@ -203,7 +203,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const theme = Theming.use();
   const viewportRef = useSyncedRef(state.graph.viewport);
   const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
-  const isEditable = hasEditPermission && state.graph.editable;
+  const canEdit = hasEditPermission && state.graph.editable;
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
@@ -365,7 +365,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         onEdgesChange={handleEdgesChange}
         onNodesChange={handleNodesChange}
         onEditableChange={handleEditableChange}
-        editable={isEditable}
+        editable={canEdit}
         triggers={triggers}
         onDoubleClick={handleDoubleClick}
         fitViewOnResize={state.graph.fitViewOnResize}

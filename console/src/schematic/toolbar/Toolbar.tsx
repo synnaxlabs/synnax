@@ -72,12 +72,16 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar(layoutKey);
-  const isEditable = useSelectEditable(layoutKey) === true;
+  const editMode = useSelectEditable(layoutKey) === true;
   const handleExport = useExport();
   const selectedNames = useSelectSelectedElementNames(layoutKey);
+  const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
+  const isSnapshot = useSelectIsSnapshot(layoutKey);
+  const hasEditPermission = hasUpdatePermission && !isSnapshot;
+  const canEdit = hasEditPermission && editMode;
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
-      if (!isEditable) return <NotEditableContent layoutKey={layoutKey} />;
+      if (!canEdit) return <NotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "symbols":
           return <Symbols layoutKey={layoutKey} />;
@@ -87,7 +91,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           return <PropertiesControls layoutKey={layoutKey} />;
       }
     },
-    [layoutKey, isEditable],
+    [layoutKey, canEdit],
   );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
@@ -95,7 +99,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [dispatch, layoutKey],
   );
-  const canEdit = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
   const value = useMemo(
     () => ({
       tabs: TABS,
@@ -128,7 +131,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
                 ontologyID={schematic.ontologyID(layoutKey)}
               />
             </Flex.Box>
-            {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />}
+            {hasEditPermission && <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />}
           </Flex.Box>
         </Core.Header>
         <Tabs.Content />
