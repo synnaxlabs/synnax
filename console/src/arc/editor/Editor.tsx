@@ -26,7 +26,7 @@ import {
   Viewport,
 } from "@synnaxlabs/pluto";
 import { box, deep, id, uuid, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -203,11 +203,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const theme = Theming.use();
   const viewportRef = useSyncedRef(state.graph.viewport);
   const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
-
-  useEffect(() => {
-    if (!hasEditPermission && state.graph.editable)
-      dispatch(setEditable({ key: layoutKey, editable: false }));
-  }, [hasEditPermission, state.graph.editable, layoutKey, dispatch]);
+  const canEdit = hasEditPermission && state.graph.editable;
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
@@ -369,7 +365,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         onEdgesChange={handleEdgesChange}
         onNodesChange={handleNodesChange}
         onEditableChange={handleEditableChange}
-        editable={state.graph.editable}
+        editable={canEdit}
         triggers={triggers}
         onDoubleClick={handleDoubleClick}
         fitViewOnResize={state.graph.fitViewOnResize}
