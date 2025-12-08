@@ -24,8 +24,6 @@ import (
 	"github.com/synnaxlabs/x/kv"
 )
 
-const usersGroupName = "Users"
-
 var (
 	migrationKey   = []byte("sy_rbac_migration_performed")
 	migrationValue = []byte{1}
