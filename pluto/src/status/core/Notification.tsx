@@ -57,11 +57,23 @@ export const Notification = ({
       ref={ref}
       {...rest}
     >
-      <Flex.Box x justify="between" grow style={{ width: "100%" }}>
+      <Flex.Box
+        x
+        justify="between"
+        grow
+        className={CSS(CSS.BE("notification", "header"))}
+      >
         <Flex.Box x align="center" gap="small">
-          <Text.Text level="small" status={variant} gap="tiny">
+          <Text.Text
+            level="small"
+            status={variant}
+            gap="tiny"
+            className={CSS(CSS.BE("notification", "name"))}
+          >
             <Indicator variant={variant} />
-            {primitive.isNonZero(name) && name}
+            <Text.Text el="span" overflow="ellipsis">
+              {primitive.isNonZero(name) && name}
+            </Text.Text>
           </Text.Text>
           <Text.Text level="small">{`x${count}`}</Text.Text>
           <TelemText.TimeStamp
