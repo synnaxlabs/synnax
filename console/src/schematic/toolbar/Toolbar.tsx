@@ -131,7 +131,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
                 ontologyID={schematic.ontologyID(layoutKey)}
               />
             </Flex.Box>
-            {hasEditPermission && <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />}
+            {hasEditPermission && (
+              <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />
+            )}
           </Flex.Box>
         </Core.Header>
         <Tabs.Content />
