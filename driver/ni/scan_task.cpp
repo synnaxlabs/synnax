@@ -135,7 +135,14 @@ ni::Scanner::scan(const common::ScannerContext &ctx) {
         nullptr,
         &resources
     );
-    if (err) return {devices, err};
+    if (err) {
+        if (err.matches("ni.end_of_enum")) {
+            if (ctx.count % 12 == 0)
+                LOG(INFO) << SCAN_LOG_PREFIX << "no devices found.";
+            return {devices, xerrors::NIL};
+        }
+        return {devices, err};
+    }
 
     while (true) {
         if (const auto next_err = this->syscfg->NextResource(
