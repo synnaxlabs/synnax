@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
@@ -139,10 +139,11 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
       if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
       else throw e;
     }
+  const identifier = channel.escapeInvalidName(dev.properties.identifier);
   if (shouldCreateStateIndex) {
     modified = true;
     const stateIndex = await client.channels.create({
-      name: `${dev.properties.identifier}_ao_state_time`,
+      name: `${identifier}_ao_state_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -176,7 +177,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
     modified = true;
     const states = await client.channels.create(
       statesToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_ao_${c.port}_state`,
+        name: `${identifier}_ao_${c.port}_state`,
         index: dev.properties.analogOutput.stateIndex,
         dataType: "float32",
       })),
@@ -192,14 +193,14 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
     modified = true;
     const commandIndexes = await client.channels.create(
       commandsToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_ao_${c.port}_cmd_time`,
+        name: `${identifier}_ao_${c.port}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
       commandsToCreate.map((c, i) => ({
-        name: `${dev.properties.identifier}_ao_${c.port}_cmd`,
+        name: `${identifier}_ao_${c.port}_cmd`,
         index: commandIndexes[i].key,
         dataType: "float32",
       })),

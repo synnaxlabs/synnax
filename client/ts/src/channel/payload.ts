@@ -102,3 +102,18 @@ export type Params = Key | Name | Keys | Names | Payload | Payload[];
 
 export const ontologyID = ontology.createIDFactory<Key>("channel");
 export const TYPE_ONTOLOGY_ID = ontologyID(0);
+
+const CHAR_REGEX = /[a-zA-Z0-9_]/;
+
+export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false) => {
+  if (name === "") return changeEmptyToUnderscore ? "_" : "";
+  if (name.match(VALID_NAME_PATTERN)) return name;
+  // if it doesn't match, convert non-alphanumeric characters to underscores and prepend
+  // an underscore if the first character is a digit
+  let result = "";
+  for (const char of name)
+    if (char.match(CHAR_REGEX)) result += char;
+    else result += "_";
+  if (result[0].match(/^\d/)) result = `_${result}`;
+  return result;
+};
