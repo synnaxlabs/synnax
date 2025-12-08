@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { view as View } from "@synnaxlabs/client";
+import { view } from "@synnaxlabs/client";
 import { array, type optional } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -18,21 +18,23 @@ export const FLUX_STORE_KEY = "views";
 export const RESOURCE_NAME = "view";
 export const PLURAL_RESOURCE_NAME = "views";
 
-export interface FluxStore extends Flux.UnaryStore<View.Key, View.View> {}
+export interface FluxStore extends Flux.UnaryStore<view.Key, view.View> {}
 
 export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
+  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
+  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-const SET_VIEW_LISTENER: Flux.ChannelListener<FluxSubStore, typeof View.viewZ> = {
-  channel: View.SET_CHANNEL_NAME,
-  schema: View.viewZ,
+const SET_VIEW_LISTENER: Flux.ChannelListener<FluxSubStore, typeof view.viewZ> = {
+  channel: view.SET_CHANNEL_NAME,
+  schema: view.viewZ,
   onChange: ({ store, changed }) => store.views.set(changed.key, changed),
 };
 
-const DELETE_VIEW_LISTENER: Flux.ChannelListener<FluxSubStore, typeof View.keyZ> = {
-  channel: View.DELETE_CHANNEL_NAME,
-  schema: View.keyZ,
+const DELETE_VIEW_LISTENER: Flux.ChannelListener<FluxSubStore, typeof view.keyZ> = {
+  channel: view.DELETE_CHANNEL_NAME,
+  schema: view.keyZ,
   onChange: ({ store, changed }) => store.views.delete(changed),
 };
 
@@ -40,9 +42,9 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_VIEW_LISTENER, DELETE_VIEW_LISTENER],
 };
 
-export interface ListQuery extends View.RetrieveMultipleParams {}
+export interface ListQuery extends view.RetrieveMultipleParams {}
 
-export const useList = Flux.createList<ListQuery, View.Key, View.View, FluxSubStore>({
+export const useList = Flux.createList<ListQuery, view.Key, view.View, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query, store }) => {
     const views = await client.views.retrieve(query);
@@ -74,7 +76,7 @@ export const useList = Flux.createList<ListQuery, View.Key, View.View, FluxSubSt
   },
 });
 
-export const { useUpdate: useCreate } = Flux.createUpdate<View.New, FluxSubStore>({
+export const { useUpdate: useCreate } = Flux.createUpdate<view.New, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
@@ -84,14 +86,14 @@ export const { useUpdate: useCreate } = Flux.createUpdate<View.New, FluxSubStore
   },
 });
 
-export type DeleteParams = View.Key | View.Key[];
+export type DeleteParams = view.Key | view.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((key) => View.ontologyID(key));
+    const ids = keys.map((key) => view.ontologyID(key));
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.views.delete(keys));
@@ -105,7 +107,7 @@ const retrieveSingle = async ({
   client,
   query: { key },
   store,
-}: Flux.RetrieveParams<View.RetrieveSingleParams, FluxSubStore>) => {
+}: Flux.RetrieveParams<view.RetrieveSingleParams, FluxSubStore>) => {
   const cached = store.views.get(key);
   if (cached != null) return cached;
   const v = await client.views.retrieve({ key });
@@ -114,8 +116,8 @@ const retrieveSingle = async ({
 };
 
 export const { useRetrieve } = Flux.createRetrieve<
-  View.RetrieveSingleParams,
-  View.View,
+  view.RetrieveSingleParams,
+  view.View,
   FluxSubStore
 >({
   name: RESOURCE_NAME,
@@ -125,18 +127,18 @@ export const { useRetrieve } = Flux.createRetrieve<
   ],
 });
 
-const zeroValues = {
+const ZERO_VALUES = {
   name: "",
   type: "",
   query: {},
 };
 export interface FormQuery
-  extends optional.Optional<View.RetrieveSingleParams, "key"> {}
+  extends optional.Optional<view.RetrieveSingleParams, "key"> {}
 
-export const useForm = Flux.createForm<FormQuery, typeof View.newZ, FluxSubStore>({
+export const useForm = Flux.createForm<FormQuery, typeof view.newZ, FluxSubStore>({
   name: RESOURCE_NAME,
-  schema: View.newZ,
-  initialValues: zeroValues,
+  schema: view.newZ,
+  initialValues: ZERO_VALUES,
   retrieve: async ({ client, query: { key }, store, reset }) => {
     if (key == null) return;
     reset(await retrieveSingle({ client, store, query: { key } }));
@@ -155,12 +157,13 @@ export const useForm = Flux.createForm<FormQuery, typeof View.newZ, FluxSubStore
   ],
 });
 
-export interface RenameParams extends Pick<View.View, "key" | "name"> {}
+export interface RenameParams extends Pick<view.View, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data: { key, name }, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks }) => {
+    const { key, name } = data;
     const v = await retrieveSingle({ client, store, query: { key } });
     rollbacks.push(
       store.views.set(
@@ -168,7 +171,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
         state.skipUndefined((p) => ({ ...p, name })),
       ),
     );
+    rollbacks.push(Ontology.renameFluxResource(store, view.ontologyID(key), name));
     await client.views.create({ ...v, name });
-    return { key, name };
+    return data;
   },
 });

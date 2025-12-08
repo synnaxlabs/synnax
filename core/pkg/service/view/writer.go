@@ -91,7 +91,7 @@ func (w Writer) DeleteMany(ctx context.Context, keys ...uuid.UUID) error {
 
 func (w Writer) validate(v View) error {
 	vld := validate.New("view.View")
-	validate.NotEmptyString(vld, "Name", v.Name)
-	validate.NotEmptyString(vld, "Type", v.Type)
+	validate.NotEmptyString(vld, "name", v.Name)
+	validate.NotEmptyString(vld, "type", v.Type)
 	return vld.Error()
 }

@@ -76,8 +76,5 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		}
 		r = r.WhereKeys(keys...)
 	}
-	if err := r.gorp.Exec(ctx, tx); err != nil {
-		return err
-	}
-	return nil
+	return r.gorp.Exec(ctx, tx)
 }

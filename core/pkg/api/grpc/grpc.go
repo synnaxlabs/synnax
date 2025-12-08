@@ -121,11 +121,6 @@ func New(channelSvc *channel.Service) (api.Transport, []fgrpc.BindableTransport)
 	a.AccessAssignRole = fnoop.UnaryServer[api.AccessAssignRoleRequest, types.Nil]{}
 	a.AccessUnassignRole = fnoop.UnaryServer[api.AccessUnassignRoleRequest, types.Nil]{}
 
-	// STATUS
-	a.StatusSet = fnoop.UnaryServer[api.StatusSetRequest, api.StatusSetResponse]{}
-	a.StatusRetrieve = fnoop.UnaryServer[api.StatusRetrieveRequest, api.StatusRetrieveResponse]{}
-	a.StatusDelete = fnoop.UnaryServer[api.StatusDeleteRequest, types.Nil]{}
-
 	// ARC
 	a.ArcCreate = fnoop.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse]{}
 	a.ArcDelete = fnoop.UnaryServer[api.ArcDeleteRequest, types.Nil]{}
