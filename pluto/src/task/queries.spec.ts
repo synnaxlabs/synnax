@@ -1048,6 +1048,201 @@ describe("queries", () => {
       expect(result.current.form.get("name").value).toEqual("modifiedName");
     });
 
+    it("should not mark form as touched after saving", async () => {
+      const testTask = await testRack.createTask({
+        name: "touchedAfterSaveTask",
+        type: "testType",
+        config: { value: "initial" },
+      });
+
+      const useForm = Task.createForm({
+        schemas: {
+          typeSchema: z.literal("testType"),
+          configSchema: z.object({ value: z.string() }),
+          statusDataSchema: z.any(),
+        },
+        initialValues: {
+          key: testTask.key,
+          name: "touchedAfterSaveTask",
+          type: "testType",
+          config: { value: "initial" },
+        },
+      });
+
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
+        wrapper,
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.form.get("name").touched).toBe(false);
+
+      act(() => {
+        result.current.form.set("name", "updatedName");
+        result.current.form.set("config.value", "updated");
+      });
+
+      expect(result.current.form.get("name").touched).toBe(true);
+      expect(result.current.form.get("config.value").touched).toBe(true);
+
+      await act(async () => {
+        result.current.save();
+      });
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.form.get("name").value).toEqual("updatedName");
+      });
+      expect(result.current.form.get("name").touched).toBe(false);
+      expect(result.current.form.get("config.value").touched).toBe(false);
+    });
+
+    it("should not mark form as touched when status updates from server", async () => {
+      const testTask = await testRack.createTask({
+        name: "statusTouchedTask",
+        type: "testType",
+        config: {},
+      });
+
+      const statusDataSchema = z.object({ errorCode: z.number().optional() });
+
+      const useForm = Task.createForm({
+        schemas: {
+          typeSchema: z.literal("testType"),
+          configSchema: z.object({}),
+          statusDataSchema: statusDataSchema.or(z.null()),
+        },
+        initialValues: {
+          key: testTask.key,
+          name: "statusTouchedTask",
+          type: "testType",
+          config: {},
+        },
+      });
+
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
+        wrapper,
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.form.get("name").touched).toBe(false);
+
+      const taskStatus: task.Status = status.create<
+        ReturnType<typeof task.statusDetailsZ>
+      >({
+        key: task.statusKey(testTask.key),
+        variant: "error",
+        message: "Task error from server",
+        details: {
+          task: testTask.key,
+          running: false,
+          data: { errorCode: 500 },
+        },
+      });
+
+      await act(async () => {
+        await client.statuses.set(taskStatus);
+      });
+
+      await waitFor(() => {
+        const statusField =
+          result.current.form.get<task.Status<typeof statusDataSchema>>("status").value;
+        expect(statusField?.variant).toEqual("error");
+      });
+      expect(result.current.form.get("status").touched).toBe(false);
+      expect(result.current.form.get("name").touched).toBe(false);
+    });
+
+    it("should not mark form as touched when task data updates from server listener", async () => {
+      const testTask = await testRack.createTask({
+        name: "serverUpdateTask",
+        type: "testType",
+        config: { setting: "original" },
+      });
+
+      const useForm = Task.createForm({
+        schemas: {
+          typeSchema: z.literal("testType"),
+          configSchema: z.object({ setting: z.string() }),
+          statusDataSchema: z.any(),
+        },
+        initialValues: {
+          key: testTask.key,
+          name: "serverUpdateTask",
+          type: "testType",
+          config: { setting: "original" },
+        },
+      });
+
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
+        wrapper,
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.form.get("name").touched).toBe(false);
+      expect(result.current.form.get("config.setting").touched).toBe(false);
+      await act(async () => {
+        await client.tasks.create({
+          ...testTask.payload,
+          name: "serverUpdatedName",
+          config: { setting: "serverUpdated" },
+        });
+      });
+
+      await waitFor(() => {
+        expect(result.current.form.get("name").value).toEqual("serverUpdatedName");
+        expect(result.current.form.get("config.setting").value).toEqual("serverUpdated");
+      });
+      expect(result.current.form.get("name").touched).toBe(false);
+      expect(result.current.form.get("config.setting").touched).toBe(false);
+    });
+
+    it("should allow new changes after save to mark form as touched again", async () => {
+      const testTask = await testRack.createTask({
+        name: "reTouchedTask",
+        type: "testType",
+        config: {},
+      });
+
+      const useForm = Task.createForm({
+        schemas: {
+          typeSchema: z.literal("testType"),
+          configSchema: z.object({}),
+          statusDataSchema: z.any(),
+        },
+        initialValues: {
+          key: testTask.key,
+          name: "reTouchedTask",
+          type: "testType",
+          config: {},
+        },
+      });
+
+      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
+        wrapper,
+      });
+
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => {
+        result.current.form.set("name", "firstUpdate");
+      });
+      expect(result.current.form.get("name").touched).toBe(true);
+
+      await act(async () => {
+        result.current.save();
+      });
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.form.get("name").touched).toBe(false);
+      });
+      act(() => {
+        result.current.form.set("name", "secondUpdate");
+      });
+
+      expect(result.current.form.get("name").touched).toBe(true);
+      expect(result.current.form.get("name").value).toEqual("secondUpdate");
+    });
+
     it("should reset form to initial values", async () => {
       const testTask = await testRack.createTask({
         name: "resetTask",
