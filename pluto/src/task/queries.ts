@@ -266,6 +266,10 @@ const taskToFormValues = <
   snapshot: t.snapshot ?? false,
 });
 
+const RESET_OPTIONS: Form.SetOptions = {
+  markTouched: false,
+};
+
 const resetFormValues = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
@@ -275,12 +279,12 @@ const resetFormValues = <
   payload: task.Payload<Type, Config, StatusData>,
 ) => {
   const values = taskToFormValues(payload);
-  set("key", values.key);
-  set("name", values.name);
-  set("type", values.type);
-  set("rackKey", values.rackKey);
-  set("config", values.config);
-  set("snapshot", values.snapshot);
+  set("key", values.key, RESET_OPTIONS);
+  set("name", values.name, RESET_OPTIONS);
+  set("type", values.type, RESET_OPTIONS);
+  set("rackKey", values.rackKey, RESET_OPTIONS);
+  set("config", values.config, RESET_OPTIONS);
+  set("snapshot", values.snapshot, RESET_OPTIONS);
 };
 
 export const createForm = <
@@ -325,6 +329,7 @@ export const createForm = <
         );
         store.tasks.set(task as unknown as task.Task);
         resetFormValues(form.set, task.payload);
+        form.setCurrentStateAsInitialValues();
       },
       mountListeners: ({ store, get, set }) => [
         store.tasks.onSet((task) => {
@@ -335,7 +340,7 @@ export const createForm = <
         store.statuses.onSet((status) => {
           const prevKey = get<string>("key", { optional: true })?.value;
           if (prevKey == null || status.key !== task.statusKey(prevKey)) return;
-          set("status", task.statusZ(z.unknown()).parse(status));
+          set("status", task.statusZ(z.unknown()).parse(status), RESET_OPTIONS);
         }),
       ],
     },
