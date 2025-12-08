@@ -106,6 +106,19 @@ const parseElement = <E extends Generic.ElementType = "p">(
   return "p" as E;
 };
 
+const formatStyle = (
+  base: React.CSSProperties | undefined,
+  weight: text.Weight | undefined,
+  lineClamp: number | undefined,
+): React.CSSProperties => {
+  const style: React.CSSProperties = {
+    ...base,
+    fontWeight: weight,
+  };
+  if (lineClamp != null) style.WebkitLineClamp = lineClamp;
+  return style;
+};
+
 export const Text = <E extends Generic.ElementType = "p">({
   level = "p",
   className,
@@ -124,11 +137,7 @@ export const Text = <E extends Generic.ElementType = "p">({
   <Flex.Box<E>
     direction="x"
     el={parseElement<E>(level, el, defaultEl, variant, href)}
-    style={{
-      fontWeight: weight,
-      ...(lineClamp != null && { WebkitLineClamp: lineClamp }),
-      ...style,
-    }}
+    style={formatStyle(style, weight, lineClamp)}
     className={CSS(
       CSS.B("text"),
       variant != null && CSS.BM("text", variant),
