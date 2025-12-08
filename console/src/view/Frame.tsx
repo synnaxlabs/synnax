@@ -81,12 +81,11 @@ export const Frame = <
   const formKey = Form.useFieldValue<view.Key, view.Key, typeof view.newZ>("key", {
     ctx: form,
   });
-  const isDefault = formKey === defaultViewKey;
   const canEditView = Access.useUpdateGranted(view.ontologyID(formKey ?? ""));
   const [editable, setEditable] = useState(canEditView);
   const contextValue = useMemo(
-    () => ({ editable, resourceType, search, save, isDefault, defaultViewKey }),
-    [editable, resourceType, search, save, isDefault, defaultViewKey],
+    () => ({ editable, resourceType, search, save, defaultViewKey }),
+    [editable, resourceType, search, save, defaultViewKey],
   );
   const handleError = Status.useErrorHandler();
   const renameModal = Modals.useRename();

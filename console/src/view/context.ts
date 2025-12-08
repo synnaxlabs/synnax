@@ -12,7 +12,6 @@ import { context, type Flux } from "@synnaxlabs/pluto";
 
 export interface ContextValue {
   editable: boolean;
-  isDefault: boolean;
   defaultViewKey: view.Key;
   resourceType: ontology.ResourceType;
   search: (term: string) => void;
