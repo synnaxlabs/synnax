@@ -37,7 +37,7 @@ describe("useCombinedData", () => {
       };
 
       const { result } = renderHook(() =>
-        useCombinedData<string, TestItem>({ first, second }),
+        useCombinedData<string, TestItem>(first, second),
       );
 
       expect(result.current.data).toEqual(["1", "2", "3", "4"]);
@@ -47,14 +47,14 @@ describe("useCombinedData", () => {
       const first: Pick<FrameProps<string>, "data"> = { data: [] };
       const second: Pick<FrameProps<string>, "data"> = { data: [] };
 
-      const { result } = renderHook(() => useCombinedData({ first, second }));
+      const { result } = renderHook(() => useCombinedData(first, second));
 
       expect(result.current.data).toEqual([]);
     });
 
     it("should update when source data changes", () => {
       const { result, rerender } = renderHook(
-        ({ first, second }) => useCombinedData({ first, second }),
+        ({ first, second }) => useCombinedData(first, second),
         {
           initialProps: {
             first: { data: ["1"] },
@@ -98,7 +98,7 @@ describe("useCombinedData", () => {
       };
 
       const { result } = renderHook(() =>
-        useCombinedData<string, TestItem>({ first, second }),
+        useCombinedData<string, TestItem>(first, second),
       );
 
       expect(result.current.getItem?.("1")).toEqual(item1);
@@ -130,7 +130,7 @@ describe("useCombinedData", () => {
       };
 
       const { result } = renderHook(() =>
-        useCombinedData<string, TestItem>({ first, second }),
+        useCombinedData<string, TestItem>(first, second),
       );
 
       const item = result.current.getItem?.("1");
@@ -143,7 +143,7 @@ describe("useCombinedData", () => {
       const first: Pick<FrameProps<string>, "data"> = { data: ["1"] };
       const second: Pick<FrameProps<string>, "data"> = { data: ["2"] };
 
-      const { result } = renderHook(() => useCombinedData({ first, second }));
+      const { result } = renderHook(() => useCombinedData(first, second));
 
       expect(result.current.getItem?.("1")).toBeUndefined();
     });
@@ -165,7 +165,7 @@ describe("useCombinedData", () => {
         subscribe: vi.fn(() => secondUnsub),
       };
 
-      const { result } = renderHook(() => useCombinedData({ first, second }));
+      const { result } = renderHook(() => useCombinedData(first, second));
 
       const unsubscribe = result.current.subscribe?.(callback, "1");
 
@@ -191,7 +191,7 @@ describe("useCombinedData", () => {
         data: ["2"],
       };
 
-      const { result } = renderHook(() => useCombinedData({ first, second }));
+      const { result } = renderHook(() => useCombinedData(first, second));
 
       const unsubscribe = result.current.subscribe?.(callback, "1");
 
@@ -206,7 +206,7 @@ describe("useCombinedData", () => {
       const first: Pick<FrameProps<string>, "data"> = { data: ["1"] };
       const second: Pick<FrameProps<string>, "data"> = { data: ["2"] };
 
-      const { result } = renderHook(() => useCombinedData({ first, second }));
+      const { result } = renderHook(() => useCombinedData(first, second));
 
       const callback = vi.fn();
       const unsubscribe = result.current.subscribe?.(callback, "1");
@@ -229,7 +229,7 @@ describe("useCombinedData", () => {
       };
 
       const { result, rerender } = renderHook(
-        ({ first, second }) => useCombinedData({ first, second }),
+        ({ first, second }) => useCombinedData(first, second),
         { initialProps: { first, second } },
       );
 
@@ -252,7 +252,7 @@ describe("useCombinedData", () => {
       };
 
       const { result, rerender } = renderHook(
-        ({ first, second }) => useCombinedData({ first, second }),
+        ({ first, second }) => useCombinedData(first, second),
         { initialProps: { first, second } },
       );
 
@@ -295,7 +295,7 @@ describe("useCombinedData", () => {
       const second = createFrameProps(["3"]);
 
       const { result } = renderHook(() =>
-        useCombinedData<string, TestItem>({ first, second }),
+        useCombinedData<string, TestItem>(first, second),
       );
 
       expect(result.current.data).toEqual(["1", "2", "3"]);
