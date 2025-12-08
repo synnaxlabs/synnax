@@ -51,12 +51,6 @@ func ProvisionRootUser(
 		if err != nil {
 			return err
 		}
-		// Migrate root user from legacy Users group to Owner role.
-		// This handles both new and existing root users - for existing users it
-		// removes the old UsersGroup -> ParentOf -> User relationship.
-		if err := access.MigrateUserFromGroup(ctx, tx, dist, svc, user.OntologyID(rootUser.Key), roles.OwnerKey); err != nil {
-			return err
-		}
 		// Migrate other users from legacy permissions
 		return access.MigratePermissions(ctx, tx, dist, svc, roles)
 	})

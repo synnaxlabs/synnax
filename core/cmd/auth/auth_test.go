@@ -31,7 +31,11 @@ var _ = Describe("ProvisionRootUser", Ordered, func() {
 	)
 	BeforeAll(func() {
 		tx = db.OpenTx()
-		dist = &distribution.Layer{DB: db}
+		dist = &distribution.Layer{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+		}
 	})
 	AfterAll(func() {
 		Expect(tx.Close()).To(Succeed())
