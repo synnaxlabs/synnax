@@ -22,7 +22,7 @@ import {
   Status,
   Task,
 } from "@synnaxlabs/pluto";
-import { status as xstatus } from "@synnaxlabs/x";
+import { status, status as xstatus } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
@@ -82,6 +82,7 @@ const beforeSave = async ({
   client,
   get,
   store,
+  set,
 }: Flux.FormBeforeSaveParams<
   Device.RetrieveQuery,
   typeof Device.formSchema,
@@ -99,6 +100,17 @@ const beforeSave = async ({
     args: { connection: get("properties.connection").value },
   });
   if (state.variant === "error") throw new Error(state.message);
+  // Since we just scanned successfully, we create a default healthy status for the
+  // device that can then be overwritten by the scanner if we lose connection.
+  const devStatus: device.Status = status.create<typeof device.statusDetailsSchema>({
+    message: "Server connected",
+    variant: "success",
+    details: {
+      rack: get<rack.Key>("rack").value,
+      device: get<device.Key>("key").value,
+    },
+  });
+  set("status", devStatus, { notifyOnChange: false, markTouched: false });
   return true;
 };
 

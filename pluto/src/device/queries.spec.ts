@@ -111,6 +111,48 @@ describe("queries", () => {
         );
       });
     });
+
+    it("should not set status to undefined when the device is updated", async () => {
+      const rack = await client.racks.create({ name: "test" });
+      const dev = await client.devices.create({
+        key: id.create(),
+        name: "test",
+        rack: rack.key,
+        location: "test",
+        make: "test",
+        model: "test",
+        properties: {},
+      });
+      const { result } = renderHook(() => Device.useRetrieve({ key: dev.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const devStatus: device.Status = status.create<typeof device.statusDetailsSchema>(
+        {
+          key: device.statusKey(dev.key),
+          variant: "success",
+          message: "Device is connected",
+          details: {
+            rack: rack.key,
+            device: dev.key,
+          },
+        },
+      );
+      await client.statuses.set(devStatus);
+      await waitFor(() => {
+        expect(result.current.data?.status?.variant).toEqual("success");
+      });
+      await act(async () => {
+        await client.devices.create({
+          ...dev,
+          name: "updated-name",
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.data?.name).toEqual("updated-name");
+        expect(result.current.data?.status).not.toBeUndefined();
+      });
+    });
   });
 
   describe("useList", () => {
