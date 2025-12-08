@@ -51,11 +51,7 @@ func ProvisionRootUser(
 		if err != nil {
 			return err
 		}
-		// Assign Owner role to root user
-		if err := svc.RBAC.Role.NewWriter(tx, true).AssignRole(ctx, user.OntologyID(rootUser.Key), roles.OwnerKey); err != nil {
-			return err
-		}
 		// Migrate other users from legacy permissions
-		return access.MigratePermissions(ctx, tx, svc, roles)
+		return access.MigratePermissions(ctx, tx, dist, svc, roles)
 	})
 }
