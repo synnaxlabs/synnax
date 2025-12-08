@@ -14,6 +14,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/core"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -77,6 +78,10 @@ func (w Writer) Delete(
 ) (err error) {
 	if err = gorp.NewDelete[uuid.UUID, Arc]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return
+	}
+	statusKeys := lo.Map(keys, func(k uuid.UUID, _ int) string { return k.String() })
+	if err = w.status.DeleteMany(ctx, statusKeys...); err != nil {
+		return err
 	}
 	for _, key := range keys {
 		if err = w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
