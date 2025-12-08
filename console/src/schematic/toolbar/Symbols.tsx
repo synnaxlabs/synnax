@@ -458,7 +458,7 @@ const GroupListContextMenu = ({
         },
       );
       if (newName == null) return false;
-      return data;
+      return { ...data, name: newName };
     },
   });
 
