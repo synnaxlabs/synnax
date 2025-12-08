@@ -81,8 +81,8 @@ export const Container = memo(
         return positionRef.current;
       return sticky.calculate(
         clamped,
-        box.construct(bounds),
         box.construct(ref.current),
+        bounds,
       );
     }, []);
 
