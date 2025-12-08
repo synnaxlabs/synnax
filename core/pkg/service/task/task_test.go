@@ -434,4 +434,72 @@ var _ = Describe("Task", Ordered, func() {
 			}).Should(Succeed())
 		})
 	})
+	Describe("Migration", func() {
+		It("Should create unknown statuses for tasks missing them", func() {
+			db := gorp.Wrap(memkv.New())
+			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+			g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+			}))
+			stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+				Ontology: otg,
+				DB:       db,
+				Group:    g,
+				Label:    labelSvc,
+			}))
+			rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
+				DB:           db,
+				Ontology:     otg,
+				Group:        g,
+				HostProvider: mock.StaticHostKeyProvider(1),
+				Status:       stat,
+			}))
+			svc := MustSucceed(task.OpenService(ctx, task.Config{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Rack:     rackSvc,
+				Status:   stat,
+			}))
+			testRack := &rack.Rack{Name: "Migration Test Rack"}
+			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+			t := &task.Task{
+				Key:  task.NewKey(testRack.Key, 0),
+				Name: "Migration Test Task",
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+			Expect(status.NewWriter[task.StatusDetails](stat, nil).Delete(ctx, task.OntologyID(t.Key).String())).To(Succeed())
+			var deletedStatus task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				WhereKeys(task.OntologyID(t.Key).String()).
+				Entry(&deletedStatus).
+				Exec(ctx, nil)).To(MatchError(query.NotFound))
+			Expect(svc.Close()).To(Succeed())
+			svc = MustSucceed(task.OpenService(ctx, task.Config{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Rack:     rackSvc,
+				Status:   stat,
+			}))
+			var restoredStatus task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				WhereKeys(task.OntologyID(t.Key).String()).
+				Entry(&restoredStatus).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(restoredStatus.Variant).To(Equal(xstatus.WarningVariant))
+			Expect(restoredStatus.Message).To(Equal("Migration Test Task status unknown"))
+			Expect(restoredStatus.Details.Task).To(Equal(t.Key))
+			Expect(svc.Close()).To(Succeed())
+			Expect(rackSvc.Close()).To(Succeed())
+			Expect(stat.Close()).To(Succeed())
+			Expect(labelSvc.Close()).To(Succeed())
+			Expect(g.Close()).To(Succeed())
+			Expect(otg.Close()).To(Succeed())
+			Expect(db.Close()).To(Succeed())
+		})
+	})
 })

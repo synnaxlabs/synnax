@@ -388,6 +388,59 @@ var _ = Describe("Rack", Ordered, func() {
 })
 
 var _ = Describe("Migration", func() {
+	It("Should create unknown statuses for racks missing them", func() {
+		db := gorp.Wrap(memkv.New())
+		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+		}))
+		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+			Ontology: otg,
+			DB:       db,
+			Group:    g,
+			Label:    labelSvc,
+		}))
+		svc := MustSucceed(rack.OpenService(ctx, rack.Config{
+			DB:           db,
+			Ontology:     otg,
+			Group:        g,
+			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       stat,
+		}))
+		r := &rack.Rack{Name: "test rack"}
+		Expect(svc.NewWriter(nil).Create(ctx, r)).To(Succeed())
+		Expect(status.NewWriter[rack.StatusDetails](stat, nil).Delete(ctx, rack.OntologyID(r.Key).String())).To(Succeed())
+		var deletedStatus rack.Status
+		Expect(status.NewRetrieve[rack.StatusDetails](stat).
+			WhereKeys(rack.OntologyID(r.Key).String()).
+			Entry(&deletedStatus).
+			Exec(ctx, nil)).To(MatchError(query.NotFound))
+		Expect(svc.Close()).To(Succeed())
+		svc = MustSucceed(rack.OpenService(ctx, rack.Config{
+			DB:           db,
+			Ontology:     otg,
+			Group:        g,
+			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       stat,
+		}))
+		var restoredStatus rack.Status
+		Expect(status.NewRetrieve[rack.StatusDetails](stat).
+			WhereKeys(rack.OntologyID(r.Key).String()).
+			Entry(&restoredStatus).
+			Exec(ctx, nil)).To(Succeed())
+		Expect(restoredStatus.Variant).To(Equal(xstatus.WarningVariant))
+		Expect(restoredStatus.Message).To(Equal("Status unknown"))
+		Expect(restoredStatus.Details.Rack).To(Equal(r.Key))
+		Expect(svc.Close()).To(Succeed())
+		Expect(stat.Close()).To(Succeed())
+		Expect(labelSvc.Close()).To(Succeed())
+		Expect(g.Close()).To(Succeed())
+		Expect(otg.Close()).To(Succeed())
+		Expect(db.Close()).To(Succeed())
+	})
 	It("Should correctly migrate a v1 rack to a v2 rack", func() {
 		db := gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
