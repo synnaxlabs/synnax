@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/cmd/access"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	svcAccess "github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -76,10 +77,10 @@ var _ = Describe("Access", Ordered, func() {
 			It("Should only run migration once", func() {
 				u := &user.User{Username: "testuser1"}
 				Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
-				Expect(access.MigratePermissions(ctx, tx, svc, roles)).To(Succeed())
+				Expect(access.MigratePermissions(ctx, tx, dist, svc, roles)).To(Succeed())
 				hasRole := userHasSpecificRole(ctx, tx, user.OntologyID(u.Key), roles.OperatorKey)
 				Expect(hasRole).To(BeTrue())
-				Expect(access.MigratePermissions(ctx, tx, svc, roles)).To(Succeed())
+				Expect(access.MigratePermissions(ctx, tx, dist, svc, roles)).To(Succeed())
 			})
 		})
 		Describe("Role assignment", func() {
@@ -87,7 +88,7 @@ var _ = Describe("Access", Ordered, func() {
 				u := &user.User{Username: "rootuser", RootUser: true}
 				Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
-				Expect(access.MigratePermissions(ctx, tx, svc, roles)).To(Succeed())
+				Expect(access.MigratePermissions(ctx, tx, dist, svc, roles)).To(Succeed())
 				hasOwner := userHasSpecificRole(ctx, tx, user.OntologyID(u.Key), roles.OwnerKey)
 				Expect(hasOwner).To(BeTrue())
 			})
@@ -107,7 +108,7 @@ var _ = Describe("Access", Ordered, func() {
 					Entry(&adminPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
-				Expect(access.MigratePermissions(ctx, tx, svc, roles)).To(Succeed())
+				Expect(access.MigratePermissions(ctx, tx, dist, svc, roles)).To(Succeed())
 				hasOwner := userHasSpecificRole(ctx, tx, user.OntologyID(u.Key), roles.OwnerKey)
 				Expect(hasOwner).To(BeTrue())
 			})
@@ -126,7 +127,7 @@ var _ = Describe("Access", Ordered, func() {
 					Entry(&schematicPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
-				Expect(access.MigratePermissions(ctx, tx, svc, roles)).To(Succeed())
+				Expect(access.MigratePermissions(ctx, tx, dist, svc, roles)).To(Succeed())
 				hasEngineer := userHasSpecificRole(ctx, tx, user.OntologyID(u.Key), roles.EngineerKey)
 				Expect(hasEngineer).To(BeTrue())
 			})
@@ -134,7 +135,7 @@ var _ = Describe("Access", Ordered, func() {
 				u := &user.User{Username: "regularuser"}
 				Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
-				Expect(access.MigratePermissions(ctx, tx, svc, roles)).To(Succeed())
+				Expect(access.MigratePermissions(ctx, tx, dist, svc, roles)).To(Succeed())
 				hasOperator := userHasSpecificRole(ctx, tx, user.OntologyID(u.Key), roles.OperatorKey)
 				Expect(hasOperator).To(BeTrue())
 			})
@@ -151,9 +152,54 @@ var _ = Describe("Access", Ordered, func() {
 					Entry(&schematicPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
-				Expect(access.MigratePermissions(ctx, tx, svc, roles)).To(Succeed())
+				Expect(access.MigratePermissions(ctx, tx, dist, svc, roles)).To(Succeed())
 				hasOwner := userHasSpecificRole(ctx, tx, user.OntologyID(u.Key), roles.OwnerKey)
 				Expect(hasOwner).To(BeTrue())
+			})
+		})
+		Describe("Legacy group relationship cleanup", func() {
+			It("Should remove old UsersGroup -> ParentOf -> User relationship", func() {
+				u := &user.User{Username: "legacygroupuser"}
+				Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
+				userOntologyID := user.OntologyID(u.Key)
+
+				// Simulate legacy behavior: add user directly under Users group
+				var usersGroup group.Group
+				Expect(g.NewRetrieve().WhereNames("Users").Entry(&usersGroup).Exec(ctx, tx)).To(Succeed())
+				Expect(otg.NewWriter(tx).DefineRelationship(
+					ctx,
+					usersGroup.OntologyID(),
+					ontology.ParentOf,
+					userOntologyID,
+				)).To(Succeed())
+
+				// Verify user is under the Users group
+				var groupParents []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(userOntologyID).
+					TraverseTo(ontology.Parents).
+					WhereTypes("group").
+					Entries(&groupParents).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(groupParents).To(HaveLen(1))
+
+				// Run migration
+				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
+				Expect(access.MigratePermissions(ctx, tx, dist, svc, roles)).To(Succeed())
+
+				// Verify user is no longer under the Users group
+				var groupParentsAfter []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(userOntologyID).
+					TraverseTo(ontology.Parents).
+					WhereTypes("group").
+					Entries(&groupParentsAfter).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(groupParentsAfter).To(BeEmpty())
+
+				// Verify user is now under a role
+				hasRole := userHasSpecificRole(ctx, tx, userOntologyID, roles.OperatorKey)
+				Expect(hasRole).To(BeTrue())
 			})
 		})
 		Describe("Legacy policy cleanup", func() {
@@ -170,7 +216,7 @@ var _ = Describe("Access", Ordered, func() {
 					Entry(&legacyPolicy).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(tx.Delete(ctx, []byte("sy_rbac_migration_performed"))).To(Succeed())
-				Expect(access.MigratePermissions(ctx, tx, svc, roles)).To(Succeed())
+				Expect(access.MigratePermissions(ctx, tx, dist, svc, roles)).To(Succeed())
 				var policies []access.LegacyPolicy
 				Expect(gorp.NewRetrieve[uuid.UUID, access.LegacyPolicy]().
 					Entries(&policies).
@@ -183,6 +229,98 @@ var _ = Describe("Access", Ordered, func() {
 				}
 				Expect(legacyPolicies).To(BeEmpty())
 			})
+		})
+	})
+
+	Describe("MigrateUserFromGroup", func() {
+		It("Should remove old Users group relationship and add role relationship", func() {
+			u := &user.User{Username: "migrateusertest"}
+			Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
+			userOntologyID := user.OntologyID(u.Key)
+
+			// Simulate legacy behavior: add user directly under Users group
+			var usersGroup group.Group
+			Expect(g.NewRetrieve().WhereNames("Users").Entry(&usersGroup).Exec(ctx, tx)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineRelationship(
+				ctx,
+				usersGroup.OntologyID(),
+				ontology.ParentOf,
+				userOntologyID,
+			)).To(Succeed())
+
+			// Verify user is under the Users group
+			var groupParents []ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(userOntologyID).
+				TraverseTo(ontology.Parents).
+				WhereTypes("group").
+				Entries(&groupParents).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(groupParents).To(HaveLen(1))
+
+			// Migrate user
+			Expect(access.MigrateUserFromGroup(ctx, tx, dist, svc, userOntologyID, roles.OwnerKey)).To(Succeed())
+
+			// Verify user is no longer under the Users group
+			var groupParentsAfter []ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(userOntologyID).
+				TraverseTo(ontology.Parents).
+				WhereTypes("group").
+				Entries(&groupParentsAfter).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(groupParentsAfter).To(BeEmpty())
+
+			// Verify user is now under the role
+			hasRole := userHasSpecificRole(ctx, tx, userOntologyID, roles.OwnerKey)
+			Expect(hasRole).To(BeTrue())
+		})
+
+		It("Should work when user has no prior group relationship", func() {
+			u := &user.User{Username: "newusertest"}
+			Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
+			userOntologyID := user.OntologyID(u.Key)
+
+			// User has no prior relationships - this simulates a new user
+			Expect(access.MigrateUserFromGroup(ctx, tx, dist, svc, userOntologyID, roles.EngineerKey)).To(Succeed())
+
+			// Verify user is under the role
+			hasRole := userHasSpecificRole(ctx, tx, userOntologyID, roles.EngineerKey)
+			Expect(hasRole).To(BeTrue())
+		})
+
+		It("Should be idempotent", func() {
+			u := &user.User{Username: "idempotenttest"}
+			Expect(svc.User.NewWriter(tx).Create(ctx, u)).To(Succeed())
+			userOntologyID := user.OntologyID(u.Key)
+
+			// Add user to group first
+			var usersGroup group.Group
+			Expect(g.NewRetrieve().WhereNames("Users").Entry(&usersGroup).Exec(ctx, tx)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineRelationship(
+				ctx,
+				usersGroup.OntologyID(),
+				ontology.ParentOf,
+				userOntologyID,
+			)).To(Succeed())
+
+			// Migrate twice
+			Expect(access.MigrateUserFromGroup(ctx, tx, dist, svc, userOntologyID, roles.ViewerKey)).To(Succeed())
+			Expect(access.MigrateUserFromGroup(ctx, tx, dist, svc, userOntologyID, roles.ViewerKey)).To(Succeed())
+
+			// Verify user has exactly one role parent
+			hasRole := userHasSpecificRole(ctx, tx, userOntologyID, roles.ViewerKey)
+			Expect(hasRole).To(BeTrue())
+
+			// Verify user has no group parents
+			var groupParents []ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(userOntologyID).
+				TraverseTo(ontology.Parents).
+				WhereTypes("group").
+				Entries(&groupParents).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(groupParents).To(BeEmpty())
 		})
 	})
 })
