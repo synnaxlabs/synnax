@@ -1190,7 +1190,9 @@ describe("queries", () => {
 
       await waitFor(() => {
         expect(result.current.form.get("name").value).toEqual("serverUpdatedName");
-        expect(result.current.form.get("config.setting").value).toEqual("serverUpdated");
+        expect(result.current.form.get("config.setting").value).toEqual(
+          "serverUpdated",
+        );
       });
       expect(result.current.form.get("name").touched).toBe(false);
       expect(result.current.form.get("config.setting").touched).toBe(false);
