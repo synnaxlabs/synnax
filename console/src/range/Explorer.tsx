@@ -9,7 +9,8 @@
 
 import "@/range/Explorer.css";
 
-import { Button, Component, Icon, Ranger } from "@synnaxlabs/pluto";
+import { ranger } from "@synnaxlabs/client";
+import { Access, Button, Component, Icon, Ranger } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -38,6 +39,7 @@ export const Explorer: Layout.Renderer = () => {
   });
   const placeLayout = Layout.usePlacer();
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
+  const canCreate = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <View.Frame {...listProps} resourceType="range">
       <View.Views />
@@ -47,13 +49,15 @@ export const Explorer: Layout.Renderer = () => {
         </View.FilterMenu>
         <View.Search />
         <Label.Filter.Chips />
-        <Button.Button
-          onClick={handleCreate}
-          tooltipLocation={location.BOTTOM_LEFT}
-          tooltip="Create a range"
-        >
-          <Icon.Add />
-        </Button.Button>
+        {canCreate && (
+          <Button.Button
+            onClick={handleCreate}
+            tooltipLocation={location.BOTTOM_LEFT}
+            tooltip="Create a range"
+          >
+            <Icon.Add />
+          </Button.Button>
+        )}
       </View.Toolbar>
       <View.Items>{item}</View.Items>
     </View.Frame>

@@ -29,7 +29,7 @@ export const Search = (): ReactElement | null => {
       size="small"
       level="h5"
       color={9}
-      startContent={<Icon.Search color={9} />}
+      startContent={startContent}
       variant="text"
       value={value}
       onChange={handleChange}
@@ -37,3 +37,5 @@ export const Search = (): ReactElement | null => {
     />
   );
 };
+
+const startContent = <Icon.Search color={9} />;

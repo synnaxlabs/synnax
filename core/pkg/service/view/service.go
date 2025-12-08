@@ -96,7 +96,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := s.NewWriter(nil).CreateMany(ctx, &DefaultViews); err != nil {
+	if err := s.NewWriter(nil).CreateMany(ctx, &defaultViews); err != nil {
 		return nil, err
 	}
 	s.shutdownSignals = viewSignals
@@ -134,7 +134,7 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-var DefaultViews = []View{
+var defaultViews = []View{
 	{
 		Name:  "All Statuses",
 		Key:   uuid.MustParse("7b00b1e5-b132-4c21-a226-2c493d98684a"),
