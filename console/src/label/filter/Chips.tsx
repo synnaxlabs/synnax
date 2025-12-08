@@ -7,33 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/label/filter/Chips.css";
+
 import { type label } from "@synnaxlabs/client";
 import { Flex, Form, Icon, Label, Tag, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { View } from "@/view";
 
 export const Chips = (): ReactElement | null => {
   const { editable } = View.useContext();
-  const { set } = Form.useContext();
+  const { onChange } = Form.useField<label.Key[]>("query.hasLabels");
   const hasLabels = Form.useFieldValue<label.Key[]>("query.hasLabels", {
     defaultValue: [],
   });
   const labels = Label.useRetrieveMultiple({ keys: hasLabels ?? [] }).data ?? [];
   if (labels.length === 0) return null;
-  const handleClose = (key: label.Key) => {
-    set(
-      "query.hasLabels",
-      hasLabels.filter((k) => k !== key),
-      { notifyOnChange: true },
-    );
-  };
+  const handleClose = (key: label.Key) => onChange(hasLabels.filter((l) => l !== key));
   return (
     <Flex.Box x pack background={0}>
       <Text.Text
         bordered
+        className={CSS.BE("label", "filter-chips")}
         size="small"
-        style={{ padding: "0 1rem", boxShadow: "var(--pluto-shadow-v1)" }}
         borderColor={5}
         level="small"
       >

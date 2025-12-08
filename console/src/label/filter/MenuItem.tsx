@@ -8,11 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { type label } from "@synnaxlabs/client";
-import { Form } from "@synnaxlabs/pluto";
+import { type Dialog, Form, type Select } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { SelectMultiple } from "@/label/Select";
+
+const TRIGGER_PROPS: Select.MultipleTriggerProps<string> = {
+  hideTags: true,
+  variant: "text",
+};
+
+const LABEL_LOCATION: Dialog.LocationPreference = {
+  targetCorner: location.TOP_RIGHT,
+  dialogCorner: location.TOP_LEFT,
+};
 
 export const MenuItem = (): ReactElement => (
   <Form.Field<label.Key[]> path="query.hasLabels" defaultValue={[]} showLabel={false}>
@@ -20,15 +30,9 @@ export const MenuItem = (): ReactElement => (
       <SelectMultiple
         value={value}
         onChange={onChange}
-        location={labelLocation}
-        triggerProps={triggerProps}
+        location={LABEL_LOCATION}
+        triggerProps={TRIGGER_PROPS}
       />
     )}
   </Form.Field>
 );
-
-const triggerProps = { hideTags: true, variant: "text" } as const;
-const labelLocation = {
-  targetCorner: location.TOP_RIGHT,
-  dialogCorner: location.TOP_LEFT,
-} as const;
