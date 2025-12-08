@@ -544,7 +544,7 @@ describe("framer.Frame", () => {
     });
   });
 
-  describe.only("forEachUnique", () => {
+  describe("forEachUnique", () => {
     it("should iterate over all unique columns in the frame", () => {
       const f = new framer.Frame(
         new Map([
