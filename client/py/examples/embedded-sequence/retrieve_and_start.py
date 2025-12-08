@@ -15,7 +15,7 @@ client = sy.Synnax()
 
 # Create a signal channel that can be used to start and stop the control sequence.
 signal_channel = client.channels.create(
-    name="Start Control Sequence",
+    name="start_control_sequence",
     data_type="uint8",
     virtual=True,
     retrieve_if_name_exists=True,
