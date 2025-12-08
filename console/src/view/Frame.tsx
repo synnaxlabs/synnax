@@ -81,10 +81,11 @@ export const Frame = <
       return primitive.isNonZero(key);
     },
   });
-  const canEditView = Access.useUpdateGranted({
-    type: "view",
-    key: form.value().key ?? "",
+  const formKey = Form.useFieldValue<view.Key, view.Key, typeof view.newZ>("key", {
+    ctx: form,
+    optional: true,
   });
+  const canEditView = Access.useUpdateGranted(view.ontologyID(formKey ?? ""));
   const [editable, setEditable] = useState(canEditView);
   const contextValue = useMemo(
     () => ({ editable, resourceType, search, save }),
