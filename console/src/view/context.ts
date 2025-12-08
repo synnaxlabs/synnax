@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { type ontology, type view } from "@synnaxlabs/client";
 import { context, type Flux } from "@synnaxlabs/pluto";
 
 export interface ContextValue {
   editable: boolean;
+  isDefault: boolean;
+  defaultViewKey: view.Key;
   resourceType: ontology.ResourceType;
   search: (term: string) => void;
   save: (opts?: Flux.FetchOptions) => void;

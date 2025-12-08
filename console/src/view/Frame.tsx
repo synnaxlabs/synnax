@@ -22,7 +22,7 @@ import {
   Status,
   View as PView,
 } from "@synnaxlabs/pluto";
-import { location, primitive, type record, uuid } from "@synnaxlabs/x";
+import { location, type record, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import {
   type PropsWithChildren,
@@ -65,31 +65,28 @@ export const Frame = <
     // typing issues.
     retrieve: retrieve as List.UsePagerArgs["retrieve"],
   });
+  const defaultViewKey = useMemo(() => uuid.create(), []);
   const { form, save } = PView.useForm({
     query: {},
-    initialValues: {
-      type: resourceType,
-      name: "",
-      query: { hasLabels: [] },
-    },
+    initialValues: { type: resourceType, name: "", key: defaultViewKey, query: {} },
     autoSave: true,
     beforeSave: async ({ value }) => {
       const { key, query } = value();
       // type assertion because the current implementation of the query client doesn't
       // support custom typing yet.
       retrieve((p) => ({ ...p, ...(query as Q), offset: 0, limit: 25 }));
-      return primitive.isNonZero(key);
+      return key !== defaultViewKey;
     },
   });
   const formKey = Form.useFieldValue<view.Key, view.Key, typeof view.newZ>("key", {
     ctx: form,
-    optional: true,
   });
+  const isDefault = formKey === defaultViewKey;
   const canEditView = Access.useUpdateGranted(view.ontologyID(formKey ?? ""));
   const [editable, setEditable] = useState(canEditView);
   const contextValue = useMemo(
-    () => ({ editable, resourceType, search, save }),
-    [editable, resourceType, search, save],
+    () => ({ editable, resourceType, search, save, isDefault, defaultViewKey }),
+    [editable, resourceType, search, save, isDefault, defaultViewKey],
   );
   const handleError = Status.useErrorHandler();
   const renameModal = Modals.useRename();
@@ -101,8 +98,8 @@ export const Frame = <
         { name: "View.Create" },
       );
       if (name == null) return;
-      form.set("name", name);
       form.set("key", uuid.create());
+      form.set("name", name);
     }, "Failed to create view");
   }, [renameModal, resourceType, form.set]);
   return (

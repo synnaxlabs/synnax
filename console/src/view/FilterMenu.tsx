@@ -18,8 +18,8 @@ export interface FilterMenuProps extends PropsWithChildren {}
 const STYLE: CSSProperties = { padding: "1rem" };
 
 export const FilterMenu = ({ children }: FilterMenuProps): ReactNode => {
-  const { editable } = useContext("View.FilterMenu");
-  if (!editable) return null;
+  const { editable, isDefault } = useContext("View.FilterMenu");
+  if (!editable || isDefault) return null;
   return (
     <Dialog.Frame>
       <Dialog.Trigger
