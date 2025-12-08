@@ -169,7 +169,7 @@ describe("csv", () => {
           { index: 12, frame: new Frame({ 12: s1, 13: s2 }) },
         ];
         expect(() => convertFrameGroups(groups)).toThrow(
-          "Series for channel 13 is not the same length (4) as the series for index channel 12 (3)",
+          "Multi-series for channel 13 is not the same length (4) as the multi-series for index channel 12 (3)",
         );
       });
     });

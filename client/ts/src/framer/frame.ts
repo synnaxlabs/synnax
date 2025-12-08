@@ -352,32 +352,24 @@ export class Frame {
    * boolean.
    */
   map(
-    fn: (
-      keyOrName: channel.KeyOrName,
-      multiSeries: MultiSeries,
-    ) => [channel.KeyOrName, Series | MultiSeries],
+    fn: (k: channel.KeyOrName, arr: Series, i: number) => [channel.KeyOrName, Series],
   ): Frame {
     const frame = new Frame();
-    this.forEach((keyOrName, multiSeries) => {
-      const [nextKey, nextSeries] = fn(keyOrName, multiSeries);
-      if (nextSeries instanceof Series) frame.push(nextKey, nextSeries);
-      else frame.push(nextKey, ...nextSeries.series);
-    });
+    this.forEach((k, arr, i) => frame.push(...fn(k, arr, i)));
     return frame;
   }
 
   mapFilter(
     fn: (
       k: channel.KeyOrName,
-      multiSeries: MultiSeries,
-    ) => [channel.KeyOrName, Series | MultiSeries, boolean],
+      arr: Series,
+      i: number,
+    ) => [channel.KeyOrName, Series, boolean],
   ): Frame {
     const frame = new Frame();
-    this.forEach((keyOrName, multiSeries) => {
-      const [nextKey, nextSeries, keep] = fn(keyOrName, multiSeries);
-      if (!keep) return;
-      if (nextSeries instanceof Series) frame.push(nextKey, nextSeries);
-      else frame.push(nextKey, ...nextSeries.series);
+    this.forEach((k, arr, i) => {
+      const [newK, newArr, keep] = fn(k, arr, i);
+      if (keep) frame.push(newK, newArr);
     });
     return frame;
   }
@@ -387,8 +379,19 @@ export class Frame {
    *
    * @param fn a function that takes a channel key and series.
    */
-  forEach(fn: (keyOrName: channel.KeyOrName, multiSeries: MultiSeries) => void): void {
-    this.uniqueColumns.forEach((k) => fn(k, this.get(k)));
+  forEach(fn: (k: channel.KeyOrName, arr: Series, i: number) => void): void {
+    this.columns.forEach((k, i) => {
+      const a = this.series[i];
+      fn(k, a, i);
+    });
+  }
+
+  /*
+  Iterates over all unique columns in the frame.
+  @param fn a function that takes a channel key, multi-series, and index.
+  */
+  forEachUnique(fn: (k: channel.KeyOrName, ms: MultiSeries, i: number) => void): void {
+    this.uniqueColumns.forEach((k, i) => fn(k, this.get(k), i));
   }
 
   at(index: number, required: true): Record<channel.KeyOrName, TelemValue>;

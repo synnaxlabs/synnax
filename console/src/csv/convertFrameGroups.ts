@@ -31,14 +31,14 @@ export const convertFrameGroups = (
   // validate that all frames have an index key corresponding to a timestamp and the
   // right length for each series.
   for (const { index, frame } of frameGroups) {
-    const indexSeries = frame.get(index);
-    if (!indexSeries.dataType.equals(DataType.TIMESTAMP))
+    const indexMultiSeries = frame.get(index);
+    if (!indexMultiSeries.dataType.equals(DataType.TIMESTAMP))
       throw new Error(`Index channel ${index} is not of type timestamp`);
-    const length = indexSeries.length;
-    frame.forEach((key, series) => {
-      if (series.length !== length)
+    const length = indexMultiSeries.length;
+    frame.forEachUnique((key, multiSeries) => {
+      if (multiSeries.length !== length)
         throw new Error(
-          `Series for channel ${key} is not the same length (${series.length}) as the series for index channel ${index} (${length})`,
+          `Multi-series for channel ${key} is not the same length (${multiSeries.length}) as the multi-series for index channel ${index} (${length})`,
         );
     });
   }
