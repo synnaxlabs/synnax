@@ -96,7 +96,6 @@ I can successfully:
   - [ ] Plot a basic calculated channel.
   - [ ] Plot a nested calculated channel.
   - [ ] Intentionally create a channel with an erroneous expression, plot it and make sure the Console and Core remain stable and the error is logged to the Core and the Console.
-  - [ ] Plot a calculated channel that uses channels with hyphenated names.
   - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
     - [ ] 10 Hz
     - [ ] 100 Hz
