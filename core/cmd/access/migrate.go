@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -60,39 +59,6 @@ func (p LegacyPolicy) CustomTypeName() string { return "Policy" }
 //   - Deletes legacy policies (those with Subjects field)
 //
 // The migration is idempotent and only runs once, tracked via a KV flag.
-
-// MigrateUserFromGroup removes the legacy UsersGroup -> ParentOf -> User relationship
-// and assigns the user to the specified role. This is a helper for the migration process.
-func MigrateUserFromGroup(
-	ctx context.Context,
-	tx gorp.Tx,
-	dist *distribution.Layer,
-	svc *service.Layer,
-	userOntologyID ontology.ID,
-	roleKey uuid.UUID,
-) error {
-	otgWriter := dist.Ontology.NewWriter(tx)
-
-	// Get the Users group to remove old relationship
-	var usersGroup group.Group
-	if err := dist.Group.NewRetrieve().WhereNames(usersGroupName).Entry(&usersGroup).Exec(ctx, tx); err != nil {
-		return err
-	}
-
-	// Remove the old UsersGroup -> ParentOf -> User relationship
-	if err := otgWriter.DeleteRelationship(
-		ctx,
-		usersGroup.OntologyID(),
-		ontology.ParentOf,
-		userOntologyID,
-	); err != nil {
-		return err
-	}
-
-	// Create the new Role -> ParentOf -> User relationship
-	return svc.RBAC.Role.NewWriter(tx, true).AssignRole(ctx, userOntologyID, roleKey)
-}
-
 func MigratePermissions(
 	ctx context.Context,
 	tx gorp.Tx,
