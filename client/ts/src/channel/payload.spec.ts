@@ -135,7 +135,7 @@ describe("newZ", () => {
     });
   });
 });
-describe.only("escapeInvalidName", () => {
+describe("escapeInvalidName", () => {
   it("should escape invalid name", () => {
     const result = escapeInvalidName("sensor-temp");
     expect(result).toBe("sensor_temp");
