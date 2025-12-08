@@ -16,7 +16,6 @@ import {
   Flex,
   Icon,
   Menu as PMenu,
-  Status,
   Text,
   Tree,
 } from "@synnaxlabs/pluto";
@@ -180,12 +179,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
 
-const { useRetrieve: useRetrieveDeviceStatus } =
-  Status.createRetrieve<typeof device.statusDetailsSchema>();
-
 const Item = ({ id, resource, className, ...rest }: Ontology.TreeItemProps) => {
   const { itemKey } = rest;
-  const devStatus = useRetrieveDeviceStatus({ key: device.statusKey(id.key) })?.data;
+  const devStatus = Device.useRetrieve({ key: id.key }).data?.status;
   return (
     <Tree.Item className={CSS(className, CSS.B("device-ontology-item"))} {...rest}>
       <Flex.Box x grow align="center" className={CSS.B("name-location")}>

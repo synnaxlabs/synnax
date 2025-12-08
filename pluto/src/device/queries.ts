@@ -94,7 +94,12 @@ export const createRetrieve = <
     retrieve: retrieveSingle<Properties, Make, Model>,
     mountListeners: ({ store, onChange, query: { key } }) => [
       store.devices.onSet(
-        (changed) => onChange(changed as device.Device<Properties, Make, Model>),
+        (changed) =>
+          onChange((p) => ({
+            ...p,
+            ...(changed as device.Device<Properties, Make, Model>),
+            status: p?.status,
+          })),
         key,
       ),
       store.statuses.onSet((status) => {
