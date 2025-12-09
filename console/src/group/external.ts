@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/group/MenuItem";
+export * from "@/group/useCreateEmpty";
 export * from "@/group/useCreateFromSelection";

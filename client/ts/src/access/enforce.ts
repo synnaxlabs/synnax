@@ -9,7 +9,7 @@
 
 import { array } from "@synnaxlabs/x";
 
-import { type Action, ALL_ACTION } from "@/access/payload";
+import { type Action } from "@/access/payload";
 import { type Policy } from "@/access/policy/payload";
 import { type ontology } from "@/ontology";
 
@@ -21,7 +21,7 @@ export interface Request {
   /** The subject making the request (typically a user) */
   subject: ontology.ID;
   /** The action being requested */
-  actions: Action | Action[];
+  action: Action;
   /** The objects being accessed */
   objects: ontology.ID | ontology.ID[];
 }
@@ -38,7 +38,7 @@ export interface Request {
  * This function implements the following logic:
  * - For each requested object, check if any policy allows the action
  * - A policy allows an action if:
- *   1. The policy's actions include the requested action OR "*" (all actions)
+ *   1. The policy's actions include the requested action or "all"
  *   2. The policy's objects include the requested object, either:
  *      - Type-level match: policy object has empty key and matching type
  *      - Instance-level match: policy object has matching type and key
@@ -46,16 +46,13 @@ export interface Request {
  */
 export const allowRequest = (req: Request, policies: Policy[]): boolean => {
   const objs = array.toArray(req.objects);
-  const actions = array.toArray(req.actions);
+  const { action } = req;
   for (const requestedObj of objs) {
     let allowed = false;
 
     for (const policy of policies) {
       // Check if every requested action is allowed by this policy
-      const actionAllowed =
-        actions.every((action) => policy.actions.includes(action)) ||
-        policy.actions.includes(ALL_ACTION);
-
+      const actionAllowed = policy.actions.includes(action);
       if (!actionAllowed) continue;
 
       // Check if any object in the policy matches the requested object

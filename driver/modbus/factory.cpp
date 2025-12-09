@@ -50,7 +50,7 @@ std::pair<common::ConfigureResult, xerrors::Error> configure_scan(
 ) {
     common::ConfigureResult result;
     xjson::Parser parser(task.config);
-    ScannerConfig cfg(parser);
+    ScanTaskConfig cfg(parser);
     if (parser.error()) return {std::move(result), parser.error()};
     result.task = std::make_unique<common::ScanTask>(
         std::make_unique<Scanner>(ctx, task, devs),

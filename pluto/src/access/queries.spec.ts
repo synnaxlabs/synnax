@@ -53,7 +53,7 @@ describe("Access Queries", () => {
       });
       const { result } = renderHook(
         () =>
-          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, actions: "retrieve" }),
+          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -69,7 +69,7 @@ describe("Access Queries", () => {
       });
       const { result } = renderHook(
         () =>
-          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, actions: "retrieve" }),
+          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -87,7 +87,7 @@ describe("Access Queries", () => {
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result } = renderHook(
         () =>
-          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, actions: "retrieve" }),
+          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
         { wrapper },
       );
       await waitFor(() => {
@@ -113,50 +113,12 @@ describe("Access Queries", () => {
         () =>
           Access.useGranted({
             objects: [ranger.TYPE_ONTOLOGY_ID, channel.TYPE_ONTOLOGY_ID],
-            actions: "retrieve",
+            action: "retrieve",
           }),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
         expect(result.current).toBe(true);
-      });
-    });
-
-    it("should handle multiple actions correctly", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
-        actions: ["retrieve", "create", "update"],
-      });
-      const { result } = renderHook(
-        () =>
-          Access.useGranted({
-            objects: ranger.TYPE_ONTOLOGY_ID,
-            actions: ["retrieve", "create"],
-          }),
-        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
-      );
-      await waitFor(() => {
-        expect(result.current).toBe(true);
-      });
-    });
-
-    it("should return false when missing partial permissions", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
-        actions: ["retrieve"],
-      });
-      const { result } = renderHook(
-        () =>
-          Access.useGranted({
-            objects: ranger.TYPE_ONTOLOGY_ID,
-            actions: ["retrieve", "delete"],
-          }),
-        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
-      );
-      await waitFor(() => {
-        expect(result.current).toBe(false);
       });
     });
   });
@@ -172,7 +134,7 @@ describe("Access Queries", () => {
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result: grantedResult } = renderHook(
         () =>
-          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, actions: "retrieve" }),
+          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
         { wrapper },
       );
       await waitFor(() => {
@@ -185,7 +147,7 @@ describe("Access Queries", () => {
       const result = Access.isGranted({
         store: storeResult.current,
         client: userClient,
-        query: { objects: ranger.TYPE_ONTOLOGY_ID, actions: "retrieve" },
+        query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" },
       });
       expect(result).toBe(true);
     });
@@ -200,7 +162,7 @@ describe("Access Queries", () => {
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result: grantedResult } = renderHook(
         () =>
-          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, actions: "retrieve" }),
+          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
         { wrapper },
       );
       await waitFor(() => {
@@ -213,7 +175,7 @@ describe("Access Queries", () => {
       const result = Access.isGranted({
         store: storeResult.current,
         client: userClient,
-        query: { objects: ranger.TYPE_ONTOLOGY_ID, actions: "retrieve" },
+        query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" },
       });
       expect(result).toBe(false);
     });
@@ -227,7 +189,7 @@ describe("Access Queries", () => {
       const result = Access.isGranted({
         store: storeResult.current,
         client: null,
-        query: { objects: ranger.TYPE_ONTOLOGY_ID, actions: "retrieve" },
+        query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" },
       });
       expect(result).toBe(false);
     });
@@ -242,7 +204,7 @@ describe("Access Queries", () => {
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result: grantedResult } = renderHook(
         () =>
-          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, actions: "retrieve" }),
+          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
         { wrapper },
       );
       await waitFor(() => {
@@ -257,19 +219,19 @@ describe("Access Queries", () => {
       const resultRetrieve = Access.isGranted({
         store: storeResult.current,
         client: userClient,
-        query: { objects: ranger.TYPE_ONTOLOGY_ID, actions: "retrieve" },
+        query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" },
       });
       expect(resultRetrieve).toBe(true);
       const resultCreate = Access.isGranted({
         store: storeResult.current,
         client: userClient,
-        query: { objects: ranger.TYPE_ONTOLOGY_ID, actions: "create" },
+        query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "create" },
       });
       expect(resultCreate).toBe(true);
       const resultDelete = Access.isGranted({
         store: storeResult.current,
         client: userClient,
-        query: { objects: ranger.TYPE_ONTOLOGY_ID, actions: "delete" },
+        query: { objects: ranger.TYPE_ONTOLOGY_ID, action: "delete" },
       });
       expect(resultDelete).toBe(false);
     });
@@ -283,7 +245,7 @@ describe("Access Queries", () => {
         actions: ["retrieve"],
       });
       const { result } = renderHook(
-        () => Access.useViewGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -298,7 +260,7 @@ describe("Access Queries", () => {
         actions: ["retrieve"],
       });
       const { result } = renderHook(
-        () => Access.useViewGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -314,7 +276,10 @@ describe("Access Queries", () => {
       });
       const { result } = renderHook(
         () =>
-          Access.useViewGranted([ranger.TYPE_ONTOLOGY_ID, channel.TYPE_ONTOLOGY_ID]),
+          Access.useRetrieveGranted([
+            ranger.TYPE_ONTOLOGY_ID,
+            channel.TYPE_ONTOLOGY_ID,
+          ]),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -323,7 +288,7 @@ describe("Access Queries", () => {
     });
   });
 
-  describe("useEditGranted", () => {
+  describe("useUpdateGranted", () => {
     it("should return true when user has retrieve and update permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
@@ -331,7 +296,7 @@ describe("Access Queries", () => {
         actions: ["retrieve", "update", "create"],
       });
       const { result } = renderHook(
-        () => Access.useEditGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -346,7 +311,7 @@ describe("Access Queries", () => {
         actions: ["retrieve"],
       });
       const { result } = renderHook(
-        () => Access.useEditGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
       await waitFor(() => {
@@ -429,7 +394,7 @@ describe("Access Queries", () => {
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result: grantedResult } = renderHook(
-        () => Access.useViewGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
         { wrapper },
       );
       await waitFor(() => {
@@ -448,7 +413,7 @@ describe("Access Queries", () => {
     });
   });
 
-  describe("editGranted", () => {
+  describe("updateGranted", () => {
     it("should return true when the user has retrieve and update permissions", async () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
@@ -458,7 +423,7 @@ describe("Access Queries", () => {
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
       const { result: grantedResult } = renderHook(
-        () => Access.useEditGranted(ranger.TYPE_ONTOLOGY_ID),
+        () => Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID),
         { wrapper },
       );
       await waitFor(() => {
@@ -468,7 +433,7 @@ describe("Access Queries", () => {
         () => Flux.useStore<Pluto.FluxStore>(),
         { wrapper },
       );
-      const result = Access.editGranted({
+      const result = Access.updateGranted({
         store: storeResult.current,
         client: userClient,
         id: ranger.TYPE_ONTOLOGY_ID,

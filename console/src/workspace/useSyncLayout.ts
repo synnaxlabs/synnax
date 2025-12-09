@@ -30,7 +30,11 @@ export const useSyncLayout = (): void => {
       const key = selectActiveKey(s);
       if (key == null) return false;
       if (
-        !Access.editGranted({ id: workspace.ontologyID(key), store: fluxStore, client })
+        !Access.updateGranted({
+          id: workspace.ontologyID(key),
+          store: fluxStore,
+          client,
+        })
       )
         return false;
       const layoutSlice = Layout.selectSliceState(s);

@@ -107,7 +107,7 @@ var _ = Describe("Service", func() {
 					Objects: []ontology.ID{obj1},
 					Action:  access.ActionRetrieve,
 				}
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.Denied))
+				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.ErrDenied))
 			})
 
 			It("Should allow access with ActionAll wildcard", func() {
@@ -117,7 +117,7 @@ var _ = Describe("Service", func() {
 				p := &policy.Policy{
 					Name:    "allow-all-actions",
 					Objects: []ontology.ID{obj1},
-					Actions: []access.Action{access.ActionAll},
+					Actions: access.AllActions,
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
 				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
@@ -178,7 +178,7 @@ var _ = Describe("Service", func() {
 					Objects: []ontology.ID{obj1, obj2},
 					Action:  access.ActionRetrieve,
 				}
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.Denied))
+				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.ErrDenied))
 			})
 		})
 
@@ -231,7 +231,7 @@ var _ = Describe("Service", func() {
 				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
 
 				Expect(roleWriter.UnassignRole(ctx, subject, r.Key)).To(Succeed())
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.Denied))
+				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.ErrDenied))
 			})
 		})
 	})
@@ -260,7 +260,7 @@ var _ = Describe("Service", func() {
 			p1 := &policy.Policy{
 				Name:     "policy-1",
 				Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions:  []access.Action{access.ActionAll},
+				Actions:  access.AllActions,
 				Internal: true,
 			}
 			p2 := &policy.Policy{
@@ -300,7 +300,7 @@ var _ = Describe("Service", func() {
 				Objects: []ontology.ID{obj},
 				Action:  access.ActionRetrieve,
 			}
-			Expect(enforcer.Enforce(ctx, req)).To(MatchError(access.Denied))
+			Expect(enforcer.Enforce(ctx, req)).To(MatchError(access.ErrDenied))
 		})
 
 		It("Should use provided transaction", func() {

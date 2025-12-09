@@ -26,7 +26,7 @@ import {
   Viewport,
 } from "@synnaxlabs/pluto";
 import { box, deep, id, uuid, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -202,12 +202,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const theme = Theming.use();
   const viewportRef = useSyncedRef(state.graph.viewport);
-  const hasEditPermission = Access.useEditGranted(arc.ontologyID(layoutKey));
-
-  useEffect(() => {
-    if (!hasEditPermission && state.graph.editable)
-      dispatch(setEditable({ key: layoutKey, editable: false }));
-  }, [hasEditPermission, state.graph.editable, layoutKey, dispatch]);
+  const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
+  const canEdit = hasEditPermission && state.graph.editable;
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
@@ -369,7 +365,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         onEdgesChange={handleEdgesChange}
         onNodesChange={handleNodesChange}
         onEditableChange={handleEditableChange}
-        editable={state.graph.editable}
+        editable={canEdit}
         triggers={triggers}
         onDoubleClick={handleDoubleClick}
         fitViewOnResize={state.graph.fitViewOnResize}
@@ -396,7 +392,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Arc Automation",
   icon: <Icon.Arc />,
-  useVisible: () => Access.useEditGranted(arc.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID),
   create: async ({ layoutKey, rename }) => {
     const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
     if (name == null) return null;

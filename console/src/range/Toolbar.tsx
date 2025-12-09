@@ -41,7 +41,7 @@ import { type RootState } from "@/store";
 
 const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Access.useEditGranted(ranger.TYPE_ONTOLOGY_ID);
+  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
   const handleLinkClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction
@@ -125,7 +125,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
   const entry = useSelect(itemKey);
   const labels = Ranger.useLabels(itemKey)?.data ?? [];
   const onRename = useRename();
-  const hasEditPermission = Access.useEditGranted(ranger.ontologyID(itemKey));
+  const hasEditPermission = Access.useUpdateGranted(ranger.ontologyID(itemKey));
   if (entry == null || entry.variant === "dynamic") return null;
   const { key, name, timeRange, persisted } = entry;
   return (
@@ -171,7 +171,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
 
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Access.useEditGranted(ranger.TYPE_ONTOLOGY_ID);
+  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
@@ -208,5 +208,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
-  useVisible: () => Access.useViewGranted(ranger.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
 };

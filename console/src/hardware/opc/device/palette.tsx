@@ -19,7 +19,7 @@ const CONNECT_SERVER_COMMAND: Palette.Command = {
   icon: <Icon.Logo.OPC />,
   onSelect: ({ placeLayout }) => placeLayout(CONNECT_LAYOUT),
   visible: ({ store, client }) =>
-    Access.editGranted({ id: device.TYPE_ONTOLOGY_ID, store, client }),
+    Access.updateGranted({ id: device.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 export const COMMANDS: Palette.Command[] = [CONNECT_SERVER_COMMAND];

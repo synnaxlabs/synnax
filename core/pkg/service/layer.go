@@ -162,9 +162,8 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Auth, err = auth.OpenKV(ctx, cfg.Distribution.DB); !ok(err, nil) {
-		return nil, err
-	}
+
+	l.Auth = &auth.KV{DB: cfg.Distribution.DB}
 	if l.Token, err = token.NewService(token.ServiceConfig{
 		KeyProvider:      cfg.Security,
 		Expiration:       24 * time.Hour,
@@ -205,22 +204,22 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, l.Schematic) {
 		return nil, err
 	}
-	if l.LinePlot, err = lineplot.OpenService(ctx, lineplot.Config{
+	if l.LinePlot, err = lineplot.NewService(lineplot.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
-	}); !ok(err, l.LinePlot) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Log, err = log.OpenService(ctx, log.Config{
+	if l.Log, err = log.NewService(log.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
-	}); !ok(err, l.Log) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Table, err = table.OpenService(ctx, table.Config{
+	if l.Table, err = table.NewService(table.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
-	}); !ok(err, l.Table) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Status, err = status.OpenService(

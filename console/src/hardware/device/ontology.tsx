@@ -108,7 +108,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource, shape },
   } = props;
   const ontologyIDs = useMemo(() => ids.map((id) => device.ontologyID(id.key)), [ids]);
-  const canEdit = Access.useEditGranted(ontologyIDs);
+  const canEdit = Access.useUpdateGranted(ontologyIDs);
   const canDelete = Access.useDeleteGranted(ontologyIDs);
   const singleResource = ids.length === 1;
   const first = getResource(ids[0]);

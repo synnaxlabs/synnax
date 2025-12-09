@@ -63,7 +63,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const canDelete = Access.useDeleteGranted(ids);
-  const canEdit = Access.useEditGranted(ids);
+  const canEdit = Access.useUpdateGranted(ids);
   const firstID = ids[0];
   const isSingle = ids.length === 1;
   const first = getResource(firstID);

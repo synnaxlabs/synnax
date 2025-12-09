@@ -43,7 +43,6 @@ import { Layout } from "@/layout";
 import {
   selectOptional,
   selectRequired,
-  useSelectEditable,
   useSelectLegendVisible,
   useSelectNodeProps,
   useSelectRequired,
@@ -82,7 +81,7 @@ const useSyncComponent = Workspace.createSyncComponent(
   async ({ key, workspace, store, fluxStore, client }) => {
     const storeState = store.getState();
     if (
-      !Access.editGranted({ id: schematic.ontologyID(key), store: fluxStore, client })
+      !Access.updateGranted({ id: schematic.ontologyID(key), store: fluxStore, client })
     )
       return;
     const data = selectOptional(storeState, key);
@@ -185,12 +184,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey, syncDispatch]);
 
-  const isEditable = useSelectEditable(layoutKey);
-  const hasEditPermission = Access.useEditGranted(schematic.ontologyID(layoutKey));
-  useEffect(() => {
-    if (!hasEditPermission && isEditable)
-      syncDispatch(setEditable({ key: layoutKey, editable: false }));
-  }, [hasEditPermission, isEditable, layoutKey, syncDispatch]);
+  const hasEditPermission =
+    Access.useUpdateGranted(schematic.ontologyID(layoutKey)) && !state.snapshot;
+  const canEdit = hasEditPermission && state.editable;
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
@@ -316,8 +312,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [storeLegendPosition, setLegendPosition],
   );
 
-  const canEdit = hasEditPermission && !state.snapshot;
-
   const handleViewportModeChange = useCallback(
     (mode: Viewport.Mode) => dispatch(setViewportMode({ key: layoutKey, mode })),
     [dispatch, layoutKey],
@@ -385,7 +379,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           onEdgesChange={handleEdgesChange}
           onNodesChange={handleNodesChange}
           onEditableChange={handleEditableChange}
-          editable={state.editable}
+          editable={canEdit}
           triggers={triggers}
           onDoubleClick={handleDoubleClick}
           fitViewOnResize={state.fitViewOnResize}
@@ -399,7 +393,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             <Diagram.SelectViewportModeControl />
             <Diagram.FitViewControl />
             <Flex.Box x pack>
-              {canEdit && (
+              {hasEditPermission && (
                 <Diagram.ToggleEditControl disabled={state.control === "acquired"} />
               )}
               {!state.snapshot && (
@@ -448,7 +442,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Schematic",
   icon: <Icon.Schematic />,
-  useVisible: () => Access.useEditGranted(schematic.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID),
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 

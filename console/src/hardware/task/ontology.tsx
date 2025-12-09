@@ -89,7 +89,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const rename = useRename(props);
   const ontologyIDs = useMemo(() => ids.map((id) => task.ontologyID(id.key)), [ids]);
   const canDelete = Access.useDeleteGranted(ontologyIDs);
-  const canEdit = Access.useEditGranted(ontologyIDs);
+  const canEdit = Access.useUpdateGranted(ontologyIDs);
   const onSelect = {
     delete: handleDelete,
     edit: () =>

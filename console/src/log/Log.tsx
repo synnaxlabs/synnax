@@ -28,7 +28,7 @@ export const useSyncComponent = Workspace.createSyncComponent(
   "Log",
   async ({ key, workspace, store, fluxStore, client }) => {
     const storeState = store.getState();
-    if (!Access.editGranted({ id: log.ontologyID(key), store: fluxStore, client }))
+    if (!Access.updateGranted({ id: log.ontologyID(key), store: fluxStore, client }))
       return;
     const data = select(storeState, key);
     if (data == null) return;
@@ -115,7 +115,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Log",
   icon: <Icon.Log />,
-  useVisible: () => Access.useEditGranted(log.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID),
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 

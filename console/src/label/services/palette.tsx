@@ -19,7 +19,7 @@ const EDIT_COMMAND: Palette.Command = {
   icon: <Icon.Label />,
   onSelect: ({ placeLayout }) => placeLayout(Label.EDIT_LAYOUT),
   visible: ({ store, client }) =>
-    Access.editGranted({ id: label.TYPE_ONTOLOGY_ID, store, client }),
+    Access.updateGranted({ id: label.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 export const COMMANDS = [EDIT_COMMAND];

@@ -98,7 +98,7 @@ const AddToNewPlotIcon = Icon.createComposite(Icon.LinePlot, {
 });
 
 export const AddToNewPlotMenuItem = () => {
-  const canAddToNewPlot = Access.useEditGranted(lineplot.TYPE_ONTOLOGY_ID);
+  const canAddToNewPlot = Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
   if (!canAddToNewPlot) return null;
   return (
     <PMenu.Item itemKey="addToNewPlot">
@@ -113,7 +113,7 @@ const AddToActivePlotIcon = Icon.createComposite(Icon.LinePlot, {
 });
 
 export const AddToActivePlotMenuItem = () => {
-  const canAddToActivePlot = Access.useEditGranted(lineplot.TYPE_ONTOLOGY_ID);
+  const canAddToActivePlot = Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
   if (!canAddToActivePlot) return null;
   return (
     <PMenu.Item itemKey="addToActivePlot">
@@ -198,7 +198,7 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
   const client = Synnax.use();
   const ranges = useSelectMultiple();
   const id = ranger.ontologyID(key ?? "");
-  const canEditAccess = Access.useEditGranted(id);
+  const canEditAccess = Access.useUpdateGranted(id);
   const canDeleteAccess = Access.useDeleteGranted(id);
   const handleCreate = (key?: string): void => {
     placeLayout(createCreateLayout({ key }));
@@ -286,7 +286,7 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
                 <PMenu.Divider />
                 <PMenu.Item itemKey="save">
                   <Icon.Save />
-                  {`Save to ${client.params.name ?? "Synnax"}`}
+                  Save to Synnax
                 </PMenu.Item>
               </>
             )

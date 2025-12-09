@@ -374,6 +374,41 @@ var _ = Describe("Retrieve", func() {
 			Expect(res).To(Equal(entries))
 		})
 	})
+	Describe("GetWhereKeys", func() {
+		It("Should return keys when WhereKeys has been called", func() {
+			q := gorp.NewRetrieve[int, entry]().WhereKeys(1, 2, 3)
+			keys, ok := gorp.GetWhereKeys[int](q.Params)
+			Expect(ok).To(BeTrue())
+			Expect(keys).To(Equal([]int{1, 2, 3}))
+		})
+		It("Should return false when WhereKeys has not been called", func() {
+			q := gorp.NewRetrieve[int, entry]()
+			_, ok := gorp.GetWhereKeys[int](q.Params)
+			Expect(ok).To(BeFalse())
+		})
+		It("Should accumulate keys across multiple WhereKeys calls", func() {
+			q := gorp.NewRetrieve[int, entry]().WhereKeys(1, 2).WhereKeys(3, 4)
+			keys, ok := gorp.GetWhereKeys[int](q.Params)
+			Expect(ok).To(BeTrue())
+			Expect(keys).To(Equal([]int{1, 2, 3, 4}))
+		})
+	})
+	Describe("HasFilters", func() {
+		It("Should return true when Where has been called", func() {
+			q := gorp.NewRetrieve[int, entry]().Where(func(_ gorp.Context, e *entry) (bool, error) {
+				return e.ID == 1, nil
+			})
+			Expect(gorp.HasFilters(q.Params)).To(BeTrue())
+		})
+		It("Should return false when Where has not been called", func() {
+			q := gorp.NewRetrieve[int, entry]().WhereKeys(1, 2, 3)
+			Expect(gorp.HasFilters(q.Params)).To(BeFalse())
+		})
+		It("Should return false for a fresh query", func() {
+			q := gorp.NewRetrieve[int, entry]()
+			Expect(gorp.HasFilters(q.Params)).To(BeFalse())
+		})
+	})
 	Describe("Count", func() {
 		Context("WhereKeys", func() {
 			It("Should return the count of existing keys", func() {

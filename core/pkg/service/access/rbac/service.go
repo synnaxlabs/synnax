@@ -153,14 +153,17 @@ func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 	if err != nil {
 		return err
 	}
-	return lo.Ternary(allowRequest(req, v), access.Granted, access.Denied)
+	if allowRequest(req, v) {
+		return nil
+	}
+	return access.ErrDenied
 }
 
 func allowRequest(req access.Request, policies []policy.Policy) bool {
 	for _, requestedObj := range req.Objects {
 		found := false
 		for _, p := range policies {
-			hasAction := lo.Contains(p.Actions, req.Action) || lo.Contains(p.Actions, access.ActionAll)
+			hasAction := lo.Contains(p.Actions, req.Action)
 			if !hasAction {
 				continue
 			}

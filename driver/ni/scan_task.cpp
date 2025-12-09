@@ -10,6 +10,7 @@
 #include <regex>
 #include <string>
 
+#include "driver/ni/errors.h"
 #include "driver/ni/scan_task.h"
 
 ni::Scanner::Scanner(
@@ -20,6 +21,7 @@ ni::Scanner::Scanner(
     cfg(std::move(cfg)), task(std::move(task)), syscfg(syscfg) {}
 
 const auto SKIP_DEVICE_ERR = xerrors::Error("ni.skip_device", "");
+const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
 
 std::pair<ni::Device, xerrors::Error>
 ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
@@ -135,7 +137,14 @@ ni::Scanner::scan(const common::ScannerContext &ctx) {
         nullptr,
         &resources
     );
-    if (err) return {devices, err};
+    if (err) {
+        if (err.matches(ni::END_OF_ENUM)) {
+            if (ctx.count % NO_DEVICES_LOG_MULTIPLIER == 0)
+                LOG(INFO) << SCAN_LOG_PREFIX << "no devices found.";
+            return {devices, xerrors::NIL};
+        }
+        return {devices, err};
+    }
 
     while (true) {
         if (const auto next_err = this->syscfg->NextResource(
@@ -172,7 +181,7 @@ xerrors::Error ni::Scanner::start() {
             nullptr,
             NISysCfgLocaleDefault,
             NISysCfgBoolTrue,
-            (this->cfg.rate.period() - telem::SECOND).milliseconds(),
+            (this->cfg.scan_rate.period() - telem::SECOND).milliseconds(),
             nullptr,
             &this->session
         ))

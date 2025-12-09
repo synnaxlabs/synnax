@@ -72,7 +72,7 @@ var (
 	ownerPolicy = policy.Policy{
 		Name:     ownerRoleName,
 		Objects:  allObjects,
-		Actions:  []access.Action{access.ActionAll},
+		Actions:  access.AllActions,
 		Internal: true,
 	}
 )
@@ -109,7 +109,7 @@ var (
 				{Type: symbol.OntologyType},
 				{Type: status.OntologyType},
 			},
-			Actions:  []access.Action{access.ActionAll},
+			Actions:  access.AllActions,
 			Internal: true,
 		},
 		{
@@ -140,7 +140,7 @@ var (
 				{Type: framer.OntologyType},
 				{Type: ranger.OntologyType},
 			},
-			Actions:  []access.Action{access.ActionAll},
+			Actions:  access.AllActions,
 			Internal: true,
 		},
 		{

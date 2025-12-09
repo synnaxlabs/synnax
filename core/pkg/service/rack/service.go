@@ -28,8 +28,10 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // Config is the configuration for creating a Service.
@@ -137,6 +139,9 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	if err = s.loadEmbeddedRack(ctx); err != nil {
 		return nil, err
 	}
+	if err = s.migrateStatusesForExistingRacks(ctx); err != nil {
+		return nil, err
+	}
 	cfg.Ontology.RegisterService(s)
 	s.monitor, err = openMonitor(s.Child("monitor"), s)
 	if err != nil {
@@ -187,6 +192,50 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	err = s.NewWriter(nil).Create(ctx, &embeddedRack)
 	s.EmbeddedKey = embeddedRack.Key
 	return err
+}
+
+func (s *Service) migrateStatusesForExistingRacks(ctx context.Context) error {
+	var racks []Rack
+	if err := s.NewRetrieve().Entries(&racks).Exec(ctx, s.DB); err != nil {
+		return err
+	}
+	if len(racks) == 0 {
+		return nil
+	}
+	statusKeys := make([]string, len(racks))
+	for i, r := range racks {
+		statusKeys[i] = OntologyID(r.Key).String()
+	}
+	var existingStatuses []Status
+	if err := status.NewRetrieve[StatusDetails](s.Status).
+		WhereKeys(statusKeys...).
+		Entries(&existingStatuses).
+		Exec(ctx, nil); err != nil && !errors.Is(err, query.NotFound) {
+		return err
+	}
+	existingKeys := make(map[string]bool)
+	for _, stat := range existingStatuses {
+		existingKeys[stat.Key] = true
+	}
+	var missingStatuses []Status
+	for _, r := range racks {
+		key := OntologyID(r.Key).String()
+		if !existingKeys[key] {
+			missingStatuses = append(missingStatuses, Status{
+				Key:     key,
+				Name:    r.Name,
+				Time:    telem.Now(),
+				Variant: xstatus.WarningVariant,
+				Message: "Status unknown",
+				Details: StatusDetails{Rack: r.Key},
+			})
+		}
+	}
+	if len(missingStatuses) == 0 {
+		return nil
+	}
+	s.L.Info("creating unknown statuses for existing racks", zap.Int("count", len(missingStatuses)))
+	return status.NewWriter[StatusDetails](s.Status, nil).SetMany(ctx, &missingStatuses)
 }
 
 func (s *Service) Close() error {

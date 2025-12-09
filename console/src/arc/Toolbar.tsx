@@ -41,7 +41,7 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({ onCreate }: EmptyContentProps) => {
-  const canCreateArc = Access.useEditGranted(arc.TYPE_ONTOLOGY_ID);
+  const canCreateArc = Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No existing Arcs."
@@ -59,7 +59,7 @@ const Content = () => {
   const placeLayout = Layout.usePlacer();
   const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
-  const canCreateArc = Access.useEditGranted(arc.TYPE_ONTOLOGY_ID);
+  const canCreateArc = Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
 
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
@@ -209,7 +209,7 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 225,
   maxSize: 400,
-  useVisible: () => Access.useViewGranted(arc.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID),
 };
 
 interface ArcListItemProps extends List.ItemProps<arc.Key> {
@@ -220,7 +220,7 @@ interface ArcListItemProps extends List.ItemProps<arc.Key> {
 const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
-  const hasEditPermission = Access.useEditGranted(arc.ontologyID(itemKey));
+  const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
 
   const variant = arcItem?.status?.variant;
   const isLoading = variant === "loading";
@@ -280,7 +280,7 @@ const ContextMenu = ({
 }: ContextMenuProps) => {
   const ids = arc.ontologyID(keys);
   const canDeleteAccess = Access.useDeleteGranted(ids);
-  const canEditAccess = Access.useEditGranted(ids);
+  const canEditAccess = Access.useUpdateGranted(ids);
   const canDeploy = arcs.some((arc) => arc.deploy === false);
   const canStop = arcs.some((arc) => arc.deploy === true);
   const someSelected = arcs.length > 0;

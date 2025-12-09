@@ -19,14 +19,12 @@ import { policy } from "@/access/policy/aether";
 import { type role } from "@/access/role/aether";
 import { Flux } from "@/flux";
 
-export type Action = "create" | "delete" | "retrieve" | "update";
-
 const PERMISSION_PLURAL_RESOURCE_NAME = "Permissions";
 
 export interface PermissionsQuery {
   subject?: ontology.ID;
   objects: ontology.ID | ontology.ID[];
-  actions: Action | Action[];
+  action: access.Action;
 }
 
 export interface FluxSubStore extends role.FluxSubStore, policy.FluxSubStore {}
@@ -54,10 +52,10 @@ const resolveSubjectAsync = async (
   return user.ontologyID(u.key);
 };
 
-const resolveSubject = (client: Synnax, subject?: ontology.ID): ontology.ID => {
+const resolveSubject = (client: Synnax, subject?: ontology.ID): ontology.ID | null => {
   if (subject != null) return subject;
   const u = client?.auth?.user;
-  if (u == null) throw new UnexpectedError("User not found");
+  if (u == null) return null;
   return user.ontologyID(u.key);
 };
 
@@ -70,12 +68,13 @@ export interface IsGrantedParams {
 export const isGranted = ({
   store,
   client,
-  query: { subject, objects, actions },
+  query: { subject, objects, action },
 }: IsGrantedParams): boolean => {
   if (client == null) return false;
   const sub = resolveSubject(client, subject);
+  if (sub == null) return false;
   const policies = policy.cachedRetrieveForSubject(store, sub);
-  return access.allowRequest({ subject: sub, objects, actions }, policies);
+  return access.allowRequest({ subject: sub, objects, action }, policies);
 };
 
 export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query"> {}
@@ -88,51 +87,46 @@ const { useRetrieve: useGrantedBase } = Flux.createRetrieve<
   name: PERMISSION_PLURAL_RESOURCE_NAME,
   retrieve: async ({
     client,
-    query: { subject, objects, actions },
+    query: { subject, objects, action },
     store,
   }: Flux.RetrieveParams<PermissionsQuery, FluxSubStore>): Promise<boolean> => {
     subject = await resolveSubjectAsync(client, subject);
     if (subject == null) return false;
     const policies = await policy.retrieveForSubject({ client, subject, store });
-    return access.allowRequest({ subject, objects, actions }, policies);
+    return access.allowRequest({ subject, objects, action }, policies);
   },
 });
 
 export const useGranted = (query: PermissionsQuery) =>
   useGrantedBase(query)?.data ?? false;
 
-export const VIEW_ACTIONS: Action[] = ["retrieve"];
-export const DELETE_ACTIONS: Action[] = ["delete"];
-export const CREATE_ACTIONS: Action[] = ["create"];
-export const EDIT_ACTIONS: Action[] = ["update"];
+export const useRetrieveGranted = (id: ontology.ID | ontology.ID[]): boolean =>
+  useGranted({ objects: id, action: "retrieve" });
 
-export const useViewGranted = (id: ontology.ID | ontology.ID[]): boolean =>
-  useGranted({ objects: id, actions: VIEW_ACTIONS });
-
-export const useEditGranted = (id: ontology.ID | ontology.ID[]): boolean =>
-  useGranted({ objects: id, actions: EDIT_ACTIONS });
+export const useUpdateGranted = (id: ontology.ID | ontology.ID[]): boolean =>
+  useGranted({ objects: id, action: "update" });
 
 export const useDeleteGranted = (id: ontology.ID | ontology.ID[]): boolean =>
-  useGranted({ objects: id, actions: DELETE_ACTIONS });
+  useGranted({ objects: id, action: "delete" });
 
 export const useCreateGranted = (id: ontology.ID | ontology.ID[]): boolean =>
-  useGranted({ objects: id, actions: CREATE_ACTIONS });
+  useGranted({ objects: id, action: "create" });
 
 export interface GrantedParams extends Omit<IsGrantedParams, "query"> {
   id: ontology.ID | ontology.ID[];
 }
 
 export const viewGranted = ({ id, ...rest }: GrantedParams): boolean =>
-  isGranted({ ...rest, query: { objects: id, actions: VIEW_ACTIONS } });
+  isGranted({ ...rest, query: { objects: id, action: "retrieve" } });
 
-export const editGranted = ({ id, ...rest }: GrantedParams): boolean =>
-  isGranted({ ...rest, query: { objects: id, actions: EDIT_ACTIONS } });
+export const updateGranted = ({ id, ...rest }: GrantedParams): boolean =>
+  isGranted({ ...rest, query: { objects: id, action: "update" } });
 
 export const deleteGranted = ({ id, ...rest }: GrantedParams): boolean =>
-  isGranted({ ...rest, query: { objects: id, actions: DELETE_ACTIONS } });
+  isGranted({ ...rest, query: { objects: id, action: "delete" } });
 
 export const createGranted = ({ id, ...rest }: GrantedParams): boolean =>
-  isGranted({ ...rest, query: { objects: id, actions: CREATE_ACTIONS } });
+  isGranted({ ...rest, query: { objects: id, action: "create" } });
 
 export interface LoadPermissionsQuery {
   subject?: ontology.ID;

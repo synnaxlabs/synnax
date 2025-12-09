@@ -28,7 +28,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useSyncComponent(layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelectOptional(layoutKey);
-  const hasEditPermission = Access.useEditGranted(log.ontologyID(layoutKey));
+  const hasEditPermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
   const handleChannelChange = (v: channel.Key) =>
     dispatch(setChannels({ key: layoutKey, channels: [v ?? 0] }));
   const handleExport = useExport();

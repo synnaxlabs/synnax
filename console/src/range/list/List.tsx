@@ -44,7 +44,7 @@ export interface ListProps
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Access.useEditGranted(ranger.TYPE_ONTOLOGY_ID);
+  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No ranges found."
@@ -162,7 +162,7 @@ export const List = ({
 
 const AddButton = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreateRange = Access.useEditGranted(ranger.TYPE_ONTOLOGY_ID);
+  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
   if (!canCreateRange) return null;
   return (
     <Button.Button tooltip="Create Range" onClick={() => placeLayout(CREATE_LAYOUT)}>

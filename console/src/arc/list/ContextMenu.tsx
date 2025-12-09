@@ -24,7 +24,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const isSingle = arcs.length === 1;
   const ids = arc.ontologyID(keys);
   const canDeleteAccess = Access.useDeleteGranted(ids);
-  const canEditAccess = Access.useEditGranted(ids);
+  const canEditAccess = Access.useUpdateGranted(ids);
   const ctx = Form.useContext();
   const rename = Modals.useRename();
   const confirm = useConfirmDelete({
