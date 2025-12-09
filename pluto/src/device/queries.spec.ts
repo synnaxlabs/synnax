@@ -169,8 +169,9 @@ describe("queries", () => {
         }),
         { wrapper },
       );
-      await waitFor(() => expect(result1.current.device.variant).toBeDefined());
+      await waitFor(() => expect(result1.current.device.variant).toEqual("success"));
       expect(result1.current.device.data?.key).toEqual(dev.key);
+      expect(result1.current.device.data?.status).toBeDefined();
       result1.current.store.statuses.set(
         status.create<typeof device.statusDetailsZ>({
           key: device.statusKey(dev.key),
