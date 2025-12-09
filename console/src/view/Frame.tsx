@@ -22,7 +22,7 @@ import {
   Status,
   View as PView,
 } from "@synnaxlabs/pluto";
-import { location, type record, uuid } from "@synnaxlabs/x";
+import { caseconv, location, type record, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import {
   type PropsWithChildren,
@@ -34,7 +34,7 @@ import {
 
 import { Controls } from "@/components";
 import { Modals } from "@/modals";
-import { Provider } from "@/view/context";
+import { FormContext } from "@/view/context";
 
 export interface Query extends List.PagerParams, record.Unknown {}
 
@@ -64,18 +64,46 @@ export const Frame = <
     // type assertion here to deal with the weird setter<Q, Partial<Q>> type that causes
     // typing issues.
     retrieve: retrieve as List.UsePagerArgs["retrieve"],
+    pageSize: 50,
   });
-  const defaultViewKey = useMemo(() => uuid.create(), []);
+  const defaultView: view.View = useMemo(
+    () => ({
+      key: uuid.create(),
+      name: `All ${caseconv.capitalize(plural(resourceType))}`,
+      type: resourceType,
+      query: {},
+    }),
+    [resourceType],
+  );
   const { form, save } = PView.useForm({
     query: {},
-    initialValues: { type: resourceType, name: "", key: defaultViewKey, query: {} },
+    initialValues: defaultView,
     autoSave: true,
     beforeSave: async ({ value }) => {
       const { key, query } = value();
-      // type assertion because the current implementation of the query client doesn't
-      // support custom typing yet.
-      retrieve((p) => ({ ...p, ...(query as Q), offset: 0, limit: 25 }));
-      return key !== defaultViewKey;
+      const isDefaultView = key === defaultView.key;
+      retrieve((p) => {
+        // type assertion because the current implementation of the query client doesn't
+        // support custom typing yet.
+        const queryObj = query as Q;
+        // TODO: figure out what do do here;
+        // When switching to default view (All Ranges) with empty query, start with
+        // a clean base to ensure filter properties like hasLabels are cleared
+        if (isDefaultView && Object.keys(queryObj).length === 0)
+          return {
+            offset: 0,
+            limit: 100,
+            searchTerm: "",
+          } as Q;
+        return {
+          ...p,
+          ...queryObj,
+          offset: 0,
+          limit: 100,
+          searchTerm: "",
+        };
+      });
+      return !isDefaultView;
     },
   });
   const formKey = Form.useFieldValue<view.Key, view.Key, typeof view.newZ>("key", {
@@ -84,8 +112,8 @@ export const Frame = <
   const canEditView = Access.useUpdateGranted(view.ontologyID(formKey ?? ""));
   const [editable, setEditable] = useState(canEditView);
   const contextValue = useMemo(
-    () => ({ editable, resourceType, search, save, defaultViewKey }),
-    [editable, resourceType, search, save, defaultViewKey],
+    () => ({ editable, resourceType, search, save, defaultView }),
+    [editable, resourceType, search, save, defaultView],
   );
   const handleError = Status.useErrorHandler();
   const renameModal = Modals.useRename();
@@ -136,7 +164,7 @@ export const Frame = <
           value={selected}
           onFetchMore={fetchMore}
         >
-          <Provider value={contextValue}>{children}</Provider>
+          <FormContext value={contextValue}>{children}</FormContext>
         </Select.Frame>
       </Flex.Box>
     </Form.Form>

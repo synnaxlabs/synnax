@@ -11,10 +11,11 @@ import { Icon, Input } from "@synnaxlabs/pluto";
 import { plural } from "pluralize";
 import { type ReactElement, useCallback, useState } from "react";
 
-import { useContext } from "@/view/context";
+import { useContext, useFormContext } from "@/view/context";
 
 export const Search = (): ReactElement | null => {
-  const { editable, resourceType, search } = useContext("View.Search");
+  const { search } = useFormContext("View.Search");
+  const { editable, resourceType } = useContext("View.Search");
   const [value, setValue] = useState("");
   const handleChange = useCallback(
     (v: string) => {

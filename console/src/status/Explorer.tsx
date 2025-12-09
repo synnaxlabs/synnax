@@ -36,25 +36,26 @@ export const Explorer: Layout.Renderer = () => {
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
   const canCreate = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
   return (
-    <View.Frame {...listProps} resourceType="status">
-      <View.Views />
-      <View.Toolbar>
-        <View.FilterMenu>
-          <Label.Filter.MenuItem />
-        </View.FilterMenu>
-        <View.Search />
-        <Label.Filter.Chips />
-        {canCreate && (
-          <Button.Button
-            onClick={handleCreate}
-            tooltipLocation={location.BOTTOM_LEFT}
-            tooltip="Create a status"
-          >
-            <Icon.Add />
-          </Button.Button>
-        )}
-      </View.Toolbar>
-      <View.Items>{item}</View.Items>
-    </View.Frame>
+    <View.Provider resourceType="status">
+      <View.Form {...listProps}>
+        <View.Toolbar>
+          <View.FilterMenu>
+            <Label.Filter.MenuItem />
+          </View.FilterMenu>
+          <View.Search />
+          <Label.Filter.Chips />
+          {canCreate && (
+            <Button.Button
+              onClick={handleCreate}
+              tooltipLocation={location.BOTTOM_LEFT}
+              tooltip="Create a status"
+            >
+              <Icon.Add />
+            </Button.Button>
+          )}
+        </View.Toolbar>
+        <View.Items>{item}</View.Items>
+      </View.Form>
+    </View.Provider>
   );
 };

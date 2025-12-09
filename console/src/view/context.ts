@@ -10,15 +10,34 @@
 import { type ontology, type view } from "@synnaxlabs/client";
 import { context, type Flux } from "@synnaxlabs/pluto";
 
-export interface ContextValue {
-  editable: boolean;
-  defaultViewKey: view.Key;
-  resourceType: ontology.ResourceType;
+export interface FormContextValue {
   search: (term: string) => void;
   save: (opts?: Flux.FetchOptions) => void;
 }
 
-export const [Provider, useContext] = context.create<ContextValue>({
+export const [FormContext, useFormContext] = context.create<FormContextValue>({
+  displayName: "View.FormContext",
+  providerName: "View.Form",
+});
+
+export interface View extends view.View {
+  static?: true;
+}
+
+export interface StaticView extends View {
+  static: true;
+}
+
+export interface ContextValue {
+  resourceType: ontology.ResourceType;
+  selected: view.Key;
+  select: (key: view.Key) => void;
+  editable: boolean;
+  getView: (key: view.Key) => view.View | undefined;
+  staticViews: Set<view.Key>;
+}
+
+export const [Context, useContext] = context.create<ContextValue>({
   displayName: "View.Context",
-  providerName: "View.Frame",
+  providerName: "View.Provider",
 });

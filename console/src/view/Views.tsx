@@ -20,75 +20,66 @@ import {
   Text,
   View,
 } from "@synnaxlabs/pluto";
-import { array, caseconv } from "@synnaxlabs/x";
-import { plural } from "pluralize";
+import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { useContext } from "@/view/context";
+import { useViewContext } from "@/view/context";
+
+export interface SelectorProps {
+  resourceType: ontology.ResourceType;
+}
 
 export const Views = (): ReactElement | null => {
-  const { resourceType, save, defaultViewKey } = useContext("View.Views");
-  const remote = View.useList({ initialQuery: { types: [resourceType] } });
-  const data = useMemo(
-    () => [
-      {
-        key: defaultViewKey,
-        name: `All ${caseconv.capitalize(plural(resourceType))}`,
-        type: resourceType,
-        query: {},
-      },
-    ],
-    [resourceType, defaultViewKey],
-  );
+  const { resourceType, save, defaultView } = useViewContext("View.Views");
+  const data: view.View[] = useMemo(() => [defaultView], [defaultView]);
   const staticData = List.useStaticData<view.Key, view.View>({ data });
-  const combinedData = List.useCombinedData<view.Key, view.View>({
-    first: staticData,
-    second: remote,
-  });
-  const { fetchMore } = List.usePager({
-    retrieve: useCallback(
-      (args) => {
-        staticData.retrieve(args);
-        remote.retrieve(args);
-      },
-      [staticData.retrieve, remote.retrieve],
-    ),
-  });
+  const remoteData = View.useList({ initialQuery: { types: [resourceType] } });
+  const combinedData = List.useCombinedData<view.Key, view.View>(
+    staticData,
+    remoteData,
+  );
+  const { getItem } = combinedData;
   const { set, reset } = Form.useContext();
-  const selected = Form.useFieldValue<view.Key>("key", { optional: true });
+  const selected = Form.useFieldValue<view.Key>("key");
   const handleSelectView = useCallback(
     (view: view.Key) => {
-      const v = combinedData.getItem?.(view);
-      if (v == null) return;
-      set("", v);
+      if (view === defaultView.key) reset();
+      else {
+        const v = getItem?.(view);
+        if (v == null) throw new UnexpectedError(`View with key ${view} not found`);
+        set("", v);
+      }
       save();
     },
-    [set, reset, combinedData.getItem],
+    [set, reset, getItem, defaultView.key, save],
   );
   const contextMenuProps = PMenu.useContextMenu();
   return (
-    <PMenu.ContextMenu {...contextMenuProps} menu={contextMenu}>
-      <Select.Frame<view.Key, view.View>
-        {...combinedData}
-        value={selected ?? undefined}
-        onFetchMore={fetchMore}
-        multiple={false}
-        onChange={handleSelectView}
-      >
+    <Select.Frame<view.Key, view.View>
+      {...combinedData}
+      value={selected}
+      onFetchMore={() => {
+        remoteData.retrieve((p) => p);
+      }}
+      multiple={false}
+      onChange={handleSelectView}
+    >
+      <PMenu.ContextMenu {...contextMenuProps} menu={contextMenu}>
         <List.Items<view.Key>
           className={CSS.BE("view", "views")}
           x
+          displayItems={Infinity}
           align="center"
           gap="medium"
           onContextMenu={contextMenuProps.open}
         >
           {item}
         </List.Items>
-      </Select.Frame>
-    </PMenu.ContextMenu>
+      </PMenu.ContextMenu>
+    </Select.Frame>
   );
 };
 
@@ -122,7 +113,9 @@ const Item = ({ itemKey }: ItemProps): ReactElement | null => {
 const item = Component.renderProp(Item);
 
 const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
-  const { defaultViewKey } = useContext("View.Views");
+  const {
+    defaultView: { key: defaultViewKey },
+  } = useViewContext("View.Views");
   const filteredKeys = keys.filter((k) => k !== defaultViewKey);
   const confirm = useConfirmDelete({
     icon: "Delete",
