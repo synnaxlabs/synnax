@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import synnax as sy
+
 from console.case import ConsoleCase
 from console.plot import Plot
 
@@ -26,11 +28,13 @@ class PlotAbcd(ConsoleCase):
         self.subscribe(
             ["async_a_state", "async_b_state", "async_c_state", "async_d_state"]
         )
+        self.subscribe(["t_a", "t_b", "t_c", "t_d"])
 
     def run(self) -> None:
         console = self.console
         client = self.client
         plot = Plot(client, console, "abcd_plot")
+        sy.sleep(5)
 
         plot.add_channels("Y1", ["d_ab", "d_bc", "d_cd", "d_da"])
         plot.add_channels("Y2", ["t_a", "t_b", "t_c", "t_d"])

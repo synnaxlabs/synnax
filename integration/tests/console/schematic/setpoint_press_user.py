@@ -22,7 +22,7 @@ class SetpointPressUser(ConsoleCase):
     """
 
     def setup(self) -> None:
-        self.set_manual_timeout(90)
+        self.set_manual_timeout(60)
         self.subscribe(
             [
                 "test_flag_cmd",
