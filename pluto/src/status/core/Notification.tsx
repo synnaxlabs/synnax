@@ -71,7 +71,7 @@ export const Notification = ({
             className={CSS(CSS.BE("notification", "name"))}
           >
             <Indicator variant={variant} />
-            <Text.Text el="span" overflow="ellipsis">
+            <Text.Text el="span" overflow="ellipsis" status={variant}>
               {primitive.isNonZero(name) && name}
             </Text.Text>
           </Text.Text>
@@ -104,8 +104,8 @@ export const Notification = ({
         ) : (
           <Text.Text
             className={CSS(CSS.BE("notification", "message"))}
-            style={{ flexGrow: 1 }}
-            lineClamp={2}
+            lineClamp={3}
+            grow
           >
             {message}
           </Text.Text>
@@ -114,8 +114,8 @@ export const Notification = ({
           <Text.Text
             className={CSS(CSS.BE("notification", "description"))}
             level="small"
-            style={{ flexGrow: 1 }}
             lineClamp={8}
+            grow
           >
             {description}
           </Text.Text>
