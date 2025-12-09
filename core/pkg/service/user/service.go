@@ -11,10 +11,12 @@ package user
 
 import (
 	"context"
+	"io"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/jerky/migrate"
@@ -32,6 +34,10 @@ type Config struct {
 	// Group is used to create the top level "Users" group that will be the default
 	// parent of all users.
 	Group *group.Service
+	// Signals is used to propagate user changes through the Synnax signals' channel
+	// communication mechanism.
+	// [OPTIONAL]
+	Signals *signals.Provider
 }
 
 var (
@@ -44,6 +50,7 @@ func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
 
@@ -60,14 +67,12 @@ func (c Config) Validate() error {
 type Service struct {
 	// Config is the configuration for the service.
 	Config
-	group group.Group
+	shutdownSignals io.Closer
 }
 
-const groupName = "Users"
-
-// NewService opens a new Service with the given context ctx and configurations configs.
-func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
-	cfg, err := config.New(defaultConfig, cfgs...)
+// OpenService opens a new Service with the given context ctx and configurations configs.
+func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
+	cfg, err := config.New(defaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -77,12 +82,21 @@ func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}); err != nil {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
-	if err != nil {
-		return nil, err
-	}
-	s := &Service{Config: cfg, group: g}
+
+	s := &Service{Config: cfg}
 	cfg.Ontology.RegisterService(s)
+
+	if cfg.Signals != nil {
+		cdcS, err := signals.PublishFromGorp[uuid.UUID, User](
+			ctx,
+			cfg.Signals,
+			signals.GorpPublisherConfigUUID[User](cfg.DB),
+		)
+		s.shutdownSignals = cdcS
+		if err != nil {
+			return nil, err
+		}
+	}
 	return s, nil
 }
 
@@ -111,4 +125,12 @@ func (s *Service) UsernameExists(ctx context.Context, username string) (bool, er
 			return u.Username == username, nil
 		}).
 		Exists(ctx, s.DB)
+}
+
+// Close closes the service and stops any signal publishing.
+func (s *Service) Close() error {
+	if s.shutdownSignals == nil {
+		return nil
+	}
+	return s.shutdownSignals.Close()
 }

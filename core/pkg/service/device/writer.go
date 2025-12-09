@@ -111,9 +111,12 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 	)
 }
 
-// Delete deletes the device with the given key.
+// Delete deletes the device with the given key and its associated status.
 func (w Writer) Delete(ctx context.Context, key string) error {
 	if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+		return err
+	}
+	if err := w.status.Delete(ctx, OntologyID(key).String()); err != nil {
 		return err
 	}
 	return gorp.NewDelete[string, Device]().WhereKeys(key).Exec(ctx, w.tx)

@@ -46,6 +46,7 @@ import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
+import { DefaultContextMenu } from "@/ontology/DefaultContextMenu";
 import {
   type BaseProps,
   type GetResource,
@@ -171,11 +172,15 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     onChange: useCallback(
       ({ data: resources, variant }, { id }) => {
         if (variant == "success") {
-          const converted = resources.map((r) => ({
+          const filtered = resources.filter((r) => {
+            const svc = services[r.id.type];
+            return svc.visible == null || svc.visible(r);
+          });
+          const converted = filtered.map((r) => ({
             key: ontology.idToString(r.id),
             children: services[r.id.type].hasChildren ? [] : undefined,
           }));
-          const ids = new Set(resources.map((r) => ontology.idToString(r.id)));
+          const ids = new Set(filtered.map((r) => ontology.idToString(r.id)));
           setNodes((prevNodes) => [
             ...Core.updateNodeChildren({
               tree: prevNodes,
@@ -219,7 +224,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const resources = await client.ontology.retrieveChildren(root);
       resources.forEach((r) => resourceStore.set(r));
       if (signal.aborted) return;
-      const nodes = resources.map((c) => ({
+      const filtered = resources.filter((r) => {
+        const svc = services[r.id.type];
+        return svc.visible == null || svc.visible(r);
+      });
+      const nodes = filtered.map((c) => ({
         key: ontology.idToString(c.id),
         children: services[c.id.type].hasChildren ? [] : undefined,
       }));
@@ -432,7 +441,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const depth = Core.getDepth(itemKey, shapeRef.current);
       startDrag([
         { type: Core.HAUL_TYPE, key: itemKey, data: { depth } },
-        ...haulItems.map((item) => ({ ...item, data: { depth } })),
+        ...haulItems.map((item) => ({ ...item, data: { ...item.data, depth } })),
       ]);
     },
     [getResource, selectedRef],
@@ -458,7 +467,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const handleContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps) => {
-      if (keys.length === 0 || client == null) return <Layout.DefaultContextMenu />;
+      if (client == null) return <Layout.DefaultContextMenu />;
+      if (keys.length === 0)
+        return <DefaultContextMenu root={root} state={getState()} />;
       const rightClickedButNotSelected = keys.find(
         (v) => !selectedRef.current.includes(v),
       );

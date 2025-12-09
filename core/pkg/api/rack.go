@@ -64,7 +64,7 @@ func (svc *RackService) Create(
 	var res RackCreateResponse
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: rack.OntologyIDsFromRacks(req.Racks),
 	}); err != nil {
 		return res, err
@@ -159,7 +159,7 @@ func (svc *RackService) Retrieve(
 
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: rack.OntologyIDsFromRacks(resRacks),
 	}); err != nil {
 		return res, err
@@ -186,7 +186,7 @@ func (svc *RackService) Delete(
 	var res types.Nil
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: rack.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err

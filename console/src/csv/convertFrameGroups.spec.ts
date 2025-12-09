@@ -80,6 +80,21 @@ describe("csv", () => {
         ];
         expect(convertFrameGroups(groups)).toEqual("");
       });
+      it("should work when a frame has several series for the same channel", () => {
+        const s1 = new Series({ dataType: DataType.TIMESTAMP, data: [1, 2, 3] });
+        const s2 = new Series({ dataType: DataType.FLOAT32, data: [10, 20, 30] });
+        const frame = new Frame({ 1: s1, 2: s2 });
+        frame.push(1, new Series({ dataType: DataType.TIMESTAMP, data: [4, 5, 6] }));
+        frame.push(2, new Series({ dataType: DataType.FLOAT32, data: [7, 8, 9] }));
+        const groups: FrameGroup[] = [{ index: 1, frame }];
+        expect(convertFrameGroups(groups)).toEqual(`1,10
+2,20
+3,30
+4,7
+5,8
+6,9
+`);
+      });
       it("should correctly work with empty series and filled series", () => {
         const emptySeries = new Series({ dataType: DataType.TIMESTAMP });
         const filledSeries = new Series({
@@ -147,15 +162,6 @@ describe("csv", () => {
           "Index channel 12 is not of type timestamp",
         );
       });
-      it("should throw an error if a frame is not vertical", () => {
-        const s = new Series({ dataType: DataType.TIMESTAMP });
-        const frame = new Frame({ 12: s });
-        frame.push(12, s);
-        const groups: FrameGroup[] = [{ index: 12, frame }];
-        expect(() => convertFrameGroups(groups)).toThrow(
-          "Frame with index channel 12 is not vertical",
-        );
-      });
       it("should throw an error if a series is not the same length as the index series", () => {
         const s1 = new Series({ dataType: DataType.TIMESTAMP, data: [1, 2, 3] });
         const s2 = new Series({ dataType: DataType.FLOAT32, data: [1, 2, 3, 4] });
@@ -163,7 +169,7 @@ describe("csv", () => {
           { index: 12, frame: new Frame({ 12: s1, 13: s2 }) },
         ];
         expect(() => convertFrameGroups(groups)).toThrow(
-          "Series for channel 13 is not the same length (4) as the series for index channel 12 (3)",
+          "Multi-series for channel 13 is not the same length (4) as the multi-series for index channel 12 (3)",
         );
       });
     });

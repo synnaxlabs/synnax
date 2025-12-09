@@ -202,11 +202,13 @@ describe("Ontology", () => {
       });
       const oldRootLength = (await client.ontology.retrieveChildren(ontology.ROOT_ID))
         .length;
+
       await client.ontology.moveChildren(
         ontology.ROOT_ID,
         group.ontologyID(g.key),
         group.ontologyID(g2.key),
       );
+
       const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
       expect(children.length).toEqual(1);
       const newRootLength = (await client.ontology.retrieveChildren(ontology.ROOT_ID))

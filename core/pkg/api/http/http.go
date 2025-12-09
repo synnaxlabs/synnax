@@ -87,11 +87,11 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transpo
 		SchematicCopy:     fhttp.UnaryServer[api.SchematicCopyRequest, api.SchematicCopyResponse](router, "/api/v1/workspace/schematic/copy"),
 
 		// SCHEMATIC SYMBOL
-		SchematicSymbolCreate:        fhttp.UnaryServer[api.SymbolCreateRequest, api.SymbolCreateResponse](router, "/api/v1/workspace/schematic/symbol/create"),
-		SchematicSymbolRetrieve:      fhttp.UnaryServer[api.SymbolRetrieveRequest, api.SymbolRetrieveResponse](router, "/api/v1/workspace/schematic/symbol/retrieve"),
-		SchematicSymbolDelete:        fhttp.UnaryServer[api.SymbolDeleteRequest, types.Nil](router, "/api/v1/workspace/schematic/symbol/delete"),
-		SchematicSymbolRename:        fhttp.UnaryServer[api.SymbolRenameRequest, types.Nil](router, "/api/v1/workspace/schematic/symbol/rename"),
-		SchematicSymbolRetrieveGroup: fhttp.UnaryServer[api.SymbolRetrieveGroupRequest, api.SymbolRetrieveGroupResponse](router, "/api/v1/workspace/schematic/symbol/retrieve_group"),
+		SchematicCreateSymbol:        fhttp.UnaryServer[api.SchematicCreateSymbolRequest, api.SchematicCreateSymbolResponse](router, "/api/v1/workspace/schematic/symbol/create"),
+		SchematicRetrieveSymbol:      fhttp.UnaryServer[api.SchematicRetrieveSymbolRequest, api.SchematicRetrieveSymbolResponse](router, "/api/v1/workspace/schematic/symbol/retrieve"),
+		SchematicDeleteSymbol:        fhttp.UnaryServer[api.SchematicDeleteSymbolRequest, types.Nil](router, "/api/v1/workspace/schematic/symbol/delete"),
+		SchematicRenameSymbol:        fhttp.UnaryServer[api.SchematicRenameSymbolRequest, types.Nil](router, "/api/v1/workspace/schematic/symbol/rename"),
+		SchematicRetrieveSymbolGroup: fhttp.UnaryServer[api.SchematicRetrieveSymbolGroupRequest, api.SchematicRetrieveSymbolGroupResponse](router, "/api/v1/workspace/schematic/symbol/retrieve_group"),
 
 		// LINE PLOT
 		LinePlotCreate:   fhttp.UnaryServer[api.LinePlotCreateRequest, api.LinePlotCreateResponse](router, "/api/v1/workspace/lineplot/create"),
@@ -141,6 +141,11 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transpo
 		AccessCreatePolicy:   fhttp.UnaryServer[api.AccessCreatePolicyRequest, api.AccessCreatePolicyResponse](router, "/api/v1/access/policy/create"),
 		AccessDeletePolicy:   fhttp.UnaryServer[api.AccessDeletePolicyRequest, types.Nil](router, "/api/v1/access/policy/delete"),
 		AccessRetrievePolicy: fhttp.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse](router, "/api/v1/access/policy/retrieve"),
+		AccessCreateRole:     fhttp.UnaryServer[api.AccessCreateRoleRequest, api.AccessCreateRoleResponse](router, "/api/v1/access/role/create"),
+		AccessDeleteRole:     fhttp.UnaryServer[api.AccessDeleteRoleRequest, types.Nil](router, "/api/v1/access/role/delete"),
+		AccessRetrieveRole:   fhttp.UnaryServer[api.AccessRetrieveRoleRequest, api.AccessRetrieveRoleResponse](router, "/api/v1/access/role/retrieve"),
+		AccessAssignRole:     fhttp.UnaryServer[api.AccessAssignRoleRequest, types.Nil](router, "/api/v1/access/role/assign"),
+		AccessUnassignRole:   fhttp.UnaryServer[api.AccessUnassignRoleRequest, types.Nil](router, "/api/v1/access/role/unassign"),
 
 		// ARC
 		ArcCreate:   fhttp.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse](router, "/api/v1/arc/create"),

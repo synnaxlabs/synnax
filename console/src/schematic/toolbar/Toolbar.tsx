@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import { Access, Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -20,7 +20,6 @@ import { useExport } from "@/schematic/export";
 import {
   useSelectControlStatus,
   useSelectEditable,
-  useSelectHasPermission,
   useSelectIsSnapshot,
   useSelectSelectedElementNames,
   useSelectToolbar,
@@ -41,7 +40,9 @@ interface NotEditableContentProps extends ToolbarProps {}
 const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
-  const hasEditingPermissions = useSelectHasPermission();
+  const hasEditingPermissions = Access.useUpdateGranted(
+    schematic.ontologyID(layoutKey),
+  );
   const isSnapshot = useSelectIsSnapshot(layoutKey);
   const isEditable = hasEditingPermissions && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
@@ -50,9 +51,11 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
       x
       message={`${name} is not editable.${isEditable ? " To make changes," : ""}`}
       action={
-        controlState === "acquired"
-          ? "release control and enable editing."
-          : "enable editing."
+        isEditable
+          ? controlState === "acquired"
+            ? "release control and enable editing."
+            : "enable editing."
+          : undefined
       }
       onClick={() => {
         dispatch(setEditable({ key: layoutKey, editable: true }));
@@ -69,12 +72,16 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar(layoutKey);
-  const isEditable = useSelectEditable(layoutKey) === true;
+  const editMode = useSelectEditable(layoutKey) === true;
   const handleExport = useExport();
   const selectedNames = useSelectSelectedElementNames(layoutKey);
+  const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
+  const isSnapshot = useSelectIsSnapshot(layoutKey);
+  const hasEditPermission = hasUpdatePermission && !isSnapshot;
+  const canEdit = hasEditPermission && editMode;
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
-      if (!isEditable) return <NotEditableContent layoutKey={layoutKey} />;
+      if (!canEdit) return <NotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "symbols":
           return <Symbols layoutKey={layoutKey} />;
@@ -84,7 +91,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           return <PropertiesControls layoutKey={layoutKey} />;
       }
     },
-    [layoutKey, isEditable],
+    [layoutKey, canEdit],
   );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
@@ -92,7 +99,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [dispatch, layoutKey],
   );
-  const canEdit = useSelectHasPermission();
   const value = useMemo(
     () => ({
       tabs: TABS,
@@ -125,7 +131,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
                 ontologyID={schematic.ontologyID(layoutKey)}
               />
             </Flex.Box>
-            {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />}
+            {hasEditPermission && (
+              <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />
+            )}
           </Flex.Box>
         </Core.Header>
         <Tabs.Content />
