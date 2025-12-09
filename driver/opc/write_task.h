@@ -37,11 +37,11 @@ struct OutputChan {
     const synnax::ChannelKey cmd_channel;
 
     explicit OutputChan(xjson::Parser &parser):
-        enabled(parser.optional<bool>("enabled", true)),
+        enabled(parser.field<bool>("enabled", true)),
         node(opc::NodeId::parse("node_id", parser)),
         cmd_channel([&parser] {
-            auto ch = parser.optional("cmd_channel", 0);
-            if (ch == 0) ch = parser.optional("channel", 0);
+            auto ch = parser.field<synnax::ChannelKey>("cmd_channel", 0);
+            if (ch == 0) ch = parser.field<synnax::ChannelKey>("channel", 0);
             if (ch == 0) parser.field_err("cmd_channel", "channel must be specified");
             return ch;
         }()) {}
@@ -66,7 +66,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->hardware.retrieve_device(this->device_key);
+        auto [dev, err] = client->devices.retrieve(this->device_key);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;

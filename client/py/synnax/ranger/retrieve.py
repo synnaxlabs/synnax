@@ -27,7 +27,6 @@ class _Response(Payload):
 
 
 class RangeRetriever:
-    __ENDPOINT = "/range/retrieve"
     __client: UnaryClient
     instrumentation: Instrumentation = NOOP
 
@@ -58,7 +57,7 @@ class RangeRetriever:
         return self.__execute(_Request(search_term=term))
 
     def __execute(self, req: _Request) -> list[RangePayload]:
-        res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
+        res, exc = self.__client.send("/range/retrieve", req, _Response)
         if exc is not None:
             raise exc
         if res.ranges is None:

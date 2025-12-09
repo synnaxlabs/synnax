@@ -14,9 +14,11 @@
 #include "glog/logging.h"
 
 #include "client/cpp/channel/channel.h"
+#include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
-#include "client/cpp/hardware/hardware.h"
+#include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
+#include "client/cpp/status/status.h"
 #include "client/cpp/transport.h"
 #include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xlog/xlog.h"
@@ -65,24 +67,21 @@ struct Config {
 
     template<typename ParserT>
     void override(ParserT &parser) {
-        this->host = parser.optional("host", this->host);
-        this->port = parser.optional("port", this->port);
-        this->username = parser.optional("username", this->username);
-        this->password = parser.optional("password", this->password);
-        this->client_cert_file = parser.optional(
+        this->host = parser.field("host", this->host);
+        this->port = parser.field("port", this->port);
+        this->username = parser.field("username", this->username);
+        this->password = parser.field("password", this->password);
+        this->client_cert_file = parser.field(
             "client_cert_file",
             this->client_cert_file
         );
-        this->client_key_file = parser.optional(
-            "client_key_file",
-            this->client_key_file
-        );
-        this->ca_cert_file = parser.optional("ca_cert_file", this->ca_cert_file);
-        this->clock_skew_threshold = telem::TimeSpan(parser.optional(
+        this->client_key_file = parser.field("client_key_file", this->client_key_file);
+        this->ca_cert_file = parser.field("ca_cert_file", this->ca_cert_file);
+        this->clock_skew_threshold = telem::TimeSpan(parser.field(
             "clock_skew_threshold",
             this->clock_skew_threshold.nanoseconds()
         ));
-        this->max_retries = parser.optional("max_retries", this->max_retries);
+        this->max_retries = parser.field("max_retries", this->max_retries);
     }
 
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
@@ -139,18 +138,12 @@ public:
     RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr);
     /// @brief Client for reading and writing telemetry to a cluster.
     FrameClient telem = FrameClient(nullptr, nullptr, ChannelClient());
-    /// @brief Client for managing devices and their configuration.
-    HardwareClient hardware = HardwareClient(
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr
-    );
+    /// @brief Client for managing racks.
+    RackClient racks = RackClient(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    /// @brief Client for managing devices.
+    DeviceClient devices = DeviceClient(nullptr, nullptr, nullptr);
+    /// @brief Client for managing statuses.
+    StatusClient statuses = StatusClient();
     std::shared_ptr<AuthMiddleware> auth = nullptr;
 
     /// @brief constructs the Synnax client from the provided configuration.
@@ -183,17 +176,20 @@ public:
             std::move(t.frame_write),
             ChannelClient(t.chan_retrieve, t.chan_create)
         );
-        this->hardware = HardwareClient(
+        this->racks = RackClient(
             std::move(t.rack_create_client),
             std::move(t.rack_retrieve),
             std::move(t.rack_delete),
             t.module_create,
             t.module_retrieve,
-            t.module_delete,
+            t.module_delete
+        );
+        this->devices = DeviceClient(
             std::move(t.device_create),
             std::move(t.device_retrieve),
             std::move(t.device_delete)
         );
+        this->statuses = StatusClient(t.status_retrieve, t.status_set, t.status_delete);
     }
 };
 }

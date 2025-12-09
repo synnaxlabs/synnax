@@ -26,6 +26,7 @@ import {
   keyZ,
   type Name,
   type New,
+  ontologyID,
   type Operation,
   type Params,
   type Payload,
@@ -222,8 +223,6 @@ export class Channel {
 }
 
 export const CALCULATION_STATUS_CHANNEL_NAME = "sy_calculation_status";
-
-const RETRIEVE_GROUP_ENDPOINT = "/channel/retrieve-group";
 
 const retrieveGroupReqZ = z.object({});
 
@@ -427,7 +426,7 @@ export class Client {
   async retrieveGroup(): Promise<group.Group> {
     const res = await sendRequired(
       this.client,
-      RETRIEVE_GROUP_ENDPOINT,
+      "/channel/retrieve-group",
       {},
       retrieveGroupReqZ,
       retrieveGroupResZ,
@@ -441,11 +440,6 @@ export const isCalculated = ({ virtual, expression }: Payload): boolean =>
 
 export const isLegacyCalculated = (pld: Payload): boolean =>
   isCalculated(pld) && pld.requires.length > 0;
-
-export const ontologyID = (key: Key): ontology.ID => ({
-  type: "channel",
-  key: key.toString(),
-});
 
 export const resolveLegacyCalculatedIndex = async (
   retrieve: (key: Key) => Promise<Payload | null>,

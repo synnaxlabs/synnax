@@ -18,6 +18,13 @@ a.pluto-text {
     }
 }
 
+span.pluto-text {
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    height: fit-content;
+}
+
 .pluto-text {
     margin: 0;
     &.pluto--direction-x {
@@ -66,7 +73,7 @@ a.pluto-text {
 
     &.pluto-text--overflow-ellipsis {
         white-space: nowrap;
-        overflow: hidden;
+        overflow-x: hidden;
         text-overflow: ellipsis;
         display: block;
     }
@@ -79,5 +86,16 @@ a.pluto-text {
 
     &.pluto-text--overflow-nowrap {
         white-space: nowrap;
+    }
+
+    &.pluto-text--overflow-wrap {
+        white-space: wrap;
+    }
+
+    &.pluto-text--line-clamp {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 }

@@ -31,15 +31,24 @@ interface NotificationsProps {
   adapters: Adapter[];
 }
 
+// Note: Hack to hide repeated device and rack success notifications.
+const hideRackAndDeviceSuccesses = (status: Status.NotificationSpec) =>
+  (status.variant !== "success" && status.variant !== "loading") ||
+  (!status.key.startsWith("rack") &&
+    !status.key.startsWith("device") &&
+    !status.key.startsWith("task"));
+
 export const Notifications = ({ adapters }: NotificationsProps): ReactElement => {
   const { statuses, silence } = Status.useNotifications();
-  const sugared = statuses.map((status) => {
-    for (const adapter of adapters) {
-      const result = adapter(status, silence);
-      if (result != null) return result;
-    }
-    return status;
-  }) as Sugared[];
+  const sugared = statuses
+    .map((status) => {
+      for (const adapter of adapters) {
+        const result = adapter(status, silence);
+        if (result != null) return result;
+      }
+      return status;
+    })
+    .filter(hideRackAndDeviceSuccesses) as Sugared[];
   return createPortal(
     <Flex.Box y className={CSS.B("notifications")}>
       {sugared.map((status) => (

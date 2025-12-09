@@ -36,7 +36,7 @@ on:
       - relic.conf
       - scripts/EnVar.dll
       - turbo.json
-      - vendor
+      - vendor/**
       - x/cpp/**
       - x/go/**
       - x/media/**
@@ -70,7 +70,7 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - turbo.json
-      - vendor
+      - vendor/**
       - x/cpp/**
       - x/go/**
       - x/ts/**
@@ -307,9 +307,9 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" != "pull_request" ]; then
-            mv synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+            mv synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ steps.os.outputs.OS }}${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/driver/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
           else
-            mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+            mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/driver/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
           fi
 
       - name: Create Driver Install Script for NI Linux RT

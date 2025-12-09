@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor, type status } from "@synnaxlabs/x";
-import { createContext, use } from "react";
+import { type destructor, type status } from "@synnaxlabs/x";
 import { type z } from "zod";
 
+import { context } from "@/context";
 import { type State } from "@/form/state";
 
 export interface RemoveFunc {
@@ -31,7 +31,7 @@ export interface Listener {
 }
 
 export interface BindFunc {
-  (props: Listener): Destructor;
+  (props: Listener): destructor.Destructor;
 }
 
 export type Mode = "normal" | "preview";
@@ -52,13 +52,17 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   getStatuses: () => status.Crude[];
 }
 
-export const Context = createContext<ContextValue | null>(null);
+const [Context, useCtx] = context.create<ContextValue | null>({
+  defaultValue: null,
+  displayName: "Form.Context",
+});
+export { Context };
 
 export const useContext = <Z extends z.ZodType = z.ZodType>(
   override?: ContextValue<Z>,
   funcName: string = "Form.useContext",
 ): ContextValue<Z> => {
-  const internal = use(Context);
+  const internal = useCtx();
   if (internal == null && override == null)
     throw new Error(`${funcName} must be used within a Form context value`);
   return override ?? (internal as unknown as ContextValue<Z>);

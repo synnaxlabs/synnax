@@ -10,7 +10,6 @@
 import { z } from "zod";
 
 export const numberCouple = z.tuple([z.number(), z.number()]);
-export const bigNumberCouple = z.tuple([z.bigint(), z.bigint()]);
 export type NumberCouple<T extends number | bigint = number> = [T, T];
 
 // Dimensions
@@ -21,13 +20,9 @@ export const signedDimensions = z.object({
   signedWidth: z.number(),
   signedHeight: z.number(),
 });
-export const DIMENSIONS = ["width", "height"] as const;
-export const dimension = z.enum(DIMENSIONS);
-export type Dimension = (typeof DIMENSIONS)[number];
+export type Dimension = "width" | "height";
 export const ALIGNMENTS = ["start", "center", "end"] as const;
-export const SIGNED_DIMENSIONS = ["signedWidth", "signedHeight"] as const;
-export const signedDimension = z.enum(SIGNED_DIMENSIONS);
-export type SignedDimension = (typeof SIGNED_DIMENSIONS)[number];
+export type SignedDimension = "signedWidth" | "signedHeight";
 
 // XY
 
@@ -56,7 +51,7 @@ export type YLocation = (typeof Y_LOCATIONS)[number];
 export const CENTER_LOCATIONS = ["center"] as const;
 export const centerLocation = z.enum(CENTER_LOCATIONS);
 export type CenterLocation = (typeof CENTER_LOCATIONS)[number];
-export const LOCATIONS = [...OUTER_LOCATIONS, ...CENTER_LOCATIONS] as const;
+const LOCATIONS = [...OUTER_LOCATIONS, ...CENTER_LOCATIONS] as const;
 export const location = z.enum(LOCATIONS);
 export type Location = z.infer<typeof location>;
 
@@ -71,22 +66,18 @@ export type Order = (typeof ORDERS)[number];
 // Bounds
 
 export const bounds = z.object({ lower: z.number(), upper: z.number() });
-export const bigBounds = z.object({ lower: z.bigint(), upper: z.bigint() });
 export interface Bounds<T extends number | bigint = number> {
   lower: T;
   upper: T;
 }
 
-export const crudeBounds = z.union([bounds, numberCouple]);
-export const bigCrudeBounds = z.union([bigBounds, numberCouple]);
 export type CrudeBounds<T extends number | bigint = number> =
   | Bounds<T>
   | NumberCouple<T>;
 export const crudeDirection = z.enum([...direction.options, ...location.options]);
-export const crudeXDirection = z.enum(["x", "left", "right"]);
-export const crudeYDirection = z.enum(["y", "top", "bottom"]);
 export type CrudeDirection = z.infer<typeof crudeDirection>;
-export type CrudeXDirection = z.infer<typeof crudeXDirection>;
-export type CrudeYDirection = z.infer<typeof crudeYDirection>;
+export type CrudeXDirection = "x" | "left" | "right";
+export type CrudeYDirection = "y" | "top" | "bottom";
+export type AngularDirection = "clockwise" | "counterclockwise";
 export const crudeLocation = z.union([direction, location, z.instanceof(String)]);
 export type CrudeLocation = z.infer<typeof crudeLocation>;

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology, ranger, type Synnax } from "@synnaxlabs/client";
-import { array, type Optional, primitive } from "@synnaxlabs/x";
+import { array, type optional, primitive } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -345,7 +345,7 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
           client,
         });
         onChange(
-          state.skipNull((prev) =>
+          state.skipUndefined((prev) =>
             client.ranges.sugarOne({
               ...prev,
               labels: array.upsertKeyed(prev.labels, label),
@@ -372,7 +372,7 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
       const isLabelChange = Label.matchRelationship(rel, otgID);
       if (isLabelChange)
         return onChange(
-          state.skipNull((p) =>
+          state.skipUndefined((p) =>
             client.ranges.sugarOne({
               ...p,
               labels: array.removeKeyed(p.labels, rel.to.key),
@@ -385,7 +385,7 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
       });
       if (isParentChange)
         return onChange(
-          state.skipNull((p) => client.ranges.sugarOne({ ...p, parent: null })),
+          state.skipUndefined((p) => client.ranges.sugarOne({ ...p, parent: null })),
         );
     }),
   ],
@@ -407,12 +407,14 @@ export const {
       store.ranges.onSet(async (range) => {
         if (!keysSet.has(range.key)) return;
         onChange(
-          state.skipNull((prev) => prev.map((r) => (r.key === range.key ? range : r))),
+          state.skipUndefined((prev) =>
+            prev.map((r) => (r.key === range.key ? range : r)),
+          ),
         );
       }),
       store.ranges.onDelete(async (key) => {
         if (!keysSet.has(key)) return;
-        onChange(state.skipNull((prev) => prev.filter((r) => r.key !== key)));
+        onChange(state.skipUndefined((prev) => prev.filter((r) => r.key !== key)));
       }),
       store.relationships.onSet(async (relationship) => {
         for (const key of keys) {
@@ -424,7 +426,7 @@ export const {
             const label = await client.labels.retrieve({ key: relationship.to.key });
             store.labels.set(relationship.to.key, label);
             onChange(
-              state.skipNull((prev) =>
+              state.skipUndefined((prev) =>
                 prev.map((r) => {
                   if (r.key !== key) return r;
                   return client.ranges.sugarOne({
@@ -446,7 +448,7 @@ export const {
             const parent = await client.ranges.retrieve(relationship.from.key);
             store.ranges.set(relationship.from.key, parent);
             onChange(
-              state.skipNull((prev) =>
+              state.skipUndefined((prev) =>
                 prev.map((r) => {
                   if (r.key !== key) return r;
                   return client.ranges.sugarOne({ ...r, parent });
@@ -462,7 +464,7 @@ export const {
           const isLabelChange = Label.matchRelationship(rel, ranger.ontologyID(key));
           if (isLabelChange)
             onChange(
-              state.skipNull((prev) =>
+              state.skipUndefined((prev) =>
                 prev.map((r) => {
                   if (r.key !== key) return r;
                   return client.ranges.sugarOne({
@@ -479,7 +481,7 @@ export const {
           });
           if (isParentChange)
             onChange(
-              state.skipNull((prev) =>
+              state.skipUndefined((prev) =>
                 prev.map((r) => {
                   if (r.key !== key) return r;
                   return client.ranges.sugarOne({ ...r, parent: null });
@@ -511,7 +513,7 @@ export const toFormValues = (range: ranger.Range): z.infer<typeof formSchema> =>
   labels: range.labels?.map((l) => l.key) ?? [],
 });
 
-export interface FormQuery extends Optional<RetrieveQuery, "key"> {}
+export interface FormQuery extends optional.Optional<RetrieveQuery, "key"> {}
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
@@ -827,7 +829,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     rollbacks.push(
       store.ranges.set(
         key,
-        state.skipNull((p) => client.ranges.sugarOne({ ...p, name })),
+        state.skipUndefined((p) => client.ranges.sugarOne({ ...p, name })),
       ),
     );
     rollbacks.push(Ontology.renameFluxResource(store, ranger.ontologyID(key), name));

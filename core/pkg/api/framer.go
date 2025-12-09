@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	framercodec "github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -54,10 +54,9 @@ const (
 
 type FrameService struct {
 	alamos.Instrumentation
-	authProvider
 	dbProvider
 	accessProvider
-	Channel  channel.Readable
+	Channel  *channel.Service
 	Internal *framer.Service
 }
 
@@ -66,7 +65,6 @@ func NewFrameService(p Provider) *FrameService {
 		Instrumentation: p.Instrumentation,
 		Internal:        p.Service.Framer,
 		Channel:         p.Distribution.Channel,
-		authProvider:    p.auth,
 		dbProvider:      p.db,
 		accessProvider:  p.access,
 	}
@@ -84,7 +82,7 @@ func (s *FrameService) FrameDelete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
@@ -139,8 +137,8 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	}
 	pipe := plumber.New()
 	plumber.SetSegment(pipe, frameIteratorAddr, iter)
-	plumber.SetSink[iterator.Response](pipe, frameSenderAddr, sender)
-	plumber.SetSource[iterator.Request](pipe, frameReceiverAddr, receiver)
+	plumber.SetSink(pipe, frameSenderAddr, sender)
+	plumber.SetSource(pipe, frameReceiverAddr, receiver)
 	plumber.MustConnect[iterator.Response](pipe, frameIteratorAddr, frameSenderAddr, iteratorResponseBufferSize)
 	plumber.MustConnect[iterator.Request](pipe, frameReceiverAddr, frameIteratorAddr, iteratorRequestBufferSize)
 
@@ -155,7 +153,7 @@ func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
@@ -198,9 +196,9 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 		pipe = plumber.New()
 	)
 
-	plumber.SetSegment[FrameStreamerRequest, FrameStreamerResponse](pipe, framerStreamerAddr, streamer)
-	plumber.SetSink[FrameStreamerResponse](pipe, frameSenderAddr, sender)
-	plumber.SetSource[FrameStreamerRequest](pipe, frameReceiverAddr, receiver)
+	plumber.SetSegment(pipe, framerStreamerAddr, streamer)
+	plumber.SetSink(pipe, frameSenderAddr, sender)
+	plumber.SetSource(pipe, frameReceiverAddr, receiver)
 	plumber.MustConnect[FrameStreamerRequest](pipe, frameReceiverAddr, framerStreamerAddr, streamingRequestBufferSize)
 	plumber.MustConnect[FrameStreamerResponse](pipe, framerStreamerAddr, frameSenderAddr, streamingResponseBufferSize)
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
@@ -218,7 +216,7 @@ func (s *FrameService) openStreamer(
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: subject,
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
@@ -362,8 +360,8 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	pipe := plumber.New()
 
 	plumber.SetSegment(pipe, "writer", w)
-	plumber.SetSource[framer.WriterRequest](pipe, frameReceiverAddr, receiver)
-	plumber.SetSink[framer.WriterResponse](pipe, frameSenderAddr, sender)
+	plumber.SetSource(pipe, frameReceiverAddr, receiver)
+	plumber.SetSink(pipe, frameSenderAddr, sender)
 	plumber.MustConnect[framer.WriterRequest](pipe, frameReceiverAddr, frameWriterAddr, writerRequestBufferSize)
 	plumber.MustConnect[framer.WriterResponse](pipe, frameWriterAddr, frameSenderAddr, writerResponseBufferSize)
 
@@ -384,7 +382,7 @@ func (s *FrameService) openWriter(
 
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: subject,
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: framer.OntologyIDs(req.Config.Keys),
 	}); err != nil {
 		return nil, err
@@ -421,14 +419,14 @@ func (s *FrameService) openWriter(
 }
 
 type WSFramerCodec struct {
-	*framercodec.Codec
+	*codec.Codec
 	LowerPerfCodec xbinary.Codec
 }
 
-func NewWSFramerCodec(channels channel.Readable) httputil.Codec {
+func NewWSFramerCodec(channelSvc *channel.Service) httputil.Codec {
 	return &WSFramerCodec{
 		LowerPerfCodec: httputil.JSONCodec,
-		Codec:          framercodec.NewDynamic(channels),
+		Codec:          codec.NewDynamic(channelSvc),
 	}
 }
 
@@ -635,10 +633,10 @@ func (c *WSFramerCodec) ContentType() string {
 
 const framerContentType = "application/sy-framer"
 
-func NewHTTPCodecResolver(channel channel.Readable) httputil.CodecResolver {
+func NewHTTPCodecResolver(channelSvc *channel.Service) httputil.CodecResolver {
 	return func(ct string) (httputil.Codec, error) {
 		if ct == framerContentType {
-			return NewWSFramerCodec(channel), nil
+			return NewWSFramerCodec(channelSvc), nil
 		}
 		return httputil.ResolveCodec(ct)
 	}

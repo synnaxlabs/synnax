@@ -10,6 +10,8 @@
 package api_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/fhttp"
@@ -27,10 +29,12 @@ import (
 
 var _ = Describe("FramerCodec", Ordered, func() {
 	var (
+		ctx         context.Context
 		mockCluster *mock.Cluster
 		dist        *distribution.Layer
 	)
 	BeforeAll(func() {
+		ctx = context.Background()
 		mockCluster = mock.ProvisionCluster(ctx, 1)
 		dist = mockCluster.Nodes[1].Layer
 	})
@@ -90,12 +94,12 @@ var _ = Describe("FramerCodec", Ordered, func() {
 		It("Should encode and decode open command", func() {
 			channels := []channel.Channel{
 				{
-					Name:     "first",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 				{
-					Name:     "second",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
@@ -163,12 +167,12 @@ var _ = Describe("FramerCodec", Ordered, func() {
 		It("Should encode and decode request", func() {
 			channels := []channel.Channel{
 				{
-					Name:     "first",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 				{
-					Name:     "second",
+					Name:     channel.NewRandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
@@ -219,7 +223,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			}
 			res := api.FrameStreamerResponse{
 				Frame: core.MultiFrame(keys, []telem.Series{
-					telem.NewSeriesV[float64](1.5, 2.5, 3.5),
+					telem.NewSeriesV(1.5, 2.5, 3.5),
 					telem.NewSeriesV[int64](1000, 2000, 3000),
 				}),
 			}
@@ -229,7 +233,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
 			Expect(resMsg.Payload.Frame.KeysSlice()).To(Equal([]channel.Key{1, 2}))
 			Expect(resMsg.Payload.Frame.Count()).To(Equal(2))
-			Expect(resMsg.Payload.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[float64](1.5, 2.5, 3.5)))
+			Expect(resMsg.Payload.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV(1.5, 2.5, 3.5)))
 			Expect(resMsg.Payload.Frame.SeriesAt(1)).To(telem.MatchSeriesData(telem.NewSeriesV[int64](1000, 2000, 3000)))
 		})
 		It("Should encode and decode empty frame", func() {

@@ -12,7 +12,7 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/payload";
 
 const retrieveRequestZ = z.object({
@@ -68,11 +68,8 @@ const renameResZ = z.object({});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
-const RETRIEVE_ENDPOINT = "/user/retrieve";
-const CREATE_ENDPOINT = "/user/create";
-const CHANGE_USERNAME_ENDPOINT = "/user/change-username";
-const RENAME_ENDPOINT = "/user/rename";
-const DELETE_ENDPOINT = "/user/delete";
+export const SET_CHANNEL_NAME = "sy_user_set";
+export const DELETE_CHANNEL_NAME = "sy_user_delete";
 
 export class Client {
   private readonly client: UnaryClient;
@@ -87,7 +84,7 @@ export class Client {
     const isMany = Array.isArray(users);
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
-      CREATE_ENDPOINT,
+      "/user/create",
       { users: array.toArray(users) },
       createReqZ,
       createResZ,
@@ -98,7 +95,7 @@ export class Client {
   async changeUsername(key: Key, newUsername: string): Promise<void> {
     await sendRequired<typeof changeUsernameReqZ, typeof changeUsernameResZ>(
       this.client,
-      CHANGE_USERNAME_ENDPOINT,
+      "/user/change-username",
       { key, username: newUsername },
       changeUsernameReqZ,
       changeUsernameResZ,
@@ -112,7 +109,7 @@ export class Client {
     const isSingle = "key" in args || "username" in args;
     const res = await sendRequired<typeof retrieveArgsZ, typeof retrieveResZ>(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/user/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
@@ -136,7 +133,7 @@ export class Client {
   async rename(key: Key, firstName?: string, lastName?: string): Promise<void> {
     await sendRequired<typeof renameReqZ, typeof renameResZ>(
       this.client,
-      RENAME_ENDPOINT,
+      "/user/rename",
       { key, firstName, lastName },
       renameReqZ,
       renameResZ,
@@ -148,7 +145,7 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
-      DELETE_ENDPOINT,
+      "/user/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       deleteResZ,
@@ -156,4 +153,5 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "user", key });
+export const ontologyID = ontology.createIDFactory<Key>("user");
+export const TYPE_ONTOLOGY_ID = ontologyID("");

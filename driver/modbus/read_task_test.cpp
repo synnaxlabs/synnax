@@ -15,12 +15,13 @@
 
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/mock/slave.h"
+#include "driver/modbus/modbus.h"
 #include "driver/modbus/read_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
 class ModbusReadTest : public ::testing::Test {
 protected:
-    std::shared_ptr<synnax::Synnax> sy;
+    std::shared_ptr<synnax::Synnax> client;
     synnax::Task task;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
@@ -29,14 +30,19 @@ protected:
     synnax::Rack rack;
 
     void SetUp() override {
-        sy = std::make_shared<synnax::Synnax>(new_test_client());
+        client = std::make_shared<synnax::Synnax>(new_test_client());
 
         // Create index channel
-        index_channel = synnax::Channel("time_channel", telem::TIMESTAMP_T, 0, true);
-        ASSERT_NIL(sy->channels.create(index_channel));
+        index_channel = synnax::Channel(
+            make_unique_channel_name("time_channel"),
+            telem::TIMESTAMP_T,
+            0,
+            true
+        );
+        ASSERT_NIL(client->channels.create(index_channel));
 
         // Create rack and device
-        rack = ASSERT_NIL_P(sy->hardware.create_rack("test_rack"));
+        rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
         auto conn_cfg = modbus::device::ConnectionConfig{"127.0.0.1", 1502};
         json properties{{"connection", conn_cfg.to_json()}};
@@ -50,9 +56,9 @@ protected:
             "Modbus Device",
             nlohmann::to_string(properties)
         );
-        ASSERT_NIL(sy->hardware.create_device(device));
+        ASSERT_NIL(client->devices.create(device));
 
-        ctx = std::make_shared<task::MockContext>(sy);
+        ctx = std::make_shared<task::MockContext>(client);
         mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
     }
 
@@ -92,11 +98,13 @@ TEST_F(ModbusReadTest, testInvalidDeviceConfig) {
     auto cfg = create_base_config();
     cfg["device"] = "non_existent_device";
 
-    auto ch = ASSERT_NIL_P(sy->channels.create("test", telem::UINT8_T, true));
+    auto ch = ASSERT_NIL_P(
+        client->channels.create(make_unique_channel_name("test"), telem::UINT8_T, true)
+    );
     cfg["channels"].push_back(create_channel_config("coil_input", ch, 0));
 
     auto p = xjson::Parser(cfg);
-    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(client, p);
     ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }
 
@@ -106,14 +114,16 @@ TEST_F(ModbusReadTest, testInvalidChannelConfig) {
     ch.key = 12345;
     cfg["channels"].push_back(create_channel_config("coil_input", ch, 0));
     auto p = xjson::Parser(cfg);
-    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(client, p);
     ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }
 
 TEST_F(ModbusReadTest, testInvalidChannelType) {
     auto cfg = create_base_config();
 
-    auto ch = ASSERT_NIL_P(sy->channels.create("test", telem::UINT8_T, true));
+    auto ch = ASSERT_NIL_P(
+        client->channels.create(make_unique_channel_name("test"), telem::UINT8_T, true)
+    );
     cfg["channels"].push_back(
         {{"type", "invalid_type"},
          {"enabled", true},
@@ -122,7 +132,7 @@ TEST_F(ModbusReadTest, testInvalidChannelType) {
     );
 
     auto p = xjson::Parser(cfg);
-    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(client, p);
     ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }
 
@@ -130,14 +140,24 @@ TEST_F(ModbusReadTest, testMultiChannelConfig) {
     auto cfg = create_base_config();
 
     // Create channels for different types
-    auto coil_ch = ASSERT_NIL_P(sy->channels.create("coil", telem::UINT8_T, true));
-    auto discrete_ch = ASSERT_NIL_P(
-        sy->channels.create("discrete", telem::UINT8_T, true)
+    auto coil_ch = ASSERT_NIL_P(
+        client->channels.create(make_unique_channel_name("coil"), telem::UINT8_T, true)
     );
-    auto holding_ch = ASSERT_NIL_P(
-        sy->channels.create("holding", telem::UINT16_T, true)
-    );
-    auto input_ch = ASSERT_NIL_P(sy->channels.create("input", telem::UINT16_T, true));
+    auto discrete_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("discrete"),
+        telem::UINT8_T,
+        true
+    ));
+    auto holding_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("holding"),
+        telem::UINT16_T,
+        true
+    ));
+    auto input_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("input"),
+        telem::UINT16_T,
+        true
+    ));
 
     // Add different channel types
     cfg["channels"].push_back(create_channel_config("coil_input", coil_ch, 0));
@@ -148,7 +168,7 @@ TEST_F(ModbusReadTest, testMultiChannelConfig) {
     cfg["channels"].push_back(create_channel_config("register_input", input_ch, 3));
 
     auto p = xjson::Parser(cfg);
-    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 }
 
@@ -164,22 +184,27 @@ TEST(ReadTask, testBasicReadTask) {
     ASSERT_NIL(slave.start());
     x::defer stop_slave([&slave] { slave.stop(); });
 
-    auto index_channel = synnax::Channel("time_channel", telem::TIMESTAMP_T, 0, true);
+    auto index_channel = synnax::Channel(
+        make_unique_channel_name("time_channel"),
+        telem::TIMESTAMP_T,
+        0,
+        true
+    );
 
     auto data_channel = synnax::Channel(
-        "data_channel",
+        make_unique_channel_name("data_channel"),
         telem::UINT8_T,
         index_channel.key,
         false
     );
 
-    auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-    ASSERT_NIL(sy->channels.create(index_channel));
+    ASSERT_NIL(client->channels.create(index_channel));
     data_channel.index = index_channel.key;
-    ASSERT_NIL(sy->channels.create(data_channel));
+    ASSERT_NIL(client->channels.create(data_channel));
 
-    auto rack = ASSERT_NIL_P(sy->hardware.create_rack("cat"));
+    auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
     auto conn_cfg = modbus::device::ConnectionConfig{"127.0.0.1", 1502};
     json properties{{"connection", conn_cfg.to_json()}};
@@ -193,7 +218,7 @@ TEST(ReadTask, testBasicReadTask) {
         nlohmann::to_string(properties)
     );
 
-    ASSERT_NIL(sy->hardware.create_device(dev));
+    ASSERT_NIL(client->devices.create(dev));
 
     auto tsk = synnax::Task(rack.key, "my_task", "modbus_read", "");
 
@@ -211,10 +236,10 @@ TEST(ReadTask, testBasicReadTask) {
          )}
     };
     auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    auto cfg = std::make_unique<modbus::ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
-    auto ctx = std::make_shared<task::MockContext>(sy);
+    auto ctx = std::make_shared<task::MockContext>(client);
     auto factory = std::make_shared<pipeline::mock::WriterFactory>();
 
     auto devs = std::make_shared<modbus::device::Manager>();
@@ -232,18 +257,20 @@ TEST(ReadTask, testBasicReadTask) {
     );
 
     task.start("start_cmd");
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    const auto first_state = ctx->states[0];
-    EXPECT_EQ(first_state.key, "start_cmd");
-    EXPECT_EQ(first_state.variant, "success");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto first_state = ctx->statuses[0];
+    EXPECT_EQ(first_state.key, tsk.status_key());
+    EXPECT_EQ(first_state.details.cmd, "start_cmd");
+    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(first_state.details.task, tsk.key);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(factory->writer_opens, 1);
     task.stop("stop_cmd", true);
-    ASSERT_EQ(ctx->states.size(), 2);
-    const auto second_state = ctx->states[1];
-    EXPECT_EQ(second_state.key, "stop_cmd");
-    EXPECT_EQ(second_state.variant, "success");
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto second_state = ctx->statuses[1];
+    EXPECT_EQ(second_state.key, tsk.status_key());
+    EXPECT_EQ(second_state.details.cmd, "stop_cmd");
+    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(second_state.details.task, tsk.key);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
 
@@ -270,16 +297,19 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     // Create data channel
-    auto data_channel = ASSERT_NIL_P(
-        sy->channels.create("discrete_input", telem::UINT8_T, index_channel.key, false)
-    );
+    auto data_channel = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("discrete_input"),
+        telem::UINT8_T,
+        index_channel.key,
+        false
+    ));
 
     // Create task configuration
     auto cfg = create_base_config();
     cfg["channels"].push_back(create_channel_config("discrete_input", data_channel, 1));
 
     auto p = xjson::Parser(cfg);
-    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     auto devs = std::make_shared<modbus::device::Manager>();
@@ -318,8 +348,8 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     // Create data channel
-    auto data_channel = ASSERT_NIL_P(sy->channels.create(
-        "holding_register",
+    auto data_channel = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("holding_register"),
         telem::UINT16_T, // Holding registers are 16-bit
         index_channel.key,
         false
@@ -332,7 +362,7 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
     );
 
     auto p = xjson::Parser(cfg);
-    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     auto devs = std::make_shared<modbus::device::Manager>();
@@ -373,14 +403,24 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     x::defer stop_slave([&slave] { slave.stop(); });
 
     // Create channels for different types
-    auto coil_ch = ASSERT_NIL_P(sy->channels.create("coil", telem::UINT8_T, true));
-    auto discrete_ch = ASSERT_NIL_P(
-        sy->channels.create("discrete", telem::UINT8_T, true)
+    auto coil_ch = ASSERT_NIL_P(
+        client->channels.create(make_unique_channel_name("coil"), telem::UINT8_T, true)
     );
-    auto holding_ch = ASSERT_NIL_P(
-        sy->channels.create("holding", telem::UINT16_T, true)
-    );
-    auto input_ch = ASSERT_NIL_P(sy->channels.create("input", telem::UINT16_T, true));
+    auto discrete_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("discrete"),
+        telem::UINT8_T,
+        true
+    ));
+    auto holding_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("holding"),
+        telem::UINT16_T,
+        true
+    ));
+    auto input_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("input"),
+        telem::UINT16_T,
+        true
+    ));
 
     // Create task configuration with all channel types
     auto cfg = create_base_config();
@@ -392,7 +432,7 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     cfg["channels"].push_back(create_channel_config("register_input", input_ch, 3));
 
     auto p = xjson::Parser(cfg);
-    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     auto devs = std::make_shared<modbus::device::Manager>();
@@ -428,16 +468,307 @@ TEST_F(ModbusReadTest, testModbusDriverSetsAutoCommitTrue) {
     auto cfg = create_base_config();
     cfg["data_saving"] = true;
 
-    auto coil_ch = ASSERT_NIL_P(
-        sy->channels.create("coil", telem::UINT8_T, index_channel.key)
-    );
+    auto coil_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("coil"),
+        telem::UINT8_T,
+        index_channel.key
+    ));
     cfg["channels"].push_back(create_channel_config("coil_input", coil_ch, 0));
 
     auto p = xjson::Parser(cfg);
-    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(sy, p);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = task_cfg->writer_config();
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}
+
+/// Regression test for buffer size calculation bug with UINT8 registers.
+/// This test ensures that multiple sequential UINT8 input registers are read correctly,
+/// especially the last channel which was previously always zero due to an off-by-one
+/// error in the buffer size calculation (density / 2 should be ceiling division).
+TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
+    // Set up mock slave with multiple UINT8 input register values
+    modbus::mock::SlaveConfig slave_cfg;
+    slave_cfg.input_registers[0] = static_cast<uint8_t>(100);
+    slave_cfg.input_registers[1] = static_cast<uint8_t>(150);
+    slave_cfg.input_registers[2] = static_cast<uint8_t>(200);
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = modbus::mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer stop_slave([&slave] { slave.stop(); });
+
+    // Create three UINT8 channels for sequential input registers
+    auto input0 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("input_reg_0"),
+        telem::UINT8_T,
+        index_channel.key
+    ));
+    auto input1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("input_reg_1"),
+        telem::UINT8_T,
+        index_channel.key
+    ));
+    auto input2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("input_reg_2"),
+        telem::UINT8_T,
+        index_channel.key
+    ));
+
+    // Create task configuration with three sequential UINT8 input registers
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(create_channel_config("register_input", input0, 0));
+    cfg["channels"].push_back(create_channel_config("register_input", input1, 1));
+    cfg["channels"].push_back(create_channel_config("register_input", input2, 2));
+
+    auto p = xjson::Parser(cfg);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+
+    auto devs = std::make_shared<modbus::device::Manager>();
+    auto modbus_dev = ASSERT_NIL_P(
+        devs->acquire(modbus::device::ConnectionConfig{"127.0.0.1", 1502})
+    );
+
+    auto task = common::ReadTask(
+        synnax::Task(rack.key, "uint8_test", "modbus_read", ""),
+        ctx,
+        breaker::default_config("uint8_test"),
+        std::make_unique<modbus::ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        mock_factory
+    );
+
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
+    task.stop("stop_cmd", true);
+
+    auto &fr = mock_factory->writes->at(0);
+    ASSERT_EQ(fr.size(), 4); // 3 data channels + 1 index channel
+    ASSERT_EQ(fr.length(), 1);
+    // All three channels should have correct values, including the last one
+    ASSERT_EQ(fr.at<uint8_t>(input0.key, 0), 100);
+    ASSERT_EQ(fr.at<uint8_t>(input1.key, 0), 150);
+    ASSERT_EQ(fr.at<uint8_t>(input2.key, 0), 200);
+}
+
+/// Regression test for buffer size calculation bug with UINT8 holding registers.
+/// Similar to testMultipleUint8InputRegisters but tests holding registers instead.
+TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
+    // Set up mock slave with multiple UINT8 holding register values
+    modbus::mock::SlaveConfig slave_cfg;
+    slave_cfg.holding_registers[0] = static_cast<uint8_t>(50);
+    slave_cfg.holding_registers[1] = static_cast<uint8_t>(75);
+    slave_cfg.holding_registers[2] = static_cast<uint8_t>(125);
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = modbus::mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer stop_slave([&slave] { slave.stop(); });
+
+    // Create three UINT8 channels for sequential holding registers
+    auto holding0 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("holding_reg_0"),
+        telem::UINT8_T,
+        index_channel.key
+    ));
+    auto holding1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("holding_reg_1"),
+        telem::UINT8_T,
+        index_channel.key
+    ));
+    auto holding2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("holding_reg_2"),
+        telem::UINT8_T,
+        index_channel.key
+    ));
+
+    // Create task configuration with three sequential UINT8 holding registers
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(
+        create_channel_config("holding_register_input", holding0, 0)
+    );
+    cfg["channels"].push_back(
+        create_channel_config("holding_register_input", holding1, 1)
+    );
+    cfg["channels"].push_back(
+        create_channel_config("holding_register_input", holding2, 2)
+    );
+
+    auto p = xjson::Parser(cfg);
+    auto task_cfg = std::make_unique<modbus::ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+
+    auto devs = std::make_shared<modbus::device::Manager>();
+    auto modbus_dev = ASSERT_NIL_P(
+        devs->acquire(modbus::device::ConnectionConfig{"127.0.0.1", 1502})
+    );
+
+    auto task = common::ReadTask(
+        synnax::Task(rack.key, "uint8_holding_test", "modbus_read", ""),
+        ctx,
+        breaker::default_config("uint8_holding_test"),
+        std::make_unique<modbus::ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        mock_factory
+    );
+
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
+    task.stop("stop_cmd", true);
+
+    auto &fr = mock_factory->writes->at(0);
+    ASSERT_EQ(fr.size(), 4); // 3 data channels + 1 index channel
+    ASSERT_EQ(fr.length(), 1);
+    // All three channels should have correct values, including the last one
+    ASSERT_EQ(fr.at<uint8_t>(holding0.key, 0), 50);
+    ASSERT_EQ(fr.at<uint8_t>(holding1.key, 0), 75);
+    ASSERT_EQ(
+        fr.at<uint8_t>(holding2.key, 0),
+        125
+    ); // This would have been 0 before the fix
+}
+
+/// Test that auto_start=true causes the task to start automatically
+TEST_F(ModbusReadTest, testAutoStartTrue) {
+    // Set up mock slave
+    modbus::mock::SlaveConfig slave_cfg;
+    slave_cfg.input_registers[0] = 42;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = modbus::mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer stop_slave([&slave] { slave.stop(); });
+
+    // Create data channel
+    auto data_channel = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("input_reg"),
+        telem::UINT8_T,
+        index_channel.key,
+        false
+    ));
+
+    // Create task with auto_start=true
+    json config{
+        {"data_saving", false},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", device.key},
+        {"auto_start", true}, // Enable auto-start
+        {"channels",
+         json::array(
+             {{{"type", "register_input"},
+               {"enabled", true},
+               {"channel", data_channel.key},
+               {"address", 0},
+               {"data_type", "uint8"}}}
+         )}
+    };
+
+    task = synnax::Task(rack.key, "test_task", "modbus_read", config.dump(), false);
+
+    // Configure task through factory
+    auto factory = modbus::Factory();
+    auto [configured_task, ok] = factory.configure_task(ctx, task);
+
+    ASSERT_TRUE(ok);
+    ASSERT_NE(configured_task, nullptr);
+
+    // Task should have auto-started - check that a start status was sent
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    bool found_start = false;
+    for (const auto &s: ctx->statuses) {
+        if (s.details.running && s.variant == status::variant::SUCCESS) {
+            found_start = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found_start);
+
+    // Stop the task to clean up
+    task::Command stop_cmd(task.key, "stop", {});
+    configured_task->exec(stop_cmd);
+}
+
+/// Test that auto_start=false does NOT start the task automatically
+TEST_F(ModbusReadTest, testAutoStartFalse) {
+    // Set up mock slave
+    modbus::mock::SlaveConfig slave_cfg;
+    slave_cfg.input_registers[0] = 99;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = modbus::mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer stop_slave([&slave] { slave.stop(); });
+
+    // Create data channel
+    auto data_channel = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("input_reg_2"),
+        telem::UINT8_T,
+        index_channel.key,
+        false
+    ));
+
+    // Create task with auto_start=false
+    json config{
+        {"data_saving", false},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", device.key},
+        {"auto_start", false}, // Disable auto-start
+        {"channels",
+         json::array(
+             {{{"type", "register_input"},
+               {"enabled", true},
+               {"channel", data_channel.key},
+               {"address", 0},
+               {"data_type", "uint8"}}}
+         )}
+    };
+
+    task = synnax::Task(
+        rack.key,
+        "test_task_no_auto",
+        "modbus_read",
+        config.dump(),
+        false
+    );
+
+    // Configure task through factory
+    auto factory = modbus::Factory();
+    auto [configured_task, ok] = factory.configure_task(ctx, task);
+
+    ASSERT_TRUE(ok);
+    ASSERT_NE(configured_task, nullptr);
+
+    // Task should NOT have auto-started - check that the status is "configured" not
+    // "running"
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto &initial_state = ctx->statuses[0];
+    ASSERT_FALSE(initial_state.details.running);
+    ASSERT_EQ(initial_state.variant, status::variant::SUCCESS);
+    ASSERT_EQ(initial_state.message, "Task configured successfully");
+
+    // Manually start the task
+    task::Command start_cmd(task.key, "start", {});
+    configured_task->exec(start_cmd);
+
+    // Now task should be running
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    bool found_start = false;
+    for (const auto &s: ctx->statuses) {
+        if (s.details.running && s.variant == status::variant::SUCCESS) {
+            found_start = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found_start);
+
+    // Stop the task to clean up
+    task::Command stop_cmd(task.key, "stop", {});
+    configured_task->exec(stop_cmd);
 }

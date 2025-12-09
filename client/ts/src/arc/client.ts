@@ -16,33 +16,18 @@ import {
 import { array } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import {
-  type Arc,
-  arcZ,
-  type Key,
-  keyZ,
-  type New,
-  newZ,
-  ONTOLOGY_TYPE,
-  type Params,
-} from "@/arc/payload";
-import { type ontology } from "@/ontology";
+import { type Arc, arcZ, keyZ, type New, newZ, type Params } from "@/arc/payload";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_arc_set";
 export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 
-const RETRIEVE_ENDPOINT = "/arc/retrieve";
-const CREATE_ENDPOINT = "/arc/create";
-const DELETE_ENDPOINT = "/arc/delete";
-const LSP_ENDPOINT = "/arc/lsp";
-
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   searchTerm: z.string().optional(),
-  limit: z.number().optional(),
-  offset: z.number().optional(),
+  limit: z.int().optional(),
+  offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
 const createReqZ = z.object({ arcs: newZ.array() });
@@ -94,7 +79,7 @@ export class Client {
     const isMany = Array.isArray(arcs);
     const res = await sendRequired(
       this.client,
-      CREATE_ENDPOINT,
+      "/arc/create",
       { arcs: array.toArray(arcs) },
       createReqZ,
       createResZ,
@@ -108,7 +93,7 @@ export class Client {
     const isSingle = "key" in args || "name" in args;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/arc/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
@@ -120,23 +105,14 @@ export class Client {
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,
-      DELETE_ENDPOINT,
+      "/arc/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,
     );
   }
 
-  /**
-   * Opens a new LSP stream to the server for Language Server Protocol communication.
-   * This allows editor integrations to communicate with the Arc LSP server using
-   * JSON-RPC messages over a WebSocket transport.
-   *
-   * @returns A bidirectional stream for sending and receiving JSON-RPC messages
-   */
   async openLSP(): Promise<Stream<typeof lspMessageZ, typeof lspMessageZ>> {
-    return await this.streamClient.stream(LSP_ENDPOINT, lspMessageZ, lspMessageZ);
+    return await this.streamClient.stream("/arc/lsp", lspMessageZ, lspMessageZ);
   }
 }
-
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });

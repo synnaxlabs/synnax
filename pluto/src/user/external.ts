@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/user/Avatar";
+export * from "@/user/CreateIcon";
 export * from "@/user/queries";

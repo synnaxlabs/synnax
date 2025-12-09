@@ -15,12 +15,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Provider is a dependency injection container containing essential utilities
-// for particular API services (if they so require them).
+// Provider is a dependency injection container containing essential utilities for API
+// services.
 type Provider struct {
 	Config
 	db       dbProvider
@@ -28,48 +29,39 @@ type Provider struct {
 	access   accessProvider
 	auth     authProvider
 	cluster  clusterProvider
-	ontology OntologyProvider
+	ontology ontologyProvider
+	status   statusProvider
 }
 
 func NewProvider(cfg Config) Provider {
-	p := Provider{Config: cfg}
-	p.db = dbProvider{DB: cfg.Distribution.DB}
-	p.user = userProvider{user: cfg.Service.User}
-	p.access = accessProvider{access: cfg.Service.RBAC}
-	p.auth = authProvider{token: cfg.Service.Token, authenticator: cfg.Service.Auth}
-	p.cluster = clusterProvider{cluster: cfg.Distribution.Cluster}
-	p.ontology = OntologyProvider{Ontology: cfg.Distribution.Ontology}
-	return p
+	return Provider{
+		Config: cfg,
+		db:     dbProvider{DB: cfg.Distribution.DB},
+		user:   userProvider{user: cfg.Service.User},
+		access: accessProvider{access: cfg.Service.RBAC},
+		auth: authProvider{
+			authenticator: cfg.Service.Auth,
+			token:         cfg.Service.Token,
+		},
+		cluster:  clusterProvider{cluster: cfg.Distribution.Cluster},
+		ontology: ontologyProvider{ontology: cfg.Distribution.Ontology},
+		status:   statusProvider{status: cfg.Service.Status},
+	}
 }
 
-// dbProvider provides exposes the cluster-wide key-value store to API services.
-type dbProvider struct {
-	*gorp.DB
-}
+type dbProvider struct{ *gorp.DB }
 
-// userProvider provides user information to services.
-type userProvider struct {
-	user *user.Service
-}
+type userProvider struct{ user *user.Service }
 
-// AccessProvider provides access control information and utilities to services.
-type accessProvider struct {
-	access *rbac.Service
-}
+type accessProvider struct{ access *rbac.Service }
 
-// authProvider provides authentication and token utilities to services. In most cases
-// authentication should be left up to the protocol-specific middleware.
 type authProvider struct {
 	authenticator auth.Authenticator
 	token         *token.Service
 }
 
-// OntologyProvider provides the cluster wide ontology to services.
-type OntologyProvider struct {
-	Ontology *ontology.Ontology
-}
+type ontologyProvider struct{ ontology *ontology.Ontology }
 
-// clusterProvider provides cluster topology information to services.
-type clusterProvider struct {
-	cluster cluster.Cluster
-}
+type clusterProvider struct{ cluster cluster.Cluster }
+
+type statusProvider struct{ status *status.Service }

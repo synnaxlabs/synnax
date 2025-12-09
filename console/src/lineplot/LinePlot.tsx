@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/lineplot/LinePlot.css";
-
-import { type channel, type lineplot, type ranger } from "@synnaxlabs/client";
+import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
+  Access,
   type axis,
   Channel,
   Icon,
-  type Legend,
   LinePlot as Core,
   Menu as PMenu,
   Ranger,
@@ -35,6 +33,7 @@ import {
   primitive,
   record,
   scale,
+  type sticky,
   TimeRange,
   unique,
 } from "@synnaxlabs/x";
@@ -59,7 +58,7 @@ import {
   type YAxisKey,
 } from "@/lineplot/axis";
 import { buildLines } from "@/lineplot/buildLines";
-import { NavControls } from "@/lineplot/NavControls";
+import { Controls } from "@/lineplot/Controls";
 import {
   select,
   useSelect,
@@ -98,8 +97,12 @@ import { Workspace } from "@/workspace";
 
 const useSyncComponent = Workspace.createSyncComponent(
   "Line Plot",
-  async ({ key, workspace, store, client }) => {
+  async ({ key, workspace, store, fluxStore, client }) => {
     const s = store.getState();
+    if (
+      !Access.updateGranted({ id: lineplot.ontologyID(key), store: fluxStore, client })
+    )
+      return;
     const data = select(s, key);
     if (data == null) return;
     const la = Layout.selectRequired(s, key);
@@ -163,6 +166,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
+  const hasEditPermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
 
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
@@ -302,14 +306,14 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const [legendPosition, setLegendPosition] = useState(vis.legend.position);
 
   const storeLegendPosition = useDebouncedCallback(
-    (position: Legend.StickyXY) =>
+    (position: sticky.XY) =>
       syncDispatch(setLegend({ key: layoutKey, legend: { position } })),
     100,
     [syncDispatch, layoutKey],
   );
 
   const handleLegendPositionChange = useCallback(
-    (position: Legend.StickyXY) => {
+    (position: sticky.XY) => {
       setLegendPosition(position);
       storeLegendPosition(position);
     },
@@ -461,35 +465,37 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           lines={propsLines}
           rules={vis.rules}
           clearOverScan={{ x: 5, y: 5 }}
-          onTitleChange={handleTitleChange}
+          onTitleChange={hasEditPermission ? handleTitleChange : undefined}
           visible={visible}
           titleLevel={vis.title.level}
           showTitle={vis.title.visible}
           showLegend={vis.legend.visible}
-          onLineChange={handleLineChange}
-          onRuleChange={handleRuleChange}
-          onAxisChannelDrop={handleChannelAxisDrop}
-          onAxisChange={handleAxisChange}
+          onLineChange={hasEditPermission ? handleLineChange : undefined}
+          onRuleChange={hasEditPermission ? handleRuleChange : undefined}
+          onAxisChannelDrop={hasEditPermission ? handleChannelAxisDrop : undefined}
+          onAxisChange={hasEditPermission ? handleAxisChange : undefined}
           onViewportChange={handleViewportChange}
           initialViewport={initialViewport}
-          onLegendPositionChange={handleLegendPositionChange}
+          onLegendPositionChange={
+            hasEditPermission ? handleLegendPositionChange : undefined
+          }
           legendPosition={legendPosition}
           viewportTriggers={triggers}
           enableTooltip={enableTooltip}
           legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
-          onSelectRule={handleSelectRule}
+          onSelectRule={hasEditPermission ? handleSelectRule : undefined}
           onHold={handleHold}
           rangeProviderProps={rangeProviderProps}
           measureMode={vis.measure.mode}
-          onMeasureModeChange={handleMeasureModeChange}
+          onMeasureModeChange={hasEditPermission ? handleMeasureModeChange : undefined}
         >
-          {!focused && <NavControls layoutKey={layoutKey} />}
+          {!focused && <Controls layoutKey={layoutKey} />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />
         </Channel.LinePlot>
       </PMenu.ContextMenu>
-      {focused && <NavControls layoutKey={layoutKey} />}
+      {focused && <Controls layoutKey={layoutKey} />}
     </div>
   );
 };

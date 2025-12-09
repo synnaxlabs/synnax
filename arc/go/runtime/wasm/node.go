@@ -61,6 +61,26 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		n.state.Output(i).Resize(maxLength)
 		n.state.OutputTime(i).Resize(maxLength)
 	}
+	// Copy alignment and time range from inputs to outputs.
+	// Alignments are summed to guarantee uniqueness across different input sources.
+	var alignmentSum telem.Alignment
+	var timeRange telem.TimeRange
+	for i := range n.ir.Inputs {
+		input := n.state.Input(i)
+		alignmentSum += input.Alignment
+		if timeRange.Start.IsZero() || input.TimeRange.Start < timeRange.Start {
+			timeRange.Start = input.TimeRange.Start
+		}
+		if input.TimeRange.End > timeRange.End {
+			timeRange.End = input.TimeRange.End
+		}
+	}
+	for i := range n.ir.Outputs {
+		n.state.Output(i).Alignment = alignmentSum
+		n.state.Output(i).TimeRange = timeRange
+		n.state.OutputTime(i).Alignment = alignmentSum
+		n.state.OutputTime(i).TimeRange = timeRange
+	}
 	var longestInputTime telem.Series
 	if len(n.ir.Inputs) > 0 {
 		longestInputTime = n.state.InputTime(longestInputIdx)

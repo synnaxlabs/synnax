@@ -9,16 +9,14 @@
 
 import "@/haul/Haul.css";
 
-import { type Destructor, type Optional, record, xy } from "@synnaxlabs/x";
+import { type destructor, type optional, record, xy } from "@synnaxlabs/x";
 import React, {
-  createContext,
   type DragEvent,
   type DragEventHandler,
   memo,
   type PropsWithChildren,
   type ReactElement,
   type RefObject,
-  use,
   useCallback,
   useId,
   useMemo,
@@ -26,6 +24,7 @@ import React, {
 } from "react";
 import { z } from "zod";
 
+import { context } from "@/context";
 import { type state } from "@/state";
 
 export const itemZ = z.object({
@@ -84,10 +83,14 @@ export interface ContextValue {
   ) => void;
   end: (cursor: xy.XY) => void;
   drop: (props: DropProps) => void;
-  bind: (interceptor: DragEndInterceptor) => Destructor;
+  bind: (interceptor: DragEndInterceptor) => destructor.Destructor;
 }
 
-const Context = createContext<ContextValue | null>(null);
+const [Context, useContext] = context.create<ContextValue | null>({
+  defaultValue: null,
+  displayName: "Haul.Context",
+});
+export { useContext };
 
 export interface ProviderProps extends PropsWithChildren {
   useState?: state.PureUse<DraggingState>;
@@ -102,8 +105,6 @@ const HAUL_REF: ProviderRef = {
   ...ZERO_DRAGGING_STATE,
   onSuccessfulDrop: () => {},
 };
-
-export const useContext = () => use(Context);
 
 export const Provider = memo(
   ({
@@ -187,7 +188,7 @@ export interface OnSuccessfulDropProps {
   dropped: Item[];
 }
 
-export interface UseDragProps extends Optional<Item, "key"> {}
+export interface UseDragProps extends optional.Optional<Item, "key"> {}
 
 export interface UseDragReturn {
   startDrag: (
@@ -226,7 +227,7 @@ export interface OnDrop {
 
 export interface OnDragOverProps extends OnDropProps {}
 
-export interface UseDropProps extends Optional<Item, "key"> {
+export interface UseDropProps extends optional.Optional<Item, "key"> {
   canDrop: CanDrop;
   onDrop: OnDrop;
   onDragOver?: (props: OnDragOverProps) => void;
@@ -283,7 +284,7 @@ export const useDrop = ({
 export interface UseDragAndDropProps
   extends Omit<UseDragProps, "source">,
     Omit<UseDropProps, "target">,
-    Optional<Item, "key"> {}
+    optional.Optional<Item, "key"> {}
 
 export interface UseDragAndDropReturn extends UseDragReturn, UseDropReturn {}
 

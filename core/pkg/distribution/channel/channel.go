@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
@@ -87,12 +86,6 @@ type Keys []Key
 // KeysFromChannels returns a slice of Keys from a slice of Channel(s).
 func KeysFromChannels(channels []Channel) (keys Keys) {
 	return lo.Map(channels, func(channel Channel, _ int) Key { return channel.Key() })
-}
-
-func NameMap(channels []Channel) map[string]Key {
-	return lo.SliceToMap(channels, func(item Channel) (string, Key) {
-		return item.Name, item.Key()
-	})
 }
 
 // Names returns the names of the channels.

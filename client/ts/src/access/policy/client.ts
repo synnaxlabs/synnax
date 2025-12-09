@@ -21,9 +21,15 @@ import {
 } from "@/access/policy/payload";
 import { ontology } from "@/ontology";
 
+export const SET_CHANNEL_NAME = "sy_policy_set";
+export const DELETE_CHANNEL_NAME = "sy_policy_delete";
+
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   subjects: ontology.idZ.array().optional(),
+  limit: z.number().optional(),
+  offset: z.number().optional(),
+  internal: z.boolean().optional(),
 });
 
 const keyRetrieveRequestZ = z
@@ -49,14 +55,17 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 const retrieveResZ = z.object({ policies: array.nullableZ(policyZ) });
 
-const createReqZ = z.object({ policies: policyZ.partial({ key: true }).array() });
+const singleCreateArgsZ = newZ.transform((p) => ({ policies: [p] }));
+export type SingleCreateArgs = z.input<typeof singleCreateArgsZ>;
+
+export const multipleCreateArgsZ = newZ.array().transform((policies) => ({ policies }));
+
+export const createArgsZ = z.union([singleCreateArgsZ, multipleCreateArgsZ]);
+export type CreateArgs = z.input<typeof createArgsZ>;
+
 const createResZ = z.object({ policies: policyZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
-
-const RETRIEVE_ENDPOINT = "/access/policy/retrieve";
-const CREATE_ENDPOINT = "/access/policy/create";
-const DELETE_ENDPOINT = "/access/policy/delete";
 
 export class Client {
   private readonly client: UnaryClient;
@@ -67,19 +76,13 @@ export class Client {
 
   async create(policy: New): Promise<Policy>;
   async create(policies: New[]): Promise<Policy[]>;
-  async create(policies: New | New[]): Promise<Policy | Policy[]> {
+  async create(policies: CreateArgs): Promise<Policy | Policy[]> {
     const isMany = Array.isArray(policies);
-    const parsedPolicies = newZ.array().parse(array.toArray(policies));
-    const req = parsedPolicies.map((policy) => ({
-      objects: array.toArray(policy.objects),
-      actions: array.toArray(policy.actions),
-      subjects: array.toArray(policy.subjects),
-    }));
-    const res = await sendRequired<typeof createReqZ, typeof createResZ>(
+    const res = await sendRequired<typeof createArgsZ, typeof createResZ>(
       this.client,
-      CREATE_ENDPOINT,
-      { policies: req },
-      createReqZ,
+      "/access/policy/create",
+      policies,
+      createArgsZ,
       createResZ,
     );
     return isMany ? res.policies : res.policies[0];
@@ -91,7 +94,7 @@ export class Client {
     const isSingle = "key" in args;
     const res = await sendRequired<typeof retrieveArgsZ, typeof retrieveResZ>(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/access/policy/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
@@ -104,17 +107,10 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
-      DELETE_ENDPOINT,
+      "/access/policy/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       deleteResZ,
     );
   }
 }
-
-export const ontologyID = (key: Key): ontology.ID => ({ type: "policy", key });
-
-export const ALLOW_ALL_ONTOLOGY_ID: ontology.ID = {
-  type: "allow_all",
-  key: "",
-};

@@ -42,9 +42,9 @@ struct InputChan {
     synnax::Channel ch;
 
     explicit InputChan(xjson::Parser &parser):
-        enabled(parser.optional<bool>("enabled", true)),
+        enabled(parser.field<bool>("enabled", true)),
         node(opc::NodeId::parse("node_id", parser)),
-        synnax_key(parser.required<synnax::ChannelKey>("channel")) {}
+        synnax_key(parser.field<synnax::ChannelKey>("channel")) {}
 
     // Move constructor - needed because NodeId is move-only
     InputChan(InputChan &&other) noexcept:
@@ -98,10 +98,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         common::BaseReadTaskConfig(
             parser,
             common::TimingConfig(),
-            parser.optional("array_size", 1) <= 1
+            parser.field<std::size_t>("array_size", 1) <= 1
         ),
-        device_key(parser.required<std::string>("device")),
-        array_size(parser.optional<std::size_t>("array_size", 1)),
+        device_key(parser.field<std::string>("device")),
+        array_size(parser.field<std::size_t>("array_size", 1)),
         samples_per_chan(this->sample_rate / this->stream_rate) {
         parser.iter("channels", [&](xjson::Parser &cp) {
             auto ch = InputChan(cp);
@@ -112,7 +112,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->hardware.retrieve_device(this->device_key);
+        auto [dev, err] = client->devices.retrieve(this->device_key);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;

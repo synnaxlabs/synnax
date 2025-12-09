@@ -21,7 +21,6 @@ import (
 	"io"
 
 	"github.com/cockroachdb/pebble/v2"
-	"github.com/cockroachdb/pebble/v2/batchrepr"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
@@ -50,9 +49,30 @@ func parseOpts(opts []any) *pebble.WriteOptions {
 	return defaultWriteOpts
 }
 
+type openOptions struct {
+	enableObserver bool
+}
+
+// OpenOption configures behavior when wrapping a pebble.DB.
+type OpenOption func(*openOptions)
+
+// DisableObservation disables the observer pattern, preventing change notifications.
+// This improves performance when observation is not needed.
+func DisableObservation() OpenOption {
+	return func(o *openOptions) { o.enableObserver = false }
+}
+
 // Wrap wraps a pebble.DB to satisfy the kv.db interface.
-func Wrap(db_ *pebble.DB) kv.DB {
-	return &db{DB: db_, Observer: observe.New[kv.TxReader]()}
+func Wrap(base *pebble.DB, opts ...OpenOption) kv.DB {
+	o := &openOptions{enableObserver: true}
+	for _, opt := range opts {
+		opt(o)
+	}
+	wrapped := &db{DB: base}
+	if o.enableObserver {
+		wrapped.Observer = observe.New[kv.TxReader]()
+	}
+	return wrapped
 }
 
 type logger struct{ alamos.Instrumentation }
@@ -67,7 +87,13 @@ func NewLogger(ins alamos.Instrumentation) pebble.Logger {
 	return logger{Instrumentation: ins}
 }
 
-func (l logger) Infof(format string, args ...any) { l.L.Infof(format, args...) }
+func NewNoopLogger() pebble.Logger {
+	return logger{Instrumentation: alamos.Instrumentation{}}
+}
+
+func (l logger) Infof(format string, args ...any) {
+	l.L.Infof(format, args...)
+}
 func (l logger) Errorf(format string, args ...any) {
 	l.L.Zap().Sugar().Errorf(format, args...)
 }
@@ -79,14 +105,36 @@ func (l logger) Fatalf(format string, args ...any) {
 func (d db) OpenTx() kv.Tx { return &tx{Batch: d.NewIndexedBatch(), db: d} }
 
 // Commit implements kv.DB.
-func (d db) Commit(ctx context.Context, opts ...any) error { return nil }
+func (d db) Commit(context.Context, ...any) error { return nil }
 
 // NewReader implement kv.DB.
 func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
 
+func (d db) withTx(ctx context.Context, f func(tx kv.Tx) error) error {
+	var (
+		err error
+		t   = d.OpenTx()
+	)
+	defer func() {
+		err = errors.Combine(err, t.Close())
+	}()
+	if err = f(t); err != nil {
+		return err
+	}
+	err = t.Commit(ctx)
+	return err
+}
+
 // Set implement kv.DB.
-func (d db) Set(_ context.Context, key, value []byte, opts ...any) error {
-	return translateError(d.DB.Set(key, value, parseOpts(opts)))
+func (d db) Set(ctx context.Context, key, value []byte, opts ...any) error {
+	// Hot path: if we don't need to notify observers of changes, then go straight
+	// to the underlying DB.
+	if d.Observer == nil {
+		return translateError(d.DB.Set(key, value, parseOpts(opts)))
+	}
+	return d.withTx(ctx, func(tx kv.Tx) error {
+		return tx.Set(ctx, key, value, opts...)
+	})
 }
 
 // Get implement kv.DB.
@@ -97,7 +145,14 @@ func (d db) Get(_ context.Context, key []byte, _ ...any) ([]byte, io.Closer, err
 
 // Delete implement kv.DB.
 func (d db) Delete(ctx context.Context, key []byte, opts ...any) error {
-	return translateError(d.DB.Delete(key, parseOpts(opts)))
+	// Hot path: if we don't need to notify observers of changes, then go straight
+	// to the underlying DB.
+	if d.Observer == nil {
+		return translateError(d.DB.Delete(key, parseOpts(opts)))
+	}
+	return d.withTx(ctx, func(tx kv.Tx) error {
+		return tx.Delete(ctx, key, opts...)
+	})
 }
 
 // OpenIterator implement kv.DB.
@@ -110,8 +165,10 @@ func (d db) apply(ctx context.Context, txn *tx) error {
 	if err != nil {
 		return translateError(err)
 	}
-	// We need to notify with a generator so that each subscriber gets a fresh reader.
-	d.NotifyGenerator(ctx, txn.NewReader)
+	if d.Observer != nil {
+		// We need to notify with a generator so that each subscriber gets a fresh reader.
+		d.NotifyGenerator(ctx, txn.NewReader)
+	}
 	return nil
 }
 
@@ -178,15 +235,37 @@ func (txn *tx) Close() error {
 
 // NewReader implements kv.Writer.
 func (txn *tx) NewReader() kv.TxReader {
-	return &txReader{
-		count:  int(txn.Count()),
-		Reader: txn.Reader(),
+	return func(yield func(kv.Change) bool) {
+		r := txn.Reader()
+		for {
+			kind, k, v, ok, err := r.Next()
+			if err != nil {
+				zap.S().DPanic("unexpected error reading batch", zap.Error(err))
+				return
+			}
+			if !ok {
+				return
+			}
+			variant, ok := kindToVariant(kind)
+			if !ok {
+				continue
+			}
+			if !yield(kv.Change{Variant: variant, Key: k, Value: v}) {
+				return
+			}
+		}
 	}
 }
 
-var kindsToVariant = map[pebble.InternalKeyKind]change.Variant{
-	pebble.InternalKeyKindSet:    change.Set,
-	pebble.InternalKeyKindDelete: change.Delete,
+func kindToVariant(kind pebble.InternalKeyKind) (change.Variant, bool) {
+	switch kind {
+	case pebble.InternalKeyKindSet:
+		return change.Set, true
+	case pebble.InternalKeyKindDelete:
+		return change.Delete, true
+	default:
+		return 0, false
+	}
 }
 
 func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
@@ -194,29 +273,6 @@ func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
 		LowerBound: opts.LowerBound,
 		UpperBound: opts.UpperBound,
 	}
-}
-
-type txReader struct {
-	count int
-	batchrepr.Reader
-}
-
-var _ kv.TxReader = (*txReader)(nil)
-
-// Count implements kv.TxReader.
-func (r *txReader) Count() int { return r.count }
-
-// Next implements kv.TxReader.
-func (r *txReader) Next(_ context.Context) (kv.Change, bool) {
-	kind, k, v, ok, _ := r.Reader.Next()
-	if !ok {
-		return kv.Change{}, false
-	}
-	variant, ok := kindsToVariant[kind]
-	if !ok {
-		return kv.Change{}, false
-	}
-	return kv.Change{Variant: variant, Key: k, Value: v}, true
 }
 
 func translateError(err error) error {

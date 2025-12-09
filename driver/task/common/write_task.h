@@ -31,7 +31,7 @@ struct BaseWriteTaskConfig : BaseTaskConfig {
     const BaseWriteTaskConfig &operator=(const BaseWriteTaskConfig &) = delete;
 
     explicit BaseWriteTaskConfig(xjson::Parser &cfg):
-        BaseTaskConfig(cfg), device_key(cfg.required<std::string>("device")) {}
+        BaseTaskConfig(cfg), device_key(cfg.field<std::string>("device")) {}
 };
 class Sink : public pipeline::Sink, public pipeline::Source {
     /// @brief the vector of channels to stream for commands.
@@ -194,13 +194,15 @@ public:
             streamer_factory,
             this->sink->internal->streamer_config(),
             this->sink,
-            breaker_cfg
+            breaker_cfg,
+            task.name
         ),
         state_write_pipe(
             writer_factory,
             this->sink->writer_config(),
             this->sink,
-            breaker_cfg
+            breaker_cfg,
+            task.name + ":state"
         ) {}
 
     /// @brief primary constructor that uses the task context's Synnax client for

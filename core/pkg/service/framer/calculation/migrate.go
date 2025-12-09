@@ -20,18 +20,18 @@ import (
 
 func (s *Service) migrateChannels(ctx context.Context) error {
 	var legacyCalculations []channel.Channel
-	if err := s.cfg.Channels.NewRetrieve().
-		WhereLegacyCalculated().
+	if err := s.cfg.Channel.NewRetrieve().
+		WhereLegacyCalculated(true).
 		Entries(&legacyCalculations).
 		Exec(ctx, nil); err != nil {
 		return err
 	}
 	resolver := s.cfg.Arc.SymbolResolver()
 	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		writer := s.cfg.Channels.NewWriter(tx)
+		writer := s.cfg.Channel.NewWriter(tx)
 		for _, calc := range legacyCalculations {
 			if _, err := compiler.Compile(ctx, compiler.Config{
-				Channels:       s.cfg.Channels,
+				ChannelService: s.cfg.Channel,
 				Channel:        calc,
 				SymbolResolver: resolver,
 			}); err == nil {

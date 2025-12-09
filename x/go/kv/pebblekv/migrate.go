@@ -15,6 +15,7 @@ import (
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/cockroachdb/pebble/v2/vfs"
 	vfsv1 "github.com/cockroachdb/pebble/vfs"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -27,16 +28,21 @@ func RequiresMigration(dirname string, fs vfs.FS) (bool, error) {
 		uint64(dbDesc.FormatMajorVersion) < uint64(pebble.FormatNewest), nil
 }
 
-func Migrate(dirname string) error {
+func Migrate(dirname string, ins alamos.Instrumentation) error {
 	// Check if the database requires migration using v2
 	dbDesc, err := pebble.Peek(dirname, vfs.Default)
 	if err != nil {
 		return err
 	}
-
+	log := NewLogger(ins)
+	ev1 := pebblev1.MakeLoggingEventListener(log)
 	// Only use v1 for truly old formats (< v2's minimum supported version)
 	if uint64(dbDesc.FormatMajorVersion) < uint64(pebble.FormatMinSupported) {
-		oldDB, err := pebblev1.Open(dirname, &pebblev1.Options{FS: vfsv1.Default})
+		oldDB, err := pebblev1.Open(dirname, &pebblev1.Options{
+			FS:            vfsv1.Default,
+			Logger:        log,
+			EventListener: &ev1,
+		})
 		if err != nil {
 			return err
 		}
@@ -48,10 +54,13 @@ func Migrate(dirname string) error {
 		}
 	}
 
+	ev := pebble.MakeLoggingEventListener(log)
 	// For all other formats, open with v2 (handles both supported formats and auto-migration)
 	db, err := pebble.Open(dirname, &pebble.Options{
 		FS:                 vfs.Default,
 		FormatMajorVersion: pebble.FormatNewest,
+		Logger:             log,
+		EventListener:      &ev,
 	})
 	if err != nil {
 		return err

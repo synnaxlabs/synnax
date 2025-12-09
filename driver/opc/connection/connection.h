@@ -56,19 +56,19 @@ struct Config {
     Config() = default;
 
     explicit Config(xjson::Parser parser):
-        endpoint(parser.required<std::string>("endpoint")),
-        username(parser.optional<std::string>("username", "")),
-        password(parser.optional<std::string>("password", "")),
-        security_mode(parser.optional<std::string>("security_mode", "None")),
-        security_policy(parser.optional<std::string>("security_policy", "None")),
-        client_cert(parser.optional<std::string>("client_certificate", "")),
-        client_private_key(parser.optional<std::string>("client_private_key", "")),
-        server_cert(parser.optional<std::string>("server_certificate", "")),
+        endpoint(parser.field<std::string>("endpoint")),
+        username(parser.field<std::string>("username", "")),
+        password(parser.field<std::string>("password", "")),
+        security_mode(parser.field<std::string>("security_mode", "None")),
+        security_policy(parser.field<std::string>("security_policy", "None")),
+        client_cert(parser.field<std::string>("client_certificate", "")),
+        client_private_key(parser.field<std::string>("client_private_key", "")),
+        server_cert(parser.field<std::string>("server_certificate", "")),
         secure_channel_lifetime_ms(
-            parser.optional<uint32_t>("secure_channel_lifetime_ms", 0)
+            parser.field<uint32_t>("secure_channel_lifetime_ms", 0)
         ),
-        session_timeout_ms(parser.optional<uint32_t>("session_timeout_ms", 0)),
-        client_timeout_ms(parser.optional<uint32_t>("client_timeout_ms", 0)) {}
+        session_timeout_ms(parser.field<uint32_t>("session_timeout_ms", 0)),
+        client_timeout_ms(parser.field<uint32_t>("client_timeout_ms", 0)) {}
 
     json to_json() const {
         return {
@@ -157,6 +157,17 @@ private:
     std::unordered_map<std::string, std::vector<Entry>> connections_;
 
     void release(const std::string &key, std::shared_ptr<UA_Client> client);
+
+    /// @brief Performs connection maintenance via run_iterate and verifies session
+    /// state.
+    /// @param client The OPC UA client to maintain.
+    /// @param log_prefix Prefix for log messages.
+    /// @return NIL on success, error if maintenance failed or session deactivated.
+    xerrors::Error run_iterate_checked(
+        const std::shared_ptr<UA_Client> &client,
+        const std::string &log_prefix
+    );
+
     friend class Connection;
 };
 }

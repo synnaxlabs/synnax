@@ -1,5 +1,5 @@
 {
-  "version": "0.48.0",
+  "version": "0.49.0",
   "private": true,
   "scripts": {
     "build": "npx turbo build",
@@ -74,10 +74,23 @@
     "madge:media": "npx turbo madge --filter @synnaxlabs/media",
     "madge:pluto": "npx turbo madge --filter @synnaxlabs/pluto",
     "madge:x": "npx turbo madge --filter @synnaxlabs/x",
-    "devtools": "npx turbo devtools --filter @synnaxlabs/console"
+    "devtools": "npx turbo devtools --filter @synnaxlabs/console",
+    "knip": "knip",
+    "knip:production": "knip --production",
+    "knip:alamos": "knip --workspace alamos/ts",
+    "knip:arc": "knip --workspace arc/ts",
+    "knip:client": "knip --workspace client/ts",
+    "knip:console": "knip --workspace console",
+    "knip:docs": "knip --workspace docs/site",
+    "knip:drift": "knip --workspace drift",
+    "knip:freighter": "knip --workspace freighter/ts",
+    "knip:media": "knip --workspace x/media",
+    "knip:pluto": "knip --workspace pluto",
+    "knip:x": "knip --workspace x/ts"
   },
   "devDependencies": {
     "@prettier/plugin-xml": "^3.4.2",
+    "knip": "^5.70.0",
     "prettier": "catalog:",
     "prettier-plugin-astro": "^0.14.1",
     "prettier-plugin-sh": "^0.18.0",
@@ -85,8 +98,8 @@
     "turbo": "^2.6.0"
   },
   "engines": {
-    "node": ">=22"
+    "node": "^24.11.1"
   },
-  "packageManager": "pnpm@10.16.1",
+  "packageManager": "pnpm@10.22.0",
   "name": "synnax"
 }

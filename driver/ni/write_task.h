@@ -66,7 +66,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         xjson::Parser &cfg
     ):
         common::BaseWriteTaskConfig(cfg),
-        state_rate(telem::Rate(cfg.required<float>("state_rate"))) {
+        state_rate(telem::Rate(cfg.field<float>("state_rate"))) {
         cfg.iter("channels", [&](xjson::Parser &ch_cfg) {
             auto ch = channel::parse_output(ch_cfg);
             if (ch != nullptr && ch->enabled)
@@ -76,7 +76,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             cfg.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->hardware.retrieve_device(this->device_key);
+        auto [dev, err] = client->devices.retrieve(this->device_key);
         if (err) {
             cfg.field_err("device", "failed to retrieve device " + err.message());
             return;

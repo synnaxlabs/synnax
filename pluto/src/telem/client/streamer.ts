@@ -14,9 +14,9 @@ import {
   compare,
   type CrudeTimeSpan,
   debounce,
-  type Destructor,
+  type destructor,
   MultiSeries,
-  type Replace,
+  Rate,
   type Series,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -42,13 +42,12 @@ interface StreamerProps {
 // request don't slam the socket with lots of updates.
 const STREAM_DEBOUNCE = TimeSpan.milliseconds(100).milliseconds;
 
+const THROTTLE_RATE = Rate.hz(60).valueOf();
+
 export class Streamer {
-  private readonly props: Replace<
-    Required<StreamerProps>,
-    {
-      streamUpdateDelay: TimeSpan;
-    }
-  >;
+  private readonly props: Omit<Required<StreamerProps>, "streamUpdateDelay"> & {
+    streamUpdateDelay: TimeSpan;
+  };
 
   private readonly mu: Mutex = new Mutex();
   private readonly listeners = new Map<StreamHandler, ListenerEntry>();
@@ -70,7 +69,10 @@ export class Streamer {
   }
 
   /** Implements StreamClient. */
-  async stream(handler: StreamHandler, keys: channel.Keys): Promise<Destructor> {
+  async stream(
+    handler: StreamHandler,
+    keys: channel.Keys,
+  ): Promise<destructor.Destructor> {
     const { cache, instrumentation: ins } = this.props;
     if (this.closed) return () => {};
     // Make sure that the cache has entries for all relevant channels. This will also
@@ -145,7 +147,10 @@ export class Streamer {
       // Update or create the streamer.
       if (this.streamer == null) {
         ins.L.info("creating new streamer", { keys: arrKeys });
-        this.streamer = await this.props.openStreamer({ channels: arrKeys });
+        this.streamer = await this.props.openStreamer({
+          channels: arrKeys,
+          throttleRate: THROTTLE_RATE,
+        });
         this.streamerRunLoop = this.runStreamer(this.streamer);
       }
 

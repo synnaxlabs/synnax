@@ -9,16 +9,8 @@
 
 import "@/vis/legend/Container.css";
 
-import { box, location, scale, xy } from "@synnaxlabs/x";
-import {
-  type CSSProperties,
-  memo,
-  type ReactElement,
-  type RefObject,
-  useCallback,
-  useRef,
-} from "react";
-import { z } from "zod";
+import { box, location, scale, sticky, xy } from "@synnaxlabs/x";
+import { memo, type ReactElement, useCallback, useRef } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -28,95 +20,16 @@ import { type OptionalControl } from "@/input/types";
 import { state } from "@/state";
 import { preventDefault } from "@/util/event";
 
-const completeStickyXYz = xy.xy.extend({
-  root: location.corner,
-  units: z.object({
-    x: z.enum(["px", "decimal"]),
-    y: z.enum(["px", "decimal"]),
-  }),
-});
-interface CompleteStickyXY extends z.infer<typeof completeStickyXYz> {}
-
-export const stickyXYz = completeStickyXYz.partial({ root: true, units: true });
-// StickyXY is a special coordinate system that allows for an element to 'stick' to an
-// edge of its parent container. This makes for intuitive positioning behavior for
-// components like legends. When the parent resizes, the legend will remain in a natural
-// position.
-export interface StickyXY extends z.infer<typeof stickyXYz> {}
-
-const stickyToCSS = (pos: StickyXY): CSSProperties => {
-  const ret: CSSProperties = {};
-  ret[pos.root?.x ?? "left"] =
-    pos?.units?.x === "px" ? `${pos.x}px` : `${pos.x * 100}%`;
-  ret[pos.root?.y ?? "top"] = pos?.units?.y === "px" ? `${pos.y}px` : `${pos.y * 100}%`;
-  return ret;
-};
-
-/**
- * Converts a StickyXY position to a decimal position relative to the parent container
- * and correctly offset based on the dimensions of the child.
- * @param pos - The StickyXY position to convert
- * @param ref - The ref of the element being positioned. The parent will be inferred
- * from the parentElement of the ref.
- */
-const stickyToDecimalXY = (
-  pos: StickyXY,
-  ref: RefObject<HTMLDivElement | null>,
-): xy.XY => {
-  const ret = { x: pos.x, y: pos.y };
-  if (ref.current == null) return ret;
-  const b = box.construct(ref.current);
-  const parentBox = box.construct(ref.current.parentElement as HTMLDivElement);
-  if (pos.units?.x === "decimal") {
-    if (pos.root?.x === "right") ret.x = 1 - pos.x;
-  } else if (pos.root?.x === "right")
-    ret.x = 1 - (pos.x + box.width(b)) / box.width(parentBox);
-  else ret.x /= box.width(parentBox);
-  if (pos.units?.y === "decimal") {
-    if (pos.root?.y === "bottom") ret.y = 1 - pos.y;
-  } else if (pos.root?.y === "bottom")
-    ret.y = 1 - (pos.y + box.height(b)) / box.height(parentBox);
-  else ret.y /= box.height(parentBox);
-  return ret;
-};
-
-const calcStickyPos = (
-  pos: xy.XY,
-  ref: RefObject<HTMLDivElement | null>,
-): StickyXY | null => {
-  if (ref.current == null) return null;
-  const parentBox = box.construct(ref.current.parentElement as HTMLDivElement);
-  const b = box.construct(ref.current);
-  const ret: CompleteStickyXY = {
-    x: pos.x,
-    y: pos.y,
-    root: { ...location.TOP_LEFT },
-    units: { x: "px", y: "px" },
-  };
-  if (pos.x > 0.8) {
-    ret.x = (1 - pos.x) * box.width(parentBox) - box.width(b);
-    ret.root.x = "right";
-  } else if (pos.x < 0.2) ret.x = pos.x * box.width(parentBox);
-  else ret.units.x = "decimal";
-  if (pos.y > 0.8) {
-    ret.y = (1 - pos.y) * box.height(parentBox) - box.height(b);
-    ret.root.y = "bottom";
-  } else if (pos.y < 0.2) ret.y = pos.y * box.height(parentBox);
-  else ret.units.y = "decimal";
-  ret.x = Math.round(ret.x * 100) / 100;
-  return { ...ret, ...xy.truncate(ret, 3) };
-};
-
 export interface ContainerProps
   extends Omit<Flex.BoxProps, "onChange">,
-    Partial<OptionalControl<StickyXY>> {
+    Partial<OptionalControl<sticky.XY>> {
   dragEnabled?: boolean;
-  initial?: StickyXY;
+  initial?: sticky.XY;
 }
 
 const TOP_LEFT_DECIMAL = box.reRoot(box.DECIMAL, location.TOP_LEFT);
 
-const DEFAULT_INITIAL: StickyXY = {
+const DEFAULT_INITIAL: sticky.XY = {
   x: 0.1,
   y: 0.1,
   root: location.TOP_LEFT,
@@ -133,19 +46,19 @@ export const Container = memo(
     initial = DEFAULT_INITIAL,
     ...rest
   }: ContainerProps): ReactElement | null => {
-    const [position, setPosition] = state.usePurePassthrough<StickyXY>({
+    const [position, setPosition] = state.usePurePassthrough<sticky.XY>({
       value,
       onChange,
       initial,
     });
 
-    const positionRef = useRef<StickyXY>(position);
+    const positionRef = useRef<sticky.XY>(position);
     const disabled = useSyncedRef(draggable === false);
     const ref = useRef<HTMLDivElement | null>(null);
 
-    if (position !== null) style = { ...style, ...stickyToCSS(position) };
+    if (position !== null) style = { ...style, ...sticky.toCSS(position) };
 
-    const calculatePosition = useCallback((drag: box.Box): StickyXY | null => {
+    const calculatePosition = useCallback((drag: box.Box): sticky.XY | null => {
       if (ref.current?.parentElement == null) return positionRef.current;
       const bounds = box.construct(ref.current.parentElement);
       const decimalScale = scale.XY.scale(bounds).scale(TOP_LEFT_DECIMAL);
@@ -164,7 +77,13 @@ export const Container = memo(
         box.signedDims(decimalScale.box(drag)),
       );
       const clamped = clampScale.pos(newDecimalPos);
-      return calcStickyPos(clamped, ref);
+      if (ref.current == null || ref.current.parentElement == null)
+        return positionRef.current;
+      return sticky.calculate({
+        position: clamped,
+        element: box.construct(ref.current),
+        container: bounds,
+      });
     }, []);
 
     const handleCursorDragStart = useCursorDrag({
@@ -172,7 +91,12 @@ export const Container = memo(
         // When we start dragging, we need to re-calculate the sticky position of the
         // element based on the new dimensions of the parent. This removes strange
         // 'jumping' behavior when starting to drag.
-        positionRef.current = stickyToDecimalXY(positionRef.current, ref);
+        if (ref.current == null || ref.current.parentElement == null) return;
+        positionRef.current = sticky.toDecimal({
+          position: positionRef.current,
+          element: box.construct(ref.current),
+          container: box.construct(ref.current.parentElement),
+        });
       }, []),
       onMove: useCallback((box: box.Box) => {
         if (disabled.current) return;

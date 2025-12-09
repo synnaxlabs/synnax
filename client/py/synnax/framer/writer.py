@@ -135,8 +135,8 @@ class Writer:
     The writer is a streaming protocol that is heavily optimized for performance. This
     comes at the cost of increased complexity, and should only be used directly when
     writing large volumes of data (such as recording telemetry from a sensor or
-    ingesting data from a file). Simpler methods (such as the frame writer's write
-    method) should be used in most cases.
+    ingesting data from a file). Simpler methods (such as client.write()) should be
+    used in most cases.
 
     For a detailed guide on writing data to Synnax, see
     https://docs.synnaxlabs.com/reference/concepts/writes. A rough summary of the write
@@ -151,24 +151,24 @@ class Writer:
     rules described in the method's documentation. This process is asynchronous,
     meaning that write will return before the frame has been written to the cluster. This
     also means that the writer can accumulate an error after write is called. If the
-    writer accumulates an error, all subsequent write and commit calls will return False.
-    The caller can check for errors by calling the error method, which returns the
-    accumulated error and resets the writer for future use. The caller can also check
-    for errors by closing the writer, which will raise any accumulated error.
+    writer accumulates an error, subsequent calls to `write` will repeatedly throw that
+    error. If write throws an error, the writer can no longer be used, and it must
+    be closed and re-opened to continue writing.
 
     3. To commit the written frames to the database, the caller can call the commit
     method. Unlike write, commit is synchronous, meaning that it will not return until
-    all frames have been committed to the database. If the writer has accumulated an
-    error, commit will return False. After the caller acknowledges the error, they can
-    attempt to commit again. Commit can be called several times throughout a writer's
-    lifetime, and will commit all frames written since the last commit.
+    all frames have been committed to the database. If commit fails or the writer
+    has accumulated an error through previous calls to commit or write, then commit
+    will throw that error. If commit throws an error, the writer can no longer be used,
+    and it must be closed and re-opened to continue writing. Commit can be called
+    several times throughout a writer's lifetime, and will commit all frames written
+    since the last commit.
 
     4. A writer MUST be closed after use in order to prevent resource leaks. Close
     should typically be called in a 'finally' block. If the writer has accumulated an
     error, close will raise the accumulated error.
     """
 
-    _ENDPOINT = "/frame/write"
     _stream: Stream[WriterRequest, WriterResponse]
     _adapter: WriteFrameAdapter
     _close_exc: Exception | None = None
@@ -192,7 +192,7 @@ class Writer:
         self._adapter = adapter
         if use_experimental_codec:
             client = client.with_codec(WSWriterCodec(adapter.codec))
-        self._stream = client.stream(self._ENDPOINT, WriterRequest, WriterResponse)
+        self._stream = client.stream("/frame/write", WriterRequest, WriterResponse)
         config = WriterConfig(
             control_subject=Subject(name=name, key=str(uuid4())),
             keys=self._adapter.keys,
@@ -213,7 +213,9 @@ class Writer:
             raise exc
 
     @overload
-    def write(self, channels_or_data: ChannelName, series: CrudeSeries): ...
+    def write(
+        self, channels_or_data: ChannelKey | ChannelName, series: CrudeSeries
+    ): ...
 
     @overload
     def write(
@@ -266,9 +268,9 @@ class Writer:
             3. When writing to an index (i.e. TimeStamp) channel, the values must be
             monotonically increasing.
 
-        :returns: False if the writer has accumulated an error. If this is the case,
-        the caller should acknowledge the error by calling the error method or closing
-        the writer.
+        :raises: If the writer has accumulated an error. Once write throws,
+        all subsequent calls to write and/or commit will also fail. At this point,
+        the writer must be closed and re-opened in order to continue writing.
         """
         if self._close_exc is not None:
             raise self._close_exc
@@ -282,20 +284,37 @@ class Writer:
             ...
 
     @overload
-    def set_authority(self, value: CrudeAuthority) -> bool: ...
+    def set_authority(self, value: CrudeAuthority) -> None:
+        """Sets the authority level for all channels the writer is writing to.
+
+        :param value: The authority level to set (0-255). Use Authority.ABSOLUTE (255)
+            for exclusive control or Authority.DEFAULT (1) for standard priority.
+        """
+        ...
 
     @overload
     def set_authority(
         self,
         value: ChannelKey | ChannelName,
         authority: CrudeAuthority,
-    ) -> bool: ...
+    ) -> None:
+        """Sets the authority level for a single channel.
+
+        :param value: The key or name of the channel to set authority for.
+        :param authority: The authority level to set (0-255).
+        """
+        ...
 
     @overload
     def set_authority(
         self,
         value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
-    ) -> bool: ...
+    ) -> None:
+        """Sets the authority level for multiple channels.
+
+        :param value: A dictionary mapping channel keys/names to their authority levels.
+        """
+        ...
 
     def set_authority(
         self,
@@ -307,6 +326,39 @@ class Writer:
         ),
         authority: CrudeAuthority | None = None,
     ) -> None:
+        """Sets the control authority for channels the writer is writing to. Authority
+        determines which writer takes precedence when multiple writers attempt to write
+        to the same channel. Higher authority values take priority over lower ones.
+
+        This method has three call signatures:
+
+        1. Set authority for all channels:
+            writer.set_authority(Authority.ABSOLUTE)
+
+        2. Set authority for a single channel by key or name:
+            writer.set_authority("my_channel", Authority.ABSOLUTE)
+            writer.set_authority(channel_key, 200)
+
+        3. Set authority for multiple channels via dictionary:
+            writer.set_authority({
+                "channel_a": Authority.ABSOLUTE,
+                "channel_b": 100,
+            })
+
+        Authority levels range from 0 to 255:
+            - Authority.ABSOLUTE (255): Highest priority. No other writer can take
+              control while this writer is active.
+            - Authority.DEFAULT (1): Standard priority for normal operations.
+            - Custom values (0-255): Higher values take precedence over lower ones.
+
+        :param value: Either an authority level (int) to apply to all channels, a
+            channel key/name to set authority for a single channel, or a dictionary
+            mapping channels to their authority levels.
+        :param authority: The authority level when setting for a single channel.
+            Required when value is a channel key or name, ignored otherwise.
+        :raises ValueError: If a single channel is specified without an authority value.
+        :raises: Any accumulated error from previous writer operations.
+        """
         if self._close_exc is not None:
             raise self._close_exc
         if isinstance(value, int) and authority is None:
@@ -329,9 +381,10 @@ class Writer:
         """Commits the written frames to the database. Commit is synchronous, meaning
         that it will not return until all frames have been committed to the database.
 
-        :returns: False if the commit failed due to an error. In this case, the caller
-        should acknowledge the error by calling the error method or closing the writer.
-        After the error is acknowledged, the caller can attempt to commit again.
+        :returns: The timestamp of the last sample written to the writer.
+        :raises: An exception if the commit fails or any calls to previous writer
+            methods have thrown an exception. Once commit fails, the writer must be
+            closed and re-opened to continue use.
         """
         if self._close_exc is not None:
             raise self._close_exc

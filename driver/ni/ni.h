@@ -100,32 +100,28 @@ public:
     ) override;
 
     template<typename HardwareT, typename ConfigT, typename SourceSinkT, typename TaskT>
-    common::ConfigureResult
+    std::pair<common::ConfigureResult, xerrors::Error>
     configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
         common::ConfigureResult result;
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
-        if (cfg_err) {
-            result.error = cfg_err;
-            return result;
-        }
+        if (cfg_err) return {std::move(result), cfg_err};
         TaskHandle handle;
         const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) +
                                           ")";
-        if (const auto err = this->dmx->CreateTask(dmx_task_name.c_str(), &handle)) {
-            result.error = err;
-            return result;
-        }
+        if (const auto err = this->dmx->CreateTask(dmx_task_name.c_str(), &handle))
+            return {std::move(result), err};
         // Very important that we instantiate the Hardware API here, as we pass
         // ownership over the lifecycle of the task handle to it. If we encounter
         // any errors when applying the configuration or cycling the task, we need
         // to make sure it gets cleared.
         auto hw = std::make_unique<HardwareT>(this->dmx, handle);
-        if (result.error = cfg.apply(this->dmx, handle); result.error) return result;
+        if (const auto err = cfg.apply(this->dmx, handle))
+            return {std::move(result), err};
         // NI will look for invalid configuration parameters internally, so we
         // quickly cycle the task to catch and communicate any errors as
         // soon as possible.
-        if (result.error = hw->start(); result.error) return result;
-        if (result.error = hw->stop(); result.error) return result;
+        if (const auto err = hw->start()) return {std::move(result), err};
+        if (const auto err = hw->stop()) return {std::move(result), err};
         result.task = std::make_unique<TaskT>(
             task,
             ctx,
@@ -133,12 +129,12 @@ public:
             std::make_unique<SourceSinkT>(std::move(cfg), std::move(hw))
         );
         result.auto_start = cfg.auto_start;
-        return result;
+        return {std::move(result), xerrors::NIL};
     }
 
     std::string name() override { return INTEGRATION_NAME; }
 
-    common::ConfigureResult
+    std::pair<common::ConfigureResult, xerrors::Error>
     configure_scan(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
 };
 }

@@ -13,8 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -23,25 +21,23 @@ import (
 
 type OntologyService struct {
 	dbProvider
-	OntologyProvider
+	ontologyProvider
 	accessProvider
-	group *group.Service
 }
 
 func NewOntologyService(p Provider) *OntologyService {
 	return &OntologyService{
-		OntologyProvider: p.ontology,
+		ontologyProvider: p.ontology,
 		accessProvider:   p.access,
 		dbProvider:       p.db,
-		group:            p.Distribution.Group,
 	}
 }
 
 type (
 	OntologyRetrieveRequest struct {
 		IDs              []ontology.ID   `json:"ids" msgpack:"ids" validate:"required"`
-		Children         *bool           `json:"children" msgpack:"children"`
-		Parents          *bool           `json:"parents" msgpack:"parents"`
+		Children         bool            `json:"children" msgpack:"children"`
+		Parents          bool            `json:"parents" msgpack:"parents"`
 		ExcludeFieldData bool            `json:"exclude_field_data" msgpack:"exclude_field_data"`
 		Types            []ontology.Type `json:"types" msgpack:"types"`
 		SearchTerm       string          `json:"search_term" msgpack:"search_term"`
@@ -58,20 +54,20 @@ func (o *OntologyService) Retrieve(
 	req OntologyRetrieveRequest,
 ) (OntologyRetrieveResponse, error) {
 	if req.SearchTerm != "" {
-		resources, err := o.Ontology.Search(ctx, search.Request{Term: req.SearchTerm})
+		resources, err := o.ontology.Search(ctx, search.Request{Term: req.SearchTerm})
 		if err != nil {
 			return OntologyRetrieveResponse{}, err
 		}
 		return OntologyRetrieveResponse{Resources: resources}, nil
 	}
-	q := o.Ontology.NewRetrieve()
+	q := o.ontology.NewRetrieve()
 	if len(req.IDs) > 0 {
 		q = q.WhereIDs(req.IDs...)
 	}
-	if req.Children != nil && *req.Children {
+	if req.Children {
 		q = q.TraverseTo(ontology.Children)
 	}
-	if req.Parents != nil && *req.Parents {
+	if req.Parents {
 		q = q.TraverseTo(ontology.Parents)
 	}
 	if len(req.Types) > 0 {
@@ -90,88 +86,12 @@ func (o *OntologyService) Retrieve(
 	}
 	if err := o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
-		Objects: ontology.IDs(resources),
+		Action:  access.ActionRetrieve,
+		Objects: ontology.ResourceIDs(resources),
 	}); err != nil {
 		return OntologyRetrieveResponse{}, err
 	}
 	return OntologyRetrieveResponse{Resources: resources}, nil
-}
-
-type (
-	OntologyCreateGroupRequest struct {
-		Name   string      `json:"name" msgpack:"name" validate:"required"`
-		Key    uuid.UUID   `json:"key" msgpack:"key"`
-		Parent ontology.ID `json:"parent" msgpack:"parent"`
-	}
-	OntologyCreateGroupResponse struct {
-		Group group.Group `json:"group" msgpack:"group"`
-	}
-)
-
-func (o *OntologyService) CreateGroup(
-	ctx context.Context,
-	req OntologyCreateGroupRequest,
-) (res OntologyCreateGroupResponse, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Create,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
-	}); err != nil {
-		return res, err
-	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.group.NewWriter(tx)
-		g, err_ := w.CreateWithKey(ctx, req.Key, req.Name, req.Parent)
-		if err_ != nil {
-			return err_
-		}
-		res.Group = g
-		return nil
-	})
-}
-
-type OntologyDeleteGroupRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys" validate:"required"`
-}
-
-func (o *OntologyService) DeleteGroup(
-	ctx context.Context,
-	req OntologyDeleteGroupRequest,
-) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Delete,
-		Objects: group.OntologyIDs(req.Keys),
-	}); err != nil {
-		return res, err
-	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.group.NewWriter(tx)
-		return w.Delete(ctx, req.Keys...)
-	})
-}
-
-type OntologyRenameGroupRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key" validate:"required"`
-	Name string    `json:"name" msgpack:"name" validate:"required"`
-}
-
-func (o *OntologyService) RenameGroup(
-	ctx context.Context,
-	req OntologyRenameGroupRequest,
-) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.Update,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
-	}); err != nil {
-		return res, err
-	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.group.NewWriter(tx)
-		return w.Rename(ctx, req.Key, req.Name)
-	})
 }
 
 type OntologyAddChildrenRequest struct {
@@ -185,13 +105,13 @@ func (o *OntologyService) AddChildren(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: append(req.Children, req.ID),
 	}); err != nil {
 		return res, err
 	}
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.Ontology.NewWriter(tx)
+		w := o.ontology.NewWriter(tx)
 		for _, child := range req.Children {
 			if err := w.DefineRelationship(ctx, req.ID, ontology.ParentOf, child); err != nil {
 				return err
@@ -212,13 +132,13 @@ func (o *OntologyService) RemoveChildren(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: append(req.Children, req.ID),
 	}); err != nil {
 		return res, err
 	}
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.Ontology.NewWriter(tx)
+		w := o.ontology.NewWriter(tx)
 		for _, child := range req.Children {
 			if err := w.DeleteRelationship(ctx, req.ID, ontology.ParentOf, child); err != nil {
 				return err
@@ -240,13 +160,13 @@ func (o *OntologyService) MoveChildren(
 ) (res types.Nil, err error) {
 	if err = o.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: append(req.Children, req.From, req.To),
 	}); err != nil {
 		return res, err
 	}
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
-		w := o.Ontology.NewWriter(tx)
+		w := o.ontology.NewWriter(tx)
 		for _, child := range req.Children {
 			if err = w.DeleteRelationship(ctx, req.From, ontology.ParentOf, child); err != nil {
 				return err

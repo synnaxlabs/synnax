@@ -15,7 +15,7 @@ import { type channel } from "@/channel";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";
 import {
@@ -163,12 +163,12 @@ export class Range {
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
-  names: z.array(z.string()).optional(),
+  names: z.string().array().optional(),
   searchTerm: z.string().optional(),
   overlapsWith: TimeRange.z.optional(),
-  limit: z.number().int().optional(),
-  offset: z.number().int().optional(),
   hasLabels: label.keyZ.array().optional(),
+  limit: z.int().optional(),
+  offset: z.int().optional(),
   includeLabels: z.boolean().optional(),
   includeParent: z.boolean().optional(),
 });
@@ -188,8 +188,6 @@ const retrieveArgsZ = retrieveRequestZ
   .or(TimeRange.z.transform((timeRange) => ({ overlapsWith: timeRange })));
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-
-const RETRIEVE_ENDPOINT = "/range/retrieve";
 
 const retrieveResZ = z.object({ ranges: array.nullableZ(payloadZ) });
 
@@ -244,7 +242,7 @@ export class Client {
     const isSingle = typeof params === "string";
     const { ranges } = await sendRequired(
       this.unaryClient,
-      RETRIEVE_ENDPOINT,
+      "/range/retrieve",
       params,
       retrieveArgsZ,
       retrieveResZ,
@@ -271,7 +269,7 @@ export class Client {
   }
 
   async retrieveAlias(range: Key, channel: channel.Key): Promise<string> {
-    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    const aliaser = new Aliaser(range, this.unaryClient);
     return await aliaser.retrieve(channel);
   }
 
@@ -279,22 +277,22 @@ export class Client {
     range: Key,
     channels: channel.Key[],
   ): Promise<Record<channel.Key, string>> {
-    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    const aliaser = new Aliaser(range, this.unaryClient);
     return await aliaser.retrieve(channels);
   }
 
   async listAliases(range: Key): Promise<Record<channel.Key, string>> {
-    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    const aliaser = new Aliaser(range, this.unaryClient);
     return await aliaser.list();
   }
 
   async setAlias(range: Key, channel: channel.Key, alias: string): Promise<void> {
-    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    const aliaser = new Aliaser(range, this.unaryClient);
     await aliaser.set({ [channel]: alias });
   }
 
   async deleteAlias(range: Key, channels: channel.Key | channel.Key[]): Promise<void> {
-    const aliaser = new Aliaser(range, this.frameClient, this.unaryClient);
+    const aliaser = new Aliaser(range, this.unaryClient);
     await aliaser.delete(channels);
   }
 
@@ -302,7 +300,7 @@ export class Client {
     return new Range(payload, {
       frameClient: this.frameClient,
       kv: new KV(payload.key, this.unaryClient),
-      aliaser: new Aliaser(payload.key, this.frameClient, this.unaryClient),
+      aliaser: new Aliaser(payload.key, this.unaryClient),
       channels: this.channels,
       labelClient: this.labelClient,
       ontologyClient: this.ontologyClient,
@@ -326,7 +324,8 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "range", key });
+export const ontologyID = ontology.createIDFactory<Key>("range");
+export const TYPE_ONTOLOGY_ID = ontologyID("");
 
 export const aliasOntologyID = (key: Key): ontology.ID => ({
   type: "range-alias",

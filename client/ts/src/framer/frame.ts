@@ -386,6 +386,14 @@ export class Frame {
     });
   }
 
+  /**
+   * Iterates over all unique columns in the frame.
+   * @param fn a function that takes a channel key, multi-series, and index.
+   */
+  forEachUnique(fn: (k: channel.KeyOrName, ms: MultiSeries, i: number) => void): void {
+    this.uniqueColumns.forEach((k, i) => fn(k, this.get(k), i));
+  }
+
   at(index: number, required: true): Record<channel.KeyOrName, TelemValue>;
 
   at(
@@ -457,11 +465,11 @@ export class Frame {
 export const frameZ = z.object({
   keys: z.union([
     z.null().transform<number[]>(() => []),
-    z.number().array().optional().default([]),
+    z.number().array().default([]),
   ]),
   series: z.union([
     z.null().transform<z.infer<typeof Series.crudeZ>[]>(() => []),
-    Series.crudeZ.array().optional().default([]),
+    Series.crudeZ.array().default([]),
   ]),
 });
 

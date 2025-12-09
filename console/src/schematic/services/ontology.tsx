@@ -9,6 +9,7 @@
 
 import { ontology, ranger, schematic, type Synnax } from "@synnaxlabs/client";
 import {
+  Access,
   type Flux,
   Icon,
   Menu as PMenu,
@@ -126,7 +127,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource, shape },
   } = props;
   const activeRange = Range.useSelect();
+  const canDelete = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
+  const canEdit = Access.useUpdateGranted(ids);
   const handleCopy = useCopy(props);
   const snapshot = useRangeSnapshot();
   const handleExport = Schematic.useExport();
@@ -145,36 +148,31 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     group: () => group(props),
     link: () => handleLink({ name: first.name, ontologyID: firstID }),
   };
-  const canEditSchematic = Schematic.useSelectHasPermission();
-  const isSingle = ids.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" gap="small">
-      {canEditSchematic && (
+      {canDelete && <Menu.DeleteItem />}
+      {canEdit && (
         <>
           <Menu.RenameItem />
-          <Menu.DeleteItem />
           <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
           <PMenu.Divider />
         </>
       )}
-      {resources.every((r) => r.data?.snapshot === false) && (
+      {resources.every((r) => r.data?.snapshot === false) && canEdit && (
         <>
           <Range.SnapshotMenuItem range={activeRange} />
-          <PMenu.Item itemKey="copy">
-            <Icon.Copy />
-            Copy
-          </PMenu.Item>
+          {canEdit && (
+            <PMenu.Item itemKey="copy">
+              <Icon.Copy />
+              Copy
+            </PMenu.Item>
+          )}
           <PMenu.Divider />
         </>
       )}
-      {isSingle && (
-        <>
-          <Export.MenuItem />
-          <Link.CopyMenuItem />
-          <Ontology.CopyMenuItem {...props} />
-          <PMenu.Divider />
-        </>
-      )}
+      <Export.MenuItem />
+      <Link.CopyMenuItem />
+      <Ontology.CopyMenuItem {...props} />
       <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );

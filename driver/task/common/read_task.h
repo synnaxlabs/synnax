@@ -43,8 +43,8 @@ struct BaseReadTaskConfig : BaseTaskConfig {
         const bool stream_rate_required = true
     ):
         BaseTaskConfig(cfg),
-        sample_rate(telem::Rate(cfg.optional<float>("sample_rate", 0))),
-        stream_rate(telem::Rate(cfg.optional<float>("stream_rate", 0))),
+        sample_rate(telem::Rate(cfg.field<float>("sample_rate", 0))),
+        stream_rate(telem::Rate(cfg.field<float>("stream_rate", 0))),
         timing(timing_cfg) {
         if (sample_rate <= telem::Rate(0))
             cfg.field_err("sample_rate", "must be greater than 0");
@@ -175,7 +175,13 @@ public:
         tare(transform::Tare(source->channels())),
         state(ctx, task),
         source(std::make_shared<InternalSource>(*this, std::move(source))),
-        pipe(factory, this->source->writer_config(), this->source, breaker_cfg) {}
+        pipe(
+            factory,
+            this->source->writer_config(),
+            this->source,
+            breaker_cfg,
+            task.name
+        ) {}
 
     /// @brief primary constructor that uses the task context's Synnax client in
     /// order to communicate with the cluster.

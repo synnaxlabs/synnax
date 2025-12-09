@@ -70,8 +70,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         common::TimingConfig timing_cfg = common::TimingConfig()
     ):
         BaseReadTaskConfig(cfg, timing_cfg),
-        device_key(cfg.optional<std::string>("device", "cross-device")),
-        timing_source(cfg.optional<std::string>("timing_source", "")),
+        device_key(cfg.field<std::string>("device", "cross-device")),
+        timing_source(cfg.field<std::string>("timing_source", "")),
         samples_per_chan(sample_rate / stream_rate),
         software_timed(this->timing_source.empty() && task_type == "ni_digital_read"),
         channels(cfg.map<std::unique_ptr<channel::Input>>(
@@ -83,7 +83,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return {std::move(ch), ch->enabled};
             }
         )),
-        skew_warn_on_count(cfg.optional<std::size_t>(
+        skew_warn_on_count(cfg.field<std::size_t>(
             "skew_warn_on_count",
             this->sample_rate.hz() // Default to 1 second behind
         )) {
@@ -112,7 +112,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         auto remote_channels = map_channel_Keys(channel_vec);
         std::unordered_map<std::string, synnax::Device> devices;
         if (this->device_key != "cross-device") {
-            auto [device, err] = client->hardware.retrieve_device(this->device_key);
+            auto [device, err] = client->devices.retrieve(this->device_key);
             if (err) {
                 cfg.field_err(
                     "device",
@@ -125,7 +125,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             std::vector<std::string> dev_keys;
             for (const auto &ch: this->channels)
                 dev_keys.push_back(ch->dev_key);
-            auto [devices_vec, dev_err] = client->hardware.retrieve_devices(dev_keys);
+            auto [devices_vec, dev_err] = client->devices.retrieve(dev_keys);
             if (dev_err) {
                 cfg.field_err(
                     "device",

@@ -39,18 +39,18 @@ func NewStatusService(p Provider) *StatusService {
 }
 
 type Status struct {
-	status.Status
+	status.Status[any]
 	Labels []label.Label
 }
 
-func translateStatusesToService(statuses []Status) []status.Status {
-	return lo.Map(statuses, func(s Status, _ int) status.Status {
+func translateStatusesToService(statuses []Status) []status.Status[any] {
+	return lo.Map(statuses, func(s Status, _ int) status.Status[any] {
 		return s.Status
 	})
 }
 
-func translateStatusesFromService(statuses []status.Status) []Status {
-	return lo.Map(statuses, func(s status.Status, _ int) Status {
+func translateStatusesFromService(statuses []status.Status[any]) []Status {
+	return lo.Map(statuses, func(s status.Status[any], _ int) Status {
 		return Status{Status: s}
 	})
 
@@ -72,9 +72,9 @@ type StatusSetResponse struct {
 
 func statusAccessOntologyIDs(statuses []Status) []ontology.ID {
 	ids := make([]ontology.ID, 0, len(statuses))
-	for _, r := range statuses {
-		ids = append(ids, r.OntologyID())
-		ids = append(ids, label.OntologyIDsFromLabels(r.Labels)...)
+	for _, s := range statuses {
+		ids = append(ids, s.OntologyID())
+		ids = append(ids, label.OntologyIDsFromLabels(s.Labels)...)
 	}
 	return ids
 }
@@ -85,20 +85,20 @@ func (s *StatusService) Set(
 	req StatusSetRequest,
 ) (res StatusSetResponse, err error) {
 	ids := statusAccessOntologyIDs(req.Statuses)
-	// For status setting, we use Create action for new statuses
-	// and Update action for existing ones. Since Set can do both,
-	// we'll use Create permission.
-	if err := s.access.Enforce(ctx, access.Request{
+	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: ids,
 	}); err != nil {
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		translated := translateStatusesToService(req.Statuses)
-		err := s.internal.NewWriter(tx).SetManyWithParent(ctx, &translated, req.Parent)
-		if err != nil {
+		if err = s.internal.NewWriter(tx).SetManyWithParent(
+			ctx,
+			&translated,
+			req.Parent,
+		); err != nil {
 			return err
 		}
 		res.Statuses = translateStatusesFromService(translated)
@@ -132,15 +132,15 @@ func (s *StatusService) Retrieve(
 	req StatusRetrieveRequest,
 ) (res StatusRetrieveResponse, err error) {
 	q := s.internal.NewRetrieve()
-	resStatuses := make([]status.Status, 0, len(req.Keys))
+	resStatuses := make([]status.Status[any], 0, len(req.Keys))
 
 	if req.SearchTerm != "" {
 		q = q.Search(req.SearchTerm)
 	}
-	if req.Limit != 0 {
+	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
 	}
-	if req.Offset != 0 {
+	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
 	if len(req.HasLabels) > 0 {
@@ -166,7 +166,7 @@ func (s *StatusService) Retrieve(
 
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: ids,
 	}); err != nil {
 		return StatusRetrieveResponse{}, err
@@ -185,7 +185,7 @@ func (s *StatusService) Delete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: status.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err

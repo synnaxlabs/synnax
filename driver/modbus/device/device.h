@@ -140,10 +140,10 @@ struct ConnectionConfig {
 
     /// @brief constructs a ConnectionConfig from a JSON object.
     explicit ConnectionConfig(xjson::Parser parser):
-        host(parser.required<std::string>("host")),
-        port(parser.required<uint16_t>("port")),
-        swap_bytes(parser.required<bool>("swap_bytes")),
-        swap_words(parser.required<bool>("swap_words")) {}
+        host(parser.field<std::string>("host")),
+        port(parser.field<uint16_t>("port")),
+        swap_bytes(parser.field<bool>("swap_bytes")),
+        swap_words(parser.field<bool>("swap_words")) {}
 
     /// @brief returns the JSON representation of the configuration.
     [[nodiscard]] json to_json() const {
@@ -156,39 +156,29 @@ struct ConnectionConfig {
     }
 };
 
-/// @brief controls access and caches connections to Modbus servers.
+/// @brief creates connections to Modbus servers.
 class Manager {
-    /// @brief the current set of open Modbus servers.
-    std::unordered_map<std::string, std::weak_ptr<Device>> devices;
-
 public:
     Manager() = default;
 
-    /// @brief acquires a connection to a Modbus server, returning an error if the
+    /// @brief acquires a new connection to a Modbus server, returning an error if the
     /// server could not be connected to.
     /// @param config - the configuration for the connection.
+    /// @note Each call creates a fresh connection. Connections are not cached or shared
+    /// to avoid thread-safety issues (libmodbus is not thread-safe) and stale
+    /// connection problems when servers restart.
     std::pair<std::shared_ptr<Device>, xerrors::Error>
     acquire(const ConnectionConfig &config) {
-        const std::string id = config.host + ":" + std::to_string(config.port);
-        const auto it = devices.find(id);
-        if (it != devices.end()) {
-            const auto existing = it->second.lock();
-            if (existing != nullptr) return {existing, xerrors::NIL};
-            devices.erase(it);
-        }
-
         auto ctx = modbus_new_tcp(config.host.c_str(), config.port);
-        if (ctx == nullptr) return {nullptr, parse_error(errno)};
+        if (ctx == nullptr)
+            return {nullptr, xerrors::Error(CRITICAL_ERROR, modbus_strerror(errno))};
 
-        if (const auto err = parse_error(modbus_connect(ctx))) {
+        if (auto err = parse_error(modbus_connect(ctx))) {
             modbus_free(ctx);
             return {nullptr, err};
         }
 
-        auto dev = std::shared_ptr<Device>(new Device(ctx));
-        devices[config.host] = dev;
-
-        return {dev, xerrors::NIL};
+        return {std::make_shared<Device>(ctx), xerrors::NIL};
     }
 };
 }

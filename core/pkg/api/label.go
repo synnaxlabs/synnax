@@ -55,7 +55,7 @@ func (s *LabelService) Create(
 ) (res LabelCreateResponse, err error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: label.OntologyIDsFromLabels(req.Labels),
 	}); err != nil {
 		return res, err
@@ -71,7 +71,6 @@ func (s *LabelService) Create(
 }
 
 type LabelRetrieveRequest struct {
-	// Keys are the keys of the labels to retrieve.
 	Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
 	Names      []string    `json:"names" msgpack:"names"`
 	For        ontology.ID `json:"for" msgpack:"for"`
@@ -99,10 +98,10 @@ func (s *LabelService) Retrieve(
 	if req.SearchTerm != "" {
 		q = q.Search(req.SearchTerm)
 	}
-	if req.Limit != 0 {
+	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
 	}
-	if req.Offset != 0 {
+	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
 	if len(req.Keys) != 0 {
@@ -117,7 +116,7 @@ func (s *LabelService) Retrieve(
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: label.OntologyIDsFromLabels(res.Labels),
 	}); err != nil {
 		return LabelRetrieveResponse{}, err
@@ -135,7 +134,7 @@ func (s *LabelService) Delete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: label.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
@@ -157,7 +156,7 @@ func (s *LabelService) Add(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: append(label.OntologyIDs(req.Labels), req.ID),
 	}); err != nil {
 		return types.Nil{}, err
@@ -184,7 +183,7 @@ func (s *LabelService) Remove(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: append(label.OntologyIDs(req.Labels), req.ID),
 	}); err != nil {
 		return types.Nil{}, err

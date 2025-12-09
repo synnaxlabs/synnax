@@ -36,18 +36,13 @@ export interface SetOptions extends Pick<SetReq, "replace"> {}
 const removeReqZ = setReqZ.omit({ replace: true });
 const emptyResZ = z.object({});
 
-const CREATE_ENDPOINT = "/label/create";
-const DELETE_ENDPOINT = "/label/delete";
-const SET_ENDPOINT = "/label/set";
-const REMOVE_ENDPOINT = "/label/remove";
-const RETRIEVE_ENDPOINT = "/label/retrieve";
-
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
+  names: z.string().array().optional(),
   for: ontology.idZ.optional(),
   searchTerm: z.string().optional(),
-  offset: z.number().optional(),
-  limit: z.number().optional(),
+  offset: z.int().optional(),
+  limit: z.int().optional(),
 });
 
 const singleRetrieveArgsZ = z
@@ -76,7 +71,7 @@ export class Client {
     const isSingle = "key" in args;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/label/retrieve",
       args,
       retrieveArgsZ,
       retrieveResponseZ,
@@ -88,7 +83,7 @@ export class Client {
   async label(id: ontology.ID, labels: Key[], opts: SetOptions = {}): Promise<void> {
     await sendRequired<typeof setReqZ, typeof emptyResZ>(
       this.client,
-      SET_ENDPOINT,
+      "/label/set",
       { id, labels, replace: opts.replace },
       setReqZ,
       emptyResZ,
@@ -98,7 +93,7 @@ export class Client {
   async remove(id: ontology.ID, labels: Key[]): Promise<void> {
     await sendRequired<typeof removeReqZ, typeof emptyResZ>(
       this.client,
-      REMOVE_ENDPOINT,
+      "/label/remove",
       { id, labels },
       removeReqZ,
       emptyResZ,
@@ -111,7 +106,7 @@ export class Client {
     const isMany = Array.isArray(labels);
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
-      CREATE_ENDPOINT,
+      "/label/create",
       { labels: array.toArray(labels) },
       createReqZ,
       createResZ,
@@ -122,7 +117,7 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof emptyResZ>(
       this.client,
-      DELETE_ENDPOINT,
+      "/label/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,
@@ -130,4 +125,5 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "label", key });
+export const ontologyID = ontology.createIDFactory<Key>("label");
+export const TYPE_ONTOLOGY_ID = ontologyID("");

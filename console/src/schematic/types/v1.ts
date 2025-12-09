@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Legend } from "@synnaxlabs/pluto";
-import { migrate } from "@synnaxlabs/x";
+import { migrate, sticky } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";
@@ -17,11 +16,11 @@ export const VERSION = "1.0.0";
 
 export const legendStateZ = z.object({
   visible: z.boolean(),
-  position: Legend.stickyXYz,
+  position: sticky.xy,
 });
 export interface LegendState extends z.infer<typeof legendStateZ> {}
 const ZERO_LEGEND_STATE: LegendState = {
-  visible: false,
+  visible: true,
   position: { x: 50, y: 50, units: { x: "px", y: "px" } },
 };
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { control, deep, type Destructor, status } from "@synnaxlabs/x";
+import { control, deep, type destructor, status } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -23,14 +23,14 @@ export const chipStatusDetailsZ = z
 export const chipStateZ = z.object({
   triggered: z.boolean(),
   status: status.statusZ(chipStatusDetailsZ),
-  sink: telem.booleanSinkSpecZ.optional().default(telem.noopBooleanSinkSpec),
-  source: telem.statusSourceSpecZ.optional().default(telem.noopStatusSourceSpec),
+  sink: telem.booleanSinkSpecZ.default(telem.noopBooleanSinkSpec),
+  source: telem.statusSourceSpecZ.default(telem.noopStatusSourceSpec),
 });
 
 interface InternalState {
   source: telem.StatusSource<typeof chipStatusDetailsZ>;
   sink: telem.BooleanSink;
-  stopListening: Destructor;
+  stopListening: destructor.Destructor;
 }
 
 export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {

@@ -8,10 +8,10 @@ on:
   pull_request:
     branches:
       - main
+      - rc
     paths:
       - .bazeliskrc
       - .bazelrc
-      - .github/workflows/test.integration.yaml
       - alamos/go/**
       - alamos/py/**
       - alamos/ts/**
@@ -182,51 +182,27 @@ jobs:
             echo "REF_RUN_ID=${{ github.run_id }}" >> $GITHUB_OUTPUT
           fi
 
-  confirm-host:
-    name: Confirm Host (${{ matrix.os }})
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on:
-      - self-hosted
-      - ${{ matrix.os }}
-    needs: setup
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
-
-      - name: Confirm Host (Unix)
-        if: matrix.os != 'windows-latest'
-        run: integration/scripts/confirm_host_unix.sh
-
-      - name: Confirm Host (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: cmd
-        run: integration/scripts/ConfirmHostWindows.cmd
-
   build:
     name: Build (${{ matrix.os }})
-    timeout-minutes: 75
+    timeout-minutes: 30
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-build-bot, windows-build-bot]
         include:
-          - os: ubuntu-latest
-            confirm-host: confirm-host-ubuntu-latest
+          - os: ubuntu-build-bot
             artifact-name: synnax-core-linux
             binary-suffix: linux
             shell: bash
-          - os: windows-latest
-            confirm-host: confirm-host-windows-latest
+          - os: windows-build-bot
             artifact-name: synnax-core-windows
             binary-suffix: windows.exe
             shell: cmd
     runs-on: ${{ matrix.os }}
-    needs: [setup, confirm-host]
+    needs: setup
     steps:
       - name: Skip Build
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
@@ -241,7 +217,7 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Install Deps On Ubuntu Latest
-        if: matrix.os == 'ubuntu-latest' && needs.setup.outputs.SKIP_BUILD == 'false'
+        if: matrix.os == 'ubuntu-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run: |
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev
@@ -255,21 +231,30 @@ jobs:
           repository-cache: true
 
       - name: Build Driver
-        if: matrix.os != 'windows-latest' && needs.setup.outputs.SKIP_BUILD == 'false'
+        if:
+          matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run: |
           bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
 
       - name: Build Driver (Windows)
-        if: matrix.os == 'windows-latest' && needs.setup.outputs.SKIP_BUILD == 'false'
+        if:
+          matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run:
           bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
           --announce_rc //driver
 
       - name: Move Driver to Assets
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        shell: bash
+        if:
+          matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run: |
-          mv bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} core/pkg/service/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+          mv bazel-bin/driver/driver core/pkg/service/driver/assets/driver
+
+      - name: Move Driver to Assets (Windows)
+        if:
+          matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
+        shell: powershell
+        run: |
+          Move-Item -Force bazel-bin/driver/driver.exe core/pkg/service/driver/assets/driver.exe
 
       - name: Set up Go
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -302,9 +287,16 @@ jobs:
         run: pnpm build:console-vite
 
       - name: Copy Console Assets to Server
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        shell: bash
+        if:
+          matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run: cp -r console/dist/* core/pkg/service/console/dist/
+
+      - name: Copy Console Assets to Server (Windows)
+        if:
+          matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
+        shell: powershell
+        run: |
+          Copy-Item -Recurse -Force console/dist/* core/pkg/service/console/dist/
 
       - name: Build
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -323,17 +315,17 @@ jobs:
           if-no-files-found: error
 
       - name: Debug Build Environment
-        if: failure() && matrix.os != 'windows-latest'
+        if: failure() && matrix.os != 'windows-build-bot'
         run: integration/scripts/debug_build_environment_unix.sh
 
       - name: Debug Build Environment (Windows)
-        if: failure() && matrix.os == 'windows-latest'
+        if: failure() && matrix.os == 'windows-build-bot'
         shell: cmd
         run: integration/scripts/DebugBuildEnvironmentWindows.cmd
 
-  download-artifacts-windows:
-    name: Download Artifacts (Windows)
-    timeout-minutes: 1
+  deploy-and-test-windows:
+    name: Deploy and Test (windows)
+    timeout-minutes: 30
     runs-on:
       - self-hosted
       - windows-latest
@@ -352,16 +344,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
         run: integration/scripts/DownloadArtifactsWindows.cmd
-
-  deploy-and-test-windows:
-    name: Deploy and Test (windows)
-    runs-on:
-      - self-hosted
-      - windows-latest
-    needs: [setup, download-artifacts-windows]
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
 
       - name: Update Submodules
         run: git submodule update --init --recursive
@@ -398,7 +380,7 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: |
           set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
-          poetry run test-conductor --name test-conductor-win ${{ needs.setup.outputs.SEQUENCE_ARG }}
+          poetry run test-conductor --name tc_win ${{ needs.setup.outputs.SEQUENCE_ARG }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -413,9 +395,9 @@ jobs:
         shell: cmd
         run: integration/scripts/DebugTestEnvironmentWindows.cmd
 
-  download-artifacts-macos:
-    name: Download Artifacts (macOS)
-    timeout-minutes: 1
+  deploy-and-test-macos:
+    name: Deploy and Test (macOS)
+    timeout-minutes: 30
     runs-on:
       - self-hosted
       - macos-latest
@@ -434,17 +416,6 @@ jobs:
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
         run: integration/scripts/download_artifacts_unix.sh
 
-  deploy-and-test-macos:
-    name: Deploy and Test (macOS)
-    runs-on:
-      - self-hosted
-      - macos-latest
-    if: false
-    needs: [setup, download-artifacts-macos]
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
-
       - name: Update Submodules
         run: git submodule update --init --recursive
 
@@ -470,8 +441,8 @@ jobs:
         timeout-minutes: 20
         working-directory: integration
         run:
-          poetry run test-conductor --name test-conductor-unix ${{
-          needs.setup.outputs.SEQUENCE_ARG }}
+          poetry run test-conductor --name tc_unix ${{ needs.setup.outputs.SEQUENCE_ARG
+          }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -485,9 +456,9 @@ jobs:
         if: failure()
         run: integration/scripts/debug_test_environment_unix.sh
 
-  download-artifacts-ubuntu:
-    name: Download Artifacts (Ubuntu-Latest)
-    timeout-minutes: 1
+  deploy-and-test-ubuntu:
+    name: Deploy and Test (ubuntu)
+    timeout-minutes: 30
     runs-on:
       - self-hosted
       - ubuntu-latest
@@ -506,16 +477,6 @@ jobs:
           REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
         run: integration/scripts/download_artifacts_unix.sh
 
-  deploy-and-test-ubuntu:
-    name: Deploy and Test (ubuntu)
-    runs-on:
-      - self-hosted
-      - ubuntu-latest
-    needs: [setup, download-artifacts-ubuntu]
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
-
       - name: Update Submodules
         run: git submodule update --init --recursive
 
@@ -541,8 +502,8 @@ jobs:
         timeout-minutes: 20
         working-directory: integration
         run:
-          poetry run test-conductor --name test-conductor-unix ${{
-          needs.setup.outputs.SEQUENCE_ARG }}
+          poetry run test-conductor --name tc_unix ${{ needs.setup.outputs.SEQUENCE_ARG
+          }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v4

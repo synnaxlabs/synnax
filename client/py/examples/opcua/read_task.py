@@ -8,21 +8,29 @@
 #  included in the file licenses/APL.txt.
 
 """
-This example demonstrates how to start and configure a read task on an OPC UA server.
+This example demonstrates how to read data from the test OPC UA server (server_extended.py).
 
-Before running this example, you will need to connect Synnax to an OPC UA server. See
-https://docs.synnaxlabs.com/reference/driver/opc-ua/connect-server.
+Before running this example:
+1. Start the test server:
+   poetry run python driver/opc/dev/server_extended.py
+
+2. Connect the OPC UA server device in Synnax:
+   - Endpoint: opc.tcp://localhost:4841/
+   - Name the device "OPC UA Server" (or update line 27 below)
+
+3. The server creates float variables (my_float_0, my_float_1, etc.) that continuously
+   update with sine wave values. This example reads those values.
 """
 
 import synnax as sy
-from synnax.hardware import opcua
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
 client = sy.Synnax()
 
-# Retrieve the OPC UA server from Synnax.
-dev = client.hardware.devices.retrieve(name="OPC UA Server")
+# Retrieve the OPC UA server from Synnax
+# Update this with the name you gave the device in the Synnax Console
+dev = client.devices.retrieve(name="OPC UA Server")
 
 # Create an index channel that will be used to store the timestamps for the data.
 opcua_time = client.channels.create(
@@ -32,49 +40,94 @@ opcua_time = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-# Create two Synnax channels that will be used to store the node data. Notice how these
-# channels aren't specifically bound to the device. You'll do that in a later step when
-# you create the Read Task.
-node_0 = client.channels.create(
-    name="node_0",
+# Create Synnax channels to store the my_float_0 and my_float_1 node data from the server.
+# These floats are continuously updated with sine wave values by server_extended.py.
+my_float_0 = client.channels.create(
+    name="my_float_0",
     index=opcua_time.key,
-    data_type=sy.DataType.INT64,
+    data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
 )
-node_1 = client.channels.create(
-    name="node_1",
+my_float_1 = client.channels.create(
+    name="my_float_1",
     index=opcua_time.key,
-    data_type=sy.DataType.INT64,
+    data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
 )
 
-tsk = opcua.ReadTask(
-    name="Basic OPC UA Read Task",
+# Create the OPC UA Read Task
+# Using node_name to reference the OPC UA variables directly by their names.
+# This is more reliable than using node IDs which can change between server restarts.
+tsk = sy.opcua.ReadTask(
+    name="OPC UA Py - Read Task",
     device=dev.key,
-    sample_rate=sy.Rate.HZ * 100,
-    stream_rate=sy.Rate.HZ * 25,
+    sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
+    stream_rate=sy.Rate.HZ * 10,  # Stream at 10 Hz
     data_saving=True,
     channels=[
-        # Bind the Synnax channels to the OPC UA node IDs.
-        opcua.Channel(channel=node_0.key, node_id="NS=2;I=8"),
-        opcua.Channel(channel=node_1.key, node_id="NS=2;I=10"),
+        # Bind the Synnax channels to the OPC UA node IDs
+        # These IDs correspond to my_float_0 and my_float_1 in server_extended.py
+        sy.opcua.ReadChannel(
+            channel=my_float_0.key,
+            node_id="NS=2;I=8",  # my_float_0
+            data_type="float32",
+        ),
+        sy.opcua.ReadChannel(
+            channel=my_float_1.key,
+            node_id="NS=2;I=9",  # my_float_1
+            data_type="float32",
+        ),
     ],
 )
 
-# Note that our server is being sampled at 100 Hz, but we're only streaming at 25 Hz.
-# This means that every frame of data will contain 100 / 25 = 4 samples per frame.
+# Configure the task with Synnax
+client.tasks.configure(tsk)
 
-client.hardware.tasks.configure(tsk)
+print("=" * 70)
+print("Starting OPC UA Read Task")
+print("=" * 70)
+print("Reading sine wave data from server_extended.py...")
+print("Running continuously - Press Ctrl+C to stop\n")
 
-total_reads = 100
+print(f"{'Sample':<8} {'Timestamp':<12} {'my_float_0':>12} {'my_float_1':>12}")
+print("-" * 70)
 
-frame = sy.Frame()
+# Start the task and read data continuously
+try:
+    # Hide cursor for clean output
+    print("\033[?25l", end="", flush=True)
 
-# Start the task and read 100 frames from the OPC UA server, which will contain a total
-# of 400 samples per channel (100 frames * 4 samples per frame).
-with tsk.run(timeout=10):
-    with client.open_streamer(["node_0", "node_1"]) as streamer:
-        for i in range(total_reads):
-            frame.append(streamer.read())
+    with tsk.run():
+        with client.open_streamer(["my_float_0", "my_float_1"]) as streamer:
+            sample_count = 0
+            start_time = sy.TimeStamp.now()
 
-frame.to_df().to_csv("opcua_read_result.csv")
+            while True:
+                frame = streamer.read()
+                if frame:
+                    # Print the latest values from each channel
+                    if "my_float_0" in frame and len(frame["my_float_0"]) > 0:
+                        val0 = frame["my_float_0"][-1]
+                        val1 = frame["my_float_1"][-1]
+
+                        elapsed = sy.TimeStamp.now().span(start_time).seconds
+
+                        sample_count += 1
+                        print(
+                            f"{sample_count:<8} {elapsed:<12.1f} {val0:>12.4f} {val1:>12.4f}",
+                            end="\r",
+                            flush=True,
+                        )
+
+# Output summary
+except KeyboardInterrupt:
+    print("\n" + "-" * 70)
+    print("✓ Read task stopped by user")
+    print(f"\nCollected {sample_count} samples")
+    print("The values are sine waves:")
+    print("- my_float_0: sin(t) + 0      (oscillates around 0)")
+    print("- my_float_1: sin(t) + 1      (oscillates around 1)")
+    print("=" * 70)
+finally:
+    # Ensure cursor is always shown even if something goes wrong
+    print("\033[?25h", end="", flush=True)

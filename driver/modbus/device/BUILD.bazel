@@ -6,5 +6,19 @@ cc_library(
         "//driver/errors",
         "//vendor/libmodbus",
         "//x/cpp/xerrors",
+        "//x/cpp/xjson",
+        "@glog//:glog",
+    ],
+)
+
+cc_test(
+    name = "device_test",
+    srcs = ["device_test.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":device",
+        "//driver/modbus/mock",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
     ],
 )

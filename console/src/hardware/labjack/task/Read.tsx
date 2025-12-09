@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
@@ -255,7 +255,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties>({
+  const dev = await client.devices.retrieve<Device.Properties>({
     key: config.device,
   });
   Common.Device.checkConfigured(dev);
@@ -269,10 +269,11 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     }
   else shouldCreateIndex = true;
   let modified = false;
+  const identifier = channel.escapeInvalidName(dev.properties.identifier);
   if (shouldCreateIndex) {
     modified = true;
     const index = await client.channels.create({
-      name: `${dev.properties.identifier}_time`,
+      name: `${identifier}_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -296,7 +297,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     modified = true;
     const channels = await client.channels.create(
       toCreate.map((c) => ({
-        name: `${dev.properties.identifier}_${c.port}`,
+        name: `${identifier}_${c.port}`,
         dataType: c.type === DI_CHANNEL_TYPE ? "uint8" : "float32",
         index: dev.properties.readIndex,
       })),
@@ -307,7 +308,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
       dev.properties[type].channels[toCreateC.port] = c.key;
     });
   }
-  if (modified) await client.hardware.devices.create(dev);
+  if (modified) await client.devices.create(dev);
   config.channels.forEach(
     (c) =>
       (c.channel =

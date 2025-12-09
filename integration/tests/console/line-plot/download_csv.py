@@ -9,10 +9,12 @@
 
 import csv
 import io
+import uuid
 
 import synnax as sy
 
 from console.case import ConsoleCase
+from console.plot import Plot
 
 
 class DownloadCSV(ConsoleCase):
@@ -28,7 +30,7 @@ class DownloadCSV(ConsoleCase):
         console = self.console
         client = self.client
         index_channel = client.channels.create(
-            name="download_csv_csv_index",
+            name=f"download_csv_csv_index_{str(uuid.uuid4())[:4]}",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
@@ -36,7 +38,7 @@ class DownloadCSV(ConsoleCase):
             f"Created index channel {index_channel.name} with key {index_channel.key} and data type {index_channel.data_type}"
         )
         data_channel = client.channels.create(
-            name="download_csv_csv_data",
+            name=f"download_csv_csv_data_{str(uuid.uuid4())[:4]}",
             data_type=sy.DataType.FLOAT32,
             index=index_channel.key,
         )
@@ -62,21 +64,19 @@ class DownloadCSV(ConsoleCase):
                 data_channel.key: data_data,
             },
         )
-        console.plot.new()
-        console.plot.add_channels("Y1", [index_channel.name, data_channel.name])
-        console.plot.add_ranges(["30m"])
-        csv_data = console.plot.download_csv()
+        plot = Plot(client, console, "download_csv_plot")
+        plot.add_channels("Y1", [index_channel.name, data_channel.name])
+        plot.add_ranges(["30m"])
+        csv_data = plot.download_csv()
         csv_file = io.StringIO(csv_data)
         reader = csv.reader(csv_file)
         header = next(reader)
         assert (
-            header[0] == index_channel.name,
-            f"Header {header[0]} != {index_channel.name}",
-        )
+            header[0] == index_channel.name
+        ), f"Header {header[0]} != {index_channel.name}"
         assert (
-            header[1] == data_channel.name,
-            f"Header {header[1]} != {data_channel.name}",
-        )
+            header[1] == data_channel.name
+        ), f"Header {header[1]} != {data_channel.name}"
         i = 0
         for row in reader:
             assert row[0] == str(

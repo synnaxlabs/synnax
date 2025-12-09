@@ -112,7 +112,7 @@ export const Create: Layout.Renderer = (props) => {
     [args?.key],
   );
 
-  const saveName = `Save to ${client?.params.name ?? "Synnax"}`;
+  const saveName = "Save to Synnax";
 
   return (
     <Flex.Box className={CSS.B("range-create-layout")} grow empty>
@@ -184,8 +184,6 @@ export const Create: Layout.Renderer = (props) => {
             variant="filled"
             onClick={() => save()}
             disabled={!clientExists}
-            tooltip={clientExists ? saveName : "No Core Connected"}
-            tooltipLocation="bottom"
             status={variant}
             trigger={Triggers.SAVE}
           >

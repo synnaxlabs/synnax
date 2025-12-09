@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type AsyncDestructor } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import type * as monacoT from "monaco-editor";
 
 import { initializationState } from "@/code/init/mu";
@@ -34,7 +34,7 @@ const getWorker = (_: string, label: string) => {
   throw new Error(`Worker ${label} not found`);
 };
 
-export type Service = () => Promise<AsyncDestructor>;
+export type Service = () => Promise<destructor.Async>;
 export type Extension = () => Promise<void>;
 
 export interface InitializeProps {
@@ -44,11 +44,11 @@ export interface InitializeProps {
 
 export interface InitializeReturn {
   monaco: typeof monacoT;
-  destructor: AsyncDestructor;
+  destructor: destructor.Async;
 }
 
 let monaco: typeof monacoT | null = null;
-let destructor: AsyncDestructor | null = null;
+let shutdownMonaco: destructor.Async | null = null;
 
 export const initializeMonaco = async ({
   extensions,
@@ -60,7 +60,7 @@ export const initializeMonaco = async ({
     initializationState.mu.release();
     return {
       monaco: monaco as typeof monacoT,
-      destructor: destructor as AsyncDestructor,
+      destructor: shutdownMonaco as destructor.Async,
     };
   }
   initializationState.initialized = true;
@@ -83,9 +83,12 @@ export const initializeMonaco = async ({
   });
   monaco = await import("monaco-editor");
   const destructors = await Promise.all(services.map(async (s) => await s()));
-  destructor = async () => {
+  initializationState.mu.release();
+  shutdownMonaco = async () => {
     await Promise.all(destructors.map((d) => d()));
   };
-  initializationState.mu.release();
-  return { monaco, destructor };
+  return {
+    monaco,
+    destructor: shutdownMonaco,
+  };
 };

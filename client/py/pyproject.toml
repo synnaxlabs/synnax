@@ -1,6 +1,6 @@
 [project]
 name = "synnax"
-version = "0.48.0"
+version = "0.49.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
@@ -28,10 +28,12 @@ synnax-freighter = { path = "../../freighter/py", develop = true }
 urllib3 = "^2.5.0"
 
 [tool.poetry.group.dev.dependencies]
+asyncua = "^1.1.5"
 black = "^25.9.0"
 isort = "^7.0.0"
 mypy = "^1.18.2"
 poetry = "^2.2.1"
+pymodbus = "^3.8.2"
 pytest = "^8.4.2"
 pytest-asyncio = "^1.2.0"
 scipy = "^1.16.3"
@@ -61,15 +63,19 @@ markers = [
     "frame_codec: mark test as a frame codec test",
     "iterator: mark test as a reader test",
     "internal: mark test as an internal test",
+    "labjack: mark test as a labjack test",
     "io: mark test as an io test",
     "multi_node: mark test as a multi_node test",
+    "modbus: mark test as a modbus test",
     "ni: mark test as a ni test",
     "ontology: mark test as an ontology test",
     "opcua: mark test as an opcua test",
     "rack: mark test as a rack test",
     "ranger: mark test as a ranger test",
+    "role: mark test as a role test",
     "sequence: mark test as a sequence test",
     "series: mark test as a series test",
+    "status: mark test as a status test",
     "task: mark test as a task test",
     "tdms: mark test as a tdms test",
     "telem: mark test as a telem test",
