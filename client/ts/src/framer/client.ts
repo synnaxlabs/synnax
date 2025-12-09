@@ -12,6 +12,7 @@ import {
   type CrudeSeries,
   type CrudeTimeRange,
   type CrudeTimeStamp,
+  type csv,
   type MultiSeries,
   TimeRange,
   TimeSpan,
@@ -19,6 +20,7 @@ import {
 
 import { channel } from "@/channel";
 import { Deleter } from "@/framer/deleter";
+import { createCSVExportStream } from "@/framer/exporter";
 import { Frame } from "@/framer/frame";
 import { AUTO_SPAN, Iterator, type IteratorConfig } from "@/framer/iterator";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
@@ -199,13 +201,77 @@ export class Client {
     const { normalized, variant } = channel.analyzeParams(channels);
     const bounds = new TimeRange(timeRange);
     if (variant === "keys")
-      return await this.deleter.delete({
-        keys: normalized as channel.Key[],
-        bounds,
-      });
-    return await this.deleter.delete({
-      names: normalized as string[],
-      bounds,
+      return await this.deleter.delete({ keys: normalized as channel.Key[], bounds });
+    return await this.deleter.delete({ names: normalized as string[], bounds });
+  }
+
+  /**
+   * Exports frame data to CSV as a readable stream. This allows exporting large
+   * datasets without loading all data into memory at once.
+   *
+   * Channels with different indexes are automatically grouped and rows are interleaved
+   * by timestamp order.
+   *
+   * @param config - Export configuration.
+   * @param config.channels - The channels to export (keys or names).
+   * @param config.timeRange - The time range to export.
+   * @param config.headers - Optional map of channel keys/names to custom header names.
+   * @returns A ReadableStream of Uint8Array chunks containing CSV data.
+   *
+   * @example
+   * ```ts
+   * const stream = await client.framer.exportCSV({
+   *   channels: [timestampKey, tempKey, pressureKey],
+   *   timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(100) },
+   *   headers: new Map([
+   *     [timestampKey, "Time"],
+   *     [tempKey, "Temperature (C)"],
+   *     [pressureKey, "Pressure (Pa)"],
+   *   ]),
+   * });
+   *
+   * // Stream to file or response
+   * const reader = stream.getReader();
+   * while (true) {
+   *   const { done, value } = await reader.read();
+   *   if (done) break;
+   *   // Write value (Uint8Array) to destination
+   * }
+   * ```
+   */
+  async exportCSV(config: ExportCSVConfig): Promise<ReadableStream<Uint8Array>> {
+    const { channels: channelParams, timeRange, headers, delimiter } = config;
+    const channelPayloads = await this.retriever.retrieve(channelParams);
+    const allKeys = new Set<channel.Key>();
+    channelPayloads.forEach((ch) => {
+      allKeys.add(ch.key);
+      if (ch.index !== 0) allKeys.add(ch.index);
+    });
+    const missingIndexKeys = Array.from(allKeys).filter(
+      (k) => !channelPayloads.some((ch) => ch.key === k),
+    );
+    if (missingIndexKeys.length > 0) {
+      const indexChannels = await this.retriever.retrieve(missingIndexKeys);
+      channelPayloads.push(...indexChannels);
+    }
+    const iterator = await this.openIterator(timeRange, Array.from(allKeys));
+    return createCSVExportStream({
+      iterator,
+      channelPayloads,
+      headers,
+      delimiter,
     });
   }
+}
+
+/** Configuration for exporting frames to CSV. */
+export interface ExportCSVConfig {
+  /** The channels to export (keys or names). */
+  channels: channel.Params;
+  /** The time range to export. */
+  timeRange: CrudeTimeRange;
+  /** Optional mapping of channel keys to custom header names. */
+  headers?: Map<channel.KeyOrName, string>;
+  /** The delimiter to use between records. */
+  delimiter?: csv.RecordDelimiter;
 }
