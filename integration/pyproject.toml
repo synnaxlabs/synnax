@@ -7,7 +7,7 @@ requires-python = ">=3.11,<4"
 dynamic = ["dependencies"]
 
 [tool.poetry]
-packages = [{ include = "framework" }, { include = "tests" }]
+packages = [{ include = "driver" }, { include = "framework" }, { include = "tests" }]
 
 [project.scripts]
 # Make the test conductor easily runnable
