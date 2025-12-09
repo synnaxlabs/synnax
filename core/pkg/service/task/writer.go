@@ -89,12 +89,16 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
 }
 
+// Delete deletes the task with the given key and its associated status.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	q := gorp.NewDelete[Key, Task]().WhereKeys(key)
 	if err := q.Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DeleteResource(ctx, OntologyID(key))
+	if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+		return err
+	}
+	return w.status.Delete(ctx, OntologyID(key).String())
 }
 
 func (w Writer) Copy(

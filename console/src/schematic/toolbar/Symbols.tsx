@@ -193,7 +193,7 @@ const RemoteSymbolListContextMenu = (
         },
       );
       if (newName == null) return false;
-      return data;
+      return { ...data, name: newName };
     },
   });
   const del = Schematic.Symbol.useDelete({
@@ -458,7 +458,7 @@ const GroupListContextMenu = ({
         },
       );
       if (newName == null) return false;
-      return data;
+      return { ...data, name: newName };
     },
   });
 

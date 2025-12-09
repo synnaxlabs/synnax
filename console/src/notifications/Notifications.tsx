@@ -33,7 +33,7 @@ interface NotificationsProps {
 
 // Note: Hack to hide repeated device and rack success notifications.
 const hideRackAndDeviceSuccesses = (status: Status.NotificationSpec) =>
-  status.variant !== "success" ||
+  (status.variant !== "success" && status.variant !== "loading") ||
   (!status.key.startsWith("rack") &&
     !status.key.startsWith("device") &&
     !status.key.startsWith("task"));

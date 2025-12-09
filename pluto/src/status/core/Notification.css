@@ -29,6 +29,11 @@
     z-index: 20;
     overflow: hidden;
     animation: pop 0.2s ease-in-out;
+    .pluto-notification__header {
+        .pluto-notification__name {
+            max-width: 160px;
+        }
+    }
     .pluto-notification__silence {
         opacity: 0;
     }
