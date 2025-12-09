@@ -72,8 +72,8 @@ describe("queries", () => {
         { wrapper },
       );
       await waitFor(() => expect(result2.current.variant).toEqual("success"));
-      expect(result2.current.status?.variant).toEqual("success");
-      expect(result2.current.status?.message).toEqual("Rack is happy as a clam");
+      expect(result2.current.data?.status?.variant).toEqual("success");
+      expect(result2.current.data?.status?.message).toEqual("Rack is happy as a clam");
     });
   });
 

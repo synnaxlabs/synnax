@@ -167,9 +167,7 @@ describe("queries", () => {
           device: Device.useRetrieve({ key: dev.key }),
           store: Flux.useStore<Device.FluxSubStore>(),
         }),
-        {
-          wrapper,
-        },
+        { wrapper },
       );
       await waitFor(() => expect(result1.current.device.variant).toBeDefined());
       expect(result1.current.device.data?.key).toEqual(dev.key);
