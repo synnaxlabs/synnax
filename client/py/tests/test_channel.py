@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import random
 import uuid
 
 import numpy as np
@@ -16,16 +17,21 @@ import synnax as sy
 from tests.telem import seconds_linspace
 
 
+def channel_name() -> str:
+    return f"test_{random.randint(0, 1000000)}"
+
+
 @pytest.mark.channel
 class TestChannel:
     """Tests all things related to channel operations. Create, delete, retrieve, etc."""
 
     def test_create_index(self, client: sy.Synnax):
         """Should create an index channel."""
+        name = channel_name()
         channel = client.channels.create(
-            name="Time", data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=name, data_type=sy.DataType.TIMESTAMP, is_index=True
         )
-        assert channel.name == "Time"
+        assert channel.name == name
         assert channel.key != 0
         assert channel.data_type == sy.DataType.TIMESTAMP
         assert channel.is_index is True
@@ -35,12 +41,12 @@ class TestChannel:
         """Should raise a validation error when creating an index channel with a bad data type"""
         with pytest.raises(sy.ValidationError):
             client.channels.create(
-                name="Time", data_type=sy.DataType.FLOAT64, is_index=True
+                name=channel_name(), data_type=sy.DataType.FLOAT64, is_index=True
             )
 
     def test_create_index_no_data_type_provided(self, client: sy.Synnax):
         """Should infer the data type as TimeStamp when creating an index channel without a data type"""
-        ch = client.channels.create(name="Time", is_index=True)
+        ch = client.channels.create(name=channel_name(), is_index=True)
         assert ch.data_type == sy.DataType.TIMESTAMP
 
     def test_create_index_no_name_provided(self, client: sy.Synnax):
@@ -51,12 +57,13 @@ class TestChannel:
     def test_create_indexed_pair(self, client: sy.Synnax):
         """Should create a channel with an index channel"""
         idx = client.channels.create(
-            name="Time", data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
+        data_name = channel_name()
         data = client.channels.create(
-            name="Data", data_type=sy.DataType.FLOAT64, index=idx.key
+            name=data_name, data_type=sy.DataType.FLOAT64, index=idx.key
         )
-        assert data.name == "Data"
+        assert data.name == data_name
         assert data.key != 0
         assert data.data_type == sy.DataType.FLOAT64
         assert data.is_index is False
@@ -66,13 +73,13 @@ class TestChannel:
         """Should raise a validation error when creating a channel with a non-existent index"""
         with pytest.raises(sy.ValidationError):
             client.channels.create(
-                name="Data", data_type=sy.DataType.FLOAT64, index=1234
+                name=channel_name(), data_type=sy.DataType.FLOAT64, index=1234
             )
 
     def test_create_indexed_pair_no_name(self, client: sy.Synnax):
         """Should raise a validation error when creating a data channel with no name"""
         idx = client.channels.create(
-            name="Time", data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         with pytest.raises(sy.ValidationError):
             client.channels.create(data_type=sy.DataType.FLOAT64, index=idx.key)
@@ -80,20 +87,20 @@ class TestChannel:
     def test_create_indexed_pair_no_data_type(self, client: sy.Synnax):
         """Should raise a validation error when creating an index channel with no data type"""
         idx = client.channels.create(
-            name="Time", data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         with pytest.raises(sy.ValidationError):
-            client.channels.create(name="Data", index=idx.key)
+            client.channels.create(name=channel_name(), index=idx.key)
 
     def test_create_from_list(self, client: sy.Synnax):
         """Should create a list of valid channels"""
         ch_one = sy.Channel(
-            name="test_osterone",
+            name="test" + channel_name(),
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
         )
         ch_two = sy.Channel(
-            name="test_ostertwo",
+            name="test" + channel_name(),
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
@@ -105,13 +112,14 @@ class TestChannel:
 
     def test_create_from_single_instance(self, client: sy.Synnax):
         """Should create a single channel from a channel instance"""
+        name = channel_name()
         channel = sy.Channel(
-            name="test",
+            name=name,
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
         channel = client.channels.create(channel)
-        assert channel.name == "test"
+        assert channel.name == name
         assert channel.key != 0
         assert channel.data_type == sy.DataType.TIMESTAMP
         assert channel.is_index is True
@@ -120,30 +128,24 @@ class TestChannel:
     def test_create_virtual(self, client: sy.Synnax):
         """Should create a virtual channel"""
         channel = client.channels.create(
-            name="test", data_type=sy.DataType.JSON, virtual=True
+            name=channel_name(), data_type=sy.DataType.JSON, virtual=True
         )
         res = client.channels.retrieve(channel.key)
         assert res.virtual is True
 
     def test_create_virtual_from_class(self, client: sy.Synnax):
         """Should create a virtual channel from the class"""
-        channel = sy.Channel(name="test", data_type=sy.DataType.JSON, virtual=True)
+        channel = sy.Channel(
+            name=channel_name(), data_type=sy.DataType.JSON, virtual=True
+        )
         channel = client.channels.create(channel)
         res = client.channels.retrieve(channel.key)
         assert res.virtual is True
 
     def test_create_calculation_from_class(self, client: sy.Synnax):
         """Should create a calculation channel from the class"""
-        idx_ch = client.channels.create(
-            name="test", data_type=sy.DataType.TIMESTAMP, is_index=True
-        )
-        base_v_channel = client.channels.create(
-            name="test",
-            data_type=sy.DataType.FLOAT32,
-            index=idx_ch.key,
-        )
         channel = sy.Channel(
-            name="test",
+            name=channel_name(),
             data_type=sy.DataType.FLOAT32,
             expression="return 1 + 1",
             virtual=True,
@@ -155,15 +157,15 @@ class TestChannel:
     def test_create_calculation_from_kwargs(self, client: sy.Synnax):
         """Should create a calculated channel from kwargs and auto-set virtual to True"""
         idx_ch = client.channels.create(
-            name="test", data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         base_v_channel = client.channels.create(
-            name="test",
+            name=channel_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx_ch.key,
         )
         channel = client.channels.create(
-            name="test",
+            name=channel_name(),
             data_type=sy.DataType.FLOAT32,
             expression="return 1 + 1",
         )
@@ -174,7 +176,7 @@ class TestChannel:
     def test_create_with_leaseholder(self, client: sy.Synnax):
         """Should create a channel with a leaseholder"""
         channel = client.channels.create(
-            name="test", data_type=sy.DataType.JSON, leaseholder=2, virtual=True
+            name=channel_name(), data_type=sy.DataType.JSON, leaseholder=2, virtual=True
         )
         res = client.channels.retrieve(channel.key)
         assert res.leaseholder == 2
@@ -183,7 +185,10 @@ class TestChannel:
         """Should raise a QueryError when leaseholder not found"""
         with pytest.raises(sy.QueryError):
             client.channels.create(
-                name="test", data_type=sy.DataType.JSON, leaseholder=1234, virtual=True
+                name=channel_name(),
+                data_type=sy.DataType.JSON,
+                leaseholder=1234,
+                virtual=True,
             )
 
     def test_create_invalid_nptype(self, client: sy.Synnax):
@@ -231,7 +236,7 @@ class TestChannel:
             client.channels.retrieve(fake_keys)
 
     def test_retrieve_numeric_string(
-        self, client: sy.Synnax, indexed_pair: list[sy.channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         names = [ch.name for ch in indexed_pair]
         channels = client.channels.retrieve(
@@ -242,43 +247,51 @@ class TestChannel:
 
     def test_retrieve_bad_numeric_string(self, client: sy.Synnax):
         ch1 = client.channels.create(
-            data_type=sy.DataType.FLOAT32, name="test1", virtual=True
-        )
-        ch2 = client.channels.create(
-            data_type=sy.DataType.FLOAT32, name=str(ch1.key), virtual=True
+            data_type=sy.DataType.FLOAT32, name=channel_name(), virtual=True
         )
 
         # Should get first channel since the numeric string gets converted to a key
-        result_channel = client.channels.retrieve(ch2.name)
-        assert result_channel.name == "test1"
+        result_channel = client.channels.retrieve(str(ch1.key))
+        assert result_channel.name == ch1.name
 
     def test_retrieve_single_multiple_found(
         self,
         client: sy.Synnax,
-        indexed_pair: list[sy.Channel],
     ):
         """Should raise QueryError when retrieving a single channel with
         multiple matches"""
         with pytest.raises(sy.MultipleFoundError):
-            client.channels.retrieve("test.*")
+            prefix = channel_name()
+            client.channels.create(
+                name=f"{prefix}1",
+                virtual=True,
+                data_type=sy.DataType.FLOAT64,
+            )
+            client.channels.create(
+                name=f"{prefix}2",
+                virtual=True,
+                data_type=sy.DataType.FLOAT64,
+            )
+            client.channels.retrieve(f"{prefix}.*")
 
     def test_retrieve_by_regex(self, client: sy.Synnax):
         """Should retrieve channels test1 and test2 using a regex"""
-        ch1 = client.channels.create(
+        prefix = channel_name()
+        client.channels.create(
             [
                 sy.Channel(
-                    name="strange_channel_regex_1",
+                    name=f"{prefix}1",
                     virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
                 sy.Channel(
-                    name="strange_channel_regex_2",
+                    name=f"{prefix}2",
                     virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
             ]
         )
-        res_channels = client.channels.retrieve(["^strange_channel_regex_"])
+        res_channels = client.channels.retrieve([f"^{prefix}.*"])
         assert len(res_channels) >= 2
 
     def test_delete_by_key(self, client: sy.Synnax):
@@ -286,12 +299,12 @@ class TestChannel:
         channels = client.channels.create(
             [
                 sy.Channel(
-                    name="test",
+                    name=channel_name(),
                     virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
                 sy.Channel(
-                    name="test2",
+                    name=channel_name(),
                     virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
@@ -307,12 +320,12 @@ class TestChannel:
         channels = client.channels.create(
             [
                 sy.Channel(
-                    name=str(uuid.uuid4()),
+                    name=channel_name(),
                     virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
                 sy.Channel(
-                    name=str(uuid.uuid4()),
+                    name=channel_name(),
                     virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
@@ -326,7 +339,7 @@ class TestChannel:
     def test_delete_and_recreate_with_same_name(self, client: sy.Synnax):
         """Should be able to delete, recreate, and then query a channel with the same
         name."""
-        name = str(uuid.uuid4())
+        name = channel_name()
         ch = client.channels.create(
             sy.Channel(
                 name=name,
@@ -357,7 +370,7 @@ class TestChannel:
 
     def test_single_rename(self, client: sy.Synnax):
         """Should rename a single channel"""
-        name = str(uuid.uuid4())
+        name = channel_name()
         channel = client.channels.create(
             sy.Channel(
                 name=name,
@@ -365,7 +378,7 @@ class TestChannel:
                 data_type=sy.DataType.FLOAT64,
             )
         )
-        new_name = str(uuid.uuid4())
+        new_name = channel_name()
         client.channels.rename(channel.key, new_name)
         retrieved = client.channels.retrieve(new_name)
         assert retrieved.name == new_name
@@ -377,18 +390,18 @@ class TestChannel:
         channels = client.channels.create(
             [
                 sy.Channel(
-                    name="test",
+                    name=channel_name(),
                     virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
                 sy.Channel(
-                    name="test2",
+                    name=channel_name(),
                     virtual=True,
                     data_type=sy.DataType.FLOAT64,
                 ),
             ]
         )
-        new_names = [str(uuid.uuid4()), str(uuid.uuid4())]
+        new_names = [channel_name(), channel_name()]
         client.channels.rename([channel.key for channel in channels], new_names)
         for i, name in enumerate(new_names):
             retrieved = client.channels.retrieve(name)
@@ -400,7 +413,7 @@ class TestChannel:
         for i in range(100):
             data.append(
                 sy.Channel(
-                    name=f"sensor_{i+1}_{str(uuid.uuid4())}",
+                    name=f"sensor_{i+1}_{channel_name()}",
                     virtual=True,
                     data_type=sy.DataType.FLOAT64,
                     internal=True,
@@ -440,24 +453,24 @@ class TestChannel:
         from synnax.channel.payload import Operation
 
         idx_ch = client.channels.create(
-            name="test", data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         base_channel = client.channels.create(
-            name="test",
+            name=channel_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx_ch.key,
         )
 
         operation = Operation(type="avg", duration=sy.TimeSpan.SECOND * 10)
         channel = sy.Channel(
-            name="test_avg",
+            name=channel_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {base_channel.name}",
             operations=[operation],
         )
         created = client.channels.create(channel)
 
-        assert created.name == "test_avg"
+        assert created.name == channel.name
         assert created.virtual is True
         assert len(created.operations) == 1
         assert created.operations[0].type == "avg"
@@ -470,29 +483,29 @@ class TestChannel:
         from synnax.channel.payload import Operation
 
         idx_ch = client.channels.create(
-            name="test", data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         base_channel = client.channels.create(
-            name="test",
+            name=channel_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx_ch.key,
         )
         reset_channel = client.channels.create(
-            name="test_reset",
+            name=channel_name(),
             data_type=sy.DataType.UINT8,
             index=idx_ch.key,
         )
 
         operation = Operation(type="min", reset_channel=reset_channel.key)
         channel = sy.Channel(
-            name="test_min",
+            name=channel_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {base_channel.name}",
             operations=[operation],
         )
         created = client.channels.create(channel)
 
-        assert created.name == "test_min"
+        assert created.name == channel.name
         assert created.virtual is True
         assert len(created.operations) == 1
         assert created.operations[0].type == "min"
@@ -504,10 +517,10 @@ class TestChannel:
         from synnax.channel.payload import Operation
 
         idx_ch = client.channels.create(
-            name="test", data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         base_channel = client.channels.create(
-            name="test",
+            name=channel_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx_ch.key,
         )
@@ -517,14 +530,14 @@ class TestChannel:
             duration=sy.TimeSpan.SECOND * 5,
         )
         channel = sy.Channel(
-            name="test_max",
+            name=channel_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {base_channel.name}",
             operations=[operation],
         )
         created = client.channels.create(channel)
 
-        assert created.name == "test_max"
+        assert created.name == channel.name
         assert len(created.operations) == 1
         assert created.operations[0].type == "max"
         assert created.operations[0].duration == sy.TimeSpan.SECOND * 5
@@ -534,17 +547,17 @@ class TestChannel:
         from synnax.channel.payload import Operation
 
         idx_ch = client.channels.create(
-            name="test", data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         base_channel = client.channels.create(
-            name="test",
+            name=channel_name(),
             data_type=sy.DataType.FLOAT32,
             index=idx_ch.key,
         )
 
         operation = Operation(type="avg", duration=sy.TimeSpan.SECOND * 15)
         channel = sy.Channel(
-            name="test_retrieve_ops",
+            name=channel_name(),
             data_type=sy.DataType.FLOAT32,
             expression=f"return {base_channel.name}",
             operations=[operation],
@@ -553,7 +566,7 @@ class TestChannel:
 
         # Retrieve and verify operations are preserved
         retrieved = client.channels.retrieve(created.key)
-        assert retrieved.name == "test_retrieve_ops"
+        assert retrieved.name == channel.name
         assert len(retrieved.operations) == 1
         assert retrieved.operations[0].type == "avg"
         assert retrieved.operations[0].duration == sy.TimeSpan.SECOND * 15
@@ -567,7 +580,7 @@ class TestChannelRetriever:
     def test_retrieve_one(self, client: sy.Synnax):
         ch = client.channels.create(
             data_type=sy.DataType.FLOAT32,
-            name="test",
+            name=channel_name(),
             virtual=True,
         )
         retrieved = client.channels._retriever.retrieve_one(ch.key)
@@ -584,7 +597,7 @@ class TestChannelWriteRead:
         """Should create a channel and write then read from it"""
         channel = client.channels.create(
             sy.Channel(
-                name="test",
+                name=channel_name(),
                 is_index=True,
                 data_type=sy.DataType.TIMESTAMP,
             )

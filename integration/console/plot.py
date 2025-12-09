@@ -7,15 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
-from playwright.sync_api import Page
+import synnax as sy
 
+from .console import Console
 from .page import ConsolePage
-
-if TYPE_CHECKING:
-    from .console import Console
-
 
 Axis = Literal["Y1", "Y2", "X1"]
 
@@ -23,17 +20,30 @@ Axis = Literal["Y1", "Y2", "X1"]
 class Plot(ConsolePage):
     """Plot page management interface"""
 
-    def __init__(self, page: Page, console: "Console") -> None:
-        super().__init__(page, console)
-        self.page_type = "Line Plot"
-        self.pluto_label = ".pluto-line-plot"
+    page_type: str = "Line Plot"
+    pluto_label: str = ".pluto-line-plot"
 
+    def __init__(
+        self,
+        client: sy.Synnax,
+        console: Console,
+        page_name: str,
+    ) -> None:
+        """
+        Initialize a Plot page.
+
+        Args:
+            client: Synnax client instance
+            console: Console instance
+            page_name: Name for the page
+        """
         self.data: dict[str, Any] = {
             "Y1": [],
             "Y2": [],
             "Ranges": [],
             "X1": None,
         }
+        super().__init__(client, console, page_name)
 
     def add_channels(self, axis: Axis, channels: str | list[str]) -> None:
         channels = [channels] if isinstance(channels, str) else channels
@@ -65,6 +75,7 @@ class Plot(ConsolePage):
 
     def download_csv(self) -> str:
         """Download the plot as a CSV file."""
+        self.console.close_all_notifications()
         csv_button = self.page.locator(".pluto-icon--csv").locator("..")
         with self.page.expect_download() as download_info:
             csv_button.click()
@@ -74,6 +85,7 @@ class Plot(ConsolePage):
 
     def set_axis(self, axis: Axis, config: dict[str, Any]) -> None:
         """Set axis configuration with the given parameters."""
+        self.console.close_all_notifications()
         self.page.get_by_text("Axes").click(timeout=5000)
         self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=5000)
 

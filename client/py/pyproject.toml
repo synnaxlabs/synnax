@@ -1,6 +1,6 @@
 [project]
 name = "synnax"
-version = "0.48.0"
+version = "0.49.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
@@ -72,8 +72,10 @@ markers = [
     "opcua: mark test as an opcua test",
     "rack: mark test as a rack test",
     "ranger: mark test as a ranger test",
+    "role: mark test as a role test",
     "sequence: mark test as a sequence test",
     "series: mark test as a series test",
+    "status: mark test as a status test",
     "task: mark test as a task test",
     "tdms: mark test as a tdms test",
     "telem: mark test as a telem test",

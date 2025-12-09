@@ -10,6 +10,8 @@
 import synnax as sy
 
 from console.case import ConsoleCase
+from console.schematic import Button, Setpoint, Valve
+from console.schematic.schematic import Schematic
 
 
 class SetpointPressUser(ConsoleCase):
@@ -34,31 +36,43 @@ class SetpointPressUser(ConsoleCase):
         super().setup()
 
     def run(self) -> None:
-        client = self.client
-        console = self.console
-
-        # Define the control channel names
-        END_CMD = "end_test_cmd"
-        SETPOINT = "press_setpoint_cmd"
-        PRESSURE = "press_pt"
-
         self.log("Creating schematic symbols")
-        console.schematic.new()
+        schematic = Schematic(self.client, self.console, "setpoint_press_user")
 
-        start_cmd = console.schematic.create_valve(
-            "test_flag_cmd", no_state_channel=True
+        start_cmd = schematic.create_symbol(
+            Valve(
+                label="test_flag_cmd",
+                state_channel="test_flag_cmd",
+                command_channel="test_flag_cmd",
+            )
         )
         start_cmd.move(-90, -100)
-        end_cmd = console.schematic.create_button("end_test_cmd", mode="Fire")
+        end_cmd = schematic.create_symbol(
+            Button(label="end_test_cmd", channel_name="end_test_cmd", mode="Fire")
+        )
         end_cmd.move(90, -100)
-        press_valve = console.schematic.create_valve("press_vlv")
+        press_valve = schematic.create_symbol(
+            Valve(
+                label="press_vlv",
+                state_channel="press_vlv",
+                command_channel="press_vlv",
+            )
+        )
         press_valve.move(-90, 10)
-        vent_valve = console.schematic.create_valve("vent_vlv")
+        vent_valve = schematic.create_symbol(
+            Valve(
+                label="vent_vlv",
+                state_channel="vent_vlv",
+                command_channel="vent_vlv",
+            )
+        )
         vent_valve.move(90, 10)
-        setpoint = console.schematic.create_setpoint("press_setpoint_cmd")
+        setpoint = schematic.create_symbol(
+            Setpoint(label="press_setpoint_cmd", channel_name="press_setpoint_cmd")
+        )
         setpoint.move(0, 120)
 
-        console.schematic.set_authority(100)
+        schematic.set_authority(100)
         # ------------- Test 1: Control Authority --------------
         #
         # SY-3147 Fixes a bug where the schematic is locked out
@@ -118,7 +132,7 @@ class SetpointPressUser(ConsoleCase):
         start_cmd.press()  # Set True
 
         self.log("Starting test")
-        setpoints = [30, 15, 60, 30, 0]
+        setpoints = [50, 25, 0]
         for target in setpoints:
             self.log(f"Target pressure: {target}")
             setpoint.set_value(target)

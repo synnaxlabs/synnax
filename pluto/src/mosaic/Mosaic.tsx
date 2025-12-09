@@ -275,7 +275,10 @@ const TabLeaf = memo(
       [startDrag],
     );
 
-    const handleTabCreate = useCallback((): void => onCreate?.(key, "center"), [key]);
+    const handleTabCreate = useCallback(
+      (): void => onCreate?.(key, "center"),
+      [key, onCreate],
+    );
 
     const isEmpty = key == 1 && tabs.length == 0;
 
@@ -288,7 +291,7 @@ const TabLeaf = memo(
         selected={node.selected}
         selectedAltColor={activeTab === node.selected}
         onDragStart={handleDragStart}
-        onCreate={handleTabCreate}
+        onCreate={onCreate ? handleTabCreate : undefined}
         addTooltip={addTooltip}
         {...haulProps}
         {...rest}

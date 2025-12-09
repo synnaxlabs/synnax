@@ -56,7 +56,7 @@ type FrameService struct {
 	alamos.Instrumentation
 	dbProvider
 	accessProvider
-	Channel  channel.Readable
+	Channel  *channel.Service
 	Internal *framer.Service
 }
 
@@ -82,7 +82,7 @@ func (s *FrameService) FrameDelete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
@@ -153,7 +153,7 @@ func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
@@ -216,7 +216,7 @@ func (s *FrameService) openStreamer(
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: subject,
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
@@ -382,7 +382,7 @@ func (s *FrameService) openWriter(
 
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: subject,
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: framer.OntologyIDs(req.Config.Keys),
 	}); err != nil {
 		return nil, err
@@ -423,10 +423,10 @@ type WSFramerCodec struct {
 	LowerPerfCodec xbinary.Codec
 }
 
-func NewWSFramerCodec(channels channel.Readable) httputil.Codec {
+func NewWSFramerCodec(channelSvc *channel.Service) httputil.Codec {
 	return &WSFramerCodec{
 		LowerPerfCodec: httputil.JSONCodec,
-		Codec:          codec.NewDynamic(channels),
+		Codec:          codec.NewDynamic(channelSvc),
 	}
 }
 
@@ -633,10 +633,10 @@ func (c *WSFramerCodec) ContentType() string {
 
 const framerContentType = "application/sy-framer"
 
-func NewHTTPCodecResolver(channel channel.Readable) httputil.CodecResolver {
+func NewHTTPCodecResolver(channelSvc *channel.Service) httputil.CodecResolver {
 	return func(ct string) (httputil.Codec, error) {
 		if ct == framerContentType {
-			return NewWSFramerCodec(channel), nil
+			return NewWSFramerCodec(channelSvc), nil
 		}
 		return httputil.ResolveCodec(ct)
 	}

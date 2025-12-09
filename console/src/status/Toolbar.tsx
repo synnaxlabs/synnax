@@ -9,8 +9,9 @@
 
 import "@/status/Toolbar.css";
 
-import { type status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import {
+  Access,
   Component,
   Flex,
   Icon,
@@ -22,7 +23,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useEffect } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { EmptyAction, Toolbar } from "@/components";
@@ -48,8 +49,14 @@ const NoStatuses = (): ReactElement => {
 const List = (): ReactElement => {
   const favorites = useSelectFavorites();
   const menuProps = PMenu.useContextMenu();
+  const [selected, setSelected] = useState<status.Key[]>([]);
   return (
-    <CoreList.Frame<status.Key, status.Status> data={favorites}>
+    <Select.Frame<status.Key, status.Status>
+      multiple
+      data={favorites}
+      value={selected}
+      onChange={setSelected}
+    >
       <PMenu.ContextMenu menu={contextMenuRenderProp} {...menuProps} />
       <CoreList.Items<status.Key>
         full="y"
@@ -58,7 +65,7 @@ const List = (): ReactElement => {
       >
         {listItem}
       </CoreList.Items>
-    </CoreList.Frame>
+    </Select.Frame>
   );
 };
 
@@ -118,17 +125,20 @@ const listItem = Component.renderProp(ListItem);
 
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
+  const canEdit = Access.useUpdateGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
         <Toolbar.Actions>
-          <Toolbar.Action
-            tooltip="Create status"
-            onClick={() => placeLayout(CREATE_LAYOUT)}
-          >
-            <Icon.Add />
-          </Toolbar.Action>
+          {canEdit && (
+            <Toolbar.Action
+              tooltip="Create status"
+              onClick={() => placeLayout(CREATE_LAYOUT)}
+            >
+              <Icon.Add />
+            </Toolbar.Action>
+          )}
           <Toolbar.Action
             tooltip="Open Status Explorer"
             onClick={() => placeLayout(EXPLORER_LAYOUT)}
@@ -152,4 +162,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
+  useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),
 };

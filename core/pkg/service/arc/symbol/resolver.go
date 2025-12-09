@@ -30,9 +30,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 )
 
-type channelResolver struct {
-	channel.Readable
-}
+type channelResolver struct{ *channel.Service }
 
 var _ arc.SymbolResolver = (*channelResolver)(nil)
 
@@ -87,6 +85,6 @@ func CreateResolver(cfgs ...runtime.Config) (arc.SymbolResolver, error) {
 		telem.SymbolResolver,
 		stat.SymbolResolver,
 		time.SymbolResolver,
-		&channelResolver{Readable: cfg.Channel},
+		&channelResolver{Service: cfg.Channel},
 	}, nil
 }

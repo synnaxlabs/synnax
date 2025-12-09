@@ -29,7 +29,7 @@ import (
 
 type Arc struct {
 	arc.Arc
-	Status *status.Status `json:"status" msgpack:"status"`
+	Status *status.Status[arc.StatusDetails] `json:"status" msgpack:"status"`
 }
 
 type ArcService struct {
@@ -60,7 +60,7 @@ type (
 func (s *ArcService) Create(ctx context.Context, req ArcCreateRequest) (res ArcCreateResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: arc.OntologyIDsFromArcs(translateArcsToService(req.Arcs)),
 	}); err != nil {
 		return res, err
@@ -85,7 +85,7 @@ type ArcDeleteRequest struct {
 func (s *ArcService) Delete(ctx context.Context, req ArcDeleteRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: arc.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
@@ -151,11 +151,11 @@ func (s *ArcService) Retrieve(ctx context.Context, req ArcRetrieveRequest) (res 
 	}
 
 	if req.IncludeStatus {
-		statuses := make([]status.Status, 0, len(res.Arcs))
+		statuses := make([]status.Status[arc.StatusDetails], 0, len(res.Arcs))
 		uuidStrings := lo.Map(res.Arcs, func(a Arc, _ int) string {
 			return a.Key.String()
 		})
-		if err = s.status.NewRetrieve().
+		if err = status.NewRetrieve[arc.StatusDetails](s.status).
 			WhereKeys(uuidStrings...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
@@ -167,7 +167,7 @@ func (s *ArcService) Retrieve(ctx context.Context, req ArcRetrieveRequest) (res 
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: arc.OntologyIDsFromArcs(svcArcs),
 	}); err != nil {
 		return ArcRetrieveResponse{}, err

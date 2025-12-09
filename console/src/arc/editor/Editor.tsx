@@ -11,6 +11,7 @@ import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import { arc } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
+  Access,
   Arc,
   Arc as Core,
   Button,
@@ -32,7 +33,6 @@ import { z } from "zod";
 import {
   select,
   useSelect,
-  useSelectHasPermission,
   useSelectNodeProps,
   useSelectVersion,
   useSelectViewportMode,
@@ -56,6 +56,7 @@ import {
 } from "@/arc/slice";
 import { translateGraphToConsole, translateGraphToServer } from "@/arc/types/translate";
 import { TYPE } from "@/arc/types/v0";
+import { Controls as CoreControls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
@@ -186,7 +187,7 @@ const Controls = ({ arc }: StatusChipProps) => {
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
-  const arc = useSelect(layoutKey);
+  const state = useSelect(layoutKey);
 
   const dispatch = useDispatch();
   const selector = useCallback(
@@ -200,11 +201,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const theme = Theming.use();
-  const viewportRef = useSyncedRef(arc.graph.viewport);
-
-  const canBeEditable = useSelectHasPermission();
-  if (!canBeEditable && arc.graph.editable)
-    dispatch(setEditable({ key: layoutKey, editable: false }));
+  const viewportRef = useSyncedRef(state.graph.viewport);
+  const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
+  const canEdit = hasEditPermission && state.graph.editable;
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
@@ -293,7 +292,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   const handleDoubleClick = useCallback(() => {
-    if (!arc.graph.editable) return;
+    if (!state.graph.editable) return;
     dispatch(
       Layout.setNavDrawerVisible({
         windowKey,
@@ -301,9 +300,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         value: true,
       }),
     );
-  }, [windowKey, arc.graph.editable, dispatch]);
-
-  const canEditArc = useSelectHasPermission();
+  }, [windowKey, state.graph.editable, dispatch]);
 
   const viewportMode = useSelectViewportMode();
 
@@ -359,31 +356,31 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         viewportMode={viewportMode}
         onViewportModeChange={handleViewportModeChange}
         onViewportChange={handleViewportChange}
-        edges={arc.graph.edges}
-        nodes={arc.graph.nodes}
+        edges={state.graph.edges}
+        nodes={state.graph.nodes}
         // Turns out that setting the zoom value to 1 here doesn't have any negative
         // effects on the arc sizing and ensures that we position all the lines
         // in the correct place.
-        viewport={{ ...arc.graph.viewport, zoom: 1 }}
+        viewport={{ ...state.graph.viewport, zoom: 1 }}
         onEdgesChange={handleEdgesChange}
         onNodesChange={handleNodesChange}
         onEditableChange={handleEditableChange}
-        editable={arc.graph.editable}
+        editable={canEdit}
         triggers={triggers}
         onDoubleClick={handleDoubleClick}
-        fitViewOnResize={arc.graph.fitViewOnResize}
+        fitViewOnResize={state.graph.fitViewOnResize}
         setFitViewOnResize={handleSetFitViewOnResize}
         visible={visible}
         {...dropProps}
       >
         <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
         <Diagram.Background />
-        <Diagram.Controls>
-          {canEditArc && <Diagram.ToggleEditControl />}
+        <CoreControls x>
           <Diagram.FitViewControl />
-        </Diagram.Controls>
+          {hasEditPermission && <Diagram.ToggleEditControl />}
+        </CoreControls>
       </Core.Arc>
-      <Controls arc={arc} />
+      <Controls arc={state} />
     </div>
   );
 };
@@ -395,6 +392,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Arc Automation",
   icon: <Icon.Arc />,
+  useVisible: () => Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID),
   create: async ({ layoutKey, rename }) => {
     const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
     if (name == null) return null;

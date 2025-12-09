@@ -69,6 +69,7 @@ message FrameStreamerRequest {
   repeated uint32 keys = 1;
   int32 downsample_factor = 2;
   bool enable_experimental_codec = 3;
+  double throttle_rate_hz = 4;
 }
 
 message FrameStreamerResponse {

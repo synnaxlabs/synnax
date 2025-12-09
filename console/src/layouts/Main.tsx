@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Flex } from "@synnaxlabs/pluto";
+import { Access, Flex } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -26,7 +26,6 @@ import { useTriggers } from "@/layouts/useTriggers";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
 import { LogServices } from "@/log/services";
-import { Permissions } from "@/permissions";
 import { Range } from "@/range";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
@@ -52,6 +51,7 @@ const SideEffect = (): null => {
   useEffect(() => {
     dispatch(Layout.maybeCreateGetStartedTab());
   }, []);
+  Access.useLoadPermissions({});
   Version.useLoadTauri();
   Cluster.useSyncClusterKey();
   Hardware.Device.useListenForChanges();
@@ -62,8 +62,6 @@ const SideEffect = (): null => {
   Status.useListenForChanges();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
-  Layout.Nav.useTriggers({ items: Nav.DRAWER_ITEMS });
-  Permissions.useFetchPermissions();
   Layout.useDropOutside();
   return null;
 };
@@ -78,7 +76,6 @@ export const Main = (): ReactElement => (
   <>
     {/* We need to place notifications here so they are in the proper stacking context */}
     <Notifications />
-    <Layout.Modals />
     <SideEffect />
     <Auth.Guard>
       <Nav.Top />

@@ -175,7 +175,13 @@ public:
         tare(transform::Tare(source->channels())),
         state(ctx, task),
         source(std::make_shared<InternalSource>(*this, std::move(source))),
-        pipe(factory, this->source->writer_config(), this->source, breaker_cfg) {}
+        pipe(
+            factory,
+            this->source->writer_config(),
+            this->source,
+            breaker_cfg,
+            task.name
+        ) {}
 
     /// @brief primary constructor that uses the task context's Synnax client in
     /// order to communicate with the cluster.

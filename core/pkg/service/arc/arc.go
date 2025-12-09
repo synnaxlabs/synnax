@@ -14,8 +14,12 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/core"
 	"github.com/synnaxlabs/x/gorp"
 )
+
+// StatusDetails is the status details type for arc statuses.
+type StatusDetails = core.StatusDetails
 
 // Arc is a representation of an arc automation stored within the cluster
 // meta-data store.

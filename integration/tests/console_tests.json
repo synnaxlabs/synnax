@@ -3,9 +3,11 @@
   "sequences": [
     {
       "sequence_name": "Console_Tests",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
       "tests": [
         {
-          "case": "console/channel_lifecycle"
+          "case": "console/schematic/alignment"
         },
         {
           "case": "console/pages/snap_to_grid"
@@ -14,7 +16,7 @@
           "case": "console/schematic/set_output"
         },
         {
-          "case": "console/schematic/edit_symbol_props"
+          "case": "console/schematic/edit_props"
         },
         {
           "case": "console/line-plot/download_csv"

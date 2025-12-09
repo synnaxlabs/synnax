@@ -47,38 +47,58 @@ protected:
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
         // Create command channels for different OPC UA data types
-        this->bool_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("bool_cmd", telem::UINT8_T, true)
-        );
-        this->uint16_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("uint16_cmd", telem::UINT16_T, true)
-        );
-        this->uint32_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("uint32_cmd", telem::UINT32_T, true)
-        );
-        this->uint64_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("uint64_cmd", telem::UINT64_T, true)
-        );
-        this->int8_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("int8_cmd", telem::INT8_T, true)
-        );
-        this->int16_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("int16_cmd", telem::INT16_T, true)
-        );
-        this->int32_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("int32_cmd", telem::INT32_T, true)
-        );
-        this->int64_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("int64_cmd", telem::INT64_T, true)
-        );
-        this->float_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("float_cmd", telem::FLOAT32_T, true)
-        );
-        this->double_cmd_channel = ASSERT_NIL_P(
-            client->channels.create("double_cmd", telem::FLOAT64_T, true)
-        );
+        this->bool_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("bool_cmd"),
+            telem::UINT8_T,
+            true
+        ));
+        this->uint16_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("uint16_cmd"),
+            telem::UINT16_T,
+            true
+        ));
+        this->uint32_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("uint32_cmd"),
+            telem::UINT32_T,
+            true
+        ));
+        this->uint64_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("uint64_cmd"),
+            telem::UINT64_T,
+            true
+        ));
+        this->int8_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("int8_cmd"),
+            telem::INT8_T,
+            true
+        ));
+        this->int16_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("int16_cmd"),
+            telem::INT16_T,
+            true
+        ));
+        this->int32_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("int32_cmd"),
+            telem::INT32_T,
+            true
+        ));
+        this->int64_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("int64_cmd"),
+            telem::INT64_T,
+            true
+        ));
+        this->float_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("float_cmd"),
+            telem::FLOAT32_T,
+            true
+        ));
+        this->double_cmd_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("double_cmd"),
+            telem::FLOAT64_T,
+            true
+        ));
 
-        auto rack = ASSERT_NIL_P(client->hardware.create_rack("cat"));
+        auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
         opc::connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
@@ -94,7 +114,7 @@ protected:
             "PXI-6255",
             nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
         );
-        ASSERT_NIL(client->hardware.create_device(dev));
+        ASSERT_NIL(client->devices.create(dev));
 
         json task_cfg = {
             {"data_saving", true},
@@ -274,18 +294,20 @@ protected:
 TEST_F(TestWriteTask, testBasicWriteTask) {
     auto wt = create_task();
     wt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    const auto first_state = ctx->states[0];
-    EXPECT_EQ(first_state.key, "start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto first_state = ctx->statuses[0];
+    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->streamer_opens, 1);
 
     wt->stop("stop_cmd", true);
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 2);
-    const auto second_state = ctx->states[1];
-    EXPECT_EQ(second_state.key, "stop_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    const auto second_state = ctx->statuses[1];
+    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");

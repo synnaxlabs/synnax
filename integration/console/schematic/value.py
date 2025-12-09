@@ -16,14 +16,50 @@ from .symbol import Symbol
 class Value(Symbol):
     """Schematic value/telemetry symbol"""
 
-    channel_name: str
-    notation: str
-    precision: int
-    averaging_window: int
-    stale_color: str
-    stale_timeout: int
+    def __init__(
+        self,
+        *,
+        label: str,
+        channel_name: str,
+        notation: str | None = None,
+        precision: int | None = None,
+        averaging_window: int | None = None,
+        stale_color: str | None = None,
+        stale_timeout: int | None = None,
+        symbol_type: str = "Value",
+    ):
+        """Initialize a value symbol with configuration.
 
-    def edit_properties(
+        Args:
+            label: Display label for the symbol
+            channel_name: Channel name for the value display
+            notation: Number notation format (optional)
+            precision: Decimal precision (optional)
+            averaging_window: Averaging window size (optional)
+            stale_color: Color for stale data (optional)
+            stale_timeout: Timeout for stale data in milliseconds (optional)
+            symbol_type: The type of symbol (default: "Value")
+        """
+        super().__init__(label, symbol_type=symbol_type, rotatable=False)
+        self.channel_name = channel_name
+        self.notation = notation
+        self.precision = precision
+        self.averaging_window = averaging_window
+        self.stale_color = stale_color
+        self.stale_timeout = stale_timeout
+
+    def _apply_properties(self) -> None:
+        """Apply value configuration after being added to schematic."""
+        self.set_properties(
+            channel_name=self.channel_name,
+            notation=self.notation,
+            precision=self.precision,
+            averaging_window=self.averaging_window,
+            stale_color=self.stale_color,
+            stale_timeout=self.stale_timeout,
+        )
+
+    def set_properties(
         self,
         channel_name: str | None = None,
         *,
@@ -34,8 +70,8 @@ class Value(Symbol):
         stale_timeout: int | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Edit Value symbol properties including channel and telemetry settings."""
-        self._click_symbol()
+        """Set Value symbol properties including channel and telemetry settings."""
+        self.click()
 
         applied_properties: dict[str, Any] = {}
 
@@ -86,12 +122,10 @@ class Value(Symbol):
 
         return applied_properties
 
-    def get_properties(self) -> dict[str, Any]:
+    def get_properties(self, tab: str = "Telemetry") -> dict[str, Any]:
         """Get the current properties of the symbol"""
         console = self.console
-        self._click_symbol()
-        self.page.get_by_text("Properties").click()
-        self.page.get_by_text("Telemetry").click()
+        super().get_properties(tab=tab)
 
         props: dict[str, Any] = {
             "channel": "",

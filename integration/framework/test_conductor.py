@@ -159,6 +159,7 @@ class TestConductor:
         self.active_tests: list[tuple[TestCase, sy.Range, threading.Thread]] = []
         self.active_tests_lock = threading.Lock()
         self.tests_lock = threading.Lock()
+        self.import_lock = threading.Lock()
 
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -431,11 +432,13 @@ class TestConductor:
             seq_name = seq_dict.get("sequence_name", f"Sequence_{seq_idx + 1}")
             seq_order = seq_dict.get("sequence_order", "sequential").lower()
             seq_tests = seq_dict.get("tests", [])
+            pool_size = seq_dict.get("pool_size", -1)
 
             # Create sequence object
             seq_obj = {
                 "name": seq_name,
                 "order": seq_order,
+                "pool_size": pool_size,
                 "tests": [],
                 "start_idx": len(self.test_definitions),
             }
@@ -520,7 +523,7 @@ class TestConductor:
             # This consolidates sequential and random execution into a single path
             if sequence["order"] == "asynchronous":
                 self._execute_sequence_asynchronously(
-                    sequence["name"], tests_to_execute
+                    sequence["name"], tests_to_execute, sequence["pool_size"]
                 )
             else:  # sequential or random (both use the same execution method)
                 if sequence["order"] == "random":
@@ -572,9 +575,29 @@ class TestConductor:
             self.tlm[f"{self.name}_test_cases_ran"] += 1
 
     def _execute_sequence_asynchronously(
+        self,
+        sequence_name: str,
+        tests_to_execute: list[TestDefinition],
+        pool_size: int = -1,
+    ) -> None:
+        """Execute tests in a sequence with optional concurrency limit.
+
+        Args:
+            sequence_name: Name of the sequence being executed
+            tests_to_execute: List of test definitions to execute
+            pool_size: Maximum number of concurrent tests. If -1 or greater than
+                      the number of tests, all tests run concurrently.
+        """
+        # If pool_size is -1 or >= number of tests, use unlimited concurrency
+        if pool_size <= 0 or pool_size >= len(tests_to_execute):
+            self._execute_unlimited_async(sequence_name, tests_to_execute)
+        else:
+            self._execute_pooled_async(sequence_name, tests_to_execute, pool_size)
+
+    def _execute_unlimited_async(
         self, sequence_name: str, tests_to_execute: list[TestDefinition]
     ) -> None:
-        """Execute tests in a sequence simultaneously."""
+        """Execute all tests concurrently without limit."""
         test_threads = []
         test_containers = []
 
@@ -602,6 +625,77 @@ class TestConductor:
             test_thread.start()
 
         # Wait for all tests in this sequence to complete
+        self.log_message(
+            f"Waiting for {len(test_threads)} tests in sequence '{sequence_name}' to complete..."
+        )
+        for i, test_thread in enumerate(test_threads):
+            if test_thread.is_alive():
+                test_thread.join()
+
+            # Get test result
+            if test_containers[i]:
+                test_result = test_containers[i][0]
+            else:
+                test_result = Test(
+                    test_name=tests_to_execute[i].case,
+                    name=tests_to_execute[i].name,
+                    status=STATUS.FAILED,
+                    error_message="Unknown error - no result returned",
+                )
+
+            with self.tests_lock:
+                self.tests.append(test_result)
+            self.tlm[f"{self.name}_test_cases_ran"] += 1
+
+    def _execute_pooled_async(
+        self, sequence_name: str, tests_to_execute: list[TestDefinition], pool_size: int
+    ) -> None:
+        """Execute tests with a limited concurrency pool.
+
+        Args:
+            sequence_name: Name of the sequence being executed
+            tests_to_execute: List of test definitions to execute
+            pool_size: Maximum number of concurrent tests
+        """
+        self.log_message(
+            f"Running tests with pool size of {pool_size} (max {pool_size} concurrent tests)..."
+        )
+
+        semaphore = threading.Semaphore(pool_size)
+        test_threads = []
+        test_containers = []
+
+        def run_with_semaphore(
+            test_def: TestDefinition, result_container: list[Test], test_idx: int
+        ) -> None:
+            """Wrapper to run test with semaphore control."""
+            semaphore.acquire()
+            try:
+                self.log_message(
+                    f"[{test_idx}/{len(self.test_definitions)}] ==== {test_def} ===="
+                )
+                self._test_runner_thread(test_def, result_container)
+            finally:
+                semaphore.release()
+
+        # Create and start all threads (semaphore will control execution)
+        for i, test_def in enumerate(tests_to_execute):
+            if self.should_stop:
+                self.log_message("Test execution stopped by user request")
+                break
+
+            global_test_idx = len(self.tests) + i + 1
+            result_container: list[Test] = []
+            test_thread = threading.Thread(
+                target=run_with_semaphore,
+                args=(test_def, result_container, global_test_idx),
+            )
+
+            test_threads.append(test_thread)
+            test_containers.append(result_container)
+
+            test_thread.start()
+
         self.log_message(
             f"Waiting for {len(test_threads)} tests in sequence '{sequence_name}' to complete..."
         )
@@ -719,15 +813,17 @@ class TestConductor:
             if integration_dir not in sys.path:
                 sys.path.insert(0, integration_dir)
 
-            spec = importlib.util.spec_from_file_location(module_name, file_path)
-            if spec is None:
-                raise ImportError(
-                    f"Cannot create spec for module: {module_name} at {file_path}"
-                )
+            # Prevent deadlock when multiple threads load modules that share dependencies
+            with self.import_lock:
+                spec = importlib.util.spec_from_file_location(module_name, file_path)
+                if spec is None:
+                    raise ImportError(
+                        f"Cannot create spec for module: {module_name} at {file_path}"
+                    )
 
-            module = importlib.util.module_from_spec(spec)
-            if spec.loader is not None:
-                spec.loader.exec_module(module)
+                module = importlib.util.module_from_spec(spec)
+                if spec.loader is not None:
+                    spec.loader.exec_module(module)
 
             # Try to get the class by name
             try:
@@ -1114,6 +1210,11 @@ class TestConductor:
         # Summary Counts
         self.log_message("=" * 60, False)
         self.log_message(f"Total tests: {stats['total']}", False)
+        if self.range is not None:
+            test_time = (
+                sy.TimeStamp.now() - self.range.time_range.start
+            ) / sy.TimeSpan.SECOND
+            self.log_message(f"Total time: {test_time:.1f} s", False)
         self.log_message(f"Passed: {stats['passed']}", False)
         self.log_message(
             f"Failed: {stats['total_failed']} (includes {stats['failed']} failed, {stats['killed']} killed, {stats['timeout']} timeout)",
@@ -1156,10 +1257,19 @@ def main() -> None:
     parser.add_argument("--secure", default=False, help="Use secure connection")
     parser.add_argument(
         "--sequence",
+        "-s",
         help="Path to test sequence JSON file or comma-separated list of files (optional - will auto-discover *_tests.json if not provided)",
+    )
+    parser.add_argument(
+        "--headed",
+        type=bool,
+        default=False,
+        help="Run Playwright Console tests in headed mode (sets PLAYWRIGHT_CONSOLE_HEADED environment variable)",
     )
 
     args = parser.parse_args()
+
+    os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.headed else "0"
 
     # Create connection object
     connection = SynnaxConnection(

@@ -65,7 +65,7 @@ var _ = Describe("Graph", func() {
 	var g *graph.Graph
 	BeforeEach(func() {
 		g = MustSucceed(graph.New(graph.Config{
-			Channels:       dist.Channel,
+			Channel:        dist.Channel,
 			SymbolResolver: arcSvc.SymbolResolver(),
 		}))
 	})

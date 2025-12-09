@@ -75,13 +75,13 @@ in the Devices Toolbar, right click on the device and select "Configure".
 
 ```python
 import synnax as sy
-from synnax.hardware import labjack
+from synnax import labjack
 
 # Connect to Synnax
 client = sy.Synnax()
 
 # Get the embedded rack (local driver rack)
-rack = client.hardware.racks.retrieve_embedded_rack()
+rack = client.racks.retrieve_embedded_rack()
 
 # Configure device connection
 device = labjack.Device(
@@ -94,13 +94,13 @@ device = labjack.Device(
 )
 
 # Create the device in Synnax
-device = client.hardware.devices.create(device)
+device = client.devices.create(device)
 
 # Or retrieve by model
-device = client.hardware.devices.retrieve(model="LJM_dtT7")
+device = client.devices.retrieve(model="LJM_dtT7")
 
 # Or retrieve by name
-device = client.hardware.devices.retrieve(name="My LabJack T7")
+device = client.devices.retrieve(name="My LabJack T7")
 
 print(f"Device configured: {device.name} (key={device.key})")
 ```
@@ -115,10 +115,10 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Get the embedded rack (local driver rack)
-const rack = await client.hardware.racks.retrieveEmbeddedRack();
+const rack = await client.racks.retrieveEmbeddedRack();
 
 // Configure device connection
-const device = await client.hardware.devices.create({
+const device = await client.devices.create({
   rack: rack.key,
   name: "My LabJack T7",
   make: "LabJack",
@@ -140,10 +140,10 @@ const device = await client.hardware.devices.create({
 });
 
 // Or retrieve by model
-const device = await client.hardware.devices.retrieve({ model: "LJM_dtT7" });
+const device = await client.devices.retrieve({ model: "LJM_dtT7" });
 
 // Or retrieve by name
-const device = await client.hardware.devices.retrieve({ name: "My LabJack T7" });
+const device = await client.devices.retrieve({ name: "My LabJack T7" });
 
 console.log(`Device configured: ${device.name} (key=${device.key})`);
 ```

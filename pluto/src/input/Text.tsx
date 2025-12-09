@@ -99,6 +99,7 @@ export const Text = ({
   hideTooltip,
   ghost,
   area,
+  propagateClick,
   ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef(value);
@@ -198,6 +199,7 @@ export const Text = ({
       tooltipLocation={tooltipLocation}
       hideTooltip={hideTooltip}
       ghost={ghost}
+      propagateClick={propagateClick}
       {...restButtonProps}
     >
       {showPlaceholder && (

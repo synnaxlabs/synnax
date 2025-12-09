@@ -73,12 +73,12 @@ For task lifecycle management, see the
 
 ```python
 import synnax as sy
-from synnax.hardware import ni
+from synnax import ni
 
 client = sy.Synnax()
 
 # Retrieve device
-digital_dev = client.hardware.devices.retrieve(name="Mod1_Digital")
+digital_dev = client.devices.retrieve(name="Mod1_Digital")
 
 # Create index channel
 di_time = client.channels.create(
@@ -136,7 +136,7 @@ task = ni.DigitalReadTask(
     ],
 )
 
-client.hardware.tasks.configure(task)
+client.tasks.configure(task)
 
 # Start task and read data
 with task.run():
@@ -153,7 +153,7 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.hardware.tasks.retrieve(name="Digital Read Task")
+task = client.tasks.retrieve(name="Digital Read Task")
 task = ni.DigitalReadTask(internal=task)
 
 # Update task-level configuration
@@ -173,7 +173,7 @@ task.config.channels[2].port = 1
 task.config.channels[2].line = 1
 
 # Apply changes
-client.hardware.tasks.configure(task)
+client.tasks.configure(task)
 ```
 
 </ExampleDetails>
@@ -190,7 +190,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const digitalDev = await client.hardware.devices.retrieve({ name: "Mod1_Digital" });
+const digitalDev = await client.devices.retrieve({ name: "Mod1_Digital" });
 
 // Create index channel
 const diTime = await client.channels.create({
@@ -223,7 +223,7 @@ const di10 = await client.channels.create({
 });
 
 // Create and configure task
-const task = await client.hardware.tasks.create({
+const task = await client.tasks.create({
   name: "Digital Read Task",
   type: "ni_digital_read",
   config: JSON.stringify({
@@ -278,7 +278,7 @@ await streamer.close();
 
 ```typescript
 // Retrieve existing task
-const task = await client.hardware.tasks.retrieve({ name: "Digital Read Task" });
+const task = await client.tasks.retrieve({ name: "Digital Read Task" });
 
 // Parse and update configuration
 const config = JSON.parse(task.config);
@@ -300,7 +300,7 @@ config.channels[2].port = 1;
 config.channels[2].line = 1;
 
 // Apply changes
-await client.hardware.tasks.create({
+await client.tasks.create({
   key: task.key,
   name: task.name,
   type: task.type,

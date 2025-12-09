@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
+import { Access, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -17,7 +17,6 @@ import { Stages } from "@/arc/editor/toolbar/Stages";
 import { useExport } from "@/arc/export";
 import {
   useSelectEditable,
-  useSelectHasPermission,
   useSelectSelectedElementNames,
   useSelectToolbar,
 } from "@/arc/selectors";
@@ -41,7 +40,7 @@ const NotEditableContent = ({
   name,
 }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
-  const hasEditingPermissions = useSelectHasPermission();
+  const hasEditingPermissions = Access.useUpdateGranted(arc.ontologyID(layoutKey));
   const isEditable = hasEditingPermissions;
   return (
     <Flex.Box x gap="small" center>
@@ -74,12 +73,14 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
   const { name } = Layout.useSelectRequired(layoutKey);
   const toolbar = useSelectToolbar();
-  const editable = useSelectEditable(layoutKey);
+  const editMode = useSelectEditable(layoutKey);
   const handleExport = useExport();
   const selectedNames = useSelectSelectedElementNames(layoutKey);
+  const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
+  const canEdit = hasEditPermission && editMode;
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
-      if (!editable) return <NotEditableContent layoutKey={layoutKey} name={name} />;
+      if (!canEdit) return <NotEditableContent layoutKey={layoutKey} name={name} />;
       switch (tabKey) {
         case "stages":
           return <Stages layoutKey={layoutKey} />;
@@ -87,7 +88,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           return <PropertiesControls layoutKey={layoutKey} />;
       }
     },
-    [layoutKey, editable],
+    [layoutKey, canEdit, name],
   );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
@@ -95,7 +96,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [dispatch],
   );
-  const canEdit = useSelectHasPermission();
   const contextValue = useMemo(
     () => ({
       tabs: TABS,
@@ -127,7 +127,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               ontologyID={arc.ontologyID(layoutKey)}
             />
           </Flex.Box>
-          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 180 }} />}
+          {hasEditPermission && (
+            <Tabs.Selector style={{ borderBottom: "none", width: 180 }} />
+          )}
         </Flex.Box>
       </Core.Header>
       <Tabs.Content />

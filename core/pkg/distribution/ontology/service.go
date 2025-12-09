@@ -12,9 +12,10 @@ package ontology
 import (
 	"context"
 	"fmt"
+	"io"
+	"iter"
 
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/zyn"
 	"go.uber.org/zap"
@@ -34,10 +35,10 @@ type Service interface {
 	// Observable is used by the ontology to subscribe to changes in the entities.
 	// This functionality is primarily used for search indexing. If the service's entities
 	// are static, use observe.Noop.
-	observe.Observable[iter.Nexter[Change]]
+	observe.Observable[iter.Seq[Change]]
 	// OpenNexter opens a Nexter type iterator that allows the caller to iterate over
 	// all resources held by the Service.
-	OpenNexter() (iter.NexterCloser[Resource], error)
+	OpenNexter(ctx context.Context) (iter.Seq[Resource], io.Closer, error)
 }
 
 type serviceRegistrar map[Type]Service

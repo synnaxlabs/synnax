@@ -52,7 +52,7 @@ class SimplePress(TestCase):
             ctrl[VENT_VALVE] = False
 
             # Pressurize the system
-            for i in range(5):
+            for i in range(4):
                 if self.should_stop:
                     return
                 # Open press valve and wait

@@ -9,22 +9,22 @@
 
 import { type PropsWithChildren, type ReactElement } from "react";
 
+import { access } from "@/access/aether";
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Arc } from "@/arc";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
+import { Device } from "@/device";
 import { Flux } from "@/flux";
 import { Group } from "@/group";
-import { Device } from "@/hardware/device";
-import { Rack } from "@/hardware/rack";
-import { Task } from "@/hardware/task";
 import { Haul } from "@/haul";
 import { Label } from "@/label";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Ontology } from "@/ontology";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
+import { Rack } from "@/rack";
 import { Ranger } from "@/ranger";
 import { ranger } from "@/ranger/aether";
 import { Schematic } from "@/schematic";
@@ -32,6 +32,7 @@ import { Status } from "@/status";
 import { Status as StatusCore } from "@/status/core";
 import { Synnax } from "@/synnax";
 import { Table } from "@/table";
+import { Task } from "@/task";
 import { Telem } from "@/telem";
 import { Control } from "@/telem/control";
 import { Theming } from "@/theming";
@@ -57,7 +58,7 @@ export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
   color?: Color.ProviderProps;
 }
 
-export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
+export interface FluxStore extends Flux.Store {
   [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
   [Label.FLUX_STORE_KEY]: Label.FluxStore;
   [Rack.FLUX_STORE_KEY]: Rack.FluxStore;
@@ -78,7 +79,11 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Table.FLUX_STORE_KEY]: Table.FluxStore;
   [Schematic.FLUX_STORE_KEY]: Schematic.FluxStore;
   [User.FLUX_STORE_KEY]: User.FluxStore;
-}> = {
+  [access.policy.FLUX_STORE_KEY]: access.policy.FluxStore;
+  [access.role.FLUX_STORE_KEY]: access.role.FluxStore;
+}
+
+export const FLUX_STORE_CONFIG: Flux.StoreConfig<FluxStore> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
   [Label.FLUX_STORE_KEY]: Label.FLUX_STORE_CONFIG,
   [Rack.FLUX_STORE_KEY]: Rack.FLUX_STORE_CONFIG,
@@ -99,6 +104,8 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<{
   [Schematic.FLUX_STORE_KEY]: Schematic.FLUX_STORE_CONFIG,
   [User.FLUX_STORE_KEY]: User.FLUX_STORE_CONFIG,
   [Arc.FLUX_STORE_KEY]: Arc.FLUX_STORE_CONFIG,
+  [access.policy.FLUX_STORE_KEY]: access.policy.FLUX_STORE_CONFIG,
+  [access.role.FLUX_STORE_KEY]: access.role.FLUX_STORE_CONFIG,
 };
 
 export const Provider = ({

@@ -11,7 +11,8 @@
 
 #include "x/cpp/xerrors/errors.h"
 
-inline xerrors::Error unexpected_missing(const std::string &name) {
+namespace synnax {
+inline xerrors::Error unexpected_missing_error(const std::string &name) {
     return xerrors::Error(
         xerrors::UNEXPECTED,
         "No " + name +
@@ -20,9 +21,18 @@ inline xerrors::Error unexpected_missing(const std::string &name) {
 }
 
 inline xerrors::Error
-multiple_results(const std::string &resource_type, const std::string &identifier) {
+not_found_error(const std::string &resource_name, const std::string &query) {
+    return xerrors::Error(
+        xerrors::NOT_FOUND,
+        resource_name + " matching " + query + " not found."
+    );
+}
+
+inline xerrors::Error
+multiple_found_error(const std::string &resource_name, const std::string &query) {
     return xerrors::Error(
         xerrors::MULTIPLE_RESULTS,
-        "Multiple " + resource_type + " found for identifier '" + identifier + "'"
+        "Multiple " + resource_name + " matching " + query + " not found."
     );
+}
 }

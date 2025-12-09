@@ -156,7 +156,7 @@ func (e *Entries[K, E]) All() []E {
 
 // Keys returns the keys of all entries currently bound to the query.
 func (e *Entries[K, E]) Keys() []K {
-	return entryKeys[K, E](e.All())
+	return entryKeys(e.All())
 }
 
 func (e *Entries[K, E]) Any() bool {
@@ -186,10 +186,18 @@ func SetEntries[K Key, E Entry[K]](q query.Parameters, e *[]E) {
 func GetEntries[K Key, E Entry[K]](q query.Parameters) *Entries[K, E] {
 	re, ok := q.Get(entriesOptKey)
 	if !ok {
-		SetEntries[K](q, &[]E{})
+		SetEntries(q, &[]E{})
 		return GetEntries[K, E](q)
 	}
 	return re.(*Entries[K, E])
+}
+
+// HasEntries returns true if entries have been explicitly bound to the query via
+// SetEntry or SetEntries. Unlike GetEntries, this does not create a new entries
+// binding if one doesn't exist.
+func HasEntries[K Key, E Entry[K]](q query.Parameters) bool {
+	_, ok := q.Get(entriesOptKey)
+	return ok
 }
 
 func prefix[K Key, E Entry[K]](ctx context.Context, encoder binary.Encoder) []byte {

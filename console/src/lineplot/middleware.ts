@@ -53,6 +53,8 @@ export const assignColorsEffect: MiddlewareEffect<
   });
 };
 
+const ROLLING_30S_RANGE_KEY = "recent";
+
 export const assignActiveRangeEffect: MiddlewareEffect<
   Range.StoreState & StoreState,
   CreatePayload | SetXChannelPayload | SetYChannelsPayload,
@@ -60,8 +62,8 @@ export const assignActiveRangeEffect: MiddlewareEffect<
 > = ({ store, action }) => {
   const s = store.getState();
   const p = select(s, action.payload.key);
-  const range = Range.selectActiveKey(s);
-  if (!p.axes.hasHadChannelSet && p.ranges.x1.length === 0 && range != null)
+  const range = Range.selectActiveKey(s) ?? ROLLING_30S_RANGE_KEY;
+  if (!p.axes.hasHadChannelSet && p.ranges.x1.length === 0)
     store.dispatch(
       setRanges({
         key: p.key,

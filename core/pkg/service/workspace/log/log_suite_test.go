@@ -13,6 +13,8 @@ import (
 	"context"
 	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -21,9 +23,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -59,7 +58,7 @@ var _ = BeforeSuite(func() {
 		Ontology: otg,
 		Group:    g,
 	}))
-	userSvc = MustSucceed(user.NewService(ctx, user.Config{
+	userSvc = MustSucceed(user.OpenService(ctx, user.Config{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
@@ -69,7 +68,7 @@ var _ = BeforeSuite(func() {
 	Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())
 	ws.Author = author.Key
 	Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
-	svc = MustSucceed(log.NewService(ctx, log.Config{
+	svc = MustSucceed(log.NewService(log.Config{
 		DB:       db,
 		Ontology: otg,
 	}))

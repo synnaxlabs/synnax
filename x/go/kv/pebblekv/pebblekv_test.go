@@ -13,6 +13,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/cockroachdb/pebble/v2"
 	. "github.com/onsi/ginkgo/v2"
@@ -33,7 +34,9 @@ var _ = Describe("PebbleKV", func() {
 
 		BeforeAll(func() {
 			dbPath = filepath.Join(os.TempDir(), "pebblekv-test")
-			pdb, err := pebble.Open(dbPath, &pebble.Options{})
+			pdb, err := pebble.Open(dbPath, &pebble.Options{
+				Logger: pebblekv.NewNoopLogger(),
+			})
 			Expect(err).ToNot(HaveOccurred())
 			db = pebblekv.Wrap(pdb)
 		})
@@ -143,10 +146,9 @@ var _ = Describe("PebbleKV", func() {
 			Expect(tx.Delete(ctx, []byte("k1"))).To(Succeed())
 
 			reader := tx.NewReader()
-			Expect(reader.Count()).To(Equal(3))
 
 			changes := make([]kv.Change, 0, 3)
-			for change, ok := reader.Next(ctx); ok; change, ok = reader.Next(ctx) {
+			for change := range reader {
 				changes = append(changes, change)
 			}
 
@@ -258,8 +260,9 @@ var _ = Describe("PebbleKV", func() {
 			Expect(db.Set(ctx, []byte("reader-key"), []byte("reader-value"))).To(Succeed())
 			reader := db.NewReader()
 			Expect(reader).ToNot(BeNil())
-			_, ok := reader.Next(ctx)
-			Expect(ok).To(BeFalse())
+			for range reader {
+				Fail("reader should be empty")
+			}
 		})
 	})
 
@@ -268,7 +271,9 @@ var _ = Describe("PebbleKV", func() {
 
 		open := func(disableObserver bool) {
 			path := filepath.Join(os.TempDir(), "pebblekv-observer-test")
-			pdb := MustSucceed(pebble.Open(path, &pebble.Options{}))
+			pdb := MustSucceed(pebble.Open(path, &pebble.Options{
+				Logger: pebblekv.NewNoopLogger(),
+			}))
 			var opts []pebblekv.OpenOption
 			if disableObserver {
 				opts = append(opts, pebblekv.DisableObservation())
@@ -291,7 +296,7 @@ var _ = Describe("PebbleKV", func() {
 
 				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
 					notified = true
-					for change, ok := reader.Next(ctx); ok; change, ok = reader.Next(ctx) {
+					for change := range reader {
 						receivedChanges = append(receivedChanges, change)
 					}
 				})
@@ -313,7 +318,7 @@ var _ = Describe("PebbleKV", func() {
 
 				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
 					notified = true
-					for change, ok := reader.Next(ctx); ok; change, ok = reader.Next(ctx) {
+					for change := range reader {
 						receivedChanges = append(receivedChanges, change)
 					}
 				})
@@ -347,7 +352,7 @@ var _ = Describe("PebbleKV", func() {
 
 				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
 					notified = true
-					for change, ok := reader.Next(ctx); ok; change, ok = reader.Next(ctx) {
+					for change := range reader {
 						receivedChanges = append(receivedChanges, change)
 					}
 				})
@@ -366,12 +371,12 @@ var _ = Describe("PebbleKV", func() {
 
 				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
 					subscriber1Called = true
-					Expect(reader.Count()).To(BeNumerically(">", 0))
+					Expect(len(slices.Collect(reader))).To(BeNumerically(">", 0))
 				})
 
 				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
 					subscriber2Called = true
-					Expect(reader.Count()).To(BeNumerically(">", 0))
+					Expect(len(slices.Collect(reader))).To(BeNumerically(">", 0))
 				})
 
 				key := []byte("multi-subscriber-key")

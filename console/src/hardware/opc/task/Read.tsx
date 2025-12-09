@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
@@ -184,7 +184,7 @@ const determineIndexChannel = async ({
         if (!NotFoundError.matches(e)) throw e;
       }
     const { key } = await client.channels.create({
-      name: indexChannelInTaskConfig.nodeName,
+      name: channel.escapeInvalidName(indexChannelInTaskConfig.nodeName, true),
       dataType: "timestamp",
       isIndex: true,
     });
@@ -209,7 +209,7 @@ const determineIndexChannel = async ({
 
   // there is not an index channel in the task config, so just create a new channel
   const idx = await client.channels.create({
-    name: `${device.name} time for ${taskName}`,
+    name: `${channel.escapeInvalidName(device.name)}_time_for_${channel.escapeInvalidName(taskName)}`,
     dataType: "timestamp",
     isIndex: true,
   });
@@ -222,11 +222,10 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   config,
   name,
 ) => {
-  const previous = await client.hardware.devices.retrieve<
-    Device.Properties,
-    Device.Make
-  >({ key: config.device });
-  const device = await client.hardware.devices.create<Device.Properties, Device.Make>({
+  const previous = await client.devices.retrieve<Device.Properties, Device.Make>({
+    key: config.device,
+  });
+  const device = await client.devices.create<Device.Properties, Device.Make>({
     ...previous,
     properties: Device.migrateProperties(previous.properties),
   });
@@ -258,7 +257,11 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   }
   if (toCreate.length > 0) {
     const channels = await client.channels.create(
-      toCreate.map(({ nodeName, dataType }) => ({ dataType, name: nodeName, index })),
+      toCreate.map(({ nodeName, dataType }) => ({
+        dataType,
+        name: channel.escapeInvalidName(nodeName, true),
+        index,
+      })),
     );
     channels.forEach(
       ({ key }, i) => (device.properties.read.channels[toCreate[i].nodeId] = key),
@@ -268,7 +271,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     ...c,
     channel: getChannelByNodeID(device.properties, c.nodeId),
   }));
-  await client.hardware.devices.create(device);
+  await client.devices.create(device);
   return [config, device.rack];
 };
 

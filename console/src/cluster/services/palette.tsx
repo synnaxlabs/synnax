@@ -11,10 +11,9 @@ import { Icon } from "@synnaxlabs/pluto";
 import { AiFillApi } from "react-icons/ai";
 
 import { Cluster } from "@/cluster";
-import { Layout } from "@/layout";
+import { logout } from "@/cluster/services/logout";
 import { type Palette } from "@/palette";
 import { Runtime } from "@/runtime";
-import { Workspace } from "@/workspace";
 
 const CONNECT_COMMAND: Palette.Command = {
   key: "connect-cluster",
@@ -28,11 +27,7 @@ const LOGOUT_COMMAND: Palette.Command = {
   key: "logout",
   name: "Log Out",
   icon: <Icon.Logout />,
-  onSelect: ({ store }) => {
-    store.dispatch(Cluster.setActive(null));
-    store.dispatch(Workspace.setActive(null));
-    store.dispatch(Layout.clearWorkspace());
-  },
+  onSelect: ({ store }) => logout(store.dispatch),
 };
 
 export const COMMANDS = [CONNECT_COMMAND, LOGOUT_COMMAND];

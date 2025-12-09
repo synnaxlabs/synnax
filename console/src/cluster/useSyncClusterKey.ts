@@ -23,9 +23,12 @@ export const useSyncClusterKey = () => {
   const { clusterKey, status } = Synnax.useConnectionState();
   const dispatch = useDispatch();
   useEffect(() => {
-    if (status !== "connected") return;
-    if (activeClusterKey == null) return;
-    if (activeClusterKey === clusterKey) return;
+    if (
+      status !== "connected" ||
+      activeClusterKey == null ||
+      activeClusterKey === clusterKey
+    )
+      return;
     dispatch(changeKey({ oldKey: activeClusterKey, newKey: clusterKey }));
   }, [status]);
 };

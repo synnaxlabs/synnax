@@ -9,17 +9,22 @@
 
 #pragma once
 
+#include <string>
 #include <thread>
 
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/xthread/xthread.h"
 
 namespace pipeline {
 class Base {
     /// @brief the primary thread that runs the pipeline.
     std::thread thread;
+    /// @brief the name to assign to the pipeline thread.
+    std::string thread_name;
 
     /// @brief an internal run
     void run_internal() {
+        if (!this->thread_name.empty()) xthread::set_name(this->thread_name.c_str());
         try {
             this->run();
         } catch (const std::exception &e) {
@@ -31,7 +36,8 @@ protected:
     /// @brief a breaker for managing the lifecycle of the pipeline thread.
     breaker::Breaker breaker;
 
-    explicit Base(const breaker::Config &breaker_config): breaker(breaker_config) {}
+    explicit Base(const breaker::Config &breaker_config, std::string thread_name = ""):
+        thread_name(std::move(thread_name)), breaker(breaker_config) {}
 
 public:
     virtual ~Base() = default;

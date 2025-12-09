@@ -8,13 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import {
-  createContext,
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
-  use,
-} from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
@@ -30,14 +24,6 @@ const AetherProvider = createAetherProvider({
   ...status.REGISTRY,
   ...flux.createRegistry({ storeConfig: {} }),
 });
-
-interface ClientConnector {
-  (connected: boolean): void;
-}
-
-const Context = createContext<ClientConnector>(() => () => {});
-
-export const useConnectToClient = () => use(Context);
 
 const newWrapper = (client: Client | null, fluxClient: Flux.Client) => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (

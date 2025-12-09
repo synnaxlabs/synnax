@@ -11,7 +11,6 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
-import { Permissions } from "@/permissions";
 import {
   type NodeProps,
   SLICE_NAME,
@@ -239,12 +238,6 @@ export const useSelectControlStatus = (layoutKey: string): Control.Status | unde
     [layoutKey],
   );
 
-export const selectHasPermission = (state: Permissions.StoreState): boolean =>
-  Permissions.selectCanUseType(state, "schematic");
-
-export const useSelectHasPermission = (): boolean =>
-  useMemoSelect(selectHasPermission, []);
-
 export const selectVersion = (state: StoreState, key: string): string | undefined =>
   selectOptional(state, key)?.version;
 
@@ -268,3 +261,11 @@ export const selectSelectedSymbolGroup = (state: StoreState, key: string): strin
 
 export const useSelectSelectedSymbolGroup = (key: string): string =>
   useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);
+
+export const selectLegendVisible = (
+  state: StoreState,
+  key: string,
+): boolean | undefined => selectOptional(state, key)?.legend.visible;
+
+export const useSelectLegendVisible = (key: string): boolean | undefined =>
+  useMemoSelect((state: StoreState) => selectLegendVisible(state, key), [key]);

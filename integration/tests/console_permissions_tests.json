@@ -1,0 +1,20 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "Role_Permissions",
+      "sequence_order": "sequential",
+      "tests": [
+        {
+          "case": "console/role_engineer_permissions"
+        },
+        {
+          "case": "console/role_operator_permissions"
+        },
+        {
+          "case": "console/role_viewer_permissions"
+        }
+      ]
+    }
+  ]
+}
