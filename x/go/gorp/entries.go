@@ -192,6 +192,14 @@ func GetEntries[K Key, E Entry[K]](q query.Parameters) *Entries[K, E] {
 	return re.(*Entries[K, E])
 }
 
+// HasEntries returns true if entries have been explicitly bound to the query via
+// SetEntry or SetEntries. Unlike GetEntries, this does not create a new entries
+// binding if one doesn't exist.
+func HasEntries[K Key, E Entry[K]](q query.Parameters) bool {
+	_, ok := q.Get(entriesOptKey)
+	return ok
+}
+
 func prefix[K Key, E Entry[K]](ctx context.Context, encoder binary.Encoder) []byte {
 	return lo.Must(encoder.Encode(ctx, types.Name[E]()))
 }

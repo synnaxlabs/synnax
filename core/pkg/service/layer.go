@@ -147,18 +147,22 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		err = cleanup(err)
 	}()
 
-	if l.User, err = user.NewService(ctx, user.Config{
+	if l.User, err = user.OpenService(ctx, user.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.RBAC, err = rbac.NewService(rbac.Config{
-		DB: cfg.Distribution.DB,
+	if l.RBAC, err = rbac.OpenService(ctx, rbac.ServiceConfig{
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Signals:  cfg.Distribution.Signals,
+		Group:    cfg.Distribution.Group,
 	}); !ok(err, nil) {
 		return nil, err
 	}
+
 	l.Auth = &auth.KV{DB: cfg.Distribution.DB}
 	if l.Token, err = token.NewService(token.ServiceConfig{
 		KeyProvider:      cfg.Security,

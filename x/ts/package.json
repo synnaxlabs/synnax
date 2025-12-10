@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/x",
-  "version": "0.48.0",
+  "version": "0.49.0",
   "type": "module",
   "description": "Common Utilities for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/ts",

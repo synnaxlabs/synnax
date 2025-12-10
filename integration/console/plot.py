@@ -64,17 +64,20 @@ class Plot(ConsolePage):
         self, ranges: list[Literal["30s", "1m", "5m", "15m", "30m"]]
     ) -> None:
         """Add time ranges to the plot."""
-        self.page.get_by_text("Select ranges").click()
+        ranges_label = self.page.locator("label").filter(has_text="Ranges")
+        trigger = ranges_label.locator("..").locator(".pluto-dialog__trigger")
+        trigger.click(timeout=5000)
 
         for range_value in ranges:
             if range_value not in self.data["Ranges"]:
-                self.page.get_by_text(range_value, exact=True).click()
+                self.console.select_from_dropdown(range_value)
                 self.data["Ranges"].append(range_value)
 
         self.console.ESCAPE
 
     def download_csv(self) -> str:
         """Download the plot as a CSV file."""
+        self.console.close_all_notifications()
         csv_button = self.page.locator(".pluto-icon--csv").locator("..")
         with self.page.expect_download() as download_info:
             csv_button.click()
@@ -84,6 +87,7 @@ class Plot(ConsolePage):
 
     def set_axis(self, axis: Axis, config: dict[str, Any]) -> None:
         """Set axis configuration with the given parameters."""
+        self.console.close_all_notifications()
         self.page.get_by_text("Axes").click(timeout=5000)
         self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=5000)
 

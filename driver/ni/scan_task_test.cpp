@@ -21,7 +21,7 @@ TEST(ScanTaskTest, testConfigParse) {
     ni::ScanTaskConfig cfg(p);
 
     EXPECT_TRUE(cfg.enabled);
-    EXPECT_EQ(cfg.rate.hz(), ni::DEFAULT_SCAN_RATE.hz());
+    EXPECT_EQ(cfg.scan_rate.hz(), common::DEFAULT_SCAN_RATE.hz());
     EXPECT_EQ(cfg.ignored_models.size(), ni::DEFAULT_IGNORED_MODELS.size());
 
     // Test custom configuration
@@ -34,7 +34,7 @@ TEST(ScanTaskTest, testConfigParse) {
     ni::ScanTaskConfig cfg2(p2);
 
     EXPECT_FALSE(cfg2.enabled);
-    EXPECT_EQ(cfg2.rate.hz(), 10.0);
+    EXPECT_EQ(cfg2.scan_rate.hz(), 10.0);
     EXPECT_EQ(cfg2.ignored_models.size(), 2);
 }
 

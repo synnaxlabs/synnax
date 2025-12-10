@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/drift",
-  "version": "0.48.0",
+  "version": "0.49.0",
   "description": "State synchronization and Redux state synchronization for Tauri Apps",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/drift",
   "type": "module",

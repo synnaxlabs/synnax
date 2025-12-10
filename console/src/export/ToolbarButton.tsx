@@ -16,7 +16,7 @@ export interface ToolbarButtonProps
 
 export const ToolbarButton = ({ onExport, ...rest }: ToolbarButtonProps) => (
   <Button.Button
-    tooltip="Export"
+    tooltip="Export layout"
     sharp
     size="medium"
     variant="text"

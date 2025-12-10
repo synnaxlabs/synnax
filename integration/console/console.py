@@ -19,6 +19,7 @@ from typing import Any, Literal
 import synnax as sy
 from playwright.sync_api import Locator, Page
 
+from .access import AccessClient
 from .channels import ChannelClient
 
 # Define literal types for page creation
@@ -49,22 +50,85 @@ class Console:
     and element clicking helpers.
     """
 
+    access: AccessClient
     channels: ChannelClient
     page: Page
 
     def __init__(self, page: Page):
         # Playwright
         self.page = page
+        self.access = AccessClient(page, self)
         self.channels = ChannelClient(page, self)
 
-    def command_palette(self, command: str) -> None:
-        """Execute a command via the command palette"""
-        self.page.keyboard.press("ControlOrMeta+Shift+p")
-        palette_input = self.page.locator(
-            ".console-palette__input input[role='textbox']"
-        )
-        palette_input.fill(f">{command}", timeout=2000)
-        self.click(command, timeout=2000)
+    def command_palette(self, command: str, retries: int = 3) -> None:
+        """Execute a command via the command palette."""
+        for attempt in range(retries):
+            palette_btn = self.page.locator(".console-palette button").first
+            palette_btn.wait_for(state="visible", timeout=5000)
+            palette_btn.click(timeout=5000)
+
+            palette_input = self.page.locator(
+                ".console-palette__input input[role='textbox']"
+            )
+            palette_input.wait_for(state="visible", timeout=5000)
+            palette_input.press("ControlOrMeta+a")
+            palette_input.type(f">{command}", timeout=5000)
+
+            try:
+                self.page.locator(
+                    ".console-palette__list .pluto-list__item"
+                ).first.wait_for(state="visible", timeout=10000)
+            except Exception:
+                no_commands = self.page.get_by_text("No commands found").is_visible()
+                if no_commands and attempt < retries - 1:
+                    self.page.keyboard.press("Escape")
+                    sy.sleep(2)
+                    continue
+
+                input_value = palette_input.input_value()
+                palette_open = self.page.locator(
+                    ".console-palette__content"
+                ).is_visible()
+                list_container = self.page.locator(".console-palette__list")
+                list_visible = list_container.is_visible()
+                list_html = ""
+                try:
+                    list_html = list_container.inner_html(timeout=1000)[:1000]
+                except Exception:
+                    list_html = "<failed to get>"
+                raise RuntimeError(
+                    f"Command palette list items not appearing. "
+                    f"Input: '{input_value}'. "
+                    f"Palette open: {palette_open}. "
+                    f"List visible: {list_visible}. "
+                    f"List HTML: {list_html}"
+                )
+
+            target_result = (
+                self.page.locator(".console-palette__list .pluto-list__item")
+                .filter(has_text=command)
+                .first
+            )
+            try:
+                target_result.wait_for(state="visible", timeout=5000)
+            except Exception:
+                input_value = palette_input.input_value()
+                list_items = self.page.locator(
+                    ".console-palette__list .pluto-list__virtualizer > div"
+                ).all()
+                options = []
+                for item in list_items:
+                    try:
+                        options.append(item.inner_text(timeout=1000))
+                    except Exception:
+                        options.append("<failed to get text>")
+                raise RuntimeError(
+                    f"Command palette: Could not find '{command}'. "
+                    f"Input value: '{input_value}'. "
+                    f"Available options: {options}"
+                )
+            target_result.click(timeout=5000)
+            return  # Success - exit the retry loop
 
     @property
     def ESCAPE(self) -> None:
@@ -124,32 +188,28 @@ class Console:
         self, page_type: PageType, page_name: str | None = None
     ) -> tuple[Locator, str]:
         """
-        Public method for creating a new page in one of two ways:
-        - By the New Page (+) button
-        - By the command palette
+        Create a new page via New Page (+) button or command palette (randomly chosen).
         """
-
-        if random.random() < 0.5:
-            page_tab, page_id = self._create_page_by_new_page_button(
-                page_type, page_name
-            )
-        else:
-            page_tab, page_id = self._create_page_by_command_palette(
-                page_type, page_name
-            )
-
-        return page_tab, page_id
+        if random.random() < 0:
+            return self._create_page_by_new_page_button(page_type, page_name)
+        return self._create_page_by_command_palette(page_type, page_name)
 
     def _create_page_by_new_page_button(
         self, page_type: PageType, page_name: str | None = None
     ) -> tuple[Locator, str]:
         """Create a new page via the New Page (+) button."""
+        add_btn = self.page.locator(
+            ".console-mosaic > .pluto-tabs-selector .pluto-tabs-selector__actions button:has(.pluto-icon--add)"
+        ).first
+        add_btn.wait_for(state="visible", timeout=5000)
+        add_btn.click(force=True)
 
-        self.page.locator(".pluto-icon--add").first.click()  # (+)
+        self.page.locator(".console-vis-layout-selector").wait_for(
+            state="visible", timeout=15000
+        )
         self.page.get_by_role("button", name=page_type).first.click()
-        page_tab, page_id = self._handle_new_page(page_type, page_name)
 
-        return page_tab, page_id
+        return self._handle_new_page(page_type, page_name)
 
     def _create_page_by_command_palette(
         self, page_type: PageType, page_name: str | None = None
@@ -164,16 +224,13 @@ class Console:
             if page_type[0].upper() in vowels or page_type.startswith("NI")
             else "a"
         )
-        page_command = f"Create {article} {page_type}"
-        self.command_palette(page_command)
-        page_tab, page_id = self._handle_new_page(page_type, page_name)
-
-        return page_tab, page_id
+        self.command_palette(f"Create {article} {page_type}")
+        return self._handle_new_page(page_type, page_name)
 
     def _handle_new_page(
         self, page_type: PageType, page_name: str | None = None
     ) -> tuple[Locator, str]:
-        """Handle the new page creation"""
+        """Handle the new page creation after clicking create button."""
         if self.MODAL_OPEN:
             page_name = page_name or page_type
             self.page.get_by_role("textbox", name="Name").fill(page_name)
@@ -184,31 +241,35 @@ class Console:
             .filter(has_text=re.compile(f"^{re.escape(page_type)}$"))
             .first
         )
+        page_tab.wait_for(state="visible", timeout=15000)
         page_id = page_tab.inner_text().strip()
 
         # If page name provided, rename the page
         if page_name is not None:
             page_tab.dblclick()
             self.page.get_by_text(page_type).first.fill(page_name)
-            self.page.keyboard.press("Enter")  # Confirm the change
-            page_id = page_name  # Update page_id to the custom name
-
+            self.page.keyboard.press("Enter")
+            page_id = page_name
         return page_tab, page_id
 
     def close_page(self, page_name: str) -> None:
-        """
-        Close a page by name.
-        Ignore unsaved changes.
-        """
+        """Close a page by name. Ignores unsaved changes."""
         tab = (
             self.page.locator("div")
             .filter(has_text=re.compile(f"^{re.escape(page_name)}$"))
             .first
         )
-        tab.get_by_label("pluto-tabs__close").click()
+        tab.wait_for(state="visible", timeout=5000)
 
+        close_btn = tab.get_by_label("pluto-tabs__close")
+        close_btn.wait_for(state="visible", timeout=5000)
+        close_btn.click()
+
+        # Handle unsaved changes dialog
+        sy.sleep(0.2)
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
+            sy.sleep(0.2)
 
     def check_for_error_screen(self) -> None:
         """Checks for 'Something went wrong' text and clicks 'Try again' if found"""
@@ -307,6 +368,7 @@ class Console:
             if close_button.count() > 0:
                 close_button.wait_for(state="attached", timeout=500)
                 close_button.click()
+                notification.wait_for(state="hidden", timeout=2000)
                 return True
             return False
 
@@ -320,12 +382,21 @@ class Console:
         :returns: Number of notifications closed
         """
         closed_count = 0
-        notifications_closed = True
+        max_attempts = 10
 
-        while notifications_closed:
-            notifications_closed = self.close_notification(0)
-            if notifications_closed:
+        for _ in range(max_attempts):
+            notification_elements = self.page.locator(".pluto-notification").all()
+            if len(notification_elements) == 0:
+                break
+
+            if self.close_notification(0):
                 closed_count += 1
+            else:
+                sy.sleep(0.1)
+
+        # Small sleep to ensure any closing animations complete
+        if closed_count > 0:
+            sy.sleep(0.1)
 
         return closed_count
 

@@ -12,6 +12,7 @@ import { array, type optional, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
+import { type Form } from "@/form";
 import { type Label } from "@/label";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
@@ -265,6 +266,27 @@ const taskToFormValues = <
   snapshot: t.snapshot ?? false,
 });
 
+const RESET_OPTIONS: Form.SetOptions = {
+  markTouched: false,
+};
+
+const resetFormValues = <
+  Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+  Config extends z.ZodType = z.ZodType,
+  StatusData extends z.ZodType = z.ZodType,
+>(
+  set: Form.UseReturn<FormSchema<Type, Config, StatusData>>["set"],
+  payload: task.Payload<Type, Config, StatusData>,
+) => {
+  const values = taskToFormValues(payload);
+  set("key", values.key, RESET_OPTIONS);
+  set("name", values.name, RESET_OPTIONS);
+  set("type", values.type, RESET_OPTIONS);
+  set("rackKey", values.rackKey, RESET_OPTIONS);
+  set("config", values.config, RESET_OPTIONS);
+  set("snapshot", values.snapshot, RESET_OPTIONS);
+};
+
 export const createForm = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
   Config extends z.ZodType = z.ZodType,
@@ -306,25 +328,19 @@ export const createForm = <
           schemas,
         );
         store.tasks.set(task as unknown as task.Task);
-        const updatedValues = taskToFormValues<Type, Config, StatusData>(task.payload);
-        form.set("key", updatedValues.key);
-        form.set("name", updatedValues.name);
-        form.set("rackKey", updatedValues.rackKey);
-        form.set("type", updatedValues.type);
-        form.set("payload", updatedValues.config);
-        form.set("snapshot", updatedValues.snapshot);
+        resetFormValues(form.set, task.payload);
+        form.setCurrentStateAsInitialValues();
       },
-      mountListeners: ({ store, get, reset, set }) => [
+      mountListeners: ({ store, get, set }) => [
         store.tasks.onSet((task) => {
           const prevKey = get<string>("key", { optional: true })?.value;
           if (prevKey == null || prevKey !== task.key) return;
-          const payload = task.payload as task.Payload<Type, Config, StatusData>;
-          reset(taskToFormValues(payload));
+          resetFormValues(set, task.payload);
         }),
         store.statuses.onSet((status) => {
           const prevKey = get<string>("key", { optional: true })?.value;
           if (prevKey == null || status.key !== task.statusKey(prevKey)) return;
-          set("status", task.statusZ(z.unknown()).parse(status));
+          set("status", task.statusZ(z.unknown()).parse(status), RESET_OPTIONS);
         }),
       ],
     },
@@ -338,7 +354,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((key) => task.ontologyID(key));
+    const ids = task.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));

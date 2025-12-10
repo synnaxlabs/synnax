@@ -91,7 +91,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
 
 export const formSchema = channel.newZ
   .extend({
-    name: z.string().min(1, "Name must not be empty"),
+    name: channel.nameZ,
     dataType: DataType.z.transform((v) => v.toString()),
     requires: channel.keyZ.array().optional(),
   })
@@ -502,7 +502,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((k) => channel.ontologyID(k));
+    const ids = channel.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.channels.delete(keys));

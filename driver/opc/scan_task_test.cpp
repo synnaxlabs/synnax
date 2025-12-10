@@ -57,7 +57,7 @@ protected:
 
 /// @brief it should browse and return OPC UA server nodes.
 TEST_F(TestScanTask, testBasicScan) {
-    const auto cfg = opc::ScannerConfig{};
+    const auto cfg = opc::ScanTaskConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,
@@ -131,7 +131,7 @@ TEST_F(TestScanTask, testBasicScan) {
 
 /// @brief it should reuse pooled connections for multiple scans.
 TEST_F(TestScanTask, testConnectionPooling) {
-    const auto cfg = opc::ScannerConfig{};
+    const auto cfg = opc::ScanTaskConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,
@@ -166,7 +166,7 @@ TEST_F(TestScanTask, testConnectionPooling) {
 
 /// @brief it should successfully test connection to OPC UA server.
 TEST_F(TestScanTask, testTestConnection) {
-    const auto cfg = opc::ScannerConfig{};
+    const auto cfg = opc::ScanTaskConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,
@@ -199,7 +199,7 @@ TEST_F(TestScanTask, testTestConnection) {
 
 /// @brief it should return error for invalid connection endpoint.
 TEST_F(TestScanTask, testInvalidConnection) {
-    auto cfg = opc::ScannerConfig{};
+    auto cfg = opc::ScanTaskConfig{};
     const auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,

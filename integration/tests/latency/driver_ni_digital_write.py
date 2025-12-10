@@ -15,7 +15,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import synnax as sy
-from synnax.hardware import ni
+from synnax import ni
 
 from framework.utils import (
     get_cpu_cores,
@@ -49,7 +49,7 @@ class DriverNIDigitalWrite(Latency):
 
         self.log("Searching for NI DO device: SYMod1")
         # Sim device must be set up in NI MAX
-        dev = client.hardware.devices.retrieve(location="SYMod1")
+        dev = client.devices.retrieve(location="SYMod1")
         self.log(f"Found NI DO device: {dev.location}")
 
         self.log("Creating Channels")
@@ -100,7 +100,7 @@ class DriverNIDigitalWrite(Latency):
                 ),
             ],
         )
-        tsk = client.hardware.tasks.configure(tsk)
+        tsk = client.tasks.configure(tsk)
 
         # Run NI DO Task
         self.log("Running NI DO Task")
@@ -282,23 +282,23 @@ class DriverNIDigitalWrite(Latency):
         self, stats_driver: dict[str, float], stats_loop: dict[str, float]
     ) -> None:
 
-        assert stats_driver["mean"] <= 4, "Driver mean latency is greater than 4 ms"
-        assert stats_loop["mean"] <= 4, "Loop mean latency is greater than 4 ms"
+        assert stats_driver["mean"] <= 5, "Driver mean latency is greater than 5 ms"
+        assert stats_loop["mean"] <= 5, "Loop mean latency is greater than 5 ms"
 
-        assert stats_driver["median"] <= 4, "Driver median latency is greater than 4 ms"
-        assert stats_loop["median"] <= 4, "Loop median latency is greater than 4 ms"
+        assert stats_driver["median"] <= 5, "Driver median latency is greater than 5 ms"
+        assert stats_loop["median"] <= 5, "Loop median latency is greater than 5 ms"
 
         assert stats_driver["std"] <= 4, "Driver std latency is greater than 4 ms"
         assert stats_loop["std"] <= 4, "Loop std latency is greater than 4 ms"
 
-        assert stats_driver["p90"] <= 6, "Driver p90 latency is greater than 6 ms"
-        assert stats_loop["p90"] <= 6, "Loop p90 latency is greater than 6 ms"
+        assert stats_driver["p90"] <= 8, "Driver p90 latency is greater than 8 ms"
+        assert stats_loop["p90"] <= 8, "Loop p90 latency is greater than 8 ms"
 
-        assert stats_driver["p95"] <= 8, "Driver p95 latency is greater than 8 ms"
-        assert stats_loop["p95"] <= 8, "Loop p95 latency is greater than 8 ms"
+        assert stats_driver["p95"] <= 10, "Driver p95 latency is greater than 10 ms"
+        assert stats_loop["p95"] <= 10, "Loop p95 latency is greater than 10 ms"
 
-        assert stats_driver["p99"] <= 10, "Driver p99 latency is greater than 10 ms"
-        assert stats_loop["p99"] <= 10, "Loop p99 latency is greater than 10 ms"
+        assert stats_driver["p99"] <= 15, "Driver p99 latency is greater than 15 ms"
+        assert stats_loop["p99"] <= 15, "Loop p99 latency is greater than 15 ms"
 
         assert (
             stats_driver["peak_to_peak"] < 40

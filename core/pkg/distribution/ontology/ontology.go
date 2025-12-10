@@ -54,9 +54,7 @@ type (
 
 func ParseID(s string) (ID, error) { return core.ParseID(s) }
 
-func ParseIDs(s []string) ([]ID, error) { return core.ParseIDs(s) }
-
-func IDs(resources []Resource) []ID { return core.IDs(resources) }
+func ResourceIDs(resources []Resource) []ID { return core.ResourceIDs(resources) }
 
 func IDsToString(ids []ID) []string { return core.IDsToString(ids) }
 
@@ -266,16 +264,22 @@ func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+			defer func() {
+				err = errors.Combine(err, closer.Close())
+			}()
 			err = o.search.WithTx(func(tx search.Tx) error {
 				for r := range n {
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
 					if err = tx.Index(r); err != nil {
 						return err
 					}
 				}
 				return nil
 			})
-			return errors.Combine(err, closer.Close())
-		}, signal.WithKeyf("startup-indexing-%s", svc.Type()))
+			return err
+		}, signal.WithKeyf("startup_indexing_%s", svc.Type()))
 	}
 	return oCtx.Wait()
 }

@@ -17,6 +17,7 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/xjson/xjson.h"
+#include "x/cpp/xthread/xthread.h"
 
 #include "driver/pipeline/base.h"
 #include "driver/pipeline/control.h"
@@ -24,7 +25,28 @@
 #include "driver/task/task.h"
 
 namespace common {
+/// @brief the default rate to scan for devices.
+const auto DEFAULT_SCAN_RATE = telem::Rate(telem::SECOND * 5);
+
+/// @brief Base configuration for scan tasks with rate and enabled settings.
+struct ScanTaskConfig {
+    telem::Rate scan_rate = DEFAULT_SCAN_RATE;
+    bool enabled = true;
+
+    ScanTaskConfig() = default;
+
+    explicit ScanTaskConfig(xjson::Parser &cfg):
+        scan_rate(
+            telem::Rate(cfg.field<double>(
+                std::vector<std::string>{"scan_rate", "rate"},
+                DEFAULT_SCAN_RATE.hz()
+            ))
+        ),
+        enabled(cfg.field<bool>("enabled", true)) {}
+};
+
 struct ScannerContext {
+    /// @brief the number of scans run before the current one.
     std::size_t count = 0;
     /// @brief Devices currently tracked by the scan task. The scanner can use this
     /// to check health or perform other device-specific operations without maintaining
@@ -206,6 +228,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
 
     /// @brief Signal thread run loop - processes device set/delete events.
     void signal_thread_run() {
+        xthread::set_name((this->task.name + ":sig").c_str());
         const auto rack_key = synnax::rack_key_from_task_key(this->key);
         const auto make = this->scanner->config().make;
 
@@ -261,7 +284,7 @@ public:
         const telem::Rate scan_rate,
         std::unique_ptr<ClusterAPI> client
     ):
-        Base(breaker_config),
+        Base(breaker_config, task.name),
         task(task),
         timer(scan_rate),
         scanner(std::move(scanner)),

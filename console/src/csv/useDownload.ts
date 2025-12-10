@@ -67,7 +67,7 @@ const download = async ({
     savePath = await save({ defaultPath: `${fileName}.csv` });
     if (savePath == null) return;
   }
-  const channels = await client.channels.retrieve(keys);
+  const channels = await client.channels.retrieve(keys, { virtual: false });
   onPercentDownloadedChange?.(10);
   const indexes = unique.unique(channels.map(({ index }) => index));
   const indexChannels = await client.channels.retrieve(indexes);

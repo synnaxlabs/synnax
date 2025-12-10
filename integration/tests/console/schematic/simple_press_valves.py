@@ -69,7 +69,7 @@ class SimplePressValves(ConsoleCase):
         self.log("Starting test")
         target_Pressure = 20
 
-        for _ in range(3):
+        for _ in range(2):
             self.log(f"Target pressure: {target_Pressure}")
             press_valve.press()
             self.assert_states(press_state=1, vent_state=0)

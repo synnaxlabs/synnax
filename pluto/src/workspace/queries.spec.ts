@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, NotFoundError } from "@synnaxlabs/client";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -307,10 +308,11 @@ describe("queries", () => {
   describe("useRename", () => {
     it("should correctly rename a workspace", async () => {
       const ws = await client.workspaces.create({
-        name: "testWorkspace",
+        name: `testWorkspace-${id.create()}`,
         layout: { config: { setting1: "value1" } },
       });
 
+      const newName = `newName-${id.create()}`;
       const { result } = renderHook(
         () => ({
           retrieve: Workspace.useRetrieve({ key: ws.key }),
@@ -318,12 +320,10 @@ describe("queries", () => {
         }),
         { wrapper },
       );
-      act(() => {
-        result.current.rename.update({ key: ws.key, name: "newName" });
+      await act(async () => {
+        await result.current.rename.updateAsync({ key: ws.key, name: newName });
       });
-      await waitFor(() =>
-        expect(result.current.retrieve.data?.name).toEqual("newName"),
-      );
+      await waitFor(() => expect(result.current.retrieve.data?.name).toEqual(newName));
     });
   });
 
