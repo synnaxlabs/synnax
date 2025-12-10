@@ -378,7 +378,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should return keys when WhereKeys has been called", func() {
 			q := gorp.NewRetrieve[int32, entry]().WhereKeys(1, 2, 3)
 			keys := q.GetWhereKeys()
-			Expect(keys).To(Equal([]int{1, 2, 3}))
+			Expect(keys).To(Equal([]int32{1, 2, 3}))
 		})
 		It("Should return false when WhereKeys has not been called", func() {
 			q := gorp.NewRetrieve[int32, entry]()
@@ -387,7 +387,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should accumulate keys across multiple WhereKeys calls", func() {
 			q := gorp.NewRetrieve[int32, entry]().WhereKeys(1, 2).WhereKeys(3, 4)
 			keys := q.GetWhereKeys()
-			Expect(keys).To(Equal([]int{1, 2, 3, 4}))
+			Expect(keys).To(Equal([]int32{1, 2, 3, 4}))
 		})
 	})
 	Describe("HasFilters", func() {

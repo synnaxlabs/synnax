@@ -57,12 +57,12 @@ var _ = Describe("PebbleKV", func() {
 			Expect(closer.Close()).To(Succeed())
 
 			_, closer, err = db.Get(ctx, []byte("non-existent"))
-			Expect(err).To(Equal(query.NotFound))
+			Expect(err).To(MatchError(query.NotFound))
 			Expect(closer).To(BeNil())
 
 			Expect(db.Delete(ctx, key)).To(Succeed())
 			_, closer, err = db.Get(ctx, key)
-			Expect(err).To(Equal(query.NotFound))
+			Expect(err).To(MatchError(query.NotFound))
 			Expect(closer).To(BeNil())
 		})
 
@@ -86,7 +86,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(tx.Close()).To(Succeed())
 
 			_, closer, err = db.Get(ctx, rollbackKey)
-			Expect(err).To(Equal(query.NotFound))
+			Expect(err).To(MatchError(query.NotFound))
 			Expect(closer).To(BeNil())
 		})
 
@@ -236,7 +236,7 @@ var _ = Describe("PebbleKV", func() {
 			value := []byte("tx-get-value")
 
 			_, closer, err := tx.Get(ctx, key)
-			Expect(err).To(Equal(query.NotFound))
+			Expect(err).To(MatchError(query.NotFound))
 			Expect(closer).To(BeNil())
 
 			Expect(tx.Set(ctx, key, value)).To(Succeed())
@@ -427,7 +427,7 @@ var _ = Describe("PebbleKV", func() {
 				Expect(db.Delete(ctx, key)).To(Succeed())
 
 				_, closer, err := db.Get(ctx, key)
-				Expect(err).To(Equal(query.NotFound))
+				Expect(err).To(MatchError(query.NotFound))
 				Expect(closer).To(BeNil())
 			})
 

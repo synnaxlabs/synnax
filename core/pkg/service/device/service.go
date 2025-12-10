@@ -113,8 +113,12 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, group: g}
-	if err := s.migrateStatusesForExistingDevices(ctx); err != nil {
+	s := &Service{
+		cfg:          cfg,
+		group:        g,
+		entryManager: entryManager,
+	}
+	if err = s.migrateStatusesForExistingDevices(ctx); err != nil {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
